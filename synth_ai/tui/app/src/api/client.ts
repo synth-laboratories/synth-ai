@@ -1,0 +1,108 @@
+/**
+ * HTTP API client for backend communication.
+ */
+
+import { appState, backendConfigs, backendKeys, type BackendId } from "../state/app-state"
+
+/** Ensure URL ends with /api */
+function ensureApiBase(url: string): string {
+  let base = (url ?? "").trim().replace(/\/+$/, "")
+  if (!base) return ""
+  if (!base.endsWith("/api")) {
+    base = base + "/api"
+  }
+  return base
+}
+
+export function getBackendConfig(id: BackendId = appState.currentBackend): {
+  id: BackendId
+  label: string
+  baseUrl: string
+  baseRoot: string
+  apiKey: string
+} {
+  const config = backendConfigs[id]
+  const envOverride = ensureApiBase(process.env.SYNTH_TUI_API_BASE || "")
+  const baseUrl = envOverride || config.baseUrl
+  return {
+    id,
+    label: config.label,
+    baseUrl,
+    baseRoot: baseUrl.replace(/\/api$/, ""),
+    apiKey: backendKeys[id],
+  }
+}
+
+export function getActiveApiKey(): string {
+  return getBackendConfig().apiKey
+}
+
+export function getActiveBaseUrl(): string {
+  return getBackendConfig().baseUrl
+}
+
+export function getActiveBaseRoot(): string {
+  return getBackendConfig().baseRoot
+}
+
+export async function apiGet(path: string): Promise<any> {
+  const { baseUrl, apiKey, label } = getBackendConfig()
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`)
+  }
+  const res = await fetch(`${baseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => "")
+    const suffix = body ? ` - ${body.slice(0, 160)}` : ""
+    throw new Error(`GET ${path}: HTTP ${res.status} ${res.statusText}${suffix}`)
+  }
+  return res.json()
+}
+
+export async function apiGetV1(path: string): Promise<any> {
+  const { baseRoot, apiKey, label } = getBackendConfig()
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`)
+  }
+  const res = await fetch(`${baseRoot}/api/v1${path}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => "")
+    const suffix = body ? ` - ${body.slice(0, 160)}` : ""
+    throw new Error(`GET /api/v1${path}: HTTP ${res.status} ${res.statusText}${suffix}`)
+  }
+  return res.json()
+}
+
+export async function apiPost(path: string, body: any): Promise<any> {
+  const { baseUrl, apiKey, label } = getBackendConfig()
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`)
+  }
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    const suffix = text ? ` - ${text.slice(0, 160)}` : ""
+    throw new Error(`POST ${path}: HTTP ${res.status} ${res.statusText}${suffix}`)
+  }
+  return res.json().catch(() => ({}))
+}
+
+export async function refreshHealth(): Promise<string> {
+  try {
+    const res = await fetch(`${getActiveBaseRoot()}/health`)
+    return res.ok ? "ok" : `bad(${res.status})`
+  } catch (err: any) {
+    return `err(${err?.message || "unknown"})`
+  }
+}

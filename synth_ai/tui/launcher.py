@@ -1,6 +1,4 @@
-"""Prompt learning TUI entrypoint (OpenTUI JS app)."""
-
-from __future__ import annotations
+"""TUI launcher - spawns the OpenTUI JS app via bun."""
 
 import os
 import subprocess
@@ -25,12 +23,12 @@ def run_prompt_learning_tui(
     base_url = ensure_api_base(backend)
     synth_key = api_key or get_api_key(required=False) or ""
 
-    tui_root = Path(__file__).resolve().parents[1] / "_tui"
+    tui_root = Path(__file__).resolve().parent / "app"
     entry = tui_root / "dist" / "index.mjs"
     if not entry.exists():
         raise RuntimeError(
             "OpenTUI bundle not found. Build the TUI first:\n"
-            "  cd synth_ai/_tui\n"
+            "  cd synth_ai/tui/app\n"
             "  bun install\n"
             "  bun run build\n"
             f"Missing file: {entry}"

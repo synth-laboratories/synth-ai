@@ -1,0 +1,23233 @@
+// @bun
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, {
+      get: all[name],
+      enumerable: true,
+      configurable: true,
+      set: (newValue) => all[name] = () => newValue
+    });
+};
+var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
+var __require = import.meta.require;
+
+// src/state/app-state.ts
+function ensureApiBase(url) {
+  let base = url.trim().replace(/\/+$/, "");
+  if (!base.endsWith("/api")) {
+    base = base + "/api";
+  }
+  return base;
+}
+function normalizeBackendId(value) {
+  const lower = value.toLowerCase().trim();
+  if (lower === "dev" || lower === "development")
+    return "dev";
+  if (lower === "local" || lower === "localhost")
+    return "local";
+  return "prod";
+}
+var backendConfigs, backendKeys, backendKeySources, appState;
+var init_app_state = __esm(() => {
+  backendConfigs = {
+    prod: {
+      id: "prod",
+      label: "Prod",
+      baseUrl: ensureApiBase(process.env.SYNTH_TUI_PROD_API_BASE || "https://api.usesynth.ai/api")
+    },
+    dev: {
+      id: "dev",
+      label: "Dev",
+      baseUrl: ensureApiBase(process.env.SYNTH_TUI_DEV_API_BASE || "https://agent-learning.onrender.com/api")
+    },
+    local: {
+      id: "local",
+      label: "Local",
+      baseUrl: ensureApiBase(process.env.SYNTH_TUI_LOCAL_API_BASE || "http://localhost:8000/api")
+    }
+  };
+  backendKeys = {
+    prod: process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
+    dev: process.env.SYNTH_TUI_API_KEY_DEV || "",
+    local: process.env.SYNTH_TUI_API_KEY_LOCAL || ""
+  };
+  backendKeySources = {
+    prod: { sourcePath: null, varName: null },
+    dev: { sourcePath: null, varName: null },
+    local: { sourcePath: null, varName: null }
+  };
+  appState = {
+    currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod"),
+    activePane: "jobs",
+    healthStatus: "unknown",
+    autoSelected: false,
+    lastSeq: 0,
+    selectedEventIndex: 0,
+    eventWindowStart: 0,
+    eventFilter: "",
+    jobStatusFilter: new Set,
+    jobFilterOptions: [],
+    jobFilterCursor: 0,
+    jobFilterWindowStart: 0,
+    settingsCursor: 0,
+    settingsOptions: [],
+    keyModalBackend: "prod",
+    keyPasteActive: false,
+    keyPasteBuffer: "",
+    envKeyOptions: [],
+    envKeyCursor: 0,
+    envKeyWindowStart: 0,
+    envKeyScanInProgress: false,
+    envKeyError: null,
+    eventModalOffset: 0,
+    resultsModalOffset: 0,
+    configModalOffset: 0,
+    promptBrowserIndex: 0,
+    promptBrowserOffset: 0,
+    jobSelectToken: 0,
+    eventsToken: 0
+  };
+});
+
+// src/state/polling.ts
+import path2 from "path";
+var config, pollingState;
+var init_polling = __esm(() => {
+  config = {
+    initialJobId: process.env.SYNTH_TUI_JOB_ID || "",
+    refreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_INTERVAL || "5"),
+    eventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_INTERVAL || "2"),
+    maxRefreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_MAX || "60"),
+    maxEventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_MAX || "15"),
+    eventHistoryLimit: parseInt(process.env.SYNTH_TUI_EVENT_CARDS || "200", 10),
+    eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
+    eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
+    jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
+    envKeyVisibleCount: parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10),
+    envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
+    settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path2.join(process.cwd(), ".env.synth"),
+    jobFilterVisibleCount: 6
+  };
+  pollingState = {
+    jobsPollMs: Math.max(1, config.refreshInterval) * 1000,
+    eventsPollMs: Math.max(0.5, config.eventInterval) * 1000,
+    jobsInFlight: false,
+    eventsInFlight: false,
+    jobsTimer: null,
+    eventsTimer: null
+  };
+});
+
+// src/tui_data.ts
+function extractJobs(payload, source) {
+  const list = Array.isArray(payload) ? payload : Array.isArray(payload?.jobs) ? payload.jobs : Array.isArray(payload?.data) ? payload.data : [];
+  return list.map((job) => coerceJob(job, source));
+}
+function extractEvents(payload) {
+  const list = Array.isArray(payload) ? payload : Array.isArray(payload?.events) ? payload.events : [];
+  const events = list.map((e, idx) => {
+    const seqCandidate = e.seq ?? e.sequence ?? e.id;
+    const seqValue = Number(seqCandidate);
+    return {
+      seq: Number.isFinite(seqValue) ? seqValue : idx,
+      type: String(e.type || e.event_type || "event"),
+      message: e.message || null,
+      data: e.data ?? e.payload ?? null,
+      timestamp: e.timestamp || e.created_at || null
+    };
+  });
+  const nextSeqRaw = payload?.next_seq;
+  const nextSeqValue = Number(nextSeqRaw);
+  const nextSeq = Number.isFinite(nextSeqValue) ? nextSeqValue : null;
+  return { events, nextSeq };
+}
+function isEvalJob(job) {
+  if (!job)
+    return false;
+  return job.job_source === "eval" || job.training_type === "eval" || job.job_id.startsWith("eval_");
+}
+function coerceJob(payload, source) {
+  const jobId = String(payload?.job_id || payload?.id || "");
+  const meta = payload?.metadata;
+  let trainingType = payload?.algorithm || payload?.training_type || meta?.algorithm || meta?.training_type || meta?.prompt_initial_snapshot?.raw_config?.prompt_learning?.algorithm || meta?.config?.algorithm || null;
+  const isEval = jobId.startsWith("eval_") || trainingType === "eval";
+  if (isEval && !trainingType) {
+    trainingType = "eval";
+  }
+  const resolvedSource = isEval && source === "learning" ? "eval" : source ?? (isEval ? "eval" : null);
+  return {
+    job_id: jobId,
+    status: String(payload?.status || "unknown"),
+    training_type: trainingType,
+    job_source: resolvedSource,
+    created_at: payload?.created_at || null,
+    started_at: payload?.started_at || null,
+    finished_at: payload?.finished_at || payload?.completed_at || null,
+    best_score: num(payload?.best_score),
+    best_snapshot_id: payload?.best_snapshot_id || payload?.prompt_best_snapshot_id || payload?.best_snapshot?.id || null,
+    total_tokens: int(payload?.total_tokens),
+    total_cost_usd: num(payload?.total_cost_usd || payload?.total_cost),
+    error: payload?.error || null,
+    metadata: payload?.metadata || null
+  };
+}
+function mergeJobs(primary, secondary) {
+  const byId = new Map;
+  for (const job of primary) {
+    if (job.job_id)
+      byId.set(job.job_id, job);
+  }
+  for (const job of secondary) {
+    if (!job.job_id || byId.has(job.job_id))
+      continue;
+    byId.set(job.job_id, job);
+  }
+  const merged = Array.from(byId.values());
+  merged.sort((a, b) => toSortTimestamp(b.created_at) - toSortTimestamp(a.created_at));
+  return merged;
+}
+function num(value) {
+  if (value == null)
+    return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+function int(value) {
+  if (value == null)
+    return null;
+  const n = parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : null;
+}
+function toSortTimestamp(value) {
+  if (!value)
+    return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+// src/api/client.ts
+var exports_client = {};
+__export(exports_client, {
+  refreshHealth: () => refreshHealth,
+  getBackendConfig: () => getBackendConfig,
+  getActiveBaseUrl: () => getActiveBaseUrl,
+  getActiveBaseRoot: () => getActiveBaseRoot,
+  getActiveApiKey: () => getActiveApiKey,
+  apiPost: () => apiPost,
+  apiGetV1: () => apiGetV1,
+  apiGet: () => apiGet
+});
+function ensureApiBase2(url) {
+  let base = (url ?? "").trim().replace(/\/+$/, "");
+  if (!base)
+    return "";
+  if (!base.endsWith("/api")) {
+    base = base + "/api";
+  }
+  return base;
+}
+function getBackendConfig(id = appState.currentBackend) {
+  const config2 = backendConfigs[id];
+  const envOverride = ensureApiBase2(process.env.SYNTH_TUI_API_BASE || "");
+  const baseUrl = envOverride || config2.baseUrl;
+  return {
+    id,
+    label: config2.label,
+    baseUrl,
+    baseRoot: baseUrl.replace(/\/api$/, ""),
+    apiKey: backendKeys[id]
+  };
+}
+function getActiveApiKey() {
+  return getBackendConfig().apiKey;
+}
+function getActiveBaseUrl() {
+  return getBackendConfig().baseUrl;
+}
+function getActiveBaseRoot() {
+  return getBackendConfig().baseRoot;
+}
+async function apiGet(path3) {
+  const { baseUrl, apiKey, label } = getBackendConfig();
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`);
+  }
+  const res = await fetch(`${baseUrl}${path3}`, {
+    headers: { Authorization: `Bearer ${apiKey}` }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    const suffix = body ? ` - ${body.slice(0, 160)}` : "";
+    throw new Error(`GET ${path3}: HTTP ${res.status} ${res.statusText}${suffix}`);
+  }
+  return res.json();
+}
+async function apiGetV1(path3) {
+  const { baseRoot, apiKey, label } = getBackendConfig();
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`);
+  }
+  const res = await fetch(`${baseRoot}/api/v1${path3}`, {
+    headers: { Authorization: `Bearer ${apiKey}` }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    const suffix = body ? ` - ${body.slice(0, 160)}` : "";
+    throw new Error(`GET /api/v1${path3}: HTTP ${res.status} ${res.statusText}${suffix}`);
+  }
+  return res.json();
+}
+async function apiPost(path3, body) {
+  const { baseUrl, apiKey, label } = getBackendConfig();
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`);
+  }
+  const res = await fetch(`${baseUrl}${path3}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    const suffix = text ? ` - ${text.slice(0, 160)}` : "";
+    throw new Error(`POST ${path3}: HTTP ${res.status} ${res.statusText}${suffix}`);
+  }
+  return res.json().catch(() => ({}));
+}
+async function refreshHealth() {
+  try {
+    const res = await fetch(`${getActiveBaseRoot()}/health`);
+    return res.ok ? "ok" : `bad(${res.status})`;
+  } catch (err) {
+    return `err(${err?.message || "unknown"})`;
+  }
+}
+var init_client = __esm(() => {
+  init_app_state();
+});
+
+// src/utils/env.ts
+import path3 from "path";
+import { promises as fs2 } from "fs";
+function parseEnvFile(content) {
+  const values = {};
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#"))
+      continue;
+    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
+    if (!match)
+      continue;
+    const key = match[1];
+    let value = match[2].trim();
+    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+      const quoted = value;
+      value = value.slice(1, -1);
+      if (quoted.startsWith('"')) {
+        value = value.replace(/\\\\/g, "\\").replace(/\\"/g, '"');
+      }
+    } else {
+      value = value.split(/\s+#/)[0].trim();
+    }
+    values[key] = value;
+  }
+  return values;
+}
+function formatEnvLine(key, value) {
+  return `${key}=${escapeEnvValue(value)}`;
+}
+function escapeEnvValue(value) {
+  const safe = value ?? "";
+  return `"${safe.replace(/\\/g, "\\\\").replace(/\"/g, "\\\"")}"`;
+}
+function parseEnvKeys(content, sourcePath, scanRoot = config.envKeyScanRoot) {
+  const results2 = [];
+  const lines = content.split(/\r?\n/);
+  const relPath = path3.relative(scanRoot, sourcePath) || sourcePath;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#"))
+      continue;
+    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
+    if (!match)
+      continue;
+    const varName = match[1];
+    if (!KEY_VAR_NAMES.has(varName))
+      continue;
+    let value = match[2].trim();
+    if (!value || value.startsWith("$"))
+      continue;
+    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+      value = value.slice(1, -1);
+    } else {
+      value = value.split(/\s+#/)[0].trim();
+    }
+    if (!value)
+      continue;
+    results2.push({ key: value, source: relPath, varName });
+  }
+  return results2;
+}
+async function walkEnvDir(dir, results2, scanRoot = config.envKeyScanRoot) {
+  let entries;
+  try {
+    entries = await fs2.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const fullPath = path3.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (IGNORED_DIRS.has(entry.name))
+        continue;
+      await walkEnvDir(fullPath, results2, scanRoot);
+      continue;
+    }
+    if (!entry.isFile())
+      continue;
+    if (!/^\.env(\.|$)/.test(entry.name))
+      continue;
+    try {
+      const stat = await fs2.stat(fullPath);
+      if (stat.size > 256 * 1024)
+        continue;
+      const content = await fs2.readFile(fullPath, "utf8");
+      const found = parseEnvKeys(content, fullPath, scanRoot);
+      for (const item of found) {
+        const existing = results2.get(item.key);
+        if (existing) {
+          if (!existing.sources.includes(item.source)) {
+            existing.sources.push(item.source);
+          }
+          if (!existing.varNames.includes(item.varName)) {
+            existing.varNames.push(item.varName);
+          }
+        } else {
+          results2.set(item.key, {
+            key: item.key,
+            sources: [item.source],
+            varNames: [item.varName]
+          });
+        }
+      }
+    } catch {}
+  }
+}
+async function scanEnvKeys(rootDir) {
+  const results2 = new Map;
+  await walkEnvDir(rootDir, results2, rootDir);
+  return Array.from(results2.values());
+}
+var IGNORED_DIRS, KEY_VAR_NAMES;
+var init_env = __esm(() => {
+  init_polling();
+  IGNORED_DIRS = new Set([
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tox",
+    ".next",
+    ".turbo",
+    ".cache",
+    "dist",
+    "build",
+    "out"
+  ]);
+  KEY_VAR_NAMES = new Set([
+    "SYNTH_API_KEY",
+    "SYNTH_TUI_API_KEY_PROD",
+    "SYNTH_TUI_API_KEY_DEV",
+    "SYNTH_TUI_API_KEY_LOCAL"
+  ]);
+});
+
+// src/persistence/settings.ts
+var exports_settings = {};
+__export(exports_settings, {
+  persistSettings: () => persistSettings,
+  loadPersistedSettings: () => loadPersistedSettings
+});
+import path5 from "path";
+import { promises as fs3 } from "fs";
+async function loadPersistedSettings(deps) {
+  const {
+    settingsFilePath,
+    normalizeBackendId: normalizeBackendId2,
+    setCurrentBackend,
+    setBackendKey,
+    setBackendKeySource
+  } = deps;
+  try {
+    const content = await fs3.readFile(settingsFilePath, "utf8");
+    const values = parseEnvFile(content);
+    const backend = values.SYNTH_TUI_BACKEND;
+    if (backend) {
+      setCurrentBackend(normalizeBackendId2(backend));
+    }
+    const prodKey = values.SYNTH_TUI_API_KEY_PROD;
+    const devKey = values.SYNTH_TUI_API_KEY_DEV;
+    const localKey = values.SYNTH_TUI_API_KEY_LOCAL;
+    if (typeof prodKey === "string")
+      setBackendKey("prod", prodKey);
+    if (typeof devKey === "string")
+      setBackendKey("dev", devKey);
+    if (typeof localKey === "string")
+      setBackendKey("local", localKey);
+    setBackendKeySource("prod", {
+      sourcePath: values.SYNTH_TUI_API_KEY_PROD_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_PROD_VAR || null
+    });
+    setBackendKeySource("dev", {
+      sourcePath: values.SYNTH_TUI_API_KEY_DEV_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_DEV_VAR || null
+    });
+    setBackendKeySource("local", {
+      sourcePath: values.SYNTH_TUI_API_KEY_LOCAL_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_LOCAL_VAR || null
+    });
+  } catch (err) {
+    if (err?.code !== "ENOENT") {}
+  }
+}
+async function persistSettings(deps) {
+  const {
+    settingsFilePath,
+    getCurrentBackend,
+    getBackendKey,
+    getBackendKeySource,
+    onError
+  } = deps;
+  try {
+    await fs3.mkdir(path5.dirname(settingsFilePath), { recursive: true });
+    const backend = getCurrentBackend();
+    const prodSource = getBackendKeySource("prod");
+    const devSource = getBackendKeySource("dev");
+    const localSource = getBackendKeySource("local");
+    const lines = [
+      "# synth-ai tui settings",
+      formatEnvLine("SYNTH_TUI_BACKEND", backend),
+      formatEnvLine("SYNTH_TUI_API_KEY_PROD", getBackendKey("prod")),
+      formatEnvLine("SYNTH_TUI_API_KEY_PROD_SOURCE", prodSource.sourcePath || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_PROD_VAR", prodSource.varName || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_DEV", getBackendKey("dev")),
+      formatEnvLine("SYNTH_TUI_API_KEY_DEV_SOURCE", devSource.sourcePath || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_DEV_VAR", devSource.varName || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL", getBackendKey("local")),
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL_SOURCE", localSource.sourcePath || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL_VAR", localSource.varName || "")
+    ];
+    await fs3.writeFile(settingsFilePath, `${lines.join(`
+`)}
+`, "utf8");
+  } catch (err) {
+    onError?.(`Failed to save settings: ${err?.message || "unknown"}`);
+  }
+}
+var init_settings = __esm(() => {
+  init_env();
+});
+
+// src/api/jobs.ts
+var exports_jobs = {};
+__export(exports_jobs, {
+  selectJob: () => selectJob,
+  refreshJobs: () => refreshJobs,
+  fetchMetrics: () => fetchMetrics,
+  fetchEvalResults: () => fetchEvalResults,
+  fetchBestSnapshot: () => fetchBestSnapshot,
+  fetchArtifacts: () => fetchArtifacts,
+  cancelSelected: () => cancelSelected
+});
+function extractBestSnapshotId(payload) {
+  if (!payload)
+    return null;
+  return payload.best_snapshot_id || payload.prompt_best_snapshot_id || payload.best_snapshot?.id || null;
+}
+async function refreshJobs(ctx) {
+  const { snapshot: snapshot2, appState: appState2, config: config2 } = ctx.state;
+  try {
+    snapshot2.status = "Refreshing jobs...";
+    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config2.jobLimit}&offset=0`);
+    const promptJobs = extractJobs(promptPayload, "prompt-learning");
+    let learningJobs = [];
+    let learningError = null;
+    try {
+      const learningPayload = await apiGet(`/learning/jobs?limit=${config2.jobLimit}`);
+      learningJobs = extractJobs(learningPayload, "learning");
+    } catch (err) {
+      learningError = err?.message || "Failed to load learning jobs";
+    }
+    const jobs = mergeJobs(promptJobs, learningJobs);
+    snapshot2.jobs = jobs;
+    snapshot2.lastRefresh = Date.now();
+    snapshot2.lastError = learningError;
+    if (!snapshot2.selectedJob && jobs.length > 0 && !appState2.autoSelected) {
+      appState2.autoSelected = true;
+      await selectJob(ctx, jobs[0].job_id);
+      return true;
+    }
+    if (snapshot2.selectedJob) {
+      const match = jobs.find((j) => j.job_id === snapshot2.selectedJob?.job_id);
+      if (match && !snapshot2.selectedJob.metadata) {
+        snapshot2.selectedJob = match;
+      }
+    }
+    if (jobs.length === 0) {
+      snapshot2.status = "No jobs found";
+    } else {
+      const promptCount = promptJobs.length;
+      const learningCount = learningJobs.length;
+      snapshot2.status = learningCount > 0 ? `Loaded ${promptCount} prompt-learning, ${learningCount} learning job(s)` : `Loaded ${promptCount} prompt-learning job(s)`;
+    }
+    return true;
+  } catch (err) {
+    snapshot2.lastError = err?.message || "Failed to load jobs";
+    snapshot2.status = "Failed to load jobs";
+    return false;
+  }
+}
+async function selectJob(ctx, jobId) {
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const token = ++appState2.jobSelectToken;
+  appState2.eventsToken++;
+  appState2.lastSeq = 0;
+  snapshot2.events = [];
+  snapshot2.metrics = {};
+  snapshot2.bestSnapshotId = null;
+  snapshot2.bestSnapshot = null;
+  snapshot2.evalSummary = null;
+  snapshot2.evalResultRows = [];
+  snapshot2.allCandidates = [];
+  appState2.selectedEventIndex = 0;
+  appState2.eventWindowStart = 0;
+  const immediate = snapshot2.jobs.find((job) => job.job_id === jobId);
+  snapshot2.selectedJob = immediate ?? {
+    job_id: jobId,
+    status: "loading",
+    training_type: null,
+    created_at: null,
+    started_at: null,
+    finished_at: null,
+    best_score: null,
+    best_snapshot_id: null,
+    total_tokens: null,
+    total_cost_usd: null,
+    error: null,
+    job_source: null
+  };
+  snapshot2.status = `Loading job ${jobId}...`;
+  const jobSource = immediate?.job_source ?? null;
+  try {
+    const path6 = jobSource === "eval" ? `/eval/jobs/${jobId}` : jobSource === "learning" ? `/learning/jobs/${jobId}?include_metadata=true` : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`;
+    const job = await apiGet(path6);
+    if (token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    const coerced = coerceJob(job, jobSource ?? "prompt-learning");
+    if (jobSource !== "eval") {
+      const jobMeta = job?.metadata ?? {};
+      if (job?.prompt_initial_snapshot && !jobMeta.prompt_initial_snapshot) {
+        coerced.metadata = { ...jobMeta, prompt_initial_snapshot: job.prompt_initial_snapshot };
+      } else {
+        coerced.metadata = jobMeta;
+      }
+      snapshot2.bestSnapshotId = extractBestSnapshotId(job);
+    }
+    if (jobSource === "eval" || isEvalJob(coerced)) {
+      snapshot2.evalSummary = job?.results && typeof job.results === "object" ? job.results : null;
+    }
+    snapshot2.selectedJob = coerced;
+    snapshot2.status = `Selected job ${jobId}`;
+  } catch (err) {
+    if (token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    const errMsg = err?.message || `Failed to load job ${jobId}`;
+    snapshot2.lastError = errMsg;
+    snapshot2.status = `Error: ${errMsg}`;
+  }
+  if (jobSource !== "learning" && jobSource !== "eval" && !isEvalJob(snapshot2.selectedJob)) {
+    await fetchBestSnapshot(ctx, token);
+  }
+  if (jobSource === "eval" || isEvalJob(snapshot2.selectedJob)) {
+    await fetchEvalResults(ctx, token);
+  }
+}
+async function fetchBestSnapshot(ctx, token) {
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return;
+  const jobId = job.job_id;
+  const snapshotId = snapshot2.bestSnapshotId;
+  if (!snapshotId)
+    return;
+  try {
+    const payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/snapshots/${snapshotId}`);
+    if (token != null && token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.bestSnapshot = payload?.payload || payload;
+    snapshot2.status = `Loaded best snapshot`;
+  } catch (err) {
+    if (token != null && token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.lastError = err?.message || "Failed to load best snapshot";
+  }
+}
+async function fetchEvalResults(ctx, token) {
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job || !isEvalJob(job))
+    return;
+  const jobId = job.job_id;
+  try {
+    snapshot2.status = "Loading eval results...";
+    const payload = await apiGet(`/eval/jobs/${job.job_id}/results`);
+    if (token != null && token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.evalSummary = payload?.summary && typeof payload.summary === "object" ? payload.summary : null;
+    snapshot2.evalResultRows = Array.isArray(payload?.results) ? payload.results : [];
+    snapshot2.status = `Loaded eval results for ${job.job_id}`;
+  } catch (err) {
+    if (token != null && token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.lastError = err?.message || "Failed to load eval results";
+    snapshot2.status = "Failed to load eval results";
+  }
+}
+async function fetchMetrics(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return;
+  const jobId = job.job_id;
+  try {
+    if (isEvalJob(job)) {
+      await fetchEvalResults(ctx);
+      return;
+    }
+    snapshot2.status = "Loading metrics...";
+    const path6 = job.job_source === "learning" ? `/learning/jobs/${job.job_id}/metrics` : `/prompt-learning/online/jobs/${job.job_id}/metrics`;
+    const payload = await apiGet(path6);
+    if (snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.metrics = payload;
+    snapshot2.status = `Loaded metrics for ${job.job_id}`;
+  } catch (err) {
+    if (snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.lastError = err?.message || "Failed to load metrics";
+    snapshot2.status = "Failed to load metrics";
+  }
+}
+async function cancelSelected(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return;
+  try {
+    const { apiPost: apiPost2 } = await Promise.resolve().then(() => (init_client(), exports_client));
+    await apiPost2(`/prompt-learning/online/jobs/${job.job_id}/cancel`, {});
+    snapshot2.status = "Cancel requested";
+  } catch (err) {
+    snapshot2.lastError = err?.message || "Cancel failed";
+  }
+}
+async function fetchArtifacts(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return;
+  try {
+    const payload = await apiGet(`/prompt-learning/online/jobs/${job.job_id}/artifacts`);
+    snapshot2.artifacts = Array.isArray(payload) ? payload : payload?.artifacts || [];
+    snapshot2.status = "Artifacts fetched";
+  } catch (err) {
+    snapshot2.lastError = err?.message || "Artifacts fetch failed";
+  }
+}
+var init_jobs = __esm(() => {
+  init_client();
+});
+
+// node_modules/@opentui/core/index-zj0wwh9d.js
+import { Buffer as Buffer2 } from "buffer";
+import { EventEmitter } from "events";
+import { EventEmitter as EventEmitter2 } from "events";
+import { EventEmitter as EventEmitter3 } from "events";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+// node_modules/@opentui/core/assets/javascript/highlights.scm
+var highlights_default = "./highlights-ghv9g403.scm";
+
+// node_modules/@opentui/core/assets/javascript/tree-sitter-javascript.wasm
+var tree_sitter_javascript_default = "./tree-sitter-javascript-nd0q4pe9.wasm";
+
+// node_modules/@opentui/core/assets/typescript/highlights.scm
+var highlights_default2 = "./highlights-eq9cgrbb.scm";
+
+// node_modules/@opentui/core/assets/typescript/tree-sitter-typescript.wasm
+var tree_sitter_typescript_default = "./tree-sitter-typescript-zxjzwt75.wasm";
+
+// node_modules/@opentui/core/assets/markdown/highlights.scm
+var highlights_default3 = "./highlights-r812a2qc.scm";
+
+// node_modules/@opentui/core/assets/markdown/tree-sitter-markdown.wasm
+var tree_sitter_markdown_default = "./tree-sitter-markdown-411r6y9b.wasm";
+
+// node_modules/@opentui/core/assets/markdown/injections.scm
+var injections_default = "./injections-73j83es3.scm";
+
+// node_modules/@opentui/core/assets/markdown_inline/highlights.scm
+var highlights_default4 = "./highlights-x6tmsnaa.scm";
+
+// node_modules/@opentui/core/assets/markdown_inline/tree-sitter-markdown_inline.wasm
+var tree_sitter_markdown_inline_default = "./tree-sitter-markdown_inline-j5349f42.wasm";
+
+// node_modules/@opentui/core/assets/zig/highlights.scm
+var highlights_default5 = "./highlights-hk7bwhj4.scm";
+
+// node_modules/@opentui/core/assets/zig/tree-sitter-zig.wasm
+var tree_sitter_zig_default = "./tree-sitter-zig-e78zbjpm.wasm";
+
+// node_modules/@opentui/core/index-zj0wwh9d.js
+import { resolve as resolve2, isAbsolute, parse } from "path";
+import { existsSync } from "fs";
+import { basename, join } from "path";
+import os from "os";
+import path from "path";
+import { EventEmitter as EventEmitter4 } from "events";
+import { dlopen, toArrayBuffer as toArrayBuffer4, JSCallback, ptr as ptr3 } from "bun:ffi";
+import { existsSync as existsSync2 } from "fs";
+import { EventEmitter as EventEmitter5 } from "events";
+import { toArrayBuffer } from "bun:ffi";
+import { ptr, toArrayBuffer as toArrayBuffer2 } from "bun:ffi";
+import { ptr as ptr2, toArrayBuffer as toArrayBuffer3 } from "bun:ffi";
+import { EventEmitter as EventEmitter6 } from "events";
+import util from "util";
+import { EventEmitter as EventEmitter8 } from "events";
+import { Console } from "console";
+import fs from "fs";
+import path4 from "path";
+import util2 from "util";
+import { Writable } from "stream";
+import { EventEmitter as EventEmitter7 } from "events";
+import { EventEmitter as EventEmitter9 } from "events";
+var __defProp2 = Object.defineProperty;
+var __export2 = (target, all) => {
+  for (var name in all)
+    __defProp2(target, name, {
+      get: all[name],
+      enumerable: true,
+      configurable: true,
+      set: (newValue) => all[name] = () => newValue
+    });
+};
+var exports_src = {};
+__export2(exports_src, {
+  default: () => src_default,
+  Wrap: () => Wrap,
+  Unit: () => Unit,
+  PositionType: () => PositionType,
+  Overflow: () => Overflow,
+  NodeType: () => NodeType,
+  MeasureMode: () => MeasureMode,
+  LogLevel: () => LogLevel,
+  Justify: () => Justify,
+  Gutter: () => Gutter,
+  FlexDirection: () => FlexDirection,
+  ExperimentalFeature: () => ExperimentalFeature,
+  Errata: () => Errata,
+  Edge: () => Edge,
+  Display: () => Display,
+  Direction: () => Direction,
+  Dimension: () => Dimension,
+  BoxSizing: () => BoxSizing,
+  Align: () => Align
+});
+var loadYoga = (() => {
+  var _scriptDir = import.meta.url;
+  return function(loadYoga2) {
+    loadYoga2 = loadYoga2 || {};
+    var h;
+    h || (h = typeof loadYoga2 !== "undefined" ? loadYoga2 : {});
+    var aa, ca;
+    h.ready = new Promise(function(a, b) {
+      aa = a;
+      ca = b;
+    });
+    var da = Object.assign({}, h), q = "";
+    typeof document != "undefined" && document.currentScript && (q = document.currentScript.src);
+    _scriptDir && (q = _scriptDir);
+    q.indexOf("blob:") !== 0 ? q = q.substr(0, q.replace(/[?#].*/, "").lastIndexOf("/") + 1) : q = "";
+    var ea = h.print || console.log.bind(console), v = h.printErr || console.warn.bind(console);
+    Object.assign(h, da);
+    da = null;
+    var w;
+    h.wasmBinary && (w = h.wasmBinary);
+    var noExitRuntime = h.noExitRuntime || true;
+    typeof WebAssembly != "object" && x("no native wasm support detected");
+    var fa, ha = false;
+    function z(a, b, c) {
+      c = b + c;
+      for (var d = "";!(b >= c); ) {
+        var e = a[b++];
+        if (!e)
+          break;
+        if (e & 128) {
+          var f = a[b++] & 63;
+          if ((e & 224) == 192)
+            d += String.fromCharCode((e & 31) << 6 | f);
+          else {
+            var g = a[b++] & 63;
+            e = (e & 240) == 224 ? (e & 15) << 12 | f << 6 | g : (e & 7) << 18 | f << 12 | g << 6 | a[b++] & 63;
+            65536 > e ? d += String.fromCharCode(e) : (e -= 65536, d += String.fromCharCode(55296 | e >> 10, 56320 | e & 1023));
+          }
+        } else
+          d += String.fromCharCode(e);
+      }
+      return d;
+    }
+    var ia, ja, A, C, ka, D, E, la, ma;
+    function na() {
+      var a = fa.buffer;
+      ia = a;
+      h.HEAP8 = ja = new Int8Array(a);
+      h.HEAP16 = C = new Int16Array(a);
+      h.HEAP32 = D = new Int32Array(a);
+      h.HEAPU8 = A = new Uint8Array(a);
+      h.HEAPU16 = ka = new Uint16Array(a);
+      h.HEAPU32 = E = new Uint32Array(a);
+      h.HEAPF32 = la = new Float32Array(a);
+      h.HEAPF64 = ma = new Float64Array(a);
+    }
+    var oa, pa = [], qa = [], ra = [];
+    function sa() {
+      var a = h.preRun.shift();
+      pa.unshift(a);
+    }
+    var F = 0, ta = null, G = null;
+    function x(a) {
+      if (h.onAbort)
+        h.onAbort(a);
+      a = "Aborted(" + a + ")";
+      v(a);
+      ha = true;
+      a = new WebAssembly.RuntimeError(a + ". Build with -sASSERTIONS for more info.");
+      ca(a);
+      throw a;
+    }
+    function ua(a) {
+      return a.startsWith("data:application/octet-stream;base64,");
+    }
+    var H;
+    H = "data:application/octet-stream;base64,AGFzbQEAAAABugM3YAF/AGACf38AYAF/AX9gA39/fwBgAn98AGACf38Bf2ADf39/AX9gBH9/f30BfWADf398AGAAAGAEf39/fwBgAX8BfGACf38BfGAFf39/f38Bf2AAAX9gA39/fwF9YAZ/f31/fX8AYAV/f39/fwBgAn9/AX1gBX9/f319AX1gAX8BfWADf35/AX5gB39/f39/f38AYAZ/f39/f38AYAR/f39/AX9gBn9/f319fQF9YAR/f31/AGADf399AX1gBn98f39/fwF/YAR/fHx/AGACf30AYAh/f39/f39/fwBgDX9/f39/f39/f39/f38AYAp/f39/f39/f39/AGAFf39/f38BfGAEfHx/fwF9YA1/fX1/f399fX9/f39/AX9gB39/f319f38AYAJ+fwF/YAN/fX0BfWABfAF8YAN/fHwAYAR/f319AGAHf39/fX19fQF9YA1/fX99f31/fX19fX1/AX9gC39/f39/f399fX19AX9gCH9/f39/f319AGAEf39+fgBgB39/f39/f38Bf2ACfH8BfGAFf398fH8AYAN/f38BfGAEf39/fABgA39/fQBgBn9/fX99fwF/ArUBHgFhAWEAHwFhAWIAAwFhAWMACQFhAWQAFgFhAWUAEQFhAWYAIAFhAWcAAAFhAWgAIQFhAWkAAwFhAWoAAAFhAWsAFwFhAWwACgFhAW0ABQFhAW4AAwFhAW8AAQFhAXAAFwFhAXEABgFhAXIAAAFhAXMAIgFhAXQACgFhAXUADQFhAXYAFgFhAXcAAgFhAXgAAwFhAXkAGAFhAXoAAgFhAUEAAQFhAUIAEQFhAUMAAQFhAUQAAAOiAqACAgMSBwcACRkDAAoRBgYKEwAPDxMBBiMTCgcHGgMUASQFJRQHAwMKCgMmAQYYDxobFAAKBw8KBwMDAgkCAAAFGwACBwIHBgIDAQMIDAABKAkHBQURACkZASoAAAIrLAIALQcHBy4HLwkFCgMCMA0xAgMJAgACAQYKAQIBBQEACQIFAQEABQAODQ0GFQIBHBUGAgkCEAAAAAUyDzMMBQYINAUCAwUODg41AgMCAgIDBgICNgIBDAwMAQsLCwsLCx0CAAIAAAABABABBQICAQMCEgMMCwEBAQEBAQsLAQICAwICAgICAgIDAgIICAEICAgEBAQEBAQEBAQABAQABAQEBAAE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GiABQQA2AvADIAFCADcC6AMgAigC7AMiAyACKALoAyIERwRAIAMgBGsiBEEASA0FIAEgBBAeIgM2AuwDIAEgAzYC6AMgASADIARqNgLwAyACKALoAyIEIAIoAuwDIghHBEADQCADIAQoAgA2AgAgA0EEaiEDIARBBGoiBCAIRw0ACwsgASADNgLsAwsgASACKQL0AzcC9AMgASACKAKEBDYChAQgASACKQL8AzcC/AMgAUEANgLkAwsgBSABNgIAIAEgADYC5AMLIAZBAWohBiAFQQRqIgUgB0cNAAsLDwsQAgALUAACQAJAAkACQAJAIAIOBAQAAQIDCyAAIAEgAUEwahBDDwsgACABIAFBMGogAxBEDwsgACABIAFBMGoQQg8LECQACyAAIAEgAUEwaiADEEULcAIBfwF9IwBBEGsiBCQAIARBCGogACABQQJ0QdwlaigCACACEDZDAADAfyEFAkACQAJAIAQtAAxBAWsOAgABAgsgBCoCCCEFDAELIAQqAgggA5RDCtcjPJQhBQsgBEEQaiQAIAVDAAAAACAFIAVbGwt5AgF/AX0jAEEQayIDJAAgA0EIaiAAIAFBAnRB7CVqKAIAIAIQU0MAAMB/IQQCQAJAAkAgAy0ADEEBaw4CAAECCyADKgIIIQQMAQsgAyoCCEMAAAAAlEMK1yM8lCEECyADQRBqJAAgBEMAAAAAl0MAAAAAIAQgBFsbC1QAAkACQAJAAkACQCACDgQEAAECAwsgACABIAFBwgBqEEMPCyAAIAEgAUHCAGogAxBEDwsgACABIAFBwgBqEEIPCxAkAAsgACABIAFBwgBqIAMQRQsvACAAIAJFQQF0IgIgASADEGAgACACIAEQS5IgACACIAEgAxB/IAAgAiABEFKSkgvOAQIDfwJ9IwBBEGsiAyQAQQEhBCADQQhqIABB/ABqIgUgACABQQF0akH2AGoiAS8BABAfAkACQCADKgIIIgcgAioCACIGXARAIAcgB1sEQCACLQAEIQIMAgsgBiAGXCEECyACLQAEIQIgBEUNACADLQAMIAJB/wFxRg0BCyAFIAEgBiACEDkDQCAALQAAIgFBBHENASAAIAFBBHI6AAAgACgCECIBBEAgACABEQAACyAAQYCAgP4HNgKcASAAKALkAyIADQALCyADQRBqJAALzgECA38CfSMAQRBrIgMk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AWsOAgABAgsgBCoCCCEFDAELIAQqAgggA5RDCtcjPJQhBQsgBEEQaiQAIAVDAAAAACAFIAVbGwscACAAIAFBCCACpyACQiCIpyADpyADQiCIpxAVCwUAEFgACzkAIABFBEBBAA8LAn8gAUGAf3FBgL8DRiABQf8ATXJFBEBB/DtBGTYCAEF/DAELIAAgAToAAEEBCwvEAgACQAJAAkACQAJAAkACQAJAAkACQAJAAkACQCABQQlrDhIACgsMCgsCAwQFDAsMDAoLBwgJCyACIAIoAgAiAUEEajYCACAAIAEoAgA2AgAPCwALIAIgAigCACIBQQRqNgIAIAAgATIBADcDAA8LIAIgAigCACIBQQRqNgIAIAAgATMBADcDAA8LIAIgAigCACIBQQRqNgIAIAAgATAAADcDAA8LIAIgAigCACIBQQRqNgIAIAAgATEAADcDAA8LAAsgAiACKAIAQQdqQXhxIgFBCGo2AgAgACABKwMAOQMADwsgACACIAMRAQALDwsgAiACKAIAIgFBBGo2AgAgACABNAIANwMADwsgAiACKAIAIgFBBGo2AgAgACABNQIANwMADwsgAiACKAIAQQdqQXhxIgFBCGo2AgAgACABKQMANwMAC84BAgN/An0jAEEQayIDJABBASEEIANBCGogAEH8AGoiBSAAIAFBAXRqQegAaiIBLwEAEB8CQAJAIAMqAggiByACKgIAIgZcBEAgByAHWwRAIAItAAQhAgwCCyAGIAZcIQQLIAItAAQhAiAERQ0AIAMtAAwgAkH/AXFGDQELIAUgASAGIAIQOQNAIAAtAAAiAUEEcQ0BIAAgAUEEcjoAACAAKAIQIgEEQCAAIAERAAALIABBgICA/gc2ApwBIAAoAuQDIgANAAsLIANBEGokAAtdAQR/IAAoAgAhAgNAIAIsAAAiAxBXBEBBfyEEIAAgAkEBaiICNgIAIAFBzJmz5gBNBH9BfyADQTBrIgMgAUEKbCIEaiADIARB/////wdzShsFIAQLIQEMAQsLIAELrhQCEn8BfiMAQdAAayIIJAAgCCABNgJMIAhBN2ohFyAIQThqIRQCQAJAAkACQANAIAEhDSAHIA5B/////wdzSg0BIAcgDmohDgJAAkACQCANIgctAAAiCQRAA0ACQAJAIAlB/wFxIgFFBEAgByEBDAELIAFBJUcNASAH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IQEgAEIANwIEIAAgATYCACABIAA2AgQgAkEQaiQAIAALGwEBfyAABEAgACgCACIBBEAgARAjCyAAECMLC0kBAn9BBBAeIQFBIBAeIgBBADYCHCAAQoCAgICAgIDAPzcCFCAAQgA3AgwgAEEAOgAIIABBAzYCBCAAQQA2AgAgASAANgIAIAELIAAgAkEFR0EAIAIbRQRAQbgwIAMgBBBJDwsgAyAEEHALIgEBfiABIAKtIAOtQiCGhCAEIAARFQAiBUIgiKckASAFpwuoAQEFfyAAKAJUIgMoAgAhBSADKAIEIgQgACgCFCAAKAIcIgdrIgYgBCAGSRsiBgRAIAUgByAGECsaIAMgAygCACAGaiIFNgIAIAMgAygCBCAGayIENgIECyAEIAIgAiAESxsiBARAIAUgASAEECsaIAMgAygCACAEaiIFNgIAIAMgAygCBCAEazYCBAsgBUEAOgAAIAAgACgCLCIBNgIcIAAgATYCFCACCwQAQgALBABBAAuKBQIGfgJ/IAEgASgCAEEHakF4cSIBQRBqNgIAIAAhCSABKQMAIQMgASkDCCEGIwBBIGsiCCQAAkAgBkL///////////8AgyIEQoCAgICAgMCAPH0gBEKAgICAgIDA/8MAfVQEQCAGQgSGIANCPIiEIQQgA0L//////////w+DIgNCgYCAgICAgIAIWgRAIARCgYCAgICAgIDAAHwhAgwCCyAEQoCAgICAgICAQH0hAiADQoCAgICAgICACFINASACIARCAYN8IQIMAQsgA1AgBEKAgICAgIDA//8AVCAEQoCAgICAgMD//wBRG0UEQCAGQgSGIANCPIiEQv////////8Dg0KAgICAgICA/P8AhCECDAELQoCAgICAgID4/wAhAiAEQv///////7//wwBWDQBCACECIARCMIinIgBBkfcASQ0AIAMhAiAGQv///////z+DQoCAgICAgMAAhCIFIQcCQCAAQYH3AGsiAUHAAHEEQCACIAFBQGqthiEHQgAhAgwBCyABRQ0AIAcgAa0iBIYgAkHAACABa62IhCEHIAIgBIYhAgsgCCACNwMQIAggBzcDGAJAQYH4ACAAayIAQcAAcQRAIAUgAEFAaq2IIQNCACEFDAELIABFDQAgBUHAACAAa62GIAMgAK0iAoiEIQMgBSACiCEFCyAIIAM3AwAgCCAF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ASAAKAIAIQAgASACQQFxBH8gASgCACAAaigCAAUgAAsRCwALYQECfyMAQRBrIgIkACABIAAoAgQiA0EBdWohASAAKAIAIQAgAiABIANBAXEEfyABKAIAIABqKAIABSAACxEBAEEQEB4iACACKQMINwMIIAAgAikDADcDACACQRBqJAAgAAtjAQJ/IwBBEGsiAyQAIAEgACgCBCIEQQF1aiEBIAAoAgAhACADIAEgAiAEQQFxBH8gASgCACAAaigCAAUgAAsRAwBBEBAeIgAgAykDCDcDCCAAIAMpAwA3AwAgA0EQaiQAIAALNwEBfyABIAAoAgQiA0EBdWohASAAKAIAIQAgASACIANBAXEEfyABKAIAIABqKAIABSAACxEEAAs5AQF/IAEgACgCBCIEQQF1aiEBIAAoAgAhACABIAIgAyAEQQFxBH8gASgCACAAaigCAAUgAAsRCAALCQAgASAAEQIACwUAQcM7Cw8AIAEgACgCAGogAjYCAAsNACABIAAoAgBqKAIACxgBAX9BEBAeIgBCADcDCCAAQQA2AgAgAAsYAQF/QRAQHiIAQgA3AwAgAEIANwMIIAALDABBMBAeQQBBMBAqCzcBAX8gASAAKAIEIgNBAXVqIQEgACgCACEAIAEgAiADQQFxBH8gASgCACAAaigCAAUgAAsRHgALBQBBvjsLIQAgACABKAIAIAEgASwAC0EASBtBuzsgAigCABAQNgIACyoBAX9BDBAeIgFBADoABCABIAAoAgA2AgggAEEANgIAIAFB2Cc2AgAgAQsFAEG7OwsFAEG4OwshACAAIAEoAgAgASABLAALQQBIG0GkOyACKAIAEBA2AgAL2AEBBH8jAEEgayIDJAAgASgCACIEQfD///8HSQRAAkACQCAEQQtPBEAgBEEPckEBaiIFEB4hBiADIAVBgICAgHhyNgIQIAMgBjYCCCADIAQ2AgwgBCAGaiEFDAELIAMgBDoAEyADQQhqIgYgBGohBSAERQ0BCyAGIAFBBGogBBArGgsgBUEAOgAAIAMgAjYCACADQRhqIANBCGogAyAAEQMAIAMoAhgQHSADKAIYIgAQBiADKAIAEAYgAywAE0EASARAIAMoAggQIwsgA0EgaiQAIAAPCxACAAsqAQF/QQwQHiIBQQA6AAQgASAAKAIANgIIIABBADYCACABQeAmNgIA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AkEIaiAIIAYQHyACIAcgAC8AABAfQQEhAyACKgIIIgogAioCACILXAR/IAogClsNAyALIAtcBSADC0UNAiACLQAMIAItAARHDQILIABBAmohAEEBIQMgBCEGQQEhBCAGRQ0ACyABLwB6IgBBB3FFBEAgBS0AekEHcUUNAgsgCCAAECAiCiAHIAUvAHoQICILWw0BIAogClsNACALIAtcDQELIAFBFGogBUEUakHoABArGiABQfwAaiAFQfwAahCgAQNAIAEtAAAiAEEEcQ0BIAEgAEEEcjoAACABKAIQIgAEQCABIAARAAALIAFBgICA/gc2ApwBIAEoAuQDIgENAAsLIAJBEGokAAvGAwEEfyMAQaAEayICJAAgACgCBCEBIABBADYCBCABBEAgASABKAIAKAIEEQAACyAAKAIIIQEgAEEANgIIIAEEQCABIAEoAgAoAgQRAAALAkAgACgCACIAKALoAyAAKALsA0YEQCAAKALkAw0BIAAgAkEYaiAAKAL0AxBcIgEpAgA3AgAgACABKAIQNgIQIAAgASkCCDcCCCAAQRRqIAFBFGpB6AAQKxogACABKQKMATcCjAEgACABKQKEATcChAEgACABKQJ8NwJ8IAEoApQBIQQgAUEANgKUASAAKAKUASEDIAAgBDYClAEgAwRAIAMQWwsgAEGYAWogAUGYAWpB0AIQKxogACgC6AMiAwRAIAAgAzYC7AMgAxAjCyAAIAEoAugDNgLoAyAAIAEoAuwDNgLsAyAAIAEoAvADNgLwAyABQQA2AvADIAFCADcC6AMgACABKQL8AzcC/AMgACABKQL0AzcC9AMgACABKAKEBDYChAQgASgClAEhACABQQA2ApQBIAAEQCAAEFsLIAJBoARqJAAPCyACQfAcNgIQIABBBUHYJSACQRBqECwQJAALIAJB5hE2AgAgAEEFQdglIAIQLBAkAAsLAEEMEB4gABCiAQsLAEEMEB5BABCiAQsNACAAKAIALQAIQQFxCwoAIAAoAgAoAhQLGQAgAUH/AXEEQBACAAsgACgCACgCEEEBcQsYACAAKAIAIgAgAC0ACEH+AXEgAXI6AAgLJgAgASAAKAIAIgAoAhRHBEAgACABNgIUIAAgACgCDEEBajYCDAsLkgEBAn8jAEEQayICJAAgACgCACEAIAFDAAAAAGAEQCABIAAqAhhcBEAgACABOAIYIAAgACgCDEEBajYCDAsgAkEQaiQADwsgAkGIFDYCACMAQRBrIgMkACADIAI2AgwCQCAARQRAQbgwQdglIAIQSRoMAQsgAEEAQQVB2CUgAiAAKAIEEQ0AGgsgA0EQaiQAECQACz8AIAFB/wFxRQRAIAIgACgCACIAKAIQIgFBAXFHBEAgACABQX5xIAJyNgIQIAAgACgCDEEBajYCDAsPCxACAAsL4CYjAEGACAuBHk9ubHkgbGVhZiBub2RlcyB3aXRoIGN1c3RvbSBtZWFzdXJlIGZ1bmN0aW9ucyBzaG91bGQgbWFudWFsbHkgbWFyayB0aGVtc2VsdmVzIGFzIGRpcnR5AGlzRGlydHkAbWFya0RpcnR5AGRlc3Ryb3kAc2V0RGlzcGxheQBnZXREaXNwbGF5AHNldEZsZXgALSsgICAwWDB4AC0wWCswWCAwWC0weCsweCAweABzZXRGbGV4R3JvdwBnZXRGbGV4R3JvdwBzZXRPdmVyZmxvdwBnZXRPdmVyZmxvdwBoYXNOZXdMYXlvdXQAY2FsY3VsYXRlTGF5b3V0AGdldENvbXB1dGVkTGF5b3V0AHVuc2lnbmVkIHNob3J0AGdldENoaWxkQ291bnQAdW5zaWduZWQgaW50AHNldEp1c3RpZnlDb250ZW50AGdldEp1c3RpZnlDb250ZW50AGF2YWlsYWJsZUhlaWdodCBpcyBpbmRlZmluaXRlIHNvIGhlaWdodFNpemluZ01vZGUgbXVzdCBiZSBTaXppbmdNb2RlOjpNYXhDb250ZW50AGF2YWlsYWJsZVdpZHRoIGlzIGluZGVmaW5pdGUgc28gd2lkdGhTaXppbmdNb2RlIG11c3QgYmUgU2l6aW5nTW9kZTo6TWF4Q29udGVudABzZXRBbGlnbkNvbnRlbnQAZ2V0QWxpZ25Db250ZW50AGdldFBhcmVudABpbXBsZW1lbnQAc2V0TWF4SGVpZ2h0UGVyY2VudABzZXRIZWlnaHRQZXJjZW50AHNldE1pbkhlaWdodFBlcmNlbnQAc2V0RmxleEJhc2lzUGVyY2VudABzZXRHYXBQZXJjZW50AHNldFBvc2l0aW9uUGVyY2VudABzZXRNYXJnaW5QZXJjZW50AHNldE1heFdpZHRoUGVyY2VudABzZXRXaWR0aFBlcmNlbnQAc2V0TWluV2lkdGhQZXJjZW50AHNldFBhZGRpbmdQZXJjZW50AGhhbmRsZS50eXBlKCkgPT0gU3R5bGVWYWx1ZUhhbmRsZTo6VHlwZTo6UG9pbnQgfHwgaGFuZGxlLnR5cGUoKSA9PSBTdHlsZVZhbHVlSGFuZGxlOjpUeXBlOjpQZXJjZW50AGNyZWF0ZURlZmF1bHQAdW5pdAByaWdodABoZWlnaHQAc2V0TWF4SGVpZ2h0AGdldE1heEhlaWdodABzZXRIZWlnaHQAZ2V0SGVpZ2h0AHNldE1pbkhlaWdodABnZXRNaW5IZWlnaHQAZ2V0Q29tcHV0ZWRIZWlnaHQAZ2V0Q29tcHV0ZWRSaWdodABsZWZ0AGdldENvbXB1dGVkTGVmdAByZXNldABfX2Rlc3RydWN0AGZsb2F0AHVpbnQ2NF90AHVzZVdlYkRlZmF1bHRzAHNldFVzZVdlYkRlZmF1bHRzAHNldEFsaWduSXRlbXMAZ2V0QWxpZ25JdGVtcwBzZXRGbGV4QmFzaXMAZ2V0RmxleEJhc2lzAENhbm5vdCBnZXQgbGF5b3V0IHByb3BlcnRpZXMgb2YgbXVsdGktZWRnZSBzaG9ydGhhbmRzAHNldFBvaW50U2NhbGVGYWN0b3IATWVhc3VyZUNhbGxiYWNrV3JhcHBlcgBEaXJ0aWVkQ2FsbGJhY2tXcmFwcGVyAENhbm5vdCByZXNldCBhIG5vZGUgc3RpbGwgYXR0YWNoZWQgdG8gYSBvd25lcgBzZXRCb3JkZXIAZ2V0Qm9yZGVyAGdldENvbXB1dGVkQm9yZGVyAGdldE51bWJlcgBoYW5kbGUudHlwZSgpID09IFN0eWxlVmFsdWVIYW5kbGU6OlR5cGU6Ok51bWJlcgB1bnNpZ25lZCBjaGFyAHRvcABnZXRDb21wdXRlZFRvcABzZXRGbGV4V3JhcABnZXRGbGV4V3JhcABzZXRHYXAAZ2V0R2FwACVwAHNldEhlaWdodEF1dG8Ac2V0RmxleEJhc2lzQXV0bwBzZXRQb3NpdGlvbkF1dG8Ac2V0TWFyZ2luQXV0bwBzZXRXaWR0aEF1dG8AU2NhbGUgZmFjdG9yIHNob3VsZCBub3QgYmUgbGVzcyB0aGFuIHplcm8Ac2V0QXNwZWN0UmF0aW8AZ2V0QXNwZWN0UmF0aW8Ac2V0UG9zaXRpb24AZ2V0UG9zaXRpb24Abm90aWZ5T25EZXN0cnVjdGlvbgBzZXRGbGV4RGlyZWN0aW9uAGdldEZsZXhEaXJlY3Rpb24Ac2V0RGlyZWN0aW9uAGdldERpcmVjdGlvbgBzZXRNYXJnaW4AZ2V0TWFyZ2luAGdldENvbXB1dGVkTWFyZ2luAG1hcmtMYXlvdXRTZWVuAG5hbgBib3R0b20AZ2V0Q29tcHV0ZWRCb3R0b20AYm9vbABlbXNjcmlwdGVuOjp2YWwAc2V0RmxleFNocmluawBnZXRGbGV4U2hyaW5rAHNldEFsd2F5c0Zvcm1zQ29udGFpbmluZ0Jsb2NrAE1lYXN1cmVDYWxsYmFjawBEaXJ0aWVkQ2FsbGJhY2sAZ2V0TGVuZ3RoAHdpZHRoAHNldE1heFdpZHRoAGdldE1heFdpZHRoAHNldFdpZHRoAGdldFdpZHRoAHNldE1pbldpZHRoAGdldE1pbldpZHRoAGdldENvbXB1dGVkV2lkdGgAcHVzaAAvaG9tZS9ydW5uZXIvd29yay95b2dhL3lvZ2EvamF2YXNjcmlwdC8uLi95b2dhL3N0eWxlL1NtYWxsVmFsdWVCdWZmZXIuaAAvaG9tZS9ydW5uZXIvd29yay95b2dhL3lvZ2EvamF2YXNjcmlwdC8uLi95b2dhL3N0eWxlL1N0eWxlVmFsdWVQb29sLmgAdW5zaWduZWQgbG9uZwBzZXRCb3hTaXppbmcAZ2V0Qm94U2l6aW5nAHN0ZDo6d3N0cmluZwBzdGQ6OnN0cmluZwBzdGQ6OnUxNnN0cmluZwBzdGQ6OnUzMnN0cmluZwBzZXRQYWRkaW5nAGdldFBhZGRpbmcAZ2V0Q29tcHV0ZWRQYWRkaW5nAFRyaWVkIHRvIGNvbnN0cnVjdCBZR05vZGUgd2l0aCBudWxsIGNvbmZpZwBBdHRlbXB0aW5nIHRvIGNvbnN0cnVjdCBOb2RlIHdpdGggbnVsbCBjb25maWcAY3JlYXRlV2l0aENvbmZpZwBpbmYAc2V0QWxpZ25TZWxmAGdldEFsaWduU2VsZgBTaXplAHZhbHVlAFZhbHVlAGNyZWF0ZQBtZWFzdXJlAHNldFBvc2l0aW9uVHlwZQBnZXRQb3NpdGlvblR5cGUAaXNSZWZlcmVuY2VCYXNlbGluZQBzZXRJc1JlZmVyZW5jZUJhc2VsaW5lAGNvcHlTdHlsZQBkb3VibGUATm9kZQBleHRlbmQAaW5zZXJ0Q2hpbGQAZ2V0Q2hpbGQAcmVtb3ZlQ2hpbGQAdm9pZABzZXRFeHBlcmltZW50YWxGZWF0dXJlRW5hYmxlZABpc0V4cGVyaW1lbnRhbEZlYXR1cmVFbmFibGVkAGRpcnRpZWQAQ2Fubm90IHJlc2V0IGEgbm9kZSB3aGljaCBzdGlsbCBoYXMgY2hpbGRyZW4gYXR0YWNoZWQAdW5zZXRNZWFzdXJlRnVuYwB1bnNldERpcnRpZWRGdW5jAHNldEVycmF0YQBnZXRFcnJhdGEATWVhc3VyZSBmdW5jdGlvbiByZXR1cm5lZCBhbiBpbnZhbGlkIGRpbWVuc2lvbiB0byBZb2dhOiBbd2lkdGg9JWYsIGhlaWdodD0lZl0ARXhwZWN0IGN1c3RvbSBiYXNlbGluZSBmdW5jdGlvbiB0byBub3QgcmV0dXJuIE5hTgBOQU4ASU5GAGVtc2NyaXB0ZW46Om1lbW9yeV92aWV3PHNob3J0PgBlbXNjcmlwdGVuOjptZW1vcnlfdmlldzx1bnNpZ25lZCBzaG9ydD4AZW1zY3JpcHRlbjo6bWVtb3J5X3ZpZXc8aW50PgBlbXNjcmlwdGVuOjptZW1vcnlfdmlldzx1bnNpZ25lZCBpbnQ+AGVtc2NyaXB0ZW46Om1lbW9yeV92aWV3PGZsb2F0PgBlbXNjcmlwdGVuOjptZW1vcnlfdmlldzx1aW50OF90PgBlbXNjcmlwdGVuOjptZW1vcnlfdmlldzxpbnQ4X3Q+AGVtc2NyaXB0ZW46Om1lbW9yeV92aWV3PHVpbnQxNl90PgBlbXNjcmlwdGVuOjptZW1vcnlfdmlldzxpbnQxNl90PgBlbXNjcmlwdGVuOjptZW1vcnlfdmlldzx1aW50MzJfdD4AZW1zY3JpcHRlbjo6bWVtb3J5X3ZpZXc8aW50MzJfdD4AZW1zY3JpcHRlbjo6bWVtb3J5X3ZpZXc8Y2hhcj4AZW1zY3JpcHRlbjo6bWVtb3J5X3ZpZXc8dW5zaWduZWQgY2hhcj4Ac3RkOjpiYXNpY19zdHJpbmc8dW5zaWduZWQgY2hhcj4AZW1zY3JpcHRlbjo6bWVtb3J5X3ZpZXc8c2lnbmVk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";
+    if (!ua(H)) {
+      var va = H;
+      H = h.locateFile ? h.locateFile(va, q) : q + va;
+    }
+    function wa() {
+      var a = H;
+      try {
+        if (a == H && w)
+          return new Uint8Array(w);
+        if (ua(a))
+          try {
+            var b = xa(a.slice(37)), c = new Uint8Array(b.length);
+            for (a = 0;a < b.length; ++a)
+              c[a] = b.charCodeAt(a);
+            var d = c;
+          } catch (f) {
+            throw Error("Converting base64 string to bytes failed.");
+          }
+        else
+          d = undefined;
+        var e = d;
+        if (e)
+          return e;
+        throw "both async and sync fetching of the wasm failed";
+      } catch (f) {
+        x(f);
+      }
+    }
+    function ya() {
+      return w || typeof fetch != "function" ? Promise.resolve().then(function() {
+        return wa();
+      }) : fetch(H, { credentials: "same-origin" }).then(function(a) {
+        if (!a.ok)
+          throw "failed to load wasm binary file at '" + H + "'";
+        return a.arrayBuffer();
+      }).catch(function() {
+        return wa();
+      });
+    }
+    function za(a) {
+      for (;0 < a.length; )
+        a.shift()(h);
+    }
+    function Aa(a) {
+      if (a === undefined)
+        return "_unknown";
+      a = a.replace(/[^a-zA-Z0-9_]/g, "$");
+      var b = a.charCodeAt(0);
+      return 48 <= b && 57 >= b ? "_" + a : a;
+    }
+    function Ba(a, b) {
+      a = Aa(a);
+      return function() {
+        return b.apply(this, arguments);
+      };
+    }
+    var J = [{}, { value: undefined }, { value: null }, { value: true }, { value: false }], Ca = [];
+    function Da(a) {
+      var b = Error, c = Ba(a, function(d) {
+        this.name = a;
+        this.message = d;
+        d = Error(d).stack;
+        d !== undefined && (this.stack = this.toString() + `
+` + d.replace(/^Error(:[^\n]*)?\n/, ""));
+      });
+      c.prototype = Object.create(b.prototype);
+      c.prototype.constructor = c;
+      c.prototype.toString = function() {
+        return this.message === undefined ? this.name : this.name + ": " + this.message;
+      };
+      return c;
+    }
+    var K = undefined;
+    function L(a) {
+      throw new K(a);
+    }
+    var M = (a) => {
+      a || L("Cannot use deleted val. handle = " + a);
+      return J[a].value;
+    }, Ea = (a) => {
+      switch (a) {
+        case undefined:
+          return 1;
+        case null:
+          return 2;
+        case true:
+          return 3;
+        case false:
+          return 4;
+        default:
+          var b = Ca.length ? Ca.pop() : J.length;
+          J[b] = { ga: 1, value: a };
+          return b;
+      }
+    }, Fa = undefined, Ga = undefined;
+    function N(a) {
+      for (var b = "";A[a]; )
+        b += Ga[A[a++]];
+      return b;
+    }
+    var O = [];
+    function Ha() {
+      for (;O.length; ) {
+        var a = O.pop();
+        a.M.$ = false;
+        a["delete"]();
+      }
+    }
+    var P = undefined, Q = {};
+    function Ia(a, b) {
+      for (b === undefined && L("ptr should not be undefined");a.R; )
+        b = a.ba(b), a = a.R;
+      return b;
+    }
+    var R = {};
+    function Ja(a) {
+      a = Ka(a);
+      var b = N(a);
+      S(a);
+      return b;
+    }
+    function La(a, b) {
+      var c = R[a];
+      c === undefined && L(b + " has unknown type " + Ja(a));
+      return c;
+    }
+    function Ma() {}
+    var Na = false;
+    function Oa(a) {
+      --a.count.value;
+      a.count.value === 0 && (a.T ? a.U.W(a.T) : a.P.N.W(a.O));
+    }
+    function Pa(a, b, c) {
+      if (b === c)
+        return a;
+      if (c.R === undefined)
+        return null;
+      a = Pa(a, b, c.R);
+      return a === null ? null : c.na(a);
+    }
+    var Qa = {};
+    function Ra(a, b) {
+      b = Ia(a, b);
+      return Q[b];
+    }
+    var Sa = undefined;
+    function Ta(a) {
+      throw new Sa(a);
+    }
+    function Ua(a, b) {
+      b.P && b.O || Ta("makeClassHandle requires ptr and ptrType");
+      !!b.U !== !!b.T && Ta("Both smartPtrType and smartPtr must be specified");
+      b.count = { value: 1 };
+      return T(Object.create(a, { M: { value: b } }));
+    }
+    function T(a) {
+      if (typeof FinalizationRegistry === "undefined")
+        return T = (b) => b, a;
+      Na = new FinalizationRegistry((b) => {
+        Oa(b.M);
+      });
+      T = (b) => {
+        var c = b.M;
+        c.T && Na.register(b, { M: c }, b);
+        return b;
+      };
+      Ma = (b) => {
+        Na.unregister(b);
+      };
+      return T(a);
+    }
+    var Va = {};
+    function Wa(a) {
+      for (;a.length; ) {
+        var b = a.pop();
+        a.pop()(b);
+      }
+    }
+    function Xa(a) {
+      return this.fromWireType(D[a >> 2]);
+    }
+    var U = {}, Ya = {};
+    function V(a, b, c) {
+      function d(k) {
+        k = c(k);
+        k.length !== a.length && Ta("Mismatched type converter count");
+        for (var m = 0;m < a.length; ++m)
+          W(a[m], k[m]);
+      }
+      a.forEach(function(k) {
+        Ya[k] = b;
+      });
+      var e = Array(b.length), f = [], g = 0;
+      b.forEach((k, m) => {
+        R.hasOwnProperty(k) ? e[m] = R[k] : (f.push(k), U.hasOwnProperty(k) || (U[k] = []), U[k].push(() => {
+          e[m] = R[k];
+          ++g;
+          g === f.length && d(e);
+        }));
+      });
+      f.length === 0 && d(e);
+    }
+    function Za(a) {
+      switch (a) {
+        case 1:
+          return 0;
+        case 2:
+          return 1;
+        case 4:
+          return 2;
+        case 8:
+          return 3;
+        default:
+          throw new TypeError("Unknown type size: " + a);
+      }
+    }
+    function W(a, b, c = {}) {
+      if (!("argPackAdvance" in b))
+        throw new TypeError("registerType registeredInstance requires argPackAdvance");
+      var d = b.name;
+      a || L('type "' + d + '" must have a positive integer typeid pointer');
+      if (R.hasOwnProperty(a)) {
+        if (c.ua)
+          return;
+        L("Cannot register type '" + d + "' twice");
+      }
+      R[a] = b;
+      delete Ya[a];
+      U.hasOwnProperty(a) && (b = U[a], delete U[a], b.forEach((e) => e()));
+    }
+    function $a(a) {
+      L(a.M.P.N.name + " instance already deleted");
+    }
+    function X() {}
+    function ab(a, b, c) {
+      if (a[b].S === undefined) {
+        var d = a[b];
+        a[b] = function() {
+          a[b].S.hasOwnProperty(arguments.length) || L("Function '" + c + "' called with an invalid number of arguments (" + arguments.length + ") - expects one of (" + a[b].S + ")!");
+          return a[b].S[arguments.length].apply(this, arguments);
+        };
+        a[b].S = [];
+        a[b].S[d.Z] = d;
+      }
+    }
+    function bb(a, b) {
+      h.hasOwnProperty(a) ? (L("Cannot register public name '" + a + "' twice"), ab(h, a, a), h.hasOwnProperty(undefined) && L("Cannot register multiple overloads of a function with the same number of arguments (undefined)!"), h[a].S[undefined] = b) : h[a] = b;
+    }
+    function cb(a, b, c, d, e, f, g, k) {
+      this.name = a;
+      this.constructor = b;
+      this.X = c;
+      this.W = d;
+      this.R = e;
+      this.pa = f;
+      this.ba = g;
+      this.na = k;
+      this.ja = [];
+    }
+    function db(a, b, c) {
+      for (;b !== c; )
+        b.ba || L("Expected null or instance of " + c.name + ", got an instance of " + b.name), a = b.ba(a), b = b.R;
+      return a;
+    }
+    function eb(a, b) {
+      if (b === null)
+        return this.ea && L("null is not a valid " + this.name), 0;
+      b.M || L('Cannot pass "' + fb(b) + '" as a ' + this.name);
+      b.M.O || L("Cannot pass deleted object as a pointer of type " + this.name);
+      return db(b.M.O, b.M.P.N, this.N);
+    }
+    function gb(a, b) {
+      if (b === null) {
+        this.ea && L("null is not a valid " + this.name);
+        if (this.da) {
+          var c = this.fa();
+          a !== null && a.push(this.W, c);
+          return c;
+        }
+        return 0;
+      }
+      b.M || L('Cannot pass "' + fb(b) + '" as a ' + this.name);
+      b.M.O || L("Cannot pass deleted object as a pointer of type " + this.name);
+      !this.ca && b.M.P.ca && L("Cannot convert argument of type " + (b.M.U ? b.M.U.name : b.M.P.name) + " to parameter type " + this.name);
+      c = db(b.M.O, b.M.P.N, this.N);
+      if (this.da)
+        switch (b.M.T === undefined && L("Passing raw pointer to smart pointer is illegal"), this.Ba) {
+          case 0:
+            b.M.U === this ? c = b.M.T : L("Cannot convert argument of type " + (b.M.U ? b.M.U.name : b.M.P.name) + " to parameter type " + this.name);
+            break;
+          case 1:
+            c = b.M.T;
+            break;
+          case 2:
+            if (b.M.U === this)
+              c = b.M.T;
+            else {
+              var d = b.clone();
+              c = this.xa(c, Ea(function() {
+                d["delete"]();
+              }));
+              a !== null && a.push(this.W, c);
+            }
+            break;
+          default:
+            L("Unsupporting sharing policy");
+        }
+      return c;
+    }
+    function hb(a, b) {
+      if (b === null)
+        return this.ea && L("null is not a valid " + this.name), 0;
+      b.M || L('Cannot pass "' + fb(b) + '" as a ' + this.name);
+      b.M.O || L("Cannot pass deleted object as a pointer of type " + this.name);
+      b.M.P.ca && L("Cannot convert argument of type " + b.M.P.name + " to parameter type " + this.name);
+      return db(b.M.O, b.M.P.N, this.N);
+    }
+    function Y(a, b, c, d) {
+      this.name = a;
+      this.N = b;
+      this.ea = c;
+      this.ca = d;
+      this.da = false;
+      this.W = this.xa = this.fa = this.ka = this.Ba = this.wa = undefined;
+      b.R !== undefined ? this.toWireType = gb : (this.toWireType = d ? eb : hb, this.V = null);
+    }
+    function ib(a, b) {
+      h.hasOwnProperty(a) || Ta("Replacing nonexistant public symbol");
+      h[a] = b;
+      h[a].Z = undefined;
+    }
+    function jb(a, b) {
+      var c = [];
+      return function() {
+        c.length = 0;
+        Object.assign(c, arguments);
+        if (a.includes("j")) {
+          var d = h["dynCall_" + a];
+          d = c && c.length ? d.apply(null, [b].concat(c)) : d.call(null, b);
+        } else
+          d = oa.get(b).apply(null, c);
+        return d;
+      };
+    }
+    function Z(a, b) {
+      a = N(a);
+      var c = a.includes("j") ? jb(a, b) : oa.get(b);
+      typeof c != "function" && L("unknown function pointer with signature " + a + ": " + b);
+      return c;
+    }
+    var mb = undefined;
+    function nb(a, b) {
+      function c(f) {
+        e[f] || R[f] || (Ya[f] ? Ya[f].forEach(c) : (d.push(f), e[f] = true));
+      }
+      var d = [], e = {};
+      b.forEach(c);
+      throw new mb(a + ": " + d.map(Ja).join([", "]));
+    }
+    function ob(a, b, c, d, e) {
+      var f = b.length;
+      2 > f && L("argTypes array size mismatch! Must at least get return value and 'this' types!");
+      var g = b[1] !== null && c !== null, k = false;
+      for (c = 1;c < b.length; ++c)
+        if (b[c] !== null && b[c].V === undefined) {
+          k = true;
+          break;
+        }
+      var m = b[0].name !== "void", l = f - 2, n = Array(l), p = [], r = [];
+      return function() {
+        arguments.length !== l && L("function " + a + " called with " + arguments.length + " arguments, expected " + l + " args!");
+        r.length = 0;
+        p.length = g ? 2 : 1;
+        p[0] = e;
+        if (g) {
+          var u = b[1].toWireType(r, this);
+          p[1] = u;
+        }
+        for (var t = 0;t < l; ++t)
+          n[t] = b[t + 2].toWireType(r, arguments[t]), p.push(n[t]);
+        t = d.apply(null, p);
+        if (k)
+          Wa(r);
+        else
+          for (var y = g ? 1 : 2;y < b.length; y++) {
+            var B = y === 1 ? u : n[y - 2];
+            b[y].V !== null && b[y].V(B);
+          }
+        u = m ? b[0].fromWireType(t) : undefined;
+        return u;
+      };
+    }
+    function pb(a, b) {
+      for (var c = [], d = 0;d < a; d++)
+        c.push(E[b + 4 * d >> 2]);
+      return c;
+    }
+    function qb(a) {
+      4 < a && --J[a].ga === 0 && (J[a] = undefined, Ca.push(a));
+    }
+    function fb(a) {
+      if (a === null)
+        return "null";
+      var b = typeof a;
+      return b === "object" || b === "array" || b === "function" ? a.toString() : "" + a;
+    }
+    function rb(a, b) {
+      switch (b) {
+        case 2:
+          return function(c) {
+            return this.fromWireType(la[c >> 2]);
+          };
+        case 3:
+          return function(c) {
+            return this.fromWireType(ma[c >> 3]);
+          };
+        default:
+          throw new TypeError("Unknown float type: " + a);
+      }
+    }
+    function sb(a, b, c) {
+      switch (b) {
+        case 0:
+          return c ? function(d) {
+            return ja[d];
+          } : function(d) {
+            return A[d];
+          };
+        case 1:
+          return c ? function(d) {
+            return C[d >> 1];
+          } : function(d) {
+            return ka[d >> 1];
+          };
+        case 2:
+          return c ? function(d) {
+            return D[d >> 2];
+          } : function(d) {
+            return E[d >> 2];
+          };
+        default:
+          throw new TypeError("Unknown integer type: " + a);
+      }
+    }
+    function tb(a, b) {
+      for (var c = "", d = 0;!(d >= b / 2); ++d) {
+        var e = C[a + 2 * d >> 1];
+        if (e == 0)
+          break;
+        c += String.fromCharCode(e);
+      }
+      return c;
+    }
+    function ub(a, b, c) {
+      c === undefined && (c = 2147483647);
+      if (2 > c)
+        return 0;
+      c -= 2;
+      var d = b;
+      c = c < 2 * a.length ? c / 2 : a.length;
+      for (var e = 0;e < c; ++e)
+        C[b >> 1] = a.charCodeAt(e), b += 2;
+      C[b >> 1] = 0;
+      return b - d;
+    }
+    function vb(a) {
+      return 2 * a.length;
+    }
+    function wb(a, b) {
+      for (var c = 0, d = "";!(c >= b / 4); ) {
+        var e = D[a + 4 * c >> 2];
+        if (e == 0)
+          break;
+        ++c;
+        65536 <= e ? (e -= 65536, d += String.fromCharCode(55296 | e >> 10, 56320 | e & 1023)) : d += String.fromCharCode(e);
+      }
+      return d;
+    }
+    function xb(a, b, c) {
+      c === undefined && (c = 2147483647);
+      if (4 > c)
+        return 0;
+      var d = b;
+      c = d + c - 4;
+      for (var e = 0;e < a.length; ++e) {
+        var f = a.charCodeAt(e);
+        if (55296 <= f && 57343 >= f) {
+          var g = a.charCodeAt(++e);
+          f = 65536 + ((f & 1023) << 10) | g & 1023;
+        }
+        D[b >> 2] = f;
+        b += 4;
+        if (b + 4 > c)
+          break;
+      }
+      D[b >> 2] = 0;
+      return b - d;
+    }
+    function yb(a) {
+      for (var b = 0, c = 0;c < a.length; ++c) {
+        var d = a.charCodeAt(c);
+        55296 <= d && 57343 >= d && ++c;
+        b += 4;
+      }
+      return b;
+    }
+    var zb = {};
+    function Ab(a) {
+      var b = zb[a];
+      return b === undefined ? N(a) : b;
+    }
+    var Bb = [];
+    function Cb(a) {
+      var b = Bb.length;
+      Bb.push(a);
+      return b;
+    }
+    function Db(a, b) {
+      for (var c = Array(a), d = 0;d < a; ++d)
+        c[d] = La(E[b + 4 * d >> 2], "parameter " + d);
+      return c;
+    }
+    var Eb = [], Fb = [null, [], []];
+    K = h.BindingError = Da("BindingError");
+    h.count_emval_handles = function() {
+      for (var a = 0, b = 5;b < J.length; ++b)
+        J[b] !== undefined && ++a;
+      return a;
+    };
+    h.get_first_emval = function() {
+      for (var a = 5;a < J.length; ++a)
+        if (J[a] !== undefined)
+          return J[a];
+      return null;
+    };
+    Fa = h.PureVirtualError = Da("PureVirtualError");
+    for (var Gb = Array(256), Hb = 0;256 > Hb; ++Hb)
+      Gb[Hb] = String.fromCharCode(Hb);
+    Ga = Gb;
+    h.getInheritedInstanceCount = function() {
+      return Object.keys(Q).length;
+    };
+    h.getLiveInheritedInstances = function() {
+      var a = [], b;
+      for (b in Q)
+        Q.hasOwnProperty(b) && a.push(Q[b]);
+      return a;
+    };
+    h.flushPendingDeletes = Ha;
+    h.setDelayFunction = function(a) {
+      P = a;
+      O.length && P && P(Ha);
+    };
+    Sa = h.InternalError = Da("InternalError");
+    X.prototype.isAliasOf = function(a) {
+      if (!(this instanceof X && a instanceof X))
+        return false;
+      var b = this.M.P.N, c = this.M.O, d = a.M.P.N;
+      for (a = a.M.O;b.R; )
+        c = b.ba(c), b = b.R;
+      for (;d.R; )
+        a = d.ba(a), d = d.R;
+      return b === d && c === a;
+    };
+    X.prototype.clone = function() {
+      this.M.O || $a(this);
+      if (this.M.aa)
+        return this.M.count.value += 1, this;
+      var a = T, b = Object, c = b.create, d = Object.getPrototypeOf(this), e = this.M;
+      a = a(c.call(b, d, { M: { value: { count: e.count, $: e.$, aa: e.aa, O: e.O, P: e.P, T: e.T, U: e.U } } }));
+      a.M.count.value += 1;
+      a.M.$ = false;
+      return a;
+    };
+    X.prototype["delete"] = function() {
+      this.M.O || $a(this);
+      this.M.$ && !this.M.aa && L("Object already scheduled for deletion");
+      Ma(this);
+      Oa(this.M);
+      this.M.aa || (this.M.T = undefined, this.M.O = undefined);
+    };
+    X.prototype.isDeleted = function() {
+      return !this.M.O;
+    };
+    X.prototype.deleteLater = function() {
+      this.M.O || $a(this);
+      this.M.$ && !this.M.aa && L("Object already scheduled for deletion");
+      O.push(this);
+      O.length === 1 && P && P(Ha);
+      this.M.$ = true;
+      return this;
+    };
+    Y.prototype.qa = function(a) {
+      this.ka && (a = this.ka(a));
+      return a;
+    };
+    Y.prototype.ha = function(a) {
+      this.W && this.W(a);
+    };
+    Y.prototype.argPackAdvance = 8;
+    Y.prototype.readValueFromPointer = Xa;
+    Y.prototype.deleteObject = function(a) {
+      if (a !== null)
+        a["delete"]();
+    };
+    Y.prototype.fromWireType = function(a) {
+      function b() {
+        return this.da ? Ua(this.N.X, { P: this.wa, O: c, U: this, T: a }) : Ua(this.N.X, { P: this, O: a });
+      }
+      var c = this.qa(a);
+      if (!c)
+        return this.ha(a), null;
+      var d = Ra(this.N, c);
+      if (d !== undefined) {
+        if (d.M.count.value === 0)
+          return d.M.O = c, d.M.T = a, d.clone();
+        d = d.clone();
+        this.ha(a);
+        return d;
+      }
+      d = this.N.pa(c);
+      d = Qa[d];
+      if (!d)
+        return b.call(this);
+      d = this.ca ? d.la : d.pointerType;
+      var e = Pa(c, this.N, d.N);
+      return e === null ? b.call(this) : this.da ? Ua(d.N.X, { P: d, O: e, U: this, T: a }) : Ua(d.N.X, { P: d, O: e });
+    };
+    mb = h.UnboundTypeError = Da("UnboundTypeError");
+    var xa = typeof atob == "function" ? atob : function(a) {
+      var b = "", c = 0;
+      a = a.replace(/[^A-Za-z0-9\+\/=]/g, "");
+      do {
+        var d = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".indexOf(a.charAt(c++));
+        var e = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".indexOf(a.charAt(c++));
+        var f = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".indexOf(a.charAt(c++));
+        var g = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".indexOf(a.charAt(c++));
+        d = d << 2 | e >> 4;
+        e = (e & 15) << 4 | f >> 2;
+        var k = (f & 3) << 6 | g;
+        b += String.fromCharCode(d);
+        f !== 64 && (b += String.fromCharCode(e));
+        g !== 64 && (b += String.fromCharCode(k));
+      } while (c < a.length);
+      return b;
+    }, Jb = {
+      l: function(a, b, c, d) {
+        x("Assertion failed: " + (a ? z(A, a) : "") + ", at: " + [b ? b ? z(A, b) : "" : "unknown filename", c, d ? d ? z(A, d) : "" : "unknown function"]);
+      },
+      q: function(a, b, c) {
+        a = N(a);
+        b = La(b, "wrapper");
+        c = M(c);
+        var d = [].slice, e = b.N, f = e.X, g = e.R.X, k = e.R.constructor;
+        a = Ba(a, function() {
+          e.R.ja.forEach(function(l) {
+            if (this[l] === g[l])
+              throw new Fa("Pure virtual function " + l + " must be implemented in JavaScript");
+          }.bind(this));
+          Object.defineProperty(this, "__parent", { value: f });
+          this.__construct.apply(this, d.call(arguments));
+        });
+        f.__construct = function() {
+          this === f && L("Pass correct 'this' to __construct");
+          var l = k.implement.apply(undefined, [this].concat(d.call(arguments)));
+          Ma(l);
+          var n = l.M;
+          l.notifyOnDestruction();
+          n.aa = true;
+          Object.defineProperties(this, { M: { value: n } });
+          T(this);
+          l = n.O;
+          l = Ia(e, l);
+          Q.hasOwnProperty(l) ? L("Tried to register registered instance: " + l) : Q[l] = this;
+        };
+        f.__destruct = function() {
+          this === f && L("Pass correct 'this' to __destruct");
+          Ma(this);
+          var l = this.M.O;
+          l = Ia(e, l);
+          Q.hasOwnProperty(l) ? delete Q[l] : L("Tried to unregister unregistered instance: " + l);
+        };
+        a.prototype = Object.create(f);
+        for (var m in c)
+          a.prototype[m] = c[m];
+        return Ea(a);
+      },
+      j: function(a) {
+        var b = Va[a];
+        delete Va[a];
+        var { fa: c, W: d, ia: e } = b, f = e.map((g) => g.ta).concat(e.map((g) => g.za));
+        V([a], f, (g) => {
+          var k = {};
+          e.forEach((m, l) => {
+            var n = g[l], p = m.ra, r = m.sa, u = g[l + e.length], t = m.ya, y = m.Aa;
+            k[m.oa] = { read: (B) => n.fromWireType(p(r, B)), write: (B, ba) => {
+              var I = [];
+              t(y, B, u.toWireType(I, ba));
+              Wa(I);
+            } };
+          });
+          return [{ name: b.name, fromWireType: function(m) {
+            var l = {}, n;
+            for (n in k)
+              l[n] = k[n].read(m);
+            d(m);
+            return l;
+          }, toWireType: function(m, l) {
+            for (var n in k)
+              if (!(n in l))
+                throw new TypeError('Missing field:  "' + n + '"');
+            var p = c();
+            for (n in k)
+              k[n].write(p, l[n]);
+            m !== null && m.push(d, p);
+            return p;
+          }, argPackAdvance: 8, readValueFromPointer: Xa, V: d }];
+        });
+      },
+      v: function() {},
+      B: function(a, b, c, d, e) {
+        var f = Za(c);
+        b = N(b);
+        W(a, {
+          name: b,
+          fromWireType: function(g) {
+            return !!g;
+          },
+          toWireType: function(g, k) {
+            return k ? d : e;
+          },
+          argPackAdvance: 8,
+          readValueFromPointer: function(g) {
+            if (c === 1)
+              var k = ja;
+            else if (c === 2)
+              k = C;
+            else if (c === 4)
+              k = D;
+            else
+              throw new TypeError("Unknown boolean type size: " + b);
+            return this.fromWireType(k[g >> f]);
+          },
+          V: null
+        });
+      },
+      f: function(a, b, c, d, e, f, g, k, m, l, n, p, r) {
+        n = N(n);
+        f = Z(e, f);
+        k && (k = Z(g, k));
+        l && (l = Z(m, l));
+        r = Z(p, r);
+        var u = Aa(n);
+        bb(u, function() {
+          nb("Cannot construct " + n + " due to unbound types", [d]);
+        });
+        V([a, b, c], d ? [d] : [], function(t) {
+          t = t[0];
+          if (d) {
+            var y = t.N;
+            var B = y.X;
+          } else
+            B = X.prototype;
+          t = Ba(u, function() {
+            if (Object.getPrototypeOf(this) !== ba)
+              throw new K("Use 'new' to construct " + n);
+            if (I.Y === undefined)
+              throw new K(n + " has no accessible constructor");
+            var kb = I.Y[arguments.length];
+            if (kb === undefined)
+              throw new K("Tried to invoke ctor of " + n + " with invalid number of parameters (" + arguments.length + ") - expected (" + Object.keys(I.Y).toString() + ") parameters instead!");
+            return kb.apply(this, arguments);
+          });
+          var ba = Object.create(B, { constructor: { value: t } });
+          t.prototype = ba;
+          var I = new cb(n, t, ba, r, y, f, k, l);
+          y = new Y(n, I, true, false);
+          B = new Y(n + "*", I, false, false);
+          var lb = new Y(n + " const*", I, false, true);
+          Qa[a] = {
+            pointerType: B,
+            la: lb
+          };
+          ib(u, t);
+          return [y, B, lb];
+        });
+      },
+      d: function(a, b, c, d, e, f, g) {
+        var k = pb(c, d);
+        b = N(b);
+        f = Z(e, f);
+        V([], [a], function(m) {
+          function l() {
+            nb("Cannot call " + n + " due to unbound types", k);
+          }
+          m = m[0];
+          var n = m.name + "." + b;
+          b.startsWith("@@") && (b = Symbol[b.substring(2)]);
+          var p = m.N.constructor;
+          p[b] === undefined ? (l.Z = c - 1, p[b] = l) : (ab(p, b, n), p[b].S[c - 1] = l);
+          V([], k, function(r) {
+            r = ob(n, [r[0], null].concat(r.slice(1)), null, f, g);
+            p[b].S === undefined ? (r.Z = c - 1, p[b] = r) : p[b].S[c - 1] = r;
+            return [];
+          });
+          return [];
+        });
+      },
+      p: function(a, b, c, d, e, f) {
+        0 < b || x();
+        var g = pb(b, c);
+        e = Z(d, e);
+        V([], [a], function(k) {
+          k = k[0];
+          var m = "constructor " + k.name;
+          k.N.Y === undefined && (k.N.Y = []);
+          if (k.N.Y[b - 1] !== undefined)
+            throw new K("Cannot register multiple constructors with identical number of parameters (" + (b - 1) + ") for class '" + k.name + "'! Overload resolution is currently only performed using the parameter count, not actual type info!");
+          k.N.Y[b - 1] = () => {
+            nb("Cannot construct " + k.name + " due to unbound types", g);
+          };
+          V([], g, function(l) {
+            l.splice(1, 0, null);
+            k.N.Y[b - 1] = ob(m, l, null, e, f);
+            return [];
+          });
+          return [];
+        });
+      },
+      a: function(a, b, c, d, e, f, g, k) {
+        var m = pb(c, d);
+        b = N(b);
+        f = Z(e, f);
+        V([], [a], function(l) {
+          function n() {
+            nb("Cannot call " + p + " due to unbound types", m);
+          }
+          l = l[0];
+          var p = l.name + "." + b;
+          b.startsWith("@@") && (b = Symbol[b.substring(2)]);
+          k && l.N.ja.push(b);
+          var r = l.N.X, u = r[b];
+          u === undefined || u.S === undefined && u.className !== l.name && u.Z === c - 2 ? (n.Z = c - 2, n.className = l.name, r[b] = n) : (ab(r, b, p), r[b].S[c - 2] = n);
+          V([], m, function(t) {
+            t = ob(p, t, l, f, g);
+            r[b].S === undefined ? (t.Z = c - 2, r[b] = t) : r[b].S[c - 2] = t;
+            return [];
+          });
+          return [];
+        });
+      },
+      A: function(a, b) {
+        b = N(b);
+        W(a, { name: b, fromWireType: function(c) {
+          var d = M(c);
+          qb(c);
+          return d;
+        }, toWireType: function(c, d) {
+          return Ea(d);
+        }, argPackAdvance: 8, readValueFromPointer: Xa, V: null });
+      },
+      n: function(a, b, c) {
+        c = Za(c);
+        b = N(b);
+        W(a, { name: b, fromWireType: function(d) {
+          return d;
+        }, toWireType: function(d, e) {
+          return e;
+        }, argPackAdvance: 8, readValueFromPointer: rb(b, c), V: null });
+      },
+      e: function(a, b, c, d, e) {
+        b = N(b);
+        e === -1 && (e = 4294967295);
+        e = Za(c);
+        var f = (k) => k;
+        if (d === 0) {
+          var g = 32 - 8 * c;
+          f = (k) => k << g >>> g;
+        }
+        c = b.includes("unsigned") ? function(k, m) {
+          return m >>> 0;
+        } : function(k, m) {
+          return m;
+        };
+        W(a, { name: b, fromWireType: f, toWireType: c, argPackAdvance: 8, readValueFromPointer: sb(b, e, d !== 0), V: null });
+      },
+      b: function(a, b, c) {
+        function d(f) {
+          f >>= 2;
+          var g = E;
+          return new e(ia, g[f + 1], g[f]);
+        }
+        var e = [Int8Array, Uint8Array, Int16Array, Uint16Array, Int32Array, Uint32Array, Float32Array, Float64Array][b];
+        c = N(c);
+        W(a, { name: c, fromWireType: d, argPackAdvance: 8, readValueFromPointer: d }, { ua: true });
+      },
+      o: function(a, b) {
+        b = N(b);
+        var c = b === "std::string";
+        W(a, { name: b, fromWireType: function(d) {
+          var e = E[d >> 2], f = d + 4;
+          if (c)
+            for (var g = f, k = 0;k <= e; ++k) {
+              var m = f + k;
+              if (k == e || A[m] == 0) {
+                g = g ? z(A, g, m - g) : "";
+                if (l === undefined)
+                  var l = g;
+                else
+                  l += String.fromCharCode(0), l += g;
+                g = m + 1;
+              }
+            }
+          else {
+            l = Array(e);
+            for (k = 0;k < e; ++k)
+              l[k] = String.fromCharCode(A[f + k]);
+            l = l.join("");
+          }
+          S(d);
+          return l;
+        }, toWireType: function(d, e) {
+          e instanceof ArrayBuffer && (e = new Uint8Array(e));
+          var f, g = typeof e == "string";
+          g || e instanceof Uint8Array || e instanceof Uint8ClampedArray || e instanceof Int8Array || L("Cannot pass non-string to std::string");
+          if (c && g) {
+            var k = 0;
+            for (f = 0;f < e.length; ++f) {
+              var m = e.charCodeAt(f);
+              127 >= m ? k++ : 2047 >= m ? k += 2 : 55296 <= m && 57343 >= m ? (k += 4, ++f) : k += 3;
+            }
+            f = k;
+          } else
+            f = e.length;
+          k = Ib(4 + f + 1);
+          m = k + 4;
+          E[k >> 2] = f;
+          if (c && g) {
+            if (g = m, m = f + 1, f = A, 0 < m) {
+              m = g + m - 1;
+              for (var l = 0;l < e.length; ++l) {
+                var n = e.charCodeAt(l);
+                if (55296 <= n && 57343 >= n) {
+                  var p = e.charCodeAt(++l);
+                  n = 65536 + ((n & 1023) << 10) | p & 1023;
+                }
+                if (127 >= n) {
+                  if (g >= m)
+                    break;
+                  f[g++] = n;
+                } else {
+                  if (2047 >= n) {
+                    if (g + 1 >= m)
+                      break;
+                    f[g++] = 192 | n >> 6;
+                  } else {
+                    if (65535 >= n) {
+                      if (g + 2 >= m)
+                        break;
+                      f[g++] = 224 | n >> 12;
+                    } else {
+                      if (g + 3 >= m)
+                        break;
+                      f[g++] = 240 | n >> 18;
+                      f[g++] = 128 | n >> 12 & 63;
+                    }
+                    f[g++] = 128 | n >> 6 & 63;
+                  }
+                  f[g++] = 128 | n & 63;
+                }
+              }
+              f[g] = 0;
+            }
+          } else if (g)
+            for (g = 0;g < f; ++g)
+              l = e.charCodeAt(g), 255 < l && (S(m), L("String has UTF-16 code units that do not fit in 8 bits")), A[m + g] = l;
+          else
+            for (g = 0;g < f; ++g)
+              A[m + g] = e[g];
+          d !== null && d.push(S, k);
+          return k;
+        }, argPackAdvance: 8, readValueFromPointer: Xa, V: function(d) {
+          S(d);
+        } });
+      },
+      i: function(a, b, c) {
+        c = N(c);
+        if (b === 2) {
+          var d = tb;
+          var e = ub;
+          var f = vb;
+          var g = () => ka;
+          var k = 1;
+        } else
+          b === 4 && (d = wb, e = xb, f = yb, g = () => E, k = 2);
+        W(a, { name: c, fromWireType: function(m) {
+          for (var l = E[m >> 2], n = g(), p, r = m + 4, u = 0;u <= l; ++u) {
+            var t = m + 4 + u * b;
+            if (u == l || n[t >> k] == 0)
+              r = d(r, t - r), p === undefined ? p = r : (p += String.fromCharCode(0), p += r), r = t + b;
+          }
+          S(m);
+          return p;
+        }, toWireType: function(m, l) {
+          typeof l != "string" && L("Cannot pass non-string to C++ string type " + c);
+          var n = f(l), p = Ib(4 + n + b);
+          E[p >> 2] = n >> k;
+          e(l, p + 4, n + b);
+          m !== null && m.push(S, p);
+          return p;
+        }, argPackAdvance: 8, readValueFromPointer: Xa, V: function(m) {
+          S(m);
+        } });
+      },
+      k: function(a, b, c, d, e, f) {
+        Va[a] = { name: N(b), fa: Z(c, d), W: Z(e, f), ia: [] };
+      },
+      h: function(a, b, c, d, e, f, g, k, m, l) {
+        Va[a].ia.push({ oa: N(b), ta: c, ra: Z(d, e), sa: f, za: g, ya: Z(k, m), Aa: l });
+      },
+      C: function(a, b) {
+        b = N(b);
+        W(a, {
+          va: true,
+          name: b,
+          argPackAdvance: 0,
+          fromWireType: function() {},
+          toWireType: function() {}
+        });
+      },
+      s: function(a, b, c, d, e) {
+        a = Bb[a];
+        b = M(b);
+        c = Ab(c);
+        var f = [];
+        E[d >> 2] = Ea(f);
+        return a(b, c, f, e);
+      },
+      t: function(a, b, c, d) {
+        a = Bb[a];
+        b = M(b);
+        c = Ab(c);
+        a(b, c, null, d);
+      },
+      g: qb,
+      m: function(a, b) {
+        var c = Db(a, b), d = c[0];
+        b = d.name + "_$" + c.slice(1).map(function(g) {
+          return g.name;
+        }).join("_") + "$";
+        var e = Eb[b];
+        if (e !== undefined)
+          return e;
+        var f = Array(a - 1);
+        e = Cb((g, k, m, l) => {
+          for (var n = 0, p = 0;p < a - 1; ++p)
+            f[p] = c[p + 1].readValueFromPointer(l + n), n += c[p + 1].argPackAdvance;
+          g = g[k].apply(g, f);
+          for (p = 0;p < a - 1; ++p)
+            c[p + 1].ma && c[p + 1].ma(f[p]);
+          if (!d.va)
+            return d.toWireType(m, g);
+        });
+        return Eb[b] = e;
+      },
+      D: function(a) {
+        4 < a && (J[a].ga += 1);
+      },
+      r: function(a) {
+        var b = M(a);
+        Wa(b);
+        qb(a);
+      },
+      c: function() {
+        x("");
+      },
+      x: function(a, b, c) {
+        A.copyWithin(a, b, b + c);
+      },
+      w: function(a) {
+        var b = A.length;
+        a >>>= 0;
+        if (2147483648 < a)
+          return false;
+        for (var c = 1;4 >= c; c *= 2) {
+          var d = b * (1 + 0.2 / c);
+          d = Math.min(d, a + 100663296);
+          var e = Math;
+          d = Math.max(a, d);
+          e = e.min.call(e, 2147483648, d + (65536 - d % 65536) % 65536);
+          a: {
+            try {
+              fa.grow(e - ia.byteLength + 65535 >>> 16);
+              na();
+              var f = 1;
+              break a;
+            } catch (g) {}
+            f = undefined;
+          }
+          if (f)
+            return true;
+        }
+        return false;
+      },
+      z: function() {
+        return 52;
+      },
+      u: function() {
+        return 70;
+      },
+      y: function(a, b, c, d) {
+        for (var e = 0, f = 0;f < c; f++) {
+          var g = E[b >> 2], k = E[b + 4 >> 2];
+          b += 8;
+          for (var m = 0;m < k; m++) {
+            var l = A[g + m], n = Fb[a];
+            l === 0 || l === 10 ? ((a === 1 ? ea : v)(z(n, 0)), n.length = 0) : n.push(l);
+          }
+          e += k;
+        }
+        E[d >> 2] = e;
+        return 0;
+      }
+    };
+    (function() {
+      function a(e) {
+        h.asm = e.exports;
+        fa = h.asm.E;
+        na();
+        oa = h.asm.J;
+        qa.unshift(h.asm.F);
+        F--;
+        h.monitorRunDependencies && h.monitorRunDependencies(F);
+        F == 0 && (ta !== null && (clearInterval(ta), ta = null), G && (e = G, G = null, e()));
+      }
+      function b(e) {
+        a(e.instance);
+      }
+      function c(e) {
+        return ya().then(function(f) {
+          return WebAssembly.instantiate(f, d);
+        }).then(function(f) {
+          return f;
+        }).then(e, function(f) {
+          v("failed to asynchronously prepare wasm: " + f);
+          x(f);
+        });
+      }
+      var d = { a: Jb };
+      F++;
+      h.monitorRunDependencies && h.monitorRunDependencies(F);
+      if (h.instantiateWasm)
+        try {
+          return h.instantiateWasm(d, a);
+        } catch (e) {
+          v("Module.instantiateWasm callback failed with error: " + e), ca(e);
+        }
+      (function() {
+        return w || typeof WebAssembly.instantiateStreaming != "function" || ua(H) || typeof fetch != "function" ? c(b) : fetch(H, { credentials: "same-origin" }).then(function(e) {
+          return WebAssembly.instantiateStreaming(e, d).then(b, function(f) {
+            v("wasm streaming compile failed: " + f);
+            v("falling back to ArrayBuffer instantiation");
+            return c(b);
+          });
+        });
+      })().catch(ca);
+      return {};
+    })();
+    h.___wasm_call_ctors = function() {
+      return (h.___wasm_call_ctors = h.asm.F).apply(null, arguments);
+    };
+    var Ka = h.___getTypeName = function() {
+      return (Ka = h.___getTypeName = h.asm.G).apply(null, arguments);
+    };
+    h.__embind_initialize_bindings = function() {
+      return (h.__embind_initialize_bindings = h.asm.H).apply(null, arguments);
+    };
+    var Ib = h._malloc = function() {
+      return (Ib = h._malloc = h.asm.I).apply(null, arguments);
+    }, S = h._free = function() {
+      return (S = h._free = h.asm.K).apply(null, arguments);
+    };
+    h.dynCall_jiji = function() {
+      return (h.dynCall_jiji = h.asm.L).apply(null, arguments);
+    };
+    var Kb;
+    G = function Lb() {
+      Kb || Mb();
+      Kb || (G = Lb);
+    };
+    function Mb() {
+      function a() {
+        if (!Kb && (Kb = true, h.calledRun = true, !ha)) {
+          za(qa);
+          aa(h);
+          if (h.onRuntimeInitialized)
+            h.onRuntimeInitialized();
+          if (h.postRun)
+            for (typeof h.postRun == "function" && (h.postRun = [h.postRun]);h.postRun.length; ) {
+              var b = h.postRun.shift();
+              ra.unshift(b);
+            }
+          za(ra);
+        }
+      }
+      if (!(0 < F)) {
+        if (h.preRun)
+          for (typeof h.preRun == "function" && (h.preRun = [h.preRun]);h.preRun.length; )
+            sa();
+        za(pa);
+        0 < F || (h.setStatus ? (h.setStatus("Running..."), setTimeout(function() {
+          setTimeout(function() {
+            h.setStatus("");
+          }, 1);
+          a();
+        }, 1)) : a());
+      }
+    }
+    if (h.preInit)
+      for (typeof h.preInit == "function" && (h.preInit = [h.preInit]);0 < h.preInit.length; )
+        h.preInit.pop()();
+    Mb();
+    return loadYoga2.ready;
+  };
+})();
+var yoga_wasm_base64_esm_default = loadYoga;
+var Align = /* @__PURE__ */ function(Align2) {
+  Align2[Align2["Auto"] = 0] = "Auto";
+  Align2[Align2["FlexStart"] = 1] = "FlexStart";
+  Align2[Align2["Center"] = 2] = "Center";
+  Align2[Align2["FlexEnd"] = 3] = "FlexEnd";
+  Align2[Align2["Stretch"] = 4] = "Stretch";
+  Align2[Align2["Baseline"] = 5] = "Baseline";
+  Align2[Align2["SpaceBetween"] = 6] = "SpaceBetween";
+  Align2[Align2["SpaceAround"] = 7] = "SpaceAround";
+  Align2[Align2["SpaceEvenly"] = 8] = "SpaceEvenly";
+  return Align2;
+}({});
+var BoxSizing = /* @__PURE__ */ function(BoxSizing2) {
+  BoxSizing2[BoxSizing2["BorderBox"] = 0] = "BorderBox";
+  BoxSizing2[BoxSizing2["ContentBox"] = 1] = "ContentBox";
+  return BoxSizing2;
+}({});
+var Dimension = /* @__PURE__ */ function(Dimension2) {
+  Dimension2[Dimension2["Width"] = 0] = "Width";
+  Dimension2[Dimension2["Height"] = 1] = "Height";
+  return Dimension2;
+}({});
+var Direction = /* @__PURE__ */ function(Direction2) {
+  Direction2[Direction2["Inherit"] = 0] = "Inherit";
+  Direction2[Direction2["LTR"] = 1] = "LTR";
+  Direction2[Direction2["RTL"] = 2] = "RTL";
+  return Direction2;
+}({});
+var Display = /* @__PURE__ */ function(Display2) {
+  Display2[Display2["Flex"] = 0] = "Flex";
+  Display2[Display2["None"] = 1] = "None";
+  Display2[Display2["Contents"] = 2] = "Contents";
+  return Display2;
+}({});
+var Edge = /* @__PURE__ */ function(Edge2) {
+  Edge2[Edge2["Left"] = 0] = "Left";
+  Edge2[Edge2["Top"] = 1] = "Top";
+  Edge2[Edge2["Right"] = 2] = "Right";
+  Edge2[Edge2["Bottom"] = 3] = "Bottom";
+  Edge2[Edge2["Start"] = 4] = "Start";
+  Edge2[Edge2["End"] = 5] = "End";
+  Edge2[Edge2["Horizontal"] = 6] = "Horizontal";
+  Edge2[Edge2["Vertical"] = 7] = "Vertical";
+  Edge2[Edge2["All"] = 8] = "All";
+  return Edge2;
+}({});
+var Errata = /* @__PURE__ */ function(Errata2) {
+  Errata2[Errata2["None"] = 0] = "None";
+  Errata2[Errata2["StretchFlexBasis"] = 1] = "StretchFlexBasis";
+  Errata2[Errata2["AbsolutePositionWithoutInsetsExcludesPadding"] = 2] = "AbsolutePositionWithoutInsetsExcludesPadding";
+  Errata2[Errata2["AbsolutePercentAgainstInnerSize"] = 4] = "AbsolutePercentAgainstInnerSize";
+  Errata2[Errata2["All"] = 2147483647] = "All";
+  Errata2[Errata2["Classic"] = 2147483646] = "Classic";
+  return Errata2;
+}({});
+var ExperimentalFeature = /* @__PURE__ */ function(ExperimentalFeature2) {
+  ExperimentalFeature2[ExperimentalFeature2["WebFlexBasis"] = 0] = "WebFlexBasis";
+  return ExperimentalFeature2;
+}({});
+var FlexDirection = /* @__PURE__ */ function(FlexDirection2) {
+  FlexDirection2[FlexDirection2["Column"] = 0] = "Column";
+  FlexDirection2[FlexDirection2["ColumnReverse"] = 1] = "ColumnReverse";
+  FlexDirection2[FlexDirection2["Row"] = 2] = "Row";
+  FlexDirection2[FlexDirection2["RowReverse"] = 3] = "RowReverse";
+  return FlexDirection2;
+}({});
+var Gutter = /* @__PURE__ */ function(Gutter2) {
+  Gutter2[Gutter2["Column"] = 0] = "Column";
+  Gutter2[Gutter2["Row"] = 1] = "Row";
+  Gutter2[Gutter2["All"] = 2] = "All";
+  return Gutter2;
+}({});
+var Justify = /* @__PURE__ */ function(Justify2) {
+  Justify2[Justify2["FlexStart"] = 0] = "FlexStart";
+  Justify2[Justify2["Center"] = 1] = "Center";
+  Justify2[Justify2["FlexEnd"] = 2] = "FlexEnd";
+  Justify2[Justify2["SpaceBetween"] = 3] = "SpaceBetween";
+  Justify2[Justify2["SpaceAround"] = 4] = "SpaceAround";
+  Justify2[Justify2["SpaceEvenly"] = 5] = "SpaceEvenly";
+  return Justify2;
+}({});
+var LogLevel = /* @__PURE__ */ function(LogLevel2) {
+  LogLevel2[LogLevel2["Error"] = 0] = "Error";
+  LogLevel2[LogLevel2["Warn"] = 1] = "Warn";
+  LogLevel2[LogLevel2["Info"] = 2] = "Info";
+  LogLevel2[LogLevel2["Debug"] = 3] = "Debug";
+  LogLevel2[LogLevel2["Verbose"] = 4] = "Verbose";
+  LogLevel2[LogLevel2["Fatal"] = 5] = "Fatal";
+  return LogLevel2;
+}({});
+var MeasureMode = /* @__PURE__ */ function(MeasureMode2) {
+  MeasureMode2[MeasureMode2["Undefined"] = 0] = "Undefined";
+  MeasureMode2[MeasureMode2["Exactly"] = 1] = "Exactly";
+  MeasureMode2[MeasureMode2["AtMost"] = 2] = "AtMost";
+  return MeasureMode2;
+}({});
+var NodeType = /* @__PURE__ */ function(NodeType2) {
+  NodeType2[NodeType2["Default"] = 0] = "Default";
+  NodeType2[NodeType2["Text"] = 1] = "Text";
+  return NodeType2;
+}({});
+var Overflow = /* @__PURE__ */ function(Overflow2) {
+  Overflow2[Overflow2["Visible"] = 0] = "Visible";
+  Overflow2[Overflow2["Hidden"] = 1] = "Hidden";
+  Overflow2[Overflow2["Scroll"] = 2] = "Scroll";
+  return Overflow2;
+}({});
+var PositionType = /* @__PURE__ */ function(PositionType2) {
+  PositionType2[PositionType2["Static"] = 0] = "Static";
+  PositionType2[PositionType2["Relative"] = 1] = "Relative";
+  PositionType2[PositionType2["Absolute"] = 2] = "Absolute";
+  return PositionType2;
+}({});
+var Unit = /* @__PURE__ */ function(Unit2) {
+  Unit2[Unit2["Undefined"] = 0] = "Undefined";
+  Unit2[Unit2["Point"] = 1] = "Point";
+  Unit2[Unit2["Percent"] = 2] = "Percent";
+  Unit2[Unit2["Auto"] = 3] = "Auto";
+  return Unit2;
+}({});
+var Wrap = /* @__PURE__ */ function(Wrap2) {
+  Wrap2[Wrap2["NoWrap"] = 0] = "NoWrap";
+  Wrap2[Wrap2["Wrap"] = 1] = "Wrap";
+  Wrap2[Wrap2["WrapReverse"] = 2] = "WrapReverse";
+  return Wrap2;
+}({});
+var constants = {
+  ALIGN_AUTO: Align.Auto,
+  ALIGN_FLEX_START: Align.FlexStart,
+  ALIGN_CENTER: Align.Center,
+  ALIGN_FLEX_END: Align.FlexEnd,
+  ALIGN_STRETCH: Align.Stretch,
+  ALIGN_BASELINE: Align.Baseline,
+  ALIGN_SPACE_BETWEEN: Align.SpaceBetween,
+  ALIGN_SPACE_AROUND: Align.SpaceAround,
+  ALIGN_SPACE_EVENLY: Align.SpaceEvenly,
+  BOX_SIZING_BORDER_BOX: BoxSizing.BorderBox,
+  BOX_SIZING_CONTENT_BOX: BoxSizing.ContentBox,
+  DIMENSION_WIDTH: Dimension.Width,
+  DIMENSION_HEIGHT: Dimension.Height,
+  DIRECTION_INHERIT: Direction.Inherit,
+  DIRECTION_LTR: Direction.LTR,
+  DIRECTION_RTL: Direction.RTL,
+  DISPLAY_FLEX: Display.Flex,
+  DISPLAY_NONE: Display.None,
+  DISPLAY_CONTENTS: Display.Contents,
+  EDGE_LEFT: Edge.Left,
+  EDGE_TOP: Edge.Top,
+  EDGE_RIGHT: Edge.Right,
+  EDGE_BOTTOM: Edge.Bottom,
+  EDGE_START: Edge.Start,
+  EDGE_END: Edge.End,
+  EDGE_HORIZONTAL: Edge.Horizontal,
+  EDGE_VERTICAL: Edge.Vertical,
+  EDGE_ALL: Edge.All,
+  ERRATA_NONE: Errata.None,
+  ERRATA_STRETCH_FLEX_BASIS: Errata.StretchFlexBasis,
+  ERRATA_ABSOLUTE_POSITION_WITHOUT_INSETS_EXCLUDES_PADDING: Errata.AbsolutePositionWithoutInsetsExcludesPadding,
+  ERRATA_ABSOLUTE_PERCENT_AGAINST_INNER_SIZE: Errata.AbsolutePercentAgainstInnerSize,
+  ERRATA_ALL: Errata.All,
+  ERRATA_CLASSIC: Errata.Classic,
+  EXPERIMENTAL_FEATURE_WEB_FLEX_BASIS: ExperimentalFeature.WebFlexBasis,
+  FLEX_DIRECTION_COLUMN: FlexDirection.Column,
+  FLEX_DIRECTION_COLUMN_REVERSE: FlexDirection.ColumnReverse,
+  FLEX_DIRECTION_ROW: FlexDirection.Row,
+  FLEX_DIRECTION_ROW_REVERSE: FlexDirection.RowReverse,
+  GUTTER_COLUMN: Gutter.Column,
+  GUTTER_ROW: Gutter.Row,
+  GUTTER_ALL: Gutter.All,
+  JUSTIFY_FLEX_START: Justify.FlexStart,
+  JUSTIFY_CENTER: Justify.Center,
+  JUSTIFY_FLEX_END: Justify.FlexEnd,
+  JUSTIFY_SPACE_BETWEEN: Justify.SpaceBetween,
+  JUSTIFY_SPACE_AROUND: Justify.SpaceAround,
+  JUSTIFY_SPACE_EVENLY: Justify.SpaceEvenly,
+  LOG_LEVEL_ERROR: LogLevel.Error,
+  LOG_LEVEL_WARN: LogLevel.Warn,
+  LOG_LEVEL_INFO: LogLevel.Info,
+  LOG_LEVEL_DEBUG: LogLevel.Debug,
+  LOG_LEVEL_VERBOSE: LogLevel.Verbose,
+  LOG_LEVEL_FATAL: LogLevel.Fatal,
+  MEASURE_MODE_UNDEFINED: MeasureMode.Undefined,
+  MEASURE_MODE_EXACTLY: MeasureMode.Exactly,
+  MEASURE_MODE_AT_MOST: MeasureMode.AtMost,
+  NODE_TYPE_DEFAULT: NodeType.Default,
+  NODE_TYPE_TEXT: NodeType.Text,
+  OVERFLOW_VISIBLE: Overflow.Visible,
+  OVERFLOW_HIDDEN: Overflow.Hidden,
+  OVERFLOW_SCROLL: Overflow.Scroll,
+  POSITION_TYPE_STATIC: PositionType.Static,
+  POSITION_TYPE_RELATIVE: PositionType.Relative,
+  POSITION_TYPE_ABSOLUTE: PositionType.Absolute,
+  UNIT_UNDEFINED: Unit.Undefined,
+  UNIT_POINT: Unit.Point,
+  UNIT_PERCENT: Unit.Percent,
+  UNIT_AUTO: Unit.Auto,
+  WRAP_NO_WRAP: Wrap.NoWrap,
+  WRAP_WRAP: Wrap.Wrap,
+  WRAP_WRAP_REVERSE: Wrap.WrapReverse
+};
+var YGEnums_default = constants;
+function wrapAssembly(lib) {
+  function patch(prototype, name, fn) {
+    const original = prototype[name];
+    prototype[name] = function() {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0;_key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+      return fn.call(this, original, ...args);
+    };
+  }
+  for (const fnName of ["setPosition", "setMargin", "setFlexBasis", "setWidth", "setHeight", "setMinWidth", "setMinHeight", "setMaxWidth", "setMaxHeight", "setPadding", "setGap"]) {
+    const methods = {
+      [Unit.Point]: lib.Node.prototype[fnName],
+      [Unit.Percent]: lib.Node.prototype[`${fnName}Percent`],
+      [Unit.Auto]: lib.Node.prototype[`${fnName}Auto`]
+    };
+    patch(lib.Node.prototype, fnName, function(original) {
+      for (var _len2 = arguments.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1;_key2 < _len2; _key2++) {
+        args[_key2 - 1] = arguments[_key2];
+      }
+      const value = args.pop();
+      let unit, asNumber;
+      if (value === "auto") {
+        unit = Unit.Auto;
+        asNumber = undefined;
+      } else if (typeof value === "object") {
+        unit = value.unit;
+        asNumber = value.valueOf();
+      } else {
+        unit = typeof value === "string" && value.endsWith("%") ? Unit.Percent : Unit.Point;
+        asNumber = parseFloat(value);
+        if (value !== undefined && !Number.isNaN(value) && Number.isNaN(asNumber)) {
+          throw new Error(`Invalid value ${value} for ${fnName}`);
+        }
+      }
+      if (!methods[unit])
+        throw new Error(`Failed to execute "${fnName}": Unsupported unit '${value}'`);
+      if (asNumber !== undefined) {
+        return methods[unit].call(this, ...args, asNumber);
+      } else {
+        return methods[unit].call(this, ...args);
+      }
+    });
+  }
+  function wrapMeasureFunction(measureFunction) {
+    return lib.MeasureCallback.implement({
+      measure: function() {
+        const {
+          width,
+          height
+        } = measureFunction(...arguments);
+        return {
+          width: width ?? NaN,
+          height: height ?? NaN
+        };
+      }
+    });
+  }
+  patch(lib.Node.prototype, "setMeasureFunc", function(original, measureFunc) {
+    if (measureFunc) {
+      return original.call(this, wrapMeasureFunction(measureFunc));
+    } else {
+      return this.unsetMeasureFunc();
+    }
+  });
+  function wrapDirtiedFunc(dirtiedFunction) {
+    return lib.DirtiedCallback.implement({
+      dirtied: dirtiedFunction
+    });
+  }
+  patch(lib.Node.prototype, "setDirtiedFunc", function(original, dirtiedFunc) {
+    original.call(this, wrapDirtiedFunc(dirtiedFunc));
+  });
+  patch(lib.Config.prototype, "free", function() {
+    lib.Config.destroy(this);
+  });
+  patch(lib.Node, "create", (_, config) => {
+    return config ? lib.Node.createWithConfig(config) : lib.Node.createDefault();
+  });
+  patch(lib.Node.prototype, "free", function() {
+    lib.Node.destroy(this);
+  });
+  patch(lib.Node.prototype, "freeRecursive", function() {
+    for (let t = 0, T = this.getChildCount();t < T; ++t) {
+      this.getChild(0).freeRecursive();
+    }
+    this.free();
+  });
+  patch(lib.Node.prototype, "calculateLayout", function(original) {
+    let width = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : NaN;
+    let height = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : NaN;
+    let direction = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : Direction.LTR;
+    return original.call(this, width, height, direction);
+  });
+  return {
+    Config: lib.Config,
+    Node: lib.Node,
+    ...YGEnums_default
+  };
+}
+var Yoga = wrapAssembly(await yoga_wasm_base64_esm_default());
+var src_default = Yoga;
+var BorderChars = {
+  single: {
+    topLeft: "\u250C",
+    topRight: "\u2510",
+    bottomLeft: "\u2514",
+    bottomRight: "\u2518",
+    horizontal: "\u2500",
+    vertical: "\u2502",
+    topT: "\u252C",
+    bottomT: "\u2534",
+    leftT: "\u251C",
+    rightT: "\u2524",
+    cross: "\u253C"
+  },
+  double: {
+    topLeft: "\u2554",
+    topRight: "\u2557",
+    bottomLeft: "\u255A",
+    bottomRight: "\u255D",
+    horizontal: "\u2550",
+    vertical: "\u2551",
+    topT: "\u2566",
+    bottomT: "\u2569",
+    leftT: "\u2560",
+    rightT: "\u2563",
+    cross: "\u256C"
+  },
+  rounded: {
+    topLeft: "\u256D",
+    topRight: "\u256E",
+    bottomLeft: "\u2570",
+    bottomRight: "\u256F",
+    horizontal: "\u2500",
+    vertical: "\u2502",
+    topT: "\u252C",
+    bottomT: "\u2534",
+    leftT: "\u251C",
+    rightT: "\u2524",
+    cross: "\u253C"
+  },
+  heavy: {
+    topLeft: "\u250F",
+    topRight: "\u2513",
+    bottomLeft: "\u2517",
+    bottomRight: "\u251B",
+    horizontal: "\u2501",
+    vertical: "\u2503",
+    topT: "\u2533",
+    bottomT: "\u253B",
+    leftT: "\u2523",
+    rightT: "\u252B",
+    cross: "\u254B"
+  }
+};
+function getBorderSides(border) {
+  return border === true ? { top: true, right: true, bottom: true, left: true } : Array.isArray(border) ? {
+    top: border.includes("top"),
+    right: border.includes("right"),
+    bottom: border.includes("bottom"),
+    left: border.includes("left")
+  } : { top: false, right: false, bottom: false, left: false };
+}
+function borderCharsToArray(chars) {
+  const array = new Uint32Array(11);
+  array[0] = chars.topLeft.codePointAt(0);
+  array[1] = chars.topRight.codePointAt(0);
+  array[2] = chars.bottomLeft.codePointAt(0);
+  array[3] = chars.bottomRight.codePointAt(0);
+  array[4] = chars.horizontal.codePointAt(0);
+  array[5] = chars.vertical.codePointAt(0);
+  array[6] = chars.topT.codePointAt(0);
+  array[7] = chars.bottomT.codePointAt(0);
+  array[8] = chars.leftT.codePointAt(0);
+  array[9] = chars.rightT.codePointAt(0);
+  array[10] = chars.cross.codePointAt(0);
+  return array;
+}
+var BorderCharArrays = {
+  single: borderCharsToArray(BorderChars.single),
+  double: borderCharsToArray(BorderChars.double),
+  rounded: borderCharsToArray(BorderChars.rounded),
+  heavy: borderCharsToArray(BorderChars.heavy)
+};
+var kittyKeyMap = {
+  27: "escape",
+  9: "tab",
+  13: "return",
+  127: "backspace",
+  57344: "escape",
+  57345: "return",
+  57346: "tab",
+  57347: "backspace",
+  57348: "insert",
+  57349: "delete",
+  57350: "left",
+  57351: "right",
+  57352: "up",
+  57353: "down",
+  57354: "pageup",
+  57355: "pagedown",
+  57356: "home",
+  57357: "end",
+  57364: "f1",
+  57365: "f2",
+  57366: "f3",
+  57367: "f4",
+  57368: "f5",
+  57369: "f6",
+  57370: "f7",
+  57371: "f8",
+  57372: "f9",
+  57373: "f10",
+  57374: "f11",
+  57375: "f12",
+  57376: "f13",
+  57377: "f14",
+  57378: "f15",
+  57379: "f16",
+  57380: "f17",
+  57381: "f18",
+  57382: "f19",
+  57383: "f20",
+  57384: "f21",
+  57385: "f22",
+  57386: "f23",
+  57387: "f24",
+  57388: "f25",
+  57389: "f26",
+  57390: "f27",
+  57391: "f28",
+  57392: "f29",
+  57393: "f30",
+  57394: "f31",
+  57395: "f32",
+  57396: "f33",
+  57397: "f34",
+  57398: "f35",
+  57400: "kp0",
+  57401: "kp1",
+  57402: "kp2",
+  57403: "kp3",
+  57404: "kp4",
+  57405: "kp5",
+  57406: "kp6",
+  57407: "kp7",
+  57408: "kp8",
+  57409: "kp9",
+  57410: "kpdecimal",
+  57411: "kpdivide",
+  57412: "kpmultiply",
+  57413: "kpminus",
+  57414: "kpplus",
+  57415: "kpenter",
+  57416: "kpequal",
+  57428: "mediaplay",
+  57429: "mediapause",
+  57430: "mediaplaypause",
+  57431: "mediareverse",
+  57432: "mediastop",
+  57433: "mediafastforward",
+  57434: "mediarewind",
+  57435: "medianext",
+  57436: "mediaprev",
+  57437: "mediarecord",
+  57438: "volumedown",
+  57439: "volumeup",
+  57440: "mute",
+  57441: "leftshift",
+  57442: "leftctrl",
+  57443: "leftalt",
+  57444: "leftsuper",
+  57445: "lefthyper",
+  57446: "leftmeta",
+  57447: "rightshift",
+  57448: "rightctrl",
+  57449: "rightalt",
+  57450: "rightsuper",
+  57451: "righthyper",
+  57452: "rightmeta",
+  57453: "iso_level3_shift",
+  57454: "iso_level5_shift"
+};
+function fromKittyMods(mod) {
+  return {
+    shift: !!(mod & 1),
+    alt: !!(mod & 2),
+    ctrl: !!(mod & 4),
+    super: !!(mod & 8),
+    hyper: !!(mod & 16),
+    meta: !!(mod & 32),
+    capsLock: !!(mod & 64),
+    numLock: !!(mod & 128)
+  };
+}
+var functionalKeyMap = {
+  A: "up",
+  B: "down",
+  C: "right",
+  D: "left",
+  H: "home",
+  F: "end",
+  P: "f1",
+  Q: "f2",
+  R: "f3",
+  S: "f4"
+};
+var tildeKeyMap = {
+  "1": "home",
+  "2": "insert",
+  "3": "delete",
+  "4": "end",
+  "5": "pageup",
+  "6": "pagedown",
+  "7": "home",
+  "8": "end",
+  "11": "f1",
+  "12": "f2",
+  "13": "f3",
+  "14": "f4",
+  "15": "f5",
+  "17": "f6",
+  "18": "f7",
+  "19": "f8",
+  "20": "f9",
+  "21": "f10",
+  "23": "f11",
+  "24": "f12"
+};
+function parseKittySpecialKey(sequence) {
+  const specialKeyRe = /^\x1b\[(\d+);(\d+):(\d+)([A-Z~])$/;
+  const match = specialKeyRe.exec(sequence);
+  if (!match)
+    return null;
+  const keyNumOrOne = match[1];
+  const modifierStr = match[2];
+  const eventTypeStr = match[3];
+  const terminator = match[4];
+  let keyName;
+  if (terminator === "~") {
+    keyName = tildeKeyMap[keyNumOrOne];
+  } else {
+    if (keyNumOrOne !== "1")
+      return null;
+    keyName = functionalKeyMap[terminator];
+  }
+  if (!keyName)
+    return null;
+  const key = {
+    name: keyName,
+    ctrl: false,
+    meta: false,
+    shift: false,
+    option: false,
+    number: false,
+    sequence,
+    raw: sequence,
+    eventType: "press",
+    source: "kitty",
+    super: false,
+    hyper: false,
+    capsLock: false,
+    numLock: false
+  };
+  if (modifierStr) {
+    const modifierMask = parseInt(modifierStr, 10);
+    if (!isNaN(modifierMask) && modifierMask > 1) {
+      const mods = fromKittyMods(modifierMask - 1);
+      key.shift = mods.shift;
+      key.ctrl = mods.ctrl;
+      key.meta = mods.alt || mods.meta;
+      key.option = mods.alt;
+      key.super = mods.super;
+      key.hyper = mods.hyper;
+      key.capsLock = mods.capsLock;
+      key.numLock = mods.numLock;
+    }
+  }
+  if (eventTypeStr === "1" || !eventTypeStr) {
+    key.eventType = "press";
+  } else if (eventTypeStr === "2") {
+    key.eventType = "press";
+    key.repeated = true;
+  } else if (eventTypeStr === "3") {
+    key.eventType = "release";
+  }
+  return key;
+}
+function parseKittyKeyboard(sequence) {
+  const specialResult = parseKittySpecialKey(sequence);
+  if (specialResult)
+    return specialResult;
+  const kittyRe = /^\x1b\[([^\x1b]+)u$/;
+  const match = kittyRe.exec(sequence);
+  if (!match)
+    return null;
+  const params = match[1];
+  const fields = params.split(";");
+  if (fields.length < 1)
+    return null;
+  const key = {
+    name: "",
+    ctrl: false,
+    meta: false,
+    shift: false,
+    option: false,
+    number: false,
+    sequence,
+    raw: sequence,
+    eventType: "press",
+    source: "kitty",
+    super: false,
+    hyper: false,
+    capsLock: false,
+    numLock: false
+  };
+  let text = "";
+  const field1 = fields[0]?.split(":") || [];
+  const codepointStr = field1[0];
+  if (!codepointStr)
+    return null;
+  const codepoint = parseInt(codepointStr, 10);
+  if (isNaN(codepoint))
+    return null;
+  let shiftedCodepoint;
+  let baseCodepoint;
+  if (field1[1]) {
+    const shifted = parseInt(field1[1], 10);
+    if (!isNaN(shifted) && shifted > 0 && shifted <= 1114111) {
+      shiftedCodepoint = shifted;
+    }
+  }
+  if (field1[2]) {
+    const base = parseInt(field1[2], 10);
+    if (!isNaN(base) && base > 0 && base <= 1114111) {
+      baseCodepoint = base;
+    }
+  }
+  const knownKey = kittyKeyMap[codepoint];
+  if (knownKey) {
+    key.name = knownKey;
+    key.code = `[${codepoint}u`;
+  } else {
+    if (codepoint > 0 && codepoint <= 1114111) {
+      const char = String.fromCodePoint(codepoint);
+      key.name = char;
+      if (baseCodepoint) {
+        key.baseCode = baseCodepoint;
+      }
+    } else {
+      return null;
+    }
+  }
+  if (fields[1]) {
+    const field2 = fields[1].split(":");
+    const modifierStr = field2[0];
+    const eventTypeStr = field2[1];
+    if (modifierStr) {
+      const modifierMask = parseInt(modifierStr, 10);
+      if (!isNaN(modifierMask) && modifierMask > 1) {
+        const mods = fromKittyMods(modifierMask - 1);
+        key.shift = mods.shift;
+        key.ctrl = mods.ctrl;
+        key.meta = mods.alt || mods.meta;
+        key.option = mods.alt;
+        key.super = mods.super;
+        key.hyper = mods.hyper;
+        key.capsLock = mods.capsLock;
+        key.numLock = mods.numLock;
+      }
+    }
+    if (eventTypeStr === "1" || !eventTypeStr) {
+      key.eventType = "press";
+    } else if (eventTypeStr === "2") {
+      key.eventType = "press";
+      key.repeated = true;
+    } else if (eventTypeStr === "3") {
+      key.eventType = "release";
+    } else {
+      key.eventType = "press";
+    }
+  }
+  if (fields[2]) {
+    const codepoints = fields[2].split(":");
+    for (const cpStr of codepoints) {
+      const cp = parseInt(cpStr, 10);
+      if (!isNaN(cp) && cp > 0 && cp <= 1114111) {
+        text += String.fromCodePoint(cp);
+      }
+    }
+  }
+  if (text === "") {
+    const isPrintable = key.name.length > 0 && !kittyKeyMap[codepoint];
+    if (isPrintable) {
+      if (key.shift && shiftedCodepoint) {
+        text = String.fromCodePoint(shiftedCodepoint);
+      } else {
+        text = key.name;
+      }
+    }
+  }
+  if (key.name === " " && key.shift && !key.ctrl && !key.meta) {
+    text = " ";
+  }
+  if (text) {
+    key.sequence = text;
+  }
+  return key;
+}
+var metaKeyCodeRe = /^(?:\x1b)([a-zA-Z0-9])$/;
+var fnKeyRe = /^(?:\x1b+)(O|N|\[|\[\[)(?:(\d+)(?:;(\d+))?([~^$])|(?:1;)?(\d+)?([a-zA-Z]))/;
+var keyName = {
+  OP: "f1",
+  OQ: "f2",
+  OR: "f3",
+  OS: "f4",
+  "[11~": "f1",
+  "[12~": "f2",
+  "[13~": "f3",
+  "[14~": "f4",
+  "[[A": "f1",
+  "[[B": "f2",
+  "[[C": "f3",
+  "[[D": "f4",
+  "[[E": "f5",
+  "[15~": "f5",
+  "[17~": "f6",
+  "[18~": "f7",
+  "[19~": "f8",
+  "[20~": "f9",
+  "[21~": "f10",
+  "[23~": "f11",
+  "[24~": "f12",
+  "[A": "up",
+  "[B": "down",
+  "[C": "right",
+  "[D": "left",
+  "[E": "clear",
+  "[F": "end",
+  "[H": "home",
+  OA: "up",
+  OB: "down",
+  OC: "right",
+  OD: "left",
+  OE: "clear",
+  OF: "end",
+  OH: "home",
+  "[1~": "home",
+  "[2~": "insert",
+  "[3~": "delete",
+  "[4~": "end",
+  "[5~": "pageup",
+  "[6~": "pagedown",
+  "[[5~": "pageup",
+  "[[6~": "pagedown",
+  "[7~": "home",
+  "[8~": "end",
+  "[a": "up",
+  "[b": "down",
+  "[c": "right",
+  "[d": "left",
+  "[e": "clear",
+  f: "right",
+  b: "left",
+  p: "up",
+  n: "down",
+  "[2$": "insert",
+  "[3$": "delete",
+  "[5$": "pageup",
+  "[6$": "pagedown",
+  "[7$": "home",
+  "[8$": "end",
+  Oa: "up",
+  Ob: "down",
+  Oc: "right",
+  Od: "left",
+  Oe: "clear",
+  "[2^": "insert",
+  "[3^": "delete",
+  "[5^": "pageup",
+  "[6^": "pagedown",
+  "[7^": "home",
+  "[8^": "end",
+  "[Z": "tab"
+};
+var nonAlphanumericKeys = [...Object.values(keyName), "backspace"];
+var isShiftKey = (code) => {
+  return ["[a", "[b", "[c", "[d", "[e", "[2$", "[3$", "[5$", "[6$", "[7$", "[8$", "[Z"].includes(code);
+};
+var isCtrlKey = (code) => {
+  return ["Oa", "Ob", "Oc", "Od", "Oe", "[2^", "[3^", "[5^", "[6^", "[7^", "[8^"].includes(code);
+};
+var modifyOtherKeysRe = /^\x1b\[27;(\d+);(\d+)~$/;
+var parseKeypress = (s = "", options = {}) => {
+  let parts;
+  if (Buffer2.isBuffer(s)) {
+    if (s[0] > 127 && s[1] === undefined) {
+      s[0] -= 128;
+      s = "\x1B" + String(s);
+    } else {
+      s = String(s);
+    }
+  } else if (s !== undefined && typeof s !== "string") {
+    s = String(s);
+  } else if (!s) {
+    s = "";
+  }
+  if (/^\x1b\[<\d+;\d+;\d+[Mm]$/.test(s)) {
+    return null;
+  }
+  if (s.startsWith("\x1B[M") && s.length >= 6) {
+    return null;
+  }
+  if (/^\x1b\[\d+;\d+;\d+t$/.test(s)) {
+    return null;
+  }
+  if (/^\x1b\[\d+;\d+R$/.test(s)) {
+    return null;
+  }
+  if (/^\x1b\[\?[\d;]+c$/.test(s)) {
+    return null;
+  }
+  if (/^\x1b\[\?[\d;]+\$y$/.test(s)) {
+    return null;
+  }
+  if (s === "\x1B[I" || s === "\x1B[O") {
+    return null;
+  }
+  if (/^\x1b\][\d;].*(\x1b\\|\x07)$/.test(s)) {
+    return null;
+  }
+  if (s === "\x1B[200~" || s === "\x1B[201~") {
+    return null;
+  }
+  const key = {
+    name: "",
+    ctrl: false,
+    meta: false,
+    shift: false,
+    option: false,
+    number: false,
+    sequence: s,
+    raw: s,
+    eventType: "press",
+    source: "raw"
+  };
+  key.sequence = key.sequence || s || key.name;
+  if (options.useKittyKeyboard) {
+    const kittyResult = parseKittyKeyboard(s);
+    if (kittyResult) {
+      return kittyResult;
+    }
+  }
+  const modifyOtherKeysMatch = modifyOtherKeysRe.exec(s);
+  if (modifyOtherKeysMatch) {
+    const modifier = parseInt(modifyOtherKeysMatch[1], 10) - 1;
+    const charCode = parseInt(modifyOtherKeysMatch[2], 10);
+    key.ctrl = !!(modifier & 4);
+    key.meta = !!(modifier & 2);
+    key.shift = !!(modifier & 1);
+    key.option = !!(modifier & 2);
+    key.super = !!(modifier & 8);
+    key.hyper = !!(modifier & 16);
+    if (charCode === 13) {
+      key.name = "return";
+    } else if (charCode === 27) {
+      key.name = "escape";
+    } else if (charCode === 9) {
+      key.name = "tab";
+    } else if (charCode === 32) {
+      key.name = "space";
+    } else if (charCode === 127 || charCode === 8) {
+      key.name = "backspace";
+    } else {
+      key.name = String.fromCharCode(charCode);
+    }
+    return key;
+  }
+  if (s === "\r" || s === "\x1B\r") {
+    key.name = "return";
+    key.meta = s.length === 2;
+  } else if (s === `
+` || s === `\x1B
+`) {
+    key.name = "linefeed";
+    key.meta = s.length === 2;
+  } else if (s === "\t") {
+    key.name = "tab";
+  } else if (s === "\b" || s === "\x1B\b" || s === "\x7F" || s === "\x1B\x7F") {
+    key.name = "backspace";
+    key.meta = s.charAt(0) === "\x1B";
+  } else if (s === "\x1B" || s === "\x1B\x1B") {
+    key.name = "escape";
+    key.meta = s.length === 2;
+  } else if (s === " " || s === "\x1B ") {
+    key.name = "space";
+    key.meta = s.length === 2;
+  } else if (s === "\x00") {
+    key.name = "space";
+    key.ctrl = true;
+  } else if (s.length === 1 && s <= "\x1A") {
+    key.name = String.fromCharCode(s.charCodeAt(0) + 97 - 1);
+    key.ctrl = true;
+  } else if (s.length === 1 && s >= "0" && s <= "9") {
+    key.name = s;
+    key.number = true;
+  } else if (s.length === 1 && s >= "a" && s <= "z") {
+    key.name = s;
+  } else if (s.length === 1 && s >= "A" && s <= "Z") {
+    key.name = s.toLowerCase();
+    key.shift = true;
+  } else if (s.length === 1) {
+    key.name = s;
+  } else if (parts = metaKeyCodeRe.exec(s)) {
+    key.meta = true;
+    const char = parts[1];
+    const isUpperCase = /^[A-Z]$/.test(char);
+    if (char === "F") {
+      key.name = "right";
+    } else if (char === "B") {
+      key.name = "left";
+    } else if (isUpperCase) {
+      key.shift = true;
+      key.name = char;
+    } else {
+      key.name = char;
+    }
+  } else if (s.length === 2 && s[0] === "\x1B" && s[1] <= "\x1A") {
+    key.meta = true;
+    key.ctrl = true;
+    key.name = String.fromCharCode(s.charCodeAt(1) + 97 - 1);
+  } else if (parts = fnKeyRe.exec(s)) {
+    const segs = [...s];
+    if (segs[0] === "\x1B" && segs[1] === "\x1B") {
+      key.option = true;
+      key.meta = true;
+    }
+    const code = [parts[1], parts[2], parts[4], parts[6]].filter(Boolean).join("");
+    const modifier = parseInt(parts[3] || parts[5] || "1", 10) - 1;
+    key.ctrl = !!(modifier & 4);
+    key.meta = !!(modifier & 2);
+    key.shift = !!(modifier & 1);
+    key.option = !!(modifier & 2);
+    key.super = !!(modifier & 8);
+    key.hyper = !!(modifier & 16);
+    key.code = code;
+    const keyNameResult = keyName[code];
+    if (keyNameResult) {
+      key.name = keyNameResult;
+      key.shift = isShiftKey(code) || key.shift;
+      key.ctrl = isCtrlKey(code) || key.ctrl;
+    } else {
+      key.name = "";
+      key.code = undefined;
+    }
+  } else if (s === "\x1B[3~") {
+    key.name = "delete";
+    key.meta = false;
+    key.code = "[3~";
+  }
+  return key;
+};
+
+class KeyEvent {
+  name;
+  ctrl;
+  meta;
+  shift;
+  option;
+  sequence;
+  number;
+  raw;
+  eventType;
+  source;
+  code;
+  super;
+  hyper;
+  capsLock;
+  numLock;
+  baseCode;
+  repeated;
+  _defaultPrevented = false;
+  constructor(key) {
+    this.name = key.name;
+    this.ctrl = key.ctrl;
+    this.meta = key.meta;
+    this.shift = key.shift;
+    this.option = key.option;
+    this.sequence = key.sequence;
+    this.number = key.number;
+    this.raw = key.raw;
+    this.eventType = key.eventType;
+    this.source = key.source;
+    this.code = key.code;
+    this.super = key.super;
+    this.hyper = key.hyper;
+    this.capsLock = key.capsLock;
+    this.numLock = key.numLock;
+    this.baseCode = key.baseCode;
+    this.repeated = key.repeated;
+  }
+  get defaultPrevented() {
+    return this._defaultPrevented;
+  }
+  preventDefault() {
+    this._defaultPrevented = true;
+  }
+}
+
+class PasteEvent {
+  text;
+  _defaultPrevented = false;
+  constructor(text) {
+    this.text = text;
+  }
+  get defaultPrevented() {
+    return this._defaultPrevented;
+  }
+  preventDefault() {
+    this._defaultPrevented = true;
+  }
+}
+
+class KeyHandler extends EventEmitter {
+  useKittyKeyboard;
+  constructor(useKittyKeyboard = false) {
+    super();
+    this.useKittyKeyboard = useKittyKeyboard;
+  }
+  processInput(data) {
+    const parsedKey = parseKeypress(data, { useKittyKeyboard: this.useKittyKeyboard });
+    if (!parsedKey) {
+      return false;
+    }
+    try {
+      switch (parsedKey.eventType) {
+        case "press":
+          this.emit("keypress", new KeyEvent(parsedKey));
+          break;
+        case "release":
+          this.emit("keyrelease", new KeyEvent(parsedKey));
+          break;
+        default:
+          this.emit("keypress", new KeyEvent(parsedKey));
+          break;
+      }
+    } catch (error) {
+      console.error(`[KeyHandler] Error processing input:`, error);
+      return true;
+    }
+    return true;
+  }
+  processPaste(data) {
+    try {
+      const cleanedData = Bun.stripANSI(data);
+      this.emit("paste", new PasteEvent(cleanedData));
+    } catch (error) {
+      console.error(`[KeyHandler] Error processing paste:`, error);
+    }
+  }
+}
+
+class InternalKeyHandler extends KeyHandler {
+  renderableHandlers = new Map;
+  constructor(useKittyKeyboard = false) {
+    super(useKittyKeyboard);
+  }
+  emit(event, ...args) {
+    return this.emitWithPriority(event, ...args);
+  }
+  emitWithPriority(event, ...args) {
+    let hasGlobalListeners = false;
+    try {
+      hasGlobalListeners = super.emit(event, ...args);
+    } catch (error) {
+      console.error(`[KeyHandler] Error in global ${event} handler:`, error);
+    }
+    const renderableSet = this.renderableHandlers.get(event);
+    const renderableHandlers = renderableSet && renderableSet.size > 0 ? [...renderableSet] : [];
+    let hasRenderableListeners = false;
+    if (renderableSet && renderableSet.size > 0) {
+      hasRenderableListeners = true;
+      if (event === "keypress" || event === "keyrelease" || event === "paste") {
+        const keyEvent = args[0];
+        if (keyEvent.defaultPrevented)
+          return hasGlobalListeners || hasRenderableListeners;
+      }
+      for (const handler of renderableHandlers) {
+        try {
+          handler(...args);
+        } catch (error) {
+          console.error(`[KeyHandler] Error in renderable ${event} handler:`, error);
+        }
+      }
+    }
+    return hasGlobalListeners || hasRenderableListeners;
+  }
+  onInternal(event, handler) {
+    if (!this.renderableHandlers.has(event)) {
+      this.renderableHandlers.set(event, new Set);
+    }
+    this.renderableHandlers.get(event).add(handler);
+  }
+  offInternal(event, handler) {
+    const handlers = this.renderableHandlers.get(event);
+    if (handlers) {
+      handlers.delete(handler);
+    }
+  }
+}
+
+class RGBA {
+  buffer;
+  constructor(buffer) {
+    this.buffer = buffer;
+  }
+  static fromArray(array) {
+    return new RGBA(array);
+  }
+  static fromValues(r, g, b, a = 1) {
+    return new RGBA(new Float32Array([r, g, b, a]));
+  }
+  static fromInts(r, g, b, a = 255) {
+    return new RGBA(new Float32Array([r / 255, g / 255, b / 255, a / 255]));
+  }
+  static fromHex(hex) {
+    return hexToRgb(hex);
+  }
+  toInts() {
+    return [Math.round(this.r * 255), Math.round(this.g * 255), Math.round(this.b * 255), Math.round(this.a * 255)];
+  }
+  get r() {
+    return this.buffer[0];
+  }
+  set r(value) {
+    this.buffer[0] = value;
+  }
+  get g() {
+    return this.buffer[1];
+  }
+  set g(value) {
+    this.buffer[1] = value;
+  }
+  get b() {
+    return this.buffer[2];
+  }
+  set b(value) {
+    this.buffer[2] = value;
+  }
+  get a() {
+    return this.buffer[3];
+  }
+  set a(value) {
+    this.buffer[3] = value;
+  }
+  map(fn) {
+    return [fn(this.r), fn(this.g), fn(this.b), fn(this.a)];
+  }
+  toString() {
+    return `rgba(${this.r.toFixed(2)}, ${this.g.toFixed(2)}, ${this.b.toFixed(2)}, ${this.a.toFixed(2)})`;
+  }
+}
+function hexToRgb(hex) {
+  hex = hex.replace(/^#/, "");
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  } else if (hex.length === 4) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+  }
+  if (!/^[0-9A-Fa-f]{6}$/.test(hex) && !/^[0-9A-Fa-f]{8}$/.test(hex)) {
+    console.warn(`Invalid hex color: ${hex}, defaulting to magenta`);
+    return RGBA.fromValues(1, 0, 1, 1);
+  }
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+  const a = hex.length === 8 ? parseInt(hex.substring(6, 8), 16) / 255 : 1;
+  return RGBA.fromValues(r, g, b, a);
+}
+var CSS_COLOR_NAMES = {
+  black: "#000000",
+  white: "#FFFFFF",
+  red: "#FF0000",
+  green: "#008000",
+  blue: "#0000FF",
+  yellow: "#FFFF00",
+  cyan: "#00FFFF",
+  magenta: "#FF00FF",
+  silver: "#C0C0C0",
+  gray: "#808080",
+  grey: "#808080",
+  maroon: "#800000",
+  olive: "#808000",
+  lime: "#00FF00",
+  aqua: "#00FFFF",
+  teal: "#008080",
+  navy: "#000080",
+  fuchsia: "#FF00FF",
+  purple: "#800080",
+  orange: "#FFA500",
+  brightblack: "#666666",
+  brightred: "#FF6666",
+  brightgreen: "#66FF66",
+  brightblue: "#6666FF",
+  brightyellow: "#FFFF66",
+  brightcyan: "#66FFFF",
+  brightmagenta: "#FF66FF",
+  brightwhite: "#FFFFFF"
+};
+function parseColor(color) {
+  if (typeof color === "string") {
+    const lowerColor = color.toLowerCase();
+    if (lowerColor === "transparent") {
+      return RGBA.fromValues(0, 0, 0, 0);
+    }
+    if (CSS_COLOR_NAMES[lowerColor]) {
+      return hexToRgb(CSS_COLOR_NAMES[lowerColor]);
+    }
+    return hexToRgb(color);
+  }
+  return color;
+}
+var block_default = {
+  name: "block",
+  version: "0.2.0",
+  homepage: "https://github.com/dominikwilkowski/cfonts",
+  colors: 2,
+  lines: 6,
+  buffer: ["", "", "", "", "", ""],
+  letterspace: [" ", " ", " ", " ", " ", " "],
+  letterspace_size: 1,
+  chars: {
+    A: [
+      " <c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2> ",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u255D  \u255A\u2550\u255D</c2>"
+    ],
+    B: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    C: [
+      " <c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u2550\u255D</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551     </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551     </c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u2550\u255D</c2>"
+    ],
+    D: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    E: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u2550\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557  </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u255D  </c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D</c2>"
+    ],
+    F: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u2550\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557  </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u255D  </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551     </c2>",
+      "<c2>\u255A\u2550\u255D     </c2>"
+    ],
+    G: [
+      " <c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u2550\u255D </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    H: [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2><c1>  \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u255D  \u255A\u2550\u255D</c2>"
+    ],
+    I: [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u255D</c2>"
+    ],
+    J: [
+      "<c1>     \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>     \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>     \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    K: [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2><c1>  \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1> \u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u255D  \u255A\u2550\u255D</c2>"
+    ],
+    L: [
+      "<c1>\u2588\u2588</c1><c2>\u2557     </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551     </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551     </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551     </c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D</c2>"
+    ],
+    M: [
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2557</c2><c1>   \u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2><c1> \u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554</c2><c1>\u2588\u2588\u2588\u2588</c1><c2>\u2554</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551\u255A</c2><c1>\u2588\u2588</c1><c2>\u2554\u255D</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551 \u255A\u2550\u255D</c2><c1> \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u255D     \u255A\u2550\u255D</c2>"
+    ],
+    N: [
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2557</c2><c1>   \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2><c1>  \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554</c2><c1>\u2588\u2588</c1><c2>\u2557</c2><c1> \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551\u255A</c2><c1>\u2588\u2588</c1><c2>\u2557</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551 \u255A</c2><c1>\u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u255D  \u255A\u2550\u2550\u2550\u255D</c2>"
+    ],
+    O: [
+      " <c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    P: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u255D </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551     </c2>",
+      "<c2>\u255A\u2550\u255D     </c2>"
+    ],
+    Q: [
+      " <c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>\u2584\u2584 \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550</c2><c1>\u2580\u2580</c1><c2>\u2550\u255D </c2>"
+    ],
+    R: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u255D  \u255A\u2550\u255D</c2>"
+    ],
+    S: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u2550\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D</c2>"
+    ],
+    T: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u255D</c2>",
+      "<c1>   \u2588\u2588</c1><c2>\u2551   </c2>",
+      "<c1>   \u2588\u2588</c1><c2>\u2551   </c2>",
+      "<c1>   \u2588\u2588</c1><c2>\u2551   </c2>",
+      "<c2>   \u255A\u2550\u255D   </c2>"
+    ],
+    U: [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2><c1>   \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    V: [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2><c1>   \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>   \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588</c1><c2>\u2557</c2><c1> \u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A</c2><c1>\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D </c2>",
+      "<c2>  \u255A\u2550\u2550\u2550\u255D  </c2>"
+    ],
+    W: [
+      "<c1>\u2588\u2588</c1><c2>\u2557    </c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551    </c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1> \u2588</c1><c2>\u2557</c2><c1> \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>\u2588\u2588\u2588</c1><c2>\u2557</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588</c1><c2>\u2554</c2><c1>\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u255D\u255A\u2550\u2550\u255D </c2>"
+    ],
+    X: [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2><c1>  \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588</c1><c2>\u2557</c2><c1>\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A</c2><c1>\u2588\u2588\u2588</c1><c2>\u2554\u255D </c2>",
+      " <c1>\u2588\u2588</c1><c2>\u2554</c2><c1>\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u255D</c2><c1> \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u255D  \u255A\u2550\u255D</c2>"
+    ],
+    Y: [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2><c1>   \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588</c1><c2>\u2557</c2><c1> \u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A</c2><c1>\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D </c2>",
+      "<c2>  \u255A</c2><c1>\u2588\u2588</c1><c2>\u2554\u255D  </c2>",
+      "<c1>   \u2588\u2588</c1><c2>\u2551   </c2>",
+      "<c2>   \u255A\u2550\u255D   </c2>"
+    ],
+    Z: [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550</c2><c1>\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>  \u2588\u2588\u2588</c1><c2>\u2554\u255D </c2>",
+      " <c1>\u2588\u2588\u2588</c1><c2>\u2554\u255D  </c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D</c2>"
+    ],
+    "0": [
+      " <c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550</c2><c1>\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>\u2588\u2588</c1><c2>\u2554</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    "1": [
+      " <c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      " <c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      " <c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2> \u255A\u2550\u255D</c2>"
+    ],
+    "2": [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      " <c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u255D </c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D</c2>"
+    ],
+    "3": [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      " <c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    "4": [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2><c1>  \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>  \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>     \u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>     \u255A\u2550\u255D</c2>"
+    ],
+    "5": [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u2550\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D</c2>"
+    ],
+    "6": [
+      " <c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u2550\u255D </c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    "7": [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>    \u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>   \u2588\u2588</c1><c2>\u2554\u255D </c2>",
+      "<c1>   \u2588\u2588</c1><c2>\u2551  </c2>",
+      "<c2>   \u255A\u2550\u255D  </c2>"
+    ],
+    "8": [
+      " <c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    "9": [
+      " <c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2> \u255A\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      " <c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u2550\u2550\u2550\u255D </c2>"
+    ],
+    "!": [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550\u255D</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u255D</c2>"
+    ],
+    "?": [
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>  \u2584\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>  \u2580\u2580</c1><c2>\u2550\u2550\u255D </c2>",
+      "<c1>  \u2588\u2588</c1><c2>\u2557   </c2>",
+      "<c2>  \u255A\u2550\u255D   </c2>"
+    ],
+    ".": ["   ", "   ", "   ", "   ", "<c1>\u2588\u2588</c1><c2>\u2557</c2>", "<c2>\u255A\u2550\u255D</c2>"],
+    "+": [
+      "       ",
+      "<c1>  \u2588\u2588</c1><c2>\u2557  </c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2> \u255A</c2><c1>\u2588\u2588</c1><c2>\u2554\u2550\u255D</c2>",
+      "<c2>  \u255A\u2550\u255D  </c2>",
+      "       "
+    ],
+    "-": ["      ", "      ", "<c1>\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>", "<c2>\u255A\u2550\u2550\u2550\u2550\u255D</c2>", "      ", "      "],
+    _: ["        ", "        ", "        ", "        ", "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>", "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D</c2>"],
+    "=": [
+      "       ",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u255D</c2>",
+      "       "
+    ],
+    "@": [
+      " <c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>\u2588\u2588</c1><c2>\u2557</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551</c2><c1>\u2588\u2588</c1><c2>\u2551</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A</c2><c1>\u2588</c1><c2>\u2551</c2><c1>\u2588\u2588\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u255D\u255A\u2550\u2550\u2550\u255D </c2>"
+    ],
+    "#": [
+      " <c1>\u2588\u2588</c1><c2>\u2557</c2><c1> \u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588</c1><c2>\u2554\u2550</c2><c1>\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588</c1><c2>\u2554\u2550</c2><c1>\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2> \u255A\u2550\u255D \u255A\u2550\u255D </c2>"
+    ],
+    $: [
+      "<c1>\u2584\u2584\u2588\u2588\u2588\u2584\u2584</c1><c2>\xB7</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550\u2550\u2550\u2550\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550</c2><c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c2>\u255A\u2550</c2><c1>\u2580\u2580\u2580</c1><c2>\u2550\u2550\u255D</c2>"
+    ],
+    "%": [
+      "<c1>\u2588\u2588</c1><c2>\u2557</c2><c1> \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u255D</c2><c1>\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>  \u2588\u2588</c1><c2>\u2554\u255D </c2>",
+      " <c1>\u2588\u2588</c1><c2>\u2554\u255D  </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u255D</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2>\u255A\u2550\u255D \u255A\u2550\u255D</c2>"
+    ],
+    "&": [
+      "<c1>   \u2588\u2588</c1><c2>\u2557   </c2>",
+      "<c1>   \u2588\u2588</c1><c2>\u2551   </c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u2550</c2><c1>\u2588\u2588</c1><c2>\u2554\u2550\u255D</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2551  </c2>",
+      "<c2>\u255A\u2550\u2550\u2550\u2550\u2550\u255D  </c2>"
+    ],
+    "(": [
+      " <c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2551 ",
+      "<c1>\u2588\u2588</c1><c2>\u2551 ",
+      "<c2>\u255A</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      "<c2> \u255A\u2550\u255D</c2>"
+    ],
+    ")": [
+      "<c1>\u2588\u2588</c1><c2>\u2557 </c2>",
+      "<c2>\u255A</c2><c1>\u2588\u2588</c1><c2>\u2557</c2>",
+      " <c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      " <c1>\u2588\u2588</c1><c2>\u2551</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c2>\u255A\u2550\u255D </c2>"
+    ],
+    "/": [
+      "<c1>    \u2588\u2588</c1><c2>\u2557</c2>",
+      "<c1>   \u2588\u2588</c1><c2>\u2554\u255D</c2>",
+      "<c1>  \u2588\u2588</c1><c2>\u2554\u255D </c2>",
+      " <c1>\u2588\u2588</c1><c2>\u2554\u255D  </c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2554\u255D   </c2>",
+      "<c2>\u255A\u2550\u255D    </c2>"
+    ],
+    ":": ["   ", "<c1>\u2588\u2588</c1><c2>\u2557</c2>", "<c2>\u255A\u2550\u255D</c2>", "<c1>\u2588\u2588</c1><c2>\u2557</c2>", "<c2>\u255A\u2550\u255D</c2>", "   "],
+    ";": ["   ", "   ", "<c1>\u2588\u2588</c1><c2>\u2557</c2>", "<c2>\u255A\u2550\u255D</c2>", "<c1>\u2584\u2588</c1><c2>\u2557</c2>", "<c1>\u2580</c1><c2>\u2550\u255D</c2>"],
+    ",": ["   ", "   ", "   ", "   ", "<c1>\u2584\u2588</c1><c2>\u2557</c2>", "<c1>\u2580</c1><c2>\u2550\u255D</c2>"],
+    "'": ["<c1>\u2588</c1><c2>\u2557</c2> ", "<c2>\u255A\u255D</c2> ", "   ", "   ", "   ", "   "],
+    '"': ["<c1>\u2588</c1><c2>\u2557</c2><c1>\u2588</c1><c2>\u2557</c2> ", "<c2>\u255A\u255D\u255A\u255D</c2> ", "     ", "     ", "     ", "     "],
+    " ": ["   ", "   ", "   ", "   ", "   ", "   "]
+  }
+};
+var shade_default = {
+  name: "shade",
+  version: "0.2.0",
+  homepage: "https://github.com/dominikwilkowski/cfonts",
+  colors: 2,
+  lines: 8,
+  buffer: ["", "", "", "", "", "", "", ""],
+  letterspace: [
+    "<c2>\u2591</c2>",
+    "<c2>\u2591</c2>",
+    "<c2>\u2591</c2>",
+    "<c2>\u2591</c2>",
+    "<c2>\u2591</c2>",
+    "<c2>\u2591</c2>",
+    "<c2>\u2591</c2>",
+    "<c2>\u2591</c2>"
+  ],
+  letterspace_size: 1,
+  chars: {
+    A: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c2>\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    B: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "   <c2>\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    C: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588</c1>   ",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    D: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "   <c2>\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    E: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588</c1>   ",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588</c1>  <c2>\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    F: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588</c1>   ",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588</c1>  <c2>\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      " <c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    G: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588\u2588</c1>",
+      "<c1>\u2588</c1>   ",
+      "<c1>\u2588</c1><c2>\u2591</c2><c1>\u2588\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591</c2> <c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "   <c2>\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    H: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c2>\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    I: [
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1>",
+      " <c1>\u2588</c1> ",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1>",
+      "   ",
+      "<c2>\u2591\u2591\u2591</c2>"
+    ],
+    J: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "  <c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "   <c2>\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    K: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c2>\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    L: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    M: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c2>\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    N: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588\u2588</c1><c2>\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588 \u2588\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591</c2> <c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c2>\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    O: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c1>\u2588\u2588</c1> ",
+      "<c2>\u2591  \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    P: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "<c1>\u2588</c1>  <c2>\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      " <c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    Q: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c1>\u2588\u2588\u2588</c1>",
+      "<c2>\u2591</c2>   ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    R: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c2>\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    S: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588\u2588</c1>",
+      "<c1>\u2588</c1>   ",
+      " <c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2>  <c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "   <c2>\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    T: [
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1>",
+      " <c1>\u2588</c1> ",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591 \u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>"
+    ],
+    U: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c1>\u2588\u2588</c1> ",
+      "<c2>\u2591  \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    V: [
+      "<c2>\u2591\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c1>\u2588</c1><c2>\u2591</c2><c1>\u2588</c1> ",
+      "<c2>\u2591</c2> <c1>\u2588</c1> <c2>\u2591</c2>",
+      "<c2>\u2591\u2591 \u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591\u2591</c2>"
+    ],
+    W: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588  \u2588</c1>",
+      " <c2>\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    X: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c1>\u2588\u2588</c1> ",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588</c1>",
+      " <c2>\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    Y: [
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1>",
+      " <c1>\u2588</c1> ",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591 \u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>"
+    ],
+    Z: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "  <c1>\u2588</c1> ",
+      "<c2>\u2591</c2><c1>\u2588</c1> <c2>\u2591</c2>",
+      "<c1>\u2588</c1> <c2>\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "0": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591</c2><c1>\u258C\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591</c2> <c1>\u2588</c1>",
+      " <c1>\u2588\u2588</c1> ",
+      "<c2>\u2591  \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "1": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588</c1><c2>\u2591\u2591</c2>",
+      " <c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "   <c2>\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "2": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2590\u2588\u2588</c1><c2>\u2591</c2>",
+      "   <c1>\u2588</c1>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1> ",
+      "<c2>\u2591</c2><c1>\u2588</c1> <c2>\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "3": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "   <c1>\u2588</c1>",
+      "<c2>\u2591\u2591</c2><c1>\u2588\u2588</c1>",
+      "<c2>\u2591\u2591</c2> <c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "4": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "   <c1>\u2588</c1>",
+      "<c2>\u2591\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c2>\u2591\u2591\u2591</c2> ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "5": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588</c1>   ",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "   <c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "   <c2>\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "6": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588\u2588</c1>",
+      "<c1>\u2588</c1>   ",
+      "<c1>\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      " <c1>\u2588\u2588</c1> ",
+      "<c2>\u2591  \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "7": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "   <c1>\u2588</c1>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      " <c1>\u2588</c1>  ",
+      "<c1>\u2588</c1> <c2>\u2591\u2591</c2>",
+      " <c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "8": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      " <c1>\u2588\u2588</c1> ",
+      "<c1>\u2588  \u2588</c1>",
+      " <c1>\u2588\u2588</c1> ",
+      "<c2>\u2591  \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "9": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      " <c1>\u2588\u2588\u2588</c1>",
+      "<c2>\u2591</c2>  <c1>\u2588</c1>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1> ",
+      "<c2>\u2591\u2591 \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "!": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591  \u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591  \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "?": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2590\u2588\u2588</c1><c2>\u2591</c2>",
+      "   <c1>\u2588</c1>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1> ",
+      "<c2>\u2591\u2591 \u2591</c2>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591\u2591 \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    ".": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591\u2591 \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "+": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588\u2588</c1>",
+      "<c2>\u2591</c2> <c1>\u2588</c1> ",
+      "<c2>\u2591\u2591 \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "-": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    _: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    "
+    ],
+    "=": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "@": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c1>\u2588  \u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591</c2><c1>\u258C\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591</c2><c1>\u2588</c1> ",
+      " <c1>\u2588\u2588\u2588</c1>",
+      "    ",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "#": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      " <c1>\u258C\u2590</c1> ",
+      "<c1>\u2588\u2588\u2588\u2588</c1>",
+      " <c1>\u258C\u2590</c1> ",
+      "<c2>\u2591  \u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    $: [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591</c2><c1>\u258C</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588\u2588\u2588</c1>",
+      "<c1>\u2588 \u2588</c1> ",
+      " <c1>\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591\u2591</c2><c1>\u258C\u2588</c1>",
+      "<c1>\u2588\u2588\u2588</c1> ",
+      "   <c2>\u2591</c2>"
+    ],
+    "%": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1><c2>\u2591</c2><c1>\u2588</c1> ",
+      " <c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1> <c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2><c1>\u2588</c1>",
+      "<c1>\u2588</c1> <c2>\u2591</c2> ",
+      " <c2>\u2591\u2591\u2591</c2>"
+    ],
+    "&": [
+      "<c2>\u2591\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      "<c1>\u2588\u2588\u2588\u2588\u2588</c1>",
+      "<c1>\u2588  \u2588</c1> ",
+      "<c1>\u2588\u2588\u2588\u2588</c1><c2>\u2591</c2>",
+      "<c2>    </c2> ",
+      "<c2>\u2591\u2591\u2591\u2591\u2591</c2>"
+    ],
+    "(": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1> <c2>\u2591</c2>",
+      "<c1>\u2588</c1> <c2>\u2591\u2591</c2>",
+      "<c1>\u2588</c1><c2>\u2591\u2591\u2591</c2>",
+      " <c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591</c2> <c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591\u2591 \u2591</c2>"
+    ],
+    ")": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591</c2> <c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591\u2591</c2> <c1>\u2588</c1>",
+      "<c2>\u2591\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1> ",
+      "<c2>\u2591</c2><c1>\u2588</c1> <c2>\u2591</c2>",
+      "<c2>\u2591 \u2591\u2591</c2>"
+    ],
+    "/": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2><c1>\u2588</c1>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1> ",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1> <c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c1>\u2588</c1> <c2>\u2591\u2591</c2>",
+      " <c2>\u2591\u2591\u2591</c2>"
+    ],
+    ":": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591 \u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591 \u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    ";": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591 \u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>"
+    ],
+    ",": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591</c2><c1>\u2588</c1><c2>\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1> <c2>\u2591</c2>"
+    ],
+    "'": [
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591 \u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591</c2>"
+    ],
+    '"': [
+      "<c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2><c1>\u2588</c1><c2>\u2591\u2591</c2>",
+      "<c2>\u2591 \u2591 \u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2>"
+    ],
+    " ": [
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>",
+      "<c2>\u2591\u2591\u2591</c2>"
+    ]
+  }
+};
+var slick_default = {
+  name: "slick",
+  version: "0.1.0",
+  homepage: "https://github.com/dominikwilkowski/cfonts",
+  colors: 2,
+  lines: 6,
+  buffer: ["", "", "", "", "", ""],
+  letterspace: ["<c2>\u2571</c2>", "<c2>\u2571</c2>", "<c2>\u2571</c2>", "<c2>\u2571</c2>", "<c2>\u2571</c2>", "<c2>\u2571</c2>"],
+  letterspace_size: 1,
+  chars: {
+    A: [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2570\u256F</c1><c2>\u2571</c2><c1>\u2570\u256F</c1>"
+    ],
+    B: [
+      "<c1>\u256D\u2501\u2501\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u256D\u256E\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2570\u256F\u2570\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"
+    ],
+    C: [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2570\u256F</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"
+    ],
+    D: [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2570\u256E\u256D\u256E\u2503</c1>",
+      "<c2>\u2571</c2><c1>\u2503\u2503\u2503\u2503</c1>",
+      "<c2>\u2571</c2><c1>\u2503\u2503\u2503\u2503</c1>",
+      "<c1>\u256D\u256F\u2570\u256F\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"
+    ],
+    E: ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u2501\u256F</c1>", "<c1>\u2503\u2570\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u2501\u256F</c1>", "<c1>\u2503\u2570\u2501\u2501\u256E</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    F: [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u2501\u256F</c1>",
+      "<c1>\u2503\u2570\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u2501\u256F</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571\u2571\u2571</c2>",
+      "<c1>\u2570\u256F</c1><c2>\u2571\u2571\u2571</c2>"
+    ],
+    G: [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2570\u256F</c1>",
+      "<c1>\u2503\u2503\u256D\u2501\u256E</c1>",
+      "<c1>\u2503\u2570\u253B\u2501\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"
+    ],
+    H: [
+      "<c1>\u256D\u256E</c1><c2>\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2570\u256F</c1><c2>\u2571</c2><c1>\u2570\u256F</c1>"
+    ],
+    I: [
+      "<c1>\u256D\u2501\u2501\u256E</c1>",
+      "<c1>\u2570\u252B\u2523\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u256D\u252B\u2523\u256E</c1>",
+      "<c1>\u2570\u2501\u2501\u256F</c1>"
+    ],
+    J: [
+      "<c2>\u2571\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u256D\u256E\u2503\u2503</c1>",
+      "<c1>\u2503\u2570\u256F\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u256F</c1>"
+    ],
+    K: [
+      "<c1>\u256D\u256E\u256D\u2501\u256E</c1>",
+      "<c1>\u2503\u2503\u2503\u256D\u256F</c1>",
+      "<c1>\u2503\u2570\u256F\u256F</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u256D\u256E\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2503\u2503\u2570\u256E</c1>",
+      "<c1>\u2570\u256F\u2570\u2501\u256F</c1>"
+    ],
+    L: [
+      "<c1>\u256D\u256E</c1><c2>\u2571\u2571\u2571</c2>",
+      "<c1>\u2503\u2503</c1><c2>\u2571\u2571\u2571</c2>",
+      "<c1>\u2503\u2503</c1><c2>\u2571\u2571\u2571</c2>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"
+    ],
+    M: [
+      "<c1>\u256D\u2501\u256E\u256D\u2501\u256E</c1>",
+      "<c1>\u2503\u2503\u2570\u256F\u2503\u2503</c1>",
+      "<c1>\u2503\u256D\u256E\u256D\u256E\u2503</c1>",
+      "<c1>\u2503\u2503\u2503\u2503\u2503\u2503</c1>",
+      "<c1>\u2503\u2503\u2503\u2503\u2503\u2503</c1>",
+      "<c1>\u2570\u256F\u2570\u256F\u2570\u256F</c1>"
+    ],
+    N: [
+      "<c1>\u256D\u2501\u256E</c1><c2>\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2503\u2503\u2570\u256E\u2503\u2503</c1>",
+      "<c1>\u2503\u256D\u256E\u2570\u256F\u2503</c1>",
+      "<c1>\u2503\u2503\u2570\u256E\u2503\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503\u2503</c1>",
+      "<c1>\u2570\u256F</c1><c2>\u2571</c2><c1>\u2570\u2501\u256F</c1>"
+    ],
+    O: [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"
+    ],
+    P: [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2503\u256D\u2501\u2501\u256F</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571\u2571\u2571</c2>",
+      "<c1>\u2570\u256F</c1><c2>\u2571\u2571\u2571</c2>"
+    ],
+    Q: [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503\u256E</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u2501\u256F</c1>"
+    ],
+    R: ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2503\u2570\u2501\u256F\u2503</c1>", "<c1>\u2503\u256D\u256E\u256D\u256F</c1>", "<c1>\u2503\u2503\u2503\u2570\u256E</c1>", "<c1>\u2570\u256F\u2570\u2501\u256F</c1>"],
+    S: ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2503\u2570\u2501\u2501\u256E</c1>", "<c1>\u2570\u2501\u2501\u256E\u2503</c1>", "<c1>\u2503\u2570\u2501\u256F\u2503</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    T: [
+      "<c1>\u256D\u2501\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u256E\u256D\u256E\u2503</c1>",
+      "<c1>\u2570\u256F\u2503\u2503\u2570\u256F</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571\u2571</c2>",
+      "<c2>\u2571\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571\u2571</c2>",
+      "<c2>\u2571\u2571</c2><c1>\u2570\u256F</c1><c2>\u2571\u2571</c2>"
+    ],
+    U: [
+      "<c1>\u256D\u256E</c1><c2>\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"
+    ],
+    V: [
+      "<c1>\u256D\u256E</c1><c2>\u2571\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2503\u2570\u256E\u256D\u256F\u2503</c1>",
+      "<c1>\u2570\u256E\u2503\u2503\u256D\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u2503\u2570\u256F\u2503</c1><c2>\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u2570\u256E\u256D\u256F</c1><c2>\u2571</c2>",
+      "<c2>\u2571\u2571</c2><c1>\u2570\u256F</c1><c2>\u2571\u2571</c2>"
+    ],
+    W: [
+      "<c1>\u256D\u256E\u256D\u256E\u256D\u256E</c1>",
+      "<c1>\u2503\u2503\u2503\u2503\u2503\u2503</c1>",
+      "<c1>\u2503\u2503\u2503\u2503\u2503\u2503</c1>",
+      "<c1>\u2503\u2570\u256F\u2570\u256F\u2503</c1>",
+      "<c1>\u2570\u256E\u256D\u256E\u256D\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u2570\u256F\u2570\u256F</c1><c2>\u2571</c2>"
+    ],
+    X: [
+      "<c1>\u256D\u2501\u256E\u256D\u2501\u256E</c1>",
+      "<c1>\u2570\u256E\u2570\u256F\u256D\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u2570\u256E\u256D\u256F</c1><c2>\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u256D\u256F\u2570\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u256D\u256F\u256D\u256E\u2570\u256E</c1>",
+      "<c1>\u2570\u2501\u256F\u2570\u2501\u256F</c1>"
+    ],
+    Y: [
+      "<c1>\u256D\u256E</c1><c2>\u2571\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2503\u2570\u256E\u256D\u256F\u2503</c1>",
+      "<c1>\u2570\u256E\u2570\u256F\u256D\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u2570\u256E\u256D\u256F</c1><c2>\u2571</c2>",
+      "<c2>\u2571\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571\u2571</c2>",
+      "<c2>\u2571\u2571</c2><c1>\u2570\u256F</c1><c2>\u2571\u2571</c2>"
+    ],
+    Z: [
+      "<c1>\u256D\u2501\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2570\u2501\u2501\u256E\u2501\u2503</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571</c2>",
+      "<c1>\u256D\u256F\u2501\u2570\u2501\u256E</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u2501\u256F</c1>"
+    ],
+    "0": ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2503\u2503\u2503\u2503\u2503</c1>", "<c1>\u2503\u2503\u2503\u2503\u2503</c1>", "<c1>\u2503\u2570\u2501\u256F\u2503</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    "1": [
+      "<c2>\u2571</c2><c1>\u256D\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u256D\u256F\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2570\u256E\u2503</c1><c2>\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u256D\u256F\u2570\u256E</c1>",
+      "<c1>\u2570\u2501\u2501\u256F</c1>"
+    ],
+    "2": ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2570\u256F\u256D\u256F\u2503</c1>", "<c1>\u256D\u2501\u256F\u256D\u256F</c1>", "<c1>\u2503\u2570\u2501\u2501\u256E</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    "3": ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2570\u256F\u256D\u256F\u2503</c1>", "<c1>\u256D\u256E\u2570\u256E\u2503</c1>", "<c1>\u2503\u2570\u2501\u256F\u2503</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    "4": [
+      "<c1>\u256D\u256E</c1><c2>\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2570\u2501\u256F\u2503</c1>",
+      "<c1>\u2570\u2501\u2501\u256E\u2503</c1>",
+      "<c2>\u2571\u2571\u2571</c2><c1>\u2503\u2503</c1>",
+      "<c2>\u2571\u2571\u2571</c2><c1>\u2570\u256F</c1>"
+    ],
+    "5": ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u2501\u256F</c1>", "<c1>\u2503\u2570\u2501\u2501\u256E</c1>", "<c1>\u2570\u2501\u2501\u256E\u2503</c1>", "<c1>\u256D\u2501\u2501\u256F\u2503</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    "6": ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u2501\u256F</c1>", "<c1>\u2503\u2570\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2503\u2570\u2501\u256F\u2503</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    "7": [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2570\u256F\u256D\u256F\u2503</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u2503\u256D\u256F</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u2503\u2503</c1><c2>\u2571</c2>",
+      "<c2>\u2571\u2571</c2><c1>\u2570\u256F</c1><c2>\u2571</c2>"
+    ],
+    "8": ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2503\u2570\u2501\u256F\u2503</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2503\u2570\u2501\u256F\u2503</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    "9": ["<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2503\u256D\u2501\u256E\u2503</c1>", "<c1>\u2503\u2570\u2501\u256F\u2503</c1>", "<c1>\u2570\u2501\u2501\u256E\u2503</c1>", "<c1>\u256D\u2501\u2501\u256F\u2503</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    "!": ["<c1>\u256D\u256E</c1>", "<c1>\u2503\u2503</c1>", "<c1>\u2503\u2503</c1>", "<c1>\u2570\u256F</c1>", "<c1>\u256D\u256E</c1>", "<c1>\u2570\u256F</c1>"],
+    "?": [
+      "<c1>\u256D\u2501\u2501\u2501\u256E</c1>",
+      "<c1>\u2503\u256D\u2501\u256E\u2503</c1>",
+      "<c1>\u2570\u256F\u256D\u256F\u2503</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u2503\u256D\u256F</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u256D\u256E</c1><c2>\u2571</c2>",
+      "<c2>\u2571\u2571</c2><c1>\u2570\u256F</c1><c2>\u2571</c2>"
+    ],
+    ".": ["<c2>\u2571\u2571</c2>", "<c2>\u2571\u2571</c2>", "<c2>\u2571\u2571</c2>", "<c2>\u2571\u2571</c2>", "<c1>\u256D\u256E</c1>", "<c1>\u2570\u256F</c1>"],
+    "+": [
+      "<c2>\u2571\u2571\u2571\u2571</c2>",
+      "<c2>\u2571\u2571\u2571\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u256D\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u256D\u256F\u2570\u256E</c1>",
+      "<c1>\u2570\u256E\u256D\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u2570\u256F</c1><c2>\u2571</c2>"
+    ],
+    "-": ["<c2>\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571</c2>", "<c1>\u256D\u2501\u2501\u256E</c1>", "<c1>\u2570\u2501\u2501\u256F</c1>", "<c2>\u2571\u2571\u2571\u2571</c2>"],
+    _: ["<c2>\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571</c2>", "<c1>\u256D\u2501\u2501\u256E</c1>", "<c1>\u2570\u2501\u2501\u256F</c1>"],
+    "=": ["<c2>\u2571\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571\u2571</c2>", "<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>", "<c1>\u256D\u2501\u2501\u2501\u256E</c1>", "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"],
+    "@": [
+      "<c1>\u256D\u2501\u2501\u2501\u2501\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u256D\u2501\u2501\u256E\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2503\u256D\u2501\u2503\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2503\u2570\u256F\u2503\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2570\u2501\u2501\u256F\u2501\u256E</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u2501\u2501\u256F</c1>"
+    ],
+    "#": [
+      "<c2>\u2571</c2><c1>\u256D\u2501\u2501\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u256D\u256F\u256D\u256E\u2570\u256E</c1>",
+      "<c1>\u2570\u256E\u2503\u2503\u256D\u256F</c1>",
+      "<c1>\u256D\u256F\u2503\u2503\u2570\u256E</c1>",
+      "<c1>\u2570\u256E\u2570\u256F\u256D\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u2570\u2501\u2501\u256F</c1><c2>\u2571</c2>"
+    ],
+    $: [
+      "<c2>\u2571\u2571</c2><c1>\u256D\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u256D\u2501\u256F\u2570\u256E</c1>",
+      "<c1>\u2503\u2570\u2501\u2501\u256E</c1>",
+      "<c1>\u2570\u2501\u2501\u256E\u2503</c1>",
+      "<c1>\u2570\u256E\u256D\u2501\u256F</c1>",
+      "<c2>\u2571</c2><c1>\u2570\u256F</c1><c2>\u2571\u2571</c2>"
+    ],
+    "%": [
+      "<c1>\u256D\u256E</c1><c2>\u2571\u2571</c2><c1>\u256D\u2501\u256E</c1>",
+      "<c1>\u2570\u256F</c1><c2>\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571\u2571</c2>",
+      "<c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571</c2><c1>\u256D\u256E</c1>",
+      "<c1>\u2570\u2501\u256F</c1><c2>\u2571\u2571</c2><c1>\u2570\u256F</c1>"
+    ],
+    "&": [
+      "<c2>\u2571</c2><c1>\u256D\u2501\u2501\u256E</c1>",
+      "<c2>\u2571</c2><c1>\u2503\u256D\u2501\u256F</c1>",
+      "<c1>\u256D\u256F\u2570\u256E</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u256D\u256E\u2503</c1><c2>\u2571</c2>",
+      "<c1>\u2503\u2570\u256F\u2503\u256E</c1>",
+      "<c1>\u2570\u2501\u2501\u2501\u256F</c1>"
+    ],
+    "(": [
+      "<c2>\u2571\u2571</c2><c1>\u256D\u2501\u256E</c1>",
+      "<c2>\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1>",
+      "<c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571</c2>",
+      "<c1>\u2570\u256E\u2570\u256E</c1><c2>\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u2570\u256E\u2570\u256E</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u2570\u2501\u256F</c1>"
+    ],
+    ")": [
+      "<c1>\u256D\u2501\u256E</c1><c2>\u2571\u2571</c2>",
+      "<c1>\u2570\u256E\u2570\u256E</c1><c2>\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u2570\u256E\u2570\u256E</c1>",
+      "<c2>\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1>",
+      "<c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571</c2>",
+      "<c1>\u2570\u2501\u256F</c1><c2>\u2571\u2571</c2>"
+    ],
+    "/": [
+      "<c2>\u2571\u2571\u2571\u2571</c2><c1>\u256D\u2501\u256E</c1>",
+      "<c2>\u2571\u2571\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1>",
+      "<c2>\u2571\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571</c2>",
+      "<c2>\u2571</c2><c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571\u2571</c2>",
+      "<c1>\u256D\u256F\u256D\u256F</c1><c2>\u2571\u2571\u2571</c2>",
+      "<c1>\u2570\u2501\u256F</c1><c2>\u2571\u2571\u2571\u2571</c2>"
+    ],
+    ":": ["<c2>\u2571\u2571</c2>", "<c1>\u256D\u256E</c1>", "<c1>\u2570\u256F</c1>", "<c1>\u256D\u256E</c1>", "<c1>\u2570\u256F</c1>", "<c2>\u2571\u2571</c2>"],
+    ";": ["<c1>\u256D\u256E</c1>", "<c1>\u2503\u2503</c1>", "<c1>\u2570\u256F</c1>", "<c1>\u256D\u256E</c1>", "<c1>\u2570\u252B</c1>", "<c2>\u2571</c2><c1>\u256F</c1>"],
+    ",": ["<c2>\u2571\u2571</c2>", "<c2>\u2571\u2571</c2>", "<c2>\u2571\u2571</c2>", "<c1>\u256D\u256E</c1>", "<c1>\u2570\u252B</c1>", "<c2>\u2571</c2><c1>\u256F</c1>"],
+    "'": ["<c1>\u256D\u256E</c1>", "<c1>\u2570\u256F</c1>", "<c2>\u2571\u2571</c2>", "<c2>\u2571\u2571</c2>", "<c2>\u2571\u2571</c2>", "<c2>\u2571\u2571</c2>"],
+    '"': ["<c1>\u256D\u256E\u256D\u256E</c1>", "<c1>\u2570\u256F\u2570\u256F</c1>", "<c2>\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571\u2571</c2>"],
+    " ": ["<c2>\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571</c2>", "<c2>\u2571\u2571\u2571</c2>"]
+  }
+};
+var tiny_default = {
+  name: "tiny",
+  version: "0.2.0",
+  homepage: "https://github.com/dominikwilkowski/cfonts",
+  colors: 1,
+  lines: 2,
+  buffer: ["", ""],
+  letterspace: [" ", " "],
+  letterspace_size: 1,
+  chars: {
+    A: ["\u2584\u2580\u2588", "\u2588\u2580\u2588"],
+    B: ["\u2588\u2584\u2584", "\u2588\u2584\u2588"],
+    C: ["\u2588\u2580\u2580", "\u2588\u2584\u2584"],
+    D: ["\u2588\u2580\u2584", "\u2588\u2584\u2580"],
+    E: ["\u2588\u2580\u2580", "\u2588\u2588\u2584"],
+    F: ["\u2588\u2580\u2580", "\u2588\u2580 "],
+    G: ["\u2588\u2580\u2580", "\u2588\u2584\u2588"],
+    H: ["\u2588 \u2588", "\u2588\u2580\u2588"],
+    I: ["\u2588", "\u2588"],
+    J: ["  \u2588", "\u2588\u2584\u2588"],
+    K: ["\u2588\u2584\u2580", "\u2588 \u2588"],
+    L: ["\u2588  ", "\u2588\u2584\u2584"],
+    M: ["\u2588\u2580\u2584\u2580\u2588", "\u2588 \u2580 \u2588"],
+    N: ["\u2588\u2584 \u2588", "\u2588 \u2580\u2588"],
+    O: ["\u2588\u2580\u2588", "\u2588\u2584\u2588"],
+    P: ["\u2588\u2580\u2588", "\u2588\u2580\u2580"],
+    Q: ["\u2588\u2580\u2588", "\u2580\u2580\u2588"],
+    R: ["\u2588\u2580\u2588", "\u2588\u2580\u2584"],
+    S: ["\u2588\u2580\u2580", "\u2584\u2584\u2588"],
+    T: ["\u2580\u2588\u2580", " \u2588 "],
+    U: ["\u2588 \u2588", "\u2588\u2584\u2588"],
+    V: ["\u2588 \u2588", "\u2580\u2584\u2580"],
+    W: ["\u2588 \u2588 \u2588", "\u2580\u2584\u2580\u2584\u2580"],
+    X: ["\u2580\u2584\u2580", "\u2588 \u2588"],
+    Y: ["\u2588\u2584\u2588", " \u2588 "],
+    Z: ["\u2580\u2588", "\u2588\u2584"],
+    "0": ["\u259E\u2588\u259A", "\u259A\u2588\u259E"],
+    "1": ["\u2584\u2588", " \u2588"],
+    "2": ["\u2580\u2588", "\u2588\u2584"],
+    "3": ["\u2580\u2580\u2588", "\u2584\u2588\u2588"],
+    "4": ["\u2588 \u2588", "\u2580\u2580\u2588"],
+    "5": ["\u2588\u2580", "\u2584\u2588"],
+    "6": ["\u2588\u2584\u2584", "\u2588\u2584\u2588"],
+    "7": ["\u2580\u2580\u2588", "  \u2588"],
+    "8": ["\u2588\u2588\u2588", "\u2588\u2584\u2588"],
+    "9": ["\u2588\u2580\u2588", "\u2580\u2580\u2588"],
+    "!": ["\u2588", "\u2584"],
+    "?": ["\u2580\u2588", " \u2584"],
+    ".": [" ", "\u2584"],
+    "+": ["\u2584\u2588\u2584", " \u2580 "],
+    "-": ["\u2584\u2584", "  "],
+    _: ["  ", "\u2584\u2584"],
+    "=": ["\u2580\u2580", "\u2580\u2580"],
+    "@": ["\u259B\u2588\u259C", "\u2599\u259F\u2583"],
+    "#": ["\u259F\u2584\u2599", "\u259C\u2580\u259B"],
+    $: ["\u2596\u2588\u2597", "\u2598\u2588\u259D"],
+    "%": ["\u2580 \u2584\u2580", "\u2584\u2580 \u2584"],
+    "&": ["\u2584\u2584\u2588", "\u2588\u2584\u2588"],
+    "(": ["\u2584\u2580", "\u2580\u2584"],
+    ")": ["\u2580\u2584", "\u2584\u2580"],
+    "/": ["  \u2584\u2580", "\u2584\u2580  "],
+    ":": ["\u2580", "\u2584"],
+    ";": ["  ", "\u2584\u2580"],
+    ",": [" ", "\u2588"],
+    "'": ["\u2580", " "],
+    '"': ["\u259B \u259C", "   "],
+    " ": [" ", " "]
+  }
+};
+var huge_default = {
+  name: "huge",
+  version: "0.2.0",
+  homepage: "https://github.com/dominikwilkowski/cfonts",
+  colors: 2,
+  lines: 11,
+  buffer: ["", "", "", "", "", "", "", "", "", "", ""],
+  letterspace: [" ", " ", " ", " ", " ", " ", " ", " ", " ", " ", " "],
+  letterspace_size: 1,
+  chars: {
+    A: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580         \u2580</c1> "
+    ],
+    B: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1>  ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1>  "
+    ],
+    C: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    D: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1>  ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1>  "
+    ],
+    E: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    F: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      " <c1>\u2580</c1>           "
+    ],
+    G: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    H: [
+      " <c1>\u2584         \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580         \u2580</c1> "
+    ],
+    I: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580</c1> ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      " <c1>\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    J: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580</c1> ",
+      "      <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "      <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "      <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "      <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "      <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>    ",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1>     "
+    ],
+    K: [
+      " <c1>\u2584    \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580    \u2580</c1> "
+    ],
+    L: [
+      " <c1>\u2584</c1>           ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    M: [
+      " <c1>\u2584\u2584       \u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2580   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580         \u2580</c1> "
+    ],
+    N: [
+      " <c1>\u2584\u2584        \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C      \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1><c2>\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C    \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C    \u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591</c2><c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C      \u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580        \u2580\u2580</c1> "
+    ],
+    O: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    P: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      " <c1>\u2580</c1>           "
+    ],
+    Q: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580</c1> ",
+      "        <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "         <c1>\u2580</c1>   "
+    ],
+    R: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C      \u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580         \u2580</c1> "
+    ],
+    S: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    T: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580</c1> ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "      <c1>\u2580</c1>      "
+    ],
+    U: [
+      " <c1>\u2584         \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    V: [
+      " <c1>\u2584               \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C             \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C           \u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C         \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "   <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "    <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "      <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>      ",
+      "       <c1>\u2590</c1><c2>\u2591</c2><c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>       ",
+      "        <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>        ",
+      "         <c1>\u2580</c1>         "
+    ],
+    W: [
+      " <c1>\u2584         \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2584   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580       \u2580\u2580</c1> "
+    ],
+    X: [
+      " <c1>\u2584       \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "   <c1>\u2590</c1><c2>\u2591</c2><c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "    <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "   <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      " <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580       \u2580</c1> "
+    ],
+    Y: [
+      " <c1>\u2584         \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580</c1> ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "      <c1>\u2580</c1>      "
+    ],
+    Z: [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "    <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "   <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      " <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "0": [
+      "  <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1>  ",
+      " <c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C    \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C  \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C    \u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      "  <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1>  "
+    ],
+    "1": [
+      "    <c1>\u2584\u2584\u2584\u2584</c1>     ",
+      "  <c1>\u2584\u2588</c1><c2>\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>    ",
+      " <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "  <c1>\u2580\u2580 \u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "     <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "     <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "     <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "     <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      " <c1>\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "2": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "3": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "4": [
+      " <c1>\u2584         \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "           <c1>\u2580</c1> "
+    ],
+    "5": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "6": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>          ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "7": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "         <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "        <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "       <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "      <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "    <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>      ",
+      "   <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>       ",
+      "    <c1>\u2580</c1>        "
+    ],
+    "8": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "9": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "          <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "!": [
+      " <c1>\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580</c1> ",
+      " <c1>\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580</c1> "
+    ],
+    "?": [
+      "    <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1>  ",
+      "  <c1>\u2584\u2588</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u2588\u2584</c1> ",
+      " <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "  <c1>\u2580\u2580  \u2584\u2584\u2584\u2588</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "    <c1>\u2584\u2588</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u2588</c1> ",
+      "   <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C\u2580\u2580\u2580\u2580</c1>  ",
+      "   <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>      ",
+      "    <c1>\u2580\u2580</c1>       ",
+      "    <c1>\u2584\u2584</c1>       ",
+      "   <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>      ",
+      "    <c1>\u2580\u2580</c1>       "
+    ],
+    ".": [
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      " <c1>\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580</c1> "
+    ],
+    "+": [
+      "          ",
+      "          ",
+      "    <c1>\u2584\u2584</c1>    ",
+      "   <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>   ",
+      " <c1>\u2584\u2584\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2588</c1><c2>\u2591\u2591</c2><c1>\u2588\u2580\u2580</c1> ",
+      "   <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>   ",
+      "    <c1>\u2580\u2580</c1>    ",
+      "          ",
+      "          "
+    ],
+    "-": [
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      " <c1>\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "       ",
+      "       ",
+      "       ",
+      "       "
+    ],
+    _: [
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      "       ",
+      " <c1>\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "       "
+    ],
+    "=": [
+      "       ",
+      "       ",
+      " <c1>\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "       ",
+      " <c1>\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580</c1> ",
+      "       ",
+      "       "
+    ],
+    "@": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C        \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C  \u2584\u2584\u2584\u2584  \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2588</c1><c2>\u2591\u2591\u2591\u2591</c2><c1>\u2588 \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u2588\u2588\u2588\u2588</c1><c2>\u2591</c2><c1>\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C \u2588</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C\u2584\u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    "#": [
+      "   <c1>\u2584         \u2584</c1>   ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      " <c1>\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580</c1> ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      " <c1>\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580</c1> ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C       \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "   <c1>\u2580         \u2580</c1>   "
+    ],
+    $: [
+      "      <c1>\u2584</c1>      ",
+      " <c1>\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580</c1> ",
+      "      <c1>\u2580</c1>      "
+    ],
+    "%": [
+      "         <c1>\u2584</c1> ",
+      "  <c1>\u2584     \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "  <c1>\u2580   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "    <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "   <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2584</c1>  ",
+      " <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C     \u2580</c1>  ",
+      " <c1>\u2580</c1>         "
+    ],
+    "&": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584\u2584\u2584</c1>     ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C   \u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      " <c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2580\u2580\u2580\u2580\u2588</c1><c2>\u2591</c2><c1>\u258C \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C     \u2590</c1><c2>\u2591</c2><c1>\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2588\u2584\u2584\u2584\u2584\u2588</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      " <c1>\u2580\u2580\u2580\u2580\u2580\u2580  \u2580</c1>   "
+    ],
+    "(": [
+      "  <c1>\u2584\u2584\u2584\u2584\u2584</c1> ",
+      " <c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u2588\u2580\u2580\u2580</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>    ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u2588\u2584\u2584\u2584</c1> ",
+      " <c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1>",
+      "  <c1>\u2580\u2580\u2580\u2580\u2580</c1> "
+    ],
+    ")": [
+      " <c1>\u2584\u2584\u2584\u2584\u2584</c1>  ",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      " <c1>\u2580\u2580\u2580\u2588</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "    <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "    <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "    <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "    <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "    <c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2584\u2584\u2584\u2588</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      "<c1>\u2590</c1><c2>\u2591\u2591\u2591\u2591\u2591</c2><c1>\u258C</c1> ",
+      " <c1>\u2580\u2580\u2580\u2580\u2580</c1>  "
+    ],
+    "/": [
+      "         <c1>\u2584</c1> ",
+      "        <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>",
+      "       <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1> ",
+      "      <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>  ",
+      "     <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>   ",
+      "    <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>    ",
+      "   <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>     ",
+      "  <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>      ",
+      " <c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>       ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u258C</c1>        ",
+      " <c1>\u2580</c1>         "
+    ],
+    ":": [
+      "    ",
+      "    ",
+      " <c1>\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580</c1> ",
+      "    ",
+      " <c1>\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580</c1> ",
+      "    ",
+      "    "
+    ],
+    ";": [
+      "    ",
+      "    ",
+      " <c1>\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u2580</c1> ",
+      "    ",
+      " <c1>\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u258C</c1> ",
+      " <c1>\u2580</c1>  ",
+      "    "
+    ],
+    ",": [
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      "    ",
+      " <c1>\u2584\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591\u2591</c2><c1>\u258C</c1>",
+      " <c1>\u2580\u258C</c1> ",
+      " <c1>\u2580</c1>  "
+    ],
+    "'": [
+      " <c1>\u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2590</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2590</c1>",
+      " <c1>\u2580</c1> ",
+      "   ",
+      "   ",
+      "   ",
+      "   ",
+      "   ",
+      "   ",
+      "   "
+    ],
+    '"': [
+      " <c1>\u2584  \u2584</c1> ",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2590\u2590</c1><c2>\u2591</c2><c1>\u2590</c1>",
+      "<c1>\u2590</c1><c2>\u2591</c2><c1>\u2590\u2590</c1><c2>\u2591</c2><c1>\u2590</c1>",
+      " <c1>\u2580  \u2580</c1> ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      ",
+      "      "
+    ],
+    " ": ["    ", "    ", "    ", "    ", "    ", "    ", "    ", "    ", "    ", "    ", "    "]
+  }
+};
+var grid_default = {
+  name: "grid",
+  version: "0.1.0",
+  homepage: "https://github.com/dominikwilkowski/cfonts",
+  colors: 2,
+  lines: 6,
+  buffer: ["", "", "", "", "", ""],
+  letterspace: ["<c2>\u254B</c2>", "<c2>\u254B</c2>", "<c2>\u254B</c2>", "<c2>\u254B</c2>", "<c2>\u254B</c2>", "<c2>\u254B</c2>"],
+  letterspace_size: 1,
+  chars: {
+    A: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2513\u2503</c1>", "<c1>\u2503\u250F\u2513\u2503</c1>", "<c1>\u2517\u251B\u2517\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    B: [
+      "<c1>\u250F\u2513</c1><c2>\u254B\u254B</c2>",
+      "<c1>\u2503\u2517\u2501\u2513</c1>",
+      "<c1>\u2503\u250F\u2513\u2503</c1>",
+      "<c1>\u2503\u2517\u251B\u2503</c1>",
+      "<c1>\u2517\u2501\u2501\u251B</c1>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    C: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u251B</c1>", "<c1>\u2503\u2517\u2501\u2513</c1>", "<c1>\u2517\u2501\u2501\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    D: [
+      "<c2>\u254B\u254B</c2><c1>\u250F\u2513</c1>",
+      "<c1>\u250F\u2501\u251B\u2503</c1>",
+      "<c1>\u2503\u250F\u2513\u2503</c1>",
+      "<c1>\u2503\u2517\u251B\u2503</c1>",
+      "<c1>\u2517\u2501\u2501\u251B</c1>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    E: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2513</c1>", "<c1>\u2503\u2503\u2501\u252B</c1>", "<c1>\u2503\u2503\u2501\u252B</c1>", "<c1>\u2517\u2501\u2501\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    F: [
+      "<c2>\u254B</c2><c1>\u250F\u2501\u2513</c1>",
+      "<c1>\u250F\u251B\u2517\u2513</c1>",
+      "<c1>\u2517\u2513\u250F\u251B</c1>",
+      "<c2>\u254B</c2><c1>\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c2>\u254B</c2><c1>\u2517\u251B</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    G: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2513\u2503</c1>", "<c1>\u2503\u2517\u251B\u2503</c1>", "<c1>\u2517\u2501\u2513\u2503</c1>", "<c1>\u2517\u2501\u2501\u251B</c1>"],
+    H: [
+      "<c1>\u250F\u2513</c1><c2>\u254B\u254B</c2>",
+      "<c1>\u2503\u2517\u2501\u2513</c1>",
+      "<c1>\u2503\u250F\u2513\u2503</c1>",
+      "<c1>\u2503\u2503\u2503\u2503</c1>",
+      "<c1>\u2517\u251B\u2517\u251B</c1>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    I: ["<c1>\u250F\u2513</c1>", "<c1>\u2517\u251B</c1>", "<c1>\u250F\u2513</c1>", "<c1>\u2503\u2503</c1>", "<c1>\u2517\u251B</c1>", "<c2>\u254B\u254B</c2>"],
+    J: [
+      "<c2>\u254B</c2><c1>\u250F\u2513</c1>",
+      "<c2>\u254B</c2><c1>\u2517\u251B</c1>",
+      "<c2>\u254B</c2><c1>\u250F\u2513</c1>",
+      "<c2>\u254B</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u250F\u251B\u2503</c1>",
+      "<c1>\u2517\u2501\u251B</c1>"
+    ],
+    K: [
+      "<c1>\u250F\u2513</c1><c2>\u254B\u254B</c2>",
+      "<c1>\u2503\u2503\u250F\u2513</c1>",
+      "<c1>\u2503\u2517\u251B\u251B</c1>",
+      "<c1>\u2503\u250F\u2513\u2513</c1>",
+      "<c1>\u2517\u251B\u2517\u251B</c1>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    L: [
+      "<c1>\u250F\u2513</c1><c2>\u254B</c2>",
+      "<c1>\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u2503\u2517\u2513</c1>",
+      "<c1>\u2517\u2501\u251B</c1>",
+      "<c2>\u254B\u254B\u254B</c2>"
+    ],
+    M: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2513\u250F\u2513</c1>", "<c1>\u2503\u2517\u251B\u2503</c1>", "<c1>\u2503\u2503\u2503\u2503</c1>", "<c1>\u2517\u253B\u253B\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    N: [
+      "<c2>\u254B\u254B\u254B\u254B</c2>",
+      "<c1>\u250F\u2501\u2513</c1><c2>\u254B</c2>",
+      "<c1>\u2503\u250F\u2513\u2513</c1>",
+      "<c1>\u2503\u2503\u2503\u2503</c1>",
+      "<c1>\u2517\u251B\u2517\u251B</c1>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    O: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2513\u2503</c1>", "<c1>\u2503\u2517\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    P: [
+      "<c2>\u254B\u254B\u254B\u254B</c2>",
+      "<c1>\u250F\u2501\u2501\u2513</c1>",
+      "<c1>\u2503\u250F\u2513\u2503</c1>",
+      "<c1>\u2503\u2517\u251B\u2503</c1>",
+      "<c1>\u2503\u250F\u2501\u251B</c1>",
+      "<c1>\u2517\u251B</c1><c2>\u254B\u254B</c2>"
+    ],
+    Q: [
+      "<c2>\u254B\u254B\u254B\u254B</c2>",
+      "<c1>\u250F\u2501\u2501\u2513</c1>",
+      "<c1>\u2503\u250F\u2513\u2503</c1>",
+      "<c1>\u2503\u2517\u251B\u2503</c1>",
+      "<c1>\u2517\u2501\u2513\u2503</c1>",
+      "<c2>\u254B\u254B</c2><c1>\u2517\u251B</c1>"
+    ],
+    R: [
+      "<c2>\u254B\u254B\u254B</c2>",
+      "<c1>\u250F\u2501\u2513</c1>",
+      "<c1>\u2503\u250F\u251B</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u2517\u251B</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B\u254B</c2>"
+    ],
+    S: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2513</c1>", "<c1>\u2503\u2501\u2501\u252B</c1>", "<c1>\u2523\u2501\u2501\u2503</c1>", "<c1>\u2517\u2501\u2501\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    T: [
+      "<c2>\u254B</c2><c1>\u250F\u2513</c1><c2>\u254B</c2>",
+      "<c1>\u250F\u251B\u2517\u2513</c1>",
+      "<c1>\u2517\u2513\u250F\u251B</c1>",
+      "<c2>\u254B</c2><c1>\u2503\u2517\u2513</c1>",
+      "<c2>\u254B</c2><c1>\u2517\u2501\u251B</c1>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    U: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2513\u250F\u2513</c1>", "<c1>\u2503\u2503\u2503\u2503</c1>", "<c1>\u2503\u2517\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    V: [
+      "<c2>\u254B\u254B\u254B\u254B</c2>",
+      "<c1>\u250F\u2513\u250F\u2513</c1>",
+      "<c1>\u2503\u2517\u251B\u2503</c1>",
+      "<c1>\u2517\u2513\u250F\u251B</c1>",
+      "<c2>\u254B</c2><c1>\u2517\u251B</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    W: [
+      "<c2>\u254B\u254B\u254B\u254B\u254B\u254B</c2>",
+      "<c1>\u250F\u2513\u250F\u2513\u250F\u2513</c1>",
+      "<c1>\u2503\u2517\u251B\u2517\u251B\u2503</c1>",
+      "<c1>\u2517\u2513\u250F\u2513\u250F\u251B</c1>",
+      "<c2>\u254B</c2><c1>\u2517\u251B\u2517\u251B</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B\u254B\u254B\u254B\u254B</c2>"
+    ],
+    X: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2513\u250F\u2513</c1>", "<c1>\u2517\u254B\u254B\u251B</c1>", "<c1>\u250F\u254B\u254B\u2513</c1>", "<c1>\u2517\u251B\u2517\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    Y: [
+      "<c2>\u254B\u254B\u254B\u254B\u254B</c2>",
+      "<c1>\u250F\u2513</c1><c2>\u254B</c2><c1>\u250F\u2513</c1>",
+      "<c1>\u2503\u2517\u2501\u251B\u2503</c1>",
+      "<c1>\u2517\u2501\u2513\u250F\u251B</c1>",
+      "<c1>\u2517\u2501\u2501\u251B</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B\u254B\u254B\u254B</c2>"
+    ],
+    Z: ["<c2>\u254B\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2523\u2501\u2501\u2503\u2503</c1>", "<c1>\u2503\u2503\u2501\u2501\u252B</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B\u254B</c2>"],
+    "0": ["<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u2513\u2503</c1>", "<c1>\u2503\u2503\u2503\u2503\u2503</c1>", "<c1>\u2503\u2503\u2503\u2503\u2503</c1>", "<c1>\u2503\u2517\u2501\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>"],
+    "1": [
+      "<c2>\u254B</c2><c1>\u250F\u2513</c1><c2>\u254B</c2>",
+      "<c1>\u250F\u251B\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u2517\u2513\u2503</c1><c2>\u254B</c2>",
+      "<c2>\u254B</c2><c1>\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u250F\u251B\u2517\u2513</c1>",
+      "<c1>\u2517\u2501\u2501\u251B</c1>"
+    ],
+    "2": ["<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u2513\u2503</c1>", "<c1>\u2517\u251B\u250F\u251B\u2503</c1>", "<c1>\u250F\u2501\u251B\u250F\u251B</c1>", "<c1>\u2503\u2517\u2501\u253B\u2513</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>"],
+    "3": ["<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u2513\u2503</c1>", "<c1>\u2517\u251B\u250F\u251B\u2503</c1>", "<c1>\u250F\u2513\u2517\u2513\u2503</c1>", "<c1>\u2503\u2517\u2501\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>"],
+    "4": [
+      "<c1>\u250F\u2513</c1><c2>\u254B</c2><c1>\u250F\u2513</c1>",
+      "<c1>\u2503\u2503</c1><c2>\u254B</c2><c1>\u2503\u2503</c1>",
+      "<c1>\u2503\u2517\u2501\u251B\u2503</c1>",
+      "<c1>\u2517\u2501\u2501\u2513\u2503</c1>",
+      "<c2>\u254B\u254B\u254B</c2><c1>\u2503\u2503</c1>",
+      "<c2>\u254B\u254B\u254B</c2><c1>\u2517\u251B</c1>"
+    ],
+    "5": ["<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u2501\u251B</c1>", "<c1>\u2503\u2517\u2501\u2501\u2513</c1>", "<c1>\u2517\u2501\u2501\u2513\u2503</c1>", "<c1>\u250F\u2501\u2501\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>"],
+    "6": ["<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u2501\u251B</c1>", "<c1>\u2503\u2517\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u2513\u2503</c1>", "<c1>\u2503\u2517\u2501\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>"],
+    "7": [
+      "<c1>\u250F\u2501\u2501\u2501\u2513</c1>",
+      "<c1>\u2503\u250F\u2501\u2513\u2503</c1>",
+      "<c1>\u2517\u251B\u250F\u251B\u2503</c1>",
+      "<c2>\u254B\u254B</c2><c1>\u2503\u250F\u251B</c1>",
+      "<c2>\u254B\u254B</c2><c1>\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B</c2><c1>\u2517\u251B</c1><c2>\u254B</c2>"
+    ],
+    "8": ["<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u2513\u2503</c1>", "<c1>\u2503\u2517\u2501\u251B\u2503</c1>", "<c1>\u2503\u250F\u2501\u2513\u2503</c1>", "<c1>\u2503\u2517\u2501\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>"],
+    "9": ["<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2503\u250F\u2501\u2513\u2503</c1>", "<c1>\u2503\u2517\u2501\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u2513\u2503</c1>", "<c1>\u250F\u2501\u2501\u251B\u2503</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>"],
+    "!": ["<c1>\u250F\u2513</c1>", "<c1>\u2503\u2503</c1>", "<c1>\u2503\u2503</c1>", "<c1>\u2517\u251B</c1>", "<c1>\u250F\u2513</c1>", "<c1>\u2517\u251B</c1>"],
+    "?": [
+      "<c1>\u250F\u2501\u2501\u2501\u2513</c1>",
+      "<c1>\u2503\u250F\u2501\u2513\u2503</c1>",
+      "<c1>\u2517\u251B\u250F\u251B\u2503</c1>",
+      "<c2>\u254B\u254B</c2><c1>\u2503\u250F\u251B</c1>",
+      "<c2>\u254B\u254B</c2><c1>\u250F\u2513</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B</c2><c1>\u2517\u251B</c1><c2>\u254B</c2>"
+    ],
+    ".": ["<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c1>\u250F\u2513</c1>", "<c1>\u2517\u251B</c1>"],
+    "+": [
+      "<c2>\u254B\u254B\u254B\u254B</c2>",
+      "<c2>\u254B</c2><c1>\u250F\u2513</c1><c2>\u254B</c2>",
+      "<c1>\u250F\u251B\u2517\u2513</c1>",
+      "<c1>\u2517\u2513\u250F\u251B</c1>",
+      "<c2>\u254B</c2><c1>\u2517\u251B</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    "-": ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2513</c1>", "<c1>\u2517\u2501\u2501\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    _: ["<c2>\u254B\u254B\u254B\u254B</c2>", "<c2>\u254B\u254B\u254B\u254B</c2>", "<c2>\u254B\u254B\u254B\u254B</c2>", "<c2>\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2513</c1>", "<c1>\u2517\u2501\u2501\u251B</c1>"],
+    "=": ["<c2>\u254B\u254B\u254B\u254B\u254B</c2>", "<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>", "<c1>\u250F\u2501\u2501\u2501\u2513</c1>", "<c1>\u2517\u2501\u2501\u2501\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B\u254B</c2>"],
+    "@": [
+      "<c1>\u250F\u2501\u2501\u2501\u2501\u2513</c1><c2>\u254B</c2>",
+      "<c1>\u2503\u250F\u2501\u2501\u2513\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u2503\u2503\u250F\u2501\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u2503\u2503\u2517\u251B\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u2503\u2517\u2501\u2501\u251B\u2517\u2513</c1>",
+      "<c1>\u2517\u2501\u2501\u2501\u2501\u2501\u251B</c1>"
+    ],
+    "#": [
+      "<c2>\u254B</c2><c1>\u250F\u2501\u2501\u2501\u2513</c1><c2>\u254B</c2>",
+      "<c1>\u250F\u251B\u250F\u2501\u2513\u2517\u2513</c1>",
+      "<c1>\u2517\u2513\u2503\u2503\u2503\u250F\u251B</c1>",
+      "<c1>\u250F\u251B\u2503\u2503\u2503\u2517\u2513</c1>",
+      "<c1>\u2517\u2513\u2517\u2501\u251B\u250F\u251B</c1>",
+      "<c2>\u254B</c2><c1>\u2517\u2501\u2501\u2501\u251B</c1><c2>\u254B</c2>"
+    ],
+    $: [
+      "<c2>\u254B</c2><c1>\u250F\u2513</c1><c2>\u254B</c2>",
+      "<c1>\u250F\u251B\u2517\u2513</c1>",
+      "<c1>\u2503\u2501\u2501\u252B</c1>",
+      "<c1>\u2523\u2501\u2501\u2503</c1>",
+      "<c1>\u2517\u2513\u250F\u251B</c1>",
+      "<c2>\u254B</c2><c1>\u2517\u251B</c1><c2>\u254B</c2>"
+    ],
+    "%": [
+      "<c1>\u250F\u2513</c1><c2>\u254B\u254B</c2><c1>\u250F\u2501\u2513</c1>",
+      "<c1>\u2517\u251B</c1><c2>\u254B</c2><c1>\u250F\u251B\u250F\u251B</c1>",
+      "<c2>\u254B\u254B</c2><c1>\u250F\u251B\u250F\u251B</c1><c2>\u254B</c2>",
+      "<c2>\u254B</c2><c1>\u250F\u251B\u250F\u251B</c1><c2>\u254B\u254B</c2>",
+      "<c1>\u250F\u251B\u250F\u251B</c1><c2>\u254B</c2><c1>\u250F\u2513</c1>",
+      "<c1>\u2517\u2501\u251B</c1><c2>\u254B\u254B</c2><c1>\u2517\u251B</c1>"
+    ],
+    "&": [
+      "<c2>\u254B\u254B</c2><c1>\u250F\u2513</c1><c2>\u254B</c2>",
+      "<c2>\u254B\u254B</c2><c1>\u2503\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u250F\u2501\u251B\u2517\u2513</c1>",
+      "<c1>\u2503\u250F\u2513\u250F\u251B</c1>",
+      "<c1>\u2503\u2517\u251B\u2503</c1><c2>\u254B</c2>",
+      "<c1>\u2517\u2501\u2501\u251B</c1><c2>\u254B</c2>"
+    ],
+    "(": [
+      "<c2>\u254B\u254B</c2><c1>\u250F\u2501\u2513</c1>",
+      "<c2>\u254B</c2><c1>\u250F\u251B\u250F\u251B</c1>",
+      "<c1>\u250F\u251B\u250F\u251B</c1><c2>\u254B</c2>",
+      "<c1>\u2517\u2513\u2517\u2513</c1><c2>\u254B</c2>",
+      "<c2>\u254B</c2><c1>\u2517\u2513\u2517\u2513</c1>",
+      "<c2>\u254B\u254B</c2><c1>\u2517\u2501\u251B</c1>"
+    ],
+    ")": [
+      "<c1>\u250F\u2501\u2513</c1><c2>\u254B\u254B</c2>",
+      "<c1>\u2517\u2513\u2517\u2513</c1><c2>\u254B</c2>",
+      "<c2>\u254B</c2><c1>\u2517\u2513\u2517\u2513</c1>",
+      "<c2>\u254B</c2><c1>\u250F\u251B\u250F\u251B</c1>",
+      "<c1>\u250F\u251B\u250F\u251B</c1><c2>\u254B</c2>",
+      "<c1>\u2517\u2501\u251B</c1><c2>\u254B\u254B</c2>"
+    ],
+    "/": [
+      "<c2>\u254B\u254B\u254B\u254B</c2><c1>\u250F\u2501\u2513</c1>",
+      "<c2>\u254B\u254B\u254B</c2><c1>\u250F\u251B\u250F\u251B</c1>",
+      "<c2>\u254B\u254B</c2><c1>\u250F\u251B\u250F\u251B</c1><c2>\u254B</c2>",
+      "<c2>\u254B</c2><c1>\u250F\u251B\u250F\u251B</c1><c2>\u254B\u254B</c2>",
+      "<c1>\u250F\u251B\u250F\u251B</c1><c2>\u254B\u254B\u254B</c2>",
+      "<c1>\u2517\u2501\u251B</c1><c2>\u254B\u254B\u254B\u254B</c2>"
+    ],
+    ":": ["<c2>\u254B\u254B</c2>", "<c1>\u250F\u2513</c1>", "<c1>\u2517\u251B</c1>", "<c1>\u250F\u2513</c1>", "<c1>\u2517\u251B</c1>", "<c2>\u254B\u254B</c2>"],
+    ";": ["<c2>\u254B\u254B</c2>", "<c1>\u250F\u2513</c1>", "<c1>\u2517\u251B</c1>", "<c2>\u254B\u254B</c2>", "<c1>\u250F\u2513</c1>", "<c1>\u2517\u252B</c1>"],
+    ",": ["<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c1>\u250F\u2513</c1>", "<c1>\u2517\u252B</c1>"],
+    "'": ["<c1>\u250F\u2513</c1>", "<c1>\u2517\u251B</c1>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>"],
+    '"': ["<c1>\u250F\u2513\u250F\u2513</c1>", "<c1>\u2517\u251B\u2517\u251B</c1>", "<c2>\u254B\u254B\u254B\u254B</c2>", "<c2>\u254B\u254B\u254B\u254B</c2>", "<c2>\u254B\u254B\u254B\u254B</c2>", "<c2>\u254B\u254B\u254B\u254B</c2>"],
+    " ": ["<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>", "<c2>\u254B\u254B</c2>"]
+  }
+};
+var pallet_default = {
+  name: "pallet",
+  version: "0.1.0",
+  homepage: "https://github.com/dominikwilkowski/cfonts",
+  colors: 2,
+  lines: 6,
+  buffer: ["", "", "", "", "", ""],
+  letterspace: ["<c2>\u2500</c2>", "<c2>\u2500</c2>", "<c2>\u2500</c2>", "<c2>\u2500</c2>", "<c2>\u2500</c2>", "<c2>\u2500</c2>"],
+  letterspace_size: 1,
+  chars: {
+    A: [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u255A\u255D</c1><c2>\u2500</c2><c1>\u255A\u255D</c1>"
+    ],
+    B: [
+      "<c1>\u2554\u2550\u2550\u2557</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2554\u2557\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u255A\u255D\u255A\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"
+    ],
+    C: [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u255A\u255D</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"
+    ],
+    D: [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u255A\u2557\u2554\u2557\u2551</c1>",
+      "<c2>\u2500</c2><c1>\u2551\u2551\u2551\u2551</c1>",
+      "<c2>\u2500</c2><c1>\u2551\u2551\u2551\u2551</c1>",
+      "<c1>\u2554\u255D\u255A\u255D\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"
+    ],
+    E: ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2550\u255D</c1>", "<c1>\u2551\u255A\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2550\u255D</c1>", "<c1>\u2551\u255A\u2550\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    F: [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2550\u255D</c1>",
+      "<c1>\u2551\u255A\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2550\u255D</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500\u2500\u2500</c2>",
+      "<c1>\u255A\u255D</c1><c2>\u2500\u2500\u2500</c2>"
+    ],
+    G: [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u255A\u255D</c1>",
+      "<c1>\u2551\u2551\u2554\u2550\u2557</c1>",
+      "<c1>\u2551\u255A\u2569\u2550\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"
+    ],
+    H: [
+      "<c1>\u2554\u2557</c1><c2>\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u255A\u255D</c1><c2>\u2500</c2><c1>\u255A\u255D</c1>"
+    ],
+    I: [
+      "<c1>\u2554\u2550\u2550\u2557</c1>",
+      "<c1>\u255A\u2563\u2560\u255D</c1>",
+      "<c2>\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2554\u2563\u2560\u2557</c1>",
+      "<c1>\u255A\u2550\u2550\u255D</c1>"
+    ],
+    J: [
+      "<c2>\u2500\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2554\u2557\u2551\u2551</c1>",
+      "<c1>\u2551\u255A\u255D\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u255D</c1>"
+    ],
+    K: [
+      "<c1>\u2554\u2557\u2554\u2550\u2557</c1>",
+      "<c1>\u2551\u2551\u2551\u2554\u255D</c1>",
+      "<c1>\u2551\u255A\u255D\u255D</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2554\u2557\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2551\u2551\u255A\u2557</c1>",
+      "<c1>\u255A\u255D\u255A\u2550\u255D</c1>"
+    ],
+    L: [
+      "<c1>\u2554\u2557</c1><c2>\u2500\u2500\u2500</c2>",
+      "<c1>\u2551\u2551</c1><c2>\u2500\u2500\u2500</c2>",
+      "<c1>\u2551\u2551</c1><c2>\u2500\u2500\u2500</c2>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"
+    ],
+    M: [
+      "<c1>\u2554\u2550\u2557\u2554\u2550\u2557</c1>",
+      "<c1>\u2551\u2551\u255A\u255D\u2551\u2551</c1>",
+      "<c1>\u2551\u2554\u2557\u2554\u2557\u2551</c1>",
+      "<c1>\u2551\u2551\u2551\u2551\u2551\u2551</c1>",
+      "<c1>\u2551\u2551\u2551\u2551\u2551\u2551</c1>",
+      "<c1>\u255A\u255D\u255A\u255D\u255A\u255D</c1>"
+    ],
+    N: [
+      "<c1>\u2554\u2550\u2557</c1><c2>\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u2551\u2551\u255A\u2557\u2551\u2551</c1>",
+      "<c1>\u2551\u2554\u2557\u255A\u255D\u2551</c1>",
+      "<c1>\u2551\u2551\u255A\u2557\u2551\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551\u2551</c1>",
+      "<c1>\u255A\u255D</c1><c2>\u2500</c2><c1>\u255A\u2550\u255D</c1>"
+    ],
+    O: [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"
+    ],
+    P: [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u2551\u2554\u2550\u2550\u255D</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500\u2500\u2500</c2>",
+      "<c1>\u255A\u255D</c1><c2>\u2500\u2500\u2500</c2>"
+    ],
+    Q: [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u255A\u2550\u255D\u2560\u2557</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u2550\u255D</c1>"
+    ],
+    R: ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u2551\u2554\u2557\u2554\u255D</c1>", "<c1>\u2551\u2551\u2551\u255A\u2557</c1>", "<c1>\u255A\u255D\u255A\u2550\u255D</c1>"],
+    S: ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    T: [
+      "<c1>\u2554\u2550\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2557\u2554\u2557\u2551</c1>",
+      "<c1>\u255A\u255D\u2551\u2551\u255A\u255D</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500\u2500</c2>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500\u2500</c2>",
+      "<c2>\u2500\u2500</c2><c1>\u255A\u255D</c1><c2>\u2500\u2500</c2>"
+    ],
+    U: [
+      "<c1>\u2554\u2557</c1><c2>\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"
+    ],
+    V: [
+      "<c1>\u2554\u2557</c1><c2>\u2500\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u2551\u255A\u2557\u2554\u255D\u2551</c1>",
+      "<c1>\u255A\u2557\u2551\u2551\u2554\u255D</c1>",
+      "<c2>\u2500</c2><c1>\u2551\u255A\u255D\u2551</c1><c2>\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u255A\u2557\u2554\u255D</c1><c2>\u2500</c2>",
+      "<c2>\u2500\u2500</c2><c1>\u255A\u255D</c1><c2>\u2500\u2500</c2>"
+    ],
+    W: [
+      "<c1>\u2554\u2557\u2554\u2557\u2554\u2557</c1>",
+      "<c1>\u2551\u2551\u2551\u2551\u2551\u2551</c1>",
+      "<c1>\u2551\u2551\u2551\u2551\u2551\u2551</c1>",
+      "<c1>\u2551\u255A\u255D\u255A\u255D\u2551</c1>",
+      "<c1>\u255A\u2557\u2554\u2557\u2554\u255D</c1>",
+      "<c2>\u2500</c2><c1>\u255A\u255D\u255A\u255D</c1><c2>\u2500</c2>"
+    ],
+    X: [
+      "<c1>\u2554\u2550\u2557\u2554\u2550\u2557</c1>",
+      "<c1>\u255A\u2557\u255A\u255D\u2554\u255D</c1>",
+      "<c2>\u2500</c2><c1>\u255A\u2557\u2554\u255D</c1><c2>\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u2554\u255D\u255A\u2557</c1><c2>\u2500</c2>",
+      "<c1>\u2554\u255D\u2554\u2557\u255A\u2557</c1>",
+      "<c1>\u255A\u2550\u255D\u255A\u2550\u255D</c1>"
+    ],
+    Y: [
+      "<c1>\u2554\u2557</c1><c2>\u2500\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u2551\u255A\u2557\u2554\u255D\u2551</c1>",
+      "<c1>\u255A\u2557\u255A\u255D\u2554\u255D</c1>",
+      "<c2>\u2500</c2><c1>\u255A\u2557\u2554\u255D</c1><c2>\u2500</c2>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500\u2500</c2>",
+      "<c2>\u2500\u2500</c2><c1>\u255A\u255D</c1><c2>\u2500\u2500</c2>"
+    ],
+    Z: [
+      "<c1>\u2554\u2550\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u255A\u2550\u2550\u2557\u2550\u2551</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1>",
+      "<c2>\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500</c2>",
+      "<c1>\u2554\u255D\u2550\u255A\u2550\u2557</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u2550\u255D</c1>"
+    ],
+    "0": ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u2551\u2551\u2551\u2551\u2551</c1>", "<c1>\u2551\u2551\u2551\u2551\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    "1": [
+      "<c2>\u2500</c2><c1>\u2554\u2557</c1><c2>\u2500</c2>",
+      "<c1>\u2554\u255D\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u255A\u2557\u2551</c1><c2>\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2554\u255D\u255A\u2557</c1>",
+      "<c1>\u255A\u2550\u2550\u255D</c1>"
+    ],
+    "2": ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u255A\u255D\u2554\u255D\u2551</c1>", "<c1>\u2554\u2550\u255D\u2554\u255D</c1>", "<c1>\u2551\u2551\u255A\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    "3": ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u255A\u255D\u2554\u255D\u2551</c1>", "<c1>\u2554\u2557\u255A\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    "4": [
+      "<c1>\u2554\u2557</c1><c2>\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u2551\u2551</c1><c2>\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c1>\u2551\u255A\u2550\u255D\u2551</c1>",
+      "<c1>\u255A\u2550\u2550\u2557\u2551</c1>",
+      "<c2>\u2500\u2500\u2500</c2><c1>\u2551\u2551</c1>",
+      "<c2>\u2500\u2500\u2500</c2><c1>\u255A\u255D</c1>"
+    ],
+    "5": ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2550\u255D</c1>", "<c1>\u2551\u255A\u2550\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u2557\u2551</c1>", "<c1>\u2554\u2550\u2550\u255D\u2551</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    "6": ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2550\u255D</c1>", "<c1>\u2551\u255A\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    "7": [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u255A\u255D\u2554\u255D\u2551</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2554\u255D</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c2>\u2500\u2500</c2><c1>\u255A\u255D</c1><c2>\u2500</c2>"
+    ],
+    "8": ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    "9": ["<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u255A\u2550\u2550\u2557\u2551</c1>", "<c1>\u2554\u2550\u2550\u255D\u2551</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>"],
+    "!": ["<c1>\u2554\u2557</c1>", "<c1>\u2551\u2551</c1>", "<c1>\u2551\u2551</c1>", "<c1>\u255A\u255D</c1>", "<c1>\u2554\u2557</c1>", "<c1>\u255A\u255D</c1>"],
+    "?": [
+      "<c1>\u2554\u2550\u2550\u2550\u2557</c1>",
+      "<c1>\u2551\u2554\u2550\u2557\u2551</c1>",
+      "<c1>\u255A\u255D\u2554\u255D\u2551</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2554\u255D</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2554\u2557</c1><c2>\u2500</c2>",
+      "<c2>\u2500\u2500</c2><c1>\u255A\u255D</c1><c2>\u2500</c2>"
+    ],
+    ".": ["<c2>\u2500\u2500</c2>", "<c2>\u2500\u2500</c2>", "<c2>\u2500\u2500</c2>", "<c2>\u2500\u2500</c2>", "<c1>\u2554\u2557</c1>", "<c1>\u255A\u255D</c1>"],
+    "+": [
+      "<c2>\u2500\u2500\u2500\u2500</c2>",
+      "<c2>\u2500\u2500\u2500\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u2554\u2557</c1><c2>\u2500</c2>",
+      "<c1>\u2554\u255D\u255A\u2557</c1>",
+      "<c1>\u255A\u2557\u2554\u255D</c1>",
+      "<c2>\u2500</c2><c1>\u255A\u255D</c1><c2>\u2500</c2>"
+    ],
+    "-": ["<c2>\u2500\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500\u2500</c2>", "<c1>\u2554\u2550\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u255D</c1>", "<c2>\u2500\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500\u2500</c2>"],
+    _: ["<c2>\u2500\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500\u2500</c2>", "<c1>\u2554\u2550\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u255D</c1>"],
+    "=": ["<c2>\u2500\u2500\u2500\u2500\u2500</c2>", "<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>", "<c1>\u2554\u2550\u2550\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u2550\u255D</c1>", "<c2>\u2500\u2500\u2500\u2500\u2500</c2>"],
+    "@": [
+      "<c1>\u2554\u2550\u2550\u2550\u2550\u2557</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2554\u2550\u2550\u2557\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2551\u2554\u2550\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u2551\u255A\u255D\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2551\u255A\u2550\u2550\u255D\u2560\u2557</c1>",
+      "<c1>\u255A\u2550\u2550\u2550\u2550\u2550\u255D</c1>"
+    ],
+    "#": [
+      "<c2>\u2500</c2><c1>\u2554\u2569\u2569\u2569\u2557</c1><c2>\u2500</c2>",
+      "<c1>\u2554\u255D\u2554\u2550\u2557\u255A\u2557</c1>",
+      "<c1>\u255A\u2557\u2560\u2550\u2563\u2554\u255D</c1>",
+      "<c1>\u2554\u255D\u2560\u2550\u2563\u255A\u2557</c1>",
+      "<c1>\u255A\u2557\u255A\u2550\u255D\u2554\u255D</c1>",
+      "<c2>\u2500</c2><c1>\u255A\u2566\u2566\u2566\u255D</c1><c2>\u2500</c2>"
+    ],
+    $: ["<c1>\u2554\u255D\u2569\u255A\u2557</c1>", "<c1>\u2551\u2554\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u2550\u2557</c1>", "<c1>\u255A\u2550\u2550\u2557\u2551</c1>", "<c1>\u2551\u255A\u2550\u255D\u2551</c1>", "<c1>\u255A\u2557\u2566\u2554\u255D</c1>"],
+    "%": [
+      "<c1>\u2554\u2557</c1><c2>\u2500\u2500</c2><c1>\u2554\u2550\u2557</c1>",
+      "<c1>\u255A\u255D</c1><c2>\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500\u2500</c2>",
+      "<c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500</c2><c1>\u2554\u2557</c1>",
+      "<c1>\u255A\u2550\u255D</c1><c2>\u2500\u2500</c2><c1>\u255A\u255D</c1>"
+    ],
+    "&": [
+      "<c2>\u2500\u2500</c2><c1>\u2554\u2557</c1><c2>\u2500</c2>",
+      "<c2>\u2500\u2500</c2><c1>\u2551\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u2554\u2550\u255D\u255A\u2557</c1>",
+      "<c1>\u2551\u2554\u2557\u2554\u255D</c1>",
+      "<c1>\u2551\u255A\u255D\u2551</c1><c2>\u2500</c2>",
+      "<c1>\u255A\u2550\u2550\u255D</c1><c2>\u2500</c2>"
+    ],
+    "(": [
+      "<c2>\u2500\u2500</c2><c1>\u2554\u2550\u2557</c1>",
+      "<c2>\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1>",
+      "<c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500</c2>",
+      "<c1>\u255A\u2557\u255A\u2557</c1><c2>\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u255A\u2557\u255A\u2557</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u255A\u2550\u255D</c1>"
+    ],
+    ")": [
+      "<c1>\u2554\u2550\u2557</c1><c2>\u2500\u2500</c2>",
+      "<c1>\u255A\u2557\u255A\u2557</c1><c2>\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u255A\u2557\u255A\u2557</c1>",
+      "<c2>\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1>",
+      "<c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500</c2>",
+      "<c1>\u255A\u2550\u255D</c1><c2>\u2500\u2500</c2>"
+    ],
+    "/": [
+      "<c2>\u2500\u2500\u2500\u2500</c2><c1>\u2554\u2550\u2557</c1>",
+      "<c2>\u2500\u2500\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1>",
+      "<c2>\u2500\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500</c2>",
+      "<c2>\u2500</c2><c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500\u2500</c2>",
+      "<c1>\u2554\u255D\u2554\u255D</c1><c2>\u2500\u2500\u2500</c2>",
+      "<c1>\u255A\u2550\u255D</c1><c2>\u2500\u2500\u2500\u2500</c2>"
+    ],
+    ":": ["<c2>\u2500\u2500</c2>", "<c1>\u2554\u2557</c1>", "<c1>\u255A\u255D</c1>", "<c1>\u2554\u2557</c1>", "<c1>\u255A\u255D</c1>", "<c2>\u2500\u2500</c2>"],
+    ";": ["<c2>\u2500\u2500</c2>", "<c2>\u2500\u2500</c2>", "<c2>\u2500\u2500</c2>", "<c1>\u2554\u2557</c1>", "<c1>\u255A\u2563</c1>", "<c2>\u2500</c2><c1>\u255D</c1>"],
+    ",": ["<c1>\u2554\u2557</c1>", "<c1>\u2551\u2551</c1>", "<c1>\u255A\u255D</c1>", "<c1>\u2554\u2557</c1>", "<c1>\u255A\u2563</c1>", "<c2>\u2500</c2><c1>\u255D</c1>"],
+    "'": ["<c1>\u2554\u2557</c1>", "<c1>\u2551\u2551</c1>", "<c1>\u255A\u255D</c1>", "<c2>\u2500\u2500</c2>", "<c2>\u2500\u2500</c2>", "<c2>\u2500\u2500</c2>"],
+    '"': ["<c1>\u2554\u2557\u2554\u2557</c1>", "<c1>\u2551\u2551\u2551\u2551</c1>", "<c1>\u255A\u255D\u255A\u255D</c1>", "<c2>\u2500\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500\u2500</c2>"],
+    " ": ["<c2>\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500</c2>", "<c2>\u2500\u2500\u2500</c2>"]
+  }
+};
+var fonts = {
+  tiny: tiny_default,
+  block: block_default,
+  shade: shade_default,
+  slick: slick_default,
+  huge: huge_default,
+  grid: grid_default,
+  pallet: pallet_default
+};
+var parsedFonts = {};
+function parseColorTags(text) {
+  const segments = [];
+  let currentIndex = 0;
+  const colorTagRegex = /<c(\d+)>(.*?)<\/c\d+>/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = colorTagRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      const plainText = text.slice(lastIndex, match.index);
+      if (plainText) {
+        segments.push({ text: plainText, colorIndex: 0 });
+      }
+    }
+    const colorIndex = parseInt(match[1]) - 1;
+    const taggedText = match[2];
+    segments.push({ text: taggedText, colorIndex: Math.max(0, colorIndex) });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    const remainingText = text.slice(lastIndex);
+    if (remainingText) {
+      segments.push({ text: remainingText, colorIndex: 0 });
+    }
+  }
+  return segments;
+}
+function getParsedFont(fontKey) {
+  if (!parsedFonts[fontKey]) {
+    const fontDef = fonts[fontKey];
+    const parsedChars = {};
+    for (const [char, lines] of Object.entries(fontDef.chars)) {
+      parsedChars[char] = lines.map((line) => parseColorTags(line));
+    }
+    parsedFonts[fontKey] = {
+      ...fontDef,
+      colors: fontDef.colors || 1,
+      chars: parsedChars
+    };
+  }
+  return parsedFonts[fontKey];
+}
+function measureText({ text, font = "tiny" }) {
+  const fontDef = getParsedFont(font);
+  if (!fontDef) {
+    console.warn(`Font '${font}' not found`);
+    return { width: 0, height: 0 };
+  }
+  let currentX = 0;
+  for (let i = 0;i < text.length; i++) {
+    const char = text[i].toUpperCase();
+    const charDef = fontDef.chars[char];
+    if (!charDef) {
+      const spaceChar = fontDef.chars[" "];
+      if (spaceChar && spaceChar[0]) {
+        let spaceWidth = 0;
+        for (const segment of spaceChar[0]) {
+          spaceWidth += segment.text.length;
+        }
+        currentX += spaceWidth;
+      } else {
+        currentX += 1;
+      }
+      continue;
+    }
+    let charWidth = 0;
+    if (charDef[0]) {
+      for (const segment of charDef[0]) {
+        charWidth += segment.text.length;
+      }
+    }
+    currentX += charWidth;
+    if (i < text.length - 1) {
+      currentX += fontDef.letterspace_size;
+    }
+  }
+  return {
+    width: currentX,
+    height: fontDef.lines
+  };
+}
+function renderFontToFrameBuffer(buffer, {
+  text,
+  x = 0,
+  y = 0,
+  color = [RGBA.fromInts(255, 255, 255, 255)],
+  backgroundColor = RGBA.fromInts(0, 0, 0, 255),
+  font = "tiny"
+}) {
+  const width = buffer.width;
+  const height = buffer.height;
+  const fontDef = getParsedFont(font);
+  if (!fontDef) {
+    console.warn(`Font '${font}' not found`);
+    return { width: 0, height: 0 };
+  }
+  const colors = Array.isArray(color) ? color : [color];
+  if (y < 0 || y + fontDef.lines > height) {
+    return { width: 0, height: fontDef.lines };
+  }
+  let currentX = x;
+  const startX = x;
+  for (let i = 0;i < text.length; i++) {
+    const char = text[i].toUpperCase();
+    const charDef = fontDef.chars[char];
+    if (!charDef) {
+      const spaceChar = fontDef.chars[" "];
+      if (spaceChar && spaceChar[0]) {
+        let spaceWidth = 0;
+        for (const segment of spaceChar[0]) {
+          spaceWidth += segment.text.length;
+        }
+        currentX += spaceWidth;
+      } else {
+        currentX += 1;
+      }
+      continue;
+    }
+    let charWidth = 0;
+    if (charDef[0]) {
+      for (const segment of charDef[0]) {
+        charWidth += segment.text.length;
+      }
+    }
+    if (currentX >= width)
+      break;
+    if (currentX + charWidth < 0) {
+      currentX += charWidth + fontDef.letterspace_size;
+      continue;
+    }
+    for (let lineIdx = 0;lineIdx < fontDef.lines && lineIdx < charDef.length; lineIdx++) {
+      const segments = charDef[lineIdx];
+      const renderY = y + lineIdx;
+      if (renderY >= 0 && renderY < height) {
+        let segmentX = currentX;
+        for (const segment of segments) {
+          const segmentColor = colors[segment.colorIndex] || colors[0];
+          for (let charIdx = 0;charIdx < segment.text.length; charIdx++) {
+            const renderX = segmentX + charIdx;
+            if (renderX >= 0 && renderX < width) {
+              const fontChar = segment.text[charIdx];
+              if (fontChar !== " ") {
+                buffer.setCellWithAlphaBlending(renderX, renderY, fontChar, parseColor(segmentColor), parseColor(backgroundColor));
+              }
+            }
+          }
+          segmentX += segment.text.length;
+        }
+      }
+    }
+    currentX += charWidth;
+    if (i < text.length - 1) {
+      currentX += fontDef.letterspace_size;
+    }
+  }
+  return {
+    width: currentX - startX,
+    height: fontDef.lines
+  };
+}
+var TextAttributes = {
+  NONE: 0,
+  BOLD: 1 << 0,
+  DIM: 1 << 1,
+  ITALIC: 1 << 2,
+  UNDERLINE: 1 << 3,
+  BLINK: 1 << 4,
+  INVERSE: 1 << 5,
+  HIDDEN: 1 << 6,
+  STRIKETHROUGH: 1 << 7
+};
+var DebugOverlayCorner;
+((DebugOverlayCorner2) => {
+  DebugOverlayCorner2[DebugOverlayCorner2["topLeft"] = 0] = "topLeft";
+  DebugOverlayCorner2[DebugOverlayCorner2["topRight"] = 1] = "topRight";
+  DebugOverlayCorner2[DebugOverlayCorner2["bottomLeft"] = 2] = "bottomLeft";
+  DebugOverlayCorner2[DebugOverlayCorner2["bottomRight"] = 3] = "bottomRight";
+})(DebugOverlayCorner ||= {});
+function createTextAttributes({
+  bold = false,
+  italic = false,
+  underline = false,
+  dim = false,
+  blink = false,
+  inverse = false,
+  hidden = false,
+  strikethrough = false
+} = {}) {
+  let attributes = TextAttributes.NONE;
+  if (bold)
+    attributes |= TextAttributes.BOLD;
+  if (italic)
+    attributes |= TextAttributes.ITALIC;
+  if (underline)
+    attributes |= TextAttributes.UNDERLINE;
+  if (dim)
+    attributes |= TextAttributes.DIM;
+  if (blink)
+    attributes |= TextAttributes.BLINK;
+  if (inverse)
+    attributes |= TextAttributes.INVERSE;
+  if (hidden)
+    attributes |= TextAttributes.HIDDEN;
+  if (strikethrough)
+    attributes |= TextAttributes.STRIKETHROUGH;
+  return attributes;
+}
+var ATTRIBUTE_BASE_MASK2 = 255;
+var LINK_ID_SHIFT = 8;
+var LINK_ID_PAYLOAD_MASK = 16777215;
+function attributesWithLink(baseAttributes, linkId) {
+  const base = baseAttributes & ATTRIBUTE_BASE_MASK2;
+  const linkBits = (linkId & LINK_ID_PAYLOAD_MASK) << LINK_ID_SHIFT;
+  return base | linkBits;
+}
+var BrandedStyledText = Symbol.for("@opentui/core/StyledText");
+function isStyledText(obj) {
+  return obj && obj[BrandedStyledText];
+}
+
+class StyledText {
+  [BrandedStyledText] = true;
+  chunks;
+  constructor(chunks) {
+    this.chunks = chunks;
+  }
+}
+function stringToStyledText(content) {
+  const chunk = {
+    __isChunk: true,
+    text: content
+  };
+  return new StyledText([chunk]);
+}
+var ESC = "\x1B";
+var BRACKETED_PASTE_START = "\x1B[200~";
+var BRACKETED_PASTE_END = "\x1B[201~";
+function isCompleteSequence(data) {
+  if (!data.startsWith(ESC)) {
+    return "not-escape";
+  }
+  if (data.length === 1) {
+    return "incomplete";
+  }
+  const afterEsc = data.slice(1);
+  if (afterEsc.startsWith("[")) {
+    if (afterEsc.startsWith("[M")) {
+      return data.length >= 6 ? "complete" : "incomplete";
+    }
+    return isCompleteCsiSequence(data);
+  }
+  if (afterEsc.startsWith("]")) {
+    return isCompleteOscSequence(data);
+  }
+  if (afterEsc.startsWith("P")) {
+    return isCompleteDcsSequence(data);
+  }
+  if (afterEsc.startsWith("_")) {
+    return isCompleteApcSequence(data);
+  }
+  if (afterEsc.startsWith("O")) {
+    return afterEsc.length >= 2 ? "complete" : "incomplete";
+  }
+  if (afterEsc.length === 1) {
+    return "complete";
+  }
+  return "complete";
+}
+function isCompleteCsiSequence(data) {
+  if (!data.startsWith(ESC + "[")) {
+    return "complete";
+  }
+  if (data.length < 3) {
+    return "incomplete";
+  }
+  const payload = data.slice(2);
+  const lastChar = payload[payload.length - 1];
+  const lastCharCode = lastChar.charCodeAt(0);
+  if (lastCharCode >= 64 && lastCharCode <= 126) {
+    if (payload.startsWith("<")) {
+      const mouseMatch = /^<\d+;\d+;\d+[Mm]$/.test(payload);
+      if (mouseMatch) {
+        return "complete";
+      }
+      if (lastChar === "M" || lastChar === "m") {
+        const parts = payload.slice(1, -1).split(";");
+        if (parts.length === 3 && parts.every((p) => /^\d+$/.test(p))) {
+          return "complete";
+        }
+      }
+      return "incomplete";
+    }
+    return "complete";
+  }
+  return "incomplete";
+}
+function isCompleteOscSequence(data) {
+  if (!data.startsWith(ESC + "]")) {
+    return "complete";
+  }
+  if (data.endsWith(ESC + "\\") || data.endsWith("\x07")) {
+    return "complete";
+  }
+  return "incomplete";
+}
+function isCompleteDcsSequence(data) {
+  if (!data.startsWith(ESC + "P")) {
+    return "complete";
+  }
+  if (data.endsWith(ESC + "\\")) {
+    return "complete";
+  }
+  return "incomplete";
+}
+function isCompleteApcSequence(data) {
+  if (!data.startsWith(ESC + "_")) {
+    return "complete";
+  }
+  if (data.endsWith(ESC + "\\")) {
+    return "complete";
+  }
+  return "incomplete";
+}
+function extractCompleteSequences(buffer) {
+  const sequences = [];
+  let pos = 0;
+  while (pos < buffer.length) {
+    const remaining = buffer.slice(pos);
+    if (remaining.startsWith(ESC)) {
+      let seqEnd = 1;
+      while (seqEnd <= remaining.length) {
+        const candidate = remaining.slice(0, seqEnd);
+        const status = isCompleteSequence(candidate);
+        if (status === "complete") {
+          sequences.push(candidate);
+          pos += seqEnd;
+          break;
+        } else if (status === "incomplete") {
+          seqEnd++;
+        } else {
+          sequences.push(candidate);
+          pos += seqEnd;
+          break;
+        }
+      }
+      if (seqEnd > remaining.length) {
+        return { sequences, remainder: remaining };
+      }
+    } else {
+      sequences.push(remaining[0]);
+      pos++;
+    }
+  }
+  return { sequences, remainder: "" };
+}
+
+class StdinBuffer extends EventEmitter2 {
+  buffer = "";
+  timeout = null;
+  timeoutMs;
+  pasteMode = false;
+  pasteBuffer = "";
+  constructor(options = {}) {
+    super();
+    this.timeoutMs = options.timeout ?? 10;
+  }
+  process(data) {
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = null;
+    }
+    let str;
+    if (Buffer.isBuffer(data)) {
+      if (data.length === 1 && data[0] > 127) {
+        const byte = data[0] - 128;
+        str = "\x1B" + String.fromCharCode(byte);
+      } else {
+        str = data.toString();
+      }
+    } else {
+      str = data;
+    }
+    if (str.length === 0 && this.buffer.length === 0) {
+      this.emit("data", "");
+      return;
+    }
+    this.buffer += str;
+    if (this.pasteMode) {
+      this.pasteBuffer += this.buffer;
+      this.buffer = "";
+      const endIndex = this.pasteBuffer.indexOf(BRACKETED_PASTE_END);
+      if (endIndex !== -1) {
+        const pastedContent = this.pasteBuffer.slice(0, endIndex);
+        const remaining = this.pasteBuffer.slice(endIndex + BRACKETED_PASTE_END.length);
+        this.pasteMode = false;
+        this.pasteBuffer = "";
+        this.emit("paste", pastedContent);
+        if (remaining.length > 0) {
+          this.process(remaining);
+        }
+      }
+      return;
+    }
+    const startIndex = this.buffer.indexOf(BRACKETED_PASTE_START);
+    if (startIndex !== -1) {
+      if (startIndex > 0) {
+        const beforePaste = this.buffer.slice(0, startIndex);
+        const result2 = extractCompleteSequences(beforePaste);
+        for (const sequence of result2.sequences) {
+          this.emit("data", sequence);
+        }
+      }
+      this.buffer = this.buffer.slice(startIndex + BRACKETED_PASTE_START.length);
+      this.pasteMode = true;
+      this.pasteBuffer = this.buffer;
+      this.buffer = "";
+      const endIndex = this.pasteBuffer.indexOf(BRACKETED_PASTE_END);
+      if (endIndex !== -1) {
+        const pastedContent = this.pasteBuffer.slice(0, endIndex);
+        const remaining = this.pasteBuffer.slice(endIndex + BRACKETED_PASTE_END.length);
+        this.pasteMode = false;
+        this.pasteBuffer = "";
+        this.emit("paste", pastedContent);
+        if (remaining.length > 0) {
+          this.process(remaining);
+        }
+      }
+      return;
+    }
+    const result = extractCompleteSequences(this.buffer);
+    this.buffer = result.remainder;
+    for (const sequence of result.sequences) {
+      this.emit("data", sequence);
+    }
+    if (this.buffer.length > 0) {
+      this.timeout = setTimeout(() => {
+        const flushed = this.flush();
+        for (const sequence of flushed) {
+          this.emit("data", sequence);
+        }
+      }, this.timeoutMs);
+    }
+  }
+  flush() {
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = null;
+    }
+    if (this.buffer.length === 0) {
+      return [];
+    }
+    const sequences = [this.buffer];
+    this.buffer = "";
+    return sequences;
+  }
+  clear() {
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = null;
+    }
+    this.buffer = "";
+    this.pasteMode = false;
+    this.pasteBuffer = "";
+  }
+  getBuffer() {
+    return this.buffer;
+  }
+  destroy() {
+    this.clear();
+  }
+}
+function parseAlign(value) {
+  if (value == null) {
+    return Align.Auto;
+  }
+  switch (value.toLowerCase()) {
+    case "auto":
+      return Align.Auto;
+    case "flex-start":
+      return Align.FlexStart;
+    case "center":
+      return Align.Center;
+    case "flex-end":
+      return Align.FlexEnd;
+    case "stretch":
+      return Align.Stretch;
+    case "baseline":
+      return Align.Baseline;
+    case "space-between":
+      return Align.SpaceBetween;
+    case "space-around":
+      return Align.SpaceAround;
+    case "space-evenly":
+      return Align.SpaceEvenly;
+    default:
+      return Align.Auto;
+  }
+}
+function parseAlignItems(value) {
+  if (value == null) {
+    return Align.Stretch;
+  }
+  switch (value.toLowerCase()) {
+    case "auto":
+      return Align.Auto;
+    case "flex-start":
+      return Align.FlexStart;
+    case "center":
+      return Align.Center;
+    case "flex-end":
+      return Align.FlexEnd;
+    case "stretch":
+      return Align.Stretch;
+    case "baseline":
+      return Align.Baseline;
+    case "space-between":
+      return Align.SpaceBetween;
+    case "space-around":
+      return Align.SpaceAround;
+    case "space-evenly":
+      return Align.SpaceEvenly;
+    default:
+      return Align.Stretch;
+  }
+}
+function parseFlexDirection(value) {
+  if (value == null) {
+    return FlexDirection.Column;
+  }
+  switch (value.toLowerCase()) {
+    case "column":
+      return FlexDirection.Column;
+    case "column-reverse":
+      return FlexDirection.ColumnReverse;
+    case "row":
+      return FlexDirection.Row;
+    case "row-reverse":
+      return FlexDirection.RowReverse;
+    default:
+      return FlexDirection.Column;
+  }
+}
+function parseJustify(value) {
+  if (value == null) {
+    return Justify.FlexStart;
+  }
+  switch (value.toLowerCase()) {
+    case "flex-start":
+      return Justify.FlexStart;
+    case "center":
+      return Justify.Center;
+    case "flex-end":
+      return Justify.FlexEnd;
+    case "space-between":
+      return Justify.SpaceBetween;
+    case "space-around":
+      return Justify.SpaceAround;
+    case "space-evenly":
+      return Justify.SpaceEvenly;
+    default:
+      return Justify.FlexStart;
+  }
+}
+function parseOverflow(value) {
+  if (value == null) {
+    return Overflow.Visible;
+  }
+  switch (value.toLowerCase()) {
+    case "visible":
+      return Overflow.Visible;
+    case "hidden":
+      return Overflow.Hidden;
+    case "scroll":
+      return Overflow.Scroll;
+    default:
+      return Overflow.Visible;
+  }
+}
+function parsePositionType(value) {
+  if (value == null) {
+    return PositionType.Relative;
+  }
+  switch (value.toLowerCase()) {
+    case "static":
+      return PositionType.Static;
+    case "relative":
+      return PositionType.Relative;
+    case "absolute":
+      return PositionType.Absolute;
+    default:
+      return PositionType.Static;
+  }
+}
+function parseWrap(value) {
+  if (value == null) {
+    return Wrap.NoWrap;
+  }
+  switch (value.toLowerCase()) {
+    case "no-wrap":
+      return Wrap.NoWrap;
+    case "wrap":
+      return Wrap.Wrap;
+    case "wrap-reverse":
+      return Wrap.WrapReverse;
+    default:
+      return Wrap.NoWrap;
+  }
+}
+
+class MouseParser {
+  mouseButtonsPressed = new Set;
+  static SCROLL_DIRECTIONS = {
+    0: "up",
+    1: "down",
+    2: "left",
+    3: "right"
+  };
+  reset() {
+    this.mouseButtonsPressed.clear();
+  }
+  parseMouseEvent(data) {
+    const str = data.toString();
+    const sgrMatch = str.match(/\x1b\[<(\d+);(\d+);(\d+)([Mm])/);
+    if (sgrMatch) {
+      const [, buttonCode, x, y, pressRelease] = sgrMatch;
+      const rawButtonCode = parseInt(buttonCode);
+      const button = rawButtonCode & 3;
+      const isScroll = (rawButtonCode & 64) !== 0;
+      const scrollDirection = !isScroll ? undefined : MouseParser.SCROLL_DIRECTIONS[button];
+      const isMotion = (rawButtonCode & 32) !== 0;
+      const modifiers = {
+        shift: (rawButtonCode & 4) !== 0,
+        alt: (rawButtonCode & 8) !== 0,
+        ctrl: (rawButtonCode & 16) !== 0
+      };
+      let type;
+      let scrollInfo;
+      if (isScroll && pressRelease === "M") {
+        type = "scroll";
+        scrollInfo = {
+          direction: scrollDirection,
+          delta: 1
+        };
+      } else if (isMotion) {
+        const isDragging = this.mouseButtonsPressed.size > 0;
+        if (button === 3) {
+          type = "move";
+        } else if (isDragging) {
+          type = "drag";
+        } else {
+          type = "move";
+        }
+      } else {
+        type = pressRelease === "M" ? "down" : "up";
+        if (type === "down" && button !== 3) {
+          this.mouseButtonsPressed.add(button);
+        } else if (type === "up") {
+          this.mouseButtonsPressed.clear();
+        }
+      }
+      return {
+        type,
+        button: button === 3 ? 0 : button,
+        x: parseInt(x) - 1,
+        y: parseInt(y) - 1,
+        modifiers,
+        scroll: scrollInfo
+      };
+    }
+    if (str.startsWith("\x1B[M") && str.length >= 6) {
+      const buttonByte = str.charCodeAt(3) - 32;
+      const x = str.charCodeAt(4) - 33;
+      const y = str.charCodeAt(5) - 33;
+      const button = buttonByte & 3;
+      const isScroll = (buttonByte & 64) !== 0;
+      const scrollDirection = !isScroll ? undefined : MouseParser.SCROLL_DIRECTIONS[button];
+      const modifiers = {
+        shift: (buttonByte & 4) !== 0,
+        alt: (buttonByte & 8) !== 0,
+        ctrl: (buttonByte & 16) !== 0
+      };
+      let type;
+      let actualButton;
+      let scrollInfo;
+      if (isScroll) {
+        type = "scroll";
+        actualButton = 0;
+        scrollInfo = {
+          direction: scrollDirection,
+          delta: 1
+        };
+      } else {
+        type = button === 3 ? "up" : "down";
+        actualButton = button === 3 ? 0 : button;
+      }
+      return {
+        type,
+        button: actualButton,
+        x,
+        y,
+        modifiers,
+        scroll: scrollInfo
+      };
+    }
+    return null;
+  }
+}
+
+class SelectionAnchor {
+  renderable;
+  relativeX;
+  relativeY;
+  constructor(renderable, absoluteX, absoluteY) {
+    this.renderable = renderable;
+    this.relativeX = absoluteX - this.renderable.x;
+    this.relativeY = absoluteY - this.renderable.y;
+  }
+  get x() {
+    return this.renderable.x + this.relativeX;
+  }
+  get y() {
+    return this.renderable.y + this.relativeY;
+  }
+}
+
+class Selection {
+  _anchor;
+  _focus;
+  _selectedRenderables = [];
+  _touchedRenderables = [];
+  _isActive = true;
+  _isSelecting = true;
+  _isStart = false;
+  constructor(anchorRenderable, anchor, focus) {
+    this._anchor = new SelectionAnchor(anchorRenderable, anchor.x, anchor.y);
+    this._focus = { ...focus };
+  }
+  get isStart() {
+    return this._isStart;
+  }
+  set isStart(value) {
+    this._isStart = value;
+  }
+  get anchor() {
+    return { x: this._anchor.x, y: this._anchor.y };
+  }
+  get focus() {
+    return { ...this._focus };
+  }
+  set focus(value) {
+    this._focus = { ...value };
+  }
+  get isActive() {
+    return this._isActive;
+  }
+  set isActive(value) {
+    this._isActive = value;
+  }
+  get isSelecting() {
+    return this._isSelecting;
+  }
+  set isSelecting(value) {
+    this._isSelecting = value;
+  }
+  get bounds() {
+    const minX = Math.min(this._anchor.x, this._focus.x);
+    const maxX = Math.max(this._anchor.x, this._focus.x);
+    const minY = Math.min(this._anchor.y, this._focus.y);
+    const maxY = Math.max(this._anchor.y, this._focus.y);
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+    return {
+      x: minX,
+      y: minY,
+      width,
+      height
+    };
+  }
+  updateSelectedRenderables(selectedRenderables) {
+    this._selectedRenderables = selectedRenderables;
+  }
+  get selectedRenderables() {
+    return this._selectedRenderables;
+  }
+  updateTouchedRenderables(touchedRenderables) {
+    this._touchedRenderables = touchedRenderables;
+  }
+  get touchedRenderables() {
+    return this._touchedRenderables;
+  }
+  getSelectedText() {
+    const selectedTexts = this._selectedRenderables.sort((a, b) => {
+      const aY = a.y;
+      const bY = b.y;
+      if (aY !== bY) {
+        return aY - bY;
+      }
+      return a.x - b.x;
+    }).filter((renderable) => !renderable.isDestroyed).map((renderable) => renderable.getSelectedText()).filter((text) => text);
+    return selectedTexts.join(`
+`);
+  }
+}
+function convertGlobalToLocalSelection(globalSelection, localX, localY) {
+  if (!globalSelection?.isActive) {
+    return null;
+  }
+  return {
+    anchorX: globalSelection.anchor.x - localX,
+    anchorY: globalSelection.anchor.y - localY,
+    focusX: globalSelection.focus.x - localX,
+    focusY: globalSelection.focus.y - localY,
+    isActive: true
+  };
+}
+var singletonCacheSymbol = Symbol.for("@opentui/core/singleton");
+function singleton(key, factory) {
+  const bag = globalThis[singletonCacheSymbol] ??= {};
+  if (!(key in bag)) {
+    bag[key] = factory();
+  }
+  return bag[key];
+}
+function destroySingleton(key) {
+  const bag = globalThis[singletonCacheSymbol];
+  if (bag && key in bag) {
+    delete bag[key];
+  }
+}
+function hasSingleton(key) {
+  const bag = globalThis[singletonCacheSymbol];
+  return bag && key in bag;
+}
+var envRegistry = singleton("env-registry", () => ({}));
+function registerEnvVar(config) {
+  const existing = envRegistry[config.name];
+  if (existing) {
+    if (existing.description !== config.description || existing.type !== config.type || existing.default !== config.default) {
+      throw new Error(`Environment variable "${config.name}" is already registered with different configuration. ` + `Existing: ${JSON.stringify(existing)}, New: ${JSON.stringify(config)}`);
+    }
+    return;
+  }
+  envRegistry[config.name] = config;
+}
+function normalizeBoolean(value) {
+  const lowerValue = value.toLowerCase();
+  return ["true", "1", "on", "yes"].includes(lowerValue);
+}
+function parseEnvValue(config) {
+  const envValue = process.env[config.name];
+  if (envValue === undefined && config.default !== undefined) {
+    return config.default;
+  }
+  if (envValue === undefined) {
+    throw new Error(`Required environment variable ${config.name} is not set. ${config.description}`);
+  }
+  switch (config.type) {
+    case "boolean":
+      return typeof envValue === "boolean" ? envValue : normalizeBoolean(envValue);
+    case "number":
+      const numValue = Number(envValue);
+      if (isNaN(numValue)) {
+        throw new Error(`Environment variable ${config.name} must be a valid number, got: ${envValue}`);
+      }
+      return numValue;
+    case "string":
+    default:
+      return envValue;
+  }
+}
+
+class EnvStore {
+  parsedValues = new Map;
+  get(key) {
+    if (this.parsedValues.has(key)) {
+      return this.parsedValues.get(key);
+    }
+    if (!(key in envRegistry)) {
+      throw new Error(`Environment variable ${key} is not registered.`);
+    }
+    try {
+      const value = parseEnvValue(envRegistry[key]);
+      this.parsedValues.set(key, value);
+      return value;
+    } catch (error) {
+      throw new Error(`Failed to parse env var ${key}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  has(key) {
+    return key in envRegistry;
+  }
+  clearCache() {
+    this.parsedValues.clear();
+  }
+}
+var envStore = singleton("env-store", () => new EnvStore);
+var env = new Proxy({}, {
+  get(target, prop) {
+    if (typeof prop !== "string") {
+      return;
+    }
+    return envStore.get(prop);
+  },
+  has(target, prop) {
+    return envStore.has(prop);
+  },
+  ownKeys() {
+    return Object.keys(envRegistry);
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    if (envStore.has(prop)) {
+      return {
+        enumerable: true,
+        configurable: true,
+        get: () => envStore.get(prop)
+      };
+    }
+    return;
+  }
+});
+registerEnvVar({ name: "OTUI_TS_STYLE_WARN", default: false, description: "Enable warnings for missing syntax styles" });
+var TIMERS_MAP = new Map;
+
+class DebounceController {
+  scopeId;
+  constructor(scopeId) {
+    this.scopeId = scopeId;
+    if (!TIMERS_MAP.has(this.scopeId)) {
+      TIMERS_MAP.set(this.scopeId, new Map);
+    }
+  }
+  debounce(id, ms, fn) {
+    const scopeMap = TIMERS_MAP.get(this.scopeId);
+    return new Promise((resolve3, reject) => {
+      if (scopeMap.has(id)) {
+        clearTimeout(scopeMap.get(id));
+      }
+      const timerId = setTimeout(() => {
+        try {
+          resolve3(fn());
+        } catch (error) {
+          reject(error);
+        }
+        scopeMap.delete(id);
+      }, ms);
+      scopeMap.set(id, timerId);
+    });
+  }
+  clearDebounce(id) {
+    const scopeMap = TIMERS_MAP.get(this.scopeId);
+    if (scopeMap && scopeMap.has(id)) {
+      clearTimeout(scopeMap.get(id));
+      scopeMap.delete(id);
+    }
+  }
+  clear() {
+    const scopeMap = TIMERS_MAP.get(this.scopeId);
+    if (scopeMap) {
+      scopeMap.forEach((timerId) => clearTimeout(timerId));
+      scopeMap.clear();
+    }
+  }
+}
+function createDebounce(scopeId) {
+  return new DebounceController(scopeId);
+}
+function clearDebounceScope(scopeId) {
+  const scopeMap = TIMERS_MAP.get(scopeId);
+  if (scopeMap) {
+    scopeMap.forEach((timerId) => clearTimeout(timerId));
+    scopeMap.clear();
+  }
+}
+
+class ProcessQueue {
+  processor;
+  queue = [];
+  processing = false;
+  autoProcess = true;
+  constructor(processor, autoProcess = true) {
+    this.processor = processor;
+    this.autoProcess = autoProcess;
+  }
+  enqueue(item) {
+    this.queue.push(item);
+    if (!this.processing && this.autoProcess) {
+      this.processQueue();
+    }
+  }
+  processQueue() {
+    if (this.queue.length === 0) {
+      return;
+    }
+    this.processing = true;
+    queueMicrotask(async () => {
+      if (this.queue.length === 0) {
+        this.processing = false;
+        return;
+      }
+      const item = this.queue.shift();
+      try {
+        await this.processor(item);
+      } catch (error) {
+        console.error("Error processing queue item:", error);
+      }
+      if (this.queue.length > 0) {
+        this.processQueue();
+      } else {
+        this.processing = false;
+      }
+    });
+  }
+  clear() {
+    this.queue = [];
+  }
+  isProcessing() {
+    return this.processing;
+  }
+  size() {
+    return this.queue.length;
+  }
+}
+var _cachedParsers;
+function getParsers() {
+  if (!_cachedParsers) {
+    _cachedParsers = [
+      {
+        filetype: "javascript",
+        queries: {
+          highlights: [resolve(dirname(fileURLToPath(import.meta.url)), highlights_default)]
+        },
+        wasm: resolve(dirname(fileURLToPath(import.meta.url)), tree_sitter_javascript_default)
+      },
+      {
+        filetype: "typescript",
+        queries: {
+          highlights: [resolve(dirname(fileURLToPath(import.meta.url)), highlights_default2)]
+        },
+        wasm: resolve(dirname(fileURLToPath(import.meta.url)), tree_sitter_typescript_default)
+      },
+      {
+        filetype: "markdown",
+        queries: {
+          highlights: [resolve(dirname(fileURLToPath(import.meta.url)), highlights_default3)],
+          injections: [resolve(dirname(fileURLToPath(import.meta.url)), injections_default)]
+        },
+        wasm: resolve(dirname(fileURLToPath(import.meta.url)), tree_sitter_markdown_default),
+        injectionMapping: {
+          nodeTypes: {
+            inline: "markdown_inline",
+            pipe_table_cell: "markdown_inline"
+          },
+          infoStringMap: {
+            javascript: "javascript",
+            js: "javascript",
+            typescript: "typescript",
+            ts: "typescript",
+            markdown: "markdown",
+            md: "markdown"
+          }
+        }
+      },
+      {
+        filetype: "markdown_inline",
+        queries: {
+          highlights: [resolve(dirname(fileURLToPath(import.meta.url)), highlights_default4)]
+        },
+        wasm: resolve(dirname(fileURLToPath(import.meta.url)), tree_sitter_markdown_inline_default)
+      },
+      {
+        filetype: "zig",
+        queries: {
+          highlights: [resolve(dirname(fileURLToPath(import.meta.url)), highlights_default5)]
+        },
+        wasm: resolve(dirname(fileURLToPath(import.meta.url)), tree_sitter_zig_default)
+      }
+    ];
+  }
+  return _cachedParsers;
+}
+function isBunfsPath(path2) {
+  return path2.includes("$bunfs") || /^B:[\\/]~BUN/i.test(path2);
+}
+function getBunfsRootPath() {
+  return process.platform === "win32" ? "B:\\~BUN\\root" : "/$bunfs/root";
+}
+function normalizeBunfsPath(fileName) {
+  return join(getBunfsRootPath(), basename(fileName));
+}
+registerEnvVar({
+  name: "OTUI_TREE_SITTER_WORKER_PATH",
+  description: "Path to the TreeSitter worker",
+  type: "string",
+  default: ""
+});
+var DEFAULT_PARSERS = getParsers();
+var isUrl = (path2) => path2.startsWith("http://") || path2.startsWith("https://");
+
+class TreeSitterClient extends EventEmitter3 {
+  initialized = false;
+  worker;
+  buffers = new Map;
+  initializePromise;
+  initializeResolvers;
+  messageCallbacks = new Map;
+  messageIdCounter = 0;
+  editQueues = new Map;
+  debouncer;
+  options;
+  constructor(options) {
+    super();
+    this.options = options;
+    this.debouncer = createDebounce("tree-sitter-client");
+    this.startWorker();
+  }
+  emitError(error, bufferId) {
+    if (this.listenerCount("error") > 0) {
+      this.emit("error", error, bufferId);
+    }
+  }
+  emitWarning(warning, bufferId) {
+    if (this.listenerCount("warning") > 0) {
+      this.emit("warning", warning, bufferId);
+    }
+  }
+  startWorker() {
+    if (this.worker) {
+      return;
+    }
+    let worker_path;
+    if (env.OTUI_TREE_SITTER_WORKER_PATH) {
+      worker_path = env.OTUI_TREE_SITTER_WORKER_PATH;
+    } else if (typeof OTUI_TREE_SITTER_WORKER_PATH !== "undefined") {
+      worker_path = OTUI_TREE_SITTER_WORKER_PATH;
+    } else if (this.options.workerPath) {
+      worker_path = this.options.workerPath;
+    } else {
+      worker_path = new URL("./parser.worker.js", import.meta.url).href;
+      if (!existsSync(resolve2(import.meta.dirname, "parser.worker.js"))) {
+        worker_path = new URL("./parser.worker.ts", import.meta.url).href;
+      }
+    }
+    this.worker = new Worker(worker_path);
+    this.worker.onmessage = this.handleWorkerMessage.bind(this);
+    this.worker.onerror = (error) => {
+      console.error("TreeSitter worker error:", error.message);
+      if (this.initializeResolvers) {
+        clearTimeout(this.initializeResolvers.timeoutId);
+        this.initializeResolvers.reject(new Error(`Worker error: ${error.message}`));
+        this.initializeResolvers = undefined;
+      }
+      this.emitError(`Worker error: ${error.message}`);
+    };
+  }
+  stopWorker() {
+    if (!this.worker) {
+      return;
+    }
+    this.worker.terminate();
+    this.worker = undefined;
+  }
+  handleReset() {
+    this.buffers.clear();
+    this.stopWorker();
+    this.startWorker();
+    this.initializePromise = undefined;
+    this.initializeResolvers = undefined;
+    return this.initialize();
+  }
+  async initialize() {
+    if (this.initializePromise) {
+      return this.initializePromise;
+    }
+    this.initializePromise = new Promise((resolve3, reject) => {
+      const timeoutMs = this.options.initTimeout ?? 1e4;
+      const timeoutId = setTimeout(() => {
+        const error = new Error("Worker initialization timed out");
+        console.error("TreeSitter client:", error.message);
+        this.initializeResolvers = undefined;
+        reject(error);
+      }, timeoutMs);
+      this.initializeResolvers = { resolve: resolve3, reject, timeoutId };
+      this.worker?.postMessage({
+        type: "INIT",
+        dataPath: this.options.dataPath
+      });
+    });
+    await this.initializePromise;
+    await this.registerDefaultParsers();
+    return this.initializePromise;
+  }
+  async registerDefaultParsers() {
+    for (const parser of DEFAULT_PARSERS) {
+      this.addFiletypeParser(parser);
+    }
+  }
+  resolvePath(path2) {
+    if (isUrl(path2)) {
+      return path2;
+    }
+    if (isBunfsPath(path2)) {
+      return normalizeBunfsPath(parse(path2).base);
+    }
+    if (!isAbsolute(path2)) {
+      return resolve2(path2);
+    }
+    return path2;
+  }
+  addFiletypeParser(filetypeParser) {
+    const resolvedParser = {
+      ...filetypeParser,
+      wasm: this.resolvePath(filetypeParser.wasm),
+      queries: {
+        highlights: filetypeParser.queries.highlights.map((path2) => this.resolvePath(path2)),
+        injections: filetypeParser.queries.injections?.map((path2) => this.resolvePath(path2))
+      }
+    };
+    this.worker?.postMessage({ type: "ADD_FILETYPE_PARSER", filetypeParser: resolvedParser });
+  }
+  async getPerformance() {
+    const messageId = `performance_${this.messageIdCounter++}`;
+    return new Promise((resolve3) => {
+      this.messageCallbacks.set(messageId, resolve3);
+      this.worker?.postMessage({ type: "GET_PERFORMANCE", messageId });
+    });
+  }
+  async highlightOnce(content, filetype) {
+    if (!this.initialized) {
+      try {
+        await this.initialize();
+      } catch (error) {
+        return { error: "Could not highlight because of initialization error" };
+      }
+    }
+    const messageId = `oneshot_${this.messageIdCounter++}`;
+    return new Promise((resolve3) => {
+      this.messageCallbacks.set(messageId, resolve3);
+      this.worker?.postMessage({
+        type: "ONESHOT_HIGHLIGHT",
+        content,
+        filetype,
+        messageId
+      });
+    });
+  }
+  handleWorkerMessage(event) {
+    const { type, bufferId, error, highlights, warning, messageId, hasParser, performance: performance2, version } = event.data;
+    if (type === "HIGHLIGHT_RESPONSE") {
+      const buffer = this.buffers.get(bufferId);
+      if (!buffer || !buffer.hasParser)
+        return;
+      if (buffer.version !== version) {
+        this.resetBuffer(bufferId, buffer.version, buffer.content);
+        return;
+      }
+      this.emit("highlights:response", bufferId, version, highlights);
+    }
+    if (type === "INIT_RESPONSE") {
+      if (this.initializeResolvers) {
+        clearTimeout(this.initializeResolvers.timeoutId);
+        if (error) {
+          console.error("TreeSitter client initialization failed:", error);
+          this.initializeResolvers.reject(new Error(error));
+        } else {
+          this.initialized = true;
+          this.initializeResolvers.resolve();
+        }
+        this.initializeResolvers = undefined;
+        return;
+      }
+    }
+    if (type === "PARSER_INIT_RESPONSE") {
+      const callback = this.messageCallbacks.get(messageId);
+      if (callback) {
+        this.messageCallbacks.delete(messageId);
+        callback({ hasParser, warning, error });
+      }
+      return;
+    }
+    if (type === "PRELOAD_PARSER_RESPONSE") {
+      const callback = this.messageCallbacks.get(messageId);
+      if (callback) {
+        this.messageCallbacks.delete(messageId);
+        callback({ hasParser });
+      }
+      return;
+    }
+    if (type === "BUFFER_DISPOSED") {
+      const callback = this.messageCallbacks.get(`dispose_${bufferId}`);
+      if (callback) {
+        this.messageCallbacks.delete(`dispose_${bufferId}`);
+        callback(true);
+      }
+      this.emit("buffer:disposed", bufferId);
+      return;
+    }
+    if (type === "PERFORMANCE_RESPONSE") {
+      const callback = this.messageCallbacks.get(messageId);
+      if (callback) {
+        this.messageCallbacks.delete(messageId);
+        callback(performance2);
+      }
+      return;
+    }
+    if (type === "ONESHOT_HIGHLIGHT_RESPONSE") {
+      const callback = this.messageCallbacks.get(messageId);
+      if (callback) {
+        this.messageCallbacks.delete(messageId);
+        callback({ highlights, warning, error });
+      }
+      return;
+    }
+    if (type === "UPDATE_DATA_PATH_RESPONSE") {
+      const callback = this.messageCallbacks.get(messageId);
+      if (callback) {
+        this.messageCallbacks.delete(messageId);
+        callback({ error });
+      }
+      return;
+    }
+    if (type === "CLEAR_CACHE_RESPONSE") {
+      const callback = this.messageCallbacks.get(messageId);
+      if (callback) {
+        this.messageCallbacks.delete(messageId);
+        callback({ error });
+      }
+      return;
+    }
+    if (warning) {
+      this.emitWarning(warning, bufferId);
+      return;
+    }
+    if (error) {
+      this.emitError(error, bufferId);
+      return;
+    }
+    if (type === "WORKER_LOG") {
+      const { logType, data } = event.data;
+      const message = data.join(" ");
+      this.emit("worker:log", logType, message);
+      if (logType === "log") {
+        console.log("TSWorker:", ...data);
+      } else if (logType === "error") {
+        console.error("TSWorker:", ...data);
+      } else if (logType === "warn") {
+        console.warn("TSWorker:", ...data);
+      }
+      return;
+    }
+  }
+  async preloadParser(filetype) {
+    const messageId = `has_parser_${this.messageIdCounter++}`;
+    const response = await new Promise((resolve3) => {
+      this.messageCallbacks.set(messageId, resolve3);
+      this.worker?.postMessage({
+        type: "PRELOAD_PARSER",
+        filetype,
+        messageId
+      });
+    });
+    return response.hasParser;
+  }
+  async createBuffer(id, content, filetype, version = 1, autoInitialize = true) {
+    if (!this.initialized) {
+      if (!autoInitialize) {
+        this.emitError("Could not create buffer because client is not initialized");
+        return false;
+      }
+      try {
+        await this.initialize();
+      } catch (error) {
+        this.emitError("Could not create buffer because of initialization error");
+        return false;
+      }
+    }
+    if (this.buffers.has(id)) {
+      throw new Error(`Buffer with id ${id} already exists`);
+    }
+    this.buffers.set(id, { id, content, filetype, version, hasParser: false });
+    const messageId = `init_${this.messageIdCounter++}`;
+    const response = await new Promise((resolve3) => {
+      this.messageCallbacks.set(messageId, resolve3);
+      this.worker?.postMessage({
+        type: "INITIALIZE_PARSER",
+        bufferId: id,
+        version,
+        content,
+        filetype,
+        messageId
+      });
+    });
+    if (!response.hasParser) {
+      this.emit("buffer:initialized", id, false);
+      if (filetype !== "plaintext") {
+        this.emitWarning(response.warning || response.error || "Buffer has no parser", id);
+      }
+      return false;
+    }
+    const bufferState = { id, content, filetype, version, hasParser: true };
+    this.buffers.set(id, bufferState);
+    this.emit("buffer:initialized", id, true);
+    return true;
+  }
+  async updateBuffer(id, edits, newContent, version) {
+    if (!this.initialized) {
+      return;
+    }
+    const buffer = this.buffers.get(id);
+    if (!buffer || !buffer.hasParser) {
+      return;
+    }
+    this.buffers.set(id, { ...buffer, content: newContent, version });
+    if (!this.editQueues.has(id)) {
+      this.editQueues.set(id, new ProcessQueue((item) => this.processEdit(id, item.edits, item.newContent, item.version, item.isReset)));
+    }
+    const bufferQueue = this.editQueues.get(id);
+    bufferQueue.enqueue({ edits, newContent, version });
+  }
+  async processEdit(bufferId, edits, newContent, version, isReset = false) {
+    this.worker?.postMessage({
+      type: isReset ? "RESET_BUFFER" : "HANDLE_EDITS",
+      bufferId,
+      version,
+      content: newContent,
+      edits
+    });
+  }
+  async removeBuffer(bufferId) {
+    if (!this.initialized) {
+      return;
+    }
+    this.buffers.delete(bufferId);
+    if (this.editQueues.has(bufferId)) {
+      this.editQueues.get(bufferId)?.clear();
+      this.editQueues.delete(bufferId);
+    }
+    if (this.worker) {
+      await new Promise((resolve3) => {
+        const messageId = `dispose_${bufferId}`;
+        this.messageCallbacks.set(messageId, resolve3);
+        try {
+          this.worker.postMessage({
+            type: "DISPOSE_BUFFER",
+            bufferId
+          });
+        } catch (error) {
+          console.error("Error disposing buffer", error);
+          resolve3(false);
+        }
+        setTimeout(() => {
+          if (this.messageCallbacks.has(messageId)) {
+            this.messageCallbacks.delete(messageId);
+            console.warn({ bufferId }, "Timed out waiting for buffer to be disposed");
+            resolve3(false);
+          }
+        }, 3000);
+      });
+    }
+    this.debouncer.clearDebounce(`reset-${bufferId}`);
+  }
+  async destroy() {
+    if (this.initializeResolvers) {
+      clearTimeout(this.initializeResolvers.timeoutId);
+      this.initializeResolvers.reject(new Error("Client destroyed during initialization"));
+      this.initializeResolvers = undefined;
+    }
+    for (const [messageId, callback] of this.messageCallbacks.entries()) {
+      if (typeof callback === "function") {
+        try {
+          callback({ error: "Client destroyed" });
+        } catch (e) {}
+      }
+    }
+    this.messageCallbacks.clear();
+    clearDebounceScope("tree-sitter-client");
+    this.debouncer.clear();
+    this.editQueues.clear();
+    this.buffers.clear();
+    this.stopWorker();
+    this.initialized = false;
+    this.initializePromise = undefined;
+  }
+  async resetBuffer(bufferId, version, content) {
+    if (!this.initialized) {
+      return;
+    }
+    const buffer = this.buffers.get(bufferId);
+    if (!buffer || !buffer.hasParser) {
+      this.emitError("Cannot reset buffer with no parser", bufferId);
+      return;
+    }
+    this.buffers.set(bufferId, { ...buffer, content, version });
+    this.debouncer.debounce(`reset-${bufferId}`, 10, () => this.processEdit(bufferId, [], content, version, true));
+  }
+  getBuffer(bufferId) {
+    return this.buffers.get(bufferId);
+  }
+  getAllBuffers() {
+    return Array.from(this.buffers.values());
+  }
+  isInitialized() {
+    return this.initialized;
+  }
+  async setDataPath(dataPath) {
+    if (this.options.dataPath === dataPath) {
+      return;
+    }
+    this.options.dataPath = dataPath;
+    if (this.initialized && this.worker) {
+      const messageId = `update_datapath_${this.messageIdCounter++}`;
+      return new Promise((resolve3, reject) => {
+        this.messageCallbacks.set(messageId, (response) => {
+          if (response.error) {
+            reject(new Error(response.error));
+          } else {
+            resolve3();
+          }
+        });
+        this.worker.postMessage({
+          type: "UPDATE_DATA_PATH",
+          dataPath,
+          messageId
+        });
+      });
+    }
+  }
+  async clearCache() {
+    if (!this.initialized || !this.worker) {
+      throw new Error("Cannot clear cache: client is not initialized");
+    }
+    const messageId = `clear_cache_${this.messageIdCounter++}`;
+    return new Promise((resolve3, reject) => {
+      this.messageCallbacks.set(messageId, (response) => {
+        if (response.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve3();
+        }
+      });
+      this.worker.postMessage({
+        type: "CLEAR_CACHE",
+        messageId
+      });
+    });
+  }
+}
+function isValidDirectoryName(name) {
+  if (!name || typeof name !== "string") {
+    return false;
+  }
+  if (name.trim().length === 0) {
+    return false;
+  }
+  const reservedNames = [
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9"
+  ];
+  if (reservedNames.includes(name.toUpperCase())) {
+    return false;
+  }
+  const invalidChars = /[<>:"|?*\/\\\x00-\x1f]/;
+  if (invalidChars.test(name)) {
+    return false;
+  }
+  if (name.endsWith(".") || name.endsWith(" ")) {
+    return false;
+  }
+  if (name === "." || name === "..") {
+    return false;
+  }
+  return true;
+}
+registerEnvVar({
+  name: "XDG_CONFIG_HOME",
+  description: "Base directory for user-specific configuration files",
+  type: "string",
+  default: ""
+});
+registerEnvVar({
+  name: "XDG_DATA_HOME",
+  description: "Base directory for user-specific data files",
+  type: "string",
+  default: ""
+});
+
+class DataPathsManager extends EventEmitter4 {
+  _appName;
+  _globalConfigPath;
+  _globalConfigFile;
+  _localConfigFile;
+  _globalDataPath;
+  constructor() {
+    super();
+    this._appName = "opentui";
+  }
+  get appName() {
+    return this._appName;
+  }
+  set appName(value) {
+    if (!isValidDirectoryName(value)) {
+      throw new Error(`Invalid app name "${value}": must be a valid directory name`);
+    }
+    if (this._appName !== value) {
+      this._appName = value;
+      this._globalConfigPath = undefined;
+      this._globalConfigFile = undefined;
+      this._localConfigFile = undefined;
+      this._globalDataPath = undefined;
+      this.emit("paths:changed", this.toObject());
+    }
+  }
+  get globalConfigPath() {
+    if (this._globalConfigPath === undefined) {
+      const homeDir = os.homedir();
+      const xdgConfigHome = env.XDG_CONFIG_HOME;
+      const baseConfigDir = xdgConfigHome || path.join(homeDir, ".config");
+      this._globalConfigPath = path.join(baseConfigDir, this._appName);
+    }
+    return this._globalConfigPath;
+  }
+  get globalConfigFile() {
+    if (this._globalConfigFile === undefined) {
+      this._globalConfigFile = path.join(this.globalConfigPath, "init.ts");
+    }
+    return this._globalConfigFile;
+  }
+  get localConfigFile() {
+    if (this._localConfigFile === undefined) {
+      this._localConfigFile = path.join(process.cwd(), `.${this._appName}.ts`);
+    }
+    return this._localConfigFile;
+  }
+  get globalDataPath() {
+    if (this._globalDataPath === undefined) {
+      const homeDir = os.homedir();
+      const xdgDataHome = env.XDG_DATA_HOME;
+      const baseDataDir = xdgDataHome || path.join(homeDir, ".local/share");
+      this._globalDataPath = path.join(baseDataDir, this._appName);
+    }
+    return this._globalDataPath;
+  }
+  toObject() {
+    return {
+      globalConfigPath: this.globalConfigPath,
+      globalConfigFile: this.globalConfigFile,
+      localConfigFile: this.localConfigFile,
+      globalDataPath: this.globalDataPath
+    };
+  }
+}
+function getDataPaths() {
+  return singleton("data-paths-opentui", () => new DataPathsManager);
+}
+if (false) {}
+function getTreeSitterClient() {
+  const dataPathsManager = getDataPaths();
+  const defaultOptions = {
+    dataPath: dataPathsManager.globalDataPath
+  };
+  return singleton("tree-sitter-client", () => {
+    const client2 = new TreeSitterClient(defaultOptions);
+    dataPathsManager.on("paths:changed", (paths) => {
+      client2.setDataPath(paths.globalDataPath);
+    });
+    return client2;
+  });
+}
+
+class ExtmarksHistory {
+  undoStack = [];
+  redoStack = [];
+  saveSnapshot(extmarks, nextId) {
+    const snapshot = {
+      extmarks: new Map(Array.from(extmarks.entries()).map(([id, extmark]) => [id, { ...extmark }])),
+      nextId
+    };
+    this.undoStack.push(snapshot);
+    this.redoStack = [];
+  }
+  undo() {
+    if (this.undoStack.length === 0)
+      return null;
+    return this.undoStack.pop();
+  }
+  redo() {
+    if (this.redoStack.length === 0)
+      return null;
+    return this.redoStack.pop();
+  }
+  pushRedo(snapshot) {
+    this.redoStack.push(snapshot);
+  }
+  pushUndo(snapshot) {
+    this.undoStack.push(snapshot);
+  }
+  clear() {
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+  canUndo() {
+    return this.undoStack.length > 0;
+  }
+  canRedo() {
+    return this.redoStack.length > 0;
+  }
+}
+
+class ExtmarksController {
+  editBuffer;
+  editorView;
+  extmarks = new Map;
+  extmarksByTypeId = new Map;
+  metadata = new Map;
+  nextId = 1;
+  destroyed = false;
+  history = new ExtmarksHistory;
+  typeNameToId = new Map;
+  typeIdToName = new Map;
+  nextTypeId = 1;
+  originalMoveCursorLeft;
+  originalMoveCursorRight;
+  originalSetCursorByOffset;
+  originalMoveUpVisual;
+  originalMoveDownVisual;
+  originalDeleteCharBackward;
+  originalDeleteChar;
+  originalInsertText;
+  originalInsertChar;
+  originalDeleteRange;
+  originalSetText;
+  originalReplaceText;
+  originalClear;
+  originalNewLine;
+  originalDeleteLine;
+  originalEditorViewDeleteSelectedText;
+  originalUndo;
+  originalRedo;
+  constructor(editBuffer, editorView) {
+    this.editBuffer = editBuffer;
+    this.editorView = editorView;
+    this.originalMoveCursorLeft = editBuffer.moveCursorLeft.bind(editBuffer);
+    this.originalMoveCursorRight = editBuffer.moveCursorRight.bind(editBuffer);
+    this.originalSetCursorByOffset = editBuffer.setCursorByOffset.bind(editBuffer);
+    this.originalMoveUpVisual = editorView.moveUpVisual.bind(editorView);
+    this.originalMoveDownVisual = editorView.moveDownVisual.bind(editorView);
+    this.originalDeleteCharBackward = editBuffer.deleteCharBackward.bind(editBuffer);
+    this.originalDeleteChar = editBuffer.deleteChar.bind(editBuffer);
+    this.originalInsertText = editBuffer.insertText.bind(editBuffer);
+    this.originalInsertChar = editBuffer.insertChar.bind(editBuffer);
+    this.originalDeleteRange = editBuffer.deleteRange.bind(editBuffer);
+    this.originalSetText = editBuffer.setText.bind(editBuffer);
+    this.originalReplaceText = editBuffer.replaceText.bind(editBuffer);
+    this.originalClear = editBuffer.clear.bind(editBuffer);
+    this.originalNewLine = editBuffer.newLine.bind(editBuffer);
+    this.originalDeleteLine = editBuffer.deleteLine.bind(editBuffer);
+    this.originalEditorViewDeleteSelectedText = editorView.deleteSelectedText.bind(editorView);
+    this.originalUndo = editBuffer.undo.bind(editBuffer);
+    this.originalRedo = editBuffer.redo.bind(editBuffer);
+    this.wrapCursorMovement();
+    this.wrapDeletion();
+    this.wrapInsertion();
+    this.wrapEditorViewDeleteSelectedText();
+    this.wrapUndoRedo();
+    this.setupContentChangeListener();
+  }
+  wrapCursorMovement() {
+    this.editBuffer.moveCursorLeft = () => {
+      if (this.destroyed) {
+        this.originalMoveCursorLeft();
+        return;
+      }
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      const hasSelection = this.editorView.hasSelection();
+      if (hasSelection) {
+        this.originalMoveCursorLeft();
+        return;
+      }
+      const targetOffset = currentOffset - 1;
+      if (targetOffset < 0) {
+        this.originalMoveCursorLeft();
+        return;
+      }
+      const virtualExtmark = this.findVirtualExtmarkContaining(targetOffset);
+      if (virtualExtmark && currentOffset >= virtualExtmark.end) {
+        this.editBuffer.setCursorByOffset(virtualExtmark.start - 1);
+        return;
+      }
+      this.originalMoveCursorLeft();
+    };
+    this.editBuffer.moveCursorRight = () => {
+      if (this.destroyed) {
+        this.originalMoveCursorRight();
+        return;
+      }
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      const hasSelection = this.editorView.hasSelection();
+      if (hasSelection) {
+        this.originalMoveCursorRight();
+        return;
+      }
+      const targetOffset = currentOffset + 1;
+      const textLength = this.editBuffer.getText().length;
+      if (targetOffset > textLength) {
+        this.originalMoveCursorRight();
+        return;
+      }
+      const virtualExtmark = this.findVirtualExtmarkContaining(targetOffset);
+      if (virtualExtmark && currentOffset <= virtualExtmark.start) {
+        this.editBuffer.setCursorByOffset(virtualExtmark.end);
+        return;
+      }
+      this.originalMoveCursorRight();
+    };
+    this.editorView.moveUpVisual = () => {
+      if (this.destroyed) {
+        this.originalMoveUpVisual();
+        return;
+      }
+      const hasSelection = this.editorView.hasSelection();
+      if (hasSelection) {
+        this.originalMoveUpVisual();
+        return;
+      }
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      this.originalMoveUpVisual();
+      const newOffset = this.editorView.getVisualCursor().offset;
+      const virtualExtmark = this.findVirtualExtmarkContaining(newOffset);
+      if (virtualExtmark) {
+        const distanceToStart = newOffset - virtualExtmark.start;
+        const distanceToEnd = virtualExtmark.end - newOffset;
+        if (distanceToStart < distanceToEnd) {
+          this.editorView.setCursorByOffset(virtualExtmark.start - 1);
+        } else {
+          this.editorView.setCursorByOffset(virtualExtmark.end);
+        }
+      }
+    };
+    this.editorView.moveDownVisual = () => {
+      if (this.destroyed) {
+        this.originalMoveDownVisual();
+        return;
+      }
+      const hasSelection = this.editorView.hasSelection();
+      if (hasSelection) {
+        this.originalMoveDownVisual();
+        return;
+      }
+      this.originalMoveDownVisual();
+      const newOffset = this.editorView.getVisualCursor().offset;
+      const virtualExtmark = this.findVirtualExtmarkContaining(newOffset);
+      if (virtualExtmark) {
+        const distanceToStart = newOffset - virtualExtmark.start;
+        const distanceToEnd = virtualExtmark.end - newOffset;
+        if (distanceToStart < distanceToEnd) {
+          this.editorView.setCursorByOffset(virtualExtmark.start - 1);
+        } else {
+          this.editorView.setCursorByOffset(virtualExtmark.end);
+        }
+      }
+    };
+    this.editBuffer.setCursorByOffset = (offset) => {
+      if (this.destroyed) {
+        this.originalSetCursorByOffset(offset);
+        return;
+      }
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      const hasSelection = this.editorView.hasSelection();
+      if (hasSelection) {
+        this.originalSetCursorByOffset(offset);
+        return;
+      }
+      const movingForward = offset > currentOffset;
+      if (movingForward) {
+        const virtualExtmark = this.findVirtualExtmarkContaining(offset);
+        if (virtualExtmark && currentOffset <= virtualExtmark.start) {
+          this.originalSetCursorByOffset(virtualExtmark.end);
+          return;
+        }
+      } else {
+        for (const extmark of this.extmarks.values()) {
+          if (extmark.virtual && currentOffset >= extmark.end && offset < extmark.end && offset >= extmark.start) {
+            this.originalSetCursorByOffset(extmark.start - 1);
+            return;
+          }
+        }
+      }
+      this.originalSetCursorByOffset(offset);
+    };
+  }
+  wrapDeletion() {
+    this.editBuffer.deleteCharBackward = () => {
+      if (this.destroyed) {
+        this.originalDeleteCharBackward();
+        return;
+      }
+      this.saveSnapshot();
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      const hadSelection = this.editorView.hasSelection();
+      if (currentOffset === 0) {
+        this.originalDeleteCharBackward();
+        return;
+      }
+      if (hadSelection) {
+        this.originalDeleteCharBackward();
+        return;
+      }
+      const targetOffset = currentOffset - 1;
+      const virtualExtmark = this.findVirtualExtmarkContaining(targetOffset);
+      if (virtualExtmark && currentOffset === virtualExtmark.end) {
+        const startCursor = this.offsetToPosition(virtualExtmark.start);
+        const endCursor = this.offsetToPosition(virtualExtmark.end);
+        const deleteOffset = virtualExtmark.start;
+        const deleteLength = virtualExtmark.end - virtualExtmark.start;
+        this.deleteExtmarkById(virtualExtmark.id);
+        this.originalDeleteRange(startCursor.row, startCursor.col, endCursor.row, endCursor.col);
+        this.adjustExtmarksAfterDeletion(deleteOffset, deleteLength);
+        this.updateHighlights();
+        return;
+      }
+      this.originalDeleteCharBackward();
+      this.adjustExtmarksAfterDeletion(targetOffset, 1);
+    };
+    this.editBuffer.deleteChar = () => {
+      if (this.destroyed) {
+        this.originalDeleteChar();
+        return;
+      }
+      this.saveSnapshot();
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      const textLength = this.editBuffer.getText().length;
+      const hadSelection = this.editorView.hasSelection();
+      if (currentOffset >= textLength) {
+        this.originalDeleteChar();
+        return;
+      }
+      if (hadSelection) {
+        this.originalDeleteChar();
+        return;
+      }
+      const targetOffset = currentOffset;
+      const virtualExtmark = this.findVirtualExtmarkContaining(targetOffset);
+      if (virtualExtmark && currentOffset === virtualExtmark.start) {
+        const startCursor = this.offsetToPosition(virtualExtmark.start);
+        const endCursor = this.offsetToPosition(virtualExtmark.end);
+        const deleteOffset = virtualExtmark.start;
+        const deleteLength = virtualExtmark.end - virtualExtmark.start;
+        this.deleteExtmarkById(virtualExtmark.id);
+        this.originalDeleteRange(startCursor.row, startCursor.col, endCursor.row, endCursor.col);
+        this.adjustExtmarksAfterDeletion(deleteOffset, deleteLength);
+        this.updateHighlights();
+        return;
+      }
+      this.originalDeleteChar();
+      this.adjustExtmarksAfterDeletion(targetOffset, 1);
+    };
+    this.editBuffer.deleteRange = (startLine, startCol, endLine, endCol) => {
+      if (this.destroyed) {
+        this.originalDeleteRange(startLine, startCol, endLine, endCol);
+        return;
+      }
+      this.saveSnapshot();
+      const startOffset = this.positionToOffset(startLine, startCol);
+      const endOffset = this.positionToOffset(endLine, endCol);
+      const length = endOffset - startOffset;
+      this.originalDeleteRange(startLine, startCol, endLine, endCol);
+      this.adjustExtmarksAfterDeletion(startOffset, length);
+    };
+    this.editBuffer.deleteLine = () => {
+      if (this.destroyed) {
+        this.originalDeleteLine();
+        return;
+      }
+      this.saveSnapshot();
+      const text = this.editBuffer.getText();
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      let lineStart = 0;
+      for (let i = currentOffset - 1;i >= 0; i--) {
+        if (text[i] === `
+`) {
+          lineStart = i + 1;
+          break;
+        }
+      }
+      let lineEnd = text.length;
+      for (let i = currentOffset;i < text.length; i++) {
+        if (text[i] === `
+`) {
+          lineEnd = i + 1;
+          break;
+        }
+      }
+      const deleteLength = lineEnd - lineStart;
+      this.originalDeleteLine();
+      this.adjustExtmarksAfterDeletion(lineStart, deleteLength);
+    };
+  }
+  wrapInsertion() {
+    this.editBuffer.insertText = (text) => {
+      if (this.destroyed) {
+        this.originalInsertText(text);
+        return;
+      }
+      this.saveSnapshot();
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      this.originalInsertText(text);
+      this.adjustExtmarksAfterInsertion(currentOffset, text.length);
+    };
+    this.editBuffer.insertChar = (char) => {
+      if (this.destroyed) {
+        this.originalInsertChar(char);
+        return;
+      }
+      this.saveSnapshot();
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      this.originalInsertChar(char);
+      this.adjustExtmarksAfterInsertion(currentOffset, 1);
+    };
+    this.editBuffer.setText = (text) => {
+      if (this.destroyed) {
+        this.originalSetText(text);
+        return;
+      }
+      this.clear();
+      this.originalSetText(text);
+    };
+    this.editBuffer.replaceText = (text) => {
+      if (this.destroyed) {
+        this.originalReplaceText(text);
+        return;
+      }
+      this.saveSnapshot();
+      this.clear();
+      this.originalReplaceText(text);
+    };
+    this.editBuffer.clear = () => {
+      if (this.destroyed) {
+        this.originalClear();
+        return;
+      }
+      this.saveSnapshot();
+      this.clear();
+      this.originalClear();
+    };
+    this.editBuffer.newLine = () => {
+      if (this.destroyed) {
+        this.originalNewLine();
+        return;
+      }
+      this.saveSnapshot();
+      const currentOffset = this.editorView.getVisualCursor().offset;
+      this.originalNewLine();
+      this.adjustExtmarksAfterInsertion(currentOffset, 1);
+    };
+  }
+  wrapEditorViewDeleteSelectedText() {
+    this.editorView.deleteSelectedText = () => {
+      if (this.destroyed) {
+        this.originalEditorViewDeleteSelectedText();
+        return;
+      }
+      this.saveSnapshot();
+      const selection = this.editorView.getSelection();
+      if (!selection) {
+        this.originalEditorViewDeleteSelectedText();
+        return;
+      }
+      const deleteOffset = Math.min(selection.start, selection.end);
+      const deleteLength = Math.abs(selection.end - selection.start);
+      this.originalEditorViewDeleteSelectedText();
+      if (deleteLength > 0) {
+        this.adjustExtmarksAfterDeletion(deleteOffset, deleteLength);
+      }
+    };
+  }
+  setupContentChangeListener() {
+    this.editBuffer.on("content-changed", () => {
+      if (this.destroyed)
+        return;
+      this.updateHighlights();
+    });
+  }
+  deleteExtmarkById(id) {
+    const extmark = this.extmarks.get(id);
+    if (extmark) {
+      this.extmarks.delete(id);
+      this.extmarksByTypeId.get(extmark.typeId)?.delete(id);
+      this.metadata.delete(id);
+    }
+  }
+  findVirtualExtmarkContaining(offset) {
+    for (const extmark of this.extmarks.values()) {
+      if (extmark.virtual && offset >= extmark.start && offset < extmark.end) {
+        return extmark;
+      }
+    }
+    return null;
+  }
+  adjustExtmarksAfterInsertion(insertOffset, length) {
+    for (const extmark of this.extmarks.values()) {
+      if (extmark.start >= insertOffset) {
+        extmark.start += length;
+        extmark.end += length;
+      } else if (extmark.end > insertOffset) {
+        extmark.end += length;
+      }
+    }
+    this.updateHighlights();
+  }
+  adjustExtmarksAfterDeletion(deleteOffset, length) {
+    const toDelete = [];
+    for (const extmark of this.extmarks.values()) {
+      if (extmark.end <= deleteOffset) {
+        continue;
+      }
+      if (extmark.start >= deleteOffset + length) {
+        extmark.start -= length;
+        extmark.end -= length;
+      } else if (extmark.start >= deleteOffset && extmark.end <= deleteOffset + length) {
+        toDelete.push(extmark.id);
+      } else if (extmark.start < deleteOffset && extmark.end > deleteOffset + length) {
+        extmark.end -= length;
+      } else if (extmark.start < deleteOffset && extmark.end > deleteOffset) {
+        extmark.end -= Math.min(extmark.end, deleteOffset + length) - deleteOffset;
+      } else if (extmark.start < deleteOffset + length && extmark.end > deleteOffset + length) {
+        const overlap = deleteOffset + length - extmark.start;
+        extmark.start = deleteOffset;
+        extmark.end -= length;
+      }
+    }
+    for (const id of toDelete) {
+      this.deleteExtmarkById(id);
+    }
+    this.updateHighlights();
+  }
+  offsetToPosition(offset) {
+    const result = this.editBuffer.offsetToPosition(offset);
+    if (!result) {
+      return { row: 0, col: 0 };
+    }
+    return result;
+  }
+  positionToOffset(row, col) {
+    return this.editBuffer.positionToOffset(row, col);
+  }
+  updateHighlights() {
+    this.editBuffer.clearAllHighlights();
+    for (const extmark of this.extmarks.values()) {
+      if (extmark.styleId !== undefined) {
+        const startWithoutNewlines = this.offsetExcludingNewlines(extmark.start);
+        const endWithoutNewlines = this.offsetExcludingNewlines(extmark.end);
+        this.editBuffer.addHighlightByCharRange({
+          start: startWithoutNewlines,
+          end: endWithoutNewlines,
+          styleId: extmark.styleId,
+          priority: extmark.priority ?? 0,
+          hlRef: extmark.id
+        });
+      }
+    }
+  }
+  offsetExcludingNewlines(offset) {
+    const text = this.editBuffer.getText();
+    let displayWidthSoFar = 0;
+    let newlineCount = 0;
+    let i = 0;
+    while (i < text.length && displayWidthSoFar < offset) {
+      if (text[i] === `
+`) {
+        displayWidthSoFar++;
+        newlineCount++;
+        i++;
+      } else {
+        let j = i;
+        while (j < text.length && text[j] !== `
+`) {
+          j++;
+        }
+        const chunk = text.substring(i, j);
+        const chunkWidth = Bun.stringWidth(chunk);
+        if (displayWidthSoFar + chunkWidth < offset) {
+          displayWidthSoFar += chunkWidth;
+          i = j;
+        } else {
+          for (let k = i;k < j && displayWidthSoFar < offset; k++) {
+            const charWidth = Bun.stringWidth(text[k]);
+            displayWidthSoFar += charWidth;
+          }
+          break;
+        }
+      }
+    }
+    return offset - newlineCount;
+  }
+  create(options) {
+    if (this.destroyed) {
+      throw new Error("ExtmarksController is destroyed");
+    }
+    const id = this.nextId++;
+    const typeId = options.typeId ?? 0;
+    const extmark = {
+      id,
+      start: options.start,
+      end: options.end,
+      virtual: options.virtual ?? false,
+      styleId: options.styleId,
+      priority: options.priority,
+      data: options.data,
+      typeId
+    };
+    this.extmarks.set(id, extmark);
+    if (!this.extmarksByTypeId.has(typeId)) {
+      this.extmarksByTypeId.set(typeId, new Set);
+    }
+    this.extmarksByTypeId.get(typeId).add(id);
+    if (options.metadata !== undefined) {
+      this.metadata.set(id, options.metadata);
+    }
+    this.updateHighlights();
+    return id;
+  }
+  delete(id) {
+    if (this.destroyed) {
+      throw new Error("ExtmarksController is destroyed");
+    }
+    const extmark = this.extmarks.get(id);
+    if (!extmark)
+      return false;
+    this.deleteExtmarkById(id);
+    this.updateHighlights();
+    return true;
+  }
+  get(id) {
+    if (this.destroyed)
+      return null;
+    return this.extmarks.get(id) ?? null;
+  }
+  getAll() {
+    if (this.destroyed)
+      return [];
+    return Array.from(this.extmarks.values());
+  }
+  getVirtual() {
+    if (this.destroyed)
+      return [];
+    return Array.from(this.extmarks.values()).filter((e) => e.virtual);
+  }
+  getAtOffset(offset) {
+    if (this.destroyed)
+      return [];
+    return Array.from(this.extmarks.values()).filter((e) => offset >= e.start && offset < e.end);
+  }
+  getAllForTypeId(typeId) {
+    if (this.destroyed)
+      return [];
+    const ids = this.extmarksByTypeId.get(typeId);
+    if (!ids)
+      return [];
+    return Array.from(ids).map((id) => this.extmarks.get(id)).filter((e) => e !== undefined);
+  }
+  clear() {
+    if (this.destroyed)
+      return;
+    this.extmarks.clear();
+    this.extmarksByTypeId.clear();
+    this.metadata.clear();
+    this.updateHighlights();
+  }
+  saveSnapshot() {
+    this.history.saveSnapshot(this.extmarks, this.nextId);
+  }
+  restoreSnapshot(snapshot) {
+    this.extmarks = new Map(Array.from(snapshot.extmarks.entries()).map(([id, extmark]) => [id, { ...extmark }]));
+    this.nextId = snapshot.nextId;
+    this.updateHighlights();
+  }
+  wrapUndoRedo() {
+    this.editBuffer.undo = () => {
+      if (this.destroyed) {
+        return this.originalUndo();
+      }
+      if (!this.history.canUndo()) {
+        return this.originalUndo();
+      }
+      const currentSnapshot = {
+        extmarks: new Map(Array.from(this.extmarks.entries()).map(([id, extmark]) => [id, { ...extmark }])),
+        nextId: this.nextId
+      };
+      this.history.pushRedo(currentSnapshot);
+      const snapshot = this.history.undo();
+      this.restoreSnapshot(snapshot);
+      return this.originalUndo();
+    };
+    this.editBuffer.redo = () => {
+      if (this.destroyed) {
+        return this.originalRedo();
+      }
+      if (!this.history.canRedo()) {
+        return this.originalRedo();
+      }
+      const currentSnapshot = {
+        extmarks: new Map(Array.from(this.extmarks.entries()).map(([id, extmark]) => [id, { ...extmark }])),
+        nextId: this.nextId
+      };
+      this.history.pushUndo(currentSnapshot);
+      const snapshot = this.history.redo();
+      this.restoreSnapshot(snapshot);
+      return this.originalRedo();
+    };
+  }
+  registerType(typeName) {
+    if (this.destroyed) {
+      throw new Error("ExtmarksController is destroyed");
+    }
+    const existing = this.typeNameToId.get(typeName);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const typeId = this.nextTypeId++;
+    this.typeNameToId.set(typeName, typeId);
+    this.typeIdToName.set(typeId, typeName);
+    return typeId;
+  }
+  getTypeId(typeName) {
+    if (this.destroyed)
+      return null;
+    return this.typeNameToId.get(typeName) ?? null;
+  }
+  getTypeName(typeId) {
+    if (this.destroyed)
+      return null;
+    return this.typeIdToName.get(typeId) ?? null;
+  }
+  getMetadataFor(extmarkId) {
+    if (this.destroyed)
+      return;
+    return this.metadata.get(extmarkId);
+  }
+  destroy() {
+    if (this.destroyed)
+      return;
+    this.editBuffer.moveCursorLeft = this.originalMoveCursorLeft;
+    this.editBuffer.moveCursorRight = this.originalMoveCursorRight;
+    this.editBuffer.setCursorByOffset = this.originalSetCursorByOffset;
+    this.editorView.moveUpVisual = this.originalMoveUpVisual;
+    this.editorView.moveDownVisual = this.originalMoveDownVisual;
+    this.editBuffer.deleteCharBackward = this.originalDeleteCharBackward;
+    this.editBuffer.deleteChar = this.originalDeleteChar;
+    this.editBuffer.insertText = this.originalInsertText;
+    this.editBuffer.insertChar = this.originalInsertChar;
+    this.editBuffer.deleteRange = this.originalDeleteRange;
+    this.editBuffer.setText = this.originalSetText;
+    this.editBuffer.replaceText = this.originalReplaceText;
+    this.editBuffer.clear = this.originalClear;
+    this.editBuffer.newLine = this.originalNewLine;
+    this.editBuffer.deleteLine = this.originalDeleteLine;
+    this.editorView.deleteSelectedText = this.originalEditorViewDeleteSelectedText;
+    this.editBuffer.undo = this.originalUndo;
+    this.editBuffer.redo = this.originalRedo;
+    this.extmarks.clear();
+    this.extmarksByTypeId.clear();
+    this.metadata.clear();
+    this.typeNameToId.clear();
+    this.typeIdToName.clear();
+    this.history.clear();
+    this.destroyed = true;
+  }
+}
+function createExtmarksController(editBuffer, editorView) {
+  return new ExtmarksController(editBuffer, editorView);
+}
+var OSC4_RESPONSE = /\x1b]4;(\d+);(?:(?:rgb:)([0-9a-fA-F]+)\/([0-9a-fA-F]+)\/([0-9a-fA-F]+)|#([0-9a-fA-F]{6}))(?:\x07|\x1b\\)/g;
+var OSC_SPECIAL_RESPONSE = /\x1b](\d+);(?:(?:rgb:)([0-9a-fA-F]+)\/([0-9a-fA-F]+)\/([0-9a-fA-F]+)|#([0-9a-fA-F]{6}))(?:\x07|\x1b\\)/g;
+function scaleComponent(comp) {
+  const val = parseInt(comp, 16);
+  const maxIn = (1 << 4 * comp.length) - 1;
+  return Math.round(val / maxIn * 255).toString(16).padStart(2, "0");
+}
+function toHex(r, g, b, hex6) {
+  if (hex6)
+    return `#${hex6.toLowerCase()}`;
+  if (r && g && b)
+    return `#${scaleComponent(r)}${scaleComponent(g)}${scaleComponent(b)}`;
+  return "#000000";
+}
+function wrapForTmux(osc) {
+  const escaped = osc.replace(/\x1b/g, "\x1B\x1B");
+  return `\x1BPtmux;${escaped}\x1B\\`;
+}
+
+class TerminalPalette {
+  stdin;
+  stdout;
+  writeFn;
+  activeListeners = [];
+  activeTimers = [];
+  inLegacyTmux;
+  constructor(stdin, stdout, writeFn, isLegacyTmux) {
+    this.stdin = stdin;
+    this.stdout = stdout;
+    this.writeFn = writeFn || ((data) => stdout.write(data));
+    this.inLegacyTmux = isLegacyTmux ?? false;
+  }
+  writeOsc(osc) {
+    const data = this.inLegacyTmux ? wrapForTmux(osc) : osc;
+    return this.writeFn(data);
+  }
+  cleanup() {
+    for (const { event, handler } of this.activeListeners) {
+      this.stdin.removeListener(event, handler);
+    }
+    this.activeListeners = [];
+    for (const timer of this.activeTimers) {
+      clearTimeout(timer);
+    }
+    this.activeTimers = [];
+  }
+  async detectOSCSupport(timeoutMs = 300) {
+    const out = this.stdout;
+    const inp = this.stdin;
+    if (!out.isTTY || !inp.isTTY)
+      return false;
+    return new Promise((resolve4) => {
+      let buffer = "";
+      const onData = (chunk) => {
+        buffer += chunk.toString();
+        OSC4_RESPONSE.lastIndex = 0;
+        if (OSC4_RESPONSE.test(buffer)) {
+          cleanup();
+          resolve4(true);
+        }
+      };
+      const onTimeout = () => {
+        cleanup();
+        resolve4(false);
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        inp.removeListener("data", onData);
+        const listenerIdx = this.activeListeners.findIndex((l) => l.handler === onData);
+        if (listenerIdx !== -1)
+          this.activeListeners.splice(listenerIdx, 1);
+        const timerIdx = this.activeTimers.indexOf(timer);
+        if (timerIdx !== -1)
+          this.activeTimers.splice(timerIdx, 1);
+      };
+      const timer = setTimeout(onTimeout, timeoutMs);
+      this.activeTimers.push(timer);
+      inp.on("data", onData);
+      this.activeListeners.push({ event: "data", handler: onData });
+      this.writeOsc("\x1B]4;0;?\x07");
+    });
+  }
+  async queryPalette(indices, timeoutMs = 1200) {
+    const out = this.stdout;
+    const inp = this.stdin;
+    const results = new Map;
+    indices.forEach((i) => results.set(i, null));
+    if (!out.isTTY || !inp.isTTY) {
+      return results;
+    }
+    return new Promise((resolve4) => {
+      let buffer = "";
+      let lastResponseTime = Date.now();
+      let idleTimer = null;
+      const onData = (chunk) => {
+        buffer += chunk.toString();
+        lastResponseTime = Date.now();
+        let m;
+        OSC4_RESPONSE.lastIndex = 0;
+        while (m = OSC4_RESPONSE.exec(buffer)) {
+          const idx = parseInt(m[1], 10);
+          if (results.has(idx))
+            results.set(idx, toHex(m[2], m[3], m[4], m[5]));
+        }
+        if (buffer.length > 8192)
+          buffer = buffer.slice(-4096);
+        const done = [...results.values()].filter((v) => v !== null).length;
+        if (done === results.size) {
+          cleanup();
+          resolve4(results);
+          return;
+        }
+        if (idleTimer)
+          clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          cleanup();
+          resolve4(results);
+        }, 150);
+        if (idleTimer)
+          this.activeTimers.push(idleTimer);
+      };
+      const onTimeout = () => {
+        cleanup();
+        resolve4(results);
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (idleTimer)
+          clearTimeout(idleTimer);
+        inp.removeListener("data", onData);
+        const listenerIdx = this.activeListeners.findIndex((l) => l.handler === onData);
+        if (listenerIdx !== -1)
+          this.activeListeners.splice(listenerIdx, 1);
+        const timerIdx = this.activeTimers.indexOf(timer);
+        if (timerIdx !== -1)
+          this.activeTimers.splice(timerIdx, 1);
+        if (idleTimer) {
+          const idleTimerIdx = this.activeTimers.indexOf(idleTimer);
+          if (idleTimerIdx !== -1)
+            this.activeTimers.splice(idleTimerIdx, 1);
+        }
+      };
+      const timer = setTimeout(onTimeout, timeoutMs);
+      this.activeTimers.push(timer);
+      inp.on("data", onData);
+      this.activeListeners.push({ event: "data", handler: onData });
+      this.writeOsc(indices.map((i) => `\x1B]4;${i};?\x07`).join(""));
+    });
+  }
+  async querySpecialColors(timeoutMs = 1200) {
+    const out = this.stdout;
+    const inp = this.stdin;
+    const results = {
+      10: null,
+      11: null,
+      12: null,
+      13: null,
+      14: null,
+      15: null,
+      16: null,
+      17: null,
+      19: null
+    };
+    if (!out.isTTY || !inp.isTTY) {
+      return results;
+    }
+    return new Promise((resolve4) => {
+      let buffer = "";
+      let idleTimer = null;
+      const onData = (chunk) => {
+        buffer += chunk.toString();
+        let m;
+        OSC_SPECIAL_RESPONSE.lastIndex = 0;
+        while (m = OSC_SPECIAL_RESPONSE.exec(buffer)) {
+          const idx = parseInt(m[1], 10);
+          if (idx in results) {
+            results[idx] = toHex(m[2], m[3], m[4], m[5]);
+          }
+        }
+        if (buffer.length > 8192)
+          buffer = buffer.slice(-4096);
+        const done = Object.values(results).filter((v) => v !== null).length;
+        if (done === Object.keys(results).length) {
+          cleanup();
+          resolve4(results);
+          return;
+        }
+        if (idleTimer)
+          clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          cleanup();
+          resolve4(results);
+        }, 150);
+        if (idleTimer)
+          this.activeTimers.push(idleTimer);
+      };
+      const onTimeout = () => {
+        cleanup();
+        resolve4(results);
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (idleTimer)
+          clearTimeout(idleTimer);
+        inp.removeListener("data", onData);
+        const listenerIdx = this.activeListeners.findIndex((l) => l.handler === onData);
+        if (listenerIdx !== -1)
+          this.activeListeners.splice(listenerIdx, 1);
+        const timerIdx = this.activeTimers.indexOf(timer);
+        if (timerIdx !== -1)
+          this.activeTimers.splice(timerIdx, 1);
+        if (idleTimer) {
+          const idleTimerIdx = this.activeTimers.indexOf(idleTimer);
+          if (idleTimerIdx !== -1)
+            this.activeTimers.splice(idleTimerIdx, 1);
+        }
+      };
+      const timer = setTimeout(onTimeout, timeoutMs);
+      this.activeTimers.push(timer);
+      inp.on("data", onData);
+      this.activeListeners.push({ event: "data", handler: onData });
+      this.writeOsc([
+        "\x1B]10;?\x07",
+        "\x1B]11;?\x07",
+        "\x1B]12;?\x07",
+        "\x1B]13;?\x07",
+        "\x1B]14;?\x07",
+        "\x1B]15;?\x07",
+        "\x1B]16;?\x07",
+        "\x1B]17;?\x07",
+        "\x1B]19;?\x07"
+      ].join(""));
+    });
+  }
+  async detect(options) {
+    const { timeout = 5000, size = 16 } = options || {};
+    const supported = await this.detectOSCSupport();
+    if (!supported) {
+      return {
+        palette: Array(size).fill(null),
+        defaultForeground: null,
+        defaultBackground: null,
+        cursorColor: null,
+        mouseForeground: null,
+        mouseBackground: null,
+        tekForeground: null,
+        tekBackground: null,
+        highlightBackground: null,
+        highlightForeground: null
+      };
+    }
+    const indicesToQuery = [...Array(size).keys()];
+    const [paletteResults, specialColors] = await Promise.all([
+      this.queryPalette(indicesToQuery, timeout),
+      this.querySpecialColors(timeout)
+    ]);
+    return {
+      palette: [...Array(size).keys()].map((i) => paletteResults.get(i) ?? null),
+      defaultForeground: specialColors[10],
+      defaultBackground: specialColors[11],
+      cursorColor: specialColors[12],
+      mouseForeground: specialColors[13],
+      mouseBackground: specialColors[14],
+      tekForeground: specialColors[15],
+      tekBackground: specialColors[16],
+      highlightBackground: specialColors[17],
+      highlightForeground: specialColors[19]
+    };
+  }
+}
+function createTerminalPalette(stdin, stdout, writeFn, isLegacyTmux) {
+  return new TerminalPalette(stdin, stdout, writeFn, isLegacyTmux);
+}
+function packDrawOptions(border2, shouldFill, titleAlignment) {
+  let packed = 0;
+  if (border2 === true) {
+    packed |= 15;
+  } else if (Array.isArray(border2)) {
+    if (border2.includes("top"))
+      packed |= 8;
+    if (border2.includes("right"))
+      packed |= 4;
+    if (border2.includes("bottom"))
+      packed |= 2;
+    if (border2.includes("left"))
+      packed |= 1;
+  }
+  if (shouldFill) {
+    packed |= 16;
+  }
+  const alignmentMap = {
+    left: 0,
+    center: 1,
+    right: 2
+  };
+  const alignment = alignmentMap[titleAlignment];
+  packed |= alignment << 5;
+  return packed;
+}
+
+class OptimizedBuffer {
+  static fbIdCounter = 0;
+  id;
+  lib;
+  bufferPtr;
+  _width;
+  _height;
+  _widthMethod;
+  respectAlpha = false;
+  _rawBuffers = null;
+  _destroyed = false;
+  get ptr() {
+    return this.bufferPtr;
+  }
+  guard() {
+    if (this._destroyed)
+      throw new Error(`Buffer ${this.id} is destroyed`);
+  }
+  get buffers() {
+    this.guard();
+    if (this._rawBuffers === null) {
+      const size = this._width * this._height;
+      const charPtr = this.lib.bufferGetCharPtr(this.bufferPtr);
+      const fgPtr = this.lib.bufferGetFgPtr(this.bufferPtr);
+      const bgPtr = this.lib.bufferGetBgPtr(this.bufferPtr);
+      const attributesPtr = this.lib.bufferGetAttributesPtr(this.bufferPtr);
+      this._rawBuffers = {
+        char: new Uint32Array(toArrayBuffer(charPtr, 0, size * 4)),
+        fg: new Float32Array(toArrayBuffer(fgPtr, 0, size * 4 * 4)),
+        bg: new Float32Array(toArrayBuffer(bgPtr, 0, size * 4 * 4)),
+        attributes: new Uint32Array(toArrayBuffer(attributesPtr, 0, size * 4))
+      };
+    }
+    return this._rawBuffers;
+  }
+  constructor(lib, ptr4, width, height, options) {
+    this.id = options.id || `fb_${OptimizedBuffer.fbIdCounter++}`;
+    this.lib = lib;
+    this.respectAlpha = options.respectAlpha || false;
+    this._width = width;
+    this._height = height;
+    this._widthMethod = options.widthMethod || "unicode";
+    this.bufferPtr = ptr4;
+  }
+  static create(width, height, widthMethod, options = {}) {
+    const lib = resolveRenderLib();
+    const respectAlpha = options.respectAlpha || false;
+    const id = options.id && options.id.trim() !== "" ? options.id : "unnamed buffer";
+    const buffer = lib.createOptimizedBuffer(width, height, widthMethod, respectAlpha, id);
+    return buffer;
+  }
+  get widthMethod() {
+    return this._widthMethod;
+  }
+  get width() {
+    return this._width;
+  }
+  get height() {
+    return this._height;
+  }
+  setRespectAlpha(respectAlpha) {
+    this.guard();
+    this.lib.bufferSetRespectAlpha(this.bufferPtr, respectAlpha);
+    this.respectAlpha = respectAlpha;
+  }
+  getNativeId() {
+    this.guard();
+    return this.lib.bufferGetId(this.bufferPtr);
+  }
+  getRealCharBytes(addLineBreaks = false) {
+    this.guard();
+    const realSize = this.lib.bufferGetRealCharSize(this.bufferPtr);
+    const outputBuffer = new Uint8Array(realSize);
+    const bytesWritten = this.lib.bufferWriteResolvedChars(this.bufferPtr, outputBuffer, addLineBreaks);
+    return outputBuffer.slice(0, bytesWritten);
+  }
+  clear(bg2 = RGBA.fromValues(0, 0, 0, 1)) {
+    this.guard();
+    this.lib.bufferClear(this.bufferPtr, bg2);
+  }
+  setCell(x, y, char, fg2, bg2, attributes = 0) {
+    this.guard();
+    this.lib.bufferSetCell(this.bufferPtr, x, y, char, fg2, bg2, attributes);
+  }
+  setCellWithAlphaBlending(x, y, char, fg2, bg2, attributes = 0) {
+    this.guard();
+    this.lib.bufferSetCellWithAlphaBlending(this.bufferPtr, x, y, char, fg2, bg2, attributes);
+  }
+  drawText(text, x, y, fg2, bg2, attributes = 0, selection2) {
+    this.guard();
+    if (!selection2) {
+      this.lib.bufferDrawText(this.bufferPtr, text, x, y, fg2, bg2, attributes);
+      return;
+    }
+    const { start, end } = selection2;
+    let selectionBg;
+    let selectionFg;
+    if (selection2.bgColor) {
+      selectionBg = selection2.bgColor;
+      selectionFg = selection2.fgColor || fg2;
+    } else {
+      const defaultBg = bg2 || RGBA.fromValues(0, 0, 0, 0);
+      selectionFg = defaultBg.a > 0 ? defaultBg : RGBA.fromValues(0, 0, 0, 1);
+      selectionBg = fg2;
+    }
+    if (start > 0) {
+      const beforeText = text.slice(0, start);
+      this.lib.bufferDrawText(this.bufferPtr, beforeText, x, y, fg2, bg2, attributes);
+    }
+    if (end > start) {
+      const selectedText = text.slice(start, end);
+      this.lib.bufferDrawText(this.bufferPtr, selectedText, x + start, y, selectionFg, selectionBg, attributes);
+    }
+    if (end < text.length) {
+      const afterText = text.slice(end);
+      this.lib.bufferDrawText(this.bufferPtr, afterText, x + end, y, fg2, bg2, attributes);
+    }
+  }
+  fillRect(x, y, width, height, bg2) {
+    this.lib.bufferFillRect(this.bufferPtr, x, y, width, height, bg2);
+  }
+  drawFrameBuffer(destX, destY, frameBuffer, sourceX, sourceY, sourceWidth, sourceHeight) {
+    this.guard();
+    this.lib.drawFrameBuffer(this.bufferPtr, destX, destY, frameBuffer.ptr, sourceX, sourceY, sourceWidth, sourceHeight);
+  }
+  destroy() {
+    if (this._destroyed)
+      return;
+    this._destroyed = true;
+    this.lib.destroyOptimizedBuffer(this.bufferPtr);
+  }
+  drawTextBuffer(textBufferView, x, y) {
+    this.guard();
+    this.lib.bufferDrawTextBufferView(this.bufferPtr, textBufferView.ptr, x, y);
+  }
+  drawEditorView(editorView, x, y) {
+    this.guard();
+    this.lib.bufferDrawEditorView(this.bufferPtr, editorView.ptr, x, y);
+  }
+  drawSuperSampleBuffer(x, y, pixelDataPtr, pixelDataLength, format, alignedBytesPerRow) {
+    this.guard();
+    this.lib.bufferDrawSuperSampleBuffer(this.bufferPtr, x, y, pixelDataPtr, pixelDataLength, format, alignedBytesPerRow);
+  }
+  drawPackedBuffer(dataPtr, dataLen, posX, posY, terminalWidthCells, terminalHeightCells) {
+    this.guard();
+    this.lib.bufferDrawPackedBuffer(this.bufferPtr, dataPtr, dataLen, posX, posY, terminalWidthCells, terminalHeightCells);
+  }
+  resize(width, height) {
+    this.guard();
+    if (this._width === width && this._height === height)
+      return;
+    this._width = width;
+    this._height = height;
+    this._rawBuffers = null;
+    this.lib.bufferResize(this.bufferPtr, width, height);
+  }
+  drawBox(options) {
+    this.guard();
+    const style = options.borderStyle || "single";
+    const borderChars = options.customBorderChars ?? BorderCharArrays[style];
+    const packedOptions = packDrawOptions(options.border, options.shouldFill ?? false, options.titleAlignment || "left");
+    this.lib.bufferDrawBox(this.bufferPtr, options.x, options.y, options.width, options.height, borderChars, packedOptions, options.borderColor, options.backgroundColor, options.title ?? null);
+  }
+  pushScissorRect(x, y, width, height) {
+    this.guard();
+    this.lib.bufferPushScissorRect(this.bufferPtr, x, y, width, height);
+  }
+  popScissorRect() {
+    this.guard();
+    this.lib.bufferPopScissorRect(this.bufferPtr);
+  }
+  clearScissorRects() {
+    this.guard();
+    this.lib.bufferClearScissorRects(this.bufferPtr);
+  }
+  pushOpacity(opacity) {
+    this.guard();
+    this.lib.bufferPushOpacity(this.bufferPtr, Math.max(0, Math.min(1, opacity)));
+  }
+  popOpacity() {
+    this.guard();
+    this.lib.bufferPopOpacity(this.bufferPtr);
+  }
+  getCurrentOpacity() {
+    this.guard();
+    return this.lib.bufferGetCurrentOpacity(this.bufferPtr);
+  }
+  clearOpacity() {
+    this.guard();
+    this.lib.bufferClearOpacity(this.bufferPtr);
+  }
+  encodeUnicode(text) {
+    this.guard();
+    return this.lib.encodeUnicode(text, this._widthMethod);
+  }
+  freeUnicode(encoded) {
+    this.guard();
+    this.lib.freeUnicode(encoded);
+  }
+  drawChar(char, x, y, fg2, bg2, attributes = 0) {
+    this.guard();
+    this.lib.bufferDrawChar(this.bufferPtr, char, x, y, fg2, bg2, attributes);
+  }
+}
+function fatalError(...args) {
+  const message = args.join(" ");
+  console.error("FATAL ERROR:", message);
+  throw new Error(message);
+}
+var pointerSize = process.arch === "x64" || process.arch === "arm64" ? 8 : 4;
+var typeSizes = {
+  u8: 1,
+  bool_u8: 1,
+  bool_u32: 4,
+  u16: 2,
+  i16: 2,
+  u32: 4,
+  u64: 8,
+  f32: 4,
+  f64: 8,
+  pointer: pointerSize,
+  i32: 4
+};
+var primitiveKeys = Object.keys(typeSizes);
+function isPrimitiveType(type) {
+  return typeof type === "string" && primitiveKeys.includes(type);
+}
+var typeAlignments = { ...typeSizes };
+var typeGetters = {
+  u8: (view, offset) => view.getUint8(offset),
+  bool_u8: (view, offset) => Boolean(view.getUint8(offset)),
+  bool_u32: (view, offset) => Boolean(view.getUint32(offset, true)),
+  u16: (view, offset) => view.getUint16(offset, true),
+  i16: (view, offset) => view.getInt16(offset, true),
+  u32: (view, offset) => view.getUint32(offset, true),
+  u64: (view, offset) => view.getBigUint64(offset, true),
+  f32: (view, offset) => view.getFloat32(offset, true),
+  f64: (view, offset) => view.getFloat64(offset, true),
+  i32: (view, offset) => view.getInt32(offset, true),
+  pointer: (view, offset) => pointerSize === 8 ? view.getBigUint64(offset, true) : BigInt(view.getUint32(offset, true))
+};
+function isObjectPointerDef(type) {
+  return typeof type === "object" && type !== null && type.__type === "objectPointer";
+}
+function alignOffset(offset, align) {
+  return offset + (align - 1) & ~(align - 1);
+}
+function enumTypeError(value) {
+  throw new TypeError(`Invalid enum value: ${value}`);
+}
+function defineEnum(mapping, base = "u32") {
+  const reverse2 = Object.fromEntries(Object.entries(mapping).map(([k, v]) => [v, k]));
+  return {
+    __type: "enum",
+    type: base,
+    to(value) {
+      return typeof value === "number" ? value : mapping[value] ?? enumTypeError(String(value));
+    },
+    from(value) {
+      return reverse2[value] ?? enumTypeError(String(value));
+    },
+    enum: mapping
+  };
+}
+function isEnum(type) {
+  return typeof type === "object" && type.__type === "enum";
+}
+function isStruct(type) {
+  return typeof type === "object" && type.__type === "struct";
+}
+function primitivePackers(type) {
+  let pack;
+  let unpack;
+  switch (type) {
+    case "u8":
+      pack = (view, off, val) => view.setUint8(off, val);
+      unpack = (view, off) => view.getUint8(off);
+      break;
+    case "bool_u8":
+      pack = (view, off, val) => view.setUint8(off, val ? 1 : 0);
+      unpack = (view, off) => Boolean(view.getUint8(off));
+      break;
+    case "bool_u32":
+      pack = (view, off, val) => view.setUint32(off, val ? 1 : 0, true);
+      unpack = (view, off) => Boolean(view.getUint32(off, true));
+      break;
+    case "u16":
+      pack = (view, off, val) => view.setUint16(off, val, true);
+      unpack = (view, off) => view.getUint16(off, true);
+      break;
+    case "i16":
+      pack = (view, off, val) => view.setInt16(off, val, true);
+      unpack = (view, off) => view.getInt16(off, true);
+      break;
+    case "u32":
+      pack = (view, off, val) => view.setUint32(off, val, true);
+      unpack = (view, off) => view.getUint32(off, true);
+      break;
+    case "i32":
+      pack = (view, off, val) => view.setInt32(off, val, true);
+      unpack = (view, off) => view.getInt32(off, true);
+      break;
+    case "u64":
+      pack = (view, off, val) => view.setBigUint64(off, BigInt(val), true);
+      unpack = (view, off) => view.getBigUint64(off, true);
+      break;
+    case "f32":
+      pack = (view, off, val) => view.setFloat32(off, val, true);
+      unpack = (view, off) => view.getFloat32(off, true);
+      break;
+    case "f64":
+      pack = (view, off, val) => view.setFloat64(off, val, true);
+      unpack = (view, off) => view.getFloat64(off, true);
+      break;
+    case "pointer":
+      pack = (view, off, val) => {
+        pointerSize === 8 ? view.setBigUint64(off, val ? BigInt(val) : 0n, true) : view.setUint32(off, val ? Number(val) : 0, true);
+      };
+      unpack = (view, off) => {
+        const bint = pointerSize === 8 ? view.getBigUint64(off, true) : BigInt(view.getUint32(off, true));
+        return Number(bint);
+      };
+      break;
+    default:
+      fatalError(`Unsupported primitive type: ${type}`);
+  }
+  return { pack, unpack };
+}
+var { pack: pointerPacker, unpack: pointerUnpacker } = primitivePackers("pointer");
+function packObjectArray(val) {
+  const buffer = new ArrayBuffer(val.length * pointerSize);
+  const bufferView = new DataView(buffer);
+  for (let i = 0;i < val.length; i++) {
+    const instance = val[i];
+    const ptrValue = instance?.ptr ?? null;
+    pointerPacker(bufferView, i * pointerSize, ptrValue);
+  }
+  return bufferView;
+}
+var encoder = new TextEncoder;
+var decoder = new TextDecoder;
+function defineStruct(fields, structDefOptions) {
+  let offset = 0;
+  let maxAlign = 1;
+  const layout = [];
+  const lengthOfFields = {};
+  const lengthOfRequested = [];
+  const arrayFieldsMetadata = {};
+  for (const [name, typeOrStruct, options = {}] of fields) {
+    if (options.condition && !options.condition()) {
+      continue;
+    }
+    let size = 0, align = 0;
+    let pack;
+    let unpack;
+    let needsLengthOf = false;
+    let lengthOfDef = null;
+    if (isPrimitiveType(typeOrStruct)) {
+      size = typeSizes[typeOrStruct];
+      align = typeAlignments[typeOrStruct];
+      ({ pack, unpack } = primitivePackers(typeOrStruct));
+    } else if (typeof typeOrStruct === "string" && typeOrStruct === "cstring") {
+      size = pointerSize;
+      align = pointerSize;
+      pack = (view, off, val) => {
+        const bufPtr = val ? ptr(encoder.encode(val + "\x00")) : null;
+        pointerPacker(view, off, bufPtr);
+      };
+      unpack = (view, off) => {
+        const ptrVal = pointerUnpacker(view, off);
+        return ptrVal;
+      };
+    } else if (typeof typeOrStruct === "string" && typeOrStruct === "char*") {
+      size = pointerSize;
+      align = pointerSize;
+      pack = (view, off, val) => {
+        const bufPtr = val ? ptr(encoder.encode(val)) : null;
+        pointerPacker(view, off, bufPtr);
+      };
+      unpack = (view, off) => {
+        const ptrVal = pointerUnpacker(view, off);
+        return ptrVal;
+      };
+      needsLengthOf = true;
+    } else if (isEnum(typeOrStruct)) {
+      const base = typeOrStruct.type;
+      size = typeSizes[base];
+      align = typeAlignments[base];
+      const { pack: packEnum } = primitivePackers(base);
+      pack = (view, off, val) => {
+        const num = typeOrStruct.to(val);
+        packEnum(view, off, num);
+      };
+      unpack = (view, off) => {
+        const raw = typeGetters[base](view, off);
+        return typeOrStruct.from(raw);
+      };
+    } else if (isStruct(typeOrStruct)) {
+      if (options.asPointer === true) {
+        size = pointerSize;
+        align = pointerSize;
+        pack = (view, off, val, obj, options2) => {
+          if (!val) {
+            pointerPacker(view, off, null);
+            return;
+          }
+          const nestedBuf = typeOrStruct.pack(val, options2);
+          pointerPacker(view, off, ptr(nestedBuf));
+        };
+        unpack = (view, off) => {
+          throw new Error("Not implemented yet");
+        };
+      } else {
+        size = typeOrStruct.size;
+        align = typeOrStruct.align;
+        pack = (view, off, val, obj, options2) => {
+          const nestedBuf = typeOrStruct.pack(val, options2);
+          const nestedView = new Uint8Array(nestedBuf);
+          const dView = new Uint8Array(view.buffer);
+          dView.set(nestedView, off);
+        };
+        unpack = (view, off) => {
+          const slice = view.buffer.slice(off, off + size);
+          return typeOrStruct.unpack(slice);
+        };
+      }
+    } else if (isObjectPointerDef(typeOrStruct)) {
+      size = pointerSize;
+      align = pointerSize;
+      pack = (view, off, value) => {
+        const ptrValue = value?.ptr ?? null;
+        if (ptrValue === undefined) {
+          console.warn(`Field '${name}' expected object with '.ptr' property, but got undefined pointer value from:`, value);
+          pointerPacker(view, off, null);
+        } else {
+          pointerPacker(view, off, ptrValue);
+        }
+      };
+      unpack = (view, off) => {
+        return pointerUnpacker(view, off);
+      };
+    } else if (Array.isArray(typeOrStruct) && typeOrStruct.length === 1 && typeOrStruct[0] !== undefined) {
+      const [def] = typeOrStruct;
+      size = pointerSize;
+      align = pointerSize;
+      let arrayElementSize;
+      if (isEnum(def)) {
+        arrayElementSize = typeSizes[def.type];
+        pack = (view, off, val, obj) => {
+          if (!val || val.length === 0) {
+            pointerPacker(view, off, null);
+            return;
+          }
+          const buffer = new ArrayBuffer(val.length * arrayElementSize);
+          const bufferView = new DataView(buffer);
+          for (let i = 0;i < val.length; i++) {
+            const num = def.to(val[i]);
+            bufferView.setUint32(i * arrayElementSize, num, true);
+          }
+          pointerPacker(view, off, ptr(buffer));
+        };
+        unpack = null;
+        needsLengthOf = true;
+        lengthOfDef = def;
+      } else if (isStruct(def)) {
+        arrayElementSize = def.size;
+        pack = (view, off, val, obj, options2) => {
+          if (!val || val.length === 0) {
+            pointerPacker(view, off, null);
+            return;
+          }
+          const buffer = new ArrayBuffer(val.length * arrayElementSize);
+          const bufferView = new DataView(buffer);
+          for (let i = 0;i < val.length; i++) {
+            def.packInto(val[i], bufferView, i * arrayElementSize, options2);
+          }
+          pointerPacker(view, off, ptr(buffer));
+        };
+        unpack = (view, off) => {
+          throw new Error("Not implemented yet");
+        };
+      } else if (isPrimitiveType(def)) {
+        arrayElementSize = typeSizes[def];
+        const { pack: primitivePack } = primitivePackers(def);
+        pack = (view, off, val) => {
+          if (!val || val.length === 0) {
+            pointerPacker(view, off, null);
+            return;
+          }
+          const buffer = new ArrayBuffer(val.length * arrayElementSize);
+          const bufferView = new DataView(buffer);
+          for (let i = 0;i < val.length; i++) {
+            primitivePack(bufferView, i * arrayElementSize, val[i]);
+          }
+          pointerPacker(view, off, ptr(buffer));
+        };
+        unpack = null;
+        needsLengthOf = true;
+        lengthOfDef = def;
+      } else if (isObjectPointerDef(def)) {
+        arrayElementSize = pointerSize;
+        pack = (view, off, val) => {
+          if (!val || val.length === 0) {
+            pointerPacker(view, off, null);
+            return;
+          }
+          const packedView = packObjectArray(val);
+          pointerPacker(view, off, ptr(packedView.buffer));
+        };
+        unpack = () => {
+          throw new Error("not implemented yet");
+        };
+      } else {
+        throw new Error(`Unsupported array element type for ${name}: ${JSON.stringify(def)}`);
+      }
+      const lengthOfField = Object.values(lengthOfFields).find((f) => f.lengthOf === name);
+      if (lengthOfField && isPrimitiveType(lengthOfField.type)) {
+        const { pack: lengthPack } = primitivePackers(lengthOfField.type);
+        arrayFieldsMetadata[name] = {
+          elementSize: arrayElementSize,
+          arrayOffset: offset,
+          lengthOffset: lengthOfField.offset,
+          lengthPack
+        };
+      }
+    } else {
+      throw new Error(`Unsupported field type for ${name}: ${JSON.stringify(typeOrStruct)}`);
+    }
+    offset = alignOffset(offset, align);
+    if (options.unpackTransform) {
+      const originalUnpack = unpack;
+      unpack = (view, off) => options.unpackTransform(originalUnpack(view, off));
+    }
+    if (options.packTransform) {
+      const originalPack = pack;
+      pack = (view, off, val, obj, packOptions) => originalPack(view, off, options.packTransform(val), obj, packOptions);
+    }
+    if (options.optional) {
+      const originalPack = pack;
+      if (isStruct(typeOrStruct) && !options.asPointer) {
+        pack = (view, off, val, obj, packOptions) => {
+          if (val || options.mapOptionalInline) {
+            originalPack(view, off, val, obj, packOptions);
+          }
+        };
+      } else {
+        pack = (view, off, val, obj, packOptions) => originalPack(view, off, val ?? 0, obj, packOptions);
+      }
+    }
+    if (options.lengthOf) {
+      const originalPack = pack;
+      pack = (view, off, val, obj, packOptions) => {
+        const targetValue = obj[options.lengthOf];
+        let length = 0;
+        if (targetValue) {
+          if (typeof targetValue === "string") {
+            length = Buffer.byteLength(targetValue);
+          } else {
+            length = targetValue.length;
+          }
+        }
+        return originalPack(view, off, length, obj, packOptions);
+      };
+    }
+    let validateFunctions;
+    if (options.validate) {
+      validateFunctions = Array.isArray(options.validate) ? options.validate : [options.validate];
+    }
+    const layoutField = {
+      name,
+      offset,
+      size,
+      align,
+      validate: validateFunctions,
+      optional: !!options.optional || !!options.lengthOf || options.default !== undefined,
+      default: options.default,
+      pack,
+      unpack,
+      type: typeOrStruct,
+      lengthOf: options.lengthOf
+    };
+    layout.push(layoutField);
+    if (options.lengthOf) {
+      lengthOfFields[options.lengthOf] = layoutField;
+    }
+    if (needsLengthOf) {
+      const def = typeof typeOrStruct === "string" && typeOrStruct === "char*" ? "char*" : lengthOfDef;
+      if (!def)
+        fatalError(`Internal error: needsLengthOf=true but def is null for ${name}`);
+      lengthOfRequested.push({ requester: layoutField, def });
+    }
+    offset += size;
+    maxAlign = Math.max(maxAlign, align);
+  }
+  for (const { requester, def } of lengthOfRequested) {
+    const lengthOfField = lengthOfFields[requester.name];
+    if (!lengthOfField) {
+      if (def === "char*") {
+        continue;
+      }
+      throw new Error(`lengthOf field not found for array field ${requester.name}`);
+    }
+    if (def === "char*") {
+      requester.unpack = (view, off) => {
+        const ptrAddress = pointerUnpacker(view, off);
+        const length = lengthOfField.unpack(view, lengthOfField.offset);
+        if (ptrAddress === 0) {
+          return null;
+        }
+        const byteLength = typeof length === "bigint" ? Number(length) : length;
+        if (byteLength === 0) {
+          return "";
+        }
+        const buffer = toArrayBuffer2(ptrAddress, 0, byteLength);
+        return decoder.decode(buffer);
+      };
+    } else if (isPrimitiveType(def)) {
+      const elemSize = typeSizes[def];
+      const { unpack: primitiveUnpack } = primitivePackers(def);
+      requester.unpack = (view, off) => {
+        const result = [];
+        const length = lengthOfField.unpack(view, lengthOfField.offset);
+        const ptrAddress = pointerUnpacker(view, off);
+        if (ptrAddress === 0n && length > 0) {
+          throw new Error(`Array field ${requester.name} has null pointer but length ${length}.`);
+        }
+        if (ptrAddress === 0n || length === 0) {
+          return [];
+        }
+        const buffer = toArrayBuffer2(ptrAddress, 0, length * elemSize);
+        const bufferView = new DataView(buffer);
+        for (let i = 0;i < length; i++) {
+          result.push(primitiveUnpack(bufferView, i * elemSize));
+        }
+        return result;
+      };
+    } else {
+      const elemSize = def.type === "u32" ? 4 : 8;
+      requester.unpack = (view, off) => {
+        const result = [];
+        const length = lengthOfField.unpack(view, lengthOfField.offset);
+        const ptrAddress = pointerUnpacker(view, off);
+        if (ptrAddress === 0n && length > 0) {
+          throw new Error(`Array field ${requester.name} has null pointer but length ${length}.`);
+        }
+        if (ptrAddress === 0n || length === 0) {
+          return [];
+        }
+        const buffer = toArrayBuffer2(ptrAddress, 0, length * elemSize);
+        const bufferView = new DataView(buffer);
+        for (let i = 0;i < length; i++) {
+          result.push(def.from(bufferView.getUint32(i * elemSize, true)));
+        }
+        return result;
+      };
+    }
+  }
+  const totalSize = alignOffset(offset, maxAlign);
+  const description = layout.map((f) => ({
+    name: f.name,
+    offset: f.offset,
+    size: f.size,
+    align: f.align,
+    optional: f.optional,
+    type: f.type,
+    lengthOf: f.lengthOf
+  }));
+  const layoutByName = new Map(description.map((f) => [f.name, f]));
+  const arrayFields = new Map(Object.entries(arrayFieldsMetadata));
+  return {
+    __type: "struct",
+    size: totalSize,
+    align: maxAlign,
+    hasMapValue: !!structDefOptions?.mapValue,
+    layoutByName,
+    arrayFields,
+    pack(obj, options) {
+      const buf = new ArrayBuffer(totalSize);
+      const view = new DataView(buf);
+      let mappedObj = obj;
+      if (structDefOptions?.mapValue) {
+        mappedObj = structDefOptions.mapValue(obj);
+      }
+      for (const field of layout) {
+        const value = mappedObj[field.name] ?? field.default;
+        if (!field.optional && value === undefined) {
+          fatalError(`Packing non-optional field '${field.name}' but value is undefined (and no default provided)`);
+        }
+        if (field.validate) {
+          for (const validateFn of field.validate) {
+            validateFn(value, field.name, {
+              hints: options?.validationHints,
+              input: mappedObj
+            });
+          }
+        }
+        field.pack(view, field.offset, value, mappedObj, options);
+      }
+      return view.buffer;
+    },
+    packInto(obj, view, offset2, options) {
+      let mappedObj = obj;
+      if (structDefOptions?.mapValue) {
+        mappedObj = structDefOptions.mapValue(obj);
+      }
+      for (const field of layout) {
+        const value = mappedObj[field.name] ?? field.default;
+        if (!field.optional && value === undefined) {
+          console.warn(`packInto missing value for non-optional field '${field.name}' at offset ${offset2 + field.offset}. Writing default or zero.`);
+        }
+        if (field.validate) {
+          for (const validateFn of field.validate) {
+            validateFn(value, field.name, {
+              hints: options?.validationHints,
+              input: mappedObj
+            });
+          }
+        }
+        field.pack(view, offset2 + field.offset, value, mappedObj, options);
+      }
+    },
+    unpack(buf) {
+      if (buf.byteLength < totalSize) {
+        fatalError(`Buffer size (${buf.byteLength}) is smaller than struct size (${totalSize}) for unpacking.`);
+      }
+      const view = new DataView(buf);
+      const result = structDefOptions?.default ? { ...structDefOptions.default } : {};
+      for (const field of layout) {
+        if (!field.unpack) {
+          continue;
+        }
+        try {
+          result[field.name] = field.unpack(view, field.offset);
+        } catch (e) {
+          console.error(`Error unpacking field '${field.name}' at offset ${field.offset}:`, e);
+          throw e;
+        }
+      }
+      if (structDefOptions?.reduceValue) {
+        return structDefOptions.reduceValue(result);
+      }
+      return result;
+    },
+    packList(objects, options) {
+      if (objects.length === 0) {
+        return new ArrayBuffer(0);
+      }
+      const buffer = new ArrayBuffer(totalSize * objects.length);
+      const view = new DataView(buffer);
+      for (let i = 0;i < objects.length; i++) {
+        let mappedObj = objects[i];
+        if (structDefOptions?.mapValue) {
+          mappedObj = structDefOptions.mapValue(objects[i]);
+        }
+        for (const field of layout) {
+          const value = mappedObj[field.name] ?? field.default;
+          if (!field.optional && value === undefined) {
+            fatalError(`Packing non-optional field '${field.name}' at index ${i} but value is undefined (and no default provided)`);
+          }
+          if (field.validate) {
+            for (const validateFn of field.validate) {
+              validateFn(value, field.name, {
+                hints: options?.validationHints,
+                input: mappedObj
+              });
+            }
+          }
+          field.pack(view, i * totalSize + field.offset, value, mappedObj, options);
+        }
+      }
+      return buffer;
+    },
+    unpackList(buf, count) {
+      if (count === 0) {
+        return [];
+      }
+      const expectedSize = totalSize * count;
+      if (buf.byteLength < expectedSize) {
+        fatalError(`Buffer size (${buf.byteLength}) is smaller than expected size (${expectedSize}) for unpacking ${count} structs.`);
+      }
+      const view = new DataView(buf);
+      const results = [];
+      for (let i = 0;i < count; i++) {
+        const offset2 = i * totalSize;
+        const result = structDefOptions?.default ? { ...structDefOptions.default } : {};
+        for (const field of layout) {
+          if (!field.unpack) {
+            continue;
+          }
+          try {
+            result[field.name] = field.unpack(view, offset2 + field.offset);
+          } catch (e) {
+            console.error(`Error unpacking field '${field.name}' at index ${i}, offset ${offset2 + field.offset}:`, e);
+            throw e;
+          }
+        }
+        if (structDefOptions?.reduceValue) {
+          results.push(structDefOptions.reduceValue(result));
+        } else {
+          results.push(result);
+        }
+      }
+      return results;
+    },
+    describe() {
+      return description;
+    }
+  };
+}
+var rgbaPackTransform = (rgba) => rgba ? ptr2(rgba.buffer) : null;
+var rgbaUnpackTransform = (ptr32) => ptr32 ? RGBA.fromArray(new Float32Array(toArrayBuffer3(ptr32))) : undefined;
+var StyledChunkStruct = defineStruct([
+  ["text", "char*"],
+  ["text_len", "u64", { lengthOf: "text" }],
+  [
+    "fg",
+    "pointer",
+    {
+      optional: true,
+      packTransform: rgbaPackTransform,
+      unpackTransform: rgbaUnpackTransform
+    }
+  ],
+  [
+    "bg",
+    "pointer",
+    {
+      optional: true,
+      packTransform: rgbaPackTransform,
+      unpackTransform: rgbaUnpackTransform
+    }
+  ],
+  ["attributes", "u32", { optional: true }]
+]);
+var HighlightStruct = defineStruct([
+  ["start", "u32"],
+  ["end", "u32"],
+  ["styleId", "u32"],
+  ["priority", "u8", { default: 0 }],
+  ["hlRef", "u16", { default: 0 }]
+]);
+var LogicalCursorStruct = defineStruct([
+  ["row", "u32"],
+  ["col", "u32"],
+  ["offset", "u32"]
+]);
+var VisualCursorStruct = defineStruct([
+  ["visualRow", "u32"],
+  ["visualCol", "u32"],
+  ["logicalRow", "u32"],
+  ["logicalCol", "u32"],
+  ["offset", "u32"]
+]);
+var UnicodeMethodEnum = defineEnum({ wcwidth: 0, unicode: 1 }, "u8");
+var TerminalCapabilitiesStruct = defineStruct([
+  ["kitty_keyboard", "bool_u8"],
+  ["kitty_graphics", "bool_u8"],
+  ["rgb", "bool_u8"],
+  ["unicode", UnicodeMethodEnum],
+  ["sgr_pixels", "bool_u8"],
+  ["color_scheme_updates", "bool_u8"],
+  ["explicit_width", "bool_u8"],
+  ["scaled_text", "bool_u8"],
+  ["sixel", "bool_u8"],
+  ["focus_tracking", "bool_u8"],
+  ["sync", "bool_u8"],
+  ["bracketed_paste", "bool_u8"],
+  ["hyperlinks", "bool_u8"],
+  ["term_name", "char*"],
+  ["term_name_len", "u64", { lengthOf: "term_name" }],
+  ["term_version", "char*"],
+  ["term_version_len", "u64", { lengthOf: "term_version" }],
+  ["term_from_xtversion", "bool_u8"]
+]);
+var EncodedCharStruct = defineStruct([
+  ["width", "u8"],
+  ["char", "u32"]
+]);
+var LineInfoStruct = defineStruct([
+  ["starts", ["u32"]],
+  ["startsLen", "u32", { lengthOf: "starts" }],
+  ["widths", ["u32"]],
+  ["widthsLen", "u32", { lengthOf: "widths" }],
+  ["sources", ["u32"]],
+  ["sourcesLen", "u32", { lengthOf: "sources" }],
+  ["wraps", ["u32"]],
+  ["wrapsLen", "u32", { lengthOf: "wraps" }],
+  ["maxWidth", "u32"]
+]);
+var MeasureResultStruct = defineStruct([
+  ["lineCount", "u32"],
+  ["maxWidth", "u32"]
+]);
+var CursorStateStruct = defineStruct([
+  ["x", "u32"],
+  ["y", "u32"],
+  ["visible", "bool_u8"],
+  ["style", "u8"],
+  ["blinking", "bool_u8"],
+  ["r", "f32"],
+  ["g", "f32"],
+  ["b", "f32"],
+  ["a", "f32"]
+]);
+var module = await import(`@opentui/core-${process.platform}-${process.arch}/index.ts`);
+var targetLibPath = module.default;
+if (isBunfsPath(targetLibPath)) {
+  targetLibPath = targetLibPath.replace("../", "");
+}
+if (!existsSync2(targetLibPath)) {
+  throw new Error(`opentui is not supported on the current platform: ${process.platform}-${process.arch}`);
+}
+registerEnvVar({
+  name: "OTUI_DEBUG_FFI",
+  description: "Enable debug logging for the FFI bindings.",
+  type: "boolean",
+  default: false
+});
+registerEnvVar({
+  name: "OTUI_TRACE_FFI",
+  description: "Enable tracing for the FFI bindings.",
+  type: "boolean",
+  default: false
+});
+registerEnvVar({
+  name: "OPENTUI_FORCE_WCWIDTH",
+  description: "Use wcwidth for character width calculations",
+  type: "boolean",
+  default: false
+});
+registerEnvVar({
+  name: "OPENTUI_FORCE_UNICODE",
+  description: "Force Mode 2026 Unicode support in terminal capabilities",
+  type: "boolean",
+  default: false
+});
+var globalTraceSymbols = null;
+var globalFFILogWriter = null;
+var exitHandlerRegistered = false;
+function getOpenTUILib(libPath) {
+  const resolvedLibPath = libPath || targetLibPath;
+  const rawSymbols = dlopen(resolvedLibPath, {
+    setLogCallback: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    setEventCallback: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    createRenderer: {
+      args: ["u32", "u32", "bool"],
+      returns: "ptr"
+    },
+    destroyRenderer: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    setUseThread: {
+      args: ["ptr", "bool"],
+      returns: "void"
+    },
+    setBackgroundColor: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    setRenderOffset: {
+      args: ["ptr", "u32"],
+      returns: "void"
+    },
+    updateStats: {
+      args: ["ptr", "f64", "u32", "f64"],
+      returns: "void"
+    },
+    updateMemoryStats: {
+      args: ["ptr", "u32", "u32", "u32"],
+      returns: "void"
+    },
+    render: {
+      args: ["ptr", "bool"],
+      returns: "void"
+    },
+    getNextBuffer: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    getCurrentBuffer: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    queryPixelResolution: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    createOptimizedBuffer: {
+      args: ["u32", "u32", "bool", "u8", "ptr", "usize"],
+      returns: "ptr"
+    },
+    destroyOptimizedBuffer: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    drawFrameBuffer: {
+      args: ["ptr", "i32", "i32", "ptr", "u32", "u32", "u32", "u32"],
+      returns: "void"
+    },
+    getBufferWidth: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    getBufferHeight: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    bufferClear: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    bufferGetCharPtr: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    bufferGetFgPtr: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    bufferGetBgPtr: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    bufferGetAttributesPtr: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    bufferGetRespectAlpha: {
+      args: ["ptr"],
+      returns: "bool"
+    },
+    bufferSetRespectAlpha: {
+      args: ["ptr", "bool"],
+      returns: "void"
+    },
+    bufferGetId: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    bufferGetRealCharSize: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    bufferWriteResolvedChars: {
+      args: ["ptr", "ptr", "usize", "bool"],
+      returns: "u32"
+    },
+    bufferDrawText: {
+      args: ["ptr", "ptr", "u32", "u32", "u32", "ptr", "ptr", "u32"],
+      returns: "void"
+    },
+    bufferSetCellWithAlphaBlending: {
+      args: ["ptr", "u32", "u32", "u32", "ptr", "ptr", "u32"],
+      returns: "void"
+    },
+    bufferSetCell: {
+      args: ["ptr", "u32", "u32", "u32", "ptr", "ptr", "u32"],
+      returns: "void"
+    },
+    bufferFillRect: {
+      args: ["ptr", "u32", "u32", "u32", "u32", "ptr"],
+      returns: "void"
+    },
+    bufferResize: {
+      args: ["ptr", "u32", "u32"],
+      returns: "void"
+    },
+    linkAlloc: {
+      args: ["ptr", "u32"],
+      returns: "u32"
+    },
+    linkGetUrl: {
+      args: ["u32", "ptr", "u32"],
+      returns: "u32"
+    },
+    attributesWithLink: {
+      args: ["u32", "u32"],
+      returns: "u32"
+    },
+    attributesGetLinkId: {
+      args: ["u32"],
+      returns: "u32"
+    },
+    resizeRenderer: {
+      args: ["ptr", "u32", "u32"],
+      returns: "void"
+    },
+    setCursorPosition: {
+      args: ["ptr", "i32", "i32", "bool"],
+      returns: "void"
+    },
+    setCursorStyle: {
+      args: ["ptr", "ptr", "u32", "bool"],
+      returns: "void"
+    },
+    setCursorColor: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    getCursorState: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    setDebugOverlay: {
+      args: ["ptr", "bool", "u8"],
+      returns: "void"
+    },
+    clearTerminal: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    setTerminalTitle: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    bufferDrawSuperSampleBuffer: {
+      args: ["ptr", "u32", "u32", "ptr", "usize", "u8", "u32"],
+      returns: "void"
+    },
+    bufferDrawPackedBuffer: {
+      args: ["ptr", "ptr", "usize", "u32", "u32", "u32", "u32"],
+      returns: "void"
+    },
+    bufferDrawBox: {
+      args: ["ptr", "i32", "i32", "u32", "u32", "ptr", "u32", "ptr", "ptr", "ptr", "u32"],
+      returns: "void"
+    },
+    bufferPushScissorRect: {
+      args: ["ptr", "i32", "i32", "u32", "u32"],
+      returns: "void"
+    },
+    bufferPopScissorRect: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    bufferClearScissorRects: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    bufferPushOpacity: {
+      args: ["ptr", "f32"],
+      returns: "void"
+    },
+    bufferPopOpacity: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    bufferGetCurrentOpacity: {
+      args: ["ptr"],
+      returns: "f32"
+    },
+    bufferClearOpacity: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    addToHitGrid: {
+      args: ["ptr", "i32", "i32", "u32", "u32", "u32"],
+      returns: "void"
+    },
+    checkHit: {
+      args: ["ptr", "u32", "u32"],
+      returns: "u32"
+    },
+    dumpHitGrid: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    dumpBuffers: {
+      args: ["ptr", "i64"],
+      returns: "void"
+    },
+    dumpStdoutBuffer: {
+      args: ["ptr", "i64"],
+      returns: "void"
+    },
+    enableMouse: {
+      args: ["ptr", "bool"],
+      returns: "void"
+    },
+    disableMouse: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    enableKittyKeyboard: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    disableKittyKeyboard: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    setKittyKeyboardFlags: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    getKittyKeyboardFlags: {
+      args: ["ptr"],
+      returns: "u8"
+    },
+    setupTerminal: {
+      args: ["ptr", "bool"],
+      returns: "void"
+    },
+    suspendRenderer: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    resumeRenderer: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    createTextBuffer: {
+      args: ["u8"],
+      returns: "ptr"
+    },
+    destroyTextBuffer: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferGetLength: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    textBufferGetByteSize: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    textBufferReset: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferClear: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferSetDefaultFg: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferSetDefaultBg: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferSetDefaultAttributes: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferResetDefaults: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferGetTabWidth: {
+      args: ["ptr"],
+      returns: "u8"
+    },
+    textBufferSetTabWidth: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    textBufferRegisterMemBuffer: {
+      args: ["ptr", "ptr", "usize", "bool"],
+      returns: "u16"
+    },
+    textBufferReplaceMemBuffer: {
+      args: ["ptr", "u8", "ptr", "usize", "bool"],
+      returns: "bool"
+    },
+    textBufferClearMemRegistry: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferSetTextFromMem: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    textBufferAppend: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    textBufferAppendFromMemId: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    textBufferLoadFile: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "bool"
+    },
+    textBufferSetStyledText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    textBufferGetLineCount: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    textBufferGetPlainText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    textBufferAddHighlightByCharRange: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferAddHighlight: {
+      args: ["ptr", "u32", "ptr"],
+      returns: "void"
+    },
+    textBufferRemoveHighlightsByRef: {
+      args: ["ptr", "u16"],
+      returns: "void"
+    },
+    textBufferClearLineHighlights: {
+      args: ["ptr", "u32"],
+      returns: "void"
+    },
+    textBufferClearAllHighlights: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferSetSyntaxStyle: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferGetLineHighlightsPtr: {
+      args: ["ptr", "u32", "ptr"],
+      returns: "ptr"
+    },
+    textBufferFreeLineHighlights: {
+      args: ["ptr", "usize"],
+      returns: "void"
+    },
+    textBufferGetHighlightCount: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    textBufferGetTextRange: {
+      args: ["ptr", "u32", "u32", "ptr", "usize"],
+      returns: "usize"
+    },
+    textBufferGetTextRangeByCoords: {
+      args: ["ptr", "u32", "u32", "u32", "u32", "ptr", "usize"],
+      returns: "usize"
+    },
+    createTextBufferView: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    destroyTextBufferView: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferViewSetSelection: {
+      args: ["ptr", "u32", "u32", "ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferViewResetSelection: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferViewGetSelectionInfo: {
+      args: ["ptr"],
+      returns: "u64"
+    },
+    textBufferViewSetLocalSelection: {
+      args: ["ptr", "i32", "i32", "i32", "i32", "ptr", "ptr"],
+      returns: "bool"
+    },
+    textBufferViewUpdateSelection: {
+      args: ["ptr", "u32", "ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferViewUpdateLocalSelection: {
+      args: ["ptr", "i32", "i32", "i32", "i32", "ptr", "ptr"],
+      returns: "bool"
+    },
+    textBufferViewResetLocalSelection: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    textBufferViewSetWrapWidth: {
+      args: ["ptr", "u32"],
+      returns: "void"
+    },
+    textBufferViewSetWrapMode: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    textBufferViewSetViewportSize: {
+      args: ["ptr", "u32", "u32"],
+      returns: "void"
+    },
+    textBufferViewSetViewport: {
+      args: ["ptr", "u32", "u32", "u32", "u32"],
+      returns: "void"
+    },
+    textBufferViewGetVirtualLineCount: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    textBufferViewGetLineInfoDirect: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferViewGetLogicalLineInfoDirect: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferViewGetSelectedText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    textBufferViewGetPlainText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    textBufferViewSetTabIndicator: {
+      args: ["ptr", "u32"],
+      returns: "void"
+    },
+    textBufferViewSetTabIndicatorColor: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    textBufferViewMeasureForDimensions: {
+      args: ["ptr", "u32", "u32", "ptr"],
+      returns: "bool"
+    },
+    bufferDrawTextBufferView: {
+      args: ["ptr", "ptr", "i32", "i32"],
+      returns: "void"
+    },
+    bufferDrawEditorView: {
+      args: ["ptr", "ptr", "i32", "i32"],
+      returns: "void"
+    },
+    createEditorView: {
+      args: ["ptr", "u32", "u32"],
+      returns: "ptr"
+    },
+    destroyEditorView: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editorViewSetViewportSize: {
+      args: ["ptr", "u32", "u32"],
+      returns: "void"
+    },
+    editorViewSetViewport: {
+      args: ["ptr", "u32", "u32", "u32", "u32", "bool"],
+      returns: "void"
+    },
+    editorViewGetViewport: {
+      args: ["ptr", "ptr", "ptr", "ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewSetScrollMargin: {
+      args: ["ptr", "f32"],
+      returns: "void"
+    },
+    editorViewSetWrapMode: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    editorViewGetVirtualLineCount: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    editorViewGetTotalVirtualLineCount: {
+      args: ["ptr"],
+      returns: "u32"
+    },
+    editorViewGetTextBufferView: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    editorViewGetLineInfoDirect: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewGetLogicalLineInfoDirect: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    createEditBuffer: {
+      args: ["u8"],
+      returns: "ptr"
+    },
+    destroyEditBuffer: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferSetText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    editBufferSetTextFromMem: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    editBufferReplaceText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    editBufferReplaceTextFromMem: {
+      args: ["ptr", "u8"],
+      returns: "void"
+    },
+    editBufferGetText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    editBufferInsertChar: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    editBufferInsertText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    editBufferDeleteChar: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferDeleteCharBackward: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferDeleteRange: {
+      args: ["ptr", "u32", "u32", "u32", "u32"],
+      returns: "void"
+    },
+    editBufferNewLine: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferDeleteLine: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferMoveCursorLeft: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferMoveCursorRight: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferMoveCursorUp: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferMoveCursorDown: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferGotoLine: {
+      args: ["ptr", "u32"],
+      returns: "void"
+    },
+    editBufferSetCursor: {
+      args: ["ptr", "u32", "u32"],
+      returns: "void"
+    },
+    editBufferSetCursorToLineCol: {
+      args: ["ptr", "u32", "u32"],
+      returns: "void"
+    },
+    editBufferSetCursorByOffset: {
+      args: ["ptr", "u32"],
+      returns: "void"
+    },
+    editBufferGetCursorPosition: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editBufferGetId: {
+      args: ["ptr"],
+      returns: "u16"
+    },
+    editBufferGetTextBuffer: {
+      args: ["ptr"],
+      returns: "ptr"
+    },
+    editBufferDebugLogRope: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferUndo: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    editBufferRedo: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    editBufferCanUndo: {
+      args: ["ptr"],
+      returns: "bool"
+    },
+    editBufferCanRedo: {
+      args: ["ptr"],
+      returns: "bool"
+    },
+    editBufferClearHistory: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferClear: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editBufferGetNextWordBoundary: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editBufferGetPrevWordBoundary: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editBufferGetEOL: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editBufferOffsetToPosition: {
+      args: ["ptr", "u32", "ptr"],
+      returns: "bool"
+    },
+    editBufferPositionToOffset: {
+      args: ["ptr", "u32", "u32"],
+      returns: "u32"
+    },
+    editBufferGetLineStartOffset: {
+      args: ["ptr", "u32"],
+      returns: "u32"
+    },
+    editBufferGetTextRange: {
+      args: ["ptr", "u32", "u32", "ptr", "usize"],
+      returns: "usize"
+    },
+    editBufferGetTextRangeByCoords: {
+      args: ["ptr", "u32", "u32", "u32", "u32", "ptr", "usize"],
+      returns: "usize"
+    },
+    editorViewSetSelection: {
+      args: ["ptr", "u32", "u32", "ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewResetSelection: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editorViewGetSelection: {
+      args: ["ptr"],
+      returns: "u64"
+    },
+    editorViewSetLocalSelection: {
+      args: ["ptr", "i32", "i32", "i32", "i32", "ptr", "ptr", "bool"],
+      returns: "bool"
+    },
+    editorViewUpdateSelection: {
+      args: ["ptr", "u32", "ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewUpdateLocalSelection: {
+      args: ["ptr", "i32", "i32", "i32", "i32", "ptr", "ptr", "bool"],
+      returns: "bool"
+    },
+    editorViewResetLocalSelection: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editorViewGetSelectedTextBytes: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    editorViewGetCursor: {
+      args: ["ptr", "ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewGetText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "usize"
+    },
+    editorViewGetVisualCursor: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewMoveUpVisual: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editorViewMoveDownVisual: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editorViewDeleteSelectedText: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    editorViewSetCursorByOffset: {
+      args: ["ptr", "u32"],
+      returns: "void"
+    },
+    editorViewGetNextWordBoundary: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewGetPrevWordBoundary: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewGetEOL: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewGetVisualSOL: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewGetVisualEOL: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    editorViewSetPlaceholderStyledText: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    editorViewSetTabIndicator: {
+      args: ["ptr", "u32"],
+      returns: "void"
+    },
+    editorViewSetTabIndicatorColor: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    getArenaAllocatedBytes: {
+      args: [],
+      returns: "usize"
+    },
+    createSyntaxStyle: {
+      args: [],
+      returns: "ptr"
+    },
+    destroySyntaxStyle: {
+      args: ["ptr"],
+      returns: "void"
+    },
+    syntaxStyleRegister: {
+      args: ["ptr", "ptr", "usize", "ptr", "ptr", "u8"],
+      returns: "u32"
+    },
+    syntaxStyleResolveByName: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "u32"
+    },
+    syntaxStyleGetStyleCount: {
+      args: ["ptr"],
+      returns: "usize"
+    },
+    getTerminalCapabilities: {
+      args: ["ptr", "ptr"],
+      returns: "void"
+    },
+    processCapabilityResponse: {
+      args: ["ptr", "ptr", "usize"],
+      returns: "void"
+    },
+    encodeUnicode: {
+      args: ["ptr", "usize", "ptr", "ptr", "u8"],
+      returns: "bool"
+    },
+    freeUnicode: {
+      args: ["ptr", "usize"],
+      returns: "void"
+    },
+    bufferDrawChar: {
+      args: ["ptr", "u32", "u32", "u32", "ptr", "ptr", "u32"],
+      returns: "void"
+    }
+  });
+  if (env.OTUI_DEBUG_FFI || env.OTUI_TRACE_FFI) {
+    return {
+      symbols: convertToDebugSymbols(rawSymbols.symbols)
+    };
+  }
+  return rawSymbols;
+}
+function convertToDebugSymbols(symbols) {
+  if (!globalTraceSymbols) {
+    globalTraceSymbols = {};
+  }
+  if (env.OTUI_DEBUG_FFI && !globalFFILogWriter) {
+    const now = new Date;
+    const timestamp = now.toISOString().replace(/[:.]/g, "-").replace(/T/, "_").split("Z")[0];
+    const logFilePath = `ffi_otui_debug_${timestamp}.log`;
+    globalFFILogWriter = Bun.file(logFilePath).writer();
+  }
+  const debugSymbols = {};
+  let hasTracing = false;
+  Object.entries(symbols).forEach(([key, value]) => {
+    debugSymbols[key] = value;
+  });
+  if (env.OTUI_DEBUG_FFI && globalFFILogWriter) {
+    const writer = globalFFILogWriter;
+    const writeSync = (msg) => {
+      const buffer = new TextEncoder().encode(msg + `
+`);
+      writer.write(buffer);
+      writer.flush();
+    };
+    Object.entries(symbols).forEach(([key, value]) => {
+      if (typeof value === "function") {
+        debugSymbols[key] = (...args) => {
+          writeSync(`${key}(${args.map((arg) => String(arg)).join(", ")})`);
+          const result = value(...args);
+          writeSync(`${key} returned: ${String(result)}`);
+          return result;
+        };
+      }
+    });
+  }
+  if (env.OTUI_TRACE_FFI) {
+    hasTracing = true;
+    Object.entries(symbols).forEach(([key, value]) => {
+      if (typeof value === "function") {
+        if (!globalTraceSymbols[key]) {
+          globalTraceSymbols[key] = [];
+        }
+        const originalFunc = debugSymbols[key];
+        debugSymbols[key] = (...args) => {
+          const start = performance.now();
+          const result = originalFunc(...args);
+          const end = performance.now();
+          globalTraceSymbols[key].push(end - start);
+          return result;
+        };
+      }
+    });
+  }
+  if ((env.OTUI_DEBUG_FFI || env.OTUI_TRACE_FFI) && !exitHandlerRegistered) {
+    exitHandlerRegistered = true;
+    process.on("exit", () => {
+      try {
+        if (globalFFILogWriter) {
+          globalFFILogWriter.end();
+        }
+      } catch (e) {}
+      if (globalTraceSymbols) {
+        const allStats = [];
+        for (const [key, timings] of Object.entries(globalTraceSymbols)) {
+          if (!Array.isArray(timings) || timings.length === 0) {
+            continue;
+          }
+          const sortedTimings = [...timings].sort((a, b) => a - b);
+          const count = sortedTimings.length;
+          const total = sortedTimings.reduce((acc, t2) => acc + t2, 0);
+          const average = total / count;
+          const min = sortedTimings[0];
+          const max = sortedTimings[count - 1];
+          const medianIndex = Math.floor(count / 2);
+          const p90Index = Math.floor(count * 0.9);
+          const p99Index = Math.floor(count * 0.99);
+          const median = sortedTimings[medianIndex];
+          const p90 = sortedTimings[Math.min(p90Index, count - 1)];
+          const p99 = sortedTimings[Math.min(p99Index, count - 1)];
+          allStats.push({
+            name: key,
+            count,
+            total,
+            average,
+            min,
+            max,
+            median,
+            p90,
+            p99
+          });
+        }
+        allStats.sort((a, b) => b.total - a.total);
+        const lines = [];
+        lines.push(`
+--- OpenTUI FFI Call Performance ---`);
+        lines.push("Sorted by total time spent (descending)");
+        lines.push("-------------------------------------------------------------------------------------------------------------------------");
+        if (allStats.length === 0) {
+          lines.push("No trace data collected or all symbols had zero calls.");
+        } else {
+          const nameHeader = "Symbol";
+          const callsHeader = "Calls";
+          const totalHeader = "Total (ms)";
+          const avgHeader = "Avg (ms)";
+          const minHeader = "Min (ms)";
+          const maxHeader = "Max (ms)";
+          const medHeader = "Med (ms)";
+          const p90Header = "P90 (ms)";
+          const p99Header = "P99 (ms)";
+          const nameWidth = Math.max(nameHeader.length, ...allStats.map((s) => s.name.length));
+          const countWidth = Math.max(callsHeader.length, ...allStats.map((s) => String(s.count).length));
+          const totalWidth = Math.max(totalHeader.length, ...allStats.map((s) => s.total.toFixed(2).length));
+          const avgWidth = Math.max(avgHeader.length, ...allStats.map((s) => s.average.toFixed(2).length));
+          const minWidth = Math.max(minHeader.length, ...allStats.map((s) => s.min.toFixed(2).length));
+          const maxWidth = Math.max(maxHeader.length, ...allStats.map((s) => s.max.toFixed(2).length));
+          const medianWidth = Math.max(medHeader.length, ...allStats.map((s) => s.median.toFixed(2).length));
+          const p90Width = Math.max(p90Header.length, ...allStats.map((s) => s.p90.toFixed(2).length));
+          const p99Width = Math.max(p99Header.length, ...allStats.map((s) => s.p99.toFixed(2).length));
+          lines.push(`${nameHeader.padEnd(nameWidth)} | ${callsHeader.padStart(countWidth)} | ${totalHeader.padStart(totalWidth)} | ${avgHeader.padStart(avgWidth)} | ${minHeader.padStart(minWidth)} | ${maxHeader.padStart(maxWidth)} | ${medHeader.padStart(medianWidth)} | ${p90Header.padStart(p90Width)} | ${p99Header.padStart(p99Width)}`);
+          lines.push(`${"-".repeat(nameWidth)}-+-${"-".repeat(countWidth)}-+-${"-".repeat(totalWidth)}-+-${"-".repeat(avgWidth)}-+-${"-".repeat(minWidth)}-+-${"-".repeat(maxWidth)}-+-${"-".repeat(medianWidth)}-+-${"-".repeat(p90Width)}-+-${"-".repeat(p99Width)}`);
+          allStats.forEach((stat) => {
+            lines.push(`${stat.name.padEnd(nameWidth)} | ${String(stat.count).padStart(countWidth)} | ${stat.total.toFixed(2).padStart(totalWidth)} | ${stat.average.toFixed(2).padStart(avgWidth)} | ${stat.min.toFixed(2).padStart(minWidth)} | ${stat.max.toFixed(2).padStart(maxWidth)} | ${stat.median.toFixed(2).padStart(medianWidth)} | ${stat.p90.toFixed(2).padStart(p90Width)} | ${stat.p99.toFixed(2).padStart(p99Width)}`);
+          });
+        }
+        lines.push("-------------------------------------------------------------------------------------------------------------------------");
+        const output = lines.join(`
+`);
+        console.log(output);
+        try {
+          const now = new Date;
+          const timestamp = now.toISOString().replace(/[:.]/g, "-").replace(/T/, "_").split("Z")[0];
+          const traceFilePath = `ffi_otui_trace_${timestamp}.log`;
+          Bun.write(traceFilePath, output);
+        } catch (e) {
+          console.error("Failed to write FFI trace file:", e);
+        }
+      }
+    });
+  }
+  return debugSymbols;
+}
+var LogLevel2;
+((LogLevel3) => {
+  LogLevel3[LogLevel3["Error"] = 0] = "Error";
+  LogLevel3[LogLevel3["Warn"] = 1] = "Warn";
+  LogLevel3[LogLevel3["Info"] = 2] = "Info";
+  LogLevel3[LogLevel3["Debug"] = 3] = "Debug";
+})(LogLevel2 ||= {});
+
+class FFIRenderLib {
+  opentui;
+  encoder = new TextEncoder;
+  decoder = new TextDecoder;
+  logCallbackWrapper;
+  eventCallbackWrapper;
+  _nativeEvents = new EventEmitter5;
+  _anyEventHandlers = [];
+  constructor(libPath) {
+    this.opentui = getOpenTUILib(libPath);
+    this.setupLogging();
+    this.setupEventBus();
+  }
+  setupLogging() {
+    if (this.logCallbackWrapper) {
+      return;
+    }
+    const logCallback = new JSCallback((level, msgPtr, msgLenBigInt) => {
+      try {
+        const msgLen = typeof msgLenBigInt === "bigint" ? Number(msgLenBigInt) : msgLenBigInt;
+        if (msgLen === 0 || !msgPtr) {
+          return;
+        }
+        const msgBuffer = toArrayBuffer4(msgPtr, 0, msgLen);
+        const msgBytes = new Uint8Array(msgBuffer);
+        const message = this.decoder.decode(msgBytes);
+        switch (level) {
+          case 0:
+            console.error(message);
+            break;
+          case 1:
+            console.warn(message);
+            break;
+          case 2:
+            console.info(message);
+            break;
+          case 3:
+            console.debug(message);
+            break;
+          default:
+            console.log(message);
+        }
+      } catch (error) {
+        console.error("Error in Zig log callback:", error);
+      }
+    }, {
+      args: ["u8", "ptr", "usize"],
+      returns: "void"
+    });
+    this.logCallbackWrapper = logCallback;
+    if (!logCallback.ptr) {
+      throw new Error("Failed to create log callback");
+    }
+    this.setLogCallback(logCallback.ptr);
+  }
+  setLogCallback(callbackPtr) {
+    this.opentui.symbols.setLogCallback(callbackPtr);
+  }
+  setupEventBus() {
+    if (this.eventCallbackWrapper) {
+      return;
+    }
+    const eventCallback = new JSCallback((namePtr, nameLenBigInt, dataPtr, dataLenBigInt) => {
+      try {
+        const nameLen = typeof nameLenBigInt === "bigint" ? Number(nameLenBigInt) : nameLenBigInt;
+        const dataLen = typeof dataLenBigInt === "bigint" ? Number(dataLenBigInt) : dataLenBigInt;
+        if (nameLen === 0 || !namePtr) {
+          return;
+        }
+        const nameBuffer = toArrayBuffer4(namePtr, 0, nameLen);
+        const nameBytes = new Uint8Array(nameBuffer);
+        const eventName = this.decoder.decode(nameBytes);
+        let eventData;
+        if (dataLen > 0 && dataPtr) {
+          eventData = toArrayBuffer4(dataPtr, 0, dataLen).slice();
+        } else {
+          eventData = new ArrayBuffer(0);
+        }
+        queueMicrotask(() => {
+          this._nativeEvents.emit(eventName, eventData);
+          for (const handler of this._anyEventHandlers) {
+            handler(eventName, eventData);
+          }
+        });
+      } catch (error) {
+        console.error("Error in native event callback:", error);
+      }
+    }, {
+      args: ["ptr", "usize", "ptr", "usize"],
+      returns: "void"
+    });
+    this.eventCallbackWrapper = eventCallback;
+    if (!eventCallback.ptr) {
+      throw new Error("Failed to create event callback");
+    }
+    this.setEventCallback(eventCallback.ptr);
+  }
+  setEventCallback(callbackPtr) {
+    this.opentui.symbols.setEventCallback(callbackPtr);
+  }
+  createRenderer(width, height, options = { testing: false }) {
+    return this.opentui.symbols.createRenderer(width, height, options.testing);
+  }
+  destroyRenderer(renderer) {
+    this.opentui.symbols.destroyRenderer(renderer);
+  }
+  setUseThread(renderer, useThread) {
+    this.opentui.symbols.setUseThread(renderer, useThread);
+  }
+  setBackgroundColor(renderer, color) {
+    this.opentui.symbols.setBackgroundColor(renderer, color.buffer);
+  }
+  setRenderOffset(renderer, offset) {
+    this.opentui.symbols.setRenderOffset(renderer, offset);
+  }
+  updateStats(renderer, time, fps, frameCallbackTime) {
+    this.opentui.symbols.updateStats(renderer, time, fps, frameCallbackTime);
+  }
+  updateMemoryStats(renderer, heapUsed, heapTotal, arrayBuffers) {
+    this.opentui.symbols.updateMemoryStats(renderer, heapUsed, heapTotal, arrayBuffers);
+  }
+  getNextBuffer(renderer) {
+    const bufferPtr = this.opentui.symbols.getNextBuffer(renderer);
+    if (!bufferPtr) {
+      throw new Error("Failed to get next buffer");
+    }
+    const width = this.opentui.symbols.getBufferWidth(bufferPtr);
+    const height = this.opentui.symbols.getBufferHeight(bufferPtr);
+    return new OptimizedBuffer(this, bufferPtr, width, height, { id: "next buffer", widthMethod: "unicode" });
+  }
+  getCurrentBuffer(renderer) {
+    const bufferPtr = this.opentui.symbols.getCurrentBuffer(renderer);
+    if (!bufferPtr) {
+      throw new Error("Failed to get current buffer");
+    }
+    const width = this.opentui.symbols.getBufferWidth(bufferPtr);
+    const height = this.opentui.symbols.getBufferHeight(bufferPtr);
+    return new OptimizedBuffer(this, bufferPtr, width, height, { id: "current buffer", widthMethod: "unicode" });
+  }
+  bufferGetCharPtr(buffer) {
+    const ptr4 = this.opentui.symbols.bufferGetCharPtr(buffer);
+    if (!ptr4) {
+      throw new Error("Failed to get char pointer");
+    }
+    return ptr4;
+  }
+  bufferGetFgPtr(buffer) {
+    const ptr4 = this.opentui.symbols.bufferGetFgPtr(buffer);
+    if (!ptr4) {
+      throw new Error("Failed to get fg pointer");
+    }
+    return ptr4;
+  }
+  bufferGetBgPtr(buffer) {
+    const ptr4 = this.opentui.symbols.bufferGetBgPtr(buffer);
+    if (!ptr4) {
+      throw new Error("Failed to get bg pointer");
+    }
+    return ptr4;
+  }
+  bufferGetAttributesPtr(buffer) {
+    const ptr4 = this.opentui.symbols.bufferGetAttributesPtr(buffer);
+    if (!ptr4) {
+      throw new Error("Failed to get attributes pointer");
+    }
+    return ptr4;
+  }
+  bufferGetRespectAlpha(buffer) {
+    return this.opentui.symbols.bufferGetRespectAlpha(buffer);
+  }
+  bufferSetRespectAlpha(buffer, respectAlpha) {
+    this.opentui.symbols.bufferSetRespectAlpha(buffer, respectAlpha);
+  }
+  bufferGetId(buffer) {
+    const maxLen = 256;
+    const outBuffer = new Uint8Array(maxLen);
+    const actualLen = this.opentui.symbols.bufferGetId(buffer, outBuffer, maxLen);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    return this.decoder.decode(outBuffer.slice(0, len));
+  }
+  bufferGetRealCharSize(buffer) {
+    return this.opentui.symbols.bufferGetRealCharSize(buffer);
+  }
+  bufferWriteResolvedChars(buffer, outputBuffer, addLineBreaks) {
+    const bytesWritten = this.opentui.symbols.bufferWriteResolvedChars(buffer, outputBuffer, outputBuffer.length, addLineBreaks);
+    return typeof bytesWritten === "bigint" ? Number(bytesWritten) : bytesWritten;
+  }
+  getBufferWidth(buffer) {
+    return this.opentui.symbols.getBufferWidth(buffer);
+  }
+  getBufferHeight(buffer) {
+    return this.opentui.symbols.getBufferHeight(buffer);
+  }
+  bufferClear(buffer, color) {
+    this.opentui.symbols.bufferClear(buffer, color.buffer);
+  }
+  bufferDrawText(buffer, text, x, y, color, bgColor, attributes) {
+    const textBytes = this.encoder.encode(text);
+    const textLength = textBytes.byteLength;
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = color.buffer;
+    this.opentui.symbols.bufferDrawText(buffer, textBytes, textLength, x, y, fg2, bg2, attributes ?? 0);
+  }
+  bufferSetCellWithAlphaBlending(buffer, x, y, char, color, bgColor, attributes) {
+    const charPtr = char.codePointAt(0) ?? " ".codePointAt(0);
+    const bg2 = bgColor.buffer;
+    const fg2 = color.buffer;
+    this.opentui.symbols.bufferSetCellWithAlphaBlending(buffer, x, y, charPtr, fg2, bg2, attributes ?? 0);
+  }
+  bufferSetCell(buffer, x, y, char, color, bgColor, attributes) {
+    const charPtr = char.codePointAt(0) ?? " ".codePointAt(0);
+    const bg2 = bgColor.buffer;
+    const fg2 = color.buffer;
+    this.opentui.symbols.bufferSetCell(buffer, x, y, charPtr, fg2, bg2, attributes ?? 0);
+  }
+  bufferFillRect(buffer, x, y, width, height, color) {
+    const bg2 = color.buffer;
+    this.opentui.symbols.bufferFillRect(buffer, x, y, width, height, bg2);
+  }
+  bufferDrawSuperSampleBuffer(buffer, x, y, pixelDataPtr, pixelDataLength, format, alignedBytesPerRow) {
+    const formatId = format === "bgra8unorm" ? 0 : 1;
+    this.opentui.symbols.bufferDrawSuperSampleBuffer(buffer, x, y, pixelDataPtr, pixelDataLength, formatId, alignedBytesPerRow);
+  }
+  bufferDrawPackedBuffer(buffer, dataPtr, dataLen, posX, posY, terminalWidthCells, terminalHeightCells) {
+    this.opentui.symbols.bufferDrawPackedBuffer(buffer, dataPtr, dataLen, posX, posY, terminalWidthCells, terminalHeightCells);
+  }
+  bufferDrawBox(buffer, x, y, width, height, borderChars, packedOptions, borderColor, backgroundColor, title) {
+    const titleBytes = title ? this.encoder.encode(title) : null;
+    const titleLen = title ? titleBytes.length : 0;
+    const titlePtr = title ? titleBytes : null;
+    this.opentui.symbols.bufferDrawBox(buffer, x, y, width, height, borderChars, packedOptions, borderColor.buffer, backgroundColor.buffer, titlePtr, titleLen);
+  }
+  bufferResize(buffer, width, height) {
+    this.opentui.symbols.bufferResize(buffer, width, height);
+  }
+  linkAlloc(url) {
+    const urlBytes = this.encoder.encode(url);
+    return this.opentui.symbols.linkAlloc(urlBytes, urlBytes.length);
+  }
+  linkGetUrl(linkId, maxLen = 512) {
+    const outBuffer = new Uint8Array(maxLen);
+    const actualLen = this.opentui.symbols.linkGetUrl(linkId, outBuffer, maxLen);
+    return this.decoder.decode(outBuffer.slice(0, actualLen));
+  }
+  attributesWithLink(baseAttributes, linkId) {
+    return this.opentui.symbols.attributesWithLink(baseAttributes, linkId);
+  }
+  attributesGetLinkId(attributes) {
+    return this.opentui.symbols.attributesGetLinkId(attributes);
+  }
+  resizeRenderer(renderer, width, height) {
+    this.opentui.symbols.resizeRenderer(renderer, width, height);
+  }
+  setCursorPosition(renderer, x, y, visible) {
+    this.opentui.symbols.setCursorPosition(renderer, x, y, visible);
+  }
+  setCursorStyle(renderer, style, blinking) {
+    const stylePtr = this.encoder.encode(style);
+    this.opentui.symbols.setCursorStyle(renderer, stylePtr, style.length, blinking);
+  }
+  setCursorColor(renderer, color) {
+    this.opentui.symbols.setCursorColor(renderer, color.buffer);
+  }
+  getCursorState(renderer) {
+    const cursorBuffer = new ArrayBuffer(CursorStateStruct.size);
+    this.opentui.symbols.getCursorState(renderer, ptr3(cursorBuffer));
+    const struct = CursorStateStruct.unpack(cursorBuffer);
+    const styleMap = {
+      0: "block",
+      1: "line",
+      2: "underline"
+    };
+    return {
+      x: struct.x,
+      y: struct.y,
+      visible: struct.visible,
+      style: styleMap[struct.style] || "block",
+      blinking: struct.blinking,
+      color: RGBA.fromValues(struct.r, struct.g, struct.b, struct.a)
+    };
+  }
+  render(renderer, force) {
+    this.opentui.symbols.render(renderer, force);
+  }
+  createOptimizedBuffer(width, height, widthMethod, respectAlpha = false, id) {
+    if (Number.isNaN(width) || Number.isNaN(height)) {
+      console.error(new Error(`Invalid dimensions for OptimizedBuffer: ${width}x${height}`).stack);
+    }
+    const widthMethodCode = widthMethod === "wcwidth" ? 0 : 1;
+    const idToUse = id || "unnamed buffer";
+    const idBytes = this.encoder.encode(idToUse);
+    const bufferPtr = this.opentui.symbols.createOptimizedBuffer(width, height, respectAlpha, widthMethodCode, idBytes, idBytes.length);
+    if (!bufferPtr) {
+      throw new Error(`Failed to create optimized buffer: ${width}x${height}`);
+    }
+    return new OptimizedBuffer(this, bufferPtr, width, height, { respectAlpha, id, widthMethod });
+  }
+  destroyOptimizedBuffer(bufferPtr) {
+    this.opentui.symbols.destroyOptimizedBuffer(bufferPtr);
+  }
+  drawFrameBuffer(targetBufferPtr, destX, destY, bufferPtr, sourceX, sourceY, sourceWidth, sourceHeight) {
+    const srcX = sourceX ?? 0;
+    const srcY = sourceY ?? 0;
+    const srcWidth = sourceWidth ?? 0;
+    const srcHeight = sourceHeight ?? 0;
+    this.opentui.symbols.drawFrameBuffer(targetBufferPtr, destX, destY, bufferPtr, srcX, srcY, srcWidth, srcHeight);
+  }
+  setDebugOverlay(renderer, enabled, corner) {
+    this.opentui.symbols.setDebugOverlay(renderer, enabled, corner);
+  }
+  clearTerminal(renderer) {
+    this.opentui.symbols.clearTerminal(renderer);
+  }
+  setTerminalTitle(renderer, title) {
+    const titleBytes = this.encoder.encode(title);
+    this.opentui.symbols.setTerminalTitle(renderer, titleBytes, titleBytes.length);
+  }
+  addToHitGrid(renderer, x, y, width, height, id) {
+    this.opentui.symbols.addToHitGrid(renderer, x, y, width, height, id);
+  }
+  checkHit(renderer, x, y) {
+    return this.opentui.symbols.checkHit(renderer, x, y);
+  }
+  dumpHitGrid(renderer) {
+    this.opentui.symbols.dumpHitGrid(renderer);
+  }
+  dumpBuffers(renderer, timestamp) {
+    const ts = timestamp ?? Date.now();
+    this.opentui.symbols.dumpBuffers(renderer, ts);
+  }
+  dumpStdoutBuffer(renderer, timestamp) {
+    const ts = timestamp ?? Date.now();
+    this.opentui.symbols.dumpStdoutBuffer(renderer, ts);
+  }
+  enableMouse(renderer, enableMovement) {
+    this.opentui.symbols.enableMouse(renderer, enableMovement);
+  }
+  disableMouse(renderer) {
+    this.opentui.symbols.disableMouse(renderer);
+  }
+  enableKittyKeyboard(renderer, flags) {
+    this.opentui.symbols.enableKittyKeyboard(renderer, flags);
+  }
+  disableKittyKeyboard(renderer) {
+    this.opentui.symbols.disableKittyKeyboard(renderer);
+  }
+  setKittyKeyboardFlags(renderer, flags) {
+    this.opentui.symbols.setKittyKeyboardFlags(renderer, flags);
+  }
+  getKittyKeyboardFlags(renderer) {
+    return this.opentui.symbols.getKittyKeyboardFlags(renderer);
+  }
+  setupTerminal(renderer, useAlternateScreen) {
+    this.opentui.symbols.setupTerminal(renderer, useAlternateScreen);
+  }
+  suspendRenderer(renderer) {
+    this.opentui.symbols.suspendRenderer(renderer);
+  }
+  resumeRenderer(renderer) {
+    this.opentui.symbols.resumeRenderer(renderer);
+  }
+  queryPixelResolution(renderer) {
+    this.opentui.symbols.queryPixelResolution(renderer);
+  }
+  createTextBuffer(widthMethod) {
+    const widthMethodCode = widthMethod === "wcwidth" ? 0 : 1;
+    const bufferPtr = this.opentui.symbols.createTextBuffer(widthMethodCode);
+    if (!bufferPtr) {
+      throw new Error(`Failed to create TextBuffer`);
+    }
+    return new TextBuffer(this, bufferPtr);
+  }
+  destroyTextBuffer(buffer) {
+    this.opentui.symbols.destroyTextBuffer(buffer);
+  }
+  textBufferGetLength(buffer) {
+    return this.opentui.symbols.textBufferGetLength(buffer);
+  }
+  textBufferGetByteSize(buffer) {
+    return this.opentui.symbols.textBufferGetByteSize(buffer);
+  }
+  textBufferReset(buffer) {
+    this.opentui.symbols.textBufferReset(buffer);
+  }
+  textBufferClear(buffer) {
+    this.opentui.symbols.textBufferClear(buffer);
+  }
+  textBufferSetDefaultFg(buffer, fg2) {
+    const fgPtr = fg2 ? fg2.buffer : null;
+    this.opentui.symbols.textBufferSetDefaultFg(buffer, fgPtr);
+  }
+  textBufferSetDefaultBg(buffer, bg2) {
+    const bgPtr = bg2 ? bg2.buffer : null;
+    this.opentui.symbols.textBufferSetDefaultBg(buffer, bgPtr);
+  }
+  textBufferSetDefaultAttributes(buffer, attributes) {
+    const attrValue = attributes === null ? null : new Uint8Array([attributes]);
+    this.opentui.symbols.textBufferSetDefaultAttributes(buffer, attrValue);
+  }
+  textBufferResetDefaults(buffer) {
+    this.opentui.symbols.textBufferResetDefaults(buffer);
+  }
+  textBufferGetTabWidth(buffer) {
+    return this.opentui.symbols.textBufferGetTabWidth(buffer);
+  }
+  textBufferSetTabWidth(buffer, width) {
+    this.opentui.symbols.textBufferSetTabWidth(buffer, width);
+  }
+  textBufferRegisterMemBuffer(buffer, bytes, owned = false) {
+    const result = this.opentui.symbols.textBufferRegisterMemBuffer(buffer, bytes, bytes.length, owned);
+    if (result === 65535) {
+      throw new Error("Failed to register memory buffer");
+    }
+    return result;
+  }
+  textBufferReplaceMemBuffer(buffer, memId, bytes, owned = false) {
+    return this.opentui.symbols.textBufferReplaceMemBuffer(buffer, memId, bytes, bytes.length, owned);
+  }
+  textBufferClearMemRegistry(buffer) {
+    this.opentui.symbols.textBufferClearMemRegistry(buffer);
+  }
+  textBufferSetTextFromMem(buffer, memId) {
+    this.opentui.symbols.textBufferSetTextFromMem(buffer, memId);
+  }
+  textBufferAppend(buffer, bytes) {
+    this.opentui.symbols.textBufferAppend(buffer, bytes, bytes.length);
+  }
+  textBufferAppendFromMemId(buffer, memId) {
+    this.opentui.symbols.textBufferAppendFromMemId(buffer, memId);
+  }
+  textBufferLoadFile(buffer, path42) {
+    const pathBytes = this.encoder.encode(path42);
+    return this.opentui.symbols.textBufferLoadFile(buffer, pathBytes, pathBytes.length);
+  }
+  textBufferSetStyledText(buffer, chunks) {
+    const nonEmptyChunks = chunks.filter((c) => c.text.length > 0);
+    if (nonEmptyChunks.length === 0) {
+      this.textBufferClear(buffer);
+      return;
+    }
+    const processedChunks = nonEmptyChunks.map((chunk) => {
+      if (chunk.link) {
+        const linkId = this.linkAlloc(chunk.link.url);
+        return {
+          ...chunk,
+          attributes: attributesWithLink(chunk.attributes ?? 0, linkId)
+        };
+      }
+      return chunk;
+    });
+    const chunksBuffer = StyledChunkStruct.packList(processedChunks);
+    this.opentui.symbols.textBufferSetStyledText(buffer, ptr3(chunksBuffer), processedChunks.length);
+  }
+  textBufferGetLineCount(buffer) {
+    return this.opentui.symbols.textBufferGetLineCount(buffer);
+  }
+  textBufferGetPlainText(buffer, outPtr, maxLen) {
+    const result = this.opentui.symbols.textBufferGetPlainText(buffer, outPtr, maxLen);
+    return typeof result === "bigint" ? Number(result) : result;
+  }
+  getPlainTextBytes(buffer, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.textBufferGetPlainText(buffer, ptr3(outBuffer), maxLength);
+    if (actualLen === 0) {
+      return null;
+    }
+    return outBuffer.slice(0, actualLen);
+  }
+  textBufferGetTextRange(buffer, startOffset, endOffset, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.textBufferGetTextRange(buffer, startOffset, endOffset, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0) {
+      return null;
+    }
+    return outBuffer.slice(0, len);
+  }
+  textBufferGetTextRangeByCoords(buffer, startRow, startCol, endRow, endCol, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.textBufferGetTextRangeByCoords(buffer, startRow, startCol, endRow, endCol, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0) {
+      return null;
+    }
+    return outBuffer.slice(0, len);
+  }
+  createTextBufferView(textBuffer) {
+    const viewPtr = this.opentui.symbols.createTextBufferView(textBuffer);
+    if (!viewPtr) {
+      throw new Error("Failed to create TextBufferView");
+    }
+    return viewPtr;
+  }
+  destroyTextBufferView(view) {
+    this.opentui.symbols.destroyTextBufferView(view);
+  }
+  textBufferViewSetSelection(view, start, end, bgColor, fgColor) {
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = fgColor ? fgColor.buffer : null;
+    this.opentui.symbols.textBufferViewSetSelection(view, start, end, bg2, fg2);
+  }
+  textBufferViewResetSelection(view) {
+    this.opentui.symbols.textBufferViewResetSelection(view);
+  }
+  textBufferViewGetSelection(view) {
+    const packedInfo = this.textBufferViewGetSelectionInfo(view);
+    if (packedInfo === 0xffff_ffff_ffff_ffffn) {
+      return null;
+    }
+    const start = Number(packedInfo >> 32n);
+    const end = Number(packedInfo & 0xffff_ffffn);
+    return { start, end };
+  }
+  textBufferViewGetSelectionInfo(view) {
+    return this.opentui.symbols.textBufferViewGetSelectionInfo(view);
+  }
+  textBufferViewSetLocalSelection(view, anchorX, anchorY, focusX, focusY, bgColor, fgColor) {
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = fgColor ? fgColor.buffer : null;
+    return this.opentui.symbols.textBufferViewSetLocalSelection(view, anchorX, anchorY, focusX, focusY, bg2, fg2);
+  }
+  textBufferViewUpdateSelection(view, end, bgColor, fgColor) {
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = fgColor ? fgColor.buffer : null;
+    this.opentui.symbols.textBufferViewUpdateSelection(view, end, bg2, fg2);
+  }
+  textBufferViewUpdateLocalSelection(view, anchorX, anchorY, focusX, focusY, bgColor, fgColor) {
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = fgColor ? fgColor.buffer : null;
+    return this.opentui.symbols.textBufferViewUpdateLocalSelection(view, anchorX, anchorY, focusX, focusY, bg2, fg2);
+  }
+  textBufferViewResetLocalSelection(view) {
+    this.opentui.symbols.textBufferViewResetLocalSelection(view);
+  }
+  textBufferViewSetWrapWidth(view, width) {
+    this.opentui.symbols.textBufferViewSetWrapWidth(view, width);
+  }
+  textBufferViewSetWrapMode(view, mode) {
+    const modeValue = mode === "none" ? 0 : mode === "char" ? 1 : 2;
+    this.opentui.symbols.textBufferViewSetWrapMode(view, modeValue);
+  }
+  textBufferViewSetViewportSize(view, width, height) {
+    this.opentui.symbols.textBufferViewSetViewportSize(view, width, height);
+  }
+  textBufferViewSetViewport(view, x, y, width, height) {
+    this.opentui.symbols.textBufferViewSetViewport(view, x, y, width, height);
+  }
+  textBufferViewGetLineInfo(view) {
+    const outBuffer = new ArrayBuffer(LineInfoStruct.size);
+    this.textBufferViewGetLineInfoDirect(view, ptr3(outBuffer));
+    const struct = LineInfoStruct.unpack(outBuffer);
+    return {
+      maxLineWidth: struct.maxWidth,
+      lineStarts: struct.starts,
+      lineWidths: struct.widths,
+      lineSources: struct.sources,
+      lineWraps: struct.wraps
+    };
+  }
+  textBufferViewGetLogicalLineInfo(view) {
+    const outBuffer = new ArrayBuffer(LineInfoStruct.size);
+    this.textBufferViewGetLogicalLineInfoDirect(view, ptr3(outBuffer));
+    const struct = LineInfoStruct.unpack(outBuffer);
+    return {
+      maxLineWidth: struct.maxWidth,
+      lineStarts: struct.starts,
+      lineWidths: struct.widths,
+      lineSources: struct.sources,
+      lineWraps: struct.wraps
+    };
+  }
+  textBufferViewGetVirtualLineCount(view) {
+    return this.opentui.symbols.textBufferViewGetVirtualLineCount(view);
+  }
+  textBufferViewGetLineInfoDirect(view, outPtr) {
+    this.opentui.symbols.textBufferViewGetLineInfoDirect(view, outPtr);
+  }
+  textBufferViewGetLogicalLineInfoDirect(view, outPtr) {
+    this.opentui.symbols.textBufferViewGetLogicalLineInfoDirect(view, outPtr);
+  }
+  textBufferViewGetSelectedText(view, outPtr, maxLen) {
+    const result = this.opentui.symbols.textBufferViewGetSelectedText(view, outPtr, maxLen);
+    return typeof result === "bigint" ? Number(result) : result;
+  }
+  textBufferViewGetPlainText(view, outPtr, maxLen) {
+    const result = this.opentui.symbols.textBufferViewGetPlainText(view, outPtr, maxLen);
+    return typeof result === "bigint" ? Number(result) : result;
+  }
+  textBufferViewGetSelectedTextBytes(view, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.textBufferViewGetSelectedText(view, ptr3(outBuffer), maxLength);
+    if (actualLen === 0) {
+      return null;
+    }
+    return outBuffer.slice(0, actualLen);
+  }
+  textBufferViewGetPlainTextBytes(view, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.textBufferViewGetPlainText(view, ptr3(outBuffer), maxLength);
+    if (actualLen === 0) {
+      return null;
+    }
+    return outBuffer.slice(0, actualLen);
+  }
+  textBufferViewSetTabIndicator(view, indicator) {
+    this.opentui.symbols.textBufferViewSetTabIndicator(view, indicator);
+  }
+  textBufferViewSetTabIndicatorColor(view, color) {
+    this.opentui.symbols.textBufferViewSetTabIndicatorColor(view, color.buffer);
+  }
+  textBufferViewMeasureForDimensions(view, width, height) {
+    const resultBuffer = new ArrayBuffer(MeasureResultStruct.size);
+    const resultPtr = ptr3(new Uint8Array(resultBuffer));
+    const success = this.opentui.symbols.textBufferViewMeasureForDimensions(view, width, height, resultPtr);
+    if (!success) {
+      return null;
+    }
+    const result = MeasureResultStruct.unpack(resultBuffer);
+    return result;
+  }
+  textBufferAddHighlightByCharRange(buffer, highlight) {
+    const packedHighlight = HighlightStruct.pack(highlight);
+    this.opentui.symbols.textBufferAddHighlightByCharRange(buffer, ptr3(packedHighlight));
+  }
+  textBufferAddHighlight(buffer, lineIdx, highlight) {
+    const packedHighlight = HighlightStruct.pack(highlight);
+    this.opentui.symbols.textBufferAddHighlight(buffer, lineIdx, ptr3(packedHighlight));
+  }
+  textBufferRemoveHighlightsByRef(buffer, hlRef) {
+    this.opentui.symbols.textBufferRemoveHighlightsByRef(buffer, hlRef);
+  }
+  textBufferClearLineHighlights(buffer, lineIdx) {
+    this.opentui.symbols.textBufferClearLineHighlights(buffer, lineIdx);
+  }
+  textBufferClearAllHighlights(buffer) {
+    this.opentui.symbols.textBufferClearAllHighlights(buffer);
+  }
+  textBufferSetSyntaxStyle(buffer, style) {
+    this.opentui.symbols.textBufferSetSyntaxStyle(buffer, style);
+  }
+  textBufferGetLineHighlights(buffer, lineIdx) {
+    const outCountBuf = new BigUint64Array(1);
+    const nativePtr = this.opentui.symbols.textBufferGetLineHighlightsPtr(buffer, lineIdx, ptr3(outCountBuf));
+    if (!nativePtr)
+      return [];
+    const count = Number(outCountBuf[0]);
+    const byteLen = count * HighlightStruct.size;
+    const raw = toArrayBuffer4(nativePtr, 0, byteLen);
+    const results = HighlightStruct.unpackList(raw, count);
+    this.opentui.symbols.textBufferFreeLineHighlights(nativePtr, count);
+    return results;
+  }
+  textBufferGetHighlightCount(buffer) {
+    return this.opentui.symbols.textBufferGetHighlightCount(buffer);
+  }
+  getArenaAllocatedBytes() {
+    const result = this.opentui.symbols.getArenaAllocatedBytes();
+    return typeof result === "bigint" ? Number(result) : result;
+  }
+  bufferDrawTextBufferView(buffer, view, x, y) {
+    this.opentui.symbols.bufferDrawTextBufferView(buffer, view, x, y);
+  }
+  bufferDrawEditorView(buffer, view, x, y) {
+    this.opentui.symbols.bufferDrawEditorView(buffer, view, x, y);
+  }
+  createEditorView(editBufferPtr, viewportWidth, viewportHeight) {
+    const viewPtr = this.opentui.symbols.createEditorView(editBufferPtr, viewportWidth, viewportHeight);
+    if (!viewPtr) {
+      throw new Error("Failed to create EditorView");
+    }
+    return viewPtr;
+  }
+  destroyEditorView(view) {
+    this.opentui.symbols.destroyEditorView(view);
+  }
+  editorViewSetViewportSize(view, width, height) {
+    this.opentui.symbols.editorViewSetViewportSize(view, width, height);
+  }
+  editorViewSetViewport(view, x, y, width, height, moveCursor) {
+    this.opentui.symbols.editorViewSetViewport(view, x, y, width, height, moveCursor);
+  }
+  editorViewGetViewport(view) {
+    const x = new Uint32Array(1);
+    const y = new Uint32Array(1);
+    const width = new Uint32Array(1);
+    const height = new Uint32Array(1);
+    this.opentui.symbols.editorViewGetViewport(view, ptr3(x), ptr3(y), ptr3(width), ptr3(height));
+    return {
+      offsetX: x[0],
+      offsetY: y[0],
+      width: width[0],
+      height: height[0]
+    };
+  }
+  editorViewSetScrollMargin(view, margin) {
+    this.opentui.symbols.editorViewSetScrollMargin(view, margin);
+  }
+  editorViewSetWrapMode(view, mode) {
+    const modeValue = mode === "none" ? 0 : mode === "char" ? 1 : 2;
+    this.opentui.symbols.editorViewSetWrapMode(view, modeValue);
+  }
+  editorViewGetVirtualLineCount(view) {
+    return this.opentui.symbols.editorViewGetVirtualLineCount(view);
+  }
+  editorViewGetTotalVirtualLineCount(view) {
+    return this.opentui.symbols.editorViewGetTotalVirtualLineCount(view);
+  }
+  editorViewGetTextBufferView(view) {
+    const result = this.opentui.symbols.editorViewGetTextBufferView(view);
+    if (!result) {
+      throw new Error("Failed to get TextBufferView from EditorView");
+    }
+    return result;
+  }
+  editorViewGetLineInfo(view) {
+    const outBuffer = new ArrayBuffer(LineInfoStruct.size);
+    this.opentui.symbols.editorViewGetLineInfoDirect(view, ptr3(outBuffer));
+    const struct = LineInfoStruct.unpack(outBuffer);
+    return {
+      maxLineWidth: struct.maxWidth,
+      lineStarts: struct.starts,
+      lineWidths: struct.widths,
+      lineSources: struct.sources,
+      lineWraps: struct.wraps
+    };
+  }
+  editorViewGetLogicalLineInfo(view) {
+    const outBuffer = new ArrayBuffer(LineInfoStruct.size);
+    this.opentui.symbols.editorViewGetLogicalLineInfoDirect(view, ptr3(outBuffer));
+    const struct = LineInfoStruct.unpack(outBuffer);
+    return {
+      maxLineWidth: struct.maxWidth,
+      lineStarts: struct.starts,
+      lineWidths: struct.widths,
+      lineSources: struct.sources,
+      lineWraps: struct.wraps
+    };
+  }
+  createEditBuffer(widthMethod) {
+    const widthMethodCode = widthMethod === "wcwidth" ? 0 : 1;
+    const bufferPtr = this.opentui.symbols.createEditBuffer(widthMethodCode);
+    if (!bufferPtr) {
+      throw new Error("Failed to create EditBuffer");
+    }
+    return bufferPtr;
+  }
+  destroyEditBuffer(buffer) {
+    this.opentui.symbols.destroyEditBuffer(buffer);
+  }
+  editBufferSetText(buffer, textBytes) {
+    this.opentui.symbols.editBufferSetText(buffer, textBytes, textBytes.length);
+  }
+  editBufferSetTextFromMem(buffer, memId) {
+    this.opentui.symbols.editBufferSetTextFromMem(buffer, memId);
+  }
+  editBufferReplaceText(buffer, textBytes) {
+    this.opentui.symbols.editBufferReplaceText(buffer, textBytes, textBytes.length);
+  }
+  editBufferReplaceTextFromMem(buffer, memId) {
+    this.opentui.symbols.editBufferReplaceTextFromMem(buffer, memId);
+  }
+  editBufferGetText(buffer, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.editBufferGetText(buffer, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0)
+      return null;
+    return outBuffer.slice(0, len);
+  }
+  editBufferInsertChar(buffer, char) {
+    const charBytes = this.encoder.encode(char);
+    this.opentui.symbols.editBufferInsertChar(buffer, charBytes, charBytes.length);
+  }
+  editBufferInsertText(buffer, text) {
+    const textBytes = this.encoder.encode(text);
+    this.opentui.symbols.editBufferInsertText(buffer, textBytes, textBytes.length);
+  }
+  editBufferDeleteChar(buffer) {
+    this.opentui.symbols.editBufferDeleteChar(buffer);
+  }
+  editBufferDeleteCharBackward(buffer) {
+    this.opentui.symbols.editBufferDeleteCharBackward(buffer);
+  }
+  editBufferDeleteRange(buffer, startLine, startCol, endLine, endCol) {
+    this.opentui.symbols.editBufferDeleteRange(buffer, startLine, startCol, endLine, endCol);
+  }
+  editBufferNewLine(buffer) {
+    this.opentui.symbols.editBufferNewLine(buffer);
+  }
+  editBufferDeleteLine(buffer) {
+    this.opentui.symbols.editBufferDeleteLine(buffer);
+  }
+  editBufferMoveCursorLeft(buffer) {
+    this.opentui.symbols.editBufferMoveCursorLeft(buffer);
+  }
+  editBufferMoveCursorRight(buffer) {
+    this.opentui.symbols.editBufferMoveCursorRight(buffer);
+  }
+  editBufferMoveCursorUp(buffer) {
+    this.opentui.symbols.editBufferMoveCursorUp(buffer);
+  }
+  editBufferMoveCursorDown(buffer) {
+    this.opentui.symbols.editBufferMoveCursorDown(buffer);
+  }
+  editBufferGotoLine(buffer, line) {
+    this.opentui.symbols.editBufferGotoLine(buffer, line);
+  }
+  editBufferSetCursor(buffer, line, byteOffset) {
+    this.opentui.symbols.editBufferSetCursor(buffer, line, byteOffset);
+  }
+  editBufferSetCursorToLineCol(buffer, line, col) {
+    this.opentui.symbols.editBufferSetCursorToLineCol(buffer, line, col);
+  }
+  editBufferSetCursorByOffset(buffer, offset) {
+    this.opentui.symbols.editBufferSetCursorByOffset(buffer, offset);
+  }
+  editBufferGetCursorPosition(buffer) {
+    const cursorBuffer = new ArrayBuffer(LogicalCursorStruct.size);
+    this.opentui.symbols.editBufferGetCursorPosition(buffer, ptr3(cursorBuffer));
+    return LogicalCursorStruct.unpack(cursorBuffer);
+  }
+  editBufferGetId(buffer) {
+    return this.opentui.symbols.editBufferGetId(buffer);
+  }
+  editBufferGetTextBuffer(buffer) {
+    const result = this.opentui.symbols.editBufferGetTextBuffer(buffer);
+    if (!result) {
+      throw new Error("Failed to get TextBuffer from EditBuffer");
+    }
+    return result;
+  }
+  editBufferDebugLogRope(buffer) {
+    this.opentui.symbols.editBufferDebugLogRope(buffer);
+  }
+  editBufferUndo(buffer, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.editBufferUndo(buffer, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0)
+      return null;
+    return outBuffer.slice(0, len);
+  }
+  editBufferRedo(buffer, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.editBufferRedo(buffer, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0)
+      return null;
+    return outBuffer.slice(0, len);
+  }
+  editBufferCanUndo(buffer) {
+    return this.opentui.symbols.editBufferCanUndo(buffer);
+  }
+  editBufferCanRedo(buffer) {
+    return this.opentui.symbols.editBufferCanRedo(buffer);
+  }
+  editBufferClearHistory(buffer) {
+    this.opentui.symbols.editBufferClearHistory(buffer);
+  }
+  editBufferClear(buffer) {
+    this.opentui.symbols.editBufferClear(buffer);
+  }
+  editBufferGetNextWordBoundary(buffer) {
+    const cursorBuffer = new ArrayBuffer(LogicalCursorStruct.size);
+    this.opentui.symbols.editBufferGetNextWordBoundary(buffer, ptr3(cursorBuffer));
+    return LogicalCursorStruct.unpack(cursorBuffer);
+  }
+  editBufferGetPrevWordBoundary(buffer) {
+    const cursorBuffer = new ArrayBuffer(LogicalCursorStruct.size);
+    this.opentui.symbols.editBufferGetPrevWordBoundary(buffer, ptr3(cursorBuffer));
+    return LogicalCursorStruct.unpack(cursorBuffer);
+  }
+  editBufferGetEOL(buffer) {
+    const cursorBuffer = new ArrayBuffer(LogicalCursorStruct.size);
+    this.opentui.symbols.editBufferGetEOL(buffer, ptr3(cursorBuffer));
+    return LogicalCursorStruct.unpack(cursorBuffer);
+  }
+  editBufferOffsetToPosition(buffer, offset) {
+    const cursorBuffer = new ArrayBuffer(LogicalCursorStruct.size);
+    const success = this.opentui.symbols.editBufferOffsetToPosition(buffer, offset, ptr3(cursorBuffer));
+    if (!success)
+      return null;
+    return LogicalCursorStruct.unpack(cursorBuffer);
+  }
+  editBufferPositionToOffset(buffer, row, col) {
+    return this.opentui.symbols.editBufferPositionToOffset(buffer, row, col);
+  }
+  editBufferGetLineStartOffset(buffer, row) {
+    return this.opentui.symbols.editBufferGetLineStartOffset(buffer, row);
+  }
+  editBufferGetTextRange(buffer, startOffset, endOffset, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.editBufferGetTextRange(buffer, startOffset, endOffset, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0)
+      return null;
+    return outBuffer.slice(0, len);
+  }
+  editBufferGetTextRangeByCoords(buffer, startRow, startCol, endRow, endCol, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.editBufferGetTextRangeByCoords(buffer, startRow, startCol, endRow, endCol, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0)
+      return null;
+    return outBuffer.slice(0, len);
+  }
+  editorViewSetSelection(view, start, end, bgColor, fgColor) {
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = fgColor ? fgColor.buffer : null;
+    this.opentui.symbols.editorViewSetSelection(view, start, end, bg2, fg2);
+  }
+  editorViewResetSelection(view) {
+    this.opentui.symbols.editorViewResetSelection(view);
+  }
+  editorViewGetSelection(view) {
+    const packedInfo = this.opentui.symbols.editorViewGetSelection(view);
+    if (packedInfo === 0xffff_ffff_ffff_ffffn) {
+      return null;
+    }
+    const start = Number(packedInfo >> 32n);
+    const end = Number(packedInfo & 0xffff_ffffn);
+    return { start, end };
+  }
+  editorViewSetLocalSelection(view, anchorX, anchorY, focusX, focusY, bgColor, fgColor, updateCursor) {
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = fgColor ? fgColor.buffer : null;
+    return this.opentui.symbols.editorViewSetLocalSelection(view, anchorX, anchorY, focusX, focusY, bg2, fg2, updateCursor);
+  }
+  editorViewUpdateSelection(view, end, bgColor, fgColor) {
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = fgColor ? fgColor.buffer : null;
+    this.opentui.symbols.editorViewUpdateSelection(view, end, bg2, fg2);
+  }
+  editorViewUpdateLocalSelection(view, anchorX, anchorY, focusX, focusY, bgColor, fgColor, updateCursor) {
+    const bg2 = bgColor ? bgColor.buffer : null;
+    const fg2 = fgColor ? fgColor.buffer : null;
+    return this.opentui.symbols.editorViewUpdateLocalSelection(view, anchorX, anchorY, focusX, focusY, bg2, fg2, updateCursor);
+  }
+  editorViewResetLocalSelection(view) {
+    this.opentui.symbols.editorViewResetLocalSelection(view);
+  }
+  editorViewGetSelectedTextBytes(view, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.editorViewGetSelectedTextBytes(view, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0)
+      return null;
+    return outBuffer.slice(0, len);
+  }
+  editorViewGetCursor(view) {
+    const row = new Uint32Array(1);
+    const col = new Uint32Array(1);
+    this.opentui.symbols.editorViewGetCursor(view, ptr3(row), ptr3(col));
+    return { row: row[0], col: col[0] };
+  }
+  editorViewGetText(view, maxLength) {
+    const outBuffer = new Uint8Array(maxLength);
+    const actualLen = this.opentui.symbols.editorViewGetText(view, ptr3(outBuffer), maxLength);
+    const len = typeof actualLen === "bigint" ? Number(actualLen) : actualLen;
+    if (len === 0)
+      return null;
+    return outBuffer.slice(0, len);
+  }
+  editorViewGetVisualCursor(view) {
+    const cursorBuffer = new ArrayBuffer(VisualCursorStruct.size);
+    this.opentui.symbols.editorViewGetVisualCursor(view, ptr3(cursorBuffer));
+    return VisualCursorStruct.unpack(cursorBuffer);
+  }
+  editorViewMoveUpVisual(view) {
+    this.opentui.symbols.editorViewMoveUpVisual(view);
+  }
+  editorViewMoveDownVisual(view) {
+    this.opentui.symbols.editorViewMoveDownVisual(view);
+  }
+  editorViewDeleteSelectedText(view) {
+    this.opentui.symbols.editorViewDeleteSelectedText(view);
+  }
+  editorViewSetCursorByOffset(view, offset) {
+    this.opentui.symbols.editorViewSetCursorByOffset(view, offset);
+  }
+  editorViewGetNextWordBoundary(view) {
+    const cursorBuffer = new ArrayBuffer(VisualCursorStruct.size);
+    this.opentui.symbols.editorViewGetNextWordBoundary(view, ptr3(cursorBuffer));
+    return VisualCursorStruct.unpack(cursorBuffer);
+  }
+  editorViewGetPrevWordBoundary(view) {
+    const cursorBuffer = new ArrayBuffer(VisualCursorStruct.size);
+    this.opentui.symbols.editorViewGetPrevWordBoundary(view, ptr3(cursorBuffer));
+    return VisualCursorStruct.unpack(cursorBuffer);
+  }
+  editorViewGetEOL(view) {
+    const cursorBuffer = new ArrayBuffer(VisualCursorStruct.size);
+    this.opentui.symbols.editorViewGetEOL(view, ptr3(cursorBuffer));
+    return VisualCursorStruct.unpack(cursorBuffer);
+  }
+  editorViewGetVisualSOL(view) {
+    const cursorBuffer = new ArrayBuffer(VisualCursorStruct.size);
+    this.opentui.symbols.editorViewGetVisualSOL(view, ptr3(cursorBuffer));
+    return VisualCursorStruct.unpack(cursorBuffer);
+  }
+  editorViewGetVisualEOL(view) {
+    const cursorBuffer = new ArrayBuffer(VisualCursorStruct.size);
+    this.opentui.symbols.editorViewGetVisualEOL(view, ptr3(cursorBuffer));
+    return VisualCursorStruct.unpack(cursorBuffer);
+  }
+  bufferPushScissorRect(buffer, x, y, width, height) {
+    this.opentui.symbols.bufferPushScissorRect(buffer, x, y, width, height);
+  }
+  bufferPopScissorRect(buffer) {
+    this.opentui.symbols.bufferPopScissorRect(buffer);
+  }
+  bufferClearScissorRects(buffer) {
+    this.opentui.symbols.bufferClearScissorRects(buffer);
+  }
+  bufferPushOpacity(buffer, opacity) {
+    this.opentui.symbols.bufferPushOpacity(buffer, opacity);
+  }
+  bufferPopOpacity(buffer) {
+    this.opentui.symbols.bufferPopOpacity(buffer);
+  }
+  bufferGetCurrentOpacity(buffer) {
+    return this.opentui.symbols.bufferGetCurrentOpacity(buffer);
+  }
+  bufferClearOpacity(buffer) {
+    this.opentui.symbols.bufferClearOpacity(buffer);
+  }
+  getTerminalCapabilities(renderer) {
+    const capsBuffer = new ArrayBuffer(TerminalCapabilitiesStruct.size);
+    this.opentui.symbols.getTerminalCapabilities(renderer, ptr3(capsBuffer));
+    const caps = TerminalCapabilitiesStruct.unpack(capsBuffer);
+    return {
+      kitty_keyboard: caps.kitty_keyboard,
+      kitty_graphics: caps.kitty_graphics,
+      rgb: caps.rgb,
+      unicode: caps.unicode,
+      sgr_pixels: caps.sgr_pixels,
+      color_scheme_updates: caps.color_scheme_updates,
+      explicit_width: caps.explicit_width,
+      scaled_text: caps.scaled_text,
+      sixel: caps.sixel,
+      focus_tracking: caps.focus_tracking,
+      sync: caps.sync,
+      bracketed_paste: caps.bracketed_paste,
+      hyperlinks: caps.hyperlinks,
+      terminal: {
+        name: caps.term_name ?? "",
+        version: caps.term_version ?? "",
+        from_xtversion: caps.term_from_xtversion
+      }
+    };
+  }
+  processCapabilityResponse(renderer, response) {
+    const responseBytes = this.encoder.encode(response);
+    this.opentui.symbols.processCapabilityResponse(renderer, responseBytes, responseBytes.length);
+  }
+  encodeUnicode(text, widthMethod) {
+    const textBytes = this.encoder.encode(text);
+    const widthMethodCode = widthMethod === "wcwidth" ? 0 : 1;
+    const outPtrBuffer = new ArrayBuffer(8);
+    const outLenBuffer = new ArrayBuffer(8);
+    const success = this.opentui.symbols.encodeUnicode(textBytes, textBytes.length, ptr3(outPtrBuffer), ptr3(outLenBuffer), widthMethodCode);
+    if (!success) {
+      return null;
+    }
+    const outPtrView = new BigUint64Array(outPtrBuffer);
+    const outLenView = new BigUint64Array(outLenBuffer);
+    const resultPtr = Number(outPtrView[0]);
+    const resultLen = Number(outLenView[0]);
+    if (resultLen === 0) {
+      return { ptr: resultPtr, data: [] };
+    }
+    const byteLen = resultLen * EncodedCharStruct.size;
+    const raw = toArrayBuffer4(resultPtr, 0, byteLen);
+    const data = EncodedCharStruct.unpackList(raw, resultLen);
+    return { ptr: resultPtr, data };
+  }
+  freeUnicode(encoded) {
+    this.opentui.symbols.freeUnicode(encoded.ptr, encoded.data.length);
+  }
+  bufferDrawChar(buffer, char, x, y, fg2, bg2, attributes = 0) {
+    this.opentui.symbols.bufferDrawChar(buffer, char, x, y, fg2.buffer, bg2.buffer, attributes);
+  }
+  createSyntaxStyle() {
+    const stylePtr = this.opentui.symbols.createSyntaxStyle();
+    if (!stylePtr) {
+      throw new Error("Failed to create SyntaxStyle");
+    }
+    return stylePtr;
+  }
+  destroySyntaxStyle(style) {
+    this.opentui.symbols.destroySyntaxStyle(style);
+  }
+  syntaxStyleRegister(style, name, fg2, bg2, attributes) {
+    const nameBytes = this.encoder.encode(name);
+    const fgPtr = fg2 ? fg2.buffer : null;
+    const bgPtr = bg2 ? bg2.buffer : null;
+    return this.opentui.symbols.syntaxStyleRegister(style, nameBytes, nameBytes.length, fgPtr, bgPtr, attributes);
+  }
+  syntaxStyleResolveByName(style, name) {
+    const nameBytes = this.encoder.encode(name);
+    const id = this.opentui.symbols.syntaxStyleResolveByName(style, nameBytes, nameBytes.length);
+    return id === 0 ? null : id;
+  }
+  syntaxStyleGetStyleCount(style) {
+    const result = this.opentui.symbols.syntaxStyleGetStyleCount(style);
+    return typeof result === "bigint" ? Number(result) : result;
+  }
+  editorViewSetPlaceholderStyledText(view, chunks) {
+    const nonEmptyChunks = chunks.filter((c) => c.text.length > 0);
+    if (nonEmptyChunks.length === 0) {
+      this.opentui.symbols.editorViewSetPlaceholderStyledText(view, null, 0);
+      return;
+    }
+    const chunksBuffer = StyledChunkStruct.packList(nonEmptyChunks);
+    this.opentui.symbols.editorViewSetPlaceholderStyledText(view, ptr3(chunksBuffer), nonEmptyChunks.length);
+  }
+  editorViewSetTabIndicator(view, indicator) {
+    this.opentui.symbols.editorViewSetTabIndicator(view, indicator);
+  }
+  editorViewSetTabIndicatorColor(view, color) {
+    this.opentui.symbols.editorViewSetTabIndicatorColor(view, color.buffer);
+  }
+  onNativeEvent(name, handler) {
+    this._nativeEvents.on(name, handler);
+  }
+  onceNativeEvent(name, handler) {
+    this._nativeEvents.once(name, handler);
+  }
+  offNativeEvent(name, handler) {
+    this._nativeEvents.off(name, handler);
+  }
+  onAnyNativeEvent(handler) {
+    this._anyEventHandlers.push(handler);
+  }
+}
+var opentuiLibPath;
+var opentuiLib;
+function resolveRenderLib() {
+  if (!opentuiLib) {
+    try {
+      opentuiLib = new FFIRenderLib(opentuiLibPath);
+    } catch (error) {
+      throw new Error(`Failed to initialize OpenTUI render library: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  }
+  return opentuiLib;
+}
+try {
+  opentuiLib = new FFIRenderLib(opentuiLibPath);
+} catch (error) {}
+
+class TextBuffer {
+  lib;
+  bufferPtr;
+  _length = 0;
+  _byteSize = 0;
+  _lineInfo;
+  _destroyed = false;
+  _syntaxStyle;
+  _textBytes;
+  _memId;
+  _appendedChunks = [];
+  constructor(lib, ptr4) {
+    this.lib = lib;
+    this.bufferPtr = ptr4;
+  }
+  static create(widthMethod) {
+    const lib = resolveRenderLib();
+    return lib.createTextBuffer(widthMethod);
+  }
+  guard() {
+    if (this._destroyed)
+      throw new Error("TextBuffer is destroyed");
+  }
+  setText(text) {
+    this.guard();
+    this._textBytes = this.lib.encoder.encode(text);
+    if (this._memId === undefined) {
+      this._memId = this.lib.textBufferRegisterMemBuffer(this.bufferPtr, this._textBytes, false);
+    } else {
+      this.lib.textBufferReplaceMemBuffer(this.bufferPtr, this._memId, this._textBytes, false);
+    }
+    this.lib.textBufferSetTextFromMem(this.bufferPtr, this._memId);
+    this._length = this.lib.textBufferGetLength(this.bufferPtr);
+    this._byteSize = this.lib.textBufferGetByteSize(this.bufferPtr);
+    this._lineInfo = undefined;
+    this._appendedChunks = [];
+  }
+  append(text) {
+    this.guard();
+    const textBytes = this.lib.encoder.encode(text);
+    this._appendedChunks.push(textBytes);
+    this.lib.textBufferAppend(this.bufferPtr, textBytes);
+    this._length = this.lib.textBufferGetLength(this.bufferPtr);
+    this._byteSize = this.lib.textBufferGetByteSize(this.bufferPtr);
+    this._lineInfo = undefined;
+  }
+  loadFile(path42) {
+    this.guard();
+    const success = this.lib.textBufferLoadFile(this.bufferPtr, path42);
+    if (!success) {
+      throw new Error(`Failed to load file: ${path42}`);
+    }
+    this._length = this.lib.textBufferGetLength(this.bufferPtr);
+    this._byteSize = this.lib.textBufferGetByteSize(this.bufferPtr);
+    this._lineInfo = undefined;
+    this._textBytes = undefined;
+  }
+  setStyledText(text) {
+    this.guard();
+    const chunks = text.chunks.map((chunk) => ({
+      text: chunk.text,
+      fg: chunk.fg || null,
+      bg: chunk.bg || null,
+      attributes: chunk.attributes ?? 0,
+      link: chunk.link
+    }));
+    this.lib.textBufferSetStyledText(this.bufferPtr, chunks);
+    this._length = this.lib.textBufferGetLength(this.bufferPtr);
+    this._byteSize = this.lib.textBufferGetByteSize(this.bufferPtr);
+    this._lineInfo = undefined;
+  }
+  setDefaultFg(fg2) {
+    this.guard();
+    this.lib.textBufferSetDefaultFg(this.bufferPtr, fg2);
+  }
+  setDefaultBg(bg2) {
+    this.guard();
+    this.lib.textBufferSetDefaultBg(this.bufferPtr, bg2);
+  }
+  setDefaultAttributes(attributes) {
+    this.guard();
+    this.lib.textBufferSetDefaultAttributes(this.bufferPtr, attributes);
+  }
+  resetDefaults() {
+    this.guard();
+    this.lib.textBufferResetDefaults(this.bufferPtr);
+  }
+  getLineCount() {
+    this.guard();
+    return this.lib.textBufferGetLineCount(this.bufferPtr);
+  }
+  get length() {
+    this.guard();
+    return this._length;
+  }
+  get byteSize() {
+    this.guard();
+    return this._byteSize;
+  }
+  get ptr() {
+    this.guard();
+    return this.bufferPtr;
+  }
+  getPlainText() {
+    this.guard();
+    if (this._byteSize === 0)
+      return "";
+    const plainBytes = this.lib.getPlainTextBytes(this.bufferPtr, this._byteSize);
+    if (!plainBytes)
+      return "";
+    return this.lib.decoder.decode(plainBytes);
+  }
+  getTextRange(startOffset, endOffset) {
+    this.guard();
+    if (startOffset >= endOffset)
+      return "";
+    if (this._byteSize === 0)
+      return "";
+    const rangeBytes = this.lib.textBufferGetTextRange(this.bufferPtr, startOffset, endOffset, this._byteSize);
+    if (!rangeBytes)
+      return "";
+    return this.lib.decoder.decode(rangeBytes);
+  }
+  addHighlightByCharRange(highlight) {
+    this.guard();
+    this.lib.textBufferAddHighlightByCharRange(this.bufferPtr, highlight);
+  }
+  addHighlight(lineIdx, highlight) {
+    this.guard();
+    this.lib.textBufferAddHighlight(this.bufferPtr, lineIdx, highlight);
+  }
+  removeHighlightsByRef(hlRef) {
+    this.guard();
+    this.lib.textBufferRemoveHighlightsByRef(this.bufferPtr, hlRef);
+  }
+  clearLineHighlights(lineIdx) {
+    this.guard();
+    this.lib.textBufferClearLineHighlights(this.bufferPtr, lineIdx);
+  }
+  clearAllHighlights() {
+    this.guard();
+    this.lib.textBufferClearAllHighlights(this.bufferPtr);
+  }
+  getLineHighlights(lineIdx) {
+    this.guard();
+    return this.lib.textBufferGetLineHighlights(this.bufferPtr, lineIdx);
+  }
+  getHighlightCount() {
+    this.guard();
+    return this.lib.textBufferGetHighlightCount(this.bufferPtr);
+  }
+  setSyntaxStyle(style) {
+    this.guard();
+    this._syntaxStyle = style ?? undefined;
+    this.lib.textBufferSetSyntaxStyle(this.bufferPtr, style?.ptr ?? null);
+  }
+  getSyntaxStyle() {
+    this.guard();
+    return this._syntaxStyle ?? null;
+  }
+  setTabWidth(width) {
+    this.guard();
+    this.lib.textBufferSetTabWidth(this.bufferPtr, width);
+  }
+  getTabWidth() {
+    this.guard();
+    return this.lib.textBufferGetTabWidth(this.bufferPtr);
+  }
+  clear() {
+    this.guard();
+    this.lib.textBufferClear(this.bufferPtr);
+    this._length = 0;
+    this._byteSize = 0;
+    this._lineInfo = undefined;
+    this._textBytes = undefined;
+    this._appendedChunks = [];
+  }
+  reset() {
+    this.guard();
+    this.lib.textBufferReset(this.bufferPtr);
+    this._length = 0;
+    this._byteSize = 0;
+    this._lineInfo = undefined;
+    this._textBytes = undefined;
+    this._memId = undefined;
+    this._appendedChunks = [];
+  }
+  destroy() {
+    if (this._destroyed)
+      return;
+    this._destroyed = true;
+    this.lib.destroyTextBuffer(this.bufferPtr);
+  }
+}
+function validateOptions(id, options) {
+  if (typeof options.width === "number") {
+    if (options.width < 0) {
+      throw new TypeError(`Invalid width for Renderable ${id}: ${options.width}`);
+    }
+  }
+  if (typeof options.height === "number") {
+    if (options.height < 0) {
+      throw new TypeError(`Invalid height for Renderable ${id}: ${options.height}`);
+    }
+  }
+}
+function isValidPercentage(value) {
+  if (typeof value === "string" && value.endsWith("%")) {
+    const numPart = value.slice(0, -1);
+    const num = parseFloat(numPart);
+    return !Number.isNaN(num);
+  }
+  return false;
+}
+function isMarginType(value) {
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return true;
+  }
+  if (value === "auto") {
+    return true;
+  }
+  return isValidPercentage(value);
+}
+function isPaddingType(value) {
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return true;
+  }
+  return isValidPercentage(value);
+}
+function isPositionType(value) {
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return true;
+  }
+  if (value === "auto") {
+    return true;
+  }
+  return isValidPercentage(value);
+}
+function isPositionTypeType(value) {
+  return value === "relative" || value === "absolute";
+}
+function isOverflowType(value) {
+  return value === "visible" || value === "hidden" || value === "scroll";
+}
+function isDimensionType(value) {
+  return isPositionType(value);
+}
+function isFlexBasisType(value) {
+  if (value === undefined || value === "auto") {
+    return true;
+  }
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return true;
+  }
+  return false;
+}
+function isSizeType(value) {
+  if (value === undefined) {
+    return true;
+  }
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return true;
+  }
+  return isValidPercentage(value);
+}
+var BrandedRenderable = Symbol.for("@opentui/core/Renderable");
+var LayoutEvents;
+((LayoutEvents2) => {
+  LayoutEvents2["LAYOUT_CHANGED"] = "layout-changed";
+  LayoutEvents2["ADDED"] = "added";
+  LayoutEvents2["REMOVED"] = "removed";
+  LayoutEvents2["RESIZED"] = "resized";
+})(LayoutEvents ||= {});
+var RenderableEvents;
+((RenderableEvents2) => {
+  RenderableEvents2["FOCUSED"] = "focused";
+  RenderableEvents2["BLURRED"] = "blurred";
+})(RenderableEvents ||= {});
+function isRenderable(obj) {
+  return !!obj?.[BrandedRenderable];
+}
+
+class BaseRenderable extends EventEmitter6 {
+  [BrandedRenderable] = true;
+  static renderableNumber = 1;
+  _id;
+  num;
+  _dirty = false;
+  parent = null;
+  _visible = true;
+  constructor(options) {
+    super();
+    this.num = BaseRenderable.renderableNumber++;
+    this._id = options.id ?? `renderable-${this.num}`;
+  }
+  get id() {
+    return this._id;
+  }
+  set id(value) {
+    this._id = value;
+  }
+  get isDirty() {
+    return this._dirty;
+  }
+  markClean() {
+    this._dirty = false;
+  }
+  markDirty() {
+    this._dirty = true;
+  }
+  destroy() {}
+  destroyRecursively() {}
+  get visible() {
+    return this._visible;
+  }
+  set visible(value) {
+    this._visible = value;
+  }
+}
+var yogaConfig = src_default.Config.create();
+yogaConfig.setUseWebDefaults(false);
+yogaConfig.setPointScaleFactor(1);
+
+class Renderable extends BaseRenderable {
+  static renderablesByNumber = new Map;
+  _isDestroyed = false;
+  _ctx;
+  _translateX = 0;
+  _translateY = 0;
+  _x = 0;
+  _y = 0;
+  _width;
+  _height;
+  _widthValue = 0;
+  _heightValue = 0;
+  _zIndex;
+  selectable = false;
+  buffered;
+  frameBuffer = null;
+  _focusable = false;
+  _focused = false;
+  keypressHandler = null;
+  pasteHandler = null;
+  _live = false;
+  _liveCount = 0;
+  _sizeChangeListener = undefined;
+  _mouseListener = null;
+  _mouseListeners = {};
+  _pasteListener = undefined;
+  _keyListeners = {};
+  yogaNode;
+  _positionType = "relative";
+  _overflow = "visible";
+  _position = {};
+  _opacity = 1;
+  _flexShrink = 1;
+  renderableMapById = new Map;
+  _childrenInLayoutOrder = [];
+  _childrenInZIndexOrder = [];
+  needsZIndexSort = false;
+  parent = null;
+  childrenPrimarySortDirty = true;
+  childrenSortedByPrimaryAxis = [];
+  _shouldUpdateBefore = new Set;
+  onLifecyclePass = null;
+  renderBefore;
+  renderAfter;
+  constructor(ctx, options) {
+    super(options);
+    this._ctx = ctx;
+    Renderable.renderablesByNumber.set(this.num, this);
+    validateOptions(this.id, options);
+    this.renderBefore = options.renderBefore;
+    this.renderAfter = options.renderAfter;
+    this._width = options.width ?? "auto";
+    this._height = options.height ?? "auto";
+    if (typeof this._width === "number") {
+      this._widthValue = this._width;
+    }
+    if (typeof this._height === "number") {
+      this._heightValue = this._height;
+    }
+    this._zIndex = options.zIndex ?? 0;
+    this._visible = options.visible !== false;
+    this.buffered = options.buffered ?? false;
+    this._live = options.live ?? false;
+    this._liveCount = this._live && this._visible ? 1 : 0;
+    this._opacity = options.opacity !== undefined ? Math.max(0, Math.min(1, options.opacity)) : 1;
+    this.yogaNode = src_default.Node.create(yogaConfig);
+    this.yogaNode.setDisplay(this._visible ? Display.Flex : Display.None);
+    this.setupYogaProperties(options);
+    this.applyEventOptions(options);
+    if (this.buffered) {
+      this.createFrameBuffer();
+    }
+  }
+  get id() {
+    return this._id;
+  }
+  set id(value) {
+    if (this.parent) {
+      this.parent.renderableMapById.delete(this.id);
+      this.parent.renderableMapById.set(value, this);
+    }
+    super.id = value;
+  }
+  get focusable() {
+    return this._focusable;
+  }
+  get ctx() {
+    return this._ctx;
+  }
+  get visible() {
+    return this._visible;
+  }
+  get primaryAxis() {
+    const dir = this.yogaNode.getFlexDirection();
+    return dir === 2 || dir === 3 ? "row" : "column";
+  }
+  set visible(value) {
+    if (this._visible === value)
+      return;
+    const wasVisible = this._visible;
+    this._visible = value;
+    this.yogaNode.setDisplay(value ? Display.Flex : Display.None);
+    if (this._live) {
+      if (!wasVisible && value) {
+        this.propagateLiveCount(1);
+      } else if (wasVisible && !value) {
+        this.propagateLiveCount(-1);
+      }
+    }
+    if (this._focused) {
+      this.blur();
+    }
+    this.requestRender();
+  }
+  get opacity() {
+    return this._opacity;
+  }
+  set opacity(value) {
+    const clamped = Math.max(0, Math.min(1, value));
+    if (this._opacity !== clamped) {
+      this._opacity = clamped;
+      this.requestRender();
+    }
+  }
+  hasSelection() {
+    return false;
+  }
+  onSelectionChanged(selection2) {
+    return false;
+  }
+  getSelectedText() {
+    return "";
+  }
+  shouldStartSelection(x, y) {
+    return false;
+  }
+  focus() {
+    if (this._isDestroyed || this._focused || !this._focusable)
+      return;
+    this._ctx.focusRenderable(this);
+    this._focused = true;
+    this.requestRender();
+    this.keypressHandler = (key) => {
+      if (this._isDestroyed)
+        return;
+      this._keyListeners["down"]?.(key);
+      if (this._isDestroyed)
+        return;
+      if (!key.defaultPrevented && this.handleKeyPress) {
+        this.handleKeyPress(key);
+      }
+    };
+    this.pasteHandler = (event) => {
+      if (this._isDestroyed)
+        return;
+      this._pasteListener?.call(this, event);
+      if (this._isDestroyed)
+        return;
+      if (!event.defaultPrevented && this.handlePaste) {
+        this.handlePaste(event);
+      }
+    };
+    this.ctx._internalKeyInput.onInternal("keypress", this.keypressHandler);
+    this.ctx._internalKeyInput.onInternal("paste", this.pasteHandler);
+    this.emit("focused");
+  }
+  blur() {
+    if (!this._focused || !this._focusable)
+      return;
+    this._focused = false;
+    this.requestRender();
+    if (this.keypressHandler) {
+      this.ctx._internalKeyInput.offInternal("keypress", this.keypressHandler);
+      this.keypressHandler = null;
+    }
+    if (this.pasteHandler) {
+      this.ctx._internalKeyInput.offInternal("paste", this.pasteHandler);
+      this.pasteHandler = null;
+    }
+    this.emit("blurred");
+  }
+  get focused() {
+    return this._focused;
+  }
+  get live() {
+    return this._live;
+  }
+  get liveCount() {
+    return this._liveCount;
+  }
+  set live(value) {
+    if (this._live === value)
+      return;
+    this._live = value;
+    if (this._visible) {
+      const delta = value ? 1 : -1;
+      this.propagateLiveCount(delta);
+    }
+  }
+  propagateLiveCount(delta) {
+    this._liveCount += delta;
+    this.parent?.propagateLiveCount(delta);
+  }
+  findDescendantById(id) {
+    for (const child of this._childrenInLayoutOrder) {
+      if (child.id === id)
+        return child;
+      if (isRenderable(child)) {
+        const found = child.findDescendantById(id);
+        if (found)
+          return found;
+      }
+    }
+    return;
+  }
+  requestRender() {
+    this.markDirty();
+    this._ctx.requestRender();
+  }
+  get translateX() {
+    return this._translateX;
+  }
+  set translateX(value) {
+    if (this._translateX === value)
+      return;
+    this._translateX = value;
+    this.requestRender();
+    if (this.parent)
+      this.parent.childrenPrimarySortDirty = true;
+  }
+  get translateY() {
+    return this._translateY;
+  }
+  set translateY(value) {
+    if (this._translateY === value)
+      return;
+    this._translateY = value;
+    this.requestRender();
+    if (this.parent)
+      this.parent.childrenPrimarySortDirty = true;
+  }
+  get x() {
+    if (this.parent) {
+      return this.parent.x + this._x + this._translateX;
+    }
+    return this._x + this._translateX;
+  }
+  set x(value) {
+    this.left = value;
+  }
+  get top() {
+    return this._position.top;
+  }
+  set top(value) {
+    if (isPositionType(value) || value === undefined) {
+      this.setPosition({ top: value });
+    }
+  }
+  get right() {
+    return this._position.right;
+  }
+  set right(value) {
+    if (isPositionType(value) || value === undefined) {
+      this.setPosition({ right: value });
+    }
+  }
+  get bottom() {
+    return this._position.bottom;
+  }
+  set bottom(value) {
+    if (isPositionType(value) || value === undefined) {
+      this.setPosition({ bottom: value });
+    }
+  }
+  get left() {
+    return this._position.left;
+  }
+  set left(value) {
+    if (isPositionType(value) || value === undefined) {
+      this.setPosition({ left: value });
+    }
+  }
+  get y() {
+    if (this.parent) {
+      return this.parent.y + this._y + this._translateY;
+    }
+    return this._y + this._translateY;
+  }
+  set y(value) {
+    this.top = value;
+  }
+  get width() {
+    return this._widthValue;
+  }
+  set width(value) {
+    if (isDimensionType(value)) {
+      this._width = value;
+      this.yogaNode.setWidth(value);
+      if (typeof value === "number" && this._flexShrink === 1) {
+        this._flexShrink = 0;
+        this.yogaNode.setFlexShrink(0);
+      }
+      this.requestRender();
+    }
+  }
+  get height() {
+    return this._heightValue;
+  }
+  set height(value) {
+    if (isDimensionType(value)) {
+      this._height = value;
+      this.yogaNode.setHeight(value);
+      if (typeof value === "number" && this._flexShrink === 1) {
+        this._flexShrink = 0;
+        this.yogaNode.setFlexShrink(0);
+      }
+      this.requestRender();
+    }
+  }
+  get zIndex() {
+    return this._zIndex;
+  }
+  set zIndex(value) {
+    if (this._zIndex !== value) {
+      this._zIndex = value;
+      this.parent?.requestZIndexSort();
+    }
+  }
+  requestZIndexSort() {
+    this.needsZIndexSort = true;
+  }
+  ensureZIndexSorted() {
+    if (this.needsZIndexSort) {
+      this._childrenInZIndexOrder.sort((a, b) => a.zIndex > b.zIndex ? 1 : a.zIndex < b.zIndex ? -1 : 0);
+      this.needsZIndexSort = false;
+    }
+  }
+  getChildrenSortedByPrimaryAxis() {
+    if (!this.childrenPrimarySortDirty && this.childrenSortedByPrimaryAxis.length === this._childrenInLayoutOrder.length) {
+      return this.childrenSortedByPrimaryAxis;
+    }
+    const dir = this.yogaNode.getFlexDirection();
+    const axis = dir === 2 || dir === 3 ? "x" : "y";
+    const sorted = [...this._childrenInLayoutOrder];
+    sorted.sort((a, b) => {
+      const va = axis === "y" ? a.y : a.x;
+      const vb = axis === "y" ? b.y : b.x;
+      return va - vb;
+    });
+    this.childrenSortedByPrimaryAxis = sorted;
+    this.childrenPrimarySortDirty = false;
+    return this.childrenSortedByPrimaryAxis;
+  }
+  setupYogaProperties(options) {
+    const node = this.yogaNode;
+    if (isFlexBasisType(options.flexBasis)) {
+      node.setFlexBasis(options.flexBasis);
+    }
+    if (isSizeType(options.minWidth)) {
+      node.setMinWidth(options.minWidth);
+    }
+    if (isSizeType(options.minHeight)) {
+      node.setMinHeight(options.minHeight);
+    }
+    if (options.flexGrow !== undefined) {
+      node.setFlexGrow(options.flexGrow);
+    } else {
+      node.setFlexGrow(0);
+    }
+    if (options.flexShrink !== undefined) {
+      this._flexShrink = options.flexShrink;
+      node.setFlexShrink(options.flexShrink);
+    } else {
+      const hasExplicitWidth = typeof options.width === "number";
+      const hasExplicitHeight = typeof options.height === "number";
+      this._flexShrink = hasExplicitWidth || hasExplicitHeight ? 0 : 1;
+      node.setFlexShrink(this._flexShrink);
+    }
+    node.setFlexDirection(parseFlexDirection(options.flexDirection));
+    node.setFlexWrap(parseWrap(options.flexWrap));
+    node.setAlignItems(parseAlignItems(options.alignItems));
+    node.setJustifyContent(parseJustify(options.justifyContent));
+    node.setAlignSelf(parseAlign(options.alignSelf));
+    if (isDimensionType(options.width)) {
+      this._width = options.width;
+      this.yogaNode.setWidth(options.width);
+    }
+    if (isDimensionType(options.height)) {
+      this._height = options.height;
+      this.yogaNode.setHeight(options.height);
+    }
+    this._positionType = options.position === "absolute" ? "absolute" : "relative";
+    if (this._positionType !== "relative") {
+      node.setPositionType(parsePositionType(this._positionType));
+    }
+    this._overflow = options.overflow === "hidden" ? "hidden" : options.overflow === "scroll" ? "scroll" : "visible";
+    if (this._overflow !== "visible") {
+      node.setOverflow(parseOverflow(this._overflow));
+    }
+    const hasPositionProps = options.top !== undefined || options.right !== undefined || options.bottom !== undefined || options.left !== undefined;
+    if (hasPositionProps) {
+      this._position = {
+        top: options.top,
+        right: options.right,
+        bottom: options.bottom,
+        left: options.left
+      };
+      this.updateYogaPosition(this._position);
+    }
+    if (isSizeType(options.maxWidth)) {
+      node.setMaxWidth(options.maxWidth);
+    }
+    if (isSizeType(options.maxHeight)) {
+      node.setMaxHeight(options.maxHeight);
+    }
+    this.setupMarginAndPadding(options);
+  }
+  setupMarginAndPadding(options) {
+    const node = this.yogaNode;
+    if (isMarginType(options.margin)) {
+      node.setMargin(Edge.Top, options.margin);
+      node.setMargin(Edge.Right, options.margin);
+      node.setMargin(Edge.Bottom, options.margin);
+      node.setMargin(Edge.Left, options.margin);
+    }
+    if (isMarginType(options.marginTop)) {
+      node.setMargin(Edge.Top, options.marginTop);
+    }
+    if (isMarginType(options.marginRight)) {
+      node.setMargin(Edge.Right, options.marginRight);
+    }
+    if (isMarginType(options.marginBottom)) {
+      node.setMargin(Edge.Bottom, options.marginBottom);
+    }
+    if (isMarginType(options.marginLeft)) {
+      node.setMargin(Edge.Left, options.marginLeft);
+    }
+    if (isPaddingType(options.padding)) {
+      node.setPadding(Edge.Top, options.padding);
+      node.setPadding(Edge.Right, options.padding);
+      node.setPadding(Edge.Bottom, options.padding);
+      node.setPadding(Edge.Left, options.padding);
+    }
+    if (isPaddingType(options.paddingTop)) {
+      node.setPadding(Edge.Top, options.paddingTop);
+    }
+    if (isPaddingType(options.paddingRight)) {
+      node.setPadding(Edge.Right, options.paddingRight);
+    }
+    if (isPaddingType(options.paddingBottom)) {
+      node.setPadding(Edge.Bottom, options.paddingBottom);
+    }
+    if (isPaddingType(options.paddingLeft)) {
+      node.setPadding(Edge.Left, options.paddingLeft);
+    }
+  }
+  set position(positionType) {
+    if (!isPositionTypeType(positionType) || this._positionType === positionType)
+      return;
+    this._positionType = positionType;
+    this.yogaNode.setPositionType(parsePositionType(positionType));
+    this.requestRender();
+  }
+  get overflow() {
+    return this._overflow;
+  }
+  set overflow(overflow) {
+    if (!isOverflowType(overflow) || this._overflow === overflow)
+      return;
+    this._overflow = overflow;
+    this.yogaNode.setOverflow(parseOverflow(overflow));
+    this.requestRender();
+  }
+  setPosition(position) {
+    this._position = { ...this._position, ...position };
+    this.updateYogaPosition(position);
+  }
+  updateYogaPosition(position) {
+    const node = this.yogaNode;
+    const { top, right, bottom, left } = position;
+    if (isPositionType(top)) {
+      if (top === "auto") {
+        node.setPositionAuto(Edge.Top);
+      } else {
+        node.setPosition(Edge.Top, top);
+      }
+    }
+    if (isPositionType(right)) {
+      if (right === "auto") {
+        node.setPositionAuto(Edge.Right);
+      } else {
+        node.setPosition(Edge.Right, right);
+      }
+    }
+    if (isPositionType(bottom)) {
+      if (bottom === "auto") {
+        node.setPositionAuto(Edge.Bottom);
+      } else {
+        node.setPosition(Edge.Bottom, bottom);
+      }
+    }
+    if (isPositionType(left)) {
+      if (left === "auto") {
+        node.setPositionAuto(Edge.Left);
+      } else {
+        node.setPosition(Edge.Left, left);
+      }
+    }
+    this.requestRender();
+  }
+  set flexGrow(grow) {
+    if (grow == null) {
+      this.yogaNode.setFlexGrow(0);
+    } else {
+      this.yogaNode.setFlexGrow(grow);
+    }
+    this.requestRender();
+  }
+  set flexShrink(shrink) {
+    const value = shrink == null ? 1 : shrink;
+    this._flexShrink = value;
+    this.yogaNode.setFlexShrink(value);
+    this.requestRender();
+  }
+  set flexDirection(direction) {
+    this.yogaNode.setFlexDirection(parseFlexDirection(direction));
+    this.requestRender();
+  }
+  set flexWrap(wrap) {
+    this.yogaNode.setFlexWrap(parseWrap(wrap));
+    this.requestRender();
+  }
+  set alignItems(alignItems) {
+    this.yogaNode.setAlignItems(parseAlignItems(alignItems));
+    this.requestRender();
+  }
+  set justifyContent(justifyContent) {
+    this.yogaNode.setJustifyContent(parseJustify(justifyContent));
+    this.requestRender();
+  }
+  set alignSelf(alignSelf) {
+    this.yogaNode.setAlignSelf(parseAlign(alignSelf));
+    this.requestRender();
+  }
+  set flexBasis(basis) {
+    if (isFlexBasisType(basis)) {
+      this.yogaNode.setFlexBasis(basis);
+      this.requestRender();
+    }
+  }
+  set minWidth(minWidth) {
+    if (isSizeType(minWidth)) {
+      this.yogaNode.setMinWidth(minWidth);
+      this.requestRender();
+    }
+  }
+  set maxWidth(maxWidth) {
+    if (isSizeType(maxWidth)) {
+      this.yogaNode.setMaxWidth(maxWidth);
+      this.requestRender();
+    }
+  }
+  set minHeight(minHeight) {
+    if (isSizeType(minHeight)) {
+      this.yogaNode.setMinHeight(minHeight);
+      this.requestRender();
+    }
+  }
+  set maxHeight(maxHeight) {
+    if (isSizeType(maxHeight)) {
+      this.yogaNode.setMaxHeight(maxHeight);
+      this.requestRender();
+    }
+  }
+  set margin(margin) {
+    if (isMarginType(margin)) {
+      const node = this.yogaNode;
+      node.setMargin(Edge.Top, margin);
+      node.setMargin(Edge.Right, margin);
+      node.setMargin(Edge.Bottom, margin);
+      node.setMargin(Edge.Left, margin);
+      this.requestRender();
+    }
+  }
+  set marginTop(margin) {
+    if (isMarginType(margin)) {
+      this.yogaNode.setMargin(Edge.Top, margin);
+      this.requestRender();
+    }
+  }
+  set marginRight(margin) {
+    if (isMarginType(margin)) {
+      this.yogaNode.setMargin(Edge.Right, margin);
+      this.requestRender();
+    }
+  }
+  set marginBottom(margin) {
+    if (isMarginType(margin)) {
+      this.yogaNode.setMargin(Edge.Bottom, margin);
+      this.requestRender();
+    }
+  }
+  set marginLeft(margin) {
+    if (isMarginType(margin)) {
+      this.yogaNode.setMargin(Edge.Left, margin);
+      this.requestRender();
+    }
+  }
+  set padding(padding) {
+    if (isPaddingType(padding)) {
+      const node = this.yogaNode;
+      node.setPadding(Edge.Top, padding);
+      node.setPadding(Edge.Right, padding);
+      node.setPadding(Edge.Bottom, padding);
+      node.setPadding(Edge.Left, padding);
+      this.requestRender();
+    }
+  }
+  set paddingTop(padding) {
+    if (isPaddingType(padding)) {
+      this.yogaNode.setPadding(Edge.Top, padding);
+      this.requestRender();
+    }
+  }
+  set paddingRight(padding) {
+    if (isPaddingType(padding)) {
+      this.yogaNode.setPadding(Edge.Right, padding);
+      this.requestRender();
+    }
+  }
+  set paddingBottom(padding) {
+    if (isPaddingType(padding)) {
+      this.yogaNode.setPadding(Edge.Bottom, padding);
+      this.requestRender();
+    }
+  }
+  set paddingLeft(padding) {
+    if (isPaddingType(padding)) {
+      this.yogaNode.setPadding(Edge.Left, padding);
+      this.requestRender();
+    }
+  }
+  getLayoutNode() {
+    return this.yogaNode;
+  }
+  updateFromLayout() {
+    const layout = this.yogaNode.getComputedLayout();
+    const oldX = this._x;
+    const oldY = this._y;
+    this._x = layout.left;
+    this._y = layout.top;
+    const newWidth = Math.max(layout.width, 1);
+    const newHeight = Math.max(layout.height, 1);
+    const sizeChanged = this.width !== newWidth || this.height !== newHeight;
+    this._widthValue = newWidth;
+    this._heightValue = newHeight;
+    if (sizeChanged) {
+      this.onLayoutResize(newWidth, newHeight);
+    }
+    if (oldX !== this._x || oldY !== this._y) {
+      if (this.parent)
+        this.parent.childrenPrimarySortDirty = true;
+    }
+  }
+  onLayoutResize(width, height) {
+    if (this._visible) {
+      this.handleFrameBufferResize(width, height);
+      this.onResize(width, height);
+      this.requestRender();
+    }
+  }
+  handleFrameBufferResize(width, height) {
+    if (!this.buffered)
+      return;
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+    if (this.frameBuffer) {
+      this.frameBuffer.resize(width, height);
+    } else {
+      this.createFrameBuffer();
+    }
+  }
+  createFrameBuffer() {
+    const w = this.width;
+    const h = this.height;
+    if (w <= 0 || h <= 0) {
+      return;
+    }
+    try {
+      const widthMethod = this._ctx.widthMethod;
+      this.frameBuffer = OptimizedBuffer.create(w, h, widthMethod, { respectAlpha: true, id: `framebuffer-${this.id}` });
+    } catch (error) {
+      console.error(`Failed to create frame buffer for ${this.id}:`, error);
+      this.frameBuffer = null;
+    }
+  }
+  onResize(width, height) {
+    this.onSizeChange?.();
+    this.emit("resize");
+  }
+  replaceParent(obj) {
+    if (obj.parent) {
+      obj.parent.remove(obj.id);
+    }
+    obj.parent = this;
+  }
+  add(obj, index) {
+    if (!obj) {
+      return -1;
+    }
+    const renderable = maybeMakeRenderable(this._ctx, obj);
+    if (!renderable) {
+      return -1;
+    }
+    if (renderable.isDestroyed) {
+      if (true) {
+        console.warn(`Renderable with id ${renderable.id} was already destroyed, skipping add`);
+      }
+      return -1;
+    }
+    const anchorRenderable = index !== undefined ? this._childrenInLayoutOrder[index] : undefined;
+    if (anchorRenderable) {
+      return this.insertBefore(renderable, anchorRenderable);
+    }
+    if (renderable.parent === this) {
+      this.yogaNode.removeChild(renderable.getLayoutNode());
+      this._childrenInLayoutOrder.splice(this._childrenInLayoutOrder.indexOf(renderable), 1);
+    } else {
+      this.replaceParent(renderable);
+      this.needsZIndexSort = true;
+      this.renderableMapById.set(renderable.id, renderable);
+      this._childrenInZIndexOrder.push(renderable);
+      if (typeof renderable.onLifecyclePass === "function") {
+        this._ctx.registerLifecyclePass(renderable);
+      }
+      if (renderable._liveCount > 0) {
+        this.propagateLiveCount(renderable._liveCount);
+      }
+    }
+    const childLayoutNode = renderable.getLayoutNode();
+    const insertedIndex = this._childrenInLayoutOrder.length;
+    this._childrenInLayoutOrder.push(renderable);
+    this.yogaNode.insertChild(childLayoutNode, insertedIndex);
+    this.childrenPrimarySortDirty = true;
+    this._shouldUpdateBefore.add(renderable);
+    this.requestRender();
+    return insertedIndex;
+  }
+  insertBefore(obj, anchor) {
+    if (!anchor) {
+      return this.add(obj);
+    }
+    if (!obj) {
+      return -1;
+    }
+    const renderable = maybeMakeRenderable(this._ctx, obj);
+    if (!renderable) {
+      return -1;
+    }
+    if (renderable.isDestroyed) {
+      if (true) {
+        console.warn(`Renderable with id ${renderable.id} was already destroyed, skipping insertBefore`);
+      }
+      return -1;
+    }
+    if (!isRenderable(anchor)) {
+      throw new Error("Anchor must be a Renderable");
+    }
+    if (anchor.isDestroyed) {
+      if (true) {
+        console.warn(`Anchor with id ${anchor.id} was already destroyed, skipping insertBefore`);
+      }
+      return -1;
+    }
+    if (!this.renderableMapById.has(anchor.id)) {
+      throw new Error("Anchor does not exist");
+    }
+    if (renderable.parent === this) {
+      this.yogaNode.removeChild(renderable.getLayoutNode());
+      this._childrenInLayoutOrder.splice(this._childrenInLayoutOrder.indexOf(renderable), 1);
+    } else {
+      this.replaceParent(renderable);
+      this.needsZIndexSort = true;
+      this.renderableMapById.set(renderable.id, renderable);
+      this._childrenInZIndexOrder.push(renderable);
+      if (typeof renderable.onLifecyclePass === "function") {
+        this._ctx.registerLifecyclePass(renderable);
+      }
+      if (renderable._liveCount > 0) {
+        this.propagateLiveCount(renderable._liveCount);
+      }
+    }
+    this.childrenPrimarySortDirty = true;
+    const anchorIndex = this._childrenInLayoutOrder.indexOf(anchor);
+    const insertedIndex = Math.max(0, Math.min(anchorIndex, this._childrenInLayoutOrder.length));
+    this._childrenInLayoutOrder.splice(insertedIndex, 0, renderable);
+    this.yogaNode.insertChild(renderable.getLayoutNode(), insertedIndex);
+    this._shouldUpdateBefore.add(renderable);
+    this.requestRender();
+    return insertedIndex;
+  }
+  getRenderable(id) {
+    return this.renderableMapById.get(id);
+  }
+  remove(id) {
+    if (!id) {
+      return;
+    }
+    if (this.renderableMapById.has(id)) {
+      const obj = this.renderableMapById.get(id);
+      if (obj) {
+        if (obj._liveCount > 0) {
+          this.propagateLiveCount(-obj._liveCount);
+        }
+        const childLayoutNode = obj.getLayoutNode();
+        this.yogaNode.removeChild(childLayoutNode);
+        this.requestRender();
+        obj.onRemove();
+        obj.parent = null;
+        this._ctx.unregisterLifecyclePass(obj);
+        this.renderableMapById.delete(id);
+        const index = this._childrenInLayoutOrder.findIndex((obj2) => obj2.id === id);
+        if (index !== -1) {
+          this._childrenInLayoutOrder.splice(index, 1);
+        }
+        const zIndexIndex = this._childrenInZIndexOrder.findIndex((obj2) => obj2.id === id);
+        if (zIndexIndex !== -1) {
+          this._childrenInZIndexOrder.splice(zIndexIndex, 1);
+        }
+        this.childrenPrimarySortDirty = true;
+      }
+    }
+  }
+  onRemove() {}
+  getChildren() {
+    return [...this._childrenInLayoutOrder];
+  }
+  getChildrenCount() {
+    return this._childrenInLayoutOrder.length;
+  }
+  updateLayout(deltaTime, renderList = []) {
+    if (!this.visible)
+      return;
+    this.onUpdate(deltaTime);
+    if (this._isDestroyed)
+      return;
+    this.updateFromLayout();
+    if (this._shouldUpdateBefore.size > 0) {
+      for (const child of this._shouldUpdateBefore) {
+        if (!child.isDestroyed) {
+          child.updateFromLayout();
+        }
+      }
+      this._shouldUpdateBefore.clear();
+    }
+    if (this._isDestroyed)
+      return;
+    const shouldPushOpacity = this._opacity < 1;
+    if (shouldPushOpacity) {
+      renderList.push({ action: "pushOpacity", opacity: this._opacity });
+    }
+    renderList.push({ action: "render", renderable: this });
+    this.ensureZIndexSorted();
+    const shouldPushScissor = this._overflow !== "visible" && this.width > 0 && this.height > 0;
+    if (shouldPushScissor) {
+      const scissorRect = this.getScissorRect();
+      renderList.push({
+        action: "pushScissorRect",
+        x: scissorRect.x,
+        y: scissorRect.y,
+        width: scissorRect.width,
+        height: scissorRect.height
+      });
+    }
+    const visibleChildren = this._getVisibleChildren();
+    for (const child of this._childrenInZIndexOrder) {
+      if (!visibleChildren.includes(child.num)) {
+        child.updateFromLayout();
+        continue;
+      }
+      child.updateLayout(deltaTime, renderList);
+    }
+    if (shouldPushScissor) {
+      renderList.push({ action: "popScissorRect" });
+    }
+    if (shouldPushOpacity) {
+      renderList.push({ action: "popOpacity" });
+    }
+  }
+  render(buffer, deltaTime) {
+    let renderBuffer = buffer;
+    if (this.buffered && this.frameBuffer) {
+      renderBuffer = this.frameBuffer;
+    }
+    if (this.renderBefore) {
+      this.renderBefore.call(this, renderBuffer, deltaTime);
+    }
+    this.renderSelf(renderBuffer, deltaTime);
+    if (this.renderAfter) {
+      this.renderAfter.call(this, renderBuffer, deltaTime);
+    }
+    this.markClean();
+    this._ctx.addToHitGrid(this.x, this.y, this.width, this.height, this.num);
+    if (this.buffered && this.frameBuffer) {
+      buffer.drawFrameBuffer(this.x, this.y, this.frameBuffer);
+    }
+  }
+  _getVisibleChildren() {
+    return this._childrenInZIndexOrder.map((child) => child.num);
+  }
+  onUpdate(deltaTime) {}
+  getScissorRect() {
+    return {
+      x: this.buffered ? 0 : this.x,
+      y: this.buffered ? 0 : this.y,
+      width: this.width,
+      height: this.height
+    };
+  }
+  renderSelf(buffer, deltaTime) {}
+  get isDestroyed() {
+    return this._isDestroyed;
+  }
+  destroy() {
+    if (this._isDestroyed) {
+      return;
+    }
+    this._isDestroyed = true;
+    if (this.parent) {
+      this.parent.remove(this.id);
+    }
+    if (this.frameBuffer) {
+      this.frameBuffer.destroy();
+      this.frameBuffer = null;
+    }
+    for (const child of this._childrenInLayoutOrder) {
+      this.remove(child.id);
+    }
+    this._childrenInLayoutOrder = [];
+    this.renderableMapById.clear();
+    Renderable.renderablesByNumber.delete(this.num);
+    this.blur();
+    this.removeAllListeners();
+    this.destroySelf();
+    try {
+      this.yogaNode.free();
+    } catch (e) {}
+  }
+  destroyRecursively() {
+    const children = [...this._childrenInLayoutOrder];
+    for (const child of children) {
+      child.destroyRecursively();
+    }
+    this.destroy();
+  }
+  destroySelf() {}
+  processMouseEvent(event) {
+    this._mouseListener?.call(this, event);
+    this._mouseListeners[event.type]?.call(this, event);
+    this.onMouseEvent(event);
+    if (this.parent && !event.propagationStopped) {
+      this.parent.processMouseEvent(event);
+    }
+  }
+  onMouseEvent(event) {}
+  set onMouse(handler) {
+    if (handler)
+      this._mouseListener = handler;
+    else
+      this._mouseListener = null;
+  }
+  set onMouseDown(handler) {
+    if (handler)
+      this._mouseListeners["down"] = handler;
+    else
+      delete this._mouseListeners["down"];
+  }
+  set onMouseUp(handler) {
+    if (handler)
+      this._mouseListeners["up"] = handler;
+    else
+      delete this._mouseListeners["up"];
+  }
+  set onMouseMove(handler) {
+    if (handler)
+      this._mouseListeners["move"] = handler;
+    else
+      delete this._mouseListeners["move"];
+  }
+  set onMouseDrag(handler) {
+    if (handler)
+      this._mouseListeners["drag"] = handler;
+    else
+      delete this._mouseListeners["drag"];
+  }
+  set onMouseDragEnd(handler) {
+    if (handler)
+      this._mouseListeners["drag-end"] = handler;
+    else
+      delete this._mouseListeners["drag-end"];
+  }
+  set onMouseDrop(handler) {
+    if (handler)
+      this._mouseListeners["drop"] = handler;
+    else
+      delete this._mouseListeners["drop"];
+  }
+  set onMouseOver(handler) {
+    if (handler)
+      this._mouseListeners["over"] = handler;
+    else
+      delete this._mouseListeners["over"];
+  }
+  set onMouseOut(handler) {
+    if (handler)
+      this._mouseListeners["out"] = handler;
+    else
+      delete this._mouseListeners["out"];
+  }
+  set onMouseScroll(handler) {
+    if (handler)
+      this._mouseListeners["scroll"] = handler;
+    else
+      delete this._mouseListeners["scroll"];
+  }
+  set onPaste(handler) {
+    this._pasteListener = handler;
+  }
+  get onPaste() {
+    return this._pasteListener;
+  }
+  set onKeyDown(handler) {
+    if (handler)
+      this._keyListeners["down"] = handler;
+    else
+      delete this._keyListeners["down"];
+  }
+  get onKeyDown() {
+    return this._keyListeners["down"];
+  }
+  set onSizeChange(handler) {
+    this._sizeChangeListener = handler;
+  }
+  get onSizeChange() {
+    return this._sizeChangeListener;
+  }
+  applyEventOptions(options) {
+    this.onMouse = options.onMouse;
+    this.onMouseDown = options.onMouseDown;
+    this.onMouseUp = options.onMouseUp;
+    this.onMouseMove = options.onMouseMove;
+    this.onMouseDrag = options.onMouseDrag;
+    this.onMouseDragEnd = options.onMouseDragEnd;
+    this.onMouseDrop = options.onMouseDrop;
+    this.onMouseOver = options.onMouseOver;
+    this.onMouseOut = options.onMouseOut;
+    this.onMouseScroll = options.onMouseScroll;
+    this.onPaste = options.onPaste;
+    this.onKeyDown = options.onKeyDown;
+    this.onSizeChange = options.onSizeChange;
+  }
+}
+
+class RootRenderable extends Renderable {
+  renderList = [];
+  constructor(ctx) {
+    super(ctx, { id: "__root__", zIndex: 0, visible: true, width: ctx.width, height: ctx.height, enableLayout: true });
+    if (this.yogaNode) {
+      this.yogaNode.free();
+    }
+    this.yogaNode = src_default.Node.create(yogaConfig);
+    this.yogaNode.setWidth(ctx.width);
+    this.yogaNode.setHeight(ctx.height);
+    this.yogaNode.setFlexDirection(FlexDirection.Column);
+    this.calculateLayout();
+  }
+  render(buffer, deltaTime) {
+    if (!this.visible)
+      return;
+    for (const renderable of this._ctx.getLifecyclePasses()) {
+      renderable.onLifecyclePass?.call(renderable);
+    }
+    if (this.yogaNode.isDirty()) {
+      this.calculateLayout();
+    }
+    this.renderList.length = 0;
+    this.updateLayout(deltaTime, this.renderList);
+    for (let i = 1;i < this.renderList.length; i++) {
+      const command = this.renderList[i];
+      switch (command.action) {
+        case "render":
+          if (!command.renderable.isDestroyed) {
+            command.renderable.render(buffer, deltaTime);
+          }
+          break;
+        case "pushScissorRect":
+          buffer.pushScissorRect(command.x, command.y, command.width, command.height);
+          break;
+        case "popScissorRect":
+          buffer.popScissorRect();
+          break;
+        case "pushOpacity":
+          buffer.pushOpacity(command.opacity);
+          break;
+        case "popOpacity":
+          buffer.popOpacity();
+          break;
+      }
+    }
+  }
+  propagateLiveCount(delta) {
+    const oldCount = this._liveCount;
+    this._liveCount += delta;
+    if (oldCount === 0 && this._liveCount > 0) {
+      this._ctx.requestLive();
+    } else if (oldCount > 0 && this._liveCount === 0) {
+      this._ctx.dropLive();
+    }
+  }
+  calculateLayout() {
+    this.yogaNode.calculateLayout(this.width, this.height, Direction.LTR);
+    this.emit("layout-changed");
+  }
+  resize(width, height) {
+    this.width = width;
+    this.height = height;
+    this.emit("resized", { width, height });
+  }
+}
+var BrandedVNode = Symbol.for("@opentui/core/VNode");
+function isRenderableConstructor(value) {
+  return typeof value === "function" && value.prototype && Renderable.prototype.isPrototypeOf(value.prototype);
+}
+function flattenChildren(children) {
+  const result = [];
+  for (const child of children) {
+    if (Array.isArray(child)) {
+      result.push(...flattenChildren(child));
+    } else if (child !== null && child !== undefined && child !== false) {
+      result.push(child);
+    }
+  }
+  return result;
+}
+function isVNode(node) {
+  return node && node[BrandedVNode];
+}
+function maybeMakeRenderable(ctx, node) {
+  if (isRenderable(node))
+    return node;
+  if (isVNode(node))
+    return instantiate(ctx, node);
+  if (true) {
+    console.warn("maybeMakeRenderable received an invalid node", util.inspect(node, { depth: 2 }));
+  }
+  return null;
+}
+function wrapWithDelegates(instance, delegateMap) {
+  if (!delegateMap || Object.keys(delegateMap).length === 0)
+    return instance;
+  const descendantCache = new Map;
+  const getDescendant = (id) => {
+    if (descendantCache.has(id)) {
+      const cached = descendantCache.get(id);
+      if (cached !== undefined) {
+        return cached;
+      }
+    }
+    const descendant = instance.findDescendantById(id);
+    if (descendant) {
+      descendantCache.set(id, descendant);
+    }
+    return descendant;
+  };
+  const proxy = new Proxy(instance, {
+    get(target, prop, receiver) {
+      if (typeof prop === "string" && delegateMap[prop]) {
+        const host = getDescendant(delegateMap[prop]);
+        if (host) {
+          const value = host[prop];
+          if (typeof value === "function") {
+            return value.bind(host);
+          }
+          return value;
+        }
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+    set(target, prop, value, receiver) {
+      if (typeof prop === "string" && delegateMap[prop]) {
+        const host = getDescendant(delegateMap[prop]);
+        if (host) {
+          return Reflect.set(host, prop, value);
+        }
+      }
+      return Reflect.set(target, prop, value, receiver);
+    }
+  });
+  return proxy;
+}
+function instantiate(ctx, node) {
+  if (isRenderable(node))
+    return node;
+  if (!node || typeof node !== "object") {
+    throw new TypeError("mount() received an invalid vnode");
+  }
+  const vnode = node;
+  const { type, props } = vnode;
+  const children = flattenChildren(vnode.children || []);
+  const delegateMap = vnode.__delegateMap;
+  if (isRenderableConstructor(type)) {
+    const instance = new type(ctx, props || {});
+    for (const child of children) {
+      if (isRenderable(child)) {
+        instance.add(child);
+      } else {
+        const mounted = instantiate(ctx, child);
+        instance.add(mounted);
+      }
+    }
+    const delegatedInstance = wrapWithDelegates(instance, delegateMap);
+    const pendingCalls = vnode.__pendingCalls;
+    if (pendingCalls) {
+      for (const call of pendingCalls) {
+        if (call.isProperty) {
+          delegatedInstance[call.method] = call.args[0];
+        } else {
+          delegatedInstance[call.method].apply(delegatedInstance, call.args);
+        }
+      }
+    }
+    return delegatedInstance;
+  }
+  const resolved = type(props || {}, children);
+  const inst = instantiate(ctx, resolved);
+  return wrapWithDelegates(inst, delegateMap);
+}
+class Capture extends EventEmitter7 {
+  output = [];
+  constructor() {
+    super();
+  }
+  get size() {
+    return this.output.length;
+  }
+  write(stream, data) {
+    this.output.push({ stream, output: data });
+    this.emit("write", stream, data);
+  }
+  claimOutput() {
+    const output = this.output.map((o) => o.output).join("");
+    this.clear();
+    return output;
+  }
+  clear() {
+    this.output = [];
+  }
+}
+
+class CapturedWritableStream extends Writable {
+  stream;
+  capture;
+  isTTY = true;
+  columns = process.stdout.columns || 80;
+  rows = process.stdout.rows || 24;
+  constructor(stream, capture) {
+    super();
+    this.stream = stream;
+    this.capture = capture;
+  }
+  _write(chunk, encoding, callback) {
+    const data = chunk.toString();
+    this.capture.write(this.stream, data);
+    callback();
+  }
+  getColorDepth() {
+    return process.stdout.getColorDepth?.() || 8;
+  }
+}
+var defaultKeyAliases = {
+  enter: "return",
+  esc: "escape"
+};
+function mergeKeyAliases(defaults, custom) {
+  return { ...defaults, ...custom };
+}
+function mergeKeyBindings(defaults, custom) {
+  const map = new Map;
+  for (const binding of defaults) {
+    const key = getKeyBindingKey(binding);
+    map.set(key, binding);
+  }
+  for (const binding of custom) {
+    const key = getKeyBindingKey(binding);
+    map.set(key, binding);
+  }
+  return Array.from(map.values());
+}
+function getKeyBindingKey(binding) {
+  return `${binding.name}:${binding.ctrl ? 1 : 0}:${binding.shift ? 1 : 0}:${binding.meta ? 1 : 0}:${binding.super ? 1 : 0}`;
+}
+function buildKeyBindingsMap(bindings, aliasMap) {
+  const map = new Map;
+  const aliases = aliasMap || {};
+  for (const binding of bindings) {
+    const key = getKeyBindingKey(binding);
+    map.set(key, binding.action);
+  }
+  for (const binding of bindings) {
+    const normalizedName = aliases[binding.name] || binding.name;
+    if (normalizedName !== binding.name) {
+      const aliasedKey = getKeyBindingKey({ ...binding, name: normalizedName });
+      map.set(aliasedKey, binding.action);
+    }
+  }
+  return map;
+}
+function keyBindingToString(binding) {
+  const parts = [];
+  if (binding.ctrl)
+    parts.push("ctrl");
+  if (binding.shift)
+    parts.push("shift");
+  if (binding.meta)
+    parts.push("meta");
+  if (binding.super)
+    parts.push("super");
+  parts.push(binding.name);
+  return parts.join("+");
+}
+function getCallerInfo() {
+  const err = new Error;
+  const stackLines = err.stack?.split(`
+`).slice(5) || [];
+  if (!stackLines.length)
+    return null;
+  const callerLine = stackLines[0].trim();
+  const regex = /at\s+(?:([\w$.<>]+)\s+\()?((?:\/|[A-Za-z]:\\)[^:]+):(\d+):(\d+)\)?/;
+  const match = callerLine.match(regex);
+  if (!match)
+    return null;
+  const functionName = match[1] || "<anonymous>";
+  const fullPath = match[2];
+  const fileName = fullPath.split(/[\\/]/).pop() || "<unknown>";
+  const lineNumber = parseInt(match[3], 10) || 0;
+  const columnNumber = parseInt(match[4], 10) || 0;
+  return { functionName, fullPath, fileName, lineNumber, columnNumber };
+}
+var capture = singleton("ConsoleCapture", () => new Capture);
+registerEnvVar({
+  name: "OTUI_USE_CONSOLE",
+  description: "Whether to use the console. Will not capture console output if set to false.",
+  type: "boolean",
+  default: true
+});
+registerEnvVar({
+  name: "SHOW_CONSOLE",
+  description: "Show the console at startup if set to true.",
+  type: "boolean",
+  default: false
+});
+
+class TerminalConsoleCache extends EventEmitter8 {
+  _cachedLogs = [];
+  MAX_CACHE_SIZE = 1000;
+  _collectCallerInfo = false;
+  _cachingEnabled = true;
+  _originalConsole = null;
+  get cachedLogs() {
+    return this._cachedLogs;
+  }
+  constructor() {
+    super();
+  }
+  activate() {
+    if (!this._originalConsole) {
+      this._originalConsole = global.console;
+    }
+    this.setupConsoleCapture();
+    this.overrideConsoleMethods();
+  }
+  setupConsoleCapture() {
+    if (!env.OTUI_USE_CONSOLE)
+      return;
+    const mockStdout = new CapturedWritableStream("stdout", capture);
+    const mockStderr = new CapturedWritableStream("stderr", capture);
+    global.console = new Console({
+      stdout: mockStdout,
+      stderr: mockStderr,
+      colorMode: true,
+      inspectOptions: {
+        compact: false,
+        breakLength: 80,
+        depth: 2
+      }
+    });
+  }
+  overrideConsoleMethods() {
+    console.log = (...args) => {
+      this.appendToConsole("LOG", ...args);
+    };
+    console.info = (...args) => {
+      this.appendToConsole("INFO", ...args);
+    };
+    console.warn = (...args) => {
+      this.appendToConsole("WARN", ...args);
+    };
+    console.error = (...args) => {
+      this.appendToConsole("ERROR", ...args);
+    };
+    console.debug = (...args) => {
+      this.appendToConsole("DEBUG", ...args);
+    };
+  }
+  setCollectCallerInfo(enabled) {
+    this._collectCallerInfo = enabled;
+  }
+  clearConsole() {
+    this._cachedLogs = [];
+  }
+  setCachingEnabled(enabled) {
+    this._cachingEnabled = enabled;
+  }
+  deactivate() {
+    this.restoreOriginalConsole();
+  }
+  restoreOriginalConsole() {
+    if (this._originalConsole) {
+      global.console = this._originalConsole;
+    }
+    this.setupConsoleCapture();
+  }
+  addLogEntry(level, ...args) {
+    const callerInfo = this._collectCallerInfo ? getCallerInfo() : null;
+    const logEntry = [new Date, level, args, callerInfo];
+    if (this._cachingEnabled) {
+      if (this._cachedLogs.length >= this.MAX_CACHE_SIZE) {
+        this._cachedLogs.shift();
+      }
+      this._cachedLogs.push(logEntry);
+    }
+    return logEntry;
+  }
+  appendToConsole(level, ...args) {
+    if (this._cachedLogs.length >= this.MAX_CACHE_SIZE) {
+      this._cachedLogs.shift();
+    }
+    const entry = this.addLogEntry(level, ...args);
+    this.emit("entry", entry);
+  }
+  destroy() {
+    this.deactivate();
+  }
+}
+var terminalConsoleCache = singleton("TerminalConsoleCache", () => {
+  const terminalConsoleCache2 = new TerminalConsoleCache;
+  process.on("exit", () => {
+    terminalConsoleCache2.destroy();
+  });
+  return terminalConsoleCache2;
+});
+var ConsolePosition;
+((ConsolePosition2) => {
+  ConsolePosition2["TOP"] = "top";
+  ConsolePosition2["BOTTOM"] = "bottom";
+  ConsolePosition2["LEFT"] = "left";
+  ConsolePosition2["RIGHT"] = "right";
+})(ConsolePosition ||= {});
+var defaultConsoleKeybindings = [
+  { name: "up", action: "scroll-up" },
+  { name: "down", action: "scroll-down" },
+  { name: "up", shift: true, action: "scroll-to-top" },
+  { name: "down", shift: true, action: "scroll-to-bottom" },
+  { name: "p", ctrl: true, action: "position-previous" },
+  { name: "o", ctrl: true, action: "position-next" },
+  { name: "+", action: "size-increase" },
+  { name: "=", shift: true, action: "size-increase" },
+  { name: "-", action: "size-decrease" },
+  { name: "s", ctrl: true, action: "save-logs" },
+  { name: "c", ctrl: true, shift: true, action: "copy-selection" }
+];
+var DEFAULT_CONSOLE_OPTIONS = {
+  position: "bottom",
+  sizePercent: 30,
+  zIndex: Infinity,
+  colorInfo: "#00FFFF",
+  colorWarn: "#FFFF00",
+  colorError: "#FF0000",
+  colorDebug: "#808080",
+  colorDefault: "#FFFFFF",
+  backgroundColor: RGBA.fromValues(0.1, 0.1, 0.1, 0.7),
+  startInDebugMode: false,
+  title: "Console",
+  titleBarColor: RGBA.fromValues(0.05, 0.05, 0.05, 0.7),
+  titleBarTextColor: "#FFFFFF",
+  cursorColor: "#00A0FF",
+  maxStoredLogs: 2000,
+  maxDisplayLines: 3000,
+  onCopySelection: undefined,
+  keyBindings: undefined,
+  keyAliasMap: undefined,
+  selectionColor: RGBA.fromValues(0.3, 0.5, 0.8, 0.5),
+  copyButtonColor: "#00A0FF"
+};
+var INDENT_WIDTH = 2;
+
+class TerminalConsole extends EventEmitter8 {
+  isVisible = false;
+  isFocused = false;
+  renderer;
+  keyHandler;
+  options;
+  _debugModeEnabled = false;
+  frameBuffer = null;
+  consoleX = 0;
+  consoleY = 0;
+  consoleWidth = 0;
+  consoleHeight = 0;
+  scrollTopIndex = 0;
+  isScrolledToBottom = true;
+  currentLineIndex = 0;
+  _displayLines = [];
+  _allLogEntries = [];
+  _needsFrameBufferUpdate = false;
+  _entryListener;
+  _selectionStart = null;
+  _selectionEnd = null;
+  _isSelecting = false;
+  _copyButtonBounds = {
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0
+  };
+  _autoScrollInterval = null;
+  _keyBindingsMap;
+  _keyAliasMap;
+  _keyBindings;
+  _mergedKeyBindings;
+  _actionHandlers;
+  markNeedsRerender() {
+    this._needsFrameBufferUpdate = true;
+    this.renderer.requestRender();
+  }
+  getCopyButtonLabel() {
+    const copyBindings = this._mergedKeyBindings.filter((b) => b.action === "copy-selection");
+    const copyBinding = copyBindings[copyBindings.length - 1];
+    if (copyBinding) {
+      const shortcut = keyBindingToString(copyBinding);
+      return `[Copy (${shortcut})]`;
+    }
+    return "[Copy]";
+  }
+  _rgbaInfo;
+  _rgbaWarn;
+  _rgbaError;
+  _rgbaDebug;
+  _rgbaDefault;
+  backgroundColor;
+  _rgbaTitleBar;
+  _rgbaTitleBarText;
+  _title;
+  _rgbaCursor;
+  _rgbaSelection;
+  _rgbaCopyButton;
+  _positions = [
+    "top",
+    "right",
+    "bottom",
+    "left"
+  ];
+  constructor(renderer, options = {}) {
+    super();
+    this.renderer = renderer;
+    this.options = { ...DEFAULT_CONSOLE_OPTIONS, ...options };
+    this.keyHandler = this.handleKeyPress.bind(this);
+    this._debugModeEnabled = this.options.startInDebugMode;
+    terminalConsoleCache.setCollectCallerInfo(this._debugModeEnabled);
+    this._rgbaInfo = parseColor(this.options.colorInfo);
+    this._rgbaWarn = parseColor(this.options.colorWarn);
+    this._rgbaError = parseColor(this.options.colorError);
+    this._rgbaDebug = parseColor(this.options.colorDebug);
+    this._rgbaDefault = parseColor(this.options.colorDefault);
+    this.backgroundColor = parseColor(this.options.backgroundColor);
+    this._rgbaTitleBar = parseColor(this.options.titleBarColor);
+    this._rgbaTitleBarText = parseColor(this.options.titleBarTextColor || this.options.colorDefault);
+    this._title = this.options.title;
+    this._rgbaCursor = parseColor(this.options.cursorColor);
+    this._rgbaSelection = parseColor(this.options.selectionColor);
+    this._rgbaCopyButton = parseColor(this.options.copyButtonColor);
+    this._keyAliasMap = mergeKeyAliases(defaultKeyAliases, options.keyAliasMap || {});
+    this._keyBindings = options.keyBindings || [];
+    this._mergedKeyBindings = mergeKeyBindings(defaultConsoleKeybindings, this._keyBindings);
+    this._keyBindingsMap = buildKeyBindingsMap(this._mergedKeyBindings, this._keyAliasMap);
+    this._actionHandlers = this.buildActionHandlers();
+    this._updateConsoleDimensions();
+    this._scrollToBottom(true);
+    this._entryListener = (logEntry) => {
+      this._handleNewLog(logEntry);
+    };
+    terminalConsoleCache.on("entry", this._entryListener);
+    if (env.SHOW_CONSOLE) {
+      this.show();
+    }
+  }
+  buildActionHandlers() {
+    return new Map([
+      ["scroll-up", () => this.scrollUp()],
+      ["scroll-down", () => this.scrollDown()],
+      ["scroll-to-top", () => this.scrollToTop()],
+      ["scroll-to-bottom", () => this.scrollToBottomAction()],
+      ["position-previous", () => this.positionPrevious()],
+      ["position-next", () => this.positionNext()],
+      ["size-increase", () => this.sizeIncrease()],
+      ["size-decrease", () => this.sizeDecrease()],
+      ["save-logs", () => this.saveLogsAction()],
+      ["copy-selection", () => this.triggerCopyAction()]
+    ]);
+  }
+  activate() {
+    terminalConsoleCache.activate();
+  }
+  deactivate() {
+    terminalConsoleCache.deactivate();
+  }
+  _handleNewLog(logEntry) {
+    if (!this.isVisible)
+      return;
+    this._allLogEntries.push(logEntry);
+    if (this._allLogEntries.length > this.options.maxStoredLogs) {
+      this._allLogEntries.splice(0, this._allLogEntries.length - this.options.maxStoredLogs);
+    }
+    const newDisplayLines = this._processLogEntry(logEntry);
+    this._displayLines.push(...newDisplayLines);
+    if (this._displayLines.length > this.options.maxDisplayLines) {
+      this._displayLines.splice(0, this._displayLines.length - this.options.maxDisplayLines);
+      const linesRemoved = this._displayLines.length - this.options.maxDisplayLines;
+      this.scrollTopIndex = Math.max(0, this.scrollTopIndex - linesRemoved);
+    }
+    if (this.isScrolledToBottom) {
+      this._scrollToBottom();
+    }
+    this.markNeedsRerender();
+  }
+  _updateConsoleDimensions(termWidth, termHeight) {
+    const width = termWidth ?? this.renderer.width;
+    const height = termHeight ?? this.renderer.height;
+    const sizePercent = this.options.sizePercent / 100;
+    switch (this.options.position) {
+      case "top":
+        this.consoleX = 0;
+        this.consoleY = 0;
+        this.consoleWidth = width;
+        this.consoleHeight = Math.max(1, Math.floor(height * sizePercent));
+        break;
+      case "bottom":
+        this.consoleHeight = Math.max(1, Math.floor(height * sizePercent));
+        this.consoleWidth = width;
+        this.consoleX = 0;
+        this.consoleY = height - this.consoleHeight;
+        break;
+      case "left":
+        this.consoleWidth = Math.max(1, Math.floor(width * sizePercent));
+        this.consoleHeight = height;
+        this.consoleX = 0;
+        this.consoleY = 0;
+        break;
+      case "right":
+        this.consoleWidth = Math.max(1, Math.floor(width * sizePercent));
+        this.consoleHeight = height;
+        this.consoleY = 0;
+        this.consoleX = width - this.consoleWidth;
+        break;
+    }
+    this.currentLineIndex = Math.max(0, Math.min(this.currentLineIndex, this.consoleHeight - 1));
+  }
+  handleKeyPress(event) {
+    if (event.name === "escape") {
+      this.blur();
+      return;
+    }
+    const bindingKey = getKeyBindingKey({
+      name: event.name,
+      ctrl: event.ctrl,
+      shift: event.shift,
+      meta: event.meta,
+      super: event.super,
+      action: "scroll-up"
+    });
+    const action = this._keyBindingsMap.get(bindingKey);
+    if (action) {
+      const handler = this._actionHandlers.get(action);
+      if (handler) {
+        handler();
+        return;
+      }
+    }
+  }
+  scrollUp() {
+    const logAreaHeight = Math.max(1, this.consoleHeight - 1);
+    if (this.currentLineIndex > 0) {
+      this.currentLineIndex--;
+      this.markNeedsRerender();
+    } else if (this.scrollTopIndex > 0) {
+      this.scrollTopIndex--;
+      this.isScrolledToBottom = false;
+      this.markNeedsRerender();
+    }
+    return true;
+  }
+  scrollDown() {
+    const displayLineCount = this._displayLines.length;
+    const logAreaHeight = Math.max(1, this.consoleHeight - 1);
+    const maxScrollTop = Math.max(0, displayLineCount - logAreaHeight);
+    const canCursorMoveDown = this.currentLineIndex < logAreaHeight - 1 && this.scrollTopIndex + this.currentLineIndex < displayLineCount - 1;
+    if (canCursorMoveDown) {
+      this.currentLineIndex++;
+      this.markNeedsRerender();
+    } else if (this.scrollTopIndex < maxScrollTop) {
+      this.scrollTopIndex++;
+      this.isScrolledToBottom = this.scrollTopIndex === maxScrollTop;
+      this.markNeedsRerender();
+    }
+    return true;
+  }
+  scrollToTop() {
+    if (this.scrollTopIndex > 0 || this.currentLineIndex > 0) {
+      this.scrollTopIndex = 0;
+      this.currentLineIndex = 0;
+      this.isScrolledToBottom = this._displayLines.length <= Math.max(1, this.consoleHeight - 1);
+      this.markNeedsRerender();
+    }
+    return true;
+  }
+  scrollToBottomAction() {
+    const logAreaHeightForScroll = Math.max(1, this.consoleHeight - 1);
+    const maxScrollPossible = Math.max(0, this._displayLines.length - logAreaHeightForScroll);
+    if (this.scrollTopIndex < maxScrollPossible || !this.isScrolledToBottom) {
+      this._scrollToBottom(true);
+      this.markNeedsRerender();
+    }
+    return true;
+  }
+  positionPrevious() {
+    const currentPositionIndex = this._positions.indexOf(this.options.position);
+    const prevIndex = (currentPositionIndex - 1 + this._positions.length) % this._positions.length;
+    this.options.position = this._positions[prevIndex];
+    this.resize(this.renderer.width, this.renderer.height);
+    return true;
+  }
+  positionNext() {
+    const currentPositionIndex = this._positions.indexOf(this.options.position);
+    const nextIndex = (currentPositionIndex + 1) % this._positions.length;
+    this.options.position = this._positions[nextIndex];
+    this.resize(this.renderer.width, this.renderer.height);
+    return true;
+  }
+  sizeIncrease() {
+    this.options.sizePercent = Math.min(100, this.options.sizePercent + 5);
+    this.resize(this.renderer.width, this.renderer.height);
+    return true;
+  }
+  sizeDecrease() {
+    this.options.sizePercent = Math.max(10, this.options.sizePercent - 5);
+    this.resize(this.renderer.width, this.renderer.height);
+    return true;
+  }
+  saveLogsAction() {
+    this.saveLogsToFile();
+    return true;
+  }
+  triggerCopyAction() {
+    this.triggerCopy();
+    return true;
+  }
+  attachStdin() {
+    if (this.isFocused)
+      return;
+    this.renderer.keyInput.on("keypress", this.keyHandler);
+    this.isFocused = true;
+  }
+  detachStdin() {
+    if (!this.isFocused)
+      return;
+    this.renderer.keyInput.off("keypress", this.keyHandler);
+    this.isFocused = false;
+  }
+  formatTimestamp(date) {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }).format(date);
+  }
+  formatArguments(args) {
+    return args.map((arg) => {
+      if (arg instanceof Error) {
+        const errorProps = arg;
+        return `Error: ${errorProps.message}
+` + (errorProps.stack ? `${errorProps.stack}
+` : "");
+      }
+      if (typeof arg === "object" && arg !== null) {
+        try {
+          return util2.inspect(arg, { depth: 2 });
+        } catch (e) {
+          return String(arg);
+        }
+      }
+      try {
+        return util2.inspect(arg, { depth: 2 });
+      } catch (e) {
+        return String(arg);
+      }
+    }).join(" ");
+  }
+  resize(width, height) {
+    this._updateConsoleDimensions(width, height);
+    if (this.frameBuffer) {
+      this.frameBuffer.resize(this.consoleWidth, this.consoleHeight);
+      const displayLineCount = this._displayLines.length;
+      const logAreaHeight = Math.max(1, this.consoleHeight - 1);
+      const maxScrollTop = Math.max(0, displayLineCount - logAreaHeight);
+      this.scrollTopIndex = Math.min(this.scrollTopIndex, maxScrollTop);
+      this.isScrolledToBottom = this.scrollTopIndex === maxScrollTop;
+      const visibleLineCount = Math.min(logAreaHeight, displayLineCount - this.scrollTopIndex);
+      this.currentLineIndex = Math.max(0, Math.min(this.currentLineIndex, visibleLineCount - 1));
+      if (this.isVisible) {
+        this.markNeedsRerender();
+      }
+    }
+  }
+  clear() {
+    terminalConsoleCache.clearConsole();
+    this._allLogEntries = [];
+    this._displayLines = [];
+    this.markNeedsRerender();
+  }
+  toggle() {
+    if (this.isVisible) {
+      if (this.isFocused) {
+        this.hide();
+      } else {
+        this.focus();
+      }
+    } else {
+      this.show();
+    }
+    if (!this.renderer.isRunning) {
+      this.renderer.requestRender();
+    }
+  }
+  focus() {
+    this.attachStdin();
+    this._scrollToBottom(true);
+    this.markNeedsRerender();
+  }
+  blur() {
+    this.detachStdin();
+    this.markNeedsRerender();
+  }
+  show() {
+    if (!this.isVisible) {
+      this.isVisible = true;
+      this._processCachedLogs();
+      terminalConsoleCache.setCachingEnabled(false);
+      if (!this.frameBuffer) {
+        this.frameBuffer = OptimizedBuffer.create(this.consoleWidth, this.consoleHeight, this.renderer.widthMethod, {
+          respectAlpha: this.backgroundColor.a < 1,
+          id: "console framebuffer"
+        });
+      }
+      const logCount = terminalConsoleCache.cachedLogs.length;
+      const visibleLogLines = Math.min(this.consoleHeight, logCount);
+      this.currentLineIndex = Math.max(0, visibleLogLines - 1);
+      this.scrollTopIndex = 0;
+      this._scrollToBottom(true);
+      this.focus();
+      this.markNeedsRerender();
+    }
+  }
+  hide() {
+    if (this.isVisible) {
+      this.isVisible = false;
+      this.blur();
+      terminalConsoleCache.setCachingEnabled(true);
+    }
+  }
+  destroy() {
+    this.stopAutoScroll();
+    this.hide();
+    this.deactivate();
+    terminalConsoleCache.off("entry", this._entryListener);
+  }
+  getCachedLogs() {
+    return terminalConsoleCache.cachedLogs.map((logEntry) => logEntry[0].toISOString() + " " + logEntry.slice(1).join(" ")).join(`
+`);
+  }
+  updateFrameBuffer() {
+    if (!this.frameBuffer)
+      return;
+    this.frameBuffer.clear(this.backgroundColor);
+    const displayLines = this._displayLines;
+    const displayLineCount = displayLines.length;
+    const logAreaHeight = Math.max(1, this.consoleHeight - 1);
+    this.frameBuffer.fillRect(0, 0, this.consoleWidth, 1, this._rgbaTitleBar);
+    const dynamicTitle = `${this._title}${this.isFocused ? " (Focused)" : ""}`;
+    const titleX = Math.max(0, Math.floor((this.consoleWidth - dynamicTitle.length) / 2));
+    this.frameBuffer.drawText(dynamicTitle, titleX, 0, this._rgbaTitleBarText, this._rgbaTitleBar);
+    const copyLabel = this.getCopyButtonLabel();
+    const copyButtonX = this.consoleWidth - copyLabel.length - 1;
+    if (copyButtonX >= 0) {
+      const copyButtonEnabled = this.hasSelection();
+      const disabledColor = RGBA.fromInts(100, 100, 100, 255);
+      const copyColor = copyButtonEnabled ? this._rgbaCopyButton : disabledColor;
+      this.frameBuffer.drawText(copyLabel, copyButtonX, 0, copyColor, this._rgbaTitleBar);
+      this._copyButtonBounds = { x: copyButtonX, y: 0, width: copyLabel.length, height: 1 };
+    } else {
+      this._copyButtonBounds = { x: -1, y: -1, width: 0, height: 0 };
+    }
+    const startIndex = this.scrollTopIndex;
+    const endIndex = Math.min(startIndex + logAreaHeight, displayLineCount);
+    const visibleDisplayLines = displayLines.slice(startIndex, endIndex);
+    let lineY = 1;
+    for (let i = 0;i < visibleDisplayLines.length; i++) {
+      if (lineY >= this.consoleHeight)
+        break;
+      const displayLine = visibleDisplayLines[i];
+      const absoluteLineIndex = startIndex + i;
+      let levelColor = this._rgbaDefault;
+      switch (displayLine.level) {
+        case "INFO":
+          levelColor = this._rgbaInfo;
+          break;
+        case "WARN":
+          levelColor = this._rgbaWarn;
+          break;
+        case "ERROR":
+          levelColor = this._rgbaError;
+          break;
+        case "DEBUG":
+          levelColor = this._rgbaDebug;
+          break;
+      }
+      const linePrefix = displayLine.indent ? " ".repeat(INDENT_WIDTH) : "";
+      const textToDraw = displayLine.text;
+      const textAvailableWidth = this.consoleWidth - 1 - (displayLine.indent ? INDENT_WIDTH : 0);
+      const showCursor = this.isFocused && lineY - 1 === this.currentLineIndex;
+      if (showCursor) {
+        this.frameBuffer.drawText(">", 0, lineY, this._rgbaCursor, this.backgroundColor);
+      } else {
+        this.frameBuffer.drawText(" ", 0, lineY, this._rgbaDefault, this.backgroundColor);
+      }
+      const fullText = `${linePrefix}${textToDraw.substring(0, textAvailableWidth)}`;
+      const selectionRange = this.getLineSelectionRange(absoluteLineIndex);
+      if (selectionRange) {
+        const adjustedStart = Math.max(0, selectionRange.start);
+        const adjustedEnd = Math.min(fullText.length, selectionRange.end);
+        if (adjustedStart > 0) {
+          this.frameBuffer.drawText(fullText.substring(0, adjustedStart), 1, lineY, levelColor);
+        }
+        if (adjustedStart < adjustedEnd) {
+          this.frameBuffer.fillRect(1 + adjustedStart, lineY, adjustedEnd - adjustedStart, 1, this._rgbaSelection);
+          this.frameBuffer.drawText(fullText.substring(adjustedStart, adjustedEnd), 1 + adjustedStart, lineY, levelColor, this._rgbaSelection);
+        }
+        if (adjustedEnd < fullText.length) {
+          this.frameBuffer.drawText(fullText.substring(adjustedEnd), 1 + adjustedEnd, lineY, levelColor);
+        }
+      } else {
+        this.frameBuffer.drawText(fullText, 1, lineY, levelColor);
+      }
+      lineY++;
+    }
+  }
+  renderToBuffer(buffer) {
+    if (!this.isVisible || !this.frameBuffer)
+      return;
+    if (this._needsFrameBufferUpdate) {
+      this.updateFrameBuffer();
+      this._needsFrameBufferUpdate = false;
+    }
+    buffer.drawFrameBuffer(this.consoleX, this.consoleY, this.frameBuffer);
+  }
+  setDebugMode(enabled) {
+    this._debugModeEnabled = enabled;
+    terminalConsoleCache.setCollectCallerInfo(enabled);
+    if (this.isVisible) {
+      this.markNeedsRerender();
+    }
+  }
+  toggleDebugMode() {
+    this.setDebugMode(!this._debugModeEnabled);
+  }
+  set keyBindings(bindings) {
+    this._keyBindings = bindings;
+    this._mergedKeyBindings = mergeKeyBindings(defaultConsoleKeybindings, bindings);
+    this._keyBindingsMap = buildKeyBindingsMap(this._mergedKeyBindings, this._keyAliasMap);
+    this.markNeedsRerender();
+  }
+  set keyAliasMap(aliases) {
+    this._keyAliasMap = mergeKeyAliases(defaultKeyAliases, aliases);
+    this._mergedKeyBindings = mergeKeyBindings(defaultConsoleKeybindings, this._keyBindings);
+    this._keyBindingsMap = buildKeyBindingsMap(this._mergedKeyBindings, this._keyAliasMap);
+    this.markNeedsRerender();
+  }
+  set onCopySelection(callback) {
+    this.options.onCopySelection = callback;
+  }
+  get onCopySelection() {
+    return this.options.onCopySelection;
+  }
+  _scrollToBottom(forceCursorToLastLine = false) {
+    const displayLineCount = this._displayLines.length;
+    const logAreaHeight = Math.max(1, this.consoleHeight - 1);
+    const maxScrollTop = Math.max(0, displayLineCount - logAreaHeight);
+    this.scrollTopIndex = maxScrollTop;
+    this.isScrolledToBottom = true;
+    const visibleLineCount = Math.min(logAreaHeight, displayLineCount - this.scrollTopIndex);
+    if (forceCursorToLastLine || this.currentLineIndex >= visibleLineCount) {
+      this.currentLineIndex = Math.max(0, visibleLineCount - 1);
+    }
+  }
+  _processLogEntry(logEntry) {
+    const [date, level, args, callerInfo] = logEntry;
+    const displayLines = [];
+    const timestamp = this.formatTimestamp(date);
+    const callerSource = callerInfo ? `${callerInfo.fileName}:${callerInfo.lineNumber}` : "unknown";
+    const prefix = `[${timestamp}] [${level}]` + (this._debugModeEnabled ? ` [${callerSource}]` : "") + " ";
+    const formattedArgs = this.formatArguments(args);
+    const initialLines = formattedArgs.split(`
+`);
+    for (let i = 0;i < initialLines.length; i++) {
+      const lineText = initialLines[i];
+      const isFirstLineOfEntry = i === 0;
+      const availableWidth = this.consoleWidth - 1 - (isFirstLineOfEntry ? 0 : INDENT_WIDTH);
+      const linePrefix = isFirstLineOfEntry ? prefix : " ".repeat(INDENT_WIDTH);
+      const textToWrap = isFirstLineOfEntry ? linePrefix + lineText : lineText;
+      let currentPos = 0;
+      while (currentPos < textToWrap.length || isFirstLineOfEntry && currentPos === 0 && textToWrap.length === 0) {
+        const segment = textToWrap.substring(currentPos, currentPos + availableWidth);
+        const isFirstSegmentOfLine = currentPos === 0;
+        displayLines.push({
+          text: isFirstSegmentOfLine && !isFirstLineOfEntry ? linePrefix + segment : segment,
+          level,
+          indent: !isFirstLineOfEntry || !isFirstSegmentOfLine
+        });
+        currentPos += availableWidth;
+        if (isFirstLineOfEntry && currentPos === 0 && textToWrap.length === 0)
+          break;
+      }
+    }
+    return displayLines;
+  }
+  _processCachedLogs() {
+    const logsToProcess = [...terminalConsoleCache.cachedLogs];
+    terminalConsoleCache.clearConsole();
+    this._allLogEntries.push(...logsToProcess);
+    if (this._allLogEntries.length > this.options.maxStoredLogs) {
+      this._allLogEntries.splice(0, this._allLogEntries.length - this.options.maxStoredLogs);
+    }
+    for (const logEntry of logsToProcess) {
+      const processed = this._processLogEntry(logEntry);
+      this._displayLines.push(...processed);
+    }
+    if (this._displayLines.length > this.options.maxDisplayLines) {
+      this._displayLines.splice(0, this._displayLines.length - this.options.maxDisplayLines);
+    }
+  }
+  hasSelection() {
+    if (this._selectionStart === null || this._selectionEnd === null)
+      return false;
+    return this._selectionStart.line !== this._selectionEnd.line || this._selectionStart.col !== this._selectionEnd.col;
+  }
+  normalizeSelection() {
+    if (!this._selectionStart || !this._selectionEnd)
+      return null;
+    const start = this._selectionStart;
+    const end = this._selectionEnd;
+    const startBeforeEnd = start.line < end.line || start.line === end.line && start.col <= end.col;
+    if (startBeforeEnd) {
+      return {
+        startLine: start.line,
+        startCol: start.col,
+        endLine: end.line,
+        endCol: end.col
+      };
+    } else {
+      return {
+        startLine: end.line,
+        startCol: end.col,
+        endLine: start.line,
+        endCol: start.col
+      };
+    }
+  }
+  getSelectedText() {
+    const selection2 = this.normalizeSelection();
+    if (!selection2)
+      return "";
+    const lines = [];
+    for (let i = selection2.startLine;i <= selection2.endLine; i++) {
+      if (i < 0 || i >= this._displayLines.length)
+        continue;
+      const line = this._displayLines[i];
+      const linePrefix = line.indent ? " ".repeat(INDENT_WIDTH) : "";
+      const textAvailableWidth = this.consoleWidth - 1 - (line.indent ? INDENT_WIDTH : 0);
+      const fullText = linePrefix + line.text.substring(0, textAvailableWidth);
+      let text = fullText;
+      if (i === selection2.startLine && i === selection2.endLine) {
+        text = fullText.substring(selection2.startCol, selection2.endCol);
+      } else if (i === selection2.startLine) {
+        text = fullText.substring(selection2.startCol);
+      } else if (i === selection2.endLine) {
+        text = fullText.substring(0, selection2.endCol);
+      }
+      lines.push(text);
+    }
+    return lines.join(`
+`);
+  }
+  clearSelection() {
+    this._selectionStart = null;
+    this._selectionEnd = null;
+    this._isSelecting = false;
+    this.stopAutoScroll();
+  }
+  stopAutoScroll() {
+    if (this._autoScrollInterval !== null) {
+      clearInterval(this._autoScrollInterval);
+      this._autoScrollInterval = null;
+    }
+  }
+  startAutoScroll(direction) {
+    this.stopAutoScroll();
+    this._autoScrollInterval = setInterval(() => {
+      if (direction === "up") {
+        if (this.scrollTopIndex > 0) {
+          this.scrollTopIndex--;
+          this.isScrolledToBottom = false;
+          if (this._selectionEnd) {
+            this._selectionEnd = {
+              line: this.scrollTopIndex,
+              col: this._selectionEnd.col
+            };
+          }
+          this.markNeedsRerender();
+        } else {
+          this.stopAutoScroll();
+        }
+      } else {
+        const displayLineCount = this._displayLines.length;
+        const logAreaHeight = Math.max(1, this.consoleHeight - 1);
+        const maxScrollTop = Math.max(0, displayLineCount - logAreaHeight);
+        if (this.scrollTopIndex < maxScrollTop) {
+          this.scrollTopIndex++;
+          this.isScrolledToBottom = this.scrollTopIndex === maxScrollTop;
+          if (this._selectionEnd) {
+            const maxLine = this.scrollTopIndex + logAreaHeight - 1;
+            this._selectionEnd = {
+              line: Math.min(maxLine, displayLineCount - 1),
+              col: this._selectionEnd.col
+            };
+          }
+          this.markNeedsRerender();
+        } else {
+          this.stopAutoScroll();
+        }
+      }
+    }, 50);
+  }
+  triggerCopy() {
+    if (!this.hasSelection())
+      return;
+    const text = this.getSelectedText();
+    if (text && this.options.onCopySelection) {
+      try {
+        this.options.onCopySelection(text);
+      } catch {}
+      this.clearSelection();
+      this.markNeedsRerender();
+    }
+  }
+  getLineSelectionRange(lineIndex) {
+    const selection2 = this.normalizeSelection();
+    if (!selection2)
+      return null;
+    if (lineIndex < selection2.startLine || lineIndex > selection2.endLine) {
+      return null;
+    }
+    const line = this._displayLines[lineIndex];
+    if (!line)
+      return null;
+    const linePrefix = line.indent ? " ".repeat(INDENT_WIDTH) : "";
+    const textAvailableWidth = this.consoleWidth - 1 - (line.indent ? INDENT_WIDTH : 0);
+    const fullTextLength = linePrefix.length + Math.min(line.text.length, textAvailableWidth);
+    let start = 0;
+    let end = fullTextLength;
+    if (lineIndex === selection2.startLine) {
+      start = Math.max(0, selection2.startCol);
+    }
+    if (lineIndex === selection2.endLine) {
+      end = Math.min(fullTextLength, selection2.endCol);
+    }
+    if (start >= end)
+      return null;
+    return { start, end };
+  }
+  handleMouse(event) {
+    if (!this.isVisible)
+      return false;
+    const localX = event.x - this.consoleX;
+    const localY = event.y - this.consoleY;
+    if (localX < 0 || localX >= this.consoleWidth || localY < 0 || localY >= this.consoleHeight) {
+      return false;
+    }
+    if (event.type === "scroll" && event.scroll) {
+      if (event.scroll.direction === "up") {
+        this.scrollUp();
+      } else if (event.scroll.direction === "down") {
+        this.scrollDown();
+      }
+      return true;
+    }
+    if (localY === 0) {
+      if (event.type === "down" && event.button === 0 && localX >= this._copyButtonBounds.x && localX < this._copyButtonBounds.x + this._copyButtonBounds.width) {
+        this.triggerCopy();
+        return true;
+      }
+      return true;
+    }
+    const lineIndex = this.scrollTopIndex + (localY - 1);
+    const colIndex = Math.max(0, localX - 1);
+    if (event.type === "down" && event.button === 0) {
+      this.clearSelection();
+      this._selectionStart = { line: lineIndex, col: colIndex };
+      this._selectionEnd = { line: lineIndex, col: colIndex };
+      this._isSelecting = true;
+      this.markNeedsRerender();
+      return true;
+    }
+    if (event.type === "drag" && this._isSelecting) {
+      this._selectionEnd = { line: lineIndex, col: colIndex };
+      const logAreaHeight = Math.max(1, this.consoleHeight - 1);
+      const relativeY = localY - 1;
+      if (relativeY <= 0) {
+        this.startAutoScroll("up");
+      } else if (relativeY >= logAreaHeight - 1) {
+        this.startAutoScroll("down");
+      } else {
+        this.stopAutoScroll();
+      }
+      this.markNeedsRerender();
+      return true;
+    }
+    if (event.type === "up") {
+      if (this._isSelecting) {
+        this._selectionEnd = { line: lineIndex, col: colIndex };
+        this._isSelecting = false;
+        this.stopAutoScroll();
+        this.markNeedsRerender();
+      }
+      return true;
+    }
+    return true;
+  }
+  get visible() {
+    return this.isVisible;
+  }
+  get bounds() {
+    return {
+      x: this.consoleX,
+      y: this.consoleY,
+      width: this.consoleWidth,
+      height: this.consoleHeight
+    };
+  }
+  saveLogsToFile() {
+    try {
+      const timestamp = Date.now();
+      const filename = `_console_${timestamp}.log`;
+      const filepath = path4.join(process.cwd(), filename);
+      const allLogEntries = [...this._allLogEntries, ...terminalConsoleCache.cachedLogs];
+      const logLines = [];
+      for (const [date, level, args, callerInfo] of allLogEntries) {
+        const timestampStr = this.formatTimestamp(date);
+        const callerSource = callerInfo ? `${callerInfo.fileName}:${callerInfo.lineNumber}` : "unknown";
+        const prefix = `[${timestampStr}] [${level}]` + (this._debugModeEnabled ? ` [${callerSource}]` : "") + " ";
+        const formattedArgs = this.formatArguments(args);
+        logLines.push(prefix + formattedArgs);
+      }
+      const content = logLines.join(`
+`);
+      fs.writeFileSync(filepath, content, "utf8");
+      console.info(`Console logs saved to: ${filename}`);
+    } catch (error) {
+      console.error(`Failed to save console logs:`, error);
+    }
+  }
+}
+var ANSI = {
+  switchToAlternateScreen: "\x1B[?1049h",
+  switchToMainScreen: "\x1B[?1049l",
+  reset: "\x1B[0m",
+  scrollDown: (lines) => `\x1B[${lines}T`,
+  scrollUp: (lines) => `\x1B[${lines}S`,
+  moveCursor: (row, col) => `\x1B[${row};${col}H`,
+  moveCursorAndClear: (row, col) => `\x1B[${row};${col}H\x1B[J`,
+  setRgbBackground: (r, g, b) => `\x1B[48;2;${r};${g};${b}m`,
+  resetBackground: "\x1B[49m",
+  bracketedPasteStart: "\x1B[200~",
+  bracketedPasteEnd: "\x1B[201~"
+};
+function getObjectsInViewport(viewport, objects, direction = "column", padding = 10, minTriggerSize = 16) {
+  if (viewport.width <= 0 || viewport.height <= 0) {
+    return [];
+  }
+  if (objects.length === 0) {
+    return [];
+  }
+  if (objects.length < minTriggerSize) {
+    return objects;
+  }
+  const viewportTop = viewport.y - padding;
+  const viewportBottom = viewport.y + viewport.height + padding;
+  const viewportLeft = viewport.x - padding;
+  const viewportRight = viewport.x + viewport.width + padding;
+  const isRow = direction === "row";
+  const children = objects;
+  const totalChildren = children.length;
+  if (totalChildren === 0)
+    return [];
+  const vpStart = isRow ? viewportLeft : viewportTop;
+  const vpEnd = isRow ? viewportRight : viewportBottom;
+  let lo = 0;
+  let hi = totalChildren - 1;
+  let candidate = -1;
+  while (lo <= hi) {
+    const mid = lo + hi >> 1;
+    const c = children[mid];
+    const start = isRow ? c.x : c.y;
+    const end = isRow ? c.x + c.width : c.y + c.height;
+    if (end < vpStart) {
+      lo = mid + 1;
+    } else if (start > vpEnd) {
+      hi = mid - 1;
+    } else {
+      candidate = mid;
+      break;
+    }
+  }
+  const visibleChildren = [];
+  if (candidate === -1) {
+    candidate = lo > 0 ? lo - 1 : 0;
+  }
+  const maxLookBehind = 50;
+  let left = candidate;
+  let gapCount = 0;
+  while (left - 1 >= 0) {
+    const prev = children[left - 1];
+    const prevEnd = isRow ? prev.x + prev.width : prev.y + prev.height;
+    if (prevEnd <= vpStart) {
+      gapCount++;
+      if (gapCount >= maxLookBehind) {
+        break;
+      }
+    } else {
+      gapCount = 0;
+    }
+    left--;
+  }
+  let right = candidate + 1;
+  while (right < totalChildren) {
+    const next = children[right];
+    if ((isRow ? next.x : next.y) >= vpEnd)
+      break;
+    right++;
+  }
+  for (let i = left;i < right; i++) {
+    const child = children[i];
+    const start = isRow ? child.x : child.y;
+    const end = isRow ? child.x + child.width : child.y + child.height;
+    if (end <= vpStart)
+      continue;
+    if (start >= vpEnd)
+      break;
+    if (isRow) {
+      const childBottom = child.y + child.height;
+      if (childBottom < viewportTop)
+        continue;
+      const childTop = child.y;
+      if (childTop > viewportBottom)
+        continue;
+    } else {
+      const childRight = child.x + child.width;
+      if (childRight < viewportLeft)
+        continue;
+      const childLeft = child.x;
+      if (childLeft > viewportRight)
+        continue;
+    }
+    visibleChildren.push(child);
+  }
+  if (visibleChildren.length > 1) {
+    visibleChildren.sort((a, b) => a.zIndex > b.zIndex ? 1 : a.zIndex < b.zIndex ? -1 : 0);
+  }
+  return visibleChildren;
+}
+function isCapabilityResponse(sequence) {
+  if (/\x1b\[\?\d+(?:;\d+)*\$y/.test(sequence)) {
+    return true;
+  }
+  if (/\x1b\[1;(?!1R)\d+R/.test(sequence)) {
+    return true;
+  }
+  if (/\x1bP>\|[\s\S]*?\x1b\\/.test(sequence)) {
+    return true;
+  }
+  if (/\x1b_G[\s\S]*?\x1b\\/.test(sequence)) {
+    return true;
+  }
+  if (/\x1b\[\?\d+(?:;\d+)?u/.test(sequence)) {
+    return true;
+  }
+  if (/\x1b\[\?[0-9;]*c/.test(sequence)) {
+    return true;
+  }
+  return false;
+}
+function isPixelResolutionResponse(sequence) {
+  return /\x1b\[4;\d+;\d+t/.test(sequence);
+}
+function parsePixelResolution(sequence) {
+  const match = sequence.match(/\x1b\[4;(\d+);(\d+)t/);
+  if (match) {
+    return {
+      width: parseInt(match[2]),
+      height: parseInt(match[1])
+    };
+  }
+  return null;
+}
+registerEnvVar({
+  name: "OTUI_DUMP_CAPTURES",
+  description: "Dump captured output when the renderer exits.",
+  type: "boolean",
+  default: false
+});
+registerEnvVar({
+  name: "OTUI_NO_NATIVE_RENDER",
+  description: "Disable native rendering. This will not actually output ansi and is useful for debugging.",
+  type: "boolean",
+  default: false
+});
+registerEnvVar({
+  name: "OTUI_USE_ALTERNATE_SCREEN",
+  description: "Whether to use the console. Will not capture console output if set to false.",
+  type: "boolean",
+  default: true
+});
+registerEnvVar({
+  name: "OTUI_OVERRIDE_STDOUT",
+  description: "Override the stdout stream. This is useful for debugging.",
+  type: "boolean",
+  default: true
+});
+registerEnvVar({
+  name: "OTUI_DEBUG",
+  description: "Enable debug mode to capture all raw input for debugging purposes.",
+  type: "boolean",
+  default: false
+});
+var KITTY_FLAG_DISAMBIGUATE = 1;
+var KITTY_FLAG_EVENT_TYPES = 2;
+var KITTY_FLAG_ALTERNATE_KEYS = 4;
+var KITTY_FLAG_ALL_KEYS_AS_ESCAPES = 8;
+var KITTY_FLAG_REPORT_TEXT = 16;
+function buildKittyKeyboardFlags(config) {
+  if (!config) {
+    return 0;
+  }
+  let flags = 0;
+  if (config.disambiguate !== false) {
+    flags |= KITTY_FLAG_DISAMBIGUATE;
+  }
+  if (config.alternateKeys !== false) {
+    flags |= KITTY_FLAG_ALTERNATE_KEYS;
+  }
+  if (config.events === true) {
+    flags |= KITTY_FLAG_EVENT_TYPES;
+  }
+  if (config.allKeysAsEscapes === true) {
+    flags |= KITTY_FLAG_ALL_KEYS_AS_ESCAPES;
+  }
+  if (config.reportText === true) {
+    flags |= KITTY_FLAG_REPORT_TEXT;
+  }
+  return flags;
+}
+
+class MouseEvent {
+  type;
+  button;
+  x;
+  y;
+  source;
+  modifiers;
+  scroll;
+  target;
+  isSelecting;
+  _propagationStopped = false;
+  _defaultPrevented = false;
+  get propagationStopped() {
+    return this._propagationStopped;
+  }
+  get defaultPrevented() {
+    return this._defaultPrevented;
+  }
+  constructor(target, attributes) {
+    this.target = target;
+    this.type = attributes.type;
+    this.button = attributes.button;
+    this.x = attributes.x;
+    this.y = attributes.y;
+    this.modifiers = attributes.modifiers;
+    this.scroll = attributes.scroll;
+    this.source = attributes.source;
+    this.isSelecting = attributes.isSelecting;
+  }
+  stopPropagation() {
+    this._propagationStopped = true;
+  }
+  preventDefault() {
+    this._defaultPrevented = true;
+  }
+}
+var MouseButton;
+((MouseButton2) => {
+  MouseButton2[MouseButton2["LEFT"] = 0] = "LEFT";
+  MouseButton2[MouseButton2["MIDDLE"] = 1] = "MIDDLE";
+  MouseButton2[MouseButton2["RIGHT"] = 2] = "RIGHT";
+  MouseButton2[MouseButton2["WHEEL_UP"] = 4] = "WHEEL_UP";
+  MouseButton2[MouseButton2["WHEEL_DOWN"] = 5] = "WHEEL_DOWN";
+})(MouseButton ||= {});
+var rendererTracker = singleton("RendererTracker", () => {
+  const renderers = new Set;
+  return {
+    addRenderer: (renderer) => {
+      renderers.add(renderer);
+    },
+    removeRenderer: (renderer) => {
+      renderers.delete(renderer);
+      if (renderers.size === 0) {
+        process.stdin.pause();
+        if (hasSingleton("tree-sitter-client")) {
+          getTreeSitterClient().destroy();
+          destroySingleton("tree-sitter-client");
+        }
+      }
+    }
+  };
+});
+async function createCliRenderer(config = {}) {
+  if (process.argv.includes("--delay-start")) {
+    await new Promise((resolve4) => setTimeout(resolve4, 5000));
+  }
+  const stdin = config.stdin || process.stdin;
+  const stdout = config.stdout || process.stdout;
+  const width = stdout.columns || 80;
+  const height = stdout.rows || 24;
+  const renderHeight = config.experimental_splitHeight && config.experimental_splitHeight > 0 ? config.experimental_splitHeight : height;
+  const ziglib = resolveRenderLib();
+  const rendererPtr = ziglib.createRenderer(width, renderHeight);
+  if (!rendererPtr) {
+    throw new Error("Failed to create renderer");
+  }
+  if (config.useThread === undefined) {
+    config.useThread = true;
+  }
+  if (process.platform === "linux") {
+    config.useThread = false;
+  }
+  ziglib.setUseThread(rendererPtr, config.useThread);
+  const kittyConfig = config.useKittyKeyboard ?? {};
+  const kittyFlags = buildKittyKeyboardFlags(kittyConfig);
+  ziglib.setKittyKeyboardFlags(rendererPtr, kittyFlags);
+  const renderer = new CliRenderer(ziglib, rendererPtr, stdin, stdout, width, height, config);
+  await renderer.setupTerminal();
+  return renderer;
+}
+var CliRenderEvents;
+((CliRenderEvents2) => {
+  CliRenderEvents2["DEBUG_OVERLAY_TOGGLE"] = "debugOverlay:toggle";
+  CliRenderEvents2["DESTROY"] = "destroy";
+})(CliRenderEvents ||= {});
+var RendererControlState;
+((RendererControlState2) => {
+  RendererControlState2["IDLE"] = "idle";
+  RendererControlState2["AUTO_STARTED"] = "auto_started";
+  RendererControlState2["EXPLICIT_STARTED"] = "explicit_started";
+  RendererControlState2["EXPLICIT_PAUSED"] = "explicit_paused";
+  RendererControlState2["EXPLICIT_SUSPENDED"] = "explicit_suspended";
+  RendererControlState2["EXPLICIT_STOPPED"] = "explicit_stopped";
+})(RendererControlState ||= {});
+
+class CliRenderer extends EventEmitter9 {
+  static animationFrameId = 0;
+  lib;
+  rendererPtr;
+  stdin;
+  stdout;
+  exitOnCtrlC;
+  exitSignals;
+  _exitListenersAdded = false;
+  _isDestroyed = false;
+  nextRenderBuffer;
+  currentRenderBuffer;
+  _isRunning = false;
+  targetFps = 30;
+  maxFps = 60;
+  automaticMemorySnapshot = false;
+  memorySnapshotInterval;
+  memorySnapshotTimer = null;
+  lastMemorySnapshot = {
+    heapUsed: 0,
+    heapTotal: 0,
+    arrayBuffers: 0
+  };
+  root;
+  width;
+  height;
+  _useThread = false;
+  gatherStats = false;
+  frameTimes = [];
+  maxStatSamples = 300;
+  postProcessFns = [];
+  backgroundColor = RGBA.fromInts(0, 0, 0, 0);
+  waitingForPixelResolution = false;
+  rendering = false;
+  renderingNative = false;
+  renderTimeout = null;
+  lastTime = 0;
+  frameCount = 0;
+  lastFpsTime = 0;
+  currentFps = 0;
+  targetFrameTime = 1000 / this.targetFps;
+  minTargetFrameTime = 1000 / this.maxFps;
+  immediateRerenderRequested = false;
+  updateScheduled = false;
+  liveRequestCounter = 0;
+  _controlState = "idle";
+  frameCallbacks = [];
+  renderStats = {
+    frameCount: 0,
+    fps: 0,
+    renderTime: 0,
+    frameCallbackTime: 0
+  };
+  debugOverlay = {
+    enabled: false,
+    corner: 3
+  };
+  _console;
+  _resolution = null;
+  _keyHandler;
+  _stdinBuffer;
+  animationRequest = new Map;
+  resizeTimeoutId = null;
+  capabilityTimeoutId = null;
+  resizeDebounceDelay = 100;
+  enableMouseMovement = false;
+  _useMouse = true;
+  _useAlternateScreen = env.OTUI_USE_ALTERNATE_SCREEN;
+  _suspendedMouseEnabled = false;
+  _previousControlState = "idle";
+  capturedRenderable;
+  lastOverRenderableNum = 0;
+  lastOverRenderable;
+  currentSelection = null;
+  selectionContainers = [];
+  _splitHeight = 0;
+  renderOffset = 0;
+  _terminalWidth = 0;
+  _terminalHeight = 0;
+  _terminalIsSetup = false;
+  realStdoutWrite;
+  captureCallback = () => {
+    if (this._splitHeight > 0) {
+      this.requestRender();
+    }
+  };
+  _useConsole = true;
+  mouseParser = new MouseParser;
+  sigwinchHandler = (() => {
+    const width = this.stdout.columns || 80;
+    const height = this.stdout.rows || 24;
+    this.handleResize(width, height);
+  }).bind(this);
+  _capabilities = null;
+  _latestPointer = { x: 0, y: 0 };
+  _currentFocusedRenderable = null;
+  lifecyclePasses = new Set;
+  _openConsoleOnError = true;
+  _paletteDetector = null;
+  _cachedPalette = null;
+  _paletteDetectionPromise = null;
+  _onDestroy;
+  inputHandlers = [];
+  prependedInputHandlers = [];
+  idleResolvers = [];
+  _debugInputs = [];
+  _debugModeEnabled = env.OTUI_DEBUG;
+  handleError = ((error) => {
+    console.error(error);
+    if (this._openConsoleOnError) {
+      this.console.show();
+    }
+  }).bind(this);
+  dumpOutputCache(optionalMessage = "") {
+    const cachedLogs = this.console.getCachedLogs();
+    const capturedOutput = capture.claimOutput();
+    if (capturedOutput.length > 0 || cachedLogs.length > 0) {
+      this.realStdoutWrite.call(this.stdout, optionalMessage);
+    }
+    if (cachedLogs.length > 0) {
+      this.realStdoutWrite.call(this.stdout, `Console cache:
+`);
+      this.realStdoutWrite.call(this.stdout, cachedLogs);
+    }
+    if (capturedOutput.length > 0) {
+      this.realStdoutWrite.call(this.stdout, `
+Captured output:
+`);
+      this.realStdoutWrite.call(this.stdout, capturedOutput + `
+`);
+    }
+    this.realStdoutWrite.call(this.stdout, ANSI.reset);
+  }
+  exitHandler = (() => {
+    this.destroy();
+    if (env.OTUI_DUMP_CAPTURES) {
+      Bun.sleep(100).then(() => {
+        this.dumpOutputCache(`=== CAPTURED OUTPUT ===
+`);
+      });
+    }
+  }).bind(this);
+  warningHandler = ((warning) => {
+    console.warn(JSON.stringify(warning.message, null, 2));
+  }).bind(this);
+  get controlState() {
+    return this._controlState;
+  }
+  constructor(lib, rendererPtr, stdin, stdout, width, height, config = {}) {
+    super();
+    rendererTracker.addRenderer(this);
+    this.stdin = stdin;
+    this.stdout = stdout;
+    this.realStdoutWrite = stdout.write;
+    this.lib = lib;
+    this._terminalWidth = stdout.columns;
+    this._terminalHeight = stdout.rows;
+    this.width = width;
+    this.height = height;
+    this._useThread = config.useThread === undefined ? false : config.useThread;
+    this._splitHeight = config.experimental_splitHeight || 0;
+    if (this._splitHeight > 0) {
+      capture.on("write", this.captureCallback);
+      this.renderOffset = height - this._splitHeight;
+      this.height = this._splitHeight;
+      lib.setRenderOffset(rendererPtr, this.renderOffset);
+    }
+    this.rendererPtr = rendererPtr;
+    this.exitOnCtrlC = config.exitOnCtrlC === undefined ? true : config.exitOnCtrlC;
+    this.exitSignals = config.exitSignals || ["SIGINT", "SIGTERM", "SIGQUIT", "SIGABRT"];
+    this.resizeDebounceDelay = config.debounceDelay || 100;
+    this.targetFps = config.targetFps || 30;
+    this.maxFps = config.maxFps || 60;
+    this.targetFrameTime = 1000 / this.targetFps;
+    this.minTargetFrameTime = 1000 / this.maxFps;
+    this.memorySnapshotInterval = config.memorySnapshotInterval ?? 0;
+    this.gatherStats = config.gatherStats || false;
+    this.maxStatSamples = config.maxStatSamples || 300;
+    this.enableMouseMovement = config.enableMouseMovement ?? true;
+    this._useMouse = config.useMouse ?? true;
+    this._useAlternateScreen = config.useAlternateScreen ?? env.OTUI_USE_ALTERNATE_SCREEN;
+    this.nextRenderBuffer = this.lib.getNextBuffer(this.rendererPtr);
+    this.currentRenderBuffer = this.lib.getCurrentBuffer(this.rendererPtr);
+    this.postProcessFns = config.postProcessFns || [];
+    this.prependedInputHandlers = config.prependInputHandlers || [];
+    this.root = new RootRenderable(this);
+    if (this.memorySnapshotInterval > 0) {
+      this.startMemorySnapshotTimer();
+    }
+    if (env.OTUI_OVERRIDE_STDOUT) {
+      this.stdout.write = this.interceptStdoutWrite.bind(this);
+    }
+    process.on("SIGWINCH", this.sigwinchHandler);
+    process.on("warning", this.warningHandler);
+    process.on("uncaughtException", this.handleError);
+    process.on("unhandledRejection", this.handleError);
+    process.on("beforeExit", this.exitHandler);
+    const kittyConfig = config.useKittyKeyboard ?? {};
+    const useKittyForParsing = kittyConfig !== null;
+    this._keyHandler = new InternalKeyHandler(useKittyForParsing);
+    this._keyHandler.on("keypress", (event) => {
+      if (this.exitOnCtrlC && event.name === "c" && event.ctrl) {
+        process.nextTick(() => {
+          this.destroy();
+        });
+        return;
+      }
+    });
+    this.addExitListeners();
+    this._stdinBuffer = new StdinBuffer({ timeout: 5 });
+    this._console = new TerminalConsole(this, config.consoleOptions);
+    this.useConsole = config.useConsole ?? true;
+    this._openConsoleOnError = config.openConsoleOnError ?? true;
+    this._onDestroy = config.onDestroy;
+    global.requestAnimationFrame = (callback) => {
+      const id = CliRenderer.animationFrameId++;
+      this.animationRequest.set(id, callback);
+      this.requestLive();
+      return id;
+    };
+    global.cancelAnimationFrame = (handle) => {
+      this.animationRequest.delete(handle);
+    };
+    const window = global.window;
+    if (!window) {
+      global.window = {};
+    }
+    global.window.requestAnimationFrame = requestAnimationFrame;
+    if (env.OTUI_NO_NATIVE_RENDER) {
+      this.renderNative = () => {
+        if (this._splitHeight > 0) {
+          this.flushStdoutCache(this._splitHeight);
+        }
+      };
+    }
+    this.setupInput();
+  }
+  addExitListeners() {
+    if (this._exitListenersAdded || this.exitSignals.length === 0)
+      return;
+    this.exitSignals.forEach((signal) => {
+      process.addListener(signal, this.exitHandler);
+    });
+    this._exitListenersAdded = true;
+  }
+  removeExitListeners() {
+    if (!this._exitListenersAdded || this.exitSignals.length === 0)
+      return;
+    this.exitSignals.forEach((signal) => {
+      process.removeListener(signal, this.exitHandler);
+    });
+    this._exitListenersAdded = false;
+  }
+  get isDestroyed() {
+    return this._isDestroyed;
+  }
+  registerLifecyclePass(renderable) {
+    this.lifecyclePasses.add(renderable);
+  }
+  unregisterLifecyclePass(renderable) {
+    this.lifecyclePasses.delete(renderable);
+  }
+  getLifecyclePasses() {
+    return this.lifecyclePasses;
+  }
+  get currentFocusedRenderable() {
+    return this._currentFocusedRenderable;
+  }
+  focusRenderable(renderable) {
+    if (this._currentFocusedRenderable === renderable)
+      return;
+    if (this._currentFocusedRenderable) {
+      this._currentFocusedRenderable.blur();
+    }
+    this._currentFocusedRenderable = renderable;
+  }
+  addToHitGrid(x, y, width, height, id) {
+    if (id !== this.capturedRenderable?.num) {
+      this.lib.addToHitGrid(this.rendererPtr, x, y, width, height, id);
+    }
+  }
+  get widthMethod() {
+    const caps = this.capabilities;
+    return caps?.unicode === "wcwidth" ? "wcwidth" : "unicode";
+  }
+  writeOut(chunk, encoding, callback) {
+    return this.realStdoutWrite.call(this.stdout, chunk, encoding, callback);
+  }
+  requestRender() {
+    if (this._controlState === "explicit_suspended") {
+      return;
+    }
+    if (this._isRunning) {
+      return;
+    }
+    if (this.rendering) {
+      this.immediateRerenderRequested = true;
+      return;
+    }
+    if (!this.updateScheduled && !this.renderTimeout) {
+      this.updateScheduled = true;
+      const now = Date.now();
+      const elapsed = now - this.lastTime;
+      const delay = Math.max(this.minTargetFrameTime - elapsed, 0);
+      if (delay === 0) {
+        process.nextTick(() => this.activateFrame());
+        return;
+      }
+      setTimeout(() => this.activateFrame(), delay);
+    }
+  }
+  async activateFrame() {
+    await this.loop();
+    this.updateScheduled = false;
+    this.resolveIdleIfNeeded();
+  }
+  get useConsole() {
+    return this._useConsole;
+  }
+  set useConsole(value) {
+    this._useConsole = value;
+    if (value) {
+      this.console.activate();
+    } else {
+      this.console.deactivate();
+    }
+  }
+  get isRunning() {
+    return this._isRunning;
+  }
+  isIdleNow() {
+    return !this._isRunning && !this.rendering && !this.renderTimeout && !this.updateScheduled && !this.immediateRerenderRequested;
+  }
+  resolveIdleIfNeeded() {
+    if (!this.isIdleNow())
+      return;
+    const resolvers = this.idleResolvers.splice(0);
+    for (const resolve4 of resolvers) {
+      resolve4();
+    }
+  }
+  idle() {
+    if (this._isDestroyed)
+      return Promise.resolve();
+    if (this.isIdleNow())
+      return Promise.resolve();
+    return new Promise((resolve4) => {
+      this.idleResolvers.push(resolve4);
+    });
+  }
+  get resolution() {
+    return this._resolution;
+  }
+  get console() {
+    return this._console;
+  }
+  get keyInput() {
+    return this._keyHandler;
+  }
+  get _internalKeyInput() {
+    return this._keyHandler;
+  }
+  get terminalWidth() {
+    return this._terminalWidth;
+  }
+  get terminalHeight() {
+    return this._terminalHeight;
+  }
+  get useThread() {
+    return this._useThread;
+  }
+  get useMouse() {
+    return this._useMouse;
+  }
+  set useMouse(useMouse) {
+    if (this._useMouse === useMouse)
+      return;
+    this._useMouse = useMouse;
+    if (useMouse) {
+      this.enableMouse();
+    } else {
+      this.disableMouse();
+    }
+  }
+  get experimental_splitHeight() {
+    return this._splitHeight;
+  }
+  get liveRequestCount() {
+    return this.liveRequestCounter;
+  }
+  get currentControlState() {
+    return this._controlState;
+  }
+  get capabilities() {
+    return this._capabilities;
+  }
+  getDebugInputs() {
+    return [...this._debugInputs];
+  }
+  get useKittyKeyboard() {
+    return this.lib.getKittyKeyboardFlags(this.rendererPtr) > 0;
+  }
+  set useKittyKeyboard(use) {
+    const flags = use ? KITTY_FLAG_DISAMBIGUATE | KITTY_FLAG_ALTERNATE_KEYS : 0;
+    this.lib.setKittyKeyboardFlags(this.rendererPtr, flags);
+  }
+  set experimental_splitHeight(splitHeight) {
+    if (splitHeight < 0)
+      splitHeight = 0;
+    const prevSplitHeight = this._splitHeight;
+    if (splitHeight > 0) {
+      this._splitHeight = splitHeight;
+      this.renderOffset = this._terminalHeight - this._splitHeight;
+      this.height = this._splitHeight;
+      if (prevSplitHeight === 0) {
+        this.useConsole = false;
+        capture.on("write", this.captureCallback);
+        const freedLines = this._terminalHeight - this._splitHeight;
+        const scrollDown = ANSI.scrollDown(freedLines);
+        this.writeOut(scrollDown);
+      } else if (prevSplitHeight > this._splitHeight) {
+        const freedLines = prevSplitHeight - this._splitHeight;
+        const scrollDown = ANSI.scrollDown(freedLines);
+        this.writeOut(scrollDown);
+      } else if (prevSplitHeight < this._splitHeight) {
+        const additionalLines = this._splitHeight - prevSplitHeight;
+        const scrollUp = ANSI.scrollUp(additionalLines);
+        this.writeOut(scrollUp);
+      }
+    } else {
+      if (prevSplitHeight > 0) {
+        this.flushStdoutCache(this._terminalHeight, true);
+        capture.off("write", this.captureCallback);
+        this.useConsole = true;
+      }
+      this._splitHeight = 0;
+      this.renderOffset = 0;
+      this.height = this._terminalHeight;
+    }
+    this.width = this._terminalWidth;
+    this.lib.setRenderOffset(this.rendererPtr, this.renderOffset);
+    this.lib.resizeRenderer(this.rendererPtr, this.width, this.height);
+    this.nextRenderBuffer = this.lib.getNextBuffer(this.rendererPtr);
+    this._console.resize(this.width, this.height);
+    this.root.resize(this.width, this.height);
+    this.emit("resize", this.width, this.height);
+    this.requestRender();
+  }
+  interceptStdoutWrite = (chunk, encoding, callback) => {
+    const text = chunk.toString();
+    capture.write("stdout", text);
+    if (this._splitHeight > 0) {
+      this.requestRender();
+    }
+    if (typeof callback === "function") {
+      process.nextTick(callback);
+    }
+    return true;
+  };
+  disableStdoutInterception() {
+    this.stdout.write = this.realStdoutWrite;
+  }
+  flushStdoutCache(space, force = false) {
+    if (capture.size === 0 && !force)
+      return false;
+    const output = capture.claimOutput();
+    const rendererStartLine = this._terminalHeight - this._splitHeight;
+    const flush = ANSI.moveCursorAndClear(rendererStartLine, 1);
+    const outputLine = this._terminalHeight - this._splitHeight;
+    const move = ANSI.moveCursor(outputLine, 1);
+    let clear = "";
+    if (space > 0) {
+      const backgroundColor = this.backgroundColor.toInts();
+      const newlines = " ".repeat(this.width) + `
+`.repeat(space);
+      clear = ANSI.setRgbBackground(backgroundColor[0], backgroundColor[1], backgroundColor[2]) + newlines + ANSI.resetBackground;
+    }
+    this.writeOut(flush + move + output + clear);
+    return true;
+  }
+  enableMouse() {
+    this._useMouse = true;
+    this.lib.enableMouse(this.rendererPtr, this.enableMouseMovement);
+  }
+  disableMouse() {
+    this._useMouse = false;
+    this.capturedRenderable = undefined;
+    this.mouseParser.reset();
+    this.lib.disableMouse(this.rendererPtr);
+  }
+  enableKittyKeyboard(flags = 3) {
+    this.lib.enableKittyKeyboard(this.rendererPtr, flags);
+  }
+  disableKittyKeyboard() {
+    this.lib.disableKittyKeyboard(this.rendererPtr);
+  }
+  set useThread(useThread) {
+    this._useThread = useThread;
+    this.lib.setUseThread(this.rendererPtr, useThread);
+  }
+  async setupTerminal() {
+    if (this._terminalIsSetup)
+      return;
+    this._terminalIsSetup = true;
+    this.lib.setupTerminal(this.rendererPtr, this._useAlternateScreen);
+    this._capabilities = this.lib.getTerminalCapabilities(this.rendererPtr);
+    this.capabilityTimeoutId = setTimeout(() => {
+      this.capabilityTimeoutId = null;
+      this.removeInputHandler(this.capabilityHandler);
+    }, 5000);
+    if (this._useMouse) {
+      this.enableMouse();
+    }
+    this.queryPixelResolution();
+  }
+  stdinListener = ((data) => {
+    if (this._useMouse && this.handleMouseData(data)) {
+      return;
+    }
+    this._stdinBuffer.process(data);
+  }).bind(this);
+  addInputHandler(handler) {
+    this.inputHandlers.push(handler);
+  }
+  prependInputHandler(handler) {
+    this.inputHandlers.unshift(handler);
+  }
+  removeInputHandler(handler) {
+    this.inputHandlers = this.inputHandlers.filter((h2) => h2 !== handler);
+  }
+  capabilityHandler = ((sequence) => {
+    if (isCapabilityResponse(sequence)) {
+      this.lib.processCapabilityResponse(this.rendererPtr, sequence);
+      this._capabilities = this.lib.getTerminalCapabilities(this.rendererPtr);
+      this.emit("capabilities", this._capabilities);
+      return true;
+    }
+    return false;
+  }).bind(this);
+  focusHandler = ((sequence) => {
+    if (sequence === "\x1B[I") {
+      this.emit("focus");
+      return true;
+    }
+    if (sequence === "\x1B[O") {
+      this.emit("blur");
+      return true;
+    }
+    return false;
+  }).bind(this);
+  setupInput() {
+    for (const handler of this.prependedInputHandlers) {
+      this.addInputHandler(handler);
+    }
+    this.addInputHandler((sequence) => {
+      if (isPixelResolutionResponse(sequence) && this.waitingForPixelResolution) {
+        const resolution = parsePixelResolution(sequence);
+        if (resolution) {
+          this._resolution = resolution;
+          this.waitingForPixelResolution = false;
+        }
+        return true;
+      }
+      return false;
+    });
+    this.addInputHandler(this.capabilityHandler);
+    this.addInputHandler(this.focusHandler);
+    this.addInputHandler((sequence) => {
+      return this._keyHandler.processInput(sequence);
+    });
+    if (this.stdin.setRawMode) {
+      this.stdin.setRawMode(true);
+    }
+    this.stdin.resume();
+    this.stdin.setEncoding("utf8");
+    this.stdin.on("data", this.stdinListener);
+    this._stdinBuffer.on("data", (sequence) => {
+      if (this._debugModeEnabled) {
+        this._debugInputs.push({
+          timestamp: new Date().toISOString(),
+          sequence
+        });
+      }
+      for (const handler of this.inputHandlers) {
+        if (handler(sequence)) {
+          return;
+        }
+      }
+    });
+    this._stdinBuffer.on("paste", (data) => {
+      this._keyHandler.processPaste(data);
+    });
+  }
+  handleMouseData(data) {
+    const mouseEvent = this.mouseParser.parseMouseEvent(data);
+    if (mouseEvent) {
+      if (this._splitHeight > 0) {
+        if (mouseEvent.y < this.renderOffset) {
+          return false;
+        }
+        mouseEvent.y -= this.renderOffset;
+      }
+      this._latestPointer.x = mouseEvent.x;
+      this._latestPointer.y = mouseEvent.y;
+      if (this._console.visible) {
+        const consoleBounds = this._console.bounds;
+        if (mouseEvent.x >= consoleBounds.x && mouseEvent.x < consoleBounds.x + consoleBounds.width && mouseEvent.y >= consoleBounds.y && mouseEvent.y < consoleBounds.y + consoleBounds.height) {
+          const event2 = new MouseEvent(null, mouseEvent);
+          const handled = this._console.handleMouse(event2);
+          if (handled)
+            return true;
+        }
+      }
+      if (mouseEvent.type === "scroll") {
+        const maybeRenderableId2 = this.lib.checkHit(this.rendererPtr, mouseEvent.x, mouseEvent.y);
+        const maybeRenderable2 = Renderable.renderablesByNumber.get(maybeRenderableId2);
+        if (maybeRenderable2) {
+          const event2 = new MouseEvent(maybeRenderable2, mouseEvent);
+          maybeRenderable2.processMouseEvent(event2);
+        }
+        return true;
+      }
+      const maybeRenderableId = this.lib.checkHit(this.rendererPtr, mouseEvent.x, mouseEvent.y);
+      const sameElement = maybeRenderableId === this.lastOverRenderableNum;
+      this.lastOverRenderableNum = maybeRenderableId;
+      const maybeRenderable = Renderable.renderablesByNumber.get(maybeRenderableId);
+      if (mouseEvent.type === "down" && mouseEvent.button === 0 && !this.currentSelection?.isSelecting && !mouseEvent.modifiers.ctrl) {
+        if (maybeRenderable && maybeRenderable.selectable && !maybeRenderable.isDestroyed && maybeRenderable.shouldStartSelection(mouseEvent.x, mouseEvent.y)) {
+          this.startSelection(maybeRenderable, mouseEvent.x, mouseEvent.y);
+          const event2 = new MouseEvent(maybeRenderable, mouseEvent);
+          maybeRenderable.processMouseEvent(event2);
+          return true;
+        }
+      }
+      if (mouseEvent.type === "drag" && this.currentSelection?.isSelecting) {
+        this.updateSelection(maybeRenderable, mouseEvent.x, mouseEvent.y);
+        if (maybeRenderable) {
+          const event2 = new MouseEvent(maybeRenderable, { ...mouseEvent, isSelecting: true });
+          maybeRenderable.processMouseEvent(event2);
+        }
+        return true;
+      }
+      if (mouseEvent.type === "up" && this.currentSelection?.isSelecting) {
+        if (maybeRenderable) {
+          const event2 = new MouseEvent(maybeRenderable, { ...mouseEvent, isSelecting: true });
+          maybeRenderable.processMouseEvent(event2);
+        }
+        this.finishSelection();
+        return true;
+      }
+      if (mouseEvent.type === "down" && mouseEvent.button === 0 && this.currentSelection) {
+        if (mouseEvent.modifiers.ctrl) {
+          this.currentSelection.isSelecting = true;
+          this.updateSelection(maybeRenderable, mouseEvent.x, mouseEvent.y);
+          return true;
+        }
+      }
+      if (!sameElement && (mouseEvent.type === "drag" || mouseEvent.type === "move")) {
+        if (this.lastOverRenderable && this.lastOverRenderable !== this.capturedRenderable) {
+          const event2 = new MouseEvent(this.lastOverRenderable, { ...mouseEvent, type: "out" });
+          this.lastOverRenderable.processMouseEvent(event2);
+        }
+        this.lastOverRenderable = maybeRenderable;
+        if (maybeRenderable) {
+          const event2 = new MouseEvent(maybeRenderable, {
+            ...mouseEvent,
+            type: "over",
+            source: this.capturedRenderable
+          });
+          maybeRenderable.processMouseEvent(event2);
+        }
+      }
+      if (this.capturedRenderable && mouseEvent.type !== "up") {
+        const event2 = new MouseEvent(this.capturedRenderable, mouseEvent);
+        this.capturedRenderable.processMouseEvent(event2);
+        return true;
+      }
+      if (this.capturedRenderable && mouseEvent.type === "up") {
+        const event2 = new MouseEvent(this.capturedRenderable, { ...mouseEvent, type: "drag-end" });
+        this.capturedRenderable.processMouseEvent(event2);
+        this.capturedRenderable.processMouseEvent(new MouseEvent(this.capturedRenderable, mouseEvent));
+        if (maybeRenderable) {
+          const event3 = new MouseEvent(maybeRenderable, {
+            ...mouseEvent,
+            type: "drop",
+            source: this.capturedRenderable
+          });
+          maybeRenderable.processMouseEvent(event3);
+        }
+        this.lastOverRenderable = this.capturedRenderable;
+        this.lastOverRenderableNum = this.capturedRenderable.num;
+        this.capturedRenderable = undefined;
+        this.requestRender();
+      }
+      let event = undefined;
+      if (maybeRenderable) {
+        if (mouseEvent.type === "drag" && mouseEvent.button === 0) {
+          this.capturedRenderable = maybeRenderable;
+        } else {
+          this.capturedRenderable = undefined;
+        }
+        event = new MouseEvent(maybeRenderable, mouseEvent);
+        maybeRenderable.processMouseEvent(event);
+      } else {
+        this.capturedRenderable = undefined;
+        this.lastOverRenderable = undefined;
+      }
+      if (!event?.defaultPrevented && mouseEvent.type === "down" && this.currentSelection) {
+        this.clearSelection();
+      }
+      return true;
+    }
+    return false;
+  }
+  takeMemorySnapshot() {
+    if (this._isDestroyed)
+      return;
+    const memoryUsage = process.memoryUsage();
+    this.lastMemorySnapshot = {
+      heapUsed: memoryUsage.heapUsed,
+      heapTotal: memoryUsage.heapTotal,
+      arrayBuffers: memoryUsage.arrayBuffers
+    };
+    this.lib.updateMemoryStats(this.rendererPtr, this.lastMemorySnapshot.heapUsed, this.lastMemorySnapshot.heapTotal, this.lastMemorySnapshot.arrayBuffers);
+    this.emit("memory:snapshot", this.lastMemorySnapshot);
+  }
+  startMemorySnapshotTimer() {
+    this.stopMemorySnapshotTimer();
+    this.memorySnapshotTimer = setInterval(() => {
+      this.takeMemorySnapshot();
+    }, this.memorySnapshotInterval);
+  }
+  stopMemorySnapshotTimer() {
+    if (this.memorySnapshotTimer) {
+      clearInterval(this.memorySnapshotTimer);
+      this.memorySnapshotTimer = null;
+    }
+  }
+  setMemorySnapshotInterval(interval) {
+    this.memorySnapshotInterval = interval;
+    if (this._isRunning && interval > 0) {
+      this.startMemorySnapshotTimer();
+    } else if (interval <= 0 && this.memorySnapshotTimer) {
+      clearInterval(this.memorySnapshotTimer);
+      this.memorySnapshotTimer = null;
+    }
+  }
+  handleResize(width, height) {
+    if (this._isDestroyed)
+      return;
+    if (this._splitHeight > 0) {
+      this.processResize(width, height);
+      return;
+    }
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+      this.resizeTimeoutId = null;
+    }
+    this.resizeTimeoutId = setTimeout(() => {
+      this.resizeTimeoutId = null;
+      this.processResize(width, height);
+    }, this.resizeDebounceDelay);
+  }
+  queryPixelResolution() {
+    this.waitingForPixelResolution = true;
+    this.lib.queryPixelResolution(this.rendererPtr);
+  }
+  processResize(width, height) {
+    if (width === this._terminalWidth && height === this._terminalHeight)
+      return;
+    const prevWidth = this._terminalWidth;
+    this._terminalWidth = width;
+    this._terminalHeight = height;
+    this.queryPixelResolution();
+    this.capturedRenderable = undefined;
+    this.mouseParser.reset();
+    if (this._splitHeight > 0) {
+      if (width < prevWidth) {
+        const start = this._terminalHeight - this._splitHeight * 2;
+        const flush = ANSI.moveCursorAndClear(start, 1);
+        this.writeOut(flush);
+      }
+      this.renderOffset = height - this._splitHeight;
+      this.width = width;
+      this.height = this._splitHeight;
+      this.currentRenderBuffer.clear(this.backgroundColor);
+      this.lib.setRenderOffset(this.rendererPtr, this.renderOffset);
+    } else {
+      this.width = width;
+      this.height = height;
+    }
+    this.lib.resizeRenderer(this.rendererPtr, this.width, this.height);
+    this.nextRenderBuffer = this.lib.getNextBuffer(this.rendererPtr);
+    this.currentRenderBuffer = this.lib.getCurrentBuffer(this.rendererPtr);
+    this._console.resize(this.width, this.height);
+    this.root.resize(this.width, this.height);
+    this.emit("resize", this.width, this.height);
+    this.requestRender();
+  }
+  setBackgroundColor(color) {
+    const parsedColor = parseColor(color);
+    this.lib.setBackgroundColor(this.rendererPtr, parsedColor);
+    this.backgroundColor = parsedColor;
+    this.nextRenderBuffer.clear(parsedColor);
+    this.requestRender();
+  }
+  toggleDebugOverlay() {
+    const willBeEnabled = !this.debugOverlay.enabled;
+    if (willBeEnabled && !this.memorySnapshotInterval) {
+      this.memorySnapshotInterval = 3000;
+      this.startMemorySnapshotTimer();
+      this.automaticMemorySnapshot = true;
+    } else if (!willBeEnabled && this.automaticMemorySnapshot) {
+      this.stopMemorySnapshotTimer();
+      this.memorySnapshotInterval = 0;
+      this.automaticMemorySnapshot = false;
+    }
+    this.debugOverlay.enabled = !this.debugOverlay.enabled;
+    this.lib.setDebugOverlay(this.rendererPtr, this.debugOverlay.enabled, this.debugOverlay.corner);
+    this.emit("debugOverlay:toggle", this.debugOverlay.enabled);
+    this.requestRender();
+  }
+  configureDebugOverlay(options) {
+    this.debugOverlay.enabled = options.enabled ?? this.debugOverlay.enabled;
+    this.debugOverlay.corner = options.corner ?? this.debugOverlay.corner;
+    this.lib.setDebugOverlay(this.rendererPtr, this.debugOverlay.enabled, this.debugOverlay.corner);
+    this.requestRender();
+  }
+  setTerminalTitle(title) {
+    this.lib.setTerminalTitle(this.rendererPtr, title);
+  }
+  dumpHitGrid() {
+    this.lib.dumpHitGrid(this.rendererPtr);
+  }
+  dumpBuffers(timestamp) {
+    this.lib.dumpBuffers(this.rendererPtr, timestamp);
+  }
+  dumpStdoutBuffer(timestamp) {
+    this.lib.dumpStdoutBuffer(this.rendererPtr, timestamp);
+  }
+  static setCursorPosition(renderer, x, y, visible = true) {
+    const lib = resolveRenderLib();
+    lib.setCursorPosition(renderer.rendererPtr, x, y, visible);
+  }
+  static setCursorStyle(renderer, style, blinking = false, color) {
+    const lib = resolveRenderLib();
+    lib.setCursorStyle(renderer.rendererPtr, style, blinking);
+    if (color) {
+      lib.setCursorColor(renderer.rendererPtr, color);
+    }
+  }
+  static setCursorColor(renderer, color) {
+    const lib = resolveRenderLib();
+    lib.setCursorColor(renderer.rendererPtr, color);
+  }
+  setCursorPosition(x, y, visible = true) {
+    this.lib.setCursorPosition(this.rendererPtr, x, y, visible);
+  }
+  setCursorStyle(style, blinking = false, color) {
+    this.lib.setCursorStyle(this.rendererPtr, style, blinking);
+    if (color) {
+      this.lib.setCursorColor(this.rendererPtr, color);
+    }
+  }
+  setCursorColor(color) {
+    this.lib.setCursorColor(this.rendererPtr, color);
+  }
+  getCursorState() {
+    return this.lib.getCursorState(this.rendererPtr);
+  }
+  addPostProcessFn(processFn) {
+    this.postProcessFns.push(processFn);
+  }
+  removePostProcessFn(processFn) {
+    this.postProcessFns = this.postProcessFns.filter((fn) => fn !== processFn);
+  }
+  clearPostProcessFns() {
+    this.postProcessFns = [];
+  }
+  setFrameCallback(callback) {
+    this.frameCallbacks.push(callback);
+  }
+  removeFrameCallback(callback) {
+    this.frameCallbacks = this.frameCallbacks.filter((cb) => cb !== callback);
+  }
+  clearFrameCallbacks() {
+    this.frameCallbacks = [];
+  }
+  requestLive() {
+    this.liveRequestCounter++;
+    if (this._controlState === "idle" && this.liveRequestCounter > 0) {
+      this._controlState = "auto_started";
+      this.internalStart();
+    }
+  }
+  dropLive() {
+    this.liveRequestCounter = Math.max(0, this.liveRequestCounter - 1);
+    if (this._controlState === "auto_started" && this.liveRequestCounter === 0) {
+      this._controlState = "idle";
+      this.internalPause();
+    }
+  }
+  start() {
+    this._controlState = "explicit_started";
+    this.internalStart();
+  }
+  auto() {
+    this._controlState = this._isRunning ? "auto_started" : "idle";
+  }
+  internalStart() {
+    if (!this._isRunning && !this._isDestroyed) {
+      this._isRunning = true;
+      if (this.memorySnapshotInterval > 0) {
+        this.startMemorySnapshotTimer();
+      }
+      this.startRenderLoop();
+    }
+  }
+  pause() {
+    this._controlState = "explicit_paused";
+    this.internalPause();
+  }
+  suspend() {
+    this._previousControlState = this._controlState;
+    this._controlState = "explicit_suspended";
+    this.internalPause();
+    this._suspendedMouseEnabled = this._useMouse;
+    this.disableMouse();
+    this.removeExitListeners();
+    this._stdinBuffer.clear();
+    this.stdin.removeListener("data", this.stdinListener);
+    this.lib.suspendRenderer(this.rendererPtr);
+    if (this.stdin.setRawMode) {
+      this.stdin.setRawMode(false);
+    }
+    this.stdin.pause();
+  }
+  resume() {
+    if (this.stdin.setRawMode) {
+      this.stdin.setRawMode(true);
+    }
+    this.stdin.resume();
+    this.addExitListeners();
+    setImmediate(() => {
+      while (this.stdin.read() !== null) {}
+      this.stdin.on("data", this.stdinListener);
+    });
+    this.lib.resumeRenderer(this.rendererPtr);
+    if (this._suspendedMouseEnabled) {
+      this.enableMouse();
+    }
+    this.currentRenderBuffer.clear(this.backgroundColor);
+    this._controlState = this._previousControlState;
+    if (this._previousControlState === "auto_started" || this._previousControlState === "explicit_started") {
+      this.internalStart();
+    } else {
+      this.requestRender();
+    }
+  }
+  internalPause() {
+    this._isRunning = false;
+  }
+  stop() {
+    this._controlState = "explicit_stopped";
+    this.internalStop();
+  }
+  internalStop() {
+    if (this.isRunning && !this._isDestroyed) {
+      this._isRunning = false;
+      if (this.memorySnapshotTimer) {
+        clearInterval(this.memorySnapshotTimer);
+        this.memorySnapshotTimer = null;
+      }
+      if (this.renderTimeout) {
+        clearTimeout(this.renderTimeout);
+        this.renderTimeout = null;
+      }
+      if (!this.rendering) {
+        this.resolveIdleIfNeeded();
+      }
+    }
+  }
+  destroy() {
+    if (this._isDestroyed)
+      return;
+    this._isDestroyed = true;
+    process.removeListener("SIGWINCH", this.sigwinchHandler);
+    process.removeListener("uncaughtException", this.handleError);
+    process.removeListener("unhandledRejection", this.handleError);
+    process.removeListener("warning", this.warningHandler);
+    process.removeListener("beforeExit", this.exitHandler);
+    capture.removeListener("write", this.captureCallback);
+    this.removeExitListeners();
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+      this.resizeTimeoutId = null;
+    }
+    if (this.capabilityTimeoutId !== null) {
+      clearTimeout(this.capabilityTimeoutId);
+      this.capabilityTimeoutId = null;
+    }
+    if (this.memorySnapshotTimer) {
+      clearInterval(this.memorySnapshotTimer);
+    }
+    if (this._paletteDetector) {
+      this._paletteDetector.cleanup();
+      this._paletteDetector = null;
+    }
+    this._paletteDetectionPromise = null;
+    this._cachedPalette = null;
+    this.emit("destroy");
+    if (this.renderTimeout) {
+      clearTimeout(this.renderTimeout);
+      this.renderTimeout = null;
+    }
+    this._isRunning = false;
+    this.waitingForPixelResolution = false;
+    this.capturedRenderable = undefined;
+    try {
+      this.root.destroyRecursively();
+    } catch (e) {
+      console.error("Error destroying root renderable:", e instanceof Error ? e.stack : String(e));
+    }
+    this._stdinBuffer.destroy();
+    this._console.destroy();
+    this.disableStdoutInterception();
+    if (this._splitHeight > 0) {
+      this.flushStdoutCache(this._splitHeight, true);
+    }
+    if (this.stdin.setRawMode) {
+      this.stdin.setRawMode(false);
+    }
+    this.stdin.removeListener("data", this.stdinListener);
+    this.lib.destroyRenderer(this.rendererPtr);
+    rendererTracker.removeRenderer(this);
+    if (this._onDestroy) {
+      try {
+        this._onDestroy();
+      } catch (e) {
+        console.error("Error in onDestroy callback:", e instanceof Error ? e.stack : String(e));
+      }
+    }
+    this.resolveIdleIfNeeded();
+  }
+  startRenderLoop() {
+    if (!this._isRunning)
+      return;
+    this.lastTime = Date.now();
+    this.frameCount = 0;
+    this.lastFpsTime = this.lastTime;
+    this.currentFps = 0;
+    this.loop();
+  }
+  async loop() {
+    if (this.rendering || this._isDestroyed)
+      return;
+    this.renderTimeout = null;
+    this.rendering = true;
+    if (this.renderTimeout) {
+      clearTimeout(this.renderTimeout);
+      this.renderTimeout = null;
+    }
+    const now = Date.now();
+    const elapsed = now - this.lastTime;
+    const deltaTime = elapsed;
+    this.lastTime = now;
+    this.frameCount++;
+    if (now - this.lastFpsTime >= 1000) {
+      this.currentFps = this.frameCount;
+      this.frameCount = 0;
+      this.lastFpsTime = now;
+    }
+    this.renderStats.frameCount++;
+    this.renderStats.fps = this.currentFps;
+    const overallStart = performance.now();
+    const frameRequests = Array.from(this.animationRequest.values());
+    this.animationRequest.clear();
+    const animationRequestStart = performance.now();
+    frameRequests.forEach((callback) => {
+      callback(deltaTime);
+      this.dropLive();
+    });
+    const animationRequestEnd = performance.now();
+    const animationRequestTime = animationRequestEnd - animationRequestStart;
+    const start = performance.now();
+    for (const frameCallback of this.frameCallbacks) {
+      try {
+        await frameCallback(deltaTime);
+      } catch (error) {
+        console.error("Error in frame callback:", error);
+      }
+    }
+    const end = performance.now();
+    this.renderStats.frameCallbackTime = end - start;
+    this.root.render(this.nextRenderBuffer, deltaTime);
+    for (const postProcessFn of this.postProcessFns) {
+      postProcessFn(this.nextRenderBuffer, deltaTime);
+    }
+    this._console.renderToBuffer(this.nextRenderBuffer);
+    if (!this._isDestroyed) {
+      this.renderNative();
+      const overallFrameTime = performance.now() - overallStart;
+      this.lib.updateStats(this.rendererPtr, overallFrameTime, this.renderStats.fps, this.renderStats.frameCallbackTime);
+      if (this.gatherStats) {
+        this.collectStatSample(overallFrameTime);
+      }
+      if (this._isRunning || this.immediateRerenderRequested) {
+        const targetFrameTime = this.immediateRerenderRequested ? this.minTargetFrameTime : this.targetFrameTime;
+        const delay = Math.max(1, targetFrameTime - Math.floor(overallFrameTime));
+        this.immediateRerenderRequested = false;
+        this.renderTimeout = setTimeout(() => {
+          this.renderTimeout = null;
+          this.loop();
+        }, delay);
+      } else {
+        clearTimeout(this.renderTimeout);
+        this.renderTimeout = null;
+      }
+    }
+    this.rendering = false;
+    this.resolveIdleIfNeeded();
+  }
+  intermediateRender() {
+    this.immediateRerenderRequested = true;
+    this.loop();
+  }
+  renderNative() {
+    if (this.renderingNative) {
+      console.error("Rendering called concurrently");
+      throw new Error("Rendering called concurrently");
+    }
+    let force = false;
+    if (this._splitHeight > 0) {
+      force = this.flushStdoutCache(this._splitHeight);
+    }
+    this.renderingNative = true;
+    this.lib.render(this.rendererPtr, force);
+    this.renderingNative = false;
+  }
+  collectStatSample(frameTime) {
+    this.frameTimes.push(frameTime);
+    if (this.frameTimes.length > this.maxStatSamples) {
+      this.frameTimes.shift();
+    }
+  }
+  getStats() {
+    const frameTimes = [...this.frameTimes];
+    const sum = frameTimes.reduce((acc, time) => acc + time, 0);
+    const avg = frameTimes.length ? sum / frameTimes.length : 0;
+    const min = frameTimes.length ? Math.min(...frameTimes) : 0;
+    const max = frameTimes.length ? Math.max(...frameTimes) : 0;
+    return {
+      fps: this.renderStats.fps,
+      frameCount: this.renderStats.frameCount,
+      frameTimes,
+      averageFrameTime: avg,
+      minFrameTime: min,
+      maxFrameTime: max
+    };
+  }
+  resetStats() {
+    this.frameTimes = [];
+    this.renderStats.frameCount = 0;
+  }
+  setGatherStats(enabled) {
+    this.gatherStats = enabled;
+    if (!enabled) {
+      this.frameTimes = [];
+    }
+  }
+  getSelection() {
+    return this.currentSelection;
+  }
+  get hasSelection() {
+    return !!this.currentSelection;
+  }
+  getSelectionContainer() {
+    return this.selectionContainers.length > 0 ? this.selectionContainers[this.selectionContainers.length - 1] : null;
+  }
+  clearSelection() {
+    if (this.currentSelection) {
+      for (const renderable of this.currentSelection.touchedRenderables) {
+        if (renderable.selectable && !renderable.isDestroyed) {
+          renderable.onSelectionChanged(null);
+        }
+      }
+      this.currentSelection = null;
+    }
+    this.selectionContainers = [];
+  }
+  startSelection(renderable, x, y) {
+    if (!renderable.selectable)
+      return;
+    this.clearSelection();
+    this.selectionContainers.push(renderable.parent || this.root);
+    this.currentSelection = new Selection(renderable, { x, y }, { x, y });
+    this.currentSelection.isStart = true;
+    this.notifySelectablesOfSelectionChange();
+  }
+  updateSelection(currentRenderable, x, y) {
+    if (this.currentSelection) {
+      this.currentSelection.isStart = false;
+      this.currentSelection.focus = { x, y };
+      if (this.selectionContainers.length > 0) {
+        const currentContainer = this.selectionContainers[this.selectionContainers.length - 1];
+        if (!currentRenderable || !this.isWithinContainer(currentRenderable, currentContainer)) {
+          const parentContainer = currentContainer.parent || this.root;
+          this.selectionContainers.push(parentContainer);
+        } else if (currentRenderable && this.selectionContainers.length > 1) {
+          let containerIndex = this.selectionContainers.indexOf(currentRenderable);
+          if (containerIndex === -1) {
+            const immediateParent = currentRenderable.parent || this.root;
+            containerIndex = this.selectionContainers.indexOf(immediateParent);
+          }
+          if (containerIndex !== -1 && containerIndex < this.selectionContainers.length - 1) {
+            this.selectionContainers = this.selectionContainers.slice(0, containerIndex + 1);
+          }
+        }
+      }
+      this.notifySelectablesOfSelectionChange();
+    }
+  }
+  requestSelectionUpdate() {
+    if (this.currentSelection?.isSelecting) {
+      const pointer = this._latestPointer;
+      const maybeRenderableId = this.lib.checkHit(this.rendererPtr, pointer.x, pointer.y);
+      const maybeRenderable = Renderable.renderablesByNumber.get(maybeRenderableId);
+      this.updateSelection(maybeRenderable, pointer.x, pointer.y);
+    }
+  }
+  isWithinContainer(renderable, container) {
+    let current = renderable;
+    while (current) {
+      if (current === container)
+        return true;
+      current = current.parent;
+    }
+    return false;
+  }
+  finishSelection() {
+    if (this.currentSelection) {
+      this.currentSelection.isSelecting = false;
+      this.emit("selection", this.currentSelection);
+      this.notifySelectablesOfSelectionChange();
+    }
+  }
+  notifySelectablesOfSelectionChange() {
+    const selectedRenderables = [];
+    const touchedRenderables = [];
+    const currentContainer = this.selectionContainers.length > 0 ? this.selectionContainers[this.selectionContainers.length - 1] : this.root;
+    if (this.currentSelection) {
+      this.walkSelectableRenderables(currentContainer, this.currentSelection.bounds, selectedRenderables, touchedRenderables);
+      for (const renderable of this.currentSelection.touchedRenderables) {
+        if (!touchedRenderables.includes(renderable) && !renderable.isDestroyed) {
+          renderable.onSelectionChanged(null);
+        }
+      }
+      this.currentSelection.updateSelectedRenderables(selectedRenderables);
+      this.currentSelection.updateTouchedRenderables(touchedRenderables);
+    }
+  }
+  walkSelectableRenderables(container, selectionBounds, selectedRenderables, touchedRenderables) {
+    const children = getObjectsInViewport(selectionBounds, container.getChildrenSortedByPrimaryAxis(), container.primaryAxis, 0, 0);
+    for (const child of children) {
+      if (child.selectable) {
+        const hasSelection = child.onSelectionChanged(this.currentSelection);
+        if (hasSelection) {
+          selectedRenderables.push(child);
+        }
+        touchedRenderables.push(child);
+      }
+      if (child.getChildrenCount() > 0) {
+        this.walkSelectableRenderables(child, selectionBounds, selectedRenderables, touchedRenderables);
+      }
+    }
+  }
+  get paletteDetectionStatus() {
+    if (this._cachedPalette)
+      return "cached";
+    if (this._paletteDetectionPromise)
+      return "detecting";
+    return "idle";
+  }
+  clearPaletteCache() {
+    this._cachedPalette = null;
+  }
+  async getPalette(options) {
+    if (this._controlState === "explicit_suspended") {
+      throw new Error("Cannot detect palette while renderer is suspended");
+    }
+    const requestedSize = options?.size ?? 16;
+    if (this._cachedPalette && this._cachedPalette.palette.length !== requestedSize) {
+      this._cachedPalette = null;
+    }
+    if (this._cachedPalette) {
+      return this._cachedPalette;
+    }
+    if (this._paletteDetectionPromise) {
+      return this._paletteDetectionPromise;
+    }
+    if (!this._paletteDetector) {
+      const isLegacyTmux = this.capabilities?.terminal?.name?.toLowerCase()?.includes("tmux") && this.capabilities?.terminal?.version?.localeCompare("3.6") < 0;
+      this._paletteDetector = createTerminalPalette(this.stdin, this.stdout, this.writeOut.bind(this), isLegacyTmux);
+    }
+    this._paletteDetectionPromise = this._paletteDetector.detect(options).then((result) => {
+      this._cachedPalette = result;
+      this._paletteDetectionPromise = null;
+      return result;
+    });
+    return this._paletteDetectionPromise;
+  }
+}
+
+// node_modules/@opentui/core/index.js
+import { EventEmitter as EventEmitter10 } from "events";
+
+class TextBufferView {
+  lib;
+  viewPtr;
+  textBuffer;
+  _destroyed = false;
+  constructor(lib, ptr4, textBuffer) {
+    this.lib = lib;
+    this.viewPtr = ptr4;
+    this.textBuffer = textBuffer;
+  }
+  static create(textBuffer) {
+    const lib = resolveRenderLib();
+    const viewPtr = lib.createTextBufferView(textBuffer.ptr);
+    return new TextBufferView(lib, viewPtr, textBuffer);
+  }
+  guard() {
+    if (this._destroyed)
+      throw new Error("TextBufferView is destroyed");
+  }
+  get ptr() {
+    this.guard();
+    return this.viewPtr;
+  }
+  setSelection(start, end, bgColor, fgColor) {
+    this.guard();
+    this.lib.textBufferViewSetSelection(this.viewPtr, start, end, bgColor || null, fgColor || null);
+  }
+  updateSelection(end, bgColor, fgColor) {
+    this.guard();
+    this.lib.textBufferViewUpdateSelection(this.viewPtr, end, bgColor || null, fgColor || null);
+  }
+  resetSelection() {
+    this.guard();
+    this.lib.textBufferViewResetSelection(this.viewPtr);
+  }
+  getSelection() {
+    this.guard();
+    return this.lib.textBufferViewGetSelection(this.viewPtr);
+  }
+  hasSelection() {
+    this.guard();
+    return this.getSelection() !== null;
+  }
+  setLocalSelection(anchorX, anchorY, focusX, focusY, bgColor, fgColor) {
+    this.guard();
+    return this.lib.textBufferViewSetLocalSelection(this.viewPtr, anchorX, anchorY, focusX, focusY, bgColor || null, fgColor || null);
+  }
+  updateLocalSelection(anchorX, anchorY, focusX, focusY, bgColor, fgColor) {
+    this.guard();
+    return this.lib.textBufferViewUpdateLocalSelection(this.viewPtr, anchorX, anchorY, focusX, focusY, bgColor || null, fgColor || null);
+  }
+  resetLocalSelection() {
+    this.guard();
+    this.lib.textBufferViewResetLocalSelection(this.viewPtr);
+  }
+  setWrapWidth(width) {
+    this.guard();
+    this.lib.textBufferViewSetWrapWidth(this.viewPtr, width ?? 0);
+  }
+  setWrapMode(mode) {
+    this.guard();
+    this.lib.textBufferViewSetWrapMode(this.viewPtr, mode);
+  }
+  setViewportSize(width, height) {
+    this.guard();
+    this.lib.textBufferViewSetViewportSize(this.viewPtr, width, height);
+  }
+  setViewport(x, y, width, height) {
+    this.guard();
+    this.lib.textBufferViewSetViewport(this.viewPtr, x, y, width, height);
+  }
+  get lineInfo() {
+    this.guard();
+    return this.lib.textBufferViewGetLineInfo(this.viewPtr);
+  }
+  get logicalLineInfo() {
+    this.guard();
+    return this.lib.textBufferViewGetLogicalLineInfo(this.viewPtr);
+  }
+  getSelectedText() {
+    this.guard();
+    const byteSize = this.textBuffer.byteSize;
+    if (byteSize === 0)
+      return "";
+    const selectedBytes = this.lib.textBufferViewGetSelectedTextBytes(this.viewPtr, byteSize);
+    if (!selectedBytes)
+      return "";
+    return this.lib.decoder.decode(selectedBytes);
+  }
+  getPlainText() {
+    this.guard();
+    const byteSize = this.textBuffer.byteSize;
+    if (byteSize === 0)
+      return "";
+    const plainBytes = this.lib.textBufferViewGetPlainTextBytes(this.viewPtr, byteSize);
+    if (!plainBytes)
+      return "";
+    return this.lib.decoder.decode(plainBytes);
+  }
+  setTabIndicator(indicator) {
+    this.guard();
+    const codePoint = typeof indicator === "string" ? indicator.codePointAt(0) ?? 0 : indicator;
+    this.lib.textBufferViewSetTabIndicator(this.viewPtr, codePoint);
+  }
+  setTabIndicatorColor(color) {
+    this.guard();
+    this.lib.textBufferViewSetTabIndicatorColor(this.viewPtr, color);
+  }
+  measureForDimensions(width, height) {
+    this.guard();
+    return this.lib.textBufferViewMeasureForDimensions(this.viewPtr, width, height);
+  }
+  getVirtualLineCount() {
+    this.guard();
+    return this.lib.textBufferViewGetVirtualLineCount(this.viewPtr);
+  }
+  destroy() {
+    if (this._destroyed)
+      return;
+    this._destroyed = true;
+    this.lib.destroyTextBufferView(this.viewPtr);
+  }
+}
+
+class EditBuffer extends EventEmitter10 {
+  static registry = new Map;
+  static nativeEventsSubscribed = false;
+  lib;
+  bufferPtr;
+  textBufferPtr;
+  id;
+  _destroyed = false;
+  _textBytes = [];
+  _singleTextBytes = null;
+  _singleTextMemId = null;
+  _syntaxStyle;
+  constructor(lib, ptr4) {
+    super();
+    this.lib = lib;
+    this.bufferPtr = ptr4;
+    this.textBufferPtr = lib.editBufferGetTextBuffer(ptr4);
+    this.id = lib.editBufferGetId(ptr4);
+    EditBuffer.registry.set(this.id, this);
+    EditBuffer.subscribeToNativeEvents(lib);
+  }
+  static create(widthMethod) {
+    const lib = resolveRenderLib();
+    const ptr4 = lib.createEditBuffer(widthMethod);
+    return new EditBuffer(lib, ptr4);
+  }
+  static subscribeToNativeEvents(lib) {
+    if (EditBuffer.nativeEventsSubscribed)
+      return;
+    EditBuffer.nativeEventsSubscribed = true;
+    lib.onAnyNativeEvent((name, data) => {
+      const buffer = new Uint16Array(data);
+      if (name.startsWith("eb_") && buffer.length >= 1) {
+        const id = buffer[0];
+        const instance = EditBuffer.registry.get(id);
+        if (instance) {
+          const eventName = name.slice(3);
+          const eventData = data.slice(2);
+          instance.emit(eventName, eventData);
+        }
+      }
+    });
+  }
+  guard() {
+    if (this._destroyed)
+      throw new Error("EditBuffer is destroyed");
+  }
+  get ptr() {
+    this.guard();
+    return this.bufferPtr;
+  }
+  setText(text) {
+    this.guard();
+    const textBytes = this.lib.encoder.encode(text);
+    if (this._singleTextMemId !== null) {
+      this.lib.textBufferReplaceMemBuffer(this.textBufferPtr, this._singleTextMemId, textBytes, false);
+    } else {
+      this._singleTextMemId = this.lib.textBufferRegisterMemBuffer(this.textBufferPtr, textBytes, false);
+    }
+    this._singleTextBytes = textBytes;
+    this.lib.editBufferSetTextFromMem(this.bufferPtr, this._singleTextMemId);
+  }
+  setTextOwned(text) {
+    this.guard();
+    const textBytes = this.lib.encoder.encode(text);
+    this.lib.editBufferSetText(this.bufferPtr, textBytes);
+  }
+  replaceText(text) {
+    this.guard();
+    const textBytes = this.lib.encoder.encode(text);
+    this._textBytes.push(textBytes);
+    const memId = this.lib.textBufferRegisterMemBuffer(this.textBufferPtr, textBytes, false);
+    this.lib.editBufferReplaceTextFromMem(this.bufferPtr, memId);
+  }
+  replaceTextOwned(text) {
+    this.guard();
+    const textBytes = this.lib.encoder.encode(text);
+    this.lib.editBufferReplaceText(this.bufferPtr, textBytes);
+  }
+  getLineCount() {
+    this.guard();
+    return this.lib.textBufferGetLineCount(this.textBufferPtr);
+  }
+  getText() {
+    this.guard();
+    const maxSize = 1024 * 1024;
+    const textBytes = this.lib.editBufferGetText(this.bufferPtr, maxSize);
+    if (!textBytes)
+      return "";
+    return this.lib.decoder.decode(textBytes);
+  }
+  insertChar(char) {
+    this.guard();
+    this.lib.editBufferInsertChar(this.bufferPtr, char);
+  }
+  insertText(text) {
+    this.guard();
+    this.lib.editBufferInsertText(this.bufferPtr, text);
+  }
+  deleteChar() {
+    this.guard();
+    this.lib.editBufferDeleteChar(this.bufferPtr);
+  }
+  deleteCharBackward() {
+    this.guard();
+    this.lib.editBufferDeleteCharBackward(this.bufferPtr);
+  }
+  deleteRange(startLine, startCol, endLine, endCol) {
+    this.guard();
+    this.lib.editBufferDeleteRange(this.bufferPtr, startLine, startCol, endLine, endCol);
+  }
+  newLine() {
+    this.guard();
+    this.lib.editBufferNewLine(this.bufferPtr);
+  }
+  deleteLine() {
+    this.guard();
+    this.lib.editBufferDeleteLine(this.bufferPtr);
+  }
+  moveCursorLeft() {
+    this.guard();
+    this.lib.editBufferMoveCursorLeft(this.bufferPtr);
+  }
+  moveCursorRight() {
+    this.guard();
+    this.lib.editBufferMoveCursorRight(this.bufferPtr);
+  }
+  moveCursorUp() {
+    this.guard();
+    this.lib.editBufferMoveCursorUp(this.bufferPtr);
+  }
+  moveCursorDown() {
+    this.guard();
+    this.lib.editBufferMoveCursorDown(this.bufferPtr);
+  }
+  gotoLine(line) {
+    this.guard();
+    this.lib.editBufferGotoLine(this.bufferPtr, line);
+  }
+  setCursor(line, col) {
+    this.guard();
+    this.lib.editBufferSetCursor(this.bufferPtr, line, col);
+  }
+  setCursorToLineCol(line, col) {
+    this.guard();
+    this.lib.editBufferSetCursorToLineCol(this.bufferPtr, line, col);
+  }
+  setCursorByOffset(offset) {
+    this.guard();
+    this.lib.editBufferSetCursorByOffset(this.bufferPtr, offset);
+  }
+  getCursorPosition() {
+    this.guard();
+    return this.lib.editBufferGetCursorPosition(this.bufferPtr);
+  }
+  getNextWordBoundary() {
+    this.guard();
+    const boundary = this.lib.editBufferGetNextWordBoundary(this.bufferPtr);
+    return {
+      row: boundary.row,
+      col: boundary.col,
+      offset: boundary.offset
+    };
+  }
+  getPrevWordBoundary() {
+    this.guard();
+    const boundary = this.lib.editBufferGetPrevWordBoundary(this.bufferPtr);
+    return {
+      row: boundary.row,
+      col: boundary.col,
+      offset: boundary.offset
+    };
+  }
+  getEOL() {
+    this.guard();
+    const boundary = this.lib.editBufferGetEOL(this.bufferPtr);
+    return {
+      row: boundary.row,
+      col: boundary.col,
+      offset: boundary.offset
+    };
+  }
+  offsetToPosition(offset) {
+    this.guard();
+    const result = this.lib.editBufferOffsetToPosition(this.bufferPtr, offset);
+    if (!result)
+      return null;
+    return { row: result.row, col: result.col };
+  }
+  positionToOffset(row, col) {
+    this.guard();
+    return this.lib.editBufferPositionToOffset(this.bufferPtr, row, col);
+  }
+  getLineStartOffset(row) {
+    this.guard();
+    return this.lib.editBufferGetLineStartOffset(this.bufferPtr, row);
+  }
+  getTextRange(startOffset, endOffset) {
+    this.guard();
+    if (startOffset >= endOffset)
+      return "";
+    const maxSize = 1024 * 1024;
+    const textBytes = this.lib.editBufferGetTextRange(this.bufferPtr, startOffset, endOffset, maxSize);
+    if (!textBytes)
+      return "";
+    return this.lib.decoder.decode(textBytes);
+  }
+  getTextRangeByCoords(startRow, startCol, endRow, endCol) {
+    this.guard();
+    const maxSize = 1024 * 1024;
+    const textBytes = this.lib.editBufferGetTextRangeByCoords(this.bufferPtr, startRow, startCol, endRow, endCol, maxSize);
+    if (!textBytes)
+      return "";
+    return this.lib.decoder.decode(textBytes);
+  }
+  debugLogRope() {
+    this.guard();
+    this.lib.editBufferDebugLogRope(this.bufferPtr);
+  }
+  undo() {
+    this.guard();
+    const maxSize = 256;
+    const metaBytes = this.lib.editBufferUndo(this.bufferPtr, maxSize);
+    if (!metaBytes)
+      return null;
+    return this.lib.decoder.decode(metaBytes);
+  }
+  redo() {
+    this.guard();
+    const maxSize = 256;
+    const metaBytes = this.lib.editBufferRedo(this.bufferPtr, maxSize);
+    if (!metaBytes)
+      return null;
+    return this.lib.decoder.decode(metaBytes);
+  }
+  canUndo() {
+    this.guard();
+    return this.lib.editBufferCanUndo(this.bufferPtr);
+  }
+  canRedo() {
+    this.guard();
+    return this.lib.editBufferCanRedo(this.bufferPtr);
+  }
+  clearHistory() {
+    this.guard();
+    this.lib.editBufferClearHistory(this.bufferPtr);
+  }
+  setDefaultFg(fg2) {
+    this.guard();
+    this.lib.textBufferSetDefaultFg(this.textBufferPtr, fg2);
+  }
+  setDefaultBg(bg2) {
+    this.guard();
+    this.lib.textBufferSetDefaultBg(this.textBufferPtr, bg2);
+  }
+  setDefaultAttributes(attributes) {
+    this.guard();
+    this.lib.textBufferSetDefaultAttributes(this.textBufferPtr, attributes);
+  }
+  resetDefaults() {
+    this.guard();
+    this.lib.textBufferResetDefaults(this.textBufferPtr);
+  }
+  setSyntaxStyle(style) {
+    this.guard();
+    this._syntaxStyle = style ?? undefined;
+    this.lib.textBufferSetSyntaxStyle(this.textBufferPtr, style?.ptr ?? null);
+  }
+  getSyntaxStyle() {
+    this.guard();
+    return this._syntaxStyle ?? null;
+  }
+  addHighlight(lineIdx, highlight) {
+    this.guard();
+    this.lib.textBufferAddHighlight(this.textBufferPtr, lineIdx, highlight);
+  }
+  addHighlightByCharRange(highlight) {
+    this.guard();
+    this.lib.textBufferAddHighlightByCharRange(this.textBufferPtr, highlight);
+  }
+  removeHighlightsByRef(hlRef) {
+    this.guard();
+    this.lib.textBufferRemoveHighlightsByRef(this.textBufferPtr, hlRef);
+  }
+  clearLineHighlights(lineIdx) {
+    this.guard();
+    this.lib.textBufferClearLineHighlights(this.textBufferPtr, lineIdx);
+  }
+  clearAllHighlights() {
+    this.guard();
+    this.lib.textBufferClearAllHighlights(this.textBufferPtr);
+  }
+  getLineHighlights(lineIdx) {
+    this.guard();
+    return this.lib.textBufferGetLineHighlights(this.textBufferPtr, lineIdx);
+  }
+  clear() {
+    this.guard();
+    this.lib.editBufferClear(this.bufferPtr);
+  }
+  destroy() {
+    if (this._destroyed)
+      return;
+    this._destroyed = true;
+    EditBuffer.registry.delete(this.id);
+    this.lib.destroyEditBuffer(this.bufferPtr);
+  }
+}
+
+class EditorView {
+  lib;
+  viewPtr;
+  editBuffer;
+  _destroyed = false;
+  _extmarksController;
+  _textBufferViewPtr;
+  constructor(lib, ptr4, editBuffer) {
+    this.lib = lib;
+    this.viewPtr = ptr4;
+    this.editBuffer = editBuffer;
+  }
+  static create(editBuffer, viewportWidth, viewportHeight) {
+    const lib = resolveRenderLib();
+    const viewPtr = lib.createEditorView(editBuffer.ptr, viewportWidth, viewportHeight);
+    return new EditorView(lib, viewPtr, editBuffer);
+  }
+  guard() {
+    if (this._destroyed)
+      throw new Error("EditorView is destroyed");
+  }
+  get ptr() {
+    this.guard();
+    return this.viewPtr;
+  }
+  setViewportSize(width, height) {
+    this.guard();
+    this.lib.editorViewSetViewportSize(this.viewPtr, width, height);
+  }
+  setViewport(x, y, width, height, moveCursor = true) {
+    this.guard();
+    this.lib.editorViewSetViewport(this.viewPtr, x, y, width, height, moveCursor);
+  }
+  getViewport() {
+    this.guard();
+    return this.lib.editorViewGetViewport(this.viewPtr);
+  }
+  setScrollMargin(margin) {
+    this.guard();
+    this.lib.editorViewSetScrollMargin(this.viewPtr, margin);
+  }
+  setWrapMode(mode) {
+    this.guard();
+    this.lib.editorViewSetWrapMode(this.viewPtr, mode);
+  }
+  getVirtualLineCount() {
+    this.guard();
+    return this.lib.editorViewGetVirtualLineCount(this.viewPtr);
+  }
+  getTotalVirtualLineCount() {
+    this.guard();
+    return this.lib.editorViewGetTotalVirtualLineCount(this.viewPtr);
+  }
+  setSelection(start, end, bgColor, fgColor) {
+    this.guard();
+    this.lib.editorViewSetSelection(this.viewPtr, start, end, bgColor || null, fgColor || null);
+  }
+  updateSelection(end, bgColor, fgColor) {
+    this.guard();
+    this.lib.editorViewUpdateSelection(this.viewPtr, end, bgColor || null, fgColor || null);
+  }
+  resetSelection() {
+    this.guard();
+    this.lib.editorViewResetSelection(this.viewPtr);
+  }
+  getSelection() {
+    this.guard();
+    return this.lib.editorViewGetSelection(this.viewPtr);
+  }
+  hasSelection() {
+    this.guard();
+    return this.getSelection() !== null;
+  }
+  setLocalSelection(anchorX, anchorY, focusX, focusY, bgColor, fgColor, updateCursor) {
+    this.guard();
+    return this.lib.editorViewSetLocalSelection(this.viewPtr, anchorX, anchorY, focusX, focusY, bgColor || null, fgColor || null, updateCursor ?? false);
+  }
+  updateLocalSelection(anchorX, anchorY, focusX, focusY, bgColor, fgColor, updateCursor) {
+    this.guard();
+    return this.lib.editorViewUpdateLocalSelection(this.viewPtr, anchorX, anchorY, focusX, focusY, bgColor || null, fgColor || null, updateCursor ?? false);
+  }
+  resetLocalSelection() {
+    this.guard();
+    this.lib.editorViewResetLocalSelection(this.viewPtr);
+  }
+  getSelectedText() {
+    this.guard();
+    const maxLength = 1024 * 1024;
+    const selectedBytes = this.lib.editorViewGetSelectedTextBytes(this.viewPtr, maxLength);
+    if (!selectedBytes)
+      return "";
+    return this.lib.decoder.decode(selectedBytes);
+  }
+  getCursor() {
+    this.guard();
+    return this.lib.editorViewGetCursor(this.viewPtr);
+  }
+  getText() {
+    this.guard();
+    const maxLength = 1024 * 1024;
+    const textBytes = this.lib.editorViewGetText(this.viewPtr, maxLength);
+    if (!textBytes)
+      return "";
+    return this.lib.decoder.decode(textBytes);
+  }
+  getVisualCursor() {
+    this.guard();
+    return this.lib.editorViewGetVisualCursor(this.viewPtr);
+  }
+  moveUpVisual() {
+    this.guard();
+    this.lib.editorViewMoveUpVisual(this.viewPtr);
+  }
+  moveDownVisual() {
+    this.guard();
+    this.lib.editorViewMoveDownVisual(this.viewPtr);
+  }
+  deleteSelectedText() {
+    this.guard();
+    this.lib.editorViewDeleteSelectedText(this.viewPtr);
+  }
+  setCursorByOffset(offset) {
+    this.guard();
+    this.lib.editorViewSetCursorByOffset(this.viewPtr, offset);
+  }
+  getNextWordBoundary() {
+    this.guard();
+    return this.lib.editorViewGetNextWordBoundary(this.viewPtr);
+  }
+  getPrevWordBoundary() {
+    this.guard();
+    return this.lib.editorViewGetPrevWordBoundary(this.viewPtr);
+  }
+  getEOL() {
+    this.guard();
+    return this.lib.editorViewGetEOL(this.viewPtr);
+  }
+  getVisualSOL() {
+    this.guard();
+    return this.lib.editorViewGetVisualSOL(this.viewPtr);
+  }
+  getVisualEOL() {
+    this.guard();
+    return this.lib.editorViewGetVisualEOL(this.viewPtr);
+  }
+  getLineInfo() {
+    this.guard();
+    return this.lib.editorViewGetLineInfo(this.viewPtr);
+  }
+  getLogicalLineInfo() {
+    this.guard();
+    return this.lib.editorViewGetLogicalLineInfo(this.viewPtr);
+  }
+  get extmarks() {
+    if (!this._extmarksController) {
+      this._extmarksController = createExtmarksController(this.editBuffer, this);
+    }
+    return this._extmarksController;
+  }
+  setPlaceholderStyledText(chunks) {
+    this.guard();
+    this.lib.editorViewSetPlaceholderStyledText(this.viewPtr, chunks);
+  }
+  setTabIndicator(indicator) {
+    this.guard();
+    const codePoint = typeof indicator === "string" ? indicator.codePointAt(0) ?? 0 : indicator;
+    this.lib.editorViewSetTabIndicator(this.viewPtr, codePoint);
+  }
+  setTabIndicatorColor(color) {
+    this.guard();
+    this.lib.editorViewSetTabIndicatorColor(this.viewPtr, color);
+  }
+  measureForDimensions(width, height) {
+    this.guard();
+    if (!this._textBufferViewPtr) {
+      this._textBufferViewPtr = this.lib.editorViewGetTextBufferView(this.viewPtr);
+    }
+    return this.lib.textBufferViewMeasureForDimensions(this._textBufferViewPtr, width, height);
+  }
+  destroy() {
+    if (this._destroyed)
+      return;
+    if (this._extmarksController) {
+      this._extmarksController.destroy();
+      this._extmarksController = undefined;
+    }
+    this._destroyed = true;
+    this.lib.destroyEditorView(this.viewPtr);
+  }
+}
+function convertThemeToStyles(theme) {
+  const flatStyles = {};
+  for (const tokenStyle of theme) {
+    const styleDefinition = {};
+    if (tokenStyle.style.foreground) {
+      styleDefinition.fg = parseColor(tokenStyle.style.foreground);
+    }
+    if (tokenStyle.style.background) {
+      styleDefinition.bg = parseColor(tokenStyle.style.background);
+    }
+    if (tokenStyle.style.bold !== undefined) {
+      styleDefinition.bold = tokenStyle.style.bold;
+    }
+    if (tokenStyle.style.italic !== undefined) {
+      styleDefinition.italic = tokenStyle.style.italic;
+    }
+    if (tokenStyle.style.underline !== undefined) {
+      styleDefinition.underline = tokenStyle.style.underline;
+    }
+    if (tokenStyle.style.dim !== undefined) {
+      styleDefinition.dim = tokenStyle.style.dim;
+    }
+    for (const scope of tokenStyle.scope) {
+      flatStyles[scope] = styleDefinition;
+    }
+  }
+  return flatStyles;
+}
+
+class SyntaxStyle {
+  lib;
+  stylePtr;
+  _destroyed = false;
+  nameCache = new Map;
+  styleDefs = new Map;
+  mergedCache = new Map;
+  constructor(lib, ptr4) {
+    this.lib = lib;
+    this.stylePtr = ptr4;
+  }
+  static create() {
+    const lib = resolveRenderLib();
+    const ptr4 = lib.createSyntaxStyle();
+    return new SyntaxStyle(lib, ptr4);
+  }
+  static fromTheme(theme) {
+    const style = SyntaxStyle.create();
+    const flatStyles = convertThemeToStyles(theme);
+    for (const [name, styleDef] of Object.entries(flatStyles)) {
+      style.registerStyle(name, styleDef);
+    }
+    return style;
+  }
+  static fromStyles(styles) {
+    const style = SyntaxStyle.create();
+    for (const [name, styleDef] of Object.entries(styles)) {
+      style.registerStyle(name, styleDef);
+    }
+    return style;
+  }
+  guard() {
+    if (this._destroyed)
+      throw new Error("NativeSyntaxStyle is destroyed");
+  }
+  registerStyle(name, style) {
+    this.guard();
+    const attributes = createTextAttributes({
+      bold: style.bold,
+      italic: style.italic,
+      underline: style.underline,
+      dim: style.dim
+    });
+    const id = this.lib.syntaxStyleRegister(this.stylePtr, name, style.fg || null, style.bg || null, attributes);
+    this.nameCache.set(name, id);
+    this.styleDefs.set(name, style);
+    return id;
+  }
+  resolveStyleId(name) {
+    this.guard();
+    const cached = this.nameCache.get(name);
+    if (cached !== undefined)
+      return cached;
+    const id = this.lib.syntaxStyleResolveByName(this.stylePtr, name);
+    if (id !== null) {
+      this.nameCache.set(name, id);
+    }
+    return id;
+  }
+  getStyleId(name) {
+    this.guard();
+    const id = this.resolveStyleId(name);
+    if (id !== null)
+      return id;
+    if (name.includes(".")) {
+      const baseName = name.split(".")[0];
+      return this.resolveStyleId(baseName);
+    }
+    return null;
+  }
+  get ptr() {
+    this.guard();
+    return this.stylePtr;
+  }
+  getStyleCount() {
+    this.guard();
+    return this.lib.syntaxStyleGetStyleCount(this.stylePtr);
+  }
+  clearNameCache() {
+    this.nameCache.clear();
+  }
+  getStyle(name) {
+    this.guard();
+    if (Object.prototype.hasOwnProperty.call(this.styleDefs, name)) {
+      return;
+    }
+    const style = this.styleDefs.get(name);
+    if (style)
+      return style;
+    if (name.includes(".")) {
+      const baseName = name.split(".")[0];
+      if (Object.prototype.hasOwnProperty.call(this.styleDefs, baseName)) {
+        return;
+      }
+      return this.styleDefs.get(baseName);
+    }
+    return;
+  }
+  mergeStyles(...styleNames) {
+    this.guard();
+    const cacheKey = styleNames.join(":");
+    const cached = this.mergedCache.get(cacheKey);
+    if (cached)
+      return cached;
+    const styleDefinition = {};
+    for (const name of styleNames) {
+      const style = this.getStyle(name);
+      if (!style)
+        continue;
+      if (style.fg)
+        styleDefinition.fg = style.fg;
+      if (style.bg)
+        styleDefinition.bg = style.bg;
+      if (style.bold !== undefined)
+        styleDefinition.bold = style.bold;
+      if (style.italic !== undefined)
+        styleDefinition.italic = style.italic;
+      if (style.underline !== undefined)
+        styleDefinition.underline = style.underline;
+      if (style.dim !== undefined)
+        styleDefinition.dim = style.dim;
+    }
+    const attributes = createTextAttributes({
+      bold: styleDefinition.bold,
+      italic: styleDefinition.italic,
+      underline: styleDefinition.underline,
+      dim: styleDefinition.dim
+    });
+    const merged = {
+      fg: styleDefinition.fg,
+      bg: styleDefinition.bg,
+      attributes
+    };
+    this.mergedCache.set(cacheKey, merged);
+    return merged;
+  }
+  clearCache() {
+    this.guard();
+    this.mergedCache.clear();
+  }
+  getCacheSize() {
+    this.guard();
+    return this.mergedCache.size;
+  }
+  getAllStyles() {
+    this.guard();
+    return new Map(this.styleDefs);
+  }
+  getRegisteredNames() {
+    this.guard();
+    return Array.from(this.styleDefs.keys());
+  }
+  destroy() {
+    if (this._destroyed)
+      return;
+    this._destroyed = true;
+    this.nameCache.clear();
+    this.styleDefs.clear();
+    this.mergedCache.clear();
+    this.lib.destroySyntaxStyle(this.stylePtr);
+  }
+}
+class TimelineEngine {
+  timelines = new Set;
+  renderer = null;
+  frameCallback = null;
+  isLive = false;
+  defaults = {
+    frameRate: 60
+  };
+  attach(renderer) {
+    if (this.renderer) {
+      this.detach();
+    }
+    this.renderer = renderer;
+    this.frameCallback = async (deltaTime) => {
+      this.update(deltaTime);
+    };
+    renderer.setFrameCallback(this.frameCallback);
+  }
+  detach() {
+    if (this.renderer && this.frameCallback) {
+      this.renderer.removeFrameCallback(this.frameCallback);
+      if (this.isLive) {
+        this.renderer.dropLive();
+        this.isLive = false;
+      }
+    }
+    this.renderer = null;
+    this.frameCallback = null;
+  }
+  updateLiveState() {
+    if (!this.renderer)
+      return;
+    const hasRunningTimelines = Array.from(this.timelines).some((timeline) => !timeline.synced && timeline.isPlaying && !timeline.isComplete);
+    if (hasRunningTimelines && !this.isLive) {
+      this.renderer.requestLive();
+      this.isLive = true;
+    } else if (!hasRunningTimelines && this.isLive) {
+      this.renderer.dropLive();
+      this.isLive = false;
+    }
+  }
+  onTimelineStateChange = (timeline) => {
+    this.updateLiveState();
+  };
+  register(timeline) {
+    if (!this.timelines.has(timeline)) {
+      this.timelines.add(timeline);
+      timeline.addStateChangeListener(this.onTimelineStateChange);
+      this.updateLiveState();
+    }
+  }
+  unregister(timeline) {
+    if (this.timelines.has(timeline)) {
+      this.timelines.delete(timeline);
+      timeline.removeStateChangeListener(this.onTimelineStateChange);
+      this.updateLiveState();
+    }
+  }
+  clear() {
+    for (const timeline of this.timelines) {
+      timeline.removeStateChangeListener(this.onTimelineStateChange);
+    }
+    this.timelines.clear();
+    this.updateLiveState();
+  }
+  update(deltaTime) {
+    for (const timeline of this.timelines) {
+      if (!timeline.synced) {
+        timeline.update(deltaTime);
+      }
+    }
+  }
+}
+var engine = new TimelineEngine;
+function isGapType(value) {
+  if (value === undefined) {
+    return true;
+  }
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return true;
+  }
+  return isValidPercentage(value);
+}
+
+class BoxRenderable extends Renderable {
+  _backgroundColor;
+  _border;
+  _borderStyle;
+  _borderColor;
+  _focusedBorderColor;
+  _customBorderCharsObj;
+  _customBorderChars;
+  borderSides;
+  shouldFill;
+  _title;
+  _titleAlignment;
+  _defaultOptions = {
+    backgroundColor: "transparent",
+    borderStyle: "single",
+    border: false,
+    borderColor: "#FFFFFF",
+    shouldFill: true,
+    titleAlignment: "left",
+    focusedBorderColor: "#00AAFF"
+  };
+  constructor(ctx, options) {
+    super(ctx, options);
+    this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor);
+    this._border = options.border ?? this._defaultOptions.border;
+    if (!options.border && (options.borderStyle || options.borderColor || options.focusedBorderColor || options.customBorderChars)) {
+      this._border = true;
+    }
+    this._borderStyle = options.borderStyle || this._defaultOptions.borderStyle;
+    this._borderColor = parseColor(options.borderColor || this._defaultOptions.borderColor);
+    this._focusedBorderColor = parseColor(options.focusedBorderColor || this._defaultOptions.focusedBorderColor);
+    this._customBorderCharsObj = options.customBorderChars;
+    this._customBorderChars = this._customBorderCharsObj ? borderCharsToArray(this._customBorderCharsObj) : undefined;
+    this.borderSides = getBorderSides(this._border);
+    this.shouldFill = options.shouldFill ?? this._defaultOptions.shouldFill;
+    this._title = options.title;
+    this._titleAlignment = options.titleAlignment || this._defaultOptions.titleAlignment;
+    this.applyYogaBorders();
+    const hasInitialGapProps = options.gap !== undefined || options.rowGap !== undefined || options.columnGap !== undefined;
+    if (hasInitialGapProps) {
+      this.applyYogaGap(options);
+    }
+  }
+  initializeBorder() {
+    if (this._border === false) {
+      this._border = true;
+      this.borderSides = getBorderSides(this._border);
+      this.applyYogaBorders();
+    }
+  }
+  get customBorderChars() {
+    return this._customBorderCharsObj;
+  }
+  set customBorderChars(value) {
+    this._customBorderCharsObj = value;
+    this._customBorderChars = value ? borderCharsToArray(value) : undefined;
+    this.requestRender();
+  }
+  get backgroundColor() {
+    return this._backgroundColor;
+  }
+  set backgroundColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor);
+    if (this._backgroundColor !== newColor) {
+      this._backgroundColor = newColor;
+      this.requestRender();
+    }
+  }
+  get border() {
+    return this._border;
+  }
+  set border(value) {
+    if (this._border !== value) {
+      this._border = value;
+      this.borderSides = getBorderSides(value);
+      this.applyYogaBorders();
+      this.requestRender();
+    }
+  }
+  get borderStyle() {
+    return this._borderStyle;
+  }
+  set borderStyle(value) {
+    let _value = value ?? this._defaultOptions.borderStyle;
+    if (this._borderStyle !== _value || !this._border) {
+      this._borderStyle = _value;
+      this._customBorderChars = undefined;
+      this.initializeBorder();
+      this.requestRender();
+    }
+  }
+  get borderColor() {
+    return this._borderColor;
+  }
+  set borderColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.borderColor);
+    if (this._borderColor !== newColor) {
+      this._borderColor = newColor;
+      this.initializeBorder();
+      this.requestRender();
+    }
+  }
+  get focusedBorderColor() {
+    return this._focusedBorderColor;
+  }
+  set focusedBorderColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.focusedBorderColor);
+    if (this._focusedBorderColor !== newColor) {
+      this._focusedBorderColor = newColor;
+      this.initializeBorder();
+      if (this._focused) {
+        this.requestRender();
+      }
+    }
+  }
+  get title() {
+    return this._title;
+  }
+  set title(value) {
+    if (this._title !== value) {
+      this._title = value;
+      this.requestRender();
+    }
+  }
+  get titleAlignment() {
+    return this._titleAlignment;
+  }
+  set titleAlignment(value) {
+    if (this._titleAlignment !== value) {
+      this._titleAlignment = value;
+      this.requestRender();
+    }
+  }
+  renderSelf(buffer) {
+    const currentBorderColor = this._focused ? this._focusedBorderColor : this._borderColor;
+    buffer.drawBox({
+      x: this.x,
+      y: this.y,
+      width: this.width,
+      height: this.height,
+      borderStyle: this._borderStyle,
+      customBorderChars: this._customBorderChars,
+      border: this._border,
+      borderColor: currentBorderColor,
+      backgroundColor: this._backgroundColor,
+      shouldFill: this.shouldFill,
+      title: this._title,
+      titleAlignment: this._titleAlignment
+    });
+  }
+  getScissorRect() {
+    const baseRect = super.getScissorRect();
+    if (!this.borderSides.top && !this.borderSides.right && !this.borderSides.bottom && !this.borderSides.left) {
+      return baseRect;
+    }
+    const leftInset = this.borderSides.left ? 1 : 0;
+    const rightInset = this.borderSides.right ? 1 : 0;
+    const topInset = this.borderSides.top ? 1 : 0;
+    const bottomInset = this.borderSides.bottom ? 1 : 0;
+    return {
+      x: baseRect.x + leftInset,
+      y: baseRect.y + topInset,
+      width: Math.max(0, baseRect.width - leftInset - rightInset),
+      height: Math.max(0, baseRect.height - topInset - bottomInset)
+    };
+  }
+  applyYogaBorders() {
+    const node = this.yogaNode;
+    node.setBorder(Edge.Left, this.borderSides.left ? 1 : 0);
+    node.setBorder(Edge.Right, this.borderSides.right ? 1 : 0);
+    node.setBorder(Edge.Top, this.borderSides.top ? 1 : 0);
+    node.setBorder(Edge.Bottom, this.borderSides.bottom ? 1 : 0);
+    this.requestRender();
+  }
+  applyYogaGap(options) {
+    const node = this.yogaNode;
+    if (isGapType(options.gap)) {
+      node.setGap(Gutter.All, options.gap);
+    }
+    if (isGapType(options.rowGap)) {
+      node.setGap(Gutter.Row, options.rowGap);
+    }
+    if (isGapType(options.columnGap)) {
+      node.setGap(Gutter.Column, options.columnGap);
+    }
+  }
+  set gap(gap) {
+    if (isGapType(gap)) {
+      this.yogaNode.setGap(Gutter.All, gap);
+      this.requestRender();
+    }
+  }
+  set rowGap(rowGap) {
+    if (isGapType(rowGap)) {
+      this.yogaNode.setGap(Gutter.Row, rowGap);
+      this.requestRender();
+    }
+  }
+  set columnGap(columnGap) {
+    if (isGapType(columnGap)) {
+      this.yogaNode.setGap(Gutter.Column, columnGap);
+      this.requestRender();
+    }
+  }
+}
+
+class TextBufferRenderable extends Renderable {
+  selectable = true;
+  _defaultFg;
+  _defaultBg;
+  _defaultAttributes;
+  _selectionBg;
+  _selectionFg;
+  _wrapMode = "word";
+  lastLocalSelection = null;
+  _tabIndicator;
+  _tabIndicatorColor;
+  _scrollX = 0;
+  _scrollY = 0;
+  textBuffer;
+  textBufferView;
+  _defaultOptions = {
+    fg: RGBA.fromValues(1, 1, 1, 1),
+    bg: RGBA.fromValues(0, 0, 0, 0),
+    selectionBg: undefined,
+    selectionFg: undefined,
+    selectable: true,
+    attributes: 0,
+    wrapMode: "word",
+    tabIndicator: undefined,
+    tabIndicatorColor: undefined
+  };
+  constructor(ctx, options) {
+    super(ctx, options);
+    this._defaultFg = parseColor(options.fg ?? this._defaultOptions.fg);
+    this._defaultBg = parseColor(options.bg ?? this._defaultOptions.bg);
+    this._defaultAttributes = options.attributes ?? this._defaultOptions.attributes;
+    this._selectionBg = options.selectionBg ? parseColor(options.selectionBg) : this._defaultOptions.selectionBg;
+    this._selectionFg = options.selectionFg ? parseColor(options.selectionFg) : this._defaultOptions.selectionFg;
+    this.selectable = options.selectable ?? this._defaultOptions.selectable;
+    this._wrapMode = options.wrapMode ?? this._defaultOptions.wrapMode;
+    this._tabIndicator = options.tabIndicator ?? this._defaultOptions.tabIndicator;
+    this._tabIndicatorColor = options.tabIndicatorColor ? parseColor(options.tabIndicatorColor) : this._defaultOptions.tabIndicatorColor;
+    this.textBuffer = TextBuffer.create(this._ctx.widthMethod);
+    this.textBufferView = TextBufferView.create(this.textBuffer);
+    const style = SyntaxStyle.create();
+    this.textBuffer.setSyntaxStyle(style);
+    this.textBufferView.setWrapMode(this._wrapMode);
+    this.setupMeasureFunc();
+    this.textBuffer.setDefaultFg(this._defaultFg);
+    this.textBuffer.setDefaultBg(this._defaultBg);
+    this.textBuffer.setDefaultAttributes(this._defaultAttributes);
+    if (this._tabIndicator !== undefined) {
+      this.textBufferView.setTabIndicator(this._tabIndicator);
+    }
+    if (this._tabIndicatorColor !== undefined) {
+      this.textBufferView.setTabIndicatorColor(this._tabIndicatorColor);
+    }
+    if (this._wrapMode !== "none" && this.width > 0) {
+      this.textBufferView.setWrapWidth(this.width);
+    }
+    if (this.width > 0 && this.height > 0) {
+      this.textBufferView.setViewport(this._scrollX, this._scrollY, this.width, this.height);
+    }
+    this.updateTextInfo();
+  }
+  onMouseEvent(event) {
+    if (event.type === "scroll") {
+      this.handleScroll(event);
+    }
+  }
+  handleScroll(event) {
+    if (!event.scroll)
+      return;
+    const { direction, delta } = event.scroll;
+    if (direction === "up") {
+      this.scrollY -= delta;
+    } else if (direction === "down") {
+      this.scrollY += delta;
+    }
+    if (this._wrapMode === "none") {
+      if (direction === "left") {
+        this.scrollX -= delta;
+      } else if (direction === "right") {
+        this.scrollX += delta;
+      }
+    }
+  }
+  get lineInfo() {
+    return this.textBufferView.logicalLineInfo;
+  }
+  get lineCount() {
+    return this.textBuffer.getLineCount();
+  }
+  get virtualLineCount() {
+    return this.textBufferView.getVirtualLineCount();
+  }
+  get scrollY() {
+    return this._scrollY;
+  }
+  set scrollY(value) {
+    const maxScrollY = Math.max(0, this.scrollHeight - this.height);
+    const clamped = Math.max(0, Math.min(value, maxScrollY));
+    if (this._scrollY !== clamped) {
+      this._scrollY = clamped;
+      this.updateViewportOffset();
+      this.requestRender();
+    }
+  }
+  get scrollX() {
+    return this._scrollX;
+  }
+  set scrollX(value) {
+    const maxScrollX = Math.max(0, this.scrollWidth - this.width);
+    const clamped = Math.max(0, Math.min(value, maxScrollX));
+    if (this._scrollX !== clamped) {
+      this._scrollX = clamped;
+      this.updateViewportOffset();
+      this.requestRender();
+    }
+  }
+  get scrollWidth() {
+    return this.lineInfo.maxLineWidth;
+  }
+  get scrollHeight() {
+    return this.lineInfo.lineStarts.length;
+  }
+  get maxScrollY() {
+    return Math.max(0, this.scrollHeight - this.height);
+  }
+  get maxScrollX() {
+    return Math.max(0, this.scrollWidth - this.width);
+  }
+  updateViewportOffset() {
+    if (this.width > 0 && this.height > 0) {
+      this.textBufferView.setViewport(this._scrollX, this._scrollY, this.width, this.height);
+    }
+  }
+  get plainText() {
+    return this.textBuffer.getPlainText();
+  }
+  get textLength() {
+    return this.textBuffer.length;
+  }
+  get fg() {
+    return this._defaultFg;
+  }
+  set fg(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.fg);
+    if (this._defaultFg !== newColor) {
+      this._defaultFg = newColor;
+      this.textBuffer.setDefaultFg(this._defaultFg);
+      this.onFgChanged(newColor);
+      this.requestRender();
+    }
+  }
+  get selectionBg() {
+    return this._selectionBg;
+  }
+  set selectionBg(value) {
+    const newColor = value ? parseColor(value) : this._defaultOptions.selectionBg;
+    if (this._selectionBg !== newColor) {
+      this._selectionBg = newColor;
+      if (this.lastLocalSelection) {
+        this.updateLocalSelection(this.lastLocalSelection);
+      }
+      this.requestRender();
+    }
+  }
+  get selectionFg() {
+    return this._selectionFg;
+  }
+  set selectionFg(value) {
+    const newColor = value ? parseColor(value) : this._defaultOptions.selectionFg;
+    if (this._selectionFg !== newColor) {
+      this._selectionFg = newColor;
+      if (this.lastLocalSelection) {
+        this.updateLocalSelection(this.lastLocalSelection);
+      }
+      this.requestRender();
+    }
+  }
+  get bg() {
+    return this._defaultBg;
+  }
+  set bg(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.bg);
+    if (this._defaultBg !== newColor) {
+      this._defaultBg = newColor;
+      this.textBuffer.setDefaultBg(this._defaultBg);
+      this.onBgChanged(newColor);
+      this.requestRender();
+    }
+  }
+  get attributes() {
+    return this._defaultAttributes;
+  }
+  set attributes(value) {
+    if (this._defaultAttributes !== value) {
+      this._defaultAttributes = value;
+      this.textBuffer.setDefaultAttributes(this._defaultAttributes);
+      this.onAttributesChanged(value);
+      this.requestRender();
+    }
+  }
+  get wrapMode() {
+    return this._wrapMode;
+  }
+  set wrapMode(value) {
+    if (this._wrapMode !== value) {
+      this._wrapMode = value;
+      this.textBufferView.setWrapMode(this._wrapMode);
+      if (value !== "none" && this.width > 0) {
+        this.textBufferView.setWrapWidth(this.width);
+      }
+      this.yogaNode.markDirty();
+      this.requestRender();
+    }
+  }
+  get tabIndicator() {
+    return this._tabIndicator;
+  }
+  set tabIndicator(value) {
+    if (this._tabIndicator !== value) {
+      this._tabIndicator = value;
+      if (value !== undefined) {
+        this.textBufferView.setTabIndicator(value);
+      }
+      this.requestRender();
+    }
+  }
+  get tabIndicatorColor() {
+    return this._tabIndicatorColor;
+  }
+  set tabIndicatorColor(value) {
+    const newColor = value ? parseColor(value) : undefined;
+    if (this._tabIndicatorColor !== newColor) {
+      this._tabIndicatorColor = newColor;
+      if (newColor !== undefined) {
+        this.textBufferView.setTabIndicatorColor(newColor);
+      }
+      this.requestRender();
+    }
+  }
+  onResize(width, height) {
+    this.textBufferView.setViewport(this._scrollX, this._scrollY, width, height);
+    this.yogaNode.markDirty();
+    this.requestRender();
+    this.emit("line-info-change");
+  }
+  refreshLocalSelection() {
+    if (this.lastLocalSelection) {
+      return this.updateLocalSelection(this.lastLocalSelection);
+    }
+    return false;
+  }
+  updateLocalSelection(localSelection) {
+    if (!localSelection?.isActive) {
+      this.textBufferView.resetLocalSelection();
+      return true;
+    }
+    return this.textBufferView.setLocalSelection(localSelection.anchorX, localSelection.anchorY, localSelection.focusX, localSelection.focusY, this._selectionBg, this._selectionFg);
+  }
+  updateTextInfo() {
+    if (this.lastLocalSelection) {
+      this.updateLocalSelection(this.lastLocalSelection);
+    }
+    this.yogaNode.markDirty();
+    this.requestRender();
+    this.emit("line-info-change");
+  }
+  setupMeasureFunc() {
+    const measureFunc = (width, widthMode, height, heightMode) => {
+      let effectiveWidth;
+      if (widthMode === MeasureMode.Undefined || isNaN(width)) {
+        effectiveWidth = 0;
+      } else {
+        effectiveWidth = width;
+      }
+      const effectiveHeight = isNaN(height) ? 1 : height;
+      const measureResult = this.textBufferView.measureForDimensions(Math.floor(effectiveWidth), Math.floor(effectiveHeight));
+      const measuredWidth = measureResult ? Math.max(1, measureResult.maxWidth) : 1;
+      const measuredHeight = measureResult ? Math.max(1, measureResult.lineCount) : 1;
+      if (widthMode === MeasureMode.AtMost && this._positionType !== "absolute") {
+        return {
+          width: Math.min(effectiveWidth, measuredWidth),
+          height: Math.min(effectiveHeight, measuredHeight)
+        };
+      }
+      return {
+        width: measuredWidth,
+        height: measuredHeight
+      };
+    };
+    this.yogaNode.setMeasureFunc(measureFunc);
+  }
+  shouldStartSelection(x, y) {
+    if (!this.selectable)
+      return false;
+    const localX = x - this.x;
+    const localY = y - this.y;
+    return localX >= 0 && localX < this.width && localY >= 0 && localY < this.height;
+  }
+  onSelectionChanged(selection) {
+    const localSelection = convertGlobalToLocalSelection(selection, this.x, this.y);
+    this.lastLocalSelection = localSelection;
+    let changed;
+    if (!localSelection?.isActive) {
+      this.textBufferView.resetLocalSelection();
+      changed = true;
+    } else if (selection?.isStart) {
+      changed = this.textBufferView.setLocalSelection(localSelection.anchorX, localSelection.anchorY, localSelection.focusX, localSelection.focusY, this._selectionBg, this._selectionFg);
+    } else {
+      changed = this.textBufferView.updateLocalSelection(localSelection.anchorX, localSelection.anchorY, localSelection.focusX, localSelection.focusY, this._selectionBg, this._selectionFg);
+    }
+    if (changed) {
+      this.requestRender();
+    }
+    return this.hasSelection();
+  }
+  getSelectedText() {
+    return this.textBufferView.getSelectedText();
+  }
+  hasSelection() {
+    return this.textBufferView.hasSelection();
+  }
+  getSelection() {
+    return this.textBufferView.getSelection();
+  }
+  render(buffer, deltaTime) {
+    if (!this.visible)
+      return;
+    this.markClean();
+    this._ctx.addToHitGrid(this.x, this.y, this.width, this.height, this.num);
+    this.renderSelf(buffer);
+    if (this.buffered && this.frameBuffer) {
+      buffer.drawFrameBuffer(this.x, this.y, this.frameBuffer);
+    }
+  }
+  renderSelf(buffer) {
+    if (this.textBuffer.ptr) {
+      buffer.drawTextBuffer(this.textBufferView, this.x, this.y);
+    }
+  }
+  destroy() {
+    this.textBufferView.destroy();
+    this.textBuffer.destroy();
+    super.destroy();
+  }
+  onFgChanged(newColor) {}
+  onBgChanged(newColor) {}
+  onAttributesChanged(newAttributes) {}
+}
+var BrandedTextNodeRenderable = Symbol.for("@opentui/core/TextNodeRenderable");
+function isTextNodeRenderable(obj) {
+  return !!obj?.[BrandedTextNodeRenderable];
+}
+function styledTextToTextNodes(styledText) {
+  return styledText.chunks.map((chunk) => {
+    const node = new TextNodeRenderable({
+      fg: chunk.fg,
+      bg: chunk.bg,
+      attributes: chunk.attributes,
+      link: chunk.link
+    });
+    node.add(chunk.text);
+    return node;
+  });
+}
+
+class TextNodeRenderable extends BaseRenderable {
+  [BrandedTextNodeRenderable] = true;
+  _fg;
+  _bg;
+  _attributes;
+  _link;
+  _children = [];
+  parent = null;
+  constructor(options) {
+    super(options);
+    this._fg = options.fg ? parseColor(options.fg) : undefined;
+    this._bg = options.bg ? parseColor(options.bg) : undefined;
+    this._attributes = options.attributes ?? 0;
+    this._link = options.link;
+  }
+  get children() {
+    return this._children;
+  }
+  set children(children) {
+    this._children = children;
+    this.requestRender();
+  }
+  requestRender() {
+    this.markDirty();
+    this.parent?.requestRender();
+  }
+  add(obj, index) {
+    if (typeof obj === "string") {
+      if (index !== undefined) {
+        this._children.splice(index, 0, obj);
+        this.requestRender();
+        return index;
+      }
+      const insertIndex = this._children.length;
+      this._children.push(obj);
+      this.requestRender();
+      return insertIndex;
+    }
+    if (isTextNodeRenderable(obj)) {
+      if (index !== undefined) {
+        this._children.splice(index, 0, obj);
+        obj.parent = this;
+        this.requestRender();
+        return index;
+      }
+      const insertIndex = this._children.length;
+      this._children.push(obj);
+      obj.parent = this;
+      this.requestRender();
+      return insertIndex;
+    }
+    if (isStyledText(obj)) {
+      const textNodes = styledTextToTextNodes(obj);
+      if (index !== undefined) {
+        this._children.splice(index, 0, ...textNodes);
+        textNodes.forEach((node) => node.parent = this);
+        this.requestRender();
+        return index;
+      }
+      const insertIndex = this._children.length;
+      this._children.push(...textNodes);
+      textNodes.forEach((node) => node.parent = this);
+      this.requestRender();
+      return insertIndex;
+    }
+    throw new Error("TextNodeRenderable only accepts strings, TextNodeRenderable instances, or StyledText instances");
+  }
+  replace(obj, index) {
+    this._children[index] = obj;
+    if (typeof obj !== "string") {
+      obj.parent = this;
+    }
+    this.requestRender();
+  }
+  insertBefore(child, anchorNode) {
+    if (!anchorNode || !isTextNodeRenderable(anchorNode)) {
+      throw new Error("Anchor must be a TextNodeRenderable");
+    }
+    const anchorIndex = this._children.indexOf(anchorNode);
+    if (anchorIndex === -1) {
+      throw new Error("Anchor node not found in children");
+    }
+    if (typeof child === "string") {
+      this._children.splice(anchorIndex, 0, child);
+    } else if (isTextNodeRenderable(child)) {
+      this._children.splice(anchorIndex, 0, child);
+      child.parent = this;
+    } else if (child instanceof StyledText) {
+      const textNodes = styledTextToTextNodes(child);
+      this._children.splice(anchorIndex, 0, ...textNodes);
+      textNodes.forEach((node) => node.parent = this);
+    } else {
+      throw new Error("Child must be a string, TextNodeRenderable, or StyledText instance");
+    }
+    this.requestRender();
+    return this;
+  }
+  remove(id) {
+    const childIndex = this.getRenderableIndex(id);
+    if (childIndex === -1) {
+      throw new Error("Child not found in children");
+    }
+    const child = this._children[childIndex];
+    this._children.splice(childIndex, 1);
+    child.parent = null;
+    this.requestRender();
+    return this;
+  }
+  clear() {
+    this._children = [];
+    this.requestRender();
+  }
+  mergeStyles(parentStyle) {
+    return {
+      fg: this._fg ?? parentStyle.fg,
+      bg: this._bg ?? parentStyle.bg,
+      attributes: this._attributes | parentStyle.attributes,
+      link: this._link ?? parentStyle.link
+    };
+  }
+  gatherWithInheritedStyle(parentStyle = {
+    fg: undefined,
+    bg: undefined,
+    attributes: 0
+  }) {
+    const currentStyle = this.mergeStyles(parentStyle);
+    const chunks = [];
+    for (const child of this._children) {
+      if (typeof child === "string") {
+        chunks.push({
+          __isChunk: true,
+          text: child,
+          fg: currentStyle.fg,
+          bg: currentStyle.bg,
+          attributes: currentStyle.attributes,
+          link: currentStyle.link
+        });
+      } else {
+        const childChunks = child.gatherWithInheritedStyle(currentStyle);
+        chunks.push(...childChunks);
+      }
+    }
+    this.markClean();
+    return chunks;
+  }
+  static fromString(text, options = {}) {
+    const node = new TextNodeRenderable(options);
+    node.add(text);
+    return node;
+  }
+  static fromNodes(nodes, options = {}) {
+    const node = new TextNodeRenderable(options);
+    for (const childNode of nodes) {
+      node.add(childNode);
+    }
+    return node;
+  }
+  toChunks(parentStyle = {
+    fg: undefined,
+    bg: undefined,
+    attributes: 0
+  }) {
+    return this.gatherWithInheritedStyle(parentStyle);
+  }
+  getChildren() {
+    return this._children.filter((child) => typeof child !== "string");
+  }
+  getChildrenCount() {
+    return this._children.length;
+  }
+  getRenderable(id) {
+    return this._children.find((child) => typeof child !== "string" && child.id === id);
+  }
+  getRenderableIndex(id) {
+    return this._children.findIndex((child) => isTextNodeRenderable(child) && child.id === id);
+  }
+  get fg() {
+    return this._fg;
+  }
+  set fg(fg2) {
+    if (!fg2) {
+      this._fg = undefined;
+      this.requestRender();
+      return;
+    }
+    this._fg = parseColor(fg2);
+    this.requestRender();
+  }
+  set bg(bg2) {
+    if (!bg2) {
+      this._bg = undefined;
+      this.requestRender();
+      return;
+    }
+    this._bg = parseColor(bg2);
+    this.requestRender();
+  }
+  get bg() {
+    return this._bg;
+  }
+  set attributes(attributes) {
+    this._attributes = attributes;
+    this.requestRender();
+  }
+  get attributes() {
+    return this._attributes;
+  }
+  set link(link2) {
+    this._link = link2;
+    this.requestRender();
+  }
+  get link() {
+    return this._link;
+  }
+  findDescendantById(id) {
+    return;
+  }
+}
+
+class RootTextNodeRenderable extends TextNodeRenderable {
+  ctx;
+  textParent;
+  constructor(ctx, options, textParent) {
+    super(options);
+    this.ctx = ctx;
+    this.textParent = textParent;
+  }
+  requestRender() {
+    this.markDirty();
+    this.ctx.requestRender();
+  }
+}
+class Diff {
+  diff(oldStr, newStr, options = {}) {
+    let callback;
+    if (typeof options === "function") {
+      callback = options;
+      options = {};
+    } else if ("callback" in options) {
+      callback = options.callback;
+    }
+    const oldString = this.castInput(oldStr, options);
+    const newString = this.castInput(newStr, options);
+    const oldTokens = this.removeEmpty(this.tokenize(oldString, options));
+    const newTokens = this.removeEmpty(this.tokenize(newString, options));
+    return this.diffWithOptionsObj(oldTokens, newTokens, options, callback);
+  }
+  diffWithOptionsObj(oldTokens, newTokens, options, callback) {
+    var _a;
+    const done = (value) => {
+      value = this.postProcess(value, options);
+      if (callback) {
+        setTimeout(function() {
+          callback(value);
+        }, 0);
+        return;
+      } else {
+        return value;
+      }
+    };
+    const newLen = newTokens.length, oldLen = oldTokens.length;
+    let editLength = 1;
+    let maxEditLength = newLen + oldLen;
+    if (options.maxEditLength != null) {
+      maxEditLength = Math.min(maxEditLength, options.maxEditLength);
+    }
+    const maxExecutionTime = (_a = options.timeout) !== null && _a !== undefined ? _a : Infinity;
+    const abortAfterTimestamp = Date.now() + maxExecutionTime;
+    const bestPath = [{ oldPos: -1, lastComponent: undefined }];
+    let newPos = this.extractCommon(bestPath[0], newTokens, oldTokens, 0, options);
+    if (bestPath[0].oldPos + 1 >= oldLen && newPos + 1 >= newLen) {
+      return done(this.buildValues(bestPath[0].lastComponent, newTokens, oldTokens));
+    }
+    let minDiagonalToConsider = -Infinity, maxDiagonalToConsider = Infinity;
+    const execEditLength = () => {
+      for (let diagonalPath = Math.max(minDiagonalToConsider, -editLength);diagonalPath <= Math.min(maxDiagonalToConsider, editLength); diagonalPath += 2) {
+        let basePath;
+        const removePath = bestPath[diagonalPath - 1], addPath = bestPath[diagonalPath + 1];
+        if (removePath) {
+          bestPath[diagonalPath - 1] = undefined;
+        }
+        let canAdd = false;
+        if (addPath) {
+          const addPathNewPos = addPath.oldPos - diagonalPath;
+          canAdd = addPath && 0 <= addPathNewPos && addPathNewPos < newLen;
+        }
+        const canRemove = removePath && removePath.oldPos + 1 < oldLen;
+        if (!canAdd && !canRemove) {
+          bestPath[diagonalPath] = undefined;
+          continue;
+        }
+        if (!canRemove || canAdd && removePath.oldPos < addPath.oldPos) {
+          basePath = this.addToPath(addPath, true, false, 0, options);
+        } else {
+          basePath = this.addToPath(removePath, false, true, 1, options);
+        }
+        newPos = this.extractCommon(basePath, newTokens, oldTokens, diagonalPath, options);
+        if (basePath.oldPos + 1 >= oldLen && newPos + 1 >= newLen) {
+          return done(this.buildValues(basePath.lastComponent, newTokens, oldTokens)) || true;
+        } else {
+          bestPath[diagonalPath] = basePath;
+          if (basePath.oldPos + 1 >= oldLen) {
+            maxDiagonalToConsider = Math.min(maxDiagonalToConsider, diagonalPath - 1);
+          }
+          if (newPos + 1 >= newLen) {
+            minDiagonalToConsider = Math.max(minDiagonalToConsider, diagonalPath + 1);
+          }
+        }
+      }
+      editLength++;
+    };
+    if (callback) {
+      (function exec() {
+        setTimeout(function() {
+          if (editLength > maxEditLength || Date.now() > abortAfterTimestamp) {
+            return callback(undefined);
+          }
+          if (!execEditLength()) {
+            exec();
+          }
+        }, 0);
+      })();
+    } else {
+      while (editLength <= maxEditLength && Date.now() <= abortAfterTimestamp) {
+        const ret = execEditLength();
+        if (ret) {
+          return ret;
+        }
+      }
+    }
+  }
+  addToPath(path2, added, removed, oldPosInc, options) {
+    const last = path2.lastComponent;
+    if (last && !options.oneChangePerToken && last.added === added && last.removed === removed) {
+      return {
+        oldPos: path2.oldPos + oldPosInc,
+        lastComponent: { count: last.count + 1, added, removed, previousComponent: last.previousComponent }
+      };
+    } else {
+      return {
+        oldPos: path2.oldPos + oldPosInc,
+        lastComponent: { count: 1, added, removed, previousComponent: last }
+      };
+    }
+  }
+  extractCommon(basePath, newTokens, oldTokens, diagonalPath, options) {
+    const newLen = newTokens.length, oldLen = oldTokens.length;
+    let oldPos = basePath.oldPos, newPos = oldPos - diagonalPath, commonCount = 0;
+    while (newPos + 1 < newLen && oldPos + 1 < oldLen && this.equals(oldTokens[oldPos + 1], newTokens[newPos + 1], options)) {
+      newPos++;
+      oldPos++;
+      commonCount++;
+      if (options.oneChangePerToken) {
+        basePath.lastComponent = { count: 1, previousComponent: basePath.lastComponent, added: false, removed: false };
+      }
+    }
+    if (commonCount && !options.oneChangePerToken) {
+      basePath.lastComponent = { count: commonCount, previousComponent: basePath.lastComponent, added: false, removed: false };
+    }
+    basePath.oldPos = oldPos;
+    return newPos;
+  }
+  equals(left, right, options) {
+    if (options.comparator) {
+      return options.comparator(left, right);
+    } else {
+      return left === right || !!options.ignoreCase && left.toLowerCase() === right.toLowerCase();
+    }
+  }
+  removeEmpty(array) {
+    const ret = [];
+    for (let i = 0;i < array.length; i++) {
+      if (array[i]) {
+        ret.push(array[i]);
+      }
+    }
+    return ret;
+  }
+  castInput(value, options) {
+    return value;
+  }
+  tokenize(value, options) {
+    return Array.from(value);
+  }
+  join(chars) {
+    return chars.join("");
+  }
+  postProcess(changeObjects, options) {
+    return changeObjects;
+  }
+  get useLongestToken() {
+    return false;
+  }
+  buildValues(lastComponent, newTokens, oldTokens) {
+    const components = [];
+    let nextComponent;
+    while (lastComponent) {
+      components.push(lastComponent);
+      nextComponent = lastComponent.previousComponent;
+      delete lastComponent.previousComponent;
+      lastComponent = nextComponent;
+    }
+    components.reverse();
+    const componentLen = components.length;
+    let componentPos = 0, newPos = 0, oldPos = 0;
+    for (;componentPos < componentLen; componentPos++) {
+      const component = components[componentPos];
+      if (!component.removed) {
+        if (!component.added && this.useLongestToken) {
+          let value = newTokens.slice(newPos, newPos + component.count);
+          value = value.map(function(value2, i) {
+            const oldValue = oldTokens[oldPos + i];
+            return oldValue.length > value2.length ? oldValue : value2;
+          });
+          component.value = this.join(value);
+        } else {
+          component.value = this.join(newTokens.slice(newPos, newPos + component.count));
+        }
+        newPos += component.count;
+        if (!component.added) {
+          oldPos += component.count;
+        }
+      } else {
+        component.value = this.join(oldTokens.slice(oldPos, oldPos + component.count));
+        oldPos += component.count;
+      }
+    }
+    return components;
+  }
+}
+
+class CharacterDiff extends Diff {
+}
+var characterDiff = new CharacterDiff;
+function longestCommonPrefix(str1, str2) {
+  let i;
+  for (i = 0;i < str1.length && i < str2.length; i++) {
+    if (str1[i] != str2[i]) {
+      return str1.slice(0, i);
+    }
+  }
+  return str1.slice(0, i);
+}
+function longestCommonSuffix(str1, str2) {
+  let i;
+  if (!str1 || !str2 || str1[str1.length - 1] != str2[str2.length - 1]) {
+    return "";
+  }
+  for (i = 0;i < str1.length && i < str2.length; i++) {
+    if (str1[str1.length - (i + 1)] != str2[str2.length - (i + 1)]) {
+      return str1.slice(-i);
+    }
+  }
+  return str1.slice(-i);
+}
+function replacePrefix(string, oldPrefix, newPrefix) {
+  if (string.slice(0, oldPrefix.length) != oldPrefix) {
+    throw Error(`string ${JSON.stringify(string)} doesn't start with prefix ${JSON.stringify(oldPrefix)}; this is a bug`);
+  }
+  return newPrefix + string.slice(oldPrefix.length);
+}
+function replaceSuffix(string, oldSuffix, newSuffix) {
+  if (!oldSuffix) {
+    return string + newSuffix;
+  }
+  if (string.slice(-oldSuffix.length) != oldSuffix) {
+    throw Error(`string ${JSON.stringify(string)} doesn't end with suffix ${JSON.stringify(oldSuffix)}; this is a bug`);
+  }
+  return string.slice(0, -oldSuffix.length) + newSuffix;
+}
+function removePrefix(string, oldPrefix) {
+  return replacePrefix(string, oldPrefix, "");
+}
+function removeSuffix(string, oldSuffix) {
+  return replaceSuffix(string, oldSuffix, "");
+}
+function maximumOverlap(string1, string2) {
+  return string2.slice(0, overlapCount(string1, string2));
+}
+function overlapCount(a, b) {
+  let startA = 0;
+  if (a.length > b.length) {
+    startA = a.length - b.length;
+  }
+  let endB = b.length;
+  if (a.length < b.length) {
+    endB = a.length;
+  }
+  const map = Array(endB);
+  let k = 0;
+  map[0] = 0;
+  for (let j = 1;j < endB; j++) {
+    if (b[j] == b[k]) {
+      map[j] = map[k];
+    } else {
+      map[j] = k;
+    }
+    while (k > 0 && b[j] != b[k]) {
+      k = map[k];
+    }
+    if (b[j] == b[k]) {
+      k++;
+    }
+  }
+  k = 0;
+  for (let i = startA;i < a.length; i++) {
+    while (k > 0 && a[i] != b[k]) {
+      k = map[k];
+    }
+    if (a[i] == b[k]) {
+      k++;
+    }
+  }
+  return k;
+}
+function trailingWs(string) {
+  let i;
+  for (i = string.length - 1;i >= 0; i--) {
+    if (!string[i].match(/\s/)) {
+      break;
+    }
+  }
+  return string.substring(i + 1);
+}
+function leadingWs(string) {
+  const match = string.match(/^\s*/);
+  return match ? match[0] : "";
+}
+var extendedWordChars = "a-zA-Z0-9_\\u{C0}-\\u{FF}\\u{D8}-\\u{F6}\\u{F8}-\\u{2C6}\\u{2C8}-\\u{2D7}\\u{2DE}-\\u{2FF}\\u{1E00}-\\u{1EFF}";
+var tokenizeIncludingWhitespace = new RegExp(`[${extendedWordChars}]+|\\s+|[^${extendedWordChars}]`, "ug");
+
+class WordDiff extends Diff {
+  equals(left, right, options) {
+    if (options.ignoreCase) {
+      left = left.toLowerCase();
+      right = right.toLowerCase();
+    }
+    return left.trim() === right.trim();
+  }
+  tokenize(value, options = {}) {
+    let parts;
+    if (options.intlSegmenter) {
+      const segmenter = options.intlSegmenter;
+      if (segmenter.resolvedOptions().granularity != "word") {
+        throw new Error('The segmenter passed must have a granularity of "word"');
+      }
+      parts = Array.from(segmenter.segment(value), (segment) => segment.segment);
+    } else {
+      parts = value.match(tokenizeIncludingWhitespace) || [];
+    }
+    const tokens = [];
+    let prevPart = null;
+    parts.forEach((part) => {
+      if (/\s/.test(part)) {
+        if (prevPart == null) {
+          tokens.push(part);
+        } else {
+          tokens.push(tokens.pop() + part);
+        }
+      } else if (prevPart != null && /\s/.test(prevPart)) {
+        if (tokens[tokens.length - 1] == prevPart) {
+          tokens.push(tokens.pop() + part);
+        } else {
+          tokens.push(prevPart + part);
+        }
+      } else {
+        tokens.push(part);
+      }
+      prevPart = part;
+    });
+    return tokens;
+  }
+  join(tokens) {
+    return tokens.map((token, i) => {
+      if (i == 0) {
+        return token;
+      } else {
+        return token.replace(/^\s+/, "");
+      }
+    }).join("");
+  }
+  postProcess(changes, options) {
+    if (!changes || options.oneChangePerToken) {
+      return changes;
+    }
+    let lastKeep = null;
+    let insertion = null;
+    let deletion = null;
+    changes.forEach((change) => {
+      if (change.added) {
+        insertion = change;
+      } else if (change.removed) {
+        deletion = change;
+      } else {
+        if (insertion || deletion) {
+          dedupeWhitespaceInChangeObjects(lastKeep, deletion, insertion, change);
+        }
+        lastKeep = change;
+        insertion = null;
+        deletion = null;
+      }
+    });
+    if (insertion || deletion) {
+      dedupeWhitespaceInChangeObjects(lastKeep, deletion, insertion, null);
+    }
+    return changes;
+  }
+}
+var wordDiff = new WordDiff;
+function dedupeWhitespaceInChangeObjects(startKeep, deletion, insertion, endKeep) {
+  if (deletion && insertion) {
+    const oldWsPrefix = leadingWs(deletion.value);
+    const oldWsSuffix = trailingWs(deletion.value);
+    const newWsPrefix = leadingWs(insertion.value);
+    const newWsSuffix = trailingWs(insertion.value);
+    if (startKeep) {
+      const commonWsPrefix = longestCommonPrefix(oldWsPrefix, newWsPrefix);
+      startKeep.value = replaceSuffix(startKeep.value, newWsPrefix, commonWsPrefix);
+      deletion.value = removePrefix(deletion.value, commonWsPrefix);
+      insertion.value = removePrefix(insertion.value, commonWsPrefix);
+    }
+    if (endKeep) {
+      const commonWsSuffix = longestCommonSuffix(oldWsSuffix, newWsSuffix);
+      endKeep.value = replacePrefix(endKeep.value, newWsSuffix, commonWsSuffix);
+      deletion.value = removeSuffix(deletion.value, commonWsSuffix);
+      insertion.value = removeSuffix(insertion.value, commonWsSuffix);
+    }
+  } else if (insertion) {
+    if (startKeep) {
+      const ws = leadingWs(insertion.value);
+      insertion.value = insertion.value.substring(ws.length);
+    }
+    if (endKeep) {
+      const ws = leadingWs(endKeep.value);
+      endKeep.value = endKeep.value.substring(ws.length);
+    }
+  } else if (startKeep && endKeep) {
+    const newWsFull = leadingWs(endKeep.value), delWsStart = leadingWs(deletion.value), delWsEnd = trailingWs(deletion.value);
+    const newWsStart = longestCommonPrefix(newWsFull, delWsStart);
+    deletion.value = removePrefix(deletion.value, newWsStart);
+    const newWsEnd = longestCommonSuffix(removePrefix(newWsFull, newWsStart), delWsEnd);
+    deletion.value = removeSuffix(deletion.value, newWsEnd);
+    endKeep.value = replacePrefix(endKeep.value, newWsFull, newWsEnd);
+    startKeep.value = replaceSuffix(startKeep.value, newWsFull, newWsFull.slice(0, newWsFull.length - newWsEnd.length));
+  } else if (endKeep) {
+    const endKeepWsPrefix = leadingWs(endKeep.value);
+    const deletionWsSuffix = trailingWs(deletion.value);
+    const overlap = maximumOverlap(deletionWsSuffix, endKeepWsPrefix);
+    deletion.value = removeSuffix(deletion.value, overlap);
+  } else if (startKeep) {
+    const startKeepWsSuffix = trailingWs(startKeep.value);
+    const deletionWsPrefix = leadingWs(deletion.value);
+    const overlap = maximumOverlap(startKeepWsSuffix, deletionWsPrefix);
+    deletion.value = removePrefix(deletion.value, overlap);
+  }
+}
+
+class WordsWithSpaceDiff extends Diff {
+  tokenize(value) {
+    const regex = new RegExp(`(\\r?\\n)|[${extendedWordChars}]+|[^\\S\\n\\r]+|[^${extendedWordChars}]`, "ug");
+    return value.match(regex) || [];
+  }
+}
+var wordsWithSpaceDiff = new WordsWithSpaceDiff;
+
+class LineDiff extends Diff {
+  constructor() {
+    super(...arguments);
+    this.tokenize = tokenize;
+  }
+  equals(left, right, options) {
+    if (options.ignoreWhitespace) {
+      if (!options.newlineIsToken || !left.includes(`
+`)) {
+        left = left.trim();
+      }
+      if (!options.newlineIsToken || !right.includes(`
+`)) {
+        right = right.trim();
+      }
+    } else if (options.ignoreNewlineAtEof && !options.newlineIsToken) {
+      if (left.endsWith(`
+`)) {
+        left = left.slice(0, -1);
+      }
+      if (right.endsWith(`
+`)) {
+        right = right.slice(0, -1);
+      }
+    }
+    return super.equals(left, right, options);
+  }
+}
+var lineDiff = new LineDiff;
+function tokenize(value, options) {
+  if (options.stripTrailingCr) {
+    value = value.replace(/\r\n/g, `
+`);
+  }
+  const retLines = [], linesAndNewlines = value.split(/(\n|\r\n)/);
+  if (!linesAndNewlines[linesAndNewlines.length - 1]) {
+    linesAndNewlines.pop();
+  }
+  for (let i = 0;i < linesAndNewlines.length; i++) {
+    const line = linesAndNewlines[i];
+    if (i % 2 && !options.newlineIsToken) {
+      retLines[retLines.length - 1] += line;
+    } else {
+      retLines.push(line);
+    }
+  }
+  return retLines;
+}
+function isSentenceEndPunct(char) {
+  return char == "." || char == "!" || char == "?";
+}
+
+class SentenceDiff extends Diff {
+  tokenize(value) {
+    var _a;
+    const result = [];
+    let tokenStartI = 0;
+    for (let i = 0;i < value.length; i++) {
+      if (i == value.length - 1) {
+        result.push(value.slice(tokenStartI));
+        break;
+      }
+      if (isSentenceEndPunct(value[i]) && value[i + 1].match(/\s/)) {
+        result.push(value.slice(tokenStartI, i + 1));
+        i = tokenStartI = i + 1;
+        while ((_a = value[i + 1]) === null || _a === undefined ? undefined : _a.match(/\s/)) {
+          i++;
+        }
+        result.push(value.slice(tokenStartI, i + 1));
+        tokenStartI = i + 1;
+      }
+    }
+    return result;
+  }
+}
+var sentenceDiff = new SentenceDiff;
+
+class CssDiff extends Diff {
+  tokenize(value) {
+    return value.split(/([{}:;,]|\s+)/);
+  }
+}
+var cssDiff = new CssDiff;
+
+class JsonDiff extends Diff {
+  constructor() {
+    super(...arguments);
+    this.tokenize = tokenize;
+  }
+  get useLongestToken() {
+    return true;
+  }
+  castInput(value, options) {
+    const { undefinedReplacement, stringifyReplacer = (k, v) => typeof v === "undefined" ? undefinedReplacement : v } = options;
+    return typeof value === "string" ? value : JSON.stringify(canonicalize(value, null, null, stringifyReplacer), null, "  ");
+  }
+  equals(left, right, options) {
+    return super.equals(left.replace(/,([\r\n])/g, "$1"), right.replace(/,([\r\n])/g, "$1"), options);
+  }
+}
+var jsonDiff = new JsonDiff;
+function canonicalize(obj, stack, replacementStack, replacer, key) {
+  stack = stack || [];
+  replacementStack = replacementStack || [];
+  if (replacer) {
+    obj = replacer(key === undefined ? "" : key, obj);
+  }
+  let i;
+  for (i = 0;i < stack.length; i += 1) {
+    if (stack[i] === obj) {
+      return replacementStack[i];
+    }
+  }
+  let canonicalizedObj;
+  if (Object.prototype.toString.call(obj) === "[object Array]") {
+    stack.push(obj);
+    canonicalizedObj = new Array(obj.length);
+    replacementStack.push(canonicalizedObj);
+    for (i = 0;i < obj.length; i += 1) {
+      canonicalizedObj[i] = canonicalize(obj[i], stack, replacementStack, replacer, String(i));
+    }
+    stack.pop();
+    replacementStack.pop();
+    return canonicalizedObj;
+  }
+  if (obj && obj.toJSON) {
+    obj = obj.toJSON();
+  }
+  if (typeof obj === "object" && obj !== null) {
+    stack.push(obj);
+    canonicalizedObj = {};
+    replacementStack.push(canonicalizedObj);
+    const sortedKeys = [];
+    let key2;
+    for (key2 in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key2)) {
+        sortedKeys.push(key2);
+      }
+    }
+    sortedKeys.sort();
+    for (i = 0;i < sortedKeys.length; i += 1) {
+      key2 = sortedKeys[i];
+      canonicalizedObj[key2] = canonicalize(obj[key2], stack, replacementStack, replacer, key2);
+    }
+    stack.pop();
+    replacementStack.pop();
+  } else {
+    canonicalizedObj = obj;
+  }
+  return canonicalizedObj;
+}
+
+class ArrayDiff extends Diff {
+  tokenize(value) {
+    return value.slice();
+  }
+  join(value) {
+    return value;
+  }
+  removeEmpty(value) {
+    return value;
+  }
+}
+var arrayDiff = new ArrayDiff;
+class TextRenderable extends TextBufferRenderable {
+  _text;
+  _hasManualStyledText = false;
+  rootTextNode;
+  _contentDefaultOptions = {
+    content: ""
+  };
+  constructor(ctx, options) {
+    super(ctx, options);
+    const content = options.content ?? this._contentDefaultOptions.content;
+    const styledText = typeof content === "string" ? stringToStyledText(content) : content;
+    this._text = styledText;
+    this._hasManualStyledText = options.content !== undefined && content !== "";
+    this.rootTextNode = new RootTextNodeRenderable(ctx, {
+      id: `${this.id}-root`,
+      fg: this._defaultFg,
+      bg: this._defaultBg,
+      attributes: this._defaultAttributes
+    }, this);
+    this.updateTextBuffer(styledText);
+  }
+  updateTextBuffer(styledText) {
+    this.textBuffer.setStyledText(styledText);
+    this.clearChunks(styledText);
+  }
+  clearChunks(styledText) {}
+  get content() {
+    return this._text;
+  }
+  get chunks() {
+    return this._text.chunks;
+  }
+  get textNode() {
+    return this.rootTextNode;
+  }
+  set content(value) {
+    this._hasManualStyledText = true;
+    const styledText = typeof value === "string" ? stringToStyledText(value) : value;
+    if (this._text !== styledText) {
+      this._text = styledText;
+      this.updateTextBuffer(styledText);
+      this.updateTextInfo();
+    }
+  }
+  updateTextFromNodes() {
+    if (this.rootTextNode.isDirty && !this._hasManualStyledText) {
+      const chunks = this.rootTextNode.gatherWithInheritedStyle({
+        fg: this._defaultFg,
+        bg: this._defaultBg,
+        attributes: this._defaultAttributes
+      });
+      this.textBuffer.setStyledText(new StyledText(chunks));
+      this.refreshLocalSelection();
+      this.yogaNode.markDirty();
+    }
+  }
+  add(obj, index) {
+    return this.rootTextNode.add(obj, index);
+  }
+  remove(id) {
+    this.rootTextNode.remove(id);
+  }
+  insertBefore(obj, anchor) {
+    this.rootTextNode.insertBefore(obj, anchor);
+    return this.rootTextNode.children.indexOf(obj);
+  }
+  getTextChildren() {
+    return this.rootTextNode.getChildren();
+  }
+  clear() {
+    this.rootTextNode.clear();
+    const emptyStyledText = stringToStyledText("");
+    this._text = emptyStyledText;
+    this.updateTextBuffer(emptyStyledText);
+    this.updateTextInfo();
+    this.requestRender();
+  }
+  onLifecyclePass = () => {
+    this.updateTextFromNodes();
+  };
+  onFgChanged(newColor) {
+    this.rootTextNode.fg = newColor;
+  }
+  onBgChanged(newColor) {
+    this.rootTextNode.bg = newColor;
+  }
+  onAttributesChanged(newAttributes) {
+    this.rootTextNode.attributes = newAttributes;
+  }
+  destroy() {
+    this.rootTextNode.children.length = 0;
+    super.destroy();
+  }
+}
+var defaultInputKeybindings = [
+  { name: "left", action: "move-left" },
+  { name: "right", action: "move-right" },
+  { name: "home", action: "move-home" },
+  { name: "end", action: "move-end" },
+  { name: "backspace", action: "delete-backward" },
+  { name: "delete", action: "delete-forward" },
+  { name: "return", action: "submit" },
+  { name: "linefeed", action: "submit" },
+  { name: "a", ctrl: true, action: "move-home" },
+  { name: "e", ctrl: true, action: "move-end" },
+  { name: "f", ctrl: true, action: "move-right" },
+  { name: "b", ctrl: true, action: "move-left" },
+  { name: "d", ctrl: true, action: "delete-forward" }
+];
+var InputRenderableEvents;
+((InputRenderableEvents2) => {
+  InputRenderableEvents2["INPUT"] = "input";
+  InputRenderableEvents2["CHANGE"] = "change";
+  InputRenderableEvents2["ENTER"] = "enter";
+})(InputRenderableEvents ||= {});
+
+class InputRenderable extends Renderable {
+  _focusable = true;
+  _value = "";
+  _cursorPosition = 0;
+  _placeholder;
+  _backgroundColor;
+  _textColor;
+  _focusedBackgroundColor;
+  _focusedTextColor;
+  _placeholderColor;
+  _cursorColor;
+  _cursorStyle;
+  _maxLength;
+  _lastCommittedValue = "";
+  _keyBindingsMap;
+  _keyAliasMap;
+  _keyBindings;
+  _defaultOptions = {
+    backgroundColor: "transparent",
+    textColor: "#FFFFFF",
+    focusedBackgroundColor: "#1a1a1a",
+    focusedTextColor: "#FFFFFF",
+    placeholder: "",
+    placeholderColor: "#666666",
+    cursorColor: "#FFFFFF",
+    cursorStyle: {
+      style: "block",
+      blinking: true
+    },
+    maxLength: 1000,
+    value: ""
+  };
+  constructor(ctx, options) {
+    super(ctx, { ...options, buffered: true });
+    this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor);
+    this._textColor = parseColor(options.textColor || this._defaultOptions.textColor);
+    this._focusedBackgroundColor = parseColor(options.focusedBackgroundColor || options.backgroundColor || this._defaultOptions.focusedBackgroundColor);
+    this._focusedTextColor = parseColor(options.focusedTextColor || options.textColor || this._defaultOptions.focusedTextColor);
+    this._placeholder = options.placeholder || this._defaultOptions.placeholder;
+    this._value = options.value || this._defaultOptions.value;
+    this._lastCommittedValue = this._value;
+    this._cursorPosition = this._value.length;
+    this._maxLength = options.maxLength || this._defaultOptions.maxLength;
+    this._placeholderColor = parseColor(options.placeholderColor || this._defaultOptions.placeholderColor);
+    this._cursorColor = parseColor(options.cursorColor || this._defaultOptions.cursorColor);
+    this._cursorStyle = options.cursorStyle || this._defaultOptions.cursorStyle;
+    this._keyAliasMap = mergeKeyAliases(defaultKeyAliases, options.keyAliasMap || {});
+    this._keyBindings = options.keyBindings || [];
+    const mergedBindings = mergeKeyBindings(defaultInputKeybindings, this._keyBindings);
+    this._keyBindingsMap = buildKeyBindingsMap(mergedBindings, this._keyAliasMap);
+  }
+  updateCursorPosition() {
+    if (!this._focused)
+      return;
+    const contentX = 0;
+    const contentY = 0;
+    const contentWidth = this.width;
+    const maxVisibleChars = contentWidth - 1;
+    let displayStartIndex = 0;
+    if (this._cursorPosition >= maxVisibleChars) {
+      displayStartIndex = this._cursorPosition - maxVisibleChars + 1;
+    }
+    const cursorDisplayX = this._cursorPosition - displayStartIndex;
+    if (cursorDisplayX >= 0 && cursorDisplayX < contentWidth) {
+      const absoluteCursorX = this.x + contentX + cursorDisplayX + 1;
+      const absoluteCursorY = this.y + contentY + 1;
+      this._ctx.setCursorPosition(absoluteCursorX, absoluteCursorY, true);
+      this._ctx.setCursorColor(this._cursorColor);
+    }
+  }
+  focus() {
+    super.focus();
+    this._ctx.setCursorStyle(this._cursorStyle.style, this._cursorStyle.blinking);
+    this._ctx.setCursorColor(this._cursorColor);
+    this.updateCursorPosition();
+  }
+  blur() {
+    super.blur();
+    this._ctx.setCursorPosition(0, 0, false);
+    if (this._value !== this._lastCommittedValue) {
+      this._lastCommittedValue = this._value;
+      this.emit("change", this._value);
+    }
+  }
+  renderSelf(buffer, deltaTime) {
+    if (!this.visible || !this.frameBuffer)
+      return;
+    if (this.isDirty) {
+      this.refreshFrameBuffer();
+    }
+  }
+  refreshFrameBuffer() {
+    if (!this.frameBuffer)
+      return;
+    const bgColor = this._focused ? this._focusedBackgroundColor : this._backgroundColor;
+    this.frameBuffer.clear(bgColor);
+    const contentX = 0;
+    const contentY = 0;
+    const contentWidth = this.width;
+    const contentHeight = this.height;
+    const displayText = this._value || this._placeholder;
+    const isPlaceholder = !this._value && this._placeholder;
+    const baseTextColor = this._focused ? this._focusedTextColor : this._textColor;
+    const textColor = isPlaceholder ? this._placeholderColor : baseTextColor;
+    const maxVisibleChars = contentWidth - 1;
+    let displayStartIndex = 0;
+    if (this._cursorPosition >= maxVisibleChars) {
+      displayStartIndex = this._cursorPosition - maxVisibleChars + 1;
+    }
+    const visibleText = displayText.substring(displayStartIndex, displayStartIndex + maxVisibleChars);
+    if (visibleText) {
+      this.frameBuffer.drawText(visibleText, contentX, contentY, textColor);
+    }
+    if (this._focused) {
+      this.updateCursorPosition();
+    }
+  }
+  get value() {
+    return this._value;
+  }
+  set value(value) {
+    const newValue = value.substring(0, this._maxLength);
+    if (this._value !== newValue) {
+      this._value = newValue;
+      this._cursorPosition = Math.min(this._cursorPosition, this._value.length);
+      this.requestRender();
+      this.updateCursorPosition();
+      this.emit("input", this._value);
+    }
+  }
+  set placeholder(placeholder) {
+    if (this._placeholder !== placeholder) {
+      this._placeholder = placeholder;
+      this.requestRender();
+    }
+  }
+  get cursorPosition() {
+    return this._cursorPosition;
+  }
+  set cursorPosition(position) {
+    const newPosition = Math.max(0, Math.min(position, this._value.length));
+    if (this._cursorPosition !== newPosition) {
+      this._cursorPosition = newPosition;
+      this.requestRender();
+      this.updateCursorPosition();
+    }
+  }
+  insertText(text) {
+    if (this._value.length + text.length > this._maxLength) {
+      return;
+    }
+    const beforeCursor = this._value.substring(0, this._cursorPosition);
+    const afterCursor = this._value.substring(this._cursorPosition);
+    this._value = beforeCursor + text + afterCursor;
+    this._cursorPosition += text.length;
+    this.requestRender();
+    this.updateCursorPosition();
+    this.emit("input", this._value);
+  }
+  deleteCharacter(direction) {
+    if (direction === "backward" && this._cursorPosition > 0) {
+      const beforeCursor = this._value.substring(0, this._cursorPosition - 1);
+      const afterCursor = this._value.substring(this._cursorPosition);
+      this._value = beforeCursor + afterCursor;
+      this._cursorPosition--;
+      this.requestRender();
+      this.updateCursorPosition();
+      this.emit("input", this._value);
+    } else if (direction === "forward" && this._cursorPosition < this._value.length) {
+      const beforeCursor = this._value.substring(0, this._cursorPosition);
+      const afterCursor = this._value.substring(this._cursorPosition + 1);
+      this._value = beforeCursor + afterCursor;
+      this.requestRender();
+      this.updateCursorPosition();
+      this.emit("input", this._value);
+    }
+  }
+  handleKeyPress(key) {
+    const bindingKey = getKeyBindingKey({
+      name: key.name,
+      ctrl: key.ctrl,
+      shift: key.shift,
+      meta: key.meta,
+      super: key.super,
+      action: "move-left"
+    });
+    const action = this._keyBindingsMap.get(bindingKey);
+    if (action) {
+      switch (action) {
+        case "move-left":
+          this.cursorPosition = this._cursorPosition - 1;
+          return true;
+        case "move-right":
+          this.cursorPosition = this._cursorPosition + 1;
+          return true;
+        case "move-home":
+          this.cursorPosition = 0;
+          return true;
+        case "move-end":
+          this.cursorPosition = this._value.length;
+          return true;
+        case "delete-backward":
+          this.deleteCharacter("backward");
+          return true;
+        case "delete-forward":
+          this.deleteCharacter("forward");
+          return true;
+        case "submit":
+          if (this._value !== this._lastCommittedValue) {
+            this._lastCommittedValue = this._value;
+            this.emit("change", this._value);
+          }
+          this.emit("enter", this._value);
+          return true;
+      }
+    }
+    if (!key.ctrl && !key.meta && !key.super && !key.hyper) {
+      if (key.name === "space") {
+        this.insertText(" ");
+        return true;
+      }
+      if (key.sequence && key.sequence.length === 1 && key.sequence.charCodeAt(0) >= 32 && key.sequence.charCodeAt(0) <= 126) {
+        this.insertText(key.sequence);
+        return true;
+      }
+    }
+    return false;
+  }
+  set maxLength(maxLength) {
+    this._maxLength = maxLength;
+    if (this._value.length > maxLength) {
+      this._value = this._value.substring(0, maxLength);
+      this.requestRender();
+    }
+  }
+  set backgroundColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor);
+    if (this._backgroundColor !== newColor) {
+      this._backgroundColor = newColor;
+      this.requestRender();
+    }
+  }
+  set textColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.textColor);
+    if (this._textColor !== newColor) {
+      this._textColor = newColor;
+      this.requestRender();
+    }
+  }
+  set focusedBackgroundColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.focusedBackgroundColor);
+    if (this._focusedBackgroundColor !== newColor) {
+      this._focusedBackgroundColor = newColor;
+      this.requestRender();
+    }
+  }
+  set focusedTextColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.focusedTextColor);
+    if (this._focusedTextColor !== newColor) {
+      this._focusedTextColor = newColor;
+      this.requestRender();
+    }
+  }
+  set placeholderColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.placeholderColor);
+    if (this._placeholderColor !== newColor) {
+      this._placeholderColor = newColor;
+      this.requestRender();
+    }
+  }
+  set cursorColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.cursorColor);
+    if (this._cursorColor !== newColor) {
+      this._cursorColor = newColor;
+      if (this._focused) {
+        this._ctx.requestRender();
+      }
+    }
+  }
+  get cursorStyle() {
+    return this._cursorStyle;
+  }
+  set cursorStyle(style) {
+    const newStyle = style;
+    if (this.cursorStyle.style !== newStyle.style || this.cursorStyle.blinking !== newStyle.blinking) {
+      this._cursorStyle = newStyle;
+      if (this._focused) {
+        this._ctx.requestRender();
+      }
+    }
+  }
+  updateFromLayout() {
+    super.updateFromLayout();
+    this.updateCursorPosition();
+  }
+  onResize(width, height) {
+    super.onResize(width, height);
+    this.updateCursorPosition();
+  }
+  onRemove() {
+    if (this._focused) {
+      this._ctx.setCursorPosition(0, 0, false);
+    }
+  }
+  set keyBindings(bindings) {
+    this._keyBindings = bindings;
+    const mergedBindings = mergeKeyBindings(defaultInputKeybindings, bindings);
+    this._keyBindingsMap = buildKeyBindingsMap(mergedBindings, this._keyAliasMap);
+  }
+  set keyAliasMap(aliases) {
+    this._keyAliasMap = mergeKeyAliases(defaultKeyAliases, aliases);
+    const mergedBindings = mergeKeyBindings(defaultInputKeybindings, this._keyBindings);
+    this._keyBindingsMap = buildKeyBindingsMap(mergedBindings, this._keyAliasMap);
+  }
+}
+var defaultThumbBackgroundColor = RGBA.fromHex("#9a9ea3");
+var defaultTrackBackgroundColor = RGBA.fromHex("#252527");
+var defaultSelectKeybindings = [
+  { name: "up", action: "move-up" },
+  { name: "k", action: "move-up" },
+  { name: "down", action: "move-down" },
+  { name: "j", action: "move-down" },
+  { name: "up", shift: true, action: "move-up-fast" },
+  { name: "down", shift: true, action: "move-down-fast" },
+  { name: "return", action: "select-current" },
+  { name: "linefeed", action: "select-current" }
+];
+var SelectRenderableEvents;
+((SelectRenderableEvents2) => {
+  SelectRenderableEvents2["SELECTION_CHANGED"] = "selectionChanged";
+  SelectRenderableEvents2["ITEM_SELECTED"] = "itemSelected";
+})(SelectRenderableEvents ||= {});
+
+class SelectRenderable extends Renderable {
+  _focusable = true;
+  _options = [];
+  _selectedIndex = 0;
+  scrollOffset = 0;
+  maxVisibleItems;
+  _backgroundColor;
+  _textColor;
+  _focusedBackgroundColor;
+  _focusedTextColor;
+  _selectedBackgroundColor;
+  _selectedTextColor;
+  _descriptionColor;
+  _selectedDescriptionColor;
+  _showScrollIndicator;
+  _wrapSelection;
+  _showDescription;
+  _font;
+  _itemSpacing;
+  linesPerItem;
+  fontHeight;
+  _fastScrollStep;
+  _keyBindingsMap;
+  _keyAliasMap;
+  _keyBindings;
+  _defaultOptions = {
+    backgroundColor: "transparent",
+    textColor: "#FFFFFF",
+    focusedBackgroundColor: "#1a1a1a",
+    focusedTextColor: "#FFFFFF",
+    selectedBackgroundColor: "#334455",
+    selectedTextColor: "#FFFF00",
+    selectedIndex: 0,
+    descriptionColor: "#888888",
+    selectedDescriptionColor: "#CCCCCC",
+    showScrollIndicator: false,
+    wrapSelection: false,
+    showDescription: true,
+    itemSpacing: 0,
+    fastScrollStep: 5
+  };
+  constructor(ctx, options) {
+    super(ctx, { ...options, buffered: true });
+    this._options = options.options || [];
+    const requestedIndex = options.selectedIndex ?? this._defaultOptions.selectedIndex;
+    this._selectedIndex = this._options.length > 0 ? Math.min(requestedIndex, this._options.length - 1) : 0;
+    this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor);
+    this._textColor = parseColor(options.textColor || this._defaultOptions.textColor);
+    this._focusedBackgroundColor = parseColor(options.focusedBackgroundColor || this._defaultOptions.focusedBackgroundColor);
+    this._focusedTextColor = parseColor(options.focusedTextColor || this._defaultOptions.focusedTextColor);
+    this._showScrollIndicator = options.showScrollIndicator ?? this._defaultOptions.showScrollIndicator;
+    this._wrapSelection = options.wrapSelection ?? this._defaultOptions.wrapSelection;
+    this._showDescription = options.showDescription ?? this._defaultOptions.showDescription;
+    this._font = options.font;
+    this._itemSpacing = options.itemSpacing || this._defaultOptions.itemSpacing;
+    this.fontHeight = this._font ? measureText({ text: "A", font: this._font }).height : 1;
+    this.linesPerItem = this._showDescription ? this._font ? this.fontHeight + 1 : 2 : this._font ? this.fontHeight : 1;
+    this.linesPerItem += this._itemSpacing;
+    this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem));
+    this._selectedBackgroundColor = parseColor(options.selectedBackgroundColor || this._defaultOptions.selectedBackgroundColor);
+    this._selectedTextColor = parseColor(options.selectedTextColor || this._defaultOptions.selectedTextColor);
+    this._descriptionColor = parseColor(options.descriptionColor || this._defaultOptions.descriptionColor);
+    this._selectedDescriptionColor = parseColor(options.selectedDescriptionColor || this._defaultOptions.selectedDescriptionColor);
+    this._fastScrollStep = options.fastScrollStep || this._defaultOptions.fastScrollStep;
+    this._keyAliasMap = mergeKeyAliases(defaultKeyAliases, options.keyAliasMap || {});
+    this._keyBindings = options.keyBindings || [];
+    const mergedBindings = mergeKeyBindings(defaultSelectKeybindings, this._keyBindings);
+    this._keyBindingsMap = buildKeyBindingsMap(mergedBindings, this._keyAliasMap);
+    this.requestRender();
+  }
+  renderSelf(buffer, deltaTime) {
+    if (!this.visible || !this.frameBuffer)
+      return;
+    if (this.isDirty) {
+      this.refreshFrameBuffer();
+    }
+  }
+  refreshFrameBuffer() {
+    if (!this.frameBuffer || this._options.length === 0)
+      return;
+    const bgColor = this._focused ? this._focusedBackgroundColor : this._backgroundColor;
+    this.frameBuffer.clear(bgColor);
+    const contentX = 0;
+    const contentY = 0;
+    const contentWidth = this.width;
+    const contentHeight = this.height;
+    const visibleOptions = this._options.slice(this.scrollOffset, this.scrollOffset + this.maxVisibleItems);
+    for (let i = 0;i < visibleOptions.length; i++) {
+      const actualIndex = this.scrollOffset + i;
+      const option = visibleOptions[i];
+      const isSelected = actualIndex === this._selectedIndex;
+      const itemY = contentY + i * this.linesPerItem;
+      if (itemY + this.linesPerItem - 1 >= contentY + contentHeight)
+        break;
+      if (isSelected) {
+        const contentHeight2 = this.linesPerItem - this._itemSpacing;
+        this.frameBuffer.fillRect(contentX, itemY, contentWidth, contentHeight2, this._selectedBackgroundColor);
+      }
+      const nameContent = `${isSelected ? "\u25B6 " : "  "}${option.name}`;
+      const baseTextColor = this._focused ? this._focusedTextColor : this._textColor;
+      const nameColor = isSelected ? this._selectedTextColor : baseTextColor;
+      let descX = contentX + 3;
+      if (this._font) {
+        const indicator = isSelected ? "\u25B6 " : "  ";
+        this.frameBuffer.drawText(indicator, contentX + 1, itemY, nameColor);
+        const indicatorWidth = 2;
+        renderFontToFrameBuffer(this.frameBuffer, {
+          text: option.name,
+          x: contentX + 1 + indicatorWidth,
+          y: itemY,
+          color: nameColor,
+          backgroundColor: isSelected ? this._selectedBackgroundColor : bgColor,
+          font: this._font
+        });
+        descX = contentX + 1 + indicatorWidth;
+      } else {
+        this.frameBuffer.drawText(nameContent, contentX + 1, itemY, nameColor);
+      }
+      if (this._showDescription && itemY + this.fontHeight < contentY + contentHeight) {
+        const descColor = isSelected ? this._selectedDescriptionColor : this._descriptionColor;
+        this.frameBuffer.drawText(option.description, descX, itemY + this.fontHeight, descColor);
+      }
+    }
+    if (this._showScrollIndicator && this._options.length > this.maxVisibleItems) {
+      this.renderScrollIndicatorToFrameBuffer(contentX, contentY, contentWidth, contentHeight);
+    }
+  }
+  renderScrollIndicatorToFrameBuffer(contentX, contentY, contentWidth, contentHeight) {
+    if (!this.frameBuffer)
+      return;
+    const scrollPercent = this._selectedIndex / Math.max(1, this._options.length - 1);
+    const indicatorHeight = Math.max(1, contentHeight - 2);
+    const indicatorY = contentY + 1 + Math.floor(scrollPercent * indicatorHeight);
+    const indicatorX = contentX + contentWidth - 1;
+    this.frameBuffer.drawText("\u2588", indicatorX, indicatorY, parseColor("#666666"));
+  }
+  get options() {
+    return this._options;
+  }
+  set options(options) {
+    this._options = options;
+    this._selectedIndex = Math.min(this._selectedIndex, Math.max(0, options.length - 1));
+    this.updateScrollOffset();
+    this.requestRender();
+  }
+  getSelectedOption() {
+    return this._options[this._selectedIndex] || null;
+  }
+  getSelectedIndex() {
+    return this._selectedIndex;
+  }
+  moveUp(steps = 1) {
+    const newIndex = this._selectedIndex - steps;
+    if (newIndex >= 0) {
+      this._selectedIndex = newIndex;
+    } else if (this._wrapSelection && this._options.length > 0) {
+      this._selectedIndex = this._options.length - 1;
+    } else {
+      this._selectedIndex = 0;
+    }
+    this.updateScrollOffset();
+    this.requestRender();
+    this.emit("selectionChanged", this._selectedIndex, this.getSelectedOption());
+  }
+  moveDown(steps = 1) {
+    const newIndex = this._selectedIndex + steps;
+    if (newIndex < this._options.length) {
+      this._selectedIndex = newIndex;
+    } else if (this._wrapSelection && this._options.length > 0) {
+      this._selectedIndex = 0;
+    } else {
+      this._selectedIndex = this._options.length - 1;
+    }
+    this.updateScrollOffset();
+    this.requestRender();
+    this.emit("selectionChanged", this._selectedIndex, this.getSelectedOption());
+  }
+  selectCurrent() {
+    const selected = this.getSelectedOption();
+    if (selected) {
+      this.emit("itemSelected", this._selectedIndex, selected);
+    }
+  }
+  setSelectedIndex(index) {
+    if (index >= 0 && index < this._options.length) {
+      this._selectedIndex = index;
+      this.updateScrollOffset();
+      this.requestRender();
+      this.emit("selectionChanged", this._selectedIndex, this.getSelectedOption());
+    }
+  }
+  updateScrollOffset() {
+    if (!this._options)
+      return;
+    const halfVisible = Math.floor(this.maxVisibleItems / 2);
+    const newScrollOffset = Math.max(0, Math.min(this._selectedIndex - halfVisible, this._options.length - this.maxVisibleItems));
+    if (newScrollOffset !== this.scrollOffset) {
+      this.scrollOffset = newScrollOffset;
+      this.requestRender();
+    }
+  }
+  onResize(width, height) {
+    this.maxVisibleItems = Math.max(1, Math.floor(height / this.linesPerItem));
+    this.updateScrollOffset();
+    this.requestRender();
+  }
+  handleKeyPress(key) {
+    const bindingKey = getKeyBindingKey({
+      name: key.name,
+      ctrl: key.ctrl,
+      shift: key.shift,
+      meta: key.meta,
+      super: key.super,
+      action: "move-up"
+    });
+    const action = this._keyBindingsMap.get(bindingKey);
+    if (action) {
+      switch (action) {
+        case "move-up":
+          this.moveUp(1);
+          return true;
+        case "move-down":
+          this.moveDown(1);
+          return true;
+        case "move-up-fast":
+          this.moveUp(this._fastScrollStep);
+          return true;
+        case "move-down-fast":
+          this.moveDown(this._fastScrollStep);
+          return true;
+        case "select-current":
+          this.selectCurrent();
+          return true;
+      }
+    }
+    return false;
+  }
+  get showScrollIndicator() {
+    return this._showScrollIndicator;
+  }
+  set showScrollIndicator(show) {
+    this._showScrollIndicator = show;
+    this.requestRender();
+  }
+  get showDescription() {
+    return this._showDescription;
+  }
+  set showDescription(show) {
+    if (this._showDescription !== show) {
+      this._showDescription = show;
+      this.linesPerItem = this._showDescription ? this._font ? this.fontHeight + 1 : 2 : this._font ? this.fontHeight : 1;
+      this.linesPerItem += this._itemSpacing;
+      this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem));
+      this.updateScrollOffset();
+      this.requestRender();
+    }
+  }
+  get wrapSelection() {
+    return this._wrapSelection;
+  }
+  set wrapSelection(wrap) {
+    this._wrapSelection = wrap;
+  }
+  set backgroundColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor);
+    if (this._backgroundColor !== newColor) {
+      this._backgroundColor = newColor;
+      this.requestRender();
+    }
+  }
+  set textColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.textColor);
+    if (this._textColor !== newColor) {
+      this._textColor = newColor;
+      this.requestRender();
+    }
+  }
+  set focusedBackgroundColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.focusedBackgroundColor);
+    if (this._focusedBackgroundColor !== newColor) {
+      this._focusedBackgroundColor = newColor;
+      this.requestRender();
+    }
+  }
+  set focusedTextColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.focusedTextColor);
+    if (this._focusedTextColor !== newColor) {
+      this._focusedTextColor = newColor;
+      this.requestRender();
+    }
+  }
+  set selectedBackgroundColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.selectedBackgroundColor);
+    if (this._selectedBackgroundColor !== newColor) {
+      this._selectedBackgroundColor = newColor;
+      this.requestRender();
+    }
+  }
+  set selectedTextColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.selectedTextColor);
+    if (this._selectedTextColor !== newColor) {
+      this._selectedTextColor = newColor;
+      this.requestRender();
+    }
+  }
+  set descriptionColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.descriptionColor);
+    if (this._descriptionColor !== newColor) {
+      this._descriptionColor = newColor;
+      this.requestRender();
+    }
+  }
+  set selectedDescriptionColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.selectedDescriptionColor);
+    if (this._selectedDescriptionColor !== newColor) {
+      this._selectedDescriptionColor = newColor;
+      this.requestRender();
+    }
+  }
+  set font(font) {
+    this._font = font;
+    this.fontHeight = measureText({ text: "A", font: this._font }).height;
+    this.linesPerItem = this._showDescription ? this._font ? this.fontHeight + 1 : 2 : this._font ? this.fontHeight : 1;
+    this.linesPerItem += this._itemSpacing;
+    this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem));
+    this.updateScrollOffset();
+    this.requestRender();
+  }
+  set itemSpacing(spacing) {
+    this._itemSpacing = spacing;
+    this.linesPerItem = this._showDescription ? this._font ? this.fontHeight + 1 : 2 : this._font ? this.fontHeight : 1;
+    this.linesPerItem += this._itemSpacing;
+    this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem));
+    this.updateScrollOffset();
+    this.requestRender();
+  }
+  set fastScrollStep(step) {
+    this._fastScrollStep = step;
+  }
+  set keyBindings(bindings) {
+    this._keyBindings = bindings;
+    const mergedBindings = mergeKeyBindings(defaultSelectKeybindings, bindings);
+    this._keyBindingsMap = buildKeyBindingsMap(mergedBindings, this._keyAliasMap);
+  }
+  set keyAliasMap(aliases) {
+    this._keyAliasMap = mergeKeyAliases(defaultKeyAliases, aliases);
+    const mergedBindings = mergeKeyBindings(defaultSelectKeybindings, this._keyBindings);
+    this._keyBindingsMap = buildKeyBindingsMap(mergedBindings, this._keyAliasMap);
+  }
+  set selectedIndex(value) {
+    const newIndex = value ?? this._defaultOptions.selectedIndex;
+    const clampedIndex = this._options.length > 0 ? Math.min(Math.max(0, newIndex), this._options.length - 1) : 0;
+    if (this._selectedIndex !== clampedIndex) {
+      this._selectedIndex = clampedIndex;
+      this.updateScrollOffset();
+      this.requestRender();
+    }
+  }
+}
+var TabSelectRenderableEvents;
+((TabSelectRenderableEvents2) => {
+  TabSelectRenderableEvents2["SELECTION_CHANGED"] = "selectionChanged";
+  TabSelectRenderableEvents2["ITEM_SELECTED"] = "itemSelected";
+})(TabSelectRenderableEvents ||= {});
+class EditBufferRenderable extends Renderable {
+  _focusable = true;
+  selectable = true;
+  _textColor;
+  _backgroundColor;
+  _defaultAttributes;
+  _selectionBg;
+  _selectionFg;
+  _wrapMode = "word";
+  _scrollMargin = 0.2;
+  _showCursor = true;
+  _cursorColor;
+  _cursorStyle;
+  lastLocalSelection = null;
+  _tabIndicator;
+  _tabIndicatorColor;
+  _cursorChangeListener = undefined;
+  _contentChangeListener = undefined;
+  _autoScrollVelocity = 0;
+  _autoScrollAccumulator = 0;
+  _scrollSpeed = 16;
+  editBuffer;
+  editorView;
+  _defaultOptions = {
+    textColor: RGBA.fromValues(1, 1, 1, 1),
+    backgroundColor: "transparent",
+    selectionBg: undefined,
+    selectionFg: undefined,
+    selectable: true,
+    attributes: 0,
+    wrapMode: "word",
+    scrollMargin: 0.2,
+    scrollSpeed: 16,
+    showCursor: true,
+    cursorColor: RGBA.fromValues(1, 1, 1, 1),
+    cursorStyle: {
+      style: "block",
+      blinking: true
+    },
+    tabIndicator: undefined,
+    tabIndicatorColor: undefined
+  };
+  constructor(ctx, options) {
+    super(ctx, options);
+    this._textColor = parseColor(options.textColor ?? this._defaultOptions.textColor);
+    this._backgroundColor = parseColor(options.backgroundColor ?? this._defaultOptions.backgroundColor);
+    this._defaultAttributes = options.attributes ?? this._defaultOptions.attributes;
+    this._selectionBg = options.selectionBg ? parseColor(options.selectionBg) : this._defaultOptions.selectionBg;
+    this._selectionFg = options.selectionFg ? parseColor(options.selectionFg) : this._defaultOptions.selectionFg;
+    this.selectable = options.selectable ?? this._defaultOptions.selectable;
+    this._wrapMode = options.wrapMode ?? this._defaultOptions.wrapMode;
+    this._scrollMargin = options.scrollMargin ?? this._defaultOptions.scrollMargin;
+    this._scrollSpeed = options.scrollSpeed ?? this._defaultOptions.scrollSpeed;
+    this._showCursor = options.showCursor ?? this._defaultOptions.showCursor;
+    this._cursorColor = parseColor(options.cursorColor ?? this._defaultOptions.cursorColor);
+    this._cursorStyle = options.cursorStyle ?? this._defaultOptions.cursorStyle;
+    this._tabIndicator = options.tabIndicator ?? this._defaultOptions.tabIndicator;
+    this._tabIndicatorColor = options.tabIndicatorColor ? parseColor(options.tabIndicatorColor) : this._defaultOptions.tabIndicatorColor;
+    this.editBuffer = EditBuffer.create(this._ctx.widthMethod);
+    this.editorView = EditorView.create(this.editBuffer, this.width || 80, this.height || 24);
+    this.editorView.setWrapMode(this._wrapMode);
+    this.editorView.setScrollMargin(this._scrollMargin);
+    this.editBuffer.setDefaultFg(this._textColor);
+    this.editBuffer.setDefaultBg(this._backgroundColor);
+    this.editBuffer.setDefaultAttributes(this._defaultAttributes);
+    if (options.syntaxStyle) {
+      this.editBuffer.setSyntaxStyle(options.syntaxStyle);
+    }
+    if (this._tabIndicator !== undefined) {
+      this.editorView.setTabIndicator(this._tabIndicator);
+    }
+    if (this._tabIndicatorColor !== undefined) {
+      this.editorView.setTabIndicatorColor(this._tabIndicatorColor);
+    }
+    this.setupMeasureFunc();
+    this.setupEventListeners(options);
+  }
+  get lineInfo() {
+    return this.editorView.getLogicalLineInfo();
+  }
+  setupEventListeners(options) {
+    this._cursorChangeListener = options.onCursorChange;
+    this._contentChangeListener = options.onContentChange;
+    this.editBuffer.on("cursor-changed", () => {
+      if (this._cursorChangeListener) {
+        const cursor = this.editBuffer.getCursorPosition();
+        this._cursorChangeListener({
+          line: cursor.row,
+          visualColumn: cursor.col
+        });
+      }
+    });
+    this.editBuffer.on("content-changed", () => {
+      this.yogaNode.markDirty();
+      this.requestRender();
+      this.emit("line-info-change");
+      if (this._contentChangeListener) {
+        this._contentChangeListener({});
+      }
+    });
+  }
+  get lineCount() {
+    return this.editBuffer.getLineCount();
+  }
+  get virtualLineCount() {
+    return this.editorView.getVirtualLineCount();
+  }
+  get scrollY() {
+    return this.editorView.getViewport().offsetY;
+  }
+  get plainText() {
+    return this.editBuffer.getText();
+  }
+  get logicalCursor() {
+    return this.editBuffer.getCursorPosition();
+  }
+  get visualCursor() {
+    return this.editorView.getVisualCursor();
+  }
+  get cursorOffset() {
+    return this.editorView.getVisualCursor().offset;
+  }
+  set cursorOffset(offset) {
+    this.editorView.setCursorByOffset(offset);
+    this.requestRender();
+  }
+  get textColor() {
+    return this._textColor;
+  }
+  set textColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.textColor);
+    if (this._textColor !== newColor) {
+      this._textColor = newColor;
+      this.editBuffer.setDefaultFg(newColor);
+      this.requestRender();
+    }
+  }
+  get selectionBg() {
+    return this._selectionBg;
+  }
+  set selectionBg(value) {
+    const newColor = value ? parseColor(value) : this._defaultOptions.selectionBg;
+    if (this._selectionBg !== newColor) {
+      this._selectionBg = newColor;
+      if (this.lastLocalSelection) {
+        this.updateLocalSelection(this.lastLocalSelection);
+      }
+      this.requestRender();
+    }
+  }
+  get selectionFg() {
+    return this._selectionFg;
+  }
+  set selectionFg(value) {
+    const newColor = value ? parseColor(value) : this._defaultOptions.selectionFg;
+    if (this._selectionFg !== newColor) {
+      this._selectionFg = newColor;
+      if (this.lastLocalSelection) {
+        this.updateLocalSelection(this.lastLocalSelection);
+      }
+      this.requestRender();
+    }
+  }
+  get backgroundColor() {
+    return this._backgroundColor;
+  }
+  set backgroundColor(value) {
+    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor);
+    if (this._backgroundColor !== newColor) {
+      this._backgroundColor = newColor;
+      this.editBuffer.setDefaultBg(newColor);
+      this.requestRender();
+    }
+  }
+  get attributes() {
+    return this._defaultAttributes;
+  }
+  set attributes(value) {
+    if (this._defaultAttributes !== value) {
+      this._defaultAttributes = value;
+      this.editBuffer.setDefaultAttributes(value);
+      this.requestRender();
+    }
+  }
+  get wrapMode() {
+    return this._wrapMode;
+  }
+  set wrapMode(value) {
+    if (this._wrapMode !== value) {
+      this._wrapMode = value;
+      this.editorView.setWrapMode(value);
+      this.yogaNode.markDirty();
+      this.requestRender();
+    }
+  }
+  get showCursor() {
+    return this._showCursor;
+  }
+  set showCursor(value) {
+    if (this._showCursor !== value) {
+      this._showCursor = value;
+      if (!value && this._focused) {
+        this._ctx.setCursorPosition(0, 0, false);
+      }
+      this.requestRender();
+    }
+  }
+  get cursorColor() {
+    return this._cursorColor;
+  }
+  set cursorColor(value) {
+    const newColor = parseColor(value);
+    if (this._cursorColor !== newColor) {
+      this._cursorColor = newColor;
+      if (this._focused) {
+        this.requestRender();
+      }
+    }
+  }
+  get cursorStyle() {
+    return this._cursorStyle;
+  }
+  set cursorStyle(style) {
+    const newStyle = style;
+    if (this.cursorStyle.style !== newStyle.style || this.cursorStyle.blinking !== newStyle.blinking) {
+      this._cursorStyle = newStyle;
+      if (this._focused) {
+        this.requestRender();
+      }
+    }
+  }
+  get tabIndicator() {
+    return this._tabIndicator;
+  }
+  set tabIndicator(value) {
+    if (this._tabIndicator !== value) {
+      this._tabIndicator = value;
+      if (value !== undefined) {
+        this.editorView.setTabIndicator(value);
+      }
+      this.requestRender();
+    }
+  }
+  get tabIndicatorColor() {
+    return this._tabIndicatorColor;
+  }
+  set tabIndicatorColor(value) {
+    const newColor = value ? parseColor(value) : undefined;
+    if (this._tabIndicatorColor !== newColor) {
+      this._tabIndicatorColor = newColor;
+      if (newColor !== undefined) {
+        this.editorView.setTabIndicatorColor(newColor);
+      }
+      this.requestRender();
+    }
+  }
+  get scrollSpeed() {
+    return this._scrollSpeed;
+  }
+  set scrollSpeed(value) {
+    this._scrollSpeed = Math.max(0, value);
+  }
+  onMouseEvent(event) {
+    if (event.type === "scroll") {
+      this.handleScroll(event);
+    }
+  }
+  handleScroll(event) {
+    if (!event.scroll)
+      return;
+    const { direction, delta } = event.scroll;
+    const viewport = this.editorView.getViewport();
+    if (direction === "up") {
+      const newOffsetY = Math.max(0, viewport.offsetY - delta);
+      this.editorView.setViewport(viewport.offsetX, newOffsetY, viewport.width, viewport.height, true);
+      this.requestRender();
+    } else if (direction === "down") {
+      const totalVirtualLines = this.editorView.getTotalVirtualLineCount();
+      const maxOffsetY = Math.max(0, totalVirtualLines - viewport.height);
+      const newOffsetY = Math.min(viewport.offsetY + delta, maxOffsetY);
+      this.editorView.setViewport(viewport.offsetX, newOffsetY, viewport.width, viewport.height, true);
+      this.requestRender();
+    }
+    if (this._wrapMode === "none") {
+      if (direction === "left") {
+        const newOffsetX = Math.max(0, viewport.offsetX - delta);
+        this.editorView.setViewport(newOffsetX, viewport.offsetY, viewport.width, viewport.height, true);
+        this.requestRender();
+      } else if (direction === "right") {
+        const newOffsetX = viewport.offsetX + delta;
+        this.editorView.setViewport(newOffsetX, viewport.offsetY, viewport.width, viewport.height, true);
+        this.requestRender();
+      }
+    }
+  }
+  onResize(width, height) {
+    this.editorView.setViewportSize(width, height);
+  }
+  refreshLocalSelection() {
+    if (this.lastLocalSelection) {
+      return this.updateLocalSelection(this.lastLocalSelection);
+    }
+    return false;
+  }
+  updateLocalSelection(localSelection) {
+    if (!localSelection?.isActive) {
+      this.editorView.resetLocalSelection();
+      return true;
+    }
+    return this.editorView.setLocalSelection(localSelection.anchorX, localSelection.anchorY, localSelection.focusX, localSelection.focusY, this._selectionBg, this._selectionFg, false);
+  }
+  shouldStartSelection(x, y) {
+    if (!this.selectable)
+      return false;
+    const localX = x - this.x;
+    const localY = y - this.y;
+    return localX >= 0 && localX < this.width && localY >= 0 && localY < this.height;
+  }
+  onSelectionChanged(selection) {
+    const localSelection = convertGlobalToLocalSelection(selection, this.x, this.y);
+    this.lastLocalSelection = localSelection;
+    const updateCursor = true;
+    let changed;
+    if (!localSelection?.isActive) {
+      this.editorView.resetLocalSelection();
+      changed = true;
+    } else if (selection?.isStart) {
+      changed = this.editorView.setLocalSelection(localSelection.anchorX, localSelection.anchorY, localSelection.focusX, localSelection.focusY, this._selectionBg, this._selectionFg, updateCursor);
+    } else {
+      changed = this.editorView.updateLocalSelection(localSelection.anchorX, localSelection.anchorY, localSelection.focusX, localSelection.focusY, this._selectionBg, this._selectionFg, updateCursor);
+    }
+    if (changed && localSelection?.isActive && selection?.isSelecting) {
+      const viewport = this.editorView.getViewport();
+      const focusY = localSelection.focusY;
+      const scrollMargin = Math.max(1, Math.floor(viewport.height * this._scrollMargin));
+      if (focusY < scrollMargin) {
+        this._autoScrollVelocity = -this._scrollSpeed;
+      } else if (focusY >= viewport.height - scrollMargin) {
+        this._autoScrollVelocity = this._scrollSpeed;
+      } else {
+        this._autoScrollVelocity = 0;
+      }
+    } else {
+      this._autoScrollVelocity = 0;
+      this._autoScrollAccumulator = 0;
+    }
+    if (changed) {
+      this.requestRender();
+    }
+    return this.hasSelection();
+  }
+  onUpdate(deltaTime) {
+    super.onUpdate(deltaTime);
+    if (this._autoScrollVelocity !== 0 && this.hasSelection()) {
+      const deltaSeconds = deltaTime / 1000;
+      this._autoScrollAccumulator += this._autoScrollVelocity * deltaSeconds;
+      const linesToScroll = Math.floor(Math.abs(this._autoScrollAccumulator));
+      if (linesToScroll > 0) {
+        const direction = this._autoScrollVelocity > 0 ? 1 : -1;
+        const viewport = this.editorView.getViewport();
+        const totalVirtualLines = this.editorView.getTotalVirtualLineCount();
+        const maxOffsetY = Math.max(0, totalVirtualLines - viewport.height);
+        const newOffsetY = Math.max(0, Math.min(viewport.offsetY + direction * linesToScroll, maxOffsetY));
+        if (newOffsetY !== viewport.offsetY) {
+          this.editorView.setViewport(viewport.offsetX, newOffsetY, viewport.width, viewport.height, false);
+          this._ctx.requestSelectionUpdate();
+        }
+        this._autoScrollAccumulator -= direction * linesToScroll;
+      }
+    }
+  }
+  getSelectedText() {
+    return this.editorView.getSelectedText();
+  }
+  hasSelection() {
+    return this.editorView.hasSelection();
+  }
+  getSelection() {
+    return this.editorView.getSelection();
+  }
+  setupMeasureFunc() {
+    const measureFunc = (width, widthMode, height, heightMode) => {
+      let effectiveWidth;
+      if (widthMode === MeasureMode.Undefined || isNaN(width)) {
+        effectiveWidth = 0;
+      } else {
+        effectiveWidth = width;
+      }
+      const effectiveHeight = isNaN(height) ? 1 : height;
+      const measureResult = this.editorView.measureForDimensions(Math.floor(effectiveWidth), Math.floor(effectiveHeight));
+      const measuredWidth = measureResult ? Math.max(1, measureResult.maxWidth) : 1;
+      const measuredHeight = measureResult ? Math.max(1, measureResult.lineCount) : 1;
+      if (widthMode === MeasureMode.AtMost && this._positionType !== "absolute") {
+        return {
+          width: Math.min(effectiveWidth, measuredWidth),
+          height: Math.min(effectiveHeight, measuredHeight)
+        };
+      }
+      return {
+        width: measuredWidth,
+        height: measuredHeight
+      };
+    };
+    this.yogaNode.setMeasureFunc(measureFunc);
+  }
+  render(buffer, deltaTime) {
+    if (!this.visible)
+      return;
+    if (this.isDestroyed)
+      return;
+    this.markClean();
+    this._ctx.addToHitGrid(this.x, this.y, this.width, this.height, this.num);
+    this.renderSelf(buffer);
+    this.renderCursor(buffer);
+  }
+  renderSelf(buffer) {
+    buffer.drawEditorView(this.editorView, this.x, this.y);
+  }
+  renderCursor(buffer) {
+    if (!this._showCursor || !this._focused)
+      return;
+    const visualCursor = this.editorView.getVisualCursor();
+    const cursorX = this.x + visualCursor.visualCol + 1;
+    const cursorY = this.y + visualCursor.visualRow + 1;
+    this._ctx.setCursorPosition(cursorX, cursorY, true);
+    this._ctx.setCursorColor(this._cursorColor);
+    this._ctx.setCursorStyle(this._cursorStyle.style, this._cursorStyle.blinking);
+  }
+  focus() {
+    super.focus();
+    this._ctx.setCursorStyle(this._cursorStyle.style, this._cursorStyle.blinking);
+    this._ctx.setCursorColor(this._cursorColor);
+    this.requestRender();
+  }
+  blur() {
+    super.blur();
+    this._ctx.setCursorPosition(0, 0, false);
+    this.requestRender();
+  }
+  onRemove() {
+    if (this._focused) {
+      this._ctx.setCursorPosition(0, 0, false);
+    }
+  }
+  destroy() {
+    if (this.isDestroyed)
+      return;
+    if (this._focused) {
+      this._ctx.setCursorPosition(0, 0, false);
+      this.blur();
+    }
+    this.editorView.destroy();
+    this.editBuffer.destroy();
+    super.destroy();
+  }
+  set onCursorChange(handler) {
+    this._cursorChangeListener = handler;
+  }
+  get onCursorChange() {
+    return this._cursorChangeListener;
+  }
+  set onContentChange(handler) {
+    this._contentChangeListener = handler;
+  }
+  get onContentChange() {
+    return this._contentChangeListener;
+  }
+  get syntaxStyle() {
+    return this.editBuffer.getSyntaxStyle();
+  }
+  set syntaxStyle(style) {
+    this.editBuffer.setSyntaxStyle(style);
+    this.requestRender();
+  }
+  addHighlight(lineIdx, highlight) {
+    this.editBuffer.addHighlight(lineIdx, highlight);
+    this.requestRender();
+  }
+  addHighlightByCharRange(highlight) {
+    this.editBuffer.addHighlightByCharRange(highlight);
+    this.requestRender();
+  }
+  removeHighlightsByRef(hlRef) {
+    this.editBuffer.removeHighlightsByRef(hlRef);
+    this.requestRender();
+  }
+  clearLineHighlights(lineIdx) {
+    this.editBuffer.clearLineHighlights(lineIdx);
+    this.requestRender();
+  }
+  clearAllHighlights() {
+    this.editBuffer.clearAllHighlights();
+    this.requestRender();
+  }
+  getLineHighlights(lineIdx) {
+    return this.editBuffer.getLineHighlights(lineIdx);
+  }
+  setText(text) {
+    this.editBuffer.setText(text);
+    this.yogaNode.markDirty();
+    this.requestRender();
+  }
+  replaceText(text) {
+    this.editBuffer.replaceText(text);
+    this.yogaNode.markDirty();
+    this.requestRender();
+  }
+  clear() {
+    this.editBuffer.clear();
+    this.editBuffer.clearAllHighlights();
+    this.yogaNode.markDirty();
+    this.requestRender();
+  }
+  deleteRange(startLine, startCol, endLine, endCol) {
+    this.editBuffer.deleteRange(startLine, startCol, endLine, endCol);
+    this.yogaNode.markDirty();
+    this.requestRender();
+  }
+  insertText(text) {
+    this.editBuffer.insertText(text);
+    this.yogaNode.markDirty();
+    this.requestRender();
+  }
+  getTextRange(startOffset, endOffset) {
+    return this.editBuffer.getTextRange(startOffset, endOffset);
+  }
+  getTextRangeByCoords(startRow, startCol, endRow, endCol) {
+    return this.editBuffer.getTextRangeByCoords(startRow, startCol, endRow, endCol);
+  }
+  updateSelectionForMovement(shiftPressed, isBeforeMovement) {
+    if (!this.selectable)
+      return;
+    if (!shiftPressed) {
+      this._ctx.clearSelection();
+      return;
+    }
+    const visualCursor = this.editorView.getVisualCursor();
+    const cursorX = this.x + visualCursor.visualCol;
+    const cursorY = this.y + visualCursor.visualRow;
+    if (isBeforeMovement) {
+      if (!this._ctx.hasSelection) {
+        this._ctx.startSelection(this, cursorX, cursorY);
+      }
+    } else {
+      this._ctx.updateSelection(this, cursorX, cursorY);
+    }
+  }
+}
+
+// src/context.ts
+init_app_state();
+init_polling();
+
+// src/state/snapshot.ts
+var snapshot = {
+  jobs: [],
+  selectedJob: null,
+  events: [],
+  metrics: {},
+  bestSnapshotId: null,
+  bestSnapshot: null,
+  evalSummary: null,
+  evalResultRows: [],
+  artifacts: [],
+  orgId: null,
+  userId: null,
+  balanceDollars: null,
+  status: "Loading jobs...",
+  lastError: null,
+  lastRefresh: null,
+  allCandidates: []
+};
+
+// src/context.ts
+function createAppContext(args) {
+  const { renderer, ui, render } = args;
+  return {
+    renderer,
+    ui,
+    state: {
+      snapshot,
+      appState,
+      pollingState,
+      config,
+      backendConfigs,
+      backendKeys,
+      backendKeySources
+    },
+    render,
+    requestRender: () => renderer.requestRender()
+  };
+}
+
+// src/components/layout.ts
+function buildLayout(renderer, getFooterText) {
+  const root = new BoxRenderable(renderer, {
+    id: "root",
+    width: "auto",
+    height: "auto",
+    flexGrow: 1,
+    flexShrink: 1,
+    flexDirection: "column",
+    backgroundColor: "#0b1120",
+    border: false
+  });
+  renderer.root.add(root);
+  const headerBox = new BoxRenderable(renderer, {
+    id: "header-box",
+    width: "auto",
+    height: 3,
+    backgroundColor: "#1e293b",
+    borderStyle: "single",
+    borderColor: "#334155",
+    flexGrow: 0,
+    flexShrink: 0,
+    flexDirection: "row",
+    border: true
+  });
+  const headerText = new TextRenderable(renderer, {
+    id: "header-text",
+    content: "Synth AI Prompt Learning Monitor",
+    fg: "#e2e8f0"
+  });
+  const headerSpacer = new BoxRenderable(renderer, {
+    id: "header-spacer",
+    width: "auto",
+    height: "auto",
+    flexGrow: 1,
+    flexShrink: 1,
+    border: false
+  });
+  const headerMetaText = new TextRenderable(renderer, {
+    id: "header-meta-text",
+    content: "",
+    fg: "#94a3b8"
+  });
+  headerBox.add(headerText);
+  headerBox.add(headerSpacer);
+  headerBox.add(headerMetaText);
+  root.add(headerBox);
+  const tabsBox = new BoxRenderable(renderer, {
+    id: "tabs-box",
+    width: "auto",
+    height: 2,
+    backgroundColor: "#111827",
+    borderStyle: "single",
+    borderColor: "#1f2937",
+    flexDirection: "row",
+    gap: 2,
+    border: true
+  });
+  const jobsTabText = new TextRenderable(renderer, {
+    id: "tabs-jobs",
+    content: "[Jobs] (b)",
+    fg: "#f8fafc"
+  });
+  const eventsTabText = new TextRenderable(renderer, {
+    id: "tabs-events",
+    content: "[Events] (e)",
+    fg: "#94a3b8"
+  });
+  tabsBox.add(jobsTabText);
+  tabsBox.add(eventsTabText);
+  root.add(tabsBox);
+  const main2 = new BoxRenderable(renderer, {
+    id: "main",
+    width: "auto",
+    height: "auto",
+    flexDirection: "row",
+    flexGrow: 1,
+    flexShrink: 1,
+    border: false
+  });
+  root.add(main2);
+  const jobsBox = new BoxRenderable(renderer, {
+    id: "jobs-box",
+    width: 36,
+    height: "auto",
+    minWidth: 36,
+    flexGrow: 0,
+    flexShrink: 0,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Jobs",
+    titleAlignment: "left",
+    border: true
+  });
+  const jobsSelect = new SelectRenderable(renderer, {
+    id: "jobs-select",
+    width: "auto",
+    height: "auto",
+    options: [],
+    backgroundColor: "#0f172a",
+    focusedBackgroundColor: "#1e293b",
+    textColor: "#e2e8f0",
+    focusedTextColor: "#f8fafc",
+    selectedBackgroundColor: "#2563eb",
+    selectedTextColor: "#ffffff",
+    descriptionColor: "#94a3b8",
+    selectedDescriptionColor: "#e2e8f0",
+    showScrollIndicator: true,
+    wrapSelection: true,
+    showDescription: true,
+    flexGrow: 1,
+    flexShrink: 1
+  });
+  jobsBox.add(jobsSelect);
+  main2.add(jobsBox);
+  const detailColumn = new BoxRenderable(renderer, {
+    id: "detail-column",
+    width: "auto",
+    height: "auto",
+    flexDirection: "column",
+    flexGrow: 2,
+    flexShrink: 1,
+    border: false
+  });
+  main2.add(detailColumn);
+  const detailBox = new BoxRenderable(renderer, {
+    id: "detail-box",
+    width: "auto",
+    height: 12,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Details",
+    titleAlignment: "left",
+    border: true
+  });
+  const detailText = new TextRenderable(renderer, {
+    id: "detail-text",
+    content: "No job selected.",
+    fg: "#e2e8f0"
+  });
+  detailBox.add(detailText);
+  detailColumn.add(detailBox);
+  const resultsBox = new BoxRenderable(renderer, {
+    id: "results-box",
+    width: "auto",
+    height: 6,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Results",
+    titleAlignment: "left",
+    backgroundColor: "#0b1220",
+    border: true
+  });
+  const resultsText = new TextRenderable(renderer, {
+    id: "results-text",
+    content: "Results: -",
+    fg: "#e2e8f0"
+  });
+  resultsBox.add(resultsText);
+  detailColumn.add(resultsBox);
+  const metricsBox = new BoxRenderable(renderer, {
+    id: "metrics-box",
+    width: "auto",
+    height: 5,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Metrics",
+    titleAlignment: "left",
+    border: true
+  });
+  const metricsText = new TextRenderable(renderer, {
+    id: "metrics-text",
+    content: "Metrics: -",
+    fg: "#cbd5f5"
+  });
+  metricsBox.add(metricsText);
+  detailColumn.add(metricsBox);
+  const eventsBox = new BoxRenderable(renderer, {
+    id: "events-box",
+    width: "auto",
+    height: "auto",
+    flexGrow: 1,
+    flexShrink: 1,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Events",
+    titleAlignment: "left",
+    border: true
+  });
+  const eventsList = new BoxRenderable(renderer, {
+    id: "events-list",
+    width: "auto",
+    height: "auto",
+    flexDirection: "column",
+    flexGrow: 1,
+    flexShrink: 1,
+    gap: 1,
+    border: false
+  });
+  const eventsEmptyText = new TextRenderable(renderer, {
+    id: "events-empty-text",
+    content: "No events yet.",
+    fg: "#e2e8f0"
+  });
+  eventsBox.add(eventsList);
+  eventsBox.add(eventsEmptyText);
+  detailColumn.add(eventsBox);
+  const statusBox = new BoxRenderable(renderer, {
+    id: "status-box",
+    width: "auto",
+    height: 3,
+    backgroundColor: "#0f172a",
+    borderStyle: "single",
+    borderColor: "#334155",
+    flexGrow: 0,
+    flexShrink: 0,
+    border: true
+  });
+  const statusText = new TextRenderable(renderer, {
+    id: "status-text",
+    content: "Ready.",
+    fg: "#e2e8f0"
+  });
+  statusBox.add(statusText);
+  root.add(statusBox);
+  const footerBox = new BoxRenderable(renderer, {
+    id: "footer-box",
+    width: "auto",
+    height: 2,
+    backgroundColor: "#111827",
+    flexGrow: 0,
+    flexShrink: 0
+  });
+  const footerTextNode = new TextRenderable(renderer, {
+    id: "footer-text",
+    content: getFooterText(),
+    fg: "#94a3b8"
+  });
+  footerBox.add(footerTextNode);
+  root.add(footerBox);
+  const modalBox = new BoxRenderable(renderer, {
+    id: "modal-box",
+    width: 50,
+    height: 5,
+    position: "absolute",
+    left: 4,
+    top: 4,
+    backgroundColor: "#0f172a",
+    borderStyle: "single",
+    borderColor: "#94a3b8",
+    border: true,
+    zIndex: 5
+  });
+  const modalLabel = new TextRenderable(renderer, {
+    id: "modal-label",
+    content: "Snapshot ID:",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 6,
+    top: 5,
+    zIndex: 6
+  });
+  const modalInput = new InputRenderable(renderer, {
+    id: "modal-input",
+    width: 44,
+    height: 1,
+    position: "absolute",
+    left: 6,
+    top: 6,
+    placeholder: "Enter snapshot id",
+    backgroundColor: "#111827",
+    focusedBackgroundColor: "#1f2937",
+    textColor: "#e2e8f0",
+    focusedTextColor: "#ffffff"
+  });
+  modalBox.visible = false;
+  modalLabel.visible = false;
+  modalInput.visible = false;
+  renderer.root.add(modalBox);
+  renderer.root.add(modalLabel);
+  renderer.root.add(modalInput);
+  const filterBox = new BoxRenderable(renderer, {
+    id: "filter-box",
+    width: 52,
+    height: 5,
+    position: "absolute",
+    left: 6,
+    top: 6,
+    backgroundColor: "#0f172a",
+    borderStyle: "single",
+    borderColor: "#60a5fa",
+    border: true,
+    zIndex: 5
+  });
+  const filterLabel = new TextRenderable(renderer, {
+    id: "filter-label",
+    content: "Event filter:",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 7,
+    zIndex: 6
+  });
+  const filterInput = new InputRenderable(renderer, {
+    id: "filter-input",
+    width: 46,
+    height: 1,
+    position: "absolute",
+    left: 8,
+    top: 8,
+    placeholder: "Type to filter events",
+    backgroundColor: "#111827",
+    focusedBackgroundColor: "#1f2937",
+    textColor: "#e2e8f0",
+    focusedTextColor: "#ffffff"
+  });
+  filterBox.visible = false;
+  filterLabel.visible = false;
+  filterInput.visible = false;
+  renderer.root.add(filterBox);
+  renderer.root.add(filterLabel);
+  renderer.root.add(filterInput);
+  const jobFilterBox = new BoxRenderable(renderer, {
+    id: "job-filter-box",
+    width: 52,
+    height: 11,
+    position: "absolute",
+    left: 6,
+    top: 6,
+    backgroundColor: "#0f172a",
+    borderStyle: "single",
+    borderColor: "#60a5fa",
+    border: true,
+    zIndex: 5
+  });
+  const jobFilterLabel = new TextRenderable(renderer, {
+    id: "job-filter-label",
+    content: "Job filter (status: all)",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 7,
+    zIndex: 6
+  });
+  const jobFilterHelp = new TextRenderable(renderer, {
+    id: "job-filter-help",
+    content: "Enter/space toggle | a select all | x clear | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 8,
+    zIndex: 6
+  });
+  const jobFilterListText = new TextRenderable(renderer, {
+    id: "job-filter-list",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 9,
+    zIndex: 6
+  });
+  jobFilterBox.visible = false;
+  jobFilterLabel.visible = false;
+  jobFilterHelp.visible = false;
+  jobFilterListText.visible = false;
+  renderer.root.add(jobFilterBox);
+  renderer.root.add(jobFilterLabel);
+  renderer.root.add(jobFilterHelp);
+  renderer.root.add(jobFilterListText);
+  const eventModalBox = new BoxRenderable(renderer, {
+    id: "event-modal-box",
+    width: 80,
+    height: 16,
+    position: "absolute",
+    left: 6,
+    top: 6,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#60a5fa",
+    border: true,
+    zIndex: 6
+  });
+  const eventModalTitle = new TextRenderable(renderer, {
+    id: "event-modal-title",
+    content: "Event details",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 7,
+    zIndex: 7
+  });
+  const eventModalText = new TextRenderable(renderer, {
+    id: "event-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 8,
+    zIndex: 7
+  });
+  const eventModalHint = new TextRenderable(renderer, {
+    id: "event-modal-hint",
+    content: "Event details",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 9,
+    zIndex: 7
+  });
+  eventModalBox.visible = false;
+  eventModalTitle.visible = false;
+  eventModalText.visible = false;
+  eventModalHint.visible = false;
+  renderer.root.add(eventModalBox);
+  renderer.root.add(eventModalTitle);
+  renderer.root.add(eventModalText);
+  renderer.root.add(eventModalHint);
+  const resultsModalBox = new BoxRenderable(renderer, {
+    id: "results-modal-box",
+    width: 100,
+    height: 24,
+    position: "absolute",
+    left: 6,
+    top: 4,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#22c55e",
+    border: true,
+    zIndex: 8
+  });
+  const resultsModalTitle = new TextRenderable(renderer, {
+    id: "results-modal-title",
+    content: "Results - Best Prompt",
+    fg: "#22c55e",
+    position: "absolute",
+    left: 8,
+    top: 5,
+    zIndex: 9
+  });
+  const resultsModalText = new TextRenderable(renderer, {
+    id: "results-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 6,
+    zIndex: 9
+  });
+  const resultsModalHint = new TextRenderable(renderer, {
+    id: "results-modal-hint",
+    content: "Results | j/k scroll | esc/q/enter close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 26,
+    zIndex: 9
+  });
+  resultsModalBox.visible = false;
+  resultsModalTitle.visible = false;
+  resultsModalText.visible = false;
+  resultsModalHint.visible = false;
+  renderer.root.add(resultsModalBox);
+  renderer.root.add(resultsModalTitle);
+  renderer.root.add(resultsModalText);
+  renderer.root.add(resultsModalHint);
+  const configModalBox = new BoxRenderable(renderer, {
+    id: "config-modal-box",
+    width: 100,
+    height: 24,
+    position: "absolute",
+    left: 6,
+    top: 4,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#f59e0b",
+    border: true,
+    zIndex: 8
+  });
+  const configModalTitle = new TextRenderable(renderer, {
+    id: "config-modal-title",
+    content: "Job Configuration",
+    fg: "#f59e0b",
+    position: "absolute",
+    left: 8,
+    top: 5,
+    zIndex: 9
+  });
+  const configModalText = new TextRenderable(renderer, {
+    id: "config-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 6,
+    zIndex: 9
+  });
+  const configModalHint = new TextRenderable(renderer, {
+    id: "config-modal-hint",
+    content: "Config | j/k scroll | esc/q/enter close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 26,
+    zIndex: 9
+  });
+  configModalBox.visible = false;
+  configModalTitle.visible = false;
+  configModalText.visible = false;
+  configModalHint.visible = false;
+  renderer.root.add(configModalBox);
+  renderer.root.add(configModalTitle);
+  renderer.root.add(configModalText);
+  renderer.root.add(configModalHint);
+  const promptBrowserBox = new BoxRenderable(renderer, {
+    id: "prompt-browser-box",
+    width: 100,
+    height: 24,
+    position: "absolute",
+    left: 6,
+    top: 4,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#a855f7",
+    border: true,
+    zIndex: 10
+  });
+  const promptBrowserTitle = new TextRenderable(renderer, {
+    id: "prompt-browser-title",
+    content: "Prompt Browser",
+    fg: "#a855f7",
+    position: "absolute",
+    left: 8,
+    top: 5,
+    zIndex: 11
+  });
+  const promptBrowserText = new TextRenderable(renderer, {
+    id: "prompt-browser-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 6,
+    zIndex: 11
+  });
+  const promptBrowserHint = new TextRenderable(renderer, {
+    id: "prompt-browser-hint",
+    content: "Prompts | h/l prev/next | j/k scroll | y copy | esc close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 26,
+    zIndex: 11
+  });
+  promptBrowserBox.visible = false;
+  promptBrowserTitle.visible = false;
+  promptBrowserText.visible = false;
+  promptBrowserHint.visible = false;
+  renderer.root.add(promptBrowserBox);
+  renderer.root.add(promptBrowserTitle);
+  renderer.root.add(promptBrowserText);
+  renderer.root.add(promptBrowserHint);
+  const settingsBox = new BoxRenderable(renderer, {
+    id: "settings-modal-box",
+    width: 64,
+    height: 14,
+    position: "absolute",
+    left: 6,
+    top: 6,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#38bdf8",
+    border: true,
+    zIndex: 8
+  });
+  const settingsTitle = new TextRenderable(renderer, {
+    id: "settings-modal-title",
+    content: "Settings - Backend",
+    fg: "#38bdf8",
+    position: "absolute",
+    left: 8,
+    top: 7,
+    zIndex: 9
+  });
+  const settingsHelp = new TextRenderable(renderer, {
+    id: "settings-modal-help",
+    content: "Enter apply | j/k navigate | a pick key | m manual | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 8,
+    zIndex: 9
+  });
+  const settingsListText = new TextRenderable(renderer, {
+    id: "settings-modal-list",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 9,
+    zIndex: 9
+  });
+  const settingsInfoText = new TextRenderable(renderer, {
+    id: "settings-modal-info",
+    content: "",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 12,
+    zIndex: 9
+  });
+  settingsBox.visible = false;
+  settingsTitle.visible = false;
+  settingsHelp.visible = false;
+  settingsListText.visible = false;
+  settingsInfoText.visible = false;
+  renderer.root.add(settingsBox);
+  renderer.root.add(settingsTitle);
+  renderer.root.add(settingsHelp);
+  renderer.root.add(settingsListText);
+  renderer.root.add(settingsInfoText);
+  const keyModalBox = new BoxRenderable(renderer, {
+    id: "key-modal-box",
+    width: 70,
+    height: 7,
+    position: "absolute",
+    left: 8,
+    top: 8,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#7dd3fc",
+    border: true,
+    zIndex: 10
+  });
+  const keyModalLabel = new TextRenderable(renderer, {
+    id: "key-modal-label",
+    content: "Set API key (saved for this session only)",
+    fg: "#7dd3fc",
+    position: "absolute",
+    left: 10,
+    top: 9,
+    zIndex: 11
+  });
+  const keyModalInput = new InputRenderable(renderer, {
+    id: "key-modal-input",
+    width: 62,
+    height: 1,
+    position: "absolute",
+    left: 10,
+    top: 10,
+    backgroundColor: "#0f172a",
+    borderStyle: "single",
+    borderColor: "#1d4ed8",
+    border: true,
+    fg: "#e2e8f0",
+    zIndex: 11
+  });
+  const keyModalHelp = new TextRenderable(renderer, {
+    id: "key-modal-help",
+    content: "Paste any way | enter save | q close | empty clears",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 10,
+    top: 12,
+    zIndex: 11
+  });
+  keyModalBox.visible = false;
+  keyModalLabel.visible = false;
+  keyModalInput.visible = false;
+  keyModalHelp.visible = false;
+  renderer.root.add(keyModalBox);
+  renderer.root.add(keyModalLabel);
+  renderer.root.add(keyModalInput);
+  renderer.root.add(keyModalHelp);
+  const envKeyModalBox = new BoxRenderable(renderer, {
+    id: "env-key-modal-box",
+    width: 78,
+    height: 14,
+    position: "absolute",
+    left: 8,
+    top: 6,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#7dd3fc",
+    border: true,
+    zIndex: 11
+  });
+  const envKeyModalTitle = new TextRenderable(renderer, {
+    id: "env-key-modal-title",
+    content: "Settings - API Key",
+    fg: "#7dd3fc",
+    position: "absolute",
+    left: 10,
+    top: 7,
+    zIndex: 12
+  });
+  const envKeyModalHelp = new TextRenderable(renderer, {
+    id: "env-key-modal-help",
+    content: "Enter apply | j/k navigate | r rescan | m manual | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 10,
+    top: 8,
+    zIndex: 12
+  });
+  const envKeyModalListText = new TextRenderable(renderer, {
+    id: "env-key-modal-list",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 10,
+    top: 9,
+    zIndex: 12
+  });
+  const envKeyModalInfoText = new TextRenderable(renderer, {
+    id: "env-key-modal-info",
+    content: "",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 10,
+    top: 13,
+    zIndex: 12
+  });
+  envKeyModalBox.visible = false;
+  envKeyModalTitle.visible = false;
+  envKeyModalHelp.visible = false;
+  envKeyModalListText.visible = false;
+  envKeyModalInfoText.visible = false;
+  renderer.root.add(envKeyModalBox);
+  renderer.root.add(envKeyModalTitle);
+  renderer.root.add(envKeyModalHelp);
+  renderer.root.add(envKeyModalListText);
+  renderer.root.add(envKeyModalInfoText);
+  const loginModalBox = new BoxRenderable(renderer, {
+    id: "login-modal-box",
+    width: 60,
+    height: 10,
+    position: "absolute",
+    left: 10,
+    top: 6,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#22c55e",
+    border: true,
+    zIndex: 15
+  });
+  const loginModalTitle = new TextRenderable(renderer, {
+    id: "login-modal-title",
+    content: "Sign In",
+    fg: "#22c55e",
+    position: "absolute",
+    left: 12,
+    top: 7,
+    zIndex: 16
+  });
+  const loginModalText = new TextRenderable(renderer, {
+    id: "login-modal-text",
+    content: "Press Enter to open browser and sign in...",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 12,
+    top: 9,
+    zIndex: 16
+  });
+  const loginModalHelp = new TextRenderable(renderer, {
+    id: "login-modal-help",
+    content: "Enter start | q cancel",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 12,
+    top: 13,
+    zIndex: 16
+  });
+  loginModalBox.visible = false;
+  loginModalTitle.visible = false;
+  loginModalText.visible = false;
+  loginModalHelp.visible = false;
+  renderer.root.add(loginModalBox);
+  renderer.root.add(loginModalTitle);
+  renderer.root.add(loginModalText);
+  renderer.root.add(loginModalHelp);
+  return {
+    jobsBox,
+    eventsBox,
+    jobsSelect,
+    detailText,
+    resultsText,
+    metricsText,
+    eventsList,
+    eventsEmptyText,
+    jobsTabText,
+    eventsTabText,
+    headerMetaText,
+    statusText,
+    footerText: footerTextNode,
+    modalBox,
+    modalLabel,
+    modalInput,
+    modalVisible: false,
+    filterBox,
+    filterLabel,
+    filterInput,
+    filterModalVisible: false,
+    jobFilterBox,
+    jobFilterLabel,
+    jobFilterHelp,
+    jobFilterListText,
+    jobFilterModalVisible: false,
+    eventModalBox,
+    eventModalTitle,
+    eventModalText,
+    eventModalHint,
+    eventModalVisible: false,
+    eventModalPayload: "",
+    resultsModalBox,
+    resultsModalTitle,
+    resultsModalText,
+    resultsModalHint,
+    resultsModalVisible: false,
+    resultsModalPayload: "",
+    configModalBox,
+    configModalTitle,
+    configModalText,
+    configModalHint,
+    configModalVisible: false,
+    configModalPayload: "",
+    promptBrowserBox,
+    promptBrowserTitle,
+    promptBrowserText,
+    promptBrowserHint,
+    promptBrowserVisible: false,
+    settingsBox,
+    settingsTitle,
+    settingsHelp,
+    settingsListText,
+    settingsInfoText,
+    settingsModalVisible: false,
+    keyModalBox,
+    keyModalLabel,
+    keyModalInput,
+    keyModalHelp,
+    keyModalVisible: false,
+    envKeyModalBox,
+    envKeyModalTitle,
+    envKeyModalHelp,
+    envKeyModalListText,
+    envKeyModalInfoText,
+    envKeyModalVisible: false,
+    loginModalBox,
+    loginModalTitle,
+    loginModalText,
+    loginModalHelp,
+    loginModalVisible: false,
+    eventCards: []
+  };
+}
+
+// src/formatters/time.ts
+function formatTimestamp(value) {
+  if (value == null || value === "")
+    return "-";
+  if (value instanceof Date) {
+    return value.toLocaleString();
+  }
+  if (typeof value === "object") {
+    const seconds = value.seconds;
+    const nanos = value.nanoseconds ?? value.nanos;
+    if (Number.isFinite(Number(seconds))) {
+      const ms = Number(seconds) * 1000 + (Number(nanos) || 0) / 1e6;
+      return new Date(ms).toLocaleString();
+    }
+  }
+  if (typeof value === "number") {
+    const ms = value > 1000000000000 ? value : value * 1000;
+    return new Date(ms).toLocaleString();
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const normalized = trimmed.replace(" ", "T").replace(/(\.\d{3})\d+/, "$1");
+    const parsed = Date.parse(normalized);
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toLocaleString();
+    }
+    if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+      const numeric = Number(trimmed);
+      const ms = numeric > 1000000000000 ? numeric : numeric * 1000;
+      return new Date(ms).toLocaleString();
+    }
+    const numericMatch = trimmed.match(/-?\d+(?:\.\d+)?/);
+    if (numericMatch) {
+      const parsedNumber = Number(numericMatch[0]);
+      if (Number.isFinite(parsedNumber)) {
+        const ms = parsedNumber > 1000000000000 ? parsedNumber : parsedNumber * 1000;
+        return new Date(ms).toLocaleString();
+      }
+    }
+  }
+  return String(value);
+}
+function formatValue(value) {
+  if (value == null)
+    return "-";
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value.toFixed(4) : String(value);
+  }
+  if (typeof value === "string")
+    return value;
+  if (typeof value === "boolean")
+    return value ? "true" : "false";
+  try {
+    const text = JSON.stringify(value);
+    return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+  } catch {
+    return String(value);
+  }
+}
+// src/formatters/events.ts
+function formatEventData(data) {
+  if (data == null)
+    return "";
+  if (typeof data === "string")
+    return data;
+  if (typeof data === "number" || typeof data === "boolean")
+    return String(data);
+  try {
+    const text = JSON.stringify(data);
+    return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+  } catch {
+    return String(data);
+  }
+}
+function safeEventDataText(data) {
+  if (data == null)
+    return "";
+  if (typeof data === "string")
+    return data;
+  if (typeof data === "number" || typeof data === "boolean")
+    return String(data);
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return "";
+  }
+}
+function eventMatchesFilter(event, filter) {
+  const haystack = [
+    event.type,
+    event.message,
+    event.timestamp,
+    event.data ? safeEventDataText(event.data) : ""
+  ].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes(filter);
+}
+function eventSortKey(event) {
+  if (Number.isFinite(event.seq)) {
+    return Number(event.seq);
+  }
+  const ts = event.timestamp;
+  if (typeof ts === "string") {
+    const normalized = ts.trim().replace(" ", "T").replace(/(\\.\\d{3})\\d+/, "$1");
+    const parsed = Date.parse(normalized);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+function getFilteredEvents(events, filterText) {
+  const filter = (filterText || "").trim().toLowerCase();
+  const list = filter.length ? events.filter((e) => eventMatchesFilter(e, filter)) : events;
+  return [...list].sort((a, b) => eventSortKey(b) - eventSortKey(a));
+}
+function formatEventCardText(event, opts) {
+  const seq = String(event.seq).padStart(5, " ");
+  const header = `${seq} ${event.type}`;
+  const detail = event.message ?? formatEventData(event.data);
+  if (!detail)
+    return header;
+  if (opts?.isExpanded) {
+    const clipped = detail.length > 900 ? `${detail.slice(0, 897)}...` : detail;
+    return `${header}
+${clipped}`;
+  }
+  const trimmed = detail.length > 120 ? `${detail.slice(0, 117)}...${opts?.isLong ? " (enter to view)" : ""}` : detail;
+  return `${header}
+${trimmed}`;
+}
+// src/utils/job.ts
+function extractEnvName(job) {
+  if (!job?.metadata)
+    return null;
+  const meta = job.metadata;
+  return meta.prompt_initial_snapshot?.raw_config?.prompt_learning?.env_name || meta.prompt_initial_snapshot?.optimizer_config?.env_name || meta.config?.env_name || meta.env_name || null;
+}
+
+// src/formatters/job-details.ts
+function formatDetails(snapshot2) {
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return "No job selected.";
+  if (isEvalJob(job)) {
+    return formatEvalDetails(snapshot2, job);
+  }
+  if (job.job_source === "learning") {
+    return formatLearningDetails(job);
+  }
+  return formatPromptLearningDetails(snapshot2, job);
+}
+function formatEvalDetails(snapshot2, job) {
+  const summary = snapshot2.evalSummary ?? {};
+  const rows = snapshot2.evalResultRows ?? [];
+  const lines = [
+    `Job: ${job.job_id}`,
+    `Status: ${job.status}`,
+    `Type: eval`,
+    "",
+    "\u2550\u2550\u2550 Eval Summary \u2550\u2550\u2550"
+  ];
+  if (summary.mean_score != null) {
+    lines.push(`  Mean Score: ${formatValue(summary.mean_score)}`);
+  }
+  if (summary.accuracy != null) {
+    lines.push(`  Accuracy: ${(summary.accuracy * 100).toFixed(1)}%`);
+  }
+  if (summary.pass_rate != null) {
+    lines.push(`  Pass Rate: ${(summary.pass_rate * 100).toFixed(1)}%`);
+  }
+  if (summary.completed != null && summary.total != null) {
+    lines.push(`  Progress: ${summary.completed}/${summary.total}`);
+  } else if (summary.completed != null) {
+    lines.push(`  Completed: ${summary.completed}`);
+  }
+  if (summary.failed != null && summary.failed > 0) {
+    lines.push(`  Failed: ${summary.failed}`);
+  }
+  if (rows.length > 0) {
+    lines.push(`  Results: ${rows.length} rows`);
+    const scores = rows.map((row) => num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed)).filter((val) => typeof val === "number");
+    if (scores.length > 0) {
+      const mean = scores.reduce((sum, val) => sum + val, 0) / scores.length;
+      const passed = scores.filter((s) => s >= 0.5 || s === 1).length;
+      lines.push(`  Avg Score: ${mean.toFixed(4)}`);
+      lines.push(`  Pass Rate: ${(passed / scores.length * 100).toFixed(1)}%`);
+    }
+  }
+  lines.push("");
+  lines.push("\u2550\u2550\u2550 Timing \u2550\u2550\u2550");
+  lines.push(`  Created: ${formatTimestamp(job.created_at)}`);
+  lines.push(`  Started: ${formatTimestamp(job.started_at)}`);
+  lines.push(`  Finished: ${formatTimestamp(job.finished_at)}`);
+  if (job.error) {
+    lines.push("");
+    lines.push("\u2550\u2550\u2550 Error \u2550\u2550\u2550");
+    lines.push(`  ${job.error}`);
+  }
+  return lines.join(`
+`);
+}
+function formatLearningDetails(job) {
+  const envName = extractEnvName(job);
+  const lines = [
+    `Job: ${job.job_id}`,
+    `Status: ${job.status}`,
+    `Type: ${job.training_type || "learning"}`,
+    `Env: ${envName || "-"}`,
+    "",
+    "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
+    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Snapshot: ${job.best_snapshot_id || "-"}`,
+    "",
+    "\u2550\u2550\u2550 Timing \u2550\u2550\u2550",
+    `  Created: ${formatTimestamp(job.created_at)}`,
+    `  Started: ${formatTimestamp(job.started_at)}`,
+    `  Finished: ${formatTimestamp(job.finished_at)}`
+  ];
+  if (job.error) {
+    lines.push("");
+    lines.push("\u2550\u2550\u2550 Error \u2550\u2550\u2550");
+    lines.push(`  ${job.error}`);
+  }
+  return lines.join(`
+`);
+}
+function formatPromptLearningDetails(snapshot2, job) {
+  const lastEvent = snapshot2.events.length ? snapshot2.events.filter((event) => typeof event.timestamp === "string" && event.timestamp.length > 0).reduce((latest, event) => {
+    if (!latest)
+      return event;
+    return event.timestamp > latest.timestamp ? event : latest;
+  }, null) : null;
+  const lastEventTs = formatTimestamp(lastEvent?.timestamp);
+  const totalTokens = job.total_tokens ?? calculateTotalTokensFromEvents(snapshot2.events);
+  const tokensDisplay = totalTokens > 0 ? totalTokens.toLocaleString() : "-";
+  const costDisplay = job.total_cost_usd != null ? `$${job.total_cost_usd.toFixed(4)}` : "-";
+  const envName = extractEnvName(job);
+  const lines = [
+    `Job: ${job.job_id}`,
+    `Status: ${job.status}`,
+    `Type: ${job.training_type || "prompt-learning"}`,
+    `Env: ${envName || "-"}`,
+    `Started: ${formatTimestamp(job.started_at)}`,
+    `Finished: ${formatTimestamp(job.finished_at)}`,
+    `Last Event: ${lastEventTs}`,
+    "",
+    "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
+    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Events: ${snapshot2.events.length}`,
+    `  Tokens: ${tokensDisplay}`,
+    `  Cost: ${costDisplay}`
+  ];
+  if (job.error) {
+    lines.push("");
+    lines.push("\u2550\u2550\u2550 Error \u2550\u2550\u2550");
+    lines.push(`  ${job.error}`);
+  }
+  if (snapshot2.artifacts.length) {
+    lines.push("");
+    lines.push(`Artifacts: ${snapshot2.artifacts.length}`);
+  }
+  return lines.join(`
+`);
+}
+function calculateTotalTokensFromEvents(events) {
+  let total = 0;
+  for (const event of events) {
+    const data = event.data;
+    if (!data)
+      continue;
+    if (typeof data.prompt_tokens === "number")
+      total += data.prompt_tokens;
+    if (typeof data.completion_tokens === "number")
+      total += data.completion_tokens;
+    if (typeof data.reasoning_tokens === "number")
+      total += data.reasoning_tokens;
+    if (typeof data.total_tokens === "number")
+      total += data.total_tokens;
+  }
+  return total;
+}
+// src/formatters/metrics.ts
+function formatMetrics(metricsValue) {
+  const metrics = metricsValue || {};
+  const points = Array.isArray(metrics?.points) ? metrics.points : [];
+  if (points.length > 0) {
+    const latestByName = new Map;
+    for (const point of points) {
+      if (point?.name) {
+        latestByName.set(String(point.name), point);
+      }
+    }
+    const rows = Array.from(latestByName.values()).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    if (rows.length === 0)
+      return "Metrics: -";
+    const limit = 12;
+    const lines = rows.slice(0, limit).map((point) => {
+      const value = formatValue(point.value ?? point.data ?? "-");
+      const step = point.step != null ? ` (step ${point.step})` : "";
+      return `- ${point.name}: ${value}${step}`;
+    });
+    if (rows.length > limit) {
+      lines.push(`... +${rows.length - limit} more`);
+    }
+    return ["Metrics (latest):", ...lines].join(`
+`);
+  }
+  const keys = Object.keys(metrics).filter((k) => k !== "points" && k !== "job_id");
+  if (keys.length === 0)
+    return "Metrics: -";
+  return ["Metrics:", ...keys.map((k) => `- ${k}: ${formatValue(metrics[k])}`)].join(`
+`);
+}
+// src/utils/truncate.ts
+function truncate(value, max) {
+  if (value.length <= max)
+    return value;
+  return value.slice(0, max - 1) + "\u2026";
+}
+
+// src/formatters/results.ts
+function isRecord(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function extractBestPrompt(snapshotPayload) {
+  if (!snapshotPayload)
+    return null;
+  return isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt || isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template || isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern || null;
+}
+function extractBestPromptText(snapshotPayload) {
+  if (!snapshotPayload)
+    return null;
+  const bestPromptMessages = snapshotPayload.best_prompt_messages;
+  if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
+    return bestPromptMessages.map((msg) => {
+      const role = msg?.role || "unknown";
+      const content = msg?.content || "";
+      return `[${role}] ${content}`;
+    }).join(`
+`);
+  }
+  const rendered = snapshotPayload.best_prompt_text || snapshotPayload.rendered_prompt;
+  if (typeof rendered === "string" && rendered.trim())
+    return rendered;
+  return null;
+}
+function extractPromptSections(bestPrompt) {
+  const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
+  return Array.isArray(sections) ? sections : [];
+}
+function formatResults(snapshot2) {
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return "Results: -";
+  if (job.job_source === "eval" || job.training_type === "eval") {
+    return formatEvalResults(snapshot2);
+  }
+  const lines = [];
+  const bestId = snapshot2.bestSnapshotId || "-";
+  if (bestId === "-") {
+    lines.push("Best snapshot: -");
+  } else if (snapshot2.bestSnapshot) {
+    lines.push(`Best snapshot: ${bestId}`);
+  } else {
+    lines.push(`Best snapshot: ${bestId} (press p to load)`);
+  }
+  if (snapshot2.bestSnapshot) {
+    const bestPrompt = extractBestPrompt(snapshot2.bestSnapshot);
+    const bestPromptText = extractBestPromptText(snapshot2.bestSnapshot);
+    if (bestPrompt) {
+      const promptId = bestPrompt.id || bestPrompt.template_id;
+      const promptName = bestPrompt.name;
+      const promptLabel = [promptName, promptId].filter(Boolean).join(" ");
+      if (promptLabel)
+        lines.push(`Best prompt: ${promptLabel}`);
+      const sections = extractPromptSections(bestPrompt);
+      if (sections.length > 0) {
+        const summary = sections.slice(0, 3).map((section) => {
+          const role = section.role || "stage";
+          const name = section.name || section.id || "";
+          return name ? `${role}:${name}` : role;
+        });
+        const suffix = sections.length > 3 ? " \u2026" : "";
+        lines.push(`Stages: ${summary.join(", ")}${suffix}`);
+      }
+    }
+    if (bestPromptText) {
+      lines.push(`Best prompt text: ${truncate(bestPromptText, 90)}`);
+    }
+  }
+  return ["Results:", ...lines].join(`
+`);
+}
+function formatEvalResults(snapshot2) {
+  const summary = snapshot2.evalSummary ?? {};
+  const rows = snapshot2.evalResultRows ?? [];
+  const lines = [];
+  if (Object.keys(summary).length > 0) {
+    lines.push("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
+    const keyOrder = ["mean_score", "accuracy", "pass_rate", "completed", "failed", "total"];
+    const shown = new Set;
+    for (const key of keyOrder) {
+      if (summary[key] != null) {
+        const val = summary[key];
+        if (key === "accuracy" || key === "pass_rate") {
+          lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`);
+        } else {
+          lines.push(`  ${key}: ${formatValue(val)}`);
+        }
+        shown.add(key);
+      }
+    }
+    for (const [key, value] of Object.entries(summary)) {
+      if (shown.has(key))
+        continue;
+      if (typeof value === "object")
+        continue;
+      lines.push(`  ${key}: ${formatValue(value)}`);
+    }
+    lines.push("");
+  }
+  if (summary.mean_score == null && rows.length > 0) {
+    const scores = rows.map((row) => row.outcome_reward ?? row.score ?? row.reward_mean ?? row.events_score).filter((val) => typeof val === "number" && Number.isFinite(val));
+    if (scores.length > 0) {
+      const mean = scores.reduce((acc, val) => acc + val, 0) / scores.length;
+      if (lines.length === 0 || lines[0] !== "\u2550\u2550\u2550 Summary \u2550\u2550\u2550") {
+        lines.unshift("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
+      }
+      lines.splice(1, 0, `  mean_score: ${formatValue(mean)}`);
+      lines.push("");
+    }
+  }
+  if (rows.length > 0) {
+    lines.push("\u2550\u2550\u2550 Results by Task \u2550\u2550\u2550");
+    const limit = 15;
+    const displayRows = rows.slice(0, limit);
+    for (const row of displayRows) {
+      const taskId = row.task_id || row.id || row.name || "?";
+      const score = num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed);
+      const passed = row.passed != null ? row.passed ? "\u2713" : "\u2717" : "";
+      const status = row.status || "";
+      const scoreStr = score != null ? score.toFixed(3) : "-";
+      if (passed) {
+        lines.push(`  ${passed} ${taskId}: ${scoreStr}`);
+      } else if (status) {
+        lines.push(`  [${status}] ${taskId}: ${scoreStr}`);
+      } else {
+        lines.push(`  ${taskId}: ${scoreStr}`);
+      }
+    }
+    if (rows.length > limit) {
+      lines.push(`  ... +${rows.length - limit} more tasks`);
+    }
+  } else if (Object.keys(summary).length === 0) {
+    lines.push("No eval results yet.");
+    lines.push("");
+    lines.push("Results will appear after the eval completes.");
+  }
+  return lines.length > 0 ? lines.join(`
+`) : "Results: -";
+}
+function formatResultsExpanded(snapshot2) {
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return null;
+  if (!snapshot2.bestSnapshot && !snapshot2.bestSnapshotId) {
+    return `No best snapshot available yet.
+
+Press 'p' to try loading the best snapshot.`;
+  }
+  const lines = [];
+  lines.push(`Job: ${job.job_id}`);
+  lines.push(`Status: ${job.status}`);
+  lines.push(`Best Score: ${job.best_score ?? "-"}`);
+  lines.push(`Best Snapshot ID: ${snapshot2.bestSnapshotId || "-"}`);
+  lines.push("");
+  if (snapshot2.bestSnapshot) {
+    const bestPrompt = snapshot2.bestSnapshot.best_prompt;
+    const bestPromptMessages = snapshot2.bestSnapshot.best_prompt_messages;
+    if (bestPrompt && typeof bestPrompt === "object") {
+      const promptId = bestPrompt.id || bestPrompt.template_id;
+      const promptName = bestPrompt.name;
+      if (promptName)
+        lines.push(`Prompt Name: ${promptName}`);
+      if (promptId)
+        lines.push(`Prompt ID: ${promptId}`);
+      lines.push("");
+      const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
+      if (Array.isArray(sections) && sections.length > 0) {
+        lines.push(`=== PROMPT TEMPLATE (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
+        lines.push("");
+        for (let i = 0;i < sections.length; i++) {
+          const section = sections[i];
+          const role = section.role || "stage";
+          const name = section.name || section.id || "";
+          const content = section.content || "";
+          const order = section.order !== undefined ? section.order : i;
+          lines.push(`\u250C\u2500 Stage ${order + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
+          lines.push("");
+          if (content) {
+            lines.push(content);
+          } else {
+            lines.push("(empty)");
+          }
+          lines.push("");
+          lines.push(`\u2514${"\u2500".repeat(40)}\u2518`);
+          lines.push("");
+        }
+      }
+    }
+    if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
+      lines.push(`=== RENDERED MESSAGES (${bestPromptMessages.length} message${bestPromptMessages.length > 1 ? "s" : ""}) ===`);
+      lines.push("");
+      for (let i = 0;i < bestPromptMessages.length; i++) {
+        const msg = bestPromptMessages[i];
+        const role = msg.role || "unknown";
+        const content = msg.content || "";
+        lines.push(`\u250C\u2500 Message ${i + 1}: [${role}] \u2500\u2510`);
+        lines.push("");
+        lines.push(content);
+        lines.push("");
+        lines.push(`\u2514${"\u2500".repeat(40)}\u2518`);
+        lines.push("");
+      }
+    }
+    if (!bestPrompt && !bestPromptMessages) {
+      const legacyPrompt = extractBestPrompt(snapshot2.bestSnapshot);
+      const legacyText = extractBestPromptText(snapshot2.bestSnapshot);
+      if (legacyPrompt) {
+        const sections = extractPromptSections(legacyPrompt);
+        if (sections.length > 0) {
+          lines.push(`=== PROMPT SECTIONS (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
+          lines.push("");
+          for (let i = 0;i < sections.length; i++) {
+            const section = sections[i];
+            const role = section.role || "stage";
+            const name = section.name || section.id || "";
+            const content = section.content || "";
+            lines.push(`\u250C\u2500 Stage ${i + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
+            lines.push("");
+            if (content) {
+              lines.push(content);
+            }
+            lines.push("");
+            lines.push(`\u2514${"\u2500".repeat(40)}\u2518`);
+            lines.push("");
+          }
+        }
+      }
+      if (legacyText) {
+        lines.push("=== RENDERED PROMPT ===");
+        lines.push("");
+        lines.push(legacyText);
+      }
+      if (!legacyPrompt && !legacyText) {
+        lines.push("=== RAW SNAPSHOT DATA ===");
+        lines.push("");
+        try {
+          lines.push(JSON.stringify(snapshot2.bestSnapshot, null, 2));
+        } catch {
+          lines.push(String(snapshot2.bestSnapshot));
+        }
+      }
+    }
+  } else {
+    lines.push("Best snapshot data not loaded. Press 'p' to load.");
+  }
+  return lines.join(`
+`);
+}
+// src/selectors/jobs.ts
+function getFilteredJobs(jobs, jobStatusFilter) {
+  if (!jobStatusFilter.size)
+    return jobs;
+  return jobs.filter((job) => jobStatusFilter.has(String(job.status || "unknown").toLowerCase()));
+}
+function buildJobStatusOptions(jobs) {
+  const counts = new Map;
+  for (const job of jobs) {
+    const status = String(job.status || "unknown").toLowerCase();
+    counts.set(status, (counts.get(status) || 0) + 1);
+  }
+  const order = ["running", "queued", "succeeded", "failed", "canceled", "cancelled", "unknown"];
+  const statuses = Array.from(counts.keys()).sort((a, b) => {
+    const ai = order.indexOf(a);
+    const bi = order.indexOf(b);
+    if (ai === -1 && bi === -1)
+      return a.localeCompare(b);
+    if (ai === -1)
+      return 1;
+    if (bi === -1)
+      return -1;
+    return ai - bi;
+  });
+  return statuses.map((status) => ({ status, count: counts.get(status) || 0 }));
+}
+
+// src/ui/events.ts
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+function getEventLayoutMetrics(ctx) {
+  const { config: config2 } = ctx.state;
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const compact = rows < 32;
+  const collapsedHeight = compact ? 3 : 4;
+  const expandedHeight = compact ? 5 : 7;
+  const gap = compact ? 0 : 1;
+  const available = Math.max(1, rows - 24);
+  const maxVisible = Math.max(1, Math.floor((available + gap) / (collapsedHeight + gap)));
+  const target = Math.max(1, config2.eventVisibleCount);
+  const visibleCount = Math.max(1, Math.min(target, maxVisible));
+  return { collapsedHeight, expandedHeight, gap, visibleCount };
+}
+function renderEventCards(ctx) {
+  const { ui, renderer } = ctx;
+  const { snapshot: snapshot2, appState: appState2, config: config2 } = ctx.state;
+  const { collapsedHeight, expandedHeight, gap, visibleCount } = getEventLayoutMetrics(ctx);
+  const recentAll = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+  if (recentAll.length === 0) {
+    ui.eventsList.visible = false;
+    ui.eventsEmptyText.visible = true;
+    const job = snapshot2.selectedJob;
+    if (appState2.eventFilter) {
+      ui.eventsEmptyText.content = "No events match filter.";
+    } else if (job?.status === "succeeded" || job?.status === "failed" || job?.status === "completed") {
+      ui.eventsEmptyText.content = `No events recorded for this job.
+
+Events may not have been persisted during execution.`;
+    } else if (job?.status === "running" || job?.status === "queued") {
+      ui.eventsEmptyText.content = `Waiting for events...
+
+Events will appear as the job progresses.`;
+    } else {
+      ui.eventsEmptyText.content = "No events yet.";
+    }
+    return;
+  }
+  const total = recentAll.length;
+  const effectiveVisible = Math.max(1, visibleCount);
+  appState2.selectedEventIndex = clamp(appState2.selectedEventIndex, 0, Math.max(0, total - 1));
+  appState2.eventWindowStart = clamp(appState2.eventWindowStart, 0, Math.max(0, total - effectiveVisible));
+  if (appState2.selectedEventIndex < appState2.eventWindowStart) {
+    appState2.eventWindowStart = appState2.selectedEventIndex;
+  } else if (appState2.selectedEventIndex >= appState2.eventWindowStart + effectiveVisible) {
+    appState2.eventWindowStart = appState2.selectedEventIndex - effectiveVisible + 1;
+  }
+  const recent = recentAll.slice(appState2.eventWindowStart, appState2.eventWindowStart + effectiveVisible);
+  ui.eventsEmptyText.visible = false;
+  ui.eventsList.visible = true;
+  ui.eventsList.gap = gap;
+  for (const card of ui.eventCards) {
+    ui.eventsList.remove(card.box.id);
+  }
+  ui.eventCards = [];
+  recent.forEach((event, index) => {
+    const globalIndex = appState2.eventWindowStart + index;
+    const isSelected = globalIndex === appState2.selectedEventIndex;
+    const detail = event.message ?? formatEventData(event.data);
+    const isLong = detail.length > config2.eventCollapseLimit;
+    const isExpanded = !!event.expanded || isSelected && !isLong;
+    const cardHeight = isExpanded ? expandedHeight : collapsedHeight;
+    const box = new BoxRenderable(renderer, {
+      id: `event-card-${index}`,
+      width: "auto",
+      height: cardHeight,
+      borderStyle: "single",
+      borderColor: isSelected ? "#60a5fa" : "#1f2a44",
+      backgroundColor: isSelected ? "#0f172a" : "#0b1220",
+      border: true
+    });
+    const text = new TextRenderable(renderer, {
+      id: `event-card-text-${index}`,
+      content: formatEventCardText(event, { isExpanded, isLong }),
+      fg: "#e2e8f0"
+    });
+    box.add(text);
+    ui.eventsList.add(box);
+    ui.eventCards.push({ box, text });
+  });
+}
+function moveEventSelection(ctx, delta) {
+  const { snapshot: snapshot2, appState: appState2, config: config2 } = ctx.state;
+  const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+  if (!filtered.length)
+    return;
+  const recentCount = Math.min(config2.eventHistoryLimit, filtered.length);
+  appState2.selectedEventIndex = clamp(appState2.selectedEventIndex + delta, 0, Math.max(0, recentCount - 1));
+}
+function toggleSelectedEventExpanded(ctx) {
+  const { snapshot: snapshot2, appState: appState2, config: config2 } = ctx.state;
+  const recent = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+  const event = recent[appState2.selectedEventIndex];
+  if (!event)
+    return;
+  const detail = event.message ?? formatEventData(event.data);
+  if (detail.length <= config2.eventCollapseLimit)
+    return;
+  event.expanded = !event.expanded;
+}
+
+// src/ui/panes.ts
+function setActivePane(ctx, pane) {
+  const { ui } = ctx;
+  const { appState: appState2 } = ctx.state;
+  if (appState2.activePane === pane)
+    return;
+  appState2.activePane = pane;
+  if (pane === "jobs") {
+    ui.jobsSelect.focus();
+  } else {
+    ui.jobsSelect.blur();
+  }
+  updatePaneIndicators(ctx);
+  ctx.requestRender();
+}
+function updatePaneIndicators(ctx) {
+  const { ui } = ctx;
+  const { appState: appState2 } = ctx.state;
+  ui.jobsTabText.fg = appState2.activePane === "jobs" ? "#f8fafc" : "#94a3b8";
+  ui.eventsTabText.fg = appState2.activePane === "events" ? "#f8fafc" : "#94a3b8";
+  ui.jobsBox.borderColor = appState2.activePane === "jobs" ? "#60a5fa" : "#334155";
+  ui.eventsBox.borderColor = appState2.activePane === "events" ? "#60a5fa" : "#334155";
+}
+
+// src/ui/text.ts
+init_client();
+function formatHeaderMeta(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  const org = snapshot2.orgId || "-";
+  const user = snapshot2.userId || "-";
+  const balance = snapshot2.balanceDollars == null ? "-" : `$${snapshot2.balanceDollars.toFixed(2)}`;
+  const backendLabel = getBackendConfig().label;
+  return `backend: ${backendLabel}  org: ${org}  user: ${user}  balance: ${balance}`;
+}
+function formatStatus(ctx) {
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const ts = snapshot2.lastRefresh ? new Date(snapshot2.lastRefresh).toLocaleTimeString() : "-";
+  const baseLabel = getActiveBaseRoot().replace(/^https?:\/\//, "");
+  const health = `health=${appState2.healthStatus}`;
+  if (snapshot2.lastError) {
+    return `Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot2.lastError}`;
+  }
+  return `Last refresh: ${ts} | ${health} | ${baseLabel} | ${snapshot2.status}`;
+}
+function footerText(ctx) {
+  const { appState: appState2 } = ctx.state;
+  const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
+  const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
+  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
+}
+
+// src/ui/render.ts
+function renderApp(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const filteredJobs = getFilteredJobs(snapshot2.jobs, appState2.jobStatusFilter);
+  ui.jobsBox.title = appState2.jobStatusFilter.size ? `Jobs (status: ${Array.from(appState2.jobStatusFilter).join(", ")})` : "Jobs";
+  ui.jobsSelect.options = filteredJobs.length ? filteredJobs.map((job) => {
+    const shortId = job.job_id.slice(-8);
+    const score = job.best_score == null ? "-" : job.best_score.toFixed(4);
+    const label = job.training_type || (job.job_source === "learning" ? "eval" : "prompt");
+    const envName = extractEnvName(job);
+    const desc = envName ? `${job.status} | ${label} | ${envName} | ${score}` : `${job.status} | ${label} | ${score}`;
+    return { name: shortId, description: desc, value: job.job_id };
+  }) : [
+    {
+      name: "no jobs",
+      description: appState2.jobStatusFilter.size ? `no jobs with selected status` : "no prompt-learning jobs found",
+      value: ""
+    }
+  ];
+  ui.detailText.content = formatDetails(snapshot2);
+  ui.resultsText.content = formatResults(snapshot2);
+  ui.metricsText.content = formatMetrics(snapshot2.metrics);
+  renderEventCards(ctx);
+  updatePaneIndicators(ctx);
+  ui.headerMetaText.content = formatHeaderMeta(ctx);
+  ui.statusText.content = formatStatus(ctx);
+  ui.footerText.content = footerText(ctx);
+  ui.eventsBox.title = appState2.eventFilter ? `Events (filter: ${appState2.eventFilter})` : "Events";
+  renderer.requestRender();
+}
+
+// src/auth.ts
+import { spawn } from "child_process";
+var POLL_INTERVAL_MS = 3000;
+function getFrontendUrl(backend) {
+  switch (backend) {
+    case "prod":
+      return process.env.SYNTH_TUI_FRONTEND_PROD || "https://www.usesynth.ai";
+    case "dev":
+      return process.env.SYNTH_TUI_FRONTEND_DEV || "https://synth-frontend-dev.onrender.com";
+    case "local":
+      return process.env.SYNTH_TUI_FRONTEND_LOCAL || "http://localhost:3000";
+  }
+}
+async function initAuthSession(backend) {
+  const frontendUrl = getFrontendUrl(backend);
+  const initUrl = `${frontendUrl}/api/sdk/handshake/init`;
+  const res = await fetch(initUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Handshake init failed (${res.status}): ${body || "no response"}`);
+  }
+  const data = await res.json();
+  const deviceCode = String(data.device_code || "").trim();
+  const verificationUri = String(data.verification_uri || "").trim();
+  const expiresIn = Number(data.expires_in) || 600;
+  if (!deviceCode || !verificationUri) {
+    throw new Error("Handshake init response missing device_code or verification_uri");
+  }
+  return {
+    deviceCode,
+    verificationUri,
+    expiresAt: Date.now() + expiresIn * 1000
+  };
+}
+async function pollForToken(backend, deviceCode) {
+  const frontendUrl = getFrontendUrl(backend);
+  const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`;
+  try {
+    const res = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_code: deviceCode })
+    });
+    if (res.status === 428) {
+      return { apiKey: null, expired: false, error: null };
+    }
+    if (res.status === 404 || res.status === 410) {
+      return { apiKey: null, expired: true, error: "Device code expired" };
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { apiKey: null, expired: false, error: `Token exchange failed: ${body}` };
+    }
+    const data = await res.json();
+    const keys = data.keys || {};
+    const synthKey = String(keys.synth || "").trim();
+    if (!synthKey) {
+      return { apiKey: null, expired: false, error: "No API key in response" };
+    }
+    return { apiKey: synthKey, expired: false, error: null };
+  } catch (err) {
+    return { apiKey: null, expired: false, error: err?.message || "Network error" };
+  }
+}
+function openBrowser(url) {
+  const platform = process.platform;
+  let cmd;
+  let args;
+  if (platform === "darwin") {
+    cmd = "open";
+    args = [url];
+  } else if (platform === "win32") {
+    cmd = "cmd";
+    args = ["/c", "start", "", url];
+  } else {
+    cmd = "xdg-open";
+    args = [url];
+  }
+  try {
+    const child = spawn(cmd, args, {
+      detached: true,
+      stdio: "ignore"
+    });
+    child.unref();
+  } catch {}
+}
+async function runDeviceCodeAuth(backend, onStatus) {
+  const updateStatus = (status) => {
+    if (onStatus)
+      onStatus(status);
+  };
+  try {
+    updateStatus({ state: "initializing" });
+    const session = await initAuthSession(backend);
+    updateStatus({ state: "waiting", verificationUri: session.verificationUri });
+    openBrowser(session.verificationUri);
+    updateStatus({ state: "polling" });
+    while (Date.now() < session.expiresAt) {
+      const result = await pollForToken(backend, session.deviceCode);
+      if (result.apiKey) {
+        updateStatus({ state: "success", apiKey: result.apiKey });
+        return { success: true, apiKey: result.apiKey, error: null };
+      }
+      if (result.expired) {
+        updateStatus({ state: "error", message: "Authentication timed out" });
+        return { success: false, apiKey: null, error: "Authentication timed out" };
+      }
+      if (result.error) {}
+      await sleep(POLL_INTERVAL_MS);
+    }
+    updateStatus({ state: "error", message: "Authentication timed out" });
+    return { success: false, apiKey: null, error: "Authentication timed out" };
+  } catch (err) {
+    const message = err?.message || "Authentication failed";
+    updateStatus({ state: "error", message });
+    return { success: false, apiKey: null, error: message };
+  }
+}
+function sleep(ms) {
+  return new Promise((resolve3) => setTimeout(resolve3, ms));
+}
+
+// src/login_modal.ts
+function createLoginModal(deps) {
+  let loginModalVisible = false;
+  let loginAuthStatus = { state: "idle" };
+  let loginAuthInProgress = false;
+  const {
+    ui,
+    renderer,
+    getCurrentBackend,
+    getBackendConfig: getBackendConfig2,
+    setBackendKey,
+    persistSettings,
+    bootstrap,
+    getSnapshot,
+    renderSnapshot,
+    getActivePane
+  } = deps;
+  function updateUIVisibility(visible) {
+    loginModalVisible = visible;
+    ui.loginModalVisible = visible;
+    ui.loginModalBox.visible = visible;
+    ui.loginModalTitle.visible = visible;
+    ui.loginModalText.visible = visible;
+    ui.loginModalHelp.visible = visible;
+  }
+  function updateLoginModalStatus(status) {
+    loginAuthStatus = status;
+    switch (status.state) {
+      case "idle":
+        ui.loginModalText.content = "Press Enter to open browser and sign in...";
+        ui.loginModalHelp.content = "Enter start | q cancel";
+        break;
+      case "initializing":
+        ui.loginModalText.content = "Initializing...";
+        ui.loginModalHelp.content = "Please wait...";
+        break;
+      case "waiting":
+        ui.loginModalText.content = [
+          "Browser opened. Complete sign-in there.",
+          "",
+          `URL: ${status.verificationUri}`
+        ].join(`
+`);
+        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel";
+        break;
+      case "polling":
+        ui.loginModalText.content = [
+          "Browser opened. Complete sign-in there.",
+          "",
+          "Checking for completion..."
+        ].join(`
+`);
+        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel";
+        break;
+      case "success":
+        ui.loginModalText.content = "Authentication successful!";
+        ui.loginModalHelp.content = "Loading...";
+        break;
+      case "error":
+        ui.loginModalText.content = `Error: ${status.message}`;
+        ui.loginModalHelp.content = "Enter retry | q close";
+        break;
+    }
+    renderer.requestRender();
+  }
+  function toggle(visible) {
+    updateUIVisibility(visible);
+    if (visible) {
+      const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+      const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+      const width = 60;
+      const height = 10;
+      const left = Math.max(0, Math.floor((cols - width) / 2));
+      const top = Math.max(1, Math.floor((rows - height) / 2));
+      ui.loginModalBox.left = left;
+      ui.loginModalBox.top = top;
+      ui.loginModalBox.width = width;
+      ui.loginModalBox.height = height;
+      ui.loginModalTitle.left = left + 2;
+      ui.loginModalTitle.top = top + 1;
+      ui.loginModalText.left = left + 2;
+      ui.loginModalText.top = top + 3;
+      ui.loginModalHelp.left = left + 2;
+      ui.loginModalHelp.top = top + height - 2;
+      loginAuthStatus = { state: "idle" };
+      loginAuthInProgress = false;
+      ui.loginModalTitle.content = `Sign In / Sign Up`;
+      ui.loginModalText.content = "Press Enter to open browser";
+      ui.loginModalHelp.content = "Enter start | q cancel";
+      ui.jobsSelect.blur();
+    } else {
+      if (getActivePane() === "jobs") {
+        ui.jobsSelect.focus();
+      }
+    }
+    renderer.requestRender();
+  }
+  async function startAuth() {
+    if (loginAuthInProgress)
+      return;
+    loginAuthInProgress = true;
+    const currentBackend = getCurrentBackend();
+    const result = await runDeviceCodeAuth(currentBackend, updateLoginModalStatus);
+    loginAuthInProgress = false;
+    if (result.success && result.apiKey) {
+      setBackendKey(currentBackend, result.apiKey, {
+        sourcePath: "browser-auth",
+        varName: null
+      });
+      await persistSettings();
+      toggle(false);
+      const snapshot2 = getSnapshot();
+      snapshot2.lastError = null;
+      snapshot2.status = "Authenticated! Loading...";
+      renderSnapshot();
+      await bootstrap();
+    }
+  }
+  async function logout() {
+    const currentBackend = getCurrentBackend();
+    setBackendKey(currentBackend, "", { sourcePath: null, varName: null });
+    await persistSettings();
+    const snapshot2 = getSnapshot();
+    snapshot2.jobs = [];
+    snapshot2.selectedJob = null;
+    snapshot2.events = [];
+    snapshot2.metrics = {};
+    snapshot2.bestSnapshotId = null;
+    snapshot2.bestSnapshot = null;
+    snapshot2.evalSummary = null;
+    snapshot2.evalResultRows = [];
+    snapshot2.artifacts = [];
+    snapshot2.orgId = null;
+    snapshot2.userId = null;
+    snapshot2.balanceDollars = null;
+    snapshot2.lastRefresh = null;
+    snapshot2.allCandidates = [];
+    snapshot2.lastError = `Logged out from ${getBackendConfig2().label}`;
+    snapshot2.status = "Sign in required";
+    renderSnapshot();
+    toggle(true);
+  }
+  return {
+    get isVisible() {
+      return loginModalVisible;
+    },
+    get isInProgress() {
+      return loginAuthInProgress;
+    },
+    get status() {
+      return loginAuthStatus;
+    },
+    toggle,
+    startAuth,
+    logout
+  };
+}
+
+// src/modals/base.ts
+function wrapModalText(text, width) {
+  const lines = [];
+  for (const raw of text.split(`
+`)) {
+    if (raw.length <= width) {
+      lines.push(raw);
+      continue;
+    }
+    if (raw.trim() === "") {
+      lines.push("");
+      continue;
+    }
+    let start = 0;
+    while (start < raw.length) {
+      lines.push(raw.slice(start, start + width));
+      start += width;
+    }
+  }
+  return lines;
+}
+function clamp2(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+// src/modals/event-modal.ts
+function createEventModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  function toggle(visible) {
+    ui.eventModalVisible = visible;
+    ui.eventModalBox.visible = visible;
+    ui.eventModalTitle.visible = visible;
+    ui.eventModalText.visible = visible;
+    ui.eventModalHint.visible = visible;
+    if (!visible) {
+      ui.eventModalText.content = "";
+    }
+    renderer.requestRender();
+  }
+  function updateContent() {
+    if (!ui.eventModalVisible)
+      return;
+    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+    const event = filtered[appState2.selectedEventIndex];
+    if (!event) {
+      ui.eventModalText.content = "(no event)";
+      renderer.requestRender();
+      return;
+    }
+    const raw = event.message ?? formatEventData(event.data) ?? "(no data)";
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.eventModalOffset = clamp2(appState2.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.eventModalOffset, appState2.eventModalOffset + maxLines);
+    ui.eventModalTitle.content = `Event ${event.seq} - ${event.type}`;
+    ui.eventModalText.content = visible.join(`
+`);
+    ui.eventModalHint.content = wrapped.length > maxLines ? `[${appState2.eventModalOffset + 1}-${appState2.eventModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close";
+    renderer.requestRender();
+  }
+  function move(delta) {
+    appState2.eventModalOffset = Math.max(0, appState2.eventModalOffset + delta);
+    updateContent();
+  }
+  function open() {
+    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+    if (!filtered.length)
+      return;
+    appState2.eventModalOffset = 0;
+    toggle(true);
+    updateContent();
+  }
+  function handleKey(key) {
+    if (!ui.eventModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.eventModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    handleKey
+  };
+}
+// src/utils/clipboard.ts
+async function copyToClipboard(text) {
+  const proc = Bun.spawn(["pbcopy"], {
+    stdin: "pipe"
+  });
+  proc.stdin.write(text);
+  proc.stdin.end();
+  await proc.exited;
+}
+
+// src/modals/results-modal.ts
+function createResultsModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  function toggle(visible) {
+    ui.resultsModalVisible = visible;
+    ui.resultsModalBox.visible = visible;
+    ui.resultsModalTitle.visible = visible;
+    ui.resultsModalText.visible = visible;
+    ui.resultsModalHint.visible = visible;
+    if (!visible) {
+      ui.resultsModalText.content = "";
+    }
+    renderer.requestRender();
+  }
+  function updateContent() {
+    if (!ui.resultsModalVisible)
+      return;
+    const raw = formatResultsExpanded(snapshot2);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.resultsModalOffset = clamp2(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.resultsModalOffset, appState2.resultsModalOffset + maxLines);
+    ui.resultsModalTitle.content = "Results - Best Snapshot";
+    ui.resultsModalText.content = visible.join(`
+`);
+    ui.resultsModalHint.content = wrapped.length > maxLines ? `[${appState2.resultsModalOffset + 1}-${appState2.resultsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy | q close` : "y copy | q close";
+    renderer.requestRender();
+  }
+  function move(delta) {
+    appState2.resultsModalOffset = Math.max(0, appState2.resultsModalOffset + delta);
+    updateContent();
+  }
+  function open() {
+    appState2.resultsModalOffset = 0;
+    toggle(true);
+    updateContent();
+  }
+  async function copyPrompt() {
+    const text = formatResultsExpanded(snapshot2);
+    if (text) {
+      await copyToClipboard(text);
+      snapshot2.status = "Results copied to clipboard";
+      ctx.render();
+    }
+  }
+  function handleKey(key) {
+    if (!ui.resultsModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "y") {
+      copyPrompt();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.resultsModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    copyPrompt,
+    handleKey
+  };
+}
+// src/modals/config-modal.ts
+function createConfigModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  function toggle(visible) {
+    ui.configModalVisible = visible;
+    ui.configModalBox.visible = visible;
+    ui.configModalTitle.visible = visible;
+    ui.configModalText.visible = visible;
+    ui.configModalHint.visible = visible;
+    if (!visible) {
+      ui.configModalText.content = "";
+    }
+    renderer.requestRender();
+  }
+  function formatConfigMetadata() {
+    const job = snapshot2.selectedJob;
+    if (!job)
+      return null;
+    const lines = [];
+    lines.push(`Job: ${job.job_id}`);
+    lines.push(`Status: ${job.status}`);
+    lines.push(`Type: ${job.training_type || "-"}`);
+    lines.push(`Source: ${job.job_source || "unknown"}`);
+    lines.push("");
+    if (snapshot2.lastError && snapshot2.status?.includes("Error")) {
+      lines.push("\u2550\u2550\u2550 Error Loading Metadata \u2550\u2550\u2550");
+      lines.push(snapshot2.lastError);
+      lines.push("");
+      lines.push("The job details could not be loaded.");
+      return lines.join(`
+`);
+    }
+    const meta = job.metadata;
+    if (!meta || Object.keys(meta).length === 0) {
+      if (snapshot2.status?.includes("Loading")) {
+        lines.push("Loading job configuration...");
+        lines.push("");
+        lines.push("Modal will auto-update when loaded.");
+      } else if (!job.training_type) {
+        lines.push("Loading job configuration...");
+        lines.push("");
+        lines.push("Press 'i' again after job details finish loading.");
+      } else {
+        lines.push("No metadata available for this job.");
+        lines.push("");
+        lines.push(`(job_source: ${job.job_source}, training_type: ${job.training_type})`);
+      }
+      return lines.join(`
+`);
+    }
+    const desc = meta.request_metadata?.description || meta.description;
+    if (desc) {
+      lines.push(`Description: ${desc}`);
+      lines.push("");
+    }
+    const rawConfig = meta.prompt_initial_snapshot?.raw_config?.prompt_learning || meta.config?.prompt_learning || meta.job_config?.prompt_learning || meta.prompt_learning || meta.config || meta.job_config || null;
+    const optimizerConfig = meta.prompt_initial_snapshot?.optimizer_config || meta.optimizer_config || null;
+    const policy = rawConfig?.policy || optimizerConfig?.policy_config;
+    if (policy) {
+      lines.push("\u2550\u2550\u2550 Model Configuration \u2550\u2550\u2550");
+      if (policy.model)
+        lines.push(`  Model: ${policy.model}`);
+      if (policy.provider)
+        lines.push(`  Provider: ${policy.provider}`);
+      if (policy.temperature != null)
+        lines.push(`  Temperature: ${policy.temperature}`);
+      if (policy.max_completion_tokens)
+        lines.push(`  Max Tokens: ${policy.max_completion_tokens}`);
+      lines.push("");
+    }
+    try {
+      const metaJson = JSON.stringify(meta, null, 2);
+      if (metaJson.length < 2000) {
+        lines.push("\u2550\u2550\u2550 Raw Metadata \u2550\u2550\u2550");
+        lines.push(metaJson);
+      }
+    } catch {}
+    return lines.join(`
+`);
+  }
+  function updateContent() {
+    if (!ui.configModalVisible)
+      return;
+    const raw = formatConfigMetadata() || "(no metadata)";
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.configModalOffset = clamp2(appState2.configModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.configModalOffset, appState2.configModalOffset + maxLines);
+    ui.configModalTitle.content = "Job Configuration";
+    ui.configModalText.content = visible.join(`
+`);
+    ui.configModalPayload = raw;
+    ui.configModalHint.content = wrapped.length > maxLines ? `[${appState2.configModalOffset + 1}-${appState2.configModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close";
+    renderer.requestRender();
+  }
+  function move(delta) {
+    appState2.configModalOffset = Math.max(0, appState2.configModalOffset + delta);
+    updateContent();
+  }
+  function open() {
+    appState2.configModalOffset = 0;
+    toggle(true);
+    updateContent();
+  }
+  function handleKey(key) {
+    if (!ui.configModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "i" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.configModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    handleKey
+  };
+}
+// src/modals/settings-modal.ts
+function createSettingsModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, backendConfigs: backendConfigs2, backendKeys: backendKeys2 } = ctx.state;
+  function buildSettingsOptions() {
+    return [backendConfigs2.prod, backendConfigs2.dev, backendConfigs2.local];
+  }
+  function toggle(visible) {
+    ui.settingsModalVisible = visible;
+    ui.settingsBox.visible = visible;
+    ui.settingsTitle.visible = visible;
+    ui.settingsHelp.visible = visible;
+    ui.settingsListText.visible = visible;
+    ui.settingsInfoText.visible = visible;
+    if (visible) {
+      appState2.settingsOptions = buildSettingsOptions();
+      appState2.settingsCursor = Math.max(0, appState2.settingsOptions.findIndex((opt) => opt.id === appState2.currentBackend));
+      ui.jobsSelect.blur();
+      renderList();
+    } else if (appState2.activePane === "jobs") {
+      ui.jobsSelect.focus();
+    }
+    renderer.requestRender();
+  }
+  function renderList() {
+    const lines = [];
+    for (let idx = 0;idx < appState2.settingsOptions.length; idx++) {
+      const opt = appState2.settingsOptions[idx];
+      const active = appState2.currentBackend === opt.id;
+      const cursor = idx === appState2.settingsCursor ? ">" : " ";
+      lines.push(`${cursor} [${active ? "x" : " "}] ${opt.label} (${opt.id})`);
+    }
+    ui.settingsListText.content = lines.join(`
+`);
+    const selected = appState2.settingsOptions[appState2.settingsCursor];
+    if (selected) {
+      const key = backendKeys2[selected.id];
+      const keyPreview = key ? `${key.slice(0, 5)}...` : "(no key)";
+      ui.settingsInfoText.content = `URL: ${selected.baseUrl}
+Key: ${keyPreview}`;
+    } else {
+      ui.settingsInfoText.content = "";
+    }
+    renderer.requestRender();
+  }
+  function move(delta) {
+    const max = Math.max(0, appState2.settingsOptions.length - 1);
+    appState2.settingsCursor = clamp2(appState2.settingsCursor + delta, 0, max);
+    renderList();
+  }
+  async function select() {
+    const selected = appState2.settingsOptions[appState2.settingsCursor];
+    if (!selected)
+      return;
+    appState2.currentBackend = selected.id;
+    toggle(false);
+    ctx.render();
+    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
+    await persistSettings2({
+      settingsFilePath: ctx.state.config.settingsFilePath,
+      getCurrentBackend: () => appState2.currentBackend,
+      getBackendKey: (id) => backendKeys2[id],
+      getBackendKeySource: (id) => ctx.state.backendKeySources[id]
+    });
+  }
+  function open() {
+    toggle(true);
+  }
+  function openKeyModal() {
+    toggle(false);
+  }
+  function openEnvKeyModal() {
+    toggle(false);
+  }
+  function handleKey(key) {
+    if (!ui.settingsModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      select();
+      return true;
+    }
+    if (key.name === "k" && key.shift) {
+      openKeyModal();
+      return true;
+    }
+    if (key.name === "e" && key.shift) {
+      openEnvKeyModal();
+      return true;
+    }
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.settingsModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    select,
+    openKeyModal,
+    openEnvKeyModal,
+    handleKey
+  };
+}
+// src/modals/filter-modal.ts
+function createFilterModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2 } = ctx.state;
+  function toggle(visible) {
+    ui.filterModalVisible = visible;
+    ui.filterBox.visible = visible;
+    ui.filterLabel.visible = visible;
+    ui.filterInput.visible = visible;
+    if (visible) {
+      ui.filterInput.value = appState2.eventFilter;
+      ui.filterInput.focus();
+    } else if (appState2.activePane === "jobs") {
+      ui.jobsSelect.focus();
+    }
+    renderer.requestRender();
+  }
+  function open() {
+    toggle(true);
+  }
+  function apply(value) {
+    appState2.eventFilter = value.trim();
+    toggle(false);
+    ctx.render();
+  }
+  function handleKey(key) {
+    if (!ui.filterModalVisible)
+      return false;
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return false;
+  }
+  ui.filterInput.on?.("change", (value) => {
+    apply(value);
+  });
+  return {
+    get isVisible() {
+      return ui.filterModalVisible;
+    },
+    toggle,
+    open,
+    handleKey
+  };
+}
+// src/modals/job-filter-modal.ts
+function createJobFilterModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2, config: config2 } = ctx.state;
+  function toggle(visible) {
+    ui.jobFilterModalVisible = visible;
+    ui.jobFilterBox.visible = visible;
+    ui.jobFilterLabel.visible = visible;
+    ui.jobFilterHelp.visible = visible;
+    ui.jobFilterListText.visible = visible;
+    if (visible) {
+      ui.jobFilterLabel.content = "Job filter (status)";
+      refreshOptions();
+      ui.jobsSelect.blur();
+      appState2.jobFilterCursor = 0;
+      appState2.jobFilterWindowStart = 0;
+      renderList();
+    } else if (appState2.activePane === "jobs") {
+      ui.jobsSelect.focus();
+    }
+    renderer.requestRender();
+  }
+  function refreshOptions() {
+    appState2.jobFilterOptions = buildJobStatusOptions(snapshot2.jobs);
+    const maxIndex = Math.max(0, appState2.jobFilterOptions.length - 1);
+    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor, 0, maxIndex);
+    appState2.jobFilterWindowStart = clamp2(appState2.jobFilterWindowStart, 0, Math.max(0, maxIndex));
+  }
+  function renderList() {
+    const max = Math.max(0, appState2.jobFilterOptions.length - 1);
+    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor, 0, max);
+    const start = clamp2(appState2.jobFilterWindowStart, 0, Math.max(0, max));
+    const end = Math.min(appState2.jobFilterOptions.length, start + config2.jobFilterVisibleCount);
+    const lines = [];
+    for (let idx = start;idx < end; idx++) {
+      const option = appState2.jobFilterOptions[idx];
+      const active = appState2.jobStatusFilter.has(option.status);
+      const cursor = idx === appState2.jobFilterCursor ? ">" : " ";
+      lines.push(`${cursor} [${active ? "x" : " "}] ${option.status} (${option.count})`);
+    }
+    if (!lines.length) {
+      lines.push("  (no statuses available)");
+    }
+    ui.jobFilterListText.content = lines.join(`
+`);
+    renderer.requestRender();
+  }
+  function move(delta) {
+    const max = Math.max(0, appState2.jobFilterOptions.length - 1);
+    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor + delta, 0, max);
+    if (appState2.jobFilterCursor < appState2.jobFilterWindowStart) {
+      appState2.jobFilterWindowStart = appState2.jobFilterCursor;
+    } else if (appState2.jobFilterCursor >= appState2.jobFilterWindowStart + config2.jobFilterVisibleCount) {
+      appState2.jobFilterWindowStart = appState2.jobFilterCursor - config2.jobFilterVisibleCount + 1;
+    }
+    renderList();
+  }
+  function toggleSelected() {
+    const option = appState2.jobFilterOptions[appState2.jobFilterCursor];
+    if (!option)
+      return;
+    if (appState2.jobStatusFilter.has(option.status)) {
+      appState2.jobStatusFilter.delete(option.status);
+    } else {
+      appState2.jobStatusFilter.add(option.status);
+    }
+    renderList();
+    applySelection();
+  }
+  function clearAll() {
+    appState2.jobStatusFilter.clear();
+    renderList();
+    applySelection();
+  }
+  function applySelection() {
+    const filteredJobs = getFilteredJobs(snapshot2.jobs, appState2.jobStatusFilter);
+    if (!filteredJobs.length) {
+      snapshot2.selectedJob = null;
+      snapshot2.events = [];
+      snapshot2.metrics = {};
+      snapshot2.bestSnapshotId = null;
+      snapshot2.bestSnapshot = null;
+      snapshot2.allCandidates = [];
+      appState2.selectedEventIndex = 0;
+      appState2.eventWindowStart = 0;
+      snapshot2.status = appState2.jobStatusFilter.size ? "No jobs with selected status" : "No prompt-learning jobs found";
+      ctx.render();
+      return;
+    }
+    if (!snapshot2.selectedJob || !filteredJobs.some((job) => job.job_id === snapshot2.selectedJob?.job_id)) {
+      Promise.resolve().then(() => (init_jobs(), exports_jobs)).then(({ selectJob: selectJob2 }) => {
+        selectJob2(ctx, filteredJobs[0].job_id).then(() => ctx.render());
+      });
+      return;
+    }
+    ctx.render();
+  }
+  function open() {
+    toggle(true);
+  }
+  function handleKey(key) {
+    if (!ui.jobFilterModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "space" || key.name === "return" || key.name === "enter") {
+      toggleSelected();
+      return true;
+    }
+    if (key.name === "c") {
+      clearAll();
+      return true;
+    }
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.jobFilterModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    toggleSelected,
+    clearAll,
+    handleKey
+  };
+}
+// src/modals/key-modal.ts
+function createKeyModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, backendKeys: backendKeys2, backendKeySources: backendKeySources2, config: config2 } = ctx.state;
+  function toggle(visible) {
+    ui.keyModalVisible = visible;
+    ui.keyModalBox.visible = visible;
+    ui.keyModalLabel.visible = visible;
+    ui.keyModalInput.visible = visible;
+    ui.keyModalHelp.visible = visible;
+    if (visible) {
+      ui.keyModalInput.value = "";
+      ui.keyModalInput.focus();
+      ui.keyModalLabel.content = `API Key for ${appState2.keyModalBackend}:`;
+      ui.keyModalHelp.content = "Paste or type key | Enter to apply | q to cancel";
+    } else if (appState2.activePane === "jobs") {
+      ui.jobsSelect.focus();
+    }
+    renderer.requestRender();
+  }
+  function open() {
+    appState2.keyModalBackend = appState2.currentBackend;
+    toggle(true);
+  }
+  async function apply(value) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      toggle(false);
+      return;
+    }
+    backendKeys2[appState2.keyModalBackend] = trimmed;
+    backendKeySources2[appState2.keyModalBackend] = {
+      sourcePath: "manual-input",
+      varName: null
+    };
+    toggle(false);
+    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
+    await persistSettings2({
+      settingsFilePath: config2.settingsFilePath,
+      getCurrentBackend: () => appState2.currentBackend,
+      getBackendKey: (id) => backendKeys2[id],
+      getBackendKeySource: (id) => backendKeySources2[id]
+    });
+    ctx.state.snapshot.status = "API key updated";
+    ctx.render();
+  }
+  function paste() {
+    try {
+      if (process.platform !== "darwin")
+        return;
+      const result = __require("child_process").spawnSync("pbpaste", [], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"]
+      });
+      if (result.status !== 0)
+        return;
+      const text = result.stdout ? String(result.stdout).replace(/\s+/g, "") : "";
+      if (!text)
+        return;
+      ui.keyModalInput.value = (ui.keyModalInput.value || "") + text;
+    } catch {}
+    renderer.requestRender();
+  }
+  function handleKey(key) {
+    if (!ui.keyModalVisible)
+      return false;
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      apply(ui.keyModalInput.value || "");
+      return true;
+    }
+    if (key.name === "v" && (key.ctrl || key.meta)) {
+      paste();
+      return true;
+    }
+    if (key.name === "backspace" || key.name === "delete") {
+      const current = ui.keyModalInput.value || "";
+      ui.keyModalInput.value = current.slice(0, Math.max(0, current.length - 1));
+      renderer.requestRender();
+      return true;
+    }
+    const seq = key.sequence || "";
+    if (seq && !seq.startsWith("\x1B") && !key.ctrl && !key.meta) {
+      ui.keyModalInput.value = (ui.keyModalInput.value || "") + seq;
+      renderer.requestRender();
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.keyModalVisible;
+    },
+    toggle,
+    open,
+    apply,
+    paste,
+    handleKey
+  };
+}
+// src/modals/env-key-modal.ts
+init_env();
+function createEnvKeyModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, backendKeys: backendKeys2, backendKeySources: backendKeySources2, config: config2 } = ctx.state;
+  function toggle(visible) {
+    ui.envKeyModalVisible = visible;
+    ui.envKeyModalBox.visible = visible;
+    ui.envKeyModalTitle.visible = visible;
+    ui.envKeyModalHelp.visible = visible;
+    ui.envKeyModalListText.visible = visible;
+    ui.envKeyModalInfoText.visible = visible;
+    if (!visible && appState2.activePane === "jobs") {
+      ui.jobsSelect.focus();
+    }
+    renderer.requestRender();
+  }
+  function renderList() {
+    if (appState2.envKeyScanInProgress) {
+      ui.envKeyModalListText.content = "Scanning...";
+      ui.envKeyModalInfoText.content = "";
+      renderer.requestRender();
+      return;
+    }
+    if (appState2.envKeyError) {
+      ui.envKeyModalListText.content = `Error: ${appState2.envKeyError}`;
+      ui.envKeyModalInfoText.content = "";
+      renderer.requestRender();
+      return;
+    }
+    if (!appState2.envKeyOptions.length) {
+      ui.envKeyModalListText.content = "No API keys found in .env files";
+      ui.envKeyModalInfoText.content = "";
+      renderer.requestRender();
+      return;
+    }
+    const max = Math.max(0, appState2.envKeyOptions.length - 1);
+    appState2.envKeyCursor = clamp2(appState2.envKeyCursor, 0, max);
+    const start = clamp2(appState2.envKeyWindowStart, 0, Math.max(0, max));
+    const end = Math.min(appState2.envKeyOptions.length, start + config2.envKeyVisibleCount);
+    const lines = [];
+    for (let idx = start;idx < end; idx++) {
+      const option = appState2.envKeyOptions[idx];
+      const cursor = idx === appState2.envKeyCursor ? ">" : " ";
+      const preview = option.key ? `${option.key.slice(0, 8)}...` : "(empty)";
+      lines.push(`${cursor} ${preview}`);
+    }
+    ui.envKeyModalListText.content = lines.join(`
+`);
+    const selected = appState2.envKeyOptions[appState2.envKeyCursor];
+    if (selected) {
+      const sources = selected.sources.slice(0, 2).join(", ");
+      const suffix = selected.sources.length > 2 ? ` +${selected.sources.length - 2}` : "";
+      ui.envKeyModalInfoText.content = `Source: ${sources}${suffix}
+Vars: ${selected.varNames.join(", ")}`;
+    } else {
+      ui.envKeyModalInfoText.content = "";
+    }
+    renderer.requestRender();
+  }
+  function move(delta) {
+    const max = Math.max(0, appState2.envKeyOptions.length - 1);
+    appState2.envKeyCursor = clamp2(appState2.envKeyCursor + delta, 0, max);
+    if (appState2.envKeyCursor < appState2.envKeyWindowStart) {
+      appState2.envKeyWindowStart = appState2.envKeyCursor;
+    } else if (appState2.envKeyCursor >= appState2.envKeyWindowStart + config2.envKeyVisibleCount) {
+      appState2.envKeyWindowStart = appState2.envKeyCursor - config2.envKeyVisibleCount + 1;
+    }
+    renderList();
+  }
+  async function rescan() {
+    appState2.envKeyScanInProgress = true;
+    appState2.envKeyError = null;
+    renderList();
+    try {
+      appState2.envKeyOptions = await scanEnvKeys(config2.envKeyScanRoot);
+      appState2.envKeyCursor = 0;
+      appState2.envKeyWindowStart = 0;
+    } catch (err) {
+      appState2.envKeyError = err?.message || "Scan failed";
+    } finally {
+      appState2.envKeyScanInProgress = false;
+      renderList();
+    }
+  }
+  async function open() {
+    toggle(true);
+    await rescan();
+  }
+  async function select() {
+    const selected = appState2.envKeyOptions[appState2.envKeyCursor];
+    if (!selected)
+      return;
+    backendKeys2[appState2.currentBackend] = selected.key;
+    backendKeySources2[appState2.currentBackend] = {
+      sourcePath: selected.sources[0] || null,
+      varName: selected.varNames[0] || null
+    };
+    toggle(false);
+    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
+    await persistSettings2({
+      settingsFilePath: config2.settingsFilePath,
+      getCurrentBackend: () => appState2.currentBackend,
+      getBackendKey: (id) => backendKeys2[id],
+      getBackendKeySource: (id) => backendKeySources2[id]
+    });
+    ctx.state.snapshot.status = "API key loaded from env file";
+    ctx.render();
+  }
+  function handleKey(key) {
+    if (!ui.envKeyModalVisible)
+      return false;
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      select();
+      return true;
+    }
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "r") {
+      rescan();
+      return true;
+    }
+    if (key.name === "m") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.envKeyModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    select,
+    rescan,
+    handleKey
+  };
+}
+// src/modals/snapshot-modal.ts
+function createSnapshotModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  function toggle(visible) {
+    ui.modalVisible = visible;
+    ui.modalBox.visible = visible;
+    ui.modalLabel.visible = visible;
+    ui.modalInput.visible = visible;
+    if (visible) {
+      ui.modalInput.value = "";
+      ui.modalInput.focus();
+    } else {
+      ui.jobsSelect.focus();
+    }
+    renderer.requestRender();
+  }
+  function open() {
+    toggle(true);
+  }
+  async function apply(snapshotId) {
+    const trimmed = snapshotId.trim();
+    if (!trimmed) {
+      toggle(false);
+      return;
+    }
+    const job = snapshot2.selectedJob;
+    if (!job) {
+      toggle(false);
+      return;
+    }
+    toggle(false);
+    try {
+      const { apiGet: apiGet2 } = await Promise.resolve().then(() => (init_client(), exports_client));
+      await apiGet2(`/prompt-learning/online/jobs/${job.job_id}/snapshots/${trimmed}`);
+      snapshot2.status = `Snapshot ${trimmed} fetched`;
+    } catch (err) {
+      snapshot2.lastError = err?.message || "Snapshot fetch failed";
+    }
+    ctx.render();
+  }
+  function handleKey(key) {
+    if (!ui.modalVisible)
+      return false;
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return false;
+  }
+  return {
+    get isVisible() {
+      return ui.modalVisible;
+    },
+    toggle,
+    open,
+    apply,
+    handleKey
+  };
+}
+// src/handlers/keyboard.ts
+init_jobs();
+function createKeyboardHandler(ctx, modals) {
+  const { renderer, ui } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  return function handleKeypress(key) {
+    if (key.ctrl && key.name === "c") {
+      renderer.stop();
+      renderer.destroy();
+      process.exit(0);
+    }
+    if (key.name === "q" || key.name === "escape") {
+      if (modals.login.isVisible) {
+        modals.login.toggle(false);
+        return;
+      }
+      if (modals.key.isVisible) {
+        modals.key.handleKey(key);
+        return;
+      }
+      if (modals.envKey.isVisible) {
+        modals.envKey.handleKey(key);
+        return;
+      }
+      if (modals.jobFilter.isVisible) {
+        modals.jobFilter.handleKey(key);
+        return;
+      }
+      if (modals.settings.isVisible) {
+        modals.settings.handleKey(key);
+        return;
+      }
+      if (modals.event.isVisible) {
+        modals.event.handleKey(key);
+        return;
+      }
+      if (modals.results.isVisible) {
+        modals.results.handleKey(key);
+        return;
+      }
+      if (modals.config.isVisible) {
+        modals.config.handleKey(key);
+        return;
+      }
+      if (modals.filter.isVisible) {
+        modals.filter.handleKey(key);
+        return;
+      }
+      if (modals.promptBrowser?.isVisible) {
+        modals.promptBrowser.handleKey(key);
+        return;
+      }
+      if (modals.snapshot.isVisible) {
+        modals.snapshot.handleKey(key);
+        return;
+      }
+      renderer.stop();
+      renderer.destroy();
+      process.exit(0);
+    }
+    if (modals.login.isVisible) {
+      if (key.name === "return" || key.name === "enter") {
+        modals.login.startAuth();
+      }
+      return;
+    }
+    if (modals.key.isVisible) {
+      modals.key.handleKey(key);
+      return;
+    }
+    if (modals.envKey.isVisible) {
+      modals.envKey.handleKey(key);
+      return;
+    }
+    if (modals.event.isVisible) {
+      modals.event.handleKey(key);
+      return;
+    }
+    if (modals.results.isVisible) {
+      modals.results.handleKey(key);
+      return;
+    }
+    if (modals.config.isVisible) {
+      modals.config.handleKey(key);
+      return;
+    }
+    if (modals.promptBrowser?.isVisible) {
+      modals.promptBrowser.handleKey(key);
+      return;
+    }
+    if (modals.settings.isVisible) {
+      modals.settings.handleKey(key);
+      return;
+    }
+    if (modals.filter.isVisible) {
+      modals.filter.handleKey(key);
+      return;
+    }
+    if (modals.jobFilter.isVisible) {
+      modals.jobFilter.handleKey(key);
+      return;
+    }
+    if (modals.snapshot.isVisible) {
+      modals.snapshot.handleKey(key);
+      return;
+    }
+    if (key.name === "tab") {
+      setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
+      return;
+    }
+    if (key.name === "e") {
+      setActivePane(ctx, "events");
+      return;
+    }
+    if (key.name === "b") {
+      setActivePane(ctx, "jobs");
+      return;
+    }
+    if (key.name === "r") {
+      refreshJobs(ctx).then(() => ctx.render());
+      return;
+    }
+    if (key.name === "l" && !key.shift) {
+      modals.login.toggle(true);
+      return;
+    }
+    if (key.name === "l" && key.shift) {
+      ctx.state.backendKeys[appState2.currentBackend] = "";
+      snapshot2.status = "Logged out";
+      ctx.render();
+      return;
+    }
+    if (key.name === "f") {
+      modals.filter.open();
+      return;
+    }
+    if (key.name === "t") {
+      modals.settings.open();
+      return;
+    }
+    if (key.name === "i") {
+      modals.config.open();
+      return;
+    }
+    if (key.name === "p") {
+      modals.results.open();
+      return;
+    }
+    if (key.name === "j" && key.shift) {
+      modals.jobFilter.open();
+      return;
+    }
+    if (key.name === "s") {
+      modals.snapshot.open();
+      return;
+    }
+    if (key.name === "c") {
+      cancelSelected(ctx).then(() => ctx.render());
+      return;
+    }
+    if (key.name === "a") {
+      fetchArtifacts(ctx).then(() => ctx.render());
+      return;
+    }
+    if (key.name === "m") {
+      fetchMetrics(ctx).then(() => ctx.render());
+      return;
+    }
+    if (appState2.activePane === "events") {
+      if (key.name === "up" || key.name === "k") {
+        moveEventSelection(ctx, -1);
+        ctx.render();
+        return;
+      }
+      if (key.name === "down" || key.name === "j") {
+        moveEventSelection(ctx, 1);
+        ctx.render();
+        return;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        modals.event.open();
+        return;
+      }
+      if (key.name === "x") {
+        toggleSelectedEventExpanded(ctx);
+        ctx.render();
+        return;
+      }
+    }
+  };
+}
+function createPasteHandler(ctx, keyModal) {
+  const { ui, renderer } = ctx;
+  return function handlePaste(key) {
+    if (!keyModal.isVisible)
+      return;
+    const seq = typeof key?.sequence === "string" ? key.sequence : "";
+    if (!seq)
+      return;
+    const cleaned = seq.replace("\x1B[200~", "").replace("\x1B[201~", "").replace(/\s+/g, "");
+    if (!cleaned)
+      return;
+    ui.keyModalInput.value = (ui.keyModalInput.value || "") + cleaned;
+    renderer.requestRender();
+  };
+}
+
+// src/app.ts
+init_settings();
+init_app_state();
+init_jobs();
+
+// src/api/events.ts
+init_client();
+function clamp3(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+function eventMatchesFilter2(event, filter) {
+  const haystack = [
+    event.type,
+    event.message,
+    event.timestamp,
+    event.data ? safeEventDataText2(event.data) : ""
+  ].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes(filter);
+}
+function safeEventDataText2(data) {
+  if (data == null)
+    return "";
+  if (typeof data === "string")
+    return data;
+  if (typeof data === "number" || typeof data === "boolean")
+    return String(data);
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return "";
+  }
+}
+async function refreshEvents(ctx) {
+  const { snapshot: snapshot2, appState: appState2, config: config2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return true;
+  const jobId = job.job_id;
+  const token = appState2.eventsToken;
+  try {
+    const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa";
+    const paths = isEvalJob(job) ? [
+      `/eval/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`,
+      `/learning/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`
+    ] : job.job_source === "learning" ? [`/learning/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`] : isGepa ? [
+      `/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`,
+      `/learning/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`
+    ] : [`/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`];
+    let payload = null;
+    let lastErr = null;
+    for (const path6 of paths) {
+      try {
+        payload = await apiGet(path6);
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (lastErr) {
+      if (token !== appState2.eventsToken || snapshot2.selectedJob?.job_id !== jobId) {
+        return true;
+      }
+      snapshot2.lastError = lastErr?.message || "Failed to load events";
+      return false;
+    }
+    if (token !== appState2.eventsToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return true;
+    }
+    const { events: events2, nextSeq } = extractEvents(payload);
+    if (events2.length > 0) {
+      snapshot2.events.push(...events2);
+      const filter = appState2.eventFilter.trim().toLowerCase();
+      const newMatchCount = filter.length === 0 ? events2.length : events2.filter((event) => eventMatchesFilter2(event, filter)).length;
+      if (appState2.activePane === "events" && newMatchCount > 0) {
+        if (appState2.selectedEventIndex > 0) {
+          appState2.selectedEventIndex += newMatchCount;
+        }
+        if (appState2.eventWindowStart > 0) {
+          appState2.eventWindowStart += newMatchCount;
+        }
+      }
+      if (config2.eventHistoryLimit > 0 && snapshot2.events.length > config2.eventHistoryLimit) {
+        snapshot2.events = snapshot2.events.slice(-config2.eventHistoryLimit);
+        appState2.selectedEventIndex = clamp3(appState2.selectedEventIndex, 0, Math.max(0, snapshot2.events.length - 1));
+        appState2.eventWindowStart = clamp3(appState2.eventWindowStart, 0, Math.max(0, snapshot2.events.length - Math.max(1, config2.eventVisibleCount)));
+      }
+      appState2.lastSeq = Math.max(appState2.lastSeq, ...events2.map((e) => e.seq));
+    }
+    if (typeof nextSeq === "number" && Number.isFinite(nextSeq)) {
+      appState2.lastSeq = Math.max(appState2.lastSeq, nextSeq);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// src/api/identity.ts
+init_client();
+async function refreshIdentity(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  try {
+    const me = await apiGetV1("/me");
+    snapshot2.orgId = typeof me?.org_id === "string" ? me.org_id : null;
+    snapshot2.userId = typeof me?.user_id === "string" ? me.user_id : null;
+  } catch {
+    snapshot2.orgId = snapshot2.orgId || null;
+    snapshot2.userId = snapshot2.userId || null;
+  }
+  try {
+    const balance = await apiGetV1("/balance/autumn-normalized");
+    const cents = balance?.remaining_credits_cents;
+    const dollars = typeof cents === "number" && Number.isFinite(cents) ? cents / 100 : null;
+    snapshot2.balanceDollars = dollars;
+  } catch {
+    snapshot2.balanceDollars = snapshot2.balanceDollars || null;
+  }
+}
+async function refreshHealth2(ctx) {
+  const { appState: appState2 } = ctx.state;
+  try {
+    const { getActiveBaseRoot: getActiveBaseRoot2 } = await Promise.resolve().then(() => (init_client(), exports_client));
+    const res = await fetch(`${getActiveBaseRoot2()}/health`);
+    appState2.healthStatus = res.ok ? "ok" : `bad(${res.status})`;
+  } catch (err) {
+    appState2.healthStatus = `err(${err?.message || "unknown"})`;
+  }
+}
+
+// src/app.ts
+init_client();
+async function runApp() {
+  const renderer = await createCliRenderer({
+    useConsole: false,
+    useAlternateScreen: true,
+    openConsoleOnError: false,
+    backgroundColor: "#0b1120"
+  });
+  const ui = buildLayout(renderer, () => "");
+  let ctx;
+  function render() {
+    renderApp(ctx);
+  }
+  ctx = createAppContext({
+    renderer,
+    ui,
+    render
+  });
+  await loadPersistedSettings({
+    settingsFilePath: ctx.state.config.settingsFilePath,
+    normalizeBackendId,
+    setCurrentBackend: (id) => {
+      ctx.state.appState.currentBackend = id;
+    },
+    setBackendKey: (id, key) => {
+      ctx.state.backendKeys[id] = key;
+    },
+    setBackendKeySource: (id, source) => {
+      ctx.state.backendKeySources[id] = source;
+    }
+  });
+  const loginModal = createLoginModal({
+    ui,
+    renderer,
+    getCurrentBackend: () => ctx.state.appState.currentBackend,
+    getBackendConfig: () => ctx.state.backendConfigs[ctx.state.appState.currentBackend],
+    getBackendKeys: () => ctx.state.backendKeys,
+    setBackendKey: (backend, key, source) => {
+      ctx.state.backendKeys[backend] = key;
+      ctx.state.backendKeySources[backend] = source;
+    },
+    persistSettings: async () => {
+      await persistSettings({
+        settingsFilePath: ctx.state.config.settingsFilePath,
+        getCurrentBackend: () => ctx.state.appState.currentBackend,
+        getBackendKey: (id) => ctx.state.backendKeys[id],
+        getBackendKeySource: (id) => ctx.state.backendKeySources[id]
+      });
+    },
+    bootstrap: async () => {
+      await bootstrap();
+    },
+    getSnapshot: () => ctx.state.snapshot,
+    renderSnapshot: render,
+    getActivePane: () => ctx.state.appState.activePane
+  });
+  const eventModal = createEventModal(ctx);
+  const resultsModal = createResultsModal(ctx);
+  const configModal = createConfigModal(ctx);
+  const settingsModal = createSettingsModal(ctx);
+  const filterModal = createFilterModal(ctx);
+  const jobFilterModal = createJobFilterModal(ctx);
+  const keyModal = createKeyModal(ctx);
+  const envKeyModal = createEnvKeyModal(ctx);
+  const snapshotModal = createSnapshotModal(ctx);
+  const modals = {
+    login: loginModal,
+    event: eventModal,
+    results: resultsModal,
+    config: configModal,
+    settings: settingsModal,
+    filter: filterModal,
+    jobFilter: jobFilterModal,
+    key: keyModal,
+    envKey: envKeyModal,
+    snapshot: snapshotModal
+  };
+  const handleKeypress = createKeyboardHandler(ctx, modals);
+  const handlePaste = createPasteHandler(ctx, keyModal);
+  renderer.keyInput.on("keypress", handleKeypress);
+  renderer.keyInput.on("paste", handlePaste);
+  ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx, option) => {
+    if (!option?.value)
+      return;
+    if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
+      selectJob(ctx, option.value).then(() => render());
+    }
+  });
+  ui.modalInput.on(InputRenderableEvents.CHANGE, (value) => {
+    if (!value.trim()) {
+      snapshotModal.toggle(false);
+      return;
+    }
+    snapshotModal.apply(value.trim());
+  });
+  ui.modalInput.on(InputRenderableEvents.ENTER, (value) => {
+    if (!value.trim()) {
+      snapshotModal.toggle(false);
+      return;
+    }
+    snapshotModal.apply(value.trim());
+  });
+  ui.filterInput.on(InputRenderableEvents.CHANGE, (value) => {
+    ctx.state.appState.eventFilter = value.trim();
+    filterModal.toggle(false);
+    render();
+  });
+  ui.keyModalInput.on(InputRenderableEvents.ENTER, (value) => {
+    keyModal.apply(value);
+  });
+  renderer.start();
+  ui.jobsSelect.focus();
+  render();
+  if (!getActiveApiKey()) {
+    ctx.state.snapshot.lastError = `Missing API key for ${ctx.state.backendConfigs[ctx.state.appState.currentBackend].label}`;
+    ctx.state.snapshot.status = "Sign in required";
+    render();
+    loginModal.toggle(true);
+  } else {
+    bootstrap().catch((err) => {
+      ctx.state.snapshot.lastError = err?.message || "Bootstrap failed";
+      ctx.state.snapshot.status = "Startup error";
+      render();
+    });
+  }
+  async function bootstrap() {
+    refreshHealth2(ctx);
+    await refreshIdentity(ctx);
+    await refreshJobs(ctx);
+    const { initialJobId } = ctx.state.config;
+    if (initialJobId) {
+      await selectJob(ctx, initialJobId);
+    } else if (ctx.state.snapshot.jobs.length > 0) {
+      await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id);
+    }
+    scheduleJobsPoll();
+    scheduleEventsPoll();
+    setInterval(() => void refreshHealth2(ctx), 30000);
+    setInterval(() => void refreshIdentity(ctx).then(() => render()), 60000);
+    render();
+  }
+  function scheduleJobsPoll() {
+    const { pollingState: pollingState2, config: config2 } = ctx.state;
+    if (pollingState2.jobsTimer)
+      clearTimeout(pollingState2.jobsTimer);
+    pollingState2.jobsTimer = setTimeout(pollJobs, pollingState2.jobsPollMs);
+  }
+  async function pollJobs() {
+    const { pollingState: pollingState2, config: config2 } = ctx.state;
+    if (pollingState2.jobsInFlight) {
+      scheduleJobsPoll();
+      return;
+    }
+    pollingState2.jobsInFlight = true;
+    const ok = await refreshJobs(ctx);
+    pollingState2.jobsInFlight = false;
+    render();
+    if (ok) {
+      pollingState2.jobsPollMs = Math.max(1, config2.refreshInterval) * 1000;
+    } else {
+      pollingState2.jobsPollMs = Math.min(pollingState2.jobsPollMs * 2, Math.max(1, config2.maxRefreshInterval) * 1000);
+    }
+    scheduleJobsPoll();
+  }
+  function scheduleEventsPoll() {
+    const { pollingState: pollingState2 } = ctx.state;
+    if (pollingState2.eventsTimer)
+      clearTimeout(pollingState2.eventsTimer);
+    pollingState2.eventsTimer = setTimeout(pollEvents, pollingState2.eventsPollMs);
+  }
+  async function pollEvents() {
+    const { pollingState: pollingState2, config: config2 } = ctx.state;
+    if (pollingState2.eventsInFlight || !ctx.state.snapshot.selectedJob) {
+      scheduleEventsPoll();
+      return;
+    }
+    pollingState2.eventsInFlight = true;
+    const ok = await refreshEvents(ctx);
+    pollingState2.eventsInFlight = false;
+    render();
+    if (ok) {
+      pollingState2.eventsPollMs = Math.max(0.5, config2.eventInterval) * 1000;
+    } else {
+      pollingState2.eventsPollMs = Math.min(pollingState2.eventsPollMs * 2, Math.max(1, config2.maxEventInterval) * 1000);
+    }
+    scheduleEventsPoll();
+  }
+}
+
+// src/index.ts
+runApp().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exit(1);
+});
