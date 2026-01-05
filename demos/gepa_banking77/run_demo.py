@@ -31,7 +31,7 @@ from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.task import run_server_background
+from synth_ai.sdk.task import normalize_inference_url, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
@@ -127,27 +127,60 @@ async def classify_banking77_query(
     available_intents: str,
     model: str = "gpt-4o-mini",
     api_key: str | None = None,
+    inference_url: str | None = None,
 ) -> str:
-    client = AsyncOpenAI(api_key=api_key) if api_key else AsyncOpenAI()
-
     user_msg = (
         f"Customer Query: {query}\n\n"
         f"Available Intents:\n{available_intents}\n\n"
         f"Classify this query into one of the above banking intents using the tool call."
     )
 
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_msg},
-        ],
-        tools=[TOOL_SCHEMA],
-        tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
-    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_msg},
+    ]
 
-    tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
+    if inference_url:
+        url = normalize_inference_url(inference_url)
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["X-API-Key"] = api_key
+        payload = {
+            "model": model,
+            "messages": messages,
+            "tools": [TOOL_SCHEMA],
+            "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+        if response.status_code != 200:
+            try:
+                error_json = response.json()
+                error_msg = str(error_json.get("error", {}).get("message", error_json))
+            except Exception:
+                error_msg = response.text[:500]
+            raise RuntimeError(f"Proxy error ({response.status_code}): {error_msg}")
+
+        data = response.json()
+        tool_call = (data.get("choices") or [])[0].get("message", {}).get("tool_calls", [])[0]
+        args_raw = tool_call.get("function", {}).get("arguments")
+    else:
+        client = AsyncOpenAI(api_key=api_key) if api_key else AsyncOpenAI()
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=[TOOL_SCHEMA],
+            tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
+        )
+
+        tool_call = response.choices[0].message.tool_calls[0]
+        args_raw = tool_call.function.arguments
+
+    if not args_raw:
+        raise RuntimeError("No tool call arguments returned from model")
+
+    args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
     return args["intent"]
 
 
@@ -211,6 +244,7 @@ def create_banking77_local_api(system_prompt: str, env_api_key: str):
             available_intents=format_available_intents(dataset.label_names),
             model=policy_config.get("model", "gpt-4o-mini"),
             api_key=api_key,
+            inference_url=inference_url,
         )
 
         expected_intent = sample["label"]
@@ -366,7 +400,12 @@ async def main():
             local_api_key=local_api_key,
             env_name='banking77',
             seeds=seeds,
-            policy_config={'model': 'gpt-4.1-nano', 'provider': 'openai'},
+            policy_config={
+                'model': 'gpt-4.1-nano',
+                'provider': 'openai',
+                'inference_mode': 'synth_hosted',
+                'api_key': API_KEY,
+            },
             env_config={'split': 'test'},
             concurrency=10,
         )

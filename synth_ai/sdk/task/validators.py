@@ -162,7 +162,9 @@ def normalize_inference_url(url: str | None, *, default: str = "https://api.open
         return str(result)
     
     # Determine what to append based on existing path
-    if path.endswith("/v1"):
+    if "/v1/" in path and not path.endswith("/v1"):
+        new_path = f"{path}/chat/completions"
+    elif path.endswith("/v1"):
         new_path = f"{path}/chat/completions"
     elif path.endswith("/chat"):
         new_path = f"{path}/completions"
