@@ -21,6 +21,10 @@ if TYPE_CHECKING:
         create_task_app,
         run_task_app,
     )
+    
+    # Type aliases for Pyright
+    create_local_api = create_task_app
+    run_local_api = run_task_app
 
 # Lazy imports for sdk.task symbols to avoid circular dependency
 # The chain is: sdk.task -> in_process_runner -> prompt_learning -> localapi.auth

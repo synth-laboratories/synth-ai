@@ -62,10 +62,16 @@ class TunnelBackend(str, Enum):
             - No API key required
             - Not associated with any organization
             - Best for quick local testing
+
+        Localhost: No tunnel, use localhost directly.
+            - Uses http://localhost:{port}
+            - No API key required
+            - Best for local backend development
     """
 
     CloudflareManagedTunnel = "cloudflare_managed"
     CloudflareQuickTunnel = "cloudflare_quick"
+    Localhost = "localhost"
 
 
 @dataclass
@@ -116,7 +122,6 @@ class TunneledLocalAPI:
         *,
         api_key: Optional[str] = None,
         env_api_key: Optional[str] = None,
-        reason: Optional[str] = None,
         backend_url: Optional[str] = None,
         verify_dns: bool = True,
         progress: bool = False,
@@ -135,10 +140,10 @@ class TunneledLocalAPI:
             backend: Tunnel backend to use. Defaults to CloudflareManagedTunnel.
                 - CloudflareManagedTunnel: Stable subdomain, requires api_key
                 - CloudflareQuickTunnel: Random subdomain, no api_key needed
-            api_key: Synth API key for authentication (required for managed tunnels)
+            api_key: Synth API key for authentication (required for managed tunnels).
+                If not provided, will be read from SYNTH_API_KEY environment variable.
             env_api_key: API key for the local task app (for health checks).
                 Defaults to ENVIRONMENT_API_KEY env var.
-            reason: Optional reason for creating tunnel (for logging, managed only)
             backend_url: Optional backend URL (defaults to production, managed only)
             verify_dns: Whether to verify DNS resolution after creating tunnel.
                 Set to False if you're sure DNS will work (e.g., reusing subdomain).
@@ -150,30 +155,31 @@ class TunneledLocalAPI:
         Raises:
             ValueError: If api_key is missing for managed tunnels
             RuntimeError: If tunnel creation or verification fails
-
-        Example:
-            >>> # Managed tunnel (stable subdomain)
-            >>> tunnel = await TunneledLocalAPI.create(
-            ...     local_port=8001,
-            ...     backend=TunnelBackend.CloudflareManagedTunnel,
-            ...     api_key="sk_live_...",
-            ...     progress=True,
-            ... )
-            Provisioning managed tunnel for port 8001...
-            Starting cloudflared...
-            Tunnel ready: https://task-1234-5678.usesynth.ai
-
-            >>> # Quick tunnel (random subdomain)
-            >>> tunnel = await TunneledLocalAPI.create(
-            ...     local_port=8001,
-            ...     backend=TunnelBackend.CloudflareQuickTunnel,
-            ...     progress=True,
-            ... )
-            Starting quick tunnel for port 8001...
-            Tunnel ready: https://random-words.trycloudflare.com
         """
+        import os
+        
+        # Auto-detect API key from environment if not provided
+        if api_key is None:
+            api_key = os.environ.get("SYNTH_API_KEY")
+        
         from .cleanup import track_process
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+
+        if backend == TunnelBackend.Localhost:
+            url = f"http://localhost:{local_port}"
+            log_info(
+                "TunneledLocalAPI.create: localhost passthrough",
+                ctx={"local_port": local_port},
+            )
+            return cls(
+                url=url,
+                hostname="localhost",
+                local_port=local_port,
+                backend=backend,
+                process=None,
+                tunnel_token=None,
+                _raw={},
+            )
 
         # Resolve env_api_key from environment if not provided
         if env_api_key is None:
@@ -187,7 +193,6 @@ class TunneledLocalAPI:
                 local_port=local_port,
                 api_key=api_key,
                 env_api_key=env_api_key,
-                reason=reason,
                 backend_url=backend_url,
                 verify_dns=verify_dns,
                 progress=progress,
@@ -209,7 +214,6 @@ class TunneledLocalAPI:
         local_port: int,
         api_key: Optional[str],
         env_api_key: Optional[str],
-        reason: Optional[str],
         backend_url: Optional[str],
         verify_dns: bool,
         progress: bool,
@@ -235,7 +239,6 @@ class TunneledLocalAPI:
         tunnel_data = await rotate_tunnel(
             api_key,
             local_port,
-            reason=reason,
             backend_url=backend_url,
         )
 
@@ -360,6 +363,83 @@ class TunneledLocalAPI:
     def __exit__(self, *args: Any) -> None:
         """Context manager exit - closes tunnel."""
         self.close()
+
+    @classmethod
+    async def create_for_app(
+        cls,
+        app: Any,
+        local_port: int | None = None,
+        backend: TunnelBackend = TunnelBackend.CloudflareManagedTunnel,
+        *,
+        api_key: Optional[str] = None,
+        backend_url: Optional[str] = None,
+        verify_dns: bool = True,
+        progress: bool = False,
+    ) -> "TunneledLocalAPI":
+        """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
+        
+        This is a convenience method that:
+        1. Finds an available port (or uses the provided one)
+        2. Kills any process using that port
+        3. Starts the app server in the background
+        4. Waits for health check
+        5. Creates and returns the tunnel
+        
+        Args:
+            app: FastAPI or ASGI application to tunnel
+            local_port: Port to use (defaults to finding an available port starting from 8001)
+            backend: Tunnel backend to use
+            api_key: Synth API key (defaults to SYNTH_API_KEY env var)
+            backend_url: Backend URL (defaults to production)
+            verify_dns: Whether to verify DNS resolution
+            progress: If True, print status updates
+            
+        Returns:
+            TunneledLocalAPI instance with .url, .hostname, .close(), etc.
+            
+        Example:
+            >>> from fastapi import FastAPI
+            >>> app = FastAPI()
+            >>> tunnel = await TunneledLocalAPI.create_for_app(app)
+            >>> print(f"App exposed at: {tunnel.url}")
+        """
+        import os
+
+        from synth_ai.sdk.tunnels.ports import find_available_port, kill_port
+        from synth_ai.sdk.task.server import run_server_background
+        from synth_ai.core.integrations.cloudflare import wait_for_health_check
+
+        if api_key is None:
+            api_key = os.environ.get("SYNTH_API_KEY") or None
+        
+        # Find or use port
+        if local_port is None:
+            local_port = find_available_port(8001)
+            if progress:
+                print(f"Auto-selected port: {local_port}")
+        else:
+            # Kill any process using the port
+            kill_port(local_port)
+        
+        # Start the server
+        if progress:
+            print(f"Starting server on port {local_port}...")
+        run_server_background(app, local_port)
+        
+        # Wait for health check
+        if progress:
+            print("Waiting for server health check...")
+        await wait_for_health_check("localhost", local_port, timeout=30.0)
+        
+        # Create tunnel
+        return await cls.create(
+            local_port=local_port,
+            backend=backend,
+            api_key=api_key,
+            backend_url=backend_url,
+            verify_dns=verify_dns,
+            progress=progress,
+        )
 
 
 __all__ = ["TunneledLocalAPI", "TunnelBackend"]

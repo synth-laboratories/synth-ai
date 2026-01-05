@@ -1,10 +1,34 @@
 #!/usr/bin/env python3
-"""Run the Banking77 GEPA demo end-to-end."""
+"""Run the Banking77 GEPA demo end-to-end.
 
+Usage:
+    uv run python demos/gepa_banking77/run_demo.py           # Production mode (Cloudflare tunnels)
+    uv run python demos/gepa_banking77/run_demo.py --local   # Local mode (localhost, no tunnels)
+"""
+
+import argparse
 import os
 import sys
 import asyncio
 from pathlib import Path
+
+# Parse args early so we can configure before imports
+parser = argparse.ArgumentParser(description="Run Banking77 GEPA demo")
+parser.add_argument(
+    "--local",
+    action="store_true",
+    help="Run in local mode: use localhost:8000 backend and skip Cloudflare tunnels",
+)
+parser.add_argument(
+    "--local-host",
+    type=str,
+    default="localhost",
+    help="Hostname for local API URLs (use 'host.docker.internal' if backend runs in Docker)",
+)
+args = parser.parse_args()
+
+LOCAL_MODE = args.local
+LOCAL_HOST = args.local_host
 
 # Add synth-ai to path
 repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -48,12 +72,22 @@ from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlatio
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, wait_for_health_check, acquire_port, PortConflictBehavior
 from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
 
-# Production backend
-SYNTH_API_BASE = PROD_BASE_URL
+# Backend configuration
+if LOCAL_MODE:
+    SYNTH_API_BASE = "http://localhost:8000"
+    TUNNEL_BACKEND = TunnelBackend.Localhost
+    print("=" * 60)
+    print("RUNNING IN LOCAL MODE")
+    print("=" * 60)
+else:
+    SYNTH_API_BASE = PROD_BASE_URL
+    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
+
 LOCAL_API_PORT = 8001
 OPTIMIZED_LOCAL_API_PORT = 8002
 
 print(f'Backend: {SYNTH_API_BASE}')
+print(f'Tunnel backend: {TUNNEL_BACKEND.value}')
 print(f'Local API Ports: {LOCAL_API_PORT}, {OPTIMIZED_LOCAL_API_PORT}')
 
 # Check backend health
@@ -342,16 +376,21 @@ async def main():
     await wait_for_health_check("localhost", baseline_port, ENVIRONMENT_API_KEY, timeout=30.0)
     print('Baseline local API ready!')
 
-    print('\nProvisioning Cloudflare tunnel for baseline...')
-    tunnel_start = time.time()
-    baseline_tunnel = await TunneledLocalAPI.create(
-        local_port=baseline_port,
-        backend=TunnelBackend.CloudflareManagedTunnel,
-        progress=True,
-    )
-    BASELINE_LOCAL_API_URL = baseline_tunnel.url
-    timings['baseline_tunnel'] = time.time() - tunnel_start
-    print(f'\nBaseline local API URL: {BASELINE_LOCAL_API_URL} ({format_duration(timings["baseline_tunnel"])})')
+    if LOCAL_MODE:
+        print(f'\nUsing {LOCAL_HOST} (no tunnel)...')
+        BASELINE_LOCAL_API_URL = f"http://{LOCAL_HOST}:{baseline_port}"
+        baseline_tunnel = None
+    else:
+        print('\nProvisioning Cloudflare tunnel for baseline...')
+        tunnel_start = time.time()
+        baseline_tunnel = await TunneledLocalAPI.create(
+            local_port=baseline_port,
+            backend=TUNNEL_BACKEND,
+            progress=True,
+        )
+        BASELINE_LOCAL_API_URL = baseline_tunnel.url
+        timings['baseline_tunnel'] = time.time() - tunnel_start
+    print(f'Baseline local API URL: {BASELINE_LOCAL_API_URL}' + (f' ({format_duration(timings["baseline_tunnel"])})' if 'baseline_tunnel' in timings else ''))
 
     # Cell 8: Run GEPA Optimization
     config_body = {
@@ -406,6 +445,34 @@ async def main():
         print(f'BEST SCORE: {gepa_result.best_score}')
     elif gepa_result.failed:
         print(f'ERROR: {gepa_result.error}')
+        # Print full raw response for debugging
+        if gepa_result.raw:
+            print('\n--- Full error details from status ---')
+            for key in ['error', 'error_message', 'error_details', 'traceback', 'failure_reason', 'message']:
+                if key in gepa_result.raw and gepa_result.raw[key]:
+                    print(f'{key}: {gepa_result.raw[key]}')
+
+        # Fetch events for more detailed error info
+        try:
+            print('\n--- Fetching job events for error details ---')
+            pl_client = PromptLearningClient(SYNTH_API_BASE, API_KEY)
+            events = await pl_client.get_events(gepa_result.job_id, limit=100)
+            error_events = [e for e in events if 'error' in e.get('type', '').lower() or 'fail' in e.get('type', '').lower() or e.get('data', {}).get('error')]
+            if error_events:
+                for event in error_events[-3:]:  # Last 3 error events
+                    print(f"\n[{event.get('type')}] {event.get('message', '')}")
+                    data = event.get('data', {})
+                    if data.get('error'):
+                        print(f"  error: {data['error']}")
+                    if data.get('traceback'):
+                        print(f"  traceback: {data['traceback'][:500]}...")
+            else:
+                # Print last few events regardless
+                print("No error events found. Last events:")
+                for event in events[-5:]:
+                    print(f"  [{event.get('type')}] {event.get('message', '')[:100]}")
+        except Exception as e:
+            print(f"Could not fetch events: {e}")
 
     # Cell 9: Evaluation
     EVAL_SEEDS = list(range(100, 120))
@@ -561,16 +628,21 @@ async def main():
         await wait_for_health_check("localhost", optimized_port, ENVIRONMENT_API_KEY, timeout=30.0)
         print('Optimized local API ready!')
 
-        print('\nProvisioning Cloudflare tunnel for optimized...')
-        tunnel_start = time.time()
-        optimized_tunnel = await TunneledLocalAPI.create(
-            local_port=optimized_port,
-            backend=TunnelBackend.CloudflareManagedTunnel,
-            progress=True,
-        )
-        OPTIMIZED_LOCAL_API_URL = optimized_tunnel.url
-        timings['optimized_tunnel'] = time.time() - tunnel_start
-        print(f'Optimized tunnel ready ({format_duration(timings["optimized_tunnel"])})')
+        if LOCAL_MODE:
+            print(f'\nUsing {LOCAL_HOST} for optimized (no tunnel)...')
+            OPTIMIZED_LOCAL_API_URL = f"http://{LOCAL_HOST}:{optimized_port}"
+            optimized_tunnel = None
+        else:
+            print('\nProvisioning Cloudflare tunnel for optimized...')
+            tunnel_start = time.time()
+            optimized_tunnel = await TunneledLocalAPI.create(
+                local_port=optimized_port,
+                backend=TUNNEL_BACKEND,
+                progress=True,
+            )
+            OPTIMIZED_LOCAL_API_URL = optimized_tunnel.url
+            timings['optimized_tunnel'] = time.time() - tunnel_start
+            print(f'Optimized tunnel ready ({format_duration(timings["optimized_tunnel"])})')
 
         print('\nRunning BASELINE eval job...')
         eval_start = time.time()
@@ -621,13 +693,13 @@ async def main():
             else:
                 print("\n<<< Baseline better on held-out (possible overfitting)")
     else:
-        print(f"Job failed: {gepa_result.status.value}")
-        if gepa_result.error:
-            print(f"Error: {gepa_result.error}")
+        print(f"Job did not succeed: {gepa_result.status.value}")
+        # Error details already printed above for failed jobs
 
     # Cell 10: Cleanup and Timing Summary
-    print('\nCleaning up cloudflared processes...')
-    cleanup_all()
+    if not LOCAL_MODE:
+        print('\nCleaning up cloudflared processes...')
+        cleanup_all()
 
     # Print timing summary
     timings['total'] = time.time() - total_start
