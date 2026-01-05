@@ -19,6 +19,7 @@ import {
   type JobEvent,
   type JobSummary,
 } from "./tui_data"
+import { createLoginModal, type LoginModalController } from "./login_modal"
 
 type EnvKeyOption = {
   key: string
@@ -185,6 +186,25 @@ const renderer = await createCliRenderer({
   backgroundColor: "#0b1120",
 })
 const ui = buildLayout(renderer)
+
+// Login modal controller
+const loginModal = createLoginModal({
+  ui,
+  renderer,
+  getCurrentBackend: () => currentBackend,
+  getBackendConfig: () => getBackendConfig(),
+  getBackendKeys: () => backendKeys,
+  setBackendKey: (backend, key, source) => {
+    backendKeys[backend] = key
+    backendKeySources[backend] = source
+  },
+  persistSettings,
+  bootstrap,
+  getSnapshot: () => snapshot,
+  renderSnapshot,
+  getActivePane: () => activePane,
+})
+
 renderer.start()
 
 renderer.keyInput.on("keypress", (key: any) => {
@@ -194,6 +214,10 @@ renderer.keyInput.on("keypress", (key: any) => {
     process.exit(0)
   }
   if (key.name === "q" || key.name === "escape") {
+    if (loginModal.isVisible) {
+      loginModal.toggle(false)
+      return
+    }
     if (ui.keyModalVisible) {
       toggleKeyModal(false)
       return
@@ -233,6 +257,20 @@ renderer.keyInput.on("keypress", (key: any) => {
       renderer.destroy()
       process.exit(0)
     }
+  }
+  // Login modal handlers
+  if (loginModal.isVisible) {
+    if (key.name === "q") {
+      loginModal.toggle(false)
+      return
+    }
+    if (key.name === "return" || key.name === "enter") {
+      if (!loginModal.isInProgress) {
+        void loginModal.startAuth()
+      }
+      return
+    }
+    return
   }
   if (ui.keyModalVisible) {
     if (key.name === "q") {
@@ -446,6 +484,8 @@ renderer.keyInput.on("keypress", (key: any) => {
   if (key.name === "p") fetchBestSnapshot()
   if (key.name === "f") toggleFilterModal(true)
   if (key.name === "t") toggleSettingsModal(true)
+  if (key.name === "l" && !key.shift) loginModal.toggle(true)
+  if (key.shift && key.name === "l") void loginModal.logout()
   if (key.shift && key.name === "j") toggleJobFilterModal(true)
   if (key.name === "c") cancelSelected()
   if (key.name === "a") fetchArtifacts()
@@ -527,8 +567,10 @@ renderSnapshot()
 
 if (!getActiveApiKey()) {
   snapshot.lastError = `Missing API key for ${getBackendConfig().label}`
-  snapshot.status = "Auth required"
+  snapshot.status = "Sign in required"
   renderSnapshot()
+  // Auto-show login modal when no API key
+  loginModal.toggle(true)
 } else {
   bootstrap().catch((err) => {
     snapshot.lastError = err?.message || "Bootstrap failed"
@@ -1737,7 +1779,7 @@ function footerText(): string {
   const jobFilterLabel = jobStatusFilter.size
     ? `status=${Array.from(jobStatusFilter).join(",")}`
     : "status=all"
-  return `Keys: e events | b jobs | tab toggle | j/k navigate | enter view | r refresh | m metrics | p best | shift+p prompts | o best prompt | i config | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`
+  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`
 }
 
 function toggleModal(visible: boolean): void {
@@ -3953,6 +3995,7 @@ function buildLayout(renderer: any) {
   const modalInput = new InputRenderable(renderer, {
     id: "modal-input",
     width: 44,
+    height: 1,
     position: "absolute",
     left: 6,
     top: 6,
@@ -3994,6 +4037,7 @@ function buildLayout(renderer: any) {
   const filterInput = new InputRenderable(renderer, {
     id: "filter-input",
     width: 46,
+    height: 1,
     position: "absolute",
     left: 8,
     top: 8,
@@ -4430,6 +4474,56 @@ function buildLayout(renderer: any) {
   renderer.root.add(envKeyModalListText)
   renderer.root.add(envKeyModalInfoText)
 
+  // Login modal
+  const loginModalBox = new BoxRenderable(renderer, {
+    id: "login-modal-box",
+    width: 60,
+    height: 10,
+    position: "absolute",
+    left: 10,
+    top: 6,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#22c55e",
+    border: true,
+    zIndex: 15,
+  })
+  const loginModalTitle = new TextRenderable(renderer, {
+    id: "login-modal-title",
+    content: "Sign In",
+    fg: "#22c55e",
+    position: "absolute",
+    left: 12,
+    top: 7,
+    zIndex: 16,
+  })
+  const loginModalText = new TextRenderable(renderer, {
+    id: "login-modal-text",
+    content: "fto open browser and sign in...",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 12,
+    top: 9,
+    zIndex: 16,
+  })
+  const loginModalHelp = new TextRenderable(renderer, {
+    id: "login-modal-help",
+    content: "Enter start | q cancel",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 12,
+    top: 13,
+    zIndex: 16,
+  })
+  loginModalBox.visible = false
+  loginModalTitle.visible = false
+  loginModalText.visible = false
+  loginModalHelp.visible = false
+  renderer.root.add(loginModalBox)
+  renderer.root.add(loginModalTitle)
+  renderer.root.add(loginModalText)
+  renderer.root.add(loginModalHelp)
+
   return {
     jobsBox,
     eventsBox,
@@ -4497,6 +4591,11 @@ function buildLayout(renderer: any) {
     envKeyModalListText,
     envKeyModalInfoText,
     envKeyModalVisible: false,
+    loginModalBox,
+    loginModalTitle,
+    loginModalText,
+    loginModalHelp,
+    loginModalVisible: false,
     eventCards: [] as Array<{ box: BoxRenderable; text: TextRenderable }>,
   }
 }
