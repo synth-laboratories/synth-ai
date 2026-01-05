@@ -1,20 +1,38 @@
 # TUI
 
-This package holds the CLI entrypoint that launches the JS OpenTUI app.
+This package contains the synth-ai TUI (Terminal User Interface).
 
-OpenTUI app layout:
-- `synth_ai/_tui/src/index.ts` (source)
-- `synth_ai/_tui/dist/index.mjs` (built bundle used at runtime)
+## Structure
 
-Build the JS bundle:
-1) `cd synth_ai/_tui`
-2) `bun install`
-3) `bun run build`
+```
+synth_ai/tui/
+├── __init__.py      # exports run_prompt_learning_tui
+├── launcher.py      # Python launcher (spawns bun)
+├── README.md
+└── app/             # OpenTUI JS app
+    ├── src/         # TypeScript source
+    ├── dist/        # Built bundle (index.mjs)
+    ├── package.json
+    └── tests/
+```
 
-Entry points:
-- `synth_ai.tui.prompt_learning.run_prompt_learning_tui`
+## Build the JS bundle
 
-Keys:
+```bash
+cd synth_ai/tui/app
+bun install
+bun run build
+```
+
+## Entry point
+
+```python
+from synth_ai.tui import run_prompt_learning_tui
+run_prompt_learning_tui()
+```
+
+## Keyboard shortcuts
+
 - `r` refresh
 - `c` cancel
 - `a` artifacts
