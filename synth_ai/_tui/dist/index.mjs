@@ -19117,6 +19117,289 @@ function toSortTimestamp(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// src/auth.ts
+import { spawn } from "child_process";
+var POLL_INTERVAL_MS = 3000;
+function getFrontendUrl(backend) {
+  switch (backend) {
+    case "prod":
+      return process.env.SYNTH_TUI_FRONTEND_PROD || "https://www.usesynth.ai";
+    case "dev":
+      return process.env.SYNTH_TUI_FRONTEND_DEV || "https://synth-frontend-dev.onrender.com";
+    case "local":
+      return process.env.SYNTH_TUI_FRONTEND_LOCAL || "http://localhost:3000";
+  }
+}
+async function initAuthSession(backend) {
+  const frontendUrl = getFrontendUrl(backend);
+  const initUrl = `${frontendUrl}/api/sdk/handshake/init`;
+  const res = await fetch(initUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Handshake init failed (${res.status}): ${body || "no response"}`);
+  }
+  const data = await res.json();
+  const deviceCode = String(data.device_code || "").trim();
+  const verificationUri = String(data.verification_uri || "").trim();
+  const expiresIn = Number(data.expires_in) || 600;
+  if (!deviceCode || !verificationUri) {
+    throw new Error("Handshake init response missing device_code or verification_uri");
+  }
+  return {
+    deviceCode,
+    verificationUri,
+    expiresAt: Date.now() + expiresIn * 1000
+  };
+}
+async function pollForToken(backend, deviceCode) {
+  const frontendUrl = getFrontendUrl(backend);
+  const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`;
+  try {
+    const res = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_code: deviceCode })
+    });
+    if (res.status === 428) {
+      return { apiKey: null, expired: false, error: null };
+    }
+    if (res.status === 404 || res.status === 410) {
+      return { apiKey: null, expired: true, error: "Device code expired" };
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { apiKey: null, expired: false, error: `Token exchange failed: ${body}` };
+    }
+    const data = await res.json();
+    const keys = data.keys || {};
+    const synthKey = String(keys.synth || "").trim();
+    if (!synthKey) {
+      return { apiKey: null, expired: false, error: "No API key in response" };
+    }
+    return { apiKey: synthKey, expired: false, error: null };
+  } catch (err) {
+    return { apiKey: null, expired: false, error: err?.message || "Network error" };
+  }
+}
+function openBrowser(url) {
+  const platform = process.platform;
+  let cmd;
+  let args;
+  if (platform === "darwin") {
+    cmd = "open";
+    args = [url];
+  } else if (platform === "win32") {
+    cmd = "cmd";
+    args = ["/c", "start", "", url];
+  } else {
+    cmd = "xdg-open";
+    args = [url];
+  }
+  try {
+    const child = spawn(cmd, args, {
+      detached: true,
+      stdio: "ignore"
+    });
+    child.unref();
+  } catch {}
+}
+async function runDeviceCodeAuth(backend, onStatus) {
+  const updateStatus = (status) => {
+    if (onStatus)
+      onStatus(status);
+  };
+  try {
+    updateStatus({ state: "initializing" });
+    const session = await initAuthSession(backend);
+    updateStatus({ state: "waiting", verificationUri: session.verificationUri });
+    openBrowser(session.verificationUri);
+    updateStatus({ state: "polling" });
+    while (Date.now() < session.expiresAt) {
+      const result = await pollForToken(backend, session.deviceCode);
+      if (result.apiKey) {
+        updateStatus({ state: "success", apiKey: result.apiKey });
+        return { success: true, apiKey: result.apiKey, error: null };
+      }
+      if (result.expired) {
+        updateStatus({ state: "error", message: "Authentication timed out" });
+        return { success: false, apiKey: null, error: "Authentication timed out" };
+      }
+      if (result.error) {}
+      await sleep(POLL_INTERVAL_MS);
+    }
+    updateStatus({ state: "error", message: "Authentication timed out" });
+    return { success: false, apiKey: null, error: "Authentication timed out" };
+  } catch (err) {
+    const message = err?.message || "Authentication failed";
+    updateStatus({ state: "error", message });
+    return { success: false, apiKey: null, error: message };
+  }
+}
+function sleep(ms) {
+  return new Promise((resolve3) => setTimeout(resolve3, ms));
+}
+
+// src/login_modal.ts
+function createLoginModal(deps) {
+  let loginModalVisible = false;
+  let loginAuthStatus = { state: "idle" };
+  let loginAuthInProgress = false;
+  const {
+    ui,
+    renderer,
+    getCurrentBackend,
+    getBackendConfig,
+    setBackendKey,
+    persistSettings,
+    bootstrap,
+    getSnapshot,
+    renderSnapshot,
+    getActivePane
+  } = deps;
+  function updateUIVisibility(visible) {
+    loginModalVisible = visible;
+    ui.loginModalVisible = visible;
+    ui.loginModalBox.visible = visible;
+    ui.loginModalTitle.visible = visible;
+    ui.loginModalText.visible = visible;
+    ui.loginModalHelp.visible = visible;
+  }
+  function updateLoginModalStatus(status) {
+    loginAuthStatus = status;
+    switch (status.state) {
+      case "idle":
+        ui.loginModalText.content = "Press Enter to open browser and sign in...";
+        ui.loginModalHelp.content = "Enter start | q cancel";
+        break;
+      case "initializing":
+        ui.loginModalText.content = "Initializing...";
+        ui.loginModalHelp.content = "Please wait...";
+        break;
+      case "waiting":
+        ui.loginModalText.content = [
+          "Browser opened. Complete sign-in there.",
+          "",
+          `URL: ${status.verificationUri}`
+        ].join(`
+`);
+        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel";
+        break;
+      case "polling":
+        ui.loginModalText.content = [
+          "Browser opened. Complete sign-in there.",
+          "",
+          "Checking for completion..."
+        ].join(`
+`);
+        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel";
+        break;
+      case "success":
+        ui.loginModalText.content = "Authentication successful!";
+        ui.loginModalHelp.content = "Loading...";
+        break;
+      case "error":
+        ui.loginModalText.content = `Error: ${status.message}`;
+        ui.loginModalHelp.content = "Enter retry | q close";
+        break;
+    }
+    renderer.requestRender();
+  }
+  function toggle(visible) {
+    updateUIVisibility(visible);
+    if (visible) {
+      const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+      const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+      const width = 60;
+      const height = 10;
+      const left = Math.max(0, Math.floor((cols - width) / 2));
+      const top = Math.max(1, Math.floor((rows - height) / 2));
+      ui.loginModalBox.left = left;
+      ui.loginModalBox.top = top;
+      ui.loginModalBox.width = width;
+      ui.loginModalBox.height = height;
+      ui.loginModalTitle.left = left + 2;
+      ui.loginModalTitle.top = top + 1;
+      ui.loginModalText.left = left + 2;
+      ui.loginModalText.top = top + 3;
+      ui.loginModalHelp.left = left + 2;
+      ui.loginModalHelp.top = top + height - 2;
+      loginAuthStatus = { state: "idle" };
+      loginAuthInProgress = false;
+      ui.loginModalTitle.content = `Sign In / sign up`;
+      ui.loginModalText.content = "Press Enter to open browser";
+      ui.loginModalHelp.content = "Enter start | q cancel";
+      ui.jobsSelect.blur();
+    } else {
+      if (getActivePane() === "jobs") {
+        ui.jobsSelect.focus();
+      }
+    }
+    renderer.requestRender();
+  }
+  async function startAuth() {
+    if (loginAuthInProgress)
+      return;
+    loginAuthInProgress = true;
+    const currentBackend = getCurrentBackend();
+    const result = await runDeviceCodeAuth(currentBackend, updateLoginModalStatus);
+    loginAuthInProgress = false;
+    if (result.success && result.apiKey) {
+      setBackendKey(currentBackend, result.apiKey, {
+        sourcePath: "browser-auth",
+        varName: null
+      });
+      await persistSettings();
+      toggle(false);
+      const snapshot = getSnapshot();
+      snapshot.lastError = null;
+      snapshot.status = "Authenticated! Loading...";
+      renderSnapshot();
+      await bootstrap();
+    }
+  }
+  async function logout() {
+    const currentBackend = getCurrentBackend();
+    setBackendKey(currentBackend, "", { sourcePath: null, varName: null });
+    await persistSettings();
+    const snapshot = getSnapshot();
+    snapshot.jobs = [];
+    snapshot.selectedJob = null;
+    snapshot.events = [];
+    snapshot.metrics = {};
+    snapshot.bestSnapshotId = null;
+    snapshot.bestSnapshot = null;
+    snapshot.evalSummary = null;
+    snapshot.evalResultRows = [];
+    snapshot.artifacts = [];
+    snapshot.orgId = null;
+    snapshot.userId = null;
+    snapshot.balanceDollars = null;
+    snapshot.lastRefresh = null;
+    snapshot.allCandidates = [];
+    snapshot.lastError = `Logged out from ${getBackendConfig().label}`;
+    snapshot.status = "Sign in required";
+    renderSnapshot();
+    toggle(true);
+  }
+  return {
+    get isVisible() {
+      return loginModalVisible;
+    },
+    get isInProgress() {
+      return loginAuthInProgress;
+    },
+    get status() {
+      return loginAuthStatus;
+    },
+    toggle,
+    startAuth,
+    logout
+  };
+}
+
 // src/index.ts
 var backendConfigs = {
   prod: {
@@ -19218,6 +19501,22 @@ var renderer = await createCliRenderer({
   backgroundColor: "#0b1120"
 });
 var ui = buildLayout(renderer);
+var loginModal = createLoginModal({
+  ui,
+  renderer,
+  getCurrentBackend: () => currentBackend,
+  getBackendConfig: () => getBackendConfig(),
+  getBackendKeys: () => backendKeys,
+  setBackendKey: (backend, key, source) => {
+    backendKeys[backend] = key;
+    backendKeySources[backend] = source;
+  },
+  persistSettings,
+  bootstrap,
+  getSnapshot: () => snapshot,
+  renderSnapshot,
+  getActivePane: () => activePane
+});
 renderer.start();
 renderer.keyInput.on("keypress", (key) => {
   if (key.ctrl && key.name === "c") {
@@ -19226,6 +19525,10 @@ renderer.keyInput.on("keypress", (key) => {
     process.exit(0);
   }
   if (key.name === "q" || key.name === "escape") {
+    if (loginModal.isVisible) {
+      loginModal.toggle(false);
+      return;
+    }
     if (ui.keyModalVisible) {
       toggleKeyModal(false);
       return;
@@ -19265,6 +19568,19 @@ renderer.keyInput.on("keypress", (key) => {
       renderer.destroy();
       process.exit(0);
     }
+  }
+  if (loginModal.isVisible) {
+    if (key.name === "q") {
+      loginModal.toggle(false);
+      return;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      if (!loginModal.isInProgress) {
+        loginModal.startAuth();
+      }
+      return;
+    }
+    return;
   }
   if (ui.keyModalVisible) {
     if (key.name === "q") {
@@ -19483,6 +19799,10 @@ renderer.keyInput.on("keypress", (key) => {
     toggleFilterModal(true);
   if (key.name === "t")
     toggleSettingsModal(true);
+  if (key.name === "l" && !key.shift)
+    loginModal.toggle(true);
+  if (key.shift && key.name === "l")
+    loginModal.logout();
   if (key.shift && key.name === "j")
     toggleJobFilterModal(true);
   if (key.name === "c")
@@ -19559,8 +19879,9 @@ ui.jobsSelect.focus();
 renderSnapshot();
 if (!getActiveApiKey()) {
   snapshot.lastError = `Missing API key for ${getBackendConfig().label}`;
-  snapshot.status = "Auth required";
+  snapshot.status = "Sign in required";
   renderSnapshot();
+  loginModal.toggle(true);
 } else {
   bootstrap().catch((err) => {
     snapshot.lastError = err?.message || "Bootstrap failed";
@@ -20615,7 +20936,7 @@ function formatStatus() {
 function footerText() {
   const filterLabel = eventFilter ? `filter=${eventFilter}` : "filter=off";
   const jobFilterLabel = jobStatusFilter.size ? `status=${Array.from(jobStatusFilter).join(",")}` : "status=all";
-  return `Keys: e events | b jobs | tab toggle | j/k navigate | enter view | r refresh | m metrics | p best | shift+p prompts | o best prompt | i config | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
+  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
 }
 function toggleModal(visible) {
   ui.modalVisible = visible;
@@ -22646,6 +22967,7 @@ function buildLayout(renderer2) {
   const modalInput = new InputRenderable(renderer2, {
     id: "modal-input",
     width: 44,
+    height: 1,
     position: "absolute",
     left: 6,
     top: 6,
@@ -22686,6 +23008,7 @@ function buildLayout(renderer2) {
   const filterInput = new InputRenderable(renderer2, {
     id: "filter-input",
     width: 46,
+    height: 1,
     position: "absolute",
     left: 8,
     top: 8,
@@ -23112,6 +23435,54 @@ function buildLayout(renderer2) {
   renderer2.root.add(envKeyModalHelp);
   renderer2.root.add(envKeyModalListText);
   renderer2.root.add(envKeyModalInfoText);
+  const loginModalBox = new BoxRenderable(renderer2, {
+    id: "login-modal-box",
+    width: 60,
+    height: 10,
+    position: "absolute",
+    left: 10,
+    top: 6,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#22c55e",
+    border: true,
+    zIndex: 15
+  });
+  const loginModalTitle = new TextRenderable(renderer2, {
+    id: "login-modal-title",
+    content: "Sign In",
+    fg: "#22c55e",
+    position: "absolute",
+    left: 12,
+    top: 7,
+    zIndex: 16
+  });
+  const loginModalText = new TextRenderable(renderer2, {
+    id: "login-modal-text",
+    content: "fto open browser and sign in...",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 12,
+    top: 9,
+    zIndex: 16
+  });
+  const loginModalHelp = new TextRenderable(renderer2, {
+    id: "login-modal-help",
+    content: "Enter start | q cancel",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 12,
+    top: 13,
+    zIndex: 16
+  });
+  loginModalBox.visible = false;
+  loginModalTitle.visible = false;
+  loginModalText.visible = false;
+  loginModalHelp.visible = false;
+  renderer2.root.add(loginModalBox);
+  renderer2.root.add(loginModalTitle);
+  renderer2.root.add(loginModalText);
+  renderer2.root.add(loginModalHelp);
   return {
     jobsBox,
     eventsBox,
@@ -23179,6 +23550,11 @@ function buildLayout(renderer2) {
     envKeyModalListText,
     envKeyModalInfoText,
     envKeyModalVisible: false,
+    loginModalBox,
+    loginModalTitle,
+    loginModalText,
+    loginModalHelp,
+    loginModalVisible: false,
     eventCards: []
   };
 }
