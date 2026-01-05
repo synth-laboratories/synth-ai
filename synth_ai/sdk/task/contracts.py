@@ -40,8 +40,9 @@ class StructuredOutputConfig(BaseModel):
     - Groq: response_format.json_schema or json_object
     - Gemini: generationConfig.responseSchema
     """
-    schema: dict[str, Any] = Field(
+    json_schema: dict[str, Any] = Field(
         ...,
+        alias="schema",
         description="JSON Schema for the expected response structure"
     )
     schema_name: str = Field(
