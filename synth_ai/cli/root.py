@@ -164,16 +164,23 @@ def install_sqld() -> str:
 
 
 @click.group(
-    help=f"Synth AI v{__pkg_version__}"
+    help=f"Synth AI v{__pkg_version__}",
+    invoke_without_command=True,
 )
 @click.version_option(version=__pkg_version__, prog_name="synth-ai")
-def cli():
+@click.pass_context
+def cli(ctx: click.Context):
     """Top-level command group for Synth AI."""
     # Add logging to track CLI invocation
     import sys
     if "train" in sys.argv:
         sys.stderr.write(f"[CLI_ROOT] CLI invoked with args: {sys.argv}\n")
         sys.stderr.flush()
+
+    # Launch TUI when no subcommand is given
+    if ctx.invoked_subcommand is None:
+        from synth_ai.tui import run_prompt_learning_tui
+        run_prompt_learning_tui()
 
 
 @cli.command()
