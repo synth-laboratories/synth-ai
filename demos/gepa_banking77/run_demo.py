@@ -4,9 +4,20 @@
 import os
 import sys
 import asyncio
+from pathlib import Path
 
 # Add synth-ai to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, repo_root)
+
+# Load .env file from repo root
+from dotenv import load_dotenv
+env_path = Path(repo_root) / ".env"
+if env_path.exists():
+    load_dotenv(env_path, override=True)  # override=True ensures .env values take precedence
+    print(f"Loaded environment variables from {env_path}")
+else:
+    print(f"No .env file found at {env_path}, using system environment variables")
 
 import nest_asyncio
 nest_asyncio.apply()
@@ -34,7 +45,7 @@ from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
+from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, wait_for_health_check, acquire_port, PortConflictBehavior
 from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
 
 # Production backend
@@ -233,8 +244,6 @@ def create_banking77_local_api(system_prompt: str):
 
         policy_config = request.policy.config or {}
         inference_url = policy_config.get("inference_url")
-        print(f"DEBUG: inference_url={inference_url}")
-        print(f"DEBUG: policy.config keys={list(policy_config.keys())}")
         os.environ["OPENAI_BASE_URL"] = inference_url
         api_key = policy_config.get("api_key")
 
@@ -309,24 +318,40 @@ async def main():
     BASELINE_SYSTEM_PROMPT = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
     USER_PROMPT = "Customer Query: {query}\n\nAvailable Intents:\n{available_intents}\n\nClassify this query into one of the above banking intents using the tool call."
 
+    # Timing helper
+    def format_duration(seconds: float) -> str:
+        if seconds < 60:
+            return f"{seconds:.1f}s"
+        mins, secs = divmod(int(seconds), 60)
+        return f"{mins}m {secs}s"
+
+    timings: dict[str, float] = {}
+    total_start = time.time()
+
     # Cell 7: Start Baseline Local API with Cloudflare Tunnel
     baseline_app = create_banking77_local_api(BASELINE_SYSTEM_PROMPT)
 
-    kill_port(LOCAL_API_PORT)
-    run_server_background(baseline_app, LOCAL_API_PORT)
+    # Acquire port - find new one if requested port is in use
+    baseline_port = acquire_port(LOCAL_API_PORT, on_conflict=PortConflictBehavior.FIND_NEW)
+    if baseline_port != LOCAL_API_PORT:
+        print(f'Port {LOCAL_API_PORT} in use, using port {baseline_port} instead')
 
-    print(f'Waiting for baseline local API on port {LOCAL_API_PORT}...')
-    await wait_for_health_check("localhost", LOCAL_API_PORT, ENVIRONMENT_API_KEY, timeout=30.0)
+    run_server_background(baseline_app, baseline_port)
+
+    print(f'Waiting for baseline local API on port {baseline_port}...')
+    await wait_for_health_check("localhost", baseline_port, ENVIRONMENT_API_KEY, timeout=30.0)
     print('Baseline local API ready!')
 
     print('\nProvisioning Cloudflare tunnel for baseline...')
+    tunnel_start = time.time()
     baseline_tunnel = await TunneledLocalAPI.create(
-        local_port=LOCAL_API_PORT,
+        local_port=baseline_port,
         backend=TunnelBackend.CloudflareManagedTunnel,
         progress=True,
     )
     BASELINE_LOCAL_API_URL = baseline_tunnel.url
-    print(f'\nBaseline local API URL: {BASELINE_LOCAL_API_URL}')
+    timings['baseline_tunnel'] = time.time() - tunnel_start
+    print(f'\nBaseline local API URL: {BASELINE_LOCAL_API_URL} ({format_duration(timings["baseline_tunnel"])})')
 
     # Cell 8: Run GEPA Optimization
     config_body = {
@@ -358,7 +383,6 @@ async def main():
                 'mutation': {'rate': 0.3},
                 'population': {'initial_size': 3, 'num_generations': 2, 'children_per_generation': 2},
                 'archive': {'pareto_set_size': 10},
-                'token': {'counting_model': 'gpt-4'},
             },
         },
     }
@@ -372,9 +396,11 @@ async def main():
     job_id = pl_job.submit()
     print(f'Job ID: {job_id}')
 
+    optimization_start = time.time()
     gepa_result = pl_job.poll_until_complete(timeout=3600.0, interval=3.0, progress=True)
+    timings['optimization'] = time.time() - optimization_start
 
-    print(f'\nFINAL: {gepa_result.status.value}')
+    print(f'\nFINAL: {gepa_result.status.value} ({format_duration(timings["optimization"])})')
 
     if gepa_result.succeeded:
         print(f'BEST SCORE: {gepa_result.best_score}')
@@ -406,27 +432,103 @@ async def main():
         return job.poll_until_complete(timeout=600.0, interval=2.0, progress=True)
 
     def extract_system_prompt(prompt_results) -> str:
-        top = prompt_results.top_prompts[0]
-        # Handle different prompt result formats
-        if 'template' in top:
-            sections = top['template']['sections']
-            return next(s['content'] for s in sections if s['role'] == 'system')
-        elif 'system_prompt' in top:
-            return top['system_prompt']
-        elif 'prompt' in top:
-            return top['prompt']
-        else:
-            # Return whatever we have for debugging
-            return str(top)[:500]
+        """Extract system prompt from prompt results, handling multiple formats."""
+        # First try to get from top_prompts
+        if prompt_results.top_prompts:
+            top = prompt_results.top_prompts[0]
+
+            # Check for full_text first (most common format)
+            if 'full_text' in top and top['full_text']:
+                return top['full_text']
+
+            # Check for template with sections
+            if 'template' in top and top['template']:
+                template = top['template']
+                if 'sections' in template:
+                    for section in template['sections']:
+                        if section.get('role') == 'system':
+                            return section.get('content', '')
+                # Template might have full_text directly
+                if 'full_text' in template:
+                    return template['full_text']
+
+            # Other possible formats
+            if 'system_prompt' in top:
+                return top['system_prompt']
+            if 'prompt' in top:
+                return top['prompt']
+
+        # Try best_prompt from results
+        if prompt_results.best_prompt:
+            if isinstance(prompt_results.best_prompt, str):
+                return prompt_results.best_prompt
+            elif isinstance(prompt_results.best_prompt, dict):
+                # Could be a dict with 'full_text' or 'content'
+                if 'full_text' in prompt_results.best_prompt:
+                    return prompt_results.best_prompt['full_text']
+                if 'content' in prompt_results.best_prompt:
+                    return prompt_results.best_prompt['content']
+
+        # Last resort: return debug info
+        if prompt_results.top_prompts:
+            return f"[Could not extract prompt. Keys available: {list(prompt_results.top_prompts[0].keys())}]"
+        return "[No prompts found in results]"
 
     if gepa_result.succeeded:
         print("GEPA Job Succeeded!\n")
 
-        pl_client = PromptLearningClient(SYNTH_API_BASE, API_KEY)
-        prompt_results = await pl_client.get_prompts(gepa_result.job_id)
+        try:
+            pl_client = PromptLearningClient(SYNTH_API_BASE, API_KEY)
+            prompt_results = await pl_client.get_prompts(gepa_result.job_id)
 
-        optimized_system = extract_system_prompt(prompt_results)
-        best_train_reward = prompt_results.best_score
+            # Try to get the optimized prompt
+            optimized_system = extract_system_prompt(prompt_results)
+
+            # If extraction failed, show what's available and try alternatives
+            if optimized_system.startswith("[Could not extract") or optimized_system.startswith("[No prompts"):
+                print(f"Debug: top_prompts[0] = {prompt_results.top_prompts[0] if prompt_results.top_prompts else 'empty'}")
+                print(f"Debug: best_prompt type = {type(prompt_results.best_prompt)}", flush=True)
+                print(f"Debug: best_prompt = {str(prompt_results.best_prompt)[:200] if prompt_results.best_prompt else 'None'}", flush=True)
+                print(f"Debug: optimized_candidates count = {len(prompt_results.optimized_candidates)}", flush=True)
+
+                # Try to extract from optimized_candidates
+                if prompt_results.optimized_candidates:
+                    cand = prompt_results.optimized_candidates[0]
+                    if isinstance(cand, dict):
+                        print(f"Debug: optimized_candidates[0] keys = {list(cand.keys())}", flush=True)
+                        # Try common keys
+                        for key in ['full_text', 'prompt', 'template', 'content', 'system_prompt']:
+                            if key in cand and cand[key]:
+                                val = cand[key]
+                                if isinstance(val, str) and len(val) > 20:
+                                    optimized_system = val
+                                    print(f"Extracted prompt from optimized_candidates[0]['{key}']", flush=True)
+                                    break
+                                elif isinstance(val, dict):
+                                    if 'full_text' in val:
+                                        optimized_system = val['full_text']
+                                        print(f"Extracted from optimized_candidates[0]['{key}']['full_text']", flush=True)
+                                        break
+                                    elif 'sections' in val:
+                                        for sec in val['sections']:
+                                            if sec.get('role') == 'system':
+                                                optimized_system = sec.get('content', '')
+                                                print(f"Extracted from template sections", flush=True)
+                                                break
+
+                # If still failed, fall back to baseline
+                if optimized_system.startswith("["):
+                    print("\nWARNING: Could not extract optimized prompt. Using baseline for comparison.", flush=True)
+                    optimized_system = BASELINE_SYSTEM_PROMPT
+
+            best_train_reward = prompt_results.best_score or gepa_result.best_score or 0.0
+
+        except Exception as e:
+            print(f"\nERROR extracting prompts: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
+            optimized_system = BASELINE_SYSTEM_PROMPT
+            best_train_reward = gepa_result.best_score or 0.0
 
         print('=' * 60)
         print('BASELINE SYSTEM PROMPT')
@@ -441,7 +543,7 @@ async def main():
         print('\n' + '=' * 60)
         print('GEPA TRAINING RESULTS')
         print('=' * 60)
-        print(f"Best Train Reward: {best_train_reward:.1%}")
+        print(f"Best Train Reward: {best_train_reward:.1%}" if best_train_reward else "Best Train Reward: N/A")
 
         print('\n' + '=' * 60)
         print(f'FORMAL EVAL JOBS (test split, seeds {EVAL_SEEDS[0]}-{EVAL_SEEDS[-1]})')
@@ -450,40 +552,51 @@ async def main():
         print(f'\nStarting optimized local API on port {OPTIMIZED_LOCAL_API_PORT}...')
         optimized_app = create_banking77_local_api(optimized_system)
 
-        kill_port(OPTIMIZED_LOCAL_API_PORT)
-        run_server_background(optimized_app, OPTIMIZED_LOCAL_API_PORT)
-        await wait_for_health_check("localhost", OPTIMIZED_LOCAL_API_PORT, ENVIRONMENT_API_KEY, timeout=30.0)
+        # Acquire port - find new one if requested port is in use
+        optimized_port = acquire_port(OPTIMIZED_LOCAL_API_PORT, on_conflict=PortConflictBehavior.FIND_NEW)
+        if optimized_port != OPTIMIZED_LOCAL_API_PORT:
+            print(f'Port {OPTIMIZED_LOCAL_API_PORT} in use, using port {optimized_port} instead')
+
+        run_server_background(optimized_app, optimized_port)
+        await wait_for_health_check("localhost", optimized_port, ENVIRONMENT_API_KEY, timeout=30.0)
         print('Optimized local API ready!')
 
         print('\nProvisioning Cloudflare tunnel for optimized...')
+        tunnel_start = time.time()
         optimized_tunnel = await TunneledLocalAPI.create(
-            local_port=OPTIMIZED_LOCAL_API_PORT,
+            local_port=optimized_port,
             backend=TunnelBackend.CloudflareManagedTunnel,
             progress=True,
         )
         OPTIMIZED_LOCAL_API_URL = optimized_tunnel.url
+        timings['optimized_tunnel'] = time.time() - tunnel_start
+        print(f'Optimized tunnel ready ({format_duration(timings["optimized_tunnel"])})')
 
         print('\nRunning BASELINE eval job...')
+        eval_start = time.time()
         baseline_result = run_eval_job(
             local_api_url=BASELINE_LOCAL_API_URL,
             seeds=EVAL_SEEDS,
             mode='baseline'
         )
+        timings['baseline_eval'] = time.time() - eval_start
 
         if baseline_result.succeeded:
-            print(f'  Baseline eval reward: {baseline_result.mean_score:.1%}')
+            print(f'  Baseline eval reward: {baseline_result.mean_score:.1%} ({format_duration(timings["baseline_eval"])})')
         else:
             print(f'  Baseline eval failed: {baseline_result.error}')
 
         print('\nRunning OPTIMIZED eval job...')
+        eval_start = time.time()
         optimized_result = run_eval_job(
             local_api_url=OPTIMIZED_LOCAL_API_URL,
             seeds=EVAL_SEEDS,
             mode='optimized'
         )
+        timings['optimized_eval'] = time.time() - eval_start
 
         if optimized_result.succeeded:
-            print(f'  Optimized eval reward: {optimized_result.mean_score:.1%}')
+            print(f'  Optimized eval reward: {optimized_result.mean_score:.1%} ({format_duration(timings["optimized_eval"])})')
         else:
             print(f'  Optimized eval failed: {optimized_result.error}')
 
@@ -512,10 +625,29 @@ async def main():
         if gepa_result.error:
             print(f"Error: {gepa_result.error}")
 
-    # Cell 10: Cleanup
+    # Cell 10: Cleanup and Timing Summary
     print('\nCleaning up cloudflared processes...')
     cleanup_all()
-    print('Demo complete!')
+
+    # Print timing summary
+    timings['total'] = time.time() - total_start
+    print('\n' + '=' * 60)
+    print('TIMING SUMMARY')
+    print('=' * 60)
+    if 'baseline_tunnel' in timings:
+        print(f"  Baseline tunnel:    {format_duration(timings['baseline_tunnel'])}")
+    if 'optimization' in timings:
+        print(f"  GEPA optimization:  {format_duration(timings['optimization'])}")
+    if 'optimized_tunnel' in timings:
+        print(f"  Optimized tunnel:   {format_duration(timings['optimized_tunnel'])}")
+    if 'baseline_eval' in timings:
+        print(f"  Baseline eval:      {format_duration(timings['baseline_eval'])}")
+    if 'optimized_eval' in timings:
+        print(f"  Optimized eval:     {format_duration(timings['optimized_eval'])}")
+    print(f"  ─────────────────────────")
+    print(f"  Total:              {format_duration(timings['total'])}")
+
+    print('\nDemo complete!')
 
 
 if __name__ == "__main__":

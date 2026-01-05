@@ -687,11 +687,18 @@ class PromptLearningJob:
                     or last_data.get("best_train_reward")
                 )
 
-                # Progress output
+                # Progress output - update on same line to reduce noise
                 if progress:
                     mins, secs = divmod(int(elapsed), 60)
                     score_str = f"score: {best_score:.2f}" if best_score is not None else "score: --"
-                    print(f"[{mins:02d}:{secs:02d}] {status.value} | {score_str}")
+                    iteration = last_data.get("iteration") or last_data.get("current_iteration")
+                    iter_str = f" | iter: {iteration}" if iteration is not None else ""
+                    # Use \r to update same line, but print newline on terminal state or score change
+                    line = f"[{mins:02d}:{secs:02d}] {status.value} | {score_str}{iter_str}"
+                    if status.is_terminal or best_score is not None:
+                        print(f"\r{line}{'':20}")  # Clear rest of line and newline
+                    else:
+                        print(f"\r{line}{'':20}", end="", flush=True)
 
                 # Callback for custom handling
                 if on_status:

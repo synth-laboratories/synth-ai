@@ -23,6 +23,12 @@ exposing local task apps to the internet via Cloudflare tunnels.
         progress=True,
     )
 
+    # Localhost passthrough (no tunnel)
+    tunnel = await TunneledLocalAPI.create(
+        local_port=8001,
+        backend=TunnelBackend.Localhost,
+    )
+
     print(f"Local API exposed at: {tunnel.url}")
 
     # Use the URL for remote jobs
@@ -41,7 +47,7 @@ exposing local task apps to the internet via Cloudflare tunnels.
     )
 
     # Get a managed tunnel from backend
-    tunnel = await rotate_tunnel(API_KEY, port=8001, reason="demo")
+    tunnel = await rotate_tunnel(API_KEY, port=8001)
 
     # Start cloudflared with the token
     proc = track_process(open_managed_tunnel(tunnel['tunnel_token']))
@@ -83,7 +89,14 @@ from synth_ai.core.integrations.cloudflare import (
 from synth_ai.sdk.tunnels.cleanup import cleanup_all, track_process, tracked_processes
 
 # New: port management utilities (was private in in_process.py)
-from synth_ai.sdk.tunnels.ports import find_available_port, is_port_available, kill_port
+from synth_ai.sdk.tunnels.ports import (
+    find_available_port,
+    is_port_available,
+    kill_port,
+    acquire_port,
+    PortConflictBehavior,
+    PortInUseError,
+)
 
 # New: high-level tunnel abstraction
 from synth_ai.sdk.tunnels.tunneled_api import TunneledLocalAPI, TunnelBackend
@@ -165,4 +178,7 @@ __all__ = [
     "kill_port",
     "is_port_available",
     "find_available_port",
+    "acquire_port",
+    "PortConflictBehavior",
+    "PortInUseError",
 ]

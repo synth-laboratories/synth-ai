@@ -788,16 +788,16 @@ async def verify_tunnel_dns_resolution(
     Verify that a tunnel URL's hostname can be resolved via DNS (using public
     resolvers first) and that HTTP connectivity works by connecting directly
     to the resolved IP with the original Host header.
-    
+
     This avoids depending on the system resolver for HTTP checks, which was
     causing [Errno 8] errors even after DNS resolved via explicit resolvers.
-    
+
     Args:
         tunnel_url: The tunnel URL to verify (e.g., https://xxx.trycloudflare.com/v1)
         name: Human-readable name for logging
         timeout_seconds: Maximum time to wait for DNS resolution
         api_key: Optional API key for health check authentication (defaults to ENVIRONMENT_API_KEY env var)
-    
+
     Raises:
         RuntimeError: If DNS resolution or HTTP connectivity fails after timeout
     """
@@ -806,32 +806,49 @@ async def verify_tunnel_dns_resolution(
     if not hostname:
         logger.warning(f"No hostname in {name} tunnel URL: {tunnel_url}")
         return
-    
+
     # Skip DNS check for localhost
     if hostname in ("localhost", "127.0.0.1"):
         logger.debug(f"Skipping DNS check for localhost {name}")
         return
-    
+
     max_delay = 3.0
     delay = 0.5
     loop = asyncio.get_event_loop()
     deadline = loop.time() + timeout_seconds
     attempt = 0
-    
-    logger.info(f"Verifying DNS resolution for {name}: {hostname} (timeout {timeout_seconds:.0f}s)...")
-    
+    start_time = loop.time()
+
+    logger.debug(f"Verifying DNS resolution for {name}: {hostname} (timeout {timeout_seconds:.0f}s)...")
+
     last_exc: Optional[Exception] = None
-    
+    spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    def _update_spinner(phase: str = "DNS"):
+        """Update spinner on same line."""
+        elapsed = loop.time() - start_time
+        spinner = spinner_chars[attempt % len(spinner_chars)]
+        sys.stdout.write(f"\r{spinner} Waiting for {phase} propagation... ({elapsed:.0f}s)  ")
+        sys.stdout.flush()
+
+    def _clear_spinner():
+        """Clear spinner line."""
+        sys.stdout.write("\r" + " " * 60 + "\r")
+        sys.stdout.flush()
+
     while True:
         attempt += 1
+        _update_spinner("DNS")
+
         try:
             # 1. Resolve via explicit resolvers (1.1.1.1 / 8.8.8.8) → IP
             resolved_ip = await resolve_hostname_with_explicit_resolvers(hostname)
-            logger.info(f"DNS resolution successful (attempt {attempt}): {hostname} -> {resolved_ip}")
-            
+            logger.debug(f"DNS resolution successful (attempt {attempt}): {hostname} -> {resolved_ip}")
+
             # 2. HTTP connectivity: use curl with --resolve to bypass system DNS cache
             #    The system resolver may have negative-cached the hostname, so we use
             #    curl with explicit IP resolution to bypass it while maintaining proper SNI.
+            _update_spinner("tunnel")
             try:
                 scheme = parsed.scheme or "https"
                 test_url = f"{scheme}://{hostname}/health"
@@ -872,7 +889,8 @@ async def verify_tunnel_dns_resolution(
                 # - 404/405: Not found / method not allowed (server is reachable)
                 # - 502: Bad gateway (cloudflared connected but local service isn't running)
                 if status_code in (200, 400, 401, 403, 404, 405, 502):
-                    logger.info(f"HTTP connectivity verified: {test_url} -> {status_code}")
+                    _clear_spinner()
+                    logger.debug(f"HTTP connectivity verified: {test_url} -> {status_code}")
                     return
                 else:
                     # 530 errors are common when tunnel is still establishing - retry
@@ -880,50 +898,51 @@ async def verify_tunnel_dns_resolution(
                         logger.debug("HTTP 530 (tunnel establishing) - will retry")
                         last_exc = RuntimeError("tunnel not ready yet (HTTP 530)")
                     elif result.returncode != 0:
-                        logger.warning(f"curl failed: {result.stderr}")
+                        logger.debug(f"curl failed: {result.stderr}")
                         last_exc = RuntimeError(f"curl failed: {result.stderr}")
                     else:
-                        logger.warning(f"HTTP check returned unexpected status: {status_code}")
+                        logger.debug(f"HTTP check returned unexpected status: {status_code}")
                         last_exc = RuntimeError(f"unexpected HTTP status {status_code}")
             except Exception as http_exc:
-                logger.warning(f"HTTP connectivity check failed (attempt {attempt}): {http_exc}")
+                logger.debug(f"HTTP connectivity check failed (attempt {attempt}): {http_exc}")
                 last_exc = http_exc
-            
+
             # DNS resolved, but HTTP check failed - wait and retry until deadline
             now = loop.time()
             if now >= deadline:
                 break
             delay = min(delay * 2 if attempt > 1 else delay, max_delay)
             sleep_for = min(delay, max(0.0, deadline - now))
-            logger.debug(f"Waiting {sleep_for:.1f}s before retry...")
             await asyncio.sleep(sleep_for)
-            
+
         except socket.gaierror as e:
-            logger.warning(f"DNS resolution failed (attempt {attempt}): {e}")
+            logger.debug(f"DNS resolution failed (attempt {attempt}): {e}")
             last_exc = e
             now = loop.time()
             if now >= deadline:
+                _clear_spinner()
                 raise RuntimeError(
                     f"DNS resolution failed for {name} tunnel hostname {hostname} "
                     f"after {timeout_seconds:.0f}s. Tunnel URL: {tunnel_url}. Error: {e}"
                 ) from e
             delay = min(delay * 2 if attempt > 1 else delay, max_delay)
             sleep_for = min(delay, max(0.0, deadline - now))
-            logger.debug(f"Waiting {sleep_for:.1f}s before retry...")
             await asyncio.sleep(sleep_for)
         except Exception as e:
-            logger.error(f"Unexpected error during DNS verification (attempt {attempt}): {e}")
+            logger.debug(f"Unexpected error during DNS verification (attempt {attempt}): {e}")
             last_exc = e
             now = loop.time()
             if now >= deadline:
+                _clear_spinner()
                 raise RuntimeError(
                     f"DNS verification failed for {hostname} after {timeout_seconds:.0f}s: {e}"
                 ) from e
             delay = min(delay * 2 if attempt > 1 else delay, max_delay)
             sleep_for = min(delay, max(0.0, deadline - now))
             await asyncio.sleep(sleep_for)
-    
+
     # If we get here, we ran out of time with HTTP still failing
+    _clear_spinner()
     raise RuntimeError(
         f"DNS succeeded but HTTP connectivity could not be confirmed for {hostname} "
         f"within {timeout_seconds:.0f}s. Last error: {last_exc}"
@@ -1354,7 +1373,6 @@ def store_tunnel_credentials(
 async def rotate_tunnel(
     synth_api_key: str,
     port: int,
-    reason: Optional[str] = None,
     backend_url: Optional[str] = None,
 ) -> dict[str, Any]:
     """
@@ -1368,7 +1386,6 @@ async def rotate_tunnel(
     Args:
         synth_api_key: Synth API key for authentication
         port: Local port the new tunnel will forward to
-        reason: Optional reason for rotation (for logging)
         backend_url: Optional backend URL (defaults to get_backend_url())
 
     Returns:
@@ -1405,7 +1422,6 @@ async def rotate_tunnel(
                 json={
                     "local_port": port,
                     "local_host": "127.0.0.1",
-                    "reason": reason,
                 },
             )
             response.raise_for_status()
