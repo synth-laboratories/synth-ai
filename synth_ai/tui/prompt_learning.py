@@ -23,7 +23,7 @@ def run_prompt_learning_tui(
     """Launch the prompt learning monitoring TUI."""
     backend = backend_base or get_backend_url()
     base_url = ensure_api_base(backend)
-    synth_key = api_key or get_api_key(required=True)
+    synth_key = api_key or get_api_key(required=False) or ""
 
     tui_root = Path(__file__).resolve().parents[1] / "_tui"
     entry = tui_root / "dist" / "index.mjs"
