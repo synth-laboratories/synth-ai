@@ -54,6 +54,7 @@ from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
 from synth_ai.sdk.task import run_server_background
+from synth_ai.core.env import mint_demo_api_key
 
 # Import the banking77 local API creator from the demo
 DEMO_PATH = SYNTH_AI_PATH / "demos" / "gepa_banking77"
@@ -218,9 +219,7 @@ async def main():
     api_key = os.environ.get("SYNTH_API_KEY", "")
     if not api_key:
         print("No SYNTH_API_KEY found, minting demo key...")
-        resp = httpx.post(f"{backend_url}/api/demo/keys", json={"ttl_hours": 8}, timeout=30)
-        resp.raise_for_status()
-        api_key = resp.json()["api_key"]
+        api_key = mint_demo_api_key(backend_url=backend_url, ttl_hours=8)
         print(f"Demo API Key: {api_key[:25]}...")
     else:
         print(f"Using SYNTH_API_KEY: {api_key[:20]}...")

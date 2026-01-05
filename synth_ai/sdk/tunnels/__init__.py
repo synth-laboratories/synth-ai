@@ -56,6 +56,8 @@ Note:
 
 from __future__ import annotations
 
+from typing import Any
+
 # Re-export from cloudflare.py (no wrappers - these are the actual functions)
 from synth_ai.core.integrations.cloudflare import (
     # Tunnel lifecycle
@@ -86,10 +88,58 @@ from synth_ai.sdk.tunnels.ports import find_available_port, is_port_available, k
 # New: high-level tunnel abstraction
 from synth_ai.sdk.tunnels.tunneled_api import TunneledLocalAPI, TunnelBackend
 
+# Convenience function for creating tunnels from apps
+async def create_tunneled_api(
+    app: Any,
+    local_port: int | None = None,
+    backend: TunnelBackend = TunnelBackend.CloudflareManagedTunnel,
+    *,
+    api_key: str | None = None,
+    backend_url: str | None = None,
+    verify_dns: bool = True,
+    progress: bool = False,
+) -> TunneledLocalAPI:
+    """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
+    
+    This is a convenience function that handles the common pattern of:
+    1. Finding an available port (or using the provided one)
+    2. Starting the app server
+    3. Waiting for health check
+    4. Creating the tunnel
+    
+    Args:
+        app: FastAPI or ASGI application to tunnel
+        local_port: Port to use (defaults to auto-finding an available port from 8001)
+        backend: Tunnel backend to use
+        api_key: Synth API key (defaults to SYNTH_API_KEY env var)
+        backend_url: Backend URL (defaults to production)
+        verify_dns: Whether to verify DNS resolution
+        progress: If True, print status updates
+        
+    Returns:
+        TunneledLocalAPI instance
+        
+    Example:
+        >>> from fastapi import FastAPI
+        >>> app = FastAPI()
+        >>> tunnel = await create_tunneled_api(app)
+        >>> print(f"App exposed at: {tunnel.url}")
+    """
+    return await TunneledLocalAPI.create_for_app(
+        app=app,
+        local_port=local_port,
+        backend=backend,
+        api_key=api_key,
+        backend_url=backend_url,
+        verify_dns=verify_dns,
+        progress=progress,
+    )
+
 __all__ = [
     # High-level (RECOMMENDED)
     "TunneledLocalAPI",
     "TunnelBackend",
+    "create_tunneled_api",
     # Tunnel lifecycle
     "rotate_tunnel",
     "create_tunnel",

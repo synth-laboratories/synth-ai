@@ -25,7 +25,10 @@ from __future__ import annotations
 from synth_ai.sdk.inference import InferenceClient
 
 # Jobs API Client
-from synth_ai.sdk.jobs import JobsClient
+try:
+    from synth_ai.sdk.jobs import JobsClient
+except Exception:  # pragma: no cover - optional dependency guard
+    JobsClient = None  # type: ignore[assignment]
 
 # Verifier types and graph clients
 from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient

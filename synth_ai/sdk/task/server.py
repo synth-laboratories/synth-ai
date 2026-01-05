@@ -379,7 +379,9 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        if cfg.require_api_key and cfg.ensure_localapi_auth:
+        # Auto-ensure environment API key if enabled (defaults to True)
+        # This handles minting, persisting, and uploading the key transparently
+        if cfg.ensure_localapi_auth:
             from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
             ensure_localapi_auth()

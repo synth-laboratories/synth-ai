@@ -454,7 +454,7 @@ class GraphCompletionsAsyncClient:
         graph_id = f"zero_shot_verifier_rubric_{verifier_shape}"
         
         input_data: dict[str, Any] = {
-            "session_trace": normalize_for_json(session_trace),
+            "trace": normalize_for_json(session_trace),
             "rubric": normalize_for_json(rubric),
             "options": dict(options or {}),
         }
@@ -524,7 +524,7 @@ class GraphCompletionsAsyncClient:
         
         # Convert validated examples back to dict for serialization
         input_data: dict[str, Any] = {
-            "session_trace": normalize_for_json(session_trace),
+            "trace": normalize_for_json(session_trace),
             "calibration_examples": [ex.model_dump() for ex in validated_examples],
             "options": dict(options or {}),
         }
@@ -615,7 +615,7 @@ class GraphCompletionsAsyncClient:
         
         # Convert validated examples back to dict for serialization
         input_data: dict[str, Any] = {
-            "session_trace": normalize_for_json(session_trace),
+            "trace": normalize_for_json(session_trace),
             "gold_examples": [ex.model_dump() for ex in validated_gold_examples],
             "candidate_score": float(candidate_score),
             "candidate_reasoning": candidate_reasoning.strip(),
@@ -666,7 +666,7 @@ class GraphCompletionsAsyncClient:
         graph_id = f"zero_shot_verifier_rubric_{verifier_shape}"
         
         input_data: dict[str, Any] = {
-            "session_trace": normalize_for_json(session_trace),
+            "trace": normalize_for_json(session_trace),
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
             "options": dict(options or {}),

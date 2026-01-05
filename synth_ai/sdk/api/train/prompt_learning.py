@@ -36,6 +36,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
@@ -313,16 +314,13 @@ class PromptLearningJob:
         """
         import os
         
-        from synth_ai.core.env import get_backend_from_env
-        
         config_path_obj = Path(config_path)
         
-        # Resolve backend URL
+        # Resolve backend URL - default to production API
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
+                backend_url = PROD_BASE_URL
         
         # Resolve API key
         if not api_key:
@@ -406,14 +404,11 @@ class PromptLearningJob:
         """
         import os
 
-        from synth_ai.core.env import get_backend_from_env
-
-        # Resolve backend URL
+        # Resolve backend URL - default to production API
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
+                backend_url = PROD_BASE_URL
 
         # Resolve API key
         if not api_key:
@@ -431,6 +426,15 @@ class PromptLearningJob:
             allow_experimental=allow_experimental,
             overrides=overrides or {},
         )
+
+        # Auto-detect tunnel URLs and skip health check if not explicitly set
+        if skip_health_check is False:  # Only auto-detect if not explicitly True
+            task_url = config_dict.get("prompt_learning", {}).get("task_app_url") or config_dict.get("prompt_learning", {}).get("local_api_url")
+            if task_url and (
+                ".trycloudflare.com" in task_url.lower() or 
+                ".cfargotunnel.com" in task_url.lower()
+            ):
+                skip_health_check = True
 
         return cls(config, skip_health_check=skip_health_check)
 
@@ -453,14 +457,11 @@ class PromptLearningJob:
         """
         import os
         
-        from synth_ai.core.env import get_backend_from_env
-        
-        # Resolve backend URL
+        # Resolve backend URL - default to production API
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
+                backend_url = PROD_BASE_URL
         
         # Resolve API key
         if not api_key:

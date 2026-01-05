@@ -379,9 +379,6 @@ async def run_gepa_job(
     def _submit_and_poll() -> PromptLearningResult:
         job = PromptLearningJob.from_dict(
             config_dict=config_body,
-            backend_url=SYNTH_API_BASE,
-            api_key=api_key,
-            skip_health_check=True,
         )
         job_id = job.submit()
         print(f"GEPA job created: {job_id}")
@@ -463,6 +460,9 @@ async def main() -> None:
     if not api_key:
         print("SYNTH_API_KEY not set; skipping GEPA job and evals.")
         return
+    
+    # Set API key in environment for SDK to use (in case it wasn't already set)
+    os.environ['SYNTH_API_KEY'] = api_key
 
     print(f"Backend: {SYNTH_API_BASE} (dev_mode={IS_DEV_MODE})")
     async with httpx.AsyncClient(timeout=30) as client:

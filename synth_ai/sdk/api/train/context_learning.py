@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
 
+from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
@@ -98,15 +99,13 @@ class ContextLearningJob:
         task_app_api_key: Optional[str] = None,
         overrides: Optional[Dict[str, Any]] = None,
     ) -> ContextLearningJob:
-        from synth_ai.core.env import get_backend_from_env
-
         config_path_obj = Path(config_path)
 
+        # Resolve backend URL - default to production API
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
+                backend_url = PROD_BASE_URL
 
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
@@ -132,13 +131,11 @@ class ContextLearningJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> ContextLearningJob:
-        from synth_ai.core.env import get_backend_from_env
-
+        # Resolve backend URL - default to production API
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
+                backend_url = PROD_BASE_URL
 
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")

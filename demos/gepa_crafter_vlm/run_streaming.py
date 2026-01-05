@@ -43,6 +43,10 @@ from crafter_logic import (
 SYNTH_API_BASE = 'https://api.usesynth.ai'
 SYNTH_API_KEY = os.environ.get('SYNTH_API_KEY', '')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
+# Set API key in environment for SDK to use
+if SYNTH_API_KEY:
+    os.environ['SYNTH_API_KEY'] = SYNTH_API_KEY
 POLICY_MODEL = "gpt-4.1-nano"
 EVAL_MODEL = "gpt-4o-mini"
 ROLLOUT_BUDGET = 6
@@ -503,9 +507,6 @@ async def main():
 
     job = PromptLearningJob.from_dict(
         config_dict=config_body,
-        backend_url=SYNTH_API_BASE,
-        api_key=SYNTH_API_KEY,
-        skip_health_check=True,
     )
     job_id = job.submit()
     log(f"Job submitted: {job_id}")

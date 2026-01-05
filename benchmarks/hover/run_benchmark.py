@@ -25,6 +25,7 @@ from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
+from synth_ai.core.env import mint_demo_api_key
 
 # Configuration
 BACKEND_URL = os.environ.get("SYNTH_BACKEND_URL", "http://localhost:8000")
@@ -422,9 +423,7 @@ async def main():
     api_key = os.environ.get("SYNTH_API_KEY", "")
     if not api_key and not args.dry_run:
         print("Minting demo API key...")
-        resp = httpx.post(f"{BACKEND_URL}/api/demo/keys", json={"ttl_hours": 4}, timeout=30)
-        resp.raise_for_status()
-        api_key = resp.json()["api_key"]
+        api_key = mint_demo_api_key(backend_url=BACKEND_URL)
         print(f"Demo API Key: {api_key[:25]}...")
 
     # Mint environment key

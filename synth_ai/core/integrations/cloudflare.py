@@ -1548,7 +1548,7 @@ async def create_tunnel(
 async def wait_for_health_check(
     host: str,
     port: int,
-    api_key: str,
+    api_key: str | None = None,
     timeout: float = 30.0,
 ) -> None:
     """
@@ -1557,14 +1557,17 @@ async def wait_for_health_check(
     Args:
         host: Host to check
         port: Port to check
-        api_key: API key for authentication
+        api_key: API key for authentication (defaults to ENVIRONMENT_API_KEY env var)
         timeout: Maximum time to wait in seconds
 
     Raises:
         RuntimeError: If health check fails or times out
     """
+    if api_key is None:
+        api_key = os.environ.get("ENVIRONMENT_API_KEY", "")
+    
     health_url = f"http://{host}:{port}/health"
-    headers = {"X-API-Key": api_key}
+    headers = {"X-API-Key": api_key} if api_key else {}
     start = time.time()
 
     while time.time() - start < timeout:

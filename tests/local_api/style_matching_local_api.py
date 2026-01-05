@@ -225,7 +225,7 @@ def _build_gold_examples(dataset: StyleMatchingDataset) -> list[dict[str, Any]]:
                 "summary": f"Gold example for {task_id}",
                 "gold_score": 1.0,
                 "gold_reasoning": "Reference style-matching essay.",
-                "session_trace": session_trace,
+                "trace": session_trace,
             }
         )
 
@@ -244,7 +244,7 @@ async def _score_with_verifier(*, session_trace: dict[str, Any], gold_examples: 
     payload = {
         "job_id": "zero_shot_verifier_contrastive_single",
         "input": {
-            "session_trace": session_trace,
+            "trace": session_trace,
             "gold_examples": gold_examples,
             "candidate_score": 0.5,
             "candidate_reasoning": "Auto-evaluated from style-matching local API",

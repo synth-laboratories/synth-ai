@@ -137,7 +137,9 @@ class CalibrationExampleInput(BaseModel):
     Uses synth_ai.data.rewards.CalibrationExample dataclass for structure.
     """
     
-    session_trace: dict[str, Any] = Field(..., description="V3 SessionTrace format (validated separately)")
+    session_trace: dict[str, Any] = Field(
+        ..., description="V3 SessionTrace format (validated separately)"
+    )
     event_rewards: list[Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
         ...,
         description="List of rewards per event (0.0-1.0), must match number of events in trace"
@@ -147,6 +149,14 @@ class CalibrationExampleInput(BaseModel):
         description="Overall outcome reward (0.0-1.0)"
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Optional metadata")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_trace(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "session_trace" not in data and "trace" in data:
+            data = dict(data)
+            data["session_trace"] = data.pop("trace")
+        return data
     
     @model_validator(mode="after")
     def validate_rewards_match_trace(self) -> "CalibrationExampleInput":
@@ -209,6 +219,14 @@ class GoldExampleInput(BaseModel):
         description="Optional full trace (for richer evaluation)"
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Optional metadata")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_trace(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "session_trace" not in data and "trace" in data:
+            data = dict(data)
+            data["session_trace"] = data.pop("trace")
+        return data
     
     def to_dataclass(self) -> "GoldExample":
         """Convert to synth_ai.data.rewards.GoldExample dataclass."""

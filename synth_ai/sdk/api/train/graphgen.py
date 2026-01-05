@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, cast
 
+from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
 
 from .graphgen_models import (
@@ -284,8 +285,6 @@ class GraphGenJob:
             >>> # From GraphGenTaskSet object
             >>> job = GraphGenJob.from_dataset(my_taskset, policy_model="gpt-4o")
         """
-        from synth_ai.core.env import get_backend_from_env
-
         # Parse dataset
         if isinstance(dataset, (str, Path)):
             parsed_dataset = load_graphgen_taskset(dataset)
@@ -298,12 +297,11 @@ class GraphGenJob:
                 f"dataset must be a file path, dict, or GraphGenTaskSet, got {type(dataset)}"
             )
 
-        # Resolve backend URL
+        # Resolve backend URL - default to production API
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
+                backend_url = PROD_BASE_URL
 
         # Resolve API key
         if not api_key:
@@ -354,14 +352,11 @@ class GraphGenJob:
         Returns:
             GraphGenJob instance for the existing job
         """
-        from synth_ai.core.env import get_backend_from_env
-
-        # Resolve backend URL
+        # Resolve backend URL - default to production API
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
+                backend_url = PROD_BASE_URL
 
         # Resolve API key
         if not api_key:
@@ -1021,7 +1016,7 @@ class GraphGenJob:
 
         payload = {
             "job_id": self.job_id,
-            "session_trace": session_trace_data,
+            "trace": session_trace_data,
             "context": context,
         }
         

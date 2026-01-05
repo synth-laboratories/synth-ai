@@ -28,20 +28,37 @@ def _validate_job_id(job_id: str) -> None:
 class PromptLearningClient:
     """Client for interacting with prompt learning jobs and retrieving results."""
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
+    def __init__(self, base_url: str | None = None, api_key: str | None = None, *, timeout: float = 30.0) -> None:
         """Initialize the prompt learning client.
         
         Args:
-            base_url: Base URL of the backend API (e.g., "http://localhost:8000" or "http://localhost:8000/api")
-            api_key: API key for authentication
+            base_url: Base URL of the backend API (defaults to PROD_BASE_URL or BACKEND_BASE_URL env var)
+            api_key: API key for authentication (defaults to SYNTH_API_KEY env var)
             timeout: Request timeout in seconds
         """
+        import os
+        
+        from synth_ai.core.env import PROD_BASE_URL
+        
+        # Resolve base_url from environment or use production default
+        if not base_url:
+            base_url = os.environ.get("BACKEND_BASE_URL", "").strip()
+            if not base_url:
+                base_url = PROD_BASE_URL
+        
         base_url = base_url.rstrip("/")
         # Validate base_url format - warn if it already ends with /api (will be handled by AsyncHttpClient)
         if base_url.endswith("/api"):
             # This is OK - AsyncHttpClient._abs() will handle double /api/api paths
             pass
         self._base_url = base_url
+        
+        # Resolve API key from environment if not provided
+        if api_key is None:
+            api_key = os.environ.get("SYNTH_API_KEY")
+            if not api_key:
+                raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY env var)")
+        
         self._api_key = api_key
         self._timeout = timeout
 

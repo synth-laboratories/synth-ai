@@ -35,9 +35,10 @@ from synth_ai.sdk.task import normalize_inference_url, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
+from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
 
 # Production backend
-SYNTH_API_BASE = 'https://api.usesynth.ai'
+SYNTH_API_BASE = PROD_BASE_URL
 LOCAL_API_PORT = 8001
 OPTIMIZED_LOCAL_API_PORT = 8002
 
@@ -57,13 +58,14 @@ else:
 API_KEY = os.environ.get('SYNTH_API_KEY', '')
 if not API_KEY:
     print('No SYNTH_API_KEY found, minting demo key...')
-    resp = httpx.post(f'{SYNTH_API_BASE}/api/demo/keys', json={'ttl_hours': 4}, timeout=30)
-    resp.raise_for_status()
-    API_KEY = resp.json()['api_key']
+    API_KEY = mint_demo_api_key()
     print(f'Demo API Key: {API_KEY[:25]}...')
 else:
     print(f'Using SYNTH_API_KEY: {API_KEY[:20]}...')
 
+
+# Set API key in environment for SDK to use
+os.environ['SYNTH_API_KEY'] = API_KEY
 
 # Cell 4: Ensure Environment Key
 ENVIRONMENT_API_KEY = ensure_localapi_auth(
@@ -321,9 +323,6 @@ async def main():
     baseline_tunnel = await TunneledLocalAPI.create(
         local_port=LOCAL_API_PORT,
         backend=TunnelBackend.CloudflareManagedTunnel,
-        api_key=API_KEY,
-        reason="baseline_notebook",
-        backend_url=SYNTH_API_BASE,
         progress=True,
     )
     BASELINE_LOCAL_API_URL = baseline_tunnel.url
@@ -368,9 +367,6 @@ async def main():
 
     pl_job = PromptLearningJob.from_dict(
         config_dict=config_body,
-        backend_url=SYNTH_API_BASE,
-        api_key=API_KEY,
-        skip_health_check=True,
     )
 
     job_id = pl_job.submit()
@@ -463,9 +459,6 @@ async def main():
         optimized_tunnel = await TunneledLocalAPI.create(
             local_port=OPTIMIZED_LOCAL_API_PORT,
             backend=TunnelBackend.CloudflareManagedTunnel,
-            api_key=API_KEY,
-            reason="optimized_notebook",
-            backend_url=SYNTH_API_BASE,
             progress=True,
         )
         OPTIMIZED_LOCAL_API_URL = optimized_tunnel.url
