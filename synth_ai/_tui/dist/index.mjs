@@ -19328,7 +19328,7 @@ function createLoginModal(deps) {
       ui.loginModalHelp.top = top + height - 2;
       loginAuthStatus = { state: "idle" };
       loginAuthInProgress = false;
-      ui.loginModalTitle.content = `Sign In / sign up`;
+      ui.loginModalTitle.content = `Sign In / Sign Up`;
       ui.loginModalText.content = "Press Enter to open browser";
       ui.loginModalHelp.content = "Enter start | q cancel";
       ui.jobsSelect.blur();
@@ -23459,7 +23459,7 @@ function buildLayout(renderer2) {
   });
   const loginModalText = new TextRenderable(renderer2, {
     id: "login-modal-text",
-    content: "fto open browser and sign in...",
+    content: "Press Enter to open browser and sign in...",
     fg: "#e2e8f0",
     position: "absolute",
     left: 12,
