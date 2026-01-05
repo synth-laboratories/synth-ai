@@ -36,6 +36,7 @@ except Exception as exc:  # pragma: no cover - critical dependency
 
 from synth_ai.core.config.resolver import ConfigResolver
 from synth_ai.core.telemetry import log_info
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 from .configs import PromptLearningConfig, RLConfig, SFTConfig
 from .supported_algos import (
@@ -448,7 +449,7 @@ def build_prompt_learning_payload(
     # Get task_app_api_key from config or environment
     config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
     cli_api_key = overrides.get("task_app_api_key")
-    env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    env_api_key = ensure_localapi_auth()
     task_app_api_key = ConfigResolver.resolve(
         "task_app_api_key",
         cli_value=cli_api_key,
@@ -995,7 +996,7 @@ def build_prompt_learning_payload_from_mapping(
     # Get task_app_api_key from config or environment
     config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
     cli_api_key = overrides.get("task_app_api_key")
-    env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    env_api_key = ensure_localapi_auth()
     task_app_api_key = ConfigResolver.resolve(
         "task_app_api_key",
         cli_value=cli_api_key,

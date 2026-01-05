@@ -14,8 +14,8 @@ from fastapi import Request
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningResult
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi.helpers import call_chat_completion_api, create_http_client_hooks, extract_api_key
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
@@ -84,8 +84,7 @@ def _build_trace_event(messages: List[Dict[str, Any]], response_json: Dict[str, 
     }
 
 
-def create_crafter_vlm_local_api(system_prompt: str, env_api_key: str):
-    os.environ["ENVIRONMENT_API_KEY"] = env_api_key
+def create_crafter_vlm_local_api(system_prompt: str):
     startup_http_client, shutdown_http_client = create_http_client_hooks(
         timeout=60.0,
         log_prefix="crafter_vlm_local_api",
@@ -113,7 +112,7 @@ def create_crafter_vlm_local_api(system_prompt: str, env_api_key: str):
             image_only_mode=True,
         )
 
-        api_key = extract_api_key(fastapi_request, policy_config) or env_api_key
+        api_key = extract_api_key(fastapi_request, policy_config) or os.environ.get("OPENAI_API_KEY", "")
         http_client = getattr(fastapi_request.app.state, "http_client", None)
 
         trace_events: List[Dict[str, Any]] = []
@@ -322,7 +321,6 @@ async def run_gepa_job(
     *,
     api_key: str,
     task_app_url: str,
-    task_app_api_key: str,
     baseline_system_prompt: str,
 ) -> PromptLearningResult:
     pareto_set_size = max(PARETO_SET_SIZE, 10)
@@ -330,7 +328,6 @@ async def run_gepa_job(
         "prompt_learning": {
             "algorithm": "gepa",
             "task_app_url": task_app_url,
-            "task_app_api_key": task_app_api_key,
             "env_name": "crafter",
             "initial_prompt": {
                 "messages": [{"role": "system", "order": 0, "pattern": baseline_system_prompt}],
@@ -384,7 +381,6 @@ async def run_gepa_job(
             config_dict=config_body,
             backend_url=SYNTH_API_BASE,
             api_key=api_key,
-            task_app_api_key=task_app_api_key,
             skip_health_check=True,
         )
         job_id = job.submit()
@@ -400,7 +396,6 @@ async def run_eval_job(
     *,
     api_key: str,
     task_app_url: str,
-    task_app_api_key: str,
     seeds: List[int],
     mode: str,
 ) -> EvalResult:
@@ -409,7 +404,6 @@ async def run_eval_job(
             task_app_url=task_app_url,
             backend_url=SYNTH_API_BASE,
             api_key=api_key,
-            task_app_api_key=task_app_api_key,
             app_id=f"crafter_vlm_{mode}",
             env_name="crafter",
             seeds=seeds,
@@ -476,13 +470,10 @@ async def main() -> None:
         resp.raise_for_status()
         print(f"Backend health: {resp.json()}")
 
-    environment_api_key = os.environ.get("ENVIRONMENT_API_KEY", "").strip() or mint_environment_api_key()
-    os.environ["ENVIRONMENT_API_KEY"] = environment_api_key
-    if api_key:
-        try:
-            setup_environment_api_key(SYNTH_API_BASE, api_key, token=environment_api_key)
-        except Exception as exc:
-            print(f"Warning: failed to upload ENVIRONMENT_API_KEY: {exc}")
+    environment_api_key = ensure_localapi_auth(
+        backend_base=SYNTH_API_BASE,
+        synth_api_key=api_key,
+    )
 
     allowed_actions = ", ".join(CRAFTER_ALLOWED_ACTIONS)
     baseline_prompt = (
@@ -503,7 +494,7 @@ async def main() -> None:
     )
 
     baseline_port = _ensure_available_port(TASK_APP_PORT, "Baseline")
-    baseline_app = create_crafter_vlm_local_api(baseline_prompt, environment_api_key)
+    baseline_app = create_crafter_vlm_local_api(baseline_prompt)
     run_server_background(baseline_app, port=baseline_port)
     await wait_for_health_check("127.0.0.1", baseline_port, environment_api_key, timeout=60.0)
 
@@ -521,7 +512,6 @@ async def main() -> None:
     job_result = await run_gepa_job(
         api_key=api_key,
         task_app_url=baseline_url,
-        task_app_api_key=environment_api_key,
         baseline_system_prompt=baseline_prompt,
     )
 
@@ -540,7 +530,7 @@ async def main() -> None:
         raise RuntimeError("Failed to extract optimized system prompt from prompt learning results.")
 
     optimized_port = _ensure_available_port(OPTIMIZED_TASK_APP_PORT, "Optimized")
-    optimized_app = create_crafter_vlm_local_api(optimized_prompt, environment_api_key)
+    optimized_app = create_crafter_vlm_local_api(optimized_prompt)
     run_server_background(optimized_app, port=optimized_port)
     await wait_for_health_check("127.0.0.1", optimized_port, environment_api_key, timeout=60.0)
 
@@ -562,14 +552,12 @@ async def main() -> None:
     baseline_eval = await run_eval_job(
         api_key=api_key,
         task_app_url=baseline_url,
-        task_app_api_key=environment_api_key,
         seeds=eval_seeds,
         mode="baseline",
     )
     optimized_eval = await run_eval_job(
         api_key=api_key,
         task_app_url=optimized_url,
-        task_app_api_key=environment_api_key,
         seeds=eval_seeds,
         mode="optimized",
     )

@@ -172,13 +172,15 @@ class TunneledLocalAPI:
             Starting quick tunnel for port 8001...
             Tunnel ready: https://random-words.trycloudflare.com
         """
-        import os
-
         from .cleanup import track_process
+        from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
         # Resolve env_api_key from environment if not provided
         if env_api_key is None:
-            env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+            env_api_key = ensure_localapi_auth(
+                backend_base=backend_url,
+                synth_api_key=api_key,
+            )
 
         if backend == TunnelBackend.CloudflareManagedTunnel:
             return await cls._create_managed(

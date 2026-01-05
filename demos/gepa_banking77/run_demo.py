@@ -29,7 +29,7 @@ from pydantic import BaseModel
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
@@ -65,12 +65,12 @@ else:
     print(f'Using SYNTH_API_KEY: {API_KEY[:20]}...')
 
 
-# Cell 4: Mint Environment Key
-ENVIRONMENT_API_KEY = mint_environment_api_key()
-print(f'Minted env key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}')
-
-result = setup_environment_api_key(SYNTH_API_BASE, API_KEY, token=ENVIRONMENT_API_KEY)
-print(f'Uploaded env key: {result}')
+# Cell 4: Ensure Environment Key
+ENVIRONMENT_API_KEY = ensure_localapi_auth(
+    backend_base=SYNTH_API_BASE,
+    synth_api_key=API_KEY,
+)
+print(f'Env key ready: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}')
 
 
 # Cell 5: Define Banking77 Local API
@@ -219,9 +219,7 @@ class Banking77Dataset:
         return self._label_names or []
 
 
-def create_banking77_local_api(system_prompt: str, env_api_key: str):
-    os.environ["ENVIRONMENT_API_KEY"] = env_api_key
-
+def create_banking77_local_api(system_prompt: str):
     dataset = Banking77Dataset()
     dataset.ensure_ready(["train", "test"])
 
@@ -310,7 +308,7 @@ async def main():
     USER_PROMPT = "Customer Query: {query}\n\nAvailable Intents:\n{available_intents}\n\nClassify this query into one of the above banking intents using the tool call."
 
     # Cell 7: Start Baseline Local API with Cloudflare Tunnel
-    baseline_app = create_banking77_local_api(BASELINE_SYSTEM_PROMPT, ENVIRONMENT_API_KEY)
+    baseline_app = create_banking77_local_api(BASELINE_SYSTEM_PROMPT)
 
     kill_port(LOCAL_API_PORT)
     run_server_background(baseline_app, LOCAL_API_PORT)
@@ -324,7 +322,6 @@ async def main():
         local_port=LOCAL_API_PORT,
         backend=TunnelBackend.CloudflareManagedTunnel,
         api_key=API_KEY,
-        env_api_key=ENVIRONMENT_API_KEY,
         reason="baseline_notebook",
         backend_url=SYNTH_API_BASE,
         progress=True,
@@ -373,7 +370,6 @@ async def main():
         config_dict=config_body,
         backend_url=SYNTH_API_BASE,
         api_key=API_KEY,
-        task_app_api_key=ENVIRONMENT_API_KEY,
         skip_health_check=True,
     )
 
@@ -392,12 +388,11 @@ async def main():
     # Cell 9: Evaluation
     EVAL_SEEDS = list(range(100, 120))
 
-    def run_eval_job(local_api_url: str, local_api_key: str, seeds: list[int], mode: str) -> EvalResult:
+    def run_eval_job(local_api_url: str, seeds: list[int], mode: str) -> EvalResult:
         config = EvalJobConfig(
             local_api_url=local_api_url,
             backend_url=SYNTH_API_BASE,
             api_key=API_KEY,
-            local_api_key=local_api_key,
             env_name='banking77',
             seeds=seeds,
             policy_config={
@@ -457,7 +452,7 @@ async def main():
         print('=' * 60)
 
         print(f'\nStarting optimized local API on port {OPTIMIZED_LOCAL_API_PORT}...')
-        optimized_app = create_banking77_local_api(optimized_system, ENVIRONMENT_API_KEY)
+        optimized_app = create_banking77_local_api(optimized_system)
 
         kill_port(OPTIMIZED_LOCAL_API_PORT)
         run_server_background(optimized_app, OPTIMIZED_LOCAL_API_PORT)
@@ -469,7 +464,6 @@ async def main():
             local_port=OPTIMIZED_LOCAL_API_PORT,
             backend=TunnelBackend.CloudflareManagedTunnel,
             api_key=API_KEY,
-            env_api_key=ENVIRONMENT_API_KEY,
             reason="optimized_notebook",
             backend_url=SYNTH_API_BASE,
             progress=True,
@@ -479,7 +473,6 @@ async def main():
         print('\nRunning BASELINE eval job...')
         baseline_result = run_eval_job(
             local_api_url=BASELINE_LOCAL_API_URL,
-            local_api_key=ENVIRONMENT_API_KEY,
             seeds=EVAL_SEEDS,
             mode='baseline'
         )
@@ -492,7 +485,6 @@ async def main():
         print('\nRunning OPTIMIZED eval job...')
         optimized_result = run_eval_job(
             local_api_url=OPTIMIZED_LOCAL_API_URL,
-            local_api_key=ENVIRONMENT_API_KEY,
             seeds=EVAL_SEEDS,
             mode='optimized'
         )

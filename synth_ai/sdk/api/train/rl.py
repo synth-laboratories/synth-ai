@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from synth_ai.core.telemetry import log_info
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 from .builders import RLBuildResult, build_rl_payload
 from .pollers import RLJobPoller
@@ -97,7 +98,10 @@ class RLJobConfig:
         
         # Get task_app_api_key from environment if not provided
         if not self.task_app_api_key:
-            self.task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+            self.task_app_api_key = ensure_localapi_auth(
+                backend_base=self.backend_url,
+                synth_api_key=self.api_key,
+            )
         
         # Get task_app_url from environment if not provided
         if not self.task_app_url:
@@ -211,7 +215,10 @@ class RLJob:
         
         # Resolve task app API key
         if not task_app_api_key:
-            task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+            task_app_api_key = ensure_localapi_auth(
+                backend_base=backend_url,
+                synth_api_key=api_key,
+            )
         
         config = RLJobConfig(
             config_path=config_path_obj,

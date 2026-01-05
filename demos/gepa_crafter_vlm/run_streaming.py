@@ -22,8 +22,8 @@ from openai import AsyncOpenAI
 
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi.helpers import extract_api_key
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
@@ -58,13 +58,11 @@ def log(msg: str):
     print(f"[{ts}] {msg}", flush=True)
 
 
-def create_task_app(system_prompt: str, env_api_key: str):
+def create_task_app(system_prompt: str):
     """Create Crafter VLM task app."""
     APP_ID = "crafter_vlm"
     APP_NAME = "Crafter VLM"
     TOOL_NAME = "crafter_interact"
-
-    os.environ['ENVIRONMENT_API_KEY'] = env_api_key
 
     async def run_rollout(request: RolloutRequest, fastapi_request) -> RolloutResponse:
         policy_config = request.policy.config or {}
@@ -428,9 +426,10 @@ async def main():
     log("")
 
     # Setup
-    env_key = mint_environment_api_key()
-    os.environ['ENVIRONMENT_API_KEY'] = env_key
-    setup_environment_api_key(SYNTH_API_BASE, SYNTH_API_KEY, token=env_key)
+    env_key = ensure_localapi_auth(
+        backend_base=SYNTH_API_BASE,
+        synth_api_key=SYNTH_API_KEY,
+    )
     log("Environment key configured")
 
     # Baseline prompt
@@ -447,7 +446,7 @@ async def main():
 
     # Start task app
     log("Starting task app...")
-    app = create_task_app(baseline_prompt, env_key)
+    app = create_task_app(baseline_prompt)
     run_server_background(app, port=8001)
     await wait_for_health_check('127.0.0.1', 8001, env_key, timeout=30.0)
     log("Task app ready on port 8001")
@@ -458,7 +457,6 @@ async def main():
         local_port=8001,
         backend=TunnelBackend.CloudflareManagedTunnel,
         api_key=SYNTH_API_KEY,
-        env_api_key=env_key,
         backend_url=SYNTH_API_BASE,
         progress=False,
     )
@@ -471,7 +469,6 @@ async def main():
         'prompt_learning': {
             'algorithm': 'gepa',
             'task_app_url': tunnel.url,
-            'task_app_api_key': env_key,
             'env_name': 'crafter',
             'initial_prompt': {
                 'messages': [{'role': 'system', 'order': 0, 'pattern': baseline_prompt}],
@@ -508,7 +505,6 @@ async def main():
         config_dict=config_body,
         backend_url=SYNTH_API_BASE,
         api_key=SYNTH_API_KEY,
-        task_app_api_key=env_key,
         skip_health_check=True,
     )
     job_id = job.submit()

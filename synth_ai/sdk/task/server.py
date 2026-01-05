@@ -111,6 +111,7 @@ class TaskAppConfig:
         middleware: Additional middleware to apply
         app_state: Mutable state dict accessible to routes
         require_api_key: Whether to require API key authentication
+        ensure_localapi_auth: Whether to auto-ensure ENVIRONMENT_API_KEY on startup
         expose_debug_env: Whether to expose debug environment endpoint
         cors_origins: CORS allowed origins
         startup_hooks: Functions to call on app startup
@@ -131,6 +132,7 @@ class TaskAppConfig:
     middleware: Sequence[Middleware] = field(default_factory=tuple)
     app_state: MutableMapping[str, Any] = field(default_factory=_default_app_state)
     require_api_key: bool = True
+    ensure_localapi_auth: bool = True
     expose_debug_env: bool = True
     cors_origins: Sequence[str] | None = None
     startup_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
@@ -154,6 +156,7 @@ class TaskAppConfig:
             middleware=tuple(self.middleware),
             app_state=dict(self.app_state),
             require_api_key=self.require_api_key,
+            ensure_localapi_auth=self.ensure_localapi_auth,
             expose_debug_env=self.expose_debug_env,
             cors_origins=tuple(self.cors_origins or ()),
             startup_hooks=tuple(self.startup_hooks),
@@ -376,6 +379,10 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        if cfg.require_api_key and cfg.ensure_localapi_auth:
+            from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+
+            ensure_localapi_auth()
         normalize_environment_api_key()
         normalize_vendor_keys()
         for hook in cfg.startup_hooks:

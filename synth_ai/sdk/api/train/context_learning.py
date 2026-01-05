@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from synth_ai.core.telemetry import log_info
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 from synth_ai.sdk.streaming import (
     ContextLearningHandler,
@@ -69,7 +70,10 @@ class ContextLearningJobConfig:
         if not self.api_key:
             raise ValueError("api_key is required")
         if not self.task_app_api_key:
-            self.task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+            self.task_app_api_key = ensure_localapi_auth(
+                backend_base=self.backend_url,
+                synth_api_key=self.api_key,
+            )
 
 
 class ContextLearningJob:
@@ -309,4 +313,3 @@ __all__ = [
     "ContextLearningSubmitResult",
     "BestScriptResult",
 ]
-

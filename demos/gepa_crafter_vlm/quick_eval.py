@@ -20,8 +20,8 @@ import httpx
 from openai import AsyncOpenAI
 
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
-from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
 from synth_ai.sdk.tunnels import wait_for_health_check
@@ -65,13 +65,11 @@ else:
     OPTIMIZED_PROMPT = None
 
 
-def create_task_app(system_prompt: str, env_api_key: str):
+def create_task_app(system_prompt: str):
     """Create a Crafter VLM task app."""
     APP_ID = "crafter_vlm"
     APP_NAME = "Crafter VLM"
     TOOL_NAME = "crafter_interact"
-
-    os.environ['ENVIRONMENT_API_KEY'] = env_api_key
 
     async def run_rollout(request: RolloutRequest, fastapi_request) -> RolloutResponse:
         policy_config = request.policy.config or {}
@@ -187,13 +185,12 @@ def create_task_app(system_prompt: str, env_api_key: str):
     ))
 
 
-def run_eval(local_api_url: str, local_api_key: str, seeds: list[int], mode: str):
+def run_eval(local_api_url: str, seeds: list[int], mode: str):
     """Run eval job."""
     config = EvalJobConfig(
         task_app_url=local_api_url,
         backend_url=SYNTH_API_BASE,
         api_key=SYNTH_API_KEY,
-        task_app_api_key=local_api_key,
         env_name='crafter',
         seeds=seeds,
         policy_config={
@@ -222,13 +219,14 @@ async def main():
     print()
 
     # Setup env key
-    env_key = mint_environment_api_key()
-    os.environ['ENVIRONMENT_API_KEY'] = env_key
-    setup_environment_api_key(SYNTH_API_BASE, SYNTH_API_KEY, token=env_key)
+    env_key = ensure_localapi_auth(
+        backend_base=SYNTH_API_BASE,
+        synth_api_key=SYNTH_API_KEY,
+    )
 
     # Start baseline API
     print("Starting baseline API...")
-    baseline_app = create_task_app(BASELINE_PROMPT, env_key)
+    baseline_app = create_task_app(BASELINE_PROMPT)
     run_server_background(baseline_app, port=8001)
     await wait_for_health_check('127.0.0.1', 8001, env_key, timeout=30.0)
 
@@ -236,7 +234,6 @@ async def main():
         local_port=8001,
         backend=TunnelBackend.CloudflareManagedTunnel,
         api_key=SYNTH_API_KEY,
-        env_api_key=env_key,
         backend_url=SYNTH_API_BASE,
         progress=True,
     )
@@ -246,14 +243,14 @@ async def main():
 
     # Run baseline eval
     print("\nRunning BASELINE eval...")
-    baseline_result = run_eval(baseline_tunnel.url, env_key, EVAL_SEEDS, 'baseline')
+    baseline_result = run_eval(baseline_tunnel.url, EVAL_SEEDS, 'baseline')
     results['baseline'] = baseline_result.raw
     print(f"Baseline: {baseline_result.raw}")
 
     # Run optimized eval if prompt exists
     if OPTIMIZED_PROMPT:
         print("\nStarting optimized API...")
-        optimized_app = create_task_app(OPTIMIZED_PROMPT, env_key)
+        optimized_app = create_task_app(OPTIMIZED_PROMPT)
         run_server_background(optimized_app, port=8002)
         await wait_for_health_check('127.0.0.1', 8002, env_key, timeout=30.0)
 
@@ -261,14 +258,13 @@ async def main():
             local_port=8002,
             backend=TunnelBackend.CloudflareManagedTunnel,
             api_key=SYNTH_API_KEY,
-            env_api_key=env_key,
             backend_url=SYNTH_API_BASE,
             progress=True,
         )
         print(f"Optimized URL: {optimized_tunnel.url}")
 
         print("\nRunning OPTIMIZED eval...")
-        optimized_result = run_eval(optimized_tunnel.url, env_key, EVAL_SEEDS, 'optimized')
+        optimized_result = run_eval(optimized_tunnel.url, EVAL_SEEDS, 'optimized')
         results['optimized'] = optimized_result.raw
         print(f"Optimized: {optimized_result.raw}")
 

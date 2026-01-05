@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from synth_ai.core.telemetry import log_info
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 
 class JobStatus(str, Enum):
@@ -212,11 +213,10 @@ class PromptLearningJobConfig:
 
         # Get task_app_api_key from environment if not provided
         if not self.task_app_api_key:
-            self.task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY")
-            if not self.task_app_api_key:
-                raise ValueError(
-                    "task_app_api_key is required (provide explicitly or set ENVIRONMENT_API_KEY env var)"
-                )
+            self.task_app_api_key = ensure_localapi_auth(
+                backend_base=self.backend_url,
+                synth_api_key=self.api_key,
+            )
 
 
 class PromptLearningJobPoller(JobPoller):

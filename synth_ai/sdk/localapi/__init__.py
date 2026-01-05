@@ -17,6 +17,7 @@ from synth_ai.sdk.task import (
     run_task_app,
 )
 from .rollouts import RolloutResponseBuilder
+from .auth import ensure_localapi_auth
 
 create_local_api = create_task_app
 run_local_api = run_task_app
@@ -35,6 +36,7 @@ __all__ = [
     "run_task_app",
     "run_local_api",
     "RolloutResponseBuilder",
+    "ensure_localapi_auth",
     "build_template_config",
     "create_template_app",
 ]
