@@ -12,9 +12,9 @@ Serverless Posttraining APIs for Developers
 
 <p align="center">
   <picture align="center">
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/assets/langprobe_v2_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/assets/langprobe_v2_light.png">
-    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA (lib), DSPy MIPRO, and DSPy GEPA with baseline vs optimized." src="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/assets/langprobe_v2_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/langprobe_v2_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/langprobe_v2_light.png">
+    <img alt="Shows a bar chart comparing prompt optimization performance across GPT-4.1 Nano, GPT-4o Mini, and GPT-5 Nano with baseline vs GEPA optimized." src="assets/langprobe_v2_light.png">
   </picture>
 </p>
 
@@ -30,26 +30,18 @@ Serverless Posttraining APIs for Developers
 
 ## Highlights
 
-- 🚀 Train across sft, RL, and prompt opt by standing up a single cloudflared Fastapi wrapper around your code. No production code churn.
-- ⚡️ Parallelize training and achieve 80% GPU util. via PipelineRL
-- 🗂️ Train prompts and models across multiple experiments
-- 🛠️ Spin up experiment queues and datastores locally for dev work
-- 🔩 Run serverless training via cli or programmatically
-- 🏢 Scales gpu-based model training to 64 H100s seemlessly
-- 💾 Use GEPA-calibrated verifiers for fast, accurate rubric scoring
-- 🖥️ Supports HTTP-based training across all programming languages
-- 🤖 CLI utilities tuned for use with Claude Code, Codex, Opencode
+- 🎯 **GEPA Prompt Optimization** - Automatically improve prompts with evolutionary search. See 70%→95% accuracy gains on Banking77, +62% on critical game achievements
+- 🔍 **Zero-Shot Verifiers** - Fast, accurate rubric-based evaluation with configurable scoring criteria
+- 🧬 **GraphGen** - Train custom verifier graphs optimized for your specific workflows. Train custom pipelines for other tasks
+- 🚀 **No Code Changes** - Wrap existing code in a FastAPI app and optimize via HTTP. Works with any language or framework
+- ⚡️ **Local Development** - Run experiments locally with tunneled task apps. No cloud setup required
+- 🗂️ **Multi-Experiment Management** - Track and compare prompts/models across runs with built-in experiment queues
 
 ## Getting Started
 
-```bash
-# Use with OpenAI Codex
-uvx synth-ai codex
 ```
-
-```bash
-# Use with Opencode
-uvx synth-ai opencode
+uv add
+uv run synth-ai tui
 ```
 
 ## Testing
@@ -67,30 +59,43 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 
 **[docs.usesynth.ai](https://docs.usesynth.ai)**
 
-## In-Process Runner (SDK)
+## GEPA Prompt Optimization (SDK)
 
-Run GEPA/MIPRO/RL jobs against a tunneled task app without the CLI:
+Run GEPA prompt optimization programmatically:
 
 ```python
 import asyncio
 import os
-from synth_ai.sdk.task import run_in_process_job
+from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 
-result = asyncio.run(
-    run_in_process_job(
-        job_type="prompt_learning",
-        config_path="configs/style_matching_gepa.toml",
-        task_app_path="task_apps/style_matching_task_app.py",
-        overrides={"prompt_learning.gepa.rollout.budget": 4},
-        backend_url=os.getenv("TARGET_BACKEND_BASE_URL"),  # resolves envs automatically
-    )
-)
-print(result.job_id, result.status.get("status"))
+# Create a local task app: app = create_local_api(LocalAPIConfig(app_id="my_app", handler=my_handler))
+
+# Create and submit a GEPA job
+pl_job = PromptLearningJob.from_dict({
+    "job_type": "prompt_learning",
+    "config": {
+        "prompt_learning": {
+            "gepa": {
+                "rollout": {"budget": 100},
+                "population_size": 10,
+                "generations": 5,
+            }
+        }
+    },
+    "task_app_id": "my_task_app",
+})
+
+pl_job.submit()
+result = pl_job.stream_until_complete(timeout=3600.0)
+print(f"Best score: {result.best_score}")
 ```
+
+See the [Banking77 demo notebook](demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb) for a complete example with local task apps.
 
 ## Zero-Shot Verifiers (SDK)
 
-Run a built-in verifier graph with rubric criteria passed at runtime:
+Run a built-in verifier graph with rubric criteria passed at runtime. See the [Crafter VLM demo](demos/gepa_crafter_vlm/) for verifier optimization:
 
 ```python
 import asyncio
@@ -130,9 +135,9 @@ resp = await client.run(
 )
 ```
 
-## GraphGen: Train Custom Verifier and RLM Graphs
+## GraphGen: Train Custom Verifier Graphs
 
-Train custom verifier and RLM graphs using GraphGen:
+Train custom verifier graphs using GraphGen. See the [Image Style Matching demo](demos/image_style_matching/) for a complete GraphGen example:
 
 ```python
 from synth_ai.sdk.api.train.graphgen import GraphGenJob
@@ -155,41 +160,3 @@ verification = verifier_job.run_verifier(
 )
 print(f"Score: {verification.score}, Reasoning: {verification.reasoning}")
 ```
-
-```python
-# Train an RLM graph (massive context via tools)
-rlm_job = GraphGenJob.from_dataset(
-    dataset="rlm_dataset.json",
-    graph_type="rlm",
-    configured_tools=[
-        {"name": "materialize_context", "kind": "rlm_materialize", "stateful": True},
-        {"name": "local_grep", "kind": "rlm_local_grep", "stateful": False},
-        {"name": "codex_exec", "kind": "daytona_exec", "stateful": True},
-    ],
-    policy_models=["gpt-4.1"],
-    proposer_effort="medium",
-    rollout_budget=100,
-)
-rlm_job.submit()
-result = rlm_job.stream_until_complete(timeout=3600.0)
-
-# Run inference with trained RLM graph
-output = rlm_job.run_inference({"query": "Find relevant sections", "context": large_document})
-```
-
-**Graph Types:**
-- **`verifier`**: Trains a verifier graph that evaluates traces and returns structured rewards
-- **`rlm`**: Trains a graph optimized for massive contexts (1M+ tokens) using tool-based search
-- **`policy`**: Trains a standard input→output graph (default)
-
-**RLM Tools:**
-- `materialize_context` - Store input fields for fast searching (~1ms local)
-- `local_grep` - Regex search on materialized content (~1ms)
-- `local_search` - Substring search (~1ms)
-- `query_lm` - Sub-LM calls for processing chunks
-- `codex_exec` - Shell execution for complex operations
-
-**When to use RLM:**
-- Context exceeds ~100K tokens (too large for prompt)
-- You need to search/filter large datasets
-- RAG-style workflows over massive corpora
