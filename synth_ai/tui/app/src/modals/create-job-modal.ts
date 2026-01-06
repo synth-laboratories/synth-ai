@@ -19,7 +19,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & { open:
   function open(): void {
     modal.center()
     modal.setTitle("Create New Job")
-    modal.setContent("(Coming soon)")
+    modal.setContent("")
     modal.setHint("q close")
     toggle(true)
   }

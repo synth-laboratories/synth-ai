@@ -21589,7 +21589,7 @@ function createCreateJobModal(ctx) {
   function open() {
     modal.center();
     modal.setTitle("Create New Job");
-    modal.setContent("(Coming soon)");
+    modal.setContent("");
     modal.setHint("q close");
     toggle(true);
   }
