@@ -26,10 +26,25 @@ export function renderApp(ctx: AppContext): void {
         const label =
           job.training_type || (job.job_source === "learning" ? "eval" : "prompt")
         const envName = extractEnvName(job)
-        const desc = envName
-          ? `${job.status} | ${label} | ${envName} | ${score}`
-          : `${job.status} | ${label} | ${score}`
-        return { name: shortId, description: desc, value: job.job_id }
+        const currentYear = new Date().getFullYear()
+        let dateStr = ""
+        if (job.created_at) {
+          const d = new Date(job.created_at)
+          const jobYear = d.getFullYear()
+          const opts: Intl.DateTimeFormatOptions = {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }
+          if (jobYear !== currentYear) {
+            opts.year = "numeric"
+          }
+          dateStr = d.toLocaleString("en-US", opts)
+        }
+        const name = dateStr ? `${shortId} - ${dateStr}` : shortId
+        const desc = [job.status, label, envName, score].filter(Boolean).join(" | ")
+        return { name, description: desc, value: job.job_id }
       })
     : [
         {

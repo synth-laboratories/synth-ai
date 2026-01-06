@@ -12,113 +12,6 @@ var __export = (target, all) => {
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __require = import.meta.require;
 
-// src/state/app-state.ts
-function ensureApiBase(url) {
-  let base = url.trim().replace(/\/+$/, "");
-  if (!base.endsWith("/api")) {
-    base = base + "/api";
-  }
-  return base;
-}
-function normalizeBackendId(value) {
-  const lower = value.toLowerCase().trim();
-  if (lower === "dev" || lower === "development")
-    return "dev";
-  if (lower === "local" || lower === "localhost")
-    return "local";
-  return "prod";
-}
-var backendConfigs, backendKeys, backendKeySources, appState;
-var init_app_state = __esm(() => {
-  backendConfigs = {
-    prod: {
-      id: "prod",
-      label: "Prod",
-      baseUrl: ensureApiBase(process.env.SYNTH_TUI_PROD_API_BASE || "https://api.usesynth.ai/api")
-    },
-    dev: {
-      id: "dev",
-      label: "Dev",
-      baseUrl: ensureApiBase(process.env.SYNTH_TUI_DEV_API_BASE || "https://agent-learning.onrender.com/api")
-    },
-    local: {
-      id: "local",
-      label: "Local",
-      baseUrl: ensureApiBase(process.env.SYNTH_TUI_LOCAL_API_BASE || "http://localhost:8000/api")
-    }
-  };
-  backendKeys = {
-    prod: process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
-    dev: process.env.SYNTH_TUI_API_KEY_DEV || "",
-    local: process.env.SYNTH_TUI_API_KEY_LOCAL || ""
-  };
-  backendKeySources = {
-    prod: { sourcePath: null, varName: null },
-    dev: { sourcePath: null, varName: null },
-    local: { sourcePath: null, varName: null }
-  };
-  appState = {
-    currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod"),
-    activePane: "jobs",
-    healthStatus: "unknown",
-    autoSelected: false,
-    lastSeq: 0,
-    selectedEventIndex: 0,
-    eventWindowStart: 0,
-    eventFilter: "",
-    jobStatusFilter: new Set,
-    jobFilterOptions: [],
-    jobFilterCursor: 0,
-    jobFilterWindowStart: 0,
-    settingsCursor: 0,
-    settingsOptions: [],
-    keyModalBackend: "prod",
-    keyPasteActive: false,
-    keyPasteBuffer: "",
-    envKeyOptions: [],
-    envKeyCursor: 0,
-    envKeyWindowStart: 0,
-    envKeyScanInProgress: false,
-    envKeyError: null,
-    eventModalOffset: 0,
-    resultsModalOffset: 0,
-    configModalOffset: 0,
-    promptBrowserIndex: 0,
-    promptBrowserOffset: 0,
-    jobSelectToken: 0,
-    eventsToken: 0
-  };
-});
-
-// src/state/polling.ts
-import path2 from "path";
-var config, pollingState;
-var init_polling = __esm(() => {
-  config = {
-    initialJobId: process.env.SYNTH_TUI_JOB_ID || "",
-    refreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_INTERVAL || "5"),
-    eventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_INTERVAL || "2"),
-    maxRefreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_MAX || "60"),
-    maxEventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_MAX || "15"),
-    eventHistoryLimit: parseInt(process.env.SYNTH_TUI_EVENT_CARDS || "200", 10),
-    eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
-    eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
-    jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
-    envKeyVisibleCount: parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10),
-    envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
-    settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path2.join(process.cwd(), ".env.synth"),
-    jobFilterVisibleCount: 6
-  };
-  pollingState = {
-    jobsPollMs: Math.max(1, config.refreshInterval) * 1000,
-    eventsPollMs: Math.max(0.5, config.eventInterval) * 1000,
-    jobsInFlight: false,
-    eventsInFlight: false,
-    jobsTimer: null,
-    eventsTimer: null
-  };
-});
-
 // src/tui_data.ts
 function extractJobs(payload, source) {
   const list = Array.isArray(payload) ? payload : Array.isArray(payload?.jobs) ? payload.jobs : Array.isArray(payload?.data) ? payload.data : [];
@@ -210,51 +103,16 @@ function toSortTimestamp(value) {
 var exports_client = {};
 __export(exports_client, {
   refreshHealth: () => refreshHealth,
-  getBackendConfig: () => getBackendConfig,
-  getActiveBaseUrl: () => getActiveBaseUrl,
-  getActiveBaseRoot: () => getActiveBaseRoot,
-  getActiveApiKey: () => getActiveApiKey,
   apiPost: () => apiPost,
   apiGetV1: () => apiGetV1,
   apiGet: () => apiGet
 });
-function ensureApiBase2(url) {
-  let base = (url ?? "").trim().replace(/\/+$/, "");
-  if (!base)
-    return "";
-  if (!base.endsWith("/api")) {
-    base = base + "/api";
-  }
-  return base;
-}
-function getBackendConfig(id = appState.currentBackend) {
-  const config2 = backendConfigs[id];
-  const envOverride = ensureApiBase2(process.env.SYNTH_TUI_API_BASE || "");
-  const baseUrl = envOverride || config2.baseUrl;
-  return {
-    id,
-    label: config2.label,
-    baseUrl,
-    baseRoot: baseUrl.replace(/\/api$/, ""),
-    apiKey: backendKeys[id]
-  };
-}
-function getActiveApiKey() {
-  return getBackendConfig().apiKey;
-}
-function getActiveBaseUrl() {
-  return getBackendConfig().baseUrl;
-}
-function getActiveBaseRoot() {
-  return getBackendConfig().baseRoot;
-}
 async function apiGet(path3) {
-  const { baseUrl, apiKey, label } = getBackendConfig();
-  if (!apiKey) {
-    throw new Error(`Missing API key for ${label}`);
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key");
   }
-  const res = await fetch(`${baseUrl}${path3}`, {
-    headers: { Authorization: `Bearer ${apiKey}` }
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path3}`, {
+    headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` }
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -264,12 +122,11 @@ async function apiGet(path3) {
   return res.json();
 }
 async function apiGetV1(path3) {
-  const { baseRoot, apiKey, label } = getBackendConfig();
-  if (!apiKey) {
-    throw new Error(`Missing API key for ${label}`);
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key");
   }
-  const res = await fetch(`${baseRoot}/api/v1${path3}`, {
-    headers: { Authorization: `Bearer ${apiKey}` }
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path3}`, {
+    headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` }
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -279,14 +136,13 @@ async function apiGetV1(path3) {
   return res.json();
 }
 async function apiPost(path3, body) {
-  const { baseUrl, apiKey, label } = getBackendConfig();
-  if (!apiKey) {
-    throw new Error(`Missing API key for ${label}`);
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key");
   }
-  const res = await fetch(`${baseUrl}${path3}`, {
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path3}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${process.env.SYNTH_API_KEY}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify(body)
@@ -300,242 +156,12 @@ async function apiPost(path3, body) {
 }
 async function refreshHealth() {
   try {
-    const res = await fetch(`${getActiveBaseRoot()}/health`);
+    const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`);
     return res.ok ? "ok" : `bad(${res.status})`;
   } catch (err) {
     return `err(${err?.message || "unknown"})`;
   }
 }
-var init_client = __esm(() => {
-  init_app_state();
-});
-
-// src/utils/env.ts
-import path3 from "path";
-import { promises as fs2 } from "fs";
-function parseEnvFile(content) {
-  const values = {};
-  const lines = content.split(/\r?\n/);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#"))
-      continue;
-    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
-    if (!match)
-      continue;
-    const key = match[1];
-    let value = match[2].trim();
-    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
-      const quoted = value;
-      value = value.slice(1, -1);
-      if (quoted.startsWith('"')) {
-        value = value.replace(/\\\\/g, "\\").replace(/\\"/g, '"');
-      }
-    } else {
-      value = value.split(/\s+#/)[0].trim();
-    }
-    values[key] = value;
-  }
-  return values;
-}
-function formatEnvLine(key, value) {
-  return `${key}=${escapeEnvValue(value)}`;
-}
-function escapeEnvValue(value) {
-  const safe = value ?? "";
-  return `"${safe.replace(/\\/g, "\\\\").replace(/\"/g, "\\\"")}"`;
-}
-function parseEnvKeys(content, sourcePath, scanRoot = config.envKeyScanRoot) {
-  const results2 = [];
-  const lines = content.split(/\r?\n/);
-  const relPath = path3.relative(scanRoot, sourcePath) || sourcePath;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#"))
-      continue;
-    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
-    if (!match)
-      continue;
-    const varName = match[1];
-    if (!KEY_VAR_NAMES.has(varName))
-      continue;
-    let value = match[2].trim();
-    if (!value || value.startsWith("$"))
-      continue;
-    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
-      value = value.slice(1, -1);
-    } else {
-      value = value.split(/\s+#/)[0].trim();
-    }
-    if (!value)
-      continue;
-    results2.push({ key: value, source: relPath, varName });
-  }
-  return results2;
-}
-async function walkEnvDir(dir, results2, scanRoot = config.envKeyScanRoot) {
-  let entries;
-  try {
-    entries = await fs2.readdir(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    const fullPath = path3.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (IGNORED_DIRS.has(entry.name))
-        continue;
-      await walkEnvDir(fullPath, results2, scanRoot);
-      continue;
-    }
-    if (!entry.isFile())
-      continue;
-    if (!/^\.env(\.|$)/.test(entry.name))
-      continue;
-    try {
-      const stat = await fs2.stat(fullPath);
-      if (stat.size > 256 * 1024)
-        continue;
-      const content = await fs2.readFile(fullPath, "utf8");
-      const found = parseEnvKeys(content, fullPath, scanRoot);
-      for (const item of found) {
-        const existing = results2.get(item.key);
-        if (existing) {
-          if (!existing.sources.includes(item.source)) {
-            existing.sources.push(item.source);
-          }
-          if (!existing.varNames.includes(item.varName)) {
-            existing.varNames.push(item.varName);
-          }
-        } else {
-          results2.set(item.key, {
-            key: item.key,
-            sources: [item.source],
-            varNames: [item.varName]
-          });
-        }
-      }
-    } catch {}
-  }
-}
-async function scanEnvKeys(rootDir) {
-  const results2 = new Map;
-  await walkEnvDir(rootDir, results2, rootDir);
-  return Array.from(results2.values());
-}
-var IGNORED_DIRS, KEY_VAR_NAMES;
-var init_env = __esm(() => {
-  init_polling();
-  IGNORED_DIRS = new Set([
-    ".git",
-    "node_modules",
-    ".venv",
-    "venv",
-    "__pycache__",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".tox",
-    ".next",
-    ".turbo",
-    ".cache",
-    "dist",
-    "build",
-    "out"
-  ]);
-  KEY_VAR_NAMES = new Set([
-    "SYNTH_API_KEY",
-    "SYNTH_TUI_API_KEY_PROD",
-    "SYNTH_TUI_API_KEY_DEV",
-    "SYNTH_TUI_API_KEY_LOCAL"
-  ]);
-});
-
-// src/persistence/settings.ts
-var exports_settings = {};
-__export(exports_settings, {
-  persistSettings: () => persistSettings,
-  loadPersistedSettings: () => loadPersistedSettings
-});
-import path5 from "path";
-import { promises as fs3 } from "fs";
-async function loadPersistedSettings(deps) {
-  const {
-    settingsFilePath,
-    normalizeBackendId: normalizeBackendId2,
-    setCurrentBackend,
-    setBackendKey,
-    setBackendKeySource
-  } = deps;
-  try {
-    const content = await fs3.readFile(settingsFilePath, "utf8");
-    const values = parseEnvFile(content);
-    const backend = values.SYNTH_TUI_BACKEND;
-    if (backend) {
-      setCurrentBackend(normalizeBackendId2(backend));
-    }
-    const prodKey = values.SYNTH_TUI_API_KEY_PROD;
-    const devKey = values.SYNTH_TUI_API_KEY_DEV;
-    const localKey = values.SYNTH_TUI_API_KEY_LOCAL;
-    if (typeof prodKey === "string")
-      setBackendKey("prod", prodKey);
-    if (typeof devKey === "string")
-      setBackendKey("dev", devKey);
-    if (typeof localKey === "string")
-      setBackendKey("local", localKey);
-    setBackendKeySource("prod", {
-      sourcePath: values.SYNTH_TUI_API_KEY_PROD_SOURCE || null,
-      varName: values.SYNTH_TUI_API_KEY_PROD_VAR || null
-    });
-    setBackendKeySource("dev", {
-      sourcePath: values.SYNTH_TUI_API_KEY_DEV_SOURCE || null,
-      varName: values.SYNTH_TUI_API_KEY_DEV_VAR || null
-    });
-    setBackendKeySource("local", {
-      sourcePath: values.SYNTH_TUI_API_KEY_LOCAL_SOURCE || null,
-      varName: values.SYNTH_TUI_API_KEY_LOCAL_VAR || null
-    });
-  } catch (err) {
-    if (err?.code !== "ENOENT") {}
-  }
-}
-async function persistSettings(deps) {
-  const {
-    settingsFilePath,
-    getCurrentBackend,
-    getBackendKey,
-    getBackendKeySource,
-    onError
-  } = deps;
-  try {
-    await fs3.mkdir(path5.dirname(settingsFilePath), { recursive: true });
-    const backend = getCurrentBackend();
-    const prodSource = getBackendKeySource("prod");
-    const devSource = getBackendKeySource("dev");
-    const localSource = getBackendKeySource("local");
-    const lines = [
-      "# synth-ai tui settings",
-      formatEnvLine("SYNTH_TUI_BACKEND", backend),
-      formatEnvLine("SYNTH_TUI_API_KEY_PROD", getBackendKey("prod")),
-      formatEnvLine("SYNTH_TUI_API_KEY_PROD_SOURCE", prodSource.sourcePath || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_PROD_VAR", prodSource.varName || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_DEV", getBackendKey("dev")),
-      formatEnvLine("SYNTH_TUI_API_KEY_DEV_SOURCE", devSource.sourcePath || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_DEV_VAR", devSource.varName || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL", getBackendKey("local")),
-      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL_SOURCE", localSource.sourcePath || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL_VAR", localSource.varName || "")
-    ];
-    await fs3.writeFile(settingsFilePath, `${lines.join(`
-`)}
-`, "utf8");
-  } catch (err) {
-    onError?.(`Failed to save settings: ${err?.message || "unknown"}`);
-  }
-}
-var init_settings = __esm(() => {
-  init_env();
-});
 
 // src/api/jobs.ts
 var exports_jobs = {};
@@ -628,8 +254,8 @@ async function selectJob(ctx, jobId) {
   snapshot2.status = `Loading job ${jobId}...`;
   const jobSource = immediate?.job_source ?? null;
   try {
-    const path6 = jobSource === "eval" ? `/eval/jobs/${jobId}` : jobSource === "learning" ? `/learning/jobs/${jobId}?include_metadata=true` : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`;
-    const job = await apiGet(path6);
+    const path3 = jobSource === "eval" ? `/eval/jobs/${jobId}` : jobSource === "learning" ? `/learning/jobs/${jobId}?include_metadata=true` : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`;
+    const job = await apiGet(path3);
     if (token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
       return;
     }
@@ -721,8 +347,8 @@ async function fetchMetrics(ctx) {
       return;
     }
     snapshot2.status = "Loading metrics...";
-    const path6 = job.job_source === "learning" ? `/learning/jobs/${job.job_id}/metrics` : `/prompt-learning/online/jobs/${job.job_id}/metrics`;
-    const payload = await apiGet(path6);
+    const path3 = job.job_source === "learning" ? `/learning/jobs/${job.job_id}/metrics` : `/prompt-learning/online/jobs/${job.job_id}/metrics`;
+    const payload = await apiGet(path3);
     if (snapshot2.selectedJob?.job_id !== jobId) {
       return;
     }
@@ -742,7 +368,7 @@ async function cancelSelected(ctx) {
   if (!job)
     return;
   try {
-    const { apiPost: apiPost2 } = await Promise.resolve().then(() => (init_client(), exports_client));
+    const { apiPost: apiPost2 } = await Promise.resolve().then(() => exports_client);
     await apiPost2(`/prompt-learning/online/jobs/${job.job_id}/cancel`, {});
     snapshot2.status = "Cancel requested";
   } catch (err) {
@@ -762,9 +388,7 @@ async function fetchArtifacts(ctx) {
     snapshot2.lastError = err?.message || "Artifacts fetch failed";
   }
 }
-var init_jobs = __esm(() => {
-  init_client();
-});
+var init_jobs = () => {};
 
 // node_modules/@opentui/core/index-zj0wwh9d.js
 import { Buffer as Buffer2 } from "buffer";
@@ -19791,9 +19415,66 @@ class EditBufferRenderable extends Renderable {
   }
 }
 
-// src/context.ts
-init_app_state();
-init_polling();
+// src/state/app-state.ts
+var appState = {
+  activePane: "jobs",
+  healthStatus: "unknown",
+  autoSelected: false,
+  lastSeq: 0,
+  selectedEventIndex: 0,
+  eventWindowStart: 0,
+  eventFilter: "",
+  jobStatusFilter: new Set,
+  jobFilterOptions: [],
+  jobFilterCursor: 0,
+  jobFilterWindowStart: 0,
+  keyPasteActive: false,
+  keyPasteBuffer: "",
+  eventModalOffset: 0,
+  resultsModalOffset: 0,
+  configModalOffset: 0,
+  promptBrowserIndex: 0,
+  promptBrowserOffset: 0,
+  jobSelectToken: 0,
+  eventsToken: 0
+};
+
+// src/state/polling.ts
+import path2 from "path";
+var config = {
+  initialJobId: process.env.SYNTH_TUI_JOB_ID || "",
+  refreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_INTERVAL || "5"),
+  eventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_INTERVAL || "2"),
+  maxRefreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_MAX || "60"),
+  maxEventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_MAX || "15"),
+  eventHistoryLimit: parseInt(process.env.SYNTH_TUI_EVENT_CARDS || "200", 10),
+  eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
+  eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
+  jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
+  envKeyVisibleCount: parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10),
+  envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
+  settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path2.join(process.cwd(), ".env.synth"),
+  jobFilterVisibleCount: 6
+};
+var pollingState = {
+  jobsPollMs: Math.max(1, config.refreshInterval) * 1000,
+  eventsPollMs: Math.max(0.5, config.eventInterval) * 1000,
+  jobsInFlight: false,
+  eventsInFlight: false,
+  jobsTimer: null,
+  eventsTimer: null,
+  sseConnected: false,
+  sseDisconnect: null,
+  sseReconnectTimer: null,
+  sseReconnectDelay: 1000,
+  lastSseSeq: 0
+};
+function clearJobsTimer() {
+  if (pollingState.jobsTimer) {
+    clearTimeout(pollingState.jobsTimer);
+    pollingState.jobsTimer = null;
+  }
+}
 
 // src/state/snapshot.ts
 var snapshot = {
@@ -19825,10 +19506,7 @@ function createAppContext(args) {
       snapshot,
       appState,
       pollingState,
-      config,
-      backendConfigs,
-      backendKeys,
-      backendKeySources
+      config
     },
     render,
     requestRender: () => renderer.requestRender()
@@ -19862,7 +19540,7 @@ function buildLayout(renderer, getFooterText) {
   });
   const headerText = new TextRenderable(renderer, {
     id: "header-text",
-    content: "Synth AI Prompt Learning Monitor",
+    content: "Synth AI",
     fg: "#e2e8f0"
   });
   const headerSpacer = new BoxRenderable(renderer, {
@@ -20397,65 +20075,6 @@ function buildLayout(renderer, getFooterText) {
   renderer.root.add(promptBrowserTitle);
   renderer.root.add(promptBrowserText);
   renderer.root.add(promptBrowserHint);
-  const settingsBox = new BoxRenderable(renderer, {
-    id: "settings-modal-box",
-    width: 64,
-    height: 14,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#38bdf8",
-    border: true,
-    zIndex: 8
-  });
-  const settingsTitle = new TextRenderable(renderer, {
-    id: "settings-modal-title",
-    content: "Settings - Backend",
-    fg: "#38bdf8",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 9
-  });
-  const settingsHelp = new TextRenderable(renderer, {
-    id: "settings-modal-help",
-    content: "Enter apply | j/k navigate | a pick key | m manual | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 8,
-    zIndex: 9
-  });
-  const settingsListText = new TextRenderable(renderer, {
-    id: "settings-modal-list",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 9,
-    zIndex: 9
-  });
-  const settingsInfoText = new TextRenderable(renderer, {
-    id: "settings-modal-info",
-    content: "",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 12,
-    zIndex: 9
-  });
-  settingsBox.visible = false;
-  settingsTitle.visible = false;
-  settingsHelp.visible = false;
-  settingsListText.visible = false;
-  settingsInfoText.visible = false;
-  renderer.root.add(settingsBox);
-  renderer.root.add(settingsTitle);
-  renderer.root.add(settingsHelp);
-  renderer.root.add(settingsListText);
-  renderer.root.add(settingsInfoText);
   const keyModalBox = new BoxRenderable(renderer, {
     id: "key-modal-box",
     width: 70,
@@ -20509,65 +20128,6 @@ function buildLayout(renderer, getFooterText) {
   renderer.root.add(keyModalLabel);
   renderer.root.add(keyModalInput);
   renderer.root.add(keyModalHelp);
-  const envKeyModalBox = new BoxRenderable(renderer, {
-    id: "env-key-modal-box",
-    width: 78,
-    height: 14,
-    position: "absolute",
-    left: 8,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#7dd3fc",
-    border: true,
-    zIndex: 11
-  });
-  const envKeyModalTitle = new TextRenderable(renderer, {
-    id: "env-key-modal-title",
-    content: "Settings - API Key",
-    fg: "#7dd3fc",
-    position: "absolute",
-    left: 10,
-    top: 7,
-    zIndex: 12
-  });
-  const envKeyModalHelp = new TextRenderable(renderer, {
-    id: "env-key-modal-help",
-    content: "Enter apply | j/k navigate | r rescan | m manual | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 10,
-    top: 8,
-    zIndex: 12
-  });
-  const envKeyModalListText = new TextRenderable(renderer, {
-    id: "env-key-modal-list",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 10,
-    top: 9,
-    zIndex: 12
-  });
-  const envKeyModalInfoText = new TextRenderable(renderer, {
-    id: "env-key-modal-info",
-    content: "",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 10,
-    top: 13,
-    zIndex: 12
-  });
-  envKeyModalBox.visible = false;
-  envKeyModalTitle.visible = false;
-  envKeyModalHelp.visible = false;
-  envKeyModalListText.visible = false;
-  envKeyModalInfoText.visible = false;
-  renderer.root.add(envKeyModalBox);
-  renderer.root.add(envKeyModalTitle);
-  renderer.root.add(envKeyModalHelp);
-  renderer.root.add(envKeyModalListText);
-  renderer.root.add(envKeyModalInfoText);
   const loginModalBox = new BoxRenderable(renderer, {
     id: "login-modal-box",
     width: 60,
@@ -20666,23 +20226,11 @@ function buildLayout(renderer, getFooterText) {
     promptBrowserText,
     promptBrowserHint,
     promptBrowserVisible: false,
-    settingsBox,
-    settingsTitle,
-    settingsHelp,
-    settingsListText,
-    settingsInfoText,
-    settingsModalVisible: false,
     keyModalBox,
     keyModalLabel,
     keyModalInput,
     keyModalHelp,
     keyModalVisible: false,
-    envKeyModalBox,
-    envKeyModalTitle,
-    envKeyModalHelp,
-    envKeyModalListText,
-    envKeyModalInfoText,
-    envKeyModalVisible: false,
     loginModalBox,
     loginModalTitle,
     loginModalText,
@@ -21418,19 +20966,17 @@ function updatePaneIndicators(ctx) {
 }
 
 // src/ui/text.ts
-init_client();
 function formatHeaderMeta(ctx) {
   const { snapshot: snapshot2 } = ctx.state;
   const org = snapshot2.orgId || "-";
   const user = snapshot2.userId || "-";
   const balance = snapshot2.balanceDollars == null ? "-" : `$${snapshot2.balanceDollars.toFixed(2)}`;
-  const backendLabel = getBackendConfig().label;
-  return `backend: ${backendLabel}  org: ${org}  user: ${user}  balance: ${balance}`;
+  return `org: ${org}  user: ${user}  balance: ${balance}`;
 }
 function formatStatus(ctx) {
   const { snapshot: snapshot2, appState: appState2 } = ctx.state;
   const ts = snapshot2.lastRefresh ? new Date(snapshot2.lastRefresh).toLocaleTimeString() : "-";
-  const baseLabel = getActiveBaseRoot().replace(/^https?:\/\//, "");
+  const baseLabel = (process.env.SYNTH_BACKEND_URL || "").replace(/^https?:\/\//, "");
   const health = `health=${appState2.healthStatus}`;
   if (snapshot2.lastError) {
     return `Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot2.lastError}`;
@@ -21441,7 +20987,7 @@ function footerText(ctx) {
   const { appState: appState2 } = ctx.state;
   const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
   const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
-  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
+  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
 }
 
 // src/ui/render.ts
@@ -21455,8 +21001,25 @@ function renderApp(ctx) {
     const score = job.best_score == null ? "-" : job.best_score.toFixed(4);
     const label = job.training_type || (job.job_source === "learning" ? "eval" : "prompt");
     const envName = extractEnvName(job);
-    const desc = envName ? `${job.status} | ${label} | ${envName} | ${score}` : `${job.status} | ${label} | ${score}`;
-    return { name: shortId, description: desc, value: job.job_id };
+    const currentYear = new Date().getFullYear();
+    let dateStr = "";
+    if (job.created_at) {
+      const d = new Date(job.created_at);
+      const jobYear = d.getFullYear();
+      const opts = {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      };
+      if (jobYear !== currentYear) {
+        opts.year = "numeric";
+      }
+      dateStr = d.toLocaleString("en-US", opts);
+    }
+    const name = dateStr ? `${shortId} - ${dateStr}` : shortId;
+    const desc = [job.status, label, envName, score].filter(Boolean).join(" | ");
+    return { name, description: desc, value: job.job_id };
   }) : [
     {
       name: "no jobs",
@@ -21479,19 +21042,9 @@ function renderApp(ctx) {
 // src/auth.ts
 import { spawn } from "child_process";
 var POLL_INTERVAL_MS = 3000;
-function getFrontendUrl(backend) {
-  switch (backend) {
-    case "prod":
-      return process.env.SYNTH_TUI_FRONTEND_PROD || "https://www.usesynth.ai";
-    case "dev":
-      return process.env.SYNTH_TUI_FRONTEND_DEV || "https://synth-frontend-dev.onrender.com";
-    case "local":
-      return process.env.SYNTH_TUI_FRONTEND_LOCAL || "http://localhost:3000";
-  }
-}
-async function initAuthSession(backend) {
-  const frontendUrl = getFrontendUrl(backend);
-  const initUrl = `${frontendUrl}/api/sdk/handshake/init`;
+var FRONTEND_URL = process.env.SYNTH_FRONTEND_URL;
+async function initAuthSession() {
+  const initUrl = `${FRONTEND_URL}/api/sdk/handshake/init`;
   const res = await fetch(initUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" }
@@ -21513,9 +21066,8 @@ async function initAuthSession(backend) {
     expiresAt: Date.now() + expiresIn * 1000
   };
 }
-async function pollForToken(backend, deviceCode) {
-  const frontendUrl = getFrontendUrl(backend);
-  const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`;
+async function pollForToken(deviceCode) {
+  const tokenUrl = `${FRONTEND_URL}/api/sdk/handshake/token`;
   try {
     const res = await fetch(tokenUrl, {
       method: "POST",
@@ -21565,19 +21117,19 @@ function openBrowser(url) {
     child.unref();
   } catch {}
 }
-async function runDeviceCodeAuth(backend, onStatus) {
+async function runDeviceCodeAuth(onStatus) {
   const updateStatus = (status) => {
     if (onStatus)
       onStatus(status);
   };
   try {
     updateStatus({ state: "initializing" });
-    const session = await initAuthSession(backend);
+    const session = await initAuthSession();
     updateStatus({ state: "waiting", verificationUri: session.verificationUri });
     openBrowser(session.verificationUri);
     updateStatus({ state: "polling" });
     while (Date.now() < session.expiresAt) {
-      const result = await pollForToken(backend, session.deviceCode);
+      const result = await pollForToken(session.deviceCode);
       if (result.apiKey) {
         updateStatus({ state: "success", apiKey: result.apiKey });
         return { success: true, apiKey: result.apiKey, error: null };
@@ -21586,7 +21138,6 @@ async function runDeviceCodeAuth(backend, onStatus) {
         updateStatus({ state: "error", message: "Authentication timed out" });
         return { success: false, apiKey: null, error: "Authentication timed out" };
       }
-      if (result.error) {}
       await sleep(POLL_INTERVAL_MS);
     }
     updateStatus({ state: "error", message: "Authentication timed out" });
@@ -21606,18 +21157,7 @@ function createLoginModal(deps) {
   let loginModalVisible = false;
   let loginAuthStatus = { state: "idle" };
   let loginAuthInProgress = false;
-  const {
-    ui,
-    renderer,
-    getCurrentBackend,
-    getBackendConfig: getBackendConfig2,
-    setBackendKey,
-    persistSettings,
-    bootstrap,
-    getSnapshot,
-    renderSnapshot,
-    getActivePane
-  } = deps;
+  const { ui, renderer, bootstrap, getSnapshot, renderSnapshot, getActivePane } = deps;
   function updateUIVisibility(visible) {
     loginModalVisible = visible;
     ui.loginModalVisible = visible;
@@ -21687,7 +21227,7 @@ function createLoginModal(deps) {
       ui.loginModalHelp.top = top + height - 2;
       loginAuthStatus = { state: "idle" };
       loginAuthInProgress = false;
-      ui.loginModalTitle.content = `Sign In / Sign Up`;
+      ui.loginModalTitle.content = "Sign In / Sign Up";
       ui.loginModalText.content = "Press Enter to open browser";
       ui.loginModalHelp.content = "Enter start | q cancel";
       ui.jobsSelect.blur();
@@ -21702,15 +21242,10 @@ function createLoginModal(deps) {
     if (loginAuthInProgress)
       return;
     loginAuthInProgress = true;
-    const currentBackend = getCurrentBackend();
-    const result = await runDeviceCodeAuth(currentBackend, updateLoginModalStatus);
+    const result = await runDeviceCodeAuth(updateLoginModalStatus);
     loginAuthInProgress = false;
     if (result.success && result.apiKey) {
-      setBackendKey(currentBackend, result.apiKey, {
-        sourcePath: "browser-auth",
-        varName: null
-      });
-      await persistSettings();
+      process.env.SYNTH_API_KEY = result.apiKey;
       toggle(false);
       const snapshot2 = getSnapshot();
       snapshot2.lastError = null;
@@ -21720,9 +21255,7 @@ function createLoginModal(deps) {
     }
   }
   async function logout() {
-    const currentBackend = getCurrentBackend();
-    setBackendKey(currentBackend, "", { sourcePath: null, varName: null });
-    await persistSettings();
+    process.env.SYNTH_API_KEY = "";
     const snapshot2 = getSnapshot();
     snapshot2.jobs = [];
     snapshot2.selectedJob = null;
@@ -21738,7 +21271,7 @@ function createLoginModal(deps) {
     snapshot2.balanceDollars = null;
     snapshot2.lastRefresh = null;
     snapshot2.allCandidates = [];
-    snapshot2.lastError = `Logged out from ${getBackendConfig2().label}`;
+    snapshot2.lastError = "Logged out";
     snapshot2.status = "Sign in required";
     renderSnapshot();
     toggle(true);
@@ -22087,122 +21620,6 @@ function createConfigModal(ctx) {
     handleKey
   };
 }
-// src/modals/settings-modal.ts
-function createSettingsModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, backendConfigs: backendConfigs2, backendKeys: backendKeys2 } = ctx.state;
-  function buildSettingsOptions() {
-    return [backendConfigs2.prod, backendConfigs2.dev, backendConfigs2.local];
-  }
-  function toggle(visible) {
-    ui.settingsModalVisible = visible;
-    ui.settingsBox.visible = visible;
-    ui.settingsTitle.visible = visible;
-    ui.settingsHelp.visible = visible;
-    ui.settingsListText.visible = visible;
-    ui.settingsInfoText.visible = visible;
-    if (visible) {
-      appState2.settingsOptions = buildSettingsOptions();
-      appState2.settingsCursor = Math.max(0, appState2.settingsOptions.findIndex((opt) => opt.id === appState2.currentBackend));
-      ui.jobsSelect.blur();
-      renderList();
-    } else if (appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
-    }
-    renderer.requestRender();
-  }
-  function renderList() {
-    const lines = [];
-    for (let idx = 0;idx < appState2.settingsOptions.length; idx++) {
-      const opt = appState2.settingsOptions[idx];
-      const active = appState2.currentBackend === opt.id;
-      const cursor = idx === appState2.settingsCursor ? ">" : " ";
-      lines.push(`${cursor} [${active ? "x" : " "}] ${opt.label} (${opt.id})`);
-    }
-    ui.settingsListText.content = lines.join(`
-`);
-    const selected = appState2.settingsOptions[appState2.settingsCursor];
-    if (selected) {
-      const key = backendKeys2[selected.id];
-      const keyPreview = key ? `${key.slice(0, 5)}...` : "(no key)";
-      ui.settingsInfoText.content = `URL: ${selected.baseUrl}
-Key: ${keyPreview}`;
-    } else {
-      ui.settingsInfoText.content = "";
-    }
-    renderer.requestRender();
-  }
-  function move(delta) {
-    const max = Math.max(0, appState2.settingsOptions.length - 1);
-    appState2.settingsCursor = clamp2(appState2.settingsCursor + delta, 0, max);
-    renderList();
-  }
-  async function select() {
-    const selected = appState2.settingsOptions[appState2.settingsCursor];
-    if (!selected)
-      return;
-    appState2.currentBackend = selected.id;
-    toggle(false);
-    ctx.render();
-    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
-    await persistSettings2({
-      settingsFilePath: ctx.state.config.settingsFilePath,
-      getCurrentBackend: () => appState2.currentBackend,
-      getBackendKey: (id) => backendKeys2[id],
-      getBackendKeySource: (id) => ctx.state.backendKeySources[id]
-    });
-  }
-  function open() {
-    toggle(true);
-  }
-  function openKeyModal() {
-    toggle(false);
-  }
-  function openEnvKeyModal() {
-    toggle(false);
-  }
-  function handleKey(key) {
-    if (!ui.settingsModalVisible)
-      return false;
-    if (key.name === "up" || key.name === "k") {
-      move(-1);
-      return true;
-    }
-    if (key.name === "down" || key.name === "j") {
-      move(1);
-      return true;
-    }
-    if (key.name === "return" || key.name === "enter") {
-      select();
-      return true;
-    }
-    if (key.name === "k" && key.shift) {
-      openKeyModal();
-      return true;
-    }
-    if (key.name === "e" && key.shift) {
-      openEnvKeyModal();
-      return true;
-    }
-    if (key.name === "q" || key.name === "escape") {
-      toggle(false);
-      return true;
-    }
-    return true;
-  }
-  return {
-    get isVisible() {
-      return ui.settingsModalVisible;
-    },
-    toggle,
-    open,
-    move,
-    select,
-    openKeyModal,
-    openEnvKeyModal,
-    handleKey
-  };
-}
 // src/modals/filter-modal.ts
 function createFilterModal(ctx) {
   const { ui, renderer } = ctx;
@@ -22389,7 +21806,7 @@ function createJobFilterModal(ctx) {
 // src/modals/key-modal.ts
 function createKeyModal(ctx) {
   const { ui, renderer } = ctx;
-  const { appState: appState2, backendKeys: backendKeys2, backendKeySources: backendKeySources2, config: config2 } = ctx.state;
+  const { appState: appState2 } = ctx.state;
   function toggle(visible) {
     ui.keyModalVisible = visible;
     ui.keyModalBox.visible = visible;
@@ -22399,7 +21816,7 @@ function createKeyModal(ctx) {
     if (visible) {
       ui.keyModalInput.value = "";
       ui.keyModalInput.focus();
-      ui.keyModalLabel.content = `API Key for ${appState2.keyModalBackend}:`;
+      ui.keyModalLabel.content = "API Key:";
       ui.keyModalHelp.content = "Paste or type key | Enter to apply | q to cancel";
     } else if (appState2.activePane === "jobs") {
       ui.jobsSelect.focus();
@@ -22407,7 +21824,6 @@ function createKeyModal(ctx) {
     renderer.requestRender();
   }
   function open() {
-    appState2.keyModalBackend = appState2.currentBackend;
     toggle(true);
   }
   async function apply(value) {
@@ -22416,19 +21832,8 @@ function createKeyModal(ctx) {
       toggle(false);
       return;
     }
-    backendKeys2[appState2.keyModalBackend] = trimmed;
-    backendKeySources2[appState2.keyModalBackend] = {
-      sourcePath: "manual-input",
-      varName: null
-    };
+    process.env.SYNTH_API_KEY = trimmed;
     toggle(false);
-    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
-    await persistSettings2({
-      settingsFilePath: config2.settingsFilePath,
-      getCurrentBackend: () => appState2.currentBackend,
-      getBackendKey: (id) => backendKeys2[id],
-      getBackendKeySource: (id) => backendKeySources2[id]
-    });
     ctx.state.snapshot.status = "API key updated";
     ctx.render();
   }
@@ -22489,156 +21894,6 @@ function createKeyModal(ctx) {
     handleKey
   };
 }
-// src/modals/env-key-modal.ts
-init_env();
-function createEnvKeyModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, backendKeys: backendKeys2, backendKeySources: backendKeySources2, config: config2 } = ctx.state;
-  function toggle(visible) {
-    ui.envKeyModalVisible = visible;
-    ui.envKeyModalBox.visible = visible;
-    ui.envKeyModalTitle.visible = visible;
-    ui.envKeyModalHelp.visible = visible;
-    ui.envKeyModalListText.visible = visible;
-    ui.envKeyModalInfoText.visible = visible;
-    if (!visible && appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
-    }
-    renderer.requestRender();
-  }
-  function renderList() {
-    if (appState2.envKeyScanInProgress) {
-      ui.envKeyModalListText.content = "Scanning...";
-      ui.envKeyModalInfoText.content = "";
-      renderer.requestRender();
-      return;
-    }
-    if (appState2.envKeyError) {
-      ui.envKeyModalListText.content = `Error: ${appState2.envKeyError}`;
-      ui.envKeyModalInfoText.content = "";
-      renderer.requestRender();
-      return;
-    }
-    if (!appState2.envKeyOptions.length) {
-      ui.envKeyModalListText.content = "No API keys found in .env files";
-      ui.envKeyModalInfoText.content = "";
-      renderer.requestRender();
-      return;
-    }
-    const max = Math.max(0, appState2.envKeyOptions.length - 1);
-    appState2.envKeyCursor = clamp2(appState2.envKeyCursor, 0, max);
-    const start = clamp2(appState2.envKeyWindowStart, 0, Math.max(0, max));
-    const end = Math.min(appState2.envKeyOptions.length, start + config2.envKeyVisibleCount);
-    const lines = [];
-    for (let idx = start;idx < end; idx++) {
-      const option = appState2.envKeyOptions[idx];
-      const cursor = idx === appState2.envKeyCursor ? ">" : " ";
-      const preview = option.key ? `${option.key.slice(0, 8)}...` : "(empty)";
-      lines.push(`${cursor} ${preview}`);
-    }
-    ui.envKeyModalListText.content = lines.join(`
-`);
-    const selected = appState2.envKeyOptions[appState2.envKeyCursor];
-    if (selected) {
-      const sources = selected.sources.slice(0, 2).join(", ");
-      const suffix = selected.sources.length > 2 ? ` +${selected.sources.length - 2}` : "";
-      ui.envKeyModalInfoText.content = `Source: ${sources}${suffix}
-Vars: ${selected.varNames.join(", ")}`;
-    } else {
-      ui.envKeyModalInfoText.content = "";
-    }
-    renderer.requestRender();
-  }
-  function move(delta) {
-    const max = Math.max(0, appState2.envKeyOptions.length - 1);
-    appState2.envKeyCursor = clamp2(appState2.envKeyCursor + delta, 0, max);
-    if (appState2.envKeyCursor < appState2.envKeyWindowStart) {
-      appState2.envKeyWindowStart = appState2.envKeyCursor;
-    } else if (appState2.envKeyCursor >= appState2.envKeyWindowStart + config2.envKeyVisibleCount) {
-      appState2.envKeyWindowStart = appState2.envKeyCursor - config2.envKeyVisibleCount + 1;
-    }
-    renderList();
-  }
-  async function rescan() {
-    appState2.envKeyScanInProgress = true;
-    appState2.envKeyError = null;
-    renderList();
-    try {
-      appState2.envKeyOptions = await scanEnvKeys(config2.envKeyScanRoot);
-      appState2.envKeyCursor = 0;
-      appState2.envKeyWindowStart = 0;
-    } catch (err) {
-      appState2.envKeyError = err?.message || "Scan failed";
-    } finally {
-      appState2.envKeyScanInProgress = false;
-      renderList();
-    }
-  }
-  async function open() {
-    toggle(true);
-    await rescan();
-  }
-  async function select() {
-    const selected = appState2.envKeyOptions[appState2.envKeyCursor];
-    if (!selected)
-      return;
-    backendKeys2[appState2.currentBackend] = selected.key;
-    backendKeySources2[appState2.currentBackend] = {
-      sourcePath: selected.sources[0] || null,
-      varName: selected.varNames[0] || null
-    };
-    toggle(false);
-    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
-    await persistSettings2({
-      settingsFilePath: config2.settingsFilePath,
-      getCurrentBackend: () => appState2.currentBackend,
-      getBackendKey: (id) => backendKeys2[id],
-      getBackendKeySource: (id) => backendKeySources2[id]
-    });
-    ctx.state.snapshot.status = "API key loaded from env file";
-    ctx.render();
-  }
-  function handleKey(key) {
-    if (!ui.envKeyModalVisible)
-      return false;
-    if (key.name === "q" || key.name === "escape") {
-      toggle(false);
-      return true;
-    }
-    if (key.name === "return" || key.name === "enter") {
-      select();
-      return true;
-    }
-    if (key.name === "up" || key.name === "k") {
-      move(-1);
-      return true;
-    }
-    if (key.name === "down" || key.name === "j") {
-      move(1);
-      return true;
-    }
-    if (key.name === "r") {
-      rescan();
-      return true;
-    }
-    if (key.name === "m") {
-      toggle(false);
-      return true;
-    }
-    return true;
-  }
-  return {
-    get isVisible() {
-      return ui.envKeyModalVisible;
-    },
-    toggle,
-    open,
-    move,
-    select,
-    rescan,
-    handleKey
-  };
-}
 // src/modals/snapshot-modal.ts
 function createSnapshotModal(ctx) {
   const { ui, renderer } = ctx;
@@ -22672,7 +21927,7 @@ function createSnapshotModal(ctx) {
     }
     toggle(false);
     try {
-      const { apiGet: apiGet2 } = await Promise.resolve().then(() => (init_client(), exports_client));
+      const { apiGet: apiGet2 } = await Promise.resolve().then(() => exports_client);
       await apiGet2(`/prompt-learning/online/jobs/${job.job_id}/snapshots/${trimmed}`);
       snapshot2.status = `Snapshot ${trimmed} fetched`;
     } catch (err) {
@@ -22719,16 +21974,8 @@ function createKeyboardHandler(ctx, modals) {
         modals.key.handleKey(key);
         return;
       }
-      if (modals.envKey.isVisible) {
-        modals.envKey.handleKey(key);
-        return;
-      }
       if (modals.jobFilter.isVisible) {
         modals.jobFilter.handleKey(key);
-        return;
-      }
-      if (modals.settings.isVisible) {
-        modals.settings.handleKey(key);
         return;
       }
       if (modals.event.isVisible) {
@@ -22769,10 +22016,6 @@ function createKeyboardHandler(ctx, modals) {
       modals.key.handleKey(key);
       return;
     }
-    if (modals.envKey.isVisible) {
-      modals.envKey.handleKey(key);
-      return;
-    }
     if (modals.event.isVisible) {
       modals.event.handleKey(key);
       return;
@@ -22787,10 +22030,6 @@ function createKeyboardHandler(ctx, modals) {
     }
     if (modals.promptBrowser?.isVisible) {
       modals.promptBrowser.handleKey(key);
-      return;
-    }
-    if (modals.settings.isVisible) {
-      modals.settings.handleKey(key);
       return;
     }
     if (modals.filter.isVisible) {
@@ -22826,17 +22065,13 @@ function createKeyboardHandler(ctx, modals) {
       return;
     }
     if (key.name === "l" && key.shift) {
-      ctx.state.backendKeys[appState2.currentBackend] = "";
+      process.env.SYNTH_API_KEY = "";
       snapshot2.status = "Logged out";
       ctx.render();
       return;
     }
     if (key.name === "f") {
       modals.filter.open();
-      return;
-    }
-    if (key.name === "t") {
-      modals.settings.open();
       return;
     }
     if (key.name === "i") {
@@ -22907,12 +22142,9 @@ function createPasteHandler(ctx, keyModal) {
 }
 
 // src/app.ts
-init_settings();
-init_app_state();
 init_jobs();
 
 // src/api/events.ts
-init_client();
 function clamp3(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
@@ -22956,9 +22188,9 @@ async function refreshEvents(ctx) {
     ] : [`/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`];
     let payload = null;
     let lastErr = null;
-    for (const path6 of paths) {
+    for (const path3 of paths) {
       try {
-        payload = await apiGet(path6);
+        payload = await apiGet(path3);
         lastErr = null;
         break;
       } catch (err) {
@@ -23005,7 +22237,6 @@ async function refreshEvents(ctx) {
 }
 
 // src/api/identity.ts
-init_client();
 async function refreshIdentity(ctx) {
   const { snapshot: snapshot2 } = ctx.state;
   try {
@@ -23028,16 +22259,96 @@ async function refreshIdentity(ctx) {
 async function refreshHealth2(ctx) {
   const { appState: appState2 } = ctx.state;
   try {
-    const { getActiveBaseRoot: getActiveBaseRoot2 } = await Promise.resolve().then(() => (init_client(), exports_client));
-    const res = await fetch(`${getActiveBaseRoot2()}/health`);
+    const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`);
     appState2.healthStatus = res.ok ? "ok" : `bad(${res.status})`;
   } catch (err) {
     appState2.healthStatus = `err(${err?.message || "unknown"})`;
   }
 }
 
+// src/api/jobs-stream.ts
+function connectJobsStream(onEvent, onError, sinceSeq = 0) {
+  let aborted = false;
+  const controller = new AbortController;
+  const url = `${process.env.SYNTH_BACKEND_URL}/api/jobs/stream?since_seq=${sinceSeq}`;
+  const apiKey = process.env.SYNTH_API_KEY || "";
+  (async () => {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "text/event-stream"
+        },
+        signal: controller.signal
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`SSE stream failed: HTTP ${res.status} ${res.statusText} - ${body.slice(0, 100)}`);
+      }
+      if (!res.body) {
+        throw new Error("SSE stream: no response body");
+      }
+      const reader = res.body.getReader();
+      const decoder2 = new TextDecoder;
+      let buffer = "";
+      let currentEvent = {};
+      while (!aborted) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        buffer += decoder2.decode(value, { stream: true });
+        const lines = buffer.split(`
+`);
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.startsWith(":")) {
+            continue;
+          }
+          if (line === "") {
+            if (currentEvent.data) {
+              try {
+                const data = JSON.parse(currentEvent.data);
+                onEvent(data);
+              } catch {}
+            }
+            currentEvent = {};
+            continue;
+          }
+          const colonIdx = line.indexOf(":");
+          if (colonIdx === -1)
+            continue;
+          const field = line.slice(0, colonIdx);
+          let value2 = line.slice(colonIdx + 1);
+          if (value2.startsWith(" "))
+            value2 = value2.slice(1);
+          switch (field) {
+            case "event":
+              currentEvent.type = value2;
+              break;
+            case "data":
+              currentEvent.data = (currentEvent.data ?? "") + value2;
+              break;
+            case "id":
+              currentEvent.id = value2;
+              break;
+          }
+        }
+      }
+    } catch (err) {
+      if (!aborted && err?.name !== "AbortError") {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+  })();
+  return {
+    disconnect: () => {
+      aborted = true;
+      controller.abort();
+    }
+  };
+}
+
 // src/app.ts
-init_client();
 async function runApp() {
   const renderer = await createCliRenderer({
     useConsole: false,
@@ -23055,37 +22366,9 @@ async function runApp() {
     ui,
     render
   });
-  await loadPersistedSettings({
-    settingsFilePath: ctx.state.config.settingsFilePath,
-    normalizeBackendId,
-    setCurrentBackend: (id) => {
-      ctx.state.appState.currentBackend = id;
-    },
-    setBackendKey: (id, key) => {
-      ctx.state.backendKeys[id] = key;
-    },
-    setBackendKeySource: (id, source) => {
-      ctx.state.backendKeySources[id] = source;
-    }
-  });
   const loginModal = createLoginModal({
     ui,
     renderer,
-    getCurrentBackend: () => ctx.state.appState.currentBackend,
-    getBackendConfig: () => ctx.state.backendConfigs[ctx.state.appState.currentBackend],
-    getBackendKeys: () => ctx.state.backendKeys,
-    setBackendKey: (backend, key, source) => {
-      ctx.state.backendKeys[backend] = key;
-      ctx.state.backendKeySources[backend] = source;
-    },
-    persistSettings: async () => {
-      await persistSettings({
-        settingsFilePath: ctx.state.config.settingsFilePath,
-        getCurrentBackend: () => ctx.state.appState.currentBackend,
-        getBackendKey: (id) => ctx.state.backendKeys[id],
-        getBackendKeySource: (id) => ctx.state.backendKeySources[id]
-      });
-    },
     bootstrap: async () => {
       await bootstrap();
     },
@@ -23096,22 +22379,18 @@ async function runApp() {
   const eventModal = createEventModal(ctx);
   const resultsModal = createResultsModal(ctx);
   const configModal = createConfigModal(ctx);
-  const settingsModal = createSettingsModal(ctx);
   const filterModal = createFilterModal(ctx);
   const jobFilterModal = createJobFilterModal(ctx);
   const keyModal = createKeyModal(ctx);
-  const envKeyModal = createEnvKeyModal(ctx);
   const snapshotModal = createSnapshotModal(ctx);
   const modals = {
     login: loginModal,
     event: eventModal,
     results: resultsModal,
     config: configModal,
-    settings: settingsModal,
     filter: filterModal,
     jobFilter: jobFilterModal,
     key: keyModal,
-    envKey: envKeyModal,
     snapshot: snapshotModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
@@ -23150,8 +22429,8 @@ async function runApp() {
   renderer.start();
   ui.jobsSelect.focus();
   render();
-  if (!getActiveApiKey()) {
-    ctx.state.snapshot.lastError = `Missing API key for ${ctx.state.backendConfigs[ctx.state.appState.currentBackend].label}`;
+  if (!process.env.SYNTH_API_KEY) {
+    ctx.state.snapshot.lastError = "Missing API key";
     ctx.state.snapshot.status = "Sign in required";
     render();
     loginModal.toggle(true);
@@ -23172,20 +22451,88 @@ async function runApp() {
     } else if (ctx.state.snapshot.jobs.length > 0) {
       await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id);
     }
-    scheduleJobsPoll();
+    startJobsStream();
     scheduleEventsPoll();
     setInterval(() => void refreshHealth2(ctx), 30000);
     setInterval(() => void refreshIdentity(ctx).then(() => render()), 60000);
     render();
   }
+  function startJobsStream() {
+    const { pollingState: pollingState2 } = ctx.state;
+    if (!process.env.SYNTH_API_KEY) {
+      scheduleJobsPoll();
+      return;
+    }
+    const stream = connectJobsStream((event) => handleJobStreamEvent(event), (err) => handleJobStreamError(err), pollingState2.lastSseSeq);
+    pollingState2.sseConnected = true;
+    pollingState2.sseDisconnect = stream.disconnect;
+    pollingState2.sseReconnectDelay = 1000;
+    clearJobsTimer();
+  }
+  function handleJobStreamEvent(event) {
+    const { snapshot: snapshot2, pollingState: pollingState2 } = ctx.state;
+    pollingState2.lastSseSeq = event.seq;
+    const selectedJobId = snapshot2.selectedJob?.job_id;
+    const idx = snapshot2.jobs.findIndex((j) => j.job_id === event.job_id);
+    if (event.type === "job.created" && idx === -1) {
+      snapshot2.jobs.unshift({
+        job_id: event.job_id,
+        status: event.status,
+        training_type: event.algorithm ?? null,
+        created_at: event.created_at ?? null,
+        started_at: event.started_at ?? null,
+        finished_at: event.finished_at ?? null,
+        best_score: null,
+        best_snapshot_id: null,
+        total_tokens: null,
+        total_cost_usd: null,
+        error: event.error ?? null,
+        job_source: event.job_type === "prompt_learning" ? "prompt-learning" : "learning"
+      });
+    } else if (idx !== -1) {
+      const job = snapshot2.jobs[idx];
+      job.status = event.status;
+      if (event.started_at)
+        job.started_at = event.started_at;
+      if (event.finished_at)
+        job.finished_at = event.finished_at;
+      if (event.error)
+        job.error = event.error;
+    }
+    render();
+    if (selectedJobId) {
+      const newIdx = snapshot2.jobs.findIndex((j) => j.job_id === selectedJobId);
+      if (newIdx !== -1) {
+        ui.jobsSelect.setSelectedIndex(newIdx);
+      }
+    }
+  }
+  function handleJobStreamError(_err) {
+    const { pollingState: pollingState2 } = ctx.state;
+    pollingState2.sseConnected = false;
+    pollingState2.sseDisconnect = null;
+    scheduleJobsPoll();
+    if (pollingState2.sseReconnectTimer) {
+      clearTimeout(pollingState2.sseReconnectTimer);
+    }
+    pollingState2.sseReconnectTimer = setTimeout(() => {
+      pollingState2.sseReconnectTimer = null;
+      startJobsStream();
+    }, pollingState2.sseReconnectDelay);
+    pollingState2.sseReconnectDelay = Math.min(pollingState2.sseReconnectDelay * 2, 30000);
+  }
   function scheduleJobsPoll() {
-    const { pollingState: pollingState2, config: config2 } = ctx.state;
+    const { pollingState: pollingState2 } = ctx.state;
+    if (pollingState2.sseConnected)
+      return;
     if (pollingState2.jobsTimer)
       clearTimeout(pollingState2.jobsTimer);
     pollingState2.jobsTimer = setTimeout(pollJobs, pollingState2.jobsPollMs);
   }
   async function pollJobs() {
     const { pollingState: pollingState2, config: config2 } = ctx.state;
+    if (pollingState2.sseConnected)
+      return;
     if (pollingState2.jobsInFlight) {
       scheduleJobsPoll();
       return;

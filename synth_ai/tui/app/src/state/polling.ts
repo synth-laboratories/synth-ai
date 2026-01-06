@@ -29,6 +29,12 @@ export const pollingState = {
   eventsInFlight: false,
   jobsTimer: null as ReturnType<typeof setTimeout> | null,
   eventsTimer: null as ReturnType<typeof setTimeout> | null,
+  // SSE state
+  sseConnected: false,
+  sseDisconnect: null as (() => void) | null,
+  sseReconnectTimer: null as ReturnType<typeof setTimeout> | null,
+  sseReconnectDelay: 1000, // Start with 1s, exponential backoff
+  lastSseSeq: 0,
 }
 
 export function clearJobsTimer(): void {

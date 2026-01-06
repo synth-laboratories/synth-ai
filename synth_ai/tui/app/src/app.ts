@@ -12,21 +12,18 @@ import {
   createEventModal,
   createResultsModal,
   createConfigModal,
-  createSettingsModal,
   createFilterModal,
   createJobFilterModal,
   createKeyModal,
-  createEnvKeyModal,
   createSnapshotModal,
 } from "./modals"
 
 import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
-import { loadPersistedSettings, persistSettings } from "./persistence/settings"
-import { normalizeBackendId } from "./state/app-state"
 import { refreshJobs, selectJob } from "./api/jobs"
 import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
-import { getActiveApiKey } from "./api/client"
+import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
+import { clearJobsTimer } from "./state/polling"
 
 export async function runApp(): Promise<void> {
   // Create renderer
@@ -53,40 +50,10 @@ export async function runApp(): Promise<void> {
     render,
   })
 
-  // Load persisted settings
-  await loadPersistedSettings({
-    settingsFilePath: ctx.state.config.settingsFilePath,
-    normalizeBackendId,
-    setCurrentBackend: (id) => {
-      ctx.state.appState.currentBackend = id
-    },
-    setBackendKey: (id, key) => {
-      ctx.state.backendKeys[id] = key
-    },
-    setBackendKeySource: (id, source) => {
-      ctx.state.backendKeySources[id] = source
-    },
-  })
-
   // Create modal controllers
   const loginModal = createLoginModal({
     ui,
     renderer,
-    getCurrentBackend: () => ctx.state.appState.currentBackend,
-    getBackendConfig: () => ctx.state.backendConfigs[ctx.state.appState.currentBackend],
-    getBackendKeys: () => ctx.state.backendKeys,
-    setBackendKey: (backend, key, source) => {
-      ctx.state.backendKeys[backend] = key
-      ctx.state.backendKeySources[backend] = source
-    },
-    persistSettings: async () => {
-      await persistSettings({
-        settingsFilePath: ctx.state.config.settingsFilePath,
-        getCurrentBackend: () => ctx.state.appState.currentBackend,
-        getBackendKey: (id) => ctx.state.backendKeys[id],
-        getBackendKeySource: (id) => ctx.state.backendKeySources[id],
-      })
-    },
     bootstrap: async () => {
       await bootstrap()
     },
@@ -98,11 +65,9 @@ export async function runApp(): Promise<void> {
   const eventModal = createEventModal(ctx)
   const resultsModal = createResultsModal(ctx)
   const configModal = createConfigModal(ctx)
-  const settingsModal = createSettingsModal(ctx)
   const filterModal = createFilterModal(ctx)
   const jobFilterModal = createJobFilterModal(ctx)
   const keyModal = createKeyModal(ctx)
-  const envKeyModal = createEnvKeyModal(ctx)
   const snapshotModal = createSnapshotModal(ctx)
 
   const modals = {
@@ -110,11 +75,9 @@ export async function runApp(): Promise<void> {
     event: eventModal,
     results: resultsModal,
     config: configModal,
-    settings: settingsModal,
     filter: filterModal,
     jobFilter: jobFilterModal,
     key: keyModal,
-    envKey: envKeyModal,
     snapshot: snapshotModal,
   }
 
@@ -168,8 +131,8 @@ export async function runApp(): Promise<void> {
   render()
 
   // Bootstrap
-  if (!getActiveApiKey()) {
-    ctx.state.snapshot.lastError = `Missing API key for ${ctx.state.backendConfigs[ctx.state.appState.currentBackend].label}`
+  if (!process.env.SYNTH_API_KEY) {
+    ctx.state.snapshot.lastError = "Missing API key"
     ctx.state.snapshot.status = "Sign in required"
     render()
     loginModal.toggle(true)
@@ -194,22 +157,122 @@ export async function runApp(): Promise<void> {
       await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id)
     }
 
-    scheduleJobsPoll()
+    // Start SSE connection for real-time job updates
+    startJobsStream()
+
+    // Events polling still needed (SSE is only for job list metadata)
     scheduleEventsPoll()
     setInterval(() => void refreshHealth(ctx), 30_000)
     setInterval(() => void refreshIdentity(ctx).then(() => render()), 60_000)
     render()
   }
 
+  // SSE stream for jobs list
+  function startJobsStream(): void {
+    const { pollingState } = ctx.state
+
+    if (!process.env.SYNTH_API_KEY) {
+      // No API key, fall back to polling
+      scheduleJobsPoll()
+      return
+    }
+
+    const stream = connectJobsStream(
+      (event) => handleJobStreamEvent(event),
+      (err) => handleJobStreamError(err),
+      pollingState.lastSseSeq,
+    )
+
+    // SSE connected - stop job polling
+    pollingState.sseConnected = true
+    pollingState.sseDisconnect = stream.disconnect
+    pollingState.sseReconnectDelay = 1000 // Reset backoff
+    clearJobsTimer()
+  }
+
+  function handleJobStreamEvent(event: JobStreamEvent): void {
+    const { snapshot, pollingState } = ctx.state
+
+    // Track sequence for reconnection
+    pollingState.lastSseSeq = event.seq
+
+    // Remember currently selected job to restore selection after render
+    const selectedJobId = snapshot.selectedJob?.job_id
+
+    const idx = snapshot.jobs.findIndex((j) => j.job_id === event.job_id)
+
+    if (event.type === "job.created" && idx === -1) {
+      // Add new job to top of list
+      snapshot.jobs.unshift({
+        job_id: event.job_id,
+        status: event.status,
+        training_type: event.algorithm ?? null,
+        created_at: event.created_at ?? null,
+        started_at: event.started_at ?? null,
+        finished_at: event.finished_at ?? null,
+        best_score: null,
+        best_snapshot_id: null,
+        total_tokens: null,
+        total_cost_usd: null,
+        error: event.error ?? null,
+        job_source: event.job_type === "prompt_learning" ? "prompt-learning" : "learning",
+      })
+    } else if (idx !== -1) {
+      // Update existing job
+      const job = snapshot.jobs[idx]
+      job.status = event.status
+      if (event.started_at) job.started_at = event.started_at
+      if (event.finished_at) job.finished_at = event.finished_at
+      if (event.error) job.error = event.error
+    }
+
+    render()
+
+    // Restore selection to previously selected job (not the new one)
+    if (selectedJobId) {
+      const newIdx = snapshot.jobs.findIndex((j) => j.job_id === selectedJobId)
+      if (newIdx !== -1) {
+        ui.jobsSelect.setSelectedIndex(newIdx)
+      }
+    }
+  }
+
+  function handleJobStreamError(_err: Error): void {
+    const { pollingState } = ctx.state
+
+    // SSE disconnected
+    pollingState.sseConnected = false
+    pollingState.sseDisconnect = null
+
+    // Resume polling as fallback
+    scheduleJobsPoll()
+
+    // Schedule reconnect with exponential backoff
+    if (pollingState.sseReconnectTimer) {
+      clearTimeout(pollingState.sseReconnectTimer)
+    }
+    pollingState.sseReconnectTimer = setTimeout(() => {
+      pollingState.sseReconnectTimer = null
+      startJobsStream()
+    }, pollingState.sseReconnectDelay)
+
+    // Exponential backoff: 1s, 2s, 4s, ... up to 30s
+    pollingState.sseReconnectDelay = Math.min(pollingState.sseReconnectDelay * 2, 30_000)
+  }
+
   // Polling
   function scheduleJobsPoll(): void {
-    const { pollingState, config } = ctx.state
+    const { pollingState } = ctx.state
+    // Don't schedule polling if SSE is connected
+    if (pollingState.sseConnected) return
     if (pollingState.jobsTimer) clearTimeout(pollingState.jobsTimer)
     pollingState.jobsTimer = setTimeout(pollJobs, pollingState.jobsPollMs)
   }
 
   async function pollJobs(): Promise<void> {
     const { pollingState, config } = ctx.state
+    // Skip polling if SSE is connected
+    if (pollingState.sseConnected) return
     if (pollingState.jobsInFlight) {
       scheduleJobsPoll()
       return
