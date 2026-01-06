@@ -4,12 +4,6 @@
 
 import type { JobEvent, JobSummary } from "./tui_data"
 
-export type EnvKeyOption = {
-  key: string
-  sources: string[]
-  varNames: string[]
-}
-
 /** A prompt candidate (snapshot) with score */
 export type PromptCandidate = {
   id: string
@@ -38,17 +32,4 @@ export type Snapshot = {
   lastRefresh: number | null
   /** All prompt candidates (baseline + optimized) */
   allCandidates: PromptCandidate[]
-}
-
-export type BackendId = "prod" | "dev" | "local"
-
-export type BackendConfig = {
-  id: BackendId
-  label: string
-  baseUrl: string
-}
-
-export type BackendKeySource = {
-  sourcePath: string | null
-  varName: string | null
 }

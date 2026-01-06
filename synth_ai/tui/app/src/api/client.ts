@@ -1,57 +1,16 @@
 /**
  * HTTP API client for backend communication.
+ *
+ * URLs come from launcher.py (which gets them from urls.py).
+ * API key comes from process.env.SYNTH_API_KEY.
  */
 
-import { appState, backendConfigs, backendKeys, type BackendId } from "../state/app-state"
-
-/** Ensure URL ends with /api */
-function ensureApiBase(url: string): string {
-  let base = (url ?? "").trim().replace(/\/+$/, "")
-  if (!base) return ""
-  if (!base.endsWith("/api")) {
-    base = base + "/api"
-  }
-  return base
-}
-
-export function getBackendConfig(id: BackendId = appState.currentBackend): {
-  id: BackendId
-  label: string
-  baseUrl: string
-  baseRoot: string
-  apiKey: string
-} {
-  const config = backendConfigs[id]
-  const envOverride = ensureApiBase(process.env.SYNTH_TUI_API_BASE || "")
-  const baseUrl = envOverride || config.baseUrl
-  return {
-    id,
-    label: config.label,
-    baseUrl,
-    baseRoot: baseUrl.replace(/\/api$/, ""),
-    apiKey: backendKeys[id],
-  }
-}
-
-export function getActiveApiKey(): string {
-  return getBackendConfig().apiKey
-}
-
-export function getActiveBaseUrl(): string {
-  return getBackendConfig().baseUrl
-}
-
-export function getActiveBaseRoot(): string {
-  return getBackendConfig().baseRoot
-}
-
 export async function apiGet(path: string): Promise<any> {
-  const { baseUrl, apiKey, label } = getBackendConfig()
-  if (!apiKey) {
-    throw new Error(`Missing API key for ${label}`)
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key")
   }
-  const res = await fetch(`${baseUrl}${path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path}`, {
+    headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` },
   })
   if (!res.ok) {
     const body = await res.text().catch(() => "")
@@ -62,12 +21,11 @@ export async function apiGet(path: string): Promise<any> {
 }
 
 export async function apiGetV1(path: string): Promise<any> {
-  const { baseRoot, apiKey, label } = getBackendConfig()
-  if (!apiKey) {
-    throw new Error(`Missing API key for ${label}`)
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key")
   }
-  const res = await fetch(`${baseRoot}/api/v1${path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path}`, {
+    headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` },
   })
   if (!res.ok) {
     const body = await res.text().catch(() => "")
@@ -78,14 +36,13 @@ export async function apiGetV1(path: string): Promise<any> {
 }
 
 export async function apiPost(path: string, body: any): Promise<any> {
-  const { baseUrl, apiKey, label } = getBackendConfig()
-  if (!apiKey) {
-    throw new Error(`Missing API key for ${label}`)
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key")
   }
-  const res = await fetch(`${baseUrl}${path}`, {
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${process.env.SYNTH_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -100,7 +57,7 @@ export async function apiPost(path: string, body: any): Promise<any> {
 
 export async function refreshHealth(): Promise<string> {
   try {
-    const res = await fetch(`${getActiveBaseRoot()}/health`)
+    const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`)
     return res.ok ? "ok" : `bad(${res.status})`
   } catch (err: any) {
     return `err(${err?.message || "unknown"})`
