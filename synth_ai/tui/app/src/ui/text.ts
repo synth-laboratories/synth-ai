@@ -3,23 +3,16 @@
  */
 import type { AppContext } from "../context"
 
-export function formatHeaderMeta(ctx: AppContext): string {
-  const { snapshot } = ctx.state
-  const org = snapshot.orgId || "-"
-  const user = snapshot.userId || "-"
-  const balance = snapshot.balanceDollars == null ? "-" : `$${snapshot.balanceDollars.toFixed(2)}`
-  return `org: ${org}  user: ${user}  balance: ${balance}`
-}
-
 export function formatStatus(ctx: AppContext): string {
   const { snapshot, appState } = ctx.state
+  const balance = snapshot.balanceDollars == null ? "-" : `$${snapshot.balanceDollars.toFixed(2)}`
   const ts = snapshot.lastRefresh ? new Date(snapshot.lastRefresh).toLocaleTimeString() : "-"
   const baseLabel = (process.env.SYNTH_BACKEND_URL || "").replace(/^https?:\/\//, "")
   const health = `health=${appState.healthStatus}`
   if (snapshot.lastError) {
-    return `Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot.lastError}`
+    return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot.lastError}`
   }
-  return `Last refresh: ${ts} | ${health} | ${baseLabel} | ${snapshot.status}`
+  return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${baseLabel} | ${snapshot.status}`
 }
 
 export function footerText(ctx: AppContext): string {
@@ -28,7 +21,8 @@ export function footerText(ctx: AppContext): string {
   const jobFilterLabel = appState.jobStatusFilter.size
     ? `status=${Array.from(appState.jobStatusFilter).join(",")}`
     : "status=all"
-  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`
+  const profileKey = process.env.SYNTH_API_KEY ? " | p profile" : ""
+  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | o results | s snapshot${profileKey} | q quit`
 }
 
 
