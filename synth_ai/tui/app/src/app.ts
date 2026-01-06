@@ -16,6 +16,7 @@ import {
   createJobFilterModal,
   createKeyModal,
   createSnapshotModal,
+  createProfileModal,
 } from "./modals"
 
 import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
@@ -52,7 +53,6 @@ export async function runApp(): Promise<void> {
 
   // Create modal controllers
   const loginModal = createLoginModal({
-    ui,
     renderer,
     bootstrap: async () => {
       await bootstrap()
@@ -60,6 +60,8 @@ export async function runApp(): Promise<void> {
     getSnapshot: () => ctx.state.snapshot,
     renderSnapshot: render,
     getActivePane: () => ctx.state.appState.activePane,
+    focusJobsSelect: () => ui.jobsSelect.focus(),
+    blurJobsSelect: () => ui.jobsSelect.blur(),
   })
 
   const eventModal = createEventModal(ctx)
@@ -69,6 +71,7 @@ export async function runApp(): Promise<void> {
   const jobFilterModal = createJobFilterModal(ctx)
   const keyModal = createKeyModal(ctx)
   const snapshotModal = createSnapshotModal(ctx)
+  const profileModal = createProfileModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -79,6 +82,7 @@ export async function runApp(): Promise<void> {
     jobFilter: jobFilterModal,
     key: keyModal,
     snapshot: snapshotModal,
+    profile: profileModal,
   }
 
   // Create keyboard handler
