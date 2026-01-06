@@ -19,6 +19,7 @@ import {
   createProfileModal,
   createUrlsModal,
 } from "./modals"
+import { createCreateJobModal } from "./modals/create-job-modal"
 
 import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
 import { refreshJobs, selectJob } from "./api/jobs"
@@ -26,6 +27,7 @@ import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
 import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
 import { clearJobsTimer } from "./state/polling"
+import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
 
 export async function runApp(): Promise<void> {
   // Create renderer
@@ -74,6 +76,7 @@ export async function runApp(): Promise<void> {
   const snapshotModal = createSnapshotModal(ctx)
   const profileModal = createProfileModal(ctx)
   const urlsModal = createUrlsModal(renderer)
+  const createJobModal = createCreateJobModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -86,6 +89,7 @@ export async function runApp(): Promise<void> {
     snapshot: snapshotModal,
     profile: profileModal,
     urls: urlsModal,
+    createJob: createJobModal,
   }
 
   // Create keyboard handler
@@ -138,17 +142,50 @@ export async function runApp(): Promise<void> {
   render()
 
   // Bootstrap
-  if (!process.env.SYNTH_API_KEY) {
-    ctx.state.snapshot.lastError = "Missing API key"
+  const loggedOutMarkerSet = isLoggedOutMarkerSet()
+
+  if (loggedOutMarkerSet) {
+    // User explicitly logged out previously - don't auto-login
     ctx.state.snapshot.status = "Sign in required"
     render()
     loginModal.toggle(true)
   } else {
-    bootstrap().catch((err) => {
-      ctx.state.snapshot.lastError = err?.message || "Bootstrap failed"
-      ctx.state.snapshot.status = "Startup error"
+    // Try to load saved API key if not already in env
+    if (!process.env.SYNTH_API_KEY) {
+      const savedKey = loadSavedApiKey()
+      if (savedKey) {
+        process.env.SYNTH_API_KEY = savedKey
+      }
+    }
+
+    if (!process.env.SYNTH_API_KEY) {
+      // No API key available
+      ctx.state.snapshot.status = "Sign in required"
       render()
-    })
+      loginModal.toggle(true)
+    } else {
+      // Try auto-login with API key
+      tryAutoLogin().catch(() => {
+        // Silent fail - show logged out state
+        process.env.SYNTH_API_KEY = ""
+        ctx.state.snapshot.status = "Sign in required"
+        render()
+        loginModal.toggle(true)
+      })
+    }
+  }
+
+  async function tryAutoLogin(): Promise<void> {
+    // Validate API key by fetching identity
+    await refreshIdentity(ctx)
+
+    // If identity fetch failed (no userId), treat as auth failure
+    if (!ctx.state.snapshot.userId) {
+      throw new Error("Invalid API key")
+    }
+
+    // Key is valid - proceed with full bootstrap
+    await bootstrap()
   }
 
   // Bootstrap function
