@@ -39,7 +39,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
   })
   const headerText = new TextRenderable(renderer, {
     id: "header-text",
-    content: "Synth AI Prompt Learning Monitor",
+    content: "Synth AI",
     fg: "#e2e8f0",
   })
   const headerSpacer = new BoxRenderable(renderer, {
@@ -599,67 +599,6 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
   renderer.root.add(promptBrowserText)
   renderer.root.add(promptBrowserHint)
 
-  // Settings modal
-  const settingsBox = new BoxRenderable(renderer, {
-    id: "settings-modal-box",
-    width: 64,
-    height: 14,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#38bdf8",
-    border: true,
-    zIndex: 8,
-  })
-  const settingsTitle = new TextRenderable(renderer, {
-    id: "settings-modal-title",
-    content: "Settings - Backend",
-    fg: "#38bdf8",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 9,
-  })
-  const settingsHelp = new TextRenderable(renderer, {
-    id: "settings-modal-help",
-    content: "Enter apply | j/k navigate | a pick key | m manual | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 8,
-    zIndex: 9,
-  })
-  const settingsListText = new TextRenderable(renderer, {
-    id: "settings-modal-list",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 9,
-    zIndex: 9,
-  })
-  const settingsInfoText = new TextRenderable(renderer, {
-    id: "settings-modal-info",
-    content: "",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 12,
-    zIndex: 9,
-  })
-  settingsBox.visible = false
-  settingsTitle.visible = false
-  settingsHelp.visible = false
-  settingsListText.visible = false
-  settingsInfoText.visible = false
-  renderer.root.add(settingsBox)
-  renderer.root.add(settingsTitle)
-  renderer.root.add(settingsHelp)
-  renderer.root.add(settingsListText)
-  renderer.root.add(settingsInfoText)
-
   // Key input modal
   const keyModalBox = new BoxRenderable(renderer, {
     id: "key-modal-box",
@@ -714,67 +653,6 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
   renderer.root.add(keyModalLabel)
   renderer.root.add(keyModalInput)
   renderer.root.add(keyModalHelp)
-
-  // Env key picker modal
-  const envKeyModalBox = new BoxRenderable(renderer, {
-    id: "env-key-modal-box",
-    width: 78,
-    height: 14,
-    position: "absolute",
-    left: 8,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#7dd3fc",
-    border: true,
-    zIndex: 11,
-  })
-  const envKeyModalTitle = new TextRenderable(renderer, {
-    id: "env-key-modal-title",
-    content: "Settings - API Key",
-    fg: "#7dd3fc",
-    position: "absolute",
-    left: 10,
-    top: 7,
-    zIndex: 12,
-  })
-  const envKeyModalHelp = new TextRenderable(renderer, {
-    id: "env-key-modal-help",
-    content: "Enter apply | j/k navigate | r rescan | m manual | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 10,
-    top: 8,
-    zIndex: 12,
-  })
-  const envKeyModalListText = new TextRenderable(renderer, {
-    id: "env-key-modal-list",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 10,
-    top: 9,
-    zIndex: 12,
-  })
-  const envKeyModalInfoText = new TextRenderable(renderer, {
-    id: "env-key-modal-info",
-    content: "",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 10,
-    top: 13,
-    zIndex: 12,
-  })
-  envKeyModalBox.visible = false
-  envKeyModalTitle.visible = false
-  envKeyModalHelp.visible = false
-  envKeyModalListText.visible = false
-  envKeyModalInfoText.visible = false
-  renderer.root.add(envKeyModalBox)
-  renderer.root.add(envKeyModalTitle)
-  renderer.root.add(envKeyModalHelp)
-  renderer.root.add(envKeyModalListText)
-  renderer.root.add(envKeyModalInfoText)
 
   // Login modal
   const loginModalBox = new BoxRenderable(renderer, {
@@ -892,28 +770,12 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     promptBrowserHint,
     promptBrowserVisible: false,
 
-    // Settings modal
-    settingsBox,
-    settingsTitle,
-    settingsHelp,
-    settingsListText,
-    settingsInfoText,
-    settingsModalVisible: false,
-
     // Key modal
     keyModalBox,
     keyModalLabel,
     keyModalInput,
     keyModalHelp,
     keyModalVisible: false,
-
-    // Env key modal
-    envKeyModalBox,
-    envKeyModalTitle,
-    envKeyModalHelp,
-    envKeyModalListText,
-    envKeyModalInfoText,
-    envKeyModalVisible: false,
 
     // Login modal
     loginModalBox,
