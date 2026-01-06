@@ -89,6 +89,8 @@ export function createKeyboardHandler(
       }
       if (modals.createJob.isVisible) {
         modals.createJob.handleKey(key)
+        return
+      }
       if (modals.taskApps.isVisible) {
         modals.taskApps.handleKey(key)
         return
@@ -150,6 +152,8 @@ export function createKeyboardHandler(
     }
     if (modals.createJob.isVisible) {
       modals.createJob.handleKey(key)
+      return
+    }
     if (modals.taskApps.isVisible) {
       modals.taskApps.handleKey(key)
       return
@@ -207,6 +211,8 @@ export function createKeyboardHandler(
     }
     if (key.name === "n") {
       modals.createJob.open()
+      return
+    }
     if (key.name === "u") {
       modals.taskApps.open()
       return
