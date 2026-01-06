@@ -8,6 +8,7 @@
 import type { CliRenderer } from "@opentui/core"
 import { runDeviceCodeAuth, type AuthStatus } from "./auth"
 import { createModalUI, type ModalUI } from "./modals/base"
+import { pollingState, clearJobsTimer, clearEventsTimer } from "./state/polling"
 
 /**
  * Snapshot state for updating status messages.
@@ -163,6 +164,17 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
 
   async function logout(): Promise<void> {
     process.env.SYNTH_API_KEY = ""
+
+    // Disconnect SSE
+    if (pollingState.sseDisconnect) {
+      pollingState.sseDisconnect()
+      pollingState.sseDisconnect = null
+    }
+    pollingState.sseConnected = false
+
+    // Clear polling timers
+    clearJobsTimer()
+    clearEventsTimer()
 
     // Clear ALL auth-related state immediately
     const snapshot = getSnapshot()
