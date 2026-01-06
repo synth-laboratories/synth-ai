@@ -9,6 +9,7 @@ import type { CliRenderer } from "@opentui/core"
 import { runDeviceCodeAuth, type AuthStatus } from "./auth"
 import { createModalUI, type ModalUI } from "./modals/base"
 import { pollingState, clearJobsTimer, clearEventsTimer } from "./state/polling"
+import { setLoggedOutMarker, clearLoggedOutMarker, saveApiKey, deleteSavedApiKey } from "./utils/logout-marker"
 
 /**
  * Snapshot state for updating status messages.
@@ -147,8 +148,12 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
     loginAuthInProgress = false
 
     if (result.success && result.apiKey) {
-      // Store the key
+      // Store the key in memory and persist to file
       process.env.SYNTH_API_KEY = result.apiKey
+      await saveApiKey(result.apiKey)
+
+      // Clear logout marker so auto-login works next time
+      await clearLoggedOutMarker()
 
       // Close modal and refresh
       toggle(false)
@@ -163,6 +168,10 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
   }
 
   async function logout(): Promise<void> {
+    // Mark as logged out and delete saved key
+    await setLoggedOutMarker()
+    await deleteSavedApiKey()
+
     process.env.SYNTH_API_KEY = ""
 
     // Disconnect SSE
