@@ -19,6 +19,7 @@ import {
   createEnvKeyModal,
   createSnapshotModal,
   createTaskAppsModal,
+  createUsageModal,
 } from "./modals"
 
 import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
@@ -118,6 +119,7 @@ export async function runApp(): Promise<void> {
   const envKeyModal = createEnvKeyModal(ctx)
   const snapshotModal = createSnapshotModal(ctx)
   const taskAppsModal = createTaskAppsModal(ctx)
+  const usageModal = createUsageModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -131,6 +133,7 @@ export async function runApp(): Promise<void> {
     envKey: envKeyModal,
     snapshot: snapshotModal,
     taskApps: taskAppsModal,
+    usage: usageModal,
   }
 
   // Create keyboard handler

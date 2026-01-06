@@ -106,6 +106,9 @@ export const appState = {
   taskAppsModalOffset: 0,
   taskAppsModalSelectedIndex: 0,
 
+  // Usage modal state
+  usageModalOffset: 0,
+
   // Request tokens for cancellation
   jobSelectToken: 0,
   eventsToken: 0,

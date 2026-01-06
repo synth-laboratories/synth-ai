@@ -845,15 +845,71 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
   renderer.root.add(loginModalText)
   renderer.root.add(loginModalHelp)
 
-  // Task Apps modal
+  // Usage modal - shows plan, credits, and usage breakdown
+  const usageModalBox = new BoxRenderable(renderer, {
+    id: "usage-modal-box",
+    width: 100,
+    height: 30,
+    position: "absolute",
+    left: "center",
+    top: "center",
+    backgroundColor: "#0b1120",
+    borderStyle: "single",
+    borderColor: "#10b981",  // Green for money/credits
+    border: true,
+    zIndex: 8,
+  })
+  const usageModalTitle = new TextRenderable(renderer, {
+    id: "usage-modal-title",
+    content: "Usage & Plan",
+    fg: "#10b981",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetY: -14,
+    zIndex: 9,
+  })
+  const usageModalText = new TextRenderable(renderer, {
+    id: "usage-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetX: -45,
+    offsetY: -12,
+    width: 90,
+    height: 24,
+    zIndex: 9,
+  })
+  const usageModalHint = new TextRenderable(renderer, {
+    id: "usage-modal-hint",
+    content: "j/k scroll | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetY: 13,
+    zIndex: 9,
+  })
+  usageModalBox.visible = false
+  usageModalTitle.visible = false
+  usageModalText.visible = false
+  usageModalHint.visible = false
+  renderer.root.add(usageModalBox)
+  renderer.root.add(usageModalTitle)
+  renderer.root.add(usageModalText)
+  renderer.root.add(usageModalHint)
+
+  // Task Apps modal - centered and larger
   const taskAppsModalBox = new BoxRenderable(renderer, {
     id: "task-apps-modal-box",
-    width: 90,
-    height: 20,
+    width: 100,
+    height: 30,
     position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
+    left: "center",
+    top: "center",
+    backgroundColor: "#0b1120",
     borderStyle: "single",
     borderColor: "#06b6d4",
     border: true,
@@ -864,8 +920,9 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     content: "Task Apps",
     fg: "#06b6d4",
     position: "absolute",
-    left: 8,
-    top: 5,
+    left: "center",
+    top: "center",
+    offsetY: -14,
     zIndex: 9,
   })
   const taskAppsModalText = new TextRenderable(renderer, {
@@ -873,8 +930,12 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     content: "",
     fg: "#e2e8f0",
     position: "absolute",
-    left: 8,
-    top: 6,
+    left: "center",
+    top: "center",
+    offsetX: -45,
+    offsetY: -12,
+    width: 90,
+    height: 24,
     zIndex: 9,
   })
   const taskAppsModalHint = new TextRenderable(renderer, {
@@ -882,8 +943,9 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     content: "j/k select | y copy hostname | q close",
     fg: "#94a3b8",
     position: "absolute",
-    left: 8,
-    top: 22,
+    left: "center",
+    top: "center",
+    offsetY: 13,
     zIndex: 9,
   })
   taskAppsModalBox.visible = false
@@ -999,6 +1061,13 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     taskAppsModalText,
     taskAppsModalHint,
     taskAppsModalVisible: false,
+
+    // Usage modal
+    usageModalBox,
+    usageModalTitle,
+    usageModalText,
+    usageModalHint,
+    usageModalVisible: false,
 
     // Event cards (dynamically created)
     eventCards: [] as Array<{ box: BoxRenderable; text: TextRenderable }>,
