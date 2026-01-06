@@ -21295,7 +21295,7 @@ function loadSavedApiKey() {
 async function saveApiKey(key) {
   try {
     await fs2.promises.mkdir(STATE_DIR, { recursive: true });
-    await fs2.promises.writeFile(API_KEY_PATH, key, "utf8");
+    await fs2.promises.writeFile(API_KEY_PATH, key, { encoding: "utf8", mode: 384 });
   } catch {}
 }
 async function deleteSavedApiKey() {

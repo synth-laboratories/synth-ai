@@ -63,7 +63,7 @@ export function loadSavedApiKey(): string | null {
 export async function saveApiKey(key: string): Promise<void> {
 	try {
 		await fs.promises.mkdir(STATE_DIR, { recursive: true })
-		await fs.promises.writeFile(API_KEY_PATH, key, "utf8")
+		await fs.promises.writeFile(API_KEY_PATH, key, { encoding: "utf8", mode: 0o600 })
 	} catch {
 		// Silent fail - not critical
 	}
