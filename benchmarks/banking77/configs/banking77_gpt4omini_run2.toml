@@ -37,6 +37,7 @@ policy_name = "banking77-gpt4omini-run2"
 split = "train"
 
 [prompt_learning.gepa]
+proposed_prompt_max_tokens = 32000
 env_name = "banking77"
 
 [prompt_learning.gepa.rollout]
@@ -64,6 +65,3 @@ crossover_rate = 0.5
 selection_pressure = 1.0
 patience_generations = 3
 
-[prompt_learning.gepa.token]
-counting_model = "gpt-4"
-enforce_pattern_limit = true

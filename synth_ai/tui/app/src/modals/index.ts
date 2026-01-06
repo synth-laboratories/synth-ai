@@ -13,4 +13,5 @@ export * from "./profile-modal"
 export * from "./results-modal"
 export * from "./snapshot-modal"
 export * from "./urls-modal"
+export * from "./task-apps-modal"
 

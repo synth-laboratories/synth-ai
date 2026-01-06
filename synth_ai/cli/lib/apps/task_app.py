@@ -265,34 +265,65 @@ def _validate_rollout_payload(payload: Any) -> None:
         )
 
     # Metrics can be either:
-    # 1. Full RolloutMetrics with episode_rewards (list), reward_mean, num_steps
-    # 2. Simple dict with scalar values (episode_rewards as float, reward_mean, num_steps)
-    required_metrics_fields = ["episode_rewards", "reward_mean", "num_steps"]
-    for field in required_metrics_fields:
-        if field not in metrics:
-            raise ValueError(
-                f"`/rollout` metrics missing required field '{field}'. "
-                f"Metrics must include: episode_rewards, reward_mean, and num_steps."
-            )
-
-    # Validate types - episode_rewards can be either a list or a scalar
+    # 1. New-style objectives/outcome_reward (preferred)
+    # 2. Legacy episode_rewards/reward_mean/num_steps
+    outcome_objectives = metrics.get("outcome_objectives")
+    outcome_reward = metrics.get("outcome_reward")
+    outcome_score = metrics.get("outcome_score")
     episode_rewards = metrics.get("episode_rewards")
-    if not isinstance(episode_rewards, list | int | float):
+    reward_mean = metrics.get("reward_mean")
+    num_steps = metrics.get("num_steps")
+    event_objectives = metrics.get("event_objectives")
+
+    has_outcome_objectives = isinstance(outcome_objectives, Mapping)
+    has_outcome_reward = isinstance(outcome_reward, (int, float))
+    has_outcome_score = isinstance(outcome_score, (int, float))
+    has_episode_rewards = isinstance(episode_rewards, list) or isinstance(episode_rewards, (int, float))
+    has_reward_mean = isinstance(reward_mean, (int, float))
+
+    if not (has_outcome_objectives or has_outcome_reward or has_outcome_score or has_episode_rewards or has_reward_mean):
         raise ValueError(
-            f"`/rollout` metrics.episode_rewards must be a list or number, got {type(episode_rewards).__name__}"
+            "`/rollout` metrics missing required reward fields. "
+            "Provide outcome_objectives/outcome_reward (preferred) or legacy episode_rewards/reward_mean."
         )
 
-    reward_mean = metrics.get("reward_mean")
-    if not isinstance(reward_mean, int | float):
+    if has_outcome_objectives:
+        for key, value in outcome_objectives.items():
+            if not isinstance(value, (int, float)):
+                raise ValueError(
+                    f"`/rollout` metrics.outcome_objectives['{key}'] must be a number, "
+                    f"got {type(value).__name__}"
+                )
+
+    if has_episode_rewards and isinstance(episode_rewards, list):
+        for reward_value in episode_rewards:
+            if not isinstance(reward_value, (int, float)):
+                raise ValueError(
+                    "`/rollout` metrics.episode_rewards entries must be numbers, "
+                    f"got {type(reward_value).__name__}"
+                )
+
+    if reward_mean is not None and not isinstance(reward_mean, (int, float)):
         raise ValueError(
             f"`/rollout` metrics.reward_mean must be a number, got {type(reward_mean).__name__}"
         )
 
-    num_steps = metrics.get("num_steps")
-    if not isinstance(num_steps, int):
+    if num_steps is not None and not isinstance(num_steps, int):
         raise ValueError(
             f"`/rollout` metrics.num_steps must be an integer, got {type(num_steps).__name__}"
         )
+
+    if event_objectives is not None:
+        if not isinstance(event_objectives, list):
+            raise ValueError(
+                f"`/rollout` metrics.event_objectives must be a list, got {type(event_objectives).__name__}"
+            )
+        for idx, item in enumerate(event_objectives):
+            if not isinstance(item, Mapping):
+                raise ValueError(
+                    "`/rollout` metrics.event_objectives entries must be objects, "
+                    f"got {type(item).__name__} at index {idx}"
+                )
 
 
 def validate_route_contracts(app: ASGIApp) -> None:

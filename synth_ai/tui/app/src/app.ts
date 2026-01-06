@@ -16,8 +16,6 @@ import {
   createJobFilterModal,
   createKeyModal,
   createSnapshotModal,
-  createProfileModal,
-  createUrlsModal,
 } from "./modals"
 import { createCreateJobModal } from "./modals/create-job-modal"
 
@@ -25,9 +23,7 @@ import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
 import { refreshJobs, selectJob } from "./api/jobs"
 import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
-import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
-import { clearJobsTimer } from "./state/polling"
-import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
+import { getActiveApiKey } from "./api/client"
 
 export async function runApp(): Promise<void> {
   // Create renderer
@@ -74,9 +70,6 @@ export async function runApp(): Promise<void> {
   const jobFilterModal = createJobFilterModal(ctx)
   const keyModal = createKeyModal(ctx)
   const snapshotModal = createSnapshotModal(ctx)
-  const profileModal = createProfileModal(ctx)
-  const urlsModal = createUrlsModal(renderer)
-  const createJobModal = createCreateJobModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -87,9 +80,6 @@ export async function runApp(): Promise<void> {
     jobFilter: jobFilterModal,
     key: keyModal,
     snapshot: snapshotModal,
-    profile: profileModal,
-    urls: urlsModal,
-    createJob: createJobModal,
   }
 
   // Create keyboard handler
@@ -194,6 +184,10 @@ export async function runApp(): Promise<void> {
     await refreshIdentity(ctx)
     await refreshJobs(ctx)
 
+    // Load tunnels (task apps) and check their health
+    await refreshTunnels(ctx)
+    void refreshTunnelHealth(ctx).then(() => render())
+
     const { initialJobId } = ctx.state.config
     if (initialJobId) {
       await selectJob(ctx, initialJobId)
@@ -208,6 +202,9 @@ export async function runApp(): Promise<void> {
     scheduleEventsPoll()
     setInterval(() => void refreshHealth(ctx), 30_000)
     setInterval(() => void refreshIdentity(ctx).then(() => render()), 60_000)
+    // Refresh tunnels every 30 seconds, health checks every 15 seconds
+    setInterval(() => void refreshTunnels(ctx).then(() => render()), 30_000)
+    setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15_000)
     render()
   }
 

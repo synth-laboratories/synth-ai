@@ -76,15 +76,16 @@ from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
 if LOCAL_MODE:
     SYNTH_API_BASE = "http://localhost:8000"
     TUNNEL_BACKEND = TunnelBackend.Localhost
+    LOCAL_API_PORT = 8013
+    OPTIMIZED_LOCAL_API_PORT = 8014
     print("=" * 60)
     print("RUNNING IN LOCAL MODE")
     print("=" * 60)
 else:
     SYNTH_API_BASE = PROD_BASE_URL
     TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
-
-LOCAL_API_PORT = 8001
-OPTIMIZED_LOCAL_API_PORT = 8002
+    LOCAL_API_PORT = 8001
+    OPTIMIZED_LOCAL_API_PORT = 8002
 
 print(f'Backend: {SYNTH_API_BASE}')
 print(f'Tunnel backend: {TUNNEL_BACKEND.value}')
@@ -431,13 +432,109 @@ async def main():
 
     pl_job = PromptLearningJob.from_dict(
         config_dict=config_body,
+        backend_url=SYNTH_API_BASE,
     )
 
     job_id = pl_job.submit()
     print(f'Job ID: {job_id}')
 
+    # Track events we've already displayed to avoid duplicates
+    last_event_seq = 0
+    
+    def on_status_update(status_data: dict[str, Any]) -> None:
+        """Callback to fetch and display events during polling."""
+        nonlocal last_event_seq
+        try:
+            pl_client = PromptLearningClient(SYNTH_API_BASE, API_KEY)
+            # Fetch new events since last check (use nest_asyncio to allow nested event loops)
+            events = asyncio.run(pl_client.get_events(job_id, since_seq=last_event_seq, limit=100))
+            
+            for event in events:
+                event_type = event.get('type', '')
+                event_seq = event.get('seq', 0)
+                if event_seq > last_event_seq:
+                    last_event_seq = event_seq
+                
+                data = event.get('data', {})
+                message = event.get('message', '')
+                
+                # GEPA-specific events (from backend logs)
+                if event_type == 'prompt.learning.gepa.rollouts_limit_progress':
+                    # Extract rollout count from message like "Rollout progress: 20 rollouts executed"
+                    if 'rollouts executed' in message:
+                        print(f'\n  {message}')
+                
+                elif event_type == 'prompt.learning.gepa.candidate.evaluated':
+                    # Message format: "Candidate trans_00001 evaluated (accepted=True) acc=0.500"
+                    if 'evaluated' in message:
+                        # Extract candidate ID and accuracy
+                        version_id = data.get('version_id', '')
+                        accuracy = data.get('accuracy') or data.get('acc')
+                        accepted = data.get('accepted', True)
+                        
+                        # Parse accuracy from message if not in data (format: "acc=0.500")
+                        if accuracy is None and 'acc=' in message:
+                            try:
+                                acc_str = message.split('acc=')[1].split()[0]
+                                accuracy = float(acc_str)
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        # Parse accepted status from message if not in data
+                        if 'accepted=True' in message:
+                            accepted = True
+                        elif 'accepted=False' in message:
+                            accepted = False
+                        
+                        if accuracy is not None:
+                            status = "✓" if accepted else "✗"
+                            print(f'  {status} Candidate {version_id}: accuracy = {accuracy:.2%}')
+                
+                elif event_type == 'prompt.learning.gepa.proposal.completed':
+                    # Message format: "Proposal generated in 11.23s (evaluation will start next)"
+                    if 'Proposal generated' in message:
+                        print(f'  {message}')
+                
+                elif event_type == 'prompt.learning.gepa.generation.start':
+                    # Message format: "Generation 1/2 starting"
+                    if 'Generation' in message:
+                        print(f'\n  {message}')
+                
+                elif event_type == 'prompt.learning.candidate.evaluation.started':
+                    # Message format: "Evaluating candidate trans_00004... (10 seeds)"
+                    if 'Evaluating candidate' in message:
+                        print(f'  {message}')
+                
+                # Legacy/fallback event types
+                elif event_type == 'prompt.learning.progress':
+                    rollouts = data.get('rollouts_completed', 0)
+                    total = data.get('rollouts_total', 0)
+                    if rollouts > 0:
+                        print(f'\n  Progress: {rollouts}/{total} rollouts completed')
+                
+                elif event_type == 'prompt.learning.proposal.scored':
+                    version_id = data.get('version_id', '')
+                    accuracy = data.get('accuracy')
+                    if accuracy is not None:
+                        print(f'  Proposal {version_id}: accuracy = {accuracy:.2%}')
+                
+                elif event_type == 'prompt.learning.optimized.scored':
+                    version_id = data.get('version_id', '')
+                    accuracy = data.get('accuracy')
+                    if accuracy is not None:
+                        print(f'  Optimized {version_id}: accuracy = {accuracy:.2%}')
+        
+        except Exception:
+            # Silently ignore event fetching errors to avoid polluting output
+            pass
+
     optimization_start = time.time()
-    gepa_result = pl_job.poll_until_complete(timeout=3600.0, interval=3.0, progress=True)
+    gepa_result = pl_job.poll_until_complete(
+        timeout=3600.0, 
+        interval=3.0, 
+        progress=False,  # Disable basic progress output since we're showing detailed events
+        on_status=on_status_update
+    )
     timings['optimization'] = time.time() - optimization_start
 
     print(f'\nFINAL: {gepa_result.status.value} ({format_duration(timings["optimization"])})')

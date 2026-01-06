@@ -293,6 +293,7 @@ _TABLE_DEFINITIONS: tuple[str, ...] = (
     CREATE TABLE IF NOT EXISTS outcome_rewards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id VARCHAR NOT NULL,
+        objective_key TEXT NOT NULL DEFAULT 'reward',
         total_reward FLOAT NOT NULL,
         achievements_count INTEGER NOT NULL,
         total_steps INTEGER NOT NULL,
@@ -309,6 +310,7 @@ _TABLE_DEFINITIONS: tuple[str, ...] = (
         session_id VARCHAR NOT NULL,
         message_id INTEGER,
         turn_number INTEGER,
+        objective_key TEXT NOT NULL DEFAULT 'reward',
         reward_value FLOAT NOT NULL,
         reward_type VARCHAR,
         "key" VARCHAR,
@@ -346,9 +348,11 @@ _INDEX_DEFINITIONS: tuple[str, ...] = (
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_experiment_system ON experimental_systems (experiment_id, system_id)",
     "CREATE INDEX IF NOT EXISTS idx_experimental_system ON experimental_systems (experiment_id, system_id)",
     "CREATE INDEX IF NOT EXISTS idx_outcome_rewards_session ON outcome_rewards (session_id)",
+    "CREATE INDEX IF NOT EXISTS idx_outcome_rewards_session_objective ON outcome_rewards (session_id, objective_key)",
     "CREATE INDEX IF NOT EXISTS idx_outcome_rewards_total ON outcome_rewards (total_reward)",
     "CREATE INDEX IF NOT EXISTS idx_event_rewards_session ON event_rewards (session_id)",
     "CREATE INDEX IF NOT EXISTS idx_event_rewards_event ON event_rewards (event_id)",
+    "CREATE INDEX IF NOT EXISTS idx_event_rewards_session_event_objective ON event_rewards (session_id, event_id, objective_key)",
     "CREATE INDEX IF NOT EXISTS idx_event_rewards_type ON event_rewards (reward_type)",
     'CREATE INDEX IF NOT EXISTS idx_event_rewards_key ON event_rewards ("key")',
 )
@@ -708,6 +712,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     def _apply_schema_migrations(self) -> None:
         """Apply forward-compatible schema changes for existing databases."""
         self._migrate_outcome_rewards()
+        self._migrate_reward_objective_keys()
 
     @staticmethod
     def _col_value(row: Any, *, index: int, key: str) -> Any:
@@ -735,6 +740,7 @@ class NativeLibsqlTraceManager(TraceStorage):
 
         total_reward_type = columns.get("total_reward", "")
         has_annotation = "annotation" in columns
+        has_objective_key = "objective_key" in columns
 
         # If the DB was created with total_reward INTEGER, rebuild the table to
         # update the declared type and add the annotation column in one step.
@@ -747,6 +753,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     CREATE TABLE outcome_rewards (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         session_id VARCHAR NOT NULL,
+                        objective_key TEXT NOT NULL DEFAULT 'reward',
                         total_reward FLOAT NOT NULL,
                         achievements_count INTEGER NOT NULL,
                         total_steps INTEGER NOT NULL,
@@ -762,6 +769,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     INSERT INTO outcome_rewards (
                         id,
                         session_id,
+                        objective_key,
                         total_reward,
                         achievements_count,
                         total_steps,
@@ -772,6 +780,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     SELECT
                         id,
                         session_id,
+                        'reward',
                         CAST(total_reward AS FLOAT),
                         achievements_count,
                         total_steps,
@@ -791,6 +800,33 @@ class NativeLibsqlTraceManager(TraceStorage):
         # Otherwise, add annotation column if missing.
         if not has_annotation:
             conn.execute("ALTER TABLE outcome_rewards ADD COLUMN annotation TEXT")
+        if not has_objective_key:
+            conn.execute(
+                "ALTER TABLE outcome_rewards ADD COLUMN objective_key TEXT DEFAULT 'reward'"
+            )
+        conn.execute(
+            "UPDATE outcome_rewards SET objective_key = 'reward' WHERE objective_key IS NULL OR objective_key = ''"
+        )
+
+    def _migrate_reward_objective_keys(self) -> None:
+        conn = self._conn
+        if conn is None:  # pragma: no cover - defensive guard
+            raise RuntimeError("Connection not initialised")
+
+        cursor = conn.execute("PRAGMA table_info(event_rewards)")
+        rows = cursor.fetchall()
+        cursor.close()
+        if not rows:
+            return
+
+        columns = {str(self._col_value(row, index=1, key="name")) for row in rows}
+        if "objective_key" not in columns:
+            conn.execute(
+                "ALTER TABLE event_rewards ADD COLUMN objective_key TEXT DEFAULT 'reward'"
+            )
+        conn.execute(
+            "UPDATE event_rewards SET objective_key = 'reward' WHERE objective_key IS NULL OR objective_key = ''"
+        )
 
     async def query_traces(self, query: str, params: dict[str, Any] | None = None) -> Any:
         await self.initialize()
@@ -1295,6 +1331,7 @@ class NativeLibsqlTraceManager(TraceStorage):
         self,
         session_id: str,
         *,
+        objective_key: str = "reward",
         total_reward: float,
         achievements_count: int,
         total_steps: int,
@@ -1311,6 +1348,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 """
                 INSERT INTO outcome_rewards (
                     session_id,
+                    objective_key,
                     total_reward,
                     achievements_count,
                     total_steps,
@@ -1318,10 +1356,11 @@ class NativeLibsqlTraceManager(TraceStorage):
                     reward_metadata,
                     annotation
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
+                    objective_key,
                     total_reward,
                     achievements_count,
                     total_steps,
@@ -1340,6 +1379,7 @@ class NativeLibsqlTraceManager(TraceStorage):
         event_id: int,
         message_id: int | None = None,
         turn_number: int | None = None,
+        objective_key: str = "reward",
         reward_value: float = 0.0,
         reward_type: str | None = None,
         key: str | None = None,
@@ -1359,6 +1399,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     session_id,
                     message_id,
                     turn_number,
+                    objective_key,
                     reward_value,
                     reward_type,
                     key,
@@ -1366,13 +1407,14 @@ class NativeLibsqlTraceManager(TraceStorage):
                     source,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
                     session_id,
                     message_id,
                     turn_number,
+                    objective_key,
                     reward_value,
                     reward_type,
                     key,

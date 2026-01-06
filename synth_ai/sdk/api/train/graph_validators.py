@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast, Literal
 
-    from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet, load_graphgen_taskset
+from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet, load_graphgen_taskset
 from .graphgen_validators import GraphGenValidationError, validate_graphgen_job_config
 
 

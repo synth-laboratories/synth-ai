@@ -613,7 +613,10 @@ components:
       example:
         run_id: "run_abc123"
         metrics:
-          # PREFERRED - just provide outcome_reward
+          # PREFERRED - objectives-first
+          outcome_objectives:
+            reward: 1.0
+          # ALSO SUPPORTED - scalar reward
           outcome_reward: 1.0
           # LEGACY (for backward compatibility)
           episode_rewards:
@@ -673,7 +676,9 @@ components:
 
         ## Preferred Fields (New - Normalized)
 
-        - `outcome_reward`: THE OPTIMIZATION TARGET. Higher = better prompt.
+        - `outcome_objectives`: Canonical objectives dict (preferred).
+        - `event_objectives`: Optional per-step objectives for multi-step tasks.
+        - `outcome_reward`: Scalar reward for backward compatibility.
         - `event_rewards`: Optional per-step rewards for multi-step tasks.
 
         ## Legacy Fields (Backward Compatibility)
@@ -684,7 +689,7 @@ components:
         ## Example - Minimal (Recommended)
 
         ```json
-        {"outcome_reward": 1.0}
+        {"outcome_objectives": {"reward": 1.0}}
         ```
 
         ## Example - Full (Backward Compatible)
@@ -699,6 +704,22 @@ components:
         ```
       properties:
         # PREFERRED FIELDS (New - Normalized)
+        outcome_objectives:
+          type: object
+          additionalProperties:
+            type: number
+          nullable: true
+          description: Canonical objectives dict (e.g., {"reward": 0.9}).
+
+        event_objectives:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: number
+          nullable: true
+          description: Optional per-event objectives aligned to trace events.
+
         outcome_reward:
           type: number
           nullable: true

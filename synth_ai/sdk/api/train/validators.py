@@ -964,7 +964,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                     errors.append("prompt_learning.gepa.archive.feedback_fraction (or feedback_fraction) must be numeric")
             
             # Token counting model validation (should be a valid model name)
-            token_config = gepa_config.get("token")
+            token_config = gepa_config.get("token") or gepa_config.get("prompt_budget")
             token_counting_model = None
             if token_config and isinstance(token_config, dict):
                 token_counting_model = token_config.get("counting_model")
@@ -972,7 +972,9 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 token_counting_model = gepa_config.get("token_counting_model")
             if token_counting_model and (not isinstance(token_counting_model, str) or not token_counting_model.strip()):
                 # Basic validation - should be a non-empty string
-                errors.append("prompt_learning.gepa.token.counting_model (or token_counting_model) must be a non-empty string")
+                errors.append(
+                    "prompt_learning.gepa.token.counting_model (or prompt_budget.counting_model, token_counting_model) must be a non-empty string"
+                )
             
             # Module/stage validation for multi-stage
             if has_multi_stage:
@@ -1561,7 +1563,7 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
         errors.append("❌ [prompt_learning.gepa].env_name is required")
     
     # Check required GEPA subsections
-    required_sections = ["evaluation", "rollout", "mutation", "population", "archive", "token"]
+    required_sections = ["evaluation", "rollout", "mutation", "population", "archive"]
     missing_sections = [s for s in required_sections if not gepa_section.get(s)]
     if missing_sections:
         errors.append(
@@ -1681,7 +1683,16 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
                 errors.append(f"❌ archive.max_size must be >= 0, got {max_size}")
     
     # Validate token section
-    token_section = gepa_section.get("token", {})
+    proposed_prompt_max_tokens = gepa_section.get("proposed_prompt_max_tokens")
+    if proposed_prompt_max_tokens is not None:
+        if not isinstance(proposed_prompt_max_tokens, int):
+            errors.append(
+                f"❌ proposed_prompt_max_tokens must be an integer, got {type(proposed_prompt_max_tokens).__name__}"
+            )
+        elif proposed_prompt_max_tokens <= 0:
+            errors.append(f"❌ proposed_prompt_max_tokens must be > 0, got {proposed_prompt_max_tokens}")
+
+    token_section = gepa_section.get("token") or gepa_section.get("prompt_budget") or {}
     if isinstance(token_section, dict):
         max_limit = token_section.get("max_limit")
         if max_limit is not None:

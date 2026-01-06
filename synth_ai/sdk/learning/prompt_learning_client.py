@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from synth_ai.core._utils.http import AsyncHttpClient
+from synth_ai.data import extract_outcome_reward
 
 from .prompt_learning_types import PromptResults
 
@@ -23,6 +24,24 @@ def _validate_job_id(job_id: str) -> None:
             f"Invalid prompt learning job ID format: {job_id!r}. "
             f"Expected format: 'pl_<identifier>' (e.g., 'pl_9c58b711c2644083')"
         )
+
+
+def _extract_reward_value(payload: Any, fallback_keys: Optional[List[str]] = None) -> Optional[float]:
+    if not isinstance(payload, dict):
+        return None
+    reward_val = extract_outcome_reward(payload)
+    if reward_val is not None:
+        return float(reward_val)
+    if fallback_keys:
+        for key in fallback_keys:
+            raw = payload.get(key)
+            if raw is None:
+                continue
+            try:
+                return float(raw)
+            except (TypeError, ValueError):
+                continue
+    return None
 
 
 class PromptLearningClient:
@@ -215,7 +234,9 @@ class PromptLearningClient:
             # Best prompt event
             if event_type == "prompt.learning.best.prompt":
                 result.best_prompt = event_data.get("best_prompt")
-                result.best_score = event_data.get("best_score")
+                best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
+                if best_score is not None:
+                    result.best_score = best_score
             
             # Top-K prompt content events
             elif event_type == "prompt.learning.top.prompt.content":
@@ -236,7 +257,9 @@ class PromptLearningClient:
                 if result.best_prompt is None:
                     result.best_prompt = event_data.get("best_prompt")
                 if result.best_score is None:
-                    result.best_score = event_data.get("best_score")
+                    best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
+                    if best_score is not None:
+                        result.best_score = best_score
                 
                 # Extract validation results from validation field if present
                 validation_data = event_data.get("validation")
@@ -244,7 +267,7 @@ class PromptLearningClient:
                     for val_item in validation_data:
                         if isinstance(val_item, dict):
                             rank = val_item.get("rank")
-                            accuracy = val_item.get("accuracy")
+                            accuracy = _extract_reward_value(val_item)
                             if rank is not None and accuracy is not None:
                                 validation_by_rank[rank] = accuracy
             
@@ -253,23 +276,24 @@ class PromptLearningClient:
                 result.validation_results.append(event_data)
                 # Try to extract rank and accuracy for mapping
                 rank = event_data.get("rank")
-                accuracy = event_data.get("accuracy")
+                accuracy = _extract_reward_value(event_data)
                 if rank is not None and accuracy is not None:
                     validation_by_rank[rank] = accuracy
             
             # Completion event (fallback for best_score)
             elif event_type == "prompt.learning.gepa.complete":
                 if result.best_score is None:
-                    result.best_score = event_data.get("best_score")
+                    best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
+                    if best_score is not None:
+                        result.best_score = best_score
             
             # MIPRO completion event - extract best_score
             elif event_type == "mipro.job.completed":
                 if result.best_score is None:
                     # Prefer unified best_score field, fallback to best_full_score or best_minibatch_score
-                    result.best_score = (
-                        event_data.get("best_score") 
-                        or event_data.get("best_full_score") 
-                        or event_data.get("best_minibatch_score")
+                    result.best_score = _extract_reward_value(
+                        event_data,
+                        fallback_keys=["best_score", "best_full_score", "best_minibatch_score"],
                     )
         
         # If top_prompts is empty but we have optimized_candidates, extract from them
@@ -287,7 +311,9 @@ class PromptLearningClient:
                 score = cand.get("score", {})
                 if not isinstance(score, dict):
                     score = {}
-                train_accuracy = score.get("accuracy")
+                train_accuracy = _extract_reward_value(score)
+                if train_accuracy is None:
+                    train_accuracy = _extract_reward_value(cand)
                 
                 # Extract val accuracy from validation map
                 val_accuracy = validation_by_rank.get(rank)
@@ -388,17 +414,27 @@ class PromptLearningClient:
         optimized = prompts_data.optimized_candidates
         validation = prompts_data.validation_results
         
-        # Extract train accuracies (only from candidates that have accuracy field)
-        train_accuracies = [
-            c["accuracy"] for c in attempted if "accuracy" in c
-        ]
-        
-        # Extract val accuracies (only from validations that have accuracy field)
+        # Extract train accuracies (prefer objectives when available)
+        train_accuracies: List[float] = []
+        for candidate in attempted:
+            if not isinstance(candidate, dict):
+                continue
+            reward_val = _extract_reward_value(candidate)
+            if reward_val is None:
+                score = candidate.get("score")
+                reward_val = _extract_reward_value(score)
+            if reward_val is not None:
+                train_accuracies.append(reward_val)
+
+        # Extract val accuracies (prefer objectives, exclude baseline)
         # IMPORTANT: Exclude baseline from "best" calculation - baseline is for comparison only
-        val_accuracies = [
-            v["accuracy"] for v in validation 
-            if "accuracy" in v and not v.get("is_baseline", False)
-        ]
+        val_accuracies: List[float] = []
+        for val_item in validation:
+            if not isinstance(val_item, dict) or val_item.get("is_baseline", False):
+                continue
+            reward_val = _extract_reward_value(val_item)
+            if reward_val is not None:
+                val_accuracies.append(reward_val)
         
         # Score distribution (bins)
         bins = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]

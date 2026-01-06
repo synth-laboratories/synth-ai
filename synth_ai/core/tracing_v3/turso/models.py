@@ -426,6 +426,7 @@ class OutcomeReward(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String, ForeignKey("session_traces.session_id"), nullable=False)
+    objective_key = Column(String, nullable=False, default="reward")
     total_reward = Column(Float, nullable=False)
     achievements_count = Column(Integer, nullable=False, default=0)
     total_steps = Column(Integer, nullable=False, default=0)
@@ -436,6 +437,7 @@ class OutcomeReward(Base):
 
     __table_args__ = (
         Index("idx_outcome_rewards_session", "session_id"),
+        Index("idx_outcome_rewards_session_objective", "session_id", "objective_key"),
         Index("idx_outcome_rewards_total", "total_reward"),
     )
 
@@ -453,6 +455,7 @@ class EventReward(Base):
     session_id = Column(String, ForeignKey("session_traces.session_id"), nullable=False)
     message_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
     turn_number = Column(Integer, nullable=True)
+    objective_key = Column(String, nullable=False, default="reward")
     reward_value = Column(Float, nullable=False, default=0.0)
     reward_type = Column(
         String, nullable=True
@@ -465,6 +468,7 @@ class EventReward(Base):
     __table_args__ = (
         Index("idx_event_rewards_session", "session_id"),
         Index("idx_event_rewards_event", "event_id"),
+        Index("idx_event_rewards_session_event_objective", "session_id", "event_id", "objective_key"),
         Index("idx_event_rewards_type", "reward_type"),
         Index("idx_event_rewards_key", "key"),
     )

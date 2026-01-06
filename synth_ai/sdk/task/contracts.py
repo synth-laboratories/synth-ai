@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -40,9 +40,8 @@ class StructuredOutputConfig(BaseModel):
     - Groq: response_format.json_schema or json_object
     - Gemini: generationConfig.responseSchema
     """
-    json_schema: dict[str, Any] = Field(
+    schema: dict[str, Any] = Field(
         ...,
-        alias="schema",
         description="JSON Schema for the expected response structure"
     )
     schema_name: str = Field(
@@ -158,6 +157,14 @@ class RolloutMetrics(BaseModel):
     # =========================================================================
     # PREFERRED FIELDS (New - Normalized)
     # =========================================================================
+    outcome_objectives: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Canonical outcome objectives (e.g., {'reward': 0.9}).",
+    )
+    event_objectives: Optional[List[Dict[str, float]]] = Field(
+        default=None,
+        description="Optional per-event objectives aligned to trace events.",
+    )
     outcome_reward: float | None = Field(
         default=None,
         description="The reward for this rollout. PREFERRED field for scoring.",

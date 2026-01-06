@@ -47,6 +47,12 @@ def validate_filter_options(options: MutableMapping[str, Any]) -> MutableMapping
     _coerce_dict("min_verifier_scores")
     _coerce_dict("max_verifier_scores")
 
+    objective_value = result.get("objective")
+    if objective_value is None or str(objective_value).strip() == "":
+        result["objective"] = None
+    else:
+        result["objective"] = str(objective_value).strip()
+
     for duration_key in ("min_official_score", "max_official_score"):
         value = result.get(duration_key)
         if value is None or value == "":

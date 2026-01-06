@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 
 @dataclass(slots=True)
@@ -142,7 +142,10 @@ class FilterConfig:
     
     # Optional: Filter by models
     models: list[str] = field(default_factory=list)
-    
+
+    # Optional: Objective key for outcome_rewards filtering
+    objective: Optional[str] = None
+
     # Optional: Minimum official score threshold
     min_official_score: float | None = None
     
@@ -187,6 +190,11 @@ class FilterConfig:
             and self.min_official_score > self.max_official_score
         ):
             raise ValueError("min_official_score cannot be greater than max_official_score")
+
+        if self.objective is not None:
+            self.objective = str(self.objective).strip()
+            if not self.objective:
+                self.objective = None
         
         # Validate limit/offset
         if self.limit is not None and self.limit < 1:
@@ -216,6 +224,7 @@ class FilterConfig:
             "splits": data.get("splits", []),
             "task_ids": data.get("task_ids", []),
             "models": data.get("models", []),
+            "objective": data.get("objective"),
             "min_official_score": data.get("min_official_score"),
             "max_official_score": data.get("max_official_score"),
             "min_verifier_scores": data.get("min_verifier_scores", {}),
@@ -252,5 +261,3 @@ class FilterConfig:
         output_path = Path(self.output).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
         return output_path
-
-

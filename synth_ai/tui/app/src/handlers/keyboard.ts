@@ -23,6 +23,7 @@ export type ModalControllers = {
   urls: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   promptBrowser?: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   createJob: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
+  taskApps: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
 }
 
 export function createKeyboardHandler(
@@ -88,6 +89,8 @@ export function createKeyboardHandler(
       }
       if (modals.createJob.isVisible) {
         modals.createJob.handleKey(key)
+      if (modals.taskApps.isVisible) {
+        modals.taskApps.handleKey(key)
         return
       }
       // No modal open - quit
@@ -147,6 +150,8 @@ export function createKeyboardHandler(
     }
     if (modals.createJob.isVisible) {
       modals.createJob.handleKey(key)
+    if (modals.taskApps.isVisible) {
+      modals.taskApps.handleKey(key)
       return
     }
 
@@ -202,6 +207,8 @@ export function createKeyboardHandler(
     }
     if (key.name === "n") {
       modals.createJob.open()
+    if (key.name === "u") {
+      modals.taskApps.open()
       return
     }
     if (key.name === "c") {

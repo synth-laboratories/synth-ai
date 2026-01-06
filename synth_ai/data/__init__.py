@@ -16,16 +16,49 @@ from __future__ import annotations
 from synth_ai.data.enums import (
     AdaptiveBatchLevel,
     AdaptiveCurriculumLevel,
+    GraphType,
     InferenceMode,
     JobStatus,
     JobType,
+    ObjectiveDirection,
+    ObjectiveKey,
+    OptimizationMode,
     PromptLearningMethod,
     ProviderName,
+    RewardScope,
     RewardSource,
+    RewardType,
     RLMethod,
     SFTMethod,
+    TrainingType,
+    VerifierMode,
 )
 
+# Objective definitions
+from synth_ai.data.objectives import (
+    OBJECTIVE_REGISTRY,
+    EventObjectiveAssignment,
+    InstanceObjectiveAssignment,
+    ObjectiveSpec,
+    OutcomeObjectiveAssignment,
+    RewardObservation,
+)
+
+# Judgements
+from synth_ai.data.judgements import (
+    CriterionScoreData,
+    Judgement,
+    RubricAssignment,
+)
+
+# Objective compatibility helpers
+from synth_ai.data.objectives_compat import (
+    extract_instance_rewards,
+    extract_outcome_reward,
+    normalize_to_event_objectives,
+    normalize_to_outcome_objectives,
+    to_legacy_format,
+)
 # Reward data types
 from synth_ai.data.rewards import (
     CalibrationExample,
@@ -33,7 +66,6 @@ from synth_ai.data.rewards import (
     GoldExample,
     OutcomeRewardRecord,
     RewardAggregates,
-    RewardRecord,
 )
 
 # Trace data types (re-exports from tracing_v3)
@@ -59,10 +91,31 @@ __all__ = [
     "InferenceMode",
     "ProviderName",
     "RewardSource",
+    "RewardType",
+    "RewardScope",
+    "ObjectiveKey",
+    "ObjectiveDirection",
+    "GraphType",
+    "OptimizationMode",
+    "VerifierMode",
+    "TrainingType",
     "AdaptiveCurriculumLevel",
     "AdaptiveBatchLevel",
+    "ObjectiveSpec",
+    "OBJECTIVE_REGISTRY",
+    "RewardObservation",
+    "OutcomeObjectiveAssignment",
+    "EventObjectiveAssignment",
+    "InstanceObjectiveAssignment",
+    "CriterionScoreData",
+    "RubricAssignment",
+    "Judgement",
+    "extract_outcome_reward",
+    "extract_instance_rewards",
+    "normalize_to_outcome_objectives",
+    "normalize_to_event_objectives",
+    "to_legacy_format",
     # Reward data
-    "RewardRecord",
     "OutcomeRewardRecord",
     "EventRewardRecord",
     "RewardAggregates",
@@ -79,5 +132,3 @@ __all__ = [
     "SessionMessageContent",
     "TimeRecord",
 ]
-
-

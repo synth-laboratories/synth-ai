@@ -105,6 +105,7 @@ export function coerceJob(
     best_score: num(payload?.best_score),
     best_snapshot_id:
       payload?.best_snapshot_id ||
+      payload?.best_graph_snapshot_id ||
       payload?.prompt_best_snapshot_id ||
       payload?.best_snapshot?.id ||
       null,

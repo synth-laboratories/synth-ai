@@ -31,6 +31,10 @@ export const appState = {
   promptBrowserIndex: 0,
   promptBrowserOffset: 0,
 
+  // Task Apps modal state
+  taskAppsModalOffset: 0,
+  taskAppsModalSelectedIndex: 0,
+
   // Request tokens for cancellation
   jobSelectToken: 0,
   eventsToken: 0,

@@ -44,6 +44,7 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
+from synth_ai.data.enums import RewardSource
 from ..utils import load_toml
 from .shared import ExtraModel
 
@@ -216,7 +217,7 @@ class PromptLearningVerifierConfig(ExtraModel):
         weight_outcome: Weight for verifier outcome rewards in "fused" mode (default: 0.0).
     """
     enabled: bool = False
-    reward_source: Literal["task_app", "verifier", "fused"] = "task_app"
+    reward_source: RewardSource = RewardSource.TASK_APP
     backend_base: str = ""
     backend_api_key_env: str = "SYNTH_API_KEY"
     backend_provider: str = ""
@@ -233,6 +234,15 @@ class PromptLearningVerifierConfig(ExtraModel):
     spec_path: Optional[str] = None
     spec_max_tokens: int = 5000
     spec_context: Optional[str] = None
+
+    @field_validator("reward_source", mode="before")
+    @classmethod
+    def _coerce_reward_source(cls, v: Any) -> Any:
+        if v is None or isinstance(v, RewardSource):
+            return v
+        if isinstance(v, str):
+            return RewardSource(v.strip().lower())
+        return v
 
 
 class ProxyModelsConfig(ExtraModel):
@@ -1015,18 +1025,42 @@ class GEPARolloutConfig(ExtraModel):
 
 
 class GEPAEvaluationConfig(ExtraModel):
-    """GEPA evaluation configuration (mirrors RL [evaluation] section)."""
-    seeds: list[int] | None = None  # Evaluation seeds (training set)
-    validation_seeds: list[int] | None = None  # Validation seeds (held-out)
-    test_pool: list[int] | None = None  # Test pool (final evaluation)
+    """GEPA evaluation configuration (mirrors RL [evaluation] section).
+    
+    Defines seed pools for training, validation, and testing:
+    - train_seeds: Seeds used during optimization (training set)
+    - validation_seeds: Held-out seeds for validation during optimization
+    - test_pool: Final test set for evaluation after optimization completes
+    """
+    train_seeds: list[int] | None = None  # Training seeds (used during optimization)
+    seeds: list[int] | None = None  # DEPRECATED: Use train_seeds instead. Kept for backwards compatibility.
+    validation_seeds: list[int] | None = None  # Validation seeds (held-out, checked during optimization)
+    val_seeds: list[int] | None = None  # Alias for validation_seeds
+    test_pool: list[int] | None = None  # Test pool (final evaluation after optimization)
     validation_pool: str | None = None  # Pool name for validation (e.g., "validation")
     validation_top_k: int | None = None  # Top-K prompts to validate
 
-    @field_validator("seeds", "validation_seeds", "test_pool", mode="before")
+    @field_validator("train_seeds", "seeds", "validation_seeds", "val_seeds", "test_pool", mode="before")
     @classmethod
     def _parse_seed_lists(cls, v: Any) -> list[int] | None:
         """Parse seed lists that can be either a list or range dict."""
         return _parse_seeds(v)
+    
+    @model_validator(mode="after")
+    def _resolve_seed_aliases(self) -> "GEPAEvaluationConfig":
+        """Resolve seed aliases for backwards compatibility."""
+        # Resolve train_seeds from seeds (backwards compatibility)
+        if self.train_seeds is None and self.seeds is not None:
+            self.train_seeds = self.seeds
+        # Resolve validation_seeds from val_seeds alias
+        if self.validation_seeds is None and self.val_seeds is not None:
+            self.validation_seeds = self.val_seeds
+        return self
+    
+    @property
+    def resolved_train_seeds(self) -> list[int] | None:
+        """Get train_seeds, falling back to seeds for backwards compatibility."""
+        return self.train_seeds or self.seeds
 
 
 class GEPAMutationConfig(ExtraModel):
@@ -1083,8 +1117,8 @@ class GEPAArchiveConfig(ExtraModel):
 
 
 class GEPATokenConfig(ExtraModel):
-    """GEPA token and budget configuration."""
-    max_limit: int | None = None  # Maximum tokens allowed in prompt
+    """GEPA prompt budget configuration (prompt length/spend constraints)."""
+    max_limit: int | None = None  # Maximum tokens allowed in proposed prompt patterns
     counting_model: str = "gpt-4"  # Model for token counting
     enforce_pattern_limit: bool = True  # Enforce token limit on patterns
     max_spend_usd: float | None = None  # Maximum spend in USD
@@ -1170,6 +1204,7 @@ class GEPAConfig(ExtraModel):
     proposer_type: str = "dspy"
     proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"
     proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"
+    proposed_prompt_max_tokens: int = 32000
     # Custom metaprompt (optional)
     metaprompt: str | None = None
     
@@ -1182,7 +1217,7 @@ class GEPAConfig(ExtraModel):
     mutation: GEPAMutationConfig | None = None
     population: GEPAPopulationConfig | None = None
     archive: GEPAArchiveConfig | None = None
-    token: GEPATokenConfig | None = None
+    token: GEPATokenConfig | None = None  # Deprecated: use proposed_prompt_max_tokens
     verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or gepa-specific)
     adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None  # Adaptive pooling config
@@ -1255,10 +1290,10 @@ class GEPAConfig(ExtraModel):
             "pareto_set_size": "Use [prompt_learning.gepa.archive] section with 'pareto_set_size' field instead.",
             "pareto_eps": "Use [prompt_learning.gepa.archive] section with 'pareto_eps' field instead.",
             "feedback_fraction": "Use [prompt_learning.gepa.archive] section with 'feedback_fraction' field instead.",
-            "max_token_limit": "Use [prompt_learning.gepa.token] section with 'max_limit' field instead.",
-            "token_counting_model": "Use [prompt_learning.gepa.token] section with 'counting_model' field instead.",
-            "enforce_pattern_token_limit": "Use [prompt_learning.gepa.token] section with 'enforce_pattern_limit' field instead.",
-            "max_spend_usd": "Use [prompt_learning.gepa.token] section with 'max_spend_usd' field instead.",
+            "max_token_limit": "Use [prompt_learning.gepa].proposed_prompt_max_tokens instead.",
+            "token_counting_model": "Use [prompt_learning.gepa.token] (deprecated) with 'counting_model' instead.",
+            "enforce_pattern_token_limit": "Use [prompt_learning.gepa.token] (deprecated) with 'enforce_pattern_limit' instead.",
+            "max_spend_usd": "Use [prompt_learning.gepa.token] (deprecated) with 'max_spend_usd' instead.",
         }
 
         for field, message in flat_fields_map.items():
@@ -1286,15 +1321,21 @@ class GEPAConfig(ExtraModel):
         return self.minibatch_size or 8
     
     def _get_evaluation_seeds(self) -> list[int] | None:
-        """Get evaluation seeds from nested or flat structure."""
-        if self.evaluation and self.evaluation.seeds is not None:
-            return self.evaluation.seeds
+        """Get evaluation seeds (train_seeds) from nested or flat structure."""
+        if self.evaluation:
+            # Prefer train_seeds, fall back to seeds for backwards compatibility
+            train_seeds = self.evaluation.resolved_train_seeds
+            if train_seeds is not None:
+                return train_seeds
         return self.evaluation_seeds
     
     def _get_validation_seeds(self) -> list[int] | None:
         """Get validation seeds from nested or flat structure."""
-        if self.evaluation and self.evaluation.validation_seeds is not None:
-            return self.evaluation.validation_seeds
+        if self.evaluation:
+            # Prefer validation_seeds, fall back to val_seeds alias
+            val_seeds = self.evaluation.validation_seeds or self.evaluation.val_seeds
+            if val_seeds is not None:
+                return val_seeds
         return self.validation_seeds
     
     def _get_test_pool(self) -> list[int] | None:
@@ -1395,6 +1436,8 @@ class GEPAConfig(ExtraModel):
     
     def _get_max_token_limit(self) -> int | None:
         """Get max token limit from nested or flat structure."""
+        if self.proposed_prompt_max_tokens is not None:
+            return self.proposed_prompt_max_tokens
         if self.token and self.token.max_limit is not None:
             return self.token.max_limit
         return self.max_token_limit
@@ -1416,10 +1459,32 @@ class GEPAConfig(ExtraModel):
         if self.token and self.token.max_spend_usd is not None:
             return self.token.max_spend_usd
         return self.max_spend_usd
+
+    @model_validator(mode="after")
+    def _sync_prompt_budget(self) -> GEPAConfig:
+        """Keep proposed_prompt_max_tokens and token.max_limit aligned."""
+        token_max = self.token.max_limit if self.token else None
+        if token_max is not None:
+            self.proposed_prompt_max_tokens = token_max
+        else:
+            if self.proposed_prompt_max_tokens is not None:
+                self.token = self.token or GEPATokenConfig()
+                self.token.max_limit = self.proposed_prompt_max_tokens
+        return self
     
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> GEPAConfig:
         """Load GEPA config from dict/TOML, handling both nested and flat structures."""
+        if isinstance(data, dict) and "prompt_budget" in data and "token" not in data:
+            data = dict(data)
+            data["token"] = data.pop("prompt_budget")
+        if isinstance(data, dict) and "token" in data and "proposed_prompt_max_tokens" not in data:
+            token_config = data.get("token")
+            if isinstance(token_config, dict):
+                max_limit = token_config.get("max_limit")
+                if isinstance(max_limit, int):
+                    data = dict(data)
+                    data["proposed_prompt_max_tokens"] = max_limit
         # Check for nested structure first
         nested_data = {}
         flat_data = {}

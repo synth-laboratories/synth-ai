@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import click
 
+from synth_ai.data.objectives_compat import extract_outcome_reward
+
 from .utils import http_get
+
+
+def _extract_reward_value(payload: dict[str, Any]) -> Optional[float]:
+    reward_val = extract_outcome_reward(payload)
+    if reward_val is not None:
+        return reward_val
+    test_score = payload.get("test_score")
+    if isinstance(test_score, (int, float)):
+        return float(test_score)
+    return None
 
 
 def display_prompt_learning_summary(
@@ -272,7 +284,7 @@ def display_prompt_learning_summary(
             baseline_score = None
             if mipro_baseline_events:
                 baseline_data = mipro_baseline_events[-1].get('data', {})
-                baseline_score = baseline_data.get('score') or baseline_data.get('test_score')
+                baseline_score = _extract_reward_value(baseline_data)
             
             # Show baseline first
             if baseline_score is not None:
@@ -285,7 +297,7 @@ def display_prompt_learning_summary(
                 for event in sorted_topk:
                     data = event.get('data', {})
                     rank = data.get('rank', 0)
-                    test_score = data.get('test_score')
+                    test_score = _extract_reward_value(data)
                     if test_score is not None and baseline_score is not None:
                         delta = test_score - baseline_score
                         delta_pct = (delta / baseline_score * 100) if baseline_score > 0 else 0
@@ -295,12 +307,12 @@ def display_prompt_learning_summary(
         elif validation_summary:
             baseline = validation_summary.get('baseline', {})
             results = validation_summary.get('results', [])
-            baseline_acc = baseline.get('accuracy')
+            baseline_acc = _extract_reward_value(baseline) if isinstance(baseline, dict) else None
             
             if baseline_acc is not None and results and len(results) > 0:
                 # Only show candidate 1 (not candidate 2)
                     result = results[0]
-                    result_acc = result.get('accuracy')
+                    result_acc = _extract_reward_value(result) if isinstance(result, dict) else None
                     if result_acc is not None:
                         delta = result_acc - baseline_acc
                         rows.append(("Candidate 1", f"Accuracy: {result_acc:.4f} (Δ{delta:+.4f} vs baseline)"))
@@ -481,7 +493,7 @@ def _generate_summary_text(
         baseline_score = None
         if mipro_baseline_events:
             baseline_data = mipro_baseline_events[-1].get('data', {})
-            baseline_score = baseline_data.get('score') or baseline_data.get('test_score')
+            baseline_score = _extract_reward_value(baseline_data)
         
         if baseline_score is not None:
             rows.append(("Baseline", f"Accuracy: {baseline_score:.4f}"))
@@ -491,7 +503,7 @@ def _generate_summary_text(
             for event in sorted_topk:
                 data = event.get('data', {})
                 rank = data.get('rank', 0)
-                test_score = data.get('test_score')
+                test_score = _extract_reward_value(data)
                 if test_score is not None and baseline_score is not None:
                     delta = test_score - baseline_score
                     delta_pct = (delta / baseline_score * 100) if baseline_score > 0 else 0
@@ -519,4 +531,3 @@ def _generate_summary_text(
         )
     
     return summary_text, curve_text
-

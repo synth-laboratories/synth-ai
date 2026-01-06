@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional
+
+from synth_ai.data.objectives_compat import extract_instance_rewards
 
 
 class EventCategory(Enum):
@@ -45,7 +47,9 @@ class BaselineEvent(ParsedEvent):
     """Baseline evaluation event."""
 
     accuracy: float | None = None
+    objectives: Optional[Dict[str, float]] = None
     instance_scores: list[float] | None = None
+    instance_objectives: Optional[List[Dict[str, float]]] = None
     prompt: dict[str, Any] | None = None
 
 
@@ -55,11 +59,13 @@ class CandidateEvent(ParsedEvent):
 
     candidate_id: str = ""
     accuracy: float | None = None
+    objectives: Optional[Dict[str, float]] = None
     accepted: bool = False
     generation: int | None = None
     parent_id: str | None = None
     is_pareto: bool = False
     instance_scores: list[float] | None = None
+    instance_objectives: Optional[List[Dict[str, float]]] = None
     mutation_type: str | None = None
 
 
@@ -73,6 +79,7 @@ class FrontierEvent(ParsedEvent):
     frontier_size: int = 0
     best_score: float | None = None
     frontier_scores: dict[str, float] | None = None
+    frontier_objectives: Optional[List[Dict[str, float]]] = None
 
 
 @dataclass
@@ -211,18 +218,39 @@ class EventParser:
         category = cls.get_category(event_type)
 
         if category == EventCategory.BASELINE:
+            objectives = data.get("objectives")
+            reward_value = None
+            if isinstance(objectives, dict):
+                reward_value = objectives.get("reward")
+            instance_objectives = data.get("instance_objectives")
+            if not isinstance(instance_objectives, list):
+                instance_objectives = None
+            instance_scores = extract_instance_rewards(data)
             return BaselineEvent(
                 event_type=event_type,
                 category=category,
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                accuracy=data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy"),
-                instance_scores=data.get("instance_scores"),
+                accuracy=reward_value
+                if reward_value is not None
+                else data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy"),
+                objectives=objectives if isinstance(objectives, dict) else None,
+                instance_scores=instance_scores,
+                instance_objectives=instance_objectives,
                 prompt=data.get("prompt"),
             )
 
         if category == EventCategory.CANDIDATE:
+            candidate_data = data.get("program_candidate") if isinstance(data.get("program_candidate"), dict) else data
+            objectives = candidate_data.get("objectives")
+            reward_value = None
+            if isinstance(objectives, dict):
+                reward_value = objectives.get("reward")
+            instance_objectives = candidate_data.get("instance_objectives")
+            if not isinstance(instance_objectives, list):
+                instance_objectives = None
+            instance_scores = extract_instance_rewards(candidate_data)
             return CandidateEvent(
                 event_type=event_type,
                 category=category,
@@ -230,12 +258,16 @@ class EventParser:
                 seq=seq,
                 timestamp_ms=timestamp_ms,
                 candidate_id=data.get("version_id") or data.get("candidate_id") or "",
-                accuracy=data.get("accuracy") or data.get("score"),
+                accuracy=reward_value
+                if reward_value is not None
+                else candidate_data.get("accuracy") or candidate_data.get("score"),
+                objectives=objectives if isinstance(objectives, dict) else None,
                 accepted=data.get("accepted", False),
                 generation=data.get("generation"),
                 parent_id=data.get("parent_id"),
                 is_pareto=data.get("is_pareto", False),
-                instance_scores=data.get("instance_scores"),
+                instance_scores=instance_scores,
+                instance_objectives=instance_objectives,
                 mutation_type=data.get("mutation_type") or data.get("operator"),
             )
 
@@ -252,6 +284,7 @@ class EventParser:
                 frontier_size=data.get("frontier_size", len(data.get("frontier", []))),
                 best_score=data.get("best_score"),
                 frontier_scores=data.get("frontier_scores"),
+                frontier_objectives=data.get("frontier_objectives"),
             )
 
         if category == EventCategory.PROGRESS:

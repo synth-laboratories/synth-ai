@@ -190,6 +190,25 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 	metricsBox.add(metricsText)
 	detailColumn.add(metricsBox)
 
+	// Task Apps panel - shows active tunnels with health status
+	const taskAppsBox = new BoxRenderable(renderer, {
+		id: "task-apps-box",
+		width: "auto",
+		height: 6,
+		borderStyle: "single",
+		borderColor: "#334155",
+		title: "Task Apps",
+		titleAlignment: "left",
+		border: true,
+	})
+	const taskAppsText = new TextRenderable(renderer, {
+		id: "task-apps-text",
+		content: "Loading task apps...",
+		fg: "#e2e8f0",
+	})
+	taskAppsBox.add(taskAppsText)
+	detailColumn.add(taskAppsBox)
+
 	const eventsBox = new BoxRenderable(renderer, {
 		id: "events-box",
 		width: "auto",
@@ -647,6 +666,56 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 	renderer.root.add(keyModalInput)
 	renderer.root.add(keyModalHelp)
 
+	// Task Apps modal
+	const taskAppsModalBox = new BoxRenderable(renderer, {
+		id: "task-apps-modal-box",
+		width: 90,
+		height: 20,
+		position: "absolute",
+		left: 6,
+		top: 4,
+		backgroundColor: "#0b1220",
+		borderStyle: "single",
+		borderColor: "#06b6d4",
+		border: true,
+		zIndex: 8,
+	})
+	const taskAppsModalTitle = new TextRenderable(renderer, {
+		id: "task-apps-modal-title",
+		content: "Task Apps",
+		fg: "#06b6d4",
+		position: "absolute",
+		left: 8,
+		top: 5,
+		zIndex: 9,
+	})
+	const taskAppsModalText = new TextRenderable(renderer, {
+		id: "task-apps-modal-text",
+		content: "",
+		fg: "#e2e8f0",
+		position: "absolute",
+		left: 8,
+		top: 6,
+		zIndex: 9,
+	})
+	const taskAppsModalHint = new TextRenderable(renderer, {
+		id: "task-apps-modal-hint",
+		content: "j/k select | y copy hostname | q close",
+		fg: "#94a3b8",
+		position: "absolute",
+		left: 8,
+		top: 22,
+		zIndex: 9,
+	})
+	taskAppsModalBox.visible = false
+	taskAppsModalTitle.visible = false
+	taskAppsModalText.visible = false
+	taskAppsModalHint.visible = false
+	renderer.root.add(taskAppsModalBox)
+	renderer.root.add(taskAppsModalTitle)
+	renderer.root.add(taskAppsModalText)
+	renderer.root.add(taskAppsModalHint)
+
 	return {
 		// Main layout elements
 		jobsBox,
@@ -680,6 +749,10 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		jobFilterHelp,
 		jobFilterListText,
 		jobFilterModalVisible: false,
+
+		// Task Apps panel
+		taskAppsBox,
+		taskAppsText,
 
 		// Event detail modal
 		eventModalBox,
@@ -718,6 +791,13 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		keyModalInput,
 		keyModalHelp,
 		keyModalVisible: false,
+
+		// Task Apps modal
+		taskAppsModalBox,
+		taskAppsModalTitle,
+		taskAppsModalText,
+		taskAppsModalHint,
+		taskAppsModalVisible: false,
 
 		// Event cards (dynamically created)
 		eventCards: [] as Array<{ box: BoxRenderable; text: TextRenderable }>,

@@ -13,15 +13,20 @@ except Exception:
     pass
 
 # Verifier schemas live under sdk/graphs/verifier_schemas.py
-from synth_ai.sdk.graphs.verifier_schemas import (
-    CriterionScorePayload,
-    ReviewPayload,
-    VerifierOptions,
-    VerifierScoreRequest,
-    VerifierScoreResponse,
-    VerifierTaskApp,
-    VerifierTracePayload,
-)
+try:  # Optional in minimal environments
+    from synth_ai.sdk.graphs.verifier_schemas import (
+        CriterionScorePayload,
+        ReviewPayload,
+        VerifierOptions,
+        VerifierScoreRequest,
+        VerifierScoreResponse,
+        VerifierTaskApp,
+        VerifierTracePayload,
+    )
+except Exception:  # pragma: no cover - optional dependency guard
+    CriterionScorePayload = ReviewPayload = VerifierOptions = None  # type: ignore
+    VerifierScoreRequest = VerifierScoreResponse = None  # type: ignore
+    VerifierTaskApp = VerifierTracePayload = None  # type: ignore
 
 try:  # Prefer the installed package metadata when available
     __version__ = _metadata.version("synth-ai")

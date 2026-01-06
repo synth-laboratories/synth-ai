@@ -14,6 +14,34 @@ export type PromptCandidate = {
   tag: string | null
 }
 
+/** Tunnel record from backend */
+export type TunnelRecord = {
+  id: string
+  hostname: string
+  tunnel_token: string
+  status: string
+  local_host: string
+  local_port: number
+  org_id: string
+  org_name?: string
+  created_at: string
+  deleted_at?: string
+  metadata: Record<string, any>
+  dns_verified: boolean
+  last_verified_at?: string
+  health_status?: string
+  health_check_error?: string
+}
+
+/** Client-side health check result */
+export type TunnelHealthResult = {
+  healthy: boolean
+  status_code?: number
+  error?: string
+  response_time_ms?: number
+  checked_at: Date
+}
+
 export type Snapshot = {
   jobs: JobSummary[]
   selectedJob: JobSummary | null
@@ -32,4 +60,10 @@ export type Snapshot = {
   lastRefresh: number | null
   /** All prompt candidates (baseline + optimized) */
   allCandidates: PromptCandidate[]
+  /** Active tunnels (task apps) */
+  tunnels: TunnelRecord[]
+  /** Client-side health results keyed by tunnel ID */
+  tunnelHealthResults: Map<string, TunnelHealthResult>
+  /** Whether tunnels are currently being refreshed */
+  tunnelsLoading: boolean
 }

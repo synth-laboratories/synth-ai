@@ -276,6 +276,10 @@ class GraphOptDatasetMetadata(BaseModel):
     task_description: Optional[str] = Field(default=None, description="What task this dataset represents")
     input_schema: Optional[Dict[str, Any]] = Field(default=None, description="Schema of task inputs")
     output_schema: Optional[Dict[str, Any]] = Field(default=None, description="Schema of expected outputs")
+    output_config: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Output validation configuration (schema/format/extraction/strictness)",
+    )
     domain: Optional[str] = Field(default=None, description="Domain (qa, code, games, etc.)")
 
 
@@ -450,6 +454,10 @@ class GraphOptimizationConfig(BaseModel):
     task_description: Optional[str] = Field(default=None, description="Description of the task")
     input_schema: Optional[Dict[str, Any]] = Field(default=None, description="Expected input format")
     output_schema: Optional[Dict[str, Any]] = Field(default=None, description="Expected output format")
+    output_config: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Output validation configuration (schema/format/extraction/strictness)",
+    )
 
     # Problem specification - detailed task info for the graph proposer
     # This should include domain-specific constraints (e.g., valid labels for classification tasks)
@@ -525,6 +533,7 @@ class GraphOptimizationConfig(BaseModel):
             "num_generations": self.evolution.num_generations,
             "children_per_generation": self.evolution.children_per_generation,
             "proposer_model": self.proposer.model,
+            "proposer_temperature": self.proposer.temperature,
             "graph_type": self.graph_type.value,
             "graph_structure": self.graph_structure.value,
             "allowed_policy_models": self.allowed_policy_models,
@@ -575,6 +584,8 @@ class GraphOptimizationConfig(BaseModel):
             request["input_schema"] = self.input_schema
         if self.output_schema:
             request["output_schema"] = self.output_schema
+        if self.output_config:
+            request["output_config"] = self.output_config
         if self.problem_spec:
             request["problem_spec"] = self.problem_spec
 

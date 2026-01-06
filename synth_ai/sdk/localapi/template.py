@@ -6,10 +6,10 @@ Currently a minimal stub - full implementation pending.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, Callable
 
-if TYPE_CHECKING:
-    from synth_ai.sdk.task import LocalAPIConfig
+# Import directly from sdk.task to avoid circular import with localapi.__init__
+from synth_ai.sdk.task import LocalAPIConfig, create_task_app as create_local_api
 
 
 def build_template_config(
@@ -17,13 +17,11 @@ def build_template_config(
     name: str = "Template Task App",
     description: str = "A template task app.",
     **kwargs: Any,
-) -> "LocalAPIConfig":
+) -> LocalAPIConfig:
     """Build a minimal LocalAPIConfig for testing/scaffolding.
     
     This is a placeholder - real task apps should build their own config.
     """
-    # Lazy imports to avoid circular dependency
-    from synth_ai.sdk.task import LocalAPIConfig
     from synth_ai.sdk.task.contracts import RolloutRequest, RolloutResponse, RolloutMetrics
 
     async def stub_rollout(request: RolloutRequest, http_request: Any) -> RolloutResponse:
@@ -48,8 +46,5 @@ def build_template_config(
 
 def create_template_app(**kwargs: Any):
     """Create a template FastAPI app for testing/scaffolding."""
-    # Lazy import to avoid circular dependency
-    from synth_ai.sdk.task import create_task_app
-    
     config = build_template_config(**kwargs)
-    return create_task_app(config)
+    return create_local_api(config)

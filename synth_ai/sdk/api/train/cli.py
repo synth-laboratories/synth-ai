@@ -7,13 +7,14 @@ import json
 import os
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, NoReturn, cast
+from typing import Any, NoReturn, Optional, cast
 
 import click
 
 from synth_ai.cli.lib.env import get_synth_and_env_keys, mask_str
 from synth_ai.cli.lib.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
 from synth_ai.core.paths import print_paths_formatted
+from synth_ai.data import extract_outcome_reward
 
 try:
     _config_module = cast(
@@ -98,6 +99,29 @@ def _format_text_replacements(obj: dict[str, Any] | None, max_display: int = _MA
                 lines.append("")
     
     return lines
+
+
+def _extract_reward_value(payload: Any, *, fallback_keys: Optional[list[str]] = None) -> Optional[float]:
+    if not isinstance(payload, dict):
+        return None
+    for key in ("outcome_objectives", "objectives"):
+        objectives = payload.get(key)
+        if isinstance(objectives, dict):
+            reward_val = objectives.get("reward")
+            if isinstance(reward_val, (int, float)) and not isinstance(reward_val, bool):
+                return float(reward_val)
+    reward_val = payload.get("reward")
+    if isinstance(reward_val, (int, float)) and not isinstance(reward_val, bool):
+        return float(reward_val)
+    reward_val = extract_outcome_reward(payload)
+    if reward_val is not None and not isinstance(reward_val, bool):
+        return float(reward_val)
+    if fallback_keys:
+        for key in fallback_keys:
+            value = payload.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return float(value)
+    return None
 
 
 def _default_backend() -> str:
@@ -1521,7 +1545,7 @@ def _save_prompt_learning_results_locally(
                     msg = event.get("message", "")
                     is_baseline = "baseline" in msg.lower()
                 if is_baseline:
-                    baseline_score = event_data.get("accuracy")
+                    baseline_score = _extract_reward_value(event_data)
             elif event_type == _PROMPT_LEARNING_EVENT_GEPA_COMPLETE and best_score is None:
                 best_score = event_data.get("best_score")
             elif event_type == _PROMPT_LEARNING_EVENT_MIPRO_COMPLETE:
@@ -1650,7 +1674,11 @@ def _save_prompt_learning_results_locally(
                 if not isinstance(cand, dict):
                     continue
                 candidate_score = cand.get("score") or {}
-                accuracy = candidate_score.get("accuracy", 0.0)
+                reward_val = _extract_reward_value(candidate_score)
+                if reward_val is None:
+                    reward_val = _extract_reward_value(cand)
+                if reward_val is None:
+                    reward_val = 0.0
                 prompt_length = candidate_score.get("prompt_length", 0)
                 payload_kind = cand.get("payload_kind", "unknown")
                 
@@ -1662,7 +1690,7 @@ def _save_prompt_learning_results_locally(
                 )
                 n_eval = len(instance_scores) if instance_scores and isinstance(instance_scores, list) else 0
                 
-                lines.append(f"[{idx+1}] Accuracy: {accuracy:.4f} | Length: {prompt_length} | Type: {payload_kind} | N: {n_eval}")
+                lines.append(f"[{idx+1}] Reward: {reward_val:.4f} | Length: {prompt_length} | Type: {payload_kind} | N: {n_eval}")
                 lines.append("-" * 80)
                 
                 obj = cand.get("object")
@@ -1753,13 +1781,15 @@ def _save_prompt_learning_results_locally(
             for idx, cand in enumerate(attempted_candidates):
                 if not isinstance(cand, dict):
                     continue
-                accuracy = cand.get('accuracy', 0.0)
+                reward_val = _extract_reward_value(cand)
+                if reward_val is None:
+                    reward_val = 0.0
                 prompt_length = cand.get('prompt_length', 0)
                 tool_rate = cand.get('tool_call_rate', 0.0)
                 instance_scores = cand.get('instance_scores', [])
                 n_eval = len(instance_scores) if instance_scores else 0
                 
-                lines.append(f"[{idx+1}] Accuracy: {accuracy:.4f} | Length: {prompt_length} | Tool Rate: {tool_rate:.2f} | N: {n_eval}")
+                lines.append(f"[{idx+1}] Reward: {reward_val:.4f} | Length: {prompt_length} | Tool Rate: {tool_rate:.2f} | N: {n_eval}")
                 lines.append("-" * 80)
                 
                 obj = cand.get("object")
