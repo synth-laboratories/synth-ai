@@ -20128,54 +20128,6 @@ function buildLayout(renderer, getFooterText) {
   renderer.root.add(keyModalLabel);
   renderer.root.add(keyModalInput);
   renderer.root.add(keyModalHelp);
-  const loginModalBox = new BoxRenderable(renderer, {
-    id: "login-modal-box",
-    width: 60,
-    height: 10,
-    position: "absolute",
-    left: 10,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#22c55e",
-    border: true,
-    zIndex: 15
-  });
-  const loginModalTitle = new TextRenderable(renderer, {
-    id: "login-modal-title",
-    content: "Sign In",
-    fg: "#22c55e",
-    position: "absolute",
-    left: 12,
-    top: 7,
-    zIndex: 16
-  });
-  const loginModalText = new TextRenderable(renderer, {
-    id: "login-modal-text",
-    content: "Press Enter to open browser and sign in...",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 12,
-    top: 9,
-    zIndex: 16
-  });
-  const loginModalHelp = new TextRenderable(renderer, {
-    id: "login-modal-help",
-    content: "Enter start | q cancel",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 12,
-    top: 13,
-    zIndex: 16
-  });
-  loginModalBox.visible = false;
-  loginModalTitle.visible = false;
-  loginModalText.visible = false;
-  loginModalHelp.visible = false;
-  renderer.root.add(loginModalBox);
-  renderer.root.add(loginModalTitle);
-  renderer.root.add(loginModalText);
-  renderer.root.add(loginModalHelp);
   return {
     jobsBox,
     eventsBox,
@@ -20231,11 +20183,6 @@ function buildLayout(renderer, getFooterText) {
     keyModalInput,
     keyModalHelp,
     keyModalVisible: false,
-    loginModalBox,
-    loginModalTitle,
-    loginModalText,
-    loginModalHelp,
-    loginModalVisible: false,
     eventCards: []
   };
 }
@@ -20966,28 +20913,23 @@ function updatePaneIndicators(ctx) {
 }
 
 // src/ui/text.ts
-function formatHeaderMeta(ctx) {
-  const { snapshot: snapshot2 } = ctx.state;
-  const org = snapshot2.orgId || "-";
-  const user = snapshot2.userId || "-";
-  const balance = snapshot2.balanceDollars == null ? "-" : `$${snapshot2.balanceDollars.toFixed(2)}`;
-  return `org: ${org}  user: ${user}  balance: ${balance}`;
-}
 function formatStatus(ctx) {
   const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const balance = snapshot2.balanceDollars == null ? "-" : `$${snapshot2.balanceDollars.toFixed(2)}`;
   const ts = snapshot2.lastRefresh ? new Date(snapshot2.lastRefresh).toLocaleTimeString() : "-";
   const baseLabel = (process.env.SYNTH_BACKEND_URL || "").replace(/^https?:\/\//, "");
   const health = `health=${appState2.healthStatus}`;
   if (snapshot2.lastError) {
-    return `Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot2.lastError}`;
+    return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot2.lastError}`;
   }
-  return `Last refresh: ${ts} | ${health} | ${baseLabel} | ${snapshot2.status}`;
+  return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${baseLabel} | ${snapshot2.status}`;
 }
 function footerText(ctx) {
   const { appState: appState2 } = ctx.state;
   const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
   const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
-  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
+  const profileKey = process.env.SYNTH_API_KEY ? " | p profile" : "";
+  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | o results | s snapshot${profileKey} | q quit`;
 }
 
 // src/ui/render.ts
@@ -21152,91 +21094,215 @@ function sleep(ms) {
   return new Promise((resolve3) => setTimeout(resolve3, ms));
 }
 
+// src/modals/base.ts
+var MODAL_DEFAULTS = {
+  width: 50,
+  height: 10,
+  borderColor: "#60a5fa",
+  titleColor: "#60a5fa",
+  backgroundColor: "#0b1220",
+  textColor: "#e2e8f0",
+  hintColor: "#94a3b8",
+  zIndex: 10,
+  padding: 2
+};
+function createModalUI(renderer, config2) {
+  const {
+    id,
+    width = MODAL_DEFAULTS.width,
+    height = MODAL_DEFAULTS.height,
+    borderColor = MODAL_DEFAULTS.borderColor,
+    titleColor = MODAL_DEFAULTS.titleColor,
+    zIndex = MODAL_DEFAULTS.zIndex
+  } = config2;
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+  const left = Math.max(0, Math.floor((cols - width) / 2));
+  const top = Math.max(1, Math.floor((rows - height) / 2));
+  const box = new BoxRenderable(renderer, {
+    id: `${id}-box`,
+    width,
+    height,
+    position: "absolute",
+    left,
+    top,
+    backgroundColor: MODAL_DEFAULTS.backgroundColor,
+    borderStyle: "single",
+    borderColor,
+    border: true,
+    zIndex
+  });
+  const title = new TextRenderable(renderer, {
+    id: `${id}-title`,
+    content: "",
+    fg: titleColor,
+    position: "absolute",
+    left: left + MODAL_DEFAULTS.padding,
+    top: top + 1,
+    zIndex: zIndex + 1
+  });
+  const content = new TextRenderable(renderer, {
+    id: `${id}-content`,
+    content: "",
+    fg: MODAL_DEFAULTS.textColor,
+    position: "absolute",
+    left: left + MODAL_DEFAULTS.padding,
+    top: top + 3,
+    zIndex: zIndex + 1
+  });
+  const hint = new TextRenderable(renderer, {
+    id: `${id}-hint`,
+    content: "",
+    fg: MODAL_DEFAULTS.hintColor,
+    position: "absolute",
+    left: left + MODAL_DEFAULTS.padding,
+    top: top + height - 2,
+    zIndex: zIndex + 1
+  });
+  box.visible = false;
+  title.visible = false;
+  content.visible = false;
+  hint.visible = false;
+  renderer.root.add(box);
+  renderer.root.add(title);
+  renderer.root.add(content);
+  renderer.root.add(hint);
+  let visible = false;
+  function setVisible(v) {
+    visible = v;
+    box.visible = v;
+    title.visible = v;
+    content.visible = v;
+    hint.visible = v;
+    renderer.requestRender();
+  }
+  function center() {
+    const rows2 = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+    const cols2 = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const newLeft = Math.max(0, Math.floor((cols2 - width) / 2));
+    const newTop = Math.max(1, Math.floor((rows2 - height) / 2));
+    box.left = newLeft;
+    box.top = newTop;
+    title.left = newLeft + MODAL_DEFAULTS.padding;
+    title.top = newTop + 1;
+    content.left = newLeft + MODAL_DEFAULTS.padding;
+    content.top = newTop + 3;
+    hint.left = newLeft + MODAL_DEFAULTS.padding;
+    hint.top = newTop + height - 2;
+  }
+  return {
+    box,
+    title,
+    content,
+    hint,
+    get visible() {
+      return visible;
+    },
+    setVisible,
+    setTitle: (t2) => {
+      title.content = t2;
+    },
+    setContent: (c) => {
+      content.content = c;
+    },
+    setHint: (h2) => {
+      hint.content = h2;
+    },
+    center
+  };
+}
+function wrapModalText(text, width) {
+  const lines = [];
+  for (const raw of text.split(`
+`)) {
+    if (raw.length <= width) {
+      lines.push(raw);
+      continue;
+    }
+    if (raw.trim() === "") {
+      lines.push("");
+      continue;
+    }
+    let start = 0;
+    while (start < raw.length) {
+      lines.push(raw.slice(start, start + width));
+      start += width;
+    }
+  }
+  return lines;
+}
+function clamp2(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
 // src/login_modal.ts
 function createLoginModal(deps) {
-  let loginModalVisible = false;
   let loginAuthStatus = { state: "idle" };
   let loginAuthInProgress = false;
-  const { ui, renderer, bootstrap, getSnapshot, renderSnapshot, getActivePane } = deps;
-  function updateUIVisibility(visible) {
-    loginModalVisible = visible;
-    ui.loginModalVisible = visible;
-    ui.loginModalBox.visible = visible;
-    ui.loginModalTitle.visible = visible;
-    ui.loginModalText.visible = visible;
-    ui.loginModalHelp.visible = visible;
-  }
+  const { renderer, bootstrap, getSnapshot, renderSnapshot, getActivePane, focusJobsSelect, blurJobsSelect } = deps;
+  const modal = createModalUI(renderer, {
+    id: "login-modal",
+    width: 60,
+    height: 10,
+    borderColor: "#22c55e",
+    titleColor: "#22c55e",
+    zIndex: 15
+  });
   function updateLoginModalStatus(status) {
     loginAuthStatus = status;
     switch (status.state) {
       case "idle":
-        ui.loginModalText.content = "Press Enter to open browser and sign in...";
-        ui.loginModalHelp.content = "Enter start | q cancel";
+        modal.setContent("Press Enter to open browser and sign in...");
+        modal.setHint("Enter start | q cancel");
         break;
       case "initializing":
-        ui.loginModalText.content = "Initializing...";
-        ui.loginModalHelp.content = "Please wait...";
+        modal.setContent("Initializing...");
+        modal.setHint("Please wait...");
         break;
       case "waiting":
-        ui.loginModalText.content = [
+        modal.setContent([
           "Browser opened. Complete sign-in there.",
           "",
           `URL: ${status.verificationUri}`
         ].join(`
-`);
-        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel";
+`));
+        modal.setHint("Waiting for browser auth... | q cancel");
         break;
       case "polling":
-        ui.loginModalText.content = [
+        modal.setContent([
           "Browser opened. Complete sign-in there.",
           "",
           "Checking for completion..."
         ].join(`
-`);
-        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel";
+`));
+        modal.setHint("Waiting for browser auth... | q cancel");
         break;
       case "success":
-        ui.loginModalText.content = "Authentication successful!";
-        ui.loginModalHelp.content = "Loading...";
+        modal.setContent("Authentication successful!");
+        modal.setHint("Loading...");
         break;
       case "error":
-        ui.loginModalText.content = `Error: ${status.message}`;
-        ui.loginModalHelp.content = "Enter retry | q close";
+        modal.setContent(`Error: ${status.message}`);
+        modal.setHint("Enter retry | q close");
         break;
     }
     renderer.requestRender();
   }
   function toggle(visible) {
-    updateUIVisibility(visible);
     if (visible) {
-      const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
-      const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
-      const width = 60;
-      const height = 10;
-      const left = Math.max(0, Math.floor((cols - width) / 2));
-      const top = Math.max(1, Math.floor((rows - height) / 2));
-      ui.loginModalBox.left = left;
-      ui.loginModalBox.top = top;
-      ui.loginModalBox.width = width;
-      ui.loginModalBox.height = height;
-      ui.loginModalTitle.left = left + 2;
-      ui.loginModalTitle.top = top + 1;
-      ui.loginModalText.left = left + 2;
-      ui.loginModalText.top = top + 3;
-      ui.loginModalHelp.left = left + 2;
-      ui.loginModalHelp.top = top + height - 2;
+      modal.center();
       loginAuthStatus = { state: "idle" };
       loginAuthInProgress = false;
-      ui.loginModalTitle.content = "Sign In / Sign Up";
-      ui.loginModalText.content = "Press Enter to open browser";
-      ui.loginModalHelp.content = "Enter start | q cancel";
-      ui.jobsSelect.blur();
+      modal.setTitle("Sign In / Sign Up");
+      modal.setContent("Press Enter to open browser");
+      modal.setHint("Enter start | q cancel");
+      blurJobsSelect();
     } else {
       if (getActivePane() === "jobs") {
-        ui.jobsSelect.focus();
+        focusJobsSelect();
       }
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   async function startAuth() {
     if (loginAuthInProgress)
@@ -21278,7 +21344,7 @@ function createLoginModal(deps) {
   }
   return {
     get isVisible() {
-      return loginModalVisible;
+      return modal.visible;
     },
     get isInProgress() {
       return loginAuthInProgress;
@@ -21290,31 +21356,6 @@ function createLoginModal(deps) {
     startAuth,
     logout
   };
-}
-
-// src/modals/base.ts
-function wrapModalText(text, width) {
-  const lines = [];
-  for (const raw of text.split(`
-`)) {
-    if (raw.length <= width) {
-      lines.push(raw);
-      continue;
-    }
-    if (raw.trim() === "") {
-      lines.push("");
-      continue;
-    }
-    let start = 0;
-    while (start < raw.length) {
-      lines.push(raw.slice(start, start + width));
-      start += width;
-    }
-  }
-  return lines;
-}
-function clamp2(value, min, max) {
-  return Math.min(Math.max(value, min), max);
 }
 // src/modals/event-modal.ts
 function createEventModal(ctx) {
@@ -21954,6 +21995,57 @@ function createSnapshotModal(ctx) {
     handleKey
   };
 }
+// src/modals/profile-modal.ts
+function createProfileModal(ctx) {
+  const { renderer } = ctx;
+  const { snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "profile-modal",
+    width: 50,
+    height: 12,
+    borderColor: "#818cf8",
+    titleColor: "#818cf8",
+    zIndex: 10
+  });
+  modal.setTitle("Profile");
+  modal.setHint("q close");
+  function updateContent() {
+    const org = snapshot2.orgId || "-";
+    const user = snapshot2.userId || "-";
+    modal.setContent(`Organization:
+${org}
+
+User:
+${user}`);
+  }
+  function toggle(visible) {
+    if (visible) {
+      modal.center();
+      updateContent();
+    }
+    modal.setVisible(visible);
+  }
+  function open() {
+    toggle(true);
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    handleKey
+  };
+}
 // src/handlers/keyboard.ts
 init_jobs();
 function createKeyboardHandler(ctx, modals) {
@@ -22002,6 +22094,10 @@ function createKeyboardHandler(ctx, modals) {
         modals.snapshot.handleKey(key);
         return;
       }
+      if (modals.profile.isVisible) {
+        modals.profile.handleKey(key);
+        return;
+      }
       renderer.stop();
       renderer.destroy();
       process.exit(0);
@@ -22044,6 +22140,10 @@ function createKeyboardHandler(ctx, modals) {
       modals.snapshot.handleKey(key);
       return;
     }
+    if (modals.profile.isVisible) {
+      modals.profile.handleKey(key);
+      return;
+    }
     if (key.name === "tab") {
       setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
       return;
@@ -22079,6 +22179,12 @@ function createKeyboardHandler(ctx, modals) {
       return;
     }
     if (key.name === "p") {
+      if (!process.env.SYNTH_API_KEY)
+        return;
+      modals.profile.open();
+      return;
+    }
+    if (key.name === "o") {
       modals.results.open();
       return;
     }
@@ -22367,14 +22473,15 @@ async function runApp() {
     render
   });
   const loginModal = createLoginModal({
-    ui,
     renderer,
     bootstrap: async () => {
       await bootstrap();
     },
     getSnapshot: () => ctx.state.snapshot,
     renderSnapshot: render,
-    getActivePane: () => ctx.state.appState.activePane
+    getActivePane: () => ctx.state.appState.activePane,
+    focusJobsSelect: () => ui.jobsSelect.focus(),
+    blurJobsSelect: () => ui.jobsSelect.blur()
   });
   const eventModal = createEventModal(ctx);
   const resultsModal = createResultsModal(ctx);
@@ -22383,6 +22490,7 @@ async function runApp() {
   const jobFilterModal = createJobFilterModal(ctx);
   const keyModal = createKeyModal(ctx);
   const snapshotModal = createSnapshotModal(ctx);
+  const profileModal = createProfileModal(ctx);
   const modals = {
     login: loginModal,
     event: eventModal,
@@ -22391,7 +22499,8 @@ async function runApp() {
     filter: filterModal,
     jobFilter: jobFilterModal,
     key: keyModal,
-    snapshot: snapshotModal
+    snapshot: snapshotModal,
+    profile: profileModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
   const handlePaste = createPasteHandler(ctx, keyModal);
