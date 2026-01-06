@@ -22,6 +22,7 @@ export type ModalControllers = {
   envKey: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => Promise<void> }
   snapshot: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   promptBrowser?: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
+  taskApps: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
 }
 
 export function createKeyboardHandler(
@@ -85,6 +86,10 @@ export function createKeyboardHandler(
         modals.snapshot.handleKey(key)
         return
       }
+      if (modals.taskApps.isVisible) {
+        modals.taskApps.handleKey(key)
+        return
+      }
       // No modal open - quit
       renderer.stop()
       renderer.destroy()
@@ -140,6 +145,10 @@ export function createKeyboardHandler(
       modals.snapshot.handleKey(key)
       return
     }
+    if (modals.taskApps.isVisible) {
+      modals.taskApps.handleKey(key)
+      return
+    }
 
     // Global shortcuts
     if (key.name === "tab") {
@@ -191,6 +200,10 @@ export function createKeyboardHandler(
     }
     if (key.name === "s") {
       modals.snapshot.open()
+      return
+    }
+    if (key.name === "u") {
+      modals.taskApps.open()
       return
     }
     if (key.name === "c") {

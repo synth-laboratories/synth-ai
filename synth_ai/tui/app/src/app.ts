@@ -18,6 +18,7 @@ import {
   createKeyModal,
   createEnvKeyModal,
   createSnapshotModal,
+  createTaskAppsModal,
 } from "./modals"
 
 import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
@@ -26,6 +27,7 @@ import { normalizeBackendId } from "./state/app-state"
 import { refreshJobs, selectJob } from "./api/jobs"
 import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
+import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
 import { getActiveApiKey } from "./api/client"
 
 export async function runApp(): Promise<void> {
@@ -104,6 +106,7 @@ export async function runApp(): Promise<void> {
   const keyModal = createKeyModal(ctx)
   const envKeyModal = createEnvKeyModal(ctx)
   const snapshotModal = createSnapshotModal(ctx)
+  const taskAppsModal = createTaskAppsModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -116,6 +119,7 @@ export async function runApp(): Promise<void> {
     key: keyModal,
     envKey: envKeyModal,
     snapshot: snapshotModal,
+    taskApps: taskAppsModal,
   }
 
   // Create keyboard handler
@@ -187,6 +191,10 @@ export async function runApp(): Promise<void> {
     await refreshIdentity(ctx)
     await refreshJobs(ctx)
 
+    // Load tunnels (task apps) and check their health
+    await refreshTunnels(ctx)
+    void refreshTunnelHealth(ctx).then(() => render())
+
     const { initialJobId } = ctx.state.config
     if (initialJobId) {
       await selectJob(ctx, initialJobId)
@@ -198,6 +206,9 @@ export async function runApp(): Promise<void> {
     scheduleEventsPoll()
     setInterval(() => void refreshHealth(ctx), 30_000)
     setInterval(() => void refreshIdentity(ctx).then(() => render()), 60_000)
+    // Refresh tunnels every 30 seconds, health checks every 15 seconds
+    setInterval(() => void refreshTunnels(ctx).then(() => render()), 30_000)
+    setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15_000)
     render()
   }
 
