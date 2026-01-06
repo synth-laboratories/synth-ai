@@ -19,6 +19,7 @@ export type ModalControllers = {
   jobFilter: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   key: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   snapshot: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
+  profile: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   promptBrowser?: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
 }
 
@@ -75,6 +76,10 @@ export function createKeyboardHandler(
         modals.snapshot.handleKey(key)
         return
       }
+      if (modals.profile.isVisible) {
+        modals.profile.handleKey(key)
+        return
+      }
       // No modal open - quit
       renderer.stop()
       renderer.destroy()
@@ -122,6 +127,10 @@ export function createKeyboardHandler(
       modals.snapshot.handleKey(key)
       return
     }
+    if (modals.profile.isVisible) {
+      modals.profile.handleKey(key)
+      return
+    }
 
     // Global shortcuts
     if (key.name === "tab") {
@@ -160,6 +169,11 @@ export function createKeyboardHandler(
       return
     }
     if (key.name === "p") {
+      if (!process.env.SYNTH_API_KEY) return // do nothing if not logged in
+      modals.profile.open()
+      return
+    }
+    if (key.name === "o") {
       modals.results.open()
       return
     }

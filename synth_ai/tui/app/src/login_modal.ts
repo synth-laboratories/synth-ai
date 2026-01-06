@@ -5,20 +5,9 @@
  * the actual auth flow to auth.ts.
  */
 
+import type { CliRenderer } from "@opentui/core"
 import { runDeviceCodeAuth, type AuthStatus } from "./auth"
-
-/**
- * UI elements required by the login modal.
- * Using `any` for content since it can be StyledText or string depending on OpenTUI version.
- */
-export type LoginModalUI = {
-  loginModalVisible: boolean
-  loginModalBox: { visible: boolean; left: number; top: number; width: number; height: number }
-  loginModalTitle: { visible: boolean; content: any; left: number; top: number }
-  loginModalText: { visible: boolean; content: any; left: number; top: number }
-  loginModalHelp: { visible: boolean; content: any; left: number; top: number }
-  jobsSelect: { blur: () => void; focus: () => void }
-}
+import { createModalUI, type ModalUI } from "./modals/base"
 
 /**
  * Snapshot state for updating status messages.
@@ -46,12 +35,13 @@ export type SnapshotState = {
  * Dependencies required by the login modal controller.
  */
 export type LoginModalDeps = {
-  ui: LoginModalUI
-  renderer: { requestRender: () => void }
+  renderer: CliRenderer
   bootstrap: () => Promise<void>
   getSnapshot: () => SnapshotState
   renderSnapshot: () => void
   getActivePane: () => "jobs" | "events"
+  focusJobsSelect: () => void
+  blurJobsSelect: () => void
 }
 
 /**
@@ -76,94 +66,75 @@ export type LoginModalController = {
  * Create a login modal controller with the given dependencies.
  */
 export function createLoginModal(deps: LoginModalDeps): LoginModalController {
-  let loginModalVisible = false
   let loginAuthStatus: AuthStatus = { state: "idle" }
   let loginAuthInProgress = false
 
-  const { ui, renderer, bootstrap, getSnapshot, renderSnapshot, getActivePane } = deps
+  const { renderer, bootstrap, getSnapshot, renderSnapshot, getActivePane, focusJobsSelect, blurJobsSelect } = deps
 
-  function updateUIVisibility(visible: boolean): void {
-    loginModalVisible = visible
-    ui.loginModalVisible = visible
-    ui.loginModalBox.visible = visible
-    ui.loginModalTitle.visible = visible
-    ui.loginModalText.visible = visible
-    ui.loginModalHelp.visible = visible
-  }
+  // Create modal UI using the primitive
+  const modal: ModalUI = createModalUI(renderer, {
+    id: "login-modal",
+    width: 60,
+    height: 10,
+    borderColor: "#22c55e",
+    titleColor: "#22c55e",
+    zIndex: 15,
+  })
 
   function updateLoginModalStatus(status: AuthStatus): void {
     loginAuthStatus = status
     switch (status.state) {
       case "idle":
-        ui.loginModalText.content = "Press Enter to open browser and sign in..."
-        ui.loginModalHelp.content = "Enter start | q cancel"
+        modal.setContent("Press Enter to open browser and sign in...")
+        modal.setHint("Enter start | q cancel")
         break
       case "initializing":
-        ui.loginModalText.content = "Initializing..."
-        ui.loginModalHelp.content = "Please wait..."
+        modal.setContent("Initializing...")
+        modal.setHint("Please wait...")
         break
       case "waiting":
-        ui.loginModalText.content = [
+        modal.setContent([
           "Browser opened. Complete sign-in there.",
           "",
           `URL: ${status.verificationUri}`,
-        ].join("\n")
-        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel"
+        ].join("\n"))
+        modal.setHint("Waiting for browser auth... | q cancel")
         break
       case "polling":
-        ui.loginModalText.content = [
+        modal.setContent([
           "Browser opened. Complete sign-in there.",
           "",
           "Checking for completion...",
-        ].join("\n")
-        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel"
+        ].join("\n"))
+        modal.setHint("Waiting for browser auth... | q cancel")
         break
       case "success":
-        ui.loginModalText.content = "Authentication successful!"
-        ui.loginModalHelp.content = "Loading..."
+        modal.setContent("Authentication successful!")
+        modal.setHint("Loading...")
         break
       case "error":
-        ui.loginModalText.content = `Error: ${status.message}`
-        ui.loginModalHelp.content = "Enter retry | q close"
+        modal.setContent(`Error: ${status.message}`)
+        modal.setHint("Enter retry | q close")
         break
     }
     renderer.requestRender()
   }
 
   function toggle(visible: boolean): void {
-    updateUIVisibility(visible)
     if (visible) {
-      // Center the modal on screen
-      const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40
-      const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
-      const width = 60
-      const height = 10
-      const left = Math.max(0, Math.floor((cols - width) / 2))
-      const top = Math.max(1, Math.floor((rows - height) / 2))
-
-      ui.loginModalBox.left = left
-      ui.loginModalBox.top = top
-      ui.loginModalBox.width = width
-      ui.loginModalBox.height = height
-      ui.loginModalTitle.left = left + 2
-      ui.loginModalTitle.top = top + 1
-      ui.loginModalText.left = left + 2
-      ui.loginModalText.top = top + 3
-      ui.loginModalHelp.left = left + 2
-      ui.loginModalHelp.top = top + height - 2
-
+      modal.center()
       loginAuthStatus = { state: "idle" }
       loginAuthInProgress = false
-      ui.loginModalTitle.content = "Sign In / Sign Up"
-      ui.loginModalText.content = "Press Enter to open browser"
-      ui.loginModalHelp.content = "Enter start | q cancel"
-      ui.jobsSelect.blur()
+      modal.setTitle("Sign In / Sign Up")
+      modal.setContent("Press Enter to open browser")
+      modal.setHint("Enter start | q cancel")
+      blurJobsSelect()
     } else {
       if (getActivePane() === "jobs") {
-        ui.jobsSelect.focus()
+        focusJobsSelect()
       }
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   async function startAuth(): Promise<void> {
@@ -219,7 +190,7 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
 
   return {
     get isVisible() {
-      return loginModalVisible
+      return modal.visible
     },
     get isInProgress() {
       return loginAuthInProgress

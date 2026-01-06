@@ -8,7 +8,7 @@ import { extractEnvName } from "../utils/job"
 import { getFilteredJobs } from "../selectors/jobs"
 import { renderEventCards } from "./events"
 import { updatePaneIndicators } from "./panes"
-import { footerText, formatHeaderMeta, formatStatus } from "./text"
+import { footerText, formatStatus } from "./text"
 
 export function renderApp(ctx: AppContext): void {
   const { ui, renderer } = ctx
@@ -61,7 +61,6 @@ export function renderApp(ctx: AppContext): void {
   ui.metricsText.content = formatMetrics(snapshot.metrics)
   renderEventCards(ctx)
   updatePaneIndicators(ctx)
-  ui.headerMetaText.content = formatHeaderMeta(ctx)
   ui.statusText.content = formatStatus(ctx)
   ui.footerText.content = footerText(ctx)
   ui.eventsBox.title = appState.eventFilter ? `Events (filter: ${appState.eventFilter})` : "Events"
