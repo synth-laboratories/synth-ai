@@ -13,6 +13,7 @@ export function footerText(ctx: AppContext): string {
 	const keys = [
 		"e events",
 		"b jobs",
+		"n create",
 		"tab toggle",
 		"j/k nav",
 		"enter view",
