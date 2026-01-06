@@ -13,8 +13,8 @@ export function createProfileModal(ctx: AppContext): ModalController & {
   // Create modal UI using the primitive
   const modal: ModalUI = createModalUI(renderer, {
     id: "profile-modal",
-    width: 50,
-    height: 12,
+    width: 72,
+    height: 15,
     borderColor: "#818cf8",
     titleColor: "#818cf8",
     zIndex: 10,
@@ -27,7 +27,8 @@ export function createProfileModal(ctx: AppContext): ModalController & {
   function updateContent(): void {
     const org = snapshot.orgId || "-"
     const user = snapshot.userId || "-"
-    modal.setContent(`Organization:\n${org}\n\nUser:\n${user}`)
+    const apiKey = process.env.SYNTH_API_KEY || "-"
+    modal.setContent(`Organization:\n${org}\n\nUser:\n${user}\n\nAPI Key:\n${apiKey}`)
   }
 
   function toggle(visible: boolean): void {
