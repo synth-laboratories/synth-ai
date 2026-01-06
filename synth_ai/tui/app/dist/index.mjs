@@ -19543,22 +19543,7 @@ function buildLayout(renderer, getFooterText) {
     content: "Synth AI",
     fg: "#e2e8f0"
   });
-  const headerSpacer = new BoxRenderable(renderer, {
-    id: "header-spacer",
-    width: "auto",
-    height: "auto",
-    flexGrow: 1,
-    flexShrink: 1,
-    border: false
-  });
-  const headerMetaText = new TextRenderable(renderer, {
-    id: "header-meta-text",
-    content: "",
-    fg: "#94a3b8"
-  });
   headerBox.add(headerText);
-  headerBox.add(headerSpacer);
-  headerBox.add(headerMetaText);
   root.add(headerBox);
   const tabsBox = new BoxRenderable(renderer, {
     id: "tabs-box",
@@ -20139,7 +20124,6 @@ function buildLayout(renderer, getFooterText) {
     eventsEmptyText,
     jobsTabText,
     eventsTabText,
-    headerMetaText,
     statusText,
     footerText: footerTextNode,
     modalBox,
@@ -20917,12 +20901,11 @@ function formatStatus(ctx) {
   const { snapshot: snapshot2, appState: appState2 } = ctx.state;
   const balance = snapshot2.balanceDollars == null ? "-" : `$${snapshot2.balanceDollars.toFixed(2)}`;
   const ts = snapshot2.lastRefresh ? new Date(snapshot2.lastRefresh).toLocaleTimeString() : "-";
-  const baseLabel = (process.env.SYNTH_BACKEND_URL || "").replace(/^https?:\/\//, "");
   const health = `health=${appState2.healthStatus}`;
   if (snapshot2.lastError) {
-    return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot2.lastError}`;
+    return `Balance: ${balance} | Last refresh: ${ts} | ${health} | Error: ${snapshot2.lastError}`;
   }
-  return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${baseLabel} | ${snapshot2.status}`;
+  return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${snapshot2.status}`;
 }
 function footerText(ctx) {
   const { appState: appState2 } = ctx.state;
@@ -20974,7 +20957,6 @@ function renderApp(ctx) {
   ui.metricsText.content = formatMetrics(snapshot2.metrics);
   renderEventCards(ctx);
   updatePaneIndicators(ctx);
-  ui.headerMetaText.content = formatHeaderMeta(ctx);
   ui.statusText.content = formatStatus(ctx);
   ui.footerText.content = footerText(ctx);
   ui.eventsBox.title = appState2.eventFilter ? `Events (filter: ${appState2.eventFilter})` : "Events";
