@@ -7,12 +7,11 @@ export function formatStatus(ctx: AppContext): string {
   const { snapshot, appState } = ctx.state
   const balance = snapshot.balanceDollars == null ? "-" : `$${snapshot.balanceDollars.toFixed(2)}`
   const ts = snapshot.lastRefresh ? new Date(snapshot.lastRefresh).toLocaleTimeString() : "-"
-  const baseLabel = (process.env.SYNTH_BACKEND_URL || "").replace(/^https?:\/\//, "")
   const health = `health=${appState.healthStatus}`
   if (snapshot.lastError) {
-    return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot.lastError}`
+    return `Balance: ${balance} | Last refresh: ${ts} | ${health} | Error: ${snapshot.lastError}`
   }
-  return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${baseLabel} | ${snapshot.status}`
+  return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${snapshot.status}`
 }
 
 export function footerText(ctx: AppContext): string {
