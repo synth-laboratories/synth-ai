@@ -423,6 +423,7 @@ async def main():
                 'mutation': {'rate': 0.3},
                 'population': {'initial_size': 3, 'num_generations': 2, 'children_per_generation': 2},
                 'archive': {'pareto_set_size': 10},
+                'token': {'counting_model': 'gpt-4'},
             },
         },
     }
