@@ -5,22 +5,19 @@ import subprocess
 from pathlib import Path
 from shutil import which
 
-from synth_ai.core.env import get_api_key, get_backend_url
-from synth_ai.sdk.api.train.utils import ensure_api_base
+from synth_ai.core.env import get_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE, FRONTEND_URL_BASE
 
 
 def run_prompt_learning_tui(
     *,
     job_id: str | None = None,
-    backend_base: str | None = None,
     api_key: str | None = None,
     refresh_interval: float = 5.0,
     event_interval: float = 2.0,
     limit: int = 50,
 ) -> None:
     """Launch the prompt learning monitoring TUI."""
-    backend = backend_base or get_backend_url()
-    base_url = ensure_api_base(backend)
     synth_key = api_key or get_api_key(required=False) or ""
 
     tui_root = Path(__file__).resolve().parent / "app"
@@ -39,8 +36,12 @@ def run_prompt_learning_tui(
         raise RuntimeError("Missing runtime. Install bun to run the TUI.")
 
     env = dict(os.environ)
-    env["SYNTH_TUI_API_BASE"] = base_url
+    # URLs from urls.py (source of truth)
+    env["SYNTH_BACKEND_URL"] = BACKEND_URL_BASE
+    env["SYNTH_FRONTEND_URL"] = FRONTEND_URL_BASE
+    # API key
     env["SYNTH_API_KEY"] = synth_key
+    # TUI config
     if job_id:
         env["SYNTH_TUI_JOB_ID"] = job_id
     env["SYNTH_TUI_REFRESH_INTERVAL"] = str(refresh_interval)

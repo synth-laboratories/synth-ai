@@ -5,11 +5,7 @@
  * the actual auth flow to auth.ts.
  */
 
-import {
-  runDeviceCodeAuth,
-  type AuthStatus,
-  type BackendId,
-} from "./auth"
+import { runDeviceCodeAuth, type AuthStatus } from "./auth"
 
 /**
  * UI elements required by the login modal.
@@ -22,14 +18,6 @@ export type LoginModalUI = {
   loginModalText: { visible: boolean; content: any; left: number; top: number }
   loginModalHelp: { visible: boolean; content: any; left: number; top: number }
   jobsSelect: { blur: () => void; focus: () => void }
-}
-
-/**
- * Backend key management functions.
- */
-export type BackendKeySource = {
-  sourcePath: string | null
-  varName: string | null
 }
 
 /**
@@ -60,11 +48,6 @@ export type SnapshotState = {
 export type LoginModalDeps = {
   ui: LoginModalUI
   renderer: { requestRender: () => void }
-  getCurrentBackend: () => BackendId
-  getBackendConfig: () => { label: string }
-  getBackendKeys: () => Record<BackendId, string>
-  setBackendKey: (backend: BackendId, key: string, source: BackendKeySource) => void
-  persistSettings: () => Promise<void>
   bootstrap: () => Promise<void>
   getSnapshot: () => SnapshotState
   renderSnapshot: () => void
@@ -85,7 +68,7 @@ export type LoginModalController = {
   toggle: (visible: boolean) => void
   /** Start the device code auth flow */
   startAuth: () => Promise<void>
-  /** Log out from the current backend */
+  /** Log out */
   logout: () => Promise<void>
 }
 
@@ -97,18 +80,7 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
   let loginAuthStatus: AuthStatus = { state: "idle" }
   let loginAuthInProgress = false
 
-  const {
-    ui,
-    renderer,
-    getCurrentBackend,
-    getBackendConfig,
-    setBackendKey,
-    persistSettings,
-    bootstrap,
-    getSnapshot,
-    renderSnapshot,
-    getActivePane,
-  } = deps
+  const { ui, renderer, bootstrap, getSnapshot, renderSnapshot, getActivePane } = deps
 
   function updateUIVisibility(visible: boolean): void {
     loginModalVisible = visible
@@ -182,7 +154,7 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
 
       loginAuthStatus = { state: "idle" }
       loginAuthInProgress = false
-      ui.loginModalTitle.content = `Sign In / Sign Up`
+      ui.loginModalTitle.content = "Sign In / Sign Up"
       ui.loginModalText.content = "Press Enter to open browser"
       ui.loginModalHelp.content = "Enter start | q cancel"
       ui.jobsSelect.blur()
@@ -198,20 +170,13 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
     if (loginAuthInProgress) return
     loginAuthInProgress = true
 
-    const currentBackend = getCurrentBackend()
-    const result = await runDeviceCodeAuth(currentBackend, updateLoginModalStatus)
+    const result = await runDeviceCodeAuth(updateLoginModalStatus)
 
     loginAuthInProgress = false
 
     if (result.success && result.apiKey) {
       // Store the key
-      setBackendKey(currentBackend, result.apiKey, {
-        sourcePath: "browser-auth",
-        varName: null,
-      })
-
-      // Persist settings
-      await persistSettings()
+      process.env.SYNTH_API_KEY = result.apiKey
 
       // Close modal and refresh
       toggle(false)
@@ -226,9 +191,7 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
   }
 
   async function logout(): Promise<void> {
-    const currentBackend = getCurrentBackend()
-    setBackendKey(currentBackend, "", { sourcePath: null, varName: null })
-    await persistSettings()
+    process.env.SYNTH_API_KEY = ""
 
     // Clear ALL auth-related state immediately
     const snapshot = getSnapshot()
@@ -246,7 +209,7 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
     snapshot.balanceDollars = null
     snapshot.lastRefresh = null
     snapshot.allCandidates = []
-    snapshot.lastError = `Logged out from ${getBackendConfig().label}`
+    snapshot.lastError = "Logged out"
     snapshot.status = "Sign in required"
     renderSnapshot()
 
@@ -269,4 +232,3 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
     logout,
   }
 }
-

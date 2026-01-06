@@ -15,11 +15,9 @@ export type ModalControllers = {
   event: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   results: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   config: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  settings: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   filter: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   jobFilter: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   key: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  envKey: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => Promise<void> }
   snapshot: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   promptBrowser?: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
 }
@@ -49,16 +47,8 @@ export function createKeyboardHandler(
         modals.key.handleKey(key)
         return
       }
-      if (modals.envKey.isVisible) {
-        modals.envKey.handleKey(key)
-        return
-      }
       if (modals.jobFilter.isVisible) {
         modals.jobFilter.handleKey(key)
-        return
-      }
-      if (modals.settings.isVisible) {
-        modals.settings.handleKey(key)
         return
       }
       if (modals.event.isVisible) {
@@ -104,10 +94,6 @@ export function createKeyboardHandler(
       modals.key.handleKey(key)
       return
     }
-    if (modals.envKey.isVisible) {
-      modals.envKey.handleKey(key)
-      return
-    }
     if (modals.event.isVisible) {
       modals.event.handleKey(key)
       return
@@ -122,10 +108,6 @@ export function createKeyboardHandler(
     }
     if (modals.promptBrowser?.isVisible) {
       modals.promptBrowser.handleKey(key)
-      return
-    }
-    if (modals.settings.isVisible) {
-      modals.settings.handleKey(key)
       return
     }
     if (modals.filter.isVisible) {
@@ -164,17 +146,13 @@ export function createKeyboardHandler(
     }
     if (key.name === "l" && key.shift) {
       // Logout
-      ctx.state.backendKeys[appState.currentBackend] = ""
+      process.env.SYNTH_API_KEY = ""
       snapshot.status = "Logged out"
       ctx.render()
       return
     }
     if (key.name === "f") {
       modals.filter.open()
-      return
-    }
-    if (key.name === "t") {
-      modals.settings.open()
       return
     }
     if (key.name === "i") {

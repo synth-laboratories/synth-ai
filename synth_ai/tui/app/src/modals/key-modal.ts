@@ -10,7 +10,7 @@ export function createKeyModal(ctx: AppContext): ModalController & {
   paste: () => void
 } {
   const { ui, renderer } = ctx
-  const { appState, backendKeys, backendKeySources, config } = ctx.state
+  const { appState } = ctx.state
 
   function toggle(visible: boolean): void {
     ui.keyModalVisible = visible
@@ -21,7 +21,7 @@ export function createKeyModal(ctx: AppContext): ModalController & {
     if (visible) {
       ui.keyModalInput.value = ""
       ui.keyModalInput.focus()
-      ui.keyModalLabel.content = `API Key for ${appState.keyModalBackend}:`
+      ui.keyModalLabel.content = "API Key:"
       ui.keyModalHelp.content = "Paste or type key | Enter to apply | q to cancel"
     } else if (appState.activePane === "jobs") {
       ui.jobsSelect.focus()
@@ -30,7 +30,6 @@ export function createKeyModal(ctx: AppContext): ModalController & {
   }
 
   function open(): void {
-    appState.keyModalBackend = appState.currentBackend
     toggle(true)
   }
 
@@ -41,20 +40,8 @@ export function createKeyModal(ctx: AppContext): ModalController & {
       return
     }
 
-    backendKeys[appState.keyModalBackend] = trimmed
-    backendKeySources[appState.keyModalBackend] = {
-      sourcePath: "manual-input",
-      varName: null,
-    }
+    process.env.SYNTH_API_KEY = trimmed
     toggle(false)
-
-    const { persistSettings } = await import("../persistence/settings")
-    await persistSettings({
-      settingsFilePath: config.settingsFilePath,
-      getCurrentBackend: () => appState.currentBackend,
-      getBackendKey: (id) => backendKeys[id],
-      getBackendKeySource: (id) => backendKeySources[id],
-    })
 
     ctx.state.snapshot.status = "API key updated"
     ctx.render()
@@ -119,4 +106,3 @@ export function createKeyModal(ctx: AppContext): ModalController & {
     handleKey,
   }
 }
-
