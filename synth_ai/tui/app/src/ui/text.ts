@@ -30,7 +30,7 @@ export function footerText(ctx: AppContext): string {
   const jobFilterLabel = appState.jobStatusFilter.size
     ? `status=${Array.from(appState.jobStatusFilter).join(",")}`
     : "status=all"
-  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`
+  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | u tunnels | c cancel | a artifacts | s snapshot | q quit`
 }
 
 
