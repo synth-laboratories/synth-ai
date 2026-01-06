@@ -654,56 +654,6 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
   renderer.root.add(keyModalInput)
   renderer.root.add(keyModalHelp)
 
-  // Login modal
-  const loginModalBox = new BoxRenderable(renderer, {
-    id: "login-modal-box",
-    width: 60,
-    height: 10,
-    position: "absolute",
-    left: 10,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#22c55e",
-    border: true,
-    zIndex: 15,
-  })
-  const loginModalTitle = new TextRenderable(renderer, {
-    id: "login-modal-title",
-    content: "Sign In",
-    fg: "#22c55e",
-    position: "absolute",
-    left: 12,
-    top: 7,
-    zIndex: 16,
-  })
-  const loginModalText = new TextRenderable(renderer, {
-    id: "login-modal-text",
-    content: "Press Enter to open browser and sign in...",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 12,
-    top: 9,
-    zIndex: 16,
-  })
-  const loginModalHelp = new TextRenderable(renderer, {
-    id: "login-modal-help",
-    content: "Enter start | q cancel",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 12,
-    top: 13,
-    zIndex: 16,
-  })
-  loginModalBox.visible = false
-  loginModalTitle.visible = false
-  loginModalText.visible = false
-  loginModalHelp.visible = false
-  renderer.root.add(loginModalBox)
-  renderer.root.add(loginModalTitle)
-  renderer.root.add(loginModalText)
-  renderer.root.add(loginModalHelp)
-
   return {
     // Main layout elements
     jobsBox,
@@ -776,13 +726,6 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     keyModalInput,
     keyModalHelp,
     keyModalVisible: false,
-
-    // Login modal
-    loginModalBox,
-    loginModalTitle,
-    loginModalText,
-    loginModalHelp,
-    loginModalVisible: false,
 
     // Event cards (dynamically created)
     eventCards: [] as Array<{ box: BoxRenderable; text: TextRenderable }>,
