@@ -58,7 +58,7 @@ function coerceJob(payload, source) {
     started_at: payload?.started_at || null,
     finished_at: payload?.finished_at || payload?.completed_at || null,
     best_score: num(payload?.best_score),
-    best_snapshot_id: payload?.best_snapshot_id || payload?.prompt_best_snapshot_id || payload?.best_snapshot?.id || null,
+    best_snapshot_id: payload?.best_snapshot_id || payload?.best_graph_snapshot_id || payload?.prompt_best_snapshot_id || payload?.best_snapshot?.id || null,
     total_tokens: int(payload?.total_tokens),
     total_cost_usd: num(payload?.total_cost_usd || payload?.total_cost),
     error: payload?.error || null,
@@ -19435,6 +19435,8 @@ var appState = {
   configModalOffset: 0,
   promptBrowserIndex: 0,
   promptBrowserOffset: 0,
+  taskAppsModalOffset: 0,
+  taskAppsModalSelectedIndex: 0,
   jobSelectToken: 0,
   eventsToken: 0
 };
@@ -19499,7 +19501,10 @@ var snapshot = {
   status: "Loading jobs...",
   lastError: null,
   lastRefresh: null,
-  allCandidates: []
+  allCandidates: [],
+  tunnels: [],
+  tunnelHealthResults: new Map,
+  tunnelsLoading: false
 };
 
 // src/context.ts
@@ -19697,6 +19702,23 @@ function buildLayout(renderer, getFooterText) {
   });
   metricsBox.add(metricsText);
   detailColumn.add(metricsBox);
+  const taskAppsBox = new BoxRenderable(renderer, {
+    id: "task-apps-box",
+    width: "auto",
+    height: 6,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Task Apps",
+    titleAlignment: "left",
+    border: true
+  });
+  const taskAppsText = new TextRenderable(renderer, {
+    id: "task-apps-text",
+    content: "Loading task apps...",
+    fg: "#e2e8f0"
+  });
+  taskAppsBox.add(taskAppsText);
+  detailColumn.add(taskAppsBox);
   const eventsBox = new BoxRenderable(renderer, {
     id: "events-box",
     width: "auto",
@@ -20135,6 +20157,54 @@ function buildLayout(renderer, getFooterText) {
   renderer.root.add(keyModalLabel);
   renderer.root.add(keyModalInput);
   renderer.root.add(keyModalHelp);
+  const taskAppsModalBox = new BoxRenderable(renderer, {
+    id: "task-apps-modal-box",
+    width: 90,
+    height: 20,
+    position: "absolute",
+    left: 6,
+    top: 4,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#06b6d4",
+    border: true,
+    zIndex: 8
+  });
+  const taskAppsModalTitle = new TextRenderable(renderer, {
+    id: "task-apps-modal-title",
+    content: "Task Apps",
+    fg: "#06b6d4",
+    position: "absolute",
+    left: 8,
+    top: 5,
+    zIndex: 9
+  });
+  const taskAppsModalText = new TextRenderable(renderer, {
+    id: "task-apps-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 6,
+    zIndex: 9
+  });
+  const taskAppsModalHint = new TextRenderable(renderer, {
+    id: "task-apps-modal-hint",
+    content: "j/k select | y copy hostname | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 22,
+    zIndex: 9
+  });
+  taskAppsModalBox.visible = false;
+  taskAppsModalTitle.visible = false;
+  taskAppsModalText.visible = false;
+  taskAppsModalHint.visible = false;
+  renderer.root.add(taskAppsModalBox);
+  renderer.root.add(taskAppsModalTitle);
+  renderer.root.add(taskAppsModalText);
+  renderer.root.add(taskAppsModalHint);
   return {
     jobsBox,
     eventsBox,
@@ -20161,6 +20231,8 @@ function buildLayout(renderer, getFooterText) {
     jobFilterHelp,
     jobFilterListText,
     jobFilterModalVisible: false,
+    taskAppsBox,
+    taskAppsText,
     eventModalBox,
     eventModalTitle,
     eventModalText,
@@ -20189,6 +20261,11 @@ function buildLayout(renderer, getFooterText) {
     keyModalInput,
     keyModalHelp,
     keyModalVisible: false,
+    taskAppsModalBox,
+    taskAppsModalTitle,
+    taskAppsModalText,
+    taskAppsModalHint,
+    taskAppsModalVisible: false,
     eventCards: []
   };
 }
@@ -20957,6 +21034,38 @@ function footerText(ctx) {
 }
 
 // src/ui/render.ts
+function formatTaskApps(tunnels, healthResults, loading) {
+  if (loading) {
+    return "Loading task apps...";
+  }
+  if (tunnels.length === 0) {
+    return "No active task apps";
+  }
+  const lines = [];
+  for (const tunnel of tunnels.slice(0, 4)) {
+    const health = healthResults.get(tunnel.id);
+    const hostname = tunnel.hostname.replace(/^https?:\/\//, "");
+    const shortHost = hostname.length > 35 ? hostname.slice(0, 32) + "..." : hostname;
+    let statusIcon;
+    let statusText;
+    if (!health) {
+      statusIcon = "?";
+      statusText = "checking";
+    } else if (health.healthy) {
+      statusIcon = "\u2713";
+      statusText = health.response_time_ms != null ? `${health.response_time_ms}ms` : "healthy";
+    } else {
+      statusIcon = "\u2717";
+      statusText = health.error?.slice(0, 20) || "unhealthy";
+    }
+    lines.push(`[${statusIcon}] ${shortHost} (${statusText})`);
+  }
+  if (tunnels.length > 4) {
+    lines.push(`  ... +${tunnels.length - 4} more`);
+  }
+  return lines.join(`
+`);
+}
 function renderApp(ctx) {
   const { ui, renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
@@ -20996,6 +21105,8 @@ function renderApp(ctx) {
   ui.detailText.content = formatDetails(snapshot2);
   ui.resultsText.content = formatResults(snapshot2);
   ui.metricsText.content = formatMetrics(snapshot2.metrics);
+  ui.taskAppsText.content = formatTaskApps(snapshot2.tunnels, snapshot2.tunnelHealthResults, snapshot2.tunnelsLoading);
+  ui.taskAppsBox.title = snapshot2.tunnels.length > 0 ? `Task Apps (${snapshot2.tunnels.length})` : "Task Apps";
   renderEventCards(ctx);
   updatePaneIndicators(ctx);
   ui.statusText.content = formatStatus(ctx);
@@ -22213,6 +22324,128 @@ ${frontend}`);
     handleKey
   };
 }
+// src/modals/task-apps-modal.ts
+function formatTunnelDetails(tunnels, healthResults, selectedIndex) {
+  if (tunnels.length === 0) {
+    return `No active task apps (tunnels).
+
+Task apps are Cloudflare managed tunnels that expose
+local APIs to the internet for remote execution.`;
+  }
+  const lines = [];
+  tunnels.forEach((tunnel, idx) => {
+    const health = healthResults.get(tunnel.id);
+    const isSelected = idx === selectedIndex;
+    let healthIcon = "?";
+    let healthText = "Unknown";
+    if (health) {
+      if (health.healthy) {
+        healthIcon = "\u2713";
+        healthText = `Healthy (${health.response_time_ms}ms)`;
+      } else {
+        healthIcon = "\u2717";
+        healthText = health.error || "Unhealthy";
+      }
+    }
+    const portMatch = tunnel.hostname.match(/task-(\d+)-\d+/);
+    const displayPort = portMatch ? portMatch[1] : tunnel.local_port;
+    const prefix = isSelected ? "> " : "  ";
+    lines.push(`${prefix}[${healthIcon}] ${tunnel.hostname}`);
+    lines.push(`     Port: ${displayPort} | ${healthText}`);
+    lines.push(`     Local: ${tunnel.local_host}:${tunnel.local_port}`);
+    if (tunnel.org_name) {
+      lines.push(`     Org: ${tunnel.org_name}`);
+    }
+    lines.push("");
+  });
+  return lines.join(`
+`);
+}
+function createTaskAppsModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  function toggle(visible) {
+    ui.taskAppsModalVisible = visible;
+    ui.taskAppsModalBox.visible = visible;
+    ui.taskAppsModalTitle.visible = visible;
+    ui.taskAppsModalText.visible = visible;
+    ui.taskAppsModalHint.visible = visible;
+    if (!visible) {
+      ui.taskAppsModalText.content = "";
+    }
+    renderer.requestRender();
+  }
+  function updateContent() {
+    if (!ui.taskAppsModalVisible)
+      return;
+    const raw = formatTunnelDetails(snapshot2.tunnels, snapshot2.tunnelHealthResults, appState2.taskAppsModalSelectedIndex || 0);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.taskAppsModalOffset = clamp2(appState2.taskAppsModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.taskAppsModalOffset, appState2.taskAppsModalOffset + maxLines);
+    const tunnelCount = snapshot2.tunnels.length;
+    ui.taskAppsModalTitle.content = `Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`;
+    ui.taskAppsModalText.content = visible.join(`
+`);
+    ui.taskAppsModalHint.content = wrapped.length > maxLines ? `[${appState2.taskAppsModalOffset + 1}-${appState2.taskAppsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy hostname | q close` : "j/k select | y copy hostname | q close";
+    renderer.requestRender();
+  }
+  function move(delta) {
+    const maxIndex = Math.max(0, snapshot2.tunnels.length - 1);
+    appState2.taskAppsModalSelectedIndex = clamp2((appState2.taskAppsModalSelectedIndex || 0) + delta, 0, maxIndex);
+    updateContent();
+  }
+  function open() {
+    appState2.taskAppsModalOffset = 0;
+    appState2.taskAppsModalSelectedIndex = 0;
+    toggle(true);
+    updateContent();
+  }
+  async function copyHostname() {
+    const selectedIndex = appState2.taskAppsModalSelectedIndex || 0;
+    const tunnel = snapshot2.tunnels[selectedIndex];
+    if (tunnel) {
+      const url = `https://${tunnel.hostname}`;
+      await copyToClipboard(url);
+      snapshot2.status = `Copied: ${url}`;
+      ctx.render();
+    }
+  }
+  function handleKey(key) {
+    if (!ui.taskAppsModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "y") {
+      copyHostname();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.taskAppsModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    copyHostname,
+    handleKey
+  };
+}
 // src/handlers/keyboard.ts
 init_jobs();
 function createKeyboardHandler(ctx, modals) {
@@ -22273,6 +22506,10 @@ function createKeyboardHandler(ctx, modals) {
         modals.createJob.handleKey(key);
         return;
       }
+      if (modals.taskApps.isVisible) {
+        modals.taskApps.handleKey(key);
+        return;
+      }
       renderer.stop();
       renderer.destroy();
       process.exit(0);
@@ -22327,6 +22564,10 @@ function createKeyboardHandler(ctx, modals) {
       modals.createJob.handleKey(key);
       return;
     }
+    if (modals.taskApps.isVisible) {
+      modals.taskApps.handleKey(key);
+      return;
+    }
     if (key.name === "tab") {
       setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
       return;
@@ -22379,6 +22620,10 @@ function createKeyboardHandler(ctx, modals) {
     }
     if (key.name === "n") {
       modals.createJob.open();
+      return;
+    }
+    if (key.name === "u") {
+      modals.taskApps.open();
       return;
     }
     if (key.name === "c") {
@@ -22557,6 +22802,108 @@ async function refreshHealth2(ctx) {
   }
 }
 
+// src/api/tunnels.ts
+async function fetchTunnels(statusFilter = "active") {
+  try {
+    const tunnels = await apiGetV1(`/tunnels/?status_filter=${statusFilter}`);
+    return tunnels || [];
+  } catch (err) {
+    console.error("Failed to fetch tunnels:", err?.message || err);
+    return [];
+  }
+}
+async function refreshTunnels(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  try {
+    snapshot2.tunnelsLoading = true;
+    const tunnels = await fetchTunnels("active");
+    snapshot2.tunnels = tunnels;
+    snapshot2.tunnelsLoading = false;
+    return true;
+  } catch (err) {
+    snapshot2.tunnelsLoading = false;
+    return false;
+  }
+}
+async function refreshTunnelHealth(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  if (snapshot2.tunnels.length === 0)
+    return;
+  const results2 = await checkAllTunnelsHealth(snapshot2.tunnels);
+  snapshot2.tunnelHealthResults = results2;
+}
+async function checkTunnelHealth(tunnel, timeout = 5000) {
+  const url = tunnel.hostname.startsWith("http") ? tunnel.hostname : `https://${tunnel.hostname}`;
+  const healthUrl = `${url}/health`;
+  const startTime = Date.now();
+  try {
+    const controller = new AbortController;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const response = await fetch(healthUrl, {
+      signal: controller.signal,
+      method: "GET"
+    });
+    clearTimeout(timeoutId);
+    const elapsed = Date.now() - startTime;
+    const statusCode = response.status;
+    if (statusCode === 200) {
+      return {
+        healthy: true,
+        status_code: statusCode,
+        response_time_ms: elapsed,
+        checked_at: new Date
+      };
+    } else if (statusCode === 404 || statusCode === 405) {
+      return {
+        healthy: true,
+        status_code: statusCode,
+        response_time_ms: elapsed,
+        error: "Health endpoint not found (tunnel working)",
+        checked_at: new Date
+      };
+    } else if (statusCode === 530) {
+      return {
+        healthy: false,
+        status_code: statusCode,
+        response_time_ms: elapsed,
+        error: "Tunnel not connected (530)",
+        checked_at: new Date
+      };
+    } else {
+      return {
+        healthy: false,
+        status_code: statusCode,
+        response_time_ms: elapsed,
+        error: `Unhealthy status: ${statusCode}`,
+        checked_at: new Date
+      };
+    }
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    const errorMessage = err?.name === "AbortError" ? `Timeout after ${timeout}ms` : err?.message || "Unknown error";
+    return {
+      healthy: false,
+      error: errorMessage,
+      response_time_ms: elapsed,
+      checked_at: new Date
+    };
+  }
+}
+async function checkAllTunnelsHealth(tunnels, timeout = 5000, maxConcurrent = 15) {
+  const results2 = new Map;
+  for (let i = 0;i < tunnels.length; i += maxConcurrent) {
+    const batch = tunnels.slice(i, i + maxConcurrent);
+    const batchResults = await Promise.all(batch.map(async (tunnel) => {
+      const result = await checkTunnelHealth(tunnel, timeout);
+      return { id: tunnel.id, result };
+    }));
+    for (const { id, result } of batchResults) {
+      results2.set(id, result);
+    }
+  }
+  return results2;
+}
+
 // src/api/jobs-stream.ts
 function connectJobsStream(onEvent, onError, sinceSeq = 0) {
   let aborted = false;
@@ -22678,6 +23025,7 @@ async function runApp() {
   const profileModal = createProfileModal(ctx);
   const urlsModal = createUrlsModal(renderer);
   const createJobModal = createCreateJobModal(ctx);
+  const taskAppsModal = createTaskAppsModal(ctx);
   const modals = {
     login: loginModal,
     event: eventModal,
@@ -22689,7 +23037,8 @@ async function runApp() {
     snapshot: snapshotModal,
     profile: profileModal,
     urls: urlsModal,
-    createJob: createJobModal
+    createJob: createJobModal,
+    taskApps: taskAppsModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
   const handlePaste = createPasteHandler(ctx, keyModal);
@@ -22763,6 +23112,8 @@ async function runApp() {
     refreshHealth2(ctx);
     await refreshIdentity(ctx);
     await refreshJobs(ctx);
+    await refreshTunnels(ctx);
+    refreshTunnelHealth(ctx).then(() => render());
     const { initialJobId } = ctx.state.config;
     if (initialJobId) {
       await selectJob(ctx, initialJobId);
@@ -22773,6 +23124,8 @@ async function runApp() {
     scheduleEventsPoll();
     setInterval(() => void refreshHealth2(ctx), 30000);
     setInterval(() => void refreshIdentity(ctx).then(() => render()), 60000);
+    setInterval(() => void refreshTunnels(ctx).then(() => render()), 30000);
+    setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15000);
     render();
   }
   function startJobsStream() {

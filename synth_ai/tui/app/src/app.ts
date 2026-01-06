@@ -16,6 +16,9 @@ import {
   createJobFilterModal,
   createKeyModal,
   createSnapshotModal,
+  createProfileModal,
+  createUrlsModal,
+  createTaskAppsModal,
 } from "./modals"
 import { createCreateJobModal } from "./modals/create-job-modal"
 
@@ -23,7 +26,10 @@ import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
 import { refreshJobs, selectJob } from "./api/jobs"
 import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
-import { getActiveApiKey } from "./api/client"
+import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
+import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
+import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
+import { clearJobsTimer } from "./state/polling"
 
 export async function runApp(): Promise<void> {
   // Create renderer
@@ -70,6 +76,10 @@ export async function runApp(): Promise<void> {
   const jobFilterModal = createJobFilterModal(ctx)
   const keyModal = createKeyModal(ctx)
   const snapshotModal = createSnapshotModal(ctx)
+  const profileModal = createProfileModal(ctx)
+  const urlsModal = createUrlsModal(renderer)
+  const createJobModal = createCreateJobModal(ctx)
+  const taskAppsModal = createTaskAppsModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -80,6 +90,10 @@ export async function runApp(): Promise<void> {
     jobFilter: jobFilterModal,
     key: keyModal,
     snapshot: snapshotModal,
+    profile: profileModal,
+    urls: urlsModal,
+    createJob: createJobModal,
+    taskApps: taskAppsModal,
   }
 
   // Create keyboard handler
