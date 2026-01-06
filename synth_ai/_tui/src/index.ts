@@ -1723,6 +1723,7 @@ function extractBestSnapshotId(payload: any): string | null {
   if (!payload) return null
   return (
     payload.best_snapshot_id ||
+    payload.best_graph_snapshot_id ||
     payload.prompt_best_snapshot_id ||
     payload.best_snapshot?.id ||
     null

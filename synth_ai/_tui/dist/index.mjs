@@ -19076,7 +19076,7 @@ function coerceJob(payload, source) {
     started_at: payload?.started_at || null,
     finished_at: payload?.finished_at || payload?.completed_at || null,
     best_score: num(payload?.best_score),
-    best_snapshot_id: payload?.best_snapshot_id || payload?.prompt_best_snapshot_id || payload?.best_snapshot?.id || null,
+    best_snapshot_id: payload?.best_snapshot_id || payload?.best_graph_snapshot_id || payload?.prompt_best_snapshot_id || payload?.best_snapshot?.id || null,
     total_tokens: int(payload?.total_tokens),
     total_cost_usd: num(payload?.total_cost_usd || payload?.total_cost),
     error: payload?.error || null,
@@ -20894,7 +20894,7 @@ function formatValue(value) {
 function extractBestSnapshotId(payload) {
   if (!payload)
     return null;
-  return payload.best_snapshot_id || payload.prompt_best_snapshot_id || payload.best_snapshot?.id || null;
+  return payload.best_snapshot_id || payload.best_graph_snapshot_id || payload.prompt_best_snapshot_id || payload.best_snapshot?.id || null;
 }
 function extractBestPrompt(snapshotPayload) {
   if (!snapshotPayload)

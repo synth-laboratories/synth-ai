@@ -82,7 +82,11 @@ from .abstractions import (
 )
 from .config import TursoConfig
 from .llm_call_record_helpers import BaseLMResponse
-from .session_tracer import SessionTracer
+
+try:
+    from .session_tracer import SessionTracer
+except Exception:  # pragma: no cover - optional tracing dependency guard
+    SessionTracer = None  # type: ignore[assignment]
 
 __all__ = [
     "SessionTracer",
