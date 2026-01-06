@@ -9,6 +9,11 @@ import { promises as fs } from "node:fs"
 import { formatEnvLine, parseEnvFile } from "../utils/env"
 import type { BackendId, BackendKeySource } from "../types"
 
+// Type declaration for Node.js process (available at runtime)
+declare const process: {
+  env: Record<string, string | undefined>
+}
+
 export type LoadSettingsDeps = {
   settingsFilePath: string
   normalizeBackendId: (value: string) => BackendId
@@ -37,10 +42,15 @@ export async function loadPersistedSettings(deps: LoadSettingsDeps): Promise<voi
 
     const prodKey = values.SYNTH_TUI_API_KEY_PROD
     const devKey = values.SYNTH_TUI_API_KEY_DEV
-    const localKey = values.SYNTH_TUI_API_KEY_LOCAL
-    if (typeof prodKey === "string") setBackendKey("prod", prodKey)
-    if (typeof devKey === "string") setBackendKey("dev", devKey)
-    if (typeof localKey === "string") setBackendKey("local", localKey)
+    // For local, check settings file first, then fall back to SYNTH_API_KEY env var
+    const localKeyFromFile = values.SYNTH_TUI_API_KEY_LOCAL
+    // Only use file value if it's non-empty, otherwise use env var
+    const localKey = (typeof localKeyFromFile === "string" && localKeyFromFile.trim()) 
+      ? localKeyFromFile.trim()
+      : (process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || "").trim()
+    if (typeof prodKey === "string" && prodKey.trim()) setBackendKey("prod", prodKey.trim())
+    if (typeof devKey === "string" && devKey.trim()) setBackendKey("dev", devKey.trim())
+    if (localKey) setBackendKey("local", localKey)
 
     setBackendKeySource("prod", {
       sourcePath: values.SYNTH_TUI_API_KEY_PROD_SOURCE || null,

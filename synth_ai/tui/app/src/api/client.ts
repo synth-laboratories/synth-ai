@@ -2,7 +2,13 @@
  * HTTP API client for backend communication.
  */
 
-import { appState, backendConfigs, backendKeys, type BackendId } from "../state/app-state"
+import { appState, backendConfigs, backendKeys } from "../state/app-state"
+import type { BackendId } from "../types"
+
+// Type declaration for Node.js process (available at runtime)
+declare const process: {
+  env: Record<string, string | undefined>
+}
 
 /** Ensure URL ends with /api */
 function ensureApiBase(url: string): string {

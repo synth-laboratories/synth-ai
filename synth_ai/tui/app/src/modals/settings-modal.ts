@@ -5,6 +5,11 @@ import type { AppContext } from "../context"
 import type { BackendConfig, BackendId } from "../types"
 import { clamp, type ModalController } from "./base"
 
+// Type declaration for Node.js process (available at runtime)
+declare const process: {
+  env: Record<string, string | undefined>
+}
+
 export function createSettingsModal(ctx: AppContext): ModalController & {
   open: () => void
   move: (delta: number) => void
@@ -27,6 +32,11 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
     ui.settingsListText.visible = visible
     ui.settingsInfoText.visible = visible
     if (visible) {
+      // Refresh backendKeys from environment in case SYNTH_API_KEY was set
+      const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
+      if (!backendKeys.local?.trim() && synthApiKey) {
+        backendKeys.local = synthApiKey
+      }
       appState.settingsOptions = buildSettingsOptions()
       appState.settingsCursor = Math.max(
         0,
@@ -52,8 +62,12 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
 
     const selected = appState.settingsOptions[appState.settingsCursor]
     if (selected) {
-      const key = backendKeys[selected.id]
-      const keyPreview = key ? `${key.slice(0, 5)}...` : "(no key)"
+      // For local backend, check environment variable directly if key is empty
+      let key = backendKeys[selected.id]
+      if (selected.id === "local" && (!key || !key.trim())) {
+        key = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
+      }
+      const keyPreview = key && key.trim() ? `${key.slice(0, 5)}...` : "(no key)"
       ui.settingsInfoText.content = `URL: ${selected.baseUrl}\nKey: ${keyPreview}`
     } else {
       ui.settingsInfoText.content = ""

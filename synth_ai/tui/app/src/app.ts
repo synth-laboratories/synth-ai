@@ -30,6 +30,11 @@ import { refreshIdentity, refreshHealth } from "./api/identity"
 import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
 import { getActiveApiKey } from "./api/client"
 
+// Type declaration for Node.js process (available at runtime)
+declare const process: {
+  env: Record<string, string | undefined>
+}
+
 export async function runApp(): Promise<void> {
   // Create renderer
   const renderer = await createCliRenderer({
@@ -69,6 +74,12 @@ export async function runApp(): Promise<void> {
       ctx.state.backendKeySources[id] = source
     },
   })
+  
+  // Ensure local backend has SYNTH_API_KEY fallback if still empty
+  const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
+  if (!ctx.state.backendKeys.local?.trim() && synthApiKey) {
+    ctx.state.backendKeys.local = synthApiKey
+  }
 
   // Create modal controllers
   const loginModal = createLoginModal({
