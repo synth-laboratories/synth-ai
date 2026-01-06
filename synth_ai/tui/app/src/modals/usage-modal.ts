@@ -4,6 +4,7 @@
  */
 import type { AppContext } from "../context"
 import { wrapModalText, clamp, type ModalController } from "./base"
+import { apiGetV1 } from "../api/client"
 
 export interface UsageData {
   plan_type: "free" | "pro" | "team" | "byok"
@@ -196,34 +197,55 @@ export function createUsageModal(ctx: AppContext): ModalController & {
   }
 
   async function fetchUsageData(): Promise<void> {
-    // TODO: Implement API call to fetch usage data
-    // For now, use mock data to demonstrate the UI
-    const mockData: UsageData = {
-      plan_type: "pro",
-      status: "active",
-      rollout_credits_balance_usd: 7.50,
-      rollout_credits_used_this_period_usd: 2.50,
-      limits: {
-        monthly_rollout_credits_usd: 10,
-        max_overdraft_usd: 200,
-        unlimited_non_rollout: true,
-        team_features_enabled: false,
-        byok_enabled: true,
-      },
-      usage_summary: {
-        total_cost_usd: 15.23,
-        total_charged_usd: 2.50,
-        total_uncharged_usd: 12.73,
-        by_type: [
-          { usage_type: "rollout", total_cost_usd: 2.50, charged_cost_usd: 2.50, uncharged_cost_usd: 0, event_count: 150, byok_event_count: 0 },
-          { usage_type: "proposal", total_cost_usd: 8.20, charged_cost_usd: 0, uncharged_cost_usd: 8.20, event_count: 420, byok_event_count: 0 },
-          { usage_type: "verifier", total_cost_usd: 3.15, charged_cost_usd: 0, uncharged_cost_usd: 3.15, event_count: 280, byok_event_count: 0 },
-          { usage_type: "sandbox", total_cost_usd: 1.38, charged_cost_usd: 0, uncharged_cost_usd: 1.38, event_count: 95, byok_event_count: 0 },
-        ],
-      },
-    }
+    try {
+      // Fetch from the combined usage-plan endpoint
+      const response = await apiGetV1("/usage-plan")
 
-    setData(mockData)
+      // Map API response to UsageData interface
+      const data: UsageData = {
+        plan_type: response.plan_type as UsageData["plan_type"],
+        status: response.status as UsageData["status"],
+        rollout_credits_balance_usd: response.rollout_credits_balance_usd,
+        rollout_credits_used_this_period_usd: response.rollout_credits_used_this_period_usd,
+        limits: {
+          monthly_rollout_credits_usd: response.limits.monthly_rollout_credits_usd,
+          max_overdraft_usd: response.limits.max_overdraft_usd,
+          unlimited_non_rollout: response.limits.unlimited_non_rollout,
+          team_features_enabled: response.limits.team_features_enabled,
+          byok_enabled: response.limits.byok_enabled,
+        },
+        usage_summary: response.usage_summary
+          ? {
+              total_cost_usd: response.usage_summary.total_cost_usd,
+              total_charged_usd: response.usage_summary.total_charged_usd,
+              total_uncharged_usd: response.usage_summary.total_uncharged_usd,
+              by_type: response.usage_summary.by_type || [],
+            }
+          : undefined,
+      }
+
+      setData(data)
+    } catch (err: any) {
+      // On error, show free tier as fallback
+      const fallbackData: UsageData = {
+        plan_type: "free",
+        status: "active",
+        rollout_credits_balance_usd: null,
+        rollout_credits_used_this_period_usd: null,
+        limits: {
+          monthly_rollout_credits_usd: 0,
+          max_overdraft_usd: 0,
+          unlimited_non_rollout: false,
+          team_features_enabled: false,
+          byok_enabled: false,
+        },
+      }
+      setData(fallbackData)
+
+      // Update status to show error
+      ctx.state.snapshot.lastError = `Usage fetch failed: ${err?.message || "Unknown error"}`
+      ctx.render()
+    }
   }
 
   async function open(): Promise<void> {
