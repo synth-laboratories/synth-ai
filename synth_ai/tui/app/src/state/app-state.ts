@@ -46,11 +46,11 @@ export const backendConfigs: Record<BackendId, BackendConfig> = {
   },
 }
 
-// API keys per backend
+// API keys per backend (SYNTH_API_KEY is used as fallback for local and dev)
 export const backendKeys: Record<BackendId, string> = {
   prod: process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
-  dev: process.env.SYNTH_TUI_API_KEY_DEV || "",
-  local: process.env.SYNTH_TUI_API_KEY_LOCAL || "",
+  dev: process.env.SYNTH_TUI_API_KEY_DEV || process.env.SYNTH_API_KEY || "",
+  local: process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || "",
 }
 
 // Key source tracking (for display purposes)

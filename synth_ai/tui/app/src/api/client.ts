@@ -24,12 +24,20 @@ export function getBackendConfig(id: BackendId = appState.currentBackend): {
   const config = backendConfigs[id]
   const envOverride = ensureApiBase(process.env.SYNTH_TUI_API_BASE || "")
   const baseUrl = envOverride || config.baseUrl
+  // For local/dev backends, check SYNTH_API_KEY if key is empty
+  let apiKey = backendKeys[id]
+  if ((id === "local" || id === "dev") && (!apiKey || !apiKey.trim())) {
+    const envKey = id === "local"
+      ? (process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || "")
+      : (process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_DEV || "")
+    apiKey = envKey
+  }
   return {
     id,
     label: config.label,
     baseUrl,
     baseRoot: baseUrl.replace(/\/api$/, ""),
-    apiKey: backendKeys[id],
+    apiKey,
   }
 }
 
