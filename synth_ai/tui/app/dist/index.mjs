@@ -19475,6 +19475,12 @@ function clearJobsTimer() {
     pollingState.jobsTimer = null;
   }
 }
+function clearEventsTimer() {
+  if (pollingState.eventsTimer) {
+    clearTimeout(pollingState.eventsTimer);
+    pollingState.eventsTimer = null;
+  }
+}
 
 // src/state/snapshot.ts
 var snapshot = {
@@ -20896,7 +20902,7 @@ function updatePaneIndicators(ctx) {
   ui.eventsBox.borderColor = appState2.activePane === "events" ? "#60a5fa" : "#334155";
 }
 
-// src/ui/text.ts
+// src/ui/status.ts
 function formatStatus(ctx) {
   const { snapshot: snapshot2, appState: appState2 } = ctx.state;
   const balance = snapshot2.balanceDollars == null ? "-" : `$${snapshot2.balanceDollars.toFixed(2)}`;
@@ -20907,12 +20913,30 @@ function formatStatus(ctx) {
   }
   return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${snapshot2.status}`;
 }
+
+// src/ui/footer.ts
 function footerText(ctx) {
   const { appState: appState2 } = ctx.state;
   const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
   const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
-  const profileKey = process.env.SYNTH_API_KEY ? " | p profile" : "";
-  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | o results | s snapshot${profileKey} | q quit`;
+  const keys = [
+    "e events",
+    "b jobs",
+    "tab toggle",
+    "j/k nav",
+    "enter view",
+    "r refresh",
+    "l logout",
+    `f ${filterLabel}`,
+    `shift+j ${jobFilterLabel}`,
+    "c cancel",
+    "a artifacts",
+    "o results",
+    "s snapshot",
+    ...process.env.SYNTH_API_KEY ? ["p profile"] : [],
+    "q quit"
+  ];
+  return `Keys: ${keys.join(" | ")}`;
 }
 
 // src/ui/render.ts
@@ -21304,6 +21328,13 @@ function createLoginModal(deps) {
   }
   async function logout() {
     process.env.SYNTH_API_KEY = "";
+    if (pollingState.sseDisconnect) {
+      pollingState.sseDisconnect();
+      pollingState.sseDisconnect = null;
+    }
+    pollingState.sseConnected = false;
+    clearJobsTimer();
+    clearEventsTimer();
     const snapshot2 = getSnapshot();
     snapshot2.jobs = [];
     snapshot2.selectedJob = null;
@@ -21983,8 +22014,8 @@ function createProfileModal(ctx) {
   const { snapshot: snapshot2 } = ctx.state;
   const modal = createModalUI(renderer, {
     id: "profile-modal",
-    width: 50,
-    height: 12,
+    width: 72,
+    height: 15,
     borderColor: "#818cf8",
     titleColor: "#818cf8",
     zIndex: 10
@@ -21994,11 +22025,64 @@ function createProfileModal(ctx) {
   function updateContent() {
     const org = snapshot2.orgId || "-";
     const user = snapshot2.userId || "-";
+    const apiKey = process.env.SYNTH_API_KEY || "-";
     modal.setContent(`Organization:
 ${org}
 
 User:
-${user}`);
+${user}
+
+API Key:
+${apiKey}`);
+  }
+  function toggle(visible) {
+    if (visible) {
+      modal.center();
+      updateContent();
+    }
+    modal.setVisible(visible);
+  }
+  function open() {
+    toggle(true);
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    handleKey
+  };
+}
+// src/modals/urls-modal.ts
+function createUrlsModal(renderer) {
+  const modal = createModalUI(renderer, {
+    id: "urls-modal",
+    width: 60,
+    height: 10,
+    borderColor: "#f59e0b",
+    titleColor: "#f59e0b",
+    zIndex: 10
+  });
+  modal.setTitle("URLs");
+  modal.setHint("q close");
+  function updateContent() {
+    const backend = process.env.SYNTH_BACKEND_URL || "-";
+    const frontend = process.env.SYNTH_FRONTEND_URL || "-";
+    modal.setContent(`Backend:
+${backend}
+
+Frontend:
+${frontend}`);
   }
   function toggle(visible) {
     if (visible) {
@@ -22080,6 +22164,10 @@ function createKeyboardHandler(ctx, modals) {
         modals.profile.handleKey(key);
         return;
       }
+      if (modals.urls.isVisible) {
+        modals.urls.handleKey(key);
+        return;
+      }
       renderer.stop();
       renderer.destroy();
       process.exit(0);
@@ -22126,6 +22214,10 @@ function createKeyboardHandler(ctx, modals) {
       modals.profile.handleKey(key);
       return;
     }
+    if (modals.urls.isVisible) {
+      modals.urls.handleKey(key);
+      return;
+    }
     if (key.name === "tab") {
       setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
       return;
@@ -22142,14 +22234,8 @@ function createKeyboardHandler(ctx, modals) {
       refreshJobs(ctx).then(() => ctx.render());
       return;
     }
-    if (key.name === "l" && !key.shift) {
-      modals.login.toggle(true);
-      return;
-    }
-    if (key.name === "l" && key.shift) {
-      process.env.SYNTH_API_KEY = "";
-      snapshot2.status = "Logged out";
-      ctx.render();
+    if (key.name === "l") {
+      modals.login.logout();
       return;
     }
     if (key.name === "f") {
@@ -22174,8 +22260,12 @@ function createKeyboardHandler(ctx, modals) {
       modals.jobFilter.open();
       return;
     }
-    if (key.name === "s") {
+    if (key.name === "s" && !key.shift) {
       modals.snapshot.open();
+      return;
+    }
+    if (key.name === "s" && key.shift) {
+      modals.urls.open();
       return;
     }
     if (key.name === "c") {
@@ -22473,6 +22563,7 @@ async function runApp() {
   const keyModal = createKeyModal(ctx);
   const snapshotModal = createSnapshotModal(ctx);
   const profileModal = createProfileModal(ctx);
+  const urlsModal = createUrlsModal(renderer);
   const modals = {
     login: loginModal,
     event: eventModal,
@@ -22482,7 +22573,8 @@ async function runApp() {
     jobFilter: jobFilterModal,
     key: keyModal,
     snapshot: snapshotModal,
-    profile: profileModal
+    profile: profileModal,
+    urls: urlsModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
   const handlePaste = createPasteHandler(ctx, keyModal);
