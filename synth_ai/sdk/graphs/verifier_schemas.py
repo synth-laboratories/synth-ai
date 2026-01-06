@@ -10,7 +10,7 @@ This is the canonical contract that the backend MUST conform to.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -55,6 +55,18 @@ class VerifierScoreResponse(BaseModel):
     event_totals: list[float] = Field(
         default_factory=list,
         description="List of aggregated scores per event (matches event_reviews length)"
+    )
+    objectives: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Canonical objectives dict (e.g., {'reward': score})",
+    )
+    outcome_objectives: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Outcome objectives (preferred over legacy objectives when present).",
+    )
+    event_objectives: Optional[List[Dict[str, float]]] = Field(
+        default=None,
+        description="Per-event objectives aligned with trace events.",
     )
     details: dict[str, Any] = Field(
         default_factory=dict,
@@ -133,20 +145,28 @@ class VerifierScoreRequest(BaseModel):
 class CalibrationExampleInput(BaseModel):
     """Input schema for a calibration example (few-shot verifier).
     
-    Validates that the example has a valid trace and matching rewards.
+    Validates that the example has a valid trace and matching rewards/objectives.
     Uses synth_ai.data.rewards.CalibrationExample dataclass for structure.
     """
     
     session_trace: dict[str, Any] = Field(
         ..., description="V3 SessionTrace format (validated separately)"
     )
-    event_rewards: list[Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
-        ...,
-        description="List of rewards per event (0.0-1.0), must match number of events in trace"
+    event_rewards: Optional[list[Annotated[float, Field(ge=0.0, le=1.0)]]] = Field(
+        default=None,
+        description="List of rewards per event (0.0-1.0), must match number of events in trace",
     )
-    outcome_reward: Annotated[float, Field(ge=0.0, le=1.0)] = Field(
-        ...,
-        description="Overall outcome reward (0.0-1.0)"
+    outcome_reward: Optional[Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
+        default=None,
+        description="Overall outcome reward (0.0-1.0)",
+    )
+    event_objectives: Optional[List[Dict[str, float]]] = Field(
+        default=None,
+        description="Optional per-event objectives aligned with trace events.",
+    )
+    outcome_objectives: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Optional outcome objectives (preferred over outcome_reward when present).",
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Optional metadata")
 
@@ -160,14 +180,16 @@ class CalibrationExampleInput(BaseModel):
     
     @model_validator(mode="after")
     def validate_rewards_match_trace(self) -> "CalibrationExampleInput":
-        """Validate that event_rewards length matches trace events."""
+        """Validate that event rewards/objectives length matches trace events."""
         # Count events in trace
         trace_events = self._count_trace_events()
-        if len(self.event_rewards) != trace_events:
+        event_rewards = self._resolve_event_rewards()
+        if len(event_rewards) != trace_events:
             raise ValueError(
-                f"event_rewards length ({len(self.event_rewards)}) doesn't match trace events ({trace_events}). "
-                f"Each event in the trace must have a corresponding reward."
+                f"event rewards length ({len(event_rewards)}) doesn't match trace events ({trace_events}). "
+                f"Each event in the trace must have a corresponding reward objective."
             )
+        _ = self._resolve_outcome_reward()
         return self
     
     def _count_trace_events(self) -> int:
@@ -189,14 +211,48 @@ class CalibrationExampleInput(BaseModel):
                             count += len(events)
                 return count
         return 0
+
+    def _resolve_event_rewards(self) -> list[float]:
+        if self.event_objectives is not None:
+            if not isinstance(self.event_objectives, list):
+                raise ValueError("event_objectives must be a list")
+            rewards: list[float] = []
+            for idx, item in enumerate(self.event_objectives):
+                if not isinstance(item, dict):
+                    raise ValueError(f"event_objectives[{idx}] must be a mapping")
+                objectives = item.get("objectives") if isinstance(item.get("objectives"), dict) else item
+                reward_val = objectives.get("reward") if isinstance(objectives, dict) else None
+                if not isinstance(reward_val, (int, float)) or isinstance(reward_val, bool):
+                    raise ValueError(f"event_objectives[{idx}].reward must be a number")
+                rewards.append(float(reward_val))
+            return rewards
+
+        if self.event_rewards is None:
+            raise ValueError("event_rewards or event_objectives is required")
+        if not isinstance(self.event_rewards, list):
+            raise ValueError("event_rewards must be a list")
+        return [float(r) for r in self.event_rewards]
+
+    def _resolve_outcome_reward(self) -> float:
+        if self.outcome_objectives is not None:
+            if not isinstance(self.outcome_objectives, dict):
+                raise ValueError("outcome_objectives must be a mapping")
+            reward_val = self.outcome_objectives.get("reward")
+            if not isinstance(reward_val, (int, float)) or isinstance(reward_val, bool):
+                raise ValueError("outcome_objectives.reward must be a number")
+            return float(reward_val)
+
+        if self.outcome_reward is None:
+            raise ValueError("outcome_reward or outcome_objectives is required")
+        return float(self.outcome_reward)
     
     def to_dataclass(self) -> "CalibrationExample":
         """Convert to synth_ai.data.rewards.CalibrationExample dataclass."""
         from synth_ai.data.rewards import CalibrationExample
         return CalibrationExample(
             session_trace=self.session_trace,
-            event_rewards=self.event_rewards,
-            outcome_reward=self.outcome_reward,
+            event_rewards=self._resolve_event_rewards(),
+            outcome_reward=self._resolve_outcome_reward(),
             metadata=self.metadata,
         )
 

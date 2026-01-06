@@ -527,6 +527,7 @@ GEPA Optimization Progress - {self.env_name}
             candidate_dict: dict[str, Any] = {
                 "candidate_id": c.candidate_id,
                 "accuracy": c.accuracy,
+                "objectives": c.objectives,
                 "val_accuracy": c.val_accuracy,
                 "train_accuracy": c.train_accuracy,
                 "generation": c.generation,
@@ -534,6 +535,7 @@ GEPA Optimization Progress - {self.env_name}
                 "is_pareto": c.candidate_id in self.current_frontier,
                 "accepted": c.accepted,
                 "instance_scores": c.instance_scores,
+                "instance_objectives": c.instance_objectives,
                 "mutation_type": c.mutation_type,
                 "mutation_params": c.mutation_params,
                 "prompt_summary": c.prompt_summary or c.get_prompt_summary(),
@@ -576,8 +578,10 @@ GEPA Optimization Progress - {self.env_name}
             },
             "baseline": {
                 "accuracy": self.baseline.accuracy if self.baseline else None,
+                "objectives": self.baseline.objectives if self.baseline else None,
                 "val_accuracy": self.baseline.val_accuracy if self.baseline else None,
                 "instance_scores": self.baseline.instance_scores if self.baseline else [],
+                "instance_objectives": self.baseline.instance_objectives if self.baseline else None,
             },
             "candidates": candidates_list,
             "pareto_history": [

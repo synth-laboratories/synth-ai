@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import click
 
@@ -44,6 +44,26 @@ def _mask_sensitive_urls(text: str) -> str:
         return f'{prefix}s3://***/***/[{filename}]'
     
     return re.sub(pattern, replace_url, text, flags=re.IGNORECASE)
+
+
+def _extract_event_reward(payload: Any, *, fallback_keys: Optional[list[str]] = None) -> Optional[float]:
+    if not isinstance(payload, dict):
+        return None
+    for key in ("outcome_objectives", "objectives"):
+        objectives = payload.get(key)
+        if isinstance(objectives, dict):
+            reward_val = objectives.get("reward")
+            if isinstance(reward_val, (int, float)) and not isinstance(reward_val, bool):
+                return float(reward_val)
+    reward_val = payload.get("reward")
+    if isinstance(reward_val, (int, float)) and not isinstance(reward_val, bool):
+        return float(reward_val)
+    if fallback_keys:
+        for key in fallback_keys:
+            value = payload.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return float(value)
+    return None
 
 
 class StreamHandler(ABC):
@@ -1109,7 +1129,7 @@ class PromptLearningHandler(StreamHandler):
                 if isinstance(data, dict):
                     # Show useful fields
                     useful_fields = []
-                    for key in ["score", "accuracy", "mean", "step", "iteration", "trial", "completed", "total", "version_id"]:
+                    for key in ["reward", "score", "accuracy", "mean", "step", "iteration", "trial", "completed", "total", "version_id"]:
                         if key in data:
                             value = data[key]
                             if isinstance(value, (int, float)):
@@ -1192,8 +1212,8 @@ class PromptLearningHandler(StreamHandler):
         
         Args:
             event_data: Event data dictionary containing:
-                - data.baseline: Baseline score (dict with accuracy/score or number)
-                - data.results: List of candidate results with accuracy/score fields
+                - data.baseline: Baseline score (dict with objectives/reward or number)
+                - data.results: List of candidate results with objectives/reward fields
         """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
@@ -1205,9 +1225,12 @@ class PromptLearningHandler(StreamHandler):
         baseline = data.get("baseline")
         baseline_score = None
         if isinstance(baseline, dict):
-            baseline_score = baseline.get("accuracy") or baseline.get("score")
+            baseline_score = _extract_event_reward(
+                baseline,
+                fallback_keys=["accuracy", "score", "best_score"],
+            )
         elif isinstance(baseline, int | float):
-            baseline_score = baseline
+            baseline_score = float(baseline)
         
         # Extract results
         results = data.get("results", [])
@@ -1230,9 +1253,12 @@ class PromptLearningHandler(StreamHandler):
         if results:
             for i, result in enumerate(results[:10]):  # Show top 10
                 if isinstance(result, dict):
-                    accuracy = result.get("accuracy") or result.get("score")
-                    if accuracy is not None:
-                        self._write_log(f"  Candidate {i+1}: {accuracy:.4f}")
+                    reward_val = _extract_event_reward(
+                        result,
+                        fallback_keys=["accuracy", "score", "best_score"],
+                    )
+                    if reward_val is not None:
+                        self._write_log(f"  Candidate {i+1}: {reward_val:.4f}")
     
     def _handle_progress(self, event_data: dict[str, Any]) -> None:
         """Handle GEPA progress events with detailed rollout and transformation tracking.
@@ -1372,7 +1398,7 @@ class PromptLearningHandler(StreamHandler):
 
         Args:
             event_data: Event data dictionary containing:
-                - data.accuracy: New best accuracy score
+                - data.best_score: New best score (reward)
                 - data.previous_best_score: Previous best score
                 - data.improvement: Absolute improvement
                 - data.version_id: ID of the new best candidate
@@ -1382,12 +1408,12 @@ class PromptLearningHandler(StreamHandler):
             return
 
         timestamp = datetime.now().strftime("%H:%M:%S")
-        accuracy = data.get("accuracy")
+        best_score = _extract_event_reward(data, fallback_keys=["best_score", "accuracy", "score"])
         previous = data.get("previous_best_score")
         improvement = data.get("improvement")
 
-        if accuracy is not None:
-            msg = f"[{timestamp}] \u2728 New best: {accuracy:.4f}"
+        if best_score is not None:
+            msg = f"[{timestamp}] \u2728 New best: {best_score:.4f}"
             if previous is not None and improvement is not None:
                 msg += f" (+{improvement:.4f} from {previous:.4f})"
             elif previous is not None:

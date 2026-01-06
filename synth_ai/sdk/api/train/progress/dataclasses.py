@@ -15,7 +15,9 @@ The `prompt_summary` field is DERIVED from stages for backwards compatibility.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Dict, List, Optional
+
+from synth_ai.data.objectives_compat import extract_instance_rewards
 
 # =============================================================================
 # Size Limits (match backend)
@@ -297,6 +299,7 @@ class CandidateInfo:
 
     candidate_id: str
     accuracy: float | None = None
+    objectives: Optional[Dict[str, float]] = None
     val_accuracy: float | None = None
     train_accuracy: float | None = None
     generation: int | None = None
@@ -304,6 +307,7 @@ class CandidateInfo:
     is_pareto: bool = False
     accepted: bool = False
     instance_scores: list[float] = field(default_factory=list)
+    instance_objectives: Optional[List[Dict[str, float]]] = None
     seeds_evaluated: list[int] = field(default_factory=list)
 
     # === First-class program structure ===
@@ -385,12 +389,20 @@ class CandidateInfo:
                 if isinstance(stage_dict, dict):
                     stages[stage_id] = StageInfo.from_dict(stage_dict)
 
-        # Extract instance scores
-        instance_scores = data.get("instance_scores", [])
+        # Extract instance scores/objectives
+        instance_scores = extract_instance_rewards(data) or []
         if not instance_scores:
             seed_eval_info = data.get("seed_eval_info", {})
             if isinstance(seed_eval_info, dict):
-                instance_scores = seed_eval_info.get("instance_scores", [])
+                seed_scores = extract_instance_rewards(seed_eval_info)
+                if seed_scores is not None:
+                    instance_scores = seed_scores
+                else:
+                    instance_scores = seed_eval_info.get("instance_scores", [])
+
+        instance_objectives = data.get("instance_objectives")
+        if not isinstance(instance_objectives, list):
+            instance_objectives = None
 
         # Extract seed_scores [{seed, score}, ...]
         seed_scores = data.get("seed_scores", [])
@@ -434,9 +446,21 @@ class CandidateInfo:
         # Extract skip_reason
         skip_reason = data.get("skip_reason")
 
+        objectives = data.get("objectives")
+        if not isinstance(objectives, dict):
+            objectives = None
+        reward_value = None
+        if isinstance(objectives, dict):
+            reward_value = objectives.get("reward")
+        if reward_value is None:
+            reward_value = data.get("accuracy") or data.get("score")
+        if objectives is None and reward_value is not None:
+            objectives = {"reward": float(reward_value)}
+
         return cls(
             candidate_id=cid,
-            accuracy=data.get("accuracy") or data.get("score"),
+            accuracy=float(reward_value) if reward_value is not None else None,
+            objectives=objectives,
             val_accuracy=data.get("val_accuracy") or data.get("full_score"),
             train_accuracy=data.get("train_accuracy") or data.get("minibatch_score"),
             generation=data.get("generation"),
@@ -444,6 +468,7 @@ class CandidateInfo:
             is_pareto=data.get("is_pareto", False),
             accepted=data.get("accepted", False),
             instance_scores=instance_scores,
+            instance_objectives=instance_objectives,
             seeds_evaluated=data.get("seeds_evaluated", []),
             stages=stages,
             prompt_summary=prompt_summary,
@@ -473,6 +498,7 @@ class FrontierUpdate:
     removed: list[str] = field(default_factory=list)
     frontier: list[str] = field(default_factory=list)
     frontier_scores: dict[str, float] = field(default_factory=dict)
+    frontier_objectives: Optional[List[Dict[str, float]]] = None
     frontier_size: int = 0
     optimistic_score: float | None = None
     generation: int | None = None
@@ -488,6 +514,7 @@ class FrontierUpdate:
             removed=data.get("removed", []),
             frontier=data.get("frontier", []),
             frontier_scores=data.get("frontier_scores", {}),
+            frontier_objectives=data.get("frontier_objectives"),
             frontier_size=data.get("frontier_size", len(data.get("frontier", []))),
             optimistic_score=data.get("optimistic_score") or data.get("best_score"),
             generation=data.get("generation"),
@@ -501,8 +528,10 @@ class BaselineInfo:
     """Baseline prompt info."""
 
     accuracy: float | None = None  # Training accuracy
+    objectives: Optional[Dict[str, float]] = None
     val_accuracy: float | None = None  # Validation accuracy
     instance_scores: list[float] = field(default_factory=list)
+    instance_objectives: Optional[List[Dict[str, float]]] = None
     seeds_evaluated: list[int] = field(default_factory=list)
     prompt: dict[str, Any] | None = None
     rollout_sample: list[RolloutSample] = field(default_factory=list)
@@ -516,9 +545,28 @@ class BaselineInfo:
             if isinstance(sample, dict):
                 rollout_samples.append(RolloutSample.from_dict(sample))
 
+        objectives = data.get("objectives")
+        if not isinstance(objectives, dict):
+            objectives = None
+        reward_value = None
+        if isinstance(objectives, dict):
+            reward_value = objectives.get("reward")
+        if reward_value is None:
+            reward_value = data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy")
+        if objectives is None and reward_value is not None:
+            objectives = {"reward": float(reward_value)}
+
+        instance_objectives = data.get("instance_objectives")
+        if not isinstance(instance_objectives, list):
+            instance_objectives = None
+
+        instance_scores = extract_instance_rewards(data) or data.get("instance_scores", [])
+
         return cls(
-            accuracy=data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy"),
-            instance_scores=data.get("instance_scores", []),
+            accuracy=float(reward_value) if reward_value is not None else None,
+            objectives=objectives,
+            instance_scores=instance_scores,
+            instance_objectives=instance_objectives,
             seeds_evaluated=data.get("seeds_evaluated", []),
             prompt=data.get("prompt"),
             rollout_sample=rollout_samples,

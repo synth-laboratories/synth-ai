@@ -228,6 +228,7 @@ def load_session_trace(conn: sqlite3.Connection, session_id: str) -> dict[str, A
                 "id": row["id"],
                 "event_id": row["event_id"],
                 "turn_number": row["turn_number"],
+                "objective_key": _row_get(row, "objective_key") or "reward",
                 "reward_value": row["reward_value"],
                 "reward_type": row["reward_type"],
                 "key": row["key"],
@@ -240,6 +241,7 @@ def load_session_trace(conn: sqlite3.Connection, session_id: str) -> dict[str, A
         "outcome_rewards": [
             {
                 "id": row["id"],
+                "objective_key": _row_get(row, "objective_key") or "reward",
                 "total_reward": row["total_reward"],
                 "achievements_count": row["achievements_count"],
                 "total_steps": row["total_steps"],
@@ -264,14 +266,24 @@ class DeterministicMetrics:
 
 
 def compute_deterministic_metrics(conn: sqlite3.Connection, session_id: str) -> DeterministicMetrics:
-    event_rows = conn.execute(
-        """
-        SELECT reward_type, reward_value, annotation
-        FROM event_rewards
-        WHERE session_id = ?
-        """,
-        (session_id,),
-    ).fetchall()
+    try:
+        event_rows = conn.execute(
+            """
+            SELECT reward_type, reward_value, annotation
+            FROM event_rewards
+            WHERE session_id = ? AND objective_key = 'reward'
+            """,
+            (session_id,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        event_rows = conn.execute(
+            """
+            SELECT reward_type, reward_value, annotation
+            FROM event_rewards
+            WHERE session_id = ?
+            """,
+            (session_id,),
+        ).fetchall()
 
     unique_total = 0.0
     all_total = 0.0
@@ -289,14 +301,24 @@ def compute_deterministic_metrics(conn: sqlite3.Connection, session_id: str) -> 
         elif reward_type == "achievement_delta":
             all_total += value
 
-    outcome_rows = conn.execute(
-        """
-        SELECT total_reward, reward_metadata
-        FROM outcome_rewards
-        WHERE session_id = ?
-        """,
-        (session_id,),
-    ).fetchall()
+    try:
+        outcome_rows = conn.execute(
+            """
+            SELECT total_reward, reward_metadata
+            FROM outcome_rewards
+            WHERE session_id = ? AND objective_key = 'reward'
+            """,
+            (session_id,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        outcome_rows = conn.execute(
+            """
+            SELECT total_reward, reward_metadata
+            FROM outcome_rewards
+            WHERE session_id = ?
+            """,
+            (session_id,),
+        ).fetchall()
 
     outcome_total = 0.0
     final_achievements: set[str] = set()

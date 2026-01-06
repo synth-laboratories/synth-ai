@@ -42,6 +42,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, cast
 
 from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
+from synth_ai.data.enums import GraphType
 
 from .graphgen_models import (
     GraphGenJobConfig,
@@ -224,7 +225,7 @@ class GraphGenJob:
         cls,
         dataset: str | Path | Dict[str, Any] | GraphGenTaskSet,
         *,
-        graph_type: Literal["policy", "verifier", "rlm"] = "policy",
+        graph_type: GraphType = GraphType.POLICY,
         policy_model: str = "gpt-4o-mini",
         rollout_budget: int = 100,
         proposer_effort: Literal["low", "medium", "high"] = "medium",

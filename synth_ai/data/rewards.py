@@ -45,39 +45,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Dict, Optional
 
-
-@dataclass
-class RewardRecord:
-    """A single reward observation.
-
-    Represents a reward signal at a specific point in a trajectory,
-    with metadata about its source and scope.
-
-    Attributes:
-        value: The numeric reward value (typically in range [0, 1] or unbounded).
-        reward_type: Category of reward - "shaped" (dense), "sparse" (terminal only),
-            "achievement" (milestone), "penalty" (negative signal), "evaluator"
-            (from LLM verifier), or "human" (manual annotation).
-        scope: Granularity level - "step" (per action), "event" (per significant event),
-            or "outcome" (episode-level).
-        source: Origin of the reward - "environment" (task env), "runner" (framework),
-            "evaluator" (verifier), or "human" (annotator).
-        key: Optional identifier like achievement name or rubric criterion ID.
-        turn: Turn number within the session where reward was earned.
-        timestamp: When the reward was recorded.
-        metadata: Additional context (e.g., rubric scores, evaluation details).
-    """
-
-    value: float
-    reward_type: Literal["shaped", "sparse", "achievement", "penalty", "evaluator", "human"] = "shaped"
-    scope: Literal["step", "event", "outcome"] = "step"
-    source: Literal["environment", "runner", "evaluator", "human"] | None = None
-    key: str | None = None  # e.g., achievement name
-    turn: int | None = None
-    timestamp: datetime | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+from synth_ai.data.enums import RewardSource, RewardType
 
 
 @dataclass
@@ -91,6 +61,7 @@ class OutcomeRewardRecord:
     Attributes:
         session_id: Unique identifier linking to the SessionTrace.
         total_reward: Aggregate reward for the entire episode (typically 0.0-1.0).
+        objective_key: Objective identifier for this reward (defaults to "reward").
         achievements_count: Number of achievements/milestones reached.
         total_steps: Total number of steps in the episode.
         metadata: Task-specific metadata (e.g., {"task": "code_gen", "difficulty": "hard"}).
@@ -112,11 +83,12 @@ class OutcomeRewardRecord:
 
     session_id: str
     total_reward: float
+    objective_key: str = "reward"
     achievements_count: int = 0
     total_steps: int = 0
-    metadata: dict[str, Any] = field(default_factory=dict)
-    annotation: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime | None = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    annotation: Dict[str, Any] = field(default_factory=dict)
+    created_at: Optional[datetime] = None
 
 
 @dataclass
@@ -131,6 +103,7 @@ class EventRewardRecord:
         event_id: Unique identifier of the event being rewarded.
         session_id: Session containing this event.
         reward_value: Reward for this specific event (typically 0.0-1.0).
+        objective_key: Objective identifier for this reward (defaults to "reward").
         reward_type: Category of reward (e.g., "tool_success", "reasoning", "progress").
         key: Rubric criterion or achievement key this reward relates to.
         turn_number: Turn/step within the session where event occurred.
@@ -155,12 +128,13 @@ class EventRewardRecord:
     event_id: str
     session_id: str
     reward_value: float
-    reward_type: str | None = None
-    key: str | None = None
-    turn_number: int | None = None
-    source: str | None = None
-    annotation: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime | None = None
+    objective_key: str = "reward"
+    reward_type: Optional[RewardType] = None
+    key: Optional[str] = None
+    turn_number: Optional[int] = None
+    source: Optional[RewardSource] = None
+    annotation: Dict[str, Any] = field(default_factory=dict)
+    created_at: Optional[datetime] = None
 
 
 @dataclass
@@ -171,8 +145,8 @@ class RewardAggregates:
     median: float = 0.0
     std: float = 0.0
     n: int = 0
-    min_value: float | None = None
-    max_value: float | None = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
 
 
 @dataclass
@@ -183,10 +157,10 @@ class CalibrationExample:
     Used to teach the verifier evaluation patterns through labeled examples.
     """
     
-    session_trace: dict[str, Any]  # V3 SessionTrace format (validated separately)
+    session_trace: Dict[str, Any]  # V3 SessionTrace format (validated separately)
     event_rewards: list[float]  # List of rewards per event (0.0-1.0), one per event in trace
     outcome_reward: float  # Overall outcome reward (0.0-1.0)
-    metadata: dict[str, Any] = field(default_factory=dict)  # Optional metadata
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Optional metadata
     
     def __post_init__(self) -> None:
         """Validate reward values."""
@@ -219,8 +193,8 @@ class GoldExample:
     summary: str  # Summary of the trace being evaluated
     gold_score: float  # Gold-standard score (0.0-1.0)
     gold_reasoning: str  # Gold-standard reasoning/explanation
-    session_trace: dict[str, Any] | None = None  # Optional full trace (for richer evaluation)
-    metadata: dict[str, Any] = field(default_factory=dict)  # Optional metadata
+    session_trace: Optional[Dict[str, Any]] = None  # Optional full trace (for richer evaluation)
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Optional metadata
     
     def __post_init__(self) -> None:
         """Validate score and fields."""
@@ -240,7 +214,6 @@ class GoldExample:
 
 
 __all__ = [
-    "RewardRecord",
     "OutcomeRewardRecord",
     "EventRewardRecord",
     "RewardAggregates",

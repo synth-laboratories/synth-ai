@@ -226,8 +226,19 @@ async def _eval_seed(
             reward_mean = metrics.reward_mean
             outcome_score = metrics.outcome_score
             events_score = metrics.events_score
+            outcome_reward = metrics.outcome_reward
+            outcome_objectives = metrics.outcome_objectives
 
-            score = outcome_score if outcome_score is not None else reward_mean
+            reward_val = None
+            if isinstance(outcome_objectives, dict):
+                reward_val = outcome_objectives.get("reward")
+            if reward_val is None and outcome_reward is not None:
+                reward_val = outcome_reward
+            if reward_val is None and outcome_score is not None:
+                reward_val = outcome_score
+            if reward_val is None and reward_mean is not None:
+                reward_val = reward_mean
+            score = float(reward_val) if reward_val is not None else None
             verifier_score = None
             tokens = None
             cost_usd = None

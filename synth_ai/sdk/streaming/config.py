@@ -49,7 +49,7 @@ class StreamConfig:
         return cls(
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
             event_types={"sft.progress", "rl.train.step", "sft.validation.summary"},
-            metric_names={"train.loss", "eval.reward_mean"},
+            metric_names={"train.loss", "eval.reward_mean", "eval.outcome_reward", "eval.objectives.reward"},
         )
 
     @classmethod

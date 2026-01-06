@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from .tracker import GEPAProgressTracker
@@ -73,6 +73,34 @@ def save_results(
     return files
 
 
+def _candidate_reward_value(candidate: Any) -> float:
+    objectives = getattr(candidate, "objectives", None)
+    if isinstance(objectives, dict):
+        reward_val = objectives.get("reward")
+        if reward_val is not None:
+            try:
+                return float(reward_val)
+            except (TypeError, ValueError):
+                pass
+    accuracy = getattr(candidate, "accuracy", None)
+    return float(accuracy) if accuracy is not None else 0.0
+
+
+def _candidate_reward_optional(candidate: Any) -> Optional[float]:
+    objectives = getattr(candidate, "objectives", None)
+    if isinstance(objectives, dict):
+        reward_val = objectives.get("reward")
+        if reward_val is not None:
+            try:
+                return float(reward_val)
+            except (TypeError, ValueError):
+                pass
+    accuracy = getattr(candidate, "accuracy", None)
+    if accuracy is None:
+        return None
+    return float(accuracy)
+
+
 def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
     """Save all candidates with their details.
 
@@ -88,6 +116,7 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
         candidate_dict: dict[str, Any] = {
             "candidate_id": c.candidate_id,
             "accuracy": c.accuracy,
+            "objectives": c.objectives,
             "val_accuracy": c.val_accuracy,
             "train_accuracy": c.train_accuracy,
             "generation": c.generation,
@@ -97,6 +126,7 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             "mutation_type": c.mutation_type,
             "mutation_params": c.mutation_params,
             "instance_scores": c.instance_scores,
+            "instance_objectives": c.instance_objectives,
             "seeds_evaluated": c.seeds_evaluated,
             "prompt_summary": c.prompt_summary or c.get_prompt_summary(),
             "transformation": c.transformation,
@@ -154,8 +184,19 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
 
         candidates_data.append(candidate_dict)
 
-    # Sort by accuracy descending
-    candidates_data.sort(key=lambda x: x.get("accuracy") or 0, reverse=True)
+    # Sort by reward objective when available, otherwise accuracy
+    def _candidate_sort_key(item: dict[str, Any]) -> float:
+        objectives = item.get("objectives")
+        if isinstance(objectives, dict):
+            reward_val = objectives.get("reward")
+            if reward_val is not None:
+                try:
+                    return float(reward_val)
+                except (TypeError, ValueError):
+                    pass
+        return float(item.get("accuracy") or 0.0)
+
+    candidates_data.sort(key=_candidate_sort_key, reverse=True)
 
     with open(filepath, "w") as f:
         json.dump(candidates_data, f, indent=2)
@@ -176,6 +217,7 @@ def save_pareto_history(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             "frontier": u.frontier,
             "frontier_size": u.frontier_size,
             "frontier_scores": u.frontier_scores,
+            "frontier_objectives": u.frontier_objectives,
             "optimistic_score": u.optimistic_score,
             "baseline_score": u.baseline_score,
             "generation": u.generation,
@@ -291,7 +333,7 @@ def save_seed_analysis(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
     best_candidate = None
     best_accuracy = 0.0
     for c in tracker.candidates:
-        acc = c.accuracy or 0.0
+        acc = _candidate_reward_value(c)
         if acc > best_accuracy:
             best_accuracy = acc
             best_candidate = c
@@ -382,10 +424,11 @@ def save_summary_txt(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
     ])
 
     frontier_candidates = tracker.get_pareto_candidates()
-    frontier_candidates.sort(key=lambda c: c.accuracy or 0, reverse=True)
+    frontier_candidates.sort(key=_candidate_reward_value, reverse=True)
 
     for i, c in enumerate(frontier_candidates, 1):
-        acc_str = f"{c.accuracy:.2%}" if c.accuracy else "N/A"
+        reward_val = _candidate_reward_optional(c)
+        acc_str = f"{reward_val:.2%}" if reward_val is not None else "N/A"
         lines.append(f"{i}. {c.candidate_id}: {acc_str} (gen {c.generation})")
         if c.prompt_summary:
             # Truncate long prompts
@@ -400,10 +443,11 @@ def save_summary_txt(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
         "-" * 40,
     ])
 
-    sorted_candidates = sorted(tracker.candidates, key=lambda c: c.accuracy or 0, reverse=True)
+    sorted_candidates = sorted(tracker.candidates, key=_candidate_reward_value, reverse=True)
 
     for i, c in enumerate(sorted_candidates[:20], 1):  # Top 20
-        acc_str = f"{c.accuracy:.2%}" if c.accuracy else "N/A"
+        reward_val = _candidate_reward_optional(c)
+        acc_str = f"{reward_val:.2%}" if reward_val is not None else "N/A"
         pareto_mark = "*" if c.candidate_id in tracker.current_frontier else " "
         lines.append(f"{pareto_mark}{i:2d}. {c.candidate_id:<20} acc={acc_str:<8} gen={c.generation}")
 

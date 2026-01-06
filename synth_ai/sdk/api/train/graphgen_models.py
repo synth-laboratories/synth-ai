@@ -38,6 +38,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
+from synth_ai.data.enums import GraphType, RewardSource, RewardType, VerifierMode
 
 # =============================================================================
 # Output Configuration (Improvement 1)
@@ -224,8 +225,8 @@ VerifierProviderType = Literal["groq", "openai", "google", "anthropic"]
 class GraphGenVerifierConfig(BaseModel):
     """Configuration for the verifier used during optimization."""
 
-    mode: Literal["rubric", "contrastive", "gold_examples"] = Field(
-        default="rubric",
+    mode: VerifierMode = Field(
+        default=VerifierMode.RUBRIC,
         description=(
             "Verifier mode: "
             "'rubric' = evaluate against criteria, "
@@ -553,15 +554,35 @@ class EventRewardResponse(BaseModel):
     event_id: int = Field(..., description="Integer event id (FK to synth-ai events table)")
     session_id: str = Field(..., description="Session/trace ID this event belongs to")
     reward_value: float = Field(..., description="Reward value for this event")
-    reward_type: Optional[
-        Literal["shaped", "sparse", "achievement", "penalty", "evaluator", "human"]
-    ] = Field(default="evaluator", description="Type of reward")
+    reward_type: Optional[RewardType] = Field(
+        default=RewardType.EVALUATOR,
+        description="Type of reward",
+    )
     key: Optional[str] = Field(default=None, description="Optional key/label for the reward")
     turn_number: Optional[int] = Field(default=None, description="Turn/timestep number in the trace")
-    source: Optional[Literal["environment", "runner", "evaluator", "human"]] = Field(
-        default="evaluator", description="Reward source"
+    source: Optional[RewardSource] = Field(
+        default=RewardSource.VERIFIER, description="Reward source"
+    )
+    objectives: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Canonical objectives for this event (e.g., {'reward': 0.9})",
     )
     annotation: Optional[Dict[str, Any]] = Field(default=None, description="Additional annotations (feedback, etc.)")
+
+    @field_validator("source", mode="before")
+    @classmethod
+    def _coerce_reward_source(cls, v: Any) -> Any:
+        if v is None or isinstance(v, RewardSource):
+            return v
+        if isinstance(v, str):
+            raw = v.strip().lower()
+            if raw in {"verifier", "evaluator"}:
+                return RewardSource.VERIFIER
+            if raw in {"task_app", "taskapp", "environment", "runner", "human", "env"}:
+                return RewardSource.TASK_APP
+            if raw == "fused":
+                return RewardSource.FUSED
+        return v
 
 
 class OutcomeRewardResponse(BaseModel):
@@ -571,6 +592,10 @@ class OutcomeRewardResponse(BaseModel):
 
     session_id: str = Field(..., description="Session/trace ID")
     total_reward: float = Field(..., description="Overall reward/score for the episode (0-1)")
+    objectives: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Canonical outcome objectives (e.g., {'reward': 0.9})",
+    )
     achievements_count: int = Field(default=0, description="Number of achievements unlocked")
     total_steps: int = Field(default=0, description="Total timesteps in the trace")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata (feedback, etc.)")
@@ -589,6 +614,14 @@ class GraphGenGraphVerifierResponse(BaseModel):
     # Structured reward outputs (synth-ai compatible)
     event_rewards: List[EventRewardResponse] = Field(default_factory=list, description="Per-event rewards")
     outcome_reward: Optional[OutcomeRewardResponse] = Field(default=None, description="Episode-level outcome reward")
+    outcome_objectives: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Canonical outcome objectives (e.g., {'reward': score})",
+    )
+    event_objectives: Optional[List[Dict[str, float]]] = Field(
+        default=None,
+        description="Per-event objectives aligned with event_rewards ordering",
+    )
 
     raw_output: Optional[Dict[str, Any]] = Field(default=None, description="Full raw output from the verifier graph")
 
@@ -668,8 +701,8 @@ class GraphGenJobConfig(BaseModel):
     """
 
     # Graph type
-    graph_type: Literal["policy", "verifier", "rlm"] = Field(
-        default="policy",
+    graph_type: GraphType = Field(
+        default=GraphType.POLICY,
         description=(
             "Type of graph to train: "
             "'policy' (input->output), "

@@ -4,7 +4,7 @@ import asyncio
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Optional, Sequence
 
 import click
 
@@ -94,6 +94,8 @@ def _load_filter_config(config_path: Path) -> tuple[FilterConfig, dict[str, Any]
         click.echo(
             f"  → Filtering for official score >= {filter_cfg.min_official_score}"
         )
+    if filter_cfg.objective:
+        click.echo(f"  → Filtering objective: {filter_cfg.objective}")
     if filter_cfg.limit:
         click.echo(f"  → Limiting to {filter_cfg.limit} examples")
 
@@ -225,7 +227,13 @@ def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, A
     required=True,
     help="Path to TOML config describing the input trace DB, score thresholds, and output JSONL.",
 )
-def filter_command(config_path: str) -> None:
+@click.option(
+    "--objective",
+    "objective_key",
+    required=False,
+    help="Objective key to filter in outcome_rewards (default: reward).",
+)
+def filter_command(config_path: str, objective_key: Optional[str]) -> None:
     try:
         filter_cfg, raw_cfg = _load_filter_config(Path(config_path))
     except FilterCliError as exc:
@@ -239,6 +247,7 @@ def filter_command(config_path: str) -> None:
     models = set(filter_cfg.models)
     min_official = filter_cfg.min_official_score
     max_official = filter_cfg.max_official_score
+    objective = objective_key or filter_cfg.objective or "reward"
     min_verifier_scores = filter_cfg.min_verifier_scores
     max_verifier_scores = filter_cfg.max_verifier_scores
     min_created = _parse_datetime_for_trace(raw_cfg.get("min_created_at"))
@@ -294,10 +303,18 @@ def filter_command(config_path: str) -> None:
             if min_official is not None or max_official is not None:
                 if tracer.db is None:
                     raise FilterCliError("Database not initialized")
-                reward_rows = await tracer.db.query_traces(
-                    "SELECT total_reward, achievements_count FROM outcome_rewards WHERE session_id = :session_id",
-                    {"session_id": session_id},
+                reward_query = (
+                    "SELECT total_reward, achievements_count FROM outcome_rewards "
+                    "WHERE session_id = :session_id AND objective_key = :objective_key"
                 )
+                reward_params = {"session_id": session_id, "objective_key": objective}
+                try:
+                    reward_rows = await tracer.db.query_traces(reward_query, reward_params)
+                except Exception:
+                    reward_rows = await tracer.db.query_traces(
+                        "SELECT total_reward, achievements_count FROM outcome_rewards WHERE session_id = :session_id",
+                        {"session_id": session_id},
+                    )
                 reward_records = (
                     reward_rows.to_dict("records")
                     if hasattr(reward_rows, "to_dict")

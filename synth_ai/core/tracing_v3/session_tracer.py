@@ -6,7 +6,7 @@ import asyncio
 import json
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, List, Optional
 
 from .abstractions import (
     BaseEvent,
@@ -480,6 +480,7 @@ class SessionTracer:
         total_reward: float,
         achievements_count: int,
         total_steps: int,
+        objective_key: str = "reward",
         reward_metadata: dict[str, Any] | None = None,
         annotation: dict[str, Any] | None = None,
     ) -> int | None:
@@ -492,6 +493,7 @@ class SessionTracer:
             try:
                 return await self.db.insert_outcome_reward(
                     self._current_trace.session_id,
+                    objective_key=objective_key,
                     total_reward=total_reward,
                     achievements_count=achievements_count,
                     total_steps=total_steps,
@@ -516,6 +518,7 @@ class SessionTracer:
         event_id: int,
         message_id: int | None = None,
         turn_number: int | None = None,
+        objective_key: str = "reward",
         reward_value: float = 0.0,
         reward_type: str | None = None,
         key: str | None = None,
@@ -533,6 +536,7 @@ class SessionTracer:
                 event_id=event_id,
                 message_id=message_id,
                 turn_number=turn_number,
+                objective_key=objective_key,
                 reward_value=reward_value,
                 reward_type=reward_type,
                 key=key,
@@ -540,3 +544,101 @@ class SessionTracer:
                 source=source,
             )
         return None
+
+    async def record_outcome_objectives(
+        self,
+        assignment,
+    ) -> List[int]:
+        """Record outcome-level objective values for the current session."""
+        from synth_ai.data.objectives import OutcomeObjectiveAssignment
+
+        if not isinstance(assignment, OutcomeObjectiveAssignment):
+            raise TypeError(
+                f"assignment must be OutcomeObjectiveAssignment, got {type(assignment).__name__}"
+            )
+        if self._current_trace is None:
+            raise RuntimeError("No active session")
+        if assignment.session_id and assignment.session_id != self._current_trace.session_id:
+            raise ValueError("assignment.session_id does not match the active session")
+        if self.db is None:
+            await self.initialize()
+        if not self.db:
+            return []
+
+        inserted: List[int] = []
+        for objective_key, value in assignment.objectives.items():
+            try:
+                reward_id = await self.db.insert_outcome_reward(
+                    self._current_trace.session_id,
+                    objective_key=str(objective_key),
+                    total_reward=float(value),
+                    achievements_count=0,
+                    total_steps=0,
+                    reward_metadata=dict(assignment.metadata),
+                )
+            except TypeError:
+                reward_id = await self.db.insert_outcome_reward(
+                    self._current_trace.session_id,
+                    total_reward=float(value),
+                    achievements_count=0,
+                    total_steps=0,
+                    reward_metadata=dict(assignment.metadata),
+                )
+            inserted.append(reward_id)
+        return inserted
+
+    async def record_event_objectives(
+        self,
+        assignment,
+        *,
+        message_id: Optional[int] = None,
+        turn_number: Optional[int] = None,
+        reward_type: Optional[str] = None,
+        source: Optional[str] = None,
+    ) -> List[int]:
+        """Record event-level objective values for the current session."""
+        from synth_ai.data.objectives import EventObjectiveAssignment
+
+        if not isinstance(assignment, EventObjectiveAssignment):
+            raise TypeError(
+                f"assignment must be EventObjectiveAssignment, got {type(assignment).__name__}"
+            )
+        if self._current_trace is None:
+            raise RuntimeError("No active session")
+        if self.db is None:
+            await self.initialize()
+        if not self.db:
+            return []
+
+        try:
+            event_id_value = int(assignment.event_id)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("assignment.event_id must be int-convertible") from exc
+
+        inserted: List[int] = []
+        for objective_key, value in assignment.objectives.items():
+            try:
+                reward_id = await self.db.insert_event_reward(
+                    self._current_trace.session_id,
+                    event_id=event_id_value,
+                    message_id=message_id,
+                    turn_number=turn_number,
+                    objective_key=str(objective_key),
+                    reward_value=float(value),
+                    reward_type=reward_type,
+                    annotation=dict(assignment.metadata),
+                    source=source,
+                )
+            except TypeError:
+                reward_id = await self.db.insert_event_reward(
+                    self._current_trace.session_id,
+                    event_id=event_id_value,
+                    message_id=message_id,
+                    turn_number=turn_number,
+                    reward_value=float(value),
+                    reward_type=reward_type,
+                    annotation=dict(assignment.metadata),
+                    source=source,
+                )
+            inserted.append(reward_id)
+        return inserted

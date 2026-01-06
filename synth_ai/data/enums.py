@@ -77,6 +77,76 @@ class RewardSource(str, Enum):
     FUSED = "fused"
 
 
+class RewardType(str, Enum):
+    """Category of reward signal."""
+
+    SHAPED = "shaped"
+    SPARSE = "sparse"
+    PENALTY = "penalty"
+    EVALUATOR = "evaluator"
+    HUMAN = "human"
+    ACHIEVEMENT = "achievement"
+    ACHIEVEMENT_DELTA = "achievement_delta"
+    UNIQUE_ACHIEVEMENT_DELTA = "unique_achievement_delta"
+
+
+class RewardScope(str, Enum):
+    """Granularity level for reward observations."""
+
+    EVENT = "event"
+    OUTCOME = "outcome"
+
+
+class ObjectiveKey(str, Enum):
+    """Canonical objective keys."""
+
+    REWARD = "reward"
+    LATENCY_MS = "latency_ms"
+    COST_USD = "cost_usd"
+
+
+class ObjectiveDirection(str, Enum):
+    """Optimization direction for an objective."""
+
+    MAXIMIZE = "maximize"
+    MINIMIZE = "minimize"
+
+
+class GraphType(str, Enum):
+    """Graph categories for training and inference."""
+
+    POLICY = "policy"
+    VERIFIER = "verifier"
+    RLM = "rlm"
+
+
+class OptimizationMode(str, Enum):
+    """Optimization strategy selection."""
+
+    AUTO = "auto"
+    GRAPH_ONLY = "graph_only"
+    PROMPT_ONLY = "prompt_only"
+
+
+class VerifierMode(str, Enum):
+    """Verifier evaluation mode."""
+
+    RUBRIC = "rubric"
+    CONTRASTIVE = "contrastive"
+    GOLD_EXAMPLES = "gold_examples"
+
+
+class TrainingType(str, Enum):
+    """Training/optimization category labels."""
+
+    SFT = "sft"
+    GEPA = "gepa"
+    GRAPH_EVOLVE = "graph_evolve"
+    GRAPHGEN = "graphgen"
+    RL = "rl"
+    GSPO = "gspo"
+
+
 class AdaptiveCurriculumLevel(str, Enum):
     """Preset levels for adaptive pooling curriculum."""
 
@@ -115,6 +185,14 @@ __all__ = [
     "InferenceMode",
     "ProviderName",
     "RewardSource",
+    "RewardType",
+    "RewardScope",
+    "ObjectiveKey",
+    "ObjectiveDirection",
+    "GraphType",
+    "OptimizationMode",
+    "VerifierMode",
+    "TrainingType",
     "AdaptiveCurriculumLevel",
     "AdaptiveBatchLevel",
     "SynthModelName",

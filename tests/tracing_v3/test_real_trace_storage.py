@@ -562,11 +562,21 @@ async def test_session_tracer_native_write_pipeline(tmp_path):
         assert message_row["message_type"] == "assistant"
         assert message_row["content"] == "hello"
 
-        reward_rows = conn.execute("SELECT reward_type, key FROM event_rewards").fetchall()
-        assert any(row["key"] == "test-reward" and row["reward_type"] == "shaped" for row in reward_rows)
+        reward_rows = conn.execute(
+            "SELECT reward_type, key, objective_key FROM event_rewards"
+        ).fetchall()
+        assert any(
+            row["key"] == "test-reward"
+            and row["reward_type"] == "shaped"
+            and row["objective_key"] == "reward"
+            for row in reward_rows
+        )
 
-        outcome_row = conn.execute("SELECT total_reward FROM outcome_rewards").fetchone()
+        outcome_row = conn.execute(
+            "SELECT total_reward, objective_key FROM outcome_rewards"
+        ).fetchone()
         assert outcome_row["total_reward"] == 3
+        assert outcome_row["objective_key"] == "reward"
     finally:
         conn.close()
 

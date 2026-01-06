@@ -44,6 +44,7 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
+from synth_ai.data.enums import RewardSource
 from ..utils import load_toml
 from .shared import ExtraModel
 
@@ -216,7 +217,7 @@ class PromptLearningVerifierConfig(ExtraModel):
         weight_outcome: Weight for verifier outcome rewards in "fused" mode (default: 0.0).
     """
     enabled: bool = False
-    reward_source: Literal["task_app", "verifier", "fused"] = "task_app"
+    reward_source: RewardSource = RewardSource.TASK_APP
     backend_base: str = ""
     backend_api_key_env: str = "SYNTH_API_KEY"
     backend_provider: str = ""
@@ -233,6 +234,15 @@ class PromptLearningVerifierConfig(ExtraModel):
     spec_path: Optional[str] = None
     spec_max_tokens: int = 5000
     spec_context: Optional[str] = None
+
+    @field_validator("reward_source", mode="before")
+    @classmethod
+    def _coerce_reward_source(cls, v: Any) -> Any:
+        if v is None or isinstance(v, RewardSource):
+            return v
+        if isinstance(v, str):
+            return RewardSource(v.strip().lower())
+        return v
 
 
 class ProxyModelsConfig(ExtraModel):
