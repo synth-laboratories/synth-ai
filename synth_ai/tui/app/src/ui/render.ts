@@ -8,7 +8,8 @@ import { extractEnvName } from "../utils/job"
 import { getFilteredJobs } from "../selectors/jobs"
 import { renderEventCards } from "./events"
 import { updatePaneIndicators } from "./panes"
-import { footerText, formatStatus } from "./text"
+import { formatStatus } from "./status"
+import { footerText } from "./footer"
 
 export function renderApp(ctx: AppContext): void {
   const { ui, renderer } = ctx
