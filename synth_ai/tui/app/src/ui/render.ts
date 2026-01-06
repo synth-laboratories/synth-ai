@@ -61,7 +61,6 @@ export function renderApp(ctx: AppContext): void {
   ui.metricsText.content = formatMetrics(snapshot.metrics)
   renderEventCards(ctx)
   updatePaneIndicators(ctx)
-  ui.headerMetaText.content = formatHeaderMeta(ctx)
   ui.statusText.content = formatStatus(ctx)
   ui.footerText.content = footerText(ctx)
   ui.eventsBox.title = appState.eventFilter ? `Events (filter: ${appState.eventFilter})` : "Events"

@@ -42,22 +42,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     content: "Synth AI",
     fg: "#e2e8f0",
   })
-  const headerSpacer = new BoxRenderable(renderer, {
-    id: "header-spacer",
-    width: "auto",
-    height: "auto",
-    flexGrow: 1,
-    flexShrink: 1,
-    border: false,
-  })
-  const headerMetaText = new TextRenderable(renderer, {
-    id: "header-meta-text",
-    content: "",
-    fg: "#94a3b8",
-  })
   headerBox.add(headerText)
-  headerBox.add(headerSpacer)
-  headerBox.add(headerMetaText)
   root.add(headerBox)
 
   const tabsBox = new BoxRenderable(renderer, {
@@ -666,7 +651,6 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     eventsEmptyText,
     jobsTabText,
     eventsTabText,
-    headerMetaText,
     statusText,
     footerText: footerTextNode,
 
