@@ -107,39 +107,39 @@ __export(exports_client, {
   apiGetV1: () => apiGetV1,
   apiGet: () => apiGet
 });
-async function apiGet(path3) {
+async function apiGet(path5) {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key");
   }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path3}`, {
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path5}`, {
     headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` }
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     const suffix = body ? ` - ${body.slice(0, 160)}` : "";
-    throw new Error(`GET ${path3}: HTTP ${res.status} ${res.statusText}${suffix}`);
+    throw new Error(`GET ${path5}: HTTP ${res.status} ${res.statusText}${suffix}`);
   }
   return res.json();
 }
-async function apiGetV1(path3) {
+async function apiGetV1(path5) {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key");
   }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path3}`, {
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path5}`, {
     headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` }
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     const suffix = body ? ` - ${body.slice(0, 160)}` : "";
-    throw new Error(`GET /api/v1${path3}: HTTP ${res.status} ${res.statusText}${suffix}`);
+    throw new Error(`GET /api/v1${path5}: HTTP ${res.status} ${res.statusText}${suffix}`);
   }
   return res.json();
 }
-async function apiPost(path3, body) {
+async function apiPost(path5, body) {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key");
   }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path3}`, {
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path5}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.SYNTH_API_KEY}`,
@@ -150,7 +150,7 @@ async function apiPost(path3, body) {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     const suffix = text ? ` - ${text.slice(0, 160)}` : "";
-    throw new Error(`POST ${path3}: HTTP ${res.status} ${res.statusText}${suffix}`);
+    throw new Error(`POST ${path5}: HTTP ${res.status} ${res.statusText}${suffix}`);
   }
   return res.json().catch(() => ({}));
 }
@@ -254,8 +254,8 @@ async function selectJob(ctx, jobId) {
   snapshot2.status = `Loading job ${jobId}...`;
   const jobSource = immediate?.job_source ?? null;
   try {
-    const path3 = jobSource === "eval" ? `/eval/jobs/${jobId}` : jobSource === "learning" ? `/learning/jobs/${jobId}?include_metadata=true` : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`;
-    const job = await apiGet(path3);
+    const path5 = jobSource === "eval" ? `/eval/jobs/${jobId}` : jobSource === "learning" ? `/learning/jobs/${jobId}?include_metadata=true` : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`;
+    const job = await apiGet(path5);
     if (token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
       return;
     }
@@ -347,8 +347,8 @@ async function fetchMetrics(ctx) {
       return;
     }
     snapshot2.status = "Loading metrics...";
-    const path3 = job.job_source === "learning" ? `/learning/jobs/${job.job_id}/metrics` : `/prompt-learning/online/jobs/${job.job_id}/metrics`;
-    const payload = await apiGet(path3);
+    const path5 = job.job_source === "learning" ? `/learning/jobs/${job.job_id}/metrics` : `/prompt-learning/online/jobs/${job.job_id}/metrics`;
+    const payload = await apiGet(path5);
     if (snapshot2.selectedJob?.job_id !== jobId) {
       return;
     }
@@ -19519,6 +19519,15 @@ function createAppContext(args) {
   };
 }
 
+// src/components/key-hint.ts
+function createKeyHint(renderer, opts) {
+  return new TextRenderable(renderer, {
+    id: opts.id,
+    content: `${opts.description} (${opts.key})`,
+    fg: opts.active ? "#f8fafc" : "#94a3b8"
+  });
+}
+
 // src/components/layout.ts
 function buildLayout(renderer, getFooterText) {
   const root = new BoxRenderable(renderer, {
@@ -19562,16 +19571,23 @@ function buildLayout(renderer, getFooterText) {
     gap: 2,
     border: true
   });
-  const jobsTabText = new TextRenderable(renderer, {
+  const newJobTabText = createKeyHint(renderer, {
+    id: "tabs-new-job",
+    description: "Create New Job",
+    key: "n"
+  });
+  const jobsTabText = createKeyHint(renderer, {
     id: "tabs-jobs",
-    content: "[Jobs] (b)",
-    fg: "#f8fafc"
+    description: "View Jobs",
+    key: "b",
+    active: true
   });
-  const eventsTabText = new TextRenderable(renderer, {
+  const eventsTabText = createKeyHint(renderer, {
     id: "tabs-events",
-    content: "[Events] (e)",
-    fg: "#94a3b8"
+    description: "View Job's Events",
+    key: "e"
   });
+  tabsBox.add(newJobTabText);
   tabsBox.add(jobsTabText);
   tabsBox.add(eventsTabText);
   root.add(tabsBox);
@@ -20922,6 +20938,7 @@ function footerText(ctx) {
   const keys = [
     "e events",
     "b jobs",
+    "n create",
     "tab toggle",
     "j/k nav",
     "enter view",
@@ -21241,6 +21258,52 @@ function clamp2(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+// src/utils/logout-marker.ts
+import fs2 from "fs";
+import path3 from "path";
+import os2 from "os";
+var STATE_DIR = path3.join(os2.homedir(), ".synth-ai", ".tui");
+var MARKER_PATH = path3.join(STATE_DIR, "logged-out");
+var API_KEY_PATH = path3.join(STATE_DIR, "api-key");
+function isLoggedOutMarkerSet() {
+  try {
+    fs2.accessSync(MARKER_PATH, fs2.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function setLoggedOutMarker() {
+  try {
+    await fs2.promises.mkdir(STATE_DIR, { recursive: true });
+    await fs2.promises.writeFile(MARKER_PATH, "", "utf8");
+  } catch {}
+}
+async function clearLoggedOutMarker() {
+  try {
+    await fs2.promises.unlink(MARKER_PATH);
+  } catch {}
+}
+function loadSavedApiKey() {
+  try {
+    const key = fs2.readFileSync(API_KEY_PATH, "utf8").trim();
+    return key || null;
+  } catch {
+    return null;
+  }
+}
+async function saveApiKey(key) {
+  try {
+    await fs2.promises.mkdir(STATE_DIR, { recursive: true });
+    await fs2.promises.writeFile(API_KEY_PATH, key, "utf8");
+  } catch {}
+}
+async function deleteSavedApiKey() {
+  try {
+    await fs2.promises.unlink(API_KEY_PATH);
+  } catch {}
+}
+
 // src/login_modal.ts
 function createLoginModal(deps) {
   let loginAuthStatus = { state: "idle" };
@@ -21318,6 +21381,8 @@ function createLoginModal(deps) {
     loginAuthInProgress = false;
     if (result.success && result.apiKey) {
       process.env.SYNTH_API_KEY = result.apiKey;
+      await saveApiKey(result.apiKey);
+      await clearLoggedOutMarker();
       toggle(false);
       const snapshot2 = getSnapshot();
       snapshot2.lastError = null;
@@ -21327,6 +21392,8 @@ function createLoginModal(deps) {
     }
   }
   async function logout() {
+    await setLoggedOutMarker();
+    await deleteSavedApiKey();
     process.env.SYNTH_API_KEY = "";
     if (pollingState.sseDisconnect) {
       pollingState.sseDisconnect();
@@ -21368,175 +21435,6 @@ function createLoginModal(deps) {
     toggle,
     startAuth,
     logout
-  };
-}
-// src/modals/event-modal.ts
-function createEventModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
-  function toggle(visible) {
-    ui.eventModalVisible = visible;
-    ui.eventModalBox.visible = visible;
-    ui.eventModalTitle.visible = visible;
-    ui.eventModalText.visible = visible;
-    ui.eventModalHint.visible = visible;
-    if (!visible) {
-      ui.eventModalText.content = "";
-    }
-    renderer.requestRender();
-  }
-  function updateContent() {
-    if (!ui.eventModalVisible)
-      return;
-    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
-    const event = filtered[appState2.selectedEventIndex];
-    if (!event) {
-      ui.eventModalText.content = "(no event)";
-      renderer.requestRender();
-      return;
-    }
-    const raw = event.message ?? formatEventData(event.data) ?? "(no data)";
-    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
-    const maxWidth = Math.max(20, cols - 20);
-    const wrapped = wrapModalText(raw, maxWidth);
-    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
-    appState2.eventModalOffset = clamp2(appState2.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines));
-    const visible = wrapped.slice(appState2.eventModalOffset, appState2.eventModalOffset + maxLines);
-    ui.eventModalTitle.content = `Event ${event.seq} - ${event.type}`;
-    ui.eventModalText.content = visible.join(`
-`);
-    ui.eventModalHint.content = wrapped.length > maxLines ? `[${appState2.eventModalOffset + 1}-${appState2.eventModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close";
-    renderer.requestRender();
-  }
-  function move(delta) {
-    appState2.eventModalOffset = Math.max(0, appState2.eventModalOffset + delta);
-    updateContent();
-  }
-  function open() {
-    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
-    if (!filtered.length)
-      return;
-    appState2.eventModalOffset = 0;
-    toggle(true);
-    updateContent();
-  }
-  function handleKey(key) {
-    if (!ui.eventModalVisible)
-      return false;
-    if (key.name === "up" || key.name === "k") {
-      move(-1);
-      return true;
-    }
-    if (key.name === "down" || key.name === "j") {
-      move(1);
-      return true;
-    }
-    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
-      toggle(false);
-      return true;
-    }
-    return true;
-  }
-  return {
-    get isVisible() {
-      return ui.eventModalVisible;
-    },
-    toggle,
-    open,
-    move,
-    updateContent,
-    handleKey
-  };
-}
-// src/utils/clipboard.ts
-async function copyToClipboard(text) {
-  const proc = Bun.spawn(["pbcopy"], {
-    stdin: "pipe"
-  });
-  proc.stdin.write(text);
-  proc.stdin.end();
-  await proc.exited;
-}
-
-// src/modals/results-modal.ts
-function createResultsModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
-  function toggle(visible) {
-    ui.resultsModalVisible = visible;
-    ui.resultsModalBox.visible = visible;
-    ui.resultsModalTitle.visible = visible;
-    ui.resultsModalText.visible = visible;
-    ui.resultsModalHint.visible = visible;
-    if (!visible) {
-      ui.resultsModalText.content = "";
-    }
-    renderer.requestRender();
-  }
-  function updateContent() {
-    if (!ui.resultsModalVisible)
-      return;
-    const raw = formatResultsExpanded(snapshot2);
-    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
-    const maxWidth = Math.max(20, cols - 20);
-    const wrapped = wrapModalText(raw, maxWidth);
-    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
-    appState2.resultsModalOffset = clamp2(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
-    const visible = wrapped.slice(appState2.resultsModalOffset, appState2.resultsModalOffset + maxLines);
-    ui.resultsModalTitle.content = "Results - Best Snapshot";
-    ui.resultsModalText.content = visible.join(`
-`);
-    ui.resultsModalHint.content = wrapped.length > maxLines ? `[${appState2.resultsModalOffset + 1}-${appState2.resultsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy | q close` : "y copy | q close";
-    renderer.requestRender();
-  }
-  function move(delta) {
-    appState2.resultsModalOffset = Math.max(0, appState2.resultsModalOffset + delta);
-    updateContent();
-  }
-  function open() {
-    appState2.resultsModalOffset = 0;
-    toggle(true);
-    updateContent();
-  }
-  async function copyPrompt() {
-    const text = formatResultsExpanded(snapshot2);
-    if (text) {
-      await copyToClipboard(text);
-      snapshot2.status = "Results copied to clipboard";
-      ctx.render();
-    }
-  }
-  function handleKey(key) {
-    if (!ui.resultsModalVisible)
-      return false;
-    if (key.name === "up" || key.name === "k") {
-      move(-1);
-      return true;
-    }
-    if (key.name === "down" || key.name === "j") {
-      move(1);
-      return true;
-    }
-    if (key.name === "y") {
-      copyPrompt();
-      return true;
-    }
-    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
-      toggle(false);
-      return true;
-    }
-    return true;
-  }
-  return {
-    get isVisible() {
-      return ui.resultsModalVisible;
-    },
-    toggle,
-    open,
-    move,
-    updateContent,
-    copyPrompt,
-    handleKey
   };
 }
 // src/modals/config-modal.ts
@@ -21666,6 +21564,118 @@ function createConfigModal(ctx) {
   return {
     get isVisible() {
       return ui.configModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    handleKey
+  };
+}
+// src/modals/create-job-modal.ts
+function createCreateJobModal(ctx) {
+  const { renderer } = ctx;
+  const modal = createModalUI(renderer, {
+    id: "create-job-modal",
+    width: 60,
+    height: 12,
+    borderColor: "#10b981",
+    titleColor: "#10b981",
+    zIndex: 10
+  });
+  function toggle(visible) {
+    modal.setVisible(visible);
+  }
+  function open() {
+    modal.center();
+    modal.setTitle("Create New Job");
+    modal.setContent("(Coming soon)");
+    modal.setHint("q close");
+    toggle(true);
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return { get isVisible() {
+    return modal.visible;
+  }, toggle, open, handleKey };
+}
+// src/modals/event-modal.ts
+function createEventModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  function toggle(visible) {
+    ui.eventModalVisible = visible;
+    ui.eventModalBox.visible = visible;
+    ui.eventModalTitle.visible = visible;
+    ui.eventModalText.visible = visible;
+    ui.eventModalHint.visible = visible;
+    if (!visible) {
+      ui.eventModalText.content = "";
+    }
+    renderer.requestRender();
+  }
+  function updateContent() {
+    if (!ui.eventModalVisible)
+      return;
+    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+    const event = filtered[appState2.selectedEventIndex];
+    if (!event) {
+      ui.eventModalText.content = "(no event)";
+      renderer.requestRender();
+      return;
+    }
+    const raw = event.message ?? formatEventData(event.data) ?? "(no data)";
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.eventModalOffset = clamp2(appState2.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.eventModalOffset, appState2.eventModalOffset + maxLines);
+    ui.eventModalTitle.content = `Event ${event.seq} - ${event.type}`;
+    ui.eventModalText.content = visible.join(`
+`);
+    ui.eventModalHint.content = wrapped.length > maxLines ? `[${appState2.eventModalOffset + 1}-${appState2.eventModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close";
+    renderer.requestRender();
+  }
+  function move(delta) {
+    appState2.eventModalOffset = Math.max(0, appState2.eventModalOffset + delta);
+    updateContent();
+  }
+  function open() {
+    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+    if (!filtered.length)
+      return;
+    appState2.eventModalOffset = 0;
+    toggle(true);
+    updateContent();
+  }
+  function handleKey(key) {
+    if (!ui.eventModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.eventModalVisible;
     },
     toggle,
     open,
@@ -21948,6 +21958,152 @@ function createKeyModal(ctx) {
     handleKey
   };
 }
+// src/modals/profile-modal.ts
+function createProfileModal(ctx) {
+  const { renderer } = ctx;
+  const { snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "profile-modal",
+    width: 72,
+    height: 15,
+    borderColor: "#818cf8",
+    titleColor: "#818cf8",
+    zIndex: 10
+  });
+  modal.setTitle("Profile");
+  modal.setHint("q close");
+  function updateContent() {
+    const org = snapshot2.orgId || "-";
+    const user = snapshot2.userId || "-";
+    const apiKey = process.env.SYNTH_API_KEY || "-";
+    modal.setContent(`Organization:
+${org}
+
+User:
+${user}
+
+API Key:
+${apiKey}`);
+  }
+  function toggle(visible) {
+    if (visible) {
+      modal.center();
+      updateContent();
+    }
+    modal.setVisible(visible);
+  }
+  function open() {
+    toggle(true);
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    handleKey
+  };
+}
+// src/utils/clipboard.ts
+async function copyToClipboard(text) {
+  const proc = Bun.spawn(["pbcopy"], {
+    stdin: "pipe"
+  });
+  proc.stdin.write(text);
+  proc.stdin.end();
+  await proc.exited;
+}
+
+// src/modals/results-modal.ts
+function createResultsModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  function toggle(visible) {
+    ui.resultsModalVisible = visible;
+    ui.resultsModalBox.visible = visible;
+    ui.resultsModalTitle.visible = visible;
+    ui.resultsModalText.visible = visible;
+    ui.resultsModalHint.visible = visible;
+    if (!visible) {
+      ui.resultsModalText.content = "";
+    }
+    renderer.requestRender();
+  }
+  function updateContent() {
+    if (!ui.resultsModalVisible)
+      return;
+    const raw = formatResultsExpanded(snapshot2);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.resultsModalOffset = clamp2(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.resultsModalOffset, appState2.resultsModalOffset + maxLines);
+    ui.resultsModalTitle.content = "Results - Best Snapshot";
+    ui.resultsModalText.content = visible.join(`
+`);
+    ui.resultsModalHint.content = wrapped.length > maxLines ? `[${appState2.resultsModalOffset + 1}-${appState2.resultsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy | q close` : "y copy | q close";
+    renderer.requestRender();
+  }
+  function move(delta) {
+    appState2.resultsModalOffset = Math.max(0, appState2.resultsModalOffset + delta);
+    updateContent();
+  }
+  function open() {
+    appState2.resultsModalOffset = 0;
+    toggle(true);
+    updateContent();
+  }
+  async function copyPrompt() {
+    const text = formatResultsExpanded(snapshot2);
+    if (text) {
+      await copyToClipboard(text);
+      snapshot2.status = "Results copied to clipboard";
+      ctx.render();
+    }
+  }
+  function handleKey(key) {
+    if (!ui.resultsModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "y") {
+      copyPrompt();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.resultsModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    copyPrompt,
+    handleKey
+  };
+}
 // src/modals/snapshot-modal.ts
 function createSnapshotModal(ctx) {
   const { ui, renderer } = ctx;
@@ -22005,61 +22161,6 @@ function createSnapshotModal(ctx) {
     toggle,
     open,
     apply,
-    handleKey
-  };
-}
-// src/modals/profile-modal.ts
-function createProfileModal(ctx) {
-  const { renderer } = ctx;
-  const { snapshot: snapshot2 } = ctx.state;
-  const modal = createModalUI(renderer, {
-    id: "profile-modal",
-    width: 72,
-    height: 15,
-    borderColor: "#818cf8",
-    titleColor: "#818cf8",
-    zIndex: 10
-  });
-  modal.setTitle("Profile");
-  modal.setHint("q close");
-  function updateContent() {
-    const org = snapshot2.orgId || "-";
-    const user = snapshot2.userId || "-";
-    const apiKey = process.env.SYNTH_API_KEY || "-";
-    modal.setContent(`Organization:
-${org}
-
-User:
-${user}
-
-API Key:
-${apiKey}`);
-  }
-  function toggle(visible) {
-    if (visible) {
-      modal.center();
-      updateContent();
-    }
-    modal.setVisible(visible);
-  }
-  function open() {
-    toggle(true);
-  }
-  function handleKey(key) {
-    if (!modal.visible)
-      return false;
-    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
-      toggle(false);
-      return true;
-    }
-    return true;
-  }
-  return {
-    get isVisible() {
-      return modal.visible;
-    },
-    toggle,
-    open,
     handleKey
   };
 }
@@ -22168,6 +22269,10 @@ function createKeyboardHandler(ctx, modals) {
         modals.urls.handleKey(key);
         return;
       }
+      if (modals.createJob.isVisible) {
+        modals.createJob.handleKey(key);
+        return;
+      }
       renderer.stop();
       renderer.destroy();
       process.exit(0);
@@ -22218,6 +22323,10 @@ function createKeyboardHandler(ctx, modals) {
       modals.urls.handleKey(key);
       return;
     }
+    if (modals.createJob.isVisible) {
+      modals.createJob.handleKey(key);
+      return;
+    }
     if (key.name === "tab") {
       setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
       return;
@@ -22266,6 +22375,10 @@ function createKeyboardHandler(ctx, modals) {
     }
     if (key.name === "s" && key.shift) {
       modals.urls.open();
+      return;
+    }
+    if (key.name === "n") {
+      modals.createJob.open();
       return;
     }
     if (key.name === "c") {
@@ -22366,9 +22479,9 @@ async function refreshEvents(ctx) {
     ] : [`/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`];
     let payload = null;
     let lastErr = null;
-    for (const path3 of paths) {
+    for (const path5 of paths) {
       try {
-        payload = await apiGet(path3);
+        payload = await apiGet(path5);
         lastErr = null;
         break;
       } catch (err) {
@@ -22564,6 +22677,7 @@ async function runApp() {
   const snapshotModal = createSnapshotModal(ctx);
   const profileModal = createProfileModal(ctx);
   const urlsModal = createUrlsModal(renderer);
+  const createJobModal = createCreateJobModal(ctx);
   const modals = {
     login: loginModal,
     event: eventModal,
@@ -22574,7 +22688,8 @@ async function runApp() {
     key: keyModal,
     snapshot: snapshotModal,
     profile: profileModal,
-    urls: urlsModal
+    urls: urlsModal,
+    createJob: createJobModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
   const handlePaste = createPasteHandler(ctx, keyModal);
@@ -22612,17 +22727,37 @@ async function runApp() {
   renderer.start();
   ui.jobsSelect.focus();
   render();
-  if (!process.env.SYNTH_API_KEY) {
-    ctx.state.snapshot.lastError = "Missing API key";
+  const loggedOutMarkerSet = isLoggedOutMarkerSet();
+  if (loggedOutMarkerSet) {
     ctx.state.snapshot.status = "Sign in required";
     render();
     loginModal.toggle(true);
   } else {
-    bootstrap().catch((err) => {
-      ctx.state.snapshot.lastError = err?.message || "Bootstrap failed";
-      ctx.state.snapshot.status = "Startup error";
+    if (!process.env.SYNTH_API_KEY) {
+      const savedKey = loadSavedApiKey();
+      if (savedKey) {
+        process.env.SYNTH_API_KEY = savedKey;
+      }
+    }
+    if (!process.env.SYNTH_API_KEY) {
+      ctx.state.snapshot.status = "Sign in required";
       render();
-    });
+      loginModal.toggle(true);
+    } else {
+      tryAutoLogin().catch(() => {
+        process.env.SYNTH_API_KEY = "";
+        ctx.state.snapshot.status = "Sign in required";
+        render();
+        loginModal.toggle(true);
+      });
+    }
+  }
+  async function tryAutoLogin() {
+    await refreshIdentity(ctx);
+    if (!ctx.state.snapshot.userId) {
+      throw new Error("Invalid API key");
+    }
+    await bootstrap();
   }
   async function bootstrap() {
     refreshHealth2(ctx);
