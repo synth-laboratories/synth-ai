@@ -20,6 +20,7 @@ export type ModalControllers = {
   key: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   snapshot: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   profile: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
+  urls: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   promptBrowser?: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
 }
 
@@ -80,6 +81,10 @@ export function createKeyboardHandler(
         modals.profile.handleKey(key)
         return
       }
+      if (modals.urls.isVisible) {
+        modals.urls.handleKey(key)
+        return
+      }
       // No modal open - quit
       renderer.stop()
       renderer.destroy()
@@ -131,6 +136,10 @@ export function createKeyboardHandler(
       modals.profile.handleKey(key)
       return
     }
+    if (modals.urls.isVisible) {
+      modals.urls.handleKey(key)
+      return
+    }
 
     // Global shortcuts
     if (key.name === "tab") {
@@ -149,15 +158,8 @@ export function createKeyboardHandler(
       void refreshJobs(ctx).then(() => ctx.render())
       return
     }
-    if (key.name === "l" && !key.shift) {
-      modals.login.toggle(true)
-      return
-    }
-    if (key.name === "l" && key.shift) {
-      // Logout
-      process.env.SYNTH_API_KEY = ""
-      snapshot.status = "Logged out"
-      ctx.render()
+    if (key.name === "l") {
+      void modals.login.logout()
       return
     }
     if (key.name === "f") {
@@ -181,8 +183,12 @@ export function createKeyboardHandler(
       modals.jobFilter.open()
       return
     }
-    if (key.name === "s") {
+    if (key.name === "s" && !key.shift) {
       modals.snapshot.open()
+      return
+    }
+    if (key.name === "s" && key.shift) {
+      modals.urls.open()
       return
     }
     if (key.name === "c") {
