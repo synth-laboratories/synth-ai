@@ -465,15 +465,12 @@ async def _stream_cloudflare_logs(proc, aggregator: LogAggregator) -> None:
 
 
 def main() -> None:
-    import argparse
-    parser = argparse.ArgumentParser(description="Deploy a LocalAPI with streaming logs")
-    parser.add_argument("localapi_path", help="Path to LocalAPI .py file")
-    parser.add_argument("--deployment-id", dest="deployment_id", help="Deployment ID (generated if not provided)")
-    args = parser.parse_args()
+    if len(sys.argv) != 2:
+        print(json.dumps({"status": "error", "error": "Usage: python -m synth_ai.tui.deploy <localapi.py>"}))
+        sys.exit(1)
 
-    localapi_path = args.localapi_path
-    deployment_id = args.deployment_id
-    asyncio.run(deploy_localapi(localapi_path, deployment_id))
+    localapi_path = sys.argv[1]
+    asyncio.run(deploy_localapi(localapi_path))
 
 
 if __name__ == "__main__":

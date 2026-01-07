@@ -19,9 +19,9 @@ type DeployResult = {
 }
 
 /** Deploy a LocalAPI file and wait for the result */
-function deployLocalApi(filePath: string): Promise<DeployResult> {
+function deployLocalApi(filePath: string, mode: string = "prod"): Promise<DeployResult> {
 	return new Promise((resolve) => {
-		const proc = spawn("python", ["-m", "synth_ai.tui.deploy", filePath], {
+		const proc = spawn("python", ["-m", "synth_ai.tui.deploy", filePath, "--mode", mode], {
 			stdio: ["ignore", "pipe", "pipe"],
 		})
 
@@ -136,7 +136,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 
 		const localApiSelection = getSelectionForStep("localApi")
 
-		// If user selected an existing LocalAPI file, go straight to deploy
+		// If user selected an existing LocalAPI file, add mode selection then deploy
 		const selectedExistingApi = scannedLocalAPIs.find(
 			(api) => toDisplayPath(api.filepath) === localApiSelection?.value
 		)
@@ -144,6 +144,14 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 			// Set createdFilePath to the selected file for deploy step
 			createdFilePath = selectedExistingApi.filepath
 			const fileName = selectedExistingApi.filename
+
+			// Add environment mode selection step
+			baseSteps.push({
+				id: "envMode",
+				label: "Environment",
+				prompt: "Select deployment environment:",
+				getOptions: () => ["prod (Cloudflare tunnel)", "dev (localhost + local backend)", "local (localhost only)"],
+			})
 
 			baseSteps.push({
 				id: "deployLocalApi",
@@ -161,7 +169,11 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 						updateContent()
 						ctx.render()
 
-						const result = await deployLocalApi(createdFilePath)
+						// Get selected environment mode
+						const envModeSelection = getSelectionForStep("envMode")
+						const mode = envModeSelection?.value.split(" ")[0] || "prod"
+
+						const result = await deployLocalApi(createdFilePath, mode)
 						isDeploying = false
 
 						if (result.success) {
@@ -265,6 +277,13 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 						return true
 					},
 				})
+				// Add environment mode selection step before deploy
+				baseSteps.push({
+					id: "envMode",
+					label: "Environment",
+					prompt: "Select deployment environment:",
+					getOptions: () => ["prod (Cloudflare tunnel)", "dev (localhost + local backend)", "local (localhost only)"],
+				})
 				baseSteps.push({
 					id: "deployLocalApi",
 					label: "Deploy",
@@ -282,8 +301,12 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 							updateContent()
 							ctx.render()
 
+							// Get selected environment mode
+							const envModeSelection = getSelectionForStep("envMode")
+							const mode = envModeSelection?.value.split(" ")[0] || "prod"
+
 							// Wait for deploy result
-							const result = await deployLocalApi(createdFilePath)
+							const result = await deployLocalApi(createdFilePath, mode)
 							isDeploying = false
 
 							if (result.success) {
@@ -322,8 +345,12 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 					ctx.state.snapshot.status = "Submitting eval job..."
 					ctx.render()
 
+					// Get environment mode to pass to eval job
+					const envModeSelection = getSelectionForStep("envMode")
+					const mode = envModeSelection?.value.split(" ")[0] || "prod"
+
 					// Fire-and-forget: spawn eval job process
-					spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
+					spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default", "--mode", mode], {
 						stdio: "ignore",
 						detached: true,
 					}).unref()
