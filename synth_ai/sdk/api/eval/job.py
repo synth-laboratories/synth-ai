@@ -213,8 +213,9 @@ class EvalJobConfig:
 
         if not self.task_app_url:
             raise ValueError("task_app_url (or local_api_url) is required")
-        # Always use centralized URL (backend_url param ignored for consistency)
-        self.backend_url = BACKEND_URL_BASE
+        # Use backend_url from config if provided, otherwise fall back to BACKEND_URL_BASE
+        if not self.backend_url:
+            self.backend_url = BACKEND_URL_BASE
         if not self.api_key:
             raise ValueError("api_key is required")
         if not self.seeds:
@@ -420,7 +421,7 @@ class EvalJob:
 
     def _base_url(self) -> str:
         """Get normalized base URL for API calls."""
-        base = BACKEND_URL_BASE.rstrip("/")
+        base = (self.config.backend_url or BACKEND_URL_BASE).rstrip("/")
         if not base.endswith("/api"):
             base = f"{base}/api"
         return base

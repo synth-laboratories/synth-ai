@@ -97,12 +97,13 @@ def _validate_localapi(module: ModuleType, path: Path) -> str | None:
     return None
 
 
-async def deploy_localapi(localapi_path: str) -> None:
-    """Deploy a LocalAPI file and create a Cloudflare tunnel (or localhost in local mode)."""
+async def deploy_localapi(localapi_path: str, mode: str = "prod") -> None:
+    """Deploy a LocalAPI file and create a Cloudflare tunnel (or localhost in local/dev mode)."""
     import os
 
-    # Check for local mode (skip Cloudflare tunnel, use localhost directly)
-    LOCAL_MODE = os.environ.get("SYNTH_LOCAL_MODE", "").lower() in ("1", "true", "yes")
+    # Determine local mode based on selected environment
+    # prod: full tunnel, dev: localhost + local backend, local: localhost only
+    LOCAL_MODE = mode in ("local", "dev")
 
     # Check for API key early - give clear error instead of cryptic auth failure
     if not os.environ.get("SYNTH_API_KEY"):
@@ -210,12 +211,15 @@ def _output_error(error: str) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print(json.dumps({"status": "error", "error": "Usage: python -m synth_ai.tui.deploy <localapi.py>"}))
-        sys.exit(1)
+    import argparse
 
-    localapi_path = sys.argv[1]
-    asyncio.run(deploy_localapi(localapi_path))
+    parser = argparse.ArgumentParser(description="Deploy a LocalAPI task app")
+    parser.add_argument("localapi_path", help="Path to localapi.py file")
+    parser.add_argument("--mode", choices=["prod", "dev", "local"], default="prod",
+                        help="Deployment mode: prod (tunnel), dev (localhost+local backend), local (localhost only)")
+
+    args = parser.parse_args()
+    asyncio.run(deploy_localapi(args.localapi_path, args.mode))
 
 
 if __name__ == "__main__":
