@@ -21368,7 +21368,6 @@ function createConfigModal(ctx) {
 var JobType;
 ((JobType2) => {
   JobType2["Eval"] = "eval";
-  JobType2["Huh"] = "huh";
 })(JobType ||= {});
 
 // src/templates/localapi.ts
