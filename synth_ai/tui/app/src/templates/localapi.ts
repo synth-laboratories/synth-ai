@@ -11,13 +11,17 @@ and aggregates the scores.
 """
 
 from fastapi import Request
+import httpx
+
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.task import normalize_inference_url
 from synth_ai.sdk.task.contracts import (
     RolloutRequest,
     RolloutResponse,
     RolloutMetrics,
     TaskInfo,
 )
+from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 
 
 # =============================================================================
@@ -129,8 +133,6 @@ def provide_task_instances(seeds: list[int]):
 
 async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) -> str:
     """Call the LLM via the inference URL provided by Synth."""
-    import httpx
-
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["X-API-Key"] = api_key
@@ -140,9 +142,11 @@ async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) 
         "messages": [{"role": "user", "content": prompt}],
     }
 
+    # Use SDK's normalize_inference_url to ensure correct path structure
+    # This handles appending /v1/chat/completions and preserving query params
+    url = normalize_inference_url(inference_url)
+
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # Backend provides base URL; append /chat/completions for OpenAI-compatible endpoint
-        url = inference_url.rstrip("/") + "/chat/completions"
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
@@ -185,12 +189,24 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     # Score the response
     score = score_response(response, sample)
 
+    # Extract trace correlation ID for proper tracing
+    policy_cfg_for_trace = {
+        key: value
+        for key, value in policy_config.items()
+        if key not in {"trace_correlation_id", "trace"}
+    }
+    trace_correlation_id = extract_trace_correlation_id(
+        policy_config=policy_cfg_for_trace,
+        inference_url=str(inference_url or ""),
+        mode=request.mode,
+    )
+
     return RolloutResponse(
         run_id=request.run_id,
         metrics=RolloutMetrics(outcome_reward=score),
         trace=None,
-        trace_correlation_id=None,
-        inference_url=inference_url,
+        trace_correlation_id=trace_correlation_id,
+        inference_url=str(inference_url or ""),
     )
 
 
