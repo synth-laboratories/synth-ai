@@ -281,11 +281,9 @@ def _validate_localapi(module: ModuleType, path: Path) -> str | None:
                     return f"score_response() must return a number, got {type(result).__name__}"
             except NotImplementedError as e:
                 return f"score_response() not implemented: {e}"
-            except Exception as e:
+            except Exception:
                 # Other errors might be OK - could be due to dummy data not matching expected format
-                # But NotImplementedError is definitely a problem
-                if "NotImplementedError" in str(type(e)):
-                    return f"score_response() not implemented: {e}"
+                pass
 
     return None
 
