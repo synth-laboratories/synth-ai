@@ -271,7 +271,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 	})
 	const logsEmptyText = new TextRenderable(renderer, {
 		id: "logs-empty-text",
-		content: "No active deployments.\n\nPress 'n' to deploy a LocalAPI.",
+		content: "No log files found.",
 		fg: "#94a3b8",
 	})
 	logsBox.add(logsContent)

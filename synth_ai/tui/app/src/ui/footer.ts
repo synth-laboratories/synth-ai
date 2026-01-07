@@ -12,13 +12,9 @@ export function footerText(ctx: AppContext): string {
 
 	// Show different keys based on active pane
 	if (appState.activePane === "logs") {
-		const activeFilters = Array.from(appState.logsSourceFilter).join(",")
-		const tailLabel = appState.logsTailMode ? "[TAIL]" : ""
 		const keys = [
-			"j/k scroll",
-			"t tail",
-			`1/2/3 filter=${activeFilters}`,
-			tailLabel,
+			"j/k select",
+			"enter open",
 			"e events",
 			"b jobs",
 			"tab toggle",

@@ -3,10 +3,10 @@ import type { AppContext } from "../context"
 import { JobType, type Deployment } from "../types"
 import { focusManager } from "../focus"
 import { LOCALAPI_TEMPLATE } from "../templates/localapi"
-import { getUniqueFilename, toDisplayPath, expandPath } from "../utils/files"
-import { formatErrorMessage } from "../utils/truncate"
+import { getUniqueFilename, toDisplayPath, expandPath, formatTimestampForFilename } from "../utils/files"
 import { scanForLocalAPIs, type ScannedLocalAPI } from "../utils/localapi-scanner"
 import { setActiveDeployment } from "../ui/logs"
+import { createErrorBox } from "../components/error-box"
 import * as fs from "fs"
 import * as path from "path"
 import * as readline from "readline"
@@ -21,14 +21,13 @@ type DeployResult = {
 	deploymentId?: string
 }
 
-// Log persistence is handled by Python backend (deploy.py)
-
 /** Deploy a LocalAPI file and wait for the result (handles NDJSON stream) */
 function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult> {
 	return new Promise((resolve) => {
 		// Generate deployment ID
 		const fileName = path.basename(filePath, ".py")
-		const deploymentId = `${fileName}_${Date.now()}`
+		const timestamp = formatTimestampForFilename(new Date())
+		const deploymentId = `${fileName}_${timestamp}`
 
 		// Initialize deployment in state
 		const deployment: Deployment = {
@@ -51,6 +50,11 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 		deployment.proc = proc
 
 		let resolved = false
+		const finalize = (result: DeployResult): void => {
+			if (resolved) return
+			resolved = true
+			resolve({ deploymentId, ...result })
+		}
 
 		// Read NDJSON stream line by line
 		const rl = readline.createInterface({ input: proc.stdout })
@@ -62,11 +66,13 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 				// Wait for terminal status (ready or error)
 				if (result.type === "status") {
 					if (result.status === "ready") {
-						resolved = true
-						resolve({ success: true, url: result.url, proc })
+						deployment.status = "ready"
+						deployment.url = result.url
+						finalize({ success: true, url: result.url, proc })
 					} else if (result.status === "error") {
-						resolved = true
-						resolve({ success: false, error: result.error || "Deployment failed" })
+						deployment.status = "error"
+						deployment.error = result.error || "Deployment failed"
+						finalize({ success: false, error: result.error || "Deployment failed" })
 					}
 					// Ignore "starting" status - keep waiting
 				}
@@ -82,19 +88,17 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 		})
 
 		proc.on("error", (err) => {
-			if (resolved) return
-			resolved = true
 			deployment.status = "error"
 			deployment.error = err.message
-			resolve({ success: false, error: err.message, deploymentId })
+			finalize({ success: false, error: err.message, deploymentId })
 		})
 
 		proc.on("close", (code) => {
-			if (resolved) return
-			resolved = true
 			if (code !== 0) {
 				const errorMsg = stderrBuffer.trim() || `Process exited with code ${code}`
-				resolve({ success: false, error: errorMsg })
+				finalize({ success: false, error: errorMsg })
+			} else {
+				finalize({ success: true, url: deployment.url ?? undefined, proc })
 			}
 		})
 	})
@@ -138,6 +142,23 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 		zIndex: 10,
 	})
 
+	const deployErrorBox = createErrorBox({
+		id: "deploy-error-box",
+		defaultVisibleLines: 3,
+		maxWidth: 64,
+		onChange: () => {
+			if (modal.visible) {
+				updateContent()
+				updateHint()
+				ctx.requestRender()
+			}
+		},
+		onCopy: () => {
+			ctx.state.snapshot.status = "Error copied to clipboard"
+			ctx.render()
+		},
+	})
+
 	// Track created file path for review step
 	let createdFilePath: string | null = null
 
@@ -150,11 +171,6 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 	// Text input mode state
 	let isInputMode = false
 	let inputBuffer = ""
-
-	// Deploy error state - shown in red in modal
-	let deployError: string | null = null
-	let deployErrorLines: string[] = []  // All wrapped error lines
-	let deployErrorOffset = 0            // Current scroll offset
 
 	// Cache scanned LocalAPIs (refreshed on modal open)
 	let scannedLocalAPIs: ScannedLocalAPI[] = []
@@ -194,8 +210,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 				getOptions: () => ["Yes", "No"],
 				hideFromSummary: true,
 				onSelect: async (value) => {
-					deployError = null
-					deployErrorOffset = 0
+					deployErrorBox.clear()
 
 					if (value === "Yes" && createdFilePath) {
 						isDeploying = true
@@ -208,6 +223,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 
 						if (result.success) {
 							deployedUrl = result.url!
+							deployErrorBox.clear()
 							ctx.state.snapshot.status = `Deployed: ${result.url}`
 							ctx.state.appState.deployedUrl = result.url!
 							ctx.state.appState.deployProc = result.proc!
@@ -215,9 +231,9 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 							ctx.render()
 							return true
 						} else {
-							deployError = result.error || "Unknown error"
-							deployErrorOffset = 0
-							ctx.state.snapshot.status = `Deploy failed: ${deployError}`
+							const errMsg = result.error || "Unknown error"
+							deployErrorBox.setError(errMsg)
+							ctx.state.snapshot.status = `Deploy failed: ${errMsg}`
 							updateContent()
 							ctx.render()
 							return false
@@ -315,8 +331,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 					hideFromSummary: true,
 					onSelect: async (value) => {
 						// Clear any previous error
-						deployError = null
-						deployErrorOffset = 0
+						deployErrorBox.clear()
 
 						if (value === "Yes, deploy now" && createdFilePath) {
 							isDeploying = true
@@ -329,6 +344,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 
 							if (result.success) {
 								deployedUrl = result.url!
+								deployErrorBox.clear()
 								ctx.state.snapshot.status = `Deployed: ${result.url}`
 								ctx.state.appState.deployedUrl = result.url!
 								ctx.state.appState.deployProc = result.proc!
@@ -337,9 +353,9 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 								return true // Advance to next step
 							} else {
 								// Show error in modal - don't advance
-								deployError = result.error || "Unknown error"
-								deployErrorOffset = 0
-								ctx.state.snapshot.status = `Deploy failed: ${deployError}`
+								const errMsg = result.error || "Unknown error"
+								deployErrorBox.setError(errMsg)
+								ctx.state.snapshot.status = `Deploy failed: ${errMsg}`
 								updateContent()
 								ctx.render()
 								return false
@@ -484,19 +500,13 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 			}
 		}
 
-		// Show deploy error in red if present (scrollable, 2 lines visible)
-		if (deployError) {
+		// Show deploy error in a dedicated box
+		if (deployErrorBox.hasError()) {
 			lines.push("")
-			// Wrap error without line limit
-			deployErrorLines = formatErrorMessage(deployError, 64, Infinity)
-			const visibleLines = deployErrorLines.slice(deployErrorOffset, deployErrorOffset + 2)
-			for (const errLine of visibleLines) {
-				lines.push(`  \x1b[31m${errLine}\x1b[0m`)
-			}
-			// Show scroll hint if more content exists
-			if (deployErrorLines.length > 2) {
-				const position = `[${deployErrorOffset + 1}-${Math.min(deployErrorOffset + 2, deployErrorLines.length)}/${deployErrorLines.length}]`
-				lines.push(`  \x1b[90m${position} Shift+j/k scroll\x1b[0m`)
+			lines.push(...deployErrorBox.renderLines({ indent: 2, maxWidth: 64 }))
+			const errorHint = deployErrorBox.getHint()
+			if (errorHint) {
+				lines.push(`  \x1b[90m${errorHint}\x1b[0m`)
 			}
 		}
 
@@ -517,6 +527,10 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 		if (currentStepIndex > 0) {
 			hints.push("backspace back")
 		}
+		const errorHint = deployErrorBox.getHint()
+		if (errorHint) {
+			hints.push(errorHint)
+		}
 		hints.push("q close")
 		modal.setHint(hints.join(" | "))
 	}
@@ -530,9 +544,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 		isDeploying = false
 		isInputMode = false
 		inputBuffer = ""
-		deployError = null
-		deployErrorLines = []
-		deployErrorOffset = 0
+		deployErrorBox.clear()
 		// Scan CWD for existing LocalAPI files
 		scannedLocalAPIs = scanForLocalAPIs(process.cwd())
 	}
@@ -548,6 +560,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 			updateContent()
 			updateHint()
 		} else {
+			deployErrorBox.blur()
 			focusManager.pop("create-job-modal")
 		}
 		modal.setVisible(visible)
@@ -654,6 +667,11 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 			return true // Consume but ignore other keys
 		}
 
+		// Error box handles scroll/copy/focus first
+		if (deployErrorBox.handleKey(key, { allowWhenNotFocused: true })) {
+			return true
+		}
+
 		// Text input mode handling
 		if (isInputMode) {
 			if (key.name === "escape") {
@@ -699,20 +717,6 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 				return true
 			}
 			return true
-		}
-
-		// Scroll error with Shift+j/k when error is visible
-		if (deployError && deployErrorLines.length > 2 && key.shift) {
-			if (key.name === "j" || key.name === "down") {
-				deployErrorOffset = Math.min(deployErrorOffset + 1, deployErrorLines.length - 2)
-				updateContent()
-				return true
-			}
-			if (key.name === "k" || key.name === "up") {
-				deployErrorOffset = Math.max(0, deployErrorOffset - 1)
-				updateContent()
-				return true
-			}
 		}
 
 		// Normal mode handling

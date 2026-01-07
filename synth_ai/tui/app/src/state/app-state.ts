@@ -30,6 +30,8 @@ export const appState = {
   eventModalOffset: 0,
   resultsModalOffset: 0,
   configModalOffset: 0,
+  logsModalOffset: 0,
+  logsModalTail: true,
   promptBrowserIndex: 0,
   promptBrowserOffset: 0,
 

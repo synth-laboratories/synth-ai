@@ -1,7 +1,7 @@
 """Deploy a LocalAPI task app with Cloudflare tunnel and streaming logs.
 
 Usage:
-    python -m synth_ai.tui.deploy /path/to/localapi.py
+    python -m synth_ai.tui.deploy /path/to/localapi.py [--deployment-id ID]
 
 Outputs NDJSON (newline-delimited JSON) to stdout:
     {"type":"status","status":"starting","message":"...","deployment_id":"..."}
@@ -13,6 +13,7 @@ Outputs NDJSON (newline-delimited JSON) to stdout:
 The process stays alive to keep the tunnel open. Kill it to tear down.
 """
 
+import argparse
 import asyncio
 import importlib.util
 import inspect
@@ -24,6 +25,7 @@ import queue
 import sys
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from types import ModuleType
 from typing import TextIO
@@ -34,21 +36,23 @@ class LogAggregator:
 
     Thread-safe queue that collects log entries from multiple sources
     (app stdout, uvicorn, cloudflare) and outputs them as newline-delimited JSON.
-    Also persists logs to a file for later viewing.
+    Also persists logs to separate files for deploy status vs runtime logs.
     """
 
     def __init__(self, deployment_id: str, persist_dir: Path | None = None):
         self.deployment_id = deployment_id
         self.queue: queue.Queue[dict | None] = queue.Queue()
         self._running = True
-        self._file_handle: TextIO | None = None
+        self._deploy_handle: TextIO | None = None
+        self._runtime_handle: TextIO | None = None
         self._original_stdout = sys.__stdout__
 
         # Set up file persistence
         if persist_dir:
             persist_dir.mkdir(parents=True, exist_ok=True)
-            log_file = persist_dir / f"{deployment_id}.jsonl"
-            self._file_handle = open(log_file, "a", encoding="utf-8")
+            timestamp = _timestamp_for_filename()
+            self._deploy_handle = open(persist_dir / f"{deployment_id}_deploy_{timestamp}.jsonl", "a", encoding="utf-8")
+            self._runtime_handle = open(persist_dir / f"{deployment_id}_serve_{timestamp}.jsonl", "a", encoding="utf-8")
 
         # Start writer thread
         self._writer_thread = threading.Thread(
@@ -74,10 +78,13 @@ class LogAggregator:
                 self._original_stdout.write(line + "\n")
                 self._original_stdout.flush()
 
-                # Persist to file
-                if self._file_handle:
-                    self._file_handle.write(line + "\n")
-                    self._file_handle.flush()
+                # Persist to files
+                if self._deploy_handle and entry.get("type") == "status":
+                    self._deploy_handle.write(line + "\n")
+                    self._deploy_handle.flush()
+                if self._runtime_handle and entry.get("type") == "log":
+                    self._runtime_handle.write(line + "\n")
+                    self._runtime_handle.flush()
 
             except queue.Empty:
                 continue
@@ -113,8 +120,10 @@ class LogAggregator:
         self._running = False
         self.queue.put(None)  # Wake up the writer thread
         self._writer_thread.join(timeout=2.0)
-        if self._file_handle:
-            self._file_handle.close()
+        if self._deploy_handle:
+            self._deploy_handle.close()
+        if self._runtime_handle:
+            self._runtime_handle.close()
 
 
 class StreamCapture(io.TextIOWrapper):
@@ -288,12 +297,24 @@ def _validate_localapi(module: ModuleType, path: Path) -> str | None:
     return None
 
 
+def _timestamp_for_filename() -> str:
+    now = datetime.now()
+    return f"{now.year}_{now.month:02d}_{now.day:02d}_{now.hour:02d}-{now.minute:02d}-{now.second:02d}"
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Deploy a LocalAPI with streaming logs.")
+    parser.add_argument("localapi_path", help="Path to localapi.py")
+    parser.add_argument("--deployment-id", dest="deployment_id", default=None, help="Optional deployment identifier")
+    return parser.parse_args()
+
+
 async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) -> None:
     """Deploy a LocalAPI file with streaming logs."""
     # Use provided deployment ID or generate one
     path = Path(localapi_path).resolve()
     if deployment_id is None:
-        deployment_id = f"{path.stem}_{int(time.time())}"
+        deployment_id = f"{path.stem}_{_timestamp_for_filename()}"
 
     # Set up log directory
     persist_dir = Path.home() / ".synth-ai" / "tui" / "logs"
@@ -463,12 +484,8 @@ async def _stream_cloudflare_logs(proc, aggregator: LogAggregator) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print(json.dumps({"status": "error", "error": "Usage: python -m synth_ai.tui.deploy <localapi.py>"}))
-        sys.exit(1)
-
-    localapi_path = sys.argv[1]
-    asyncio.run(deploy_localapi(localapi_path))
+    args = _parse_args()
+    asyncio.run(deploy_localapi(args.localapi_path, args.deployment_id))
 
 
 if __name__ == "__main__":
