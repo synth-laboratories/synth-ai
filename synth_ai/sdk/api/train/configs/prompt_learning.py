@@ -684,6 +684,10 @@ class MIPROConfig(ExtraModel):
         strict_bootstrap: If True, fail immediately when bootstrap doesn't produce enough
             qualified demos (< min_bootstrap_demos). Default: False. When False, optimization
             continues but may produce suboptimal results with insufficient demos.
+        use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
+            False = disable (use Synth credits), None = auto-detect based on org settings.
+            When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
+            instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
     """
     task_app_url: str | None = None
     task_app_api_key: str | None = None
@@ -736,7 +740,18 @@ class MIPROConfig(ExtraModel):
     
     # System spec configuration
     spec_path: str | None = None  # Path to system spec JSON file
-    spec_max_tokens: int = 5000  # Max tokens for spec context in meta-prompt
+    spec_max_tokens: int = 5000
+    
+    # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
+    use_byok: bool | None = Field(
+        default=None,
+        description=(
+            "BYOK mode: True = force BYOK (fail if no key), "
+            "False = disable (use Synth credits), None = auto-detect based on org settings. "
+            "When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini) "
+            "instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint."
+        ),
+    )  # Max tokens for spec context in meta-prompt
     spec_include_examples: bool = True  # Include examples from spec
     spec_priority_threshold: int | None = None  # Only include rules with priority >= threshold
     # Custom metaprompt (optional)
@@ -1196,6 +1211,10 @@ class GEPAConfig(ExtraModel):
             - "SLOW": 25000 tokens max. Allows longer mutations. Use for complex prompts.
         metaprompt: Optional custom metaprompt text to include in mutation prompts.
             Default: None. If provided, replaces default metaprompt template.
+        use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
+            False = disable (use Synth credits), None = auto-detect based on org settings.
+            When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
+            instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
     """
     # Top-level fields (for backwards compatibility)
     env_name: str = "banking77"
@@ -1220,6 +1239,17 @@ class GEPAConfig(ExtraModel):
     token: GEPATokenConfig | None = None  # Deprecated: use proposed_prompt_max_tokens
     verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or gepa-specific)
+    
+    # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
+    use_byok: bool | None = Field(
+        default=None,
+        description=(
+            "BYOK mode: True = force BYOK (fail if no key), "
+            "False = disable (use Synth credits), None = auto-detect based on org settings. "
+            "When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini) "
+            "instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint."
+        ),
+    )
     adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None  # Adaptive pooling config
     adaptive_batch: GEPAAdaptiveBatchConfig | dict[str, Any] | None = None  # Adaptive batch config (GEPA only)
     
@@ -1612,6 +1642,11 @@ class PromptLearningConfig(ExtraModel):
         proxy_models: Proxy models configuration for cost-effective evaluation.
         env_config: Additional environment configuration passed to task app.
         free_tier: Enable free tier mode with cost-effective OSS models.
+        use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
+            False = disable (use Synth credits), None = auto-detect based on org settings.
+            When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
+            instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
+            Can also be set in gepa or mipro sections for algorithm-specific control.
 
     Returns:
         After training completes, you receive a result dict:
@@ -1663,6 +1698,18 @@ class PromptLearningConfig(ExtraModel):
             "Requires proposer_effort='LOW' or 'MEDIUM' (not 'HIGH'). "
             "Counts against your org's free tier limits. When limits are exceeded, "
             "remove this flag to run as paid job."
+        ),
+    )
+
+    # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
+    use_byok: bool | None = Field(
+        default=None,
+        description=(
+            "BYOK mode: True = force BYOK (fail if no key), "
+            "False = disable (use Synth credits), None = auto-detect based on org settings. "
+            "When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini) "
+            "instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint. "
+            "Can also be set in gepa or mipro sections for algorithm-specific control."
         ),
     )
 

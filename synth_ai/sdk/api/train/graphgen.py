@@ -455,6 +455,7 @@ class GraphGenJob:
             "problem_spec": self.config.problem_spec,
             "target_llm_calls": self.config.target_llm_calls,
             "configured_tools": self.config.configured_tools,
+            "use_byok": self.config.use_byok,
             "eval_sample_size": eval_sample_size,
             "feedback_sample_size": feedback_sample_size,
             "metadata": metadata,
@@ -478,6 +479,8 @@ class GraphGenJob:
             payload.pop("target_llm_calls", None)
         if payload.get("configured_tools") is None:
             payload.pop("configured_tools", None)
+        if payload.get("use_byok") is None:
+            payload.pop("use_byok", None)
 
         return payload
 
