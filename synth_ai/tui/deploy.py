@@ -98,8 +98,11 @@ def _validate_localapi(module: ModuleType, path: Path) -> str | None:
 
 
 async def deploy_localapi(localapi_path: str) -> None:
-    """Deploy a LocalAPI file and create a Cloudflare tunnel."""
+    """Deploy a LocalAPI file and create a Cloudflare tunnel (or localhost in local mode)."""
     import os
+
+    # Check for local mode (skip Cloudflare tunnel, use localhost directly)
+    LOCAL_MODE = os.environ.get("SYNTH_LOCAL_MODE", "").lower() in ("1", "true", "yes")
 
     # Check for API key early - give clear error instead of cryptic auth failure
     if not os.environ.get("SYNTH_API_KEY"):
@@ -169,20 +172,24 @@ async def deploy_localapi(localapi_path: str) -> None:
         _output_error(f"Health check failed: {e}")
         return
 
-    # Create Cloudflare tunnel
-    try:
-        tunnel = await TunneledLocalAPI.create(
-            local_port=port,
-            backend=TunnelBackend.CloudflareManagedTunnel,
-            env_api_key=env_api_key,
-            progress=False,  # Don't pollute stdout
-        )
-    except Exception as e:
-        _output_error(f"Failed to create tunnel: {e}")
-        return
+    # Create tunnel (or use localhost in local mode)
+    if LOCAL_MODE:
+        url = f"http://localhost:{port}"
+    else:
+        try:
+            tunnel = await TunneledLocalAPI.create(
+                local_port=port,
+                backend=TunnelBackend.CloudflareManagedTunnel,
+                env_api_key=env_api_key,
+                progress=False,  # Don't pollute stdout
+            )
+            url = tunnel.url
+        except Exception as e:
+            _output_error(f"Failed to create tunnel: {e}")
+            return
 
     # Output success - TUI will parse this
-    _output_ready(tunnel.url, port)
+    _output_ready(url, port)
 
     # Keep alive until killed
     try:
