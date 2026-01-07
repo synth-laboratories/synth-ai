@@ -30,13 +30,13 @@ def _output(data: dict) -> None:
     print(json.dumps(data), flush=True)
 
 
-def run_eval_job(task_app_url: str, env_name: str, mode: str = "prod") -> None:
+def run_eval_job(task_app_url: str, env_name: str) -> None:
     """Submit and poll an eval job."""
     from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
-    # Get backend URL based on mode (centralized in core.env)
-    backend_base = get_backend_url(mode)  # type: ignore
+    # Get backend URL from env vars (SYNTH_BACKEND_URL or SYNTH_BACKEND_MODE)
+    backend_base = get_backend_url()
 
     # Get config from environment
     api_key = os.environ.get("SYNTH_API_KEY")
@@ -112,16 +112,13 @@ def run_eval_job(task_app_url: str, env_name: str, mode: str = "prod") -> None:
 
 
 def main() -> None:
-    import argparse
+    if len(sys.argv) != 3:
+        _output({"status": "error", "error": "Usage: python -m synth_ai.tui.eval_job <task_app_url> <env_name>"})
+        sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="Submit an eval job")
-    parser.add_argument("task_app_url", help="Task app URL")
-    parser.add_argument("env_name", help="Environment name (e.g., 'default', 'banking77')")
-    parser.add_argument("--mode", choices=["prod", "dev", "local"], default="prod",
-                        help="Backend mode: prod (production API), dev/local (localhost:8000)")
-
-    args = parser.parse_args()
-    run_eval_job(args.task_app_url, args.env_name, args.mode)
+    task_app_url = sys.argv[1]
+    env_name = sys.argv[2]
+    run_eval_job(task_app_url, env_name)
 
 
 if __name__ == "__main__":
