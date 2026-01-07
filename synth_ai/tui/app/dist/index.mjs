@@ -21967,6 +21967,15 @@ function getUniqueFilename(dir, baseName, ext) {
   const newName = `${baseName}_${year}_${month}_${day}_${time2}${ext}`;
   return path5.join(dir, newName);
 }
+function formatTimestampForFilename(date = new Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}_${month}_${day}_${hours}-${minutes}-${seconds}`;
+}
 
 // src/utils/localapi-scanner.ts
 import * as fs4 from "fs";
@@ -21996,15 +22005,257 @@ function isLocalAPIFile(content) {
   return content.includes("from synth_ai.sdk.localapi import") || content.includes("create_local_api(");
 }
 
+// src/utils/clipboard.ts
+async function copyToClipboard(text) {
+  const proc = Bun.spawn(["pbcopy"], {
+    stdin: "pipe"
+  });
+  proc.stdin.write(text);
+  proc.stdin.end();
+  await proc.exited;
+}
+
+// src/components/error-box.ts
+function clamp4(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+function createErrorBox(options) {
+  const state = {
+    rawError: null,
+    lines: [],
+    offset: 0,
+    visibleLines: options.defaultVisibleLines ?? 3,
+    maxWidth: options.maxWidth ?? 64,
+    focused: false,
+    wrapWidth: Math.max(8, (options.maxWidth ?? 64) - 4)
+  };
+  const focusable = {
+    id: options.id,
+    onFocus: () => {
+      state.focused = true;
+      options.onChange?.();
+    },
+    onBlur: () => {
+      state.focused = false;
+      options.onChange?.();
+    },
+    handleKey: (key) => handleKeyInternal(key, false)
+  };
+  function triggerUpdate() {
+    options.onChange?.();
+  }
+  function rewrapIfNeeded(maxWidth) {
+    if (!state.rawError)
+      return;
+    const nextMaxWidth = Math.max(10, maxWidth ?? state.maxWidth);
+    const wrapWidth = Math.max(4, nextMaxWidth - 4);
+    if (wrapWidth !== state.wrapWidth) {
+      state.wrapWidth = wrapWidth;
+      state.lines = formatErrorMessage(state.rawError, wrapWidth, Infinity);
+      clampOffset();
+    }
+    state.maxWidth = nextMaxWidth;
+  }
+  function clampOffset() {
+    const maxOffset = Math.max(0, state.lines.length - state.visibleLines);
+    state.offset = clamp4(state.offset, 0, maxOffset);
+  }
+  function setError(error, override) {
+    state.rawError = error;
+    state.visibleLines = override?.visibleLines ?? options.defaultVisibleLines ?? 3;
+    state.maxWidth = override?.maxWidth ?? options.maxWidth ?? state.maxWidth;
+    state.wrapWidth = Math.max(4, state.maxWidth - 4);
+    state.offset = 0;
+    state.lines = error ? formatErrorMessage(error, state.wrapWidth, Infinity) : [];
+    if (!error && state.focused) {
+      focusManager.pop(options.id);
+    }
+    triggerUpdate();
+  }
+  function clear() {
+    setError(null);
+  }
+  function scroll(delta) {
+    if (!state.rawError)
+      return;
+    const maxOffset = Math.max(0, state.lines.length - state.visibleLines);
+    state.offset = clamp4(state.offset + delta, 0, maxOffset);
+    triggerUpdate();
+  }
+  async function copy() {
+    if (!state.rawError)
+      return;
+    try {
+      await copyToClipboard(state.rawError);
+      options.onCopy?.(state.rawError);
+    } catch {}
+  }
+  function focus() {
+    if (!state.rawError || state.focused)
+      return;
+    focusManager.push(focusable);
+  }
+  function blur() {
+    if (!state.focused)
+      return;
+    focusManager.pop(options.id);
+  }
+  function handleKeyInternal(key, allowWhenNotFocused) {
+    if (!state.rawError)
+      return false;
+    if (!state.focused && allowWhenNotFocused) {
+      if (key.shift && key.name === "tab") {
+        focus();
+        return true;
+      }
+      if (key.shift && (key.name === "j" || key.name === "down")) {
+        scroll(1);
+        return true;
+      }
+      if (key.shift && (key.name === "k" || key.name === "up")) {
+        scroll(-1);
+        return true;
+      }
+      if (key.name === "y" || key.name === "c") {
+        copy();
+        return true;
+      }
+      return false;
+    }
+    if (!state.focused)
+      return false;
+    if (key.name === "tab") {
+      blur();
+      return true;
+    }
+    if (key.name === "escape" || key.name === "q") {
+      blur();
+      return true;
+    }
+    if (key.name === "up" || key.name === "k") {
+      scroll(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      scroll(1);
+      return true;
+    }
+    if (key.name === "pageup") {
+      scroll(-state.visibleLines);
+      return true;
+    }
+    if (key.name === "pagedown") {
+      scroll(state.visibleLines);
+      return true;
+    }
+    if (key.name === "y" || key.name === "c") {
+      copy();
+      return true;
+    }
+    return false;
+  }
+  function handleKey(key, opts) {
+    return handleKeyInternal(key, opts?.allowWhenNotFocused ?? false);
+  }
+  function renderLines(opts) {
+    if (!state.rawError)
+      return [];
+    const indent = " ".repeat(opts?.indent ?? 2);
+    const maxWidth = Math.max(10, opts?.maxWidth ?? state.maxWidth);
+    rewrapIfNeeded(maxWidth);
+    const innerWidth = maxWidth - 2;
+    const contentWidth = Math.max(1, innerWidth - 2);
+    const visible = state.lines.slice(state.offset, state.offset + state.visibleLines);
+    const borderColor = state.focused ? "\x1B[91m" : "\x1B[90m";
+    const lines = [];
+    lines.push(`${indent}${borderColor}\u250C${"\u2500".repeat(innerWidth)}\u2510\x1B[0m`);
+    for (let i = 0;i < state.visibleLines; i++) {
+      const raw = visible[i] ?? "";
+      const clipped = raw.length > contentWidth ? raw.slice(0, contentWidth) : raw;
+      const padded = clipped.padEnd(contentWidth, " ");
+      lines.push(`${indent}${borderColor}\u2502\x1B[0m \x1B[31m${padded}\x1B[0m ${borderColor}\u2502\x1B[0m`);
+    }
+    lines.push(`${indent}${borderColor}\u2514${"\u2500".repeat(innerWidth)}\u2518\x1B[0m`);
+    return lines;
+  }
+  function getPositionLabel() {
+    if (!state.rawError)
+      return null;
+    const start = state.offset + 1;
+    const end = Math.min(state.offset + state.visibleLines, state.lines.length);
+    return `[${start}-${end}/${state.lines.length}]`;
+  }
+  function getHint() {
+    if (!state.rawError)
+      return null;
+    const position = getPositionLabel();
+    const scrollHint = state.lines.length > state.visibleLines ? state.focused ? "j/k scroll" : "shift+j/k scroll" : null;
+    const focusHint = state.focused ? "tab back" : "shift+tab focus";
+    const copyHint = "y copy";
+    return [position, scrollHint, copyHint, focusHint].filter(Boolean).join(" | ");
+  }
+  return {
+    hasError: () => !!state.rawError,
+    setError,
+    clear,
+    renderLines,
+    handleKey,
+    getHint,
+    getPositionLabel,
+    focus,
+    blur,
+    isFocused: () => state.focused
+  };
+}
+
 // src/modals/create-job-modal.ts
 import * as fs5 from "fs";
 import * as path8 from "path";
+import * as os4 from "os";
 import * as readline from "readline";
 import { spawn as spawn2 } from "child_process";
+function createDeployLogger(baseName, timestamp) {
+  const logsDir = path8.join(os4.homedir(), ".synth-ai", "tui", "logs");
+  try {
+    fs5.mkdirSync(logsDir, { recursive: true });
+    const filePath = path8.join(logsDir, `${baseName}_deploy_${timestamp}.log`);
+    const stream = fs5.createWriteStream(filePath, { flags: "a" });
+    let closed = false;
+    const log = (line) => {
+      try {
+        if (!closed) {
+          stream.write(`[${new Date().toISOString()}] ${line}
+`);
+        }
+      } catch {}
+    };
+    return {
+      filePath,
+      log,
+      close: () => {
+        try {
+          if (!closed) {
+            closed = true;
+            stream.end();
+          }
+        } catch {}
+      }
+    };
+  } catch {
+    return {
+      filePath: null,
+      log: () => {},
+      close: () => {}
+    };
+  }
+}
 function deployLocalApi(ctx, filePath) {
   return new Promise((resolve3) => {
     const fileName = path8.basename(filePath, ".py");
-    const deploymentId = `${fileName}_${Date.now()}`;
+    const timestamp = formatTimestampForFilename(new Date);
+    const deploymentId = `${fileName}_${timestamp}`;
+    const deployLog = createDeployLogger(fileName, timestamp);
+    deployLog.log(`Starting deploy for ${filePath} (id=${deploymentId})`);
     const deployment = {
       id: deploymentId,
       localApiPath: filePath,
@@ -22021,19 +22272,32 @@ function deployLocalApi(ctx, filePath) {
     });
     deployment.proc = proc;
     let resolved = false;
+    const finalize = (result, logMessage) => {
+      if (resolved)
+        return;
+      resolved = true;
+      if (logMessage) {
+        deployLog.log(logMessage);
+      }
+      deployLog.close();
+      resolve3({ deploymentId, ...result });
+    };
     const rl = readline.createInterface({ input: proc.stdout });
     rl.on("line", (line) => {
       if (resolved)
         return;
+      deployLog.log(line);
       try {
         const result = JSON.parse(line);
         if (result.type === "status") {
           if (result.status === "ready") {
-            resolved = true;
-            resolve3({ success: true, url: result.url, proc });
+            deployment.status = "ready";
+            deployment.url = result.url;
+            finalize({ success: true, url: result.url, proc }, `Deploy ready at ${result.url}`);
           } else if (result.status === "error") {
-            resolved = true;
-            resolve3({ success: false, error: result.error || "Deployment failed" });
+            deployment.status = "error";
+            deployment.error = result.error || "Deployment failed";
+            finalize({ success: false, error: result.error || "Deployment failed" }, `Deploy error: ${result.error || "Deployment failed"}`);
           }
         }
       } catch {}
@@ -22041,22 +22305,19 @@ function deployLocalApi(ctx, filePath) {
     let stderrBuffer = "";
     proc.stderr.on("data", (data) => {
       stderrBuffer += data.toString();
+      deployLog.log(data.toString().trimEnd());
     });
     proc.on("error", (err) => {
-      if (resolved)
-        return;
-      resolved = true;
       deployment.status = "error";
       deployment.error = err.message;
-      resolve3({ success: false, error: err.message, deploymentId });
+      finalize({ success: false, error: err.message, deploymentId }, `Process spawn error: ${err.message}`);
     });
     proc.on("close", (code) => {
-      if (resolved)
-        return;
-      resolved = true;
       if (code !== 0) {
         const errorMsg = stderrBuffer.trim() || `Process exited with code ${code}`;
-        resolve3({ success: false, error: errorMsg });
+        finalize({ success: false, error: errorMsg }, `Process exited with code ${code}`);
+      } else {
+        finalize({ success: true, url: deployment.url ?? undefined, proc }, "Deploy process closed cleanly");
       }
     });
   });
@@ -22073,14 +22334,27 @@ function createCreateJobModal(ctx) {
     titleColor: "#10b981",
     zIndex: 10
   });
+  const deployErrorBox = createErrorBox({
+    id: "deploy-error-box",
+    defaultVisibleLines: 3,
+    maxWidth: 64,
+    onChange: () => {
+      if (modal.visible) {
+        updateContent();
+        updateHint();
+        ctx.requestRender();
+      }
+    },
+    onCopy: () => {
+      ctx.state.snapshot.status = "Error copied to clipboard";
+      ctx.render();
+    }
+  });
   let createdFilePath = null;
   let deployedUrl = null;
   let isDeploying = false;
   let isInputMode = false;
   let inputBuffer = "";
-  let deployError = null;
-  let deployErrorLines = [];
-  let deployErrorOffset = 0;
   let scannedLocalAPIs = [];
   function getSteps() {
     const localApiOptions = [
@@ -22107,8 +22381,7 @@ function createCreateJobModal(ctx) {
         getOptions: () => ["Yes", "No"],
         hideFromSummary: true,
         onSelect: async (value) => {
-          deployError = null;
-          deployErrorOffset = 0;
+          deployErrorBox.clear();
           if (value === "Yes" && createdFilePath) {
             isDeploying = true;
             ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
@@ -22118,6 +22391,7 @@ function createCreateJobModal(ctx) {
             isDeploying = false;
             if (result.success) {
               deployedUrl = result.url;
+              deployErrorBox.clear();
               ctx.state.snapshot.status = `Deployed: ${result.url}`;
               ctx.state.appState.deployedUrl = result.url;
               ctx.state.appState.deployProc = result.proc;
@@ -22125,9 +22399,9 @@ function createCreateJobModal(ctx) {
               ctx.render();
               return true;
             } else {
-              deployError = result.error || "Unknown error";
-              deployErrorOffset = 0;
-              ctx.state.snapshot.status = `Deploy failed: ${deployError}`;
+              const errMsg = result.error || "Unknown error";
+              deployErrorBox.setError(errMsg);
+              ctx.state.snapshot.status = `Deploy failed: ${errMsg}`;
               updateContent();
               ctx.render();
               return false;
@@ -22208,8 +22482,7 @@ function createCreateJobModal(ctx) {
           getOptions: () => ["Yes, deploy now", "No, deploy later"],
           hideFromSummary: true,
           onSelect: async (value) => {
-            deployError = null;
-            deployErrorOffset = 0;
+            deployErrorBox.clear();
             if (value === "Yes, deploy now" && createdFilePath) {
               isDeploying = true;
               ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
@@ -22219,6 +22492,7 @@ function createCreateJobModal(ctx) {
               isDeploying = false;
               if (result.success) {
                 deployedUrl = result.url;
+                deployErrorBox.clear();
                 ctx.state.snapshot.status = `Deployed: ${result.url}`;
                 ctx.state.appState.deployedUrl = result.url;
                 ctx.state.appState.deployProc = result.proc;
@@ -22226,9 +22500,9 @@ function createCreateJobModal(ctx) {
                 ctx.render();
                 return true;
               } else {
-                deployError = result.error || "Unknown error";
-                deployErrorOffset = 0;
-                ctx.state.snapshot.status = `Deploy failed: ${deployError}`;
+                const errMsg = result.error || "Unknown error";
+                deployErrorBox.setError(errMsg);
+                ctx.state.snapshot.status = `Deploy failed: ${errMsg}`;
                 updateContent();
                 ctx.render();
                 return false;
@@ -22334,16 +22608,12 @@ function createCreateJobModal(ctx) {
         lines.push(`  ${cursorChar} ${option}`);
       }
     }
-    if (deployError) {
+    if (deployErrorBox.hasError()) {
       lines.push("");
-      deployErrorLines = formatErrorMessage(deployError, 64, Infinity);
-      const visibleLines = deployErrorLines.slice(deployErrorOffset, deployErrorOffset + 2);
-      for (const errLine of visibleLines) {
-        lines.push(`  \x1B[31m${errLine}\x1B[0m`);
-      }
-      if (deployErrorLines.length > 2) {
-        const position = `[${deployErrorOffset + 1}-${Math.min(deployErrorOffset + 2, deployErrorLines.length)}/${deployErrorLines.length}]`;
-        lines.push(`  \x1B[90m${position} Shift+j/k scroll\x1B[0m`);
+      lines.push(...deployErrorBox.renderLines({ indent: 2, maxWidth: 64 }));
+      const errorHint = deployErrorBox.getHint();
+      if (errorHint) {
+        lines.push(`  \x1B[90m${errorHint}\x1B[0m`);
       }
     }
     while (lines.length < 18) {
@@ -22361,6 +22631,10 @@ function createCreateJobModal(ctx) {
     if (currentStepIndex > 0) {
       hints.push("backspace back");
     }
+    const errorHint = deployErrorBox.getHint();
+    if (errorHint) {
+      hints.push(errorHint);
+    }
     hints.push("q close");
     modal.setHint(hints.join(" | "));
   }
@@ -22373,9 +22647,7 @@ function createCreateJobModal(ctx) {
     isDeploying = false;
     isInputMode = false;
     inputBuffer = "";
-    deployError = null;
-    deployErrorLines = [];
-    deployErrorOffset = 0;
+    deployErrorBox.clear();
     scannedLocalAPIs = scanForLocalAPIs(process.cwd());
   }
   function toggle(visible) {
@@ -22389,6 +22661,7 @@ function createCreateJobModal(ctx) {
       updateContent();
       updateHint();
     } else {
+      deployErrorBox.blur();
       focusManager.pop("create-job-modal");
     }
     modal.setVisible(visible);
@@ -22475,6 +22748,9 @@ function createCreateJobModal(ctx) {
       }
       return true;
     }
+    if (deployErrorBox.handleKey(key, { allowWhenNotFocused: true })) {
+      return true;
+    }
     if (isInputMode) {
       if (key.name === "escape") {
         isInputMode = false;
@@ -22514,18 +22790,6 @@ function createCreateJobModal(ctx) {
         return true;
       }
       return true;
-    }
-    if (deployError && deployErrorLines.length > 2 && key.shift) {
-      if (key.name === "j" || key.name === "down") {
-        deployErrorOffset = Math.min(deployErrorOffset + 1, deployErrorLines.length - 2);
-        updateContent();
-        return true;
-      }
-      if (key.name === "k" || key.name === "up") {
-        deployErrorOffset = Math.max(0, deployErrorOffset - 1);
-        updateContent();
-        return true;
-      }
     }
     if (key.name === "up" || key.name === "k") {
       move(-1);
@@ -23031,16 +23295,6 @@ ${apiKey}`);
   };
   return controller;
 }
-// src/utils/clipboard.ts
-async function copyToClipboard(text) {
-  const proc = Bun.spawn(["pbcopy"], {
-    stdin: "pipe"
-  });
-  proc.stdin.write(text);
-  proc.stdin.end();
-  await proc.exited;
-}
-
 // src/modals/results-modal.ts
 function createResultsModal(ctx) {
   const { renderer } = ctx;
@@ -23564,7 +23818,7 @@ function createKeyboardHandler(ctx, modals) {
 init_jobs();
 
 // src/api/events.ts
-function clamp4(value, min, max) {
+function clamp5(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 function eventMatchesFilter2(event, filter) {
@@ -23641,8 +23895,8 @@ async function refreshEvents(ctx) {
       }
       if (config2.eventHistoryLimit > 0 && snapshot2.events.length > config2.eventHistoryLimit) {
         snapshot2.events = snapshot2.events.slice(-config2.eventHistoryLimit);
-        appState2.selectedEventIndex = clamp4(appState2.selectedEventIndex, 0, Math.max(0, snapshot2.events.length - 1));
-        appState2.eventWindowStart = clamp4(appState2.eventWindowStart, 0, Math.max(0, snapshot2.events.length - Math.max(1, config2.eventVisibleCount)));
+        appState2.selectedEventIndex = clamp5(appState2.selectedEventIndex, 0, Math.max(0, snapshot2.events.length - 1));
+        appState2.eventWindowStart = clamp5(appState2.eventWindowStart, 0, Math.max(0, snapshot2.events.length - Math.max(1, config2.eventVisibleCount)));
       }
       appState2.lastSeq = Math.max(appState2.lastSeq, ...events2.map((e) => e.seq));
     }
