@@ -1,11 +1,12 @@
 import { createModalUI, clamp, type ModalController } from "./base"
 import type { AppContext } from "../context"
-import { JobType } from "../types"
+import { JobType, type Deployment } from "../types"
 import { focusManager } from "../focus"
 import { LOCALAPI_TEMPLATE } from "../templates/localapi"
 import { getUniqueFilename, toDisplayPath, expandPath } from "../utils/files"
 import { formatErrorMessage } from "../utils/truncate"
 import { scanForLocalAPIs, type ScannedLocalAPI } from "../utils/localapi-scanner"
+import { setActiveDeployment } from "../ui/logs"
 import * as fs from "fs"
 import * as path from "path"
 import * as readline from "readline"
@@ -17,14 +18,37 @@ type DeployResult = {
 	url?: string
 	proc?: ChildProcess
 	error?: string
+	deploymentId?: string
 }
 
+// Log persistence is handled by Python backend (deploy.py)
+
 /** Deploy a LocalAPI file and wait for the result (handles NDJSON stream) */
-function deployLocalApi(filePath: string): Promise<DeployResult> {
+function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult> {
 	return new Promise((resolve) => {
-		const proc = spawn("python", ["-m", "synth_ai.tui.deploy", filePath], {
+		// Generate deployment ID
+		const fileName = path.basename(filePath, ".py")
+		const deploymentId = `${fileName}_${Date.now()}`
+
+		// Initialize deployment in state
+		const deployment: Deployment = {
+			id: deploymentId,
+			localApiPath: filePath,
+			url: null,
+			status: "deploying",
+			logs: [],
+			proc: null,
+			startedAt: new Date(),
+		}
+		ctx.state.snapshot.deployments.set(deploymentId, deployment)
+
+		// Set as active deployment for logs pane
+		setActiveDeployment(ctx, deploymentId)
+
+		const proc = spawn("python", ["-m", "synth_ai.tui.deploy", filePath, "--deployment-id", deploymentId], {
 			stdio: ["ignore", "pipe", "pipe"],
 		})
+		deployment.proc = proc
 
 		let resolved = false
 
@@ -60,7 +84,9 @@ function deployLocalApi(filePath: string): Promise<DeployResult> {
 		proc.on("error", (err) => {
 			if (resolved) return
 			resolved = true
-			resolve({ success: false, error: err.message })
+			deployment.status = "error"
+			deployment.error = err.message
+			resolve({ success: false, error: err.message, deploymentId })
 		})
 
 		proc.on("close", (code) => {
@@ -177,7 +203,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 						updateContent()
 						ctx.render()
 
-						const result = await deployLocalApi(createdFilePath)
+						const result = await deployLocalApi(ctx, createdFilePath)
 						isDeploying = false
 
 						if (result.success) {
@@ -298,7 +324,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 							updateContent()
 							ctx.render()
 
-							const result = await deployLocalApi(createdFilePath)
+							const result = await deployLocalApi(ctx, createdFilePath)
 							isDeploying = false
 
 							if (result.success) {

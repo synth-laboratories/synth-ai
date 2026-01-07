@@ -2,11 +2,62 @@
  * Shared type definitions for the TUI app.
  */
 
+import type { ChildProcess } from "child_process"
 import type { JobEvent, JobSummary } from "./tui_data"
 
 /** Type of job that can be run in the TUI */
 export enum JobType {
   Eval = "eval",
+}
+
+/** Active pane in the TUI (jobs list, events, or logs) */
+export type ActivePane = "jobs" | "events" | "logs"
+
+/** Environment key option discovered from .env files */
+export type EnvKeyOption = {
+  key: string
+  sources: string[]
+  varNames: string[]
+}
+
+/** Source of a deployment log entry */
+export type LogSource = "uvicorn" | "cloudflare" | "app"
+
+/** A log entry from the deployment process */
+export type DeploymentLog = {
+  type: "log"
+  source: LogSource
+  message: string
+  timestamp: number
+  level?: string
+  deployment_id?: string
+}
+
+/** A status message from the deployment process */
+export type DeploymentStatus = {
+  type: "status"
+  status: "starting" | "ready" | "error" | "stopped"
+  url?: string
+  port?: number
+  error?: string
+  message?: string
+  deployment_id?: string
+  timestamp?: number
+}
+
+/** Union type for all deployment log entries */
+export type DeploymentLogEntry = DeploymentLog | DeploymentStatus
+
+/** A deployed LocalAPI instance */
+export type Deployment = {
+  id: string
+  localApiPath: string
+  url: string | null
+  status: "deploying" | "ready" | "error" | "stopped"
+  logs: DeploymentLogEntry[]
+  proc: ChildProcess | null
+  startedAt: Date
+  error?: string
 }
 
 /** A prompt candidate (snapshot) with score */
@@ -38,12 +89,6 @@ export type TunnelRecord = {
   health_check_error?: string
 }
 
-/** Environment key option from .env file scanning */
-export type EnvKeyOption = {
-  key: string
-  sources: string[]
-  varNames: string[]
-}
 
 /** Client-side health check result */
 export type TunnelHealthResult = {
@@ -78,4 +123,6 @@ export type Snapshot = {
   tunnelHealthResults: Map<string, TunnelHealthResult>
   /** Whether tunnels are currently being refreshed */
   tunnelsLoading: boolean
+  /** Active deployments with their streaming logs */
+  deployments: Map<string, Deployment>
 }

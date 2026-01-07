@@ -2,9 +2,11 @@
  * Global application state.
  */
 
+import type { ActivePane, LogSource } from "../types"
+
 // Mutable app state
 export const appState = {
-  activePane: "jobs" as "jobs" | "events",
+  activePane: "jobs" as ActivePane,
   healthStatus: "unknown",
   autoSelected: false,
 
@@ -42,11 +44,18 @@ export const appState = {
   deployedUrl: null as string | null,
   deployProc: null as import("child_process").ChildProcess | null,
 
+  // Logs pane state
+  logsActiveDeploymentId: null as string | null,
+  logsSourceFilter: new Set<LogSource>(["uvicorn", "cloudflare", "app"]),
+  logsSelectedIndex: 0,
+  logsWindowStart: 0,
+  logsTailMode: true,
+
   // Request tokens for cancellation
   jobSelectToken: 0,
   eventsToken: 0,
 }
 
-export function setActivePane(pane: "jobs" | "events"): void {
+export function setActivePane(pane: ActivePane): void {
   appState.activePane = pane
 }
