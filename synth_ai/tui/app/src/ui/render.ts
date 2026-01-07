@@ -22,13 +22,13 @@ export function renderApp(ctx: AppContext): void {
   ui.jobsSelect.options = filteredJobs.length
     ? filteredJobs.map((job) => {
         const shortId = job.job_id.slice(-8)
-        const score = job.best_score == null ? "-" : job.best_score.toFixed(4)
+        const reward = job.best_reward == null ? "-" : job.best_reward.toFixed(4)
         const label =
           job.training_type || (job.job_source === "learning" ? "eval" : "prompt")
         const envName = extractEnvName(job)
         const desc = envName
-          ? `${job.status} | ${label} | ${envName} | ${score}`
-          : `${job.status} | ${label} | ${score}`
+          ? `${job.status} | ${label} | ${envName} | ${reward}`
+          : `${job.status} | ${label} | ${reward}`
         return { name: shortId, description: desc, value: job.job_id }
       })
     : [
@@ -54,5 +54,4 @@ export function renderApp(ctx: AppContext): void {
   ui.eventsBox.title = appState.eventFilter ? `Events (filter: ${appState.eventFilter})` : "Events"
   renderer.requestRender()
 }
-
 

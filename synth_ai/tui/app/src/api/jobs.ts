@@ -9,7 +9,6 @@ function extractBestSnapshotId(payload: any): string | null {
   if (!payload) return null
   return (
     payload.best_snapshot_id ||
-    payload.prompt_best_snapshot_id ||
     payload.best_snapshot?.id ||
     null
   )
@@ -94,7 +93,7 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
       created_at: null,
       started_at: null,
       finished_at: null,
-      best_score: null,
+      best_reward: null,
       best_snapshot_id: null,
       total_tokens: null,
       total_cost_usd: null,
@@ -254,4 +253,3 @@ export async function fetchArtifacts(ctx: AppContext): Promise<void> {
     snapshot.lastError = err?.message || "Artifacts fetch failed"
   }
 }
-

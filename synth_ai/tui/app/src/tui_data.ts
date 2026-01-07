@@ -6,7 +6,7 @@ export type JobSummary = {
   created_at?: string | null
   started_at?: string | null
   finished_at?: string | null
-  best_score?: number | null
+  best_reward?: number | null
   best_snapshot_id?: string | null
   total_tokens?: number | null
   total_cost_usd?: number | null
@@ -52,7 +52,7 @@ export function extractEvents(
       seq: Number.isFinite(seqValue) ? seqValue : idx,
       type: String(e.type || e.event_type || "event"),
       message: e.message || null,
-      data: e.data ?? e.payload ?? null,
+      data: e.data ?? null,
       timestamp: e.timestamp || e.created_at || null,
     }
   })
@@ -101,14 +101,9 @@ export function coerceJob(
     job_source: resolvedSource,
     created_at: payload?.created_at || null,
     started_at: payload?.started_at || null,
-    finished_at: payload?.finished_at || payload?.completed_at || null,
-    best_score: num(payload?.best_score),
-    best_snapshot_id:
-      payload?.best_snapshot_id ||
-      payload?.best_graph_snapshot_id ||
-      payload?.prompt_best_snapshot_id ||
-      payload?.best_snapshot?.id ||
-      null,
+    finished_at: payload?.finished_at || null,
+    best_reward: num(payload?.best_reward ?? payload?.best_score),
+    best_snapshot_id: payload?.best_snapshot_id || payload?.best_snapshot?.id || null,
     total_tokens: int(payload?.total_tokens),
     total_cost_usd: num(payload?.total_cost_usd || payload?.total_cost),
     error: payload?.error || null,

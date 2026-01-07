@@ -10,9 +10,14 @@ function isRecord(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
-export function extractBestPrompt(snapshotPayload: Record<string, any>): Record<string, any> | null {
+export function extractBestCandidate(
+  snapshotPayload: Record<string, any>,
+): Record<string, any> | null {
   if (!snapshotPayload) return null
   return (
+    (isRecord(snapshotPayload.best_candidate) && snapshotPayload.best_candidate) ||
+    (isRecord(snapshotPayload.best_candidate_template) && snapshotPayload.best_candidate_template) ||
+    (isRecord(snapshotPayload.best_candidate_pattern) && snapshotPayload.best_candidate_pattern) ||
     (isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt) ||
     (isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template) ||
     (isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern) ||
@@ -20,11 +25,12 @@ export function extractBestPrompt(snapshotPayload: Record<string, any>): Record<
   )
 }
 
-export function extractBestPromptText(snapshotPayload: Record<string, any>): string | null {
+export function extractBestCandidateText(snapshotPayload: Record<string, any>): string | null {
   if (!snapshotPayload) return null
-  const bestPromptMessages = snapshotPayload.best_prompt_messages
-  if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-    return bestPromptMessages
+  const bestCandidateMessages =
+    snapshotPayload.best_candidate_messages ?? snapshotPayload.best_prompt_messages
+  if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
+    return bestCandidateMessages
       .map((msg: any) => {
         const role = msg?.role || "unknown"
         const content = msg?.content || ""
@@ -32,14 +38,27 @@ export function extractBestPromptText(snapshotPayload: Record<string, any>): str
       })
       .join("\n")
   }
-  const rendered = snapshotPayload.best_prompt_text || snapshotPayload.rendered_prompt
+  const rendered =
+    snapshotPayload.best_candidate_text ||
+    snapshotPayload.best_prompt_text ||
+    snapshotPayload.rendered_candidate ||
+    snapshotPayload.rendered_prompt
   if (typeof rendered === "string" && rendered.trim()) return rendered
   return null
 }
 
-export function extractPromptSections(bestPrompt: Record<string, any>): Array<Record<string, any>> {
-  const sections = bestPrompt.sections || bestPrompt.prompt_sections || []
-  return Array.isArray(sections) ? sections : []
+export function extractCandidateStages(bestCandidate: Record<string, any>): Array<Record<string, any>> {
+  if (!bestCandidate) return []
+  const stages =
+    bestCandidate.stages || bestCandidate.sections || bestCandidate.prompt_sections || []
+  if (Array.isArray(stages)) return stages
+  if (isRecord(stages)) {
+    return Object.entries(stages).map(([id, value]) => {
+      if (isRecord(value)) return { id, ...value }
+      return { id, content: value }
+    })
+  }
+  return []
 }
 
 export function formatResults(snapshot: Snapshot): string {
@@ -60,26 +79,26 @@ export function formatResults(snapshot: Snapshot): string {
   }
 
   if (snapshot.bestSnapshot) {
-    const bestPrompt = extractBestPrompt(snapshot.bestSnapshot as any)
-    const bestPromptText = extractBestPromptText(snapshot.bestSnapshot as any)
-    if (bestPrompt) {
-      const promptId = bestPrompt.id || bestPrompt.template_id
-      const promptName = bestPrompt.name
-      const promptLabel = [promptName, promptId].filter(Boolean).join(" ")
-      if (promptLabel) lines.push(`Best prompt: ${promptLabel}`)
-      const sections = extractPromptSections(bestPrompt)
-      if (sections.length > 0) {
-        const summary = sections.slice(0, 3).map((section) => {
-          const role = section.role || "stage"
-          const name = section.name || section.id || ""
+    const bestCandidate = extractBestCandidate(snapshot.bestSnapshot as any)
+    const bestCandidateText = extractBestCandidateText(snapshot.bestSnapshot as any)
+    if (bestCandidate) {
+      const candidateId = bestCandidate.id || bestCandidate.template_id
+      const candidateName = bestCandidate.name
+      const candidateLabel = [candidateName, candidateId].filter(Boolean).join(" ")
+      if (candidateLabel) lines.push(`Best candidate: ${candidateLabel}`)
+      const stages = extractCandidateStages(bestCandidate)
+      if (stages.length > 0) {
+        const summary = stages.slice(0, 3).map((stage) => {
+          const role = stage.role || "stage"
+          const name = stage.name || stage.id || ""
           return name ? `${role}:${name}` : role
         })
-        const suffix = sections.length > 3 ? " …" : ""
+        const suffix = stages.length > 3 ? " …" : ""
         lines.push(`Stages: ${summary.join(", ")}${suffix}`)
       }
     }
-    if (bestPromptText) {
-      lines.push(`Best prompt text: ${truncate(bestPromptText, 90)}`)
+    if (bestCandidateText) {
+      lines.push(`Best candidate text: ${truncate(bestCandidateText, 90)}`)
     }
   }
 
@@ -94,19 +113,29 @@ export function formatEvalResults(snapshot: Snapshot): string {
   // Show overall summary if available
   if (Object.keys(summary).length > 0) {
     lines.push("═══ Summary ═══")
-    const keyOrder = ["mean_score", "accuracy", "pass_rate", "completed", "failed", "total"]
+    const keyOrder = ["mean_reward", "reward", "pass_rate", "completed", "failed", "total"]
     const shown = new Set<string>()
 
     for (const key of keyOrder) {
-      if (summary[key] != null) {
-        const val = summary[key]
-        if (key === "accuracy" || key === "pass_rate") {
-          lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`)
-        } else {
-          lines.push(`  ${key}: ${formatValue(val)}`)
+      let val = summary[key]
+      if (key === "reward") {
+        val = summary.reward ?? summary.objectives?.reward ?? summary.accuracy
+        if (val != null) {
+          shown.add("accuracy")
         }
-        shown.add(key)
+      } else if (key === "mean_reward") {
+        val = summary.mean_reward ?? summary.mean_score
+        if (val != null) {
+          shown.add("mean_score")
+        }
       }
+      if (val == null) continue
+      if (key === "reward" || key === "pass_rate") {
+        lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`)
+      } else {
+        lines.push(`  ${key}: ${formatValue(val)}`)
+      }
+      shown.add(key)
     }
     // Show remaining keys
     for (const [key, value] of Object.entries(summary)) {
@@ -117,16 +146,16 @@ export function formatEvalResults(snapshot: Snapshot): string {
     lines.push("")
   }
 
-  if (summary.mean_score == null && rows.length > 0) {
-    const scores = rows
-      .map((row) => row.outcome_reward ?? row.score ?? row.reward_mean ?? row.events_score)
+  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
+    const rewards = rows
+      .map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score)
       .filter((val) => typeof val === "number" && Number.isFinite(val)) as number[]
-    if (scores.length > 0) {
-      const mean = scores.reduce((acc, val) => acc + val, 0) / scores.length
+    if (rewards.length > 0) {
+      const mean = rewards.reduce((acc, val) => acc + val, 0) / rewards.length
       if (lines.length === 0 || lines[0] !== "═══ Summary ═══") {
         lines.unshift("═══ Summary ═══")
       }
-      lines.splice(1, 0, `  mean_score: ${formatValue(mean)}`)
+      lines.splice(1, 0, `  mean_reward: ${formatValue(mean)}`)
       lines.push("")
     }
   }
@@ -139,17 +168,17 @@ export function formatEvalResults(snapshot: Snapshot): string {
 
     for (const row of displayRows) {
       const taskId = row.task_id || row.id || row.name || "?"
-      const score = num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed)
+      const reward = num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed)
       const passed = row.passed != null ? (row.passed ? "✓" : "✗") : ""
       const status = row.status || ""
-      const scoreStr = score != null ? score.toFixed(3) : "-"
+      const rewardStr = reward != null ? reward.toFixed(3) : "-"
 
       if (passed) {
-        lines.push(`  ${passed} ${taskId}: ${scoreStr}`)
+        lines.push(`  ${passed} ${taskId}: ${rewardStr}`)
       } else if (status) {
-        lines.push(`  [${status}] ${taskId}: ${scoreStr}`)
+        lines.push(`  [${status}] ${taskId}: ${rewardStr}`)
       } else {
-        lines.push(`  ${taskId}: ${scoreStr}`)
+        lines.push(`  ${taskId}: ${rewardStr}`)
       }
     }
 
@@ -174,35 +203,37 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
   const lines: string[] = []
   lines.push(`Job: ${job.job_id}`)
   lines.push(`Status: ${job.status}`)
-  lines.push(`Best Score: ${job.best_score ?? "-"}`)
+  lines.push(`Best Reward: ${job.best_reward ?? "-"}`)
   lines.push(`Best Snapshot ID: ${snapshot.bestSnapshotId || "-"}`)
   lines.push("")
 
   if (snapshot.bestSnapshot) {
-    // GEPA stores best_prompt and best_prompt_messages directly in the snapshot
-    const bestPrompt = (snapshot.bestSnapshot as any).best_prompt
-    const bestPromptMessages = (snapshot.bestSnapshot as any).best_prompt_messages
+    // GEPA stores best_candidate and best_candidate_messages directly in the snapshot
+    const bestCandidate = extractBestCandidate(snapshot.bestSnapshot as any)
+    const bestCandidateMessages =
+      (snapshot.bestSnapshot as any).best_candidate_messages ??
+      (snapshot.bestSnapshot as any).best_prompt_messages
 
-    if (bestPrompt && typeof bestPrompt === "object") {
-      const promptId = (bestPrompt as any).id || (bestPrompt as any).template_id
-      const promptName = (bestPrompt as any).name
-      if (promptName) lines.push(`Prompt Name: ${promptName}`)
-      if (promptId) lines.push(`Prompt ID: ${promptId}`)
+    if (bestCandidate && typeof bestCandidate === "object") {
+      const candidateId = (bestCandidate as any).id || (bestCandidate as any).template_id
+      const candidateName = (bestCandidate as any).name
+      if (candidateName) lines.push(`Candidate Name: ${candidateName}`)
+      if (candidateId) lines.push(`Candidate ID: ${candidateId}`)
       lines.push("")
 
-      // Extract sections from best_prompt (each section = a stage)
-      const sections = (bestPrompt as any).sections || (bestPrompt as any).prompt_sections || []
-      if (Array.isArray(sections) && sections.length > 0) {
+      // Extract stages from best_candidate
+      const stages = extractCandidateStages(bestCandidate as any)
+      if (Array.isArray(stages) && stages.length > 0) {
         lines.push(
-          `=== PROMPT TEMPLATE (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`,
+          `=== CANDIDATE STAGES (${stages.length} stage${stages.length > 1 ? "s" : ""}) ===`,
         )
         lines.push("")
-        for (let i = 0; i < sections.length; i++) {
-          const section = sections[i]
-          const role = section.role || "stage"
-          const name = section.name || section.id || ""
-          const content = section.content || ""
-          const order = section.order !== undefined ? section.order : i
+        for (let i = 0; i < stages.length; i++) {
+          const stage = stages[i]
+          const role = stage.role || "stage"
+          const name = stage.name || stage.id || ""
+          const content = stage.content || ""
+          const order = stage.order !== undefined ? stage.order : i
           lines.push(`┌─ Stage ${order + 1}: ${role}${name ? ` (${name})` : ""} ─┐`)
           lines.push("")
           if (content) {
@@ -217,14 +248,14 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
       }
     }
 
-    // Show rendered messages (best_prompt_messages)
-    if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
+    // Show rendered messages (best_candidate_messages)
+    if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
       lines.push(
-        `=== RENDERED MESSAGES (${bestPromptMessages.length} message${bestPromptMessages.length > 1 ? "s" : ""}) ===`,
+        `=== RENDERED CANDIDATE MESSAGES (${bestCandidateMessages.length} message${bestCandidateMessages.length > 1 ? "s" : ""}) ===`,
       )
       lines.push("")
-      for (let i = 0; i < bestPromptMessages.length; i++) {
-        const msg = bestPromptMessages[i]
+      for (let i = 0; i < bestCandidateMessages.length; i++) {
+        const msg = bestCandidateMessages[i]
         const role = msg.role || "unknown"
         const content = msg.content || ""
         lines.push(`┌─ Message ${i + 1}: [${role}] ─┐`)
@@ -237,22 +268,22 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
     }
 
     // Fallback: check for legacy extractors if nothing found
-    if (!bestPrompt && !bestPromptMessages) {
-      const legacyPrompt = extractBestPrompt(snapshot.bestSnapshot as any)
-      const legacyText = extractBestPromptText(snapshot.bestSnapshot as any)
+    if (!bestCandidate && !bestCandidateMessages) {
+      const legacyCandidate = extractBestCandidate(snapshot.bestSnapshot as any)
+      const legacyText = extractBestCandidateText(snapshot.bestSnapshot as any)
 
-      if (legacyPrompt) {
-        const sections = extractPromptSections(legacyPrompt)
-        if (sections.length > 0) {
+      if (legacyCandidate) {
+        const stages = extractCandidateStages(legacyCandidate)
+        if (stages.length > 0) {
           lines.push(
-            `=== PROMPT SECTIONS (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`,
+            `=== CANDIDATE STAGES (${stages.length} stage${stages.length > 1 ? "s" : ""}) ===`,
           )
           lines.push("")
-          for (let i = 0; i < sections.length; i++) {
-            const section = sections[i]
-            const role = section.role || "stage"
-            const name = section.name || section.id || ""
-            const content = section.content || ""
+          for (let i = 0; i < stages.length; i++) {
+            const stage = stages[i]
+            const role = stage.role || "stage"
+            const name = stage.name || stage.id || ""
+            const content = stage.content || ""
             lines.push(`┌─ Stage ${i + 1}: ${role}${name ? ` (${name})` : ""} ─┐`)
             lines.push("")
             if (content) {
@@ -266,13 +297,13 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
       }
 
       if (legacyText) {
-        lines.push("=== RENDERED PROMPT ===")
+        lines.push("=== RENDERED CANDIDATE ===")
         lines.push("")
         lines.push(legacyText)
       }
 
       // Last resort: show raw data
-      if (!legacyPrompt && !legacyText) {
+      if (!legacyCandidate && !legacyText) {
         lines.push("=== RAW SNAPSHOT DATA ===")
         lines.push("")
         try {
@@ -288,5 +319,3 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
 
   return lines.join("\n")
 }
-
-
