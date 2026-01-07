@@ -102,7 +102,7 @@ function toSortTimestamp(value) {
 // src/api/client.ts
 var exports_client = {};
 __export(exports_client, {
-  refreshHealth: () => refreshHealth,
+  checkBackendHealth: () => checkBackendHealth,
   apiPost: () => apiPost,
   apiGetV1: () => apiGetV1,
   apiGet: () => apiGet
@@ -154,7 +154,7 @@ async function apiPost(path6, body) {
   }
   return res.json().catch(() => ({}));
 }
-async function refreshHealth() {
+async function checkBackendHealth() {
   try {
     const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`);
     return res.ok ? "ok" : `bad(${res.status})`;
@@ -21380,13 +21380,17 @@ and aggregates the scores.
 """
 
 from fastapi import Request
+import httpx
+
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.task import normalize_inference_url
 from synth_ai.sdk.task.contracts import (
     RolloutRequest,
     RolloutResponse,
     RolloutMetrics,
     TaskInfo,
 )
+from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 
 
 # =============================================================================
@@ -21498,8 +21502,6 @@ def provide_task_instances(seeds: list[int]):
 
 async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) -> str:
     """Call the LLM via the inference URL provided by Synth."""
-    import httpx
-
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["X-API-Key"] = api_key
@@ -21509,8 +21511,12 @@ async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) 
         "messages": [{"role": "user", "content": prompt}],
     }
 
+    # Use SDK's normalize_inference_url to ensure correct path structure
+    # This handles appending /v1/chat/completions and preserving query params
+    url = normalize_inference_url(inference_url)
+
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(inference_url, json=payload, headers=headers)
+        response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]
@@ -21552,12 +21558,24 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     # Score the response
     score = score_response(response, sample)
 
+    # Extract trace correlation ID for proper tracing
+    policy_cfg_for_trace = {
+        key: value
+        for key, value in policy_config.items()
+        if key not in {"trace_correlation_id", "trace"}
+    }
+    trace_correlation_id = extract_trace_correlation_id(
+        policy_config=policy_cfg_for_trace,
+        inference_url=str(inference_url or ""),
+        mode=request.mode,
+    )
+
     return RolloutResponse(
         run_id=request.run_id,
         metrics=RolloutMetrics(outcome_reward=score),
         trace=None,
-        trace_correlation_id=None,
-        inference_url=inference_url,
+        trace_correlation_id=trace_correlation_id,
+        inference_url=str(inference_url or ""),
     )
 
 
@@ -21654,9 +21672,9 @@ function isLocalAPIFile(content) {
 import * as fs5 from "fs";
 import * as path8 from "path";
 import { spawn as spawn2 } from "child_process";
-function deployLocalApi(filePath) {
+function deployLocalApi(filePath, mode = "prod") {
   return new Promise((resolve3) => {
-    const proc = spawn2("python", ["-m", "synth_ai.tui.deploy", filePath], {
+    const proc = spawn2("python", ["-m", "synth_ai.tui.deploy", filePath, "--mode", mode], {
       stdio: ["ignore", "pipe", "pipe"]
     });
     let resolved = false;
@@ -21731,6 +21749,12 @@ function createCreateJobModal(ctx) {
       createdFilePath = selectedExistingApi.filepath;
       const fileName = selectedExistingApi.filename;
       baseSteps.push({
+        id: "envMode",
+        label: "Environment",
+        prompt: "Select deployment environment:",
+        getOptions: () => ["prod (Cloudflare tunnel)", "dev (localhost + local backend)", "local (localhost only)"]
+      });
+      baseSteps.push({
         id: "deployLocalApi",
         label: "Deploy",
         prompt: `Deploy ${fileName}?`,
@@ -21744,7 +21768,9 @@ function createCreateJobModal(ctx) {
             ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
             updateContent();
             ctx.render();
-            const result = await deployLocalApi(createdFilePath);
+            const envModeSelection = getSelectionForStep("envMode");
+            const mode = envModeSelection?.value.split(" ")[0] || "prod";
+            const result = await deployLocalApi(createdFilePath, mode);
             isDeploying = false;
             if (result.success) {
               deployedUrl = result.url;
@@ -21832,6 +21858,12 @@ function createCreateJobModal(ctx) {
           }
         });
         baseSteps.push({
+          id: "envMode",
+          label: "Environment",
+          prompt: "Select deployment environment:",
+          getOptions: () => ["prod (Cloudflare tunnel)", "dev (localhost + local backend)", "local (localhost only)"]
+        });
+        baseSteps.push({
           id: "deployLocalApi",
           label: "Deploy",
           prompt: `Deploy ${actualFileName}?`,
@@ -21845,7 +21877,9 @@ function createCreateJobModal(ctx) {
               ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
               updateContent();
               ctx.render();
-              const result = await deployLocalApi(createdFilePath);
+              const envModeSelection = getSelectionForStep("envMode");
+              const mode = envModeSelection?.value.split(" ")[0] || "prod";
+              const result = await deployLocalApi(createdFilePath, mode);
               isDeploying = false;
               if (result.success) {
                 deployedUrl = result.url;
@@ -21878,7 +21912,9 @@ function createCreateJobModal(ctx) {
         if (value === "eval" /* Eval */ && deployedUrl) {
           ctx.state.snapshot.status = "Submitting eval job...";
           ctx.render();
-          spawn2("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
+          const envModeSelection = getSelectionForStep("envMode");
+          const mode = envModeSelection?.value.split(" ")[0] || "prod";
+          spawn2("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default", "--mode", mode], {
             stdio: "ignore",
             detached: true
           }).unref();
@@ -22697,7 +22733,7 @@ function createResultsModal(ctx) {
   function updateContent() {
     if (!modal.visible)
       return;
-    const raw = formatResultsExpanded(snapshot2);
+    const raw = formatResultsExpanded(snapshot2) ?? "No results available";
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
     const maxWidth = Math.max(20, cols - 20);
     const wrapped = wrapModalText(raw, maxWidth);
@@ -23321,7 +23357,7 @@ async function refreshIdentity(ctx) {
     snapshot2.balanceDollars = snapshot2.balanceDollars || null;
   }
 }
-async function refreshHealth2(ctx) {
+async function refreshHealth(ctx) {
   const { appState: appState2 } = ctx.state;
   try {
     const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`);
@@ -23617,7 +23653,7 @@ async function runApp() {
     await bootstrap();
   }
   async function bootstrap() {
-    refreshHealth2(ctx);
+    refreshHealth(ctx);
     await refreshIdentity(ctx);
     await refreshJobs(ctx);
     await refreshTunnels(ctx);
@@ -23630,7 +23666,7 @@ async function runApp() {
     }
     startJobsStream();
     scheduleEventsPoll();
-    registerInterval(setInterval(() => void refreshHealth2(ctx), 30000));
+    registerInterval(setInterval(() => void refreshHealth(ctx), 30000));
     registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()), 60000));
     registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()), 30000));
     registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15000));
