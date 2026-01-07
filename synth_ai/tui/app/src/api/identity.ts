@@ -2,7 +2,7 @@
  * Identity (user/org) + balance fetching.
  */
 import type { AppContext } from "../context"
-import { apiGetV1 } from "./client"
+import { apiGetV1, getActiveBaseRoot } from "./client"
 
 export async function refreshIdentity(ctx: AppContext): Promise<void> {
   const { snapshot } = ctx.state
@@ -16,13 +16,26 @@ export async function refreshIdentity(ctx: AppContext): Promise<void> {
     snapshot.userId = snapshot.userId || null
   }
 
+  // Get balance from Autumn via backend proxy
+  // Backend returns raw Autumn customer response with entitlements array
+  // We need the "usage" entitlement with interval="lifetime" for the actual balance
   try {
-    const balance = await apiGetV1("/balance/autumn-normalized")
-    const cents = balance?.remaining_credits_cents
-    const dollars = typeof cents === "number" && Number.isFinite(cents) ? cents / 100 : null
-    snapshot.balanceDollars = dollars
+    const autumnBalance = await apiGetV1("/balance/autumn-current")
+    const raw = autumnBalance?.raw
+    const entitlements = raw?.entitlements
+    let balance: number | null = null
+    if (Array.isArray(entitlements)) {
+      // Find the usage entitlement with lifetime interval (that's where the balance is)
+      const usageEnt = entitlements.find(
+        (e: any) => e.feature_id === "usage" && e.interval === "lifetime"
+      )
+      if (usageEnt && typeof usageEnt.balance === "number") {
+        balance = usageEnt.balance
+      }
+    }
+    snapshot.balanceDollars = balance
   } catch {
-    snapshot.balanceDollars = snapshot.balanceDollars || null
+    snapshot.balanceDollars = null
   }
 }
 
@@ -30,8 +43,9 @@ export async function refreshHealth(ctx: AppContext): Promise<void> {
   const { appState } = ctx.state
 
   try {
-    const { getActiveBaseRoot } = await import("./client")
-    const res = await fetch(`${getActiveBaseRoot()}/health`)
+    // Use current backend configuration (reads appState.currentBackend)
+    const baseRoot = getActiveBaseRoot()
+    const res = await fetch(`${baseRoot}/health`)
     appState.healthStatus = res.ok ? "ok" : `bad(${res.status})`
   } catch (err: any) {
     appState.healthStatus = `err(${err?.message || "unknown"})`

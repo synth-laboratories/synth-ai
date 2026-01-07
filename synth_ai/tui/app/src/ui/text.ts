@@ -8,9 +8,9 @@ export function formatHeaderMeta(ctx: AppContext): string {
   const { snapshot } = ctx.state
   const org = snapshot.orgId || "-"
   const user = snapshot.userId || "-"
-  const balance = snapshot.balanceDollars == null ? "-" : `$${snapshot.balanceDollars.toFixed(2)}`
+  const balance = snapshot.balanceDollars == null ? "unknown" : `$${snapshot.balanceDollars.toFixed(2)}`
   const backendLabel = getBackendConfig().label
-  return `backend: ${backendLabel}  org: ${org}  user: ${user}  balance: ${balance}`
+  return `backend: ${backendLabel}  org: ${org}  user: ${user}  Balance: ${balance}`
 }
 
 export function formatStatus(ctx: AppContext): string {
@@ -30,7 +30,7 @@ export function footerText(ctx: AppContext): string {
   const jobFilterLabel = appState.jobStatusFilter.size
     ? `status=${Array.from(appState.jobStatusFilter).join(",")}`
     : "status=all"
-  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | u tunnels | c cancel | a artifacts | s snapshot | q quit`
+  return `Keys: b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | u tunnels | c cancel | d usage | q quit`
 }
 
 

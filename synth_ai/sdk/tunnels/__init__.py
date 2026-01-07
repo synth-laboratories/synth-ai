@@ -83,6 +83,12 @@ from synth_ai.core.integrations.cloudflare import (
     # Discovery
     fetch_managed_tunnels,
     ManagedTunnelRecord,
+    # Health checks (NEW)
+    HealthResult,
+    check_tunnel_health,
+    check_tunnel_health_sync,
+    check_all_tunnels_health,
+    check_all_tunnels_health_sync,
 )
 
 # New: process tracking with atexit cleanup
@@ -170,11 +176,17 @@ __all__ = [
     # Discovery
     "fetch_managed_tunnels",
     "ManagedTunnelRecord",
-    # Process tracking (NEW)
+    # Health checks (NEW)
+    "HealthResult",
+    "check_tunnel_health",
+    "check_tunnel_health_sync",
+    "check_all_tunnels_health",
+    "check_all_tunnels_health_sync",
+    # Process tracking
     "track_process",
     "cleanup_all",
     "tracked_processes",
-    # Port management (NEW - was private)
+    # Port management
     "kill_port",
     "is_port_available",
     "find_available_port",

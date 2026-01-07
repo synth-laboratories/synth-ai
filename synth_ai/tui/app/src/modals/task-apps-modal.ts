@@ -16,42 +16,54 @@ function formatTunnelDetails(
   healthResults: Map<string, TunnelHealthResult>,
   selectedIndex: number
 ): string {
-  if (tunnels.length === 0) {
-    return "No active task apps (tunnels).\n\nTask apps are Cloudflare managed tunnels that expose\nlocal APIs to the internet for remote execution."
+  // Filter out deleted tunnels - only show active ones
+  const activeTunnels = tunnels.filter((t) => t.status === "active" && !t.deleted_at)
+  
+  if (activeTunnels.length === 0) {
+    return "No active task apps (tunnels).\n\nTask apps are Cloudflare managed tunnels that expose\nlocal APIs to the internet for remote execution.\n\nPress 'q' to close."
   }
 
   const lines: string[] = []
 
-  tunnels.forEach((tunnel, idx) => {
+  activeTunnels.forEach((tunnel, idx) => {
     const health = healthResults.get(tunnel.id)
     const isSelected = idx === selectedIndex
 
     // Health indicator
     let healthIcon = "?"
-    let healthText = "Unknown"
+    let healthText = "checking..."
     if (health) {
       if (health.healthy) {
         healthIcon = "\u2713"  // checkmark
-        healthText = `Healthy (${health.response_time_ms}ms)`
+        healthText = health.response_time_ms != null 
+          ? `Healthy (${health.response_time_ms}ms)` 
+          : "Healthy"
       } else {
         healthIcon = "\u2717"  // X
-        healthText = health.error || "Unhealthy"
+        healthText = health.error?.slice(0, 40) || "Unhealthy"
       }
     }
 
-    // Extract port from hostname (task-PORT-PID format)
+    // Extract port from hostname (task-PORT-PID format) or use local_port
     const portMatch = tunnel.hostname.match(/task-(\d+)-\d+/)
-    const displayPort = portMatch ? portMatch[1] : tunnel.local_port
+    const displayPort = portMatch ? portMatch[1] : tunnel.local_port?.toString() || "?"
 
     // Selection indicator
     const prefix = isSelected ? "> " : "  "
+    const hostname = tunnel.hostname.replace(/^https?:\/\//, "")
 
-    // Main line
-    lines.push(`${prefix}[${healthIcon}] ${tunnel.hostname}`)
-    lines.push(`     Port: ${displayPort} | ${healthText}`)
-    lines.push(`     Local: ${tunnel.local_host}:${tunnel.local_port}`)
+    // Main line - truncate long hostnames
+    const shortHost = hostname.length > 50 ? hostname.slice(0, 47) + "..." : hostname
+    lines.push(`${prefix}[${healthIcon}] ${shortHost}`)
+    lines.push(`    Port: ${displayPort} | Status: ${healthText}`)
+    lines.push(`    Local: ${tunnel.local_host}:${tunnel.local_port}`)
+    if (tunnel.created_at) {
+      const created = new Date(tunnel.created_at)
+      const createdStr = created.toLocaleString()
+      lines.push(`    Created: ${createdStr}`)
+    }
     if (tunnel.org_name) {
-      lines.push(`     Org: ${tunnel.org_name}`)
+      lines.push(`    Org: ${tunnel.org_name}`)
     }
     lines.push("")
   })
@@ -86,6 +98,8 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
   function updateContent(): void {
     if (!ui.taskAppsModalVisible) return
 
+    // Only count active tunnels
+    const activeTunnels = snapshot.tunnels.filter((t) => t.status === "active" && !t.deleted_at)
     const raw = formatTunnelDetails(
       snapshot.tunnels,
       snapshot.tunnelHealthResults,
@@ -99,8 +113,8 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
     appState.taskAppsModalOffset = clamp(appState.taskAppsModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines))
     const visible = wrapped.slice(appState.taskAppsModalOffset, appState.taskAppsModalOffset + maxLines)
 
-    const tunnelCount = snapshot.tunnels.length
-    ui.taskAppsModalTitle.content = `Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`
+    const tunnelCount = activeTunnels.length
+    ui.taskAppsModalTitle.content = `Task Apps (${tunnelCount} active tunnel${tunnelCount !== 1 ? "s" : ""})`
     ui.taskAppsModalText.content = visible.join("\n")
     ui.taskAppsModalHint.content =
       wrapped.length > maxLines
@@ -111,7 +125,9 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
   }
 
   function move(delta: number): void {
-    const maxIndex = Math.max(0, snapshot.tunnels.length - 1)
+    // Only count active tunnels for selection
+    const activeTunnels = snapshot.tunnels.filter((t) => t.status === "active" && !t.deleted_at)
+    const maxIndex = Math.max(0, activeTunnels.length - 1)
     appState.taskAppsModalSelectedIndex = clamp(
       (appState.taskAppsModalSelectedIndex || 0) + delta,
       0,
@@ -128,10 +144,12 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
   }
 
   async function copyHostname(): Promise<void> {
+    const activeTunnels = snapshot.tunnels.filter((t) => t.status === "active" && !t.deleted_at)
     const selectedIndex = appState.taskAppsModalSelectedIndex || 0
-    const tunnel = snapshot.tunnels[selectedIndex]
+    const tunnel = activeTunnels[selectedIndex]
     if (tunnel) {
-      const url = `https://${tunnel.hostname}`
+      const hostname = tunnel.hostname.replace(/^https?:\/\//, "")
+      const url = `https://${hostname}`
       await copyToClipboard(url)
       snapshot.status = `Copied: ${url}`
       ctx.render()

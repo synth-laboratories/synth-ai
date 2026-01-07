@@ -877,9 +877,9 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     left: "center",
     top: "center",
     offsetX: -45,
-    offsetY: -12,
+    offsetY: -10,  // More space from title to prevent overlap
     width: 90,
-    height: 24,
+    height: 22,  // Reduced height to ensure hint doesn't overlap
     zIndex: 9,
   })
   const usageModalHint = new TextRenderable(renderer, {
@@ -889,7 +889,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     position: "absolute",
     left: "center",
     top: "center",
-    offsetY: 13,
+    offsetY: 14,  // Moved down slightly to ensure it's at the bottom
     zIndex: 9,
   })
   usageModalBox.visible = false

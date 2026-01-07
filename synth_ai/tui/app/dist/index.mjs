@@ -19076,6 +19076,7 @@ var init_app_state = __esm(() => {
     promptBrowserOffset: 0,
     taskAppsModalOffset: 0,
     taskAppsModalSelectedIndex: 0,
+    usageModalOffset: 0,
     jobSelectToken: 0,
     eventsToken: 0
   };
@@ -19959,14 +19960,68 @@ function buildLayout(renderer, getFooterText) {
   renderer.root.add(loginModalTitle);
   renderer.root.add(loginModalText);
   renderer.root.add(loginModalHelp);
+  const usageModalBox = new BoxRenderable(renderer, {
+    id: "usage-modal-box",
+    width: 100,
+    height: 30,
+    position: "absolute",
+    left: "center",
+    top: "center",
+    backgroundColor: "#0b1120",
+    borderStyle: "single",
+    borderColor: "#10b981",
+    border: true,
+    zIndex: 8
+  });
+  const usageModalTitle = new TextRenderable(renderer, {
+    id: "usage-modal-title",
+    content: "Usage & Plan",
+    fg: "#10b981",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetY: -14,
+    zIndex: 9
+  });
+  const usageModalText = new TextRenderable(renderer, {
+    id: "usage-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetX: -45,
+    offsetY: -10,
+    width: 90,
+    height: 22,
+    zIndex: 9
+  });
+  const usageModalHint = new TextRenderable(renderer, {
+    id: "usage-modal-hint",
+    content: "j/k scroll | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetY: 14,
+    zIndex: 9
+  });
+  usageModalBox.visible = false;
+  usageModalTitle.visible = false;
+  usageModalText.visible = false;
+  usageModalHint.visible = false;
+  renderer.root.add(usageModalBox);
+  renderer.root.add(usageModalTitle);
+  renderer.root.add(usageModalText);
+  renderer.root.add(usageModalHint);
   const taskAppsModalBox = new BoxRenderable(renderer, {
     id: "task-apps-modal-box",
-    width: 90,
-    height: 20,
+    width: 100,
+    height: 30,
     position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
+    left: "center",
+    top: "center",
+    backgroundColor: "#0b1120",
     borderStyle: "single",
     borderColor: "#06b6d4",
     border: true,
@@ -19977,8 +20032,9 @@ function buildLayout(renderer, getFooterText) {
     content: "Task Apps",
     fg: "#06b6d4",
     position: "absolute",
-    left: 8,
-    top: 5,
+    left: "center",
+    top: "center",
+    offsetY: -14,
     zIndex: 9
   });
   const taskAppsModalText = new TextRenderable(renderer, {
@@ -19986,8 +20042,12 @@ function buildLayout(renderer, getFooterText) {
     content: "",
     fg: "#e2e8f0",
     position: "absolute",
-    left: 8,
-    top: 6,
+    left: "center",
+    top: "center",
+    offsetX: -45,
+    offsetY: -12,
+    width: 90,
+    height: 24,
     zIndex: 9
   });
   const taskAppsModalHint = new TextRenderable(renderer, {
@@ -19995,8 +20055,9 @@ function buildLayout(renderer, getFooterText) {
     content: "j/k select | y copy hostname | q close",
     fg: "#94a3b8",
     position: "absolute",
-    left: 8,
-    top: 22,
+    left: "center",
+    top: "center",
+    offsetY: 13,
     zIndex: 9
   });
   taskAppsModalBox.visible = false;
@@ -20086,6 +20147,11 @@ function buildLayout(renderer, getFooterText) {
     taskAppsModalText,
     taskAppsModalHint,
     taskAppsModalVisible: false,
+    usageModalBox,
+    usageModalTitle,
+    usageModalText,
+    usageModalHint,
+    usageModalVisible: false,
     eventCards: []
   };
 }
@@ -20944,19 +21010,9 @@ __export(exports_client, {
   apiGetV1: () => apiGetV1,
   apiGet: () => apiGet
 });
-function ensureApiBase2(url) {
-  let base = (url ?? "").trim().replace(/\/+$/, "");
-  if (!base)
-    return "";
-  if (!base.endsWith("/api")) {
-    base = base + "/api";
-  }
-  return base;
-}
 function getBackendConfig(id = appState.currentBackend) {
   const config2 = backendConfigs[id];
-  const envOverride = ensureApiBase2(process.env.SYNTH_TUI_API_BASE || "");
-  const baseUrl = envOverride || config2.baseUrl;
+  const baseUrl = config2.baseUrl;
   let apiKey = backendKeys[id];
   if ((id === "local" || id === "dev") && (!apiKey || !apiKey.trim())) {
     const envKey = id === "local" ? process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || "" : process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_DEV || "";
@@ -21031,7 +21087,8 @@ async function apiPost(path3, body) {
 }
 async function refreshHealth() {
   try {
-    const res = await fetch(`${getActiveBaseRoot()}/health`);
+    const baseRoot = getActiveBaseRoot();
+    const res = await fetch(`${baseRoot}/health`);
     return res.ok ? "ok" : `bad(${res.status})`;
   } catch (err) {
     return `err(${err?.message || "unknown"})`;
@@ -21046,9 +21103,9 @@ function formatHeaderMeta(ctx) {
   const { snapshot: snapshot2 } = ctx.state;
   const org = snapshot2.orgId || "-";
   const user = snapshot2.userId || "-";
-  const balance = snapshot2.balanceDollars == null ? "-" : `$${snapshot2.balanceDollars.toFixed(2)}`;
+  const balance = snapshot2.balanceDollars == null ? "unknown" : `$${snapshot2.balanceDollars.toFixed(2)}`;
   const backendLabel = getBackendConfig().label;
-  return `backend: ${backendLabel}  org: ${org}  user: ${user}  balance: ${balance}`;
+  return `backend: ${backendLabel}  org: ${org}  user: ${user}  Balance: ${balance}`;
 }
 function formatStatus(ctx) {
   const { snapshot: snapshot2, appState: appState2 } = ctx.state;
@@ -21064,45 +21121,13 @@ function footerText(ctx) {
   const { appState: appState2 } = ctx.state;
   const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
   const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
-  return `Keys: e events | b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | u tunnels | c cancel | a artifacts | s snapshot | q quit`;
+  return `Keys: b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | u tunnels | c cancel | d usage | q quit`;
 }
 var init_text = __esm(() => {
   init_client();
 });
 
 // src/ui/render.ts
-function formatTaskApps(tunnels, healthResults, loading) {
-  if (loading) {
-    return "Loading task apps...";
-  }
-  if (tunnels.length === 0) {
-    return "No active task apps";
-  }
-  const lines = [];
-  for (const tunnel of tunnels.slice(0, 4)) {
-    const health = healthResults.get(tunnel.id);
-    const hostname = tunnel.hostname.replace(/^https?:\/\//, "");
-    const shortHost = hostname.length > 35 ? hostname.slice(0, 32) + "..." : hostname;
-    let statusIcon;
-    let statusText;
-    if (!health) {
-      statusIcon = "?";
-      statusText = "checking";
-    } else if (health.healthy) {
-      statusIcon = "\u2713";
-      statusText = health.response_time_ms != null ? `${health.response_time_ms}ms` : "healthy";
-    } else {
-      statusIcon = "\u2717";
-      statusText = health.error?.slice(0, 20) || "unhealthy";
-    }
-    lines.push(`[${statusIcon}] ${shortHost} (${statusText})`);
-  }
-  if (tunnels.length > 4) {
-    lines.push(`  ... +${tunnels.length - 4} more`);
-  }
-  return lines.join(`
-`);
-}
 function renderApp(ctx) {
   const { ui, renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
@@ -21125,8 +21150,7 @@ function renderApp(ctx) {
   ui.detailText.content = formatDetails(snapshot2);
   ui.resultsText.content = formatResults(snapshot2);
   ui.metricsText.content = formatMetrics(snapshot2.metrics);
-  ui.taskAppsText.content = formatTaskApps(snapshot2.tunnels, snapshot2.tunnelHealthResults, snapshot2.tunnelsLoading);
-  ui.taskAppsBox.title = snapshot2.tunnels.length > 0 ? `Task Apps (${snapshot2.tunnels.length})` : "Task Apps";
+  ui.taskAppsBox.visible = false;
   renderEventCards(ctx);
   updatePaneIndicators(ctx);
   ui.headerMetaText.content = formatHeaderMeta(ctx);
@@ -22872,35 +22896,45 @@ var init_snapshot_modal = () => {};
 
 // src/modals/task-apps-modal.ts
 function formatTunnelDetails(tunnels, healthResults, selectedIndex) {
-  if (tunnels.length === 0) {
+  const activeTunnels = tunnels.filter((t2) => t2.status === "active" && !t2.deleted_at);
+  if (activeTunnels.length === 0) {
     return `No active task apps (tunnels).
 
 Task apps are Cloudflare managed tunnels that expose
-local APIs to the internet for remote execution.`;
+local APIs to the internet for remote execution.
+
+Press 'q' to close.`;
   }
   const lines = [];
-  tunnels.forEach((tunnel, idx) => {
+  activeTunnels.forEach((tunnel, idx) => {
     const health = healthResults.get(tunnel.id);
     const isSelected = idx === selectedIndex;
     let healthIcon = "?";
-    let healthText = "Unknown";
+    let healthText = "checking...";
     if (health) {
       if (health.healthy) {
         healthIcon = "\u2713";
-        healthText = `Healthy (${health.response_time_ms}ms)`;
+        healthText = health.response_time_ms != null ? `Healthy (${health.response_time_ms}ms)` : "Healthy";
       } else {
         healthIcon = "\u2717";
-        healthText = health.error || "Unhealthy";
+        healthText = health.error?.slice(0, 40) || "Unhealthy";
       }
     }
     const portMatch = tunnel.hostname.match(/task-(\d+)-\d+/);
-    const displayPort = portMatch ? portMatch[1] : tunnel.local_port;
+    const displayPort = portMatch ? portMatch[1] : tunnel.local_port?.toString() || "?";
     const prefix = isSelected ? "> " : "  ";
-    lines.push(`${prefix}[${healthIcon}] ${tunnel.hostname}`);
-    lines.push(`     Port: ${displayPort} | ${healthText}`);
-    lines.push(`     Local: ${tunnel.local_host}:${tunnel.local_port}`);
+    const hostname = tunnel.hostname.replace(/^https?:\/\//, "");
+    const shortHost = hostname.length > 50 ? hostname.slice(0, 47) + "..." : hostname;
+    lines.push(`${prefix}[${healthIcon}] ${shortHost}`);
+    lines.push(`    Port: ${displayPort} | Status: ${healthText}`);
+    lines.push(`    Local: ${tunnel.local_host}:${tunnel.local_port}`);
+    if (tunnel.created_at) {
+      const created = new Date(tunnel.created_at);
+      const createdStr = created.toLocaleString();
+      lines.push(`    Created: ${createdStr}`);
+    }
     if (tunnel.org_name) {
-      lines.push(`     Org: ${tunnel.org_name}`);
+      lines.push(`    Org: ${tunnel.org_name}`);
     }
     lines.push("");
   });
@@ -22927,6 +22961,7 @@ function createTaskAppsModal(ctx) {
   function updateContent() {
     if (!ui.taskAppsModalVisible)
       return;
+    const activeTunnels = snapshot2.tunnels.filter((t2) => t2.status === "active" && !t2.deleted_at);
     const raw = formatTunnelDetails(snapshot2.tunnels, snapshot2.tunnelHealthResults, appState2.taskAppsModalSelectedIndex || 0);
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
     const maxWidth = Math.max(20, cols - 20);
@@ -22934,15 +22969,16 @@ function createTaskAppsModal(ctx) {
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
     appState2.taskAppsModalOffset = clamp2(appState2.taskAppsModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.taskAppsModalOffset, appState2.taskAppsModalOffset + maxLines);
-    const tunnelCount = snapshot2.tunnels.length;
-    ui.taskAppsModalTitle.content = `Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`;
+    const tunnelCount = activeTunnels.length;
+    ui.taskAppsModalTitle.content = `Task Apps (${tunnelCount} active tunnel${tunnelCount !== 1 ? "s" : ""})`;
     ui.taskAppsModalText.content = visible.join(`
 `);
     ui.taskAppsModalHint.content = wrapped.length > maxLines ? `[${appState2.taskAppsModalOffset + 1}-${appState2.taskAppsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy hostname | q close` : "j/k select | y copy hostname | q close";
     renderer.requestRender();
   }
   function move(delta) {
-    const maxIndex = Math.max(0, snapshot2.tunnels.length - 1);
+    const activeTunnels = snapshot2.tunnels.filter((t2) => t2.status === "active" && !t2.deleted_at);
+    const maxIndex = Math.max(0, activeTunnels.length - 1);
     appState2.taskAppsModalSelectedIndex = clamp2((appState2.taskAppsModalSelectedIndex || 0) + delta, 0, maxIndex);
     updateContent();
   }
@@ -22953,10 +22989,12 @@ function createTaskAppsModal(ctx) {
     updateContent();
   }
   async function copyHostname() {
+    const activeTunnels = snapshot2.tunnels.filter((t2) => t2.status === "active" && !t2.deleted_at);
     const selectedIndex = appState2.taskAppsModalSelectedIndex || 0;
-    const tunnel = snapshot2.tunnels[selectedIndex];
+    const tunnel = activeTunnels[selectedIndex];
     if (tunnel) {
-      const url = `https://${tunnel.hostname}`;
+      const hostname = tunnel.hostname.replace(/^https?:\/\//, "");
+      const url = `https://${hostname}`;
       await copyToClipboard(url);
       snapshot2.status = `Copied: ${url}`;
       ctx.render();
@@ -22997,6 +23035,322 @@ function createTaskAppsModal(ctx) {
 }
 var init_task_apps_modal = () => {};
 
+// src/modals/usage-modal.ts
+function formatPlanName(planType) {
+  switch (planType) {
+    case "pro":
+      return "Pro";
+    case "team":
+      return "Team";
+    case "byok":
+      return "BYOK";
+    case "free":
+    default:
+      return "Free";
+  }
+}
+function formatStatus2(status) {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "trialing":
+      return "Trial";
+    case "past_due":
+      return "Past Due";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+}
+function formatUSD(amount) {
+  if (amount == null)
+    return "-";
+  return `$${amount.toFixed(2)}`;
+}
+function formatUsageDetails(data) {
+  if (!data) {
+    return `Loading usage data...
+
+Press 'q' to close.`;
+  }
+  const lines = [];
+  lines.push("");
+  lines.push("");
+  lines.push("===== PLAN INFO =====");
+  lines.push("");
+  lines.push(`Plan:     ${formatPlanName(data.plan_type)}`);
+  lines.push(`Status:   ${formatStatus2(data.status)}`);
+  const accessTier = data.access_tier || "alpha";
+  const tierDisplay = accessTier.charAt(0).toUpperCase() + accessTier.slice(1);
+  lines.push(`Access:   ${tierDisplay}`);
+  if (data.byok_providers && data.byok_providers.length > 0) {
+    const providersDisplay = data.byok_providers.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(", ");
+    lines.push(`BYOK:     ${providersDisplay}`);
+  } else {
+    lines.push(`BYOK:     None`);
+  }
+  lines.push("");
+  lines.push("Features:");
+  if (data.limits.unlimited_non_rollout) {
+    lines.push("  [*] Unlimited non-rollout usage");
+  }
+  if (data.limits.byok_enabled) {
+    lines.push("  [*] BYOK enabled (use your own API keys)");
+  }
+  if (data.limits.team_features_enabled) {
+    lines.push("  [*] Team collaboration features");
+  }
+  lines.push("");
+  if (data.plan_type === "pro" || data.plan_type === "team") {
+    lines.push("===== ROLLOUT CREDITS =====");
+    lines.push("");
+    lines.push(`Monthly allowance:  ${formatUSD(data.limits.monthly_rollout_credits_usd)}`);
+    lines.push(`Remaining balance:  ${formatUSD(data.rollout_credits_balance_usd)}`);
+    lines.push(`Used this period:  ${formatUSD(data.rollout_credits_used_this_period_usd)}`);
+    lines.push(`Overdraft limit:   ${formatUSD(data.limits.max_overdraft_usd)}`);
+    lines.push("");
+  }
+  lines.push("===== RESOURCE USAGE & BILLING =====");
+  lines.push("");
+  if (data.plan_type === "pro" || data.plan_type === "team") {
+    lines.push("Press 'b' to open Usage & Plan page:");
+    lines.push("  \u2022 View current plan and subscription details");
+    lines.push("  \u2022 Add rollout credits");
+    lines.push("  \u2022 Manage payment method");
+    lines.push("  \u2022 View detailed usage breakdown");
+  } else {
+    lines.push("Press 'b' to open Usage & Plan page:");
+    lines.push("  \u2022 View current plan");
+    lines.push("  \u2022 Upgrade to Pro ($20/month) or Team ($200/month)");
+    lines.push("  \u2022 Add BYOK keys (use your own API keys)");
+    lines.push("  \u2022 View detailed usage breakdown");
+  }
+  lines.push("");
+  lines.push("===== USAGE (30 DAYS) =====");
+  lines.push("");
+  if (data.usage_summary) {
+    const summary = data.usage_summary;
+    lines.push(`Total cost:    ${formatUSD(summary.total_cost_usd)}`);
+    lines.push(`Charged:       ${formatUSD(summary.total_charged_usd)}`);
+    if (summary.total_uncharged_usd > 0) {
+      lines.push(`Savings:       ${formatUSD(summary.total_uncharged_usd)}`);
+    }
+    lines.push("");
+    if (summary.by_type && summary.by_type.length > 0) {
+      lines.push("By type:");
+      for (const item of summary.by_type) {
+        const byokNote = item.byok_event_count > 0 ? ` (${item.byok_event_count} BYOK)` : "";
+        lines.push(`  ${item.usage_type.padEnd(12)} ${formatUSD(item.total_cost_usd).padStart(10)} (${item.event_count} events${byokNote})`);
+      }
+      lines.push("");
+    } else {
+      lines.push("No usage events in the last 30 days.");
+      lines.push("");
+    }
+    if (summary.by_job && summary.by_job.length > 0) {
+      lines.push("By job:");
+      for (const job of summary.by_job) {
+        const jobIdDisplay = job.job_id.length > 20 ? job.job_id.substring(0, 20) + "..." : job.job_id;
+        const byokNote = job.byok_event_count > 0 ? ` (${job.byok_event_count} BYOK)` : "";
+        lines.push(`  ${jobIdDisplay.padEnd(24)} ${formatUSD(job.total_cost_usd).padStart(10)} (${job.event_count} events${byokNote})`);
+        if (job.by_type && job.by_type.length > 1) {
+          for (const item of job.by_type) {
+            lines.push(`    - ${item.usage_type.padEnd(10)} ${formatUSD(item.total_cost_usd).padStart(10)} (${item.event_count} events)`);
+          }
+        }
+      }
+    }
+  } else {
+    lines.push("Loading usage data...");
+    lines.push("(No usage data available)");
+  }
+  return lines.join(`
+`);
+}
+function getFrontendUrl2(backendId) {
+  switch (backendId) {
+    case "prod":
+      return process.env.SYNTH_TUI_FRONTEND_PROD || "https://www.usesynth.ai";
+    case "dev":
+      return process.env.SYNTH_TUI_FRONTEND_DEV || "https://synth-frontend-dev.onrender.com";
+    case "local":
+      return process.env.SYNTH_TUI_FRONTEND_LOCAL || "http://localhost:3000";
+  }
+}
+function openBillingPage(ctx) {
+  try {
+    const backendConfig = getBackendConfig(ctx.state.appState.currentBackend);
+    const backendId = backendConfig.id;
+    const frontendUrl = getFrontendUrl2(backendId);
+    const usageUrl = `${frontendUrl}/usage`;
+    openBrowser(usageUrl);
+    ctx.state.snapshot.status = `\u2713 Opened Usage & Plan page: ${usageUrl}`;
+    ctx.render();
+    ctx.renderer.requestRender();
+  } catch (err) {
+    ctx.state.snapshot.status = `\u2717 Failed to open browser: ${err?.message || "Unknown error"}`;
+    ctx.render();
+    ctx.renderer.requestRender();
+  }
+}
+function createUsageModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2 } = ctx.state;
+  let usageData = null;
+  function toggle(visible) {
+    ui.usageModalVisible = visible;
+    ui.usageModalBox.visible = visible;
+    ui.usageModalTitle.visible = visible;
+    ui.usageModalText.visible = visible;
+    ui.usageModalHint.visible = false;
+    if (visible) {
+      ui.jobsSelect.blur();
+      updateContent();
+    } else {
+      ui.usageModalText.content = "";
+      if (appState2.activePane === "jobs") {
+        ui.jobsSelect.focus();
+      }
+    }
+    ctx.render();
+    renderer.requestRender();
+  }
+  function updateContent() {
+    if (!ui.usageModalVisible)
+      return;
+    const raw = formatUsageDetails(usageData);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.usageModalOffset = clamp2(appState2.usageModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.usageModalOffset, appState2.usageModalOffset + maxLines);
+    const scrollHint = wrapped.length > maxLines ? `[${appState2.usageModalOffset + 1}-${appState2.usageModalOffset + visible.length}/${wrapped.length}] j/k scroll` : "";
+    const hintParts = [];
+    if (scrollHint)
+      hintParts.push(scrollHint);
+    hintParts.push("b usage & plan");
+    hintParts.push("q close");
+    const hintLine = hintParts.join(" | ");
+    const contentWithHint = [...visible];
+    if (contentWithHint.length > 0) {
+      contentWithHint.push("");
+      contentWithHint.push(hintLine);
+    } else {
+      contentWithHint.push(hintLine);
+    }
+    ui.usageModalTitle.content = `Usage & Plan - ${formatPlanName(usageData?.plan_type || "free")}`;
+    ui.usageModalText.content = contentWithHint.join(`
+`);
+    ui.usageModalHint.content = "";
+    ui.usageModalHint.visible = false;
+    ctx.render();
+    renderer.requestRender();
+  }
+  function setData(data) {
+    usageData = data;
+    updateContent();
+  }
+  async function fetchUsageData() {
+    try {
+      const response = await apiGetV1("/usage-plan");
+      console.log("[TUI] Usage plan response access_tier:", response.access_tier);
+      const data = {
+        plan_type: response.plan_type,
+        status: response.status,
+        access_tier: response.access_tier ?? "alpha",
+        rollout_credits_balance_usd: response.rollout_credits_balance_usd ?? null,
+        rollout_credits_used_this_period_usd: response.rollout_credits_used_this_period_usd ?? null,
+        byok_providers: response.byok_providers || [],
+        limits: {
+          monthly_rollout_credits_usd: response.limits?.monthly_rollout_credits_usd ?? 0,
+          max_overdraft_usd: response.limits?.max_overdraft_usd ?? 0,
+          unlimited_non_rollout: response.limits?.unlimited_non_rollout ?? false,
+          team_features_enabled: response.limits?.team_features_enabled ?? false,
+          byok_enabled: response.limits?.byok_enabled ?? false
+        },
+        usage_summary: response.usage_summary ? {
+          total_cost_usd: response.usage_summary.total_cost_usd ?? 0,
+          total_charged_usd: response.usage_summary.total_charged_usd ?? 0,
+          total_uncharged_usd: response.usage_summary.total_uncharged_usd ?? 0,
+          by_type: response.usage_summary.by_type || [],
+          by_job: response.usage_summary.by_job || []
+        } : {
+          total_cost_usd: 0,
+          total_charged_usd: 0,
+          total_uncharged_usd: 0,
+          by_type: [],
+          by_job: []
+        }
+      };
+      setData(data);
+    } catch (err) {
+      const fallbackData = {
+        plan_type: "free",
+        status: "active",
+        rollout_credits_balance_usd: null,
+        rollout_credits_used_this_period_usd: null,
+        byok_providers: [],
+        limits: {
+          monthly_rollout_credits_usd: 0,
+          max_overdraft_usd: 0,
+          unlimited_non_rollout: false,
+          team_features_enabled: false,
+          byok_enabled: false
+        }
+      };
+      setData(fallbackData);
+      ctx.state.snapshot.lastError = `Usage fetch failed: ${err?.message || "Unknown error"}`;
+      ctx.render();
+    }
+  }
+  async function open() {
+    appState2.usageModalOffset = 0;
+    setData(null);
+    toggle(true);
+    updateContent();
+    await fetchUsageData();
+  }
+  function handleKey(key) {
+    if (!ui.usageModalVisible)
+      return false;
+    if (key.name === "b") {
+      openBillingPage(ctx);
+      return true;
+    }
+    if (key.name === "up" || key.name === "k") {
+      appState2.usageModalOffset = Math.max(0, (appState2.usageModalOffset || 0) - 1);
+      updateContent();
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      appState2.usageModalOffset = (appState2.usageModalOffset || 0) + 1;
+      updateContent();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.usageModalVisible;
+    },
+    toggle,
+    open,
+    updateContent,
+    setData,
+    handleKey
+  };
+}
+var init_usage_modal = __esm(() => {
+  init_client();
+  init_auth();
+});
+
 // src/modals/index.ts
 var init_modals = __esm(() => {
   init_event_modal();
@@ -23009,6 +23363,7 @@ var init_modals = __esm(() => {
   init_env_key_modal();
   init_snapshot_modal();
   init_task_apps_modal();
+  init_usage_modal();
 });
 
 // src/handlers/keyboard.ts
@@ -23070,6 +23425,10 @@ function createKeyboardHandler(ctx, modals) {
         modals.taskApps.handleKey(key);
         return;
       }
+      if (modals.usage.isVisible) {
+        modals.usage.handleKey(key);
+        return;
+      }
       renderer.stop();
       renderer.destroy();
       process.exit(0);
@@ -23124,6 +23483,10 @@ function createKeyboardHandler(ctx, modals) {
       modals.taskApps.handleKey(key);
       return;
     }
+    if (modals.usage.isVisible) {
+      modals.usage.handleKey(key);
+      return;
+    }
     if (key.name === "tab") {
       setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
       return;
@@ -23176,6 +23539,10 @@ function createKeyboardHandler(ctx, modals) {
     }
     if (key.name === "u") {
       modals.taskApps.open();
+      return;
+    }
+    if (key.name === "d") {
+      modals.usage.open();
       return;
     }
     if (key.name === "c") {
@@ -23340,19 +23707,26 @@ async function refreshIdentity(ctx) {
     snapshot2.userId = snapshot2.userId || null;
   }
   try {
-    const balance = await apiGetV1("/balance/autumn-normalized");
-    const cents = balance?.remaining_credits_cents;
-    const dollars = typeof cents === "number" && Number.isFinite(cents) ? cents / 100 : null;
-    snapshot2.balanceDollars = dollars;
+    const autumnBalance = await apiGetV1("/balance/autumn-current");
+    const raw = autumnBalance?.raw;
+    const entitlements = raw?.entitlements;
+    let balance = null;
+    if (Array.isArray(entitlements)) {
+      const usageEnt = entitlements.find((e) => e.feature_id === "usage" && e.interval === "lifetime");
+      if (usageEnt && typeof usageEnt.balance === "number") {
+        balance = usageEnt.balance;
+      }
+    }
+    snapshot2.balanceDollars = balance;
   } catch {
-    snapshot2.balanceDollars = snapshot2.balanceDollars || null;
+    snapshot2.balanceDollars = null;
   }
 }
 async function refreshHealth2(ctx) {
   const { appState: appState2 } = ctx.state;
   try {
-    const { getActiveBaseRoot: getActiveBaseRoot2 } = await Promise.resolve().then(() => (init_client(), exports_client));
-    const res = await fetch(`${getActiveBaseRoot2()}/health`);
+    const baseRoot = getActiveBaseRoot();
+    const res = await fetch(`${baseRoot}/health`);
     appState2.healthStatus = res.ok ? "ok" : `bad(${res.status})`;
   } catch (err) {
     appState2.healthStatus = `err(${err?.message || "unknown"})`;
@@ -23541,6 +23915,7 @@ async function runApp() {
   const envKeyModal = createEnvKeyModal(ctx);
   const snapshotModal = createSnapshotModal(ctx);
   const taskAppsModal = createTaskAppsModal(ctx);
+  const usageModal = createUsageModal(ctx);
   const modals = {
     login: loginModal,
     event: eventModal,
@@ -23552,7 +23927,8 @@ async function runApp() {
     key: keyModal,
     envKey: envKeyModal,
     snapshot: snapshotModal,
-    taskApps: taskAppsModal
+    taskApps: taskAppsModal,
+    usage: usageModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
   const handlePaste = createPasteHandler(ctx, keyModal);

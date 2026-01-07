@@ -28,8 +28,9 @@ export function getBackendConfig(id: BackendId = appState.currentBackend): {
   apiKey: string
 } {
   const config = backendConfigs[id]
-  const envOverride = ensureApiBase(process.env.SYNTH_TUI_API_BASE || "")
-  const baseUrl = envOverride || config.baseUrl
+  // Use the selected backend's URL (don't override with SYNTH_TUI_API_BASE when backend is explicitly selected)
+  // SYNTH_TUI_API_BASE is only used for initial backend selection via launcher, not for runtime overrides
+  const baseUrl = config.baseUrl
   // For local/dev backends, check SYNTH_API_KEY if key is empty
   let apiKey = backendKeys[id]
   if ((id === "local" || id === "dev") && (!apiKey || !apiKey.trim())) {
@@ -114,7 +115,9 @@ export async function apiPost(path: string, body: any): Promise<any> {
 
 export async function refreshHealth(): Promise<string> {
   try {
-    const res = await fetch(`${getActiveBaseRoot()}/health`)
+    // Use current backend configuration (reads appState.currentBackend)
+    const baseRoot = getActiveBaseRoot()
+    const res = await fetch(`${baseRoot}/health`)
     return res.ok ? "ok" : `bad(${res.status})`
   } catch (err: any) {
     return `err(${err?.message || "unknown"})`
