@@ -19433,6 +19433,8 @@ var appState = {
   eventModalOffset: 0,
   resultsModalOffset: 0,
   configModalOffset: 0,
+  logsModalOffset: 0,
+  logsModalTail: true,
   promptBrowserIndex: 0,
   promptBrowserOffset: 0,
   taskAppsModalOffset: 0,
@@ -19789,9 +19791,7 @@ function buildLayout(renderer, getFooterText) {
   });
   const logsEmptyText = new TextRenderable(renderer, {
     id: "logs-empty-text",
-    content: `No active deployments.
-
-Press 'n' to deploy a LocalAPI.`,
+    content: "No log files found.",
     fg: "#94a3b8"
   });
   logsBox.add(logsContent);
@@ -20585,17 +20585,9 @@ function toggleSelectedEventExpanded(ctx) {
 }
 
 // src/ui/logs.ts
-var SOURCE_COLORS = {
-  uvicorn: "#22c55e",
-  cloudflare: "#3b82f6",
-  app: "#f59e0b"
-};
-var LEVEL_COLORS = {
-  ERROR: "#ef4444",
-  WARNING: "#f59e0b",
-  INFO: "#e2e8f0",
-  DEBUG: "#94a3b8"
-};
+import * as fs2 from "fs";
+import * as path3 from "path";
+import * as os2 from "os";
 function clamp2(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
@@ -20604,67 +20596,71 @@ function getLogsLayoutMetrics(_ctx) {
   const available = Math.max(1, rows - 16);
   return { visibleCount: available };
 }
-function getFilteredLogs(ctx) {
-  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
-  const deploymentId = appState2.logsActiveDeploymentId;
-  if (!deploymentId)
+function getLogsDirectory() {
+  return path3.join(os2.homedir(), ".synth-ai", "tui", "logs");
+}
+function listLogFiles() {
+  const logsDir = getLogsDirectory();
+  try {
+    const entries = fs2.readdirSync(logsDir);
+    const files = entries.map((name) => {
+      const fullPath = path3.join(logsDir, name);
+      const stat = fs2.statSync(fullPath);
+      if (!stat.isFile())
+        return null;
+      return {
+        path: fullPath,
+        name,
+        mtimeMs: stat.mtimeMs,
+        size: stat.size
+      };
+    }).filter((file) => Boolean(file));
+    return files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  } catch {
     return [];
-  const deployment = snapshot2.deployments.get(deploymentId);
-  if (!deployment)
-    return [];
-  return deployment.logs.filter((entry) => entry.type === "log" && appState2.logsSourceFilter.has(entry.source));
-}
-function formatTimestamp2(timestamp) {
-  return new Date(timestamp * 1000).toISOString().slice(11, 23);
-}
-function hexToRgb2(hex) {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r};${g};${b}`;
-}
-function formatLogEntry(log, maxWidth) {
-  const timestamp = formatTimestamp2(log.timestamp);
-  const sourceColor = SOURCE_COLORS[log.source] || "#94a3b8";
-  const prefix = `\x1B[90m${timestamp}\x1B[0m \x1B[38;2;${hexToRgb2(sourceColor)}m[${log.source.padEnd(10)}]\x1B[0m `;
-  const prefixVisibleLength = timestamp.length + 1 + 12 + 1;
-  const messageMaxLen = maxWidth - prefixVisibleLength - 2;
-  let message = log.message;
-  if (message.length > messageMaxLen && messageMaxLen > 3) {
-    message = message.slice(0, messageMaxLen - 3) + "...";
   }
-  return prefix + message;
+}
+function formatLogFileLabel(name) {
+  let type = "log";
+  if (name.includes("_deploy_")) {
+    type = "deploy";
+  } else if (name.includes("_serve_")) {
+    type = "serve";
+  }
+  const match = name.match(/(\d{4}_\d{2}_\d{2})_([0-9]{2}[:\-][0-9]{2}[:\-][0-9]{2})/);
+  if (match) {
+    const date = match[1];
+    const time2 = match[2].replace(/-/g, ":");
+    return `${date} ${time2} ${type}`;
+  }
+  return `${type} ${name}`;
+}
+function formatLogFileRow(file, maxWidth) {
+  const label = formatLogFileLabel(file.name);
+  const maxLen = Math.max(4, maxWidth - 2);
+  return label.length > maxLen ? label.slice(0, maxLen - 3) + "..." : label;
+}
+function getSelectedLogFile(ctx) {
+  const files = listLogFiles();
+  const idx = ctx.state.appState.logsSelectedIndex;
+  return files[idx] ?? null;
 }
 function renderLogs(ctx) {
   const { ui, renderer } = ctx;
-  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
-  const deploymentId = appState2.logsActiveDeploymentId;
-  const deployment = deploymentId ? snapshot2.deployments.get(deploymentId) : null;
-  const filteredLogs = getFilteredLogs(ctx);
-  if (!deployment || filteredLogs.length === 0) {
+  const { appState: appState2 } = ctx.state;
+  const files = listLogFiles();
+  if (!files.length) {
     ui.logsContent.visible = false;
     ui.logsEmptyText.visible = true;
-    if (!deployment) {
-      if (snapshot2.deployments.size === 0) {
-        ui.logsEmptyText.content = `No active deployments.
+    ui.logsEmptyText.content = `No log files found.
 
-Press 'n' to deploy a LocalAPI.`;
-      } else {
-        ui.logsEmptyText.content = "Select a deployment to view logs.";
-      }
-    } else {
-      ui.logsEmptyText.content = "Waiting for logs...";
-    }
+${getLogsDirectory()}`;
     return;
   }
   ui.logsEmptyText.visible = false;
   ui.logsContent.visible = true;
   const { visibleCount } = getLogsLayoutMetrics(ctx);
-  const total = filteredLogs.length;
-  if (appState2.logsTailMode && total > 0) {
-    appState2.logsWindowStart = Math.max(0, total - visibleCount);
-    appState2.logsSelectedIndex = total - 1;
-  }
+  const total = files.length;
   appState2.logsSelectedIndex = clamp2(appState2.logsSelectedIndex, 0, Math.max(0, total - 1));
   appState2.logsWindowStart = clamp2(appState2.logsWindowStart, 0, Math.max(0, total - visibleCount));
   if (appState2.logsSelectedIndex < appState2.logsWindowStart) {
@@ -20672,57 +20668,40 @@ Press 'n' to deploy a LocalAPI.`;
   } else if (appState2.logsSelectedIndex >= appState2.logsWindowStart + visibleCount) {
     appState2.logsWindowStart = appState2.logsSelectedIndex - visibleCount + 1;
   }
-  const visibleLogs = filteredLogs.slice(appState2.logsWindowStart, appState2.logsWindowStart + visibleCount);
+  const visibleFiles = files.slice(appState2.logsWindowStart, appState2.logsWindowStart + visibleCount);
   for (const entry of ui.logEntries) {
     ui.logsContent.remove(entry.text.id);
   }
   ui.logEntries = [];
   const termWidth = typeof process.stdout?.columns === "number" ? process.stdout.columns : 80;
   const maxWidth = termWidth - 4;
-  visibleLogs.forEach((log, index) => {
+  visibleFiles.forEach((file, index) => {
     const globalIndex = appState2.logsWindowStart + index;
-    const isSelected = globalIndex === appState2.logsSelectedIndex && !appState2.logsTailMode;
-    const content = formatLogEntry(log, maxWidth);
-    const levelColor = LEVEL_COLORS[log.level || "INFO"] || "#e2e8f0";
+    const isSelected = globalIndex === appState2.logsSelectedIndex;
+    const content = formatLogFileRow(file, maxWidth);
     const text = new TextRenderable(renderer, {
       id: `log-entry-${index}`,
       content,
-      fg: isSelected ? "#ffffff" : levelColor,
+      fg: isSelected ? "#ffffff" : "#e2e8f0",
       bg: isSelected ? "#1e293b" : undefined
     });
     ui.logsContent.add(text);
     ui.logEntries.push({ text });
   });
-  const activeFilters = Array.from(appState2.logsSourceFilter).join(", ");
   const position = total > visibleCount ? ` [${appState2.logsWindowStart + 1}-${Math.min(appState2.logsWindowStart + visibleCount, total)}/${total}]` : "";
-  const tailIndicator = appState2.logsTailMode ? " [TAIL]" : "";
-  ui.logsBox.title = `Logs (${activeFilters})${position}${tailIndicator}`;
+  ui.logsBox.title = `Logs (files)${position}`;
 }
 function moveLogSelection(ctx, delta) {
-  const filteredLogs = getFilteredLogs(ctx);
-  if (!filteredLogs.length)
+  const files = listLogFiles();
+  if (!files.length)
     return;
   const { appState: appState2 } = ctx.state;
-  appState2.logsTailMode = false;
-  appState2.logsSelectedIndex = clamp2(appState2.logsSelectedIndex + delta, 0, filteredLogs.length - 1);
+  appState2.logsSelectedIndex = clamp2(appState2.logsSelectedIndex + delta, 0, files.length - 1);
 }
 function pageLogSelection(ctx, direction) {
   const { visibleCount } = getLogsLayoutMetrics(ctx);
   const delta = direction === "up" ? -visibleCount : visibleCount;
   moveLogSelection(ctx, delta);
-}
-function toggleLogSource(ctx, source) {
-  const { appState: appState2 } = ctx.state;
-  if (appState2.logsSourceFilter.has(source)) {
-    if (appState2.logsSourceFilter.size > 1) {
-      appState2.logsSourceFilter.delete(source);
-    }
-  } else {
-    appState2.logsSourceFilter.add(source);
-  }
-}
-function enableTailMode(ctx) {
-  ctx.state.appState.logsTailMode = true;
 }
 function setActiveDeployment(ctx, deploymentId) {
   const { appState: appState2 } = ctx.state;
@@ -20786,7 +20765,7 @@ class FocusManager {
 var focusManager = new FocusManager;
 
 // src/ui/panes.ts
-function createLogsPaneFocusable(ctx) {
+function createLogsPaneFocusable(ctx, openLogFileModal) {
   return {
     id: "logs-pane",
     handleKey: (key) => {
@@ -20810,24 +20789,11 @@ function createLogsPaneFocusable(ctx) {
         ctx.render();
         return true;
       }
-      if (key.name === "1") {
-        toggleLogSource(ctx, "uvicorn");
-        ctx.render();
-        return true;
-      }
-      if (key.name === "2") {
-        toggleLogSource(ctx, "cloudflare");
-        ctx.render();
-        return true;
-      }
-      if (key.name === "3") {
-        toggleLogSource(ctx, "app");
-        ctx.render();
-        return true;
-      }
-      if (key.name === "t") {
-        enableTailMode(ctx);
-        ctx.render();
+      if (key.name === "return" || key.name === "enter") {
+        const file = getSelectedLogFile(ctx);
+        if (file) {
+          openLogFileModal(file.path);
+        }
         return true;
       }
       return false;
@@ -20863,8 +20829,8 @@ function createEventsPaneFocusable(ctx, openEventModal) {
 }
 var logsFocusable = null;
 var eventsFocusable = null;
-function initPaneFocusables(ctx, openEventModal) {
-  logsFocusable = createLogsPaneFocusable(ctx);
+function initPaneFocusables(ctx, openEventModal, openLogFileModal) {
+  logsFocusable = createLogsPaneFocusable(ctx, openLogFileModal);
   eventsFocusable = createEventsPaneFocusable(ctx, openEventModal);
 }
 function setActivePane(ctx, pane) {
@@ -20936,13 +20902,9 @@ function footerText(ctx) {
   const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
   const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
   if (appState2.activePane === "logs") {
-    const activeFilters = Array.from(appState2.logsSourceFilter).join(",");
-    const tailLabel = appState2.logsTailMode ? "[TAIL]" : "";
     const keys2 = [
-      "j/k scroll",
-      "t tail",
-      `1/2/3 filter=${activeFilters}`,
-      tailLabel,
+      "j/k select",
+      "enter open",
       "e events",
       "b jobs",
       "tab toggle",
@@ -21354,15 +21316,15 @@ function clamp3(value, min, max) {
 }
 
 // src/utils/logout-marker.ts
-import fs2 from "fs";
-import path3 from "path";
-import os2 from "os";
-var STATE_DIR = path3.join(os2.homedir(), ".synth-ai", ".tui");
-var MARKER_PATH = path3.join(STATE_DIR, "logged-out");
-var API_KEY_PATH = path3.join(STATE_DIR, "api-key");
+import fs3 from "fs";
+import path5 from "path";
+import os3 from "os";
+var STATE_DIR = path5.join(os3.homedir(), ".synth-ai", ".tui");
+var MARKER_PATH = path5.join(STATE_DIR, "logged-out");
+var API_KEY_PATH = path5.join(STATE_DIR, "api-key");
 function isLoggedOutMarkerSet() {
   try {
-    fs2.accessSync(MARKER_PATH, fs2.constants.F_OK);
+    fs3.accessSync(MARKER_PATH, fs3.constants.F_OK);
     return true;
   } catch {
     return false;
@@ -21370,18 +21332,18 @@ function isLoggedOutMarkerSet() {
 }
 async function setLoggedOutMarker() {
   try {
-    await fs2.promises.mkdir(STATE_DIR, { recursive: true });
-    await fs2.promises.writeFile(MARKER_PATH, "", "utf8");
+    await fs3.promises.mkdir(STATE_DIR, { recursive: true });
+    await fs3.promises.writeFile(MARKER_PATH, "", "utf8");
   } catch {}
 }
 async function clearLoggedOutMarker() {
   try {
-    await fs2.promises.unlink(MARKER_PATH);
+    await fs3.promises.unlink(MARKER_PATH);
   } catch {}
 }
 function loadSavedApiKey() {
   try {
-    const key = fs2.readFileSync(API_KEY_PATH, "utf8").trim();
+    const key = fs3.readFileSync(API_KEY_PATH, "utf8").trim();
     return key || null;
   } catch {
     return null;
@@ -21389,13 +21351,13 @@ function loadSavedApiKey() {
 }
 async function saveApiKey(key) {
   try {
-    await fs2.promises.mkdir(STATE_DIR, { recursive: true });
-    await fs2.promises.writeFile(API_KEY_PATH, key, { encoding: "utf8", mode: 384 });
+    await fs3.promises.mkdir(STATE_DIR, { recursive: true });
+    await fs3.promises.writeFile(API_KEY_PATH, key, { encoding: "utf8", mode: 384 });
   } catch {}
 }
 async function deleteSavedApiKey() {
   try {
-    await fs2.promises.unlink(API_KEY_PATH);
+    await fs3.promises.unlink(API_KEY_PATH);
   } catch {}
 }
 
@@ -21932,11 +21894,11 @@ if __name__ == "__main__":
 `;
 
 // src/utils/files.ts
-import * as fs3 from "fs";
-import * as path5 from "path";
-import * as os3 from "os";
+import * as fs4 from "fs";
+import * as path7 from "path";
+import * as os4 from "os";
 function toDisplayPath(absolutePath) {
-  const home = os3.homedir();
+  const home = os4.homedir();
   if (absolutePath.startsWith(home)) {
     return "~" + absolutePath.slice(home.length);
   }
@@ -21944,16 +21906,16 @@ function toDisplayPath(absolutePath) {
 }
 function expandPath(displayPath) {
   if (displayPath.startsWith("~/")) {
-    return path5.join(os3.homedir(), displayPath.slice(2));
+    return path7.join(os4.homedir(), displayPath.slice(2));
   }
   if (displayPath === "~") {
-    return os3.homedir();
+    return os4.homedir();
   }
   return displayPath;
 }
 function getUniqueFilename(dir, baseName, ext) {
-  const baseFilePath = path5.join(dir, `${baseName}${ext}`);
-  if (!fs3.existsSync(baseFilePath)) {
+  const baseFilePath = path7.join(dir, `${baseName}${ext}`);
+  if (!fs4.existsSync(baseFilePath)) {
     return baseFilePath;
   }
   const now = new Date;
@@ -21965,7 +21927,7 @@ function getUniqueFilename(dir, baseName, ext) {
   const seconds = String(now.getSeconds()).padStart(2, "0");
   const time2 = `${hours}${minutes}${seconds}`;
   const newName = `${baseName}_${year}_${month}_${day}_${time2}${ext}`;
-  return path5.join(dir, newName);
+  return path7.join(dir, newName);
 }
 function formatTimestampForFilename(date = new Date) {
   const year = date.getFullYear();
@@ -21978,18 +21940,18 @@ function formatTimestampForFilename(date = new Date) {
 }
 
 // src/utils/localapi-scanner.ts
-import * as fs4 from "fs";
-import * as path7 from "path";
+import * as fs5 from "fs";
+import * as path8 from "path";
 function scanForLocalAPIs(directory) {
   const results2 = [];
   try {
-    const entries = fs4.readdirSync(directory, { withFileTypes: true });
+    const entries = fs5.readdirSync(directory, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith(".py"))
         continue;
-      const filepath = path7.join(directory, entry.name);
+      const filepath = path8.join(directory, entry.name);
       try {
-        const content = fs4.readFileSync(filepath, "utf-8");
+        const content = fs5.readFileSync(filepath, "utf-8");
         if (isLocalAPIFile(content)) {
           results2.push({
             filename: entry.name,
@@ -22168,14 +22130,14 @@ function createErrorBox(options) {
     const visible = state.lines.slice(state.offset, state.offset + state.visibleLines);
     const borderColor = state.focused ? "\x1B[91m" : "\x1B[90m";
     const lines = [];
-    lines.push(`${indent}${borderColor}\u250C${"\u2500".repeat(innerWidth)}\u2510\x1B[0m`);
+    lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m`);
     for (let i = 0;i < state.visibleLines; i++) {
       const raw = visible[i] ?? "";
       const clipped = raw.length > contentWidth ? raw.slice(0, contentWidth) : raw;
       const padded = clipped.padEnd(contentWidth, " ");
-      lines.push(`${indent}${borderColor}\u2502\x1B[0m \x1B[31m${padded}\x1B[0m ${borderColor}\u2502\x1B[0m`);
+      lines.push(`${indent}${borderColor}|\x1B[0m \x1B[31m${padded}\x1B[0m ${borderColor}|\x1B[0m`);
     }
-    lines.push(`${indent}${borderColor}\u2514${"\u2500".repeat(innerWidth)}\u2518\x1B[0m`);
+    lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m`);
     return lines;
   }
   function getPositionLabel() {
@@ -22209,53 +22171,15 @@ function createErrorBox(options) {
 }
 
 // src/modals/create-job-modal.ts
-import * as fs5 from "fs";
-import * as path8 from "path";
-import * as os4 from "os";
+import * as fs6 from "fs";
+import * as path9 from "path";
 import * as readline from "readline";
 import { spawn as spawn2 } from "child_process";
-function createDeployLogger(baseName, timestamp) {
-  const logsDir = path8.join(os4.homedir(), ".synth-ai", "tui", "logs");
-  try {
-    fs5.mkdirSync(logsDir, { recursive: true });
-    const filePath = path8.join(logsDir, `${baseName}_deploy_${timestamp}.log`);
-    const stream = fs5.createWriteStream(filePath, { flags: "a" });
-    let closed = false;
-    const log = (line) => {
-      try {
-        if (!closed) {
-          stream.write(`[${new Date().toISOString()}] ${line}
-`);
-        }
-      } catch {}
-    };
-    return {
-      filePath,
-      log,
-      close: () => {
-        try {
-          if (!closed) {
-            closed = true;
-            stream.end();
-          }
-        } catch {}
-      }
-    };
-  } catch {
-    return {
-      filePath: null,
-      log: () => {},
-      close: () => {}
-    };
-  }
-}
 function deployLocalApi(ctx, filePath) {
   return new Promise((resolve3) => {
-    const fileName = path8.basename(filePath, ".py");
+    const fileName = path9.basename(filePath, ".py");
     const timestamp = formatTimestampForFilename(new Date);
     const deploymentId = `${fileName}_${timestamp}`;
-    const deployLog = createDeployLogger(fileName, timestamp);
-    deployLog.log(`Starting deploy for ${filePath} (id=${deploymentId})`);
     const deployment = {
       id: deploymentId,
       localApiPath: filePath,
@@ -22272,32 +22196,27 @@ function deployLocalApi(ctx, filePath) {
     });
     deployment.proc = proc;
     let resolved = false;
-    const finalize = (result, logMessage) => {
+    const finalize = (result) => {
       if (resolved)
         return;
       resolved = true;
-      if (logMessage) {
-        deployLog.log(logMessage);
-      }
-      deployLog.close();
       resolve3({ deploymentId, ...result });
     };
     const rl = readline.createInterface({ input: proc.stdout });
     rl.on("line", (line) => {
       if (resolved)
         return;
-      deployLog.log(line);
       try {
         const result = JSON.parse(line);
         if (result.type === "status") {
           if (result.status === "ready") {
             deployment.status = "ready";
             deployment.url = result.url;
-            finalize({ success: true, url: result.url, proc }, `Deploy ready at ${result.url}`);
+            finalize({ success: true, url: result.url, proc });
           } else if (result.status === "error") {
             deployment.status = "error";
             deployment.error = result.error || "Deployment failed";
-            finalize({ success: false, error: result.error || "Deployment failed" }, `Deploy error: ${result.error || "Deployment failed"}`);
+            finalize({ success: false, error: result.error || "Deployment failed" });
           }
         }
       } catch {}
@@ -22305,19 +22224,18 @@ function deployLocalApi(ctx, filePath) {
     let stderrBuffer = "";
     proc.stderr.on("data", (data) => {
       stderrBuffer += data.toString();
-      deployLog.log(data.toString().trimEnd());
     });
     proc.on("error", (err) => {
       deployment.status = "error";
       deployment.error = err.message;
-      finalize({ success: false, error: err.message, deploymentId }, `Process spawn error: ${err.message}`);
+      finalize({ success: false, error: err.message, deploymentId });
     });
     proc.on("close", (code) => {
       if (code !== 0) {
         const errorMsg = stderrBuffer.trim() || `Process exited with code ${code}`;
-        finalize({ success: false, error: errorMsg }, `Process exited with code ${code}`);
+        finalize({ success: false, error: errorMsg });
       } else {
-        finalize({ success: true, url: deployment.url ?? undefined, proc }, "Deploy process closed cleanly");
+        finalize({ success: true, url: deployment.url ?? undefined, proc });
       }
     });
   });
@@ -22424,7 +22342,7 @@ function createCreateJobModal(ctx) {
         const dirValue = dirSelection.value.startsWith("CWD: ") ? dirSelection.value.slice(5) : dirSelection.value;
         const selectedDir = expandPath(dirValue);
         const actualFilePath = createdFilePath ?? getUniqueFilename(selectedDir, "localapi", ".py");
-        const actualFileName = path8.basename(actualFilePath);
+        const actualFileName = path9.basename(actualFilePath);
         const displayDir = toDisplayPath(selectedDir);
         baseSteps.push({
           id: "confirmCreate",
@@ -22438,8 +22356,8 @@ function createCreateJobModal(ctx) {
               return false;
             }
             try {
-              fs5.mkdirSync(selectedDir, { recursive: true });
-              fs5.writeFileSync(actualFilePath, LOCALAPI_TEMPLATE, "utf-8");
+              fs6.mkdirSync(selectedDir, { recursive: true });
+              fs6.writeFileSync(actualFilePath, LOCALAPI_TEMPLATE, "utf-8");
               createdFilePath = actualFilePath;
               ctx.state.snapshot.status = `Created ${toDisplayPath(actualFilePath)}`;
               ctx.render();
@@ -23233,6 +23151,214 @@ function createKeyModal(ctx) {
   };
   return controller;
 }
+// src/lifecycle/shutdown.ts
+var ANSI_RESET = "\x1B[0m";
+var ANSI_SHOW_CURSOR = "\x1B[?25h";
+var ANSI_EXIT_ALT_SCREEN = "\x1B[?1049l";
+var state = {
+  abortController: new AbortController,
+  intervals: new Set,
+  timeouts: new Set,
+  cleanups: new Map,
+  isShuttingDown: false,
+  renderer: null
+};
+function registerRenderer(renderer) {
+  state.renderer = renderer;
+}
+function registerInterval(id) {
+  state.intervals.add(id);
+  return id;
+}
+function registerTimeout(id) {
+  state.timeouts.add(id);
+  return id;
+}
+function unregisterTimeout(id) {
+  state.timeouts.delete(id);
+}
+function registerCleanup(name, fn) {
+  state.cleanups.set(name, fn);
+}
+function unregisterCleanup(name) {
+  state.cleanups.delete(name);
+}
+async function shutdown(exitCode = 0) {
+  if (state.isShuttingDown) {
+    return new Promise(() => {});
+  }
+  state.isShuttingDown = true;
+  state.abortController.abort();
+  for (const id of state.intervals) {
+    clearInterval(id);
+  }
+  state.intervals.clear();
+  for (const id of state.timeouts) {
+    clearTimeout(id);
+  }
+  state.timeouts.clear();
+  for (const [, fn] of state.cleanups) {
+    try {
+      await fn();
+    } catch {}
+  }
+  state.cleanups.clear();
+  if (state.renderer) {
+    try {
+      state.renderer.stop();
+      state.renderer.destroy();
+    } catch {}
+  }
+  process.stdout.write(ANSI_SHOW_CURSOR);
+  process.stdout.write(ANSI_EXIT_ALT_SCREEN);
+  process.stdout.write(ANSI_RESET);
+  process.stdout.write(`
+`);
+  process.exit(exitCode);
+}
+function installSignalHandlers() {
+  process.on("SIGINT", () => void shutdown(0));
+  process.on("SIGTERM", () => void shutdown(0));
+}
+// src/modals/log-file-modal.ts
+import * as fs7 from "fs";
+import * as path10 from "path";
+function createLogFileModal(ctx) {
+  const { renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modalHeight = 24;
+  const modal = createModalUI(renderer, {
+    id: "log-file-modal",
+    width: 100,
+    height: modalHeight,
+    borderColor: "#38bdf8",
+    titleColor: "#38bdf8",
+    zIndex: 9
+  });
+  let currentFilePath = null;
+  let refreshTimer = null;
+  const cleanupName = "log-file-modal-refresh";
+  function startAutoRefresh() {
+    if (refreshTimer)
+      return;
+    refreshTimer = setInterval(() => {
+      if (modal.visible)
+        updateContent();
+    }, 1000);
+    registerCleanup(cleanupName, () => {
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+    });
+  }
+  function stopAutoRefresh() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+    unregisterCleanup(cleanupName);
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "log-file-modal",
+        handleKey
+      });
+      modal.center();
+      startAutoRefresh();
+    } else {
+      focusManager.pop("log-file-modal");
+      modal.setContent("");
+      stopAutoRefresh();
+    }
+    modal.setVisible(visible);
+  }
+  function readFileContent(filePath) {
+    try {
+      return fs7.readFileSync(filePath, "utf-8");
+    } catch (err) {
+      return `Failed to read file: ${err}`;
+    }
+  }
+  function updateContent() {
+    if (!modal.visible || !currentFilePath)
+      return;
+    const raw = readFileContent(currentFilePath);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, modalHeight - 5);
+    const maxOffset = Math.max(0, wrapped.length - maxLines);
+    if (appState2.logsModalTail) {
+      appState2.logsModalOffset = maxOffset;
+    } else {
+      appState2.logsModalOffset = clamp3(appState2.logsModalOffset, 0, maxOffset);
+    }
+    const visible = wrapped.slice(appState2.logsModalOffset, appState2.logsModalOffset + maxLines);
+    modal.setTitle(`Log File: ${path10.basename(currentFilePath)}`);
+    modal.setContent(visible.join(`
+`));
+    const tailLabel = appState2.logsModalTail ? " [TAIL]" : "";
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.logsModalOffset + 1}-${appState2.logsModalOffset + visible.length}/${wrapped.length}] j/k scroll | t tail${tailLabel} | y copy | q close` : `t tail${tailLabel} | y copy | q close`);
+  }
+  function move(delta) {
+    appState2.logsModalTail = false;
+    appState2.logsModalOffset = Math.max(0, appState2.logsModalOffset + delta);
+    updateContent();
+  }
+  function open(filePath) {
+    currentFilePath = filePath;
+    appState2.logsModalTail = true;
+    toggle(true);
+    updateContent();
+  }
+  async function copyContent() {
+    if (!currentFilePath)
+      return;
+    const raw = readFileContent(currentFilePath);
+    await copyToClipboard(raw);
+    snapshot2.status = `Copied: ${path10.basename(currentFilePath)}`;
+    ctx.render();
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "y") {
+      copyContent();
+      return true;
+    }
+    if (key.name === "t") {
+      appState2.logsModalTail = true;
+      updateContent();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    copyContent,
+    handleKey
+  };
+}
 // src/modals/profile-modal.ts
 function createProfileModal(ctx) {
   const { renderer } = ctx;
@@ -23655,72 +23781,6 @@ function createTaskAppsModal(ctx) {
     handleKey
   };
   return controller;
-}
-// src/lifecycle/shutdown.ts
-var ANSI_RESET = "\x1B[0m";
-var ANSI_SHOW_CURSOR = "\x1B[?25h";
-var ANSI_EXIT_ALT_SCREEN = "\x1B[?1049l";
-var state = {
-  abortController: new AbortController,
-  intervals: new Set,
-  timeouts: new Set,
-  cleanups: new Map,
-  isShuttingDown: false,
-  renderer: null
-};
-function registerRenderer(renderer) {
-  state.renderer = renderer;
-}
-function registerInterval(id) {
-  state.intervals.add(id);
-  return id;
-}
-function registerTimeout(id) {
-  state.timeouts.add(id);
-  return id;
-}
-function unregisterTimeout(id) {
-  state.timeouts.delete(id);
-}
-function registerCleanup(name, fn) {
-  state.cleanups.set(name, fn);
-}
-async function shutdown(exitCode = 0) {
-  if (state.isShuttingDown) {
-    return new Promise(() => {});
-  }
-  state.isShuttingDown = true;
-  state.abortController.abort();
-  for (const id of state.intervals) {
-    clearInterval(id);
-  }
-  state.intervals.clear();
-  for (const id of state.timeouts) {
-    clearTimeout(id);
-  }
-  state.timeouts.clear();
-  for (const [, fn] of state.cleanups) {
-    try {
-      await fn();
-    } catch {}
-  }
-  state.cleanups.clear();
-  if (state.renderer) {
-    try {
-      state.renderer.stop();
-      state.renderer.destroy();
-    } catch {}
-  }
-  process.stdout.write(ANSI_SHOW_CURSOR);
-  process.stdout.write(ANSI_EXIT_ALT_SCREEN);
-  process.stdout.write(ANSI_RESET);
-  process.stdout.write(`
-`);
-  process.exit(exitCode);
-}
-function installSignalHandlers() {
-  process.on("SIGINT", () => void shutdown(0));
-  process.on("SIGTERM", () => void shutdown(0));
 }
 // src/handlers/keyboard.ts
 init_jobs();
@@ -24164,6 +24224,7 @@ async function runApp() {
   const urlsModal = createUrlsModal(renderer);
   const createJobModal = createCreateJobModal(ctx);
   const taskAppsModal = createTaskAppsModal(ctx);
+  const logFileModal = createLogFileModal(ctx);
   const modals = {
     login: loginModal,
     event: eventModal,
@@ -24176,7 +24237,8 @@ async function runApp() {
     profile: profileModal,
     urls: urlsModal,
     createJob: createJobModal,
-    taskApps: taskAppsModal
+    taskApps: taskAppsModal,
+    logFile: logFileModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
   renderer.keyInput.on("keypress", handleKeypress);
@@ -24192,9 +24254,14 @@ async function runApp() {
     onFocus: () => ui.jobsSelect.focus(),
     onBlur: () => ui.jobsSelect.blur()
   });
-  initPaneFocusables(ctx, modals.event.open);
+  initPaneFocusables(ctx, modals.event.open, modals.logFile.open);
   renderer.start();
   render();
+  registerInterval(setInterval(() => {
+    if (ctx.state.appState.activePane === "logs") {
+      render();
+    }
+  }, 1000));
   const loggedOutMarkerSet = isLoggedOutMarkerSet();
   if (loggedOutMarkerSet) {
     ctx.state.snapshot.status = "Sign in required";

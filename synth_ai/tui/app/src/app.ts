@@ -15,6 +15,7 @@ import {
   createFilterModal,
   createJobFilterModal,
   createKeyModal,
+  createLogFileModal,
   createSnapshotModal,
   createProfileModal,
   createUrlsModal,
@@ -88,6 +89,7 @@ export async function runApp(): Promise<void> {
   const urlsModal = createUrlsModal(renderer)
   const createJobModal = createCreateJobModal(ctx)
   const taskAppsModal = createTaskAppsModal(ctx)
+  const logFileModal = createLogFileModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -102,6 +104,7 @@ export async function runApp(): Promise<void> {
     urls: urlsModal,
     createJob: createJobModal,
     taskApps: taskAppsModal,
+    logFile: logFileModal,
   }
 
   // Create keyboard handler
@@ -126,11 +129,20 @@ export async function runApp(): Promise<void> {
   })
 
   // Initialize pane focusables for events/logs navigation
-  initPaneFocusables(ctx, modals.event.open)
+  initPaneFocusables(ctx, modals.event.open, modals.logFile.open)
 
   // Start renderer
   renderer.start()
   render()
+
+  // Keep logs pane in sync with filesystem updates
+  registerInterval(
+    setInterval(() => {
+      if (ctx.state.appState.activePane === "logs") {
+        render()
+      }
+    }, 1000)
+  )
 
   // Bootstrap
   const loggedOutMarkerSet = isLoggedOutMarkerSet()
@@ -374,4 +386,3 @@ export async function runApp(): Promise<void> {
     scheduleEventsPoll()
   }
 }
-

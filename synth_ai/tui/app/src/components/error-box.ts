@@ -191,14 +191,14 @@ export function createErrorBox(options: ErrorBoxOptions) {
 		const borderColor = state.focused ? "\x1b[91m" : "\x1b[90m"
 
 		const lines: string[] = []
-		lines.push(`${indent}${borderColor}┌${"─".repeat(innerWidth)}┐\x1b[0m`)
+		lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1b[0m`)
 		for (let i = 0; i < state.visibleLines; i++) {
 			const raw = visible[i] ?? ""
 			const clipped = raw.length > contentWidth ? raw.slice(0, contentWidth) : raw
 			const padded = clipped.padEnd(contentWidth, " ")
-			lines.push(`${indent}${borderColor}│\x1b[0m \x1b[31m${padded}\x1b[0m ${borderColor}│\x1b[0m`)
+			lines.push(`${indent}${borderColor}|\x1b[0m \x1b[31m${padded}\x1b[0m ${borderColor}|\x1b[0m`)
 		}
-		lines.push(`${indent}${borderColor}└${"─".repeat(innerWidth)}┘\x1b[0m`)
+		lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1b[0m`)
 		return lines
 	}
 

@@ -9,7 +9,6 @@ import { setActiveDeployment } from "../ui/logs"
 import { createErrorBox } from "../components/error-box"
 import * as fs from "fs"
 import * as path from "path"
-import * as os from "os"
 import * as readline from "readline"
 import { spawn, type ChildProcess } from "child_process"
 
@@ -22,46 +21,6 @@ type DeployResult = {
 	deploymentId?: string
 }
 
-// Log persistence is handled by Python backend (deploy.py)
-function createDeployLogger(baseName: string, timestamp: string) {
-	const logsDir = path.join(os.homedir(), ".synth-ai", "tui", "logs")
-	try {
-		fs.mkdirSync(logsDir, { recursive: true })
-		const filePath = path.join(logsDir, `${baseName}_deploy_${timestamp}.log`)
-		const stream = fs.createWriteStream(filePath, { flags: "a" })
-		let closed = false
-		const log = (line: string): void => {
-			try {
-				if (!closed) {
-					stream.write(`[${new Date().toISOString()}] ${line}\n`)
-				}
-			} catch {
-				// ignore
-			}
-		}
-		return {
-			filePath,
-			log,
-			close: () => {
-				try {
-					if (!closed) {
-						closed = true
-						stream.end()
-					}
-				} catch {
-					// ignore
-				}
-			},
-		}
-	} catch {
-		return {
-			filePath: null,
-			log: () => {},
-			close: () => {},
-		}
-	}
-}
-
 /** Deploy a LocalAPI file and wait for the result (handles NDJSON stream) */
 function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult> {
 	return new Promise((resolve) => {
@@ -69,9 +28,6 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 		const fileName = path.basename(filePath, ".py")
 		const timestamp = formatTimestampForFilename(new Date())
 		const deploymentId = `${fileName}_${timestamp}`
-
-		const deployLog = createDeployLogger(fileName, timestamp)
-		deployLog.log(`Starting deploy for ${filePath} (id=${deploymentId})`)
 
 		// Initialize deployment in state
 		const deployment: Deployment = {
@@ -94,13 +50,9 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 		deployment.proc = proc
 
 		let resolved = false
-		const finalize = (result: DeployResult, logMessage?: string): void => {
+		const finalize = (result: DeployResult): void => {
 			if (resolved) return
 			resolved = true
-			if (logMessage) {
-				deployLog.log(logMessage)
-			}
-			deployLog.close()
 			resolve({ deploymentId, ...result })
 		}
 
@@ -109,7 +61,6 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 
 		rl.on("line", (line: string) => {
 			if (resolved) return
-			deployLog.log(line)
 			try {
 				const result = JSON.parse(line)
 				// Wait for terminal status (ready or error)
@@ -117,14 +68,11 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 					if (result.status === "ready") {
 						deployment.status = "ready"
 						deployment.url = result.url
-						finalize({ success: true, url: result.url, proc }, `Deploy ready at ${result.url}`)
+						finalize({ success: true, url: result.url, proc })
 					} else if (result.status === "error") {
 						deployment.status = "error"
 						deployment.error = result.error || "Deployment failed"
-						finalize(
-							{ success: false, error: result.error || "Deployment failed" },
-							`Deploy error: ${result.error || "Deployment failed"}`,
-						)
+						finalize({ success: false, error: result.error || "Deployment failed" })
 					}
 					// Ignore "starting" status - keep waiting
 				}
@@ -137,21 +85,20 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 		let stderrBuffer = ""
 		proc.stderr.on("data", (data: Buffer) => {
 			stderrBuffer += data.toString()
-			deployLog.log(data.toString().trimEnd())
 		})
 
 		proc.on("error", (err) => {
 			deployment.status = "error"
 			deployment.error = err.message
-			finalize({ success: false, error: err.message, deploymentId }, `Process spawn error: ${err.message}`)
+			finalize({ success: false, error: err.message, deploymentId })
 		})
 
 		proc.on("close", (code) => {
 			if (code !== 0) {
 				const errorMsg = stderrBuffer.trim() || `Process exited with code ${code}`
-				finalize({ success: false, error: errorMsg }, `Process exited with code ${code}`)
+				finalize({ success: false, error: errorMsg })
 			} else {
-				finalize({ success: true, url: deployment.url ?? undefined, proc }, "Deploy process closed cleanly")
+				finalize({ success: true, url: deployment.url ?? undefined, proc })
 			}
 		})
 	})

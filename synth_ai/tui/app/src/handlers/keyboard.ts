@@ -21,6 +21,7 @@ export type ModalControllers = {
   config: { open: () => void }
   createJob: { open: () => void }
   taskApps: { open: () => void }
+  logFile: { open: (filePath: string) => void }
 }
 
 export function createKeyboardHandler(

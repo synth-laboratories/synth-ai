@@ -4,11 +4,11 @@
 import type { AppContext } from "../context"
 import type { ActivePane } from "../types"
 import { focusManager } from "../focus"
-import { moveLogSelection, pageLogSelection, toggleLogSource, enableTailMode } from "./logs"
+import { moveLogSelection, pageLogSelection, getSelectedLogFile } from "./logs"
 import { moveEventSelection, toggleSelectedEventExpanded } from "./events"
 
 /** Create a focusable handler for the logs pane */
-function createLogsPaneFocusable(ctx: AppContext) {
+function createLogsPaneFocusable(ctx: AppContext, openLogFileModal: (filePath: string) => void) {
   return {
     id: "logs-pane",
     handleKey: (key: any): boolean => {
@@ -32,24 +32,11 @@ function createLogsPaneFocusable(ctx: AppContext) {
         ctx.render()
         return true
       }
-      if (key.name === "1") {
-        toggleLogSource(ctx, "uvicorn")
-        ctx.render()
-        return true
-      }
-      if (key.name === "2") {
-        toggleLogSource(ctx, "cloudflare")
-        ctx.render()
-        return true
-      }
-      if (key.name === "3") {
-        toggleLogSource(ctx, "app")
-        ctx.render()
-        return true
-      }
-      if (key.name === "t") {
-        enableTailMode(ctx)
-        ctx.render()
+      if (key.name === "return" || key.name === "enter") {
+        const file = getSelectedLogFile(ctx)
+        if (file) {
+          openLogFileModal(file.path)
+        }
         return true
       }
       return false
@@ -90,8 +77,8 @@ let logsFocusable: ReturnType<typeof createLogsPaneFocusable> | null = null
 let eventsFocusable: ReturnType<typeof createEventsPaneFocusable> | null = null
 
 /** Initialize pane focusables (call once after modals are set up) */
-export function initPaneFocusables(ctx: AppContext, openEventModal: () => void): void {
-  logsFocusable = createLogsPaneFocusable(ctx)
+export function initPaneFocusables(ctx: AppContext, openEventModal: () => void, openLogFileModal: (filePath: string) => void): void {
+  logsFocusable = createLogsPaneFocusable(ctx, openLogFileModal)
   eventsFocusable = createEventsPaneFocusable(ctx, openEventModal)
 }
 

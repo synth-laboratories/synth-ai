@@ -1,7 +1,7 @@
 """Deploy a LocalAPI task app with Cloudflare tunnel and streaming logs.
 
 Usage:
-    python -m synth_ai.tui.deploy /path/to/localapi.py
+    python -m synth_ai.tui.deploy /path/to/localapi.py [--deployment-id ID]
 
 Outputs NDJSON (newline-delimited JSON) to stdout:
     {"type":"status","status":"starting","message":"...","deployment_id":"..."}
