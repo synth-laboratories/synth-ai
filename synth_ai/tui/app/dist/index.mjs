@@ -22465,6 +22465,13 @@ function registerInterval(id) {
   state.intervals.add(id);
   return id;
 }
+function registerTimeout(id) {
+  state.timeouts.add(id);
+  return id;
+}
+function unregisterTimeout(id) {
+  state.timeouts.delete(id);
+}
 function registerCleanup(name, fn) {
   state.cleanups.set(name, fn);
 }
@@ -23245,20 +23252,23 @@ async function runApp() {
     scheduleJobsPoll();
     if (pollingState2.sseReconnectTimer) {
       clearTimeout(pollingState2.sseReconnectTimer);
+      unregisterTimeout(pollingState2.sseReconnectTimer);
     }
-    pollingState2.sseReconnectTimer = setTimeout(() => {
+    pollingState2.sseReconnectTimer = registerTimeout(setTimeout(() => {
       pollingState2.sseReconnectTimer = null;
       startJobsStream();
-    }, pollingState2.sseReconnectDelay);
+    }, pollingState2.sseReconnectDelay));
     pollingState2.sseReconnectDelay = Math.min(pollingState2.sseReconnectDelay * 2, 30000);
   }
   function scheduleJobsPoll() {
     const { pollingState: pollingState2 } = ctx.state;
     if (pollingState2.sseConnected)
       return;
-    if (pollingState2.jobsTimer)
+    if (pollingState2.jobsTimer) {
       clearTimeout(pollingState2.jobsTimer);
-    pollingState2.jobsTimer = setTimeout(pollJobs, pollingState2.jobsPollMs);
+      unregisterTimeout(pollingState2.jobsTimer);
+    }
+    pollingState2.jobsTimer = registerTimeout(setTimeout(pollJobs, pollingState2.jobsPollMs));
   }
   async function pollJobs() {
     const { pollingState: pollingState2, config: config2 } = ctx.state;
@@ -23281,9 +23291,11 @@ async function runApp() {
   }
   function scheduleEventsPoll() {
     const { pollingState: pollingState2 } = ctx.state;
-    if (pollingState2.eventsTimer)
+    if (pollingState2.eventsTimer) {
       clearTimeout(pollingState2.eventsTimer);
-    pollingState2.eventsTimer = setTimeout(pollEvents, pollingState2.eventsPollMs);
+      unregisterTimeout(pollingState2.eventsTimer);
+    }
+    pollingState2.eventsTimer = registerTimeout(setTimeout(pollEvents, pollingState2.eventsPollMs));
   }
   async function pollEvents() {
     const { pollingState: pollingState2, config: config2 } = ctx.state;
