@@ -1,7 +1,7 @@
 """Submit an eval job to the Synth backend.
 
 Usage:
-    python -m synth_ai.tui.eval_job <task_app_url>
+    python -m synth_ai.tui.eval_job <task_app_url> <env_name>
 
 Outputs JSON to stdout for progress/results:
     {"status": "submitted", "job_id": "eval-abc123"}
@@ -13,6 +13,8 @@ Outputs JSON to stdout for progress/results:
 import json
 import os
 import sys
+
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 # Default eval configuration
 DEFAULT_SEEDS = list(range(20))  # 20 seeds for quick eval
@@ -28,9 +30,10 @@ def _output(data: dict) -> None:
     print(json.dumps(data), flush=True)
 
 
-def run_eval_job(task_app_url: str) -> None:
+def run_eval_job(task_app_url: str, env_name: str) -> None:
     """Submit and poll an eval job."""
     from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
     # Get config from environment
     api_key = os.environ.get("SYNTH_API_KEY")
@@ -38,14 +41,22 @@ def run_eval_job(task_app_url: str) -> None:
         _output({"status": "error", "error": "SYNTH_API_KEY not set"})
         return
 
-    backend_url = os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
+    # Get task app API key for authentication
+    try:
+        task_app_api_key = ensure_localapi_auth(
+            backend_base=BACKEND_URL_BASE,
+            synth_api_key=api_key,
+        )
+    except Exception as e:
+        _output({"status": "error", "error": f"Failed to get task app API key: {e}"})
+        return
 
     # Build config with defaults
     config = EvalJobConfig(
         task_app_url=task_app_url,
-        backend_url=backend_url,
+        task_app_api_key=task_app_api_key,
         api_key=api_key,
-        env_name="default",
+        env_name=env_name,
         seeds=DEFAULT_SEEDS,
         policy_config={
             "model": DEFAULT_MODEL,
@@ -97,12 +108,13 @@ def run_eval_job(task_app_url: str) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        _output({"status": "error", "error": "Usage: python -m synth_ai.tui.eval_job <task_app_url>"})
+    if len(sys.argv) != 3:
+        _output({"status": "error", "error": "Usage: python -m synth_ai.tui.eval_job <task_app_url> <env_name>"})
         sys.exit(1)
 
     task_app_url = sys.argv[1]
-    run_eval_job(task_app_url)
+    env_name = sys.argv[2]
+    run_eval_job(task_app_url, env_name)
 
 
 if __name__ == "__main__":
