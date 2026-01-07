@@ -2,31 +2,46 @@
  * API key input modal controller.
  */
 import type { AppContext } from "../context"
-import type { ModalController } from "./base"
+import { createModalUI, type ModalController } from "./base"
+import { focusManager } from "../focus"
 
 export function createKeyModal(ctx: AppContext): ModalController & {
   open: () => void
   apply: (value: string) => Promise<void>
   paste: () => void
 } {
-  const { ui, renderer } = ctx
-  const { appState } = ctx.state
+  const { renderer } = ctx
+
+  const modal = createModalUI(renderer, {
+    id: "key-modal",
+    width: 70,
+    height: 7,
+    borderColor: "#7dd3fc",
+    titleColor: "#7dd3fc",
+    zIndex: 10,
+    input: {
+      label: "API Key:",
+      placeholder: "",
+      width: 62,
+    },
+  })
 
   function toggle(visible: boolean): void {
-    ui.keyModalVisible = visible
-    ui.keyModalBox.visible = visible
-    ui.keyModalLabel.visible = visible
-    ui.keyModalInput.visible = visible
-    ui.keyModalHelp.visible = visible
     if (visible) {
-      ui.keyModalInput.value = ""
-      ui.keyModalInput.focus()
-      ui.keyModalLabel.content = "API Key:"
-      ui.keyModalHelp.content = "Paste or type key | Enter to apply | q to cancel"
-    } else if (appState.activePane === "jobs") {
-      ui.jobsSelect.focus()
+      focusManager.push({
+        id: "key-modal",
+        handleKey,
+      })
+      modal.center()
+      if (modal.input) {
+        modal.input.value = ""
+        modal.input.focus()
+      }
+      modal.setHint("Paste or type key | Enter to apply | q to cancel")
+    } else {
+      focusManager.pop("key-modal")
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   function open(): void {
@@ -57,7 +72,9 @@ export function createKeyModal(ctx: AppContext): ModalController & {
       if (result.status !== 0) return
       const text = result.stdout ? String(result.stdout).replace(/\s+/g, "") : ""
       if (!text) return
-      ui.keyModalInput.value = (ui.keyModalInput.value || "") + text
+      if (modal.input) {
+        modal.input.value = (modal.input.value || "") + text
+      }
     } catch {
       // ignore
     }
@@ -65,14 +82,14 @@ export function createKeyModal(ctx: AppContext): ModalController & {
   }
 
   function handleKey(key: any): boolean {
-    if (!ui.keyModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "q" || key.name === "escape") {
       toggle(false)
       return true
     }
     if (key.name === "return" || key.name === "enter") {
-      void apply(ui.keyModalInput.value || "")
+      void apply(modal.input?.value || "")
       return true
     }
     if (key.name === "v" && (key.ctrl || key.meta)) {
@@ -80,24 +97,28 @@ export function createKeyModal(ctx: AppContext): ModalController & {
       return true
     }
     if (key.name === "backspace" || key.name === "delete") {
-      const current = ui.keyModalInput.value || ""
-      ui.keyModalInput.value = current.slice(0, Math.max(0, current.length - 1))
+      if (modal.input) {
+        const current = modal.input.value || ""
+        modal.input.value = current.slice(0, Math.max(0, current.length - 1))
+      }
       renderer.requestRender()
       return true
     }
-    // Handle character input
+    // Handle character input manually
     const seq = key.sequence || ""
     if (seq && !seq.startsWith("\u001b") && !key.ctrl && !key.meta) {
-      ui.keyModalInput.value = (ui.keyModalInput.value || "") + seq
+      if (modal.input) {
+        modal.input.value = (modal.input.value || "") + seq
+      }
       renderer.requestRender()
       return true
     }
-    return true
+    return true // consume all keys when modal is open
   }
 
-  return {
+  const controller = {
     get isVisible() {
-      return ui.keyModalVisible
+      return modal.visible
     },
     toggle,
     open,
@@ -105,4 +126,6 @@ export function createKeyModal(ctx: AppContext): ModalController & {
     paste,
     handleKey,
   }
+
+  return controller
 }

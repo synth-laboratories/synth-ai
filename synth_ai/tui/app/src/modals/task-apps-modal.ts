@@ -5,7 +5,8 @@
 import type { AppContext } from "../context"
 import type { TunnelRecord, TunnelHealthResult } from "../types"
 import { copyToClipboard } from "../utils/clipboard"
-import { centerModal, clamp, wrapModalText, type ModalController } from "./base"
+import { createModalUI, clamp, wrapModalText, type ModalController } from "./base"
+import { focusManager } from "../focus"
 
 /**
  * Format detailed tunnel information for the modal.
@@ -64,23 +65,34 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
   updateContent: () => void
   copyHostname: () => Promise<void>
 } {
-  const { ui, renderer } = ctx
+  const { renderer } = ctx
   const { appState, snapshot } = ctx.state
 
+  const modal = createModalUI(renderer, {
+    id: "task-apps-modal",
+    width: 90,
+    height: 20,
+    borderColor: "#06b6d4",
+    titleColor: "#06b6d4",
+    zIndex: 8,
+  })
+
   function toggle(visible: boolean): void {
-    ui.taskAppsModalVisible = visible
-    ui.taskAppsModalBox.visible = visible
-    ui.taskAppsModalTitle.visible = visible
-    ui.taskAppsModalText.visible = visible
-    ui.taskAppsModalHint.visible = visible
-    if (!visible) {
-      ui.taskAppsModalText.content = ""
+    if (visible) {
+      focusManager.push({
+        id: "task-apps-modal",
+        handleKey,
+      })
+      modal.center()
+    } else {
+      focusManager.pop("task-apps-modal")
+      modal.setContent("")
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   function updateContent(): void {
-    if (!ui.taskAppsModalVisible) return
+    if (!modal.visible) return
 
     const raw = formatTunnelDetails(
       snapshot.tunnels,
@@ -96,14 +108,13 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
     const visible = wrapped.slice(appState.taskAppsModalOffset, appState.taskAppsModalOffset + maxLines)
 
     const tunnelCount = snapshot.tunnels.length
-    ui.taskAppsModalTitle.content = `Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`
-    ui.taskAppsModalText.content = visible.join("\n")
-    ui.taskAppsModalHint.content =
+    modal.setTitle(`Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`)
+    modal.setContent(visible.join("\n"))
+    modal.setHint(
       wrapped.length > maxLines
         ? `[${appState.taskAppsModalOffset + 1}-${appState.taskAppsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy hostname | q close`
         : "j/k select | y copy hostname | q close"
-
-    renderer.requestRender()
+    )
   }
 
   function move(delta: number): void {
@@ -135,7 +146,7 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
   }
 
   function handleKey(key: any): boolean {
-    if (!ui.taskAppsModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "up" || key.name === "k") {
       move(-1)
@@ -153,12 +164,12 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
       toggle(false)
       return true
     }
-    return true
+    return true // consume all keys when modal is open
   }
 
-  return {
+  const controller = {
     get isVisible() {
-      return ui.taskAppsModalVisible
+      return modal.visible
     },
     toggle,
     open,
@@ -167,4 +178,6 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
     copyHostname,
     handleKey,
   }
+
+  return controller
 }

@@ -107,39 +107,39 @@ __export(exports_client, {
   apiGetV1: () => apiGetV1,
   apiGet: () => apiGet
 });
-async function apiGet(path5) {
+async function apiGet(path6) {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key");
   }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path5}`, {
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path6}`, {
     headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` }
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     const suffix = body ? ` - ${body.slice(0, 160)}` : "";
-    throw new Error(`GET ${path5}: HTTP ${res.status} ${res.statusText}${suffix}`);
+    throw new Error(`GET ${path6}: HTTP ${res.status} ${res.statusText}${suffix}`);
   }
   return res.json();
 }
-async function apiGetV1(path5) {
+async function apiGetV1(path6) {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key");
   }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path5}`, {
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path6}`, {
     headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` }
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     const suffix = body ? ` - ${body.slice(0, 160)}` : "";
-    throw new Error(`GET /api/v1${path5}: HTTP ${res.status} ${res.statusText}${suffix}`);
+    throw new Error(`GET /api/v1${path6}: HTTP ${res.status} ${res.statusText}${suffix}`);
   }
   return res.json();
 }
-async function apiPost(path5, body) {
+async function apiPost(path6, body) {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key");
   }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path5}`, {
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path6}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.SYNTH_API_KEY}`,
@@ -150,7 +150,7 @@ async function apiPost(path5, body) {
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     const suffix = text ? ` - ${text.slice(0, 160)}` : "";
-    throw new Error(`POST ${path5}: HTTP ${res.status} ${res.statusText}${suffix}`);
+    throw new Error(`POST ${path6}: HTTP ${res.status} ${res.statusText}${suffix}`);
   }
   return res.json().catch(() => ({}));
 }
@@ -254,8 +254,8 @@ async function selectJob(ctx, jobId) {
   snapshot2.status = `Loading job ${jobId}...`;
   const jobSource = immediate?.job_source ?? null;
   try {
-    const path5 = jobSource === "eval" ? `/eval/jobs/${jobId}` : jobSource === "learning" ? `/learning/jobs/${jobId}?include_metadata=true` : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`;
-    const job = await apiGet(path5);
+    const path6 = jobSource === "eval" ? `/eval/jobs/${jobId}` : jobSource === "learning" ? `/learning/jobs/${jobId}?include_metadata=true` : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`;
+    const job = await apiGet(path6);
     if (token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
       return;
     }
@@ -347,8 +347,8 @@ async function fetchMetrics(ctx) {
       return;
     }
     snapshot2.status = "Loading metrics...";
-    const path5 = job.job_source === "learning" ? `/learning/jobs/${job.job_id}/metrics` : `/prompt-learning/online/jobs/${job.job_id}/metrics`;
-    const payload = await apiGet(path5);
+    const path6 = job.job_source === "learning" ? `/learning/jobs/${job.job_id}/metrics` : `/prompt-learning/online/jobs/${job.job_id}/metrics`;
+    const payload = await apiGet(path6);
     if (snapshot2.selectedJob?.job_id !== jobId) {
       return;
     }
@@ -19437,6 +19437,9 @@ var appState = {
   promptBrowserOffset: 0,
   taskAppsModalOffset: 0,
   taskAppsModalSelectedIndex: 0,
+  createJobCursor: 0,
+  deployedUrl: null,
+  deployProc: null,
   jobSelectToken: 0,
   eventsToken: 0
 };
@@ -19782,429 +19785,6 @@ function buildLayout(renderer, getFooterText) {
   });
   footerBox.add(footerTextNode);
   root.add(footerBox);
-  const modalBox = new BoxRenderable(renderer, {
-    id: "modal-box",
-    width: 50,
-    height: 5,
-    position: "absolute",
-    left: 4,
-    top: 4,
-    backgroundColor: "#0f172a",
-    borderStyle: "single",
-    borderColor: "#94a3b8",
-    border: true,
-    zIndex: 5
-  });
-  const modalLabel = new TextRenderable(renderer, {
-    id: "modal-label",
-    content: "Snapshot ID:",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 6,
-    top: 5,
-    zIndex: 6
-  });
-  const modalInput = new InputRenderable(renderer, {
-    id: "modal-input",
-    width: 44,
-    height: 1,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    placeholder: "Enter snapshot id",
-    backgroundColor: "#111827",
-    focusedBackgroundColor: "#1f2937",
-    textColor: "#e2e8f0",
-    focusedTextColor: "#ffffff"
-  });
-  modalBox.visible = false;
-  modalLabel.visible = false;
-  modalInput.visible = false;
-  renderer.root.add(modalBox);
-  renderer.root.add(modalLabel);
-  renderer.root.add(modalInput);
-  const filterBox = new BoxRenderable(renderer, {
-    id: "filter-box",
-    width: 52,
-    height: 5,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0f172a",
-    borderStyle: "single",
-    borderColor: "#60a5fa",
-    border: true,
-    zIndex: 5
-  });
-  const filterLabel = new TextRenderable(renderer, {
-    id: "filter-label",
-    content: "Event filter:",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 6
-  });
-  const filterInput = new InputRenderable(renderer, {
-    id: "filter-input",
-    width: 46,
-    height: 1,
-    position: "absolute",
-    left: 8,
-    top: 8,
-    placeholder: "Type to filter events",
-    backgroundColor: "#111827",
-    focusedBackgroundColor: "#1f2937",
-    textColor: "#e2e8f0",
-    focusedTextColor: "#ffffff"
-  });
-  filterBox.visible = false;
-  filterLabel.visible = false;
-  filterInput.visible = false;
-  renderer.root.add(filterBox);
-  renderer.root.add(filterLabel);
-  renderer.root.add(filterInput);
-  const jobFilterBox = new BoxRenderable(renderer, {
-    id: "job-filter-box",
-    width: 52,
-    height: 11,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0f172a",
-    borderStyle: "single",
-    borderColor: "#60a5fa",
-    border: true,
-    zIndex: 5
-  });
-  const jobFilterLabel = new TextRenderable(renderer, {
-    id: "job-filter-label",
-    content: "Job filter (status: all)",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 6
-  });
-  const jobFilterHelp = new TextRenderable(renderer, {
-    id: "job-filter-help",
-    content: "Enter/space toggle | a select all | x clear | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 8,
-    zIndex: 6
-  });
-  const jobFilterListText = new TextRenderable(renderer, {
-    id: "job-filter-list",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 9,
-    zIndex: 6
-  });
-  jobFilterBox.visible = false;
-  jobFilterLabel.visible = false;
-  jobFilterHelp.visible = false;
-  jobFilterListText.visible = false;
-  renderer.root.add(jobFilterBox);
-  renderer.root.add(jobFilterLabel);
-  renderer.root.add(jobFilterHelp);
-  renderer.root.add(jobFilterListText);
-  const eventModalBox = new BoxRenderable(renderer, {
-    id: "event-modal-box",
-    width: 80,
-    height: 16,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#60a5fa",
-    border: true,
-    zIndex: 6
-  });
-  const eventModalTitle = new TextRenderable(renderer, {
-    id: "event-modal-title",
-    content: "Event details",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 7
-  });
-  const eventModalText = new TextRenderable(renderer, {
-    id: "event-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 8,
-    zIndex: 7
-  });
-  const eventModalHint = new TextRenderable(renderer, {
-    id: "event-modal-hint",
-    content: "Event details",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 9,
-    zIndex: 7
-  });
-  eventModalBox.visible = false;
-  eventModalTitle.visible = false;
-  eventModalText.visible = false;
-  eventModalHint.visible = false;
-  renderer.root.add(eventModalBox);
-  renderer.root.add(eventModalTitle);
-  renderer.root.add(eventModalText);
-  renderer.root.add(eventModalHint);
-  const resultsModalBox = new BoxRenderable(renderer, {
-    id: "results-modal-box",
-    width: 100,
-    height: 24,
-    position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#22c55e",
-    border: true,
-    zIndex: 8
-  });
-  const resultsModalTitle = new TextRenderable(renderer, {
-    id: "results-modal-title",
-    content: "Results - Best Prompt",
-    fg: "#22c55e",
-    position: "absolute",
-    left: 8,
-    top: 5,
-    zIndex: 9
-  });
-  const resultsModalText = new TextRenderable(renderer, {
-    id: "results-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 6,
-    zIndex: 9
-  });
-  const resultsModalHint = new TextRenderable(renderer, {
-    id: "results-modal-hint",
-    content: "Results | j/k scroll | esc/q/enter close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 26,
-    zIndex: 9
-  });
-  resultsModalBox.visible = false;
-  resultsModalTitle.visible = false;
-  resultsModalText.visible = false;
-  resultsModalHint.visible = false;
-  renderer.root.add(resultsModalBox);
-  renderer.root.add(resultsModalTitle);
-  renderer.root.add(resultsModalText);
-  renderer.root.add(resultsModalHint);
-  const configModalBox = new BoxRenderable(renderer, {
-    id: "config-modal-box",
-    width: 100,
-    height: 24,
-    position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#f59e0b",
-    border: true,
-    zIndex: 8
-  });
-  const configModalTitle = new TextRenderable(renderer, {
-    id: "config-modal-title",
-    content: "Job Configuration",
-    fg: "#f59e0b",
-    position: "absolute",
-    left: 8,
-    top: 5,
-    zIndex: 9
-  });
-  const configModalText = new TextRenderable(renderer, {
-    id: "config-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 6,
-    zIndex: 9
-  });
-  const configModalHint = new TextRenderable(renderer, {
-    id: "config-modal-hint",
-    content: "Config | j/k scroll | esc/q/enter close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 26,
-    zIndex: 9
-  });
-  configModalBox.visible = false;
-  configModalTitle.visible = false;
-  configModalText.visible = false;
-  configModalHint.visible = false;
-  renderer.root.add(configModalBox);
-  renderer.root.add(configModalTitle);
-  renderer.root.add(configModalText);
-  renderer.root.add(configModalHint);
-  const promptBrowserBox = new BoxRenderable(renderer, {
-    id: "prompt-browser-box",
-    width: 100,
-    height: 24,
-    position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#a855f7",
-    border: true,
-    zIndex: 10
-  });
-  const promptBrowserTitle = new TextRenderable(renderer, {
-    id: "prompt-browser-title",
-    content: "Prompt Browser",
-    fg: "#a855f7",
-    position: "absolute",
-    left: 8,
-    top: 5,
-    zIndex: 11
-  });
-  const promptBrowserText = new TextRenderable(renderer, {
-    id: "prompt-browser-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 6,
-    zIndex: 11
-  });
-  const promptBrowserHint = new TextRenderable(renderer, {
-    id: "prompt-browser-hint",
-    content: "Prompts | h/l prev/next | j/k scroll | y copy | esc close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 26,
-    zIndex: 11
-  });
-  promptBrowserBox.visible = false;
-  promptBrowserTitle.visible = false;
-  promptBrowserText.visible = false;
-  promptBrowserHint.visible = false;
-  renderer.root.add(promptBrowserBox);
-  renderer.root.add(promptBrowserTitle);
-  renderer.root.add(promptBrowserText);
-  renderer.root.add(promptBrowserHint);
-  const keyModalBox = new BoxRenderable(renderer, {
-    id: "key-modal-box",
-    width: 70,
-    height: 7,
-    position: "absolute",
-    left: 8,
-    top: 8,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#7dd3fc",
-    border: true,
-    zIndex: 10
-  });
-  const keyModalLabel = new TextRenderable(renderer, {
-    id: "key-modal-label",
-    content: "Set API key (saved for this session only)",
-    fg: "#7dd3fc",
-    position: "absolute",
-    left: 10,
-    top: 9,
-    zIndex: 11
-  });
-  const keyModalInput = new InputRenderable(renderer, {
-    id: "key-modal-input",
-    width: 62,
-    height: 1,
-    position: "absolute",
-    left: 10,
-    top: 10,
-    backgroundColor: "#0f172a",
-    borderStyle: "single",
-    borderColor: "#1d4ed8",
-    border: true,
-    fg: "#e2e8f0",
-    zIndex: 11
-  });
-  const keyModalHelp = new TextRenderable(renderer, {
-    id: "key-modal-help",
-    content: "Paste any way | enter save | q close | empty clears",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 10,
-    top: 12,
-    zIndex: 11
-  });
-  keyModalBox.visible = false;
-  keyModalLabel.visible = false;
-  keyModalInput.visible = false;
-  keyModalHelp.visible = false;
-  renderer.root.add(keyModalBox);
-  renderer.root.add(keyModalLabel);
-  renderer.root.add(keyModalInput);
-  renderer.root.add(keyModalHelp);
-  const taskAppsModalBox = new BoxRenderable(renderer, {
-    id: "task-apps-modal-box",
-    width: 90,
-    height: 20,
-    position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#06b6d4",
-    border: true,
-    zIndex: 8
-  });
-  const taskAppsModalTitle = new TextRenderable(renderer, {
-    id: "task-apps-modal-title",
-    content: "Task Apps",
-    fg: "#06b6d4",
-    position: "absolute",
-    left: 8,
-    top: 5,
-    zIndex: 9
-  });
-  const taskAppsModalText = new TextRenderable(renderer, {
-    id: "task-apps-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 6,
-    zIndex: 9
-  });
-  const taskAppsModalHint = new TextRenderable(renderer, {
-    id: "task-apps-modal-hint",
-    content: "j/k select | y copy hostname | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 22,
-    zIndex: 9
-  });
-  taskAppsModalBox.visible = false;
-  taskAppsModalTitle.visible = false;
-  taskAppsModalText.visible = false;
-  taskAppsModalHint.visible = false;
-  renderer.root.add(taskAppsModalBox);
-  renderer.root.add(taskAppsModalTitle);
-  renderer.root.add(taskAppsModalText);
-  renderer.root.add(taskAppsModalHint);
   return {
     jobsBox,
     eventsBox,
@@ -20218,54 +19798,8 @@ function buildLayout(renderer, getFooterText) {
     eventsTabText,
     statusText,
     footerText: footerTextNode,
-    modalBox,
-    modalLabel,
-    modalInput,
-    modalVisible: false,
-    filterBox,
-    filterLabel,
-    filterInput,
-    filterModalVisible: false,
-    jobFilterBox,
-    jobFilterLabel,
-    jobFilterHelp,
-    jobFilterListText,
-    jobFilterModalVisible: false,
     taskAppsBox,
     taskAppsText,
-    eventModalBox,
-    eventModalTitle,
-    eventModalText,
-    eventModalHint,
-    eventModalVisible: false,
-    eventModalPayload: "",
-    resultsModalBox,
-    resultsModalTitle,
-    resultsModalText,
-    resultsModalHint,
-    resultsModalVisible: false,
-    resultsModalPayload: "",
-    configModalBox,
-    configModalTitle,
-    configModalText,
-    configModalHint,
-    configModalVisible: false,
-    configModalPayload: "",
-    promptBrowserBox,
-    promptBrowserTitle,
-    promptBrowserText,
-    promptBrowserHint,
-    promptBrowserVisible: false,
-    keyModalBox,
-    keyModalLabel,
-    keyModalInput,
-    keyModalHelp,
-    keyModalVisible: false,
-    taskAppsModalBox,
-    taskAppsModalTitle,
-    taskAppsModalText,
-    taskAppsModalHint,
-    taskAppsModalVisible: false,
     eventCards: []
   };
 }
@@ -20588,6 +20122,32 @@ function truncate(value, max) {
   if (value.length <= max)
     return value;
   return value.slice(0, max - 1) + "\u2026";
+}
+function formatErrorMessage(error, maxWidth = 64, maxLines = 3) {
+  let msg = error;
+  if (msg.includes("bad_auth") || msg.includes("auth_failed")) {
+    msg = "Authentication failed - check SYNTH_API_KEY or run 'synth auth'";
+  }
+  const lines = [];
+  while (msg.length > 0) {
+    if (msg.length <= maxWidth) {
+      lines.push(msg);
+      break;
+    }
+    let breakAt = msg.lastIndexOf(" ", maxWidth);
+    if (breakAt <= 0)
+      breakAt = maxWidth;
+    lines.push(msg.slice(0, breakAt));
+    msg = msg.slice(breakAt).trimStart();
+    if (lines.length >= maxLines) {
+      if (msg.length > 0) {
+        const lastLine = lines[maxLines - 1];
+        lines[maxLines - 1] = lastLine.slice(0, Math.max(0, maxWidth - 3)) + "...";
+      }
+      break;
+    }
+  }
+  return lines;
 }
 
 // src/formatters/results.ts
@@ -21293,6 +20853,35 @@ function createModalUI(renderer, config2) {
     top: top + height - 2,
     zIndex: zIndex + 1
   });
+  let inputElement;
+  let inputLabelElement;
+  if (config2.input) {
+    const inputWidth = config2.input.width ?? width - MODAL_DEFAULTS.padding * 2 - 2;
+    if (config2.input.label) {
+      inputLabelElement = new TextRenderable(renderer, {
+        id: `${id}-input-label`,
+        content: config2.input.label,
+        fg: MODAL_DEFAULTS.textColor,
+        position: "absolute",
+        left: left + MODAL_DEFAULTS.padding,
+        top: top + 1,
+        zIndex: zIndex + 1
+      });
+      inputLabelElement.visible = false;
+      renderer.root.add(inputLabelElement);
+    }
+    inputElement = new InputRenderable(renderer, {
+      id: `${id}-input`,
+      width: inputWidth,
+      position: "absolute",
+      left: left + MODAL_DEFAULTS.padding,
+      top: top + (config2.input.label ? 2 : 1),
+      placeholder: config2.input.placeholder ?? "",
+      zIndex: zIndex + 1
+    });
+    inputElement.visible = false;
+    renderer.root.add(inputElement);
+  }
   box.visible = false;
   title.visible = false;
   content.visible = false;
@@ -21308,6 +20897,10 @@ function createModalUI(renderer, config2) {
     title.visible = v;
     content.visible = v;
     hint.visible = v;
+    if (inputElement)
+      inputElement.visible = v;
+    if (inputLabelElement)
+      inputLabelElement.visible = v;
     renderer.requestRender();
   }
   function center() {
@@ -21323,12 +20916,22 @@ function createModalUI(renderer, config2) {
     content.top = newTop + 3;
     hint.left = newLeft + MODAL_DEFAULTS.padding;
     hint.top = newTop + height - 2;
+    if (inputLabelElement) {
+      inputLabelElement.left = newLeft + MODAL_DEFAULTS.padding;
+      inputLabelElement.top = newTop + 1;
+    }
+    if (inputElement) {
+      inputElement.left = newLeft + MODAL_DEFAULTS.padding;
+      inputElement.top = newTop + (config2.input?.label ? 2 : 1);
+    }
   }
   return {
     box,
     title,
     content,
     hint,
+    input: inputElement,
+    inputLabel: inputLabelElement,
     get visible() {
       return visible;
     },
@@ -21415,11 +21018,64 @@ async function deleteSavedApiKey() {
   } catch {}
 }
 
+// src/focus.ts
+class FocusManager {
+  stack = [];
+  defaultFocusable = null;
+  setDefault(focusable) {
+    this.defaultFocusable = focusable;
+    if (this.stack.length === 0) {
+      focusable.onFocus?.();
+    }
+  }
+  push(focusable) {
+    const current = this.current() ?? this.defaultFocusable;
+    current?.onBlur?.();
+    this.stack.push(focusable);
+    focusable.onFocus?.();
+  }
+  pop(id) {
+    if (id) {
+      const idx = this.stack.findIndex((f) => f.id === id);
+      if (idx >= 0) {
+        const removed = this.stack.splice(idx, 1)[0];
+        removed?.onBlur?.();
+      }
+    } else {
+      const removed = this.stack.pop();
+      removed?.onBlur?.();
+    }
+    const next = this.current() ?? this.defaultFocusable;
+    next?.onFocus?.();
+  }
+  current() {
+    return this.stack[this.stack.length - 1] ?? null;
+  }
+  handleKey(key) {
+    const active = this.current();
+    if (active?.handleKey) {
+      return active.handleKey(key);
+    }
+    return false;
+  }
+  hasOverlay() {
+    return this.stack.length > 0;
+  }
+  clear() {
+    while (this.stack.length > 0) {
+      const removed = this.stack.pop();
+      removed?.onBlur?.();
+    }
+    this.defaultFocusable?.onFocus?.();
+  }
+}
+var focusManager = new FocusManager;
+
 // src/login_modal.ts
 function createLoginModal(deps) {
   let loginAuthStatus = { state: "idle" };
   let loginAuthInProgress = false;
-  const { renderer, bootstrap, getSnapshot, renderSnapshot, getActivePane, focusJobsSelect, blurJobsSelect } = deps;
+  const { renderer, bootstrap, getSnapshot, renderSnapshot } = deps;
   const modal = createModalUI(renderer, {
     id: "login-modal",
     width: 60,
@@ -21470,17 +21126,18 @@ function createLoginModal(deps) {
   }
   function toggle(visible) {
     if (visible) {
+      focusManager.push({
+        id: "login-modal",
+        handleKey
+      });
       modal.center();
       loginAuthStatus = { state: "idle" };
       loginAuthInProgress = false;
       modal.setTitle("Sign In / Sign Up");
       modal.setContent("Press Enter to open browser");
       modal.setHint("Enter start | q cancel");
-      blurJobsSelect();
     } else {
-      if (getActivePane() === "jobs") {
-        focusJobsSelect();
-      }
+      focusManager.pop("login-modal");
     }
     modal.setVisible(visible);
   }
@@ -21533,7 +21190,20 @@ function createLoginModal(deps) {
     renderSnapshot();
     toggle(true);
   }
-  return {
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      startAuth();
+      return true;
+    }
+    return true;
+  }
+  const controller = {
     get isVisible() {
       return modal.visible;
     },
@@ -21544,24 +21214,36 @@ function createLoginModal(deps) {
       return loginAuthStatus;
     },
     toggle,
+    handleKey,
     startAuth,
     logout
   };
+  return controller;
 }
 // src/modals/config-modal.ts
 function createConfigModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "config-modal",
+    width: 100,
+    height: 24,
+    borderColor: "#f59e0b",
+    titleColor: "#f59e0b",
+    zIndex: 8
+  });
   function toggle(visible) {
-    ui.configModalVisible = visible;
-    ui.configModalBox.visible = visible;
-    ui.configModalTitle.visible = visible;
-    ui.configModalText.visible = visible;
-    ui.configModalHint.visible = visible;
-    if (!visible) {
-      ui.configModalText.content = "";
+    if (visible) {
+      focusManager.push({
+        id: "config-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("config-modal");
+      modal.setContent("");
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   function formatConfigMetadata() {
     const job = snapshot2.selectedJob;
@@ -21630,7 +21312,7 @@ function createConfigModal(ctx) {
 `);
   }
   function updateContent() {
-    if (!ui.configModalVisible)
+    if (!modal.visible)
       return;
     const raw = formatConfigMetadata() || "(no metadata)";
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
@@ -21639,12 +21321,10 @@ function createConfigModal(ctx) {
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
     appState2.configModalOffset = clamp2(appState2.configModalOffset, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.configModalOffset, appState2.configModalOffset + maxLines);
-    ui.configModalTitle.content = "Job Configuration";
-    ui.configModalText.content = visible.join(`
-`);
-    ui.configModalPayload = raw;
-    ui.configModalHint.content = wrapped.length > maxLines ? `[${appState2.configModalOffset + 1}-${appState2.configModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close";
-    renderer.requestRender();
+    modal.setTitle("Job Configuration");
+    modal.setContent(visible.join(`
+`));
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.configModalOffset + 1}-${appState2.configModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close");
   }
   function move(delta) {
     appState2.configModalOffset = Math.max(0, appState2.configModalOffset + delta);
@@ -21656,7 +21336,7 @@ function createConfigModal(ctx) {
     updateContent();
   }
   function handleKey(key) {
-    if (!ui.configModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "up" || key.name === "k") {
       move(-1);
@@ -21672,9 +21352,9 @@ function createConfigModal(ctx) {
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.configModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -21682,64 +21362,865 @@ function createConfigModal(ctx) {
     updateContent,
     handleKey
   };
+  return controller;
 }
+// src/types.ts
+var JobType;
+((JobType2) => {
+  JobType2["Eval"] = "eval";
+  JobType2["Huh"] = "huh";
+})(JobType ||= {});
+
+// src/templates/localapi.ts
+var LOCALAPI_TEMPLATE = `"""
+LocalAPI Task App - Define your evaluation task for Synth AI.
+
+This file creates a task app that Synth AI uses to evaluate prompts.
+The backend calls your /rollout endpoint with different seeds (test cases)
+and aggregates the scores.
+"""
+
+from fastapi import Request
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.task.contracts import (
+    RolloutRequest,
+    RolloutResponse,
+    RolloutMetrics,
+    TaskInfo,
+)
+
+
+# =============================================================================
+# APP CONFIGURATION
+# =============================================================================
+
+APP_ID = "my-task"
+APP_NAME = "My Evaluation Task"
+
+
+# =============================================================================
+# TODO: IMPLEMENT YOUR DATASET
+# =============================================================================
+#
+# Load your evaluation dataset here. Examples:
+#
+#   # Option 1: HuggingFace datasets
+#   from datasets import load_dataset
+#   DATASET = load_dataset("your-dataset", split="test")
+#
+#   # Option 2: JSON file
+#   import json
+#   with open("data.json") as f:
+#       DATASET = json.load(f)
+#
+#   # Option 3: Inline list
+#   DATASET = [
+#       {"input": "What is 2+2?", "expected": "4"},
+#       {"input": "Capital of France?", "expected": "Paris"},
+#   ]
+#
+# =============================================================================
+
+
+def get_dataset_size() -> int:
+    """Return the total number of samples in your dataset."""
+    raise NotImplementedError(
+        "Implement get_dataset_size() to return len(DATASET)"
+    )
+
+
+def get_sample(seed: int) -> dict:
+    """
+    Get a test case by seed index.
+
+    Args:
+        seed: The seed/index for this evaluation (from request.env.seed)
+
+    Returns:
+        Dict with your test case fields (e.g. {"input": ..., "expected": ...})
+    """
+    raise NotImplementedError(
+        "Implement get_sample() to return a test case for the given seed.\\n"
+        "Example: return DATASET[seed % len(DATASET)]"
+    )
+
+
+# =============================================================================
+# TODO: IMPLEMENT YOUR SCORING LOGIC
+# =============================================================================
+
+
+def score_response(response: str, sample: dict) -> float:
+    """
+    Score the model response. Returns 0.0 to 1.0.
+
+    Args:
+        response: The model's response text
+        sample: The test case dict from get_sample()
+
+    Returns:
+        Score between 0.0 (wrong) and 1.0 (correct)
+    """
+    raise NotImplementedError(
+        "Implement score_response() to score the model output.\\n"
+        "Example: return 1.0 if sample['expected'] in response else 0.0"
+    )
+
+
+# =============================================================================
+# TASK APP PROVIDERS (required by Synth backend)
+# =============================================================================
+
+
+def provide_taskset_description() -> dict:
+    """Return metadata about your task set (splits, sizes, etc.)."""
+    return {
+        "splits": ["default"],
+        "sizes": {"default": get_dataset_size()},
+    }
+
+
+def provide_task_instances(seeds: list[int]):
+    """Yield TaskInfo for each seed. Called by Synth to get task metadata."""
+    for seed in seeds:
+        sample = get_sample(seed)
+        yield TaskInfo(
+            task={"id": APP_ID, "name": APP_NAME},
+            dataset={"id": APP_ID, "split": "default", "index": seed % get_dataset_size()},
+            inference={},
+            limits={"max_turns": 1},
+            task_metadata=sample,
+        )
+
+
+# =============================================================================
+# LLM CALL HELPER
+# =============================================================================
+
+async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) -> str:
+    """Call the LLM via the inference URL provided by Synth."""
+    import httpx
+
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    payload = {
+        "model": "gpt-4.1-nano",  # Or get from policy_config
+        "messages": [{"role": "user", "content": prompt}],
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(inference_url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+
+
+# =============================================================================
+# ROLLOUT HANDLER
+# =============================================================================
+
+async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
+    """
+    Handle a single evaluation rollout.
+
+    Args:
+        request: Contains seed, policy config, env config
+        fastapi_request: The FastAPI request object
+
+    Returns:
+        RolloutResponse with the evaluation score
+    """
+    # Get test case for this seed
+    seed = request.env.seed
+    sample = get_sample(seed)
+
+    # Get inference URL from policy config (Synth provides this)
+    policy_config = request.policy.config or {}
+    inference_url = policy_config.get("inference_url")
+
+    if not inference_url:
+        raise ValueError("No inference_url provided in policy config")
+
+    # Call the LLM
+    response = await call_llm(
+        prompt=sample["input"],
+        inference_url=inference_url,
+        api_key=policy_config.get("api_key"),
+    )
+
+    # Score the response
+    score = score_response(response, sample)
+
+    return RolloutResponse(
+        run_id=request.run_id,
+        metrics=RolloutMetrics(outcome_reward=score),
+        trace=None,
+        trace_correlation_id=None,
+        inference_url=inference_url,
+    )
+
+
+# =============================================================================
+# CREATE THE APP
+# =============================================================================
+
+app = create_local_api(LocalAPIConfig(
+    app_id=APP_ID,
+    name=APP_NAME,
+    description="",
+    provide_taskset_description=provide_taskset_description,
+    provide_task_instances=provide_task_instances,
+    rollout=run_rollout,
+    cors_origins=["*"],
+))
+
+
+# =============================================================================
+# RUNNING LOCALLY
+# =============================================================================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
+`;
+
+// src/utils/files.ts
+import * as fs3 from "fs";
+import * as path5 from "path";
+import * as os3 from "os";
+function toDisplayPath(absolutePath) {
+  const home = os3.homedir();
+  if (absolutePath.startsWith(home)) {
+    return "~" + absolutePath.slice(home.length);
+  }
+  return absolutePath;
+}
+function expandPath(displayPath) {
+  if (displayPath.startsWith("~/")) {
+    return path5.join(os3.homedir(), displayPath.slice(2));
+  }
+  if (displayPath === "~") {
+    return os3.homedir();
+  }
+  return displayPath;
+}
+function getUniqueFilename(dir, baseName, ext) {
+  const baseFilePath = path5.join(dir, `${baseName}${ext}`);
+  if (!fs3.existsSync(baseFilePath)) {
+    return baseFilePath;
+  }
+  const now = new Date;
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+  const time2 = `${hours}${minutes}${seconds}`;
+  const newName = `${baseName}_${year}_${month}_${day}_${time2}${ext}`;
+  return path5.join(dir, newName);
+}
+
+// src/utils/localapi-scanner.ts
+import * as fs4 from "fs";
+import * as path7 from "path";
+function scanForLocalAPIs(directory) {
+  const results2 = [];
+  try {
+    const entries = fs4.readdirSync(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith(".py"))
+        continue;
+      const filepath = path7.join(directory, entry.name);
+      try {
+        const content = fs4.readFileSync(filepath, "utf-8");
+        if (isLocalAPIFile(content)) {
+          results2.push({
+            filename: entry.name,
+            filepath
+          });
+        }
+      } catch {}
+    }
+  } catch {}
+  return results2;
+}
+function isLocalAPIFile(content) {
+  return content.includes("from synth_ai.sdk.localapi import") || content.includes("create_local_api(");
+}
+
 // src/modals/create-job-modal.ts
+import * as fs5 from "fs";
+import * as path8 from "path";
+import { spawn as spawn2 } from "child_process";
+function deployLocalApi(filePath) {
+  return new Promise((resolve3) => {
+    const proc = spawn2("python", ["-m", "synth_ai.tui.deploy", filePath], {
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let resolved = false;
+    proc.stdout.once("data", (data) => {
+      if (resolved)
+        return;
+      resolved = true;
+      try {
+        const result = JSON.parse(data.toString().trim());
+        if (result.status === "ready") {
+          resolve3({ success: true, url: result.url, proc });
+        } else {
+          resolve3({ success: false, error: result.error || "Unknown error" });
+        }
+      } catch {
+        resolve3({ success: false, error: data.toString().trim() });
+      }
+    });
+    proc.on("error", (err) => {
+      if (resolved)
+        return;
+      resolved = true;
+      resolve3({ success: false, error: err.message });
+    });
+    proc.on("close", (code) => {
+      if (resolved)
+        return;
+      resolved = true;
+      if (code !== 0) {
+        resolve3({ success: false, error: `Process exited with code ${code}` });
+      }
+    });
+  });
+}
+var CREATE_NEW_OPTION = "Create new";
+var ENTER_MANUAL_PATH = "Enter manual path";
 function createCreateJobModal(ctx) {
   const { renderer } = ctx;
   const modal = createModalUI(renderer, {
     id: "create-job-modal",
-    width: 60,
-    height: 12,
+    width: 70,
+    height: 24,
     borderColor: "#10b981",
     titleColor: "#10b981",
     zIndex: 10
   });
+  let createdFilePath = null;
+  let deployedUrl = null;
+  let isDeploying = false;
+  let isInputMode = false;
+  let inputBuffer = "";
+  let deployError = null;
+  let deployErrorLines = [];
+  let deployErrorOffset = 0;
+  let scannedLocalAPIs = [];
+  function getSteps() {
+    const localApiOptions = [
+      ...scannedLocalAPIs.map((api) => toDisplayPath(api.filepath)),
+      CREATE_NEW_OPTION
+    ];
+    const baseSteps = [
+      {
+        id: "localApi",
+        label: "LocalAPI file",
+        prompt: "Select or create LocalAPI file:",
+        getOptions: () => localApiOptions
+      }
+    ];
+    const localApiSelection = getSelectionForStep("localApi");
+    const selectedExistingApi = scannedLocalAPIs.find((api) => toDisplayPath(api.filepath) === localApiSelection?.value);
+    if (selectedExistingApi) {
+      createdFilePath = selectedExistingApi.filepath;
+      const fileName = selectedExistingApi.filename;
+      baseSteps.push({
+        id: "deployLocalApi",
+        label: "Deploy",
+        prompt: `Deploy ${fileName}?`,
+        getOptions: () => ["Yes", "No"],
+        hideFromSummary: true,
+        onSelect: async (value) => {
+          deployError = null;
+          deployErrorOffset = 0;
+          if (value === "Yes" && createdFilePath) {
+            isDeploying = true;
+            ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
+            updateContent();
+            ctx.render();
+            const result = await deployLocalApi(createdFilePath);
+            isDeploying = false;
+            if (result.success) {
+              deployedUrl = result.url;
+              ctx.state.snapshot.status = `Deployed: ${result.url}`;
+              ctx.state.appState.deployedUrl = result.url;
+              ctx.state.appState.deployProc = result.proc;
+              updateContent();
+              ctx.render();
+              return true;
+            } else {
+              deployError = result.error || "Unknown error";
+              deployErrorOffset = 0;
+              ctx.state.snapshot.status = `Deploy failed: ${deployError}`;
+              updateContent();
+              ctx.render();
+              return false;
+            }
+          }
+          return true;
+        }
+      });
+    }
+    if (localApiSelection?.value === CREATE_NEW_OPTION) {
+      const cwdDisplay = `CWD: ${toDisplayPath(process.cwd())}`;
+      baseSteps.push({
+        id: "selectDirectory",
+        label: "Directory",
+        prompt: "Where to save localapi.py?",
+        getOptions: () => [cwdDisplay, ENTER_MANUAL_PATH]
+      });
+      const dirSelection = getSelectionForStep("selectDirectory");
+      if (dirSelection) {
+        const dirValue = dirSelection.value.startsWith("CWD: ") ? dirSelection.value.slice(5) : dirSelection.value;
+        const selectedDir = expandPath(dirValue);
+        const actualFilePath = createdFilePath ?? getUniqueFilename(selectedDir, "localapi", ".py");
+        const actualFileName = path8.basename(actualFilePath);
+        const displayDir = toDisplayPath(selectedDir);
+        baseSteps.push({
+          id: "confirmCreate",
+          label: "Confirm",
+          prompt: `Create ${actualFileName} in ${displayDir}?`,
+          getOptions: () => ["Yes, create it", "No, go back"],
+          hideFromSummary: true,
+          onSelect: async (value) => {
+            if (value === "No, go back") {
+              goBack();
+              return false;
+            }
+            try {
+              fs5.mkdirSync(selectedDir, { recursive: true });
+              fs5.writeFileSync(actualFilePath, LOCALAPI_TEMPLATE, "utf-8");
+              createdFilePath = actualFilePath;
+              ctx.state.snapshot.status = `Created ${toDisplayPath(actualFilePath)}`;
+              ctx.render();
+              return true;
+            } catch (err) {
+              ctx.state.snapshot.status = `Error creating file: ${err}`;
+              ctx.render();
+              return false;
+            }
+          }
+        });
+        baseSteps.push({
+          id: "openForReview",
+          label: "Review",
+          prompt: `Open ${actualFileName} for review?`,
+          getOptions: () => ["Yes, open in editor", "No, skip"],
+          hideFromSummary: true,
+          onSelect: async (value) => {
+            if (value === "Yes, open in editor" && createdFilePath) {
+              const editor = process.env.EDITOR;
+              if (editor) {
+                spawn2(editor, [createdFilePath], {
+                  detached: true,
+                  stdio: "ignore"
+                }).unref();
+              } else {
+                spawn2("open", [createdFilePath], {
+                  detached: true,
+                  stdio: "ignore"
+                }).unref();
+              }
+            }
+            return true;
+          }
+        });
+        baseSteps.push({
+          id: "deployLocalApi",
+          label: "Deploy",
+          prompt: `Deploy ${actualFileName}?`,
+          getOptions: () => ["Yes, deploy now", "No, deploy later"],
+          hideFromSummary: true,
+          onSelect: async (value) => {
+            deployError = null;
+            deployErrorOffset = 0;
+            if (value === "Yes, deploy now" && createdFilePath) {
+              isDeploying = true;
+              ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
+              updateContent();
+              ctx.render();
+              const result = await deployLocalApi(createdFilePath);
+              isDeploying = false;
+              if (result.success) {
+                deployedUrl = result.url;
+                ctx.state.snapshot.status = `Deployed: ${result.url}`;
+                ctx.state.appState.deployedUrl = result.url;
+                ctx.state.appState.deployProc = result.proc;
+                updateContent();
+                ctx.render();
+                return true;
+              } else {
+                deployError = result.error || "Unknown error";
+                deployErrorOffset = 0;
+                ctx.state.snapshot.status = `Deploy failed: ${deployError}`;
+                updateContent();
+                ctx.render();
+                return false;
+              }
+            }
+            return true;
+          }
+        });
+      }
+    }
+    baseSteps.push({
+      id: "jobType",
+      label: "Job Type",
+      prompt: "Select Job Type:",
+      getOptions: () => Object.values(JobType),
+      onSelect: async (value) => {
+        if (value === "eval" /* Eval */ && deployedUrl) {
+          ctx.state.snapshot.status = "Submitting eval job...";
+          ctx.render();
+          spawn2("python", ["-m", "synth_ai.tui.eval_job", deployedUrl], {
+            stdio: "ignore",
+            detached: true
+          }).unref();
+          ctx.state.snapshot.status = "Eval job submitted";
+          toggle(false);
+          ctx.render();
+        } else {
+          toggle(false);
+        }
+        return true;
+      }
+    });
+    return baseSteps;
+  }
+  let currentStepIndex = 0;
+  let cursor = 0;
+  let selections = [];
+  function getCurrentStep() {
+    return getSteps()[currentStepIndex];
+  }
+  function getSelectionForStep(stepId) {
+    return selections.find((s) => s.stepId === stepId);
+  }
+  function renderSummary() {
+    const lines = [];
+    const steps = getSteps();
+    for (let i = 0;i < currentStepIndex; i++) {
+      const step = steps[i];
+      if (step.hideFromSummary)
+        continue;
+      const selection = getSelectionForStep(step.id);
+      if (step.id === "localApi" && selection) {
+        const selectedExistingApi = scannedLocalAPIs.find((api) => toDisplayPath(api.filepath) === selection.value);
+        if (selectedExistingApi) {
+          lines.push(`  LocalAPI file: ${toDisplayPath(selectedExistingApi.filepath)}`);
+          continue;
+        }
+        continue;
+      }
+      if (step.id === "selectDirectory" && selection) {
+        if (createdFilePath) {
+          lines.push(`  LocalAPI file: ${toDisplayPath(createdFilePath)}`);
+          continue;
+        }
+        const dirValue = selection.value.startsWith("CWD: ") ? selection.value.slice(5) : selection.value;
+        const selectedDir = expandPath(dirValue);
+        const filePath = getUniqueFilename(selectedDir, "localapi", ".py");
+        lines.push(`  LocalAPI file: ${toDisplayPath(filePath)}`);
+        continue;
+      }
+      const value = selection?.value ?? "(not set)";
+      lines.push(`  ${step.label}: ${value}`);
+    }
+    if (deployedUrl) {
+      lines.push(`  LocalAPI URL: ${deployedUrl}`);
+    }
+    return lines;
+  }
+  function updateContent() {
+    const step = getCurrentStep();
+    const options = step.getOptions();
+    const lines = [];
+    const summary = renderSummary();
+    if (summary.length > 0) {
+      lines.push(...summary);
+      lines.push("");
+    }
+    lines.push(`  ${step.prompt}`);
+    lines.push("");
+    if (isDeploying) {
+      lines.push(`  Deploying...`);
+    } else if (isInputMode) {
+      lines.push(`  Path: ~/${inputBuffer}\u2588`);
+      lines.push("");
+      lines.push("  (enter to confirm, escape to cancel)");
+    } else {
+      for (let idx = 0;idx < options.length; idx++) {
+        const option = options[idx];
+        const isCursor = idx === cursor;
+        const cursorChar = isCursor ? "\u203A" : " ";
+        lines.push(`  ${cursorChar} ${option}`);
+      }
+    }
+    if (deployError) {
+      lines.push("");
+      deployErrorLines = formatErrorMessage(deployError, 64, Infinity);
+      const visibleLines = deployErrorLines.slice(deployErrorOffset, deployErrorOffset + 2);
+      for (const errLine of visibleLines) {
+        lines.push(`  \x1B[31m${errLine}\x1B[0m`);
+      }
+      if (deployErrorLines.length > 2) {
+        const position = `[${deployErrorOffset + 1}-${Math.min(deployErrorOffset + 2, deployErrorLines.length)}/${deployErrorLines.length}]`;
+        lines.push(`  \x1B[90m${position} Shift+j/k scroll\x1B[0m`);
+      }
+    }
+    while (lines.length < 18) {
+      lines.push("");
+    }
+    modal.setContent(lines.join(`
+`));
+  }
+  function updateHint() {
+    if (isInputMode) {
+      modal.setHint("enter confirm | escape cancel");
+      return;
+    }
+    const hints = ["j/k navigate", "enter select"];
+    if (currentStepIndex > 0) {
+      hints.push("backspace back");
+    }
+    hints.push("q close");
+    modal.setHint(hints.join(" | "));
+  }
+  function reset() {
+    currentStepIndex = 0;
+    cursor = 0;
+    selections = [];
+    createdFilePath = null;
+    deployedUrl = null;
+    isDeploying = false;
+    isInputMode = false;
+    inputBuffer = "";
+    deployError = null;
+    deployErrorLines = [];
+    deployErrorOffset = 0;
+    scannedLocalAPIs = scanForLocalAPIs(process.cwd());
+  }
   function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "create-job-modal",
+        handleKey
+      });
+      reset();
+      modal.center();
+      updateContent();
+      updateHint();
+    } else {
+      focusManager.pop("create-job-modal");
+    }
     modal.setVisible(visible);
   }
   function open() {
-    modal.center();
     modal.setTitle("Create New Job");
-    modal.setContent("");
-    modal.setHint("q close");
     toggle(true);
+  }
+  function move(delta) {
+    const step = getCurrentStep();
+    const options = step.getOptions();
+    const max = options.length - 1;
+    cursor = clamp2(cursor + delta, 0, max);
+    updateContent();
+  }
+  function goBack() {
+    if (currentStepIndex > 0) {
+      currentStepIndex--;
+      const step = getCurrentStep();
+      const prevSelection = getSelectionForStep(step.id);
+      if (prevSelection) {
+        const options = step.getOptions();
+        cursor = options.indexOf(prevSelection.value);
+        if (cursor < 0)
+          cursor = 0;
+        selections = selections.filter((s) => s.stepId !== step.id);
+      } else {
+        cursor = 0;
+      }
+      updateContent();
+      updateHint();
+    }
+  }
+  async function select() {
+    const step = getCurrentStep();
+    const options = step.getOptions();
+    const selected = options[cursor];
+    if (!selected)
+      return;
+    if (selected === ENTER_MANUAL_PATH) {
+      isInputMode = true;
+      inputBuffer = "";
+      updateContent();
+      updateHint();
+      return;
+    }
+    if (step.onSelect) {
+      const shouldContinue = await step.onSelect(selected);
+      if (!shouldContinue) {
+        updateContent();
+        updateHint();
+        return;
+      }
+    }
+    selections = selections.filter((s) => s.stepId !== step.id);
+    selections.push({
+      stepId: step.id,
+      value: selected,
+      displayLabel: step.label
+    });
+    const steps = getSteps();
+    if (currentStepIndex < steps.length - 1) {
+      currentStepIndex++;
+      cursor = 0;
+      updateContent();
+      updateHint();
+    } else {
+      const summary = selections.filter((s) => {
+        const step2 = steps.find((st) => st.id === s.stepId);
+        return !step2?.hideFromSummary;
+      }).map((s) => `${s.displayLabel}: ${s.value}`).join(", ");
+      toggle(false);
+      ctx.state.snapshot.status = `Creating job: ${summary}`;
+      ctx.render();
+    }
   }
   function handleKey(key) {
     if (!modal.visible)
       return false;
+    if (isDeploying) {
+      if (key.name === "q" || key.name === "escape") {
+        toggle(false);
+        return true;
+      }
+      return true;
+    }
+    if (isInputMode) {
+      if (key.name === "escape") {
+        isInputMode = false;
+        inputBuffer = "";
+        updateContent();
+        updateHint();
+        return true;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        const step = getCurrentStep();
+        const inputValue = inputBuffer.trim();
+        const fullPath = `~/${inputValue}`;
+        isInputMode = false;
+        selections = selections.filter((s) => s.stepId !== step.id);
+        selections.push({
+          stepId: step.id,
+          value: fullPath,
+          displayLabel: step.label
+        });
+        inputBuffer = "";
+        currentStepIndex++;
+        cursor = 0;
+        updateContent();
+        updateHint();
+        return true;
+      }
+      if (key.name === "backspace") {
+        if (inputBuffer.length > 0) {
+          inputBuffer = inputBuffer.slice(0, -1);
+          updateContent();
+        }
+        return true;
+      }
+      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+        inputBuffer += key.sequence;
+        updateContent();
+        return true;
+      }
+      return true;
+    }
+    if (deployError && deployErrorLines.length > 2 && key.shift) {
+      if (key.name === "j" || key.name === "down") {
+        deployErrorOffset = Math.min(deployErrorOffset + 1, deployErrorLines.length - 2);
+        updateContent();
+        return true;
+      }
+      if (key.name === "k" || key.name === "up") {
+        deployErrorOffset = Math.max(0, deployErrorOffset - 1);
+        updateContent();
+        return true;
+      }
+    }
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      select();
+      return true;
+    }
+    if (key.name === "backspace" && currentStepIndex > 0) {
+      goBack();
+      return true;
+    }
     if (key.name === "q" || key.name === "escape") {
       toggle(false);
       return true;
     }
     return true;
   }
-  return { get isVisible() {
-    return modal.visible;
-  }, toggle, open, handleKey };
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    select,
+    handleKey
+  };
 }
 // src/modals/event-modal.ts
 function createEventModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "event-modal",
+    width: 80,
+    height: 16,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 6
+  });
   function toggle(visible) {
-    ui.eventModalVisible = visible;
-    ui.eventModalBox.visible = visible;
-    ui.eventModalTitle.visible = visible;
-    ui.eventModalText.visible = visible;
-    ui.eventModalHint.visible = visible;
-    if (!visible) {
-      ui.eventModalText.content = "";
+    if (visible) {
+      focusManager.push({
+        id: "event-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("event-modal");
+      modal.setContent("");
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   function updateContent() {
-    if (!ui.eventModalVisible)
+    if (!modal.visible)
       return;
     const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
     const event = filtered[appState2.selectedEventIndex];
     if (!event) {
-      ui.eventModalText.content = "(no event)";
-      renderer.requestRender();
+      modal.setContent("(no event)");
       return;
     }
     const raw = event.message ?? formatEventData(event.data) ?? "(no data)";
@@ -21749,11 +22230,10 @@ function createEventModal(ctx) {
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
     appState2.eventModalOffset = clamp2(appState2.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.eventModalOffset, appState2.eventModalOffset + maxLines);
-    ui.eventModalTitle.content = `Event ${event.seq} - ${event.type}`;
-    ui.eventModalText.content = visible.join(`
-`);
-    ui.eventModalHint.content = wrapped.length > maxLines ? `[${appState2.eventModalOffset + 1}-${appState2.eventModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close";
-    renderer.requestRender();
+    modal.setTitle(`Event ${event.seq} - ${event.type}`);
+    modal.setContent(visible.join(`
+`));
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.eventModalOffset + 1}-${appState2.eventModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close");
   }
   function move(delta) {
     appState2.eventModalOffset = Math.max(0, appState2.eventModalOffset + delta);
@@ -21764,11 +22244,12 @@ function createEventModal(ctx) {
     if (!filtered.length)
       return;
     appState2.eventModalOffset = 0;
+    modal.center();
     toggle(true);
     updateContent();
   }
   function handleKey(key) {
-    if (!ui.eventModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "up" || key.name === "k") {
       move(-1);
@@ -21784,9 +22265,9 @@ function createEventModal(ctx) {
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.eventModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -21794,23 +22275,40 @@ function createEventModal(ctx) {
     updateContent,
     handleKey
   };
+  return controller;
 }
 // src/modals/filter-modal.ts
 function createFilterModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2 } = ctx.state;
-  function toggle(visible) {
-    ui.filterModalVisible = visible;
-    ui.filterBox.visible = visible;
-    ui.filterLabel.visible = visible;
-    ui.filterInput.visible = visible;
-    if (visible) {
-      ui.filterInput.value = appState2.eventFilter;
-      ui.filterInput.focus();
-    } else if (appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
+  const modal = createModalUI(renderer, {
+    id: "filter-modal",
+    width: 52,
+    height: 5,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5,
+    input: {
+      label: "Event filter:",
+      placeholder: "Type to filter events",
+      width: 46
     }
-    renderer.requestRender();
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "filter-modal",
+        handleKey
+      });
+      modal.center();
+      if (modal.input) {
+        modal.input.value = appState2.eventFilter;
+        modal.input.focus();
+      }
+    } else {
+      focusManager.pop("filter-modal");
+    }
+    modal.setVisible(visible);
   }
   function open() {
     toggle(true);
@@ -21820,48 +22318,58 @@ function createFilterModal(ctx) {
     toggle(false);
     ctx.render();
   }
+  if (modal.input) {
+    modal.input.on(InputRenderableEvents.CHANGE, (value) => {
+      apply(value);
+    });
+  }
   function handleKey(key) {
-    if (!ui.filterModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "q" || key.name === "escape") {
       toggle(false);
       return true;
     }
-    return false;
+    return true;
   }
-  ui.filterInput.on?.("change", (value) => {
-    apply(value);
-  });
-  return {
+  const controller = {
     get isVisible() {
-      return ui.filterModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
     handleKey
   };
+  return controller;
 }
 // src/modals/job-filter-modal.ts
 function createJobFilterModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2, config: config2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "job-filter-modal",
+    width: 52,
+    height: 11,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5
+  });
   function toggle(visible) {
-    ui.jobFilterModalVisible = visible;
-    ui.jobFilterBox.visible = visible;
-    ui.jobFilterLabel.visible = visible;
-    ui.jobFilterHelp.visible = visible;
-    ui.jobFilterListText.visible = visible;
     if (visible) {
-      ui.jobFilterLabel.content = "Job filter (status)";
+      focusManager.push({
+        id: "job-filter-modal",
+        handleKey
+      });
+      modal.setTitle("Job filter (status)");
+      modal.center();
       refreshOptions();
-      ui.jobsSelect.blur();
       appState2.jobFilterCursor = 0;
       appState2.jobFilterWindowStart = 0;
       renderList();
-    } else if (appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
+    } else {
+      focusManager.pop("job-filter-modal");
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   function refreshOptions() {
     appState2.jobFilterOptions = buildJobStatusOptions(snapshot2.jobs);
@@ -21884,9 +22392,9 @@ function createJobFilterModal(ctx) {
     if (!lines.length) {
       lines.push("  (no statuses available)");
     }
-    ui.jobFilterListText.content = lines.join(`
-`);
-    renderer.requestRender();
+    modal.setContent(lines.join(`
+`));
+    modal.setHint("j/k move | space select | c clear | q close");
   }
   function move(delta) {
     const max = Math.max(0, appState2.jobFilterOptions.length - 1);
@@ -21942,7 +22450,7 @@ function createJobFilterModal(ctx) {
     toggle(true);
   }
   function handleKey(key) {
-    if (!ui.jobFilterModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "up" || key.name === "k") {
       move(-1);
@@ -21966,9 +22474,9 @@ function createJobFilterModal(ctx) {
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.jobFilterModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -21977,26 +22485,40 @@ function createJobFilterModal(ctx) {
     clearAll,
     handleKey
   };
+  return controller;
 }
 // src/modals/key-modal.ts
 function createKeyModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2 } = ctx.state;
-  function toggle(visible) {
-    ui.keyModalVisible = visible;
-    ui.keyModalBox.visible = visible;
-    ui.keyModalLabel.visible = visible;
-    ui.keyModalInput.visible = visible;
-    ui.keyModalHelp.visible = visible;
-    if (visible) {
-      ui.keyModalInput.value = "";
-      ui.keyModalInput.focus();
-      ui.keyModalLabel.content = "API Key:";
-      ui.keyModalHelp.content = "Paste or type key | Enter to apply | q to cancel";
-    } else if (appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
+  const { renderer } = ctx;
+  const modal = createModalUI(renderer, {
+    id: "key-modal",
+    width: 70,
+    height: 7,
+    borderColor: "#7dd3fc",
+    titleColor: "#7dd3fc",
+    zIndex: 10,
+    input: {
+      label: "API Key:",
+      placeholder: "",
+      width: 62
     }
-    renderer.requestRender();
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "key-modal",
+        handleKey
+      });
+      modal.center();
+      if (modal.input) {
+        modal.input.value = "";
+        modal.input.focus();
+      }
+      modal.setHint("Paste or type key | Enter to apply | q to cancel");
+    } else {
+      focusManager.pop("key-modal");
+    }
+    modal.setVisible(visible);
   }
   function open() {
     toggle(true);
@@ -22025,19 +22547,21 @@ function createKeyModal(ctx) {
       const text = result.stdout ? String(result.stdout).replace(/\s+/g, "") : "";
       if (!text)
         return;
-      ui.keyModalInput.value = (ui.keyModalInput.value || "") + text;
+      if (modal.input) {
+        modal.input.value = (modal.input.value || "") + text;
+      }
     } catch {}
     renderer.requestRender();
   }
   function handleKey(key) {
-    if (!ui.keyModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "q" || key.name === "escape") {
       toggle(false);
       return true;
     }
     if (key.name === "return" || key.name === "enter") {
-      apply(ui.keyModalInput.value || "");
+      apply(modal.input?.value || "");
       return true;
     }
     if (key.name === "v" && (key.ctrl || key.meta)) {
@@ -22045,22 +22569,26 @@ function createKeyModal(ctx) {
       return true;
     }
     if (key.name === "backspace" || key.name === "delete") {
-      const current = ui.keyModalInput.value || "";
-      ui.keyModalInput.value = current.slice(0, Math.max(0, current.length - 1));
+      if (modal.input) {
+        const current = modal.input.value || "";
+        modal.input.value = current.slice(0, Math.max(0, current.length - 1));
+      }
       renderer.requestRender();
       return true;
     }
     const seq = key.sequence || "";
     if (seq && !seq.startsWith("\x1B") && !key.ctrl && !key.meta) {
-      ui.keyModalInput.value = (ui.keyModalInput.value || "") + seq;
+      if (modal.input) {
+        modal.input.value = (modal.input.value || "") + seq;
+      }
       renderer.requestRender();
       return true;
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.keyModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -22068,6 +22596,7 @@ function createKeyModal(ctx) {
     paste,
     handleKey
   };
+  return controller;
 }
 // src/modals/profile-modal.ts
 function createProfileModal(ctx) {
@@ -22098,8 +22627,14 @@ ${apiKey}`);
   }
   function toggle(visible) {
     if (visible) {
+      focusManager.push({
+        id: "profile-modal",
+        handleKey
+      });
       modal.center();
       updateContent();
+    } else {
+      focusManager.pop("profile-modal");
     }
     modal.setVisible(visible);
   }
@@ -22115,7 +22650,7 @@ ${apiKey}`);
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
       return modal.visible;
     },
@@ -22123,6 +22658,7 @@ ${apiKey}`);
     open,
     handleKey
   };
+  return controller;
 }
 // src/utils/clipboard.ts
 async function copyToClipboard(text) {
@@ -22136,21 +22672,31 @@ async function copyToClipboard(text) {
 
 // src/modals/results-modal.ts
 function createResultsModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "results-modal",
+    width: 100,
+    height: 24,
+    borderColor: "#22c55e",
+    titleColor: "#22c55e",
+    zIndex: 8
+  });
   function toggle(visible) {
-    ui.resultsModalVisible = visible;
-    ui.resultsModalBox.visible = visible;
-    ui.resultsModalTitle.visible = visible;
-    ui.resultsModalText.visible = visible;
-    ui.resultsModalHint.visible = visible;
-    if (!visible) {
-      ui.resultsModalText.content = "";
+    if (visible) {
+      focusManager.push({
+        id: "results-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("results-modal");
+      modal.setContent("");
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   function updateContent() {
-    if (!ui.resultsModalVisible)
+    if (!modal.visible)
       return;
     const raw = formatResultsExpanded(snapshot2);
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
@@ -22159,11 +22705,10 @@ function createResultsModal(ctx) {
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
     appState2.resultsModalOffset = clamp2(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.resultsModalOffset, appState2.resultsModalOffset + maxLines);
-    ui.resultsModalTitle.content = "Results - Best Snapshot";
-    ui.resultsModalText.content = visible.join(`
-`);
-    ui.resultsModalHint.content = wrapped.length > maxLines ? `[${appState2.resultsModalOffset + 1}-${appState2.resultsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy | q close` : "y copy | q close";
-    renderer.requestRender();
+    modal.setTitle("Results - Best Snapshot");
+    modal.setContent(visible.join(`
+`));
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.resultsModalOffset + 1}-${appState2.resultsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy | q close` : "y copy | q close");
   }
   function move(delta) {
     appState2.resultsModalOffset = Math.max(0, appState2.resultsModalOffset + delta);
@@ -22183,7 +22728,7 @@ function createResultsModal(ctx) {
     }
   }
   function handleKey(key) {
-    if (!ui.resultsModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "up" || key.name === "k") {
       move(-1);
@@ -22203,9 +22748,9 @@ function createResultsModal(ctx) {
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.resultsModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -22214,23 +22759,40 @@ function createResultsModal(ctx) {
     copyPrompt,
     handleKey
   };
+  return controller;
 }
 // src/modals/snapshot-modal.ts
 function createSnapshotModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
-  function toggle(visible) {
-    ui.modalVisible = visible;
-    ui.modalBox.visible = visible;
-    ui.modalLabel.visible = visible;
-    ui.modalInput.visible = visible;
-    if (visible) {
-      ui.modalInput.value = "";
-      ui.modalInput.focus();
-    } else {
-      ui.jobsSelect.focus();
+  const { renderer } = ctx;
+  const { snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "snapshot-modal",
+    width: 50,
+    height: 5,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5,
+    input: {
+      label: "Snapshot ID:",
+      placeholder: "Enter snapshot id",
+      width: 44
     }
-    renderer.requestRender();
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "snapshot-modal",
+        handleKey
+      });
+      modal.center();
+      if (modal.input) {
+        modal.input.value = "";
+        modal.input.focus();
+      }
+    } else {
+      focusManager.pop("snapshot-modal");
+    }
+    modal.setVisible(visible);
   }
   function open() {
     toggle(true);
@@ -22256,24 +22818,30 @@ function createSnapshotModal(ctx) {
     }
     ctx.render();
   }
+  if (modal.input) {
+    modal.input.on(InputRenderableEvents.ENTER, (value) => {
+      apply(value);
+    });
+  }
   function handleKey(key) {
-    if (!ui.modalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "q" || key.name === "escape") {
       toggle(false);
       return true;
     }
-    return false;
+    return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.modalVisible;
+      return modal.visible;
     },
     toggle,
     open,
     apply,
     handleKey
   };
+  return controller;
 }
 // src/modals/urls-modal.ts
 function createUrlsModal(renderer) {
@@ -22298,8 +22866,14 @@ ${frontend}`);
   }
   function toggle(visible) {
     if (visible) {
+      focusManager.push({
+        id: "urls-modal",
+        handleKey
+      });
       modal.center();
       updateContent();
+    } else {
+      focusManager.pop("urls-modal");
     }
     modal.setVisible(visible);
   }
@@ -22315,7 +22889,7 @@ ${frontend}`);
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
       return modal.visible;
     },
@@ -22323,6 +22897,7 @@ ${frontend}`);
     open,
     handleKey
   };
+  return controller;
 }
 // src/modals/task-apps-modal.ts
 function formatTunnelDetails(tunnels, healthResults, selectedIndex) {
@@ -22362,21 +22937,31 @@ local APIs to the internet for remote execution.`;
 `);
 }
 function createTaskAppsModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "task-apps-modal",
+    width: 90,
+    height: 20,
+    borderColor: "#06b6d4",
+    titleColor: "#06b6d4",
+    zIndex: 8
+  });
   function toggle(visible) {
-    ui.taskAppsModalVisible = visible;
-    ui.taskAppsModalBox.visible = visible;
-    ui.taskAppsModalTitle.visible = visible;
-    ui.taskAppsModalText.visible = visible;
-    ui.taskAppsModalHint.visible = visible;
-    if (!visible) {
-      ui.taskAppsModalText.content = "";
+    if (visible) {
+      focusManager.push({
+        id: "task-apps-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("task-apps-modal");
+      modal.setContent("");
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   function updateContent() {
-    if (!ui.taskAppsModalVisible)
+    if (!modal.visible)
       return;
     const raw = formatTunnelDetails(snapshot2.tunnels, snapshot2.tunnelHealthResults, appState2.taskAppsModalSelectedIndex || 0);
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
@@ -22386,11 +22971,10 @@ function createTaskAppsModal(ctx) {
     appState2.taskAppsModalOffset = clamp2(appState2.taskAppsModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.taskAppsModalOffset, appState2.taskAppsModalOffset + maxLines);
     const tunnelCount = snapshot2.tunnels.length;
-    ui.taskAppsModalTitle.content = `Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`;
-    ui.taskAppsModalText.content = visible.join(`
-`);
-    ui.taskAppsModalHint.content = wrapped.length > maxLines ? `[${appState2.taskAppsModalOffset + 1}-${appState2.taskAppsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy hostname | q close` : "j/k select | y copy hostname | q close";
-    renderer.requestRender();
+    modal.setTitle(`Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`);
+    modal.setContent(visible.join(`
+`));
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.taskAppsModalOffset + 1}-${appState2.taskAppsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy hostname | q close` : "j/k select | y copy hostname | q close");
   }
   function move(delta) {
     const maxIndex = Math.max(0, snapshot2.tunnels.length - 1);
@@ -22414,7 +22998,7 @@ function createTaskAppsModal(ctx) {
     }
   }
   function handleKey(key) {
-    if (!ui.taskAppsModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "up" || key.name === "k") {
       move(-1);
@@ -22434,9 +23018,9 @@ function createTaskAppsModal(ctx) {
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.taskAppsModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -22445,6 +23029,7 @@ function createTaskAppsModal(ctx) {
     copyHostname,
     handleKey
   };
+  return controller;
 }
 // src/lifecycle/shutdown.ts
 var ANSI_RESET = "\x1B[0m";
@@ -22515,121 +23100,17 @@ function installSignalHandlers() {
 // src/handlers/keyboard.ts
 init_jobs();
 function createKeyboardHandler(ctx, modals) {
-  const { renderer, ui } = ctx;
-  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const { appState: appState2 } = ctx.state;
   return function handleKeypress(key) {
     if (key.ctrl && key.name === "c") {
       shutdown(0);
       return;
     }
+    if (focusManager.handleKey(key)) {
+      return;
+    }
     if (key.name === "q" || key.name === "escape") {
-      if (modals.login.isVisible) {
-        modals.login.toggle(false);
-        return;
-      }
-      if (modals.key.isVisible) {
-        modals.key.handleKey(key);
-        return;
-      }
-      if (modals.jobFilter.isVisible) {
-        modals.jobFilter.handleKey(key);
-        return;
-      }
-      if (modals.event.isVisible) {
-        modals.event.handleKey(key);
-        return;
-      }
-      if (modals.results.isVisible) {
-        modals.results.handleKey(key);
-        return;
-      }
-      if (modals.config.isVisible) {
-        modals.config.handleKey(key);
-        return;
-      }
-      if (modals.filter.isVisible) {
-        modals.filter.handleKey(key);
-        return;
-      }
-      if (modals.promptBrowser?.isVisible) {
-        modals.promptBrowser.handleKey(key);
-        return;
-      }
-      if (modals.snapshot.isVisible) {
-        modals.snapshot.handleKey(key);
-        return;
-      }
-      if (modals.profile.isVisible) {
-        modals.profile.handleKey(key);
-        return;
-      }
-      if (modals.urls.isVisible) {
-        modals.urls.handleKey(key);
-        return;
-      }
-      if (modals.createJob.isVisible) {
-        modals.createJob.handleKey(key);
-        return;
-      }
-      if (modals.taskApps.isVisible) {
-        modals.taskApps.handleKey(key);
-        return;
-      }
       shutdown(0);
-      return;
-    }
-    if (modals.login.isVisible) {
-      if (key.name === "return" || key.name === "enter") {
-        modals.login.startAuth();
-      }
-      return;
-    }
-    if (modals.key.isVisible) {
-      modals.key.handleKey(key);
-      return;
-    }
-    if (modals.event.isVisible) {
-      modals.event.handleKey(key);
-      return;
-    }
-    if (modals.results.isVisible) {
-      modals.results.handleKey(key);
-      return;
-    }
-    if (modals.config.isVisible) {
-      modals.config.handleKey(key);
-      return;
-    }
-    if (modals.promptBrowser?.isVisible) {
-      modals.promptBrowser.handleKey(key);
-      return;
-    }
-    if (modals.filter.isVisible) {
-      modals.filter.handleKey(key);
-      return;
-    }
-    if (modals.jobFilter.isVisible) {
-      modals.jobFilter.handleKey(key);
-      return;
-    }
-    if (modals.snapshot.isVisible) {
-      modals.snapshot.handleKey(key);
-      return;
-    }
-    if (modals.profile.isVisible) {
-      modals.profile.handleKey(key);
-      return;
-    }
-    if (modals.urls.isVisible) {
-      modals.urls.handleKey(key);
-      return;
-    }
-    if (modals.createJob.isVisible) {
-      modals.createJob.handleKey(key);
-      return;
-    }
-    if (modals.taskApps.isVisible) {
-      modals.taskApps.handleKey(key);
       return;
     }
     if (key.name === "tab") {
@@ -22725,21 +23206,6 @@ function createKeyboardHandler(ctx, modals) {
     }
   };
 }
-function createPasteHandler(ctx, keyModal) {
-  const { ui, renderer } = ctx;
-  return function handlePaste(key) {
-    if (!keyModal.isVisible)
-      return;
-    const seq = typeof key?.sequence === "string" ? key.sequence : "";
-    if (!seq)
-      return;
-    const cleaned = seq.replace("\x1B[200~", "").replace("\x1B[201~", "").replace(/\s+/g, "");
-    if (!cleaned)
-      return;
-    ui.keyModalInput.value = (ui.keyModalInput.value || "") + cleaned;
-    renderer.requestRender();
-  };
-}
 
 // src/app.ts
 init_jobs();
@@ -22788,9 +23254,9 @@ async function refreshEvents(ctx) {
     ] : [`/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${appState2.lastSeq}&limit=200`];
     let payload = null;
     let lastErr = null;
-    for (const path5 of paths) {
+    for (const path6 of paths) {
       try {
-        payload = await apiGet(path5);
+        payload = await apiGet(path6);
         lastErr = null;
         break;
       } catch (err) {
@@ -23076,10 +23542,7 @@ async function runApp() {
       await bootstrap();
     },
     getSnapshot: () => ctx.state.snapshot,
-    renderSnapshot: render,
-    getActivePane: () => ctx.state.appState.activePane,
-    focusJobsSelect: () => ui.jobsSelect.focus(),
-    blurJobsSelect: () => ui.jobsSelect.blur()
+    renderSnapshot: render
   });
   const eventModal = createEventModal(ctx);
   const resultsModal = createResultsModal(ctx);
@@ -23107,9 +23570,7 @@ async function runApp() {
     taskApps: taskAppsModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
-  const handlePaste = createPasteHandler(ctx, keyModal);
   renderer.keyInput.on("keypress", handleKeypress);
-  renderer.keyInput.on("paste", handlePaste);
   ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx, option) => {
     if (!option?.value)
       return;
@@ -23117,30 +23578,12 @@ async function runApp() {
       selectJob(ctx, option.value).then(() => render());
     }
   });
-  ui.modalInput.on(InputRenderableEvents.CHANGE, (value) => {
-    if (!value.trim()) {
-      snapshotModal.toggle(false);
-      return;
-    }
-    snapshotModal.apply(value.trim());
-  });
-  ui.modalInput.on(InputRenderableEvents.ENTER, (value) => {
-    if (!value.trim()) {
-      snapshotModal.toggle(false);
-      return;
-    }
-    snapshotModal.apply(value.trim());
-  });
-  ui.filterInput.on(InputRenderableEvents.CHANGE, (value) => {
-    ctx.state.appState.eventFilter = value.trim();
-    filterModal.toggle(false);
-    render();
-  });
-  ui.keyModalInput.on(InputRenderableEvents.ENTER, (value) => {
-    keyModal.apply(value);
+  focusManager.setDefault({
+    id: "jobs-pane",
+    onFocus: () => ui.jobsSelect.focus(),
+    onBlur: () => ui.jobsSelect.blur()
   });
   renderer.start();
-  ui.jobsSelect.focus();
   render();
   const loggedOutMarkerSet = isLoggedOutMarkerSet();
   if (loggedOutMarkerSet) {

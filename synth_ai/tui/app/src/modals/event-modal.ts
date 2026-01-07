@@ -3,36 +3,47 @@
  */
 import type { AppContext } from "../context"
 import { getFilteredEvents, formatEventData } from "../formatters"
-import { centerModal, clamp, wrapModalText, type ModalController } from "./base"
+import { createModalUI, clamp, wrapModalText, type ModalController } from "./base"
+import { focusManager } from "../focus"
 
 export function createEventModal(ctx: AppContext): ModalController & {
   open: () => void
   move: (delta: number) => void
   updateContent: () => void
 } {
-  const { ui, renderer } = ctx
+  const { renderer } = ctx
   const { appState, snapshot } = ctx.state
 
+  const modal = createModalUI(renderer, {
+    id: "event-modal",
+    width: 80,
+    height: 16,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 6,
+  })
+
   function toggle(visible: boolean): void {
-    ui.eventModalVisible = visible
-    ui.eventModalBox.visible = visible
-    ui.eventModalTitle.visible = visible
-    ui.eventModalText.visible = visible
-    ui.eventModalHint.visible = visible
-    if (!visible) {
-      ui.eventModalText.content = ""
+    if (visible) {
+      focusManager.push({
+        id: "event-modal",
+        handleKey,
+      })
+      modal.center()
+    } else {
+      focusManager.pop("event-modal")
+      modal.setContent("")
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   function updateContent(): void {
-    if (!ui.eventModalVisible) return
+    if (!modal.visible) return
 
     const filtered = getFilteredEvents(snapshot.events, appState.eventFilter)
     const event = filtered[appState.selectedEventIndex]
     if (!event) {
-      ui.eventModalText.content = "(no event)"
-      renderer.requestRender()
+      modal.setContent("(no event)")
       return
     }
 
@@ -45,14 +56,13 @@ export function createEventModal(ctx: AppContext): ModalController & {
     appState.eventModalOffset = clamp(appState.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines))
     const visible = wrapped.slice(appState.eventModalOffset, appState.eventModalOffset + maxLines)
 
-    ui.eventModalTitle.content = `Event ${event.seq} - ${event.type}`
-    ui.eventModalText.content = visible.join("\n")
-    ui.eventModalHint.content =
+    modal.setTitle(`Event ${event.seq} - ${event.type}`)
+    modal.setContent(visible.join("\n"))
+    modal.setHint(
       wrapped.length > maxLines
         ? `[${appState.eventModalOffset + 1}-${appState.eventModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close`
         : "q close"
-
-    renderer.requestRender()
+    )
   }
 
   function move(delta: number): void {
@@ -65,12 +75,13 @@ export function createEventModal(ctx: AppContext): ModalController & {
     if (!filtered.length) return
 
     appState.eventModalOffset = 0
+    modal.center()
     toggle(true)
     updateContent()
   }
 
   function handleKey(key: any): boolean {
-    if (!ui.eventModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "up" || key.name === "k") {
       move(-1)
@@ -87,9 +98,9 @@ export function createEventModal(ctx: AppContext): ModalController & {
     return true // consume all keys when modal is open
   }
 
-  return {
+  const controller = {
     get isVisible() {
-      return ui.eventModalVisible
+      return modal.visible
     },
     toggle,
     open,
@@ -97,5 +108,6 @@ export function createEventModal(ctx: AppContext): ModalController & {
     updateContent,
     handleKey,
   }
-}
 
+  return controller
+}

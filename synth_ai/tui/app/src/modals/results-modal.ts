@@ -4,7 +4,8 @@
 import type { AppContext } from "../context"
 import { formatResultsExpanded } from "../formatters"
 import { copyToClipboard } from "../utils/clipboard"
-import { centerModal, clamp, wrapModalText, type ModalController } from "./base"
+import { createModalUI, clamp, wrapModalText, type ModalController } from "./base"
+import { focusManager } from "../focus"
 
 export function createResultsModal(ctx: AppContext): ModalController & {
   open: () => void
@@ -12,23 +13,34 @@ export function createResultsModal(ctx: AppContext): ModalController & {
   updateContent: () => void
   copyPrompt: () => Promise<void>
 } {
-  const { ui, renderer } = ctx
+  const { renderer } = ctx
   const { appState, snapshot } = ctx.state
 
+  const modal = createModalUI(renderer, {
+    id: "results-modal",
+    width: 100,
+    height: 24,
+    borderColor: "#22c55e",
+    titleColor: "#22c55e",
+    zIndex: 8,
+  })
+
   function toggle(visible: boolean): void {
-    ui.resultsModalVisible = visible
-    ui.resultsModalBox.visible = visible
-    ui.resultsModalTitle.visible = visible
-    ui.resultsModalText.visible = visible
-    ui.resultsModalHint.visible = visible
-    if (!visible) {
-      ui.resultsModalText.content = ""
+    if (visible) {
+      focusManager.push({
+        id: "results-modal",
+        handleKey,
+      })
+      modal.center()
+    } else {
+      focusManager.pop("results-modal")
+      modal.setContent("")
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   function updateContent(): void {
-    if (!ui.resultsModalVisible) return
+    if (!modal.visible) return
 
     const raw = formatResultsExpanded(snapshot)
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
@@ -39,14 +51,13 @@ export function createResultsModal(ctx: AppContext): ModalController & {
     appState.resultsModalOffset = clamp(appState.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines))
     const visible = wrapped.slice(appState.resultsModalOffset, appState.resultsModalOffset + maxLines)
 
-    ui.resultsModalTitle.content = "Results - Best Snapshot"
-    ui.resultsModalText.content = visible.join("\n")
-    ui.resultsModalHint.content =
+    modal.setTitle("Results - Best Snapshot")
+    modal.setContent(visible.join("\n"))
+    modal.setHint(
       wrapped.length > maxLines
         ? `[${appState.resultsModalOffset + 1}-${appState.resultsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy | q close`
         : "y copy | q close"
-
-    renderer.requestRender()
+    )
   }
 
   function move(delta: number): void {
@@ -70,7 +81,7 @@ export function createResultsModal(ctx: AppContext): ModalController & {
   }
 
   function handleKey(key: any): boolean {
-    if (!ui.resultsModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "up" || key.name === "k") {
       move(-1)
@@ -88,12 +99,12 @@ export function createResultsModal(ctx: AppContext): ModalController & {
       toggle(false)
       return true
     }
-    return true
+    return true // consume all keys when modal is open
   }
 
-  return {
+  const controller = {
     get isVisible() {
-      return ui.resultsModalVisible
+      return modal.visible
     },
     toggle,
     open,
@@ -102,5 +113,6 @@ export function createResultsModal(ctx: AppContext): ModalController & {
     copyPrompt,
     handleKey,
   }
-}
 
+  return controller
+}

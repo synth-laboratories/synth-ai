@@ -5,6 +5,7 @@
 import type { AppContext } from "../context"
 import type { BackendId } from "../types"
 import { createModalUI, clamp, type ModalController, type ModalUI } from "./base"
+import { focusManager } from "../focus"
 
 export function createSettingsModal(ctx: AppContext): ModalController & {
   open: () => void
@@ -60,6 +61,10 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
 
   function toggle(visible: boolean): void {
     if (visible) {
+      focusManager.push({
+        id: "settings-modal",
+        handleKey,
+      })
       // Reset cursor to current backend
       appState.settingsCursor = Math.max(
         0,
@@ -67,6 +72,8 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
       )
       modal.center()
       updateContent()
+    } else {
+      focusManager.pop("settings-modal")
     }
     modal.setVisible(visible)
   }
@@ -125,7 +132,7 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
     return true
   }
 
-  return {
+  const controller = {
     get isVisible() {
       return modal.visible
     },
@@ -135,4 +142,6 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
     select,
     handleKey,
   }
+
+  return controller
 }

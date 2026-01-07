@@ -35,6 +35,13 @@ export const appState = {
   taskAppsModalOffset: 0,
   taskAppsModalSelectedIndex: 0,
 
+  // Create Job modal state
+  createJobCursor: 0,
+
+  // Deploy state
+  deployedUrl: null as string | null,
+  deployProc: null as import("child_process").ChildProcess | null,
+
   // Request tokens for cancellation
   jobSelectToken: 0,
   eventsToken: 0,

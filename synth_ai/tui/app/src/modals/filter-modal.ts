@@ -1,27 +1,46 @@
 /**
  * Event filter modal controller.
  */
+import { InputRenderableEvents } from "@opentui/core"
 import type { AppContext } from "../context"
-import type { ModalController } from "./base"
+import { createModalUI, type ModalController } from "./base"
+import { focusManager } from "../focus"
 
 export function createFilterModal(ctx: AppContext): ModalController & {
   open: () => void
 } {
-  const { ui, renderer } = ctx
+  const { renderer } = ctx
   const { appState } = ctx.state
 
+  const modal = createModalUI(renderer, {
+    id: "filter-modal",
+    width: 52,
+    height: 5,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5,
+    input: {
+      label: "Event filter:",
+      placeholder: "Type to filter events",
+      width: 46,
+    },
+  })
+
   function toggle(visible: boolean): void {
-    ui.filterModalVisible = visible
-    ui.filterBox.visible = visible
-    ui.filterLabel.visible = visible
-    ui.filterInput.visible = visible
     if (visible) {
-      ui.filterInput.value = appState.eventFilter
-      ui.filterInput.focus()
-    } else if (appState.activePane === "jobs") {
-      ui.jobsSelect.focus()
+      focusManager.push({
+        id: "filter-modal",
+        handleKey,
+      })
+      modal.center()
+      if (modal.input) {
+        modal.input.value = appState.eventFilter
+        modal.input.focus()
+      }
+    } else {
+      focusManager.pop("filter-modal")
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   function open(): void {
@@ -34,29 +53,32 @@ export function createFilterModal(ctx: AppContext): ModalController & {
     ctx.render()
   }
 
+  // Wire up input events
+  if (modal.input) {
+    modal.input.on(InputRenderableEvents.CHANGE, (value: string) => {
+      apply(value)
+    })
+  }
+
   function handleKey(key: any): boolean {
-    if (!ui.filterModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "q" || key.name === "escape") {
       toggle(false)
       return true
     }
-    // Input is handled by InputRenderable directly
-    return false
+    // Block all keys to prevent global shortcuts, InputRenderable handles input
+    return true
   }
 
-  // Hook up the input change event
-  ui.filterInput.on?.("change", (value: string) => {
-    apply(value)
-  })
-
-  return {
+  const controller = {
     get isVisible() {
-      return ui.filterModalVisible
+      return modal.visible
     },
     toggle,
     open,
     handleKey,
   }
-}
 
+  return controller
+}

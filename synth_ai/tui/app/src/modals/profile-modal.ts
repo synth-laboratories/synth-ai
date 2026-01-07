@@ -3,6 +3,7 @@
  */
 import type { AppContext } from "../context"
 import { createModalUI, type ModalController, type ModalUI } from "./base"
+import { focusManager } from "../focus"
 
 export function createProfileModal(ctx: AppContext): ModalController & {
   open: () => void
@@ -33,8 +34,14 @@ export function createProfileModal(ctx: AppContext): ModalController & {
 
   function toggle(visible: boolean): void {
     if (visible) {
+      focusManager.push({
+        id: "profile-modal",
+        handleKey,
+      })
       modal.center()
       updateContent()
+    } else {
+      focusManager.pop("profile-modal")
     }
     modal.setVisible(visible)
   }
@@ -53,7 +60,7 @@ export function createProfileModal(ctx: AppContext): ModalController & {
     return true // consume all keys when modal is open
   }
 
-  return {
+  const controller = {
     get isVisible() {
       return modal.visible
     },
@@ -61,4 +68,6 @@ export function createProfileModal(ctx: AppContext): ModalController & {
     open,
     handleKey,
   }
+
+  return controller
 }
