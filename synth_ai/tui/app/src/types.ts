@@ -7,7 +7,6 @@ import type { JobEvent, JobSummary } from "./tui_data"
 /** Type of job that can be run in the TUI */
 export enum JobType {
   Eval = "eval",
-  Huh = "huh"
 }
 
 /** A prompt candidate (snapshot) with score */
