@@ -22446,6 +22446,65 @@ function createTaskAppsModal(ctx) {
     handleKey
   };
 }
+// src/lifecycle/shutdown.ts
+var ANSI_RESET = "\x1B[0m";
+var ANSI_SHOW_CURSOR = "\x1B[?25h";
+var ANSI_EXIT_ALT_SCREEN = "\x1B[?1049l";
+var state = {
+  abortController: new AbortController,
+  intervals: new Set,
+  timeouts: new Set,
+  cleanups: new Map,
+  isShuttingDown: false,
+  renderer: null
+};
+function registerRenderer(renderer) {
+  state.renderer = renderer;
+}
+function registerInterval(id) {
+  state.intervals.add(id);
+  return id;
+}
+function registerCleanup(name, fn) {
+  state.cleanups.set(name, fn);
+}
+async function shutdown(exitCode = 0) {
+  if (state.isShuttingDown) {
+    return new Promise(() => {});
+  }
+  state.isShuttingDown = true;
+  state.abortController.abort();
+  for (const id of state.intervals) {
+    clearInterval(id);
+  }
+  state.intervals.clear();
+  for (const id of state.timeouts) {
+    clearTimeout(id);
+  }
+  state.timeouts.clear();
+  for (const [, fn] of state.cleanups) {
+    try {
+      await fn();
+    } catch {}
+  }
+  state.cleanups.clear();
+  if (state.renderer) {
+    try {
+      state.renderer.stop();
+      state.renderer.destroy();
+    } catch {}
+  }
+  process.stdout.write(ANSI_SHOW_CURSOR);
+  process.stdout.write(ANSI_EXIT_ALT_SCREEN);
+  process.stdout.write(ANSI_RESET);
+  process.stdout.write(`
+`);
+  process.exit(exitCode);
+}
+function installSignalHandlers() {
+  process.on("SIGINT", () => void shutdown(0));
+  process.on("SIGTERM", () => void shutdown(0));
+}
 // src/handlers/keyboard.ts
 init_jobs();
 function createKeyboardHandler(ctx, modals) {
@@ -22453,9 +22512,8 @@ function createKeyboardHandler(ctx, modals) {
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
   return function handleKeypress(key) {
     if (key.ctrl && key.name === "c") {
-      renderer.stop();
-      renderer.destroy();
-      process.exit(0);
+      shutdown(0);
+      return;
     }
     if (key.name === "q" || key.name === "escape") {
       if (modals.login.isVisible) {
@@ -22510,9 +22568,8 @@ function createKeyboardHandler(ctx, modals) {
         modals.taskApps.handleKey(key);
         return;
       }
-      renderer.stop();
-      renderer.destroy();
-      process.exit(0);
+      shutdown(0);
+      return;
     }
     if (modals.login.isVisible) {
       if (key.name === "return" || key.name === "enter") {
@@ -22994,6 +23051,8 @@ async function runApp() {
     openConsoleOnError: false,
     backgroundColor: "#0b1120"
   });
+  registerRenderer(renderer);
+  installSignalHandlers();
   const ui = buildLayout(renderer, () => "");
   let ctx;
   function render() {
@@ -23122,10 +23181,11 @@ async function runApp() {
     }
     startJobsStream();
     scheduleEventsPoll();
-    setInterval(() => void refreshHealth2(ctx), 30000);
-    setInterval(() => void refreshIdentity(ctx).then(() => render()), 60000);
-    setInterval(() => void refreshTunnels(ctx).then(() => render()), 30000);
-    setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15000);
+    registerInterval(setInterval(() => void refreshHealth2(ctx), 30000));
+    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()), 60000));
+    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()), 30000));
+    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15000));
+    registerCleanup("sse", () => pollingState.sseDisconnect?.());
     render();
   }
   function startJobsStream() {

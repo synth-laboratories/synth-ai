@@ -29,7 +29,8 @@ import { refreshIdentity, refreshHealth } from "./api/identity"
 import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
 import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
 import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
-import { clearJobsTimer } from "./state/polling"
+import { clearJobsTimer, pollingState } from "./state/polling"
+import { registerRenderer, registerInterval, registerTimeout, unregisterTimeout, registerCleanup, installSignalHandlers } from "./lifecycle"
 
 export async function runApp(): Promise<void> {
   // Create renderer
@@ -39,6 +40,10 @@ export async function runApp(): Promise<void> {
     openConsoleOnError: false,
     backgroundColor: "#0b1120",
   })
+
+  // Register renderer for centralized shutdown and install signal handlers
+  registerRenderer(renderer)
+  installSignalHandlers()
 
   // Build layout with a placeholder footer (will be updated by render)
   const ui = buildLayout(renderer, () => "")
@@ -214,11 +219,15 @@ export async function runApp(): Promise<void> {
 
     // Events polling still needed (SSE is only for job list metadata)
     scheduleEventsPoll()
-    setInterval(() => void refreshHealth(ctx), 30_000)
-    setInterval(() => void refreshIdentity(ctx).then(() => render()), 60_000)
+    registerInterval(setInterval(() => void refreshHealth(ctx), 30_000))
+    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()), 60_000))
     // Refresh tunnels every 30 seconds, health checks every 15 seconds
-    setInterval(() => void refreshTunnels(ctx).then(() => render()), 30_000)
-    setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15_000)
+    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()), 30_000))
+    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15_000))
+
+    // Register SSE disconnect for cleanup on shutdown
+    registerCleanup("sse", () => pollingState.sseDisconnect?.())
+
     render()
   }
 
@@ -305,11 +314,12 @@ export async function runApp(): Promise<void> {
     // Schedule reconnect with exponential backoff
     if (pollingState.sseReconnectTimer) {
       clearTimeout(pollingState.sseReconnectTimer)
+      unregisterTimeout(pollingState.sseReconnectTimer)
     }
-    pollingState.sseReconnectTimer = setTimeout(() => {
+    pollingState.sseReconnectTimer = registerTimeout(setTimeout(() => {
       pollingState.sseReconnectTimer = null
       startJobsStream()
-    }, pollingState.sseReconnectDelay)
+    }, pollingState.sseReconnectDelay))
 
     // Exponential backoff: 1s, 2s, 4s, ... up to 30s
     pollingState.sseReconnectDelay = Math.min(pollingState.sseReconnectDelay * 2, 30_000)
@@ -320,8 +330,11 @@ export async function runApp(): Promise<void> {
     const { pollingState } = ctx.state
     // Don't schedule polling if SSE is connected
     if (pollingState.sseConnected) return
-    if (pollingState.jobsTimer) clearTimeout(pollingState.jobsTimer)
-    pollingState.jobsTimer = setTimeout(pollJobs, pollingState.jobsPollMs)
+    if (pollingState.jobsTimer) {
+      clearTimeout(pollingState.jobsTimer)
+      unregisterTimeout(pollingState.jobsTimer)
+    }
+    pollingState.jobsTimer = registerTimeout(setTimeout(pollJobs, pollingState.jobsPollMs))
   }
 
   async function pollJobs(): Promise<void> {
@@ -350,8 +363,11 @@ export async function runApp(): Promise<void> {
 
   function scheduleEventsPoll(): void {
     const { pollingState } = ctx.state
-    if (pollingState.eventsTimer) clearTimeout(pollingState.eventsTimer)
-    pollingState.eventsTimer = setTimeout(pollEvents, pollingState.eventsPollMs)
+    if (pollingState.eventsTimer) {
+      clearTimeout(pollingState.eventsTimer)
+      unregisterTimeout(pollingState.eventsTimer)
+    }
+    pollingState.eventsTimer = registerTimeout(setTimeout(pollEvents, pollingState.eventsPollMs))
   }
 
   async function pollEvents(): Promise<void> {

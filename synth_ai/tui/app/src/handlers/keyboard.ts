@@ -3,6 +3,7 @@
  */
 import type { AppContext } from "../context"
 import type { LoginModalController } from "../login_modal"
+import { shutdown } from "../lifecycle"
 import { setActivePane } from "../ui/panes"
 import { moveEventSelection, toggleSelectedEventExpanded } from "../ui/events"
 import { refreshJobs, selectJob, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
@@ -36,9 +37,8 @@ export function createKeyboardHandler(
   return function handleKeypress(key: any): void {
     // Ctrl+C always quits
     if (key.ctrl && key.name === "c") {
-      renderer.stop()
-      renderer.destroy()
-      process.exit(0)
+      void shutdown(0)
+      return
     }
 
     // q/escape closes modals or quits
@@ -96,9 +96,8 @@ export function createKeyboardHandler(
         return
       }
       // No modal open - quit
-      renderer.stop()
-      renderer.destroy()
-      process.exit(0)
+      void shutdown(0)
+      return
     }
 
     // Login modal captures all keys
