@@ -8,6 +8,7 @@ import { formatErrorMessage } from "../utils/truncate"
 import { scanForLocalAPIs, type ScannedLocalAPI } from "../utils/localapi-scanner"
 import * as fs from "fs"
 import * as path from "path"
+import * as readline from "readline"
 import { spawn, type ChildProcess } from "child_process"
 
 /** Result from deploy attempt */
@@ -18,28 +19,42 @@ type DeployResult = {
 	error?: string
 }
 
-/** Deploy a LocalAPI file and wait for the result */
-function deployLocalApi(filePath: string, mode: string = "prod"): Promise<DeployResult> {
+/** Deploy a LocalAPI file and wait for the result (handles NDJSON stream) */
+function deployLocalApi(filePath: string): Promise<DeployResult> {
 	return new Promise((resolve) => {
-		const proc = spawn("python", ["-m", "synth_ai.tui.deploy", filePath, "--mode", mode], {
+		const proc = spawn("python", ["-m", "synth_ai.tui.deploy", filePath], {
 			stdio: ["ignore", "pipe", "pipe"],
 		})
 
 		let resolved = false
 
-		proc.stdout.once("data", (data: Buffer) => {
+		// Read NDJSON stream line by line
+		const rl = readline.createInterface({ input: proc.stdout })
+
+		rl.on("line", (line: string) => {
 			if (resolved) return
-			resolved = true
 			try {
-				const result = JSON.parse(data.toString().trim())
-				if (result.status === "ready") {
-					resolve({ success: true, url: result.url, proc })
-				} else {
-					resolve({ success: false, error: result.error || "Unknown error" })
+				const result = JSON.parse(line)
+				// Wait for terminal status (ready or error)
+				if (result.type === "status") {
+					if (result.status === "ready") {
+						resolved = true
+						resolve({ success: true, url: result.url, proc })
+					} else if (result.status === "error") {
+						resolved = true
+						resolve({ success: false, error: result.error || "Deployment failed" })
+					}
+					// Ignore "starting" status - keep waiting
 				}
 			} catch {
-				resolve({ success: false, error: data.toString().trim() })
+				// Ignore non-JSON lines
 			}
+		})
+
+		// Capture stderr for error messages
+		let stderrBuffer = ""
+		proc.stderr.on("data", (data: Buffer) => {
+			stderrBuffer += data.toString()
 		})
 
 		proc.on("error", (err) => {
@@ -52,7 +67,8 @@ function deployLocalApi(filePath: string, mode: string = "prod"): Promise<Deploy
 			if (resolved) return
 			resolved = true
 			if (code !== 0) {
-				resolve({ success: false, error: `Process exited with code ${code}` })
+				const errorMsg = stderrBuffer.trim() || `Process exited with code ${code}`
+				resolve({ success: false, error: errorMsg })
 			}
 		})
 	})
@@ -145,14 +161,6 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 			createdFilePath = selectedExistingApi.filepath
 			const fileName = selectedExistingApi.filename
 
-			// Add environment mode selection step
-			baseSteps.push({
-				id: "envMode",
-				label: "Environment",
-				prompt: "Select deployment environment:",
-				getOptions: () => ["prod (Cloudflare tunnel)", "dev (localhost + local backend)", "local (localhost only)"],
-			})
-
 			baseSteps.push({
 				id: "deployLocalApi",
 				label: "Deploy",
@@ -169,11 +177,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 						updateContent()
 						ctx.render()
 
-						// Get selected environment mode
-						const envModeSelection = getSelectionForStep("envMode")
-						const mode = envModeSelection?.value.split(" ")[0] || "prod"
-
-						const result = await deployLocalApi(createdFilePath, mode)
+						const result = await deployLocalApi(createdFilePath)
 						isDeploying = false
 
 						if (result.success) {
@@ -277,13 +281,6 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 						return true
 					},
 				})
-				// Add environment mode selection step before deploy
-				baseSteps.push({
-					id: "envMode",
-					label: "Environment",
-					prompt: "Select deployment environment:",
-					getOptions: () => ["prod (Cloudflare tunnel)", "dev (localhost + local backend)", "local (localhost only)"],
-				})
 				baseSteps.push({
 					id: "deployLocalApi",
 					label: "Deploy",
@@ -301,12 +298,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 							updateContent()
 							ctx.render()
 
-							// Get selected environment mode
-							const envModeSelection = getSelectionForStep("envMode")
-							const mode = envModeSelection?.value.split(" ")[0] || "prod"
-
-							// Wait for deploy result
-							const result = await deployLocalApi(createdFilePath, mode)
+							const result = await deployLocalApi(createdFilePath)
 							isDeploying = false
 
 							if (result.success) {
@@ -345,12 +337,8 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 					ctx.state.snapshot.status = "Submitting eval job..."
 					ctx.render()
 
-					// Get environment mode to pass to eval job
-					const envModeSelection = getSelectionForStep("envMode")
-					const mode = envModeSelection?.value.split(" ")[0] || "prod"
-
 					// Fire-and-forget: spawn eval job process
-					spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default", "--mode", mode], {
+					spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
 						stdio: "ignore",
 						detached: true,
 					}).unref()
