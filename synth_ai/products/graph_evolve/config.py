@@ -362,6 +362,7 @@ class GraphOptimizationConfig(BaseModel):
         dataset_name = "hotpotqa"
         graph_type = "policy"
         graph_structure = "dag"
+        use_byok = true  # Use your own API keys for rollouts
         
         [graph_optimization.evolution]
         num_generations = 5
@@ -376,6 +377,12 @@ class GraphOptimizationConfig(BaseModel):
         
         [graph_optimization.limits]
         max_spend_usd = 10.0
+    
+    Attributes:
+        use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
+            False = disable (use Synth credits), None = auto-detect based on org settings.
+            When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
+            instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
     """
     
     # Algorithm selection
@@ -475,6 +482,17 @@ class GraphOptimizationConfig(BaseModel):
     verifier_mode: str = Field(default="rubric", description="Verifier mode: 'rubric', 'contrastive', 'fewshot'")
     verifier_model: str = Field(default="gpt-4o-mini", description="Model for LLM verifier scoring")
     
+    # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
+    use_byok: Optional[bool] = Field(
+        default=None,
+        description=(
+            "BYOK mode: True = force BYOK (fail if no key), "
+            "False = disable (use Synth credits), None = auto-detect based on org settings. "
+            "When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini) "
+            "instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint."
+        ),
+    )
+    
     @field_validator("graph_type", mode="before")
     @classmethod
     def validate_graph_type(cls, v: Any) -> GraphType:
@@ -540,6 +558,7 @@ class GraphOptimizationConfig(BaseModel):
             "dataset_config": self.dataset_config,
             "verifier_mode": self.verifier_mode,
             "verifier_model": self.verifier_model,
+            "use_byok": self.use_byok,
         }
 
         if self.max_llm_calls_per_run is not None:

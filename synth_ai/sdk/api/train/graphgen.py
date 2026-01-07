@@ -1,15 +1,13 @@
-"""First-class SDK API for GraphGen (Graph Opt).
-
-**Status:** Alpha
+"""First-class SDK API for GraphGen (Automated Design of Agentic Systems).
 
 GraphGen is a simplified "Workflows API" for prompt optimization that:
 - Uses a simple JSON dataset format (GraphGenTaskSet) instead of TOML configs
 - Auto-generates task apps from the dataset (no user-managed task apps)
-- Has built-in verifier configurations (rubric, contrastive, gold_examples)
+- Has built-in judge configurations (rubric, contrastive, gold_examples)
 - Wraps GEPA internally for the actual optimization
 
 Example CLI usage:
-    uvx synth-ai train --type graphgen --dataset my_tasks.json --poll
+    uvx synth-ai train --type adas --dataset my_tasks.json --poll
 
 Example SDK usage:
     from synth_ai.sdk.api.train.graphgen import GraphGenJob
@@ -24,10 +22,11 @@ Example SDK usage:
     # Or programmatically
     dataset = GraphGenTaskSet(
         metadata=GraphGenTaskSetMetadata(name="My Tasks"),
+        initial_prompt="You are a helpful assistant...",
         tasks=[GraphGenTask(id="t1", input={"question": "What is 2+2?"})],
         gold_outputs=[GraphGenGoldOutput(output={"answer": "4"}, task_id="t1")],
     )
-    job = GraphGenJob.from_dataset(dataset, policy_model="gpt-4o-mini", problem_spec="You are a helpful assistant.")
+    job = GraphGenJob.from_dataset(dataset, policy_model="gpt-4o-mini")
     job.submit()
 """
 
@@ -38,51 +37,27 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, cast
+from typing import Any, Callable, Dict, Literal, Optional, Sequence
 
-from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
-from synth_ai.data.enums import GraphType
 
 from .graphgen_models import (
     GraphGenJobConfig,
     GraphGenTaskSet,
     load_graphgen_taskset,
     parse_graphgen_taskset,
-    SessionTraceInput,
-    GraphGenGraphVerifierResponse,
+    # Aliases for new names
+    GraphGenJobConfig,
+    GraphGenTaskSet,
+    load_graphgen_taskset,
+    parse_graphgen_taskset,
 )
 from .utils import ensure_api_base, http_get, http_post
 
 
 @dataclass
 class GraphGenJobResult:
-    """Result from a GraphGen job.
-
-    Contains the final status and results of a completed GraphGen workflow
-    optimization job, including the best score and snapshot ID for the
-    optimized graph.
-
-    Attributes:
-        graphgen_job_id: Unique identifier for the GraphGen job (e.g.,
-            "graphgen_abc123def456").
-        status: Current job status. One of: "pending", "running", "succeeded",
-            "failed", "cancelled".
-        best_score: Best evaluation score achieved during optimization. Higher
-            is better. None if job hasn't completed successfully.
-        best_snapshot_id: ID of the graph snapshot with the best score. Use this
-            to download or deploy the optimized graph.
-        error: Error message if the job failed, None otherwise.
-        dataset_name: Name of the dataset used for optimization.
-        task_count: Number of tasks in the dataset.
-        graph_evolve_job_id: ID of the underlying graph evolution job, if applicable.
-
-    Example:
-        >>> result = job.get_result()
-        >>> if result.status == "succeeded":
-        ...     print(f"Best score: {result.best_score}")
-        ...     print(f"Snapshot ID: {result.best_snapshot_id}")
-    """
+    """Result from an GraphGen job."""
 
     graphgen_job_id: str
     status: str
@@ -96,29 +71,7 @@ class GraphGenJobResult:
 
 @dataclass
 class GraphGenSubmitResult:
-    """Result from submitting a GraphGen job.
-
-    Returned immediately after job submission with initial job metadata
-    and configuration details.
-
-    Attributes:
-        graphgen_job_id: Unique identifier for the GraphGen job.
-        status: Initial job status (typically "pending" or "running").
-        dataset_name: Name of the dataset being used for optimization.
-        task_count: Number of tasks in the dataset.
-        rollout_budget: Total number of rollouts (evaluations) budgeted for
-            this optimization job.
-        policy_model: Name of the LLM model being used for the policy
-            (e.g., "gpt-4o-mini", "claude-3-5-sonnet").
-        verifier_mode: Evaluation mode being used. One of: "rubric", "contrastive",
-            "gold_examples", "verifier_graph".
-        graph_evolve_job_id: ID of the underlying graph evolution job, if applicable.
-
-    Example:
-        >>> submit_result = job.submit()
-        >>> print(f"Job {submit_result.graphgen_job_id} started")
-        >>> print(f"Optimizing {submit_result.task_count} tasks with {submit_result.rollout_budget} rollouts")
-    """
+    """Result from submitting an GraphGen job."""
 
     graphgen_job_id: str
     status: str
@@ -126,49 +79,31 @@ class GraphGenSubmitResult:
     task_count: int
     rollout_budget: int
     policy_model: str
-    verifier_mode: str
+    judge_mode: str
     graph_evolve_job_id: Optional[str] = None
 
 
 class GraphGenJob:
     """High-level SDK class for running GraphGen workflow optimization jobs.
 
-    GraphGen (Graph Opt) provides a simplified API for
+    GraphGen (Automated Design of Agentic Systems) provides a simplified API for
     graph/workflow optimization that doesn't require users to manage task apps.
 
     Key differences from PromptLearningJob:
     - Uses JSON dataset format (GraphGenTaskSet) instead of TOML configs
     - No task app management required - GraphGen builds it internally
-    - Built-in verifier modes (rubric, contrastive, gold_examples)
+    - Built-in judge modes (rubric, contrastive, gold_examples)
     - Graph-first: trains multi-node workflows by default (Graph-GEPA)
     - Public graph downloads are redacted `.txt` exports only
     - Simpler configuration with sensible defaults
 
     Example:
-        >>> from synth_ai.sdk.api.train.graphgen import GraphGenJob
+        >>> from synth_ai.sdk.api.train.adas import GraphGenJob
         >>>
         >>> # Create job from dataset file
         >>> job = GraphGenJob.from_dataset(
         ...     dataset="my_tasks.json",
         ...     policy_model="gpt-4o-mini",
-        ...     rollout_budget=100,
-        ... )
-        >>>
-        >>> # Train a verifier graph
-        >>> verifier_job = GraphGenJob.from_dataset(
-        ...     dataset="verifier_dataset.json",
-        ...     graph_type="verifier",
-        ...     rollout_budget=200,
-        ... )
-        >>>
-        >>> # Train an RLM graph (massive context via tools)
-        >>> rlm_job = GraphGenJob.from_dataset(
-        ...     dataset="rlm_dataset.json",
-        ...     graph_type="rlm",
-        ...     configured_tools=[
-        ...         {"name": "materialize_context", "kind": "rlm_materialize", "stateful": True},
-        ...         {"name": "local_grep", "kind": "rlm_local_grep", "stateful": False},
-        ...     ],
         ...     rollout_budget=100,
         ... )
         >>>
@@ -183,10 +118,6 @@ class GraphGenJob:
         >>>
         >>> # Run inference with optimized prompt
         >>> output = job.run_inference({"question": "What is 2+2?"})
-        >>>
-        >>> # Run verifier with optimized verifier graph
-        >>> verification = verifier_job.run_verifier(trace_data)
-        >>> print(f"Outcome reward: {verification.outcome_reward}")
     """
 
     def __init__(
@@ -225,17 +156,15 @@ class GraphGenJob:
         cls,
         dataset: str | Path | Dict[str, Any] | GraphGenTaskSet,
         *,
-        graph_type: GraphType = GraphType.POLICY,
         policy_model: str = "gpt-4o-mini",
         rollout_budget: int = 100,
         proposer_effort: Literal["low", "medium", "high"] = "medium",
-        verifier_model: Optional[str] = None,
-        verifier_provider: Optional[str] = None,
+        judge_model: Optional[str] = None,
+        judge_provider: Optional[str] = None,
         population_size: int = 4,
         num_generations: Optional[int] = None,
         problem_spec: Optional[str] = None,
         target_llm_calls: Optional[int] = None,
-        configured_tools: Optional[List[Dict[str, Any]]] = None,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         auto_start: bool = True,
@@ -245,26 +174,17 @@ class GraphGenJob:
 
         Args:
             dataset: Dataset as file path, dict, or GraphGenTaskSet object
-            graph_type: Type of graph to train:
-                - "policy": Maps inputs to outputs (default).
-                - "verifier": Verifies/scores traces (requires verifier-compliant dataset).
-                - "rlm": Recursive Language Model - handles massive contexts via tool-based search
-                  and recursive LLM calls. Requires configured_tools parameter.
             policy_model: Model to use for policy inference
             rollout_budget: Total number of rollouts for optimization
-            proposer_effort: Proposer effort level ("medium" or "high").
-                "low" is not allowed as gpt-4.1-mini is too weak for graph generation.
-            verifier_model: Override verifier model from dataset
-            verifier_provider: Override verifier provider from dataset
+            proposer_effort: Proposer effort level (low, medium, high)
+            judge_model: Override judge model from dataset
+            judge_provider: Override judge provider from dataset
             population_size: Population size for GEPA
             num_generations: Number of generations (auto-calculated if not specified)
             problem_spec: Detailed problem specification for the graph proposer.
                 Include domain-specific info like valid output labels for classification.
             target_llm_calls: Target number of LLM calls for the graph (1-10).
                 Controls how many LLM nodes the graph should use. Defaults to 5.
-            configured_tools: Optional list of tool bindings for RLM graphs.
-                Required for graph_type="rlm". Each tool should be a dict with 'name', 'kind', and 'stateful'.
-                Example: [{'name': 'materialize_context', 'kind': 'rlm_materialize', 'stateful': True}]
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             auto_start: Whether to start the job immediately
@@ -280,12 +200,15 @@ class GraphGenJob:
             >>> # From dict
             >>> job = GraphGenJob.from_dataset({
             ...     "metadata": {"name": "My Tasks"},
+            ...     "initial_prompt": "You are helpful.",
             ...     "tasks": [{"id": "t1", "input": {"q": "Hi"}}],
-            ... }, problem_spec="You are helpful.")
+            ... })
             >>>
             >>> # From GraphGenTaskSet object
             >>> job = GraphGenJob.from_dataset(my_taskset, policy_model="gpt-4o")
         """
+        from synth_ai.core.env import get_backend_from_env
+
         # Parse dataset
         if isinstance(dataset, (str, Path)):
             parsed_dataset = load_graphgen_taskset(dataset)
@@ -298,11 +221,12 @@ class GraphGenJob:
                 f"dataset must be a file path, dict, or GraphGenTaskSet, got {type(dataset)}"
             )
 
-        # Resolve backend URL - default to production API
+        # Resolve backend URL
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                backend_url = PROD_BASE_URL
+                base, _ = get_backend_from_env()
+                backend_url = f"{base}/api" if not base.endswith("/api") else base
 
         # Resolve API key
         if not api_key:
@@ -314,17 +238,15 @@ class GraphGenJob:
 
         # Build config
         config = GraphGenJobConfig(
-            graph_type=graph_type,
             policy_model=policy_model,
             rollout_budget=rollout_budget,
             proposer_effort=proposer_effort,
-            verifier_model=verifier_model,
-            verifier_provider=verifier_provider,
+            verifier_model=judge_model,
+            verifier_provider=judge_provider,
             population_size=population_size,
             num_generations=num_generations,
             problem_spec=problem_spec,
             target_llm_calls=target_llm_calls,
-            configured_tools=configured_tools,
         )
 
         return cls(
@@ -353,11 +275,14 @@ class GraphGenJob:
         Returns:
             GraphGenJob instance for the existing job
         """
-        # Resolve backend URL - default to production API
+        from synth_ai.core.env import get_backend_from_env
+
+        # Resolve backend URL
         if not backend_url:
             backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
             if not backend_url:
-                backend_url = PROD_BASE_URL
+                base, _ = get_backend_from_env()
+                backend_url = f"{base}/api" if not base.endswith("/api") else base
 
         # Resolve API key
         if not api_key:
@@ -372,6 +297,7 @@ class GraphGenJob:
         from .graphgen_models import GraphGenTaskSetMetadata, GraphGenTask
         placeholder_dataset = GraphGenTaskSet(
             metadata=GraphGenTaskSetMetadata(name="(resumed job)"),
+            initial_prompt="(resumed job)",
             tasks=[GraphGenTask(id="placeholder", input={})],
         )
 
@@ -438,23 +364,27 @@ class GraphGenJob:
 
         # Build dataset dict and ensure it has an initial_prompt to satisfy legacy backend validation
         # GraphGen is graph-first and doesn't really use this, so we use a placeholder or problem_spec
-        dataset_dict = self.dataset.model_dump()
+        dataset_dict = self.dataset.model_dump(mode="json", exclude_none=False)
         if "initial_prompt" not in dataset_dict:
             dataset_dict["initial_prompt"] = self.config.problem_spec or "Optimizing prompt graph..."
+        
+        # Ensure verifier_config is properly included
+        if "verifier_config" not in dataset_dict or dataset_dict.get("verifier_config") is None:
+            # Fallback: create verifier_config from dataset's verifier_config
+            if self.dataset.verifier_config:
+                dataset_dict["verifier_config"] = self.dataset.verifier_config.model_dump(mode="json")
 
         payload: Dict[str, Any] = {
             "dataset": dataset_dict,
             "initial_prompt": None,  # Top-level initial_prompt is ignored in favor of dataset.initial_prompt
-            "graph_type": self.config.graph_type,
             "policy_model": self.config.policy_model,
             "policy_provider": self.config.policy_provider,
             "rollout_budget": self.config.rollout_budget,
             "proposer_effort": self.config.proposer_effort,
-            "verifier_model": self.config.verifier_model,
-            "verifier_provider": self.config.verifier_provider,
+            "judge_model": getattr(self.config, "verifier_model", None),
+            "judge_provider": getattr(self.config, "verifier_provider", None),
             "problem_spec": self.config.problem_spec,
             "target_llm_calls": self.config.target_llm_calls,
-            "configured_tools": self.config.configured_tools,
             "eval_sample_size": eval_sample_size,
             "feedback_sample_size": feedback_sample_size,
             "metadata": metadata,
@@ -468,16 +398,14 @@ class GraphGenJob:
             payload.pop("feedback_sample_size", None)
         if payload.get("policy_provider") is None:
             payload.pop("policy_provider", None)
-        if payload.get("verifier_model") is None:
-            payload.pop("verifier_model", None)
-        if payload.get("verifier_provider") is None:
-            payload.pop("verifier_provider", None)
+        if payload.get("judge_model") is None:
+            payload.pop("judge_model", None)
+        if payload.get("judge_provider") is None:
+            payload.pop("judge_provider", None)
         if payload.get("problem_spec") is None:
             payload.pop("problem_spec", None)
         if payload.get("target_llm_calls") is None:
             payload.pop("target_llm_calls", None)
-        if payload.get("configured_tools") is None:
-            payload.pop("configured_tools", None)
 
         return payload
 
@@ -503,8 +431,14 @@ class GraphGenJob:
 
         payload = self._build_payload()
 
-        # Submit job - use /graphgen/jobs endpoint
+        # Submit job - use /graphgen/jobs endpoint (legacy: /adas/jobs)
         create_url = f"{self.backend_url}/graphgen/jobs"
+        
+        # Debug: print payload for troubleshooting
+        import json
+        debug_payload = {k: v for k, v in payload.items() if k != "dataset"}
+        debug_payload["dataset"] = {"metadata": payload["dataset"].get("metadata", {}) if isinstance(payload["dataset"], dict) else "..."}
+        log_info(f"Submitting GraphGen job payload (excluding dataset): {json.dumps(debug_payload, indent=2)}")
         headers = {
             "X-API-Key": self.api_key,
             "Content-Type": "application/json",
@@ -539,6 +473,13 @@ class GraphGenJob:
 
         self._graph_evolve_job_id = js.get("graph_evolve_job_id")
 
+        # Get judge_mode from response or fallback to dataset verifier_config
+        judge_mode = js.get("judge_mode")
+        if not judge_mode and self.dataset.verifier_config:
+            judge_mode = self.dataset.verifier_config.mode
+        if not judge_mode:
+            judge_mode = "rubric"  # Default fallback
+        
         self._submit_result = GraphGenSubmitResult(
             graphgen_job_id=self._graphgen_job_id,
             status=js.get("status", "queued"),
@@ -546,7 +487,7 @@ class GraphGenJob:
             task_count=js.get("task_count", len(self.dataset.tasks)),
             rollout_budget=js.get("rollout_budget", self.config.rollout_budget),
             policy_model=js.get("policy_model", self.config.policy_model),
-            verifier_mode=js.get("verifier_mode", self.dataset.verifier_config.mode),
+            judge_mode=judge_mode,
             graph_evolve_job_id=self._graph_evolve_job_id,
         )
 
@@ -559,10 +500,10 @@ class GraphGenJob:
         """Get current job status.
 
         Returns:
-            Job status dictionary containing 'status', 'best_score', etc.
+            Job status dictionary
 
         Raises:
-            RuntimeError: If job hasn't been submitted yet or API call fails.
+            RuntimeError: If job hasn't been submitted yet
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -579,7 +520,7 @@ class GraphGenJob:
                 f"Failed to get job status: {resp.status_code} - {resp.text[:500]}"
             )
 
-        data: Dict[str, Any] = resp.json()
+        data = resp.json()
         gepa_id = data.get("graph_evolve_job_id")
         if gepa_id:
             self._graph_evolve_job_id = gepa_id
@@ -589,9 +530,6 @@ class GraphGenJob:
         """Start a queued GraphGen job.
 
         This is only needed if the job was created with auto_start=False or ended up queued.
-
-        Returns:
-            Updated job status dictionary.
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -607,7 +545,7 @@ class GraphGenJob:
             raise RuntimeError(
                 f"Failed to start job: {resp.status_code} - {resp.text[:500]}"
             )
-        data: Dict[str, Any] = resp.json()
+        data = resp.json()
         if self._submit_result and "status" in data:
             self._submit_result.status = data.get("status", self._submit_result.status)
         return data
@@ -615,12 +553,7 @@ class GraphGenJob:
     def get_events(self, *, since_seq: int = 0, limit: int = 1000) -> Dict[str, Any]:
         """Fetch events for this GraphGen job.
 
-        Args:
-            since_seq: Return events with sequence number greater than this.
-            limit: Maximum number of events to return.
-
-        Returns:
-            Backend envelope: {"events": [...], "has_more": bool, "next_seq": int}.
+        Returns backend envelope: {"events": [...], "has_more": bool, "next_seq": int}.
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -634,7 +567,7 @@ class GraphGenJob:
             raise RuntimeError(
                 f"Failed to get events: {resp.status_code} - {resp.text[:500]}"
             )
-        return cast(Dict[str, Any], resp.json())
+        return resp.json()
 
     def get_metrics(
         self,
@@ -646,14 +579,7 @@ class GraphGenJob:
     ) -> Dict[str, Any]:
         """Fetch metrics for this GraphGen job.
 
-        Args:
-            name: Optional metric name filter.
-            after_step: Optional step filter.
-            limit: Maximum number of metrics to return.
-            run_id: Optional run identifier filter.
-
-        Returns:
-            Dictionary containing 'metrics' list.
+        Mirrors GET /api/graphgen/jobs/{job_id}/metrics.
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -677,7 +603,7 @@ class GraphGenJob:
             raise RuntimeError(
                 f"Failed to get metrics: {resp.status_code} - {resp.text[:500]}"
             )
-        return cast(Dict[str, Any], resp.json())
+        return resp.json()
 
     def stream_until_complete(
         self,
@@ -687,38 +613,20 @@ class GraphGenJob:
         handlers: Optional[Sequence[Any]] = None,
         on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> Dict[str, Any]:
-        """Stream job events until completion using Server-Sent Events (SSE).
-
-        This method connects to the backend SSE stream and processes events in real-time
-        until the job reaches a terminal state (completed, failed, or cancelled).
-
-        Events include:
-        - job_started: Job execution began
-        - generation_started: New generation of candidates started
-        - candidate_evaluated: A candidate graph was evaluated
-        - generation_completed: Generation finished
-        - optimization_completed: Job finished successfully
-        - job_failed: Job encountered an error
+        """Stream job events until completion using SSE.
 
         Args:
-            timeout: Maximum seconds to wait for completion
+            timeout: Maximum seconds to wait
             interval: Seconds between status checks (for SSE reconnects)
-            handlers: Optional StreamHandler instances for custom event handling.
-                Defaults to GraphGenHandler which provides formatted CLI output.
-            on_event: Optional callback function called on each event.
-                Receives the event dict as argument.
+            handlers: Optional StreamHandler instances for custom event handling
+            on_event: Optional callback called on each event
 
         Returns:
-            Final job status dictionary containing 'status', 'best_score', etc.
+            Final job status dictionary
 
         Raises:
             RuntimeError: If job hasn't been submitted yet
-            TimeoutError: If timeout exceeded before job completion
-
-        Example:
-            >>> job.submit()
-            >>> result = job.stream_until_complete(timeout=1800.0)
-            >>> print(f"Best score: {result.get('best_score')}")
+            TimeoutError: If timeout exceeded
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -759,88 +667,6 @@ class GraphGenJob:
         final_status = asyncio.run(streamer.stream_until_terminal())
 
         return final_status
-
-    def poll_until_complete(
-        self,
-        *,
-        timeout: float = 3600.0,
-        interval: float = 5.0,
-        progress: bool = False,
-        on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> Dict[str, Any]:
-        """Poll job until it reaches a terminal state.
-
-        Similar to PromptLearningJob.poll_until_complete(), this method polls
-        the backend periodically instead of using SSE streaming. Useful for
-        notebooks and environments where SSE may not work reliably.
-
-        Args:
-            timeout: Maximum seconds to wait (default: 3600 = 1 hour)
-            interval: Seconds between poll attempts (default: 5)
-            progress: If True, print status updates during polling (useful for notebooks)
-            on_status: Optional callback called on each status update
-
-        Returns:
-            Final job status dictionary containing 'status', 'best_score', etc.
-
-        Raises:
-            RuntimeError: If job hasn't been submitted yet
-            TimeoutError: If timeout is exceeded
-
-        Example:
-            >>> result = job.poll_until_complete(progress=True)
-            [00:15] running | score: 0.72
-            [00:30] running | score: 0.78
-            [00:45] succeeded | score: 0.85
-        """
-        if not self.job_id:
-            raise RuntimeError("Job not yet submitted. Call submit() first.")
-
-        import time
-
-        start_time = time.time()
-        elapsed = 0.0
-        last_data: Dict[str, Any] = {}
-
-        while elapsed <= timeout:
-            try:
-                status_data = self.get_status()
-                last_data = dict(status_data) if isinstance(status_data, dict) else {}
-
-                status = last_data.get("status", "unknown")
-                best_score = last_data.get("best_score")
-
-                # Progress output
-                if progress:
-                    mins, secs = divmod(int(elapsed), 60)
-                    score_str = f"score: {best_score:.2f}" if best_score is not None else "score: --"
-                    print(f"[{mins:02d}:{secs:02d}] {status} | {score_str}")
-
-                # Callback for custom handling
-                if on_status:
-                    on_status(last_data)
-
-                # Check terminal state
-                if status in ("succeeded", "completed", "failed", "error", "cancelled"):
-                    return last_data
-
-                # Sleep before next poll
-                time.sleep(interval)
-                elapsed = time.time() - start_time
-
-            except Exception as e:
-                # On error, continue polling (might be transient network issue)
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning(f"Error polling job status: {e}")
-                time.sleep(interval)
-                elapsed = time.time() - start_time
-
-        # Timeout exceeded
-        raise TimeoutError(
-            f"Job {self.job_id} did not complete within {timeout}s timeout. "
-            f"Current status: {last_data.get('status', 'unknown')}"
-        )
 
     def download_prompt(self) -> str:
         """Download the optimized prompt from a completed job.
@@ -900,7 +726,6 @@ class GraphGenJob:
         model: Optional[str] = None,
         prompt_snapshot_id: Optional[str] = None,
         graph_snapshot_id: Optional[str] = None,
-        timeout: float = 120.0,
     ) -> Dict[str, Any]:
         """Run inference with the optimized graph/workflow.
 
@@ -911,14 +736,12 @@ class GraphGenJob:
             graph_snapshot_id: Specific GraphSnapshot to use (default: best).
                 Preferred for graph-first jobs. If provided, it is sent as
                 `prompt_snapshot_id` for backward-compatible backend routing.
-            timeout: Request timeout in seconds (default: 120.0 = 2 minutes for image generation tasks)
 
         Returns:
-            Output dictionary containing 'output', 'usage', etc.
+            Output dictionary
 
         Raises:
-            RuntimeError: If job hasn't been submitted or inference fails.
-            ValueError: If both prompt_snapshot_id and graph_snapshot_id are provided.
+            RuntimeError: If job hasn't been submitted
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -932,7 +755,7 @@ class GraphGenJob:
             "Content-Type": "application/json",
         }
 
-        payload: Dict[str, Any] = {
+        payload = {
             "job_id": self.job_id,
             "input": input_data,
         }
@@ -942,15 +765,14 @@ class GraphGenJob:
         if snapshot_id:
             payload["prompt_snapshot_id"] = snapshot_id
 
-        # Use longer timeout for image generation tasks (can take 2-3 minutes)
-        resp = http_post(url, headers=headers, json_body=payload, timeout=timeout)
+        resp = http_post(url, headers=headers, json_body=payload, timeout=60.0)
 
         if resp.status_code != 200:
             raise RuntimeError(
                 f"Inference failed: {resp.status_code} - {resp.text[:500]}"
             )
 
-        return cast(Dict[str, Any], resp.json())
+        return resp.json()
 
     def run_inference_output(
         self,
@@ -970,69 +792,6 @@ class GraphGenJob:
         if isinstance(result, dict):
             return result.get("output")
         return None
-
-    def run_verifier(
-        self,
-        session_trace: Dict[str, Any] | SessionTraceInput,
-        *,
-        context: Optional[Dict[str, Any]] = None,
-        prompt_snapshot_id: Optional[str] = None,
-        graph_snapshot_id: Optional[str] = None,
-    ) -> GraphGenGraphVerifierResponse:
-        """Run a verifier graph on an execution trace.
-
-        This method is specifically for graphs trained with graph_type=\"verifier\".
-        It accepts a V3 trace and returns structured rewards.
-
-        Args:
-            session_trace: V3 session trace to evaluate. Can be a dict or SessionTraceInput.
-            context: Additional context for evaluation (e.g., rubric overrides, task description).
-            prompt_snapshot_id: Specific snapshot to use (default: best).
-            graph_snapshot_id: Specific GraphSnapshot to use (default: best).
-                Preferred for graph-first jobs.
-
-        Returns:
-            GraphGenGraphVerifierResponse containing structured rewards.
-
-        Raises:
-            RuntimeError: If job hasn't been submitted or inference fails.
-        """
-        if not self.job_id:
-            raise RuntimeError("Job not yet submitted. Call submit() first.")
-
-        if prompt_snapshot_id and graph_snapshot_id:
-            raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
-
-        url = f"{self.backend_url}/graphgen/graph/verifier"
-        headers = {
-            "X-API-Key": self.api_key,
-            "Content-Type": "application/json",
-        }
-
-        # Convert trace to dict if it's a Pydantic model
-        if isinstance(session_trace, SessionTraceInput):
-            session_trace_data = session_trace.model_dump(mode="json")
-        else:
-            session_trace_data = session_trace
-
-        payload = {
-            "job_id": self.job_id,
-            "trace": session_trace_data,
-            "context": context,
-        }
-        
-        snapshot_id = graph_snapshot_id or prompt_snapshot_id
-        if snapshot_id:
-            payload["prompt_snapshot_id"] = snapshot_id
-
-        resp = http_post(url, headers=headers, json_body=payload, timeout=120.0)
-
-        if resp.status_code != 200:
-            raise RuntimeError(
-                f"Verifier inference failed: {resp.status_code} - {resp.text[:500]}"
-            )
-
-        return GraphGenGraphVerifierResponse.model_validate(resp.json())
 
     def get_graph_record(
         self,
@@ -1059,8 +818,7 @@ class GraphGenJob:
             - model: Model used for this graph (optional)
 
         Raises:
-            RuntimeError: If job hasn't been submitted or API call fails.
-            ValueError: If both prompt_snapshot_id and graph_snapshot_id are provided.
+            RuntimeError: If job hasn't been submitted
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -1074,7 +832,7 @@ class GraphGenJob:
             "Content-Type": "application/json",
         }
 
-        payload: Dict[str, Any] = {
+        payload = {
             "job_id": self.job_id,
         }
         snapshot_id = graph_snapshot_id or prompt_snapshot_id
@@ -1088,7 +846,7 @@ class GraphGenJob:
                 f"Failed to get graph record: {resp.status_code} - {resp.text[:500]}"
             )
 
-        return cast(Dict[str, Any], resp.json())
+        return resp.json()
 
 
 __all__ = [

@@ -243,6 +243,14 @@ class GraphGenVerifierConfig(BaseModel):
         default="groq",
         description="Provider for verifier model (groq, openai, google, anthropic)",
     )
+    scoring_guidelines: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional scoring guidelines for the verifier. "
+            "If not provided, defaults to BINARY scoring (1.0 = exact match, 0.0 = wrong). "
+            "Set this to allow partial credit, e.g., 'Allow partial credit for semantically similar answers.'"
+        ),
+    )
 
 
 class GraphGenTaskSet(BaseModel):
@@ -669,6 +677,10 @@ class GraphGenJobConfig(BaseModel):
             Include domain info like valid output labels, constraints, format requirements.
         target_llm_calls: Target LLM calls per graph run (1-10). Default: 5.
         configured_tools: Tool bindings for RLM graphs. Required for graph_type="rlm".
+        use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
+            False = disable (use Synth credits), None = auto-detect based on org settings.
+            When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
+            instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
 
     Returns:
         After training completes via GraphGenJob, you receive a result dict:
@@ -799,6 +811,17 @@ class GraphGenJobConfig(BaseModel):
             "{'name': 'materialize_context', 'kind': 'rlm_materialize', 'stateful': True} or "
             "{'name': 'local_grep', 'kind': 'rlm_local_grep', 'stateful': False}. "
             "See backend/graphs/tooling/catalog.py for available tool kinds."
+        ),
+    )
+
+    # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
+    use_byok: Optional[bool] = Field(
+        default=None,
+        description=(
+            "BYOK mode: True = force BYOK (fail if no key), "
+            "False = disable (use Synth credits), None = auto-detect based on org settings. "
+            "When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini) "
+            "instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint."
         ),
     )
 
