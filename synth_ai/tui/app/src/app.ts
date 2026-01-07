@@ -53,7 +53,11 @@ export async function runApp(): Promise<void> {
   let ctx: AppContext
 
   function render(): void {
-    renderApp(ctx)
+    try {
+      renderApp(ctx)
+    } catch {
+      // Ignore render errors - don't crash the app
+    }
   }
 
   ctx = createAppContext({
@@ -109,7 +113,7 @@ export async function runApp(): Promise<void> {
   ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx: number, option: any) => {
     if (!option?.value) return
     if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
-      void selectJob(ctx, option.value).then(() => render())
+      void selectJob(ctx, option.value).then(() => render()).catch(() => {})
     }
   })
 
@@ -173,13 +177,13 @@ export async function runApp(): Promise<void> {
 
   // Bootstrap function
   async function bootstrap(): Promise<void> {
-    void refreshHealth(ctx)
+    void refreshHealth(ctx).catch(() => {})
     await refreshIdentity(ctx)
     await refreshJobs(ctx)
 
     // Load tunnels (task apps) and check their health
     await refreshTunnels(ctx)
-    void refreshTunnelHealth(ctx).then(() => render())
+    void refreshTunnelHealth(ctx).then(() => render()).catch(() => {})
 
     const { initialJobId } = ctx.state.config
     if (initialJobId) {
@@ -193,11 +197,11 @@ export async function runApp(): Promise<void> {
 
     // Events polling still needed (SSE is only for job list metadata)
     scheduleEventsPoll()
-    registerInterval(setInterval(() => void refreshHealth(ctx), 30_000))
-    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()), 60_000))
+    registerInterval(setInterval(() => void refreshHealth(ctx).catch(() => {}), 30_000))
+    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()).catch(() => {}), 60_000))
     // Refresh tunnels every 30 seconds, health checks every 15 seconds
-    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()), 30_000))
-    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15_000))
+    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()).catch(() => {}), 30_000))
+    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()).catch(() => {}), 15_000))
 
     // Register SSE disconnect for cleanup on shutdown
     registerCleanup("sse", () => pollingState.sseDisconnect?.())

@@ -117,7 +117,7 @@ export function createJobFilterModal(ctx: AppContext): ModalController & {
     }
     if (!snapshot.selectedJob || !filteredJobs.some((job) => job.job_id === snapshot.selectedJob?.job_id)) {
       import("../api/jobs").then(({ selectJob }) => {
-        void selectJob(ctx, filteredJobs[0].job_id).then(() => ctx.render())
+        void selectJob(ctx, filteredJobs[0].job_id).then(() => ctx.render()).catch(() => {})
       })
       return
     }
