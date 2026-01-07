@@ -21671,27 +21671,34 @@ function isLocalAPIFile(content) {
 // src/modals/create-job-modal.ts
 import * as fs5 from "fs";
 import * as path8 from "path";
+import * as readline from "readline";
 import { spawn as spawn2 } from "child_process";
-function deployLocalApi(filePath, mode = "prod") {
+function deployLocalApi(filePath) {
   return new Promise((resolve3) => {
-    const proc = spawn2("python", ["-m", "synth_ai.tui.deploy", filePath, "--mode", mode], {
+    const proc = spawn2("python", ["-m", "synth_ai.tui.deploy", filePath], {
       stdio: ["ignore", "pipe", "pipe"]
     });
     let resolved = false;
-    proc.stdout.once("data", (data) => {
+    const rl = readline.createInterface({ input: proc.stdout });
+    rl.on("line", (line) => {
       if (resolved)
         return;
-      resolved = true;
       try {
-        const result = JSON.parse(data.toString().trim());
-        if (result.status === "ready") {
-          resolve3({ success: true, url: result.url, proc });
-        } else {
-          resolve3({ success: false, error: result.error || "Unknown error" });
+        const result = JSON.parse(line);
+        if (result.type === "status") {
+          if (result.status === "ready") {
+            resolved = true;
+            resolve3({ success: true, url: result.url, proc });
+          } else if (result.status === "error") {
+            resolved = true;
+            resolve3({ success: false, error: result.error || "Deployment failed" });
+          }
         }
-      } catch {
-        resolve3({ success: false, error: data.toString().trim() });
-      }
+      } catch {}
+    });
+    let stderrBuffer = "";
+    proc.stderr.on("data", (data) => {
+      stderrBuffer += data.toString();
     });
     proc.on("error", (err) => {
       if (resolved)
@@ -21704,7 +21711,8 @@ function deployLocalApi(filePath, mode = "prod") {
         return;
       resolved = true;
       if (code !== 0) {
-        resolve3({ success: false, error: `Process exited with code ${code}` });
+        const errorMsg = stderrBuffer.trim() || `Process exited with code ${code}`;
+        resolve3({ success: false, error: errorMsg });
       }
     });
   });
@@ -21749,12 +21757,6 @@ function createCreateJobModal(ctx) {
       createdFilePath = selectedExistingApi.filepath;
       const fileName = selectedExistingApi.filename;
       baseSteps.push({
-        id: "envMode",
-        label: "Environment",
-        prompt: "Select deployment environment:",
-        getOptions: () => ["prod (Cloudflare tunnel)", "dev (localhost + local backend)", "local (localhost only)"]
-      });
-      baseSteps.push({
         id: "deployLocalApi",
         label: "Deploy",
         prompt: `Deploy ${fileName}?`,
@@ -21768,9 +21770,7 @@ function createCreateJobModal(ctx) {
             ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
             updateContent();
             ctx.render();
-            const envModeSelection = getSelectionForStep("envMode");
-            const mode = envModeSelection?.value.split(" ")[0] || "prod";
-            const result = await deployLocalApi(createdFilePath, mode);
+            const result = await deployLocalApi(createdFilePath);
             isDeploying = false;
             if (result.success) {
               deployedUrl = result.url;
@@ -21858,12 +21858,6 @@ function createCreateJobModal(ctx) {
           }
         });
         baseSteps.push({
-          id: "envMode",
-          label: "Environment",
-          prompt: "Select deployment environment:",
-          getOptions: () => ["prod (Cloudflare tunnel)", "dev (localhost + local backend)", "local (localhost only)"]
-        });
-        baseSteps.push({
           id: "deployLocalApi",
           label: "Deploy",
           prompt: `Deploy ${actualFileName}?`,
@@ -21877,9 +21871,7 @@ function createCreateJobModal(ctx) {
               ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
               updateContent();
               ctx.render();
-              const envModeSelection = getSelectionForStep("envMode");
-              const mode = envModeSelection?.value.split(" ")[0] || "prod";
-              const result = await deployLocalApi(createdFilePath, mode);
+              const result = await deployLocalApi(createdFilePath);
               isDeploying = false;
               if (result.success) {
                 deployedUrl = result.url;
@@ -21912,9 +21904,7 @@ function createCreateJobModal(ctx) {
         if (value === "eval" /* Eval */ && deployedUrl) {
           ctx.state.snapshot.status = "Submitting eval job...";
           ctx.render();
-          const envModeSelection = getSelectionForStep("envMode");
-          const mode = envModeSelection?.value.split(" ")[0] || "prod";
-          spawn2("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default", "--mode", mode], {
+          spawn2("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
             stdio: "ignore",
             detached: true
           }).unref();
@@ -22475,7 +22465,7 @@ function createJobFilterModal(ctx) {
     }
     if (!snapshot2.selectedJob || !filteredJobs.some((job) => job.job_id === snapshot2.selectedJob?.job_id)) {
       Promise.resolve().then(() => (init_jobs(), exports_jobs)).then(({ selectJob: selectJob2 }) => {
-        selectJob2(ctx, filteredJobs[0].job_id).then(() => ctx.render());
+        selectJob2(ctx, filteredJobs[0].job_id).then(() => ctx.render()).catch(() => {});
       });
       return;
     }
@@ -23564,7 +23554,9 @@ async function runApp() {
   const ui = buildLayout(renderer, () => "");
   let ctx;
   function render() {
-    renderApp(ctx);
+    try {
+      renderApp(ctx);
+    } catch {}
   }
   ctx = createAppContext({
     renderer,
@@ -23610,7 +23602,7 @@ async function runApp() {
     if (!option?.value)
       return;
     if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
-      selectJob(ctx, option.value).then(() => render());
+      selectJob(ctx, option.value).then(() => render()).catch(() => {});
     }
   });
   focusManager.setDefault({
@@ -23653,11 +23645,11 @@ async function runApp() {
     await bootstrap();
   }
   async function bootstrap() {
-    refreshHealth(ctx);
+    refreshHealth(ctx).catch(() => {});
     await refreshIdentity(ctx);
     await refreshJobs(ctx);
     await refreshTunnels(ctx);
-    refreshTunnelHealth(ctx).then(() => render());
+    refreshTunnelHealth(ctx).then(() => render()).catch(() => {});
     const { initialJobId } = ctx.state.config;
     if (initialJobId) {
       await selectJob(ctx, initialJobId);
@@ -23666,10 +23658,10 @@ async function runApp() {
     }
     startJobsStream();
     scheduleEventsPoll();
-    registerInterval(setInterval(() => void refreshHealth(ctx), 30000));
-    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()), 60000));
-    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()), 30000));
-    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15000));
+    registerInterval(setInterval(() => void refreshHealth(ctx).catch(() => {}), 30000));
+    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()).catch(() => {}), 60000));
+    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()).catch(() => {}), 30000));
+    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()).catch(() => {}), 15000));
     registerCleanup("sse", () => pollingState.sseDisconnect?.());
     render();
   }
@@ -23795,7 +23787,8 @@ async function runApp() {
 }
 
 // src/index.ts
-runApp().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
+process.on("unhandledRejection", () => {});
+process.on("uncaughtException", () => {});
+runApp().catch(() => {
+  shutdown(1);
 });
