@@ -103,7 +103,7 @@ export async function runApp(): Promise<void> {
   const handleKeypress = createKeyboardHandler(ctx, modals)
 
   // Wire up event listeners
-  renderer.keyInput.on("keypress", handleKeypress)
+  ;(renderer.keyInput as any).on("keypress", handleKeypress)
 
   // Jobs select widget
   ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx: number, option: any) => {

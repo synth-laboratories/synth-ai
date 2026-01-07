@@ -42,7 +42,7 @@ export function createResultsModal(ctx: AppContext): ModalController & {
   function updateContent(): void {
     if (!modal.visible) return
 
-    const raw = formatResultsExpanded(snapshot)
+    const raw = formatResultsExpanded(snapshot) ?? "No results available"
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
     const maxWidth = Math.max(20, cols - 20)
     const wrapped = wrapModalText(raw, maxWidth)

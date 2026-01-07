@@ -38,6 +38,13 @@ export type TunnelRecord = {
   health_check_error?: string
 }
 
+/** Environment key option from .env file scanning */
+export type EnvKeyOption = {
+  key: string
+  sources: string[]
+  varNames: string[]
+}
+
 /** Client-side health check result */
 export type TunnelHealthResult = {
   healthy: boolean
