@@ -50,9 +50,6 @@ def run_eval_job(task_app_url: str, env_name: str, mode: str = "prod") -> None:
             backend_base=backend_base,
             synth_api_key=api_key,
         )
-        # Add sk_env_ prefix if not already present
-        if not task_app_api_key.startswith("sk_env_"):
-            task_app_api_key = f"sk_env_{task_app_api_key}"
     except Exception as e:
         _output({"status": "error", "error": f"Failed to get task app API key: {e}"})
         return
