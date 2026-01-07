@@ -10,9 +10,28 @@ export function footerText(ctx: AppContext): string {
 		? `status=${Array.from(appState.jobStatusFilter).join(",")}`
 		: "status=all"
 
+	// Show different keys based on active pane
+	if (appState.activePane === "logs") {
+		const activeFilters = Array.from(appState.logsSourceFilter).join(",")
+		const tailLabel = appState.logsTailMode ? "[TAIL]" : ""
+		const keys = [
+			"j/k scroll",
+			"t tail",
+			`1/2/3 filter=${activeFilters}`,
+			tailLabel,
+			"e events",
+			"b jobs",
+			"tab toggle",
+			"n create",
+			"q quit",
+		].filter(Boolean)
+		return `Keys: ${keys.join(" | ")}`
+	}
+
 	const keys = [
 		"e events",
 		"b jobs",
+		"g logs",
 		"n create",
 		"tab toggle",
 		"j/k nav",

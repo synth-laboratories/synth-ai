@@ -4,8 +4,7 @@
 import type { AppContext } from "../context"
 import type { LoginModalController } from "../login_modal"
 import { shutdown } from "../lifecycle"
-import { setActivePane } from "../ui/panes"
-import { moveEventSelection, toggleSelectedEventExpanded } from "../ui/events"
+import { setActivePane, cycleActivePane } from "../ui/panes"
 import { refreshJobs, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
 import { focusManager } from "../focus"
 
@@ -28,8 +27,6 @@ export function createKeyboardHandler(
   ctx: AppContext,
   modals: ModalControllers,
 ): (key: any) => void {
-  const { appState } = ctx.state
-
   return function handleKeypress(key: any): void {
     // Ctrl+C always quits
     if (key.ctrl && key.name === "c") {
@@ -50,7 +47,7 @@ export function createKeyboardHandler(
 
     // Global shortcuts
     if (key.name === "tab") {
-      setActivePane(ctx, appState.activePane === "jobs" ? "events" : "jobs")
+      cycleActivePane(ctx)
       return
     }
     if (key.name === "e") {
@@ -59,6 +56,10 @@ export function createKeyboardHandler(
     }
     if (key.name === "b") {
       setActivePane(ctx, "jobs")
+      return
+    }
+    if (key.name === "g") {
+      setActivePane(ctx, "logs")
       return
     }
     if (key.name === "r") {
@@ -119,29 +120,7 @@ export function createKeyboardHandler(
       return
     }
 
-    // Pane-specific navigation
-    if (appState.activePane === "events") {
-      if (key.name === "up" || key.name === "k") {
-        moveEventSelection(ctx, -1)
-        ctx.render()
-        return
-      }
-      if (key.name === "down" || key.name === "j") {
-        moveEventSelection(ctx, 1)
-        ctx.render()
-        return
-      }
-      if (key.name === "return" || key.name === "enter") {
-        modals.event.open()
-        return
-      }
-      if (key.name === "x") {
-        toggleSelectedEventExpanded(ctx)
-        ctx.render()
-        return
-      }
-    }
-
-    // Jobs pane - let the select widget handle j/k navigation
+    // Pane-specific navigation is handled by focus system (see panes.ts)
+    // Jobs pane uses the select widget's built-in navigation
   }
 }

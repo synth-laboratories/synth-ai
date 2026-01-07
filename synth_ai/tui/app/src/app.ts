@@ -24,6 +24,7 @@ import { createCreateJobModal } from "./modals/create-job-modal"
 
 import { createKeyboardHandler } from "./handlers/keyboard"
 import { focusManager } from "./focus"
+import { initPaneFocusables } from "./ui/panes"
 import { refreshJobs, selectJob } from "./api/jobs"
 import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
@@ -123,6 +124,9 @@ export async function runApp(): Promise<void> {
     onFocus: () => ui.jobsSelect.focus(),
     onBlur: () => ui.jobsSelect.blur(),
   })
+
+  // Initialize pane focusables for events/logs navigation
+  initPaneFocusables(ctx, modals.event.open)
 
   // Start renderer
   renderer.start()

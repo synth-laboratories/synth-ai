@@ -8,6 +8,7 @@ import { formatDetails, formatMetrics, formatResults } from "../formatters"
 import { extractEnvName } from "../utils/job"
 import { getFilteredJobs } from "../selectors/jobs"
 import { renderEventCards } from "./events"
+import { renderLogs } from "./logs"
 import { updatePaneIndicators } from "./panes"
 import { formatStatus } from "./status"
 import { footerText } from "./footer"
@@ -116,6 +117,7 @@ export function renderApp(ctx: AppContext): void {
     ? `Task Apps (${snapshot.tunnels.length})`
     : "Task Apps"
   renderEventCards(ctx)
+  renderLogs(ctx)
   updatePaneIndicators(ctx)
   ui.statusText.content = formatStatus(ctx)
   ui.footerText.content = footerText(ctx)

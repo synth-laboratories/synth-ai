@@ -19440,6 +19440,11 @@ var appState = {
   createJobCursor: 0,
   deployedUrl: null,
   deployProc: null,
+  logsActiveDeploymentId: null,
+  logsSourceFilter: new Set(["uvicorn", "cloudflare", "app"]),
+  logsSelectedIndex: 0,
+  logsWindowStart: 0,
+  logsTailMode: true,
   jobSelectToken: 0,
   eventsToken: 0
 };
@@ -19507,7 +19512,8 @@ var snapshot = {
   allCandidates: [],
   tunnels: [],
   tunnelHealthResults: new Map,
-  tunnelsLoading: false
+  tunnelsLoading: false,
+  deployments: new Map
 };
 
 // src/context.ts
@@ -19595,9 +19601,15 @@ function buildLayout(renderer, getFooterText) {
     description: "View Job's Events",
     key: "e"
   });
+  const logsTabText = createKeyHint(renderer, {
+    id: "tabs-logs",
+    description: "View Logs",
+    key: "g"
+  });
   tabsBox.add(newJobTabText);
   tabsBox.add(jobsTabText);
   tabsBox.add(eventsTabText);
+  tabsBox.add(logsTabText);
   root.add(tabsBox);
   const main2 = new BoxRenderable(renderer, {
     id: "main",
@@ -19752,6 +19764,39 @@ function buildLayout(renderer, getFooterText) {
   eventsBox.add(eventsList);
   eventsBox.add(eventsEmptyText);
   detailColumn.add(eventsBox);
+  const logsBox = new BoxRenderable(renderer, {
+    id: "logs-box",
+    width: "auto",
+    height: "auto",
+    flexGrow: 1,
+    flexShrink: 1,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Logs",
+    titleAlignment: "left",
+    border: true,
+    visible: false
+  });
+  const logsContent = new BoxRenderable(renderer, {
+    id: "logs-content",
+    width: "auto",
+    height: "auto",
+    flexDirection: "column",
+    flexGrow: 1,
+    flexShrink: 1,
+    gap: 0,
+    border: false
+  });
+  const logsEmptyText = new TextRenderable(renderer, {
+    id: "logs-empty-text",
+    content: `No active deployments.
+
+Press 'n' to deploy a LocalAPI.`,
+    fg: "#94a3b8"
+  });
+  logsBox.add(logsContent);
+  logsBox.add(logsEmptyText);
+  detailColumn.add(logsBox);
   const statusBox = new BoxRenderable(renderer, {
     id: "status-box",
     width: "auto",
@@ -19789,18 +19834,26 @@ function buildLayout(renderer, getFooterText) {
     jobsBox,
     eventsBox,
     jobsSelect,
+    detailBox,
     detailText,
+    resultsBox,
     resultsText,
+    metricsBox,
     metricsText,
     eventsList,
     eventsEmptyText,
     jobsTabText,
     eventsTabText,
+    logsTabText,
     statusText,
     footerText: footerTextNode,
     taskAppsBox,
     taskAppsText,
-    eventCards: []
+    logsBox,
+    logsContent,
+    logsEmptyText,
+    eventCards: [],
+    logEntries: []
   };
 }
 
@@ -20531,28 +20584,338 @@ function toggleSelectedEventExpanded(ctx) {
   event.expanded = !event.expanded;
 }
 
+// src/ui/logs.ts
+var SOURCE_COLORS = {
+  uvicorn: "#22c55e",
+  cloudflare: "#3b82f6",
+  app: "#f59e0b"
+};
+var LEVEL_COLORS = {
+  ERROR: "#ef4444",
+  WARNING: "#f59e0b",
+  INFO: "#e2e8f0",
+  DEBUG: "#94a3b8"
+};
+function clamp2(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+function getLogsLayoutMetrics(_ctx) {
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const available = Math.max(1, rows - 16);
+  return { visibleCount: available };
+}
+function getFilteredLogs(ctx) {
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const deploymentId = appState2.logsActiveDeploymentId;
+  if (!deploymentId)
+    return [];
+  const deployment = snapshot2.deployments.get(deploymentId);
+  if (!deployment)
+    return [];
+  return deployment.logs.filter((entry) => entry.type === "log" && appState2.logsSourceFilter.has(entry.source));
+}
+function formatTimestamp2(timestamp) {
+  return new Date(timestamp * 1000).toISOString().slice(11, 23);
+}
+function hexToRgb2(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r};${g};${b}`;
+}
+function formatLogEntry(log, maxWidth) {
+  const timestamp = formatTimestamp2(log.timestamp);
+  const sourceColor = SOURCE_COLORS[log.source] || "#94a3b8";
+  const prefix = `\x1B[90m${timestamp}\x1B[0m \x1B[38;2;${hexToRgb2(sourceColor)}m[${log.source.padEnd(10)}]\x1B[0m `;
+  const prefixVisibleLength = timestamp.length + 1 + 12 + 1;
+  const messageMaxLen = maxWidth - prefixVisibleLength - 2;
+  let message = log.message;
+  if (message.length > messageMaxLen && messageMaxLen > 3) {
+    message = message.slice(0, messageMaxLen - 3) + "...";
+  }
+  return prefix + message;
+}
+function renderLogs(ctx) {
+  const { ui, renderer } = ctx;
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const deploymentId = appState2.logsActiveDeploymentId;
+  const deployment = deploymentId ? snapshot2.deployments.get(deploymentId) : null;
+  const filteredLogs = getFilteredLogs(ctx);
+  if (!deployment || filteredLogs.length === 0) {
+    ui.logsContent.visible = false;
+    ui.logsEmptyText.visible = true;
+    if (!deployment) {
+      if (snapshot2.deployments.size === 0) {
+        ui.logsEmptyText.content = `No active deployments.
+
+Press 'n' to deploy a LocalAPI.`;
+      } else {
+        ui.logsEmptyText.content = "Select a deployment to view logs.";
+      }
+    } else {
+      ui.logsEmptyText.content = "Waiting for logs...";
+    }
+    return;
+  }
+  ui.logsEmptyText.visible = false;
+  ui.logsContent.visible = true;
+  const { visibleCount } = getLogsLayoutMetrics(ctx);
+  const total = filteredLogs.length;
+  if (appState2.logsTailMode && total > 0) {
+    appState2.logsWindowStart = Math.max(0, total - visibleCount);
+    appState2.logsSelectedIndex = total - 1;
+  }
+  appState2.logsSelectedIndex = clamp2(appState2.logsSelectedIndex, 0, Math.max(0, total - 1));
+  appState2.logsWindowStart = clamp2(appState2.logsWindowStart, 0, Math.max(0, total - visibleCount));
+  if (appState2.logsSelectedIndex < appState2.logsWindowStart) {
+    appState2.logsWindowStart = appState2.logsSelectedIndex;
+  } else if (appState2.logsSelectedIndex >= appState2.logsWindowStart + visibleCount) {
+    appState2.logsWindowStart = appState2.logsSelectedIndex - visibleCount + 1;
+  }
+  const visibleLogs = filteredLogs.slice(appState2.logsWindowStart, appState2.logsWindowStart + visibleCount);
+  for (const entry of ui.logEntries) {
+    ui.logsContent.remove(entry.text.id);
+  }
+  ui.logEntries = [];
+  const termWidth = typeof process.stdout?.columns === "number" ? process.stdout.columns : 80;
+  const maxWidth = termWidth - 4;
+  visibleLogs.forEach((log, index) => {
+    const globalIndex = appState2.logsWindowStart + index;
+    const isSelected = globalIndex === appState2.logsSelectedIndex && !appState2.logsTailMode;
+    const content = formatLogEntry(log, maxWidth);
+    const levelColor = LEVEL_COLORS[log.level || "INFO"] || "#e2e8f0";
+    const text = new TextRenderable(renderer, {
+      id: `log-entry-${index}`,
+      content,
+      fg: isSelected ? "#ffffff" : levelColor,
+      bg: isSelected ? "#1e293b" : undefined
+    });
+    ui.logsContent.add(text);
+    ui.logEntries.push({ text });
+  });
+  const activeFilters = Array.from(appState2.logsSourceFilter).join(", ");
+  const position = total > visibleCount ? ` [${appState2.logsWindowStart + 1}-${Math.min(appState2.logsWindowStart + visibleCount, total)}/${total}]` : "";
+  const tailIndicator = appState2.logsTailMode ? " [TAIL]" : "";
+  ui.logsBox.title = `Logs (${activeFilters})${position}${tailIndicator}`;
+}
+function moveLogSelection(ctx, delta) {
+  const filteredLogs = getFilteredLogs(ctx);
+  if (!filteredLogs.length)
+    return;
+  const { appState: appState2 } = ctx.state;
+  appState2.logsTailMode = false;
+  appState2.logsSelectedIndex = clamp2(appState2.logsSelectedIndex + delta, 0, filteredLogs.length - 1);
+}
+function pageLogSelection(ctx, direction) {
+  const { visibleCount } = getLogsLayoutMetrics(ctx);
+  const delta = direction === "up" ? -visibleCount : visibleCount;
+  moveLogSelection(ctx, delta);
+}
+function toggleLogSource(ctx, source) {
+  const { appState: appState2 } = ctx.state;
+  if (appState2.logsSourceFilter.has(source)) {
+    if (appState2.logsSourceFilter.size > 1) {
+      appState2.logsSourceFilter.delete(source);
+    }
+  } else {
+    appState2.logsSourceFilter.add(source);
+  }
+}
+function enableTailMode(ctx) {
+  ctx.state.appState.logsTailMode = true;
+}
+function setActiveDeployment(ctx, deploymentId) {
+  const { appState: appState2 } = ctx.state;
+  appState2.logsActiveDeploymentId = deploymentId;
+  appState2.logsSelectedIndex = 0;
+  appState2.logsWindowStart = 0;
+  appState2.logsTailMode = true;
+}
+
+// src/focus.ts
+class FocusManager {
+  stack = [];
+  defaultFocusable = null;
+  setDefault(focusable) {
+    this.defaultFocusable = focusable;
+    if (this.stack.length === 0) {
+      focusable.onFocus?.();
+    }
+  }
+  push(focusable) {
+    const current = this.current() ?? this.defaultFocusable;
+    current?.onBlur?.();
+    this.stack.push(focusable);
+    focusable.onFocus?.();
+  }
+  pop(id) {
+    if (id) {
+      const idx = this.stack.findIndex((f) => f.id === id);
+      if (idx >= 0) {
+        const removed = this.stack.splice(idx, 1)[0];
+        removed?.onBlur?.();
+      }
+    } else {
+      const removed = this.stack.pop();
+      removed?.onBlur?.();
+    }
+    const next = this.current() ?? this.defaultFocusable;
+    next?.onFocus?.();
+  }
+  current() {
+    return this.stack[this.stack.length - 1] ?? null;
+  }
+  handleKey(key) {
+    const active = this.current();
+    if (active?.handleKey) {
+      return active.handleKey(key);
+    }
+    return false;
+  }
+  hasOverlay() {
+    return this.stack.length > 0;
+  }
+  clear() {
+    while (this.stack.length > 0) {
+      const removed = this.stack.pop();
+      removed?.onBlur?.();
+    }
+    this.defaultFocusable?.onFocus?.();
+  }
+}
+var focusManager = new FocusManager;
+
 // src/ui/panes.ts
+function createLogsPaneFocusable(ctx) {
+  return {
+    id: "logs-pane",
+    handleKey: (key) => {
+      if (key.name === "up" || key.name === "k") {
+        moveLogSelection(ctx, -1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "down" || key.name === "j") {
+        moveLogSelection(ctx, 1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "pageup") {
+        pageLogSelection(ctx, "up");
+        ctx.render();
+        return true;
+      }
+      if (key.name === "pagedown") {
+        pageLogSelection(ctx, "down");
+        ctx.render();
+        return true;
+      }
+      if (key.name === "1") {
+        toggleLogSource(ctx, "uvicorn");
+        ctx.render();
+        return true;
+      }
+      if (key.name === "2") {
+        toggleLogSource(ctx, "cloudflare");
+        ctx.render();
+        return true;
+      }
+      if (key.name === "3") {
+        toggleLogSource(ctx, "app");
+        ctx.render();
+        return true;
+      }
+      if (key.name === "t") {
+        enableTailMode(ctx);
+        ctx.render();
+        return true;
+      }
+      return false;
+    }
+  };
+}
+function createEventsPaneFocusable(ctx, openEventModal) {
+  return {
+    id: "events-pane",
+    handleKey: (key) => {
+      if (key.name === "up" || key.name === "k") {
+        moveEventSelection(ctx, -1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "down" || key.name === "j") {
+        moveEventSelection(ctx, 1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        openEventModal();
+        return true;
+      }
+      if (key.name === "x") {
+        toggleSelectedEventExpanded(ctx);
+        ctx.render();
+        return true;
+      }
+      return false;
+    }
+  };
+}
+var logsFocusable = null;
+var eventsFocusable = null;
+function initPaneFocusables(ctx, openEventModal) {
+  logsFocusable = createLogsPaneFocusable(ctx);
+  eventsFocusable = createEventsPaneFocusable(ctx, openEventModal);
+}
 function setActivePane(ctx, pane) {
   const { ui } = ctx;
   const { appState: appState2 } = ctx.state;
   if (appState2.activePane === pane)
     return;
+  if (appState2.activePane === "logs" && logsFocusable) {
+    focusManager.pop("logs-pane");
+  }
+  if (appState2.activePane === "events" && eventsFocusable) {
+    focusManager.pop("events-pane");
+  }
   appState2.activePane = pane;
   if (pane === "jobs") {
     ui.jobsSelect.focus();
   } else {
     ui.jobsSelect.blur();
+    if (pane === "logs" && logsFocusable) {
+      focusManager.push(logsFocusable);
+    }
+    if (pane === "events" && eventsFocusable) {
+      focusManager.push(eventsFocusable);
+    }
   }
   updatePaneIndicators(ctx);
   ctx.requestRender();
+}
+function cycleActivePane(ctx) {
+  const { appState: appState2 } = ctx.state;
+  const panes = ["jobs", "events", "logs"];
+  const currentIdx = panes.indexOf(appState2.activePane);
+  const nextIdx = (currentIdx + 1) % panes.length;
+  setActivePane(ctx, panes[nextIdx]);
 }
 function updatePaneIndicators(ctx) {
   const { ui } = ctx;
   const { appState: appState2 } = ctx.state;
   ui.jobsTabText.fg = appState2.activePane === "jobs" ? "#f8fafc" : "#94a3b8";
   ui.eventsTabText.fg = appState2.activePane === "events" ? "#f8fafc" : "#94a3b8";
+  ui.logsTabText.fg = appState2.activePane === "logs" ? "#f8fafc" : "#94a3b8";
   ui.jobsBox.borderColor = appState2.activePane === "jobs" ? "#60a5fa" : "#334155";
   ui.eventsBox.borderColor = appState2.activePane === "events" ? "#60a5fa" : "#334155";
+  ui.logsBox.borderColor = appState2.activePane === "logs" ? "#60a5fa" : "#334155";
+  const inLogsMode = appState2.activePane === "logs";
+  ui.detailBox.visible = !inLogsMode;
+  ui.resultsBox.visible = !inLogsMode;
+  ui.metricsBox.visible = !inLogsMode;
+  ui.taskAppsBox.visible = !inLogsMode;
+  ui.eventsBox.visible = !inLogsMode;
+  ui.logsBox.visible = inLogsMode;
 }
 
 // src/ui/status.ts
@@ -20572,9 +20935,26 @@ function footerText(ctx) {
   const { appState: appState2 } = ctx.state;
   const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
   const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
+  if (appState2.activePane === "logs") {
+    const activeFilters = Array.from(appState2.logsSourceFilter).join(",");
+    const tailLabel = appState2.logsTailMode ? "[TAIL]" : "";
+    const keys2 = [
+      "j/k scroll",
+      "t tail",
+      `1/2/3 filter=${activeFilters}`,
+      tailLabel,
+      "e events",
+      "b jobs",
+      "tab toggle",
+      "n create",
+      "q quit"
+    ].filter(Boolean);
+    return `Keys: ${keys2.join(" | ")}`;
+  }
   const keys = [
     "e events",
     "b jobs",
+    "g logs",
     "n create",
     "tab toggle",
     "j/k nav",
@@ -20668,6 +21048,7 @@ function renderApp(ctx) {
   ui.taskAppsText.content = formatTaskApps(snapshot2.tunnels, snapshot2.tunnelHealthResults, snapshot2.tunnelsLoading);
   ui.taskAppsBox.title = snapshot2.tunnels.length > 0 ? `Task Apps (${snapshot2.tunnels.length})` : "Task Apps";
   renderEventCards(ctx);
+  renderLogs(ctx);
   updatePaneIndicators(ctx);
   ui.statusText.content = formatStatus(ctx);
   ui.footerText.content = footerText(ctx);
@@ -20968,7 +21349,7 @@ function wrapModalText(text, width) {
   }
   return lines;
 }
-function clamp2(value, min, max) {
+function clamp3(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
@@ -21017,59 +21398,6 @@ async function deleteSavedApiKey() {
     await fs2.promises.unlink(API_KEY_PATH);
   } catch {}
 }
-
-// src/focus.ts
-class FocusManager {
-  stack = [];
-  defaultFocusable = null;
-  setDefault(focusable) {
-    this.defaultFocusable = focusable;
-    if (this.stack.length === 0) {
-      focusable.onFocus?.();
-    }
-  }
-  push(focusable) {
-    const current = this.current() ?? this.defaultFocusable;
-    current?.onBlur?.();
-    this.stack.push(focusable);
-    focusable.onFocus?.();
-  }
-  pop(id) {
-    if (id) {
-      const idx = this.stack.findIndex((f) => f.id === id);
-      if (idx >= 0) {
-        const removed = this.stack.splice(idx, 1)[0];
-        removed?.onBlur?.();
-      }
-    } else {
-      const removed = this.stack.pop();
-      removed?.onBlur?.();
-    }
-    const next = this.current() ?? this.defaultFocusable;
-    next?.onFocus?.();
-  }
-  current() {
-    return this.stack[this.stack.length - 1] ?? null;
-  }
-  handleKey(key) {
-    const active = this.current();
-    if (active?.handleKey) {
-      return active.handleKey(key);
-    }
-    return false;
-  }
-  hasOverlay() {
-    return this.stack.length > 0;
-  }
-  clear() {
-    while (this.stack.length > 0) {
-      const removed = this.stack.pop();
-      removed?.onBlur?.();
-    }
-    this.defaultFocusable?.onFocus?.();
-  }
-}
-var focusManager = new FocusManager;
 
 // src/login_modal.ts
 function createLoginModal(deps) {
@@ -21319,7 +21647,7 @@ function createConfigModal(ctx) {
     const maxWidth = Math.max(20, cols - 20);
     const wrapped = wrapModalText(raw, maxWidth);
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
-    appState2.configModalOffset = clamp2(appState2.configModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    appState2.configModalOffset = clamp3(appState2.configModalOffset, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.configModalOffset, appState2.configModalOffset + maxLines);
     modal.setTitle("Job Configuration");
     modal.setContent(visible.join(`
@@ -21673,11 +22001,25 @@ import * as fs5 from "fs";
 import * as path8 from "path";
 import * as readline from "readline";
 import { spawn as spawn2 } from "child_process";
-function deployLocalApi(filePath) {
+function deployLocalApi(ctx, filePath) {
   return new Promise((resolve3) => {
-    const proc = spawn2("python", ["-m", "synth_ai.tui.deploy", filePath], {
+    const fileName = path8.basename(filePath, ".py");
+    const deploymentId = `${fileName}_${Date.now()}`;
+    const deployment = {
+      id: deploymentId,
+      localApiPath: filePath,
+      url: null,
+      status: "deploying",
+      logs: [],
+      proc: null,
+      startedAt: new Date
+    };
+    ctx.state.snapshot.deployments.set(deploymentId, deployment);
+    setActiveDeployment(ctx, deploymentId);
+    const proc = spawn2("python", ["-m", "synth_ai.tui.deploy", filePath, "--deployment-id", deploymentId], {
       stdio: ["ignore", "pipe", "pipe"]
     });
+    deployment.proc = proc;
     let resolved = false;
     const rl = readline.createInterface({ input: proc.stdout });
     rl.on("line", (line) => {
@@ -21704,7 +22046,9 @@ function deployLocalApi(filePath) {
       if (resolved)
         return;
       resolved = true;
-      resolve3({ success: false, error: err.message });
+      deployment.status = "error";
+      deployment.error = err.message;
+      resolve3({ success: false, error: err.message, deploymentId });
     });
     proc.on("close", (code) => {
       if (resolved)
@@ -21770,7 +22114,7 @@ function createCreateJobModal(ctx) {
             ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
             updateContent();
             ctx.render();
-            const result = await deployLocalApi(createdFilePath);
+            const result = await deployLocalApi(ctx, createdFilePath);
             isDeploying = false;
             if (result.success) {
               deployedUrl = result.url;
@@ -21871,7 +22215,7 @@ function createCreateJobModal(ctx) {
               ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
               updateContent();
               ctx.render();
-              const result = await deployLocalApi(createdFilePath);
+              const result = await deployLocalApi(ctx, createdFilePath);
               isDeploying = false;
               if (result.success) {
                 deployedUrl = result.url;
@@ -22057,7 +22401,7 @@ function createCreateJobModal(ctx) {
     const step = getCurrentStep();
     const options = step.getOptions();
     const max = options.length - 1;
-    cursor = clamp2(cursor + delta, 0, max);
+    cursor = clamp3(cursor + delta, 0, max);
     updateContent();
   }
   function goBack() {
@@ -22255,7 +22599,7 @@ function createEventModal(ctx) {
     const maxWidth = Math.max(20, cols - 20);
     const wrapped = wrapModalText(raw, maxWidth);
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
-    appState2.eventModalOffset = clamp2(appState2.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    appState2.eventModalOffset = clamp3(appState2.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.eventModalOffset, appState2.eventModalOffset + maxLines);
     modal.setTitle(`Event ${event.seq} - ${event.type}`);
     modal.setContent(visible.join(`
@@ -22401,13 +22745,13 @@ function createJobFilterModal(ctx) {
   function refreshOptions() {
     appState2.jobFilterOptions = buildJobStatusOptions(snapshot2.jobs);
     const maxIndex = Math.max(0, appState2.jobFilterOptions.length - 1);
-    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor, 0, maxIndex);
-    appState2.jobFilterWindowStart = clamp2(appState2.jobFilterWindowStart, 0, Math.max(0, maxIndex));
+    appState2.jobFilterCursor = clamp3(appState2.jobFilterCursor, 0, maxIndex);
+    appState2.jobFilterWindowStart = clamp3(appState2.jobFilterWindowStart, 0, Math.max(0, maxIndex));
   }
   function renderList() {
     const max = Math.max(0, appState2.jobFilterOptions.length - 1);
-    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor, 0, max);
-    const start = clamp2(appState2.jobFilterWindowStart, 0, Math.max(0, max));
+    appState2.jobFilterCursor = clamp3(appState2.jobFilterCursor, 0, max);
+    const start = clamp3(appState2.jobFilterWindowStart, 0, Math.max(0, max));
     const end = Math.min(appState2.jobFilterOptions.length, start + config2.jobFilterVisibleCount);
     const lines = [];
     for (let idx = start;idx < end; idx++) {
@@ -22425,7 +22769,7 @@ function createJobFilterModal(ctx) {
   }
   function move(delta) {
     const max = Math.max(0, appState2.jobFilterOptions.length - 1);
-    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor + delta, 0, max);
+    appState2.jobFilterCursor = clamp3(appState2.jobFilterCursor + delta, 0, max);
     if (appState2.jobFilterCursor < appState2.jobFilterWindowStart) {
       appState2.jobFilterWindowStart = appState2.jobFilterCursor;
     } else if (appState2.jobFilterCursor >= appState2.jobFilterWindowStart + config2.jobFilterVisibleCount) {
@@ -22730,7 +23074,7 @@ function createResultsModal(ctx) {
     const maxWidth = Math.max(20, cols - 20);
     const wrapped = wrapModalText(raw, maxWidth);
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
-    appState2.resultsModalOffset = clamp2(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    appState2.resultsModalOffset = clamp3(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.resultsModalOffset, appState2.resultsModalOffset + maxLines);
     modal.setTitle("Results - Best Snapshot");
     modal.setContent(visible.join(`
@@ -22995,7 +23339,7 @@ function createTaskAppsModal(ctx) {
     const maxWidth = Math.max(20, cols - 20);
     const wrapped = wrapModalText(raw, maxWidth);
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
-    appState2.taskAppsModalOffset = clamp2(appState2.taskAppsModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
+    appState2.taskAppsModalOffset = clamp3(appState2.taskAppsModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.taskAppsModalOffset, appState2.taskAppsModalOffset + maxLines);
     const tunnelCount = snapshot2.tunnels.length;
     modal.setTitle(`Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`);
@@ -23005,7 +23349,7 @@ function createTaskAppsModal(ctx) {
   }
   function move(delta) {
     const maxIndex = Math.max(0, snapshot2.tunnels.length - 1);
-    appState2.taskAppsModalSelectedIndex = clamp2((appState2.taskAppsModalSelectedIndex || 0) + delta, 0, maxIndex);
+    appState2.taskAppsModalSelectedIndex = clamp3((appState2.taskAppsModalSelectedIndex || 0) + delta, 0, maxIndex);
     updateContent();
   }
   function open() {
@@ -23127,7 +23471,6 @@ function installSignalHandlers() {
 // src/handlers/keyboard.ts
 init_jobs();
 function createKeyboardHandler(ctx, modals) {
-  const { appState: appState2 } = ctx.state;
   return function handleKeypress(key) {
     if (key.ctrl && key.name === "c") {
       shutdown(0);
@@ -23141,7 +23484,7 @@ function createKeyboardHandler(ctx, modals) {
       return;
     }
     if (key.name === "tab") {
-      setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
+      cycleActivePane(ctx);
       return;
     }
     if (key.name === "e") {
@@ -23150,6 +23493,10 @@ function createKeyboardHandler(ctx, modals) {
     }
     if (key.name === "b") {
       setActivePane(ctx, "jobs");
+      return;
+    }
+    if (key.name === "g") {
+      setActivePane(ctx, "logs");
       return;
     }
     if (key.name === "r") {
@@ -23210,27 +23557,6 @@ function createKeyboardHandler(ctx, modals) {
       fetchMetrics(ctx).then(() => ctx.render());
       return;
     }
-    if (appState2.activePane === "events") {
-      if (key.name === "up" || key.name === "k") {
-        moveEventSelection(ctx, -1);
-        ctx.render();
-        return;
-      }
-      if (key.name === "down" || key.name === "j") {
-        moveEventSelection(ctx, 1);
-        ctx.render();
-        return;
-      }
-      if (key.name === "return" || key.name === "enter") {
-        modals.event.open();
-        return;
-      }
-      if (key.name === "x") {
-        toggleSelectedEventExpanded(ctx);
-        ctx.render();
-        return;
-      }
-    }
   };
 }
 
@@ -23238,7 +23564,7 @@ function createKeyboardHandler(ctx, modals) {
 init_jobs();
 
 // src/api/events.ts
-function clamp3(value, min, max) {
+function clamp4(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 function eventMatchesFilter2(event, filter) {
@@ -23315,8 +23641,8 @@ async function refreshEvents(ctx) {
       }
       if (config2.eventHistoryLimit > 0 && snapshot2.events.length > config2.eventHistoryLimit) {
         snapshot2.events = snapshot2.events.slice(-config2.eventHistoryLimit);
-        appState2.selectedEventIndex = clamp3(appState2.selectedEventIndex, 0, Math.max(0, snapshot2.events.length - 1));
-        appState2.eventWindowStart = clamp3(appState2.eventWindowStart, 0, Math.max(0, snapshot2.events.length - Math.max(1, config2.eventVisibleCount)));
+        appState2.selectedEventIndex = clamp4(appState2.selectedEventIndex, 0, Math.max(0, snapshot2.events.length - 1));
+        appState2.eventWindowStart = clamp4(appState2.eventWindowStart, 0, Math.max(0, snapshot2.events.length - Math.max(1, config2.eventVisibleCount)));
       }
       appState2.lastSeq = Math.max(appState2.lastSeq, ...events2.map((e) => e.seq));
     }
@@ -23612,6 +23938,7 @@ async function runApp() {
     onFocus: () => ui.jobsSelect.focus(),
     onBlur: () => ui.jobsSelect.blur()
   });
+  initPaneFocusables(ctx, modals.event.open);
   renderer.start();
   render();
   const loggedOutMarkerSet = isLoggedOutMarkerSet();

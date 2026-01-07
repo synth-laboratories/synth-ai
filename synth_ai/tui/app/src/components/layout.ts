@@ -72,9 +72,15 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		description: "View Job's Events",
 		key: "e"
 	})
+	const logsTabText = createKeyHint(renderer, {
+		id: "tabs-logs",
+		description: "View Logs",
+		key: "g"
+	})
 	tabsBox.add(newJobTabText)
 	tabsBox.add(jobsTabText)
 	tabsBox.add(eventsTabText)
+	tabsBox.add(logsTabText)
 	root.add(tabsBox)
 
 	const main = new BoxRenderable(renderer, {
@@ -239,6 +245,39 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 	eventsBox.add(eventsEmptyText)
 	detailColumn.add(eventsBox)
 
+	// Logs panel - shows streaming deployment logs
+	const logsBox = new BoxRenderable(renderer, {
+		id: "logs-box",
+		width: "auto",
+		height: "auto",
+		flexGrow: 1,
+		flexShrink: 1,
+		borderStyle: "single",
+		borderColor: "#334155",
+		title: "Logs",
+		titleAlignment: "left",
+		border: true,
+		visible: false, // Hidden by default, shown when logs pane is active
+	})
+	const logsContent = new BoxRenderable(renderer, {
+		id: "logs-content",
+		width: "auto",
+		height: "auto",
+		flexDirection: "column",
+		flexGrow: 1,
+		flexShrink: 1,
+		gap: 0,
+		border: false,
+	})
+	const logsEmptyText = new TextRenderable(renderer, {
+		id: "logs-empty-text",
+		content: "No active deployments.\n\nPress 'n' to deploy a LocalAPI.",
+		fg: "#94a3b8",
+	})
+	logsBox.add(logsContent)
+	logsBox.add(logsEmptyText)
+	detailColumn.add(logsBox)
+
 	const statusBox = new BoxRenderable(renderer, {
 		id: "status-box",
 		width: "auto",
@@ -279,13 +318,17 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		jobsBox,
 		eventsBox,
 		jobsSelect,
+		detailBox,
 		detailText,
+		resultsBox,
 		resultsText,
+		metricsBox,
 		metricsText,
 		eventsList,
 		eventsEmptyText,
 		jobsTabText,
 		eventsTabText,
+		logsTabText,
 		statusText,
 		footerText: footerTextNode,
 
@@ -293,7 +336,15 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		taskAppsBox,
 		taskAppsText,
 
+		// Logs panel
+		logsBox,
+		logsContent,
+		logsEmptyText,
+
 		// Event cards (dynamically created)
 		eventCards: [] as Array<{ box: BoxRenderable; text: TextRenderable }>,
+
+		// Log entries (dynamically created)
+		logEntries: [] as Array<{ text: TextRenderable }>,
 	}
 }
