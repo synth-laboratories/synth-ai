@@ -21878,7 +21878,7 @@ function createCreateJobModal(ctx) {
         if (value === "eval" /* Eval */ && deployedUrl) {
           ctx.state.snapshot.status = "Submitting eval job...";
           ctx.render();
-          spawn2("python", ["-m", "synth_ai.tui.eval_job", deployedUrl], {
+          spawn2("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
             stdio: "ignore",
             detached: true
           }).unref();
