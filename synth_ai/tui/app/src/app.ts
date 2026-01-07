@@ -30,7 +30,7 @@ import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
 import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
 import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
 import { clearJobsTimer, pollingState } from "./state/polling"
-import { registerRenderer, registerInterval, registerCleanup, installSignalHandlers } from "./lifecycle"
+import { registerRenderer, registerInterval, registerTimeout, registerCleanup, installSignalHandlers } from "./lifecycle"
 
 export async function runApp(): Promise<void> {
   // Create renderer
@@ -315,10 +315,10 @@ export async function runApp(): Promise<void> {
     if (pollingState.sseReconnectTimer) {
       clearTimeout(pollingState.sseReconnectTimer)
     }
-    pollingState.sseReconnectTimer = setTimeout(() => {
+    pollingState.sseReconnectTimer = registerTimeout(setTimeout(() => {
       pollingState.sseReconnectTimer = null
       startJobsStream()
-    }, pollingState.sseReconnectDelay)
+    }, pollingState.sseReconnectDelay))
 
     // Exponential backoff: 1s, 2s, 4s, ... up to 30s
     pollingState.sseReconnectDelay = Math.min(pollingState.sseReconnectDelay * 2, 30_000)
@@ -330,7 +330,7 @@ export async function runApp(): Promise<void> {
     // Don't schedule polling if SSE is connected
     if (pollingState.sseConnected) return
     if (pollingState.jobsTimer) clearTimeout(pollingState.jobsTimer)
-    pollingState.jobsTimer = setTimeout(pollJobs, pollingState.jobsPollMs)
+    pollingState.jobsTimer = registerTimeout(setTimeout(pollJobs, pollingState.jobsPollMs))
   }
 
   async function pollJobs(): Promise<void> {
@@ -360,7 +360,7 @@ export async function runApp(): Promise<void> {
   function scheduleEventsPoll(): void {
     const { pollingState } = ctx.state
     if (pollingState.eventsTimer) clearTimeout(pollingState.eventsTimer)
-    pollingState.eventsTimer = setTimeout(pollEvents, pollingState.eventsPollMs)
+    pollingState.eventsTimer = registerTimeout(setTimeout(pollEvents, pollingState.eventsPollMs))
   }
 
   async function pollEvents(): Promise<void> {

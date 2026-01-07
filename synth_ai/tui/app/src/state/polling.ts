@@ -50,10 +50,3 @@ export function clearEventsTimer(): void {
     pollingState.eventsTimer = null
   }
 }
-
-export function clearSseReconnectTimer(): void {
-  if (pollingState.sseReconnectTimer) {
-    clearTimeout(pollingState.sseReconnectTimer)
-    pollingState.sseReconnectTimer = null
-  }
-}
