@@ -72,7 +72,7 @@ def get_backend_url(
     if mode == "local":
         url = os.environ.get("SYNTH_LOCAL_URL", "http://localhost:8000")
     elif mode == "dev":
-        url = os.environ.get("SYNTH_DEV_URL", "http://localhost:8000")
+        url = os.environ.get("SYNTH_DEV_URL", "https://synth-backend-dev-docker.onrender.com")
     else:
         url = os.environ.get("SYNTH_PROD_URL", PROD_BASE_URL)
 

@@ -55,7 +55,7 @@ export async function apiPost(path: string, body: any): Promise<any> {
   return res.json().catch(() => ({}))
 }
 
-export async function refreshHealth(): Promise<string> {
+export async function checkBackendHealth(): Promise<string> {
   try {
     const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`)
     return res.ok ? "ok" : `bad(${res.status})`

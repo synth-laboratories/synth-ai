@@ -48,7 +48,12 @@ def run_prompt_learning_tui(
     env["SYNTH_TUI_EVENT_INTERVAL"] = str(event_interval)
     env["SYNTH_TUI_LIMIT"] = str(limit)
 
-    subprocess.run([runtime, str(entry)], env=env, check=True)
+    result = subprocess.run([runtime, str(entry)], env=env)
+    # Exit silently regardless of how the TUI process ended
+    # (could be user quit, backend disconnect, etc.)
+    if result.returncode != 0:
+        # Non-zero exit but don't raise - TUI lifecycle is complete
+        pass
 
 
 def _find_runtime() -> str | None:

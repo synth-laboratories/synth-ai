@@ -1,7 +1,7 @@
 /**
  * Modal base types and utilities.
  */
-import { BoxRenderable, TextRenderable, type CliRenderer } from "@opentui/core"
+import { BoxRenderable, TextRenderable, InputRenderable, type CliRenderer } from "@opentui/core"
 
 export type ModalController = {
   readonly isVisible: boolean
@@ -19,6 +19,13 @@ export type ModalConfig = {
   borderColor?: string
   titleColor?: string
   zIndex?: number
+  /** Optional input field configuration */
+  input?: {
+    placeholder?: string
+    width?: number
+    /** Label text shown above the input */
+    label?: string
+  }
 }
 
 /**
@@ -29,6 +36,10 @@ export type ModalUI = {
   title: TextRenderable
   content: TextRenderable
   hint: TextRenderable
+  /** Optional input element (only present if input config provided) */
+  input?: InputRenderable
+  /** Optional label for input (only present if input config provided) */
+  inputLabel?: TextRenderable
   visible: boolean
   setVisible: (visible: boolean) => void
   setTitle: (title: string) => void
@@ -121,6 +132,42 @@ export function createModalUI(renderer: CliRenderer, config: ModalConfig): Modal
     zIndex: zIndex + 1,
   })
 
+  // Optional input elements
+  let inputElement: InputRenderable | undefined
+  let inputLabelElement: TextRenderable | undefined
+
+  if (config.input) {
+    const inputWidth = config.input.width ?? width - MODAL_DEFAULTS.padding * 2 - 2
+
+    // Create label if provided
+    if (config.input.label) {
+      inputLabelElement = new TextRenderable(renderer, {
+        id: `${id}-input-label`,
+        content: config.input.label,
+        fg: MODAL_DEFAULTS.textColor,
+        position: "absolute",
+        left: left + MODAL_DEFAULTS.padding,
+        top: top + 1,
+        zIndex: zIndex + 1,
+      })
+      inputLabelElement.visible = false
+      renderer.root.add(inputLabelElement)
+    }
+
+    // Create input field
+    inputElement = new InputRenderable(renderer, {
+      id: `${id}-input`,
+      width: inputWidth,
+      position: "absolute",
+      left: left + MODAL_DEFAULTS.padding,
+      top: top + (config.input.label ? 2 : 1),
+      placeholder: config.input.placeholder ?? "",
+      zIndex: zIndex + 1,
+    })
+    inputElement.visible = false
+    renderer.root.add(inputElement)
+  }
+
   // Set initial visibility to false
   box.visible = false
   title.visible = false
@@ -141,6 +188,8 @@ export function createModalUI(renderer: CliRenderer, config: ModalConfig): Modal
     title.visible = v
     content.visible = v
     hint.visible = v
+    if (inputElement) inputElement.visible = v
+    if (inputLabelElement) inputLabelElement.visible = v
     renderer.requestRender()
   }
 
@@ -158,6 +207,16 @@ export function createModalUI(renderer: CliRenderer, config: ModalConfig): Modal
     content.top = newTop + 3
     hint.left = newLeft + MODAL_DEFAULTS.padding
     hint.top = newTop + height - 2
+
+    // Update input positions if present
+    if (inputLabelElement) {
+      inputLabelElement.left = newLeft + MODAL_DEFAULTS.padding
+      inputLabelElement.top = newTop + 1
+    }
+    if (inputElement) {
+      inputElement.left = newLeft + MODAL_DEFAULTS.padding
+      inputElement.top = newTop + (config.input?.label ? 2 : 1)
+    }
   }
 
   return {
@@ -165,6 +224,8 @@ export function createModalUI(renderer: CliRenderer, config: ModalConfig): Modal
     title,
     content,
     hint,
+    input: inputElement,
+    inputLabel: inputLabelElement,
     get visible() {
       return visible
     },

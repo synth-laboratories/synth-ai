@@ -5,8 +5,17 @@
  * All logic is in app.ts and its dependencies.
  */
 import { runApp } from "./app"
+import { shutdown } from "./lifecycle"
 
-runApp().catch((err) => {
-  console.error("Fatal error:", err)
-  process.exit(1)
+// Swallow unhandled errors - TUI should survive backend issues
+process.on("unhandledRejection", () => {
+  // Ignore - don't crash or exit
+})
+process.on("uncaughtException", () => {
+  // Ignore - don't crash or exit
+})
+
+runApp().catch(() => {
+  // Fatal startup error - clean exit
+  void shutdown(1)
 })

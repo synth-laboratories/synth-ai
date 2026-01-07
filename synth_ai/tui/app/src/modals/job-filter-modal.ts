@@ -3,7 +3,8 @@
  */
 import type { AppContext } from "../context"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
-import { clamp, type ModalController } from "./base"
+import { createModalUI, clamp, type ModalController } from "./base"
+import { focusManager } from "../focus"
 
 export function createJobFilterModal(ctx: AppContext): ModalController & {
   open: () => void
@@ -11,26 +12,34 @@ export function createJobFilterModal(ctx: AppContext): ModalController & {
   toggleSelected: () => void
   clearAll: () => void
 } {
-  const { ui, renderer } = ctx
+  const { renderer } = ctx
   const { appState, snapshot, config } = ctx.state
 
+  const modal = createModalUI(renderer, {
+    id: "job-filter-modal",
+    width: 52,
+    height: 11,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5,
+  })
+
   function toggle(visible: boolean): void {
-    ui.jobFilterModalVisible = visible
-    ui.jobFilterBox.visible = visible
-    ui.jobFilterLabel.visible = visible
-    ui.jobFilterHelp.visible = visible
-    ui.jobFilterListText.visible = visible
     if (visible) {
-      ui.jobFilterLabel.content = "Job filter (status)"
+      focusManager.push({
+        id: "job-filter-modal",
+        handleKey,
+      })
+      modal.setTitle("Job filter (status)")
+      modal.center()
       refreshOptions()
-      ui.jobsSelect.blur()
       appState.jobFilterCursor = 0
       appState.jobFilterWindowStart = 0
       renderList()
-    } else if (appState.activePane === "jobs") {
-      ui.jobsSelect.focus()
+    } else {
+      focusManager.pop("job-filter-modal")
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   function refreshOptions(): void {
@@ -56,8 +65,8 @@ export function createJobFilterModal(ctx: AppContext): ModalController & {
     if (!lines.length) {
       lines.push("  (no statuses available)")
     }
-    ui.jobFilterListText.content = lines.join("\n")
-    renderer.requestRender()
+    modal.setContent(lines.join("\n"))
+    modal.setHint("j/k move | space select | c clear | q close")
   }
 
   function move(delta: number): void {
@@ -108,7 +117,7 @@ export function createJobFilterModal(ctx: AppContext): ModalController & {
     }
     if (!snapshot.selectedJob || !filteredJobs.some((job) => job.job_id === snapshot.selectedJob?.job_id)) {
       import("../api/jobs").then(({ selectJob }) => {
-        void selectJob(ctx, filteredJobs[0].job_id).then(() => ctx.render())
+        void selectJob(ctx, filteredJobs[0].job_id).then(() => ctx.render()).catch(() => {})
       })
       return
     }
@@ -120,7 +129,7 @@ export function createJobFilterModal(ctx: AppContext): ModalController & {
   }
 
   function handleKey(key: any): boolean {
-    if (!ui.jobFilterModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "up" || key.name === "k") {
       move(-1)
@@ -142,12 +151,12 @@ export function createJobFilterModal(ctx: AppContext): ModalController & {
       toggle(false)
       return true
     }
-    return true
+    return true // consume all keys when modal is open
   }
 
-  return {
+  const controller = {
     get isVisible() {
-      return ui.jobFilterModalVisible
+      return modal.visible
     },
     toggle,
     open,
@@ -156,5 +165,6 @@ export function createJobFilterModal(ctx: AppContext): ModalController & {
     clearAll,
     handleKey,
   }
-}
 
+  return controller
+}

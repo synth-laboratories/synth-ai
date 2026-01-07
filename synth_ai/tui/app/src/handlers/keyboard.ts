@@ -6,33 +6,29 @@ import type { LoginModalController } from "../login_modal"
 import { shutdown } from "../lifecycle"
 import { setActivePane } from "../ui/panes"
 import { moveEventSelection, toggleSelectedEventExpanded } from "../ui/events"
-import { refreshJobs, selectJob, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
-import { refreshEvents } from "../api/events"
-import { refreshIdentity } from "../api/identity"
-import { getFilteredJobs } from "../selectors/jobs"
+import { refreshJobs, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
+import { focusManager } from "../focus"
 
 export type ModalControllers = {
   login: LoginModalController
-  event: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  results: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  config: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  filter: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  jobFilter: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  key: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  snapshot: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  profile: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  urls: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  promptBrowser?: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  createJob: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  taskApps: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
+  filter: { open: () => void }
+  jobFilter: { open: () => void }
+  key: { open: () => void }
+  snapshot: { open: () => void }
+  profile: { open: () => void }
+  urls: { open: () => void }
+  event: { open: () => void }
+  results: { open: () => void }
+  config: { open: () => void }
+  createJob: { open: () => void }
+  taskApps: { open: () => void }
 }
 
 export function createKeyboardHandler(
   ctx: AppContext,
   modals: ModalControllers,
 ): (key: any) => void {
-  const { renderer, ui } = ctx
-  const { appState, snapshot } = ctx.state
+  const { appState } = ctx.state
 
   return function handleKeypress(key: any): void {
     // Ctrl+C always quits
@@ -41,120 +37,14 @@ export function createKeyboardHandler(
       return
     }
 
-    // q/escape closes modals or quits
+    // Route to focused item (modal or pane)
+    if (focusManager.handleKey(key)) {
+      return
+    }
+
+    // No modal consumed the key - q/escape quits
     if (key.name === "q" || key.name === "escape") {
-      if (modals.login.isVisible) {
-        modals.login.toggle(false)
-        return
-      }
-      if (modals.key.isVisible) {
-        modals.key.handleKey(key)
-        return
-      }
-      if (modals.jobFilter.isVisible) {
-        modals.jobFilter.handleKey(key)
-        return
-      }
-      if (modals.event.isVisible) {
-        modals.event.handleKey(key)
-        return
-      }
-      if (modals.results.isVisible) {
-        modals.results.handleKey(key)
-        return
-      }
-      if (modals.config.isVisible) {
-        modals.config.handleKey(key)
-        return
-      }
-      if (modals.filter.isVisible) {
-        modals.filter.handleKey(key)
-        return
-      }
-      if (modals.promptBrowser?.isVisible) {
-        modals.promptBrowser.handleKey(key)
-        return
-      }
-      if (modals.snapshot.isVisible) {
-        modals.snapshot.handleKey(key)
-        return
-      }
-      if (modals.profile.isVisible) {
-        modals.profile.handleKey(key)
-        return
-      }
-      if (modals.urls.isVisible) {
-        modals.urls.handleKey(key)
-        return
-      }
-      if (modals.createJob.isVisible) {
-        modals.createJob.handleKey(key)
-        return
-      }
-      if (modals.taskApps.isVisible) {
-        modals.taskApps.handleKey(key)
-        return
-      }
-      // No modal open - quit
       void shutdown(0)
-      return
-    }
-
-    // Login modal captures all keys
-    if (modals.login.isVisible) {
-      if (key.name === "return" || key.name === "enter") {
-        void modals.login.startAuth()
-      }
-      return
-    }
-
-    // Route to active modal
-    if (modals.key.isVisible) {
-      modals.key.handleKey(key)
-      return
-    }
-    if (modals.event.isVisible) {
-      modals.event.handleKey(key)
-      return
-    }
-    if (modals.results.isVisible) {
-      modals.results.handleKey(key)
-      return
-    }
-    if (modals.config.isVisible) {
-      modals.config.handleKey(key)
-      return
-    }
-    if (modals.promptBrowser?.isVisible) {
-      modals.promptBrowser.handleKey(key)
-      return
-    }
-    if (modals.filter.isVisible) {
-      modals.filter.handleKey(key)
-      return
-    }
-    if (modals.jobFilter.isVisible) {
-      modals.jobFilter.handleKey(key)
-      return
-    }
-    if (modals.snapshot.isVisible) {
-      modals.snapshot.handleKey(key)
-      return
-    }
-    if (modals.profile.isVisible) {
-      modals.profile.handleKey(key)
-      return
-    }
-    if (modals.urls.isVisible) {
-      modals.urls.handleKey(key)
-      return
-    }
-    if (modals.createJob.isVisible) {
-      modals.createJob.handleKey(key)
-      return
-    }
-    if (modals.taskApps.isVisible) {
-      modals.taskApps.handleKey(key)
       return
     }
 
@@ -255,21 +145,3 @@ export function createKeyboardHandler(
     // Jobs pane - let the select widget handle j/k navigation
   }
 }
-
-export function createPasteHandler(ctx: AppContext, keyModal: { isVisible: boolean }): (key: any) => void {
-  const { ui, renderer } = ctx
-
-  return function handlePaste(key: any): void {
-    if (!keyModal.isVisible) return
-    const seq = typeof key?.sequence === "string" ? key.sequence : ""
-    if (!seq) return
-    const cleaned = seq
-      .replace("\u001b[200~", "")
-      .replace("\u001b[201~", "")
-      .replace(/\s+/g, "")
-    if (!cleaned) return
-    ui.keyModalInput.value = (ui.keyModalInput.value || "") + cleaned
-    renderer.requestRender()
-  }
-}
-

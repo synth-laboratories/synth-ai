@@ -10,6 +10,7 @@ import { runDeviceCodeAuth, type AuthStatus } from "./auth"
 import { createModalUI, type ModalUI } from "./modals/base"
 import { pollingState, clearJobsTimer, clearEventsTimer } from "./state/polling"
 import { setLoggedOutMarker, clearLoggedOutMarker, saveApiKey, deleteSavedApiKey } from "./utils/logout-marker"
+import { focusManager } from "./focus"
 
 /**
  * Snapshot state for updating status messages.
@@ -41,9 +42,6 @@ export type LoginModalDeps = {
   bootstrap: () => Promise<void>
   getSnapshot: () => SnapshotState
   renderSnapshot: () => void
-  getActivePane: () => "jobs" | "events"
-  focusJobsSelect: () => void
-  blurJobsSelect: () => void
 }
 
 /**
@@ -58,6 +56,8 @@ export type LoginModalController = {
   readonly status: AuthStatus
   /** Toggle the login modal visibility */
   toggle: (visible: boolean) => void
+  /** Handle key input when modal is visible */
+  handleKey: (key: any) => boolean
   /** Start the device code auth flow */
   startAuth: () => Promise<void>
   /** Log out */
@@ -71,7 +71,7 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
   let loginAuthStatus: AuthStatus = { state: "idle" }
   let loginAuthInProgress = false
 
-  const { renderer, bootstrap, getSnapshot, renderSnapshot, getActivePane, focusJobsSelect, blurJobsSelect } = deps
+  const { renderer, bootstrap, getSnapshot, renderSnapshot } = deps
 
   // Create modal UI using the primitive
   const modal: ModalUI = createModalUI(renderer, {
@@ -124,17 +124,18 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
 
   function toggle(visible: boolean): void {
     if (visible) {
+      focusManager.push({
+        id: "login-modal",
+        handleKey,
+      })
       modal.center()
       loginAuthStatus = { state: "idle" }
       loginAuthInProgress = false
       modal.setTitle("Sign In / Sign Up")
       modal.setContent("Press Enter to open browser")
       modal.setHint("Enter start | q cancel")
-      blurJobsSelect()
     } else {
-      if (getActivePane() === "jobs") {
-        focusJobsSelect()
-      }
+      focusManager.pop("login-modal")
     }
     modal.setVisible(visible)
   }
@@ -209,7 +210,21 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
     toggle(true)
   }
 
-  return {
+  function handleKey(key: any): boolean {
+    if (!modal.visible) return false
+
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false)
+      return true
+    }
+    if (key.name === "return" || key.name === "enter") {
+      void startAuth()
+      return true
+    }
+    return true // consume all keys when modal is open
+  }
+
+  const controller = {
     get isVisible() {
       return modal.visible
     },
@@ -220,7 +235,10 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
       return loginAuthStatus
     },
     toggle,
+    handleKey,
     startAuth,
     logout,
   }
+
+  return controller
 }

@@ -1,7 +1,7 @@
 /**
  * Main app orchestrator - creates renderer, wires controllers/handlers, bootstraps polling.
  */
-import { createCliRenderer, SelectRenderableEvents, InputRenderableEvents } from "@opentui/core"
+import { createCliRenderer, SelectRenderableEvents } from "@opentui/core"
 
 import { createAppContext, type AppContext } from "./context"
 import { buildLayout } from "./components/layout"
@@ -22,7 +22,8 @@ import {
 } from "./modals"
 import { createCreateJobModal } from "./modals/create-job-modal"
 
-import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
+import { createKeyboardHandler } from "./handlers/keyboard"
+import { focusManager } from "./focus"
 import { refreshJobs, selectJob } from "./api/jobs"
 import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
@@ -52,7 +53,11 @@ export async function runApp(): Promise<void> {
   let ctx: AppContext
 
   function render(): void {
-    renderApp(ctx)
+    try {
+      renderApp(ctx)
+    } catch {
+      // Ignore render errors - don't crash the app
+    }
   }
 
   ctx = createAppContext({
@@ -69,9 +74,6 @@ export async function runApp(): Promise<void> {
     },
     getSnapshot: () => ctx.state.snapshot,
     renderSnapshot: render,
-    getActivePane: () => ctx.state.appState.activePane,
-    focusJobsSelect: () => ui.jobsSelect.focus(),
-    blurJobsSelect: () => ui.jobsSelect.blur(),
   })
 
   const eventModal = createEventModal(ctx)
@@ -103,51 +105,27 @@ export async function runApp(): Promise<void> {
 
   // Create keyboard handler
   const handleKeypress = createKeyboardHandler(ctx, modals)
-  const handlePaste = createPasteHandler(ctx, keyModal)
 
   // Wire up event listeners
-  renderer.keyInput.on("keypress", handleKeypress)
-  renderer.keyInput.on("paste", handlePaste)
+  ;(renderer.keyInput as any).on("keypress", handleKeypress)
 
   // Jobs select widget
   ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx: number, option: any) => {
     if (!option?.value) return
     if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
-      void selectJob(ctx, option.value).then(() => render())
+      void selectJob(ctx, option.value).then(() => render()).catch(() => {})
     }
   })
 
-  // Snapshot modal input
-  ui.modalInput.on(InputRenderableEvents.CHANGE, (value: string) => {
-    if (!value.trim()) {
-      snapshotModal.toggle(false)
-      return
-    }
-    void snapshotModal.apply(value.trim())
-  })
-  ui.modalInput.on(InputRenderableEvents.ENTER, (value: string) => {
-    if (!value.trim()) {
-      snapshotModal.toggle(false)
-      return
-    }
-    void snapshotModal.apply(value.trim())
-  })
-
-  // Filter input
-  ui.filterInput.on(InputRenderableEvents.CHANGE, (value: string) => {
-    ctx.state.appState.eventFilter = value.trim()
-    filterModal.toggle(false)
-    render()
-  })
-
-  // Key modal input
-  ui.keyModalInput.on(InputRenderableEvents.ENTER, (value: string) => {
-    void keyModal.apply(value)
+  // Set up focus manager with jobsSelect as default
+  focusManager.setDefault({
+    id: "jobs-pane",
+    onFocus: () => ui.jobsSelect.focus(),
+    onBlur: () => ui.jobsSelect.blur(),
   })
 
   // Start renderer
   renderer.start()
-  ui.jobsSelect.focus()
   render()
 
   // Bootstrap
@@ -199,13 +177,13 @@ export async function runApp(): Promise<void> {
 
   // Bootstrap function
   async function bootstrap(): Promise<void> {
-    void refreshHealth(ctx)
+    void refreshHealth(ctx).catch(() => {})
     await refreshIdentity(ctx)
     await refreshJobs(ctx)
 
     // Load tunnels (task apps) and check their health
     await refreshTunnels(ctx)
-    void refreshTunnelHealth(ctx).then(() => render())
+    void refreshTunnelHealth(ctx).then(() => render()).catch(() => {})
 
     const { initialJobId } = ctx.state.config
     if (initialJobId) {
@@ -219,11 +197,11 @@ export async function runApp(): Promise<void> {
 
     // Events polling still needed (SSE is only for job list metadata)
     scheduleEventsPoll()
-    registerInterval(setInterval(() => void refreshHealth(ctx), 30_000))
-    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()), 60_000))
+    registerInterval(setInterval(() => void refreshHealth(ctx).catch(() => {}), 30_000))
+    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()).catch(() => {}), 60_000))
     // Refresh tunnels every 30 seconds, health checks every 15 seconds
-    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()), 30_000))
-    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15_000))
+    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()).catch(() => {}), 30_000))
+    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()).catch(() => {}), 15_000))
 
     // Register SSE disconnect for cleanup on shutdown
     registerCleanup("sse", () => pollingState.sseDisconnect?.())

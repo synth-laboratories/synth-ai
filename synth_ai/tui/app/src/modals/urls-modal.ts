@@ -3,6 +3,7 @@
  */
 import type { CliRenderer } from "@opentui/core"
 import { createModalUI, type ModalController, type ModalUI } from "./base"
+import { focusManager } from "../focus"
 
 export function createUrlsModal(renderer: CliRenderer): ModalController & {
 	open: () => void
@@ -27,8 +28,14 @@ export function createUrlsModal(renderer: CliRenderer): ModalController & {
 
 	function toggle(visible: boolean): void {
 		if (visible) {
+			focusManager.push({
+				id: "urls-modal",
+				handleKey,
+			})
 			modal.center()
 			updateContent()
+		} else {
+			focusManager.pop("urls-modal")
 		}
 		modal.setVisible(visible)
 	}
@@ -47,7 +54,7 @@ export function createUrlsModal(renderer: CliRenderer): ModalController & {
 		return true
 	}
 
-	return {
+	const controller = {
 		get isVisible() {
 			return modal.visible
 		},
@@ -55,4 +62,6 @@ export function createUrlsModal(renderer: CliRenderer): ModalController & {
 		open,
 		handleKey,
 	}
+
+	return controller
 }
