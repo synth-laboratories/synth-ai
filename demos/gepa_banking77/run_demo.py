@@ -10,7 +10,6 @@ import argparse
 import os
 import sys
 import asyncio
-from pathlib import Path
 
 # Parse args early so we can configure before imports
 parser = argparse.ArgumentParser(description="Run Banking77 GEPA demo")
@@ -29,22 +28,6 @@ args = parser.parse_args()
 
 LOCAL_MODE = args.local
 LOCAL_HOST = args.local_host
-
-# Add synth-ai to path
-repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, repo_root)
-
-# Load .env file from repo root
-from dotenv import load_dotenv
-env_path = Path(repo_root) / ".env"
-if env_path.exists():
-    load_dotenv(env_path, override=True)  # override=True ensures .env values take precedence
-    print(f"Loaded environment variables from {env_path}")
-else:
-    print(f"No .env file found at {env_path}, using system environment variables")
-
-import nest_asyncio
-nest_asyncio.apply()
 
 # Cell 1: Imports, Config, and Backend Health Check
 import json
@@ -69,7 +52,28 @@ from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, wait_for_health_check, acquire_port, PortConflictBehavior
+from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, acquire_port, PortConflictBehavior
+
+
+def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
+    """Wait for a local API health check using sync httpx (avoids Python 3.14 sniffio issues)."""
+    health_url = f"http://{host}:{port}/health"
+    headers = {"X-API-Key": api_key} if api_key else {}
+    start = time.time()
+
+    while time.time() - start < timeout:
+        try:
+            response = httpx.get(health_url, headers=headers, timeout=5.0)
+            if response.status_code in (200, 400):
+                return
+        except (httpx.RequestError, httpx.TimeoutException):
+            pass
+        time.sleep(0.5)
+
+    raise RuntimeError(
+        f"Health check failed: {health_url} not ready after {timeout}s. "
+        "Make sure your task app has a /health endpoint."
+    )
 from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
 
 # Backend configuration
@@ -374,7 +378,7 @@ async def main():
     run_server_background(baseline_app, baseline_port)
 
     print(f'Waiting for baseline local API on port {baseline_port}...')
-    await wait_for_health_check("localhost", baseline_port, ENVIRONMENT_API_KEY, timeout=30.0)
+    wait_for_health_check_sync("localhost", baseline_port, ENVIRONMENT_API_KEY, timeout=30.0)
     print('Baseline local API ready!')
 
     if LOCAL_MODE:
@@ -445,9 +449,14 @@ async def main():
         """Callback to fetch and display events during polling."""
         nonlocal last_event_seq
         try:
-            pl_client = PromptLearningClient(SYNTH_API_BASE, API_KEY)
-            # Fetch new events since last check (use nest_asyncio to allow nested event loops)
-            events = asyncio.run(pl_client.get_events(job_id, since_seq=last_event_seq, limit=100))
+            # Use sync httpx to fetch events (avoids nested event loop issues)
+            response = httpx.get(
+                f"{SYNTH_API_BASE}/api/prompt-learning/online/jobs/{job_id}/events",
+                params={"since_seq": last_event_seq, "limit": 100},
+                headers={"X-API-Key": API_KEY},
+                timeout=30.0,
+            )
+            events = response.json().get("events", []) if response.status_code == 200 else []
             
             for event in events:
                 event_type = event.get('type', '')
@@ -723,7 +732,7 @@ async def main():
             print(f'Port {OPTIMIZED_LOCAL_API_PORT} in use, using port {optimized_port} instead')
 
         run_server_background(optimized_app, optimized_port)
-        await wait_for_health_check("localhost", optimized_port, ENVIRONMENT_API_KEY, timeout=30.0)
+        wait_for_health_check_sync("localhost", optimized_port, ENVIRONMENT_API_KEY, timeout=30.0)
         print('Optimized local API ready!')
 
         if LOCAL_MODE:
