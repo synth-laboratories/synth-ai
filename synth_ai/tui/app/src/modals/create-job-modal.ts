@@ -323,7 +323,7 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 					ctx.render()
 
 					// Fire-and-forget: spawn eval job process
-					spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl], {
+					spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
 						stdio: "ignore",
 						detached: true,
 					}).unref()
