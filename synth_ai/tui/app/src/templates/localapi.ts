@@ -141,7 +141,9 @@ async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) 
     }
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(inference_url, json=payload, headers=headers)
+        # Backend provides base URL; append /chat/completions for OpenAI-compatible endpoint
+        url = inference_url.rstrip("/") + "/chat/completions"
+        response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]
