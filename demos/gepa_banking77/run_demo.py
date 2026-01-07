@@ -642,6 +642,17 @@ async def main():
                     return prompt_results.best_prompt['full_text']
                 if 'content' in prompt_results.best_prompt:
                     return prompt_results.best_prompt['content']
+                # Extract from messages array (OpenAI format)
+                if 'messages' in prompt_results.best_prompt:
+                    messages = prompt_results.best_prompt['messages']
+                    if messages and isinstance(messages, list):
+                        # Find system message
+                        for msg in messages:
+                            if isinstance(msg, dict) and msg.get('role') == 'system':
+                                return msg.get('content') or msg.get('pattern', '')
+                        # Fallback to first message
+                        if messages[0]:
+                            return messages[0].get('content') or messages[0].get('pattern', '')
 
         # Last resort: return debug info
         if prompt_results.top_prompts:

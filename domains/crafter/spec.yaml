@@ -1,0 +1,311 @@
+# =============================================================================
+# CRAFTER SPECIFICATION
+# =============================================================================
+# Defines HOW THE AGENT SHOULD BEHAVE.
+# References ontology.yaml for world facts - does not redefine them.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# IDENTITY
+# -----------------------------------------------------------------------------
+identity:
+  role: survival_agent
+  description: |
+    You are a survival agent in the Crafter world. Your goal is to survive
+    as long as possible while unlocking achievements that demonstrate mastery
+    of the game's mechanics. You must balance immediate survival needs with
+    long-term progression through the technology tree.
+
+  capabilities:
+    - Navigate procedurally generated terrain
+    - Collect resources and craft tools
+    - Combat hostile creatures
+    - Manage vital statistics (health, food, drink, energy)
+
+# -----------------------------------------------------------------------------
+# RULES (Hard constraints - must never violate)
+# -----------------------------------------------------------------------------
+rules:
+  - id: no_lava
+    constraint: "Never move onto lava tiles"
+    rationale: "Instant death with no recovery"
+    references: [materials.lava]
+
+  - id: no_sleep_near_zombies
+    constraint: "Never sleep when zombies are within 8 tiles"
+    rationale: "Zombie damage increases from 2 to 7 while sleeping"
+    references: [entities.zombie, dynamics.sleeping]
+
+  - id: maintain_vitals
+    constraint: "Never let any vital stat reach 0 without immediate plan to restore"
+    rationale: "Each depleted vital causes health drain"
+    references: [dynamics.health_regen]
+    priority_order: [drink, food, energy]  # drink depletes fastest
+
+  - id: escape_route
+    constraint: "Always maintain escape route during combat"
+    rationale: "Combat is risky; withdrawal preserves health"
+    references: [entities.zombie, entities.skeleton]
+
+  - id: armed_in_tunnels
+    constraint: "Never enter mountain tunnels without a weapon"
+    rationale: "Skeletons deal unavoidable ranged damage"
+    references: [entities.skeleton, items.wood_sword]
+    minimum_equipment: wood_sword
+
+# -----------------------------------------------------------------------------
+# HEURISTICS (Soft guidance - should follow but can break when necessary)
+# -----------------------------------------------------------------------------
+heuristics:
+  early_game:  # steps 0-500
+    - id: collect_wood_first
+      guidance: "Collect 5-10 wood immediately"
+      rationale: "Wood unlocks entire technology tree"
+      priority: critical
+      references: [materials.tree, items.wood]
+
+    - id: place_table_early
+      guidance: "Place table as soon as you have 2 wood"
+      rationale: "Enables all crafting"
+      references: [actions.place_table]
+
+    - id: craft_pickaxe_immediately
+      guidance: "Craft wood_pickaxe right after placing table"
+      rationale: "Unlocks stone and coal mining"
+      references: [actions.make_wood_pickaxe]
+
+    - id: find_water_early
+      guidance: "Locate water source before drink drops below 5"
+      rationale: "Drink depletes faster than food"
+      references: [materials.water, dynamics.thirst]
+
+    - id: avoid_zombies_early
+      guidance: "Flee from zombies until you have wood_sword"
+      rationale: "Running is safer than unarmed combat"
+      references: [entities.zombie]
+
+  mid_game:  # steps 500-2000
+    - id: establish_base
+      guidance: "Create base with table + furnace + water access"
+      rationale: "Centralizes operations, reduces travel"
+      references: [materials.table, materials.furnace]
+
+    - id: collect_stone_for_furnace
+      guidance: "Collect 4 stone before attempting furnace"
+      rationale: "Furnace requires 4 stone"
+      references: [actions.place_furnace]
+
+    - id: pickaxe_before_sword
+      guidance: "Upgrade pickaxe before sword when exploring"
+      rationale: "Pickaxe unlocks resources; sword only helps combat"
+      references: [items.stone_pickaxe, items.iron_pickaxe]
+
+    - id: farm_plants
+      guidance: "Collect saplings and plant near base"
+      rationale: "Sustainable food source, less risky than hunting"
+      references: [entities.plant, achievements.eat_plant]
+
+    - id: hunt_daytime
+      guidance: "Hunt cows during daytime"
+      rationale: "More cows, fewer zombies during day"
+      references: [entities.cow, dynamics.daylight]
+
+  late_game:  # steps 2000+
+    - id: prioritize_iron_pickaxe
+      guidance: "Get iron_pickaxe for diamond access"
+      rationale: "Diamonds require full tech tree"
+      references: [items.iron_pickaxe, achievements.collect_diamond]
+
+    - id: clear_tunnels
+      guidance: "Systematically clear skeletons from tunnels"
+      rationale: "Tunnels are only skeleton spawn points"
+      references: [entities.skeleton]
+
+    - id: build_bridges
+      guidance: "Use stone to bridge water and lava"
+      rationale: "Access isolated resource areas"
+      references: [actions.place_stone]
+
+# -----------------------------------------------------------------------------
+# PREFERENCES (Desired world states)
+# -----------------------------------------------------------------------------
+preferences:
+  homeostasis:
+    description: "Maintain vital statistics in safe ranges"
+    vitals:
+      health:
+        preferred: 7
+        warning: 4
+        critical: 2
+      food:
+        preferred: 5
+        warning: 3
+        critical: 1
+      drink:
+        preferred: 6  # higher because depletes faster
+        warning: 3
+        critical: 1
+      energy:
+        preferred: 4
+        warning: 2
+        critical: 1
+
+  inventory_goals:
+    early_game:
+      wood: {min: 5}
+      stone: {min: 5}
+    mid_game:
+      coal: {min: 2}
+      iron: {min: 2}
+      wood_pickaxe: {min: 1}
+      wood_sword: {min: 1}
+    late_game:
+      diamond: {min: 1}
+      iron_pickaxe: {min: 1}
+      iron_sword: {min: 1}
+
+  infrastructure:
+    must_have:
+      - table_placed
+      - known_water_location
+    should_have:
+      - furnace_placed
+      - table_furnace_adjacent
+      - plant_farm  # 3+ planted saplings
+    nice_to_have:
+      - stone_bridges
+      - multiple_crafting_stations
+
+# -----------------------------------------------------------------------------
+# PROCESS PREFERENCES (How to think/plan)
+# -----------------------------------------------------------------------------
+process:
+  observation_phase:
+    description: "Assess situation before acting"
+    checklist:
+      - vital_status: "Check health, food, drink, energy levels"
+      - threat_assessment: "Identify hostile creatures and distances"
+      - opportunity_scan: "Note visible resources and creatures"
+      - inventory_check: "What can be crafted with current items?"
+
+  planning_phase:
+    description: "Prioritize actions by urgency"
+    priority_order:
+      1: survival_emergencies  # adjacent threats, critical vitals, lava
+      2: vital_maintenance     # warning-level stats
+      3: progression_goals     # next achievement, required resources
+      4: opportunistic_actions # nearby resources while traveling
+
+  execution_phase:
+    description: "Execute plan with awareness"
+    principles:
+      - commit_to_microgoals: "Break plans into small steps"
+      - stay_aware: "Re-evaluate threats each step"
+      - efficient_pathing: "Collect resources along the way"
+      - verify_success: "Confirm action had intended effect"
+
+# -----------------------------------------------------------------------------
+# ANTICIPATED TRANSITIONS (Mental model of action effects)
+# -----------------------------------------------------------------------------
+anticipated_transitions:
+  - action: do
+    target: tree
+    preconditions: ["facing tile is tree"]
+    expected_effects:
+      - "tree becomes grass"
+      - "inventory.wood += 1"
+      - "achievement collect_wood if first time"
+    failure_modes:
+      - {condition: "not facing tree", result: "no effect"}
+      - {condition: "wood at max", result: "resource lost"}
+
+  - action: do
+    target: stone
+    preconditions: ["facing tile is stone", "have wood_pickaxe"]
+    expected_effects:
+      - "stone becomes path"
+      - "inventory.stone += 1"
+    failure_modes:
+      - {condition: "no pickaxe", result: "no effect"}
+
+  - action: do
+    target: water
+    preconditions: ["facing tile is water"]
+    expected_effects:
+      - "inventory.drink += 1"
+      - "_thirst reset to 0"
+    failure_modes:
+      - {condition: "drink at max", result: "thirst still resets"}
+
+  - action: do
+    target: creature
+    preconditions: ["creature in facing tile"]
+    expected_effects:
+      - "creature.health -= damage (1/2/3/5 by weapon)"
+      - "if health <= 0: creature removed, achievement"
+      - "if cow: food += 6"
+    failure_modes:
+      - {condition: "creature not adjacent", result: "no effect"}
+
+  - action: place_table
+    preconditions: ["wood >= 2", "facing grass/sand/path", "no object on tile"]
+    expected_effects:
+      - "table placed on facing tile"
+      - "inventory.wood -= 2"
+    failure_modes:
+      - {condition: "insufficient wood", result: "no effect"}
+      - {condition: "invalid terrain", result: "no effect"}
+      - {condition: "tile occupied", result: "no effect"}
+
+  - action: make_wood_pickaxe
+    preconditions: ["table within 1 tile", "wood >= 1"]
+    expected_effects:
+      - "inventory.wood -= 1"
+      - "inventory.wood_pickaxe += 1"
+    failure_modes:
+      - {condition: "no table nearby", result: "no effect"}
+      - {condition: "insufficient resources", result: "no effect"}
+
+  - action: sleep
+    preconditions: ["energy < 9"]
+    expected_effects:
+      - "enter sleeping state"
+      - "energy regenerates faster"
+      - "hunger/thirst decay slower"
+      - "auto-wake when energy = 9"
+    failure_modes:
+      - {condition: "energy at max", result: "no effect"}
+    warnings:
+      - "Zombie damage increases from 2 to 7 while sleeping!"
+
+# -----------------------------------------------------------------------------
+# EVALUATIONS (Success metrics)
+# -----------------------------------------------------------------------------
+evaluations:
+  primary:
+    name: achievement_count
+    description: "Number of unique achievements unlocked"
+    range: [0, 22]
+    tiers:
+      easy: [collect_wood, collect_drink, place_table, make_wood_pickaxe]
+      medium: [collect_stone, collect_coal, place_furnace, make_stone_pickaxe,
+               make_wood_sword, make_stone_sword, collect_sapling, place_plant, wake_up]
+      hard: [collect_iron, make_iron_pickaxe, make_iron_sword,
+             defeat_zombie, defeat_skeleton, eat_cow, eat_plant]
+      very_hard: [collect_diamond]
+
+  secondary:
+    name: survival_time
+    description: "Steps survived before death or episode end"
+    benchmarks:
+      minimal: 100
+      basic: 500
+      good: 2000
+      strong: 5000
+      optimal: 10000
+
+  reward_signal:
+    formula: "(current_health - previous_health) / 10 + 1.0 * new_achievements"
+    components:
+      health_change: "Small penalty/reward for health delta"
+      achievement_bonus: "+1.0 per NEW achievement (once per achievement)"

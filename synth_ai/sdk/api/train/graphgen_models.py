@@ -243,6 +243,14 @@ class GraphGenVerifierConfig(BaseModel):
         default="groq",
         description="Provider for verifier model (groq, openai, google, anthropic)",
     )
+    scoring_guidelines: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional scoring guidelines for the verifier. "
+            "If not provided, defaults to BINARY scoring (1.0 = exact match, 0.0 = wrong). "
+            "Set this to allow partial credit, e.g., 'Allow partial credit for semantically similar answers.'"
+        ),
+    )
 
 
 class GraphGenTaskSet(BaseModel):
