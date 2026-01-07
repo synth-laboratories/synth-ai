@@ -2,6 +2,7 @@
  * Event filter modal controller.
  */
 import type { AppContext } from "../context"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import type { ModalController } from "./base"
 
 export function createFilterModal(ctx: AppContext): ModalController & {
@@ -16,10 +17,11 @@ export function createFilterModal(ctx: AppContext): ModalController & {
     ui.filterLabel.visible = visible
     ui.filterInput.visible = visible
     if (visible) {
+      blurForModal(ctx)
       ui.filterInput.value = appState.eventFilter
       ui.filterInput.focus()
-    } else if (appState.activePane === "jobs") {
-      ui.jobsSelect.focus()
+    } else {
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }

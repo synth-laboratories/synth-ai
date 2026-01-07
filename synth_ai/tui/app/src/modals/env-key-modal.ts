@@ -2,6 +2,7 @@
  * Environment key scanner modal controller.
  */
 import type { AppContext } from "../context"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { scanEnvKeys } from "../utils/env"
 import { clamp, type ModalController } from "./base"
 
@@ -21,8 +22,10 @@ export function createEnvKeyModal(ctx: AppContext): ModalController & {
     ui.envKeyModalHelp.visible = visible
     ui.envKeyModalListText.visible = visible
     ui.envKeyModalInfoText.visible = visible
-    if (!visible && appState.activePane === "jobs") {
-      ui.jobsSelect.focus()
+    if (visible) {
+      blurForModal(ctx)
+    } else {
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }

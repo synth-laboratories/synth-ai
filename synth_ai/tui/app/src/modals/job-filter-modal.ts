@@ -3,6 +3,7 @@
  */
 import type { AppContext } from "../context"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { clamp, type ModalController } from "./base"
 
 export function createJobFilterModal(ctx: AppContext): ModalController & {
@@ -21,14 +22,14 @@ export function createJobFilterModal(ctx: AppContext): ModalController & {
     ui.jobFilterHelp.visible = visible
     ui.jobFilterListText.visible = visible
     if (visible) {
+      blurForModal(ctx)
       ui.jobFilterLabel.content = "Job filter (status)"
       refreshOptions()
-      ui.jobsSelect.blur()
       appState.jobFilterCursor = 0
       appState.jobFilterWindowStart = 0
       renderList()
-    } else if (appState.activePane === "jobs") {
-      ui.jobsSelect.focus()
+    } else {
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }

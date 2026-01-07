@@ -3,6 +3,7 @@
  */
 import type { AppContext } from "../context"
 import { formatResultsExpanded } from "../formatters"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { copyToClipboard } from "../utils/clipboard"
 import { centerModal, clamp, wrapModalText, type ModalController } from "./base"
 
@@ -21,8 +22,11 @@ export function createResultsModal(ctx: AppContext): ModalController & {
     ui.resultsModalTitle.visible = visible
     ui.resultsModalText.visible = visible
     ui.resultsModalHint.visible = visible
-    if (!visible) {
+    if (visible) {
+      blurForModal(ctx)
+    } else {
       ui.resultsModalText.content = ""
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }
@@ -34,7 +38,8 @@ export function createResultsModal(ctx: AppContext): ModalController & {
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
     const maxWidth = Math.max(20, cols - 20)
     const wrapped = wrapModalText(raw, maxWidth)
-    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12)
+    // Modal height is 24, minus 2 for borders, 1 for title, 2 for hint area = 19 usable lines
+    const maxLines = 19
 
     appState.resultsModalOffset = clamp(appState.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines))
     const visible = wrapped.slice(appState.resultsModalOffset, appState.resultsModalOffset + maxLines)

@@ -20923,6 +20923,14 @@ function updatePaneIndicators(ctx) {
   ui.jobsBox.borderColor = appState2.activePane === "jobs" ? "#60a5fa" : "#334155";
   ui.eventsBox.borderColor = appState2.activePane === "events" ? "#60a5fa" : "#334155";
 }
+function blurForModal(ctx) {
+  ctx.ui.jobsSelect.blur();
+}
+function restoreFocusFromModal(ctx) {
+  if (ctx.state.appState.activePane === "jobs") {
+    ctx.ui.jobsSelect.focus();
+  }
+}
 
 // src/api/client.ts
 var exports_client = {};
@@ -21455,8 +21463,11 @@ function createEventModal(ctx) {
     ui.eventModalTitle.visible = visible;
     ui.eventModalText.visible = visible;
     ui.eventModalHint.visible = visible;
-    if (!visible) {
+    if (visible) {
+      blurForModal(ctx);
+    } else {
       ui.eventModalText.content = "";
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -21547,8 +21558,11 @@ function createResultsModal(ctx) {
     ui.resultsModalTitle.visible = visible;
     ui.resultsModalText.visible = visible;
     ui.resultsModalHint.visible = visible;
-    if (!visible) {
+    if (visible) {
+      blurForModal(ctx);
+    } else {
       ui.resultsModalText.content = "";
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -21559,7 +21573,7 @@ function createResultsModal(ctx) {
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
     const maxWidth = Math.max(20, cols - 20);
     const wrapped = wrapModalText(raw, maxWidth);
-    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    const maxLines = 19;
     appState2.resultsModalOffset = clamp2(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.resultsModalOffset, appState2.resultsModalOffset + maxLines);
     ui.resultsModalTitle.content = "Results - Best Snapshot";
@@ -21632,8 +21646,11 @@ function createConfigModal(ctx) {
     ui.configModalTitle.visible = visible;
     ui.configModalText.visible = visible;
     ui.configModalHint.visible = visible;
-    if (!visible) {
+    if (visible) {
+      blurForModal(ctx);
+    } else {
       ui.configModalText.content = "";
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -22002,16 +22019,16 @@ function createSettingsModal(ctx) {
     ui.settingsListText.visible = visible;
     ui.settingsInfoText.visible = visible;
     if (visible) {
+      blurForModal(ctx);
       const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || "";
       if (!backendKeys2.local?.trim() && synthApiKey) {
         backendKeys2.local = synthApiKey;
       }
       appState2.settingsOptions = buildSettingsOptions();
       appState2.settingsCursor = Math.max(0, appState2.settingsOptions.findIndex((opt) => opt.id === appState2.currentBackend));
-      ui.jobsSelect.blur();
       renderList();
-    } else if (appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
+    } else {
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -22122,10 +22139,11 @@ function createFilterModal(ctx) {
     ui.filterLabel.visible = visible;
     ui.filterInput.visible = visible;
     if (visible) {
+      blurForModal(ctx);
       ui.filterInput.value = appState2.eventFilter;
       ui.filterInput.focus();
-    } else if (appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
+    } else {
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -22158,6 +22176,7 @@ function createFilterModal(ctx) {
     handleKey
   };
 }
+var init_filter_modal = () => {};
 
 // src/api/jobs.ts
 var exports_jobs = {};
@@ -22399,14 +22418,14 @@ function createJobFilterModal(ctx) {
     ui.jobFilterHelp.visible = visible;
     ui.jobFilterListText.visible = visible;
     if (visible) {
+      blurForModal(ctx);
       ui.jobFilterLabel.content = "Job filter (status)";
       refreshOptions();
-      ui.jobsSelect.blur();
       appState2.jobFilterCursor = 0;
       appState2.jobFilterWindowStart = 0;
       renderList();
-    } else if (appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
+    } else {
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -22538,12 +22557,13 @@ function createKeyModal(ctx) {
     ui.keyModalInput.visible = visible;
     ui.keyModalHelp.visible = visible;
     if (visible) {
+      blurForModal(ctx);
       ui.keyModalInput.value = "";
       ui.keyModalInput.focus();
       ui.keyModalLabel.content = `API Key for ${appState2.keyModalBackend}:`;
       ui.keyModalHelp.content = "Paste or type key | Enter to apply | q to cancel";
-    } else if (appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
+    } else {
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -22630,6 +22650,7 @@ function createKeyModal(ctx) {
     handleKey
   };
 }
+var init_key_modal = () => {};
 
 // src/modals/env-key-modal.ts
 function createEnvKeyModal(ctx) {
@@ -22642,8 +22663,10 @@ function createEnvKeyModal(ctx) {
     ui.envKeyModalHelp.visible = visible;
     ui.envKeyModalListText.visible = visible;
     ui.envKeyModalInfoText.visible = visible;
-    if (!visible && appState2.activePane === "jobs") {
-      ui.jobsSelect.focus();
+    if (visible) {
+      blurForModal(ctx);
+    } else {
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -22794,10 +22817,11 @@ function createSnapshotModal(ctx) {
     ui.modalLabel.visible = visible;
     ui.modalInput.visible = visible;
     if (visible) {
+      blurForModal(ctx);
       ui.modalInput.value = "";
       ui.modalInput.focus();
     } else {
-      ui.jobsSelect.focus();
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -22844,6 +22868,7 @@ function createSnapshotModal(ctx) {
     handleKey
   };
 }
+var init_snapshot_modal = () => {};
 
 // src/modals/task-apps-modal.ts
 function formatTunnelDetails(tunnels, healthResults, selectedIndex) {
@@ -22891,8 +22916,11 @@ function createTaskAppsModal(ctx) {
     ui.taskAppsModalTitle.visible = visible;
     ui.taskAppsModalText.visible = visible;
     ui.taskAppsModalHint.visible = visible;
-    if (!visible) {
+    if (visible) {
+      blurForModal(ctx);
+    } else {
       ui.taskAppsModalText.content = "";
+      restoreFocusFromModal(ctx);
     }
     renderer.requestRender();
   }
@@ -22975,8 +23003,11 @@ var init_modals = __esm(() => {
   init_results_modal();
   init_config_modal();
   init_settings_modal();
+  init_filter_modal();
   init_job_filter_modal();
+  init_key_modal();
   init_env_key_modal();
+  init_snapshot_modal();
   init_task_apps_modal();
 });
 

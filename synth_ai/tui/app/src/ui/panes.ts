@@ -28,6 +28,16 @@ export function updatePaneIndicators(ctx: AppContext): void {
   ui.eventsBox.borderColor = appState.activePane === "events" ? "#60a5fa" : "#334155"
 }
 
+export function blurForModal(ctx: AppContext): void {
+  ctx.ui.jobsSelect.blur()
+}
+
+export function restoreFocusFromModal(ctx: AppContext): void {
+  if (ctx.state.appState.activePane === "jobs") {
+    ctx.ui.jobsSelect.focus()
+  }
+}
+
 
 
 

@@ -3,6 +3,7 @@
  */
 import type { AppContext } from "../context"
 import type { BackendConfig, BackendId } from "../types"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { clamp, type ModalController } from "./base"
 
 // Type declaration for Node.js process (available at runtime)
@@ -32,6 +33,7 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
     ui.settingsListText.visible = visible
     ui.settingsInfoText.visible = visible
     if (visible) {
+      blurForModal(ctx)
       // Refresh backendKeys from environment in case SYNTH_API_KEY was set
       const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
       if (!backendKeys.local?.trim() && synthApiKey) {
@@ -42,10 +44,9 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
         0,
         appState.settingsOptions.findIndex((opt) => opt.id === appState.currentBackend),
       )
-      ui.jobsSelect.blur()
       renderList()
-    } else if (appState.activePane === "jobs") {
-      ui.jobsSelect.focus()
+    } else {
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }

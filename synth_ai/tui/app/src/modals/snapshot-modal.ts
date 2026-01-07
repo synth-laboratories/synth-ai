@@ -2,6 +2,7 @@
  * Snapshot ID input modal controller.
  */
 import type { AppContext } from "../context"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import type { ModalController } from "./base"
 
 export function createSnapshotModal(ctx: AppContext): ModalController & {
@@ -17,10 +18,11 @@ export function createSnapshotModal(ctx: AppContext): ModalController & {
     ui.modalLabel.visible = visible
     ui.modalInput.visible = visible
     if (visible) {
+      blurForModal(ctx)
       ui.modalInput.value = ""
       ui.modalInput.focus()
     } else {
-      ui.jobsSelect.focus()
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }

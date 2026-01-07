@@ -2,6 +2,7 @@
  * API key input modal controller.
  */
 import type { AppContext } from "../context"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import type { ModalController } from "./base"
 
 export function createKeyModal(ctx: AppContext): ModalController & {
@@ -19,12 +20,13 @@ export function createKeyModal(ctx: AppContext): ModalController & {
     ui.keyModalInput.visible = visible
     ui.keyModalHelp.visible = visible
     if (visible) {
+      blurForModal(ctx)
       ui.keyModalInput.value = ""
       ui.keyModalInput.focus()
       ui.keyModalLabel.content = `API Key for ${appState.keyModalBackend}:`
       ui.keyModalHelp.content = "Paste or type key | Enter to apply | q to cancel"
-    } else if (appState.activePane === "jobs") {
-      ui.jobsSelect.focus()
+    } else {
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }

@@ -3,6 +3,7 @@
  */
 import type { AppContext } from "../context"
 import { getFilteredEvents, formatEventData } from "../formatters"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { centerModal, clamp, wrapModalText, type ModalController } from "./base"
 
 export function createEventModal(ctx: AppContext): ModalController & {
@@ -19,8 +20,11 @@ export function createEventModal(ctx: AppContext): ModalController & {
     ui.eventModalTitle.visible = visible
     ui.eventModalText.visible = visible
     ui.eventModalHint.visible = visible
-    if (!visible) {
+    if (visible) {
+      blurForModal(ctx)
+    } else {
       ui.eventModalText.content = ""
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }

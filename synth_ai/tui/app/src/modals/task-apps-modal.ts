@@ -4,6 +4,7 @@
  */
 import type { AppContext } from "../context"
 import type { TunnelRecord, TunnelHealthResult } from "../types"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { copyToClipboard } from "../utils/clipboard"
 import { centerModal, clamp, wrapModalText, type ModalController } from "./base"
 
@@ -73,8 +74,11 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
     ui.taskAppsModalTitle.visible = visible
     ui.taskAppsModalText.visible = visible
     ui.taskAppsModalHint.visible = visible
-    if (!visible) {
+    if (visible) {
+      blurForModal(ctx)
+    } else {
       ui.taskAppsModalText.content = ""
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }

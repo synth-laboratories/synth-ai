@@ -2,6 +2,7 @@
  * Job configuration/metadata modal controller.
  */
 import type { AppContext } from "../context"
+import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { centerModal, clamp, wrapModalText, type ModalController } from "./base"
 
 export function createConfigModal(ctx: AppContext): ModalController & {
@@ -18,8 +19,11 @@ export function createConfigModal(ctx: AppContext): ModalController & {
     ui.configModalTitle.visible = visible
     ui.configModalText.visible = visible
     ui.configModalHint.visible = visible
-    if (!visible) {
+    if (visible) {
+      blurForModal(ctx)
+    } else {
       ui.configModalText.content = ""
+      restoreFocusFromModal(ctx)
     }
     renderer.requestRender()
   }
