@@ -106,8 +106,7 @@ def validate_po_cfg(cfg: Dict[str, Any]) -> None:
     if policy is not None:
         if not isinstance(policy, dict):
             raise ValueError("[prompt_learning].policy must be a dict")
-        if not policy.get("model"):
-            raise ValueError("[prompt_learning].policy.model is required")
+        # Note: model is optional - detected from actual LLM calls during rollouts
         if not policy.get("provider"):
             raise ValueError("[prompt_learning].policy.provider is required")
 

@@ -1056,10 +1056,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                                 )
                             else:
                                 # Validate required fields in module policy
-                                if not module_policy.get("model"):
-                                    errors.append(
-                                        f"❌ gepa.modules[{idx}]: [policy].model is required"
-                                    )
+                                # Note: model is optional - detected from actual LLM calls during rollouts
                                 if not module_policy.get("provider"):
                                     errors.append(
                                         f"❌ gepa.modules[{idx}]: [policy].provider is required"
@@ -1740,11 +1737,10 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
                 "Remove base_url from your config file."
             )
         
-        if not policy_section.get("model"):
-            errors.append("❌ [prompt_learning.policy].model is required")
+        # Note: model is optional - detected from actual LLM calls during rollouts
         if not policy_section.get("provider"):
             errors.append("❌ [prompt_learning.policy].provider is required")
-    
+
     # Validate proxy_models section (can be at top-level or gepa-specific)
     proxy_models_section = pl_section.get("proxy_models") or gepa_section.get("proxy_models")
     if proxy_models_section:
@@ -2235,7 +2231,7 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
                                 if stage_policy is None:
                                     errors.append(
                                         f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy] table is REQUIRED. "
-                                        f"Each stage must have its own policy configuration with 'model' and 'provider' fields."
+                                        f"Each stage must have its own policy configuration with 'provider' field."
                                     )
                                 elif not isinstance(stage_policy, dict):
                                     errors.append(
@@ -2243,10 +2239,7 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
                                     )
                                 else:
                                     # Validate required fields in stage policy
-                                    if not stage_policy.get("model"):
-                                        errors.append(
-                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].model is required"
-                                        )
+                                    # Note: model is optional - detected from actual LLM calls during rollouts
                                     if not stage_policy.get("provider"):
                                         errors.append(
                                             f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].provider is required"
@@ -2334,8 +2327,7 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
     if not isinstance(policy_section, dict):
         errors.append("❌ [prompt_learning.policy] section is missing or invalid")
     else:
-        if not policy_section.get("model"):
-            errors.append("❌ [prompt_learning.policy].model is required")
+        # Note: model is optional - detected from actual LLM calls during rollouts
         if not policy_section.get("provider"):
             errors.append("❌ [prompt_learning.policy].provider is required")
     
