@@ -364,10 +364,12 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 					ctx.render()
 
 					// Fire-and-forget: spawn eval job process
-					spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
+					const proc = spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
 						stdio: "ignore",
 						detached: true,
-					}).unref()
+					})
+					proc.on("error", () => {})
+					proc.unref()
 
 					ctx.state.snapshot.status = "Eval job submitted"
 					toggle(false)
