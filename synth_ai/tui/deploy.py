@@ -299,7 +299,7 @@ def _validate_localapi(module: ModuleType, path: Path) -> str | None:
 
 def _timestamp_for_filename() -> str:
     now = datetime.now()
-    return f"{now.year}_{now.month:02d}_{now.day:02d}_{now.hour:02d}:{now.minute:02d}:{now.second:02d}"
+    return f"{now.year}_{now.month:02d}_{now.day:02d}_{now.hour:02d}-{now.minute:02d}-{now.second:02d}"
 
 
 def _parse_args() -> argparse.Namespace:
