@@ -2,7 +2,7 @@
  * Pane focus + visual indicators (jobs, events, logs, opencode).
  */
 import type { AppContext } from "../context"
-import type { ActivePane, PrincipalPane } from "../types"
+import type { ActivePane } from "../types"
 import { focusManager } from "../focus"
 import { moveLogSelection, pageLogSelection, getSelectedLogFile } from "./logs"
 import { moveEventSelection, toggleSelectedEventExpanded } from "./events"

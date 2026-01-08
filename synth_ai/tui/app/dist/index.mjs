@@ -152,6 +152,153 @@ function toSortTimestamp(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+// src/api/opencode.ts
+var exports_opencode = {};
+__export(exports_opencode, {
+  subscribeToOpenCodeEvents: () => subscribeToOpenCodeEvents,
+  sendPrompt: () => sendPrompt,
+  processOpenCodeEvent: () => processOpenCodeEvent,
+  clearOpenCodeMessages: () => clearOpenCodeMessages,
+  addUserMessage: () => addUserMessage
+});
+function subscribeToOpenCodeEvents(baseUrl, options) {
+  const { directory, onEvent, onError, onConnect } = options;
+  const url = new URL("/event", baseUrl);
+  if (directory) {
+    url.searchParams.set("directory", directory);
+  }
+  let isActive = true;
+  let eventSource = null;
+  try {
+    eventSource = new EventSource(url.toString());
+    eventSource.onopen = () => {
+      if (onConnect)
+        onConnect();
+    };
+    eventSource.onmessage = (event) => {
+      if (!isActive)
+        return;
+      try {
+        const data = JSON.parse(event.data);
+        onEvent(data);
+      } catch (err) {
+        console.error("Failed to parse OpenCode event:", err);
+      }
+    };
+    eventSource.onerror = (_err) => {
+      if (!isActive)
+        return;
+      if (onError) {
+        onError(new Error("EventSource connection error"));
+      }
+    };
+  } catch (err) {
+    if (onError) {
+      onError(err);
+    }
+    isActive = false;
+  }
+  return {
+    unsubscribe: () => {
+      isActive = false;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    },
+    get isActive() {
+      return isActive;
+    }
+  };
+}
+async function sendPrompt(baseUrl, sessionId, prompt) {
+  try {
+    const response = await fetch(`${baseUrl}/session/${sessionId}/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        content: prompt,
+        role: "user"
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return { success: false, error: `HTTP ${response.status}: ${text}` };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err?.message || "Unknown error" };
+  }
+}
+function processOpenCodeEvent(ctx, event) {
+  const { appState: appState2 } = ctx.state;
+  switch (event.type) {
+    case "message.part.updated": {
+      const part = event.properties.part;
+      if (!part)
+        return;
+      const existingIdx = appState2.openCodeMessages.findIndex((m) => m.id === part.messageID);
+      if (existingIdx >= 0) {
+        const existing = appState2.openCodeMessages[existingIdx];
+        if (part.type === "text" && event.properties.delta) {
+          existing.content += event.properties.delta;
+        } else if (part.type === "tool") {
+          existing.toolStatus = part.state.status;
+          if (part.state.output) {
+            existing.content = part.state.output;
+          }
+        }
+      } else {
+        const newMessage = {
+          id: part.messageID,
+          role: part.type === "tool" ? "tool" : "assistant",
+          content: event.properties.delta || part.state.output || "",
+          timestamp: new Date,
+          toolName: part.type === "tool" ? part.state.title : undefined,
+          toolStatus: part.type === "tool" ? part.state.status : undefined
+        };
+        appState2.openCodeMessages.push(newMessage);
+      }
+      break;
+    }
+    case "session.idle": {
+      appState2.openCodeIsProcessing = false;
+      break;
+    }
+    case "session.error": {
+      appState2.openCodeIsProcessing = false;
+      const errorMsg = event.properties.error || "Unknown error";
+      appState2.openCodeMessages.push({
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: `Error: ${errorMsg}`,
+        timestamp: new Date
+      });
+      break;
+    }
+    case "server.heartbeat": {
+      break;
+    }
+  }
+  ctx.render();
+}
+function addUserMessage(ctx, content) {
+  const { appState: appState2 } = ctx.state;
+  appState2.openCodeMessages.push({
+    id: `user-${Date.now()}`,
+    role: "user",
+    content,
+    timestamp: new Date
+  });
+  ctx.render();
+}
+function clearOpenCodeMessages(ctx) {
+  ctx.state.appState.openCodeMessages = [];
+  ctx.render();
+}
+
 // src/utils/env.ts
 import path7 from "path";
 import { promises as fs4 } from "fs";
@@ -20113,6 +20260,65 @@ function buildLayout(renderer, getFooterText) {
   logsBox.add(logsContent);
   logsBox.add(logsEmptyText);
   detailColumn.add(logsBox);
+  const openCodeBox = new BoxRenderable(renderer, {
+    id: "opencode-box",
+    width: "auto",
+    height: "auto",
+    flexDirection: "column",
+    flexGrow: 2,
+    flexShrink: 1,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "OpenCode Agent",
+    titleAlignment: "left",
+    border: true,
+    visible: false
+  });
+  const openCodeMessagesBox = new BoxRenderable(renderer, {
+    id: "opencode-messages-box",
+    width: "auto",
+    height: "auto",
+    flexDirection: "column",
+    flexGrow: 1,
+    flexShrink: 1,
+    border: false
+  });
+  const openCodeMessagesText = new TextRenderable(renderer, {
+    id: "opencode-messages-text",
+    content: `No messages yet.
+
+Connect to an OpenCode session to start chatting.
+Press Shift+O to open the sessions modal.`,
+    fg: "#e2e8f0"
+  });
+  openCodeMessagesBox.add(openCodeMessagesText);
+  openCodeBox.add(openCodeMessagesBox);
+  const openCodeInputBox = new BoxRenderable(renderer, {
+    id: "opencode-input-box",
+    width: "auto",
+    height: 3,
+    borderStyle: "single",
+    borderColor: "#475569",
+    title: "Message",
+    titleAlignment: "left",
+    border: true,
+    flexGrow: 0,
+    flexShrink: 0
+  });
+  const openCodeInputText = new TextRenderable(renderer, {
+    id: "opencode-input-text",
+    content: "",
+    fg: "#f8fafc"
+  });
+  openCodeInputBox.add(openCodeInputText);
+  openCodeBox.add(openCodeInputBox);
+  const openCodeStatusText = new TextRenderable(renderer, {
+    id: "opencode-status-text",
+    content: "Not connected - Press Shift+O for sessions",
+    fg: "#94a3b8"
+  });
+  openCodeBox.add(openCodeStatusText);
+  main2.add(openCodeBox);
   const statusBox = new BoxRenderable(renderer, {
     id: "status-box",
     width: "auto",
@@ -20207,7 +20413,14 @@ function buildLayout(renderer, getFooterText) {
     sessionsModalTitle,
     sessionsModalText,
     sessionsModalHint,
-    sessionsModalVisible: false
+    sessionsModalVisible: false,
+    openCodeBox,
+    openCodeMessagesBox,
+    openCodeMessagesText,
+    openCodeInputBox,
+    openCodeInputText,
+    openCodeStatusText,
+    detailColumn
   };
 }
 
@@ -21142,6 +21355,162 @@ class FocusManager {
 }
 var focusManager = new FocusManager;
 
+// src/ui/opencode.ts
+function formatMessages(messages, maxWidth) {
+  const lines = [];
+  if (messages.length === 0) {
+    return [
+      "No messages yet.",
+      "",
+      "Connect to an OpenCode session to start chatting.",
+      "Press Shift+O to open the sessions modal."
+    ];
+  }
+  for (const msg of messages) {
+    const time2 = msg.timestamp.toLocaleTimeString();
+    if (msg.role === "user") {
+      lines.push(`[${time2}] You:`);
+      const contentLines = wrapText(msg.content, maxWidth - 2);
+      for (const line of contentLines) {
+        lines.push(`  ${line}`);
+      }
+      lines.push("");
+    } else if (msg.role === "tool") {
+      const status = msg.toolStatus || "running";
+      const statusIcon = status === "completed" ? "\u2713" : status === "failed" ? "\u2717" : "\u21BB";
+      lines.push(`[${time2}] [${statusIcon}] ${msg.toolName || "Tool"}:`);
+      if (msg.content) {
+        const contentLines = wrapText(msg.content, maxWidth - 2);
+        for (const line of contentLines) {
+          lines.push(`  ${line}`);
+        }
+      }
+      lines.push("");
+    } else {
+      lines.push(`[${time2}] Agent:`);
+      const contentLines = wrapText(msg.content, maxWidth - 2);
+      for (const line of contentLines) {
+        lines.push(`  ${line}`);
+      }
+      lines.push("");
+    }
+  }
+  return lines;
+}
+function wrapText(text, maxWidth) {
+  const lines = [];
+  const paragraphs = text.split(`
+`);
+  for (const para of paragraphs) {
+    if (para.length <= maxWidth) {
+      lines.push(para);
+      continue;
+    }
+    const words = para.split(" ");
+    let currentLine = "";
+    for (const word of words) {
+      if (currentLine.length === 0) {
+        currentLine = word;
+      } else if (currentLine.length + 1 + word.length <= maxWidth) {
+        currentLine += " " + word;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
+  }
+  return lines;
+}
+function renderOpenCodePane(_ctx) {}
+function scrollOpenCode(ctx, delta) {
+  const { appState: appState2 } = ctx.state;
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const maxWidth = Math.max(20, cols - 50);
+  const maxLines = Math.max(5, rows - 15);
+  const messageLines = formatMessages(appState2.openCodeMessages, maxWidth);
+  const maxOffset = Math.max(0, messageLines.length - maxLines);
+  appState2.openCodeScrollOffset = Math.max(0, Math.min(appState2.openCodeScrollOffset + delta, maxOffset));
+  renderOpenCodePane(ctx);
+}
+async function sendOpenCodeMessage(ctx) {
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const content = appState2.openCodeInputValue?.trim();
+  if (!content)
+    return;
+  if (!appState2.openCodeSessionId) {
+    appState2.openCodeMessages.push({
+      id: `error-${Date.now()}`,
+      role: "assistant",
+      content: "Not connected to any session. Press Shift+O to open sessions and connect.",
+      timestamp: new Date
+    });
+    snapshot2.status = "Not connected - Press Shift+O for sessions";
+    renderOpenCodePane(ctx);
+    ctx.render();
+    return;
+  }
+  const session = snapshot2.sessions.find((s) => s.session_id === appState2.openCodeSessionId);
+  if (!session) {
+    snapshot2.status = "Session not found";
+    ctx.render();
+    return;
+  }
+  appState2.openCodeMessages.push({
+    id: `user-${Date.now()}`,
+    role: "user",
+    content,
+    timestamp: new Date
+  });
+  appState2.openCodeInputValue = "";
+  appState2.openCodeIsProcessing = true;
+  renderOpenCodePane(ctx);
+  try {
+    const { sendPrompt: sendPrompt2 } = await Promise.resolve().then(() => exports_opencode);
+    const baseUrl = session.opencode_url || session.access_url;
+    if (!baseUrl) {
+      throw new Error("No URL for session");
+    }
+    const result = await sendPrompt2(baseUrl, appState2.openCodeSessionId, content);
+    if (!result.success) {
+      appState2.openCodeMessages.push({
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: `Error: ${result.error || "Failed to send message"}`,
+        timestamp: new Date
+      });
+      appState2.openCodeIsProcessing = false;
+    }
+  } catch (err) {
+    appState2.openCodeMessages.push({
+      id: `error-${Date.now()}`,
+      role: "assistant",
+      content: `Error: ${err?.message || "Failed to send message"}`,
+      timestamp: new Date
+    });
+    appState2.openCodeIsProcessing = false;
+  }
+  renderOpenCodePane(ctx);
+}
+function handleOpenCodeInput(ctx, char) {
+  const { appState: appState2 } = ctx.state;
+  if (!appState2.openCodeInputValue) {
+    appState2.openCodeInputValue = "";
+  }
+  appState2.openCodeInputValue += char;
+  ctx.render();
+}
+function handleOpenCodeBackspace(ctx) {
+  const { appState: appState2 } = ctx.state;
+  if (appState2.openCodeInputValue && appState2.openCodeInputValue.length > 0) {
+    appState2.openCodeInputValue = appState2.openCodeInputValue.slice(0, -1);
+    ctx.render();
+  }
+}
+
 // src/ui/panes.ts
 function createLogsPaneFocusable(ctx, openLogFileModal) {
   return {
@@ -21205,11 +21574,53 @@ function createEventsPaneFocusable(ctx, openEventModal) {
     }
   };
 }
+function createOpenCodePaneFocusable(ctx) {
+  return {
+    id: "opencode-pane",
+    handleKey: (key) => {
+      if (key.name === "up" || key.name === "k") {
+        scrollOpenCode(ctx, -1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "down" || key.name === "j") {
+        scrollOpenCode(ctx, 1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "pageup") {
+        scrollOpenCode(ctx, -10);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "pagedown") {
+        scrollOpenCode(ctx, 10);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        sendOpenCodeMessage(ctx);
+        return true;
+      }
+      if (key.name === "backspace") {
+        handleOpenCodeBackspace(ctx);
+        return true;
+      }
+      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+        handleOpenCodeInput(ctx, key.sequence);
+        return true;
+      }
+      return false;
+    }
+  };
+}
 var logsFocusable = null;
 var eventsFocusable = null;
+var openCodeFocusable = null;
 function initPaneFocusables(ctx, openEventModal, openLogFileModal) {
   logsFocusable = createLogsPaneFocusable(ctx, openLogFileModal);
   eventsFocusable = createEventsPaneFocusable(ctx, openEventModal);
+  openCodeFocusable = createOpenCodePaneFocusable(ctx);
 }
 function setActivePane(ctx, pane) {
   const { ui } = ctx;
@@ -21279,6 +21690,12 @@ function restoreFocusFromModal(ctx) {
   const { appState: appState2 } = ctx.state;
   const paneToRestore = previousPaneBeforeModal || appState2.activePane;
   previousPaneBeforeModal = null;
+  if (appState2.principalPane === "opencode") {
+    if (openCodeFocusable) {
+      focusManager.push(openCodeFocusable);
+    }
+    return;
+  }
   if (paneToRestore === "jobs") {
     ui.jobsSelect.focus();
   } else if (paneToRestore === "logs" && logsFocusable) {
