@@ -49,9 +49,9 @@ env_name = "web_design"
 
 # Rollout configuration (how many evaluations to run)
 [prompt_learning.gepa.rollout]
-budget = 15                 # Total number of evaluations (small for testing)
-max_concurrent = 2          # Run 2 evaluations in parallel (image gen is slow)
-minibatch_size = 3          # Evaluate on 3 examples per candidate
+budget = 3                  # Total number of evaluations (minimal for testing)
+max_concurrent = 1          # Run 1 evaluation at a time
+minibatch_size = 3          # Evaluate on 3 examples per candidate (minimum required)
 
 # Evaluation seeds (which examples from dataset to use)
 [prompt_learning.gepa.evaluation]

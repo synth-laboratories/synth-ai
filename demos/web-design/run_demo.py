@@ -32,18 +32,20 @@ demo_dir = Path(__file__).parent
 repo_root = demo_dir.parent.parent
 sys.path.insert(0, str(repo_root))
 
-# Load .env
-from dotenv import load_dotenv
-env_file = repo_root / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
-    print(f"Loaded {env_file}")
+# Load .env (optional)
+try:
+    from dotenv import load_dotenv
+    env_file = repo_root / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+        print(f"Loaded {env_file}")
+except ImportError:
+    print("python-dotenv not installed, using existing environment variables")
 
 # Imports
 import httpx
 from datasets import load_from_disk
 from PIL import Image
-from google import genai
 import io
 
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
@@ -79,9 +81,8 @@ if r.status_code == 200:
 else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
-# Get API keys
+# Get API key
 API_KEY = os.environ.get("SYNTH_API_KEY", "")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 if not API_KEY:
     print("No SYNTH_API_KEY, minting demo key...")
@@ -89,9 +90,6 @@ if not API_KEY:
     print(f"Demo API Key: {API_KEY[:25]}...")
 else:
     print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
-
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY required in environment")
 
 os.environ["SYNTH_API_KEY"] = API_KEY
 
@@ -104,40 +102,21 @@ print(f"Env key ready: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
 
 
 # ==============================================================================
-# IMAGE GENERATION AND VERIFICATION FUNCTIONS
+# IMAGE VERIFICATION FUNCTION
 # ==============================================================================
 
-def generate_image_with_style(description: str, style_prompt: str) -> bytes:
-    """Generate webpage image using Gemini 2.5 Flash Image."""
-    client = genai.Client(api_key=GEMINI_API_KEY)
+async def verify_generated_image(
+    original_image: Image.Image,
+    generated_image_bytes: bytes,
+    inference_url: str,
+    api_key: str,
+) -> dict:
+    """Verify generated image against original using vision model via inference_url."""
+    import base64
 
-    full_prompt = f"""{style_prompt}
+    if not inference_url:
+        raise ValueError("inference_url is required for verification")
 
-Generate a webpage screenshot based on this functional description:
-
-{description}
-
-Apply the visual style guidelines to match the original design."""
-
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-image",
-        contents=full_prompt
-    )
-
-    # Extract image bytes
-    if hasattr(response, "candidates") and len(response.candidates) > 0:
-        candidate = response.candidates[0]
-        if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
-            for part in candidate.content.parts:
-                if hasattr(part, "inline_data") and part.inline_data is not None:
-                    return part.inline_data.data
-
-    raise ValueError("No image data in response")
-
-
-def verify_generated_image(original_image: Image.Image, generated_image_bytes: bytes) -> dict:
-    """Verify generated image against original using vision model."""
-    client = genai.Client(api_key=GEMINI_API_KEY)
     generated_image = Image.open(io.BytesIO(generated_image_bytes))
 
     prompt = """You are evaluating how well a GENERATED webpage matches the ORIGINAL webpage visually.
@@ -159,12 +138,51 @@ Return ONLY valid JSON (no markdown):
   "average_score": <average>
 }"""
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-image",
-        contents=[prompt, original_image, "ORIGINAL", generated_image, "GENERATED - JSON:"]
-    )
+    # Convert PIL images to base64 data URLs
+    original_bytes_io = io.BytesIO()
+    original_image.save(original_bytes_io, format="PNG")
+    original_bytes_io.seek(0)
+    original_b64 = base64.b64encode(original_bytes_io.read()).decode('utf-8')
+    original_data_url = f"data:image/png;base64,{original_b64}"
 
-    text = response.text.strip()
+    generated_bytes_io = io.BytesIO(generated_image_bytes)
+    generated_image_pil = Image.open(generated_bytes_io)
+    generated_bytes_io_2 = io.BytesIO()
+    generated_image_pil.save(generated_bytes_io_2, format="PNG")
+    generated_bytes_io_2.seek(0)
+    generated_b64 = base64.b64encode(generated_bytes_io_2.read()).decode('utf-8')
+    generated_data_url = f"data:image/png;base64,{generated_b64}"
+
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": f"{prompt}\n\nORIGINAL image first, then GENERATED image. Return JSON:"},
+                {"type": "image_url", "image_url": {"url": original_data_url}},
+                {"type": "image_url", "image_url": {"url": generated_data_url}},
+            ]
+        }
+    ]
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            f"{inference_url.rstrip('/')}/chat/completions",
+            json={
+                "model": "gemini-2.5-flash-image",
+                "messages": messages,
+                "temperature": 0.0,
+            },
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        response.raise_for_status()
+        llm_response = response.json()
+
+    text = llm_response["choices"][0]["message"]["content"].strip()
+
+    # Parse JSON response
     if text.startswith("```json"):
         text = text[7:]
     elif text.startswith("```"):
@@ -342,9 +360,14 @@ Apply the visual style guidelines to match the original design."""
             
             if not generated_bytes:
                 raise ValueError("No image data in policy model response")
-            
-            # Verify against original
-            verification = verify_generated_image(original_image, generated_bytes)
+
+            # Verify against original using inference_url
+            verification = await verify_generated_image(
+                original_image,
+                generated_bytes,
+                inference_url=inference_url,
+                api_key=ENVIRONMENT_API_KEY,
+            )
 
             # Average score is our reward (0-10 scale, convert to 0-1)
             reward = verification["average_score"] / 10.0
@@ -531,7 +554,8 @@ Create a webpage that feels polished, modern, and trustworthy."""
     # Cleanup
     if tunnel:
         print("\nCleaning up tunnel...")
-        await tunnel.stop()
+        from synth_ai.sdk.tunnels import cleanup_all
+        cleanup_all()
 
     # Summary
     total_time = time.time() - total_start
