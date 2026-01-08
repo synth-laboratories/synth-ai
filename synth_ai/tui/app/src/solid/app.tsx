@@ -12,6 +12,8 @@ import { JobsList } from "./ui/list-panels/JobsList"
 import { LogsList } from "./ui/list-panels/LogsList"
 import { JobsDetail } from "./ui/detail-panels/JobsDetail"
 import { LogsDetail } from "./ui/detail-panels/LogsDetail"
+import { useJobDetailsStream } from "./api/useJobDetailsStream"
+import type { JobDetailsStreamEvent } from "./api/job-details-stream"
 
 import { formatResultsExpanded, getFilteredEvents } from "../formatters"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
@@ -202,6 +204,48 @@ function SolidShell(props: { onExit?: () => void }) {
       windowStart,
       slice: list.slice(windowStart, windowStart + visible),
     }
+  })
+
+  // Selected job ID for SSE streaming
+  const selectedJobId = createMemo(() => {
+    data.version()
+    return data.ctx.state.snapshot.selectedJob?.job_id ?? null
+  })
+
+  // Track highest seen event seq for incremental SSE updates
+  const [lastSeenSeq, setLastSeenSeq] = createSignal(0)
+
+  // Subscribe to real-time job details updates via SSE
+  useJobDetailsStream({
+    jobId: selectedJobId,
+    sinceSeq: lastSeenSeq,
+    enabled: () => principalPane() === "jobs" && activePane() !== "logs",
+    onEvent: (event: JobDetailsStreamEvent) => {
+      // Update highest seen seq
+      if (event.seq > lastSeenSeq()) {
+        setLastSeenSeq(event.seq)
+      }
+
+      // Convert SSE event to JobEvent format and add to snapshot
+      const jobEvent: JobEvent = {
+        seq: event.seq,
+        type: event.type,
+        message: event.message,
+        data: event.data as JobEvent["data"],
+        timestamp: new Date(event.ts).toISOString(),
+      }
+
+      // Add event to snapshot (avoiding duplicates by seq)
+      const existingSeqs = new Set(snapshot.events.map(e => e.seq))
+      if (!existingSeqs.has(jobEvent.seq)) {
+        snapshot.events = [...snapshot.events, jobEvent].sort((a, b) => a.seq - b.seq)
+        data.ctx.render()
+      }
+    },
+    onError: (error) => {
+      // Log but don't show to user - polling will still work as fallback
+      console.error("Job details SSE error:", error.message)
+    },
   })
   const logFiles = createMemo(() => {
     data.version()
@@ -1528,6 +1572,13 @@ function SolidShell(props: { onExit?: () => void }) {
       openTaskAppsModal()
       return
     }
+    if (evt.name === "n") {
+      evt.preventDefault()
+      // TODO: Implement Create Job modal - for now show status message
+      snapshot.status = "Create Job: Coming soon (n key pressed)"
+      data.ctx.render()
+      return
+    }
     if (evt.name === "o" && evt.shift) {
       evt.preventDefault()
       openSessionsModal()
@@ -2209,6 +2260,8 @@ function SolidShell(props: { onExit?: () => void }) {
               <KeyHint description="view" keyLabel="enter" />
               <text fg={COLORS.textDim}> | </text>
               <KeyHint description="refresh" keyLabel="r" />
+              <text fg={COLORS.textDim}> | </text>
+              <KeyHint description="new job" keyLabel="n" />
               <text fg={COLORS.textDim}> | </text>
               <KeyHint description="switch" keyLabel="tab" />
               <text fg={COLORS.textDim}> | </text>

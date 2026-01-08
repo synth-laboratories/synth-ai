@@ -224,15 +224,15 @@ src/
 - Footer styling alignment using `KeyHint`
 - OpenCode Agent integration
 - Settings modal keyboard navigation (fixed reactivity)
+- **SSE streaming for real-time job details** (`src/solid/api/job-details-stream.ts`)
+- **`n` key shortcut for Create Job** (placeholder - modal pending)
 
 ⚠️ **Partially Complete**:
-- Create New Job functionality (exists but not exposed in tabs)
+- Create New Job functionality (shortcut exists, modal pending)
 - Events pane selection (uses text-only selection, not background highlight)
 
-🔲 **Pending (Phase 3+)**:
-- Job details SSE streaming
-- Keyboard/focus routing improvements
-- Create New Job wizard parity
+🔲 **Pending (Phase 4)**:
+- Full Create New Job wizard modal
 
 ## Next Steps
 
