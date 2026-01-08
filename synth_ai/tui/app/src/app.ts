@@ -279,7 +279,7 @@ export async function runApp(): Promise<void> {
         created_at: event.created_at ?? null,
         started_at: event.started_at ?? null,
         finished_at: event.finished_at ?? null,
-        best_score: null,
+        best_reward: null,
         best_snapshot_id: null,
         total_tokens: null,
         total_cost_usd: null,

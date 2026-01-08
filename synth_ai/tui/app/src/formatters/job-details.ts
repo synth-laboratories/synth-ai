@@ -38,11 +38,13 @@ export function formatEvalDetails(snapshot: Snapshot, job: JobSummary): string {
   ]
 
   // Extract key metrics from summary
-  if (summary.mean_score != null) {
-    lines.push(`  Mean Score: ${formatValue(summary.mean_score)}`)
+  const meanReward = summary.mean_reward ?? summary.mean_score
+  if (meanReward != null) {
+    lines.push(`  Mean Reward: ${formatValue(meanReward)}`)
   }
-  if (summary.accuracy != null) {
-    lines.push(`  Accuracy: ${(summary.accuracy * 100).toFixed(1)}%`)
+  const reward = summary.reward ?? summary.objectives?.reward ?? summary.accuracy
+  if (reward != null) {
+    lines.push(`  Reward: ${(reward * 100).toFixed(1)}%`)
   }
   if (summary.pass_rate != null) {
     lines.push(`  Pass Rate: ${(summary.pass_rate * 100).toFixed(1)}%`)
@@ -60,14 +62,14 @@ export function formatEvalDetails(snapshot: Snapshot, job: JobSummary): string {
   if (rows.length > 0) {
     lines.push(`  Results: ${rows.length} rows`)
     // Calculate score distribution
-    const scores = rows
-      .map((row) => num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed))
+    const rewards = rows
+      .map((row) => num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed))
       .filter((val) => typeof val === "number") as number[]
-    if (scores.length > 0) {
-      const mean = scores.reduce((sum, val) => sum + val, 0) / scores.length
-      const passed = scores.filter((s) => s >= 0.5 || s === 1).length
-      lines.push(`  Avg Score: ${mean.toFixed(4)}`)
-      lines.push(`  Pass Rate: ${((passed / scores.length) * 100).toFixed(1)}%`)
+    if (rewards.length > 0) {
+      const mean = rewards.reduce((sum, val) => sum + val, 0) / rewards.length
+      const passed = rewards.filter((s) => s >= 0.5 || s === 1).length
+      lines.push(`  Avg Reward: ${mean.toFixed(4)}`)
+      lines.push(`  Pass Rate: ${((passed / rewards.length) * 100).toFixed(1)}%`)
     }
   }
 
@@ -95,7 +97,7 @@ export function formatLearningDetails(job: JobSummary): string {
     `Env: ${envName || "-"}`,
     "",
     "═══ Progress ═══",
-    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Reward: ${job.best_reward != null ? job.best_reward.toFixed(4) : "-"}`,
     `  Best Snapshot: ${job.best_snapshot_id || "-"}`,
     "",
     "═══ Timing ═══",
@@ -142,7 +144,7 @@ export function formatPromptLearningDetails(snapshot: Snapshot, job: JobSummary)
     `Last Event: ${lastEventTs}`,
     "",
     "═══ Progress ═══",
-    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Reward: ${job.best_reward != null ? job.best_reward.toFixed(4) : "-"}`,
     `  Events: ${snapshot.events.length}`,
     `  Tokens: ${tokensDisplay}`,
     `  Cost: ${costDisplay}`,
@@ -175,5 +177,4 @@ export function calculateTotalTokensFromEvents(events: JobEvent[]): number {
   }
   return total
 }
-
 

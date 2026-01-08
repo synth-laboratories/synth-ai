@@ -60,11 +60,11 @@ export type Deployment = {
   error?: string
 }
 
-/** A prompt candidate (snapshot) with score */
+/** A prompt candidate (snapshot) with reward */
 export type PromptCandidate = {
   id: string
   isBaseline: boolean
-  score: number | null
+  reward: number | null
   payload: Record<string, any>
   createdAt: string | null
   tag: string | null
