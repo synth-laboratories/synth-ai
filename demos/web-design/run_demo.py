@@ -361,6 +361,13 @@ Apply the visual style guidelines to match the original design."""
             if not generated_bytes:
                 raise ValueError("No image data in policy model response")
 
+            # Extract trace correlation ID from generation call (before verification)
+            trace_correlation_id = extract_trace_correlation_id(
+                policy_config=policy_cfg_for_trace,
+                inference_url=str(inference_url or ""),
+                mode=request.mode,
+            )
+
             # Verify against original using inference_url
             verification = await verify_generated_image(
                 original_image,
@@ -372,19 +379,14 @@ Apply the visual style guidelines to match the original design."""
             # Average score is our reward (0-10 scale, convert to 0-1)
             reward = verification["average_score"] / 10.0
 
-            # Extract trace correlation ID
-            trace_correlation_id = extract_trace_correlation_id(
-                policy_config=policy_cfg_for_trace,
-                inference_url=str(inference_url or ""),
-                mode=request.mode,
-            )
-
         except Exception as e:
             print(f"Rollout error: {e}")
             import traceback
             traceback.print_exc()
             reward = 0.0
-            trace_correlation_id = None
+            # Keep trace_correlation_id if it was extracted before error
+            if 'trace_correlation_id' not in locals():
+                trace_correlation_id = None
 
         return RolloutResponse(
             run_id=request.run_id,
