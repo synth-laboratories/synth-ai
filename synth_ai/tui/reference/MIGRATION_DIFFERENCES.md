@@ -214,7 +214,12 @@ src/
 - Core layout structure
 - Centralized theme constants (`src/solid/theme.ts`)
 - Gold-style tab navigation using `KeyHint` component
-- Jobs pane with background-based selection highlight and description column using `ListPanel`
+- Jobs pane with background-based selection highlight and description column (`JobsList`)
+- Logs pane with background-based selection highlight (`LogsList`)
+- Jobs detail panels extracted (`JobsDetail`)
+- Logs detail panel extracted (`LogsDetail`)
+- Formatters modularized (`src/solid/formatters/`)
+- Job status utilities ported (`src/solid/utils/job-status.ts`)
 - Header styling alignment (removed scaffold suffix, fixed insets)
 - Footer styling alignment using `KeyHint`
 - OpenCode Agent integration
@@ -222,8 +227,12 @@ src/
 
 ⚠️ **Partially Complete**:
 - Create New Job functionality (exists but not exposed in tabs)
-- Events pane parity (still uses text-only selection)
-- Logs pane parity (still uses text-only selection)
+- Events pane selection (uses text-only selection, not background highlight)
+
+🔲 **Pending (Phase 3+)**:
+- Job details SSE streaming
+- Keyboard/focus routing improvements
+- Create New Job wizard parity
 
 ## Next Steps
 
