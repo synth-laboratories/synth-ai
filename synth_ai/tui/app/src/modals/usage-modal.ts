@@ -8,8 +8,7 @@ import { createModalUI, wrapModalText, clamp, type ModalController, type ModalUI
 import { focusManager } from "../focus"
 import { apiGetV1 } from "../api/client"
 import { openBrowser } from "../auth"
-import { appState } from "../state/app-state"
-import type { BackendId } from "../types"
+import { appState, getFrontendUrl } from "../state/app-state"
 
 export interface UsageData {
   plan_type: "free" | "pro" | "team" | "byok"
@@ -137,14 +136,6 @@ function formatUsageDetails(data: UsageData | null): string {
   }
 
   return lines.join("\n")
-}
-
-function getFrontendUrl(backendId: BackendId): string {
-  switch (backendId) {
-    case "prod": return process.env.SYNTH_TUI_FRONTEND_PROD || "https://www.usesynth.ai"
-    case "dev": return process.env.SYNTH_TUI_FRONTEND_DEV || "https://synth-frontend-dev.onrender.com"
-    case "local": return process.env.SYNTH_TUI_FRONTEND_LOCAL || "http://localhost:3000"
-  }
 }
 
 export type UsageModalController = ModalController & {

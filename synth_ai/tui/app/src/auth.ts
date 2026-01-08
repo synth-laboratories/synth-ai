@@ -1,10 +1,13 @@
 /**
  * Device code authentication flow for TUI.
  *
- * Frontend URL comes from launcher.py (which gets it from urls.py).
+ * Frontend URL is determined by the current backend mode:
+ * - prod: https://usesynth.ai
+ * - dev/local: http://localhost:3000
  */
 
 import { spawn } from "node:child_process"
+import { appState, getFrontendUrl } from "./state/app-state"
 
 export type AuthSession = {
   deviceCode: string
@@ -28,14 +31,17 @@ export type AuthStatus =
 
 const POLL_INTERVAL_MS = 3000
 
-// Frontend URL from launcher.py (source of truth is urls.py)
-const FRONTEND_URL = process.env.SYNTH_FRONTEND_URL!
+/** Get the current frontend URL based on backend mode */
+function getAuthFrontendUrl(): string {
+  return getFrontendUrl(appState.currentBackend)
+}
 
 /**
  * Initialize a handshake session.
  */
 export async function initAuthSession(): Promise<AuthSession> {
-  const initUrl = `${FRONTEND_URL}/api/sdk/handshake/init`
+  const frontendUrl = getAuthFrontendUrl()
+  const initUrl = `${frontendUrl}/api/sdk/handshake/init`
 
   const res = await fetch(initUrl, {
     method: "POST",
@@ -69,7 +75,8 @@ export async function initAuthSession(): Promise<AuthSession> {
 export async function pollForToken(
   deviceCode: string,
 ): Promise<{ apiKey: string | null; expired: boolean; error: string | null }> {
-  const tokenUrl = `${FRONTEND_URL}/api/sdk/handshake/token`
+  const frontendUrl = getAuthFrontendUrl()
+  const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`
 
   try {
     const res = await fetch(tokenUrl, {

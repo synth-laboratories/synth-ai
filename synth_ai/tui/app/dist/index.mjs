@@ -12,6 +12,59 @@ var __export = (target, all) => {
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __require = import.meta.require;
 
+// src/state/polling.ts
+var exports_polling = {};
+__export(exports_polling, {
+  pollingState: () => pollingState,
+  config: () => config,
+  clearJobsTimer: () => clearJobsTimer,
+  clearEventsTimer: () => clearEventsTimer
+});
+import path2 from "path";
+function clearJobsTimer() {
+  if (pollingState.jobsTimer) {
+    clearTimeout(pollingState.jobsTimer);
+    pollingState.jobsTimer = null;
+  }
+}
+function clearEventsTimer() {
+  if (pollingState.eventsTimer) {
+    clearTimeout(pollingState.eventsTimer);
+    pollingState.eventsTimer = null;
+  }
+}
+var config, pollingState;
+var init_polling = __esm(() => {
+  config = {
+    initialJobId: process.env.SYNTH_TUI_JOB_ID || "",
+    refreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_INTERVAL || "5"),
+    eventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_INTERVAL || "2"),
+    maxRefreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_MAX || "60"),
+    maxEventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_MAX || "15"),
+    eventHistoryLimit: parseInt(process.env.SYNTH_TUI_EVENT_CARDS || "200", 10),
+    eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
+    eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
+    jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
+    envKeyVisibleCount: parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10),
+    envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
+    settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path2.join(process.env.HOME || process.cwd(), ".synth-ai", "tui-settings"),
+    jobFilterVisibleCount: 6
+  };
+  pollingState = {
+    jobsPollMs: Math.max(1, config.refreshInterval) * 1000,
+    eventsPollMs: Math.max(0.5, config.eventInterval) * 1000,
+    jobsInFlight: false,
+    eventsInFlight: false,
+    jobsTimer: null,
+    eventsTimer: null,
+    sseConnected: false,
+    sseDisconnect: null,
+    sseReconnectTimer: null,
+    sseReconnectDelay: 1000,
+    lastSseSeq: 0
+  };
+});
+
 // src/tui_data.ts
 function extractJobs(payload, source) {
   const list = Array.isArray(payload) ? payload : Array.isArray(payload?.jobs) ? payload.jobs : Array.isArray(payload?.data) ? payload.data : [];
@@ -26,7 +79,7 @@ function extractEvents(payload) {
       seq: Number.isFinite(seqValue) ? seqValue : idx,
       type: String(e.type || e.event_type || "event"),
       message: e.message || null,
-      data: e.data ?? e.payload ?? null,
+      data: e.data ?? null,
       timestamp: e.timestamp || e.created_at || null
     };
   });
@@ -56,9 +109,9 @@ function coerceJob(payload, source) {
     job_source: resolvedSource,
     created_at: payload?.created_at || null,
     started_at: payload?.started_at || null,
-    finished_at: payload?.finished_at || payload?.completed_at || null,
-    best_score: num(payload?.best_score),
-    best_snapshot_id: payload?.best_snapshot_id || payload?.best_graph_snapshot_id || payload?.prompt_best_snapshot_id || payload?.best_snapshot?.id || null,
+    finished_at: payload?.finished_at || null,
+    best_reward: num(payload?.best_reward ?? payload?.best_score),
+    best_snapshot_id: payload?.best_snapshot_id || payload?.best_snapshot?.id || null,
     total_tokens: int(payload?.total_tokens),
     total_cost_usd: num(payload?.total_cost_usd || payload?.total_cost),
     error: payload?.error || null,
@@ -98,6 +151,228 @@ function toSortTimestamp(value) {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
+
+// src/utils/env.ts
+import path7 from "path";
+import { promises as fs4 } from "fs";
+function parseEnvFile(content) {
+  const values = {};
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#"))
+      continue;
+    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
+    if (!match)
+      continue;
+    const key = match[1];
+    let value = match[2].trim();
+    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+      const quoted = value;
+      value = value.slice(1, -1);
+      if (quoted.startsWith('"')) {
+        value = value.replace(/\\\\/g, "\\").replace(/\\"/g, '"');
+      }
+    } else {
+      value = value.split(/\s+#/)[0].trim();
+    }
+    values[key] = value;
+  }
+  return values;
+}
+function formatEnvLine(key, value) {
+  return `${key}=${escapeEnvValue(value)}`;
+}
+function escapeEnvValue(value) {
+  const safe = value ?? "";
+  return `"${safe.replace(/\\/g, "\\\\").replace(/\"/g, "\\\"")}"`;
+}
+function parseEnvKeys(content, sourcePath, scanRoot = config.envKeyScanRoot) {
+  const results2 = [];
+  const lines = content.split(/\r?\n/);
+  const relPath = path7.relative(scanRoot, sourcePath) || sourcePath;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#"))
+      continue;
+    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
+    if (!match)
+      continue;
+    const varName = match[1];
+    if (!KEY_VAR_NAMES.has(varName))
+      continue;
+    let value = match[2].trim();
+    if (!value || value.startsWith("$"))
+      continue;
+    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+      value = value.slice(1, -1);
+    } else {
+      value = value.split(/\s+#/)[0].trim();
+    }
+    if (!value)
+      continue;
+    results2.push({ key: value, source: relPath, varName });
+  }
+  return results2;
+}
+async function walkEnvDir(dir, results2, scanRoot = config.envKeyScanRoot) {
+  let entries;
+  try {
+    entries = await fs4.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const fullPath = path7.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (IGNORED_DIRS.has(entry.name))
+        continue;
+      await walkEnvDir(fullPath, results2, scanRoot);
+      continue;
+    }
+    if (!entry.isFile())
+      continue;
+    if (!/^\.env(\.|$)/.test(entry.name))
+      continue;
+    try {
+      const stat = await fs4.stat(fullPath);
+      if (stat.size > 256 * 1024)
+        continue;
+      const content = await fs4.readFile(fullPath, "utf8");
+      const found = parseEnvKeys(content, fullPath, scanRoot);
+      for (const item of found) {
+        const existing = results2.get(item.key);
+        if (existing) {
+          if (!existing.sources.includes(item.source)) {
+            existing.sources.push(item.source);
+          }
+          if (!existing.varNames.includes(item.varName)) {
+            existing.varNames.push(item.varName);
+          }
+        } else {
+          results2.set(item.key, {
+            key: item.key,
+            sources: [item.source],
+            varNames: [item.varName]
+          });
+        }
+      }
+    } catch {}
+  }
+}
+async function scanEnvKeys(rootDir) {
+  const results2 = new Map;
+  await walkEnvDir(rootDir, results2, rootDir);
+  return Array.from(results2.values());
+}
+var IGNORED_DIRS, KEY_VAR_NAMES;
+var init_env = __esm(() => {
+  init_polling();
+  IGNORED_DIRS = new Set([
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tox",
+    ".next",
+    ".turbo",
+    ".cache",
+    "dist",
+    "build",
+    "out"
+  ]);
+  KEY_VAR_NAMES = new Set([
+    "SYNTH_API_KEY",
+    "SYNTH_TUI_API_KEY_PROD",
+    "SYNTH_TUI_API_KEY_DEV",
+    "SYNTH_TUI_API_KEY_LOCAL"
+  ]);
+});
+
+// src/persistence/settings.ts
+var exports_settings = {};
+__export(exports_settings, {
+  persistSettings: () => persistSettings,
+  loadPersistedSettings: () => loadPersistedSettings
+});
+import path8 from "path";
+import { promises as fs5 } from "fs";
+async function loadPersistedSettings(deps) {
+  const {
+    settingsFilePath,
+    normalizeBackendId: normalizeBackendId2,
+    setCurrentBackend,
+    setFrontendKey,
+    setFrontendKeySource
+  } = deps;
+  try {
+    const content = await fs5.readFile(settingsFilePath, "utf8");
+    const values = parseEnvFile(content);
+    const backend = values.SYNTH_TUI_BACKEND;
+    if (backend) {
+      setCurrentBackend(normalizeBackendId2(backend));
+    }
+    const usesynthKey = values.SYNTH_TUI_API_KEY_USESYNTH || values.SYNTH_TUI_API_KEY_PROD;
+    const localhostKeyFromFile = values.SYNTH_TUI_API_KEY_LOCALHOST || values.SYNTH_TUI_API_KEY_DEV || values.SYNTH_TUI_API_KEY_LOCAL;
+    const localhostKey = typeof localhostKeyFromFile === "string" && localhostKeyFromFile.trim() ? localhostKeyFromFile.trim() : (process.env.SYNTH_API_KEY || "").trim();
+    if (typeof usesynthKey === "string" && usesynthKey.trim()) {
+      setFrontendKey("usesynth.ai", usesynthKey.trim());
+    }
+    if (localhostKey) {
+      setFrontendKey("localhost:3000", localhostKey);
+    }
+    setFrontendKeySource("usesynth.ai", {
+      sourcePath: values.SYNTH_TUI_API_KEY_USESYNTH_SOURCE || values.SYNTH_TUI_API_KEY_PROD_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_USESYNTH_VAR || values.SYNTH_TUI_API_KEY_PROD_VAR || null
+    });
+    setFrontendKeySource("localhost:3000", {
+      sourcePath: values.SYNTH_TUI_API_KEY_LOCALHOST_SOURCE || values.SYNTH_TUI_API_KEY_DEV_SOURCE || values.SYNTH_TUI_API_KEY_LOCAL_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_LOCALHOST_VAR || values.SYNTH_TUI_API_KEY_DEV_VAR || values.SYNTH_TUI_API_KEY_LOCAL_VAR || null
+    });
+  } catch (err) {
+    if (err?.code !== "ENOENT") {}
+  }
+}
+async function persistSettings(deps) {
+  const {
+    settingsFilePath,
+    getCurrentBackend,
+    getFrontendKey,
+    getFrontendKeySource,
+    onError
+  } = deps;
+  try {
+    await fs5.mkdir(path8.dirname(settingsFilePath), { recursive: true });
+    const backend = getCurrentBackend();
+    const usesynthSource = getFrontendKeySource("usesynth.ai");
+    const localhostSource = getFrontendKeySource("localhost:3000");
+    const lines = [
+      "# synth-ai tui settings",
+      "# Keys are stored by frontend URL (usesynth.ai or localhost:3000)",
+      formatEnvLine("SYNTH_TUI_BACKEND", backend),
+      "# usesynth.ai (prod)",
+      formatEnvLine("SYNTH_TUI_API_KEY_USESYNTH", getFrontendKey("usesynth.ai")),
+      formatEnvLine("SYNTH_TUI_API_KEY_USESYNTH_SOURCE", usesynthSource.sourcePath || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_USESYNTH_VAR", usesynthSource.varName || ""),
+      "# localhost:3000 (dev/local - shared)",
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCALHOST", getFrontendKey("localhost:3000")),
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCALHOST_SOURCE", localhostSource.sourcePath || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCALHOST_VAR", localhostSource.varName || "")
+    ];
+    await fs5.writeFile(settingsFilePath, `${lines.join(`
+`)}
+`, "utf8");
+  } catch (err) {
+    onError?.(`Failed to save settings: ${err?.message || "unknown"}`);
+  }
+}
+var init_settings = __esm(() => {
+  init_env();
+});
 
 // src/api/client.ts
 var exports_client = {};
@@ -177,7 +452,7 @@ __export(exports_jobs, {
 function extractBestSnapshotId(payload) {
   if (!payload)
     return null;
-  return payload.best_snapshot_id || payload.prompt_best_snapshot_id || payload.best_snapshot?.id || null;
+  return payload.best_snapshot_id || payload.best_snapshot?.id || null;
 }
 async function refreshJobs(ctx) {
   const { snapshot: snapshot2, appState: appState2, config: config2 } = ctx.state;
@@ -244,7 +519,7 @@ async function selectJob(ctx, jobId) {
     created_at: null,
     started_at: null,
     finished_at: null,
-    best_score: null,
+    best_reward: null,
     best_snapshot_id: null,
     total_tokens: null,
     total_cost_usd: null,
@@ -19416,7 +19691,69 @@ class EditBufferRenderable extends Renderable {
 }
 
 // src/state/app-state.ts
+function ensureApiBase(url) {
+  let base = url.trim().replace(/\/+$/, "");
+  if (!base.endsWith("/api")) {
+    base = base + "/api";
+  }
+  return base;
+}
+function normalizeBackendId(value) {
+  const lower = value.toLowerCase().trim();
+  if (lower === "dev" || lower === "development")
+    return "dev";
+  if (lower === "local" || lower === "localhost")
+    return "local";
+  return "prod";
+}
+function getFrontendUrlId(backendId) {
+  switch (backendId) {
+    case "prod":
+      return "usesynth.ai";
+    case "dev":
+    case "local":
+      return "localhost:3000";
+  }
+}
+function getFrontendUrl(backendId) {
+  switch (backendId) {
+    case "prod":
+      return "https://usesynth.ai";
+    case "dev":
+    case "local":
+      return "http://localhost:3000";
+  }
+}
+var backendConfigs = {
+  prod: {
+    id: "prod",
+    label: "Prod",
+    baseUrl: ensureApiBase(process.env.SYNTH_TUI_PROD_API_BASE || "https://api.usesynth.ai/api")
+  },
+  dev: {
+    id: "dev",
+    label: "Dev",
+    baseUrl: ensureApiBase(process.env.SYNTH_TUI_DEV_API_BASE || "https://synth-backend-dev-docker.onrender.com/api")
+  },
+  local: {
+    id: "local",
+    label: "Local",
+    baseUrl: ensureApiBase(process.env.SYNTH_TUI_LOCAL_API_BASE || "http://localhost:8000/api")
+  }
+};
+var frontendKeys = {
+  "usesynth.ai": process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
+  "localhost:3000": process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || ""
+};
+var frontendKeySources = {
+  "usesynth.ai": { sourcePath: null, varName: null },
+  "localhost:3000": { sourcePath: null, varName: null }
+};
+function getKeyForBackend(backendId) {
+  return frontendKeys[getFrontendUrlId(backendId)];
+}
 var appState = {
+  currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod"),
   activePane: "jobs",
   healthStatus: "unknown",
   autoSelected: false,
@@ -19428,8 +19765,17 @@ var appState = {
   jobFilterOptions: [],
   jobFilterCursor: 0,
   jobFilterWindowStart: 0,
+  keyModalBackend: "prod",
   keyPasteActive: false,
   keyPasteBuffer: "",
+  settingsCursor: 0,
+  settingsOptions: [],
+  envKeyOptions: [],
+  envKeyCursor: 0,
+  envKeyWindowStart: 0,
+  envKeyScanInProgress: false,
+  envKeyError: null,
+  usageModalOffset: 0,
   eventModalOffset: 0,
   resultsModalOffset: 0,
   configModalOffset: 0,
@@ -19451,48 +19797,8 @@ var appState = {
   eventsToken: 0
 };
 
-// src/state/polling.ts
-import path2 from "path";
-var config = {
-  initialJobId: process.env.SYNTH_TUI_JOB_ID || "",
-  refreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_INTERVAL || "5"),
-  eventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_INTERVAL || "2"),
-  maxRefreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_MAX || "60"),
-  maxEventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_MAX || "15"),
-  eventHistoryLimit: parseInt(process.env.SYNTH_TUI_EVENT_CARDS || "200", 10),
-  eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
-  eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
-  jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
-  envKeyVisibleCount: parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10),
-  envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
-  settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path2.join(process.cwd(), ".env.synth"),
-  jobFilterVisibleCount: 6
-};
-var pollingState = {
-  jobsPollMs: Math.max(1, config.refreshInterval) * 1000,
-  eventsPollMs: Math.max(0.5, config.eventInterval) * 1000,
-  jobsInFlight: false,
-  eventsInFlight: false,
-  jobsTimer: null,
-  eventsTimer: null,
-  sseConnected: false,
-  sseDisconnect: null,
-  sseReconnectTimer: null,
-  sseReconnectDelay: 1000,
-  lastSseSeq: 0
-};
-function clearJobsTimer() {
-  if (pollingState.jobsTimer) {
-    clearTimeout(pollingState.jobsTimer);
-    pollingState.jobsTimer = null;
-  }
-}
-function clearEventsTimer() {
-  if (pollingState.eventsTimer) {
-    clearTimeout(pollingState.eventsTimer);
-    pollingState.eventsTimer = null;
-  }
-}
+// src/context.ts
+init_polling();
 
 // src/state/snapshot.ts
 var snapshot = {
@@ -20018,11 +20324,13 @@ function formatEvalDetails(snapshot2, job) {
     "",
     "\u2550\u2550\u2550 Eval Summary \u2550\u2550\u2550"
   ];
-  if (summary.mean_score != null) {
-    lines.push(`  Mean Score: ${formatValue(summary.mean_score)}`);
+  const meanReward = summary.mean_reward ?? summary.mean_score;
+  if (meanReward != null) {
+    lines.push(`  Mean Reward: ${formatValue(meanReward)}`);
   }
-  if (summary.accuracy != null) {
-    lines.push(`  Accuracy: ${(summary.accuracy * 100).toFixed(1)}%`);
+  const reward = summary.reward ?? summary.objectives?.reward ?? summary.accuracy;
+  if (reward != null) {
+    lines.push(`  Reward: ${(reward * 100).toFixed(1)}%`);
   }
   if (summary.pass_rate != null) {
     lines.push(`  Pass Rate: ${(summary.pass_rate * 100).toFixed(1)}%`);
@@ -20037,12 +20345,12 @@ function formatEvalDetails(snapshot2, job) {
   }
   if (rows.length > 0) {
     lines.push(`  Results: ${rows.length} rows`);
-    const scores = rows.map((row) => num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed)).filter((val) => typeof val === "number");
-    if (scores.length > 0) {
-      const mean = scores.reduce((sum, val) => sum + val, 0) / scores.length;
-      const passed = scores.filter((s) => s >= 0.5 || s === 1).length;
-      lines.push(`  Avg Score: ${mean.toFixed(4)}`);
-      lines.push(`  Pass Rate: ${(passed / scores.length * 100).toFixed(1)}%`);
+    const rewards = rows.map((row) => num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed)).filter((val) => typeof val === "number");
+    if (rewards.length > 0) {
+      const mean = rewards.reduce((sum, val) => sum + val, 0) / rewards.length;
+      const passed = rewards.filter((s) => s >= 0.5 || s === 1).length;
+      lines.push(`  Avg Reward: ${mean.toFixed(4)}`);
+      lines.push(`  Pass Rate: ${(passed / rewards.length * 100).toFixed(1)}%`);
     }
   }
   lines.push("");
@@ -20067,7 +20375,7 @@ function formatLearningDetails(job) {
     `Env: ${envName || "-"}`,
     "",
     "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
-    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Reward: ${job.best_reward != null ? job.best_reward.toFixed(4) : "-"}`,
     `  Best Snapshot: ${job.best_snapshot_id || "-"}`,
     "",
     "\u2550\u2550\u2550 Timing \u2550\u2550\u2550",
@@ -20104,7 +20412,7 @@ function formatPromptLearningDetails(snapshot2, job) {
     `Last Event: ${lastEventTs}`,
     "",
     "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
-    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Reward: ${job.best_reward != null ? job.best_reward.toFixed(4) : "-"}`,
     `  Events: ${snapshot2.events.length}`,
     `  Tokens: ${tokensDisplay}`,
     `  Cost: ${costDisplay}`
@@ -20207,31 +20515,42 @@ function formatErrorMessage(error, maxWidth = 64, maxLines = 3) {
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
-function extractBestPrompt(snapshotPayload) {
+function extractBestCandidate(snapshotPayload) {
   if (!snapshotPayload)
     return null;
-  return isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt || isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template || isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern || null;
+  return isRecord(snapshotPayload.best_candidate) && snapshotPayload.best_candidate || isRecord(snapshotPayload.best_candidate_template) && snapshotPayload.best_candidate_template || isRecord(snapshotPayload.best_candidate_pattern) && snapshotPayload.best_candidate_pattern || isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt || isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template || isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern || null;
 }
-function extractBestPromptText(snapshotPayload) {
+function extractBestCandidateText(snapshotPayload) {
   if (!snapshotPayload)
     return null;
-  const bestPromptMessages = snapshotPayload.best_prompt_messages;
-  if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-    return bestPromptMessages.map((msg) => {
+  const bestCandidateMessages = snapshotPayload.best_candidate_messages ?? snapshotPayload.best_prompt_messages;
+  if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
+    return bestCandidateMessages.map((msg) => {
       const role = msg?.role || "unknown";
       const content = msg?.content || "";
       return `[${role}] ${content}`;
     }).join(`
 `);
   }
-  const rendered = snapshotPayload.best_prompt_text || snapshotPayload.rendered_prompt;
+  const rendered = snapshotPayload.best_candidate_text || snapshotPayload.best_prompt_text || snapshotPayload.rendered_candidate || snapshotPayload.rendered_prompt;
   if (typeof rendered === "string" && rendered.trim())
     return rendered;
   return null;
 }
-function extractPromptSections(bestPrompt) {
-  const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
-  return Array.isArray(sections) ? sections : [];
+function extractCandidateStages(bestCandidate) {
+  if (!bestCandidate)
+    return [];
+  const stages = bestCandidate.stages || bestCandidate.sections || bestCandidate.prompt_sections || [];
+  if (Array.isArray(stages))
+    return stages;
+  if (isRecord(stages)) {
+    return Object.entries(stages).map(([id, value]) => {
+      if (isRecord(value))
+        return { id, ...value };
+      return { id, content: value };
+    });
+  }
+  return [];
 }
 function formatResults(snapshot2) {
   const job = snapshot2.selectedJob;
@@ -20250,27 +20569,27 @@ function formatResults(snapshot2) {
     lines.push(`Best snapshot: ${bestId} (press p to load)`);
   }
   if (snapshot2.bestSnapshot) {
-    const bestPrompt = extractBestPrompt(snapshot2.bestSnapshot);
-    const bestPromptText = extractBestPromptText(snapshot2.bestSnapshot);
-    if (bestPrompt) {
-      const promptId = bestPrompt.id || bestPrompt.template_id;
-      const promptName = bestPrompt.name;
-      const promptLabel = [promptName, promptId].filter(Boolean).join(" ");
-      if (promptLabel)
-        lines.push(`Best prompt: ${promptLabel}`);
-      const sections = extractPromptSections(bestPrompt);
-      if (sections.length > 0) {
-        const summary = sections.slice(0, 3).map((section) => {
-          const role = section.role || "stage";
-          const name = section.name || section.id || "";
+    const bestCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+    const bestCandidateText = extractBestCandidateText(snapshot2.bestSnapshot);
+    if (bestCandidate) {
+      const candidateId = bestCandidate.id || bestCandidate.template_id;
+      const candidateName = bestCandidate.name;
+      const candidateLabel = [candidateName, candidateId].filter(Boolean).join(" ");
+      if (candidateLabel)
+        lines.push(`Best candidate: ${candidateLabel}`);
+      const stages = extractCandidateStages(bestCandidate);
+      if (stages.length > 0) {
+        const summary = stages.slice(0, 3).map((stage) => {
+          const role = stage.role || "stage";
+          const name = stage.name || stage.id || "";
           return name ? `${role}:${name}` : role;
         });
-        const suffix = sections.length > 3 ? " \u2026" : "";
+        const suffix = stages.length > 3 ? " \u2026" : "";
         lines.push(`Stages: ${summary.join(", ")}${suffix}`);
       }
     }
-    if (bestPromptText) {
-      lines.push(`Best prompt text: ${truncate(bestPromptText, 90)}`);
+    if (bestCandidateText) {
+      lines.push(`Best candidate text: ${truncate(bestCandidateText, 90)}`);
     }
   }
   return ["Results:", ...lines].join(`
@@ -20282,18 +20601,29 @@ function formatEvalResults(snapshot2) {
   const lines = [];
   if (Object.keys(summary).length > 0) {
     lines.push("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
-    const keyOrder = ["mean_score", "accuracy", "pass_rate", "completed", "failed", "total"];
+    const keyOrder = ["mean_reward", "reward", "pass_rate", "completed", "failed", "total"];
     const shown = new Set;
     for (const key of keyOrder) {
-      if (summary[key] != null) {
-        const val = summary[key];
-        if (key === "accuracy" || key === "pass_rate") {
-          lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`);
-        } else {
-          lines.push(`  ${key}: ${formatValue(val)}`);
+      let val = summary[key];
+      if (key === "reward") {
+        val = summary.reward ?? summary.objectives?.reward ?? summary.accuracy;
+        if (val != null) {
+          shown.add("accuracy");
         }
-        shown.add(key);
+      } else if (key === "mean_reward") {
+        val = summary.mean_reward ?? summary.mean_score;
+        if (val != null) {
+          shown.add("mean_score");
+        }
       }
+      if (val == null)
+        continue;
+      if (key === "reward" || key === "pass_rate") {
+        lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`);
+      } else {
+        lines.push(`  ${key}: ${formatValue(val)}`);
+      }
+      shown.add(key);
     }
     for (const [key, value] of Object.entries(summary)) {
       if (shown.has(key))
@@ -20304,14 +20634,14 @@ function formatEvalResults(snapshot2) {
     }
     lines.push("");
   }
-  if (summary.mean_score == null && rows.length > 0) {
-    const scores = rows.map((row) => row.outcome_reward ?? row.score ?? row.reward_mean ?? row.events_score).filter((val) => typeof val === "number" && Number.isFinite(val));
-    if (scores.length > 0) {
-      const mean = scores.reduce((acc, val) => acc + val, 0) / scores.length;
+  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
+    const rewards = rows.map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score).filter((val) => typeof val === "number" && Number.isFinite(val));
+    if (rewards.length > 0) {
+      const mean = rewards.reduce((acc, val) => acc + val, 0) / rewards.length;
       if (lines.length === 0 || lines[0] !== "\u2550\u2550\u2550 Summary \u2550\u2550\u2550") {
         lines.unshift("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
       }
-      lines.splice(1, 0, `  mean_score: ${formatValue(mean)}`);
+      lines.splice(1, 0, `  mean_reward: ${formatValue(mean)}`);
       lines.push("");
     }
   }
@@ -20321,16 +20651,16 @@ function formatEvalResults(snapshot2) {
     const displayRows = rows.slice(0, limit);
     for (const row of displayRows) {
       const taskId = row.task_id || row.id || row.name || "?";
-      const score = num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed);
+      const reward = num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed);
       const passed = row.passed != null ? row.passed ? "\u2713" : "\u2717" : "";
       const status = row.status || "";
-      const scoreStr = score != null ? score.toFixed(3) : "-";
+      const rewardStr = reward != null ? reward.toFixed(3) : "-";
       if (passed) {
-        lines.push(`  ${passed} ${taskId}: ${scoreStr}`);
+        lines.push(`  ${passed} ${taskId}: ${rewardStr}`);
       } else if (status) {
-        lines.push(`  [${status}] ${taskId}: ${scoreStr}`);
+        lines.push(`  [${status}] ${taskId}: ${rewardStr}`);
       } else {
-        lines.push(`  ${taskId}: ${scoreStr}`);
+        lines.push(`  ${taskId}: ${rewardStr}`);
       }
     }
     if (rows.length > limit) {
@@ -20356,30 +20686,30 @@ Press 'p' to try loading the best snapshot.`;
   const lines = [];
   lines.push(`Job: ${job.job_id}`);
   lines.push(`Status: ${job.status}`);
-  lines.push(`Best Score: ${job.best_score ?? "-"}`);
+  lines.push(`Best Reward: ${job.best_reward ?? "-"}`);
   lines.push(`Best Snapshot ID: ${snapshot2.bestSnapshotId || "-"}`);
   lines.push("");
   if (snapshot2.bestSnapshot) {
-    const bestPrompt = snapshot2.bestSnapshot.best_prompt;
-    const bestPromptMessages = snapshot2.bestSnapshot.best_prompt_messages;
-    if (bestPrompt && typeof bestPrompt === "object") {
-      const promptId = bestPrompt.id || bestPrompt.template_id;
-      const promptName = bestPrompt.name;
-      if (promptName)
-        lines.push(`Prompt Name: ${promptName}`);
-      if (promptId)
-        lines.push(`Prompt ID: ${promptId}`);
+    const bestCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+    const bestCandidateMessages = snapshot2.bestSnapshot.best_candidate_messages ?? snapshot2.bestSnapshot.best_prompt_messages;
+    if (bestCandidate && typeof bestCandidate === "object") {
+      const candidateId = bestCandidate.id || bestCandidate.template_id;
+      const candidateName = bestCandidate.name;
+      if (candidateName)
+        lines.push(`Candidate Name: ${candidateName}`);
+      if (candidateId)
+        lines.push(`Candidate ID: ${candidateId}`);
       lines.push("");
-      const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
-      if (Array.isArray(sections) && sections.length > 0) {
-        lines.push(`=== PROMPT TEMPLATE (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
+      const stages = extractCandidateStages(bestCandidate);
+      if (Array.isArray(stages) && stages.length > 0) {
+        lines.push(`=== CANDIDATE STAGES (${stages.length} stage${stages.length > 1 ? "s" : ""}) ===`);
         lines.push("");
-        for (let i = 0;i < sections.length; i++) {
-          const section = sections[i];
-          const role = section.role || "stage";
-          const name = section.name || section.id || "";
-          const content = section.content || "";
-          const order = section.order !== undefined ? section.order : i;
+        for (let i = 0;i < stages.length; i++) {
+          const stage = stages[i];
+          const role = stage.role || "stage";
+          const name = stage.name || stage.id || "";
+          const content = stage.content || "";
+          const order = stage.order !== undefined ? stage.order : i;
           lines.push(`\u250C\u2500 Stage ${order + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
           lines.push("");
           if (content) {
@@ -20393,11 +20723,11 @@ Press 'p' to try loading the best snapshot.`;
         }
       }
     }
-    if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-      lines.push(`=== RENDERED MESSAGES (${bestPromptMessages.length} message${bestPromptMessages.length > 1 ? "s" : ""}) ===`);
+    if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
+      lines.push(`=== RENDERED CANDIDATE MESSAGES (${bestCandidateMessages.length} message${bestCandidateMessages.length > 1 ? "s" : ""}) ===`);
       lines.push("");
-      for (let i = 0;i < bestPromptMessages.length; i++) {
-        const msg = bestPromptMessages[i];
+      for (let i = 0;i < bestCandidateMessages.length; i++) {
+        const msg = bestCandidateMessages[i];
         const role = msg.role || "unknown";
         const content = msg.content || "";
         lines.push(`\u250C\u2500 Message ${i + 1}: [${role}] \u2500\u2510`);
@@ -20408,19 +20738,19 @@ Press 'p' to try loading the best snapshot.`;
         lines.push("");
       }
     }
-    if (!bestPrompt && !bestPromptMessages) {
-      const legacyPrompt = extractBestPrompt(snapshot2.bestSnapshot);
-      const legacyText = extractBestPromptText(snapshot2.bestSnapshot);
-      if (legacyPrompt) {
-        const sections = extractPromptSections(legacyPrompt);
-        if (sections.length > 0) {
-          lines.push(`=== PROMPT SECTIONS (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
+    if (!bestCandidate && !bestCandidateMessages) {
+      const legacyCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+      const legacyText = extractBestCandidateText(snapshot2.bestSnapshot);
+      if (legacyCandidate) {
+        const stages = extractCandidateStages(legacyCandidate);
+        if (stages.length > 0) {
+          lines.push(`=== CANDIDATE STAGES (${stages.length} stage${stages.length > 1 ? "s" : ""}) ===`);
           lines.push("");
-          for (let i = 0;i < sections.length; i++) {
-            const section = sections[i];
-            const role = section.role || "stage";
-            const name = section.name || section.id || "";
-            const content = section.content || "";
+          for (let i = 0;i < stages.length; i++) {
+            const stage = stages[i];
+            const role = stage.role || "stage";
+            const name = stage.name || stage.id || "";
+            const content = stage.content || "";
             lines.push(`\u250C\u2500 Stage ${i + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
             lines.push("");
             if (content) {
@@ -20433,11 +20763,11 @@ Press 'p' to try loading the best snapshot.`;
         }
       }
       if (legacyText) {
-        lines.push("=== RENDERED PROMPT ===");
+        lines.push("=== RENDERED CANDIDATE ===");
         lines.push("");
         lines.push(legacyText);
       }
-      if (!legacyPrompt && !legacyText) {
+      if (!legacyCandidate && !legacyText) {
         lines.push("=== RAW SNAPSHOT DATA ===");
         lines.push("");
         try {
@@ -20975,7 +21305,7 @@ function renderApp(ctx) {
   ui.jobsBox.title = appState2.jobStatusFilter.size ? `Jobs (status: ${Array.from(appState2.jobStatusFilter).join(", ")})` : "Jobs";
   ui.jobsSelect.options = filteredJobs.length ? filteredJobs.map((job) => {
     const shortId = job.job_id.slice(-8);
-    const score = job.best_score == null ? "-" : job.best_score.toFixed(4);
+    const reward = job.best_reward == null ? "-" : job.best_reward.toFixed(4);
     const label = job.training_type || (job.job_source === "learning" ? "eval" : "prompt");
     const envName = extractEnvName(job);
     const currentYear = new Date().getFullYear();
@@ -20995,7 +21325,7 @@ function renderApp(ctx) {
       dateStr = d.toLocaleString("en-US", opts);
     }
     const name = dateStr ? `${shortId} - ${dateStr}` : shortId;
-    const desc = [job.status, label, envName, score].filter(Boolean).join(" | ");
+    const desc = [job.status, label, envName, reward].filter(Boolean).join(" | ");
     return { name, description: desc, value: job.job_id };
   }) : [
     {
@@ -21021,9 +21351,12 @@ function renderApp(ctx) {
 // src/auth.ts
 import { spawn } from "child_process";
 var POLL_INTERVAL_MS = 3000;
-var FRONTEND_URL = process.env.SYNTH_FRONTEND_URL;
+function getAuthFrontendUrl() {
+  return getFrontendUrl(appState.currentBackend);
+}
 async function initAuthSession() {
-  const initUrl = `${FRONTEND_URL}/api/sdk/handshake/init`;
+  const frontendUrl = getAuthFrontendUrl();
+  const initUrl = `${frontendUrl}/api/sdk/handshake/init`;
   const res = await fetch(initUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" }
@@ -21046,7 +21379,8 @@ async function initAuthSession() {
   };
 }
 async function pollForToken(deviceCode) {
-  const tokenUrl = `${FRONTEND_URL}/api/sdk/handshake/token`;
+  const frontendUrl = getAuthFrontendUrl();
+  const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`;
   try {
     const res = await fetch(tokenUrl, {
       method: "POST",
@@ -21315,6 +21649,9 @@ function clamp3(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+// src/login_modal.ts
+init_polling();
+
 // src/utils/logout-marker.ts
 import fs3 from "fs";
 import path5 from "path";
@@ -21438,8 +21775,19 @@ function createLoginModal(deps) {
     const result = await runDeviceCodeAuth(updateLoginModalStatus);
     loginAuthInProgress = false;
     if (result.success && result.apiKey) {
+      const frontendUrlId = getFrontendUrlId(appState.currentBackend);
+      frontendKeys[frontendUrlId] = result.apiKey;
+      frontendKeySources[frontendUrlId] = { sourcePath: null, varName: "device_code_auth" };
       process.env.SYNTH_API_KEY = result.apiKey;
       await saveApiKey(result.apiKey);
+      const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
+      const { config: config2 } = await Promise.resolve().then(() => (init_polling(), exports_polling));
+      await persistSettings2({
+        settingsFilePath: config2.settingsFilePath,
+        getCurrentBackend: () => appState.currentBackend,
+        getFrontendKey: (id) => frontendKeys[id],
+        getFrontendKeySource: (id) => frontendKeySources[id]
+      });
       await clearLoggedOutMarker();
       toggle(false);
       const snapshot2 = getSnapshot();
@@ -21653,6 +22001,160 @@ function createConfigModal(ctx) {
     handleKey
   };
   return controller;
+}
+// src/modals/env-key-modal.ts
+init_env();
+function createEnvKeyModal(ctx) {
+  const { renderer } = ctx;
+  const { config: config2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "env-key-modal",
+    width: 64,
+    height: 16,
+    borderColor: "#a78bfa",
+    titleColor: "#a78bfa",
+    zIndex: 11
+  });
+  modal.setTitle("Scan .env Files for API Keys");
+  modal.setHint("j/k navigate  Enter select  r rescan  q close");
+  function renderList() {
+    if (appState.envKeyScanInProgress) {
+      modal.setContent("Scanning...");
+      renderer.requestRender();
+      return;
+    }
+    if (appState.envKeyError) {
+      modal.setContent(`Error: ${appState.envKeyError}`);
+      renderer.requestRender();
+      return;
+    }
+    if (!appState.envKeyOptions.length) {
+      modal.setContent("No API keys found in .env files");
+      renderer.requestRender();
+      return;
+    }
+    const max = Math.max(0, appState.envKeyOptions.length - 1);
+    appState.envKeyCursor = clamp3(appState.envKeyCursor, 0, max);
+    const start = clamp3(appState.envKeyWindowStart, 0, Math.max(0, max));
+    const end = Math.min(appState.envKeyOptions.length, start + config2.envKeyVisibleCount);
+    const lines = [];
+    for (let idx = start;idx < end; idx++) {
+      const option = appState.envKeyOptions[idx];
+      const cursor = idx === appState.envKeyCursor ? ">" : " ";
+      const preview = option.key ? `${option.key.slice(0, 8)}...` : "(empty)";
+      lines.push(`${cursor} ${preview}`);
+    }
+    const selected = appState.envKeyOptions[appState.envKeyCursor];
+    if (selected) {
+      const sources = selected.sources.slice(0, 2).join(", ");
+      const suffix = selected.sources.length > 2 ? ` +${selected.sources.length - 2}` : "";
+      lines.push("");
+      lines.push(`Source: ${sources}${suffix}`);
+      lines.push(`Vars: ${selected.varNames.join(", ")}`);
+    }
+    modal.setContent(lines.join(`
+`));
+    renderer.requestRender();
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "env-key-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("env-key-modal");
+    }
+    modal.setVisible(visible);
+  }
+  function move(delta) {
+    const max = Math.max(0, appState.envKeyOptions.length - 1);
+    appState.envKeyCursor = clamp3(appState.envKeyCursor + delta, 0, max);
+    if (appState.envKeyCursor < appState.envKeyWindowStart) {
+      appState.envKeyWindowStart = appState.envKeyCursor;
+    } else if (appState.envKeyCursor >= appState.envKeyWindowStart + config2.envKeyVisibleCount) {
+      appState.envKeyWindowStart = appState.envKeyCursor - config2.envKeyVisibleCount + 1;
+    }
+    renderList();
+  }
+  async function rescan() {
+    appState.envKeyScanInProgress = true;
+    appState.envKeyError = null;
+    renderList();
+    try {
+      appState.envKeyOptions = await scanEnvKeys(config2.envKeyScanRoot);
+      appState.envKeyCursor = 0;
+      appState.envKeyWindowStart = 0;
+    } catch (err) {
+      appState.envKeyError = err?.message || "Scan failed";
+    } finally {
+      appState.envKeyScanInProgress = false;
+      renderList();
+    }
+  }
+  async function open() {
+    toggle(true);
+    await rescan();
+  }
+  async function select() {
+    const selected = appState.envKeyOptions[appState.envKeyCursor];
+    if (!selected)
+      return;
+    const frontendUrlId = getFrontendUrlId(appState.currentBackend);
+    frontendKeys[frontendUrlId] = selected.key;
+    frontendKeySources[frontendUrlId] = {
+      sourcePath: selected.sources[0] || null,
+      varName: selected.varNames[0] || null
+    };
+    process.env.SYNTH_API_KEY = selected.key;
+    toggle(false);
+    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
+    await persistSettings2({
+      settingsFilePath: config2.settingsFilePath,
+      getCurrentBackend: () => appState.currentBackend,
+      getFrontendKey: (id) => frontendKeys[id],
+      getFrontendKeySource: (id) => frontendKeySources[id]
+    });
+    ctx.state.snapshot.status = "API key loaded from env file";
+    ctx.render();
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      select();
+      return true;
+    }
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "r") {
+      rescan();
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    select,
+    rescan,
+    handleKey
+  };
 }
 // src/types.ts
 var JobType;
@@ -21894,8 +22396,8 @@ if __name__ == "__main__":
 `;
 
 // src/utils/files.ts
-import * as fs4 from "fs";
-import * as path7 from "path";
+import * as fs6 from "fs";
+import * as path9 from "path";
 import * as os4 from "os";
 function toDisplayPath(absolutePath) {
   const home = os4.homedir();
@@ -21906,7 +22408,7 @@ function toDisplayPath(absolutePath) {
 }
 function expandPath(displayPath) {
   if (displayPath.startsWith("~/")) {
-    return path7.join(os4.homedir(), displayPath.slice(2));
+    return path9.join(os4.homedir(), displayPath.slice(2));
   }
   if (displayPath === "~") {
     return os4.homedir();
@@ -21914,8 +22416,8 @@ function expandPath(displayPath) {
   return displayPath;
 }
 function getUniqueFilename(dir, baseName, ext) {
-  const baseFilePath = path7.join(dir, `${baseName}${ext}`);
-  if (!fs4.existsSync(baseFilePath)) {
+  const baseFilePath = path9.join(dir, `${baseName}${ext}`);
+  if (!fs6.existsSync(baseFilePath)) {
     return baseFilePath;
   }
   const now = new Date;
@@ -21927,7 +22429,7 @@ function getUniqueFilename(dir, baseName, ext) {
   const seconds = String(now.getSeconds()).padStart(2, "0");
   const time2 = `${hours}${minutes}${seconds}`;
   const newName = `${baseName}_${year}_${month}_${day}_${time2}${ext}`;
-  return path7.join(dir, newName);
+  return path9.join(dir, newName);
 }
 function formatTimestampForFilename(date = new Date) {
   const year = date.getFullYear();
@@ -21940,18 +22442,18 @@ function formatTimestampForFilename(date = new Date) {
 }
 
 // src/utils/localapi-scanner.ts
-import * as fs5 from "fs";
-import * as path8 from "path";
+import * as fs7 from "fs";
+import * as path10 from "path";
 function scanForLocalAPIs(directory) {
   const results2 = [];
   try {
-    const entries = fs5.readdirSync(directory, { withFileTypes: true });
+    const entries = fs7.readdirSync(directory, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith(".py"))
         continue;
-      const filepath = path8.join(directory, entry.name);
+      const filepath = path10.join(directory, entry.name);
       try {
-        const content = fs5.readFileSync(filepath, "utf-8");
+        const content = fs7.readFileSync(filepath, "utf-8");
         if (isLocalAPIFile(content)) {
           results2.push({
             filename: entry.name,
@@ -22171,13 +22673,13 @@ function createErrorBox(options) {
 }
 
 // src/modals/create-job-modal.ts
-import * as fs6 from "fs";
-import * as path9 from "path";
+import * as fs8 from "fs";
+import * as path11 from "path";
 import * as readline from "readline";
 import { spawn as spawn2 } from "child_process";
 function deployLocalApi(ctx, filePath) {
   return new Promise((resolve3) => {
-    const fileName = path9.basename(filePath, ".py");
+    const fileName = path11.basename(filePath, ".py");
     const timestamp = formatTimestampForFilename(new Date);
     const deploymentId = `${fileName}_${timestamp}`;
     const deployment = {
@@ -22342,7 +22844,7 @@ function createCreateJobModal(ctx) {
         const dirValue = dirSelection.value.startsWith("CWD: ") ? dirSelection.value.slice(5) : dirSelection.value;
         const selectedDir = expandPath(dirValue);
         const actualFilePath = createdFilePath ?? getUniqueFilename(selectedDir, "localapi", ".py");
-        const actualFileName = path9.basename(actualFilePath);
+        const actualFileName = path11.basename(actualFilePath);
         const displayDir = toDisplayPath(selectedDir);
         baseSteps.push({
           id: "confirmCreate",
@@ -22356,8 +22858,8 @@ function createCreateJobModal(ctx) {
               return false;
             }
             try {
-              fs6.mkdirSync(selectedDir, { recursive: true });
-              fs6.writeFileSync(actualFilePath, LOCALAPI_TEMPLATE, "utf-8");
+              fs8.mkdirSync(selectedDir, { recursive: true });
+              fs8.writeFileSync(actualFilePath, LOCALAPI_TEMPLATE, "utf-8");
               createdFilePath = actualFilePath;
               ctx.state.snapshot.status = `Created ${toDisplayPath(actualFilePath)}`;
               ctx.render();
@@ -23221,8 +23723,8 @@ function installSignalHandlers() {
   process.on("SIGTERM", () => void shutdown(0));
 }
 // src/modals/log-file-modal.ts
-import * as fs7 from "fs";
-import * as path10 from "path";
+import * as fs9 from "fs";
+import * as path12 from "path";
 function createLogFileModal(ctx) {
   const { renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
@@ -23276,7 +23778,7 @@ function createLogFileModal(ctx) {
   }
   function readFileContent(filePath) {
     try {
-      return fs7.readFileSync(filePath, "utf-8");
+      return fs9.readFileSync(filePath, "utf-8");
     } catch (err) {
       return `Failed to read file: ${err}`;
     }
@@ -23296,7 +23798,7 @@ function createLogFileModal(ctx) {
       appState2.logsModalOffset = clamp3(appState2.logsModalOffset, 0, maxOffset);
     }
     const visible = wrapped.slice(appState2.logsModalOffset, appState2.logsModalOffset + maxLines);
-    modal.setTitle(`Log File: ${path10.basename(currentFilePath)}`);
+    modal.setTitle(`Log File: ${path12.basename(currentFilePath)}`);
     modal.setContent(visible.join(`
 `));
     const tailLabel = appState2.logsModalTail ? " [TAIL]" : "";
@@ -23318,7 +23820,7 @@ function createLogFileModal(ctx) {
       return;
     const raw = readFileContent(currentFilePath);
     await copyToClipboard(raw);
-    snapshot2.status = `Copied: ${path10.basename(currentFilePath)}`;
+    snapshot2.status = `Copied: ${path12.basename(currentFilePath)}`;
     ctx.render();
   }
   function handleKey(key) {
@@ -23512,6 +24014,140 @@ function createResultsModal(ctx) {
   };
   return controller;
 }
+// src/modals/settings-modal.ts
+function createSettingsModal(ctx, deps) {
+  const { renderer } = ctx;
+  const { config: config2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "settings-modal",
+    width: 64,
+    height: 14,
+    borderColor: "#38bdf8",
+    titleColor: "#38bdf8",
+    zIndex: 10
+  });
+  modal.setTitle("Settings - Backend");
+  modal.setHint("j/k navigate  Enter select  Shift+E env keys  q close");
+  function buildSettingsOptions() {
+    return [backendConfigs.prod, backendConfigs.dev, backendConfigs.local];
+  }
+  function renderList() {
+    const lines = [];
+    for (let idx = 0;idx < appState.settingsOptions.length; idx++) {
+      const opt = appState.settingsOptions[idx];
+      const active = appState.currentBackend === opt.id;
+      const cursor = idx === appState.settingsCursor ? ">" : " ";
+      lines.push(`${cursor} [${active ? "x" : " "}] ${opt.label} (${opt.id})`);
+    }
+    const selected = appState.settingsOptions[appState.settingsCursor];
+    if (selected) {
+      const key = getKeyForBackend(selected.id);
+      const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)";
+      const frontendUrl = getFrontendUrl(selected.id);
+      lines.push("");
+      lines.push(`Backend: ${selected.baseUrl}`);
+      lines.push(`Frontend: ${frontendUrl}`);
+      lines.push(`Key: ${keyPreview}`);
+    }
+    modal.setContent(lines.join(`
+`));
+    renderer.requestRender();
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "settings-modal",
+        handleKey
+      });
+      modal.center();
+      appState.settingsOptions = buildSettingsOptions();
+      appState.settingsCursor = Math.max(0, appState.settingsOptions.findIndex((opt) => opt.id === appState.currentBackend));
+      renderList();
+    } else {
+      focusManager.pop("settings-modal");
+    }
+    modal.setVisible(visible);
+  }
+  function move(delta) {
+    const max = Math.max(0, appState.settingsOptions.length - 1);
+    appState.settingsCursor = clamp3(appState.settingsCursor + delta, 0, max);
+    renderList();
+  }
+  async function select() {
+    const selected = appState.settingsOptions[appState.settingsCursor];
+    if (!selected)
+      return;
+    appState.currentBackend = selected.id;
+    const baseUrl = selected.baseUrl.replace(/\/api$/, "");
+    process.env.SYNTH_BACKEND_URL = baseUrl;
+    process.env.SYNTH_API_KEY = getKeyForBackend(selected.id) || "";
+    toggle(false);
+    ctx.state.snapshot.status = `Switching to ${selected.label}...`;
+    ctx.render();
+    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
+    await persistSettings2({
+      settingsFilePath: config2.settingsFilePath,
+      getCurrentBackend: () => appState.currentBackend,
+      getFrontendKey: (id) => frontendKeys[id],
+      getFrontendKeySource: (id) => frontendKeySources[id]
+    });
+    if (deps?.onBackendSwitch) {
+      await deps.onBackendSwitch();
+    }
+  }
+  function open() {
+    toggle(true);
+  }
+  function openKeyModal() {
+    toggle(false);
+    deps?.onOpenKeyModal?.();
+  }
+  function openEnvKeyModal() {
+    toggle(false);
+    deps?.onOpenEnvKeyModal?.();
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      select();
+      return true;
+    }
+    if (key.name === "k" && key.shift) {
+      openKeyModal();
+      return true;
+    }
+    if (key.name === "e" && key.shift) {
+      openEnvKeyModal();
+      return true;
+    }
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    select,
+    openKeyModal,
+    openEnvKeyModal,
+    handleKey
+  };
+}
 // src/modals/snapshot-modal.ts
 function createSnapshotModal(ctx) {
   const { renderer } = ctx;
@@ -23649,6 +24285,239 @@ ${frontend}`);
     handleKey
   };
   return controller;
+}
+// src/modals/usage-modal.ts
+function formatPlanName(planType) {
+  switch (planType) {
+    case "pro":
+      return "Pro";
+    case "team":
+      return "Team";
+    case "byok":
+      return "BYOK";
+    case "free":
+    default:
+      return "Free";
+  }
+}
+function formatStatus2(status) {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "trialing":
+      return "Trial";
+    case "past_due":
+      return "Past Due";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+}
+function formatUSD(amount) {
+  if (amount == null)
+    return "-";
+  return `$${amount.toFixed(2)}`;
+}
+function formatUsageDetails(data) {
+  if (!data) {
+    return "Loading usage data...";
+  }
+  const lines = [];
+  lines.push("=== PLAN INFO ===");
+  lines.push("");
+  lines.push(`Plan:     ${formatPlanName(data.plan_type)}`);
+  lines.push(`Status:   ${formatStatus2(data.status)}`);
+  const accessTier = data.access_tier || "alpha";
+  lines.push(`Access:   ${accessTier.charAt(0).toUpperCase() + accessTier.slice(1)}`);
+  if (data.byok_providers && data.byok_providers.length > 0) {
+    const providers = data.byok_providers.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(", ");
+    lines.push(`BYOK:     ${providers}`);
+  }
+  lines.push("");
+  lines.push("Features:");
+  if (data.limits.unlimited_non_rollout) {
+    lines.push("  [*] Unlimited non-rollout usage");
+  }
+  if (data.limits.byok_enabled) {
+    lines.push("  [*] BYOK enabled");
+  }
+  if (data.limits.team_features_enabled) {
+    lines.push("  [*] Team features");
+  }
+  lines.push("");
+  if (data.plan_type === "pro" || data.plan_type === "team") {
+    lines.push("=== ROLLOUT CREDITS ===");
+    lines.push("");
+    lines.push(`Monthly:   ${formatUSD(data.limits.monthly_rollout_credits_usd)}`);
+    lines.push(`Remaining: ${formatUSD(data.rollout_credits_balance_usd)}`);
+    lines.push(`Used:      ${formatUSD(data.rollout_credits_used_this_period_usd)}`);
+    lines.push("");
+  }
+  lines.push("=== USAGE (30 DAYS) ===");
+  lines.push("");
+  if (data.usage_summary) {
+    const summary = data.usage_summary;
+    lines.push(`Total:   ${formatUSD(summary.total_cost_usd)}`);
+    lines.push(`Charged: ${formatUSD(summary.total_charged_usd)}`);
+    if (summary.total_uncharged_usd > 0) {
+      lines.push(`Savings: ${formatUSD(summary.total_uncharged_usd)}`);
+    }
+    lines.push("");
+    if (summary.by_type && summary.by_type.length > 0) {
+      lines.push("By type:");
+      for (const item of summary.by_type) {
+        const byok = item.byok_event_count > 0 ? ` (${item.byok_event_count} BYOK)` : "";
+        lines.push(`  ${item.usage_type.padEnd(12)} ${formatUSD(item.total_cost_usd).padStart(10)} (${item.event_count} events${byok})`);
+      }
+    } else {
+      lines.push("No usage in last 30 days.");
+    }
+  } else {
+    lines.push("No usage data available.");
+  }
+  return lines.join(`
+`);
+}
+function createUsageModal(ctx) {
+  const { renderer } = ctx;
+  let usageData = null;
+  const modal = createModalUI(renderer, {
+    id: "usage-modal",
+    width: 72,
+    height: 28,
+    borderColor: "#10b981",
+    titleColor: "#10b981",
+    zIndex: 10
+  });
+  modal.setTitle("Usage & Plan");
+  modal.setHint("j/k scroll  b open billing  q close");
+  function updateContent() {
+    const raw = formatUsageDetails(usageData);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.min(68, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, 22);
+    appState.usageModalOffset = clamp3(appState.usageModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState.usageModalOffset, appState.usageModalOffset + maxLines);
+    const scrollIndicator = wrapped.length > maxLines ? `[${appState.usageModalOffset + 1}-${appState.usageModalOffset + visible.length}/${wrapped.length}]` : "";
+    modal.setTitle(`Usage & Plan - ${formatPlanName(usageData?.plan_type || "free")} ${scrollIndicator}`);
+    modal.setContent(visible.join(`
+`));
+    renderer.requestRender();
+  }
+  function setData(data) {
+    usageData = data;
+    updateContent();
+  }
+  async function fetchUsageData() {
+    try {
+      const response = await apiGetV1("/usage-plan");
+      const data = {
+        plan_type: response.plan_type,
+        status: response.status,
+        access_tier: response.access_tier ?? "alpha",
+        rollout_credits_balance_usd: response.rollout_credits_balance_usd ?? null,
+        rollout_credits_used_this_period_usd: response.rollout_credits_used_this_period_usd ?? null,
+        byok_providers: response.byok_providers || [],
+        limits: {
+          monthly_rollout_credits_usd: response.limits?.monthly_rollout_credits_usd ?? 0,
+          max_overdraft_usd: response.limits?.max_overdraft_usd ?? 0,
+          unlimited_non_rollout: response.limits?.unlimited_non_rollout ?? false,
+          team_features_enabled: response.limits?.team_features_enabled ?? false,
+          byok_enabled: response.limits?.byok_enabled ?? false
+        },
+        usage_summary: response.usage_summary ? {
+          total_cost_usd: response.usage_summary.total_cost_usd ?? 0,
+          total_charged_usd: response.usage_summary.total_charged_usd ?? 0,
+          total_uncharged_usd: response.usage_summary.total_uncharged_usd ?? 0,
+          by_type: response.usage_summary.by_type || []
+        } : undefined
+      };
+      setData(data);
+    } catch (err) {
+      const fallbackData = {
+        plan_type: "free",
+        status: "active",
+        rollout_credits_balance_usd: null,
+        rollout_credits_used_this_period_usd: null,
+        byok_providers: [],
+        limits: {
+          monthly_rollout_credits_usd: 0,
+          max_overdraft_usd: 0,
+          unlimited_non_rollout: false,
+          team_features_enabled: false,
+          byok_enabled: false
+        }
+      };
+      setData(fallbackData);
+      ctx.state.snapshot.lastError = `Usage fetch failed: ${err?.message || "Unknown"}`;
+      ctx.render();
+    }
+  }
+  function openBillingPage() {
+    try {
+      const frontendUrl = getFrontendUrl(appState.currentBackend);
+      const usageUrl = `${frontendUrl}/usage`;
+      openBrowser(usageUrl);
+      ctx.state.snapshot.status = `Opened: ${usageUrl}`;
+      ctx.render();
+    } catch (err) {
+      ctx.state.snapshot.status = `Failed to open browser: ${err?.message || "Unknown"}`;
+      ctx.render();
+    }
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "usage-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("usage-modal");
+    }
+    modal.setVisible(visible);
+  }
+  async function open() {
+    appState.usageModalOffset = 0;
+    setData(null);
+    toggle(true);
+    updateContent();
+    await fetchUsageData();
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "b") {
+      openBillingPage();
+      return true;
+    }
+    if (key.name === "up" || key.name === "k") {
+      appState.usageModalOffset = Math.max(0, (appState.usageModalOffset || 0) - 1);
+      updateContent();
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      appState.usageModalOffset = (appState.usageModalOffset || 0) + 1;
+      updateContent();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    setData,
+    handleKey
+  };
 }
 // src/modals/task-apps-modal.ts
 function formatTunnelDetails(tunnels, healthResults, selectedIndex) {
@@ -23849,6 +24718,14 @@ function createKeyboardHandler(ctx, modals) {
     }
     if (key.name === "s" && key.shift) {
       modals.urls.open();
+      return;
+    }
+    if (key.name === "t") {
+      modals.settings.open();
+      return;
+    }
+    if (key.name === "d") {
+      modals.usage.open();
       return;
     }
     if (key.name === "n") {
@@ -24184,6 +25061,8 @@ function connectJobsStream(onEvent, onError, sinceSeq = 0) {
 }
 
 // src/app.ts
+init_polling();
+init_settings();
 async function runApp() {
   const renderer = await createCliRenderer({
     useConsole: false,
@@ -24193,6 +25072,22 @@ async function runApp() {
   });
   registerRenderer(renderer);
   installSignalHandlers();
+  await loadPersistedSettings({
+    settingsFilePath: config.settingsFilePath,
+    normalizeBackendId,
+    setCurrentBackend: (id) => {
+      appState.currentBackend = id;
+    },
+    setFrontendKey: (id, key) => {
+      frontendKeys[id] = key;
+    },
+    setFrontendKeySource: (id, source) => {
+      frontendKeySources[id] = source;
+    }
+  });
+  const currentConfig = backendConfigs[appState.currentBackend];
+  process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "");
+  process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || "";
   const ui = buildLayout(renderer, () => "");
   let ctx;
   function render() {
@@ -24219,9 +25114,28 @@ async function runApp() {
   const filterModal = createFilterModal(ctx);
   const jobFilterModal = createJobFilterModal(ctx);
   const keyModal = createKeyModal(ctx);
+  const envKeyModal = createEnvKeyModal(ctx);
+  const settingsModal = createSettingsModal(ctx, {
+    onOpenKeyModal: () => keyModal.open(),
+    onOpenEnvKeyModal: () => void envKeyModal.open(),
+    onBackendSwitch: async () => {
+      try {
+        await refreshIdentity(ctx);
+        await refreshJobs(ctx);
+        if (ctx.state.snapshot.jobs.length > 0) {
+          await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id);
+        }
+        ctx.state.snapshot.status = `Connected to ${appState.currentBackend}`;
+      } catch (err) {
+        ctx.state.snapshot.status = `Switch failed: ${err?.message || "unknown error"}`;
+      }
+      render();
+    }
+  });
   const snapshotModal = createSnapshotModal(ctx);
   const profileModal = createProfileModal(ctx);
   const urlsModal = createUrlsModal(renderer);
+  const usageModal = createUsageModal(ctx);
   const createJobModal = createCreateJobModal(ctx);
   const taskAppsModal = createTaskAppsModal(ctx);
   const logFileModal = createLogFileModal(ctx);
@@ -24233,9 +25147,11 @@ async function runApp() {
     filter: filterModal,
     jobFilter: jobFilterModal,
     key: keyModal,
+    settings: settingsModal,
     snapshot: snapshotModal,
     profile: profileModal,
     urls: urlsModal,
+    usage: usageModal,
     createJob: createJobModal,
     taskApps: taskAppsModal,
     logFile: logFileModal
@@ -24340,7 +25256,7 @@ async function runApp() {
         created_at: event.created_at ?? null,
         started_at: event.started_at ?? null,
         finished_at: event.finished_at ?? null,
-        best_score: null,
+        best_reward: null,
         best_snapshot_id: null,
         total_tokens: null,
         total_cost_usd: null,

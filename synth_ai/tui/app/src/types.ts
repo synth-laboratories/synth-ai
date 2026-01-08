@@ -102,6 +102,9 @@ export type TunnelHealthResult = {
 /** Backend ID for multi-backend support */
 export type BackendId = "prod" | "dev" | "local"
 
+/** Frontend URL identifier for key storage (keys are shared by frontend URL) */
+export type FrontendUrlId = "usesynth.ai" | "localhost:3000"
+
 /** Backend configuration */
 export type BackendConfig = {
   id: BackendId

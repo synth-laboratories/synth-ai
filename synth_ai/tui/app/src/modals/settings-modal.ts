@@ -6,7 +6,14 @@ import type { AppContext } from "../context"
 import type { BackendConfig } from "../types"
 import { createModalUI, clamp, type ModalController, type ModalUI } from "./base"
 import { focusManager } from "../focus"
-import { appState, backendConfigs, backendKeys, backendKeySources } from "../state/app-state"
+import {
+  appState,
+  backendConfigs,
+  frontendKeys,
+  frontendKeySources,
+  getKeyForBackend,
+  getFrontendUrl,
+} from "../state/app-state"
 
 // Type declaration for Node.js process (available at runtime)
 declare const process: {
@@ -26,6 +33,7 @@ export function createSettingsModal(
   deps?: {
     onOpenKeyModal?: () => void
     onOpenEnvKeyModal?: () => void
+    onBackendSwitch?: () => Promise<void>
   },
 ): SettingsModalController {
   const { renderer } = ctx
@@ -60,14 +68,15 @@ export function createSettingsModal(
 
     const selected = appState.settingsOptions[appState.settingsCursor]
     if (selected) {
-      // For local backend, check environment variable directly if key is empty
-      let key = backendKeys[selected.id]
-      if (selected.id === "local" && (!key || !key.trim())) {
-        key = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
-      }
-      const keyPreview = key && key.trim() ? `${key.slice(0, 8)}...` : "(no key)"
+      // Keys are stored by frontend URL, so dev and local share the same key
+      // Show actual key for this frontend URL - no fallback to avoid confusion
+      const key = getKeyForBackend(selected.id)
+      const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)"
+      const frontendUrl = getFrontendUrl(selected.id)
+
       lines.push("")
-      lines.push(`URL: ${selected.baseUrl}`)
+      lines.push(`Backend: ${selected.baseUrl}`)
+      lines.push(`Frontend: ${frontendUrl}`)
       lines.push(`Key: ${keyPreview}`)
     }
 
@@ -82,11 +91,6 @@ export function createSettingsModal(
         handleKey,
       })
       modal.center()
-      // Refresh backendKeys from environment in case SYNTH_API_KEY was set
-      const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
-      if (!backendKeys.local?.trim() && synthApiKey) {
-        backendKeys.local = synthApiKey
-      }
       appState.settingsOptions = buildSettingsOptions()
       appState.settingsCursor = Math.max(
         0,
@@ -115,9 +119,10 @@ export function createSettingsModal(
     // Remove /api suffix for the env var (it gets added by the API client)
     const baseUrl = selected.baseUrl.replace(/\/api$/, "")
     process.env.SYNTH_BACKEND_URL = baseUrl
-    process.env.SYNTH_API_KEY = backendKeys[selected.id] || ""
+    process.env.SYNTH_API_KEY = getKeyForBackend(selected.id) || ""
 
     toggle(false)
+    ctx.state.snapshot.status = `Switching to ${selected.label}...`
     ctx.render()
 
     // Persist settings
@@ -125,9 +130,14 @@ export function createSettingsModal(
     await persistSettings({
       settingsFilePath: config.settingsFilePath,
       getCurrentBackend: () => appState.currentBackend,
-      getBackendKey: (id) => backendKeys[id],
-      getBackendKeySource: (id) => backendKeySources[id],
+      getFrontendKey: (id) => frontendKeys[id],
+      getFrontendKeySource: (id) => frontendKeySources[id],
     })
+
+    // Trigger refresh after backend switch
+    if (deps?.onBackendSwitch) {
+      await deps.onBackendSwitch()
+    }
   }
 
   function open(): void {

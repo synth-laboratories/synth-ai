@@ -6,7 +6,12 @@ import type { AppContext } from "../context"
 import { createModalUI, clamp, type ModalController, type ModalUI } from "./base"
 import { focusManager } from "../focus"
 import { scanEnvKeys } from "../utils/env"
-import { appState, backendKeys, backendKeySources } from "../state/app-state"
+import {
+  appState,
+  frontendKeys,
+  frontendKeySources,
+  getFrontendUrlId,
+} from "../state/app-state"
 
 export type EnvKeyModalController = ModalController & {
   open: () => Promise<void>
@@ -128,8 +133,10 @@ export function createEnvKeyModal(ctx: AppContext): EnvKeyModalController {
     const selected = appState.envKeyOptions[appState.envKeyCursor]
     if (!selected) return
 
-    backendKeys[appState.currentBackend] = selected.key
-    backendKeySources[appState.currentBackend] = {
+    // Store by frontend URL (dev and local share the same key)
+    const frontendUrlId = getFrontendUrlId(appState.currentBackend)
+    frontendKeys[frontendUrlId] = selected.key
+    frontendKeySources[frontendUrlId] = {
       sourcePath: selected.sources[0] || null,
       varName: selected.varNames[0] || null,
     }
@@ -143,8 +150,8 @@ export function createEnvKeyModal(ctx: AppContext): EnvKeyModalController {
     await persistSettings({
       settingsFilePath: config.settingsFilePath,
       getCurrentBackend: () => appState.currentBackend,
-      getBackendKey: (id) => backendKeys[id],
-      getBackendKeySource: (id) => backendKeySources[id],
+      getFrontendKey: (id) => frontendKeys[id],
+      getFrontendKeySource: (id) => frontendKeySources[id],
     })
 
     ctx.state.snapshot.status = "API key loaded from env file"

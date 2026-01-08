@@ -35,8 +35,10 @@ import { refreshIdentity, refreshHealth } from "./api/identity"
 import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
 import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
 import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
-import { clearJobsTimer, pollingState } from "./state/polling"
+import { clearJobsTimer, pollingState, config } from "./state/polling"
 import { registerRenderer, registerInterval, registerTimeout, unregisterTimeout, registerCleanup, installSignalHandlers } from "./lifecycle"
+import { loadPersistedSettings } from "./persistence/settings"
+import { appState, normalizeBackendId, frontendKeys, frontendKeySources, getKeyForBackend, backendConfigs } from "./state/app-state"
 
 export async function runApp(): Promise<void> {
   // Create renderer
@@ -50,6 +52,20 @@ export async function runApp(): Promise<void> {
   // Register renderer for centralized shutdown and install signal handlers
   registerRenderer(renderer)
   installSignalHandlers()
+
+  // Load persisted settings (backend selection and API keys)
+  await loadPersistedSettings({
+    settingsFilePath: config.settingsFilePath,
+    normalizeBackendId,
+    setCurrentBackend: (id) => { appState.currentBackend = id },
+    setFrontendKey: (id, key) => { frontendKeys[id] = key },
+    setFrontendKeySource: (id, source) => { frontendKeySources[id] = source },
+  })
+
+  // Update process.env with loaded settings
+  const currentConfig = backendConfigs[appState.currentBackend]
+  process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "")
+  process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || ""
 
   // Build layout with a placeholder footer (will be updated by render)
   const ui = buildLayout(renderer, () => "")
@@ -91,6 +107,20 @@ export async function runApp(): Promise<void> {
   const settingsModal = createSettingsModal(ctx, {
     onOpenKeyModal: () => keyModal.open(),
     onOpenEnvKeyModal: () => void envKeyModal.open(),
+    onBackendSwitch: async () => {
+      // Refresh data from new backend
+      try {
+        await refreshIdentity(ctx)
+        await refreshJobs(ctx)
+        if (ctx.state.snapshot.jobs.length > 0) {
+          await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id)
+        }
+        ctx.state.snapshot.status = `Connected to ${appState.currentBackend}`
+      } catch (err: any) {
+        ctx.state.snapshot.status = `Switch failed: ${err?.message || "unknown error"}`
+      }
+      render()
+    },
   })
   const snapshotModal = createSnapshotModal(ctx)
   const profileModal = createProfileModal(ctx)

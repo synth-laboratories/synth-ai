@@ -2,7 +2,7 @@
  * Global application state.
  */
 
-import type { ActivePane, BackendConfig, BackendId, BackendKeySource, EnvKeyOption, LogSource } from "../types"
+import type { ActivePane, BackendConfig, BackendId, BackendKeySource, EnvKeyOption, FrontendUrlId, LogSource } from "../types"
 
 /** Ensure URL ends with /api */
 function ensureApiBase(url: string): string {
@@ -19,6 +19,24 @@ export function normalizeBackendId(value: string): BackendId {
   if (lower === "dev" || lower === "development") return "dev"
   if (lower === "local" || lower === "localhost") return "local"
   return "prod"
+}
+
+/** Get frontend URL identifier for a backend (keys are shared by frontend URL) */
+export function getFrontendUrlId(backendId: BackendId): FrontendUrlId {
+  switch (backendId) {
+    case "prod": return "usesynth.ai"
+    case "dev":
+    case "local": return "localhost:3000"
+  }
+}
+
+/** Get frontend URL for a backend (used for auth and billing pages) */
+export function getFrontendUrl(backendId: BackendId): string {
+  switch (backendId) {
+    case "prod": return "https://usesynth.ai"
+    case "dev":
+    case "local": return "http://localhost:3000"
+  }
 }
 
 // Backend configurations
@@ -46,18 +64,37 @@ export const backendConfigs: Record<BackendId, BackendConfig> = {
   },
 }
 
-// API keys per backend (SYNTH_API_KEY is used as fallback for local and dev)
-export const backendKeys: Record<BackendId, string> = {
-  prod: process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
-  dev: process.env.SYNTH_TUI_API_KEY_DEV || process.env.SYNTH_API_KEY || "",
-  local: process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || "",
+// API keys per frontend URL (keys are shared by frontend URL, not backend mode)
+// dev and local both use localhost:3000, so they share the same key
+export const frontendKeys: Record<FrontendUrlId, string> = {
+  "usesynth.ai": process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
+  "localhost:3000": process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || "",
 }
 
 // Key source tracking (for display purposes)
-export const backendKeySources: Record<BackendId, BackendKeySource> = {
-  prod: { sourcePath: null, varName: null },
-  dev: { sourcePath: null, varName: null },
-  local: { sourcePath: null, varName: null },
+export const frontendKeySources: Record<FrontendUrlId, BackendKeySource> = {
+  "usesynth.ai": { sourcePath: null, varName: null },
+  "localhost:3000": { sourcePath: null, varName: null },
+}
+
+/** Get API key for a backend (looks up by frontend URL) */
+export function getKeyForBackend(backendId: BackendId): string {
+  return frontendKeys[getFrontendUrlId(backendId)]
+}
+
+/** Set API key for a backend (stores by frontend URL) */
+export function setKeyForBackend(backendId: BackendId, key: string): void {
+  frontendKeys[getFrontendUrlId(backendId)] = key
+}
+
+/** Get key source for a backend (looks up by frontend URL) */
+export function getKeySourceForBackend(backendId: BackendId): BackendKeySource {
+  return frontendKeySources[getFrontendUrlId(backendId)]
+}
+
+/** Set key source for a backend (stores by frontend URL) */
+export function setKeySourceForBackend(backendId: BackendId, source: BackendKeySource): void {
+  frontendKeySources[getFrontendUrlId(backendId)] = source
 }
 
 // Mutable app state
