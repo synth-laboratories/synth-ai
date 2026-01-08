@@ -2,9 +2,7 @@
  * Results panel formatting (best snapshot + eval results + expanded view).
  */
 import type { Snapshot } from "../types"
-import { num } from "../tui_data"
 import { truncate } from "../utils/truncate"
-import { formatValue } from "./time"
 
 function isRecord(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -110,85 +108,60 @@ export function formatEvalResults(snapshot: Snapshot): string {
   const rows: any[] = snapshot.evalResultRows ?? []
   const lines: string[] = []
 
-  // Show overall summary if available
-  if (Object.keys(summary).length > 0) {
-    lines.push("═══ Summary ═══")
-    const keyOrder = ["mean_reward", "reward", "pass_rate", "completed", "failed", "total"]
-    const shown = new Set<string>()
-
-    for (const key of keyOrder) {
-      let val = summary[key]
-      if (key === "reward") {
-        val = summary.reward ?? summary.objectives?.reward ?? summary.accuracy
-        if (val != null) {
-          shown.add("accuracy")
-        }
-      } else if (key === "mean_reward") {
-        val = summary.mean_reward ?? summary.mean_score
-        if (val != null) {
-          shown.add("mean_score")
-        }
-      }
-      if (val == null) continue
-      if (key === "reward" || key === "pass_rate") {
-        lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`)
-      } else {
-        lines.push(`  ${key}: ${formatValue(val)}`)
-      }
-      shown.add(key)
-    }
-    // Show remaining keys
-    for (const [key, value] of Object.entries(summary)) {
-      if (shown.has(key)) continue
-      if (typeof value === "object") continue
-      lines.push(`  ${key}: ${formatValue(value)}`)
-    }
+  if (rows.length === 0 && Object.keys(summary).length === 0) {
+    lines.push("═══ Eval Results ═══")
     lines.push("")
+    lines.push("Waiting for results...")
+    lines.push("Results will stream in as seeds complete.")
+    return lines.join("\n")
   }
 
-  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
-    const rewards = rows
-      .map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score)
-      .filter((val) => typeof val === "number" && Number.isFinite(val)) as number[]
-    if (rewards.length > 0) {
-      const mean = rewards.reduce((acc, val) => acc + val, 0) / rewards.length
-      if (lines.length === 0 || lines[0] !== "═══ Summary ═══") {
-        lines.unshift("═══ Summary ═══")
-      }
-      lines.splice(1, 0, `  mean_reward: ${formatValue(mean)}`)
-      lines.push("")
-    }
-  }
-
-  // Show per-task results
+  // Show per-seed results table
   if (rows.length > 0) {
-    lines.push("═══ Results by Task ═══")
-    const limit = 15
-    const displayRows = rows.slice(0, limit)
+    lines.push("═══ Per-Seed Results ═══")
+    lines.push("  Seed   Reward    Latency   Tokens   Cost")
+    lines.push("  ────   ──────    ───────   ──────   ────")
+
+    const limit = 12
+    const sortedRows = [...rows].sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0))
+    const displayRows = sortedRows.slice(0, limit)
 
     for (const row of displayRows) {
-      const taskId = row.task_id || row.id || row.name || "?"
-      const reward = num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed)
-      const passed = row.passed != null ? (row.passed ? "✓" : "✗") : ""
-      const status = row.status || ""
-      const rewardStr = reward != null ? reward.toFixed(3) : "-"
+      const seed = String(row.seed ?? "?").padStart(4)
+      const score = row.score ?? row.outcome_reward ?? row.reward_mean
+      const rewardStr = typeof score === "number" ? score.toFixed(3).padStart(6) : "     -"
+      const latencyMs = row.latency_ms
+      const latencyStr = typeof latencyMs === "number"
+        ? (latencyMs < 1000 ? `${Math.round(latencyMs)}ms` : `${(latencyMs/1000).toFixed(1)}s`).padStart(7)
+        : "      -"
+      const tokens = row.tokens
+      const tokensStr = typeof tokens === "number" ? String(tokens).padStart(6) : "     -"
+      const cost = row.cost_usd
+      const costStr = typeof cost === "number" ? `$${cost.toFixed(3)}`.padStart(7) : "      -"
 
-      if (passed) {
-        lines.push(`  ${passed} ${taskId}: ${rewardStr}`)
-      } else if (status) {
-        lines.push(`  [${status}] ${taskId}: ${rewardStr}`)
-      } else {
-        lines.push(`  ${taskId}: ${rewardStr}`)
-      }
+      // Status indicator
+      const statusIcon = row.error ? "✗" : (score != null ? "✓" : "◦")
+
+      lines.push(`  ${statusIcon}${seed}   ${rewardStr}   ${latencyStr}   ${tokensStr}  ${costStr}`)
     }
 
     if (rows.length > limit) {
-      lines.push(`  ... +${rows.length - limit} more tasks`)
+      lines.push(`  ... +${rows.length - limit} more seeds`)
     }
-  } else if (Object.keys(summary).length === 0) {
-    lines.push("No eval results yet.")
-    lines.push("")
-    lines.push("Results will appear after the eval completes.")
+
+    // Show any errors
+    const errorRows = rows.filter((r) => r.error)
+    if (errorRows.length > 0 && errorRows.length <= 3) {
+      lines.push("")
+      lines.push("═══ Errors ═══")
+      for (const row of errorRows.slice(0, 3)) {
+        const errMsg = String(row.error || "unknown").slice(0, 50)
+        lines.push(`  Seed ${row.seed}: ${errMsg}`)
+      }
+    } else if (errorRows.length > 3) {
+      lines.push("")
+      lines.push(`  ${errorRows.length} seeds failed (see events for details)`)
+    }
   }
 
   return lines.length > 0 ? lines.join("\n") : "Results: -"

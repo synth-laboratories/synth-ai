@@ -4,6 +4,7 @@
 import type { AppContext } from "../context"
 import { extractEvents, isEvalJob, type JobEvent } from "../tui_data"
 import { apiGet } from "./client"
+import { pollingState } from "../state/polling"
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -37,6 +38,15 @@ export async function refreshEvents(ctx: AppContext): Promise<boolean> {
   const { snapshot, appState, config } = ctx.state
   const job = snapshot.selectedJob
   if (!job) return true
+
+  // Skip polling if eval SSE is connected for this job
+  if (
+    isEvalJob(job) &&
+    pollingState.evalSseConnected &&
+    pollingState.evalSseJobId === job.job_id
+  ) {
+    return true // SSE handles events for this eval job
+  }
 
   const jobId = job.job_id
   const token = appState.eventsToken

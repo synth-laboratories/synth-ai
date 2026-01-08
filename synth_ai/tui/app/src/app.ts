@@ -35,8 +35,10 @@ import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
 import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
 import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
+import { connectEvalStream, type EvalStreamEvent, type EvalStreamConnection } from "./api/eval-stream"
 import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
-import { clearJobsTimer, pollingState, config } from "./state/polling"
+import { clearJobsTimer, pollingState, config, disconnectEvalSse, clearEvalSseTimer } from "./state/polling"
+import { isEvalJob } from "./tui_data"
 import { registerRenderer, registerInterval, registerTimeout, unregisterTimeout, registerCleanup, installSignalHandlers } from "./lifecycle"
 import { loadPersistedSettings } from "./persistence/settings"
 import { appState, normalizeBackendId, frontendKeys, frontendKeySources, getKeyForBackend, backendConfigs } from "./state/app-state"
@@ -167,9 +169,24 @@ export async function runApp(): Promise<void> {
   ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx: number, option: any) => {
     if (!option?.value) return
     if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
-      void selectJob(ctx, option.value).then(() => render()).catch(() => {})
+      void selectJob(ctx, option.value).then(() => {
+        render()
+        // Start eval SSE stream if this is an eval job
+        maybeStartEvalStream(option.value)
+      }).catch(() => {})
     }
   })
+
+  // Helper to start eval stream for eval jobs
+  function maybeStartEvalStream(jobId: string): void {
+    // Disconnect existing eval stream first
+    disconnectEvalSse()
+
+    const job = ctx.state.snapshot.selectedJob
+    if (job && isEvalJob(job)) {
+      startEvalStream(jobId)
+    }
+  }
 
   // Set up focus manager with jobsSelect as default
   focusManager.setDefault({
@@ -266,8 +283,11 @@ export async function runApp(): Promise<void> {
     const { initialJobId } = ctx.state.config
     if (initialJobId) {
       await selectJob(ctx, initialJobId)
+      maybeStartEvalStream(initialJobId)
     } else if (ctx.state.snapshot.jobs.length > 0) {
-      await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id)
+      const firstJobId = ctx.state.snapshot.jobs[0].job_id
+      await selectJob(ctx, firstJobId)
+      maybeStartEvalStream(firstJobId)
     }
 
     // Start SSE connection for real-time job updates
@@ -283,6 +303,7 @@ export async function runApp(): Promise<void> {
 
     // Register SSE disconnect for cleanup on shutdown
     registerCleanup("sse", () => pollingState.sseDisconnect?.())
+    registerCleanup("eval-sse", () => disconnectEvalSse())
 
     render()
   }
@@ -379,6 +400,155 @@ export async function runApp(): Promise<void> {
 
     // Exponential backoff: 1s, 2s, 4s, ... up to 30s
     pollingState.sseReconnectDelay = Math.min(pollingState.sseReconnectDelay * 2, 30_000)
+  }
+
+  // SSE stream for eval job details
+  let evalStreamConnection: EvalStreamConnection | null = null
+
+  function startEvalStream(jobId: string): void {
+    const { pollingState } = ctx.state
+
+    if (!process.env.SYNTH_API_KEY) {
+      // No API key, fall back to polling
+      return
+    }
+
+    // Disconnect any existing eval stream
+    if (evalStreamConnection) {
+      evalStreamConnection.disconnect()
+      evalStreamConnection = null
+    }
+
+    evalStreamConnection = connectEvalStream(
+      jobId,
+      (event) => handleEvalStreamEvent(event),
+      (err) => handleEvalStreamError(err, jobId),
+      pollingState.lastEvalSseSeq,
+    )
+
+    // SSE connected - mark as connected
+    pollingState.evalSseConnected = true
+    pollingState.evalSseJobId = jobId
+    pollingState.evalSseDisconnect = evalStreamConnection.disconnect
+    pollingState.evalSseReconnectDelay = 1000 // Reset backoff
+  }
+
+  function handleEvalStreamEvent(event: EvalStreamEvent): void {
+    const { snapshot, pollingState, config: appConfig } = ctx.state
+
+    // Ignore if job changed
+    if (snapshot.selectedJob?.job_id !== event.job_id) return
+
+    // Track sequence for reconnection
+    pollingState.lastEvalSseSeq = event.seq
+
+    // Add event to events list
+    snapshot.events.push({
+      seq: event.seq,
+      type: event.type,
+      message: event.message,
+      data: event.data,
+      timestamp: new Date(event.ts * 1000).toISOString(),
+    })
+
+    // Handle specific event types
+    switch (event.type) {
+      case "eval.results.updated":
+      case "eval.seed.completed": {
+        // Update or add result row
+        const seedData = event.data
+        if (typeof seedData.seed === "number") {
+          const existingIdx = snapshot.evalResultRows.findIndex(
+            (r) => r.seed === seedData.seed
+          )
+          const resultRow = {
+            seed: seedData.seed,
+            trial_id: String(seedData.trial_id ?? ""),
+            correlation_id: String(seedData.correlation_id ?? ""),
+            score: seedData.score ?? null,
+            reward_mean: null,
+            outcome_reward: seedData.outcome_reward ?? null,
+            outcome_score: null,
+            events_score: seedData.events_score ?? null,
+            verifier_score: seedData.verifier_score ?? null,
+            latency_ms: seedData.latency_ms ?? null,
+            tokens: seedData.tokens ?? null,
+            cost_usd: seedData.cost_usd ?? null,
+            error: seedData.error ?? null,
+            trace_id: seedData.trace_id ?? null,
+          }
+          if (existingIdx !== -1) {
+            snapshot.evalResultRows[existingIdx] = resultRow
+          } else {
+            snapshot.evalResultRows.push(resultRow)
+            snapshot.evalResultRows.sort((a, b) => a.seed - b.seed)
+          }
+        }
+        break
+      }
+
+      case "eval.job.progress": {
+        // Update status with progress
+        const completed = event.data.completed ?? 0
+        const total = event.data.total ?? 0
+        snapshot.status = `Eval: ${completed}/${total} seeds completed`
+        break
+      }
+
+      case "eval.job.completed": {
+        // Update summary and job status
+        snapshot.evalSummary = event.data
+        if (snapshot.selectedJob) {
+          snapshot.selectedJob.status = event.data.error ? "failed" : "completed"
+          if (event.data.error) {
+            snapshot.selectedJob.error = String(event.data.error)
+          }
+        }
+        snapshot.status = event.data.error
+          ? `Eval failed: ${String(event.data.error).slice(0, 50)}`
+          : `Eval completed: ${event.data.completed}/${event.data.total} seeds (mean reward: ${event.data.mean_reward?.toFixed(3) ?? "N/A"})`
+        break
+      }
+
+      case "eval.job.started": {
+        snapshot.status = `Eval started: ${event.data.seed_count ?? 0} seeds`
+        break
+      }
+    }
+
+    // Enforce history limit
+    const eventHistoryLimit = appConfig.eventHistoryLimit
+    if (eventHistoryLimit > 0 && snapshot.events.length > eventHistoryLimit) {
+      snapshot.events = snapshot.events.slice(-eventHistoryLimit)
+    }
+
+    render()
+  }
+
+  function handleEvalStreamError(_err: Error, jobId: string): void {
+    const { pollingState } = ctx.state
+
+    pollingState.evalSseConnected = false
+    pollingState.evalSseDisconnect = null
+    evalStreamConnection = null
+
+    // Resume events polling as fallback
+    scheduleEventsPoll()
+
+    // Schedule reconnect with exponential backoff
+    clearEvalSseTimer()
+
+    if (ctx.state.snapshot.selectedJob?.job_id === jobId && isEvalJob(ctx.state.snapshot.selectedJob)) {
+      pollingState.evalSseReconnectTimer = registerTimeout(setTimeout(() => {
+        pollingState.evalSseReconnectTimer = null
+        if (ctx.state.snapshot.selectedJob?.job_id === jobId) {
+          startEvalStream(jobId)
+        }
+      }, pollingState.evalSseReconnectDelay))
+
+      // Exponential backoff: 1s, 2s, 4s, ... up to 30s
+      pollingState.evalSseReconnectDelay = Math.min(pollingState.evalSseReconnectDelay * 2, 30_000)
+    }
   }
 
   // Polling

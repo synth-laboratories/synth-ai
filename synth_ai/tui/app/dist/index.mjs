@@ -16,9 +16,11 @@ var __require = import.meta.require;
 var exports_polling = {};
 __export(exports_polling, {
   pollingState: () => pollingState,
+  disconnectEvalSse: () => disconnectEvalSse,
   config: () => config,
   clearJobsTimer: () => clearJobsTimer,
-  clearEventsTimer: () => clearEventsTimer
+  clearEventsTimer: () => clearEventsTimer,
+  clearEvalSseTimer: () => clearEvalSseTimer
 });
 import path2 from "path";
 function clearJobsTimer() {
@@ -32,6 +34,22 @@ function clearEventsTimer() {
     clearTimeout(pollingState.eventsTimer);
     pollingState.eventsTimer = null;
   }
+}
+function clearEvalSseTimer() {
+  if (pollingState.evalSseReconnectTimer) {
+    clearTimeout(pollingState.evalSseReconnectTimer);
+    pollingState.evalSseReconnectTimer = null;
+  }
+}
+function disconnectEvalSse() {
+  if (pollingState.evalSseDisconnect) {
+    pollingState.evalSseDisconnect();
+    pollingState.evalSseDisconnect = null;
+  }
+  pollingState.evalSseConnected = false;
+  pollingState.evalSseJobId = null;
+  pollingState.lastEvalSseSeq = 0;
+  clearEvalSseTimer();
 }
 var config, pollingState;
 var init_polling = __esm(() => {
@@ -61,7 +79,13 @@ var init_polling = __esm(() => {
     sseDisconnect: null,
     sseReconnectTimer: null,
     sseReconnectDelay: 1000,
-    lastSseSeq: 0
+    lastSseSeq: 0,
+    evalSseConnected: false,
+    evalSseDisconnect: null,
+    evalSseJobId: null,
+    evalSseReconnectTimer: null,
+    evalSseReconnectDelay: 1000,
+    lastEvalSseSeq: 0
   };
 });
 
@@ -20578,42 +20602,46 @@ function formatDetails(snapshot2) {
 function formatEvalDetails(snapshot2, job) {
   const summary = snapshot2.evalSummary ?? {};
   const rows = snapshot2.evalResultRows ?? [];
+  const completedRows = rows.filter((r) => !r.error);
+  const failedRows = rows.filter((r) => r.error);
+  const rewards = rows.map((row) => num(row.score ?? row.outcome_reward ?? row.reward_mean)).filter((val) => typeof val === "number" && Number.isFinite(val));
+  const meanReward = rewards.length > 0 ? rewards.reduce((sum, val) => sum + val, 0) / rewards.length : null;
+  const totalTokens = rows.reduce((sum, r) => sum + (r.tokens ?? 0), 0);
+  const totalCost = rows.reduce((sum, r) => sum + (r.cost_usd ?? 0), 0);
+  const avgLatency = rows.length > 0 ? rows.reduce((sum, r) => sum + (r.latency_ms ?? 0), 0) / rows.length : 0;
+  const totalSeeds = summary.total ?? (summary.seeds?.length ?? rows.length);
+  const completedSeeds = summary.completed ?? completedRows.length;
+  const statusEmoji = job.status === "completed" ? "\u2713" : job.status === "failed" ? "\u2717" : job.status === "running" ? "\u25C9" : "\u25CB";
   const lines = [
-    `Job: ${job.job_id}`,
-    `Status: ${job.status}`,
-    `Type: eval`,
-    "",
-    "\u2550\u2550\u2550 Eval Summary \u2550\u2550\u2550"
+    `${statusEmoji} Job: ${job.job_id}`,
+    `Status: ${job.status}`
   ];
-  const meanReward = summary.mean_reward ?? summary.mean_score;
-  if (meanReward != null) {
-    lines.push(`  Mean Reward: ${formatValue(meanReward)}`);
+  if (totalSeeds > 0) {
+    const pct = Math.min(100, Math.round(completedSeeds / totalSeeds * 100));
+    const barWidth = 20;
+    const filled = Math.round(pct / 100 * barWidth);
+    const progressBar = "\u2588".repeat(filled) + "\u2591".repeat(barWidth - filled);
+    lines.push(`Progress: [${progressBar}] ${completedSeeds}/${totalSeeds} (${pct}%)`);
   }
-  const reward = summary.reward ?? summary.objectives?.reward ?? summary.accuracy;
-  if (reward != null) {
-    lines.push(`  Reward: ${(reward * 100).toFixed(1)}%`);
+  lines.push("");
+  lines.push("\u2550\u2550\u2550 Metrics \u2550\u2550\u2550");
+  const displayMeanReward = summary.mean_reward ?? meanReward;
+  if (displayMeanReward != null) {
+    const rewardPct = (displayMeanReward * 100).toFixed(1);
+    lines.push(`  Mean Reward: ${displayMeanReward.toFixed(4)} (${rewardPct}%)`);
+  } else {
+    lines.push(`  Mean Reward: -`);
   }
-  if (summary.pass_rate != null) {
-    lines.push(`  Pass Rate: ${(summary.pass_rate * 100).toFixed(1)}%`);
+  if (failedRows.length > 0) {
+    lines.push(`  Completed: ${completedRows.length}  Failed: ${failedRows.length}`);
+  } else if (completedRows.length > 0) {
+    lines.push(`  Completed: ${completedRows.length}`);
   }
-  if (summary.completed != null && summary.total != null) {
-    lines.push(`  Progress: ${summary.completed}/${summary.total}`);
-  } else if (summary.completed != null) {
-    lines.push(`  Completed: ${summary.completed}`);
-  }
-  if (summary.failed != null && summary.failed > 0) {
-    lines.push(`  Failed: ${summary.failed}`);
-  }
-  if (rows.length > 0) {
-    lines.push(`  Results: ${rows.length} rows`);
-    const rewards = rows.map((row) => num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed)).filter((val) => typeof val === "number");
-    if (rewards.length > 0) {
-      const mean = rewards.reduce((sum, val) => sum + val, 0) / rewards.length;
-      const passed = rewards.filter((s) => s >= 0.5 || s === 1).length;
-      lines.push(`  Avg Reward: ${mean.toFixed(4)}`);
-      lines.push(`  Pass Rate: ${(passed / rewards.length * 100).toFixed(1)}%`);
-    }
-  }
+  lines.push("");
+  lines.push("\u2550\u2550\u2550 Resources \u2550\u2550\u2550");
+  lines.push(`  Tokens: ${totalTokens > 0 ? totalTokens.toLocaleString() : "-"}`);
+  lines.push(`  Cost: ${totalCost > 0 ? "$" + totalCost.toFixed(4) : "-"}`);
+  lines.push(`  Avg Latency: ${avgLatency > 0 ? (avgLatency / 1000).toFixed(2) + "s" : "-"}`);
   lines.push("");
   lines.push("\u2550\u2550\u2550 Timing \u2550\u2550\u2550");
   lines.push(`  Created: ${formatTimestamp(job.created_at)}`);
@@ -20860,77 +20888,49 @@ function formatEvalResults(snapshot2) {
   const summary = snapshot2.evalSummary ?? {};
   const rows = snapshot2.evalResultRows ?? [];
   const lines = [];
-  if (Object.keys(summary).length > 0) {
-    lines.push("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
-    const keyOrder = ["mean_reward", "reward", "pass_rate", "completed", "failed", "total"];
-    const shown = new Set;
-    for (const key of keyOrder) {
-      let val = summary[key];
-      if (key === "reward") {
-        val = summary.reward ?? summary.objectives?.reward ?? summary.accuracy;
-        if (val != null) {
-          shown.add("accuracy");
-        }
-      } else if (key === "mean_reward") {
-        val = summary.mean_reward ?? summary.mean_score;
-        if (val != null) {
-          shown.add("mean_score");
-        }
-      }
-      if (val == null)
-        continue;
-      if (key === "reward" || key === "pass_rate") {
-        lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`);
-      } else {
-        lines.push(`  ${key}: ${formatValue(val)}`);
-      }
-      shown.add(key);
-    }
-    for (const [key, value] of Object.entries(summary)) {
-      if (shown.has(key))
-        continue;
-      if (typeof value === "object")
-        continue;
-      lines.push(`  ${key}: ${formatValue(value)}`);
-    }
+  if (rows.length === 0 && Object.keys(summary).length === 0) {
+    lines.push("\u2550\u2550\u2550 Eval Results \u2550\u2550\u2550");
     lines.push("");
-  }
-  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
-    const rewards = rows.map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score).filter((val) => typeof val === "number" && Number.isFinite(val));
-    if (rewards.length > 0) {
-      const mean = rewards.reduce((acc, val) => acc + val, 0) / rewards.length;
-      if (lines.length === 0 || lines[0] !== "\u2550\u2550\u2550 Summary \u2550\u2550\u2550") {
-        lines.unshift("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
-      }
-      lines.splice(1, 0, `  mean_reward: ${formatValue(mean)}`);
-      lines.push("");
-    }
+    lines.push("Waiting for results...");
+    lines.push("Results will stream in as seeds complete.");
+    return lines.join(`
+`);
   }
   if (rows.length > 0) {
-    lines.push("\u2550\u2550\u2550 Results by Task \u2550\u2550\u2550");
-    const limit = 15;
-    const displayRows = rows.slice(0, limit);
+    lines.push("\u2550\u2550\u2550 Per-Seed Results \u2550\u2550\u2550");
+    lines.push("  Seed   Reward    Latency   Tokens   Cost");
+    lines.push("  \u2500\u2500\u2500\u2500   \u2500\u2500\u2500\u2500\u2500\u2500    \u2500\u2500\u2500\u2500\u2500\u2500\u2500   \u2500\u2500\u2500\u2500\u2500\u2500   \u2500\u2500\u2500\u2500");
+    const limit = 12;
+    const sortedRows = [...rows].sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0));
+    const displayRows = sortedRows.slice(0, limit);
     for (const row of displayRows) {
-      const taskId = row.task_id || row.id || row.name || "?";
-      const reward = num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed);
-      const passed = row.passed != null ? row.passed ? "\u2713" : "\u2717" : "";
-      const status = row.status || "";
-      const rewardStr = reward != null ? reward.toFixed(3) : "-";
-      if (passed) {
-        lines.push(`  ${passed} ${taskId}: ${rewardStr}`);
-      } else if (status) {
-        lines.push(`  [${status}] ${taskId}: ${rewardStr}`);
-      } else {
-        lines.push(`  ${taskId}: ${rewardStr}`);
-      }
+      const seed = String(row.seed ?? "?").padStart(4);
+      const score = row.score ?? row.outcome_reward ?? row.reward_mean;
+      const rewardStr = typeof score === "number" ? score.toFixed(3).padStart(6) : "     -";
+      const latencyMs = row.latency_ms;
+      const latencyStr = typeof latencyMs === "number" ? (latencyMs < 1000 ? `${Math.round(latencyMs)}ms` : `${(latencyMs / 1000).toFixed(1)}s`).padStart(7) : "      -";
+      const tokens = row.tokens;
+      const tokensStr = typeof tokens === "number" ? String(tokens).padStart(6) : "     -";
+      const cost = row.cost_usd;
+      const costStr = typeof cost === "number" ? `$${cost.toFixed(3)}`.padStart(7) : "      -";
+      const statusIcon = row.error ? "\u2717" : score != null ? "\u2713" : "\u25E6";
+      lines.push(`  ${statusIcon}${seed}   ${rewardStr}   ${latencyStr}   ${tokensStr}  ${costStr}`);
     }
     if (rows.length > limit) {
-      lines.push(`  ... +${rows.length - limit} more tasks`);
+      lines.push(`  ... +${rows.length - limit} more seeds`);
     }
-  } else if (Object.keys(summary).length === 0) {
-    lines.push("No eval results yet.");
-    lines.push("");
-    lines.push("Results will appear after the eval completes.");
+    const errorRows = rows.filter((r) => r.error);
+    if (errorRows.length > 0 && errorRows.length <= 3) {
+      lines.push("");
+      lines.push("\u2550\u2550\u2550 Errors \u2550\u2550\u2550");
+      for (const row of errorRows.slice(0, 3)) {
+        const errMsg = String(row.error || "unknown").slice(0, 50);
+        lines.push(`  Seed ${row.seed}: ${errMsg}`);
+      }
+    } else if (errorRows.length > 3) {
+      lines.push("");
+      lines.push(`  ${errorRows.length} seeds failed (see events for details)`);
+    }
   }
   return lines.length > 0 ? lines.join(`
 `) : "Results: -";
@@ -25629,6 +25629,7 @@ function createKeyboardHandler(ctx, modals) {
 init_jobs();
 
 // src/api/events.ts
+init_polling();
 function clamp5(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
@@ -25659,6 +25660,9 @@ async function refreshEvents(ctx) {
   const job = snapshot2.selectedJob;
   if (!job)
     return true;
+  if (isEvalJob(job) && pollingState.evalSseConnected && pollingState.evalSseJobId === job.job_id) {
+    return true;
+  }
   const jobId = job.job_id;
   const token = appState2.eventsToken;
   try {
@@ -25941,6 +25945,89 @@ function connectJobsStream(onEvent, onError, sinceSeq = 0) {
   };
 }
 
+// src/api/eval-stream.ts
+function connectEvalStream(jobId, onEvent, onError, sinceSeq = 0) {
+  let aborted = false;
+  const controller = new AbortController;
+  const url = `${process.env.SYNTH_BACKEND_URL}/api/eval/jobs/${jobId}/stream?since_seq=${sinceSeq}`;
+  const apiKey = process.env.SYNTH_API_KEY || "";
+  (async () => {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "text/event-stream"
+        },
+        signal: controller.signal
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`Eval SSE stream failed: HTTP ${res.status} ${res.statusText} - ${body.slice(0, 100)}`);
+      }
+      if (!res.body) {
+        throw new Error("Eval SSE stream: no response body");
+      }
+      const reader = res.body.getReader();
+      const decoder2 = new TextDecoder;
+      let buffer = "";
+      let currentEvent = {};
+      while (!aborted) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        buffer += decoder2.decode(value, { stream: true });
+        const lines = buffer.split(`
+`);
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.startsWith(":")) {
+            continue;
+          }
+          if (line === "") {
+            if (currentEvent.data) {
+              try {
+                const data = JSON.parse(currentEvent.data);
+                onEvent(data);
+              } catch {}
+            }
+            currentEvent = {};
+            continue;
+          }
+          const colonIdx = line.indexOf(":");
+          if (colonIdx === -1)
+            continue;
+          const field = line.slice(0, colonIdx);
+          let value2 = line.slice(colonIdx + 1);
+          if (value2.startsWith(" "))
+            value2 = value2.slice(1);
+          switch (field) {
+            case "event":
+              currentEvent.type = value2;
+              break;
+            case "data":
+              currentEvent.data = (currentEvent.data ?? "") + value2;
+              break;
+            case "id":
+              currentEvent.id = value2;
+              break;
+          }
+        }
+      }
+    } catch (err) {
+      if (!aborted && err?.name !== "AbortError") {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+  })();
+  return {
+    disconnect: () => {
+      aborted = true;
+      controller.abort();
+    },
+    jobId
+  };
+}
+
 // src/app.ts
 init_polling();
 init_settings();
@@ -26116,9 +26203,19 @@ async function runApp() {
     if (!option?.value)
       return;
     if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
-      selectJob(ctx, option.value).then(() => render()).catch(() => {});
+      selectJob(ctx, option.value).then(() => {
+        render();
+        maybeStartEvalStream(option.value);
+      }).catch(() => {});
     }
   });
+  function maybeStartEvalStream(jobId) {
+    disconnectEvalSse();
+    const job = ctx.state.snapshot.selectedJob;
+    if (job && isEvalJob(job)) {
+      startEvalStream(jobId);
+    }
+  }
   focusManager.setDefault({
     id: "jobs-pane",
     onFocus: () => ui.jobsSelect.focus(),
@@ -26182,8 +26279,11 @@ async function runApp() {
     const { initialJobId } = ctx.state.config;
     if (initialJobId) {
       await selectJob(ctx, initialJobId);
+      maybeStartEvalStream(initialJobId);
     } else if (ctx.state.snapshot.jobs.length > 0) {
-      await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id);
+      const firstJobId = ctx.state.snapshot.jobs[0].job_id;
+      await selectJob(ctx, firstJobId);
+      maybeStartEvalStream(firstJobId);
     }
     startJobsStream();
     scheduleEventsPoll();
@@ -26192,6 +26292,7 @@ async function runApp() {
     registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()).catch(() => {}), 30000));
     registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()).catch(() => {}), 15000));
     registerCleanup("sse", () => pollingState.sseDisconnect?.());
+    registerCleanup("eval-sse", () => disconnectEvalSse());
     render();
   }
   function startJobsStream() {
@@ -26258,6 +26359,110 @@ async function runApp() {
       startJobsStream();
     }, pollingState2.sseReconnectDelay));
     pollingState2.sseReconnectDelay = Math.min(pollingState2.sseReconnectDelay * 2, 30000);
+  }
+  let evalStreamConnection = null;
+  function startEvalStream(jobId) {
+    const { pollingState: pollingState2 } = ctx.state;
+    if (!process.env.SYNTH_API_KEY) {
+      return;
+    }
+    if (evalStreamConnection) {
+      evalStreamConnection.disconnect();
+      evalStreamConnection = null;
+    }
+    evalStreamConnection = connectEvalStream(jobId, (event) => handleEvalStreamEvent(event), (err) => handleEvalStreamError(err, jobId), pollingState2.lastEvalSseSeq);
+    pollingState2.evalSseConnected = true;
+    pollingState2.evalSseJobId = jobId;
+    pollingState2.evalSseDisconnect = evalStreamConnection.disconnect;
+    pollingState2.evalSseReconnectDelay = 1000;
+  }
+  function handleEvalStreamEvent(event) {
+    const { snapshot: snapshot2, pollingState: pollingState2, config: appConfig } = ctx.state;
+    if (snapshot2.selectedJob?.job_id !== event.job_id)
+      return;
+    pollingState2.lastEvalSseSeq = event.seq;
+    snapshot2.events.push({
+      seq: event.seq,
+      type: event.type,
+      message: event.message,
+      data: event.data,
+      timestamp: new Date(event.ts * 1000).toISOString()
+    });
+    switch (event.type) {
+      case "eval.results.updated":
+      case "eval.seed.completed": {
+        const seedData = event.data;
+        if (typeof seedData.seed === "number") {
+          const existingIdx = snapshot2.evalResultRows.findIndex((r) => r.seed === seedData.seed);
+          const resultRow = {
+            seed: seedData.seed,
+            trial_id: String(seedData.trial_id ?? ""),
+            correlation_id: String(seedData.correlation_id ?? ""),
+            score: seedData.score ?? null,
+            reward_mean: null,
+            outcome_reward: seedData.outcome_reward ?? null,
+            outcome_score: null,
+            events_score: seedData.events_score ?? null,
+            verifier_score: seedData.verifier_score ?? null,
+            latency_ms: seedData.latency_ms ?? null,
+            tokens: seedData.tokens ?? null,
+            cost_usd: seedData.cost_usd ?? null,
+            error: seedData.error ?? null,
+            trace_id: seedData.trace_id ?? null
+          };
+          if (existingIdx !== -1) {
+            snapshot2.evalResultRows[existingIdx] = resultRow;
+          } else {
+            snapshot2.evalResultRows.push(resultRow);
+            snapshot2.evalResultRows.sort((a, b) => a.seed - b.seed);
+          }
+        }
+        break;
+      }
+      case "eval.job.progress": {
+        const completed = event.data.completed ?? 0;
+        const total = event.data.total ?? 0;
+        snapshot2.status = `Eval: ${completed}/${total} seeds completed`;
+        break;
+      }
+      case "eval.job.completed": {
+        snapshot2.evalSummary = event.data;
+        if (snapshot2.selectedJob) {
+          snapshot2.selectedJob.status = event.data.error ? "failed" : "completed";
+          if (event.data.error) {
+            snapshot2.selectedJob.error = String(event.data.error);
+          }
+        }
+        snapshot2.status = event.data.error ? `Eval failed: ${String(event.data.error).slice(0, 50)}` : `Eval completed: ${event.data.completed}/${event.data.total} seeds (mean reward: ${event.data.mean_reward?.toFixed(3) ?? "N/A"})`;
+        break;
+      }
+      case "eval.job.started": {
+        snapshot2.status = `Eval started: ${event.data.seed_count ?? 0} seeds`;
+        break;
+      }
+    }
+    const eventHistoryLimit = appConfig.eventHistoryLimit;
+    if (eventHistoryLimit > 0 && snapshot2.events.length > eventHistoryLimit) {
+      snapshot2.events = snapshot2.events.slice(-eventHistoryLimit);
+    }
+    render();
+  }
+  function handleEvalStreamError(_err, jobId) {
+    const { pollingState: pollingState2 } = ctx.state;
+    pollingState2.evalSseConnected = false;
+    pollingState2.evalSseDisconnect = null;
+    evalStreamConnection = null;
+    scheduleEventsPoll();
+    clearEvalSseTimer();
+    if (ctx.state.snapshot.selectedJob?.job_id === jobId && isEvalJob(ctx.state.snapshot.selectedJob)) {
+      pollingState2.evalSseReconnectTimer = registerTimeout(setTimeout(() => {
+        pollingState2.evalSseReconnectTimer = null;
+        if (ctx.state.snapshot.selectedJob?.job_id === jobId) {
+          startEvalStream(jobId);
+        }
+      }, pollingState2.evalSseReconnectDelay));
+      pollingState2.evalSseReconnectDelay = Math.min(pollingState2.evalSseReconnectDelay * 2, 30000);
+    }
   }
   function scheduleJobsPoll() {
     const { pollingState: pollingState2 } = ctx.state;

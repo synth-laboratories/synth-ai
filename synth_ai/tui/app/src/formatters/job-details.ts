@@ -5,7 +5,7 @@ import type { Snapshot } from "../types"
 import type { JobEvent, JobSummary } from "../tui_data"
 import { isEvalJob, num } from "../tui_data"
 import { extractEnvName } from "../utils/job"
-import { formatTimestamp, formatValue } from "./time"
+import { formatTimestamp } from "./time"
 
 export function formatDetails(snapshot: Snapshot): string {
   const job = snapshot.selectedJob
@@ -29,49 +29,68 @@ export function formatEvalDetails(snapshot: Snapshot, job: JobSummary): string {
   const summary: any = snapshot.evalSummary ?? {}
   const rows: any[] = snapshot.evalResultRows ?? []
 
+  // Calculate aggregates from rows
+  const completedRows = rows.filter((r) => !r.error)
+  const failedRows = rows.filter((r) => r.error)
+  const rewards = rows
+    .map((row) => num(row.score ?? row.outcome_reward ?? row.reward_mean))
+    .filter((val) => typeof val === "number" && Number.isFinite(val)) as number[]
+  const meanReward = rewards.length > 0
+    ? rewards.reduce((sum, val) => sum + val, 0) / rewards.length
+    : null
+  const totalTokens = rows.reduce((sum, r) => sum + (r.tokens ?? 0), 0)
+  const totalCost = rows.reduce((sum, r) => sum + (r.cost_usd ?? 0), 0)
+  const avgLatency = rows.length > 0
+    ? rows.reduce((sum, r) => sum + (r.latency_ms ?? 0), 0) / rows.length
+    : 0
+
+  // Progress tracking
+  const totalSeeds = summary.total ?? (summary.seeds?.length ?? rows.length)
+  const completedSeeds = summary.completed ?? completedRows.length
+
+  // Status indicator
+  const statusEmoji = job.status === "completed" ? "✓" :
+                      job.status === "failed" ? "✗" :
+                      job.status === "running" ? "◉" : "○"
+
   const lines = [
-    `Job: ${job.job_id}`,
+    `${statusEmoji} Job: ${job.job_id}`,
     `Status: ${job.status}`,
-    `Type: eval`,
-    "",
-    "═══ Eval Summary ═══",
   ]
 
-  // Extract key metrics from summary
-  const meanReward = summary.mean_reward ?? summary.mean_score
-  if (meanReward != null) {
-    lines.push(`  Mean Reward: ${formatValue(meanReward)}`)
-  }
-  const reward = summary.reward ?? summary.objectives?.reward ?? summary.accuracy
-  if (reward != null) {
-    lines.push(`  Reward: ${(reward * 100).toFixed(1)}%`)
-  }
-  if (summary.pass_rate != null) {
-    lines.push(`  Pass Rate: ${(summary.pass_rate * 100).toFixed(1)}%`)
-  }
-  if (summary.completed != null && summary.total != null) {
-    lines.push(`  Progress: ${summary.completed}/${summary.total}`)
-  } else if (summary.completed != null) {
-    lines.push(`  Completed: ${summary.completed}`)
-  }
-  if (summary.failed != null && summary.failed > 0) {
-    lines.push(`  Failed: ${summary.failed}`)
+  // Progress bar for running jobs
+  if (totalSeeds > 0) {
+    const pct = Math.min(100, Math.round((completedSeeds / totalSeeds) * 100))
+    const barWidth = 20
+    const filled = Math.round((pct / 100) * barWidth)
+    const progressBar = "█".repeat(filled) + "░".repeat(barWidth - filled)
+    lines.push(`Progress: [${progressBar}] ${completedSeeds}/${totalSeeds} (${pct}%)`)
   }
 
-  // Show row count
-  if (rows.length > 0) {
-    lines.push(`  Results: ${rows.length} rows`)
-    // Calculate score distribution
-    const rewards = rows
-      .map((row) => num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed))
-      .filter((val) => typeof val === "number") as number[]
-    if (rewards.length > 0) {
-      const mean = rewards.reduce((sum, val) => sum + val, 0) / rewards.length
-      const passed = rewards.filter((s) => s >= 0.5 || s === 1).length
-      lines.push(`  Avg Reward: ${mean.toFixed(4)}`)
-      lines.push(`  Pass Rate: ${((passed / rewards.length) * 100).toFixed(1)}%`)
-    }
+  lines.push("")
+  lines.push("═══ Metrics ═══")
+
+  // Mean reward - the key metric
+  const displayMeanReward = summary.mean_reward ?? meanReward
+  if (displayMeanReward != null) {
+    const rewardPct = (displayMeanReward * 100).toFixed(1)
+    lines.push(`  Mean Reward: ${displayMeanReward.toFixed(4)} (${rewardPct}%)`)
+  } else {
+    lines.push(`  Mean Reward: -`)
   }
+
+  // Success/fail counts
+  if (failedRows.length > 0) {
+    lines.push(`  Completed: ${completedRows.length}  Failed: ${failedRows.length}`)
+  } else if (completedRows.length > 0) {
+    lines.push(`  Completed: ${completedRows.length}`)
+  }
+
+  lines.push("")
+  lines.push("═══ Resources ═══")
+  lines.push(`  Tokens: ${totalTokens > 0 ? totalTokens.toLocaleString() : "-"}`)
+  lines.push(`  Cost: ${totalCost > 0 ? "$" + totalCost.toFixed(4) : "-"}`)
+  lines.push(`  Avg Latency: ${avgLatency > 0 ? (avgLatency / 1000).toFixed(2) + "s" : "-"}`)
 
   lines.push("")
   lines.push("═══ Timing ═══")
