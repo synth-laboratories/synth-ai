@@ -22668,9 +22668,7 @@ var JobType;
 
 // src/templates/localapi.ts
 var LOCALAPI_TEMPLATE = `"""
-LocalAPI Task App - Define your evaluation task for Synth AI.
-
-This file creates a task app that Synth AI uses to evaluate prompts.
+This file creates a Local API that Synth AI uses to evaluate prompts.
 The backend calls your /rollout endpoint with different seeds (test cases)
 and aggregates the scores.
 """
@@ -22694,7 +22692,7 @@ from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlatio
 # =============================================================================
 
 APP_ID = "my-task"
-APP_NAME = "My Evaluation Task"
+APP_NAME = "My Task"
 
 
 # =============================================================================
@@ -22767,7 +22765,7 @@ def score_response(response: str, sample: dict) -> float:
 
 
 # =============================================================================
-# TASK APP PROVIDERS (required by Synth backend)
+# LOCALAPI PROVIDERS (required by Synth AI)
 # =============================================================================
 
 
@@ -23136,14 +23134,14 @@ function createErrorBox(options) {
     const visible = state.lines.slice(state.offset, state.offset + state.visibleLines);
     const borderColor = state.focused ? "\x1B[91m" : "\x1B[90m";
     const lines = [];
-    lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m`);
+    lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m\x1B[K`);
     for (let i = 0;i < state.visibleLines; i++) {
       const raw = visible[i] ?? "";
-      const clipped = raw.length > contentWidth ? raw.slice(0, contentWidth) : raw;
+      const clipped = raw.slice(0, contentWidth);
       const padded = clipped.padEnd(contentWidth, " ");
-      lines.push(`${indent}${borderColor}|\x1B[0m \x1B[31m${padded}\x1B[0m ${borderColor}|\x1B[0m`);
+      lines.push(`${indent}${borderColor}|\x1B[0m \x1B[31m${padded}\x1B[0m ${borderColor}|\x1B[0m\x1B[K`);
     }
-    lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m`);
+    lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m\x1B[K`);
     return lines;
   }
   function getPositionLabel() {
