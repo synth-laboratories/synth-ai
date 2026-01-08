@@ -313,6 +313,41 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 	footerBox.add(footerTextNode)
 	root.add(footerBox)
 
+	// Sessions modal (for OpenCode/Daytona connections)
+	const sessionsModalBox = new BoxRenderable(renderer, {
+		id: "sessions-modal-box",
+		width: 70,
+		height: 20,
+		backgroundColor: "#1e293b",
+		borderStyle: "single",
+		borderColor: "#60a5fa",
+		border: true,
+		visible: false,
+		zIndex: 10,
+	})
+	const sessionsModalTitle = new TextRenderable(renderer, {
+		id: "sessions-modal-title",
+		content: "OpenCode Sessions",
+		fg: "#60a5fa",
+		visible: false,
+	})
+	const sessionsModalText = new TextRenderable(renderer, {
+		id: "sessions-modal-text",
+		content: "",
+		fg: "#e2e8f0",
+		visible: false,
+	})
+	const sessionsModalHint = new TextRenderable(renderer, {
+		id: "sessions-modal-hint",
+		content: "j/k select | c connect | C custom URL | d disconnect | q close",
+		fg: "#94a3b8",
+		visible: false,
+	})
+	sessionsModalBox.add(sessionsModalTitle)
+	sessionsModalBox.add(sessionsModalText)
+	sessionsModalBox.add(sessionsModalHint)
+	renderer.root.add(sessionsModalBox)
+
 	return {
 		// Main layout elements
 		jobsBox,
@@ -346,5 +381,12 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 
 		// Log entries (dynamically created)
 		logEntries: [] as Array<{ text: TextRenderable }>,
+
+		// Sessions modal
+		sessionsModalBox,
+		sessionsModalTitle,
+		sessionsModalText,
+		sessionsModalHint,
+		sessionsModalVisible: false,
 	}
 }
