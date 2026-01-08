@@ -228,19 +228,65 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
     snapshot.status = "Connecting to local OpenCode..."
     ctx.render()
 
+    const opencode_url = "http://localhost:3000"
+
     try {
-      const response = await connectLocal("http://localhost:3000", "gpt-4o-mini")
-      if (response.error) {
-        snapshot.lastError = response.error
-        snapshot.status = "Connection failed"
-      } else {
-        snapshot.status = `Connected to local session: ${response.session_id}`
-        // Set the active session
-        appState.openCodeSessionId = response.session_id
-        // Refresh sessions list
-        sessions = await fetchSessions()
-        snapshot.sessions = sessions
+      // First check if OpenCode server is reachable
+      const healthCheck = await checkSessionHealth({
+        session_id: "local",
+        container_id: "",
+        state: "connecting",
+        mode: "interactive",
+        model: "gpt-4o-mini",
+        access_url: opencode_url,
+        tunnel_url: null,
+        opencode_url: opencode_url,
+        health_url: `${opencode_url}/health`,
+        created_at: new Date().toISOString(),
+        connected_at: null,
+        last_activity: null,
+        error_message: null,
+        metadata: {},
+        is_local: true,
+      })
+
+      if (!healthCheck.healthy) {
+        snapshot.lastError = healthCheck.error || "OpenCode server not reachable"
+        snapshot.status = "Connection failed - is OpenCode running on localhost:3000?"
+        ctx.render()
+        return
       }
+
+      // Create a local session record
+      const sessionId = `local-${Date.now()}`
+      const localSession: SessionRecord = {
+        session_id: sessionId,
+        container_id: "",
+        state: "connected",
+        mode: "interactive",
+        model: "gpt-4o-mini",
+        access_url: opencode_url,
+        tunnel_url: null,
+        opencode_url: opencode_url,
+        health_url: `${opencode_url}/health`,
+        created_at: new Date().toISOString(),
+        connected_at: new Date().toISOString(),
+        last_activity: new Date().toISOString(),
+        error_message: null,
+        metadata: {},
+        is_local: true,
+      }
+
+      // Add to sessions list
+      sessions = [localSession, ...sessions.filter(s => s.session_id !== sessionId)]
+      snapshot.sessions = sessions
+      healthResults.set(sessionId, healthCheck)
+      snapshot.sessionHealthResults.set(sessionId, healthCheck)
+
+      // Set as active session
+      appState.openCodeSessionId = sessionId
+      snapshot.status = `Connected to local OpenCode (${healthCheck.response_time_ms}ms)`
+
       updateContent()
       ctx.render()
     } catch (err: any) {
