@@ -13,9 +13,11 @@ export type ModalControllers = {
   filter: { open: () => void }
   jobFilter: { open: () => void }
   key: { open: () => void }
+  settings: { open: () => void }
   snapshot: { open: () => void }
   profile: { open: () => void }
   urls: { open: () => void }
+  usage: { open: () => Promise<void> }
   event: { open: () => void }
   results: { open: () => void }
   config: { open: () => void }
@@ -98,6 +100,14 @@ export function createKeyboardHandler(
     }
     if (key.name === "s" && key.shift) {
       modals.urls.open()
+      return
+    }
+    if (key.name === "t") {
+      modals.settings.open()
+      return
+    }
+    if (key.name === "d") {
+      void modals.usage.open()
       return
     }
     if (key.name === "n") {

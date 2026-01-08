@@ -12,13 +12,16 @@ import {
   createEventModal,
   createResultsModal,
   createConfigModal,
+  createEnvKeyModal,
   createFilterModal,
   createJobFilterModal,
   createKeyModal,
   createLogFileModal,
+  createSettingsModal,
   createSnapshotModal,
   createProfileModal,
   createUrlsModal,
+  createUsageModal,
   createTaskAppsModal,
 } from "./modals"
 import { createCreateJobModal } from "./modals/create-job-modal"
@@ -84,9 +87,15 @@ export async function runApp(): Promise<void> {
   const filterModal = createFilterModal(ctx)
   const jobFilterModal = createJobFilterModal(ctx)
   const keyModal = createKeyModal(ctx)
+  const envKeyModal = createEnvKeyModal(ctx)
+  const settingsModal = createSettingsModal(ctx, {
+    onOpenKeyModal: () => keyModal.open(),
+    onOpenEnvKeyModal: () => void envKeyModal.open(),
+  })
   const snapshotModal = createSnapshotModal(ctx)
   const profileModal = createProfileModal(ctx)
   const urlsModal = createUrlsModal(renderer)
+  const usageModal = createUsageModal(ctx)
   const createJobModal = createCreateJobModal(ctx)
   const taskAppsModal = createTaskAppsModal(ctx)
   const logFileModal = createLogFileModal(ctx)
@@ -99,9 +108,11 @@ export async function runApp(): Promise<void> {
     filter: filterModal,
     jobFilter: jobFilterModal,
     key: keyModal,
+    settings: settingsModal,
     snapshot: snapshotModal,
     profile: profileModal,
     urls: urlsModal,
+    usage: usageModal,
     createJob: createJobModal,
     taskApps: taskAppsModal,
     logFile: logFileModal,

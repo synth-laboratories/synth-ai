@@ -99,6 +99,22 @@ export type TunnelHealthResult = {
   checked_at: Date
 }
 
+/** Backend ID for multi-backend support */
+export type BackendId = "prod" | "dev" | "local"
+
+/** Backend configuration */
+export type BackendConfig = {
+  id: BackendId
+  label: string
+  baseUrl: string
+}
+
+/** Source information for an API key */
+export type BackendKeySource = {
+  sourcePath: string | null
+  varName: string | null
+}
+
 export type Snapshot = {
   jobs: JobSummary[]
   selectedJob: JobSummary | null
