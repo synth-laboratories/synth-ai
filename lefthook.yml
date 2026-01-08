@@ -1,0 +1,43 @@
+# Lefthook Git hooks configuration for synth-ai
+# See: https://lefthook.dev/configuration/
+#
+# Installation:
+#   brew install lefthook  # macOS
+#   # or: go install github.com/evilmartians/lefthook@latest
+#   lefthook install
+#
+# Usage:
+#   lefthook run pre-commit  # Run hooks manually
+#   lefthook uninstall      # Remove hooks
+
+pre-commit:
+  parallel: true
+  jobs:
+    # Python: Ruff linting (only on staged Python files)
+    - name: python-ruff
+      tags:
+        - python
+        - lint
+      glob: "**/*.py"
+      run: |
+        # Use staged files directly (no path prefix stripping needed)
+        files=$(echo "{staged_files}" | tr '\n' ' ')
+        if [ -n "$files" ]; then
+          uv run ruff check $files
+        fi
+      stage_fixed: true
+
+    # Python: Ruff format check (only on staged Python files)
+    - name: python-ruff-format
+      tags:
+        - python
+        - format
+      glob: "**/*.py"
+      run: |
+        # Use staged files directly (no path prefix stripping needed)
+        files=$(echo "{staged_files}" | tr '\n' ' ')
+        if [ -n "$files" ]; then
+          uv run ruff format --check $files
+        fi
+      stage_fixed: false
+
