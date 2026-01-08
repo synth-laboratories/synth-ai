@@ -150,3 +150,42 @@ export function updatePaneIndicators(ctx: AppContext): void {
   ui.eventsBox.visible = !inLogsMode
   ui.logsBox.visible = inLogsMode
 }
+
+/** Track previous focus state for modal restoration */
+let previousPaneBeforeModal: ActivePane | null = null
+
+/** Blur all panes when opening a modal */
+export function blurForModal(ctx: AppContext): void {
+  const { ui } = ctx
+  const { appState } = ctx.state
+
+  previousPaneBeforeModal = appState.activePane
+
+  // Blur jobs select
+  ui.jobsSelect.blur()
+
+  // Pop any active pane focusables
+  if (appState.activePane === "logs" && logsFocusable) {
+    focusManager.pop("logs-pane")
+  }
+  if (appState.activePane === "events" && eventsFocusable) {
+    focusManager.pop("events-pane")
+  }
+}
+
+/** Restore focus after closing a modal */
+export function restoreFocusFromModal(ctx: AppContext): void {
+  const { ui } = ctx
+  const { appState } = ctx.state
+
+  const paneToRestore = previousPaneBeforeModal || appState.activePane
+  previousPaneBeforeModal = null
+
+  if (paneToRestore === "jobs") {
+    ui.jobsSelect.focus()
+  } else if (paneToRestore === "logs" && logsFocusable) {
+    focusManager.push(logsFocusable)
+  } else if (paneToRestore === "events" && eventsFocusable) {
+    focusManager.push(eventsFocusable)
+  }
+}

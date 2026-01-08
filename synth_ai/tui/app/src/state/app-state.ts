@@ -167,6 +167,22 @@ export const appState = {
   // Request tokens for cancellation
   jobSelectToken: 0,
   eventsToken: 0,
+
+  // OpenCode state
+  principalPane: "jobs" as "jobs" | "opencode",
+  openCodeSessionId: null as string | null,
+  openCodeUrl: null as string | null,
+  openCodeMessages: [] as Array<{
+    id: string
+    role: "user" | "assistant" | "tool"
+    content: string
+    timestamp: Date
+    toolName?: string
+    toolStatus?: "pending" | "running" | "completed" | "failed"
+  }>,
+  openCodeScrollOffset: 0,
+  openCodeInputValue: "",
+  openCodeIsProcessing: false,
 }
 
 export function setActivePane(pane: ActivePane): void {

@@ -40,6 +40,7 @@ import { clearJobsTimer, pollingState, config } from "./state/polling"
 import { registerRenderer, registerInterval, registerTimeout, unregisterTimeout, registerCleanup, installSignalHandlers } from "./lifecycle"
 import { loadPersistedSettings } from "./persistence/settings"
 import { appState, normalizeBackendId, frontendKeys, frontendKeySources, getKeyForBackend, backendConfigs } from "./state/app-state"
+import { startOpenCodeServer } from "./utils/opencode-server"
 
 // Type declaration for Node.js process (available at runtime)
 declare const process: {
@@ -246,6 +247,18 @@ export async function runApp(): Promise<void> {
 
     // Load tunnels (task apps) and check their health
     await refreshTunnels(ctx)
+
+    // Auto-start OpenCode server in background
+    ctx.state.snapshot.status = "Starting OpenCode server..."
+    render()
+    const openCodeUrl = await startOpenCodeServer()
+    if (openCodeUrl) {
+      ctx.state.snapshot.status = `OpenCode ready at ${openCodeUrl}`
+      // Auto-create a session for the local server
+      appState.openCodeSessionId = `local-${Date.now()}`
+    } else {
+      ctx.state.snapshot.status = "OpenCode not available (install with: npm i -g opencode)"
+    }
     void refreshTunnelHealth(ctx).then(() => render()).catch(() => {})
 
     const { initialJobId } = ctx.state.config

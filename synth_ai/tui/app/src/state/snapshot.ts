@@ -25,6 +25,9 @@ export const snapshot: Snapshot = {
   tunnelHealthResults: new Map(),
   tunnelsLoading: false,
   deployments: new Map(),
+  sessions: [],
+  sessionHealthResults: new Map(),
+  sessionsLoading: false,
 }
 
 export function resetSnapshot(): void {
@@ -44,4 +47,7 @@ export function resetSnapshot(): void {
   snapshot.tunnelHealthResults = new Map()
   snapshot.tunnelsLoading = false
   snapshot.deployments = new Map()
+  snapshot.sessions = []
+  snapshot.sessionHealthResults = new Map()
+  snapshot.sessionsLoading = false
 }

@@ -99,6 +99,45 @@ export type TunnelHealthResult = {
   checked_at: Date
 }
 
+/** OpenCode session record */
+export type SessionRecord = {
+  session_id: string
+  state: "connected" | "connecting" | "reconnecting" | "disconnected" | "error"
+  opencode_url?: string
+  access_url?: string
+  tunnel_url?: string
+  is_local: boolean
+  mode: string
+  model?: string
+  connected_at?: string
+  last_activity?: string
+  error_message?: string
+}
+
+/** Response from connect-local endpoint */
+export type ConnectLocalResponse = {
+  session_id?: string
+  error?: string
+}
+
+/** Session health check result */
+export type SessionHealthResult = {
+  healthy: boolean
+  response_time_ms?: number
+  error?: string
+  checked_at: Date
+}
+
+/** OpenCode message in the chat pane */
+export type OpenCodeMessage = {
+  id: string
+  role: "user" | "assistant" | "tool"
+  content: string
+  timestamp: Date
+  toolName?: string
+  toolStatus?: "pending" | "running" | "completed" | "failed"
+}
+
 /** Backend ID for multi-backend support */
 export type BackendId = "prod" | "dev" | "local"
 
@@ -144,4 +183,10 @@ export type Snapshot = {
   tunnelsLoading: boolean
   /** Active deployments with their streaming logs */
   deployments: Map<string, Deployment>
+  /** OpenCode sessions */
+  sessions: SessionRecord[]
+  /** Session health results keyed by session_id */
+  sessionHealthResults: Map<string, SessionHealthResult>
+  /** Whether sessions are currently being refreshed */
+  sessionsLoading: boolean
 }
