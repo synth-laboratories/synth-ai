@@ -115,12 +115,25 @@ export function moveEventSelection(ctx: AppContext, delta: number): void {
   const filtered = getFilteredEvents(snapshot.events, appState.eventFilter)
   if (!filtered.length) return
 
-  const recentCount = Math.min(config.eventHistoryLimit, filtered.length)
-  appState.selectedEventIndex = clamp(
+  const total = filtered.length
+  const visibleCount = Math.max(1, config.eventVisibleCount)
+  
+  // Update selected index
+  const newSelected = clamp(
     appState.selectedEventIndex + delta,
     0,
-    Math.max(0, recentCount - 1),
+    Math.max(0, total - 1),
   )
+  appState.selectedEventIndex = newSelected
+  
+  // Update window start to keep selection visible
+  let windowStart = appState.eventWindowStart
+  if (newSelected < windowStart) {
+    windowStart = newSelected
+  } else if (newSelected >= windowStart + visibleCount) {
+    windowStart = newSelected - visibleCount + 1
+  }
+  appState.eventWindowStart = clamp(windowStart, 0, Math.max(0, total - visibleCount))
 }
 
 export function toggleSelectedEventExpanded(ctx: AppContext): void {
