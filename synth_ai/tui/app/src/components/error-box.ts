@@ -191,14 +191,16 @@ export function createErrorBox(options: ErrorBoxOptions) {
 		const borderColor = state.focused ? "\x1b[91m" : "\x1b[90m"
 
 		const lines: string[] = []
-		lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1b[0m`)
+		lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1b[0m\x1b[K`)
 		for (let i = 0; i < state.visibleLines; i++) {
 			const raw = visible[i] ?? ""
-			const clipped = raw.length > contentWidth ? raw.slice(0, contentWidth) : raw
+			// Slice to exact width and pad with spaces to ensure full overwrite
+			const clipped = raw.slice(0, contentWidth)
 			const padded = clipped.padEnd(contentWidth, " ")
-			lines.push(`${indent}${borderColor}|\x1b[0m \x1b[31m${padded}\x1b[0m ${borderColor}|\x1b[0m`)
+			// Use \x1b[K (clear to end of line) to ensure no leftover characters from previous renders
+			lines.push(`${indent}${borderColor}|\x1b[0m \x1b[31m${padded}\x1b[0m ${borderColor}|\x1b[0m\x1b[K`)
 		}
-		lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1b[0m`)
+		lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1b[0m\x1b[K`)
 		return lines
 	}
 

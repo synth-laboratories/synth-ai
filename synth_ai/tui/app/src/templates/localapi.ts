@@ -1,11 +1,9 @@
 /**
- * Template for new LocalAPI task apps.
+ * Template for new LocalAPI.
  */
 
 export const LOCALAPI_TEMPLATE = `"""
-LocalAPI Task App - Define your evaluation task for Synth AI.
-
-This file creates a task app that Synth AI uses to evaluate prompts.
+This file creates a Local API that Synth AI uses to evaluate prompts.
 The backend calls your /rollout endpoint with different seeds (test cases)
 and aggregates the scores.
 """
@@ -29,7 +27,7 @@ from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlatio
 # =============================================================================
 
 APP_ID = "my-task"
-APP_NAME = "My Evaluation Task"
+APP_NAME = "My Task"
 
 
 # =============================================================================
@@ -102,7 +100,7 @@ def score_response(response: str, sample: dict) -> float:
 
 
 # =============================================================================
-# TASK APP PROVIDERS (required by Synth backend)
+# LOCALAPI PROVIDERS (required by Synth AI)
 # =============================================================================
 
 
