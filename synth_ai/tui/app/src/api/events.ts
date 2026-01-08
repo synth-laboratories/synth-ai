@@ -39,13 +39,12 @@ export async function refreshEvents(ctx: AppContext): Promise<boolean> {
   const job = snapshot.selectedJob
   if (!job) return true
 
-  // Skip polling if eval SSE is connected for this job
+  // Skip polling if job details SSE is connected for this job (any job type)
   if (
-    isEvalJob(job) &&
-    pollingState.evalSseConnected &&
-    pollingState.evalSseJobId === job.job_id
+    pollingState.jobDetailsSseConnected &&
+    pollingState.jobDetailsSseJobId === job.job_id
   ) {
-    return true // SSE handles events for this eval job
+    return true // SSE handles events for this job
   }
 
   const jobId = job.job_id

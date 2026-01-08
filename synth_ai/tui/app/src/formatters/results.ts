@@ -3,6 +3,7 @@
  */
 import type { Snapshot } from "../types"
 import { truncate } from "../utils/truncate"
+import { normalizeJobStatus } from "../utils/job-status"
 
 function isRecord(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -104,8 +105,8 @@ export function formatResults(snapshot: Snapshot): string {
 }
 
 export function formatEvalResults(snapshot: Snapshot): string {
-  const summary: any = snapshot.evalSummary ?? {}
-  const rows: any[] = snapshot.evalResultRows ?? []
+  const summary = snapshot.jobDetails.summary ?? {}
+  const rows = snapshot.jobDetails.resultRows ?? []
   const lines: string[] = []
 
   if (rows.length === 0 && Object.keys(summary).length === 0) {
@@ -123,12 +124,16 @@ export function formatEvalResults(snapshot: Snapshot): string {
     lines.push("  ────   ──────    ───────   ──────   ────")
 
     const limit = 12
-    const sortedRows = [...rows].sort((a, b) => (a.seed ?? 0) - (b.seed ?? 0))
+    const sortedRows = [...rows].sort((a, b) => {
+      const aId = typeof a.id === "number" ? a.id : 0
+      const bId = typeof b.id === "number" ? b.id : 0
+      return aId - bId
+    })
     const displayRows = sortedRows.slice(0, limit)
 
     for (const row of displayRows) {
-      const seed = String(row.seed ?? "?").padStart(4)
-      const score = row.score ?? row.outcome_reward ?? row.reward_mean
+      const seed = String(row.id ?? "?").padStart(4)
+      const score = row.score ?? row.reward
       const rewardStr = typeof score === "number" ? score.toFixed(3).padStart(6) : "     -"
       const latencyMs = row.latency_ms
       const latencyStr = typeof latencyMs === "number"
@@ -156,7 +161,7 @@ export function formatEvalResults(snapshot: Snapshot): string {
       lines.push("═══ Errors ═══")
       for (const row of errorRows.slice(0, 3)) {
         const errMsg = String(row.error || "unknown").slice(0, 50)
-        lines.push(`  Seed ${row.seed}: ${errMsg}`)
+        lines.push(`  Seed ${row.id}: ${errMsg}`)
       }
     } else if (errorRows.length > 3) {
       lines.push("")
@@ -175,7 +180,7 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
   }
   const lines: string[] = []
   lines.push(`Job: ${job.job_id}`)
-  lines.push(`Status: ${job.status}`)
+  lines.push(`Status: ${normalizeJobStatus(job.status)}`)
   lines.push(`Best Reward: ${job.best_reward ?? "-"}`)
   lines.push(`Best Snapshot ID: ${snapshot.bestSnapshotId || "-"}`)
   lines.push("")

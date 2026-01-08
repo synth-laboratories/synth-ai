@@ -4,6 +4,7 @@
 import type { AppContext } from "../context"
 import type { ActivePane, PrincipalPane } from "../types"
 import { focusManager } from "../focus"
+import { BOX } from "../theme"
 import { moveLogSelection, pageLogSelection, getSelectedLogFile } from "./logs"
 import { moveEventSelection, toggleSelectedEventExpanded } from "./events"
 import { scrollOpenCode, handleOpenCodeInput, handleOpenCodeBackspace, sendOpenCodeMessage } from "./opencode"
@@ -185,9 +186,9 @@ export function updatePaneIndicators(ctx: AppContext): void {
   ui.logsTabText.fg = appState.activePane === "logs" ? "#f8fafc" : "#94a3b8"
 
   // Update box border colors
-  ui.jobsBox.borderColor = appState.activePane === "jobs" ? "#60a5fa" : "#334155"
-  ui.eventsBox.borderColor = appState.activePane === "events" ? "#60a5fa" : "#334155"
-  ui.logsBox.borderColor = appState.activePane === "logs" ? "#60a5fa" : "#334155"
+  ui.jobsBox.borderColor = appState.activePane === "jobs" ? BOX.borderColorFocused : BOX.borderColor
+  ui.eventsBox.borderColor = appState.activePane === "events" ? BOX.borderColorFocused : BOX.borderColor
+  ui.logsBox.borderColor = appState.activePane === "logs" ? BOX.borderColorFocused : BOX.borderColor
 
   // Show/hide panels based on active pane
   // When logs pane is active, hide other panels to give logs full space
@@ -302,5 +303,5 @@ export function updatePrincipalIndicators(ctx: AppContext): void {
   const { appState } = ctx.state
 
   // Update OpenCode box border to show when active
-  ui.openCodeBox.borderColor = appState.principalPane === "opencode" ? "#60a5fa" : "#334155"
+  ui.openCodeBox.borderColor = appState.principalPane === "opencode" ? BOX.borderColorFocused : BOX.borderColor
 }

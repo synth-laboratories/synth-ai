@@ -4,6 +4,7 @@
 import { createCliRenderer, SelectRenderableEvents } from "@opentui/core"
 
 import { createAppContext, type AppContext } from "./context"
+import { JobSource } from "./utils/job-types"
 import { buildLayout } from "./components/layout"
 import { renderApp } from "./ui/render"
 
@@ -35,10 +36,10 @@ import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
 import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
 import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
-import { connectEvalStream, type EvalStreamEvent, type EvalStreamConnection } from "./api/eval-stream"
+import { connectJobDetailsStream, type JobDetailsStreamEvent, type JobDetailsStreamConnection } from "./api/job-details-stream"
 import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
-import { clearJobsTimer, pollingState, config, disconnectEvalSse, clearEvalSseTimer } from "./state/polling"
-import { isEvalJob } from "./tui_data"
+import { clearJobsTimer, pollingState, config, disconnectJobDetailsSse, clearJobDetailsSseTimer } from "./state/polling"
+import type { JobResultRow } from "./types"
 import { registerRenderer, registerInterval, registerTimeout, unregisterTimeout, registerCleanup, installSignalHandlers } from "./lifecycle"
 import { loadPersistedSettings } from "./persistence/settings"
 import { appState, normalizeBackendId, frontendKeys, frontendKeySources, getKeyForBackend, backendConfigs } from "./state/app-state"
@@ -171,21 +172,21 @@ export async function runApp(): Promise<void> {
     if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
       void selectJob(ctx, option.value).then(() => {
         render()
-        // Start eval SSE stream if this is an eval job
-        maybeStartEvalStream(option.value)
+        // Start job details SSE stream for any job type
+        maybeStartJobDetailsStream(option.value)
       }).catch(() => {})
     }
   })
 
-  // Helper to start eval stream for eval jobs
-  function maybeStartEvalStream(jobId: string): void {
+  // Helper to start job details stream for any job
+  function maybeStartJobDetailsStream(jobId: string): void {
     try {
-      // Disconnect existing eval stream first
-      disconnectEvalSse()
+      // Disconnect existing stream first
+      disconnectJobDetailsSse()
 
       const job = ctx.state.snapshot.selectedJob
-      if (job && isEvalJob(job)) {
-        startEvalStream(jobId)
+      if (job) {
+        startJobDetailsStream(jobId)
       }
     } catch {
       // Ignore errors - don't crash
@@ -287,11 +288,11 @@ export async function runApp(): Promise<void> {
     const { initialJobId } = ctx.state.config
     if (initialJobId) {
       await selectJob(ctx, initialJobId)
-      maybeStartEvalStream(initialJobId)
+      maybeStartJobDetailsStream(initialJobId)
     } else if (ctx.state.snapshot.jobs.length > 0) {
       const firstJobId = ctx.state.snapshot.jobs[0].job_id
       await selectJob(ctx, firstJobId)
-      maybeStartEvalStream(firstJobId)
+      maybeStartJobDetailsStream(firstJobId)
     }
 
     // Start SSE connection for real-time job updates
@@ -307,7 +308,7 @@ export async function runApp(): Promise<void> {
 
     // Register SSE disconnect for cleanup on shutdown
     registerCleanup("sse", () => pollingState.sseDisconnect?.())
-    registerCleanup("eval-sse", () => disconnectEvalSse())
+    registerCleanup("job-details-sse", () => disconnectJobDetailsSse())
 
     render()
   }
@@ -360,7 +361,7 @@ export async function runApp(): Promise<void> {
         total_tokens: null,
         total_cost_usd: null,
         error: event.error ?? null,
-        job_source: event.job_type === "prompt_learning" ? "prompt-learning" : "learning",
+        job_source: event.job_type === "prompt_learning" ? JobSource.PromptLearning : JobSource.Learning,
       })
     } else if (idx !== -1) {
       // Update existing job
@@ -406,10 +407,10 @@ export async function runApp(): Promise<void> {
     pollingState.sseReconnectDelay = Math.min(pollingState.sseReconnectDelay * 2, 30_000)
   }
 
-  // SSE stream for eval job details
-  let evalStreamConnection: EvalStreamConnection | null = null
+  // SSE stream for job details (works for all job types)
+  let jobDetailsStreamConnection: JobDetailsStreamConnection | null = null
 
-  function startEvalStream(jobId: string): void {
+  function startJobDetailsStream(jobId: string): void {
     try {
       const { pollingState } = ctx.state
 
@@ -418,34 +419,34 @@ export async function runApp(): Promise<void> {
         return
       }
 
-      // Disconnect any existing eval stream
-      if (evalStreamConnection) {
+      // Disconnect any existing stream
+      if (jobDetailsStreamConnection) {
         try {
-          evalStreamConnection.disconnect()
+          jobDetailsStreamConnection.disconnect()
         } catch {
           // Ignore disconnect errors
         }
-        evalStreamConnection = null
+        jobDetailsStreamConnection = null
       }
 
-      evalStreamConnection = connectEvalStream(
+      jobDetailsStreamConnection = connectJobDetailsStream(
         jobId,
-        (event) => handleEvalStreamEvent(event),
-        (err) => handleEvalStreamError(err, jobId),
-        pollingState.lastEvalSseSeq,
+        (event) => handleJobDetailsStreamEvent(event),
+        (err) => handleJobDetailsStreamError(err, jobId),
+        pollingState.lastJobDetailsSseSeq,
       )
 
       // SSE connected - mark as connected
-      pollingState.evalSseConnected = true
-      pollingState.evalSseJobId = jobId
-      pollingState.evalSseDisconnect = evalStreamConnection.disconnect
-      pollingState.evalSseReconnectDelay = 1000 // Reset backoff
+      pollingState.jobDetailsSseConnected = true
+      pollingState.jobDetailsSseJobId = jobId
+      pollingState.jobDetailsSseDisconnect = jobDetailsStreamConnection.disconnect
+      pollingState.jobDetailsSseReconnectDelay = 1000 // Reset backoff
     } catch {
       // Failed to start stream - fall back to polling (already scheduled)
     }
   }
 
-  function handleEvalStreamEvent(event: EvalStreamEvent): void {
+  function handleJobDetailsStreamEvent(event: JobDetailsStreamEvent): void {
     try {
       const { snapshot, pollingState, config: appConfig } = ctx.state
 
@@ -454,7 +455,7 @@ export async function runApp(): Promise<void> {
 
       // Track sequence for reconnection (handle undefined seq)
       if (typeof event.seq === "number") {
-        pollingState.lastEvalSseSeq = event.seq
+        pollingState.lastJobDetailsSseSeq = event.seq
       }
 
       // Safely compute timestamp (ts may be null or undefined from connected event)
@@ -471,69 +472,14 @@ export async function runApp(): Promise<void> {
         timestamp: ts,
       })
 
-      // Handle specific event types
-      switch (event.type) {
-        case "eval.results.updated":
-        case "eval.seed.completed": {
-          // Update or add result row
-          const seedData = event.data ?? {}
-          if (typeof seedData.seed === "number") {
-            const existingIdx = snapshot.evalResultRows.findIndex(
-              (r) => r.seed === seedData.seed
-            )
-            const resultRow = {
-              seed: seedData.seed,
-              trial_id: String(seedData.trial_id ?? ""),
-              correlation_id: String(seedData.correlation_id ?? ""),
-              score: seedData.score ?? null,
-              reward_mean: null,
-              outcome_reward: seedData.outcome_reward ?? null,
-              outcome_score: null,
-              events_score: seedData.events_score ?? null,
-              verifier_score: seedData.verifier_score ?? null,
-              latency_ms: seedData.latency_ms ?? null,
-              tokens: seedData.tokens ?? null,
-              cost_usd: seedData.cost_usd ?? null,
-              error: seedData.error ?? null,
-              trace_id: seedData.trace_id ?? null,
-            }
-            if (existingIdx !== -1) {
-              snapshot.evalResultRows[existingIdx] = resultRow
-            } else {
-              snapshot.evalResultRows.push(resultRow)
-              snapshot.evalResultRows.sort((a, b) => a.seed - b.seed)
-            }
-          }
-          break
-        }
-
-        case "eval.job.progress": {
-          // Update status with progress
-          const completed = event.data?.completed ?? 0
-          const total = event.data?.total ?? 0
-          snapshot.status = `Eval: ${completed}/${total} seeds completed`
-          break
-        }
-
-        case "eval.job.completed": {
-          // Update summary and job status
-          snapshot.evalSummary = event.data ?? {}
-          if (snapshot.selectedJob) {
-            snapshot.selectedJob.status = event.data?.error ? "failed" : "completed"
-            if (event.data?.error) {
-              snapshot.selectedJob.error = String(event.data.error)
-            }
-          }
-          snapshot.status = event.data?.error
-            ? `Eval failed: ${String(event.data.error).slice(0, 50)}`
-            : `Eval completed: ${event.data?.completed ?? 0}/${event.data?.total ?? 0} seeds (mean reward: ${event.data?.mean_reward?.toFixed(3) ?? "N/A"})`
-          break
-        }
-
-        case "eval.job.started": {
-          snapshot.status = `Eval started: ${event.data?.seed_count ?? 0} seeds`
-          break
-        }
+      // Route events by type prefix to job-specific handlers
+      const eventType = event.type ?? ""
+      if (eventType.startsWith("eval.")) {
+        handleEvalEvent(event)
+      } else if (eventType.startsWith("learning.")) {
+        handleLearningEvent(event)
+      } else if (eventType.startsWith("prompt.learning.") || eventType.startsWith("gepa.")) {
+        handlePromptLearningEvent(event)
       }
 
       // Enforce history limit
@@ -548,30 +494,177 @@ export async function runApp(): Promise<void> {
     }
   }
 
-  function handleEvalStreamError(_err: Error, jobId: string): void {
+  // Handle eval job events
+  function handleEvalEvent(event: JobDetailsStreamEvent): void {
+    const { snapshot } = ctx.state
+    const data = event.data ?? {}
+
+    switch (event.type) {
+      case "eval.results.updated":
+      case "eval.seed.completed": {
+        // Update or add result row
+        const seed = data.seed as number | undefined
+        if (typeof seed === "number") {
+          const existingIdx = snapshot.jobDetails.resultRows.findIndex(
+            (r) => r.id === seed
+          )
+          const resultRow: JobResultRow = {
+            id: seed,
+            score: (data.score ?? data.outcome_reward ?? null) as number | null,
+            reward: (data.outcome_reward ?? null) as number | null,
+            latency_ms: (data.latency_ms ?? null) as number | null,
+            tokens: (data.tokens ?? null) as number | null,
+            cost_usd: (data.cost_usd ?? null) as number | null,
+            error: (data.error ?? null) as string | null,
+            trace_id: (data.trace_id ?? null) as string | null,
+            metadata: {
+              trial_id: data.trial_id,
+              correlation_id: data.correlation_id,
+              events_score: data.events_score,
+              verifier_score: data.verifier_score,
+            },
+          }
+          if (existingIdx !== -1) {
+            snapshot.jobDetails.resultRows[existingIdx] = resultRow
+          } else {
+            snapshot.jobDetails.resultRows.push(resultRow)
+            snapshot.jobDetails.resultRows.sort((a, b) =>
+              (typeof a.id === "number" ? a.id : 0) - (typeof b.id === "number" ? b.id : 0)
+            )
+          }
+        }
+        break
+      }
+
+      case "eval.job.progress": {
+        // Update status with progress
+        const completed = (data.completed ?? 0) as number
+        const total = (data.total ?? 0) as number
+        snapshot.status = `Eval: ${completed}/${total} seeds completed`
+        break
+      }
+
+      case "eval.job.completed": {
+        // Update summary and job status
+        snapshot.jobDetails.summary = {
+          completed: data.completed as number | undefined,
+          total: data.total as number | undefined,
+          failed: data.failed as number | undefined,
+          mean_reward: (data.mean_reward ?? null) as number | null,
+          ...data,
+        }
+        if (snapshot.selectedJob) {
+          snapshot.selectedJob.status = data.error ? "failed" : "completed"
+          if (data.error) {
+            snapshot.selectedJob.error = String(data.error)
+          }
+        }
+        const meanReward = data.mean_reward as number | undefined
+        snapshot.status = data.error
+          ? `Eval failed: ${String(data.error).slice(0, 50)}`
+          : `Eval completed: ${data.completed ?? 0}/${data.total ?? 0} seeds (mean reward: ${meanReward?.toFixed(3) ?? "N/A"})`
+        break
+      }
+
+      case "eval.job.started": {
+        snapshot.status = `Eval started: ${data.seed_count ?? 0} seeds`
+        break
+      }
+    }
+  }
+
+  // Handle learning job events
+  function handleLearningEvent(event: JobDetailsStreamEvent): void {
+    const { snapshot } = ctx.state
+    const data = event.data ?? {}
+
+    // Handle learning.iteration.completed and similar events
+    if (event.type === "learning.iteration.completed") {
+      const resultRow: JobResultRow = {
+        id: data.iteration as string | number | undefined,
+        score: (data.reward ?? data.score ?? null) as number | null,
+        reward: (data.reward ?? null) as number | null,
+        latency_ms: (data.latency_ms ?? null) as number | null,
+        tokens: (data.tokens ?? null) as number | null,
+        cost_usd: (data.cost_usd ?? null) as number | null,
+        error: (data.error ?? null) as string | null,
+        metadata: data,
+      }
+      snapshot.jobDetails.resultRows.push(resultRow)
+    }
+
+    // Handle progress events
+    if (event.type === "learning.job.progress") {
+      if (snapshot.jobDetails.summary) {
+        snapshot.jobDetails.summary.completed = data.completed as number | undefined
+        snapshot.jobDetails.summary.total = data.total as number | undefined
+      } else {
+        snapshot.jobDetails.summary = {
+          completed: data.completed as number | undefined,
+          total: data.total as number | undefined,
+        }
+      }
+    }
+  }
+
+  // Handle prompt-learning job events
+  function handlePromptLearningEvent(event: JobDetailsStreamEvent): void {
+    const { snapshot } = ctx.state
+    const data = event.data ?? {}
+
+    // Handle progress events
+    if (event.type === "prompt.learning.progress" || event.type === "gepa.progress") {
+      if (snapshot.jobDetails.summary) {
+        snapshot.jobDetails.summary.completed = data.completed as number | undefined
+        snapshot.jobDetails.summary.total = data.total as number | undefined
+      } else {
+        snapshot.jobDetails.summary = {
+          completed: data.completed as number | undefined,
+          total: data.total as number | undefined,
+        }
+      }
+    }
+
+    // Handle trial results
+    if (event.type === "prompt.learning.trial.results") {
+      const resultRow: JobResultRow = {
+        id: data.trial_id as string | undefined,
+        score: (data.reward ?? data.score ?? null) as number | null,
+        reward: (data.reward ?? null) as number | null,
+        tokens: (data.tokens ?? null) as number | null,
+        cost_usd: (data.cost_usd ?? null) as number | null,
+        error: (data.error ?? null) as string | null,
+        metadata: data,
+      }
+      snapshot.jobDetails.resultRows.push(resultRow)
+    }
+  }
+
+  function handleJobDetailsStreamError(_err: Error, jobId: string): void {
     try {
       const { pollingState } = ctx.state
 
-      pollingState.evalSseConnected = false
-      pollingState.evalSseDisconnect = null
-      evalStreamConnection = null
+      pollingState.jobDetailsSseConnected = false
+      pollingState.jobDetailsSseDisconnect = null
+      jobDetailsStreamConnection = null
 
       // Resume events polling as fallback
       scheduleEventsPoll()
 
       // Schedule reconnect with exponential backoff
-      clearEvalSseTimer()
+      clearJobDetailsSseTimer()
 
-      if (ctx.state.snapshot.selectedJob?.job_id === jobId && isEvalJob(ctx.state.snapshot.selectedJob)) {
-        pollingState.evalSseReconnectTimer = registerTimeout(setTimeout(() => {
-          pollingState.evalSseReconnectTimer = null
+      // Reconnect for any job type (not just eval)
+      if (ctx.state.snapshot.selectedJob?.job_id === jobId) {
+        pollingState.jobDetailsSseReconnectTimer = registerTimeout(setTimeout(() => {
+          pollingState.jobDetailsSseReconnectTimer = null
           if (ctx.state.snapshot.selectedJob?.job_id === jobId) {
-            startEvalStream(jobId)
+            startJobDetailsStream(jobId)
           }
-        }, pollingState.evalSseReconnectDelay))
+        }, pollingState.jobDetailsSseReconnectDelay))
 
         // Exponential backoff: 1s, 2s, 4s, ... up to 30s
-        pollingState.evalSseReconnectDelay = Math.min(pollingState.evalSseReconnectDelay * 2, 30_000)
+        pollingState.jobDetailsSseReconnectDelay = Math.min(pollingState.jobDetailsSseReconnectDelay * 2, 30_000)
       }
     } catch {
       // Swallow errors in error handler - don't crash the app

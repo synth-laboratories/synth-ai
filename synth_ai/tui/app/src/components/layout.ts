@@ -9,6 +9,7 @@ import {
 	type CliRenderer,
 } from "@opentui/core"
 import { createKeyHint } from "./key-hint"
+import { BOX } from "../theme"
 
 export type UI = ReturnType<typeof buildLayout>
 
@@ -31,7 +32,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		height: 3,
 		backgroundColor: "#1e293b",
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		flexGrow: 0,
 		flexShrink: 0,
 		flexDirection: "row",
@@ -102,7 +103,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		flexGrow: 0,
 		flexShrink: 0,
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		title: "Jobs",
 		titleAlignment: "left",
 		border: true,
@@ -126,7 +127,14 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		flexGrow: 1,
 		flexShrink: 1,
 	})
+	const jobsEmptyText = new TextRenderable(renderer, {
+		id: "jobs-empty-text",
+		content: "No jobs found",
+		fg: "#94a3b8",
+		visible: false,
+	})
 	jobsBox.add(jobsSelect)
+	jobsBox.add(jobsEmptyText)
 	main.add(jobsBox)
 
 	const detailColumn = new BoxRenderable(renderer, {
@@ -145,7 +153,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		width: "auto",
 		height: 12,
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		title: "Details",
 		titleAlignment: "left",
 		border: true,
@@ -163,7 +171,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		width: "auto",
 		height: 6,
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		title: "Results",
 		titleAlignment: "left",
 		backgroundColor: "#0b1220",
@@ -182,7 +190,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		width: "auto",
 		height: 5,
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		title: "Metrics",
 		titleAlignment: "left",
 		border: true,
@@ -201,7 +209,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		width: "auto",
 		height: 6,
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		title: "Task Apps",
 		titleAlignment: "left",
 		border: true,
@@ -221,7 +229,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		flexGrow: 1,
 		flexShrink: 1,
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		title: "Events",
 		titleAlignment: "left",
 		border: true,
@@ -253,7 +261,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		flexGrow: 1,
 		flexShrink: 1,
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		title: "Logs",
 		titleAlignment: "left",
 		border: true,
@@ -287,7 +295,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		flexGrow: 2,
 		flexShrink: 1,
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		title: "OpenCode Agent",
 		titleAlignment: "left",
 		border: true,
@@ -344,7 +352,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		height: 3,
 		backgroundColor: "#0f172a",
 		borderStyle: "single",
-		borderColor: "#334155",
+		borderColor: BOX.borderColor,
 		flexGrow: 0,
 		flexShrink: 0,
 		border: true,
@@ -413,6 +421,7 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		jobsBox,
 		eventsBox,
 		jobsSelect,
+		jobsEmptyText,
 		detailBox,
 		detailText,
 		resultsBox,

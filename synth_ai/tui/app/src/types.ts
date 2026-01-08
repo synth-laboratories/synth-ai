@@ -5,10 +5,8 @@
 import type { ChildProcess } from "child_process"
 import type { JobEvent, JobSummary } from "./tui_data"
 
-/** Type of job that can be run in the TUI */
-export enum JobType {
-  Eval = "eval",
-}
+// Re-export job type enums from utils
+export { JobSource, TrainingType, JobSourceDisplay, TrainingTypeDisplay, getJobSourceDisplay, getTrainingTypeDisplay, normalizeJobSource } from "./utils/job-types"
 
 /** Active pane in the TUI (jobs list, events, or logs) */
 export type ActivePane = "jobs" | "events" | "logs"
@@ -164,6 +162,35 @@ export type BackendKeySource = {
   varName: string | null
 }
 
+/** Generic per-row result for any job type */
+export type JobResultRow = {
+  id?: string | number          // seed for eval, iteration for learning
+  score?: number | null
+  reward?: number | null
+  latency_ms?: number | null
+  tokens?: number | null
+  cost_usd?: number | null
+  error?: string | null
+  trace_id?: string | null
+  timestamp?: string | null
+  metadata?: Record<string, unknown>  // job-type specific fields
+}
+
+/** Job-type specific summary */
+export type JobDetailsSummary = {
+  completed?: number
+  total?: number
+  failed?: number
+  mean_reward?: number | null
+  [key: string]: unknown
+}
+
+/** Container for all job details streamed via SSE */
+export type JobDetails = {
+  summary: JobDetailsSummary | null
+  resultRows: JobResultRow[]
+}
+
 export type Snapshot = {
   jobs: JobSummary[]
   selectedJob: JobSummary | null
@@ -171,8 +198,8 @@ export type Snapshot = {
   metrics: Record<string, unknown>
   bestSnapshotId: string | null
   bestSnapshot: Record<string, any> | null
-  evalSummary: Record<string, any> | null
-  evalResultRows: Array<Record<string, any>>
+  /** Generic job details (replaces eval-specific evalSummary/evalResultRows) */
+  jobDetails: JobDetails
   artifacts: Array<Record<string, unknown>>
   orgId: string | null
   userId: string | null

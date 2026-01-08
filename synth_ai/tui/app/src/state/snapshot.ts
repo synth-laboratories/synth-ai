@@ -11,8 +11,7 @@ export const snapshot: Snapshot = {
   metrics: {},
   bestSnapshotId: null,
   bestSnapshot: null,
-  evalSummary: null,
-  evalResultRows: [],
+  jobDetails: { summary: null, resultRows: [] },
   artifacts: [],
   orgId: null,
   userId: null,
@@ -37,8 +36,7 @@ export function resetSnapshot(): void {
   snapshot.metrics = {}
   snapshot.bestSnapshotId = null
   snapshot.bestSnapshot = null
-  snapshot.evalSummary = null
-  snapshot.evalResultRows = []
+  snapshot.jobDetails = { summary: null, resultRows: [] }
   snapshot.artifacts = []
   snapshot.allCandidates = []
   snapshot.lastError = null

@@ -4,6 +4,7 @@
 import { BoxRenderable, TextRenderable } from "@opentui/core"
 import type { AppContext } from "../context"
 import { formatEventCardText, formatEventData, getFilteredEvents } from "../formatters"
+import { isTerminalStatus } from "../utils/job-status"
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -42,11 +43,7 @@ export function renderEventCards(ctx: AppContext): void {
     const job = snapshot.selectedJob
     if (appState.eventFilter) {
       ui.eventsEmptyText.content = "No events match filter."
-    } else if (
-      job?.status === "succeeded" ||
-      job?.status === "failed" ||
-      job?.status === "completed"
-    ) {
+    } else if (isTerminalStatus(job?.status)) {
       ui.eventsEmptyText.content =
         "No events recorded for this job.\n\nEvents may not have been persisted during execution."
     } else if (job?.status === "running" || job?.status === "queued") {

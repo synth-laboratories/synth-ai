@@ -35,13 +35,13 @@ export const pollingState = {
   sseReconnectTimer: null as ReturnType<typeof setTimeout> | null,
   sseReconnectDelay: 1000, // Start with 1s, exponential backoff
   lastSseSeq: 0,
-  // Eval job SSE state (per-job streaming)
-  evalSseConnected: false,
-  evalSseDisconnect: null as (() => void) | null,
-  evalSseJobId: null as string | null, // Track which job is connected
-  evalSseReconnectTimer: null as ReturnType<typeof setTimeout> | null,
-  evalSseReconnectDelay: 1000,
-  lastEvalSseSeq: 0,
+  // Job details SSE state (per-job streaming) - works for all job types
+  jobDetailsSseConnected: false,
+  jobDetailsSseDisconnect: null as (() => void) | null,
+  jobDetailsSseJobId: null as string | null, // Track which job is connected
+  jobDetailsSseReconnectTimer: null as ReturnType<typeof setTimeout> | null,
+  jobDetailsSseReconnectDelay: 1000,
+  lastJobDetailsSseSeq: 0,
 }
 
 export function clearJobsTimer(): void {
@@ -58,34 +58,34 @@ export function clearEventsTimer(): void {
   }
 }
 
-export function clearEvalSseTimer(): void {
-  if (pollingState.evalSseReconnectTimer) {
-    clearTimeout(pollingState.evalSseReconnectTimer)
+export function clearJobDetailsSseTimer(): void {
+  if (pollingState.jobDetailsSseReconnectTimer) {
+    clearTimeout(pollingState.jobDetailsSseReconnectTimer)
     // Import here to avoid circular dependency at module load time
     try {
       const { unregisterTimeout } = require("../lifecycle")
-      unregisterTimeout(pollingState.evalSseReconnectTimer)
+      unregisterTimeout(pollingState.jobDetailsSseReconnectTimer)
     } catch {
       // Ignore - lifecycle module may not be available during shutdown
     }
-    pollingState.evalSseReconnectTimer = null
+    pollingState.jobDetailsSseReconnectTimer = null
   }
 }
 
-export function disconnectEvalSse(): void {
+export function disconnectJobDetailsSse(): void {
   try {
-    if (pollingState.evalSseDisconnect) {
+    if (pollingState.jobDetailsSseDisconnect) {
       try {
-        pollingState.evalSseDisconnect()
+        pollingState.jobDetailsSseDisconnect()
       } catch {
         // Ignore disconnect errors
       }
-      pollingState.evalSseDisconnect = null
+      pollingState.jobDetailsSseDisconnect = null
     }
-    pollingState.evalSseConnected = false
-    pollingState.evalSseJobId = null
-    pollingState.lastEvalSseSeq = 0
-    clearEvalSseTimer()
+    pollingState.jobDetailsSseConnected = false
+    pollingState.jobDetailsSseJobId = null
+    pollingState.lastJobDetailsSseSeq = 0
+    clearJobDetailsSseTimer()
   } catch {
     // Ignore errors during cleanup
   }

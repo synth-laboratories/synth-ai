@@ -4,6 +4,7 @@
 import type { AppContext } from "../context"
 import { createModalUI, clamp, wrapModalText, type ModalController } from "./base"
 import { focusManager } from "../focus"
+import { normalizeJobStatus } from "../utils/job-status"
 
 export function createConfigModal(ctx: AppContext): ModalController & {
   open: () => void
@@ -42,7 +43,7 @@ export function createConfigModal(ctx: AppContext): ModalController & {
 
     const lines: string[] = []
     lines.push(`Job: ${job.job_id}`)
-    lines.push(`Status: ${job.status}`)
+    lines.push(`Status: ${normalizeJobStatus(job.status)}`)
     lines.push(`Type: ${job.training_type || "-"}`)
     lines.push(`Source: ${job.job_source || "unknown"}`)
     lines.push("")

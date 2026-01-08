@@ -3,6 +3,7 @@
  */
 import type { AppContext } from "../context"
 import { extractJobs, mergeJobs, coerceJob, isEvalJob, type JobSummary } from "../tui_data"
+import { JobSource } from "../utils/job-types"
 import { apiGet } from "./client"
 
 function extractBestSnapshotId(payload: any): string | null {
@@ -20,13 +21,13 @@ export async function refreshJobs(ctx: AppContext): Promise<boolean> {
   try {
     snapshot.status = "Refreshing jobs..."
     const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config.jobLimit}&offset=0`)
-    const promptJobs = extractJobs(promptPayload, "prompt-learning")
+    const promptJobs = extractJobs(promptPayload, JobSource.PromptLearning)
 
     let learningJobs: JobSummary[] = []
     let learningError: string | null = null
     try {
       const learningPayload = await apiGet(`/learning/jobs?limit=${config.jobLimit}`)
-      learningJobs = extractJobs(learningPayload, "learning")
+      learningJobs = extractJobs(learningPayload, JobSource.Learning)
     } catch (err: any) {
       learningError = err?.message || "Failed to load learning jobs"
     }
@@ -77,8 +78,7 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   snapshot.metrics = {}
   snapshot.bestSnapshotId = null
   snapshot.bestSnapshot = null
-  snapshot.evalSummary = null
-  snapshot.evalResultRows = []
+  snapshot.jobDetails = { summary: null, resultRows: [] }
   snapshot.allCandidates = []
   appState.selectedEventIndex = 0
   appState.eventWindowStart = 0
@@ -93,6 +93,7 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
       created_at: null,
       started_at: null,
       finished_at: null,
+      updated_at: null,
       best_reward: null,
       best_snapshot_id: null,
       total_tokens: null,
@@ -105,9 +106,9 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   const jobSource = immediate?.job_source ?? null
   try {
     const path =
-      jobSource === "eval"
+      jobSource === JobSource.Eval
         ? `/eval/jobs/${jobId}`
-        : jobSource === "learning"
+        : jobSource === JobSource.Learning
           ? `/learning/jobs/${jobId}?include_metadata=true`
           : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`
     const job = await apiGet(path)
@@ -115,8 +116,8 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
       return
     }
 
-    const coerced = coerceJob(job, jobSource ?? "prompt-learning")
-    if (jobSource !== "eval") {
+    const coerced = coerceJob(job, jobSource ?? JobSource.PromptLearning)
+    if (jobSource !== JobSource.Eval) {
       const jobMeta = job?.metadata ?? {}
       if (job?.prompt_initial_snapshot && !jobMeta.prompt_initial_snapshot) {
         coerced.metadata = { ...jobMeta, prompt_initial_snapshot: job.prompt_initial_snapshot }
@@ -125,8 +126,8 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
       }
       snapshot.bestSnapshotId = extractBestSnapshotId(job)
     }
-    if (jobSource === "eval" || isEvalJob(coerced)) {
-      snapshot.evalSummary = job?.results && typeof job.results === "object" ? job.results : null
+    if (jobSource === JobSource.Eval || isEvalJob(coerced)) {
+      snapshot.jobDetails.summary = job?.results && typeof job.results === "object" ? job.results : null
     }
     snapshot.selectedJob = coerced
     snapshot.status = `Selected job ${jobId}`
@@ -139,10 +140,10 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
     snapshot.status = `Error: ${errMsg}`
   }
 
-  if (jobSource !== "learning" && jobSource !== "eval" && !isEvalJob(snapshot.selectedJob)) {
+  if (jobSource !== JobSource.Learning && jobSource !== JobSource.Eval && !isEvalJob(snapshot.selectedJob)) {
     await fetchBestSnapshot(ctx, token)
   }
-  if (jobSource === "eval" || isEvalJob(snapshot.selectedJob)) {
+  if (jobSource === JobSource.Eval || isEvalJob(snapshot.selectedJob)) {
     await fetchEvalResults(ctx, token)
   }
 }
@@ -183,8 +184,27 @@ export async function fetchEvalResults(ctx: AppContext, token?: number): Promise
     if ((token != null && token !== appState.jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
-    snapshot.evalSummary = payload?.summary && typeof payload.summary === "object" ? payload.summary : null
-    snapshot.evalResultRows = Array.isArray(payload?.results) ? payload.results : []
+    snapshot.jobDetails.summary = payload?.summary && typeof payload.summary === "object" ? payload.summary : null
+    // Map eval results to generic JobResultRow format
+    const results = Array.isArray(payload?.results) ? payload.results : []
+    snapshot.jobDetails.resultRows = results.map((r: any) => ({
+      id: r.seed,
+      score: r.score ?? r.outcome_reward ?? null,
+      reward: r.outcome_reward ?? null,
+      latency_ms: r.latency_ms ?? null,
+      tokens: r.tokens ?? null,
+      cost_usd: r.cost_usd ?? null,
+      error: r.error ?? null,
+      trace_id: r.trace_id ?? null,
+      metadata: {
+        trial_id: r.trial_id,
+        correlation_id: r.correlation_id,
+        events_score: r.events_score,
+        verifier_score: r.verifier_score,
+        reward_mean: r.reward_mean,
+        outcome_score: r.outcome_score,
+      },
+    }))
     snapshot.status = `Loaded eval results for ${job.job_id}`
   } catch (err: any) {
     if ((token != null && token !== appState.jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
@@ -208,7 +228,7 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
     }
     snapshot.status = "Loading metrics..."
     const path =
-      job.job_source === "learning"
+      job.job_source === JobSource.Learning
         ? `/learning/jobs/${job.job_id}/metrics`
         : `/prompt-learning/online/jobs/${job.job_id}/metrics`
     const payload = await apiGet(path)

@@ -1,6 +1,6 @@
 import { createModalUI, clamp, type ModalController } from "./base"
 import type { AppContext } from "../context"
-import { JobType, type Deployment } from "../types"
+import { TrainingType, type Deployment } from "../types"
 import { focusManager } from "../focus"
 import { LOCALAPI_TEMPLATE } from "../templates/localapi"
 import { getUniqueFilename, toDisplayPath, expandPath, formatTimestampForFilename } from "../utils/files"
@@ -372,9 +372,9 @@ export function createCreateJobModal(ctx: AppContext): ModalController & {
 			id: "jobType",
 			label: "Job Type",
 			prompt: "Select Job Type:",
-			getOptions: () => Object.values(JobType),
+			getOptions: () => Object.values(TrainingType),
 			onSelect: async (value) => {
-				if (value === JobType.Eval && deployedUrl) {
+				if (value === TrainingType.Eval && deployedUrl) {
 					// Submit eval job and close
 					ctx.state.snapshot.status = "Submitting eval job..."
 					ctx.render()

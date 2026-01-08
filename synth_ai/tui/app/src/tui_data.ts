@@ -1,11 +1,14 @@
+import { JobSource, isEvalJob as checkIsEvalJob } from "./utils/job-types"
+
 export type JobSummary = {
   job_id: string
   status: string
   training_type?: string | null
-  job_source?: "prompt-learning" | "learning" | "eval" | null
+  job_source?: JobSource | null
   created_at?: string | null
   started_at?: string | null
   finished_at?: string | null
+  updated_at?: string | null
   best_reward?: number | null
   best_snapshot_id?: string | null
   total_tokens?: number | null
@@ -65,11 +68,7 @@ export function extractEvents(
 /** Check if a job is an eval job (by source or training_type) */
 export function isEvalJob(job: JobSummary | null): boolean {
   if (!job) return false
-  return (
-    job.job_source === "eval" ||
-    job.training_type === "eval" ||
-    job.job_id.startsWith("eval_")
-  )
+  return checkIsEvalJob(job.job_source, job.training_type, job.job_id)
 }
 
 export function coerceJob(
@@ -92,7 +91,7 @@ export function coerceJob(
     trainingType = "eval"
   }
   const resolvedSource =
-    isEval && source === "learning" ? "eval" : source ?? (isEval ? "eval" : null)
+    isEval && source === JobSource.Learning ? JobSource.Eval : source ?? (isEval ? JobSource.Eval : null)
   return {
     job_id: jobId,
     status: String(payload?.status || "unknown"),
@@ -102,6 +101,7 @@ export function coerceJob(
     created_at: payload?.created_at || null,
     started_at: payload?.started_at || null,
     finished_at: payload?.finished_at || null,
+    updated_at: payload?.updated_at || null,
     best_reward: num(payload?.best_reward ?? payload?.best_score),
     best_snapshot_id: payload?.best_snapshot_id || payload?.best_snapshot?.id || null,
     total_tokens: int(payload?.total_tokens),

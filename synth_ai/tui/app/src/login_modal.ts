@@ -23,8 +23,7 @@ export type SnapshotState = {
   metrics: Record<string, unknown>
   bestSnapshotId: string | null
   bestSnapshot: Record<string, any> | null
-  evalSummary: Record<string, any> | null
-  evalResultRows: Array<Record<string, any>>
+  jobDetails: { summary: Record<string, any> | null; resultRows: any[] }
   artifacts: Array<Record<string, unknown>>
   orgId: string | null
   userId: string | null
@@ -210,8 +209,7 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
     snapshot.metrics = {}
     snapshot.bestSnapshotId = null
     snapshot.bestSnapshot = null
-    snapshot.evalSummary = null
-    snapshot.evalResultRows = []
+    snapshot.jobDetails = { summary: null, resultRows: [] }
     snapshot.artifacts = []
     snapshot.orgId = null
     snapshot.userId = null
