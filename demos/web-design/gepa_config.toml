@@ -1,0 +1,76 @@
+# GEPA Prompt Learning for Web Design Style Optimization
+# Optimizes the style_prompt parameter to maximize visual fidelity scores
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_id = "web_design_generator"
+task_app_url = "http://localhost:8103"
+
+# Initial style prompt to optimize
+[prompt_learning.initial_prompt]
+id = "astral_style_prompt"
+name = "Astral Website Style Guidance"
+
+# The style_prompt parameter that will be optimized
+# Note: Using "user" role because Gemini models don't support system messages
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = """You are generating a professional startup website screenshot.
+
+VISUAL STYLE GUIDELINES:
+- Use a clean, modern, minimalist design aesthetic
+- Color Scheme: Light backgrounds with high contrast dark text
+- Typography: Large, bold headings with clear hierarchy
+- Layout: Spacious with generous padding and margins
+- Branding: Professional, tech-forward visual identity
+
+Create a webpage that feels polished, modern, and trustworthy."""
+order = 0
+
+# Wildcards that will be filled by the task app at runtime
+[prompt_learning.initial_prompt.wildcards]
+functional_description = "REQUIRED"
+original_image_path = "REQUIRED"
+
+# Policy configuration - Use Gemini 2.5 Flash Image for image generation
+# The optimized style prompt will be used to generate images via this model
+[prompt_learning.policy]
+model = "gemini-2.5-flash-image"
+provider = "google"
+inference_mode = "synth_hosted"  # Required for prompt learning
+
+# Environment configuration
+[prompt_learning.env_config]
+pool = "train"  # Use training pool of examples
+
+# GEPA-specific configuration
+[prompt_learning.gepa]
+env_name = "web_design"
+
+# Rollout configuration (how many evaluations to run)
+[prompt_learning.gepa.rollout]
+budget = 15                 # Total number of evaluations (small for testing)
+max_concurrent = 2          # Run 2 evaluations in parallel (image gen is slow)
+minibatch_size = 3          # Evaluate on 3 examples per candidate
+
+# Evaluation seeds (which examples from dataset to use)
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # 13 training examples
+validation_seeds = [13, 14]                          # 2 validation examples
+
+# Archive configuration (keep best prompts)
+[prompt_learning.gepa.archive]
+pareto_set_size = 10  # Keep top 10 prompts (minimum required)
+
+# Mutation configuration (how much to change prompts)
+[prompt_learning.gepa.mutation]
+rate = 0.4  # 40% mutation rate
+
+# Population configuration (genetic algorithm settings)
+[prompt_learning.gepa.population]
+initial_size = 3                # Start with 3 random variants (small for testing)
+num_generations = 2             # Run 2 generations of evolution
+children_per_generation = 2     # Create 2 children per generation
+crossover_rate = 0.6            # 60% crossover rate
+selection_pressure = 1.2        # Moderate selection pressure
+patience_generations = 2        # Stop if no improvement for 2 generations

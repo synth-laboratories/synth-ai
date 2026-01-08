@@ -205,3 +205,4 @@ examples/blog_posts/**/task_specific/*/results/
 
 # Local dev scripts
 /dev/
+demos/web-design/hf_dataset/

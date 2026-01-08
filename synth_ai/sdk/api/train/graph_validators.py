@@ -9,7 +9,7 @@ Example `graph.toml`:
 ```toml
 [graph]
 dataset = "my_tasks.json"          # required (path to GraphGenTaskSet JSON)
-policy_model = "gpt-4o-mini"       # optional
+policy_models = ["gpt-4o-mini"]    # required (list of models)
 rollout_budget = 200              # optional
 proposer_effort = "medium"        # optional: low|medium|high
 auto_start = true                 # optional
@@ -102,13 +102,22 @@ def validate_graph_job_section(
             )
             dataset = None
 
-    policy_model = section.get("policy_model") or section.get("model")
+    # Support both policy_models (list) and policy_model (single) for backward compatibility
+    policy_models_raw = section.get("policy_models") or section.get("policy_model") or section.get("model")
+    if policy_models_raw is None:
+        errors.append({"field": "policy_models", "error": "policy_models is required"})
+        policy_models_list = []
+    elif isinstance(policy_models_raw, list):
+        policy_models_list = [str(m) for m in policy_models_raw]
+    else:
+        policy_models_list = [str(policy_models_raw)]
+    
     rollout_budget = section.get("rollout_budget") or section.get("budget")
     proposer_effort = section.get("proposer_effort") or section.get("effort")
 
     try:
         config = GraphGenJobConfig(
-            policy_model=str(policy_model) if policy_model is not None else "gpt-4o-mini",
+            policy_models=policy_models_list,
             policy_provider=section.get("policy_provider"),
             rollout_budget=int(rollout_budget) if rollout_budget is not None else 100,
             proposer_effort=cast(Literal["low", "medium", "high"], str(proposer_effort)) if proposer_effort is not None else "medium",
@@ -160,7 +169,7 @@ def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
 
     Expected keys:
       - dataset: GraphGenTaskSet dict
-      - policy_model, rollout_budget, proposer_effort
+      - policy_models, rollout_budget, proposer_effort
       - optional verifier_model/verifier_provider
       - optional metadata (population_size/num_generations)
     """
@@ -182,9 +191,19 @@ def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
 
     metadata = cast(Dict[str, Any], payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {})
 
+    # Support both policy_models (list) and policy_model (single) for backward compatibility
+    policy_models_raw = payload.get("policy_models") or payload.get("policy_model")
+    if policy_models_raw is None:
+        errors.append({"field": "policy_models", "error": "policy_models is required"})
+        policy_models_list: list[str] = []
+    elif isinstance(policy_models_raw, list):
+        policy_models_list = [str(m) for m in policy_models_raw]
+    else:
+        policy_models_list = [str(policy_models_raw)]
+    
     try:
         config = GraphGenJobConfig(
-            policy_model=str(payload.get("policy_model") or "gpt-4o-mini"),
+            policy_models=policy_models_list,
             policy_provider=payload.get("policy_provider"),
             rollout_budget=int(payload.get("rollout_budget") or 100),
             proposer_effort=cast(Literal["low", "medium", "high"], str(payload.get("proposer_effort") or "medium")),

@@ -20,6 +20,7 @@ import {
   createSnapshotModal,
   createTaskAppsModal,
   createUsageModal,
+  createSessionsModal,
 } from "./modals"
 
 import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
@@ -120,6 +121,7 @@ export async function runApp(): Promise<void> {
   const snapshotModal = createSnapshotModal(ctx)
   const taskAppsModal = createTaskAppsModal(ctx)
   const usageModal = createUsageModal(ctx)
+  const sessionsModal = createSessionsModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -134,6 +136,7 @@ export async function runApp(): Promise<void> {
     snapshot: snapshotModal,
     taskApps: taskAppsModal,
     usage: usageModal,
+    sessions: sessionsModal,
   }
 
   // Create keyboard handler

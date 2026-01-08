@@ -14,4 +14,5 @@ export * from "./env-key-modal"
 export * from "./snapshot-modal"
 export * from "./task-apps-modal"
 export * from "./usage-modal"
+export * from "./sessions-modal"
 

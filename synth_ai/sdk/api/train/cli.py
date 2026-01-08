@@ -713,7 +713,7 @@ def train_command(
                     dataset_path=graphgen_dataset_path,
                     backend_base=backend_base,
                     synth_key=synth_api_key,
-                    policy_model=model,
+                    policy_models=model,
                     rollout_budget=rollout_budget,
                     proposer_effort=proposer_effort,
                     poll=poll,
@@ -1198,7 +1198,7 @@ def handle_graphgen(
     dataset_path: Path,
     backend_base: str,
     synth_key: str,
-    policy_model: str | None,
+    policy_models: str | None,
     rollout_budget: int | None,
     proposer_effort: str | None,
     poll: bool,
@@ -1239,9 +1239,11 @@ def handle_graphgen(
     click.echo(f"  Verifier mode: {dataset.verifier_config.mode}")
 
     # Create GraphGen job
+    if not policy_models:
+        raise click.ClickException("policy_models is required")
     job = GraphGenJob.from_dataset(
         dataset=dataset,
-        policy_model=policy_model or "gpt-4o-mini",
+        policy_models=policy_models,
         rollout_budget=rollout_budget or 100,
         proposer_effort=proposer_effort or "medium",  # type: ignore
         problem_spec=problem_spec,
@@ -1251,7 +1253,7 @@ def handle_graphgen(
     )
 
     click.echo("\n=== Submitting GraphGen Job ===")
-    click.echo(f"Policy model: {job.config.policy_model}")
+    click.echo(f"Policy models: {job.config.policy_models}")
     click.echo(f"Rollout budget: {job.config.rollout_budget}")
     click.echo(f"Proposer effort: {job.config.proposer_effort}")
 

@@ -1,0 +1,86 @@
+{
+  "site": "autumn",
+  "captured_at": "2026-01-06T23:13:50.124306",
+  "screenshots": [
+    {
+      "url": "https://mintlify.com",
+      "file": "data/mintlify/homepage_20260106_231240.png"
+    },
+    {
+      "url": "https://mintlify.com/docs/changelog",
+      "file": "data/mintlify/docs_changelog_20260106_231244.png"
+    },
+    {
+      "url": "https://mintlify.com/careers",
+      "file": "data/mintlify/careers_20260106_231247.png"
+    },
+    {
+      "url": "https://mintlify.com/blog",
+      "file": "data/mintlify/blog_20260106_231251.png"
+    },
+    {
+      "url": "https://mintlify.com/customers",
+      "file": "data/mintlify/customers_20260106_231254.png"
+    },
+    {
+      "url": "https://mintlify.com/docs",
+      "file": "data/mintlify/docs_20260106_231258.png"
+    },
+    {
+      "url": "https://mintlify.com/docs/api-reference/assistant/search",
+      "file": "data/mintlify/docs_api-reference_assistant_search_20260106_231301.png"
+    },
+    {
+      "url": "https://mintlify.com/blog/refactoring-mint-json-into-docs-json",
+      "file": "data/mintlify/blog_refactoring-mint-json-into-docs-json_20260106_231305.png"
+    },
+    {
+      "url": "https://mintlify.com/blog/widget",
+      "file": "data/mintlify/blog_widget_20260106_231308.png"
+    },
+    {
+      "url": "https://mintlify.com/blog/pro-plan",
+      "file": "data/mintlify/blog_pro-plan_20260106_231311.png"
+    },
+    {
+      "url": "https://mintlify.com/docs/ai/model-context-protocol",
+      "file": "data/mintlify/docs_ai_model-context-protocol_20260106_231315.png"
+    },
+    {
+      "url": "https://mintlify.com/start",
+      "file": "data/mintlify/start_20260106_231319.png"
+    },
+    {
+      "url": "https://mintlify.com/guides/introduction",
+      "file": "data/mintlify/guides_introduction_20260106_231322.png"
+    },
+    {
+      "url": "https://mintlify.com/docs/authentication-personalization/authentication-setup",
+      "file": "data/mintlify/docs_authentication-personalization_authentication-setup_20260106_231326.png"
+    },
+    {
+      "url": "https://mintlify.com/docs/navigation",
+      "file": "data/mintlify/docs_navigation_20260106_231329.png"
+    },
+    {
+      "url": "https://mintlify.com/docs/api-reference",
+      "file": "data/mintlify/docs_api-reference_20260106_231332.png"
+    },
+    {
+      "url": "https://mintlify.com/docs/components",
+      "file": "data/mintlify/docs_components_20260106_231336.png"
+    },
+    {
+      "url": "https://mintlify.com/docs/api-playground/openapi-setup",
+      "file": "data/mintlify/docs_api-playground_openapi-setup_20260106_231340.png"
+    },
+    {
+      "url": "https://mintlify.com/legal/terms",
+      "file": "data/mintlify/legal_terms_20260106_231344.png"
+    },
+    {
+      "url": "https://mintlify.com/legal/privacy",
+      "file": "data/mintlify/legal_privacy_20260106_231349.png"
+    }
+  ]
+}

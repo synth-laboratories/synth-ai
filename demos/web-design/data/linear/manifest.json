@@ -1,0 +1,166 @@
+{
+  "site": "autumn",
+  "captured_at": "2026-01-06T23:22:06.874825",
+  "screenshots": [
+    {
+      "url": "https://linear.app",
+      "file": "data/linear/homepage_20260106_231935.png"
+    },
+    {
+      "url": "https://linear.app/build",
+      "file": "data/linear/build_20260106_231939.png"
+    },
+    {
+      "url": "https://linear.app/insights",
+      "file": "data/linear/insights_20260106_231943.png"
+    },
+    {
+      "url": "https://linear.app/customers",
+      "file": "data/linear/customers_20260106_231947.png"
+    },
+    {
+      "url": "https://linear.app/integrations",
+      "file": "data/linear/integrations_20260106_231951.png"
+    },
+    {
+      "url": "https://linear.app/docs/github",
+      "file": "data/linear/docs_github_20260106_231955.png"
+    },
+    {
+      "url": "https://linear.app/integrations/orca-security",
+      "file": "data/linear/integrations_orca-security_20260106_232000.png"
+    },
+    {
+      "url": "https://linear.app/integrations/fivetran",
+      "file": "data/linear/integrations_fivetran_20260106_232004.png"
+    },
+    {
+      "url": "https://linear.app/features",
+      "file": "data/linear/features_20260106_232007.png"
+    },
+    {
+      "url": "https://linear.app/integrations/loom",
+      "file": "data/linear/integrations_loom_20260106_232011.png"
+    },
+    {
+      "url": "https://linear.app/docs/import-issues",
+      "file": "data/linear/docs_import-issues_20260106_232014.png"
+    },
+    {
+      "url": "https://linear.app/integrations/trackingtime",
+      "file": "data/linear/integrations_trackingtime_20260106_232018.png"
+    },
+    {
+      "url": "https://linear.app/plan",
+      "file": "data/linear/plan_20260106_232022.png"
+    },
+    {
+      "url": "https://linear.app/readme",
+      "file": "data/linear/readme_20260106_232026.png"
+    },
+    {
+      "url": "https://linear.app/settings/integrations/github",
+      "file": "data/linear/settings_integrations_github_20260106_232030.png"
+    },
+    {
+      "url": "https://linear.app/",
+      "file": "data/linear/homepage_20260106_232033.png"
+    },
+    {
+      "url": "https://linear.app/integrations/aikido",
+      "file": "data/linear/integrations_aikido_20260106_232037.png"
+    },
+    {
+      "url": "https://linear.app/careers/a8041e0e-350e-47d0-9190-454089216fb8",
+      "file": "data/linear/careers_a8041e0e-350e-47d0-9190-454089216fb8_20260106_232041.png"
+    },
+    {
+      "url": "https://linear.app/careers/82778dbf-711e-4d23-9d49-4a60db76737a",
+      "file": "data/linear/careers_82778dbf-711e-4d23-9d49-4a60db76737a_20260106_232044.png"
+    },
+    {
+      "url": "https://linear.app/integrations/miro",
+      "file": "data/linear/integrations_miro_20260106_232048.png"
+    },
+    {
+      "url": "https://linear.app/integrations/descript",
+      "file": "data/linear/integrations_descript_20260106_232052.png"
+    },
+    {
+      "url": "https://linear.app/asks",
+      "file": "data/linear/asks_20260106_232055.png"
+    },
+    {
+      "url": "https://linear.app/changelog",
+      "file": "data/linear/changelog_20260106_232059.png"
+    },
+    {
+      "url": "https://linear.app/privacy",
+      "file": "data/linear/privacy_20260106_232104.png"
+    },
+    {
+      "url": "https://linear.app/agents",
+      "file": "data/linear/agents_20260106_232108.png"
+    },
+    {
+      "url": "https://linear.app/docs/jira-to-linear",
+      "file": "data/linear/docs_jira-to-linear_20260106_232113.png"
+    },
+    {
+      "url": "https://linear.app/now/news",
+      "file": "data/linear/now_news_20260106_232118.png"
+    },
+    {
+      "url": "https://linear.app/careers/b4a7764e-c680-4bdf-9956-dc78f2ca94d5",
+      "file": "data/linear/careers_b4a7764e-c680-4bdf-9956-dc78f2ca94d5_20260106_232122.png"
+    },
+    {
+      "url": "https://linear.app/changelog/2025-10-28-github-copilot-agent",
+      "file": "data/linear/changelog_2025-10-28-github-copilot-agent_20260106_232125.png"
+    },
+    {
+      "url": "https://linear.app/integrations/cursor-mcp",
+      "file": "data/linear/integrations_cursor-mcp_20260106_232129.png"
+    },
+    {
+      "url": "https://linear.app/integrations/github-copilot",
+      "file": "data/linear/integrations_github-copilot_20260106_232132.png"
+    },
+    {
+      "url": "https://linear.app/careers/069c4628-88d7-4e4d-b393-c996fc7f3076",
+      "file": "data/linear/careers_069c4628-88d7-4e4d-b393-c996fc7f3076_20260106_232136.png"
+    },
+    {
+      "url": "https://linear.app/my-issues/assigned",
+      "file": "data/linear/my-issues_assigned_20260106_232140.png"
+    },
+    {
+      "url": "https://linear.app/careers/c21af93e-210f-4969-8eaa-90fb16a5b720",
+      "file": "data/linear/careers_c21af93e-210f-4969-8eaa-90fb16a5b720_20260106_232143.png"
+    },
+    {
+      "url": "https://linear.app/customers/brex",
+      "file": "data/linear/customers_brex_20260106_232147.png"
+    },
+    {
+      "url": "https://linear.app/customers/clio",
+      "file": "data/linear/customers_clio_20260106_232150.png"
+    },
+    {
+      "url": "https://linear.app/docs/login-methods",
+      "file": "data/linear/docs_login-methods_20260106_232154.png"
+    },
+    {
+      "url": "https://linear.app/integrations/gitlab",
+      "file": "data/linear/integrations_gitlab_20260106_232158.png"
+    },
+    {
+      "url": "https://linear.app/customers/scale",
+      "file": "data/linear/customers_scale_20260106_232202.png"
+    },
+    {
+      "url": "https://linear.app/integrations/engineering",
+      "file": "data/linear/integrations_engineering_20260106_232206.png"
+    }
+  ]
+}

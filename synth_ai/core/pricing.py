@@ -32,6 +32,12 @@ MODEL_PRICES: dict[str, dict[str, TokenRates]] = {
         # GPT-4o family
         "gpt-4o": TokenRates(input_usd=0.00000250, output_usd=0.00001000),
         "gpt-4o-mini": TokenRates(input_usd=0.00000015, output_usd=0.00000060),
+        # OpenAI Image Generation Models
+        # Note: For image generation, output_usd represents per-image cost at standard quality (1024x1024)
+        "gpt-image-1.5": TokenRates(input_usd=0.00000500, output_usd=0.00003400),  # $5.00/1M tokens, $0.034/image
+        "gpt-image-1": TokenRates(input_usd=0.00000500, output_usd=0.00004200),  # $5.00/1M tokens, $0.042/image
+        "gpt-image-1-mini": TokenRates(input_usd=0.00000200, output_usd=0.00001100),  # $2.00/1M tokens, $0.011/image
+        "chatgpt-image-latest": TokenRates(input_usd=0.00000500, output_usd=0.00003400),  # Same as gpt-image-1.5
     },
     "anthropic": {
         "claude-3-5-sonnet": TokenRates(input_usd=0.000003, output_usd=0.000015),

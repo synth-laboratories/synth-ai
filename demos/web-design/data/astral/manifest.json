@@ -1,0 +1,154 @@
+{
+  "site": "astral",
+  "captured_at": "2026-01-07T02:52:43.700240",
+  "screenshots": [
+    {
+      "url": "https://astral.sh",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/homepage_20260107_014036.png"
+    },
+    {
+      "url": "https://astral.sh/pyx",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/pyx_20260107_014040.png"
+    },
+    {
+      "url": "https://astral.sh/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/homepage_20260107_014043.png"
+    },
+    {
+      "url": "https://astral.sh/legal/privacy",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/legal_privacy_20260107_014047.png"
+    },
+    {
+      "url": "https://astral.sh/blog",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_20260107_014051.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.0.281",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.0.281_20260107_014055.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.4.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.4.0_20260107_015636.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.9.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.9.0_20260107_015640.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.12.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.12.0_20260107_015644.png"
+    },
+    {
+      "url": "https://astral.sh/blog/python-build-standalone",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_python-build-standalone_20260107_015647.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.8.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.8.0_20260107_015651.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.10.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.10.0_20260107_015655.png"
+    },
+    {
+      "url": "https://astral.sh/blog/astral-oss-fund-one-year-later",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_astral-oss-fund-one-year-later_20260107_015658.png"
+    },
+    {
+      "url": "https://astral.sh/blog/uv-unified-python-packaging",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_uv-unified-python-packaging_20260107_015702.png"
+    },
+    {
+      "url": "https://astral.sh/blog/the-ruff-formatter",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_the-ruff-formatter_20260107_021349.png"
+    },
+    {
+      "url": "https://astral.sh/blog/uv",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_uv_20260107_021353.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.4.5",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.4.5_20260107_021357.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.0.278",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.0.278_20260107_021402.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.6.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.6.0_20260107_021406.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.7.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.7.0_20260107_021409.png"
+    },
+    {
+      "url": "https://astral.sh/ruff",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/ruff_20260107_021413.png"
+    },
+    {
+      "url": "https://astral.sh/blog/uv-security-advisory-cve-2025-54368",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_uv-security-advisory-cve-2025-54368_20260107_021417.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.5.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.5.0_20260107_021421.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.1.5",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.1.5_20260107_021716.png"
+    },
+    {
+      "url": "https://astral.sh/blog/announcing-astral-the-company-behind-ruff",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_announcing-astral-the-company-behind-ruff_20260107_023450.png"
+    },
+    {
+      "url": "https://astral.sh/blog/introducing-pyx",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_introducing-pyx_20260107_023453.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.0.276",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.0.276_20260107_023457.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.2.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.2.0_20260107_023501.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.3.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.3.0_20260107_023505.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ty",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ty_20260107_023509.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.13.0",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.13.0_20260107_023513.png"
+    },
+    {
+      "url": "https://astral.sh/blog/rss.xml",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_rss.xml_20260107_025222.png"
+    },
+    {
+      "url": "https://astral.sh/blog/wheel-variants",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_wheel-variants_20260107_025226.png"
+    },
+    {
+      "url": "https://astral.sh/blog/astral-oss-fund",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_astral-oss-fund_20260107_025229.png"
+    },
+    {
+      "url": "https://astral.sh/about",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/about_20260107_025234.png"
+    },
+    {
+      "url": "https://astral.sh/blog/ruff-v0.1.8",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/blog_ruff-v0.1.8_20260107_025237.png"
+    },
+    {
+      "url": "https://astral.sh/legal/terms",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/astral/legal_terms_20260107_025241.png"
+    }
+  ]
+}

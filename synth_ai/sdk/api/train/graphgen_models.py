@@ -450,6 +450,12 @@ SUPPORTED_POLICY_MODELS = {
     "gemini-1.5-pro",
     "gemini-2.0-flash",
     "gemini-2.5-flash-image",  # Nano Banana - image generation model
+    "gemini-3-pro-image-preview",  # Gemini 3 pro image generation model
+    # OpenAI Image Generation Models
+    "gpt-image-1.5",
+    "gpt-image-1",
+    "gpt-image-1-mini",
+    "chatgpt-image-latest",
     # Claude
     "claude-3-5-sonnet-latest",
     "claude-3-5-haiku-latest",
@@ -653,7 +659,7 @@ class GraphGenJobConfig(BaseModel):
 
         config = GraphGenJobConfig(
             graph_type="policy",
-            policy_model="gpt-4o-mini",
+            policy_models=["gpt-4o-mini"],
             rollout_budget=100,
             proposer_effort="medium",
             problem_spec="Classify customer support messages into categories.",
@@ -662,7 +668,9 @@ class GraphGenJobConfig(BaseModel):
 
     Attributes:
         graph_type: Type of graph - "policy", "verifier", or "rlm".
-        policy_model: Model for policy inference (e.g., "gpt-4o-mini", "claude-3-5-sonnet").
+        policy_models: List of models for policy inference (e.g., ["gpt-4o-mini", "claude-3-5-sonnet"]).
+            Supports image generation models: OpenAI (gpt-image-1.5, gpt-image-1, gpt-image-1-mini, chatgpt-image-latest)
+            and Gemini (gemini-2.5-flash-image, gemini-3-pro-image-preview).
         policy_provider: Provider for policy model (auto-detected if not specified).
         rollout_budget: Total rollouts (evaluations) for optimization. Range: 10-10000.
         proposer_effort: Mutation quality/cost level - "medium" or "high".
@@ -723,10 +731,10 @@ class GraphGenJobConfig(BaseModel):
         ),
     )
 
-    # Policy model (what the prompt runs on)
-    policy_model: str = Field(
-        default=DEFAULT_POLICY_MODEL,
-        description="Model to use for policy inference",
+    # Policy models (what the prompt runs on) - REQUIRED, no default
+    policy_models: List[str] = Field(
+        ...,
+        description="List of models to use for policy inference (allows multiple models)",
     )
     policy_provider: Optional[str] = Field(
         default=None,
@@ -826,10 +834,13 @@ class GraphGenJobConfig(BaseModel):
     )
 
     def get_policy_provider(self) -> str:
-        """Get the policy provider (auto-detect if not specified)."""
+        """Get the policy provider (auto-detect from first policy model if not specified)."""
         if self.policy_provider:
             return self.policy_provider
-        return _detect_provider(self.policy_model)
+        # Use first model in list for provider detection
+        if self.policy_models:
+            return _detect_provider(self.policy_models[0])
+        return "openai"  # Default fallback
 
 
 def _detect_provider(model: str) -> str:

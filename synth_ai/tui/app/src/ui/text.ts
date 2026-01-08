@@ -26,11 +26,21 @@ export function formatStatus(ctx: AppContext): string {
 
 export function footerText(ctx: AppContext): string {
   const { appState } = ctx.state
+
+  // OpenCode view - typing mode, escape to exit
+  if (appState.principalPane === "opencode") {
+    const sessionInfo = appState.openCodeSessionId
+      ? `session=${appState.openCodeSessionId.slice(-8)}`
+      : "no session"
+    return `Keys: esc back | ↑↓ scroll | enter send | ctrl+o sessions | ctrl+c quit | ${sessionInfo}`
+  }
+
+  // Jobs view keybindings
   const filterLabel = appState.eventFilter ? `filter=${appState.eventFilter}` : "filter=off"
   const jobFilterLabel = appState.jobStatusFilter.size
     ? `status=${Array.from(appState.jobStatusFilter).join(",")}`
     : "status=all"
-  return `Keys: b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | u tunnels | c cancel | d usage | q quit`
+  return `Keys: g opencode | b jobs | tab toggle | j/k nav | enter view | r refresh | o sessions | l login | t settings | f ${filterLabel} | J ${jobFilterLabel} | u tunnels | c cancel | d usage | q quit`
 }
 
 

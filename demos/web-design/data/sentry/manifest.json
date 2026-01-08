@@ -1,0 +1,150 @@
+{
+  "site": "sentry",
+  "captured_at": "2026-01-07T01:23:28.713240",
+  "screenshots": [
+    {
+      "url": "https://sentry.io",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/homepage_20260106_233910.png"
+    },
+    {
+      "url": "https://sentry.io/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/homepage_20260106_233918.png"
+    },
+    {
+      "url": "https://sentry.io/product/seer/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/product_seer_20260106_233923.png"
+    },
+    {
+      "url": "https://sentry.io/changelog/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/changelog_20260106_233927.png"
+    },
+    {
+      "url": "https://sentry.io/resources/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_20260106_233932.png"
+    },
+    {
+      "url": "https://sentry.io/resources/the-future-of-open-source-is-it-sustainable/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_the-future-of-open-source-is-it-sustainable_20260106_234323.png"
+    },
+    {
+      "url": "https://sentry.io/resources/source-maps-through-the-looking-glass/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_source-maps-through-the-looking-glass_20260106_234733.png"
+    },
+    {
+      "url": "https://sentry.io/resources/lazy-loading-sotw5/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_lazy-loading-sotw5_20260106_234737.png"
+    },
+    {
+      "url": "https://sentry.io/resources/what-is-sentry-scouts/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_what-is-sentry-scouts_20260106_234744.png"
+    },
+    {
+      "url": "https://sentry.io/resources/meetup-2024-may-flutter/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_meetup-2024-may-flutter_20260106_234749.png"
+    },
+    {
+      "url": "https://sentry.io/resources/the-future-of-open-source-saas-the-final-frontier/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_the-future-of-open-source-saas-the-final-frontier_20260106_234753.png"
+    },
+    {
+      "url": "https://sentry.io/resources/launch-week-nov23-day2/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_launch-week-nov23-day2_20260106_235418.png"
+    },
+    {
+      "url": "https://sentry.io/resources/improve-performance-and-stability-of-ios-apps/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_improve-performance-and-stability-of-ios-apps_20260106_235422.png"
+    },
+    {
+      "url": "https://sentry.io/resources/launch-week-mar24-day5/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_launch-week-mar24-day5_20260106_235426.png"
+    },
+    {
+      "url": "https://sentry.io/resources/office-hours-with-sentry/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_office-hours-with-sentry_20260106_235442.png"
+    },
+    {
+      "url": "https://sentry.io/solutions/ecommerce/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/solutions_ecommerce_20260106_235447.png"
+    },
+    {
+      "url": "https://sentry.io/for/laravel/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/for_laravel_20260106_235507.png"
+    },
+    {
+      "url": "https://sentry.io/terms/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/terms_20260106_235511.png"
+    },
+    {
+      "url": "https://sentry.io/resources/what-is-distributed-tracing/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_what-is-distributed-tracing_20260106_235724.png"
+    },
+    {
+      "url": "https://sentry.io/resources/code-observability-revolution-shift/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_code-observability-revolution-shift_20260106_235728.png"
+    },
+    {
+      "url": "https://sentry.io/resources/sentry-enterprise/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_sentry-enterprise_20260107_000410.png"
+    },
+    {
+      "url": "https://sentry.io/resources/ama-deep-dive-performance-monitoring/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_ama-deep-dive-performance-monitoring_20260107_000416.png"
+    },
+    {
+      "url": "https://sentry.io/resources/launch-week-mar24-day4/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_launch-week-mar24-day4_20260107_001158.png"
+    },
+    {
+      "url": "https://sentry.io/resources/fetch-feature-flags-faster-sotw2/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_fetch-feature-flags-faster-sotw2_20260107_001202.png"
+    },
+    {
+      "url": "https://sentry.io/security/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/security_20260107_001206.png"
+    },
+    {
+      "url": "https://sentry.io/resources/modern-apm-vs-legacy-monitoring/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_modern-apm-vs-legacy-monitoring_20260107_001212.png"
+    },
+    {
+      "url": "https://sentry.io/for/full-stack/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/for_full-stack_20260107_001600.png"
+    },
+    {
+      "url": "https://sentry.io/resources/tracing-with-smugmug/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_tracing-with-smugmug_20260107_001607.png"
+    },
+    {
+      "url": "https://sentry.io/resources/debug-faster-sentry-ai-live-demo/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_debug-faster-sentry-ai-live-demo_20260107_003159.png"
+    },
+    {
+      "url": "https://sentry.io/resources/suspect-spans-and-caching-sotw3/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_suspect-spans-and-caching-sotw3_20260107_003203.png"
+    },
+    {
+      "url": "https://sentry.io/resources/mobile-maturity-phases-checklist/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_mobile-maturity-phases-checklist_20260107_003208.png"
+    },
+    {
+      "url": "https://sentry.io/resources/python-and-rust-love-story/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_python-and-rust-love-story_20260107_004939.png"
+    },
+    {
+      "url": "https://sentry.io/resources/supabase-sentry-workshop/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_supabase-sentry-workshop_20260107_005001.png"
+    },
+    {
+      "url": "https://sentry.io/resources/pragmatic-saas-architecture/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_pragmatic-saas-architecture_20260107_005008.png"
+    },
+    {
+      "url": "https://sentry.io/resources/performance-issues-ama/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_performance-issues-ama_20260107_010700.png"
+    },
+    {
+      "url": "https://sentry.io/resources/overview-of-cloud-services/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/sentry/resources_overview-of-cloud-services_20260107_012328.png"
+    }
+  ]
+}

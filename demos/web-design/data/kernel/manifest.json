@@ -1,0 +1,106 @@
+{
+  "site": "autumn",
+  "captured_at": "2026-01-06T23:28:13.846242",
+  "screenshots": [
+    {
+      "url": "https://www.kernel.sh/docs",
+      "file": "data/kernel/docs_20260106_232640.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/quickstart",
+      "file": "data/kernel/docs_quickstart_20260106_232644.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/magnitude",
+      "file": "data/kernel/docs_integrations_magnitude_20260106_232647.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/migrations/scrapybara",
+      "file": "data/kernel/docs_migrations_scrapybara_20260106_232651.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/valtown",
+      "file": "data/kernel/docs_integrations_valtown_20260106_232655.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/browsers/playwright-execution",
+      "file": "data/kernel/docs_browsers_playwright-execution_20260106_232659.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/browsers/computer-controls",
+      "file": "data/kernel/docs_browsers_computer-controls_20260106_232704.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/notte",
+      "file": "data/kernel/docs_integrations_notte_20260106_232708.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/browsers/live-view",
+      "file": "data/kernel/docs_browsers_live-view_20260106_232712.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/apps/secrets",
+      "file": "data/kernel/docs_apps_secrets_20260106_232716.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/overview",
+      "file": "data/kernel/docs_integrations_overview_20260106_232719.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/browsers/profiles",
+      "file": "data/kernel/docs_browsers_profiles_20260106_232723.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/browsers/extensions",
+      "file": "data/kernel/docs_browsers_extensions_20260106_232727.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/laminar",
+      "file": "data/kernel/docs_integrations_laminar_20260106_232730.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/browsers/termination",
+      "file": "data/kernel/docs_browsers_termination_20260106_232734.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/apps/deploy",
+      "file": "data/kernel/docs_apps_deploy_20260106_232738.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/browsers/pools",
+      "file": "data/kernel/docs_browsers_pools_20260106_232742.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/browsers/faq",
+      "file": "data/kernel/docs_browsers_faq_20260106_232746.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/vercel/overview",
+      "file": "data/kernel/docs_integrations_vercel_overview_20260106_232749.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/browser-use",
+      "file": "data/kernel/docs_integrations_browser-use_20260106_232753.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/introduction",
+      "file": "data/kernel/docs_introduction_20260106_232757.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/apps/develop",
+      "file": "data/kernel/docs_apps_develop_20260106_232801.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/stagehand",
+      "file": "data/kernel/docs_integrations_stagehand_20260106_232805.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/computer-use/openai",
+      "file": "data/kernel/docs_integrations_computer-use_openai_20260106_232809.png"
+    },
+    {
+      "url": "https://www.kernel.sh/docs/integrations/computer-use/openagi",
+      "file": "data/kernel/docs_integrations_computer-use_openagi_20260106_232813.png"
+    }
+  ]
+}

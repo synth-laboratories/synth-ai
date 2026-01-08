@@ -81,8 +81,27 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     content: "[Events] (e)",
     fg: "#94a3b8",
   })
+  const tabSpacer = new BoxRenderable(renderer, {
+    id: "tabs-spacer",
+    width: 4,
+    height: 1,
+    border: false,
+  })
+  const openCodeTabText = new TextRenderable(renderer, {
+    id: "tabs-opencode",
+    content: "[OpenCode] (g)",
+    fg: "#94a3b8",
+  })
+  const sessionsTabText = new TextRenderable(renderer, {
+    id: "tabs-sessions",
+    content: "[Sessions] (o)",
+    fg: "#64748b",
+  })
   tabsBox.add(jobsTabText)
   tabsBox.add(eventsTabText)
+  tabsBox.add(tabSpacer)
+  tabsBox.add(openCodeTabText)
+  tabsBox.add(sessionsTabText)
   root.add(tabsBox)
 
   const main = new BoxRenderable(renderer, {
@@ -246,6 +265,84 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
   eventsBox.add(eventsList)
   eventsBox.add(eventsEmptyText)
   detailColumn.add(eventsBox)
+
+  // OpenCode pane (alternative to detailColumn when principal pane is "opencode")
+  const openCodePane = new BoxRenderable(renderer, {
+    id: "opencode-pane",
+    width: "auto",
+    height: "auto",
+    flexDirection: "column",
+    flexGrow: 2,
+    flexShrink: 1,
+    border: false,
+    visible: false,
+  })
+  main.add(openCodePane)
+
+  // OpenCode header
+  const openCodeHeader = new BoxRenderable(renderer, {
+    id: "opencode-header",
+    width: "auto",
+    height: 3,
+    borderStyle: "single",
+    borderColor: "#a855f7",
+    title: "OpenCode Agent",
+    titleAlignment: "left",
+    border: true,
+  })
+  const openCodeStatus = new TextRenderable(renderer, {
+    id: "opencode-status",
+    content: "Not connected - Press Ctrl+O for sessions",
+    fg: "#94a3b8",
+  })
+  openCodeHeader.add(openCodeStatus)
+  openCodePane.add(openCodeHeader)
+
+  // OpenCode messages area
+  const openCodeMessages = new BoxRenderable(renderer, {
+    id: "opencode-messages",
+    width: "auto",
+    height: "auto",
+    flexGrow: 1,
+    flexShrink: 1,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Conversation",
+    titleAlignment: "left",
+    border: true,
+  })
+  const openCodeMessagesText = new TextRenderable(renderer, {
+    id: "opencode-messages-text",
+    content: "No messages yet.\n\nConnect to an OpenCode session to start chatting.",
+    fg: "#e2e8f0",
+  })
+  openCodeMessages.add(openCodeMessagesText)
+  openCodePane.add(openCodeMessages)
+
+  // OpenCode input area
+  const openCodeInputBox = new BoxRenderable(renderer, {
+    id: "opencode-input-box",
+    width: "auto",
+    height: 4,
+    borderStyle: "single",
+    borderColor: "#a855f7",
+    title: "Input",
+    titleAlignment: "left",
+    border: true,
+  })
+  const openCodeInput = new InputRenderable(renderer, {
+    id: "opencode-input",
+    width: "auto",
+    height: 1,
+    placeholder: "Type a message and press Enter...",
+    backgroundColor: "#0f172a",
+    focusedBackgroundColor: "#1e293b",
+    textColor: "#e2e8f0",
+    focusedTextColor: "#ffffff",
+    flexGrow: 1,
+  })
+  openCodeInputBox.add(openCodeInput)
+  openCodePane.add(openCodeInputBox)
 
   const statusBox = new BoxRenderable(renderer, {
     id: "status-box",
@@ -957,10 +1054,67 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
   renderer.root.add(taskAppsModalText)
   renderer.root.add(taskAppsModalHint)
 
+  // Sessions modal - for managing OpenCode sessions
+  const sessionsModalBox = new BoxRenderable(renderer, {
+    id: "sessions-modal-box",
+    width: 100,
+    height: 30,
+    position: "absolute",
+    left: "center",
+    top: "center",
+    backgroundColor: "#0b1120",
+    borderStyle: "single",
+    borderColor: "#a855f7",
+    border: true,
+    zIndex: 8,
+  })
+  const sessionsModalTitle = new TextRenderable(renderer, {
+    id: "sessions-modal-title",
+    content: "OpenCode Sessions",
+    fg: "#a855f7",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetY: -14,
+    zIndex: 9,
+  })
+  const sessionsModalText = new TextRenderable(renderer, {
+    id: "sessions-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetX: -45,
+    offsetY: -12,
+    width: 90,
+    height: 24,
+    zIndex: 9,
+  })
+  const sessionsModalHint = new TextRenderable(renderer, {
+    id: "sessions-modal-hint",
+    content: "j/k select | c connect local | d disconnect | y copy URL | r refresh | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetY: 13,
+    zIndex: 9,
+  })
+  sessionsModalBox.visible = false
+  sessionsModalTitle.visible = false
+  sessionsModalText.visible = false
+  sessionsModalHint.visible = false
+  renderer.root.add(sessionsModalBox)
+  renderer.root.add(sessionsModalTitle)
+  renderer.root.add(sessionsModalText)
+  renderer.root.add(sessionsModalHint)
+
   return {
     // Main layout elements
     jobsBox,
     eventsBox,
+    detailColumn,
     jobsSelect,
     detailText,
     resultsText,
@@ -971,9 +1125,20 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     eventsEmptyText,
     jobsTabText,
     eventsTabText,
+    openCodeTabText,
+    sessionsTabText,
     headerMetaText,
     statusText,
     footerText: footerTextNode,
+
+    // OpenCode pane
+    openCodePane,
+    openCodeHeader,
+    openCodeStatus,
+    openCodeMessages,
+    openCodeMessagesText,
+    openCodeInputBox,
+    openCodeInput,
 
     // Snapshot modal
     modalBox,
@@ -1068,6 +1233,13 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
     usageModalText,
     usageModalHint,
     usageModalVisible: false,
+
+    // Sessions modal
+    sessionsModalBox,
+    sessionsModalTitle,
+    sessionsModalText,
+    sessionsModalHint,
+    sessionsModalVisible: false,
 
     // Event cards (dynamically created)
     eventCards: [] as Array<{ box: BoxRenderable; text: TextRenderable }>,

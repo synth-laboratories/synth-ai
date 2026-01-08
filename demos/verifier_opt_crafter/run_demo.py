@@ -394,7 +394,7 @@ async def main():
         backend_url=SYNTH_API_BASE,
         api_key=API_KEY,
         graph_type="verifier",
-        policy_model="gpt-4o-mini",  # Policy model for graph execution
+        policy_models=["gpt-4o-mini"],  # Policy models for graph execution
         verifier_model="gpt-4o-mini",  # Verifier model for scoring traces
         rollout_budget=args.rollout_budget,
         proposer_effort="medium",

@@ -3,8 +3,15 @@
  */
 import type { AppContext } from "../context"
 import type { LoginModalController } from "../login_modal"
-import { setActivePane } from "../ui/panes"
+import { setActivePane, setPrincipalPane } from "../ui/panes"
 import { moveEventSelection, toggleSelectedEventExpanded } from "../ui/events"
+import {
+  scrollOpenCode,
+  sendOpenCodeMessage,
+  handleOpenCodeInput,
+  handleOpenCodeBackspace,
+  renderOpenCodePane,
+} from "../ui/opencode"
 import { refreshJobs, selectJob, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
 import { refreshEvents } from "../api/events"
 import { refreshIdentity } from "../api/identity"
@@ -24,6 +31,7 @@ export type ModalControllers = {
   promptBrowser?: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   taskApps: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
   usage: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => Promise<void> }
+  sessions: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => Promise<void> }
 }
 
 export function createKeyboardHandler(
@@ -42,7 +50,10 @@ export function createKeyboardHandler(
     }
 
     // q/escape closes modals or quits
-    if (key.name === "q" || key.name === "escape") {
+    // In OpenCode view, only escape is handled here (q is typed)
+    const isQuitKey = key.name === "q" || key.name === "escape"
+    const shouldHandleQuit = isQuitKey && !(key.name === "q" && appState.principalPane === "opencode")
+    if (shouldHandleQuit) {
       if (modals.login.isVisible) {
         modals.login.toggle(false)
         return
@@ -95,7 +106,17 @@ export function createKeyboardHandler(
         modals.usage.handleKey(key)
         return
       }
-      // No modal open - quit
+      if (modals.sessions.isVisible) {
+        modals.sessions.handleKey(key)
+        return
+      }
+      // No modal open
+      // In OpenCode view: escape goes back to jobs
+      if (appState.principalPane === "opencode" && key.name === "escape") {
+        setPrincipalPane(ctx, "jobs")
+        return
+      }
+      // Quit
       renderer.stop()
       renderer.destroy()
       process.exit(0)
@@ -158,8 +179,69 @@ export function createKeyboardHandler(
       modals.usage.handleKey(key)
       return
     }
+    if (modals.sessions.isVisible) {
+      modals.sessions.handleKey(key)
+      return
+    }
 
-    // Global shortcuts
+    // Global shortcuts that work in both views
+    // Principal pane toggle (g = opencode view) - only when NOT typing
+    if (key.name === "g" && !key.shift && !key.ctrl && appState.principalPane === "jobs") {
+      setPrincipalPane(ctx, "opencode")
+      return
+    }
+
+    // Sessions modal (o = opencode sessions) - only when NOT typing
+    if (key.name === "o" && !key.shift && !key.ctrl && appState.principalPane === "jobs") {
+      void modals.sessions.open()
+      return
+    }
+
+    // OpenCode pane - typing mode by default
+    // Use Escape to exit to jobs view, Ctrl+G for sessions
+    if (appState.principalPane === "opencode") {
+      // Escape exits to jobs view
+      // (already handled above in q/escape section, but this is a reminder)
+
+      // Ctrl+O opens sessions modal from opencode view
+      if (key.name === "o" && key.ctrl) {
+        void modals.sessions.open()
+        return
+      }
+
+      // Arrow keys scroll the message history
+      if (key.name === "up") {
+        scrollOpenCode(ctx, -3)
+        return
+      }
+      if (key.name === "down") {
+        scrollOpenCode(ctx, 3)
+        return
+      }
+
+      // Enter sends the message
+      if (key.name === "return" || key.name === "enter") {
+        void sendOpenCodeMessage(ctx)
+        return
+      }
+
+      // Backspace deletes characters
+      if (key.name === "backspace") {
+        handleOpenCodeBackspace(ctx)
+        return
+      }
+
+      // All other printable characters go to input
+      if (key.sequence && !key.ctrl && !key.meta && key.sequence.length === 1) {
+        handleOpenCodeInput(ctx, key.sequence)
+        return
+      }
+
+      // Swallow other keys in opencode mode
+      return
+    }
+
+    // Jobs view shortcuts below this point
     if (key.name === "tab") {
       setActivePane(ctx, appState.activePane === "jobs" ? "events" : "jobs")
       return
@@ -172,8 +254,12 @@ export function createKeyboardHandler(
       setActivePane(ctx, "jobs")
       return
     }
-    if (key.name === "r") {
-      void refreshJobs(ctx).then(() => ctx.render())
+    if (key.name === "g") {
+      setPrincipalPane(ctx, "opencode")
+      return
+    }
+    if (key.name === "o") {
+      void modals.sessions.open()
       return
     }
     if (key.name === "l" && !key.shift) {
@@ -187,12 +273,22 @@ export function createKeyboardHandler(
       ctx.render()
       return
     }
-    if (key.name === "f") {
-      modals.filter.open()
-      return
-    }
     if (key.name === "t") {
       modals.settings.open()
+      return
+    }
+    if (key.name === "d") {
+      void modals.usage.open()
+      return
+    }
+
+    // Jobs view shortcuts (only when in jobs principal pane)
+    if (key.name === "r") {
+      void refreshJobs(ctx).then(() => ctx.render())
+      return
+    }
+    if (key.name === "f") {
+      modals.filter.open()
       return
     }
     if (key.name === "i") {
@@ -215,10 +311,6 @@ export function createKeyboardHandler(
       modals.taskApps.open()
       return
     }
-    if (key.name === "d") {
-      void modals.usage.open()
-      return
-    }
     if (key.name === "c") {
       void cancelSelected(ctx).then(() => ctx.render())
       return
@@ -232,7 +324,7 @@ export function createKeyboardHandler(
       return
     }
 
-    // Pane-specific navigation
+    // Jobs/Events pane-specific navigation
     if (appState.activePane === "events") {
       if (key.name === "up" || key.name === "k") {
         moveEventSelection(ctx, -1)

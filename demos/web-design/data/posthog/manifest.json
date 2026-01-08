@@ -1,0 +1,150 @@
+{
+  "site": "posthog",
+  "captured_at": "2026-01-07T00:32:04.379957",
+  "screenshots": [
+    {
+      "url": "https://posthog.com",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/homepage_20260106_233923.png"
+    },
+    {
+      "url": "https://posthog.com/customers",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/customers_20260106_233927.png"
+    },
+    {
+      "url": "https://posthog.com/about",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/about_20260106_233931.png"
+    },
+    {
+      "url": "https://posthog.com/customers/elevenlabs",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/customers_elevenlabs_20260106_233935.png"
+    },
+    {
+      "url": "https://posthog.com/web-analytics",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/web-analytics_20260106_233940.png"
+    },
+    {
+      "url": "https://posthog.com/customers/hasura",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/customers_hasura_20260106_234315.png"
+    },
+    {
+      "url": "https://posthog.com/demo",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/demo_20260106_234323.png"
+    },
+    {
+      "url": "https://posthog.com/session-replay",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/session-replay_20260106_234733.png"
+    },
+    {
+      "url": "https://posthog.com/funnels",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/funnels_20260106_234738.png"
+    },
+    {
+      "url": "https://posthog.com/changelog",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/changelog_20260106_234745.png"
+    },
+    {
+      "url": "https://posthog.com/careers",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/careers_20260106_234751.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/help",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_help_20260106_234756.png"
+    },
+    {
+      "url": "https://posthog.com/teams/experiments",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/teams_experiments_20260106_235418.png"
+    },
+    {
+      "url": "https://posthog.com/data-stack",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/data-stack_20260106_235422.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/people/side-gigs",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_people_side-gigs_20260106_235427.png"
+    },
+    {
+      "url": "https://posthog.com/error-tracking",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/error-tracking_20260106_235442.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/growth/revops/overview",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_growth_revops_overview_20260106_235447.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/people/onboarding",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_people_onboarding_20260106_235450.png"
+    },
+    {
+      "url": "https://posthog.com/talk-to-a-human",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/talk-to-a-human_20260106_235507.png"
+    },
+    {
+      "url": "https://posthog.com/teams/platform-features",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/teams_platform-features_20260106_235511.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/people/compensation",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_people_compensation_20260106_235724.png"
+    },
+    {
+      "url": "https://posthog.com/docs/api",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/docs_api_20260106_235728.png"
+    },
+    {
+      "url": "https://posthog.com/customers/researchgate",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/customers_researchgate_20260107_000410.png"
+    },
+    {
+      "url": "https://posthog.com/experiments",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/experiments_20260107_000417.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/support/support-team",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_support_support-team_20260107_001158.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/growth/marketing/icp",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_growth_marketing_icp_20260107_001203.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/exec/annual-planning",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_exec_annual-planning_20260107_001209.png"
+    },
+    {
+      "url": "https://posthog.com/docs/cdp/batch-exports",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/docs_cdp_batch-exports_20260107_001214.png"
+    },
+    {
+      "url": "https://posthog.com/teams/clickhouse",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/teams_clickhouse_20260107_001219.png"
+    },
+    {
+      "url": "https://posthog.com/community/profiles/39146",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/community_profiles_39146_20260107_001555.png"
+    },
+    {
+      "url": "https://posthog.com/handbook/company/communication",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/handbook_company_communication_20260107_001601.png"
+    },
+    {
+      "url": "https://posthog.com/teams/data-stack",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/teams_data-stack_20260107_001607.png"
+    },
+    {
+      "url": "https://posthog.com/pricing",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/pricing_20260107_001613.png"
+    },
+    {
+      "url": "https://posthog.com/teams/support",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/teams_support_20260107_003136.png"
+    },
+    {
+      "url": "https://posthog.com/docs/data-warehouse/sources/linkedin-ads",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/docs_data-warehouse_sources_linkedin-ads_20260107_003200.png"
+    },
+    {
+      "url": "https://posthog.com/community/profiles/36240",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/posthog/community_profiles_36240_20260107_003204.png"
+    }
+  ]
+}

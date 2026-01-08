@@ -63,6 +63,11 @@ export const backendKeySources: Record<BackendId, BackendKeySource> = {
 // Mutable app state
 export const appState = {
   currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod") as BackendId,
+
+  // Principal pane (top-level view: jobs monitor vs opencode agent)
+  principalPane: "jobs" as "jobs" | "opencode",
+
+  // Active sub-pane (within jobs principal pane)
   activePane: "jobs" as "jobs" | "events",
   healthStatus: "unknown",
   autoSelected: false,
@@ -108,6 +113,24 @@ export const appState = {
 
   // Usage modal state
   usageModalOffset: 0,
+
+  // Sessions modal state
+  sessionsModalOffset: 0,
+  sessionsModalSelectedIndex: 0,
+
+  // OpenCode state
+  openCodeSessionId: null as string | null,
+  openCodeMessages: [] as Array<{
+    id: string
+    role: "user" | "assistant" | "tool"
+    content: string
+    timestamp: Date
+    toolName?: string
+    toolStatus?: "pending" | "running" | "completed" | "failed"
+  }>,
+  openCodeScrollOffset: 0,
+  openCodeInputValue: "",
+  openCodeIsProcessing: false,
 
   // Request tokens for cancellation
   jobSelectToken: 0,

@@ -1,0 +1,166 @@
+{
+  "site": "render",
+  "captured_at": "2026-01-06T23:33:35.787538",
+  "screenshots": [
+    {
+      "url": "https://render.com",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/homepage_20260106_233051.png"
+    },
+    {
+      "url": "https://render.com/",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/homepage_20260106_233055.png"
+    },
+    {
+      "url": "https://render.com/docs/disks",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_disks_20260106_233059.png"
+    },
+    {
+      "url": "https://render.com/docs/ddos-protection",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_ddos-protection_20260106_233103.png"
+    },
+    {
+      "url": "https://render.com/docs/github",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_github_20260106_233108.png"
+    },
+    {
+      "url": "https://render.com/docs/notifications",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_notifications_20260106_233112.png"
+    },
+    {
+      "url": "https://render.com/contact",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/contact_20260106_233116.png"
+    },
+    {
+      "url": "https://render.com/docs/configure-environment-variables",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_configure-environment-variables_20260106_233120.png"
+    },
+    {
+      "url": "https://render.com/docs/service-previews",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_service-previews_20260106_233124.png"
+    },
+    {
+      "url": "https://render.com/docs/preview-environments",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_preview-environments_20260106_233129.png"
+    },
+    {
+      "url": "https://render.com/docs/websocket",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_websocket_20260106_233134.png"
+    },
+    {
+      "url": "https://render.com/docs/metrics-streams",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_metrics-streams_20260106_233138.png"
+    },
+    {
+      "url": "https://render.com/docs/multi-service-architecture",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_multi-service-architecture_20260106_233143.png"
+    },
+    {
+      "url": "https://render.com/docs/ssh",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_ssh_20260106_233147.png"
+    },
+    {
+      "url": "https://render.com/docs/private-network",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_private-network_20260106_233152.png"
+    },
+    {
+      "url": "https://render.com/docs/tls",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_tls_20260106_233156.png"
+    },
+    {
+      "url": "https://render.com/docs/postgresql-credentials",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_postgresql-credentials_20260106_233159.png"
+    },
+    {
+      "url": "https://render.com/docs/private-services",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_private-services_20260106_233203.png"
+    },
+    {
+      "url": "https://render.com/docs/workflows-tutorial",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_workflows-tutorial_20260106_233208.png"
+    },
+    {
+      "url": "https://render.com/docs/postgresql-high-availability",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_postgresql-high-availability_20260106_233211.png"
+    },
+    {
+      "url": "https://render.com/docs/private-link",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_private-link_20260106_233216.png"
+    },
+    {
+      "url": "https://render.com/docs/shared-responsibility-model",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_shared-responsibility-model_20260106_233220.png"
+    },
+    {
+      "url": "https://render.com/docs/postgresql-refresh",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_postgresql-refresh_20260106_233224.png"
+    },
+    {
+      "url": "https://render.com/docs/enterprise-orgs",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_enterprise-orgs_20260106_233228.png"
+    },
+    {
+      "url": "https://render.com/about",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/about_20260106_233232.png"
+    },
+    {
+      "url": "https://render.com/privacy",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/privacy_20260106_233236.png"
+    },
+    {
+      "url": "https://render.com/docs/service-metrics",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_service-metrics_20260106_233240.png"
+    },
+    {
+      "url": "https://render.com/docs/deploying-an-image",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_deploying-an-image_20260106_233244.png"
+    },
+    {
+      "url": "https://render.com/customers",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/customers_20260106_233249.png"
+    },
+    {
+      "url": "https://render.com/deploy-docker",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/deploy-docker_20260106_233254.png"
+    },
+    {
+      "url": "https://render.com/deploy-docker/maven",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/deploy-docker_maven_20260106_233258.png"
+    },
+    {
+      "url": "https://render.com/docs/postgresql",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_postgresql_20260106_233304.png"
+    },
+    {
+      "url": "https://render.com/blog/postgresql-slow-query-to-fast-via-stats",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/blog_postgresql-slow-query-to-fast-via-stats_20260106_233308.png"
+    },
+    {
+      "url": "https://render.com/docs/penetration-testing",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_penetration-testing_20260106_233313.png"
+    },
+    {
+      "url": "https://render.com/docs/gitlab",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_gitlab_20260106_233317.png"
+    },
+    {
+      "url": "https://render.com/careers",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/careers_20260106_233320.png"
+    },
+    {
+      "url": "https://render.com/docs/valkey-faq",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_valkey-faq_20260106_233324.png"
+    },
+    {
+      "url": "https://render.com/docs/postgresql-creating-connecting",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_postgresql-creating-connecting_20260106_233327.png"
+    },
+    {
+      "url": "https://render.com/docs/professional-features",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_professional-features_20260106_233332.png"
+    },
+    {
+      "url": "https://render.com/docs/quotaguard",
+      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/render/docs_quotaguard_20260106_233335.png"
+    }
+  ]
+}

@@ -31,6 +31,11 @@ OPENAI_SUPPORTED_MODELS = {
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",
+    # OpenAI Image Generation Models
+    "gpt-image-1.5",
+    "gpt-image-1",
+    "gpt-image-1-mini",
+    "chatgpt-image-latest",
     # Explicitly EXCLUDED: "gpt-5-pro" - too expensive
 }
 
@@ -55,6 +60,8 @@ GOOGLE_SUPPORTED_MODELS = {
     "gemini-2.5-pro-gt200k",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
+    "gemini-2.5-flash-image",  # Image generation model
+    "gemini-3-pro-image-preview",  # Gemini 3 pro image generation model
 }
 
 
@@ -322,6 +329,7 @@ def _validate_model_for_provider(model: str, provider: str, field_name: str, *, 
                 f"    - gpt-4o-mini\n"
                 f"    - gpt-4.1, gpt-4.1-mini, gpt-4.1-nano\n"
                 f"    - gpt-5, gpt-5-mini, gpt-5-nano\n"
+                f"    - Image generation: gpt-image-1.5, gpt-image-1, gpt-image-1-mini, chatgpt-image-latest\n"
                 f"  Note: gpt-5-pro is excluded (too expensive)\n"
                 f"  Got: '{model}'"
             )
@@ -345,6 +353,7 @@ def _validate_model_for_provider(model: str, provider: str, field_name: str, *, 
                 f"    - gemini-2.5-pro, gemini-2.5-pro-gt200k\n"
                 f"    - gemini-2.5-flash\n"
                 f"    - gemini-2.5-flash-lite\n"
+                f"    - Image generation: gemini-2.5-flash-image, gemini-3-pro-image-preview\n"
                 f"  Got: '{model}'"
             )
     else:

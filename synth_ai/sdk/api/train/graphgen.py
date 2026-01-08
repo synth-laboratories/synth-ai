@@ -26,7 +26,7 @@ Example SDK usage:
         tasks=[GraphGenTask(id="t1", input={"question": "What is 2+2?"})],
         gold_outputs=[GraphGenGoldOutput(output={"answer": "4"}, task_id="t1")],
     )
-    job = GraphGenJob.from_dataset(dataset, policy_model="gpt-4o-mini")
+    job = GraphGenJob.from_dataset(dataset, policy_models="gpt-4o-mini")
     job.submit()
 """
 
@@ -37,7 +37,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Literal, Optional, Sequence
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence
 
 from synth_ai.core.telemetry import log_info
 
@@ -78,7 +78,7 @@ class GraphGenSubmitResult:
     dataset_name: str
     task_count: int
     rollout_budget: int
-    policy_model: str
+    policy_models: List[str]
     judge_mode: str
     graph_evolve_job_id: Optional[str] = None
 
@@ -103,7 +103,7 @@ class GraphGenJob:
         >>> # Create job from dataset file
         >>> job = GraphGenJob.from_dataset(
         ...     dataset="my_tasks.json",
-        ...     policy_model="gpt-4o-mini",
+        ...     policy_models="gpt-4o-mini",
         ...     rollout_budget=100,
         ... )
         >>>
@@ -156,7 +156,7 @@ class GraphGenJob:
         cls,
         dataset: str | Path | Dict[str, Any] | GraphGenTaskSet,
         *,
-        policy_model: str = "gpt-4o-mini",
+        policy_models: str | List[str],
         rollout_budget: int = 100,
         proposer_effort: Literal["low", "medium", "high"] = "medium",
         judge_model: Optional[str] = None,
@@ -174,7 +174,8 @@ class GraphGenJob:
 
         Args:
             dataset: Dataset as file path, dict, or GraphGenTaskSet object
-            policy_model: Model to use for policy inference
+            policy_models: Model(s) to use for policy inference. Can be a single string
+                (will be converted to a one-element list) or a list of strings.
             rollout_budget: Total number of rollouts for optimization
             proposer_effort: Proposer effort level (low, medium, high)
             judge_model: Override judge model from dataset
@@ -194,8 +195,11 @@ class GraphGenJob:
             GraphGenJob instance
 
         Example:
-            >>> # From file
-            >>> job = GraphGenJob.from_dataset("tasks.json")
+            >>> # From file with single model
+            >>> job = GraphGenJob.from_dataset("tasks.json", policy_models="gpt-4o-mini")
+            >>>
+            >>> # From file with multiple models
+            >>> job = GraphGenJob.from_dataset("tasks.json", policy_models=["gpt-4o-mini", "gpt-4.1-mini"])
             >>>
             >>> # From dict
             >>> job = GraphGenJob.from_dataset({
@@ -205,7 +209,7 @@ class GraphGenJob:
             ... })
             >>>
             >>> # From GraphGenTaskSet object
-            >>> job = GraphGenJob.from_dataset(my_taskset, policy_model="gpt-4o")
+            >>> job = GraphGenJob.from_dataset(my_taskset, policy_models=["gpt-4o"])
         """
         from synth_ai.core.env import get_backend_from_env
 
@@ -236,9 +240,18 @@ class GraphGenJob:
                     "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
+        # Normalize policy_models: convert single string to list
+        if isinstance(policy_models, str):
+            policy_models_list = [policy_models]
+        else:
+            policy_models_list = list(policy_models)
+        
+        if not policy_models_list:
+            raise ValueError("policy_models must contain at least one model")
+        
         # Build config
         config = GraphGenJobConfig(
-            policy_model=policy_model,
+            policy_models=policy_models_list,
             rollout_budget=rollout_budget,
             proposer_effort=proposer_effort,
             verifier_model=judge_model,
@@ -297,13 +310,12 @@ class GraphGenJob:
         from .graphgen_models import GraphGenTaskSetMetadata, GraphGenTask
         placeholder_dataset = GraphGenTaskSet(
             metadata=GraphGenTaskSetMetadata(name="(resumed job)"),
-            initial_prompt="(resumed job)",
             tasks=[GraphGenTask(id="placeholder", input={})],
         )
 
         job = cls(
             dataset=placeholder_dataset,
-            config=GraphGenJobConfig(),
+            config=GraphGenJobConfig(policy_models=["(resumed)"]),  # Placeholder, will be fetched from backend
             backend_url=backend_url,
             api_key=api_key,
             auto_start=False,
@@ -377,7 +389,7 @@ class GraphGenJob:
         payload: Dict[str, Any] = {
             "dataset": dataset_dict,
             "initial_prompt": None,  # Top-level initial_prompt is ignored in favor of dataset.initial_prompt
-            "policy_model": self.config.policy_model,
+            "policy_models": self.config.policy_models,
             "policy_provider": self.config.policy_provider,
             "rollout_budget": self.config.rollout_budget,
             "proposer_effort": self.config.proposer_effort,
@@ -480,13 +492,23 @@ class GraphGenJob:
         if not judge_mode:
             judge_mode = "rubric"  # Default fallback
         
+        # Extract policy_models from response (backend may return policy_model for backward compat)
+        policy_models_response = js.get("policy_models")
+        if not policy_models_response:
+            # Backward compatibility: if backend returns policy_model, convert to list
+            policy_model_single = js.get("policy_model")
+            if policy_model_single:
+                policy_models_response = [policy_model_single]
+            else:
+                policy_models_response = self.config.policy_models
+        
         self._submit_result = GraphGenSubmitResult(
             graphgen_job_id=self._graphgen_job_id,
             status=js.get("status", "queued"),
             dataset_name=js.get("dataset_name", self.dataset.metadata.name),
             task_count=js.get("task_count", len(self.dataset.tasks)),
             rollout_budget=js.get("rollout_budget", self.config.rollout_budget),
-            policy_model=js.get("policy_model", self.config.policy_model),
+            policy_models=policy_models_response,
             judge_mode=judge_mode,
             graph_evolve_job_id=self._graph_evolve_job_id,
         )

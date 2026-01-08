@@ -7,7 +7,8 @@ import { formatDetails, formatMetrics, formatResults } from "../formatters"
 import { extractEnvName } from "../utils/job"
 import { getFilteredJobs } from "../selectors/jobs"
 import { renderEventCards } from "./events"
-import { updatePaneIndicators } from "./panes"
+import { updatePaneIndicators, updatePrincipalIndicators } from "./panes"
+import { renderOpenCodePane } from "./opencode"
 import { footerText, formatHeaderMeta, formatStatus } from "./text"
 
 export function renderApp(ctx: AppContext): void {
@@ -48,6 +49,13 @@ export function renderApp(ctx: AppContext): void {
   ui.taskAppsBox.visible = false
   renderEventCards(ctx)
   updatePaneIndicators(ctx)
+  updatePrincipalIndicators(ctx)
+
+  // Render OpenCode pane if active
+  if (appState.principalPane === "opencode") {
+    renderOpenCodePane(ctx)
+  }
+
   ui.headerMetaText.content = formatHeaderMeta(ctx)
   ui.statusText.content = formatStatus(ctx)
   ui.footerText.content = footerText(ctx)

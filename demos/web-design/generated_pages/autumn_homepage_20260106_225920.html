@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autumn: AI Pricing Simplified</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f9f9f9;
+            line-height: 1.6;
+        }
+
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Header */
+        header {
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header nav a {
+            margin-left: 20px;
+            color: #555;
+        }
+
+        /* Hero Section */
+        .hero {
+            background-color: #f0f8ff;
+            padding: 80px 20px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: #222;
+        }
+
+        .hero p {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .hero button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 0 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        .hero button:hover {
+            background-color: #0056b3;
+        }
+
+        .hero .ycombinator {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #888;
+        }
+
+       .hero .code-snippets {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .hero .code-snippet {
+            background-color: #eef;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.8em;
+            overflow: auto;
+            margin: 0 10px;
+        }
+
+        .hero .popup {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .hero .popup h3 {
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .hero .popup p {
+            font-size: 0.9em;
+            color: #555;
+        }
+
+
+        /* Usage Examples */
+        .usage-examples {
+            padding: 60px 20px;
+            text-align: center;
+            background-color: #fff;
+        }
+
+        .usage-examples h2 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            color: #222;
+        }
+
+        .usage-examples .steps {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 40px;
+        }
+
+        .usage-examples .step {
+            width: 30%;
+            min-width: 250px;
+            text-align: left;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .usage-examples .step h3 {
+            font-size: 1.4em;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .usage-examples .step p {
+            font-size: 1em;
+            color: #555;
+        }
+
+       .usage-examples .code-example {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+
+        .usage-examples .code-snippet {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.8em;
+            overflow: auto;
+            margin: 0 10px;
+            text-align: left;
+        }
+
+        .usage-examples .expand-code {
+            margin-top: 20px;
+            color: #007bff;
+            cursor: pointer;
+        }
+
+        .usage-examples .expand-code:hover {
+            text-decoration: underline;
+        }
+
+        /* Features */
+        .features {
+            padding: 60px 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+
+        .features h2 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #222;
+        }
+
+        .features p {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        /* Testimonials */
+        .testimonials {
+            padding: 60px 20px;
+            text-align: center;
+            background-color: #fff;
+        }
+
+        .testimonials h2 {
+            font-size: 2.5em;
+            margin-bottom: 40px;
+            color: #222;
+        }
+
+        .testimonials .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .testimonials .testimonial {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .testimonials .testimonial p {
+            font-style: italic;
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        .testimonials .testimonial cite {
+            font-size: 0.9em;
+            color: #777;
+        }
+
+        /* Pricing Plans */
+        .pricing-plans {
+            padding: 60px 20px;
+            text-align: center;
+            background-color: #f0f8ff;
+        }
+
+        .pricing-plans h2 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #222;
+        }
+
+        .pricing-plans p {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .pricing-plans .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .pricing-plans .plan {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+
+        .pricing-plans .plan h3 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .pricing-plans .plan .price {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+
+        .pricing-plans .plan ul {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 25px;
+        }
+
+        .pricing-plans .plan ul li {
+            font-size: 1em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .pricing-plans .plan button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        .pricing-plans .plan button:hover {
+            background-color: #0056b3;
+        }
+
+        .pricing-plans .disclaimer {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #777;
+        }
+
+        /* Footer */
+        footer {
+            background-color: #333;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        footer a {
+            color: #fff;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            header nav {
+                margin-top: 10px;
+            }
+
+            header nav a {
+                margin-left: 0;
+                margin-right: 15px;
+            }
+
+            .hero h1 {
+                font-size: 2.5em;
+            }
+
+            .hero p {
+                font-size: 1.1em;
+            }
+
+            .hero .code-snippets {
+                flex-direction: column;
+            }
+
+            .hero .code-snippet {
+                margin: 10px 0;
+            }
+
+            .usage-examples .steps {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .usage-examples .step {
+                width: 80%;
+            }
+
+            .pricing-plans .plans-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <a href="#">Autumn</a>
+        </div>
+        <nav>
+            <a href="#">Github 2K</a>
+            <a href="#">Discord</a>
+            <a href="#">Blog</a>
+            <a href="#">Docs</a>
+            <a href="#">Dashboard</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>Credits, limits and usage billing. We make AI pricing easy.</h1>
+        <p>Simplify pricing plans and Stripe subscriptions. Stop wrangling complex spreadsheets and start building.</p>
+        <div>
+            <button>Start for free</button>
+            <button>Read docs</button>
+        </div>
+        <p class="ycombinator">Backed by Y Combinator</p>
+
+       <div class="code-snippets">
+            <div class="code-snippet">
+                autumn.config.ts
+            </div>
+            <div class="code-snippet">
+                stripe.ts
+            </div>
+        </div>
+
+        <div class="popup">
+            <h3>Pro</h3>
+            <p>Usage: 500 API calls</p>
+        </div>
+    </section>
+
+    <section class="usage-examples">
+        <h2>How it works</h2>
+        <div class="steps">
+            <div class="step">
+                <h3>Handle any payment with one function</h3>
+                <p>Accept one-time payments, subscriptions, or usage-based billing with a single function call.</p>
+            </div>
+            <div class="step">
+                <h3>Usage tracking, limits and billing</h3>
+                <p>Track feature usage, set limits, and automatically bill users based on consumption.</p>
+            </div>
+            <div class="step">
+                <h3>No webhooks required, just check for feature access</h3>
+                <p>Simplify your backend by eliminating the need for complex webhook handling.</p>
+            </div>
+        </div>
+        <div class="code-example">
+            <div class="code-snippet">
+                Stripe without Autumn
+            </div>
+            <div class="code-snippet">
+                Stripe with Autumn
+            </div>
+        </div>
+        <div class="expand-code">Expand code</div>
+    </section>
+
+    <section class="features">
+        <h2>Everything you'll need</h2>
+        <p>Autumn is packed with features out of the box, allowing you to change pricing without touching code.</p>
+    </section>
+
+    <section class="testimonials">
+        <h2>Founders love Autumn</h2>
+        <div class="testimonials-grid">
+            <div class="testimonial">
+                <p>"Autumn has completely streamlined our billing process. It's so much easier to manage pricing now!"</p>
+                <cite>John Doe, CEO of Acme Corp</cite>
+            </div>
+            <div class="testimonial">
+                <p>"I can't believe how much time we save using Autumn. No more messy spreadsheets!"</p>
+                <cite>Jane Smith, Founder of Beta Co</cite>
+            </div>
+        </div>
+    </section>
+
+    <section class="pricing-plans">
+        <h2>Start for Free</h2>
+        <p>Our pricing is simple and transparent. Choose the plan that fits your needs.</p>
+        <div class="plans-grid">
+            <div class="plan">
+                <h3>Builder</h3>
+                <div class="price">Free</div>
+                <ul>
+                    <li>Free until $8K monthly revenue</li>
+                    <li>Up to $8K processed monthly</li>
+                    <li>Support for 10 products</li>
+                    <li>Discord support</li>
+                </ul>
+                <button>Start for free</button>
+            </div>
+            <div class="plan">
+                <h3>Startup</h3>
+                <div class="price">$375 per month</div>
+                <ul>
+                    <li>For $8K-$50K monthly revenue</li>
+                    <li>Up to $50K processed monthly</li>
+                    <li>Unlimited products</li>
+                    <li>Slack support</li>
+                </ul>
+                <button>Get started</button>
+            </div>
+            <div class="plan">
+                <h3>Growth</h3>
+                <div class="price">Custom</div>
+                <ul>
+                    <li>For $50K+ MRR</li>
+                    <li>Over $50K MRR processed</li>
+                    <li>Unlimited products</li>
+                    <li>Slack support</li>
+                </ul>
+                <button>Let's chat</button>
+            </div>
+        </div>
+        <p class="disclaimer">Stripe Billing fees apply.</p>
+    </section>
+
+    <footer>
+        San Francisco & London | <a href="#">Privacy Policy</a>
+    </footer>
+
+</body>
+</html>

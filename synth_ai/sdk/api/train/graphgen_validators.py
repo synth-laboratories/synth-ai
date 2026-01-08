@@ -41,25 +41,35 @@ def validate_graphgen_job_config(config: GraphGenJobConfig, dataset: GraphGenTas
     """Validate an GraphGen job config + dataset before submission."""
     errors: List[Dict[str, Any]] = []
 
-    # Policy model
-    policy_model = (config.policy_model or "").strip()
-    if not policy_model:
+    # Policy models
+    if not config.policy_models:
         errors.append(
             {
-                "field": "policy_model",
-                "error": "policy_model is required",
+                "field": "policy_models",
+                "error": "policy_models is required",
                 "suggestion": f"Supported models: {sorted(SUPPORTED_POLICY_MODELS)}",
             }
         )
-    elif policy_model not in SUPPORTED_POLICY_MODELS:
-        errors.append(
-            {
-                "field": "policy_model",
-                "error": f"Unsupported policy model: {policy_model}",
-                "suggestion": f"Supported models: {sorted(SUPPORTED_POLICY_MODELS)}",
-                "similar": _find_similar_models(policy_model, SUPPORTED_POLICY_MODELS),
-            }
-        )
+    else:
+        for policy_model in config.policy_models:
+            policy_model_clean = (policy_model or "").strip()
+            if not policy_model_clean:
+                errors.append(
+                    {
+                        "field": "policy_models",
+                        "error": "policy_models contains empty value",
+                        "suggestion": f"Supported models: {sorted(SUPPORTED_POLICY_MODELS)}",
+                    }
+                )
+            elif policy_model_clean not in SUPPORTED_POLICY_MODELS:
+                errors.append(
+                    {
+                        "field": "policy_models",
+                        "error": f"Unsupported policy model: {policy_model_clean}",
+                        "suggestion": f"Supported models: {sorted(SUPPORTED_POLICY_MODELS)}",
+                        "similar": _find_similar_models(policy_model_clean, SUPPORTED_POLICY_MODELS),
+                    }
+                )
 
     # Proposer effort
     if config.proposer_effort not in ("low", "medium", "high"):

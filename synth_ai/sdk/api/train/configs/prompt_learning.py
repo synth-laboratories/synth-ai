@@ -102,8 +102,12 @@ class ProviderName(str, Enum):
 
 
 class PromptLearningPolicyConfig(ExtraModel):
-    """Policy configuration for prompt learning (model, provider, etc.)."""
-    model: str
+    """Policy configuration for prompt learning (provider, temperature, etc.).
+
+    Note: The 'model' field has been removed. The model is detected from actual
+    LLM calls made by the task app during rollouts. This allows multi-stage task
+    apps to use different models per stage without config mismatches.
+    """
     provider: ProviderName
     inference_url: str | None = None  # Optional - trainer provides it in rollout requests (ignored if present)
     inference_mode: InferenceMode = InferenceMode.synth_hosted
@@ -158,9 +162,10 @@ class MIPROMetaConfig(ExtraModel):
 
 class MIPROStageConfig(ExtraModel):
     """Configuration for a single MIPRO stage inside a module.
-    
+
     Each stage MUST have its own policy configuration. The policy field is required
-    and must include 'model' and 'provider' fields.
+    and must include 'provider' field. The 'model' field is optional - if not specified,
+    the model will be detected from actual LLM calls made during rollouts.
     """
     stage_id: str
     baseline_instruction: str
@@ -169,7 +174,7 @@ class MIPROStageConfig(ExtraModel):
     max_demo_slots: int | None = None
     policy: PromptLearningPolicyConfig | dict[str, Any] = Field(
         ...,
-        description="Required per-stage policy configuration. Must include 'model' and 'provider' fields."
+        description="Required per-stage policy configuration. Must include 'provider' field. 'model' is optional."
     )
 
 
@@ -833,7 +838,6 @@ class MIPROConfig(ExtraModel):
         batch_size: int | None = None,
         max_concurrent: int | None = None,
         meta_preset: Literal["fast", "balanced", "high_quality"] = "balanced",
-        policy_model: str = "openai/gpt-oss-20b",
         policy_provider: str = "groq",
         policy_temperature: float = 1.0,
         policy_max_completion_tokens: int = 512,
@@ -875,11 +879,21 @@ class MIPROConfig(ExtraModel):
             meta_config.provider = meta_provider
         if meta_inference_url is not None:
             meta_config.inference_url = meta_inference_url
-        
+
+        # Build stage policy config (model is detected from actual LLM calls)
+        stage_policy_config: dict[str, Any] = {
+            "provider": policy_provider,
+            "temperature": policy_temperature,
+            "max_completion_tokens": policy_max_completion_tokens,
+        }
+        if policy_name:
+            stage_policy_config["policy_name"] = policy_name
+
         stage = MIPROStageConfig(
             stage_id="default_stage_0",
             baseline_instruction=baseline_instruction,
             baseline_messages=normalized_messages,
+            policy=stage_policy_config,
         )
         module = MIPROModuleConfig(
             module_id="default",
@@ -891,14 +905,7 @@ class MIPROConfig(ExtraModel):
             test=tests,
             reference=reference,
         )
-        policy_config = {
-            "model": policy_model,
-            "provider": policy_provider,
-            "temperature": policy_temperature,
-            "max_completion_tokens": policy_max_completion_tokens,
-        }
-        if policy_name:
-            policy_config["policy_name"] = policy_name
+        policy_config = stage_policy_config  # Reuse same config
         
         return cls(
             task_app_url=task_app_url,
@@ -1141,9 +1148,10 @@ class GEPATokenConfig(ExtraModel):
 
 class GEPAModuleConfig(ExtraModel):
     """Configuration for a single GEPA pipeline module/stage (instruction-only).
-    
+
     Each module MUST have its own policy configuration. The policy field is required
-    and must include 'model' and 'provider' fields.
+    and must include 'provider' field. The 'model' field is optional - if not specified,
+    the model will be detected from actual LLM calls made during rollouts.
     """
     module_id: str
     max_instruction_slots: int = 3
@@ -1151,7 +1159,7 @@ class GEPAModuleConfig(ExtraModel):
     max_tokens: int | None = None
     policy: PromptLearningPolicyConfig | dict[str, Any] = Field(
         ...,
-        description="Required per-module policy configuration. Must include 'model' and 'provider' fields."
+        description="Required per-module policy configuration. Must include 'provider' field. 'model' is optional."
     )
     
     @field_validator("module_id")
@@ -1176,8 +1184,7 @@ class GEPAModuleConfig(ExtraModel):
         if v is None:
             raise ValueError("policy is required for each module/stage")
         if isinstance(v, dict):
-            if not v.get("model"):
-                raise ValueError("policy must include 'model' field")
+            # Note: 'model' is optional - will be detected from actual LLM calls
             if not v.get("provider"):
                 raise ValueError("policy must include 'provider' field")
             return v

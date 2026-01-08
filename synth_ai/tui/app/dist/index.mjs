@@ -19048,6 +19048,7 @@ var init_app_state = __esm(() => {
   };
   appState = {
     currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod"),
+    principalPane: "jobs",
     activePane: "jobs",
     healthStatus: "unknown",
     autoSelected: false,
@@ -19077,6 +19078,13 @@ var init_app_state = __esm(() => {
     taskAppsModalOffset: 0,
     taskAppsModalSelectedIndex: 0,
     usageModalOffset: 0,
+    sessionsModalOffset: 0,
+    sessionsModalSelectedIndex: 0,
+    openCodeSessionId: null,
+    openCodeMessages: [],
+    openCodeScrollOffset: 0,
+    openCodeInputValue: "",
+    openCodeIsProcessing: false,
     jobSelectToken: 0,
     eventsToken: 0
   };
@@ -19230,8 +19238,27 @@ function buildLayout(renderer, getFooterText) {
     content: "[Events] (e)",
     fg: "#94a3b8"
   });
+  const tabSpacer = new BoxRenderable(renderer, {
+    id: "tabs-spacer",
+    width: 4,
+    height: 1,
+    border: false
+  });
+  const openCodeTabText = new TextRenderable(renderer, {
+    id: "tabs-opencode",
+    content: "[OpenCode] (g)",
+    fg: "#94a3b8"
+  });
+  const sessionsTabText = new TextRenderable(renderer, {
+    id: "tabs-sessions",
+    content: "[Sessions] (o)",
+    fg: "#64748b"
+  });
   tabsBox.add(jobsTabText);
   tabsBox.add(eventsTabText);
+  tabsBox.add(tabSpacer);
+  tabsBox.add(openCodeTabText);
+  tabsBox.add(sessionsTabText);
   root.add(tabsBox);
   const main2 = new BoxRenderable(renderer, {
     id: "main",
@@ -19386,6 +19413,78 @@ function buildLayout(renderer, getFooterText) {
   eventsBox.add(eventsList);
   eventsBox.add(eventsEmptyText);
   detailColumn.add(eventsBox);
+  const openCodePane = new BoxRenderable(renderer, {
+    id: "opencode-pane",
+    width: "auto",
+    height: "auto",
+    flexDirection: "column",
+    flexGrow: 2,
+    flexShrink: 1,
+    border: false,
+    visible: false
+  });
+  main2.add(openCodePane);
+  const openCodeHeader = new BoxRenderable(renderer, {
+    id: "opencode-header",
+    width: "auto",
+    height: 3,
+    borderStyle: "single",
+    borderColor: "#a855f7",
+    title: "OpenCode Agent",
+    titleAlignment: "left",
+    border: true
+  });
+  const openCodeStatus = new TextRenderable(renderer, {
+    id: "opencode-status",
+    content: "Not connected - Press Ctrl+O for sessions",
+    fg: "#94a3b8"
+  });
+  openCodeHeader.add(openCodeStatus);
+  openCodePane.add(openCodeHeader);
+  const openCodeMessages = new BoxRenderable(renderer, {
+    id: "opencode-messages",
+    width: "auto",
+    height: "auto",
+    flexGrow: 1,
+    flexShrink: 1,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Conversation",
+    titleAlignment: "left",
+    border: true
+  });
+  const openCodeMessagesText = new TextRenderable(renderer, {
+    id: "opencode-messages-text",
+    content: `No messages yet.
+
+Connect to an OpenCode session to start chatting.`,
+    fg: "#e2e8f0"
+  });
+  openCodeMessages.add(openCodeMessagesText);
+  openCodePane.add(openCodeMessages);
+  const openCodeInputBox = new BoxRenderable(renderer, {
+    id: "opencode-input-box",
+    width: "auto",
+    height: 4,
+    borderStyle: "single",
+    borderColor: "#a855f7",
+    title: "Input",
+    titleAlignment: "left",
+    border: true
+  });
+  const openCodeInput = new InputRenderable(renderer, {
+    id: "opencode-input",
+    width: "auto",
+    height: 1,
+    placeholder: "Type a message and press Enter...",
+    backgroundColor: "#0f172a",
+    focusedBackgroundColor: "#1e293b",
+    textColor: "#e2e8f0",
+    focusedTextColor: "#ffffff",
+    flexGrow: 1
+  });
+  openCodeInputBox.add(openCodeInput);
+  openCodePane.add(openCodeInputBox);
   const statusBox = new BoxRenderable(renderer, {
     id: "status-box",
     width: "auto",
@@ -20068,9 +20167,64 @@ function buildLayout(renderer, getFooterText) {
   renderer.root.add(taskAppsModalTitle);
   renderer.root.add(taskAppsModalText);
   renderer.root.add(taskAppsModalHint);
+  const sessionsModalBox = new BoxRenderable(renderer, {
+    id: "sessions-modal-box",
+    width: 100,
+    height: 30,
+    position: "absolute",
+    left: "center",
+    top: "center",
+    backgroundColor: "#0b1120",
+    borderStyle: "single",
+    borderColor: "#a855f7",
+    border: true,
+    zIndex: 8
+  });
+  const sessionsModalTitle = new TextRenderable(renderer, {
+    id: "sessions-modal-title",
+    content: "OpenCode Sessions",
+    fg: "#a855f7",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetY: -14,
+    zIndex: 9
+  });
+  const sessionsModalText = new TextRenderable(renderer, {
+    id: "sessions-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetX: -45,
+    offsetY: -12,
+    width: 90,
+    height: 24,
+    zIndex: 9
+  });
+  const sessionsModalHint = new TextRenderable(renderer, {
+    id: "sessions-modal-hint",
+    content: "j/k select | c connect local | d disconnect | y copy URL | r refresh | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: "center",
+    top: "center",
+    offsetY: 13,
+    zIndex: 9
+  });
+  sessionsModalBox.visible = false;
+  sessionsModalTitle.visible = false;
+  sessionsModalText.visible = false;
+  sessionsModalHint.visible = false;
+  renderer.root.add(sessionsModalBox);
+  renderer.root.add(sessionsModalTitle);
+  renderer.root.add(sessionsModalText);
+  renderer.root.add(sessionsModalHint);
   return {
     jobsBox,
     eventsBox,
+    detailColumn,
     jobsSelect,
     detailText,
     resultsText,
@@ -20081,9 +20235,18 @@ function buildLayout(renderer, getFooterText) {
     eventsEmptyText,
     jobsTabText,
     eventsTabText,
+    openCodeTabText,
+    sessionsTabText,
     headerMetaText,
     statusText,
     footerText: footerTextNode,
+    openCodePane,
+    openCodeHeader,
+    openCodeStatus,
+    openCodeMessages,
+    openCodeMessagesText,
+    openCodeInputBox,
+    openCodeInput,
     modalBox,
     modalLabel,
     modalInput,
@@ -20152,6 +20315,11 @@ function buildLayout(renderer, getFooterText) {
     usageModalText,
     usageModalHint,
     usageModalVisible: false,
+    sessionsModalBox,
+    sessionsModalTitle,
+    sessionsModalText,
+    sessionsModalHint,
+    sessionsModalVisible: false,
     eventCards: []
   };
 }
@@ -20305,7 +20473,7 @@ function extractEvents(payload) {
       seq: Number.isFinite(seqValue) ? seqValue : idx,
       type: String(e.type || e.event_type || "event"),
       message: e.message || null,
-      data: e.data ?? e.payload ?? null,
+      data: e.data ?? null,
       timestamp: e.timestamp || e.created_at || null
     };
   });
@@ -20335,9 +20503,9 @@ function coerceJob(payload, source) {
     job_source: resolvedSource,
     created_at: payload?.created_at || null,
     started_at: payload?.started_at || null,
-    finished_at: payload?.finished_at || payload?.completed_at || null,
-    best_score: num(payload?.best_score),
-    best_snapshot_id: payload?.best_snapshot_id || payload?.best_graph_snapshot_id || payload?.prompt_best_snapshot_id || payload?.best_snapshot?.id || null,
+    finished_at: payload?.finished_at || null,
+    best_reward: num(payload?.best_reward ?? payload?.best_score),
+    best_snapshot_id: payload?.best_snapshot_id || payload?.best_snapshot?.id || null,
     total_tokens: int(payload?.total_tokens),
     total_cost_usd: num(payload?.total_cost_usd || payload?.total_cost),
     error: payload?.error || null,
@@ -20409,11 +20577,13 @@ function formatEvalDetails(snapshot2, job) {
     "",
     "\u2550\u2550\u2550 Eval Summary \u2550\u2550\u2550"
   ];
-  if (summary.mean_score != null) {
-    lines.push(`  Mean Score: ${formatValue(summary.mean_score)}`);
+  const meanReward = summary.mean_reward ?? summary.mean_score;
+  if (meanReward != null) {
+    lines.push(`  Mean Reward: ${formatValue(meanReward)}`);
   }
-  if (summary.accuracy != null) {
-    lines.push(`  Accuracy: ${(summary.accuracy * 100).toFixed(1)}%`);
+  const reward = summary.reward ?? summary.objectives?.reward ?? summary.accuracy;
+  if (reward != null) {
+    lines.push(`  Reward: ${(reward * 100).toFixed(1)}%`);
   }
   if (summary.pass_rate != null) {
     lines.push(`  Pass Rate: ${(summary.pass_rate * 100).toFixed(1)}%`);
@@ -20428,12 +20598,12 @@ function formatEvalDetails(snapshot2, job) {
   }
   if (rows.length > 0) {
     lines.push(`  Results: ${rows.length} rows`);
-    const scores = rows.map((row) => num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed)).filter((val) => typeof val === "number");
-    if (scores.length > 0) {
-      const mean = scores.reduce((sum, val) => sum + val, 0) / scores.length;
-      const passed = scores.filter((s) => s >= 0.5 || s === 1).length;
-      lines.push(`  Avg Score: ${mean.toFixed(4)}`);
-      lines.push(`  Pass Rate: ${(passed / scores.length * 100).toFixed(1)}%`);
+    const rewards = rows.map((row) => num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed)).filter((val) => typeof val === "number");
+    if (rewards.length > 0) {
+      const mean = rewards.reduce((sum, val) => sum + val, 0) / rewards.length;
+      const passed = rewards.filter((s) => s >= 0.5 || s === 1).length;
+      lines.push(`  Avg Reward: ${mean.toFixed(4)}`);
+      lines.push(`  Pass Rate: ${(passed / rewards.length * 100).toFixed(1)}%`);
     }
   }
   lines.push("");
@@ -20458,7 +20628,7 @@ function formatLearningDetails(job) {
     `Env: ${envName || "-"}`,
     "",
     "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
-    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Reward: ${job.best_reward != null ? job.best_reward.toFixed(4) : "-"}`,
     `  Best Snapshot: ${job.best_snapshot_id || "-"}`,
     "",
     "\u2550\u2550\u2550 Timing \u2550\u2550\u2550",
@@ -20495,7 +20665,7 @@ function formatPromptLearningDetails(snapshot2, job) {
     `Last Event: ${lastEventTs}`,
     "",
     "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
-    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Reward: ${job.best_reward != null ? job.best_reward.toFixed(4) : "-"}`,
     `  Events: ${snapshot2.events.length}`,
     `  Tokens: ${tokensDisplay}`,
     `  Cost: ${costDisplay}`
@@ -20576,31 +20746,42 @@ function truncate(value, max) {
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
-function extractBestPrompt(snapshotPayload) {
+function extractBestCandidate(snapshotPayload) {
   if (!snapshotPayload)
     return null;
-  return isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt || isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template || isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern || null;
+  return isRecord(snapshotPayload.best_candidate) && snapshotPayload.best_candidate || isRecord(snapshotPayload.best_candidate_template) && snapshotPayload.best_candidate_template || isRecord(snapshotPayload.best_candidate_pattern) && snapshotPayload.best_candidate_pattern || isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt || isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template || isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern || null;
 }
-function extractBestPromptText(snapshotPayload) {
+function extractBestCandidateText(snapshotPayload) {
   if (!snapshotPayload)
     return null;
-  const bestPromptMessages = snapshotPayload.best_prompt_messages;
-  if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-    return bestPromptMessages.map((msg) => {
+  const bestCandidateMessages = snapshotPayload.best_candidate_messages ?? snapshotPayload.best_prompt_messages;
+  if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
+    return bestCandidateMessages.map((msg) => {
       const role = msg?.role || "unknown";
       const content = msg?.content || "";
       return `[${role}] ${content}`;
     }).join(`
 `);
   }
-  const rendered = snapshotPayload.best_prompt_text || snapshotPayload.rendered_prompt;
+  const rendered = snapshotPayload.best_candidate_text || snapshotPayload.best_prompt_text || snapshotPayload.rendered_candidate || snapshotPayload.rendered_prompt;
   if (typeof rendered === "string" && rendered.trim())
     return rendered;
   return null;
 }
-function extractPromptSections(bestPrompt) {
-  const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
-  return Array.isArray(sections) ? sections : [];
+function extractCandidateStages(bestCandidate) {
+  if (!bestCandidate)
+    return [];
+  const stages = bestCandidate.stages || bestCandidate.sections || bestCandidate.prompt_sections || [];
+  if (Array.isArray(stages))
+    return stages;
+  if (isRecord(stages)) {
+    return Object.entries(stages).map(([id, value]) => {
+      if (isRecord(value))
+        return { id, ...value };
+      return { id, content: value };
+    });
+  }
+  return [];
 }
 function formatResults(snapshot2) {
   const job = snapshot2.selectedJob;
@@ -20619,27 +20800,27 @@ function formatResults(snapshot2) {
     lines.push(`Best snapshot: ${bestId} (press p to load)`);
   }
   if (snapshot2.bestSnapshot) {
-    const bestPrompt = extractBestPrompt(snapshot2.bestSnapshot);
-    const bestPromptText = extractBestPromptText(snapshot2.bestSnapshot);
-    if (bestPrompt) {
-      const promptId = bestPrompt.id || bestPrompt.template_id;
-      const promptName = bestPrompt.name;
-      const promptLabel = [promptName, promptId].filter(Boolean).join(" ");
-      if (promptLabel)
-        lines.push(`Best prompt: ${promptLabel}`);
-      const sections = extractPromptSections(bestPrompt);
-      if (sections.length > 0) {
-        const summary = sections.slice(0, 3).map((section) => {
-          const role = section.role || "stage";
-          const name = section.name || section.id || "";
+    const bestCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+    const bestCandidateText = extractBestCandidateText(snapshot2.bestSnapshot);
+    if (bestCandidate) {
+      const candidateId = bestCandidate.id || bestCandidate.template_id;
+      const candidateName = bestCandidate.name;
+      const candidateLabel = [candidateName, candidateId].filter(Boolean).join(" ");
+      if (candidateLabel)
+        lines.push(`Best candidate: ${candidateLabel}`);
+      const stages = extractCandidateStages(bestCandidate);
+      if (stages.length > 0) {
+        const summary = stages.slice(0, 3).map((stage) => {
+          const role = stage.role || "stage";
+          const name = stage.name || stage.id || "";
           return name ? `${role}:${name}` : role;
         });
-        const suffix = sections.length > 3 ? " \u2026" : "";
+        const suffix = stages.length > 3 ? " \u2026" : "";
         lines.push(`Stages: ${summary.join(", ")}${suffix}`);
       }
     }
-    if (bestPromptText) {
-      lines.push(`Best prompt text: ${truncate(bestPromptText, 90)}`);
+    if (bestCandidateText) {
+      lines.push(`Best candidate text: ${truncate(bestCandidateText, 90)}`);
     }
   }
   return ["Results:", ...lines].join(`
@@ -20651,18 +20832,29 @@ function formatEvalResults(snapshot2) {
   const lines = [];
   if (Object.keys(summary).length > 0) {
     lines.push("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
-    const keyOrder = ["mean_score", "accuracy", "pass_rate", "completed", "failed", "total"];
+    const keyOrder = ["mean_reward", "reward", "pass_rate", "completed", "failed", "total"];
     const shown = new Set;
     for (const key of keyOrder) {
-      if (summary[key] != null) {
-        const val = summary[key];
-        if (key === "accuracy" || key === "pass_rate") {
-          lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`);
-        } else {
-          lines.push(`  ${key}: ${formatValue(val)}`);
+      let val = summary[key];
+      if (key === "reward") {
+        val = summary.reward ?? summary.objectives?.reward ?? summary.accuracy;
+        if (val != null) {
+          shown.add("accuracy");
         }
-        shown.add(key);
+      } else if (key === "mean_reward") {
+        val = summary.mean_reward ?? summary.mean_score;
+        if (val != null) {
+          shown.add("mean_score");
+        }
       }
+      if (val == null)
+        continue;
+      if (key === "reward" || key === "pass_rate") {
+        lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`);
+      } else {
+        lines.push(`  ${key}: ${formatValue(val)}`);
+      }
+      shown.add(key);
     }
     for (const [key, value] of Object.entries(summary)) {
       if (shown.has(key))
@@ -20673,14 +20865,14 @@ function formatEvalResults(snapshot2) {
     }
     lines.push("");
   }
-  if (summary.mean_score == null && rows.length > 0) {
-    const scores = rows.map((row) => row.outcome_reward ?? row.score ?? row.reward_mean ?? row.events_score).filter((val) => typeof val === "number" && Number.isFinite(val));
-    if (scores.length > 0) {
-      const mean = scores.reduce((acc, val) => acc + val, 0) / scores.length;
+  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
+    const rewards = rows.map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score).filter((val) => typeof val === "number" && Number.isFinite(val));
+    if (rewards.length > 0) {
+      const mean = rewards.reduce((acc, val) => acc + val, 0) / rewards.length;
       if (lines.length === 0 || lines[0] !== "\u2550\u2550\u2550 Summary \u2550\u2550\u2550") {
         lines.unshift("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
       }
-      lines.splice(1, 0, `  mean_score: ${formatValue(mean)}`);
+      lines.splice(1, 0, `  mean_reward: ${formatValue(mean)}`);
       lines.push("");
     }
   }
@@ -20690,16 +20882,16 @@ function formatEvalResults(snapshot2) {
     const displayRows = rows.slice(0, limit);
     for (const row of displayRows) {
       const taskId = row.task_id || row.id || row.name || "?";
-      const score = num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed);
+      const reward = num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed);
       const passed = row.passed != null ? row.passed ? "\u2713" : "\u2717" : "";
       const status = row.status || "";
-      const scoreStr = score != null ? score.toFixed(3) : "-";
+      const rewardStr = reward != null ? reward.toFixed(3) : "-";
       if (passed) {
-        lines.push(`  ${passed} ${taskId}: ${scoreStr}`);
+        lines.push(`  ${passed} ${taskId}: ${rewardStr}`);
       } else if (status) {
-        lines.push(`  [${status}] ${taskId}: ${scoreStr}`);
+        lines.push(`  [${status}] ${taskId}: ${rewardStr}`);
       } else {
-        lines.push(`  ${taskId}: ${scoreStr}`);
+        lines.push(`  ${taskId}: ${rewardStr}`);
       }
     }
     if (rows.length > limit) {
@@ -20725,30 +20917,30 @@ Press 'p' to try loading the best snapshot.`;
   const lines = [];
   lines.push(`Job: ${job.job_id}`);
   lines.push(`Status: ${job.status}`);
-  lines.push(`Best Score: ${job.best_score ?? "-"}`);
+  lines.push(`Best Reward: ${job.best_reward ?? "-"}`);
   lines.push(`Best Snapshot ID: ${snapshot2.bestSnapshotId || "-"}`);
   lines.push("");
   if (snapshot2.bestSnapshot) {
-    const bestPrompt = snapshot2.bestSnapshot.best_prompt;
-    const bestPromptMessages = snapshot2.bestSnapshot.best_prompt_messages;
-    if (bestPrompt && typeof bestPrompt === "object") {
-      const promptId = bestPrompt.id || bestPrompt.template_id;
-      const promptName = bestPrompt.name;
-      if (promptName)
-        lines.push(`Prompt Name: ${promptName}`);
-      if (promptId)
-        lines.push(`Prompt ID: ${promptId}`);
+    const bestCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+    const bestCandidateMessages = snapshot2.bestSnapshot.best_candidate_messages ?? snapshot2.bestSnapshot.best_prompt_messages;
+    if (bestCandidate && typeof bestCandidate === "object") {
+      const candidateId = bestCandidate.id || bestCandidate.template_id;
+      const candidateName = bestCandidate.name;
+      if (candidateName)
+        lines.push(`Candidate Name: ${candidateName}`);
+      if (candidateId)
+        lines.push(`Candidate ID: ${candidateId}`);
       lines.push("");
-      const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
-      if (Array.isArray(sections) && sections.length > 0) {
-        lines.push(`=== PROMPT TEMPLATE (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
+      const stages = extractCandidateStages(bestCandidate);
+      if (Array.isArray(stages) && stages.length > 0) {
+        lines.push(`=== CANDIDATE STAGES (${stages.length} stage${stages.length > 1 ? "s" : ""}) ===`);
         lines.push("");
-        for (let i = 0;i < sections.length; i++) {
-          const section = sections[i];
-          const role = section.role || "stage";
-          const name = section.name || section.id || "";
-          const content = section.content || "";
-          const order = section.order !== undefined ? section.order : i;
+        for (let i = 0;i < stages.length; i++) {
+          const stage = stages[i];
+          const role = stage.role || "stage";
+          const name = stage.name || stage.id || "";
+          const content = stage.content || "";
+          const order = stage.order !== undefined ? stage.order : i;
           lines.push(`\u250C\u2500 Stage ${order + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
           lines.push("");
           if (content) {
@@ -20762,11 +20954,11 @@ Press 'p' to try loading the best snapshot.`;
         }
       }
     }
-    if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-      lines.push(`=== RENDERED MESSAGES (${bestPromptMessages.length} message${bestPromptMessages.length > 1 ? "s" : ""}) ===`);
+    if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
+      lines.push(`=== RENDERED CANDIDATE MESSAGES (${bestCandidateMessages.length} message${bestCandidateMessages.length > 1 ? "s" : ""}) ===`);
       lines.push("");
-      for (let i = 0;i < bestPromptMessages.length; i++) {
-        const msg = bestPromptMessages[i];
+      for (let i = 0;i < bestCandidateMessages.length; i++) {
+        const msg = bestCandidateMessages[i];
         const role = msg.role || "unknown";
         const content = msg.content || "";
         lines.push(`\u250C\u2500 Message ${i + 1}: [${role}] \u2500\u2510`);
@@ -20777,19 +20969,19 @@ Press 'p' to try loading the best snapshot.`;
         lines.push("");
       }
     }
-    if (!bestPrompt && !bestPromptMessages) {
-      const legacyPrompt = extractBestPrompt(snapshot2.bestSnapshot);
-      const legacyText = extractBestPromptText(snapshot2.bestSnapshot);
-      if (legacyPrompt) {
-        const sections = extractPromptSections(legacyPrompt);
-        if (sections.length > 0) {
-          lines.push(`=== PROMPT SECTIONS (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
+    if (!bestCandidate && !bestCandidateMessages) {
+      const legacyCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+      const legacyText = extractBestCandidateText(snapshot2.bestSnapshot);
+      if (legacyCandidate) {
+        const stages = extractCandidateStages(legacyCandidate);
+        if (stages.length > 0) {
+          lines.push(`=== CANDIDATE STAGES (${stages.length} stage${stages.length > 1 ? "s" : ""}) ===`);
           lines.push("");
-          for (let i = 0;i < sections.length; i++) {
-            const section = sections[i];
-            const role = section.role || "stage";
-            const name = section.name || section.id || "";
-            const content = section.content || "";
+          for (let i = 0;i < stages.length; i++) {
+            const stage = stages[i];
+            const role = stage.role || "stage";
+            const name = stage.name || stage.id || "";
+            const content = stage.content || "";
             lines.push(`\u250C\u2500 Stage ${i + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
             lines.push("");
             if (content) {
@@ -20802,11 +20994,11 @@ Press 'p' to try loading the best snapshot.`;
         }
       }
       if (legacyText) {
-        lines.push("=== RENDERED PROMPT ===");
+        lines.push("=== RENDERED CANDIDATE ===");
         lines.push("");
         lines.push(legacyText);
       }
-      if (!legacyPrompt && !legacyText) {
+      if (!legacyCandidate && !legacyText) {
         lines.push("=== RAW SNAPSHOT DATA ===");
         lines.push("");
         try {
@@ -20967,6 +21159,39 @@ var init_events = __esm(async () => {
 });
 
 // src/ui/panes.ts
+function setPrincipalPane(ctx, pane) {
+  const { ui } = ctx;
+  const { appState: appState2 } = ctx.state;
+  if (appState2.principalPane === pane)
+    return;
+  appState2.principalPane = pane;
+  if (pane === "jobs") {
+    ui.detailColumn.visible = true;
+    ui.openCodePane.visible = false;
+    ui.jobsSelect.focus();
+  } else {
+    ui.detailColumn.visible = false;
+    ui.openCodePane.visible = true;
+    ui.jobsSelect.blur();
+    ui.openCodeInput.focus();
+  }
+  updatePrincipalIndicators(ctx);
+  ctx.requestRender();
+}
+function updatePrincipalIndicators(ctx) {
+  const { ui } = ctx;
+  const { appState: appState2 } = ctx.state;
+  const isJobsView = appState2.principalPane === "jobs";
+  const isOpenCodeView = appState2.principalPane === "opencode";
+  ui.openCodeTabText.fg = isOpenCodeView ? "#a855f7" : "#94a3b8";
+  ui.sessionsTabText.fg = "#64748b";
+  if (isJobsView) {
+    updatePaneIndicators(ctx);
+  } else {
+    ui.jobsTabText.fg = "#64748b";
+    ui.eventsTabText.fg = "#64748b";
+  }
+}
 function setActivePane(ctx, pane) {
   const { ui } = ctx;
   const { appState: appState2 } = ctx.state;
@@ -20984,17 +21209,364 @@ function setActivePane(ctx, pane) {
 function updatePaneIndicators(ctx) {
   const { ui } = ctx;
   const { appState: appState2 } = ctx.state;
-  ui.jobsTabText.fg = appState2.activePane === "jobs" ? "#f8fafc" : "#94a3b8";
-  ui.eventsTabText.fg = appState2.activePane === "events" ? "#f8fafc" : "#94a3b8";
-  ui.jobsBox.borderColor = appState2.activePane === "jobs" ? "#60a5fa" : "#334155";
-  ui.eventsBox.borderColor = appState2.activePane === "events" ? "#60a5fa" : "#334155";
+  const isJobsView = appState2.principalPane === "jobs";
+  ui.jobsTabText.fg = isJobsView && appState2.activePane === "jobs" ? "#f8fafc" : "#94a3b8";
+  ui.eventsTabText.fg = isJobsView && appState2.activePane === "events" ? "#f8fafc" : "#94a3b8";
+  ui.jobsBox.borderColor = isJobsView && appState2.activePane === "jobs" ? "#60a5fa" : "#334155";
+  ui.eventsBox.borderColor = isJobsView && appState2.activePane === "events" ? "#60a5fa" : "#334155";
 }
 function blurForModal(ctx) {
   ctx.ui.jobsSelect.blur();
+  ctx.ui.openCodeInput.blur();
 }
 function restoreFocusFromModal(ctx) {
-  if (ctx.state.appState.activePane === "jobs") {
+  const { appState: appState2 } = ctx.state;
+  if (appState2.principalPane === "jobs" && appState2.activePane === "jobs") {
     ctx.ui.jobsSelect.focus();
+  } else if (appState2.principalPane === "opencode") {
+    ctx.ui.openCodeInput.focus();
+  }
+}
+
+// src/api/opencode.ts
+var exports_opencode = {};
+__export(exports_opencode, {
+  subscribeToOpenCodeEvents: () => subscribeToOpenCodeEvents,
+  sendPrompt: () => sendPrompt,
+  processOpenCodeEvent: () => processOpenCodeEvent,
+  clearOpenCodeMessages: () => clearOpenCodeMessages,
+  addUserMessage: () => addUserMessage
+});
+function subscribeToOpenCodeEvents(baseUrl, options) {
+  const { directory, onEvent, onError, onConnect } = options;
+  const url = new URL("/event", baseUrl);
+  if (directory) {
+    url.searchParams.set("directory", directory);
+  }
+  let isActive = true;
+  let eventSource = null;
+  try {
+    eventSource = new EventSource(url.toString());
+    eventSource.onopen = () => {
+      if (onConnect)
+        onConnect();
+    };
+    eventSource.onmessage = (event) => {
+      if (!isActive)
+        return;
+      try {
+        const data = JSON.parse(event.data);
+        onEvent(data);
+      } catch (err) {
+        console.error("Failed to parse OpenCode event:", err);
+      }
+    };
+    eventSource.onerror = (err) => {
+      if (!isActive)
+        return;
+      if (onError) {
+        onError(new Error("EventSource connection error"));
+      }
+    };
+  } catch (err) {
+    if (onError) {
+      onError(err);
+    }
+    isActive = false;
+  }
+  return {
+    unsubscribe: () => {
+      isActive = false;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    },
+    get isActive() {
+      return isActive;
+    }
+  };
+}
+async function sendPrompt(baseUrl, sessionId, prompt) {
+  try {
+    const response = await fetch(`${baseUrl}/session/${sessionId}/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        content: prompt,
+        role: "user"
+      })
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      return { success: false, error: `HTTP ${response.status}: ${text}` };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err?.message || "Unknown error" };
+  }
+}
+function processOpenCodeEvent(ctx, event) {
+  const { appState: appState2 } = ctx.state;
+  switch (event.type) {
+    case "message.part.updated": {
+      const part = event.properties.part;
+      if (!part)
+        return;
+      const existingIdx = appState2.openCodeMessages.findIndex((m) => m.id === part.messageID);
+      if (existingIdx >= 0) {
+        const existing = appState2.openCodeMessages[existingIdx];
+        if (part.type === "text" && event.properties.delta) {
+          existing.content += event.properties.delta;
+        } else if (part.type === "tool") {
+          existing.toolStatus = part.state.status;
+          if (part.state.output) {
+            existing.content = part.state.output;
+          }
+        }
+      } else {
+        const newMessage = {
+          id: part.messageID,
+          role: part.type === "tool" ? "tool" : "assistant",
+          content: event.properties.delta || part.state.output || "",
+          timestamp: new Date,
+          toolName: part.type === "tool" ? part.state.title : undefined,
+          toolStatus: part.type === "tool" ? part.state.status : undefined
+        };
+        appState2.openCodeMessages.push(newMessage);
+      }
+      break;
+    }
+    case "session.idle": {
+      appState2.openCodeIsProcessing = false;
+      break;
+    }
+    case "session.error": {
+      appState2.openCodeIsProcessing = false;
+      const errorMsg = event.properties.error || "Unknown error";
+      appState2.openCodeMessages.push({
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: `Error: ${errorMsg}`,
+        timestamp: new Date
+      });
+      break;
+    }
+    case "server.heartbeat": {
+      break;
+    }
+  }
+  ctx.render();
+}
+function addUserMessage(ctx, content) {
+  const { appState: appState2 } = ctx.state;
+  appState2.openCodeMessages.push({
+    id: `user-${Date.now()}`,
+    role: "user",
+    content,
+    timestamp: new Date
+  });
+  ctx.render();
+}
+function clearOpenCodeMessages(ctx) {
+  ctx.state.appState.openCodeMessages = [];
+  ctx.render();
+}
+
+// src/ui/opencode.ts
+function formatMessages(messages, maxWidth) {
+  const lines = [];
+  if (messages.length === 0) {
+    return [
+      "No messages yet.",
+      "",
+      "Connect to an OpenCode session to start chatting.",
+      "Press Ctrl+O to open the sessions modal."
+    ];
+  }
+  for (const msg of messages) {
+    const time2 = msg.timestamp.toLocaleTimeString();
+    if (msg.role === "user") {
+      lines.push(`[${time2}] You:`);
+      const contentLines = wrapText(msg.content, maxWidth - 2);
+      for (const line of contentLines) {
+        lines.push(`  ${line}`);
+      }
+      lines.push("");
+    } else if (msg.role === "tool") {
+      const status = msg.toolStatus || "running";
+      const statusIcon = status === "completed" ? "\u2713" : status === "failed" ? "\u2717" : "\u21BB";
+      lines.push(`[${time2}] [${statusIcon}] ${msg.toolName || "Tool"}:`);
+      if (msg.content) {
+        const contentLines = wrapText(msg.content, maxWidth - 2);
+        for (const line of contentLines) {
+          lines.push(`  ${line}`);
+        }
+      }
+      lines.push("");
+    } else {
+      lines.push(`[${time2}] Agent:`);
+      const contentLines = wrapText(msg.content, maxWidth - 2);
+      for (const line of contentLines) {
+        lines.push(`  ${line}`);
+      }
+      lines.push("");
+    }
+  }
+  return lines;
+}
+function wrapText(text, maxWidth) {
+  const lines = [];
+  const paragraphs = text.split(`
+`);
+  for (const para of paragraphs) {
+    if (para.length <= maxWidth) {
+      lines.push(para);
+      continue;
+    }
+    const words = para.split(" ");
+    let currentLine = "";
+    for (const word of words) {
+      if (currentLine.length === 0) {
+        currentLine = word;
+      } else if (currentLine.length + 1 + word.length <= maxWidth) {
+        currentLine += " " + word;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
+  }
+  return lines;
+}
+function renderOpenCodePane(ctx) {
+  const { ui } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const maxWidth = Math.max(20, cols - 50);
+  const maxLines = Math.max(5, rows - 15);
+  if (appState2.openCodeSessionId) {
+    const session = snapshot2.sessions.find((s) => s.session_id === appState2.openCodeSessionId);
+    if (session) {
+      const health = snapshot2.sessionHealthResults.get(session.session_id);
+      let statusText = `Session: ${session.session_id}`;
+      if (session.is_local) {
+        statusText += " [local]";
+      }
+      if (health?.healthy) {
+        statusText += health.response_time_ms ? ` (${health.response_time_ms}ms)` : " (healthy)";
+      }
+      if (appState2.openCodeIsProcessing) {
+        statusText += " | Processing...";
+      }
+      ui.openCodeStatus.content = statusText;
+    } else {
+      ui.openCodeStatus.content = `Session: ${appState2.openCodeSessionId} | Not found`;
+    }
+  } else {
+    ui.openCodeStatus.content = "Not connected - Press Ctrl+O for sessions";
+  }
+  const messageLines = formatMessages(appState2.openCodeMessages, maxWidth);
+  const scrollOffset = Math.max(0, Math.min(appState2.openCodeScrollOffset, messageLines.length - maxLines));
+  const visibleLines = messageLines.slice(scrollOffset, scrollOffset + maxLines);
+  ui.openCodeMessagesText.content = visibleLines.join(`
+`);
+  if (appState2.openCodeSessionId) {
+    ui.openCodeInput.placeholder = "Type a message and press Enter...";
+  } else {
+    ui.openCodeInput.placeholder = "Connect to a session first (press 'o')";
+  }
+}
+function scrollOpenCode(ctx, delta) {
+  const { appState: appState2 } = ctx.state;
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const maxWidth = Math.max(20, cols - 50);
+  const maxLines = Math.max(5, rows - 15);
+  const messageLines = formatMessages(appState2.openCodeMessages, maxWidth);
+  const maxOffset = Math.max(0, messageLines.length - maxLines);
+  appState2.openCodeScrollOffset = Math.max(0, Math.min(appState2.openCodeScrollOffset + delta, maxOffset));
+  renderOpenCodePane(ctx);
+}
+async function sendOpenCodeMessage(ctx) {
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const { ui } = ctx;
+  const content = ui.openCodeInput.value?.trim();
+  if (!content)
+    return;
+  if (!appState2.openCodeSessionId) {
+    appState2.openCodeMessages.push({
+      id: `error-${Date.now()}`,
+      role: "assistant",
+      content: "Not connected to any session. Press Ctrl+O to open sessions and connect.",
+      timestamp: new Date
+    });
+    snapshot2.status = "Not connected - Press Ctrl+O for sessions";
+    renderOpenCodePane(ctx);
+    ctx.render();
+    return;
+  }
+  const session = snapshot2.sessions.find((s) => s.session_id === appState2.openCodeSessionId);
+  if (!session) {
+    snapshot2.status = "Session not found";
+    ctx.render();
+    return;
+  }
+  appState2.openCodeMessages.push({
+    id: `user-${Date.now()}`,
+    role: "user",
+    content,
+    timestamp: new Date
+  });
+  ui.openCodeInput.value = "";
+  appState2.openCodeIsProcessing = true;
+  renderOpenCodePane(ctx);
+  try {
+    const { sendPrompt: sendPrompt2 } = await Promise.resolve().then(() => exports_opencode);
+    const baseUrl = session.opencode_url || session.access_url;
+    if (!baseUrl) {
+      throw new Error("No URL for session");
+    }
+    const result = await sendPrompt2(baseUrl, appState2.openCodeSessionId, content);
+    if (!result.success) {
+      appState2.openCodeMessages.push({
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: `Error: ${result.error || "Failed to send message"}`,
+        timestamp: new Date
+      });
+      appState2.openCodeIsProcessing = false;
+    }
+  } catch (err) {
+    appState2.openCodeMessages.push({
+      id: `error-${Date.now()}`,
+      role: "assistant",
+      content: `Error: ${err?.message || "Failed to send message"}`,
+      timestamp: new Date
+    });
+    appState2.openCodeIsProcessing = false;
+  }
+  renderOpenCodePane(ctx);
+}
+function handleOpenCodeInput(ctx, char) {
+  const { ui } = ctx;
+  if (!ui.openCodeInput.value) {
+    ui.openCodeInput.value = "";
+  }
+  ui.openCodeInput.value += char;
+  ctx.render();
+}
+function handleOpenCodeBackspace(ctx) {
+  const { ui } = ctx;
+  if (ui.openCodeInput.value && ui.openCodeInput.value.length > 0) {
+    ui.openCodeInput.value = ui.openCodeInput.value.slice(0, -1);
+    ctx.render();
   }
 }
 
@@ -21119,9 +21691,13 @@ function formatStatus(ctx) {
 }
 function footerText(ctx) {
   const { appState: appState2 } = ctx.state;
+  if (appState2.principalPane === "opencode") {
+    const sessionInfo = appState2.openCodeSessionId ? `session=${appState2.openCodeSessionId.slice(-8)}` : "no session";
+    return `Keys: esc back | \u2191\u2193 scroll | enter send | ctrl+o sessions | ctrl+c quit | ${sessionInfo}`;
+  }
   const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
   const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
-  return `Keys: b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | u tunnels | c cancel | d usage | q quit`;
+  return `Keys: g opencode | b jobs | tab toggle | j/k nav | enter view | r refresh | o sessions | l login | t settings | f ${filterLabel} | J ${jobFilterLabel} | u tunnels | c cancel | d usage | q quit`;
 }
 var init_text = __esm(() => {
   init_client();
@@ -21135,10 +21711,10 @@ function renderApp(ctx) {
   ui.jobsBox.title = appState2.jobStatusFilter.size ? `Jobs (status: ${Array.from(appState2.jobStatusFilter).join(", ")})` : "Jobs";
   ui.jobsSelect.options = filteredJobs.length ? filteredJobs.map((job) => {
     const shortId = job.job_id.slice(-8);
-    const score = job.best_score == null ? "-" : job.best_score.toFixed(4);
+    const reward = job.best_reward == null ? "-" : job.best_reward.toFixed(4);
     const label = job.training_type || (job.job_source === "learning" ? "eval" : "prompt");
     const envName = extractEnvName(job);
-    const desc = envName ? `${job.status} | ${label} | ${envName} | ${score}` : `${job.status} | ${label} | ${score}`;
+    const desc = envName ? `${job.status} | ${label} | ${envName} | ${reward}` : `${job.status} | ${label} | ${reward}`;
     return { name: shortId, description: desc, value: job.job_id };
   }) : [
     {
@@ -21153,6 +21729,10 @@ function renderApp(ctx) {
   ui.taskAppsBox.visible = false;
   renderEventCards(ctx);
   updatePaneIndicators(ctx);
+  updatePrincipalIndicators(ctx);
+  if (appState2.principalPane === "opencode") {
+    renderOpenCodePane(ctx);
+  }
   ui.headerMetaText.content = formatHeaderMeta(ctx);
   ui.statusText.content = formatStatus(ctx);
   ui.footerText.content = footerText(ctx);
@@ -22216,7 +22796,7 @@ __export(exports_jobs, {
 function extractBestSnapshotId(payload) {
   if (!payload)
     return null;
-  return payload.best_snapshot_id || payload.prompt_best_snapshot_id || payload.best_snapshot?.id || null;
+  return payload.best_snapshot_id || payload.best_snapshot?.id || null;
 }
 async function refreshJobs(ctx) {
   const { snapshot: snapshot2, appState: appState2, config: config2 } = ctx.state;
@@ -22283,7 +22863,7 @@ async function selectJob(ctx, jobId) {
     created_at: null,
     started_at: null,
     finished_at: null,
-    best_score: null,
+    best_reward: null,
     best_snapshot_id: null,
     total_tokens: null,
     total_cost_usd: null,
@@ -23083,6 +23663,7 @@ Press 'q' to close.`;
   lines.push(`Status:   ${formatStatus2(data.status)}`);
   const accessTier = data.access_tier || "alpha";
   const tierDisplay = accessTier.charAt(0).toUpperCase() + accessTier.slice(1);
+  console.log(`[TUI] Displaying access tier: ${accessTier} -> ${tierDisplay}`);
   lines.push(`Access:   ${tierDisplay}`);
   if (data.byok_providers && data.byok_providers.length > 0) {
     const providersDisplay = data.byok_providers.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(", ");
@@ -23351,6 +23932,327 @@ var init_usage_modal = __esm(() => {
   init_auth();
 });
 
+// src/api/sessions.ts
+async function fetchSessions(stateFilter) {
+  try {
+    const query = stateFilter ? `?state=${stateFilter}` : "";
+    const sessions = await apiGet(`/interactive/sessions${query}`);
+    return sessions || [];
+  } catch (err) {
+    console.error("Failed to fetch sessions:", err?.message || err);
+    return [];
+  }
+}
+async function connectLocal(opencode_url = "http://localhost:3000", model = "gpt-4o-mini", sessionId) {
+  const body = {
+    opencode_url,
+    model
+  };
+  if (sessionId) {
+    body.session_id = sessionId;
+  }
+  return await apiPost("/interactive/connect-local", body);
+}
+async function disconnectSession(sessionId) {
+  return await apiPost("/interactive/disconnect", { session_id: sessionId });
+}
+async function checkSessionHealth(session, timeout = 5000) {
+  const url = session.opencode_url || session.access_url;
+  if (!url) {
+    return { healthy: false, error: "No access URL", checked_at: new Date };
+  }
+  const healthUrl = `${url}/health`;
+  const startTime = Date.now();
+  try {
+    const controller = new AbortController;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const response = await fetch(healthUrl, {
+      signal: controller.signal,
+      method: "GET"
+    });
+    clearTimeout(timeoutId);
+    const elapsed = Date.now() - startTime;
+    if (response.status === 200) {
+      return { healthy: true, response_time_ms: elapsed, checked_at: new Date };
+    } else if (response.status === 404 || response.status === 405) {
+      return { healthy: true, response_time_ms: elapsed, error: "Health endpoint not found", checked_at: new Date };
+    } else {
+      return { healthy: false, response_time_ms: elapsed, error: `Status ${response.status}`, checked_at: new Date };
+    }
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    const errorMessage = err?.name === "AbortError" ? `Timeout after ${timeout}ms` : err?.message || "Unknown error";
+    return { healthy: false, error: errorMessage, response_time_ms: elapsed, checked_at: new Date };
+  }
+}
+var init_sessions = __esm(() => {
+  init_client();
+});
+
+// src/modals/sessions-modal.ts
+function formatSessionDetails(sessions, healthResults, selectedIndex) {
+  const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting");
+  if (activeSessions.length === 0) {
+    return `No active OpenCode sessions.
+
+Interactive sessions connect to local or remote OpenCode servers
+for real-time agent interaction.
+
+Quick connect:
+  Press 'c' to connect to a local OpenCode server (localhost:3000)
+  Press 'C' to connect with custom URL
+
+Press 'q' to close.`;
+  }
+  const lines = [];
+  activeSessions.forEach((session, idx) => {
+    const health = healthResults.get(session.session_id);
+    const isSelected = idx === selectedIndex;
+    let stateIcon = "?";
+    let stateText = session.state;
+    if (session.state === "connected") {
+      if (health) {
+        if (health.healthy) {
+          stateIcon = "\u2713";
+          stateText = health.response_time_ms != null ? `Connected (${health.response_time_ms}ms)` : "Connected";
+        } else {
+          stateIcon = "\u2717";
+          stateText = health.error?.slice(0, 30) || "Unhealthy";
+        }
+      } else {
+        stateIcon = "\u2713";
+        stateText = "Connected";
+      }
+    } else if (session.state === "connecting" || session.state === "reconnecting") {
+      stateIcon = "\u21BB";
+      stateText = session.state;
+    } else if (session.state === "error") {
+      stateIcon = "\u2717";
+      stateText = session.error_message?.slice(0, 30) || "Error";
+    }
+    const prefix = isSelected ? "> " : "  ";
+    const localTag = session.is_local ? " [local]" : "";
+    lines.push(`${prefix}[${stateIcon}] ${session.session_id}${localTag}`);
+    lines.push(`    Mode: ${session.mode} | Model: ${session.model || "default"}`);
+    if (session.opencode_url) {
+      const shortUrl = session.opencode_url.length > 50 ? session.opencode_url.slice(0, 47) + "..." : session.opencode_url;
+      lines.push(`    URL: ${shortUrl}`);
+    }
+    if (session.tunnel_url && session.tunnel_url !== session.opencode_url) {
+      lines.push(`    Tunnel: ${session.tunnel_url}`);
+    }
+    if (session.connected_at) {
+      const connectedAt = new Date(session.connected_at);
+      lines.push(`    Connected: ${connectedAt.toLocaleString()}`);
+    }
+    if (session.last_activity) {
+      const lastActivity = new Date(session.last_activity);
+      lines.push(`    Last activity: ${lastActivity.toLocaleString()}`);
+    }
+    lines.push("");
+  });
+  return lines.join(`
+`);
+}
+function createSessionsModal(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  let sessions = [];
+  let healthResults = new Map;
+  let selectedIndex = 0;
+  let scrollOffset = 0;
+  function toggle(visible) {
+    ui.sessionsModalVisible = visible;
+    ui.sessionsModalBox.visible = visible;
+    ui.sessionsModalTitle.visible = visible;
+    ui.sessionsModalText.visible = visible;
+    ui.sessionsModalHint.visible = visible;
+    if (visible) {
+      blurForModal(ctx);
+    } else {
+      ui.sessionsModalText.content = "";
+      restoreFocusFromModal(ctx);
+    }
+    renderer.requestRender();
+  }
+  function updateContent() {
+    if (!ui.sessionsModalVisible)
+      return;
+    const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting");
+    const raw = formatSessionDetails(sessions, healthResults, selectedIndex);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    scrollOffset = clamp2(scrollOffset, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(scrollOffset, scrollOffset + maxLines);
+    const sessionCount = activeSessions.length;
+    ui.sessionsModalTitle.content = `OpenCode Sessions (${sessionCount} active)`;
+    ui.sessionsModalText.content = visible.join(`
+`);
+    ui.sessionsModalHint.content = wrapped.length > maxLines ? `[${scrollOffset + 1}-${scrollOffset + visible.length}/${wrapped.length}] j/k select | c connect local | d disconnect | y copy URL | enter select | q close` : "j/k select | c connect local | d disconnect | y copy URL | enter select | q close";
+    renderer.requestRender();
+  }
+  function move(delta) {
+    const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting");
+    const maxIndex = Math.max(0, activeSessions.length - 1);
+    selectedIndex = clamp2(selectedIndex + delta, 0, maxIndex);
+    updateContent();
+  }
+  async function open() {
+    scrollOffset = 0;
+    selectedIndex = 0;
+    toggle(true);
+    snapshot2.status = "Loading sessions...";
+    ctx.render();
+    try {
+      sessions = await fetchSessions();
+      snapshot2.sessions = sessions;
+      updateContent();
+      refreshHealth2();
+    } catch (err) {
+      snapshot2.lastError = err?.message || "Failed to load sessions";
+      updateContent();
+    }
+  }
+  async function refreshHealth2() {
+    const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting");
+    for (const session of activeSessions) {
+      const result = await checkSessionHealth(session);
+      healthResults.set(session.session_id, result);
+      snapshot2.sessionHealthResults.set(session.session_id, result);
+      updateContent();
+    }
+  }
+  async function copyUrl() {
+    const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting");
+    const session = activeSessions[selectedIndex];
+    if (session) {
+      const url = session.opencode_url || session.access_url || "";
+      if (url) {
+        await copyToClipboard(url);
+        snapshot2.status = `Copied: ${url}`;
+        ctx.render();
+      }
+    }
+  }
+  async function connectLocalSession() {
+    snapshot2.status = "Connecting to local OpenCode...";
+    ctx.render();
+    try {
+      const response = await connectLocal("http://localhost:3000", "gpt-4o-mini");
+      if (response.error) {
+        snapshot2.lastError = response.error;
+        snapshot2.status = "Connection failed";
+      } else {
+        snapshot2.status = `Connected to local session: ${response.session_id}`;
+        appState2.openCodeSessionId = response.session_id;
+        sessions = await fetchSessions();
+        snapshot2.sessions = sessions;
+      }
+      updateContent();
+      ctx.render();
+    } catch (err) {
+      snapshot2.lastError = err?.message || "Failed to connect";
+      snapshot2.status = "Connection failed";
+      ctx.render();
+    }
+  }
+  async function disconnectSelected() {
+    const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting");
+    const session = activeSessions[selectedIndex];
+    if (!session)
+      return;
+    snapshot2.status = `Disconnecting ${session.session_id}...`;
+    ctx.render();
+    try {
+      const result = await disconnectSession(session.session_id);
+      if (result.disconnected) {
+        snapshot2.status = `Disconnected from ${session.session_id}`;
+        if (appState2.openCodeSessionId === session.session_id) {
+          appState2.openCodeSessionId = null;
+        }
+        sessions = await fetchSessions();
+        snapshot2.sessions = sessions;
+        selectedIndex = Math.max(0, selectedIndex - 1);
+      } else {
+        snapshot2.status = "Disconnect failed";
+      }
+      updateContent();
+      ctx.render();
+    } catch (err) {
+      snapshot2.lastError = err?.message || "Failed to disconnect";
+      snapshot2.status = "Disconnect failed";
+      ctx.render();
+    }
+  }
+  function selectSession() {
+    const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting");
+    const session = activeSessions[selectedIndex];
+    if (session) {
+      appState2.openCodeSessionId = session.session_id;
+      snapshot2.status = `Selected session: ${session.session_id}`;
+      toggle(false);
+      ctx.render();
+    }
+  }
+  function handleKey(key) {
+    if (!ui.sessionsModalVisible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "y") {
+      copyUrl();
+      return true;
+    }
+    if (key.name === "c" && !key.shift) {
+      connectLocalSession();
+      return true;
+    }
+    if (key.name === "d") {
+      disconnectSelected();
+      return true;
+    }
+    if (key.name === "r") {
+      open();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      selectSession();
+      return true;
+    }
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return ui.sessionsModalVisible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    copyUrl,
+    connectLocalSession,
+    disconnectSelected,
+    refreshHealth: refreshHealth2,
+    selectSession,
+    handleKey
+  };
+}
+var init_sessions_modal = __esm(() => {
+  init_sessions();
+});
+
 // src/modals/index.ts
 var init_modals = __esm(() => {
   init_event_modal();
@@ -23364,6 +24266,7 @@ var init_modals = __esm(() => {
   init_snapshot_modal();
   init_task_apps_modal();
   init_usage_modal();
+  init_sessions_modal();
 });
 
 // src/handlers/keyboard.ts
@@ -23376,7 +24279,9 @@ function createKeyboardHandler(ctx, modals) {
       renderer.destroy();
       process.exit(0);
     }
-    if (key.name === "q" || key.name === "escape") {
+    const isQuitKey = key.name === "q" || key.name === "escape";
+    const shouldHandleQuit = isQuitKey && !(key.name === "q" && appState2.principalPane === "opencode");
+    if (shouldHandleQuit) {
       if (modals.login.isVisible) {
         modals.login.toggle(false);
         return;
@@ -23427,6 +24332,14 @@ function createKeyboardHandler(ctx, modals) {
       }
       if (modals.usage.isVisible) {
         modals.usage.handleKey(key);
+        return;
+      }
+      if (modals.sessions.isVisible) {
+        modals.sessions.handleKey(key);
+        return;
+      }
+      if (appState2.principalPane === "opencode" && key.name === "escape") {
+        setPrincipalPane(ctx, "jobs");
         return;
       }
       renderer.stop();
@@ -23487,6 +24400,45 @@ function createKeyboardHandler(ctx, modals) {
       modals.usage.handleKey(key);
       return;
     }
+    if (modals.sessions.isVisible) {
+      modals.sessions.handleKey(key);
+      return;
+    }
+    if (key.name === "g" && !key.shift && !key.ctrl && appState2.principalPane === "jobs") {
+      setPrincipalPane(ctx, "opencode");
+      return;
+    }
+    if (key.name === "o" && !key.shift && !key.ctrl && appState2.principalPane === "jobs") {
+      modals.sessions.open();
+      return;
+    }
+    if (appState2.principalPane === "opencode") {
+      if (key.name === "o" && key.ctrl) {
+        modals.sessions.open();
+        return;
+      }
+      if (key.name === "up") {
+        scrollOpenCode(ctx, -3);
+        return;
+      }
+      if (key.name === "down") {
+        scrollOpenCode(ctx, 3);
+        return;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        sendOpenCodeMessage(ctx);
+        return;
+      }
+      if (key.name === "backspace") {
+        handleOpenCodeBackspace(ctx);
+        return;
+      }
+      if (key.sequence && !key.ctrl && !key.meta && key.sequence.length === 1) {
+        handleOpenCodeInput(ctx, key.sequence);
+        return;
+      }
+      return;
+    }
     if (key.name === "tab") {
       setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
       return;
@@ -23499,8 +24451,12 @@ function createKeyboardHandler(ctx, modals) {
       setActivePane(ctx, "jobs");
       return;
     }
-    if (key.name === "r") {
-      refreshJobs(ctx).then(() => ctx.render());
+    if (key.name === "g") {
+      setPrincipalPane(ctx, "opencode");
+      return;
+    }
+    if (key.name === "o") {
+      modals.sessions.open();
       return;
     }
     if (key.name === "l" && !key.shift) {
@@ -23513,12 +24469,20 @@ function createKeyboardHandler(ctx, modals) {
       ctx.render();
       return;
     }
-    if (key.name === "f") {
-      modals.filter.open();
-      return;
-    }
     if (key.name === "t") {
       modals.settings.open();
+      return;
+    }
+    if (key.name === "d") {
+      modals.usage.open();
+      return;
+    }
+    if (key.name === "r") {
+      refreshJobs(ctx).then(() => ctx.render());
+      return;
+    }
+    if (key.name === "f") {
+      modals.filter.open();
       return;
     }
     if (key.name === "i") {
@@ -23539,10 +24503,6 @@ function createKeyboardHandler(ctx, modals) {
     }
     if (key.name === "u") {
       modals.taskApps.open();
-      return;
-    }
-    if (key.name === "d") {
-      modals.usage.open();
       return;
     }
     if (key.name === "c") {
@@ -23916,6 +24876,7 @@ async function runApp() {
   const snapshotModal = createSnapshotModal(ctx);
   const taskAppsModal = createTaskAppsModal(ctx);
   const usageModal = createUsageModal(ctx);
+  const sessionsModal = createSessionsModal(ctx);
   const modals = {
     login: loginModal,
     event: eventModal,
@@ -23928,7 +24889,8 @@ async function runApp() {
     envKey: envKeyModal,
     snapshot: snapshotModal,
     taskApps: taskAppsModal,
-    usage: usageModal
+    usage: usageModal,
+    sessions: sessionsModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
   const handlePaste = createPasteHandler(ctx, keyModal);
