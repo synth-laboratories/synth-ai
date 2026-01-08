@@ -30,7 +30,7 @@ function getJobTypeLabel(job: JobSummary): string {
       return "GEPA"
     case "prompt-learning":
     case "prompt_learning":
-      return "Prompt Learning"
+      return "Prompt Optimization"
     case "eval":
       return "Eval"
     case "learning":
@@ -53,7 +53,7 @@ function getStatusLabel(status: string): string {
   switch (s) {
     case "running": return "Running"
     case "completed": case "succeeded": return "Completed"
-    case "failed": case "error": return "Failed"
+    case "failed": case "error": return "Error"
     case "queued": return "Queued"
     case "canceled": case "cancelled": return "Canceled"
     default: return status || "-"
@@ -75,40 +75,34 @@ function formatJobCard(job: JobSummary) {
 
 /**
  * Jobs list panel component.
+ * 
+ * Gold reference format (two lines per job):
+ *   ▸ Eval
+ *     Error | Jan 8 at 10:32 AM
  */
 export function JobsList(props: JobsListProps) {
   const items = createMemo(() => props.jobs.map(formatJobCard))
 
+  // Each job takes 2 lines, so we can show (height - 2) / 2 jobs
+  const visibleCount = createMemo(() => Math.floor((props.height - 2) / 2))
+
   const visibleItems = createMemo(() => {
     const list = items()
-    const height = props.height - 2 // Account for border
+    const maxVisible = visibleCount()
     const selected = props.selectedIndex
 
     let start = 0
-    if (selected >= start + height) {
-      start = selected - height + 1
+    if (selected >= start + maxVisible) {
+      start = selected - maxVisible + 1
     }
     if (selected < start) {
       start = selected
     }
 
-    return list.slice(start, start + height).map((item, idx) => ({
+    return list.slice(start, start + maxVisible).map((item, idx) => ({
       ...item,
       globalIndex: start + idx,
     }))
-  })
-
-  // Calculate max widths for alignment
-  const maxTypeWidth = createMemo(() => {
-    const list = items()
-    if (!list.length) return 12
-    return Math.max(12, ...list.map((item) => item.type.length))
-  })
-
-  const maxStatusWidth = createMemo(() => {
-    const list = items()
-    if (!list.length) return 10
-    return Math.max(10, ...list.map((item) => item.status.length))
   })
 
   return (
@@ -119,42 +113,34 @@ export function JobsList(props: JobsListProps) {
       borderColor={props.focused ? COLORS.textAccent : COLORS.border}
       title="Jobs"
       titleAlignment="left"
-      paddingLeft={1}
-      paddingRight={1}
       flexDirection="column"
     >
       <Show
         when={props.jobs.length > 0}
-        fallback={<text fg={COLORS.textDim}>No jobs yet. Press r to refresh.</text>}
+        fallback={<text fg={COLORS.textDim}> No jobs yet. Press r to refresh.</text>}
       >
         <For each={visibleItems()}>
           {(item) => {
             const isSelected = item.globalIndex === props.selectedIndex
-            const fg = isSelected ? COLORS.textSelected : COLORS.text
             const bg = isSelected ? COLORS.bgSelection : undefined
-            const statusFg = isSelected ? COLORS.textSelected : 
-              item.status === "Running" ? COLORS.warning :
-              item.status === "Completed" ? COLORS.success :
-              item.status === "Failed" ? COLORS.error :
-              COLORS.textDim
-            
-            const typeStr = item.type.padEnd(maxTypeWidth(), " ")
-            const statusStr = item.status.padEnd(maxStatusWidth(), " ")
+            const typeFg = isSelected ? COLORS.textBright : COLORS.text
+            const statusFg = isSelected ? COLORS.textBright : COLORS.textDim
+            const indicator = isSelected ? "▸ " : "  "
 
             return (
-              <box flexDirection="row" backgroundColor={bg}>
-                <text fg={fg}>{typeStr}</text>
-                <text fg={COLORS.textDim}> | </text>
-                <text fg={statusFg}>{statusStr}</text>
-                <text fg={COLORS.textDim}> | </text>
-                <text fg={isSelected ? COLORS.textSelected : COLORS.textDim}>{item.date}</text>
+              <box flexDirection="column">
+                {/* Line 1: indicator + job type */}
+                <box flexDirection="row" backgroundColor={bg} width="100%">
+                  <text fg={typeFg}>{indicator}{item.type}</text>
+                </box>
+                {/* Line 2: status | date (indented) */}
+                <box flexDirection="row" backgroundColor={bg} width="100%">
+                  <text fg={statusFg}>  {item.status} | {item.date}</text>
+                </box>
               </box>
             )
           }}
         </For>
-        <Show when={props.jobs.length > visibleItems().length}>
-          <text fg={COLORS.textDim}>... ({props.jobs.length - visibleItems().length} more)</text>
-        </Show>
       </Show>
     </box>
   )
