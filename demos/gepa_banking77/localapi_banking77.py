@@ -301,7 +301,7 @@ async def call_llm(
         raise RuntimeError("No tool call arguments returned from model")
 
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
-    return args["intent"]
+        return args.get("intent") or ""
 
 
 # =============================================================================
