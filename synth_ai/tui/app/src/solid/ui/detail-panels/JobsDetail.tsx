@@ -97,7 +97,7 @@ export function JobsDetail(props: JobsDetailProps) {
         <text fg={COLORS.text}>{metricsText()}</text>
       </box>
 
-      {/* Events Box - single line per event with truncation */}
+      {/* Events Box - clean text list */}
       <box
         flexGrow={1}
         border
@@ -112,24 +112,27 @@ export function JobsDetail(props: JobsDetailProps) {
           when={props.events.length > 0}
           fallback={<text fg={COLORS.textDim}>No events yet.</text>}
         >
-          <For each={props.eventWindow.slice}>
-            {(event, idx) => {
-              const globalIndex = props.eventWindow.windowStart + idx()
-              const isSelected = globalIndex === props.eventWindow.selected
-              const bg = isSelected ? COLORS.bgSelection : undefined
-              const fg = isSelected ? COLORS.textBright : COLORS.text
-              // Leave room for border + padding
-              const maxWidth = Math.max(20, props.detailWidth - 4)
-              const line = formatEventLine(event, maxWidth)
-              const indicator = isSelected ? "▸" : " "
-
-              return (
-                <box backgroundColor={bg} width="100%">
-                  <text fg={fg}>{`${indicator} ${line}`}</text>
-                </box>
-              )
-            }}
-          </For>
+          {(() => {
+            const maxWidth = Math.max(20, props.detailWidth - 6)
+            const selected = props.eventWindow.selected
+            const windowStart = props.eventWindow.windowStart
+            
+            return (
+              <For each={props.eventWindow.slice}>
+                {(event, idx) => {
+                  const globalIdx = windowStart + idx()
+                  const isSel = globalIdx === selected
+                  const line = formatEventLine(event, maxWidth)
+                  
+                  return (
+                    <text fg={isSel ? COLORS.textAccent : COLORS.text}>
+                      {`${isSel ? ">" : " "} ${line}`}
+                    </text>
+                  )
+                }}
+              </For>
+            )
+          })()}
         </Show>
       </box>
 
