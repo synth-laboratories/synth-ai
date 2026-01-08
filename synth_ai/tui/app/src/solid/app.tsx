@@ -15,6 +15,8 @@ import { LogsDetail } from "./ui/detail-panels/LogsDetail"
 import { useJobDetailsStream } from "./api/useJobDetailsStream"
 import type { JobDetailsStreamEvent } from "./api/job-details-stream"
 import { CreateJobModal, type CreateJobOptions } from "./modals/CreateJobModal"
+import { scanMultipleDirectories, type ScannedLocalAPI } from "./utils/localapi-scanner"
+import { toDisplayPath } from "./utils/files"
 
 import { formatResultsExpanded, getFilteredEvents } from "../formatters"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
@@ -339,10 +341,23 @@ function SolidShell(props: { onExit?: () => void }) {
   const [loginInProgress, setLoginInProgress] = createSignal(false)
   const [settingsCursor, setSettingsCursor] = createSignal(0)
   const [showCreateJobModal, setShowCreateJobModal] = createSignal(false)
+  const [scannedLocalAPIs, setScannedLocalAPIs] = createSignal<ScannedLocalAPI[]>([])
+  
+  // Scan for LocalAPI files when modal opens
+  createEffect(() => {
+    if (showCreateJobModal()) {
+      // Scan CWD and common locations
+      const dirsToScan = [
+        process.cwd(),
+        // Add more directories as needed
+      ]
+      const found = scanMultipleDirectories(dirsToScan)
+      setScannedLocalAPIs(found)
+    }
+  })
+  
   const localApiFiles = createMemo(() => {
-    // TODO: Scan for LocalAPI files - for now return empty array
-    // This would use the scanForLocalAPIs utility from the original code
-    return [] as string[]
+    return scannedLocalAPIs().map(api => toDisplayPath(api.filepath))
   })
   const modalLayout = createMemo(() => {
     const width = Math.min(100, Math.max(40, layout().totalWidth - 4))
@@ -2248,9 +2263,25 @@ function SolidShell(props: { onExit?: () => void }) {
       <CreateJobModal
         visible={showCreateJobModal()}
         onClose={() => setShowCreateJobModal(false)}
-        onCreateJob={(options: CreateJobOptions) => {
-          snapshot.status = `Creating job: ${options.trainingType} with ${options.localApiPath}`
-          // TODO: Implement actual job creation via API
+        onCreateJob={async (options: CreateJobOptions) => {
+          // Get the full path from scanned APIs
+          const fullPath = scannedLocalAPIs().find(
+            api => toDisplayPath(api.filepath) === options.localApiPath
+          )?.filepath ?? options.localApiPath
+          
+          snapshot.status = `Creating ${options.trainingType} job for ${options.localApiPath}...`
+          data.ctx.render()
+          
+          try {
+            // TODO: Implement actual job creation via spawn or API
+            // For now, show instructions
+            snapshot.status = `Job creation pending. Run: python -m synth_ai.tui.${options.trainingType === "eval" ? "eval_job" : "deploy"} ${fullPath}`
+            snapshot.lastError = null
+          } catch (err: unknown) {
+            const errorMsg = err instanceof Error ? err.message : String(err)
+            snapshot.lastError = `Job creation failed: ${errorMsg}`
+            snapshot.status = "Job creation failed"
+          }
           data.ctx.render()
         }}
         localApiFiles={localApiFiles()}

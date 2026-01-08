@@ -224,17 +224,19 @@ src/
 - Footer styling alignment using `KeyHint`
 - OpenCode Agent integration
 - Settings modal keyboard navigation (fixed reactivity)
-- **SSE streaming for real-time job details** (`src/solid/api/job-details-stream.ts`)
-- **`n` key shortcut for Create Job** with modal wizard (`src/solid/modals/CreateJobModal.tsx`)
+- SSE streaming for real-time job details (`src/solid/api/job-details-stream.ts`)
+- `n` key shortcut for Create Job with modal wizard (`src/solid/modals/CreateJobModal.tsx`)
+- **LocalAPI file scanning** (`src/solid/utils/localapi-scanner.ts`)
+- **File path utilities** (`src/solid/utils/files.ts`)
+- **Enhanced Create Job modal** (file selection, type selection, confirmation)
 
 ⚠️ **Partially Complete**:
-- Create New Job modal (basic wizard structure, pending: LocalAPI scanning, actual job creation API)
+- Job creation (wizard complete, actual spawn/API call pending)
 - Events pane selection (uses text-only selection, not background highlight)
 
-🔲 **Pending (Phase 5)**:
-- LocalAPI file scanning integration
-- Actual job creation API integration
-- Deployment workflow integration
+🔲 **Pending**:
+- Deployment workflow integration (NDJSON stream parsing, status updates)
+- File creation flow in Create Job modal
 
 ## Next Steps
 
