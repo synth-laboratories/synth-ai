@@ -17,14 +17,24 @@ interface JobsDetailProps {
   }
   lastError: string | null
   detailWidth: number
+  eventsFocused?: boolean
 }
 
-function formatEventSummary(event: JobEvent, maxWidth: number): string {
-  const seq = String(event.seq).padStart(5, " ")
-  const detail = event.message ?? formatEventData(event.data)
-  const text = detail ? `${seq} ${event.type} ${detail}` : `${seq} ${event.type}`
-  if (text.length <= maxWidth) return text
-  return `${text.slice(0, Math.max(0, maxWidth - 3))}...`
+/**
+ * Format event type for display (truncate long types)
+ */
+function formatEventType(type: string, maxWidth: number): string {
+  if (type.length <= maxWidth) return type
+  return type.slice(0, maxWidth - 3) + "..."
+}
+
+/**
+ * Get event message/description
+ */
+function getEventMessage(event: JobEvent): string {
+  if (event.message) return event.message
+  const data = formatEventData(event.data)
+  return data || ""
 }
 
 /**
@@ -36,7 +46,7 @@ export function JobsDetail(props: JobsDetailProps) {
   const metricsText = createMemo(() => formatMetrics(props.snapshot.metrics))
 
   return (
-    <box flexDirection="column" flexGrow={1} border={false} gap={1}>
+    <box flexDirection="column" flexGrow={1} border={false} gap={0}>
       {/* Details Box */}
       <box
         border
@@ -45,7 +55,6 @@ export function JobsDetail(props: JobsDetailProps) {
         title="Details"
         titleAlignment="left"
         paddingLeft={1}
-        paddingTop={1}
         height={6}
       >
         <text fg={COLORS.text}>{detailsText()}</text>
@@ -59,7 +68,6 @@ export function JobsDetail(props: JobsDetailProps) {
         title="Results"
         titleAlignment="left"
         paddingLeft={1}
-        paddingTop={1}
         height={4}
       >
         <text fg={COLORS.text}>{resultsText()}</text>
@@ -73,38 +81,50 @@ export function JobsDetail(props: JobsDetailProps) {
         title="Metrics"
         titleAlignment="left"
         paddingLeft={1}
-        paddingTop={1}
         height={4}
       >
         <text fg={COLORS.text}>{metricsText()}</text>
       </box>
 
-      {/* Events Box */}
+      {/* Events Box - gold reference style with two-line cards */}
       <box
         flexGrow={1}
         border
         borderStyle="single"
-        borderColor={COLORS.border}
+        borderColor={props.eventsFocused ? COLORS.textAccent : COLORS.border}
         title="Events"
         titleAlignment="left"
-        paddingLeft={1}
-        paddingTop={1}
         flexDirection="column"
       >
         <Show
           when={props.events.length > 0}
-          fallback={<text fg={COLORS.textDim}>No events yet.</text>}
+          fallback={<text fg={COLORS.textDim}>  No events yet.</text>}
         >
           <For each={props.eventWindow.slice}>
             {(event, idx) => {
               const globalIndex = props.eventWindow.windowStart + idx()
               const isSelected = globalIndex === props.eventWindow.selected
-              const maxWidth = Math.max(10, props.detailWidth - 6)
-              const summary = formatEventSummary(event, maxWidth)
+              const bg = isSelected ? COLORS.bgSelection : undefined
+              const fgPrimary = isSelected ? COLORS.textBright : COLORS.text
+              const fgSecondary = isSelected ? COLORS.textBright : COLORS.textDim
+              const maxTypeWidth = Math.max(10, props.detailWidth - 10)
+              const eventType = formatEventType(event.type, maxTypeWidth)
+              const eventMessage = getEventMessage(event)
+
               return (
-                <text fg={isSelected ? COLORS.textAccent : COLORS.text}>
-                  {`${isSelected ? ">" : " "} ${summary}`}
-                </text>
+                <box flexDirection="column">
+                  {/* Line 1: sequence number + event type */}
+                  <box flexDirection="row" backgroundColor={bg} width="100%">
+                    <text fg={fgSecondary}>  </text>
+                    <text fg={fgSecondary}>{String(event.seq).padStart(3, " ")} </text>
+                    <text fg={fgPrimary}>{eventType}</text>
+                  </box>
+                  {/* Line 2: event message (indented) */}
+                  <box flexDirection="row" backgroundColor={bg} width="100%">
+                    <text fg={fgSecondary}>  </text>
+                    <text fg={fgSecondary}>{eventMessage}</text>
+                  </box>
+                </box>
               )
             }}
           </For>

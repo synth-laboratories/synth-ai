@@ -2223,6 +2223,7 @@ function SolidShell(props: { onExit?: () => void }) {
               eventWindow={eventWindow()}
               lastError={lastError()}
               detailWidth={layout().detailWidth}
+              eventsFocused={activePane() === "events"}
             />
           </Show>
         </Show>
