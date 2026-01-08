@@ -469,10 +469,18 @@ Create a webpage that feels polished, modern, and trustworthy."""
     gepa_config_path = demo_dir / "gepa_config.toml"
 
     # Create prompt learning job (synchronous submission)
+    import toml
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJobConfig
 
+    # Read TOML and override task_app_url with tunnel URL
+    with open(gepa_config_path) as f:
+        config_dict = toml.load(f)
+
+    config_dict["prompt_learning"]["task_app_url"] = LOCAL_API_URL
+    print(f"Using task_app_url: {LOCAL_API_URL}")
+
     job_config = PromptLearningJobConfig(
-        config_path=gepa_config_path,
+        config_dict=config_dict,
         backend_url=SYNTH_API_BASE,
         api_key=API_KEY,
     )
