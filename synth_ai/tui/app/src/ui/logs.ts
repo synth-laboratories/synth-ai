@@ -1,5 +1,5 @@
 /**
- * Log file listing + navigation helpers for logs pane.
+ * Log file listing + content viewer for logs pane.
  */
 import { TextRenderable } from "@opentui/core"
 import type { AppContext } from "../context"
@@ -18,14 +18,14 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
-/** Get layout metrics for logs pane */
-export function getLogsLayoutMetrics(_ctx: AppContext): {
-  visibleCount: number
-} {
+/** Get layout metrics for logs content pane */
+export function getLogsContentMetrics(): { visibleLines: number; maxWidth: number } {
   const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40
-  // Reserve space for header, tabs, status, footer, and box borders
-  const available = Math.max(1, rows - 16)
-  return { visibleCount: available }
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 80
+  // Reserve space for header, tabs, status, footer, box borders, and left panel
+  const visibleLines = Math.max(1, rows - 12)
+  const maxWidth = Math.max(20, cols - 42) // 36 for left panel + some padding
+  return { visibleLines, maxWidth }
 }
 
 function getLogsDirectory(): string {
@@ -55,123 +55,139 @@ export function listLogFiles(): LogFileInfo[] {
   }
 }
 
-function formatLogFileLabel(name: string): string {
-  let type = "log"
-  if (name.includes("_deploy_")) {
-    type = "deploy"
-  } else if (name.includes("_serve_")) {
-    type = "serve"
-  }
-
-  const match = name.match(/(\d{4}_\d{2}_\d{2})_([0-9]{2}[:\-][0-9]{2}[:\-][0-9]{2})/)
-  if (match) {
-    const date = match[1]
-    const time = match[2].replace(/-/g, ":")
-    return `${date} ${time} ${type}`
-  }
-
-  return `${type} ${name}`
-}
-
-function formatLogFileRow(file: LogFileInfo, maxWidth: number): string {
-  const label = formatLogFileLabel(file.name)
-  const maxLen = Math.max(4, maxWidth - 2)
-  return label.length > maxLen ? label.slice(0, maxLen - 3) + "..." : label
-}
-
 export function getSelectedLogFile(ctx: AppContext): LogFileInfo | null {
   const files = listLogFiles()
   const idx = ctx.state.appState.logsSelectedIndex
   return files[idx] ?? null
 }
 
-/** Render the logs pane */
+// Cache for log file content to avoid re-reading unchanged files
+let cachedLogPath: string | null = null
+let cachedLogContent: string[] | null = null
+let cachedLogMtime: number = 0
+let cachedLogMaxWidth: number = 0
+
+/** Read and wrap file content for display (with caching) */
+function readAndWrapContent(filePath: string, maxWidth: number): string[] {
+  try {
+    // Check if we can use cached content
+    const stat = fs.statSync(filePath)
+    if (
+      filePath === cachedLogPath &&
+      stat.mtimeMs === cachedLogMtime &&
+      maxWidth === cachedLogMaxWidth &&
+      cachedLogContent
+    ) {
+      return cachedLogContent
+    }
+
+    // Read and wrap content
+    const content = fs.readFileSync(filePath, "utf-8")
+    const lines: string[] = []
+    for (const line of content.split("\n")) {
+      if (line.length <= maxWidth) {
+        lines.push(line)
+      } else {
+        // Wrap long lines
+        for (let i = 0; i < line.length; i += maxWidth) {
+          lines.push(line.slice(i, i + maxWidth))
+        }
+      }
+    }
+
+    // Update cache
+    cachedLogPath = filePath
+    cachedLogContent = lines
+    cachedLogMtime = stat.mtimeMs
+    cachedLogMaxWidth = maxWidth
+
+    return lines
+  } catch (err) {
+    // Clear cache on error
+    cachedLogPath = null
+    cachedLogContent = null
+    return [`Failed to read file: ${err}`]
+  }
+}
+
+/** Render the logs content pane (shows selected file content) */
 export function renderLogs(ctx: AppContext): void {
   const { ui, renderer } = ctx
   const { appState } = ctx.state
 
-  const files = listLogFiles()
-  if (!files.length) {
+  const selectedFile = getSelectedLogFile(ctx)
+  if (!selectedFile) {
     ui.logsContent.visible = false
     ui.logsEmptyText.visible = true
-    ui.logsEmptyText.content = `No log files found.\n\n${getLogsDirectory()}`
+    ui.logsEmptyText.content = "No log file selected"
+    ui.logsBox.title = "Log Content"
     return
   }
 
   ui.logsEmptyText.visible = false
   ui.logsContent.visible = true
 
-  const { visibleCount } = getLogsLayoutMetrics(ctx)
-  const total = files.length
+  const { visibleLines, maxWidth } = getLogsContentMetrics()
+  const wrappedLines = readAndWrapContent(selectedFile.path, maxWidth)
+  const totalLines = wrappedLines.length
 
-  // Clamp selection and window
-  appState.logsSelectedIndex = clamp(appState.logsSelectedIndex, 0, Math.max(0, total - 1))
-  appState.logsWindowStart = clamp(
-    appState.logsWindowStart,
-    0,
-    Math.max(0, total - visibleCount)
-  )
-
-  // Adjust window to keep selection visible
-  if (appState.logsSelectedIndex < appState.logsWindowStart) {
-    appState.logsWindowStart = appState.logsSelectedIndex
-  } else if (appState.logsSelectedIndex >= appState.logsWindowStart + visibleCount) {
-    appState.logsWindowStart = appState.logsSelectedIndex - visibleCount + 1
+  // Handle tail mode - auto-scroll to bottom
+  const maxOffset = Math.max(0, totalLines - visibleLines)
+  if (appState.logsContentTailMode) {
+    appState.logsContentOffset = maxOffset
+  } else {
+    appState.logsContentOffset = clamp(appState.logsContentOffset, 0, maxOffset)
   }
 
-  const visibleFiles = files.slice(
-    appState.logsWindowStart,
-    appState.logsWindowStart + visibleCount
+  // Get visible lines
+  const visibleContent = wrappedLines.slice(
+    appState.logsContentOffset,
+    appState.logsContentOffset + visibleLines
   )
 
+  // Clear existing entries
   for (const entry of ui.logEntries) {
     ui.logsContent.remove(entry.text.id)
   }
   ui.logEntries = []
 
-  const termWidth = typeof process.stdout?.columns === "number" ? process.stdout.columns : 80
-  const maxWidth = termWidth - 4
-
-  visibleFiles.forEach((file, index) => {
-    const globalIndex = appState.logsWindowStart + index
-    const isSelected = globalIndex === appState.logsSelectedIndex
-
-    const content = formatLogFileRow(file, maxWidth)
+  // Render content lines
+  visibleContent.forEach((line, index) => {
     const text = new TextRenderable(renderer, {
-      id: `log-entry-${index}`,
-      content,
-      fg: isSelected ? "#ffffff" : "#e2e8f0",
-      bg: isSelected ? "#1e293b" : undefined,
+      id: `log-line-${index}`,
+      content: line || " ", // Empty lines need content to render
+      fg: "#e2e8f0",
     })
-
     ui.logsContent.add(text)
     ui.logEntries.push({ text })
   })
 
-  const position = total > visibleCount
-    ? ` [${appState.logsWindowStart + 1}-${Math.min(appState.logsWindowStart + visibleCount, total)}/${total}]`
+  // Update title with position info
+  const tailLabel = appState.logsContentTailMode ? " [TAIL]" : ""
+  const position = totalLines > visibleLines
+    ? ` [${appState.logsContentOffset + 1}-${Math.min(appState.logsContentOffset + visibleLines, totalLines)}/${totalLines}]`
     : ""
-  ui.logsBox.title = `Logs (files)${position}`
+  ui.logsBox.title = `Log: ${path.basename(selectedFile.path)}${position}${tailLabel}`
 }
 
-/** Move log selection up or down */
-export function moveLogSelection(ctx: AppContext, delta: number): void {
-  const files = listLogFiles()
-  if (!files.length) return
-
+/** Scroll log content up or down */
+export function scrollLogContent(ctx: AppContext, delta: number): void {
   const { appState } = ctx.state
-  appState.logsSelectedIndex = clamp(
-    appState.logsSelectedIndex + delta,
-    0,
-    files.length - 1
-  )
+  appState.logsContentTailMode = false
+  appState.logsContentOffset = Math.max(0, appState.logsContentOffset + delta)
 }
 
-/** Page up/down in logs */
-export function pageLogSelection(ctx: AppContext, direction: "up" | "down"): void {
-  const { visibleCount } = getLogsLayoutMetrics(ctx)
-  const delta = direction === "up" ? -visibleCount : visibleCount
-  moveLogSelection(ctx, delta)
+/** Page up/down in log content */
+export function pageLogContent(ctx: AppContext, direction: "up" | "down"): void {
+  const { visibleLines } = getLogsContentMetrics()
+  const delta = direction === "up" ? -visibleLines : visibleLines
+  scrollLogContent(ctx, delta)
+}
+
+/** Toggle tail mode for log content */
+export function toggleLogContentTailMode(ctx: AppContext): void {
+  const { appState } = ctx.state
+  appState.logsContentTailMode = !appState.logsContentTailMode
 }
 
 /** Set the active deployment for logs */

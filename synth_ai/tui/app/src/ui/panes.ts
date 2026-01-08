@@ -2,43 +2,42 @@
  * Pane focus + visual indicators (jobs, events, logs, opencode).
  */
 import type { AppContext } from "../context"
-import type { ActivePane, PrincipalPane } from "../types"
+import type { ActivePane, ListPanelId, PrincipalPane } from "../types"
 import { focusManager } from "../focus"
 import { BOX } from "../theme"
-import { moveLogSelection, pageLogSelection, getSelectedLogFile } from "./logs"
+import { setActiveListPanel } from "../state/app-state"
+import { scrollLogContent, pageLogContent, toggleLogContentTailMode } from "./logs"
 import { moveEventSelection, toggleSelectedEventExpanded } from "./events"
 import { scrollOpenCode, handleOpenCodeInput, handleOpenCodeBackspace, sendOpenCodeMessage } from "./opencode"
 
-/** Create a focusable handler for the logs pane */
-function createLogsPaneFocusable(ctx: AppContext, openLogFileModal: (filePath: string) => void) {
+/** Create a focusable handler for the logs pane (scrolls content, not file list) */
+function createLogsPaneFocusable(ctx: AppContext) {
   return {
     id: "logs-pane",
     handleKey: (key: any): boolean => {
       if (key.name === "up" || key.name === "k") {
-        moveLogSelection(ctx, -1)
+        scrollLogContent(ctx, -1)
         ctx.render()
         return true
       }
       if (key.name === "down" || key.name === "j") {
-        moveLogSelection(ctx, 1)
+        scrollLogContent(ctx, 1)
         ctx.render()
         return true
       }
       if (key.name === "pageup") {
-        pageLogSelection(ctx, "up")
+        pageLogContent(ctx, "up")
         ctx.render()
         return true
       }
       if (key.name === "pagedown") {
-        pageLogSelection(ctx, "down")
+        pageLogContent(ctx, "down")
         ctx.render()
         return true
       }
-      if (key.name === "return" || key.name === "enter") {
-        const file = getSelectedLogFile(ctx)
-        if (file) {
-          openLogFileModal(file.path)
-        }
+      if (key.name === "t") {
+        toggleLogContentTailMode(ctx)
+        ctx.render()
         return true
       }
       return false
@@ -130,8 +129,8 @@ let eventsFocusable: ReturnType<typeof createEventsPaneFocusable> | null = null
 let openCodeFocusable: ReturnType<typeof createOpenCodePaneFocusable> | null = null
 
 /** Initialize pane focusables (call once after modals are set up) */
-export function initPaneFocusables(ctx: AppContext, openEventModal: () => void, openLogFileModal: (filePath: string) => void): void {
-  logsFocusable = createLogsPaneFocusable(ctx, openLogFileModal)
+export function initPaneFocusables(ctx: AppContext, openEventModal: () => void): void {
+  logsFocusable = createLogsPaneFocusable(ctx)
   eventsFocusable = createEventsPaneFocusable(ctx, openEventModal)
   openCodeFocusable = createOpenCodePaneFocusable(ctx)
 }
@@ -168,41 +167,65 @@ export function setActivePane(ctx: AppContext, pane: ActivePane): void {
   ctx.requestRender()
 }
 
+/**
+ * Set both the active pane and the list panel in the left sidebar.
+ * Use this when switching between major views (jobs vs logs).
+ */
+export function setActivePaneWithListPanel(
+  ctx: AppContext,
+  pane: ActivePane,
+  listPanel: ListPanelId
+): void {
+  setActiveListPanel(listPanel)
+  setActivePane(ctx, pane)
+}
+
 export function cycleActivePane(ctx: AppContext): void {
   const { appState } = ctx.state
-  const panes: ActivePane[] = ["jobs", "events", "logs"]
-  const currentIdx = panes.indexOf(appState.activePane)
-  const nextIdx = (currentIdx + 1) % panes.length
-  setActivePane(ctx, panes[nextIdx])
+
+  // Cycle depends on the current view mode
+  if (appState.activeListPanel === "logs") {
+    // In logs view: cycle between left panel (jobs) and content (logs)
+    const nextPane = appState.activePane === "jobs" ? "logs" : "jobs"
+    setActivePane(ctx, nextPane)
+  } else {
+    // In jobs view: cycle between left panel, events, and logs pane (old behavior)
+    const panes: ActivePane[] = ["jobs", "events", "logs"]
+    const currentIdx = panes.indexOf(appState.activePane)
+    const nextIdx = (currentIdx + 1) % panes.length
+    setActivePane(ctx, panes[nextIdx])
+  }
 }
 
 export function updatePaneIndicators(ctx: AppContext): void {
   const { ui } = ctx
   const { appState } = ctx.state
 
-  // Update tab text colors
-  ui.jobsTabText.fg = appState.activePane === "jobs" ? "#f8fafc" : "#94a3b8"
-  ui.eventsTabText.fg = appState.activePane === "events" ? "#f8fafc" : "#94a3b8"
-  ui.logsTabText.fg = appState.activePane === "logs" ? "#f8fafc" : "#94a3b8"
+  // View mode is determined by activeListPanel (what the left panel shows)
+  const inLogsView = appState.activeListPanel === "logs"
 
-  // Update box border colors
+  // Update tab text colors based on view mode
+  ui.jobsTabText.fg = !inLogsView ? "#f8fafc" : "#94a3b8"
+  ui.eventsTabText.fg = appState.activePane === "events" ? "#f8fafc" : "#94a3b8"
+  ui.logsTabText.fg = inLogsView ? "#f8fafc" : "#94a3b8"
+
+  // Update box border colors based on focus
+  // Left panel (jobsBox) is focused when activePane is "jobs"
   ui.jobsBox.borderColor = appState.activePane === "jobs" ? BOX.borderColorFocused : BOX.borderColor
   ui.eventsBox.borderColor = appState.activePane === "events" ? BOX.borderColorFocused : BOX.borderColor
-  ui.logsBox.borderColor = appState.activePane === "logs" ? BOX.borderColorFocused : BOX.borderColor
+  // Right panel (logsBox) is focused when activePane is "logs" AND in logs view
+  ui.logsBox.borderColor = (appState.activePane === "logs" && inLogsView) ? BOX.borderColorFocused : BOX.borderColor
 
-  // Show/hide panels based on active pane
-  // When logs pane is active, hide other panels to give logs full space
-  const inLogsMode = appState.activePane === "logs"
+  // Show/hide panels based on view mode (activeListPanel), not focus
+  // Hide detail panels when in logs view
+  ui.detailBox.visible = !inLogsView
+  ui.resultsBox.visible = !inLogsView
+  ui.metricsBox.visible = !inLogsView
+  ui.taskAppsBox.visible = !inLogsView
 
-  // Hide detail panels when in logs mode
-  ui.detailBox.visible = !inLogsMode
-  ui.resultsBox.visible = !inLogsMode
-  ui.metricsBox.visible = !inLogsMode
-  ui.taskAppsBox.visible = !inLogsMode
-
-  // Toggle events/logs visibility
-  ui.eventsBox.visible = !inLogsMode
-  ui.logsBox.visible = inLogsMode
+  // Toggle events/logs visibility based on view mode
+  ui.eventsBox.visible = !inLogsView
+  ui.logsBox.visible = inLogsView
 }
 
 /** Track previous focus state for modal restoration */

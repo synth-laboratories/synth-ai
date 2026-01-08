@@ -4,7 +4,7 @@
 import type { AppContext } from "../context"
 import type { LoginModalController } from "../login_modal"
 import { shutdown } from "../lifecycle"
-import { setActivePane, cycleActivePane, togglePrincipalPane } from "../ui/panes"
+import { setActivePane, cycleActivePane, togglePrincipalPane, setActivePaneWithListPanel } from "../ui/panes"
 import { refreshJobs, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
 import { focusManager } from "../focus"
 
@@ -67,11 +67,12 @@ export function createKeyboardHandler(
       return
     }
     if (key.name === "b") {
-      setActivePane(ctx, "jobs")
+      setActivePaneWithListPanel(ctx, "jobs", "jobs")
       return
     }
     if (key.name === "g" && !key.shift) {
-      setActivePane(ctx, "logs")
+      // Switch to logs view but keep left panel focused for file navigation
+      setActivePaneWithListPanel(ctx, "jobs", "logs")
       return
     }
     if (key.name === "g" && key.shift) {

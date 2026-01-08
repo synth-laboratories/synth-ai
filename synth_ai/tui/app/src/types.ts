@@ -14,6 +14,9 @@ export type ActivePane = "jobs" | "events" | "logs"
 /** Principal pane - top-level view mode */
 export type PrincipalPane = "jobs" | "opencode"
 
+/** List panel identifier for the left sidebar */
+export type ListPanelId = "jobs" | "logs"
+
 /** Environment key option discovered from .env files */
 export type EnvKeyOption = {
   key: string

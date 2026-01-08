@@ -2,7 +2,7 @@
  * Global application state.
  */
 
-import type { ActivePane, BackendConfig, BackendId, BackendKeySource, EnvKeyOption, FrontendUrlId, LogSource } from "../types"
+import type { ActivePane, BackendConfig, BackendId, BackendKeySource, EnvKeyOption, FrontendUrlId, ListPanelId, LogSource } from "../types"
 
 /** Ensure URL ends with /api */
 function ensureApiBase(url: string): string {
@@ -103,6 +103,7 @@ export const appState = {
   currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod") as BackendId,
 
   activePane: "jobs" as ActivePane,
+  activeListPanel: "jobs" as ListPanelId,
   healthStatus: "unknown",
   autoSelected: false,
 
@@ -163,6 +164,9 @@ export const appState = {
   logsSelectedIndex: 0,
   logsWindowStart: 0,
   logsTailMode: true,
+  // Log content viewer state (right panel)
+  logsContentOffset: 0,
+  logsContentTailMode: true,
 
   // Request tokens for cancellation
   jobSelectToken: 0,
@@ -187,4 +191,8 @@ export const appState = {
 
 export function setActivePane(pane: ActivePane): void {
   appState.activePane = pane
+}
+
+export function setActiveListPanel(panel: ListPanelId): void {
+  appState.activeListPanel = panel
 }

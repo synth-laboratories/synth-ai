@@ -31,6 +31,7 @@ import { createCreateJobModal } from "./modals/create-job-modal"
 import { createKeyboardHandler } from "./handlers/keyboard"
 import { focusManager } from "./focus"
 import { initPaneFocusables } from "./ui/panes"
+import { getListPanelConfig } from "./ui/list-panels"
 import { refreshJobs, selectJob } from "./api/jobs"
 import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
@@ -83,12 +84,19 @@ export async function runApp(): Promise<void> {
   // Create context
   let ctx: AppContext
 
+  // Debounced render to coalesce rapid render calls (SSE events, polling, etc.)
+  let renderPending = false
   function render(): void {
-    try {
-      renderApp(ctx)
-    } catch {
-      // Ignore render errors - don't crash the app
-    }
+    if (renderPending) return
+    renderPending = true
+    queueMicrotask(() => {
+      renderPending = false
+      try {
+        renderApp(ctx)
+      } catch {
+        // Ignore render errors - don't crash the app
+      }
+    })
   }
 
   ctx = createAppContext({
@@ -166,15 +174,28 @@ export async function runApp(): Promise<void> {
   // Wire up event listeners
   ;(renderer.keyInput as any).on("keypress", handleKeypress)
 
-  // Jobs select widget
+  // List panel select widget - generic handler for all list types
   ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx: number, option: any) => {
     if (!option?.value) return
-    if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
-      void selectJob(ctx, option.value).then(() => {
-        render()
-        // Start job details SSE stream for any job type
-        maybeStartJobDetailsStream(option.value)
-      }).catch(() => {})
+    const { activeListPanel } = ctx.state.appState
+    const config = getListPanelConfig(ctx, activeListPanel)
+    const items = config.getItems()
+    const item = items.find((i) => config.formatItem(i).id === option.value)
+
+    if (item) {
+      // IMMEDIATE render for responsive feel (optimistic update)
+      render()
+
+      // Async work happens in background
+      const result = config.onSelect(item, items.indexOf(item))
+      if (result instanceof Promise) {
+        result.then(() => {
+          render() // Update with full data when ready
+          if (activeListPanel === "jobs") {
+            maybeStartJobDetailsStream(option.value)
+          }
+        }).catch(() => {})
+      }
     }
   })
 
@@ -201,19 +222,19 @@ export async function runApp(): Promise<void> {
   })
 
   // Initialize pane focusables for events/logs navigation
-  initPaneFocusables(ctx, modals.event.open, modals.logFile.open)
+  initPaneFocusables(ctx, modals.event.open)
 
   // Start renderer
   renderer.start()
   render()
 
-  // Keep logs pane in sync with filesystem updates
+  // Keep logs pane in sync with filesystem updates (5 second interval to avoid blocking)
   registerInterval(
     setInterval(() => {
       if (ctx.state.appState.activePane === "logs") {
         render()
       }
-    }, 1000)
+    }, 5000)
   )
 
   // Bootstrap
