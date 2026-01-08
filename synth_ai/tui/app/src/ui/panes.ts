@@ -74,13 +74,58 @@ function createEventsPaneFocusable(ctx: AppContext, openEventModal: () => void) 
   }
 }
 
+/** Create a focusable handler for the OpenCode pane */
+function createOpenCodePaneFocusable(ctx: AppContext) {
+  return {
+    id: "opencode-pane",
+    handleKey: (key: any): boolean => {
+      if (key.name === "up" || key.name === "k") {
+        scrollOpenCode(ctx, -1)
+        ctx.render()
+        return true
+      }
+      if (key.name === "down" || key.name === "j") {
+        scrollOpenCode(ctx, 1)
+        ctx.render()
+        return true
+      }
+      if (key.name === "pageup") {
+        scrollOpenCode(ctx, -10)
+        ctx.render()
+        return true
+      }
+      if (key.name === "pagedown") {
+        scrollOpenCode(ctx, 10)
+        ctx.render()
+        return true
+      }
+      if (key.name === "return" || key.name === "enter") {
+        void sendOpenCodeMessage(ctx)
+        return true
+      }
+      if (key.name === "backspace") {
+        handleOpenCodeBackspace(ctx)
+        return true
+      }
+      // Handle character input
+      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+        handleOpenCodeInput(ctx, key.sequence)
+        return true
+      }
+      return false
+    },
+  }
+}
+
 let logsFocusable: ReturnType<typeof createLogsPaneFocusable> | null = null
 let eventsFocusable: ReturnType<typeof createEventsPaneFocusable> | null = null
+let openCodeFocusable: ReturnType<typeof createOpenCodePaneFocusable> | null = null
 
 /** Initialize pane focusables (call once after modals are set up) */
 export function initPaneFocusables(ctx: AppContext, openEventModal: () => void, openLogFileModal: (filePath: string) => void): void {
   logsFocusable = createLogsPaneFocusable(ctx, openLogFileModal)
   eventsFocusable = createEventsPaneFocusable(ctx, openEventModal)
+  openCodeFocusable = createOpenCodePaneFocusable(ctx)
 }
 
 export function setActivePane(ctx: AppContext, pane: ActivePane): void {
@@ -182,6 +227,14 @@ export function restoreFocusFromModal(ctx: AppContext): void {
   const paneToRestore = previousPaneBeforeModal || appState.activePane
   previousPaneBeforeModal = null
 
+  // If in OpenCode mode, focus the OpenCode pane
+  if (appState.principalPane === "opencode") {
+    if (openCodeFocusable) {
+      focusManager.push(openCodeFocusable)
+    }
+    return
+  }
+
   if (paneToRestore === "jobs") {
     ui.jobsSelect.focus()
   } else if (paneToRestore === "logs" && logsFocusable) {
@@ -189,4 +242,58 @@ export function restoreFocusFromModal(ctx: AppContext): void {
   } else if (paneToRestore === "events" && eventsFocusable) {
     focusManager.push(eventsFocusable)
   }
+}
+
+/** Set the principal pane (jobs view vs opencode view) */
+export function setPrincipalPane(ctx: AppContext, pane: "jobs" | "opencode"): void {
+  const { ui } = ctx
+  const { appState } = ctx.state
+
+  if (appState.principalPane === pane) return
+
+  // Pop current focusables
+  if (appState.principalPane === "opencode" && openCodeFocusable) {
+    focusManager.pop("opencode-pane")
+  }
+  if (appState.activePane === "logs" && logsFocusable) {
+    focusManager.pop("logs-pane")
+  }
+  if (appState.activePane === "events" && eventsFocusable) {
+    focusManager.pop("events-pane")
+  }
+  ui.jobsSelect.blur()
+
+  appState.principalPane = pane
+
+  // Update visibility
+  if (pane === "jobs") {
+    ui.detailColumn.visible = true
+    ui.openCodeBox.visible = false
+    ui.jobsSelect.focus()
+  } else {
+    ui.detailColumn.visible = false
+    ui.openCodeBox.visible = true
+    if (openCodeFocusable) {
+      focusManager.push(openCodeFocusable)
+    }
+  }
+
+  updatePrincipalIndicators(ctx)
+  ctx.requestRender()
+}
+
+/** Toggle between jobs and opencode principal panes */
+export function togglePrincipalPane(ctx: AppContext): void {
+  const { appState } = ctx.state
+  const newPane = appState.principalPane === "jobs" ? "opencode" : "jobs"
+  setPrincipalPane(ctx, newPane)
+}
+
+/** Update visual indicators for principal pane */
+export function updatePrincipalIndicators(ctx: AppContext): void {
+  const { ui } = ctx
+  const { appState } = ctx.state
+
+  // Update OpenCode box border to show when active
+  ui.openCodeBox.borderColor = appState.principalPane === "opencode" ? "#60a5fa" : "#334155"
 }
