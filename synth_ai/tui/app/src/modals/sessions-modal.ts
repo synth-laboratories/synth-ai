@@ -7,7 +7,7 @@ import type { SessionRecord, SessionHealthResult } from "../types"
 import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { copyToClipboard } from "../utils/clipboard"
 import { clamp, wrapModalText, type ModalController } from "./base"
-import { fetchSessions, connectLocal, disconnectSession, checkSessionHealth } from "../api/sessions"
+import { fetchSessions, disconnectSession, checkSessionHealth } from "../api/sessions"
 
 /**
  * Format session details for the modal.
@@ -43,7 +43,7 @@ Press 'q' to close.`
 
     // Health/state indicator
     let stateIcon = "?"
-    let stateText = session.state
+    let stateText: string = session.state
     if (session.state === "connected") {
       if (health) {
         if (health.healthy) {
@@ -75,6 +75,7 @@ Press 'q' to close.`
 
     // Main line
     lines.push(`${prefix}[${stateIcon}] ${session.session_id}${localTag}`)
+    lines.push(`    State: ${stateText}`)
     lines.push(`    Mode: ${session.mode} | Model: ${session.model || "default"}`)
 
     // URLs

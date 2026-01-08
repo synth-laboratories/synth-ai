@@ -5,7 +5,7 @@
  * including local development connections and remote container sessions.
  */
 
-import { apiGet, apiPost, getBackendConfig } from "./client"
+import { apiGet, apiPost } from "./client"
 import type { SessionRecord, ConnectLocalResponse, SessionHealthResult } from "../types"
 import type { AppContext } from "../context"
 

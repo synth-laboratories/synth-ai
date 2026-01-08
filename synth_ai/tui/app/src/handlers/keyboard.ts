@@ -17,13 +17,14 @@ export type ModalControllers = {
   snapshot: { open: () => void }
   profile: { open: () => void }
   urls: { open: () => void }
-  usage: { open: () => Promise<void> }
+  usage: { open: () => Promise<void>; isVisible: boolean; handleKey?: (key: any) => boolean }
   event: { open: () => void }
   results: { open: () => void }
   config: { open: () => void }
   createJob: { open: () => void }
   taskApps: { open: () => void }
   logFile: { open: (filePath: string) => void }
+  sessions: { open: () => Promise<void>; isVisible: boolean; handleKey?: (key: any) => boolean }
 }
 
 export function createKeyboardHandler(
@@ -48,7 +49,11 @@ export function createKeyboardHandler(
       return
     }
     if (modals.usage.isVisible) {
-      modals.usage.handleKey(key)
+      modals.usage.handleKey?.(key)
+      return
+    }
+    if (modals.sessions.isVisible) {
+      modals.sessions.handleKey?.(key)
       return
     }
 
@@ -122,8 +127,8 @@ export function createKeyboardHandler(
       modals.taskApps.open()
       return
     }
-    if (key.name === "d") {
-      void modals.usage.open()
+    if (key.name === "o" && key.shift) {
+      void modals.sessions.open()
       return
     }
     if (key.name === "c") {

@@ -16,11 +16,6 @@ declare const process: {
   env: Record<string, string | undefined>
 }
 
-// Type declaration for Node.js process (available at runtime)
-declare const process: {
-  env: Record<string, string | undefined>
-}
-
 export type LoadSettingsDeps = {
   settingsFilePath: string
   normalizeBackendId: (value: string) => BackendId

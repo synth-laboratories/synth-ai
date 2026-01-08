@@ -1,11 +1,12 @@
 /**
- * Pane focus + visual indicators (jobs, events, logs).
+ * Pane focus + visual indicators (jobs, events, logs, opencode).
  */
 import type { AppContext } from "../context"
-import type { ActivePane } from "../types"
+import type { ActivePane, PrincipalPane } from "../types"
 import { focusManager } from "../focus"
 import { moveLogSelection, pageLogSelection, getSelectedLogFile } from "./logs"
 import { moveEventSelection, toggleSelectedEventExpanded } from "./events"
+import { scrollOpenCode, handleOpenCodeInput, handleOpenCodeBackspace, sendOpenCodeMessage } from "./opencode"
 
 /** Create a focusable handler for the logs pane */
 function createLogsPaneFocusable(ctx: AppContext, openLogFileModal: (filePath: string) => void) {

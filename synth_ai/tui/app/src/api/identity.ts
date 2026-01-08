@@ -2,7 +2,7 @@
  * Identity (user/org) + balance fetching.
  */
 import type { AppContext } from "../context"
-import { apiGetV1, getActiveBaseRoot } from "./client"
+import { apiGetV1 } from "./client"
 
 export async function refreshIdentity(ctx: AppContext): Promise<void> {
   const { snapshot } = ctx.state

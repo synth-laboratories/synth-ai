@@ -1,5 +1,8 @@
 /**
  * OpenCode pane rendering and state management.
+ *
+ * NOTE: This file contains stub implementations until the OpenCode pane
+ * UI components are added to layout.ts (Phase 6 of the integration plan).
  */
 import type { AppContext } from "../context"
 import type { OpenCodeMessage } from "../types"
@@ -7,7 +10,7 @@ import type { OpenCodeMessage } from "../types"
 /**
  * Format messages for display in the OpenCode pane.
  */
-function formatMessages(messages: OpenCodeMessage[], maxWidth: number): string[] {
+export function formatMessages(messages: OpenCodeMessage[], maxWidth: number): string[] {
   const lines: string[] = []
 
   if (messages.length === 0) {
@@ -15,7 +18,7 @@ function formatMessages(messages: OpenCodeMessage[], maxWidth: number): string[]
       "No messages yet.",
       "",
       "Connect to an OpenCode session to start chatting.",
-      "Press Ctrl+O to open the sessions modal.",
+      "Press Shift+O to open the sessions modal.",
     ]
   }
 
@@ -94,58 +97,11 @@ function wrapText(text: string, maxWidth: number): string[] {
 
 /**
  * Render the OpenCode pane content.
+ *
+ * STUB: UI components not yet added to layout.ts
  */
-export function renderOpenCodePane(ctx: AppContext): void {
-  const { ui } = ctx
-  const { appState, snapshot } = ctx.state
-
-  // Calculate available dimensions
-  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
-  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40
-  const maxWidth = Math.max(20, cols - 50) // Account for jobs pane
-  const maxLines = Math.max(5, rows - 15)
-
-  // Update status
-  if (appState.openCodeSessionId) {
-    const session = snapshot.sessions.find((s) => s.session_id === appState.openCodeSessionId)
-    if (session) {
-      const health = snapshot.sessionHealthResults.get(session.session_id)
-      let statusText = `Session: ${session.session_id}`
-      if (session.is_local) {
-        statusText += " [local]"
-      }
-      if (health?.healthy) {
-        statusText += health.response_time_ms ? ` (${health.response_time_ms}ms)` : " (healthy)"
-      }
-      if (appState.openCodeIsProcessing) {
-        statusText += " | Processing..."
-      }
-      ui.openCodeStatus.content = statusText
-    } else {
-      ui.openCodeStatus.content = `Session: ${appState.openCodeSessionId} | Not found`
-    }
-  } else {
-    ui.openCodeStatus.content = "Not connected - Press Ctrl+O for sessions"
-  }
-
-  // Format and display messages
-  const messageLines = formatMessages(appState.openCodeMessages, maxWidth)
-
-  // Apply scroll offset
-  const scrollOffset = Math.max(
-    0,
-    Math.min(appState.openCodeScrollOffset, messageLines.length - maxLines)
-  )
-  const visibleLines = messageLines.slice(scrollOffset, scrollOffset + maxLines)
-
-  ui.openCodeMessagesText.content = visibleLines.join("\n")
-
-  // Update input placeholder based on connection status
-  if (appState.openCodeSessionId) {
-    ui.openCodeInput.placeholder = "Type a message and press Enter..."
-  } else {
-    ui.openCodeInput.placeholder = "Connect to a session first (press 'o')"
-  }
+export function renderOpenCodePane(_ctx: AppContext): void {
+  // TODO: Implement when OpenCode pane UI is added to layout.ts
 }
 
 /**
@@ -172,23 +128,24 @@ export function scrollOpenCode(ctx: AppContext, delta: number): void {
 
 /**
  * Send a message to the OpenCode session.
+ *
+ * STUB: Input handling not yet implemented
  */
 export async function sendOpenCodeMessage(ctx: AppContext): Promise<void> {
   const { appState, snapshot } = ctx.state
-  const { ui } = ctx
 
-  const content = ui.openCodeInput.value?.trim()
+  // TODO: Get content from input field when UI is added
+  const content = appState.openCodeInputValue?.trim()
   if (!content) return
 
   if (!appState.openCodeSessionId) {
-    // Show error in conversation area
     appState.openCodeMessages.push({
       id: `error-${Date.now()}`,
       role: "assistant",
-      content: "Not connected to any session. Press Ctrl+O to open sessions and connect.",
+      content: "Not connected to any session. Press Shift+O to open sessions and connect.",
       timestamp: new Date(),
     })
-    snapshot.status = "Not connected - Press Ctrl+O for sessions"
+    snapshot.status = "Not connected - Press Shift+O for sessions"
     renderOpenCodePane(ctx)
     ctx.render()
     return
@@ -211,7 +168,7 @@ export async function sendOpenCodeMessage(ctx: AppContext): Promise<void> {
   })
 
   // Clear input
-  ui.openCodeInput.value = ""
+  appState.openCodeInputValue = ""
 
   // Set processing state
   appState.openCodeIsProcessing = true
@@ -253,11 +210,11 @@ export async function sendOpenCodeMessage(ctx: AppContext): Promise<void> {
  * Handle character input for the OpenCode input field.
  */
 export function handleOpenCodeInput(ctx: AppContext, char: string): void {
-  const { ui } = ctx
-  if (!ui.openCodeInput.value) {
-    ui.openCodeInput.value = ""
+  const { appState } = ctx.state
+  if (!appState.openCodeInputValue) {
+    appState.openCodeInputValue = ""
   }
-  ui.openCodeInput.value += char
+  appState.openCodeInputValue += char
   ctx.render()
 }
 
@@ -265,9 +222,9 @@ export function handleOpenCodeInput(ctx: AppContext, char: string): void {
  * Handle backspace for the OpenCode input field.
  */
 export function handleOpenCodeBackspace(ctx: AppContext): void {
-  const { ui } = ctx
-  if (ui.openCodeInput.value && ui.openCodeInput.value.length > 0) {
-    ui.openCodeInput.value = ui.openCodeInput.value.slice(0, -1)
+  const { appState } = ctx.state
+  if (appState.openCodeInputValue && appState.openCodeInputValue.length > 0) {
+    appState.openCodeInputValue = appState.openCodeInputValue.slice(0, -1)
     ctx.render()
   }
 }

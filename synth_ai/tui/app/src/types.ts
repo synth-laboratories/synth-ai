@@ -13,6 +13,9 @@ export enum JobType {
 /** Active pane in the TUI (jobs list, events, or logs) */
 export type ActivePane = "jobs" | "events" | "logs"
 
+/** Principal pane - top-level view mode */
+export type PrincipalPane = "jobs" | "opencode"
+
 /** Environment key option discovered from .env files */
 export type EnvKeyOption = {
   key: string
@@ -102,16 +105,20 @@ export type TunnelHealthResult = {
 /** OpenCode session record */
 export type SessionRecord = {
   session_id: string
+  container_id?: string
   state: "connected" | "connecting" | "reconnecting" | "disconnected" | "error"
-  opencode_url?: string
-  access_url?: string
-  tunnel_url?: string
+  opencode_url?: string | null
+  access_url?: string | null
+  tunnel_url?: string | null
+  health_url?: string | null
   is_local: boolean
   mode: string
-  model?: string
-  connected_at?: string
-  last_activity?: string
-  error_message?: string
+  model?: string | null
+  created_at?: string | null
+  connected_at?: string | null
+  last_activity?: string | null
+  error_message?: string | null
+  metadata?: Record<string, unknown>
 }
 
 /** Response from connect-local endpoint */

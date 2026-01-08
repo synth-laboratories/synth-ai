@@ -106,7 +106,7 @@ export function subscribeToOpenCodeEvents(
       }
     }
 
-    eventSource.onerror = (err) => {
+    eventSource.onerror = (_err) => {
       if (!isActive) return
       if (onError) {
         onError(new Error("EventSource connection error"))

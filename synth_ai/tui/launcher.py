@@ -12,6 +12,7 @@ from synth_ai.core.urls import BACKEND_URL_BASE, FRONTEND_URL_BASE
 def run_prompt_learning_tui(
     *,
     job_id: str | None = None,
+    backend_base: str | None = None,
     api_key: str | None = None,
     refresh_interval: float = 5.0,
     event_interval: float = 2.0,
@@ -36,8 +37,8 @@ def run_prompt_learning_tui(
         raise RuntimeError("Missing runtime. Install bun to run the TUI.")
 
     env = dict(os.environ)
-    # URLs from urls.py (source of truth)
-    env["SYNTH_BACKEND_URL"] = BACKEND_URL_BASE
+    # URLs from urls.py (source of truth), unless overridden
+    env["SYNTH_BACKEND_URL"] = backend_base or BACKEND_URL_BASE
     env["SYNTH_FRONTEND_URL"] = FRONTEND_URL_BASE
     # API key
     env["SYNTH_API_KEY"] = synth_key

@@ -4,7 +4,6 @@
  */
 import type { AppContext } from "../context"
 import type { TunnelRecord, TunnelHealthResult } from "../types"
-import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { copyToClipboard } from "../utils/clipboard"
 import { createModalUI, clamp, wrapModalText, type ModalController } from "./base"
 import { focusManager } from "../focus"
@@ -107,8 +106,6 @@ export function createTaskAppsModal(ctx: AppContext): ModalController & {
   function updateContent(): void {
     if (!modal.visible) return
 
-    // Only count active tunnels
-    const activeTunnels = snapshot.tunnels.filter((t) => t.status === "active" && !t.deleted_at)
     const raw = formatTunnelDetails(
       snapshot.tunnels,
       snapshot.tunnelHealthResults,

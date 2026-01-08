@@ -23,7 +23,7 @@ import {
   createUrlsModal,
   createUsageModal,
   createTaskAppsModal,
-  createUsageModal,
+  createSessionsModal,
 } from "./modals"
 import { createCreateJobModal } from "./modals/create-job-modal"
 
@@ -136,6 +136,7 @@ export async function runApp(): Promise<void> {
   const createJobModal = createCreateJobModal(ctx)
   const taskAppsModal = createTaskAppsModal(ctx)
   const logFileModal = createLogFileModal(ctx)
+  const sessionsModal = createSessionsModal(ctx)
 
   const modals = {
     login: loginModal,
@@ -153,6 +154,7 @@ export async function runApp(): Promise<void> {
     createJob: createJobModal,
     taskApps: taskAppsModal,
     logFile: logFileModal,
+    sessions: sessionsModal,
   }
 
   // Create keyboard handler

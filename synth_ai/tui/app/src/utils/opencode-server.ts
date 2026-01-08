@@ -53,7 +53,7 @@ export async function startOpenCodeServer(): Promise<string | null> {
         }
       })
 
-      openCodeProcess.on("error", (err) => {
+      openCodeProcess.on("error", (_err) => {
         // opencode not installed or other error
         if (!resolved) {
           resolved = true

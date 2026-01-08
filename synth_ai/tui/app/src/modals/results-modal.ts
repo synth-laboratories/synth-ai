@@ -3,7 +3,6 @@
  */
 import type { AppContext } from "../context"
 import { formatResultsExpanded } from "../formatters"
-import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { copyToClipboard } from "../utils/clipboard"
 import { createModalUI, clamp, wrapModalText, type ModalController } from "./base"
 import { focusManager } from "../focus"
