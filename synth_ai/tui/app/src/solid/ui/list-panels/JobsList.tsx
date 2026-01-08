@@ -16,16 +16,60 @@ function getRelevantDate(job: JobSummary): string {
   return formatTimestamp(dateStr)
 }
 
+function getJobTypeLabel(job: JobSummary): string {
+  // Return a human-readable job type
+  const type = job.training_type || job.job_source || "job"
+  
+  // Map known types to readable labels
+  switch (type.toLowerCase()) {
+    case "mipro":
+    case "mipro_v2":
+      return "MIPRO"
+    case "gepa":
+    case "gepa_v1":
+      return "GEPA"
+    case "prompt-learning":
+    case "prompt_learning":
+      return "Prompt Learning"
+    case "eval":
+      return "Eval"
+    case "learning":
+      return "Learning"
+    case "graph_evolve":
+      return "Graph Evolve"
+    default:
+      // Capitalize and clean up
+      return type
+        .replace(/_/g, " ")
+        .replace(/-/g, " ")
+        .split(" ")
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ")
+  }
+}
+
+function getStatusLabel(status: string): string {
+  const s = (status || "unknown").toLowerCase()
+  switch (s) {
+    case "running": return "Running"
+    case "completed": case "succeeded": return "Completed"
+    case "failed": case "error": return "Failed"
+    case "queued": return "Queued"
+    case "canceled": case "cancelled": return "Canceled"
+    default: return status || "-"
+  }
+}
+
 function formatJobCard(job: JobSummary) {
-  const jobType = job.training_type || job.job_source || "job"
-  const status = job.status || "-"
+  const jobType = getJobTypeLabel(job)
+  const status = getStatusLabel(job.status)
   const dateStr = getRelevantDate(job)
-  const shortId = job.job_id.slice(-8)
 
   return {
     id: job.job_id,
-    name: jobType,
-    description: `${status} | ${shortId} | ${dateStr}`,
+    type: jobType,
+    status: status,
+    date: dateStr,
   }
 }
 
@@ -34,12 +78,6 @@ function formatJobCard(job: JobSummary) {
  */
 export function JobsList(props: JobsListProps) {
   const items = createMemo(() => props.jobs.map(formatJobCard))
-
-  const maxNameWidth = createMemo(() => {
-    const list = items()
-    if (!list.length) return 0
-    return Math.max(...list.map((item) => item.name.length))
-  })
 
   const visibleItems = createMemo(() => {
     const list = items()
@@ -58,6 +96,19 @@ export function JobsList(props: JobsListProps) {
       ...item,
       globalIndex: start + idx,
     }))
+  })
+
+  // Calculate max widths for alignment
+  const maxTypeWidth = createMemo(() => {
+    const list = items()
+    if (!list.length) return 12
+    return Math.max(12, ...list.map((item) => item.type.length))
+  })
+
+  const maxStatusWidth = createMemo(() => {
+    const list = items()
+    if (!list.length) return 10
+    return Math.max(10, ...list.map((item) => item.status.length))
   })
 
   return (
@@ -81,18 +132,28 @@ export function JobsList(props: JobsListProps) {
             const isSelected = item.globalIndex === props.selectedIndex
             const fg = isSelected ? COLORS.textSelected : COLORS.text
             const bg = isSelected ? COLORS.bgSelection : undefined
-            const name = item.name.padEnd(maxNameWidth(), " ")
-            const description = item.description || ""
+            const statusFg = isSelected ? COLORS.textSelected : 
+              item.status === "Running" ? COLORS.warning :
+              item.status === "Completed" ? COLORS.success :
+              item.status === "Failed" ? COLORS.error :
+              COLORS.textDim
+            
+            const typeStr = item.type.padEnd(maxTypeWidth(), " ")
+            const statusStr = item.status.padEnd(maxStatusWidth(), " ")
 
             return (
-              <text fg={fg} bg={bg}>
-                {`${name} ${description}`}
-              </text>
+              <box flexDirection="row" backgroundColor={bg}>
+                <text fg={fg}>{typeStr}</text>
+                <text fg={COLORS.textDim}> | </text>
+                <text fg={statusFg}>{statusStr}</text>
+                <text fg={COLORS.textDim}> | </text>
+                <text fg={isSelected ? COLORS.textSelected : COLORS.textDim}>{item.date}</text>
+              </box>
             )
           }}
         </For>
         <Show when={props.jobs.length > visibleItems().length}>
-          <text fg={COLORS.textDim}>...</text>
+          <text fg={COLORS.textDim}>... ({props.jobs.length - visibleItems().length} more)</text>
         </Show>
       </Show>
     </box>
