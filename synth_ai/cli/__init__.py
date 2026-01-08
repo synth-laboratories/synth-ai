@@ -18,15 +18,6 @@ from synth_ai.cli.infra.setup import setup_cmd
 from synth_ai.cli.task_apps import task_app_cmd
 from synth_ai.cli.training.train_cfg import train_cfg_cmd
 
-# Load environment variables from a local .env if present (repo root)
-try:
-    from dotenv import find_dotenv, load_dotenv
-
-    # Source .env early so CLI subcommands inherit config; do not override shell
-    load_dotenv(find_dotenv(usecwd=True), override=False)
-except Exception:
-    # dotenv is optional at runtime; proceed if unavailable
-    pass
 
 def _callable_from(module: Any, attr: str) -> Callable[..., Any] | None:
     candidate = getattr(module, attr, None)
@@ -57,7 +48,6 @@ _cli_module = _maybe_import("synth_ai.cli.root")
 if not _cli_module:
     raise ImportError("synth_ai.cli.root is required for CLI entrypoint")
 cli = _cli_module.cli  # type: ignore[attr-defined]
-
 
 
 # Register core commands implemented as standalone modules
@@ -110,14 +100,18 @@ _maybe_call("synth_ai.sdk.api.train", "register", cli)
 
 # Task app group/commands are optional and have richer API surface
 _task_apps_module = _maybe_import("synth_ai.cli.task_apps")
-#if _task_apps_module:
+# if _task_apps_module:
 task_app_group = getattr(_task_apps_module, "task_app_group", None)
 if task_app_group is not None:
     cli.add_command(task_app_group, name="task-app-group")
     # Expose common aliases when present
     commands = getattr(task_app_group, "commands", None)
     if isinstance(commands, dict):
-        for alias, name in (("serve", "serve"), ("deploy", "deploy"), ("modal-serve", "modal-serve")):
+        for alias, name in (
+            ("serve", "serve"),
+            ("deploy", "deploy"),
+            ("modal-serve", "modal-serve"),
+        ):
             command = commands.get(name)
             if command is not None:
                 cli.add_command(command, name=alias)
