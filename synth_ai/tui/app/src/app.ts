@@ -1,7 +1,7 @@
 /**
  * Main app orchestrator - creates renderer, wires controllers/handlers, bootstraps polling.
  */
-import { createCliRenderer, SelectRenderableEvents, InputRenderableEvents } from "@opentui/core"
+import { createCliRenderer, SelectRenderableEvents } from "@opentui/core"
 
 import { createAppContext, type AppContext } from "./context"
 import { buildLayout } from "./components/layout"
@@ -12,25 +12,34 @@ import {
   createEventModal,
   createResultsModal,
   createConfigModal,
-  createSettingsModal,
+  createEnvKeyModal,
   createFilterModal,
   createJobFilterModal,
   createKeyModal,
-  createEnvKeyModal,
+  createLogFileModal,
+  createSettingsModal,
   createSnapshotModal,
+  createProfileModal,
+  createUrlsModal,
+  createUsageModal,
   createTaskAppsModal,
   createUsageModal,
-  createSessionsModal,
 } from "./modals"
+import { createCreateJobModal } from "./modals/create-job-modal"
 
-import { createKeyboardHandler, createPasteHandler } from "./handlers/keyboard"
-import { loadPersistedSettings, persistSettings } from "./persistence/settings"
-import { normalizeBackendId } from "./state/app-state"
+import { createKeyboardHandler } from "./handlers/keyboard"
+import { focusManager } from "./focus"
+import { initPaneFocusables } from "./ui/panes"
 import { refreshJobs, selectJob } from "./api/jobs"
 import { refreshEvents } from "./api/events"
 import { refreshIdentity, refreshHealth } from "./api/identity"
 import { refreshTunnels, refreshTunnelHealth } from "./api/tunnels"
-import { getActiveApiKey } from "./api/client"
+import { connectJobsStream, type JobStreamEvent } from "./api/jobs-stream"
+import { isLoggedOutMarkerSet, loadSavedApiKey } from "./utils/logout-marker"
+import { clearJobsTimer, pollingState, config } from "./state/polling"
+import { registerRenderer, registerInterval, registerTimeout, unregisterTimeout, registerCleanup, installSignalHandlers } from "./lifecycle"
+import { loadPersistedSettings } from "./persistence/settings"
+import { appState, normalizeBackendId, frontendKeys, frontendKeySources, getKeyForBackend, backendConfigs } from "./state/app-state"
 
 // Type declaration for Node.js process (available at runtime)
 declare const process: {
@@ -46,6 +55,24 @@ export async function runApp(): Promise<void> {
     backgroundColor: "#0b1120",
   })
 
+  // Register renderer for centralized shutdown and install signal handlers
+  registerRenderer(renderer)
+  installSignalHandlers()
+
+  // Load persisted settings (backend selection and API keys)
+  await loadPersistedSettings({
+    settingsFilePath: config.settingsFilePath,
+    normalizeBackendId,
+    setCurrentBackend: (id) => { appState.currentBackend = id },
+    setFrontendKey: (id, key) => { frontendKeys[id] = key },
+    setFrontendKeySource: (id, source) => { frontendKeySources[id] = source },
+  })
+
+  // Update process.env with loaded settings
+  const currentConfig = backendConfigs[appState.currentBackend]
+  process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "")
+  process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || ""
+
   // Build layout with a placeholder footer (will be updated by render)
   const ui = buildLayout(renderer, () => "")
 
@@ -53,7 +80,11 @@ export async function runApp(): Promise<void> {
   let ctx: AppContext
 
   function render(): void {
-    renderApp(ctx)
+    try {
+      renderApp(ctx)
+    } catch {
+      // Ignore render errors - don't crash the app
+    }
   }
 
   ctx = createAppContext({
@@ -62,155 +93,160 @@ export async function runApp(): Promise<void> {
     render,
   })
 
-  // Load persisted settings
-  await loadPersistedSettings({
-    settingsFilePath: ctx.state.config.settingsFilePath,
-    normalizeBackendId,
-    setCurrentBackend: (id) => {
-      ctx.state.appState.currentBackend = id
-    },
-    setBackendKey: (id, key) => {
-      ctx.state.backendKeys[id] = key
-    },
-    setBackendKeySource: (id, source) => {
-      ctx.state.backendKeySources[id] = source
-    },
-  })
-  
-  // Ensure local backend has SYNTH_API_KEY fallback if still empty
-  const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
-  if (!ctx.state.backendKeys.local?.trim() && synthApiKey) {
-    ctx.state.backendKeys.local = synthApiKey
-  }
-
   // Create modal controllers
   const loginModal = createLoginModal({
-    ui,
     renderer,
-    getCurrentBackend: () => ctx.state.appState.currentBackend,
-    getBackendConfig: () => ctx.state.backendConfigs[ctx.state.appState.currentBackend],
-    getBackendKeys: () => ctx.state.backendKeys,
-    setBackendKey: (backend, key, source) => {
-      ctx.state.backendKeys[backend] = key
-      ctx.state.backendKeySources[backend] = source
-    },
-    persistSettings: async () => {
-      await persistSettings({
-        settingsFilePath: ctx.state.config.settingsFilePath,
-        getCurrentBackend: () => ctx.state.appState.currentBackend,
-        getBackendKey: (id) => ctx.state.backendKeys[id],
-        getBackendKeySource: (id) => ctx.state.backendKeySources[id],
-      })
-    },
     bootstrap: async () => {
       await bootstrap()
     },
     getSnapshot: () => ctx.state.snapshot,
     renderSnapshot: render,
-    getActivePane: () => ctx.state.appState.activePane,
   })
 
   const eventModal = createEventModal(ctx)
   const resultsModal = createResultsModal(ctx)
   const configModal = createConfigModal(ctx)
-  const settingsModal = createSettingsModal(ctx)
   const filterModal = createFilterModal(ctx)
   const jobFilterModal = createJobFilterModal(ctx)
   const keyModal = createKeyModal(ctx)
   const envKeyModal = createEnvKeyModal(ctx)
+  const settingsModal = createSettingsModal(ctx, {
+    onOpenKeyModal: () => keyModal.open(),
+    onOpenEnvKeyModal: () => void envKeyModal.open(),
+    onBackendSwitch: async () => {
+      // Refresh data from new backend
+      try {
+        await refreshIdentity(ctx)
+        await refreshJobs(ctx)
+        if (ctx.state.snapshot.jobs.length > 0) {
+          await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id)
+        }
+        ctx.state.snapshot.status = `Connected to ${appState.currentBackend}`
+      } catch (err: any) {
+        ctx.state.snapshot.status = `Switch failed: ${err?.message || "unknown error"}`
+      }
+      render()
+    },
+  })
   const snapshotModal = createSnapshotModal(ctx)
-  const taskAppsModal = createTaskAppsModal(ctx)
+  const profileModal = createProfileModal(ctx)
+  const urlsModal = createUrlsModal(renderer)
   const usageModal = createUsageModal(ctx)
-  const sessionsModal = createSessionsModal(ctx)
+  const createJobModal = createCreateJobModal(ctx)
+  const taskAppsModal = createTaskAppsModal(ctx)
+  const logFileModal = createLogFileModal(ctx)
 
   const modals = {
     login: loginModal,
     event: eventModal,
     results: resultsModal,
     config: configModal,
-    settings: settingsModal,
     filter: filterModal,
     jobFilter: jobFilterModal,
     key: keyModal,
-    envKey: envKeyModal,
+    settings: settingsModal,
     snapshot: snapshotModal,
-    taskApps: taskAppsModal,
+    profile: profileModal,
+    urls: urlsModal,
     usage: usageModal,
-    sessions: sessionsModal,
+    createJob: createJobModal,
+    taskApps: taskAppsModal,
+    logFile: logFileModal,
   }
 
   // Create keyboard handler
   const handleKeypress = createKeyboardHandler(ctx, modals)
-  const handlePaste = createPasteHandler(ctx, keyModal)
 
   // Wire up event listeners
-  renderer.keyInput.on("keypress", handleKeypress)
-  renderer.keyInput.on("paste", handlePaste)
+  ;(renderer.keyInput as any).on("keypress", handleKeypress)
 
   // Jobs select widget
   ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx: number, option: any) => {
     if (!option?.value) return
     if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
-      void selectJob(ctx, option.value).then(() => render())
+      void selectJob(ctx, option.value).then(() => render()).catch(() => {})
     }
   })
 
-  // Snapshot modal input
-  ui.modalInput.on(InputRenderableEvents.CHANGE, (value: string) => {
-    if (!value.trim()) {
-      snapshotModal.toggle(false)
-      return
-    }
-    void snapshotModal.apply(value.trim())
-  })
-  ui.modalInput.on(InputRenderableEvents.ENTER, (value: string) => {
-    if (!value.trim()) {
-      snapshotModal.toggle(false)
-      return
-    }
-    void snapshotModal.apply(value.trim())
+  // Set up focus manager with jobsSelect as default
+  focusManager.setDefault({
+    id: "jobs-pane",
+    onFocus: () => ui.jobsSelect.focus(),
+    onBlur: () => ui.jobsSelect.blur(),
   })
 
-  // Filter input
-  ui.filterInput.on(InputRenderableEvents.CHANGE, (value: string) => {
-    ctx.state.appState.eventFilter = value.trim()
-    filterModal.toggle(false)
-    render()
-  })
-
-  // Key modal input
-  ui.keyModalInput.on(InputRenderableEvents.ENTER, (value: string) => {
-    void keyModal.apply(value)
-  })
+  // Initialize pane focusables for events/logs navigation
+  initPaneFocusables(ctx, modals.event.open, modals.logFile.open)
 
   // Start renderer
   renderer.start()
-  ui.jobsSelect.focus()
   render()
 
+  // Keep logs pane in sync with filesystem updates
+  registerInterval(
+    setInterval(() => {
+      if (ctx.state.appState.activePane === "logs") {
+        render()
+      }
+    }, 1000)
+  )
+
   // Bootstrap
-  if (!getActiveApiKey()) {
-    ctx.state.snapshot.lastError = `Missing API key for ${ctx.state.backendConfigs[ctx.state.appState.currentBackend].label}`
+  const loggedOutMarkerSet = isLoggedOutMarkerSet()
+
+  if (loggedOutMarkerSet) {
+    // User explicitly logged out previously - don't auto-login
     ctx.state.snapshot.status = "Sign in required"
     render()
     loginModal.toggle(true)
   } else {
-    bootstrap().catch((err) => {
-      ctx.state.snapshot.lastError = err?.message || "Bootstrap failed"
-      ctx.state.snapshot.status = "Startup error"
+    // Try to load saved API key if not already in env
+    if (!process.env.SYNTH_API_KEY) {
+      const savedKey = loadSavedApiKey()
+      if (savedKey) {
+        process.env.SYNTH_API_KEY = savedKey
+      }
+    }
+
+    if (!process.env.SYNTH_API_KEY) {
+      // No API key available
+      ctx.state.snapshot.status = "Sign in required"
       render()
-    })
+      loginModal.toggle(true)
+    } else {
+      // Try auto-login with API key
+      tryAutoLogin().catch(() => {
+        // Silent fail - show logged out state
+        process.env.SYNTH_API_KEY = ""
+        ctx.state.snapshot.status = "Sign in required"
+        render()
+        loginModal.toggle(true)
+      })
+    }
+  }
+
+  async function tryAutoLogin(): Promise<void> {
+    // Validate API key by fetching identity
+    await refreshIdentity(ctx)
+
+    // If identity fetch failed (no userId), treat as auth failure
+    if (!ctx.state.snapshot.userId) {
+      throw new Error("Invalid API key")
+    }
+
+    // Key is valid - proceed with full bootstrap
+    await bootstrap()
   }
 
   // Bootstrap function
   async function bootstrap(): Promise<void> {
-    void refreshHealth(ctx)
+    void refreshHealth(ctx).catch(() => {})
     await refreshIdentity(ctx)
     await refreshJobs(ctx)
 
     // Load tunnels (task apps) and check their health
     await refreshTunnels(ctx)
-    void refreshTunnelHealth(ctx).then(() => render())
+    void refreshTunnelHealth(ctx).then(() => render()).catch(() => {})
 
     const { initialJobId } = ctx.state.config
     if (initialJobId) {
@@ -219,25 +255,133 @@ export async function runApp(): Promise<void> {
       await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id)
     }
 
-    scheduleJobsPoll()
+    // Start SSE connection for real-time job updates
+    startJobsStream()
+
+    // Events polling still needed (SSE is only for job list metadata)
     scheduleEventsPoll()
-    setInterval(() => void refreshHealth(ctx), 30_000)
-    setInterval(() => void refreshIdentity(ctx).then(() => render()), 60_000)
+    registerInterval(setInterval(() => void refreshHealth(ctx).catch(() => {}), 30_000))
+    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()).catch(() => {}), 60_000))
     // Refresh tunnels every 30 seconds, health checks every 15 seconds
-    setInterval(() => void refreshTunnels(ctx).then(() => render()), 30_000)
-    setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15_000)
+    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()).catch(() => {}), 30_000))
+    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()).catch(() => {}), 15_000))
+
+    // Register SSE disconnect for cleanup on shutdown
+    registerCleanup("sse", () => pollingState.sseDisconnect?.())
+
     render()
+  }
+
+  // SSE stream for jobs list
+  function startJobsStream(): void {
+    const { pollingState } = ctx.state
+
+    if (!process.env.SYNTH_API_KEY) {
+      // No API key, fall back to polling
+      scheduleJobsPoll()
+      return
+    }
+
+    const stream = connectJobsStream(
+      (event) => handleJobStreamEvent(event),
+      (err) => handleJobStreamError(err),
+      pollingState.lastSseSeq,
+    )
+
+    // SSE connected - stop job polling
+    pollingState.sseConnected = true
+    pollingState.sseDisconnect = stream.disconnect
+    pollingState.sseReconnectDelay = 1000 // Reset backoff
+    clearJobsTimer()
+  }
+
+  function handleJobStreamEvent(event: JobStreamEvent): void {
+    const { snapshot, pollingState } = ctx.state
+
+    // Track sequence for reconnection
+    pollingState.lastSseSeq = event.seq
+
+    // Remember currently selected job to restore selection after render
+    const selectedJobId = snapshot.selectedJob?.job_id
+
+    const idx = snapshot.jobs.findIndex((j) => j.job_id === event.job_id)
+
+    if (event.type === "job.created" && idx === -1) {
+      // Add new job to top of list
+      snapshot.jobs.unshift({
+        job_id: event.job_id,
+        status: event.status,
+        training_type: event.algorithm ?? null,
+        created_at: event.created_at ?? null,
+        started_at: event.started_at ?? null,
+        finished_at: event.finished_at ?? null,
+        best_reward: null,
+        best_snapshot_id: null,
+        total_tokens: null,
+        total_cost_usd: null,
+        error: event.error ?? null,
+        job_source: event.job_type === "prompt_learning" ? "prompt-learning" : "learning",
+      })
+    } else if (idx !== -1) {
+      // Update existing job
+      const job = snapshot.jobs[idx]
+      job.status = event.status
+      if (event.started_at) job.started_at = event.started_at
+      if (event.finished_at) job.finished_at = event.finished_at
+      if (event.error) job.error = event.error
+    }
+
+    render()
+
+    // Restore selection to previously selected job (not the new one)
+    if (selectedJobId) {
+      const newIdx = snapshot.jobs.findIndex((j) => j.job_id === selectedJobId)
+      if (newIdx !== -1) {
+        ui.jobsSelect.setSelectedIndex(newIdx)
+      }
+    }
+  }
+
+  function handleJobStreamError(_err: Error): void {
+    const { pollingState } = ctx.state
+
+    // SSE disconnected
+    pollingState.sseConnected = false
+    pollingState.sseDisconnect = null
+
+    // Resume polling as fallback
+    scheduleJobsPoll()
+
+    // Schedule reconnect with exponential backoff
+    if (pollingState.sseReconnectTimer) {
+      clearTimeout(pollingState.sseReconnectTimer)
+      unregisterTimeout(pollingState.sseReconnectTimer)
+    }
+    pollingState.sseReconnectTimer = registerTimeout(setTimeout(() => {
+      pollingState.sseReconnectTimer = null
+      startJobsStream()
+    }, pollingState.sseReconnectDelay))
+
+    // Exponential backoff: 1s, 2s, 4s, ... up to 30s
+    pollingState.sseReconnectDelay = Math.min(pollingState.sseReconnectDelay * 2, 30_000)
   }
 
   // Polling
   function scheduleJobsPoll(): void {
-    const { pollingState, config } = ctx.state
-    if (pollingState.jobsTimer) clearTimeout(pollingState.jobsTimer)
-    pollingState.jobsTimer = setTimeout(pollJobs, pollingState.jobsPollMs)
+    const { pollingState } = ctx.state
+    // Don't schedule polling if SSE is connected
+    if (pollingState.sseConnected) return
+    if (pollingState.jobsTimer) {
+      clearTimeout(pollingState.jobsTimer)
+      unregisterTimeout(pollingState.jobsTimer)
+    }
+    pollingState.jobsTimer = registerTimeout(setTimeout(pollJobs, pollingState.jobsPollMs))
   }
 
   async function pollJobs(): Promise<void> {
     const { pollingState, config } = ctx.state
+    // Skip polling if SSE is connected
+    if (pollingState.sseConnected) return
     if (pollingState.jobsInFlight) {
       scheduleJobsPoll()
       return
@@ -260,8 +404,11 @@ export async function runApp(): Promise<void> {
 
   function scheduleEventsPoll(): void {
     const { pollingState } = ctx.state
-    if (pollingState.eventsTimer) clearTimeout(pollingState.eventsTimer)
-    pollingState.eventsTimer = setTimeout(pollEvents, pollingState.eventsPollMs)
+    if (pollingState.eventsTimer) {
+      clearTimeout(pollingState.eventsTimer)
+      unregisterTimeout(pollingState.eventsTimer)
+    }
+    pollingState.eventsTimer = registerTimeout(setTimeout(pollEvents, pollingState.eventsPollMs))
   }
 
   async function pollEvents(): Promise<void> {
@@ -286,4 +433,3 @@ export async function runApp(): Promise<void> {
     scheduleEventsPoll()
   }
 }
-

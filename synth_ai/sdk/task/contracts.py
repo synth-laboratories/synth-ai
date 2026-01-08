@@ -6,11 +6,12 @@ backward compatibility during the naming transition.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RolloutMode(str, Enum):
@@ -266,6 +267,30 @@ class RolloutResponse(BaseModel):
         default_factory=dict,
         description="[LEGACY] Additional metadata. Prefer top-level fields instead.",
     )
+
+    @field_validator('trace_correlation_id')
+    @classmethod
+    def warn_missing_correlation_id(cls, v: str | None) -> str | None:
+        """Warn if trace_correlation_id is None - this breaks trace hydration.
+
+        When trace_correlation_id is None, the backend cannot correlate LLM traces
+        with eval seeds, causing trace hydration to fail. This results in warnings like:
+        "missing correlation_id" and prevents proper trace tracking.
+
+        To fix: Call extract_trace_correlation_id() from
+        synth_ai.sdk.task.trace_correlation_helpers and include the result
+        in your RolloutResponse, or use build_rollout_response() helper.
+        """
+        if v is None:
+            warnings.warn(
+                "RolloutResponse.trace_correlation_id is None. "
+                "Trace hydration will fail. "
+                "See: https://docs.usesynth.ai/guides/local-api#trace-correlation "
+                "or use build_rollout_response() helper from synth_ai.sdk.task",
+                UserWarning,
+                stacklevel=4
+            )
+        return v
 
 
 class _ExtraAllowModel(BaseModel):

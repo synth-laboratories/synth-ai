@@ -1,53 +1,58 @@
 /**
  * Environment key scanner modal controller.
+ * Adapted for nightly's focusManager and createModalUI patterns.
  */
 import type { AppContext } from "../context"
-import { blurForModal, restoreFocusFromModal } from "../ui/panes"
+import { createModalUI, clamp, type ModalController, type ModalUI } from "./base"
+import { focusManager } from "../focus"
 import { scanEnvKeys } from "../utils/env"
-import { clamp, type ModalController } from "./base"
+import {
+  appState,
+  frontendKeys,
+  frontendKeySources,
+  getFrontendUrlId,
+} from "../state/app-state"
 
-export function createEnvKeyModal(ctx: AppContext): ModalController & {
+export type EnvKeyModalController = ModalController & {
   open: () => Promise<void>
   move: (delta: number) => void
   select: () => Promise<void>
   rescan: () => Promise<void>
-} {
-  const { ui, renderer } = ctx
-  const { appState, backendKeys, backendKeySources, config } = ctx.state
+}
 
-  function toggle(visible: boolean): void {
-    ui.envKeyModalVisible = visible
-    ui.envKeyModalBox.visible = visible
-    ui.envKeyModalTitle.visible = visible
-    ui.envKeyModalHelp.visible = visible
-    ui.envKeyModalListText.visible = visible
-    ui.envKeyModalInfoText.visible = visible
-    if (visible) {
-      blurForModal(ctx)
-    } else {
-      restoreFocusFromModal(ctx)
-    }
-    renderer.requestRender()
-  }
+export function createEnvKeyModal(ctx: AppContext): EnvKeyModalController {
+  const { renderer } = ctx
+  const { config } = ctx.state
+
+  // Create modal UI using the primitive
+  const modal: ModalUI = createModalUI(renderer, {
+    id: "env-key-modal",
+    width: 64,
+    height: 16,
+    borderColor: "#a78bfa",
+    titleColor: "#a78bfa",
+    zIndex: 11, // Above settings modal
+  })
+
+  // Set initial content
+  modal.setTitle("Scan .env Files for API Keys")
+  modal.setHint("j/k navigate  Enter select  r rescan  q close")
 
   function renderList(): void {
     if (appState.envKeyScanInProgress) {
-      ui.envKeyModalListText.content = "Scanning..."
-      ui.envKeyModalInfoText.content = ""
+      modal.setContent("Scanning...")
       renderer.requestRender()
       return
     }
 
     if (appState.envKeyError) {
-      ui.envKeyModalListText.content = `Error: ${appState.envKeyError}`
-      ui.envKeyModalInfoText.content = ""
+      modal.setContent(`Error: ${appState.envKeyError}`)
       renderer.requestRender()
       return
     }
 
     if (!appState.envKeyOptions.length) {
-      ui.envKeyModalListText.content = "No API keys found in .env files"
-      ui.envKeyModalInfoText.content = ""
+      modal.setContent("No API keys found in .env files")
       renderer.requestRender()
       return
     }
@@ -64,18 +69,31 @@ export function createEnvKeyModal(ctx: AppContext): ModalController & {
       const preview = option.key ? `${option.key.slice(0, 8)}...` : "(empty)"
       lines.push(`${cursor} ${preview}`)
     }
-    ui.envKeyModalListText.content = lines.join("\n")
 
     const selected = appState.envKeyOptions[appState.envKeyCursor]
     if (selected) {
       const sources = selected.sources.slice(0, 2).join(", ")
       const suffix = selected.sources.length > 2 ? ` +${selected.sources.length - 2}` : ""
-      ui.envKeyModalInfoText.content = `Source: ${sources}${suffix}\nVars: ${selected.varNames.join(", ")}`
-    } else {
-      ui.envKeyModalInfoText.content = ""
+      lines.push("")
+      lines.push(`Source: ${sources}${suffix}`)
+      lines.push(`Vars: ${selected.varNames.join(", ")}`)
     }
 
+    modal.setContent(lines.join("\n"))
     renderer.requestRender()
+  }
+
+  function toggle(visible: boolean): void {
+    if (visible) {
+      focusManager.push({
+        id: "env-key-modal",
+        handleKey,
+      })
+      modal.center()
+    } else {
+      focusManager.pop("env-key-modal")
+    }
+    modal.setVisible(visible)
   }
 
   function move(delta: number): void {
@@ -115,19 +133,25 @@ export function createEnvKeyModal(ctx: AppContext): ModalController & {
     const selected = appState.envKeyOptions[appState.envKeyCursor]
     if (!selected) return
 
-    backendKeys[appState.currentBackend] = selected.key
-    backendKeySources[appState.currentBackend] = {
+    // Store by frontend URL (dev and local share the same key)
+    const frontendUrlId = getFrontendUrlId(appState.currentBackend)
+    frontendKeys[frontendUrlId] = selected.key
+    frontendKeySources[frontendUrlId] = {
       sourcePath: selected.sources[0] || null,
       varName: selected.varNames[0] || null,
     }
+
+    // Also update process.env for immediate use
+    process.env.SYNTH_API_KEY = selected.key
+
     toggle(false)
 
     const { persistSettings } = await import("../persistence/settings")
     await persistSettings({
       settingsFilePath: config.settingsFilePath,
       getCurrentBackend: () => appState.currentBackend,
-      getBackendKey: (id) => backendKeys[id],
-      getBackendKeySource: (id) => backendKeySources[id],
+      getFrontendKey: (id) => frontendKeys[id],
+      getFrontendKeySource: (id) => frontendKeySources[id],
     })
 
     ctx.state.snapshot.status = "API key loaded from env file"
@@ -135,7 +159,7 @@ export function createEnvKeyModal(ctx: AppContext): ModalController & {
   }
 
   function handleKey(key: any): boolean {
-    if (!ui.envKeyModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "q" || key.name === "escape") {
       toggle(false)
@@ -157,17 +181,12 @@ export function createEnvKeyModal(ctx: AppContext): ModalController & {
       void rescan()
       return true
     }
-    if (key.name === "m") {
-      toggle(false)
-      // Parent will open key modal
-      return true
-    }
-    return true
+    return true // consume all keys when modal is open
   }
 
   return {
     get isVisible() {
-      return ui.envKeyModalVisible
+      return modal.visible
     },
     toggle,
     open,
@@ -177,4 +196,3 @@ export function createEnvKeyModal(ctx: AppContext): ModalController & {
     handleKey,
   }
 }
-

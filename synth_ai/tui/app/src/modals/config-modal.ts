@@ -2,30 +2,38 @@
  * Job configuration/metadata modal controller.
  */
 import type { AppContext } from "../context"
-import { blurForModal, restoreFocusFromModal } from "../ui/panes"
-import { centerModal, clamp, wrapModalText, type ModalController } from "./base"
+import { createModalUI, clamp, wrapModalText, type ModalController } from "./base"
+import { focusManager } from "../focus"
 
 export function createConfigModal(ctx: AppContext): ModalController & {
   open: () => void
   move: (delta: number) => void
   updateContent: () => void
 } {
-  const { ui, renderer } = ctx
+  const { renderer } = ctx
   const { appState, snapshot } = ctx.state
 
+  const modal = createModalUI(renderer, {
+    id: "config-modal",
+    width: 100,
+    height: 24,
+    borderColor: "#f59e0b",
+    titleColor: "#f59e0b",
+    zIndex: 8,
+  })
+
   function toggle(visible: boolean): void {
-    ui.configModalVisible = visible
-    ui.configModalBox.visible = visible
-    ui.configModalTitle.visible = visible
-    ui.configModalText.visible = visible
-    ui.configModalHint.visible = visible
     if (visible) {
-      blurForModal(ctx)
+      focusManager.push({
+        id: "config-modal",
+        handleKey,
+      })
+      modal.center()
     } else {
-      ui.configModalText.content = ""
-      restoreFocusFromModal(ctx)
+      focusManager.pop("config-modal")
+      modal.setContent("")
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   function formatConfigMetadata(): string | null {
@@ -107,7 +115,7 @@ export function createConfigModal(ctx: AppContext): ModalController & {
   }
 
   function updateContent(): void {
-    if (!ui.configModalVisible) return
+    if (!modal.visible) return
 
     const raw = formatConfigMetadata() || "(no metadata)"
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
@@ -118,15 +126,13 @@ export function createConfigModal(ctx: AppContext): ModalController & {
     appState.configModalOffset = clamp(appState.configModalOffset, 0, Math.max(0, wrapped.length - maxLines))
     const visible = wrapped.slice(appState.configModalOffset, appState.configModalOffset + maxLines)
 
-    ui.configModalTitle.content = "Job Configuration"
-    ui.configModalText.content = visible.join("\n")
-    ui.configModalPayload = raw
-    ui.configModalHint.content =
+    modal.setTitle("Job Configuration")
+    modal.setContent(visible.join("\n"))
+    modal.setHint(
       wrapped.length > maxLines
         ? `[${appState.configModalOffset + 1}-${appState.configModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close`
         : "q close"
-
-    renderer.requestRender()
+    )
   }
 
   function move(delta: number): void {
@@ -141,7 +147,7 @@ export function createConfigModal(ctx: AppContext): ModalController & {
   }
 
   function handleKey(key: any): boolean {
-    if (!ui.configModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "up" || key.name === "k") {
       move(-1)
@@ -155,12 +161,12 @@ export function createConfigModal(ctx: AppContext): ModalController & {
       toggle(false)
       return true
     }
-    return true
+    return true // consume all keys when modal is open
   }
 
-  return {
+  const controller = {
     get isVisible() {
-      return ui.configModalVisible
+      return modal.visible
     },
     toggle,
     open,
@@ -168,5 +174,6 @@ export function createConfigModal(ctx: AppContext): ModalController & {
     updateContent,
     handleKey,
   }
-}
 
+  return controller
+}

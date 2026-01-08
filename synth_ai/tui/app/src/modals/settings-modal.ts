@@ -1,54 +1,60 @@
 /**
  * Settings (backend selection) modal controller.
+ * Adapted for nightly's focusManager and createModalUI patterns.
  */
 import type { AppContext } from "../context"
-import type { BackendConfig, BackendId } from "../types"
-import { blurForModal, restoreFocusFromModal } from "../ui/panes"
-import { clamp, type ModalController } from "./base"
+import type { BackendConfig } from "../types"
+import { createModalUI, clamp, type ModalController, type ModalUI } from "./base"
+import { focusManager } from "../focus"
+import {
+  appState,
+  backendConfigs,
+  frontendKeys,
+  frontendKeySources,
+  getKeyForBackend,
+  getFrontendUrl,
+} from "../state/app-state"
 
 // Type declaration for Node.js process (available at runtime)
 declare const process: {
   env: Record<string, string | undefined>
 }
 
-export function createSettingsModal(ctx: AppContext): ModalController & {
+export type SettingsModalController = ModalController & {
   open: () => void
   move: (delta: number) => void
   select: () => Promise<void>
   openKeyModal: () => void
   openEnvKeyModal: () => void
-} {
-  const { ui, renderer } = ctx
-  const { appState, backendConfigs, backendKeys } = ctx.state
+}
+
+export function createSettingsModal(
+  ctx: AppContext,
+  deps?: {
+    onOpenKeyModal?: () => void
+    onOpenEnvKeyModal?: () => void
+    onBackendSwitch?: () => Promise<void>
+  },
+): SettingsModalController {
+  const { renderer } = ctx
+  const { config } = ctx.state
+
+  // Create modal UI using the primitive
+  const modal: ModalUI = createModalUI(renderer, {
+    id: "settings-modal",
+    width: 64,
+    height: 14,
+    borderColor: "#38bdf8",
+    titleColor: "#38bdf8",
+    zIndex: 10,
+  })
+
+  // Set initial content
+  modal.setTitle("Settings - Backend")
+  modal.setHint("j/k navigate  Enter select  Shift+E env keys  q close")
 
   function buildSettingsOptions(): BackendConfig[] {
     return [backendConfigs.prod, backendConfigs.dev, backendConfigs.local]
-  }
-
-  function toggle(visible: boolean): void {
-    ui.settingsModalVisible = visible
-    ui.settingsBox.visible = visible
-    ui.settingsTitle.visible = visible
-    ui.settingsHelp.visible = visible
-    ui.settingsListText.visible = visible
-    ui.settingsInfoText.visible = visible
-    if (visible) {
-      blurForModal(ctx)
-      // Refresh backendKeys from environment in case SYNTH_API_KEY was set
-      const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
-      if (!backendKeys.local?.trim() && synthApiKey) {
-        backendKeys.local = synthApiKey
-      }
-      appState.settingsOptions = buildSettingsOptions()
-      appState.settingsCursor = Math.max(
-        0,
-        appState.settingsOptions.findIndex((opt) => opt.id === appState.currentBackend),
-      )
-      renderList()
-    } else {
-      restoreFocusFromModal(ctx)
-    }
-    renderer.requestRender()
   }
 
   function renderList(): void {
@@ -59,21 +65,42 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
       const cursor = idx === appState.settingsCursor ? ">" : " "
       lines.push(`${cursor} [${active ? "x" : " "}] ${opt.label} (${opt.id})`)
     }
-    ui.settingsListText.content = lines.join("\n")
 
     const selected = appState.settingsOptions[appState.settingsCursor]
     if (selected) {
-      // For local backend, check environment variable directly if key is empty
-      let key = backendKeys[selected.id]
-      if (selected.id === "local" && (!key || !key.trim())) {
-        key = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || ""
-      }
-      const keyPreview = key && key.trim() ? `${key.slice(0, 5)}...` : "(no key)"
-      ui.settingsInfoText.content = `URL: ${selected.baseUrl}\nKey: ${keyPreview}`
-    } else {
-      ui.settingsInfoText.content = ""
+      // Keys are stored by frontend URL, so dev and local share the same key
+      // Show actual key for this frontend URL - no fallback to avoid confusion
+      const key = getKeyForBackend(selected.id)
+      const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)"
+      const frontendUrl = getFrontendUrl(selected.id)
+
+      lines.push("")
+      lines.push(`Backend: ${selected.baseUrl}`)
+      lines.push(`Frontend: ${frontendUrl}`)
+      lines.push(`Key: ${keyPreview}`)
     }
+
+    modal.setContent(lines.join("\n"))
     renderer.requestRender()
+  }
+
+  function toggle(visible: boolean): void {
+    if (visible) {
+      focusManager.push({
+        id: "settings-modal",
+        handleKey,
+      })
+      modal.center()
+      appState.settingsOptions = buildSettingsOptions()
+      appState.settingsCursor = Math.max(
+        0,
+        appState.settingsOptions.findIndex((opt) => opt.id === appState.currentBackend),
+      )
+      renderList()
+    } else {
+      focusManager.pop("settings-modal")
+    }
+    modal.setVisible(visible)
   }
 
   function move(delta: number): void {
@@ -87,17 +114,30 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
     if (!selected) return
 
     appState.currentBackend = selected.id
+
+    // Update process.env so nightly's URL resolution picks it up
+    // Remove /api suffix for the env var (it gets added by the API client)
+    const baseUrl = selected.baseUrl.replace(/\/api$/, "")
+    process.env.SYNTH_BACKEND_URL = baseUrl
+    process.env.SYNTH_API_KEY = getKeyForBackend(selected.id) || ""
+
     toggle(false)
+    ctx.state.snapshot.status = `Switching to ${selected.label}...`
     ctx.render()
 
-    // Persist and reload
+    // Persist settings
     const { persistSettings } = await import("../persistence/settings")
     await persistSettings({
-      settingsFilePath: ctx.state.config.settingsFilePath,
+      settingsFilePath: config.settingsFilePath,
       getCurrentBackend: () => appState.currentBackend,
-      getBackendKey: (id) => backendKeys[id],
-      getBackendKeySource: (id) => ctx.state.backendKeySources[id],
+      getFrontendKey: (id) => frontendKeys[id],
+      getFrontendKeySource: (id) => frontendKeySources[id],
     })
+
+    // Trigger refresh after backend switch
+    if (deps?.onBackendSwitch) {
+      await deps.onBackendSwitch()
+    }
   }
 
   function open(): void {
@@ -106,16 +146,16 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
 
   function openKeyModal(): void {
     toggle(false)
-    // This will be handled by the parent that wires modals together
+    deps?.onOpenKeyModal?.()
   }
 
   function openEnvKeyModal(): void {
     toggle(false)
-    // This will be handled by the parent that wires modals together
+    deps?.onOpenEnvKeyModal?.()
   }
 
   function handleKey(key: any): boolean {
-    if (!ui.settingsModalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "up" || key.name === "k") {
       move(-1)
@@ -141,12 +181,12 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
       toggle(false)
       return true
     }
-    return true
+    return true // consume all keys when modal is open
   }
 
   return {
     get isVisible() {
-      return ui.settingsModalVisible
+      return modal.visible
     },
     toggle,
     open,
@@ -157,4 +197,3 @@ export function createSettingsModal(ctx: AppContext): ModalController & {
     handleKey,
   }
 }
-

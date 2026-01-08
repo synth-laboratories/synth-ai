@@ -2,12 +2,62 @@
  * Shared type definitions for the TUI app.
  */
 
+import type { ChildProcess } from "child_process"
 import type { JobEvent, JobSummary } from "./tui_data"
 
+/** Type of job that can be run in the TUI */
+export enum JobType {
+  Eval = "eval",
+}
+
+/** Active pane in the TUI (jobs list, events, or logs) */
+export type ActivePane = "jobs" | "events" | "logs"
+
+/** Environment key option discovered from .env files */
 export type EnvKeyOption = {
   key: string
   sources: string[]
   varNames: string[]
+}
+
+/** Source of a deployment log entry */
+export type LogSource = "uvicorn" | "cloudflare" | "app"
+
+/** A log entry from the deployment process */
+export type DeploymentLog = {
+  type: "log"
+  source: LogSource
+  message: string
+  timestamp: number
+  level?: string
+  deployment_id?: string
+}
+
+/** A status message from the deployment process */
+export type DeploymentStatus = {
+  type: "status"
+  status: "starting" | "ready" | "error" | "stopped"
+  url?: string
+  port?: number
+  error?: string
+  message?: string
+  deployment_id?: string
+  timestamp?: number
+}
+
+/** Union type for all deployment log entries */
+export type DeploymentLogEntry = DeploymentLog | DeploymentStatus
+
+/** A deployed LocalAPI instance */
+export type Deployment = {
+  id: string
+  localApiPath: string
+  url: string | null
+  status: "deploying" | "ready" | "error" | "stopped"
+  logs: DeploymentLogEntry[]
+  proc: ChildProcess | null
+  startedAt: Date
+  error?: string
 }
 
 /** A prompt candidate (snapshot) with reward */
@@ -39,6 +89,7 @@ export type TunnelRecord = {
   health_check_error?: string
 }
 
+
 /** Client-side health check result */
 export type TunnelHealthResult = {
   healthy: boolean
@@ -46,6 +97,25 @@ export type TunnelHealthResult = {
   error?: string
   response_time_ms?: number
   checked_at: Date
+}
+
+/** Backend ID for multi-backend support */
+export type BackendId = "prod" | "dev" | "local"
+
+/** Frontend URL identifier for key storage (keys are shared by frontend URL) */
+export type FrontendUrlId = "usesynth.ai" | "localhost:3000"
+
+/** Backend configuration */
+export type BackendConfig = {
+  id: BackendId
+  label: string
+  baseUrl: string
+}
+
+/** Source information for an API key */
+export type BackendKeySource = {
+  sourcePath: string | null
+  varName: string | null
 }
 
 export type Snapshot = {
@@ -72,72 +142,6 @@ export type Snapshot = {
   tunnelHealthResults: Map<string, TunnelHealthResult>
   /** Whether tunnels are currently being refreshed */
   tunnelsLoading: boolean
-  /** Interactive sessions (OpenCode) */
-  sessions: SessionRecord[]
-  /** Client-side health results keyed by session ID */
-  sessionHealthResults: Map<string, SessionHealthResult>
-  /** Whether sessions are currently being refreshed */
-  sessionsLoading: boolean
-}
-
-export type BackendId = "prod" | "dev" | "local"
-
-export type BackendConfig = {
-  id: BackendId
-  label: string
-  baseUrl: string
-}
-
-export type BackendKeySource = {
-  sourcePath: string | null
-  varName: string | null
-}
-
-/** Interactive session record from backend */
-export type SessionRecord = {
-  session_id: string
-  container_id: string
-  state: "disconnected" | "connecting" | "connected" | "reconnecting" | "error"
-  mode: "async" | "interactive" | "hybrid"
-  model: string | null
-  access_url: string | null
-  tunnel_url: string | null
-  opencode_url: string | null
-  health_url: string | null
-  created_at: string
-  connected_at: string | null
-  last_activity: string | null
-  error_message: string | null
-  metadata: Record<string, any>
-  is_local: boolean
-}
-
-/** Response from connect-local endpoint */
-export type ConnectLocalResponse = {
-  session_id: string
-  state: string
-  access_url: string | null
-  tunnel_url: string | null
-  opencode_url: string | null
-  connected_at: string | null
-  error: string | null
-}
-
-/** Session health check result */
-export type SessionHealthResult = {
-  healthy: boolean
-  status_code?: number
-  error?: string
-  response_time_ms?: number
-  checked_at: Date
-}
-
-/** OpenCode message in conversation */
-export type OpenCodeMessage = {
-  id: string
-  role: "user" | "assistant" | "tool"
-  content: string
-  timestamp: Date
-  toolName?: string
-  toolStatus?: "pending" | "running" | "completed" | "failed"
+  /** Active deployments with their streaming logs */
+  deployments: Map<string, Deployment>
 }

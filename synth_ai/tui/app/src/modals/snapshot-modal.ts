@@ -1,30 +1,47 @@
 /**
  * Snapshot ID input modal controller.
  */
+import { InputRenderableEvents } from "@opentui/core"
 import type { AppContext } from "../context"
-import { blurForModal, restoreFocusFromModal } from "../ui/panes"
-import type { ModalController } from "./base"
+import { createModalUI, type ModalController } from "./base"
+import { focusManager } from "../focus"
 
 export function createSnapshotModal(ctx: AppContext): ModalController & {
   open: () => void
   apply: (snapshotId: string) => Promise<void>
 } {
-  const { ui, renderer } = ctx
-  const { appState, snapshot } = ctx.state
+  const { renderer } = ctx
+  const { snapshot } = ctx.state
+
+  const modal = createModalUI(renderer, {
+    id: "snapshot-modal",
+    width: 50,
+    height: 5,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5,
+    input: {
+      label: "Snapshot ID:",
+      placeholder: "Enter snapshot id",
+      width: 44,
+    },
+  })
 
   function toggle(visible: boolean): void {
-    ui.modalVisible = visible
-    ui.modalBox.visible = visible
-    ui.modalLabel.visible = visible
-    ui.modalInput.visible = visible
     if (visible) {
-      blurForModal(ctx)
-      ui.modalInput.value = ""
-      ui.modalInput.focus()
+      focusManager.push({
+        id: "snapshot-modal",
+        handleKey,
+      })
+      modal.center()
+      if (modal.input) {
+        modal.input.value = ""
+        modal.input.focus()
+      }
     } else {
-      restoreFocusFromModal(ctx)
+      focusManager.pop("snapshot-modal")
     }
-    renderer.requestRender()
+    modal.setVisible(visible)
   }
 
   function open(): void {
@@ -55,25 +72,33 @@ export function createSnapshotModal(ctx: AppContext): ModalController & {
     ctx.render()
   }
 
+  // Wire up input events
+  if (modal.input) {
+    modal.input.on(InputRenderableEvents.ENTER, (value: string) => {
+      void apply(value)
+    })
+  }
+
   function handleKey(key: any): boolean {
-    if (!ui.modalVisible) return false
+    if (!modal.visible) return false
 
     if (key.name === "q" || key.name === "escape") {
       toggle(false)
       return true
     }
-    // Input is handled by InputRenderable directly
-    return false
+    // Block all keys to prevent global shortcuts, InputRenderable handles input
+    return true
   }
 
-  return {
+  const controller = {
     get isVisible() {
-      return ui.modalVisible
+      return modal.visible
     },
     toggle,
     open,
     apply,
     handleKey,
   }
-}
 
+  return controller
+}

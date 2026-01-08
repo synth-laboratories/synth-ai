@@ -7,9 +7,10 @@ import { formatDetails, formatMetrics, formatResults } from "../formatters"
 import { extractEnvName } from "../utils/job"
 import { getFilteredJobs } from "../selectors/jobs"
 import { renderEventCards } from "./events"
-import { updatePaneIndicators, updatePrincipalIndicators } from "./panes"
-import { renderOpenCodePane } from "./opencode"
-import { footerText, formatHeaderMeta, formatStatus } from "./text"
+import { renderLogs } from "./logs"
+import { updatePaneIndicators } from "./panes"
+import { formatStatus } from "./status"
+import { footerText } from "./footer"
 
 export function renderApp(ctx: AppContext): void {
   const { ui, renderer } = ctx
@@ -27,10 +28,25 @@ export function renderApp(ctx: AppContext): void {
         const label =
           job.training_type || (job.job_source === "learning" ? "eval" : "prompt")
         const envName = extractEnvName(job)
-        const desc = envName
-          ? `${job.status} | ${label} | ${envName} | ${reward}`
-          : `${job.status} | ${label} | ${reward}`
-        return { name: shortId, description: desc, value: job.job_id }
+        const currentYear = new Date().getFullYear()
+        let dateStr = ""
+        if (job.created_at) {
+          const d = new Date(job.created_at)
+          const jobYear = d.getFullYear()
+          const opts: Intl.DateTimeFormatOptions = {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }
+          if (jobYear !== currentYear) {
+            opts.year = "numeric"
+          }
+          dateStr = d.toLocaleString("en-US", opts)
+        }
+        const name = dateStr ? `${shortId} - ${dateStr}` : shortId
+        const desc = [job.status, label, envName, reward].filter(Boolean).join(" | ")
+        return { name, description: desc, value: job.job_id }
       })
     : [
         {
@@ -48,15 +64,8 @@ export function renderApp(ctx: AppContext): void {
   // Task Apps are only shown in the modal (press 'u'), not in the main view
   ui.taskAppsBox.visible = false
   renderEventCards(ctx)
+  renderLogs(ctx)
   updatePaneIndicators(ctx)
-  updatePrincipalIndicators(ctx)
-
-  // Render OpenCode pane if active
-  if (appState.principalPane === "opencode") {
-    renderOpenCodePane(ctx)
-  }
-
-  ui.headerMetaText.content = formatHeaderMeta(ctx)
   ui.statusText.content = formatStatus(ctx)
   ui.footerText.content = footerText(ctx)
   ui.eventsBox.title = appState.eventFilter ? `Events (filter: ${appState.eventFilter})` : "Events"

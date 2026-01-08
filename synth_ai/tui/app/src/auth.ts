@@ -1,13 +1,13 @@
 /**
  * Device code authentication flow for TUI.
- * 
- * Port of synth_ai/core/auth.py to TypeScript.
- * Uses the existing frontend handshake endpoints.
+ *
+ * Frontend URL is determined by the current backend mode:
+ * - prod: https://usesynth.ai
+ * - dev/local: http://localhost:3000
  */
 
 import { spawn } from "node:child_process"
-
-export type BackendId = "prod" | "dev" | "local"
+import { appState, getFrontendUrl } from "./state/app-state"
 
 export type AuthSession = {
   deviceCode: string
@@ -31,27 +31,16 @@ export type AuthStatus =
 
 const POLL_INTERVAL_MS = 3000
 
-/**
- * Get the frontend URL for a given backend.
- * The frontend is where the handshake endpoints live.
- */
-function getFrontendUrl(backend: BackendId): string {
-  switch (backend) {
-    case "prod":
-      return process.env.SYNTH_TUI_FRONTEND_PROD || "https://www.usesynth.ai"
-    case "dev":
-      return process.env.SYNTH_TUI_FRONTEND_DEV || "https://synth-frontend-dev.onrender.com"
-    case "local":
-      return process.env.SYNTH_TUI_FRONTEND_LOCAL || "http://localhost:3000"
-  }
+/** Get the current frontend URL based on backend mode */
+function getAuthFrontendUrl(): string {
+  return getFrontendUrl(appState.currentBackend)
 }
 
 /**
  * Initialize a handshake session.
- * Returns device_code and verification_uri.
  */
-export async function initAuthSession(backend: BackendId): Promise<AuthSession> {
-  const frontendUrl = getFrontendUrl(backend)
+export async function initAuthSession(): Promise<AuthSession> {
+  const frontendUrl = getAuthFrontendUrl()
   const initUrl = `${frontendUrl}/api/sdk/handshake/init`
 
   const res = await fetch(initUrl, {
@@ -82,13 +71,11 @@ export async function initAuthSession(backend: BackendId): Promise<AuthSession> 
 
 /**
  * Poll for token exchange completion.
- * Returns API key when user completes auth, or null if still pending.
  */
 export async function pollForToken(
-  backend: BackendId,
   deviceCode: string,
 ): Promise<{ apiKey: string | null; expired: boolean; error: string | null }> {
-  const frontendUrl = getFrontendUrl(backend)
+  const frontendUrl = getAuthFrontendUrl()
   const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`
 
   try {
@@ -99,12 +86,10 @@ export async function pollForToken(
     })
 
     if (res.status === 428) {
-      // authorization_pending - user hasn't completed auth yet
       return { apiKey: null, expired: false, error: null }
     }
 
     if (res.status === 404 || res.status === 410) {
-      // Device code expired or revoked
       return { apiKey: null, expired: true, error: "Device code expired" }
     }
 
@@ -129,7 +114,6 @@ export async function pollForToken(
 
 /**
  * Open a URL in the default browser.
- * Cross-platform support for macOS, Linux, and Windows.
  */
 export function openBrowser(url: string): void {
   const platform = process.platform
@@ -143,7 +127,6 @@ export function openBrowser(url: string): void {
     cmd = "cmd"
     args = ["/c", "start", "", url]
   } else {
-    // Linux and others
     cmd = "xdg-open"
     args = [url]
   }
@@ -155,19 +138,14 @@ export function openBrowser(url: string): void {
     })
     child.unref()
   } catch {
-    // Ignore errors - browser open is best-effort
+    // ignore
   }
 }
 
 /**
  * Run the full device code authentication flow.
- * 
- * @param backend - Which backend to authenticate against
- * @param onStatus - Callback for status updates (for UI)
- * @returns AuthResult with API key on success
  */
 export async function runDeviceCodeAuth(
-  backend: BackendId,
   onStatus?: (status: AuthStatus) => void,
 ): Promise<AuthResult> {
   const updateStatus = (status: AuthStatus) => {
@@ -175,18 +153,15 @@ export async function runDeviceCodeAuth(
   }
 
   try {
-    // Initialize handshake
     updateStatus({ state: "initializing" })
-    const session = await initAuthSession(backend)
+    const session = await initAuthSession()
 
-    // Open browser
     updateStatus({ state: "waiting", verificationUri: session.verificationUri })
     openBrowser(session.verificationUri)
 
-    // Poll for completion
     updateStatus({ state: "polling" })
     while (Date.now() < session.expiresAt) {
-      const result = await pollForToken(backend, session.deviceCode)
+      const result = await pollForToken(session.deviceCode)
 
       if (result.apiKey) {
         updateStatus({ state: "success", apiKey: result.apiKey })
@@ -198,14 +173,9 @@ export async function runDeviceCodeAuth(
         return { success: false, apiKey: null, error: "Authentication timed out" }
       }
 
-      if (result.error) {
-        // Transient error, keep polling
-      }
-
       await sleep(POLL_INTERVAL_MS)
     }
 
-    // Timeout
     updateStatus({ state: "error", message: "Authentication timed out" })
     return { success: false, apiKey: null, error: "Authentication timed out" }
   } catch (err: any) {
@@ -218,4 +188,3 @@ export async function runDeviceCodeAuth(
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
-
