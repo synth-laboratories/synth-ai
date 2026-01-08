@@ -14,6 +14,7 @@ import { JobsDetail } from "./ui/detail-panels/JobsDetail"
 import { LogsDetail } from "./ui/detail-panels/LogsDetail"
 import { useJobDetailsStream } from "./api/useJobDetailsStream"
 import type { JobDetailsStreamEvent } from "./api/job-details-stream"
+import { CreateJobModal, type CreateJobOptions } from "./modals/CreateJobModal"
 
 import { formatResultsExpanded, getFilteredEvents } from "../formatters"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
@@ -337,6 +338,12 @@ function SolidShell(props: { onExit?: () => void }) {
   const [loginStatus, setLoginStatus] = createSignal<AuthStatus>({ state: "idle" })
   const [loginInProgress, setLoginInProgress] = createSignal(false)
   const [settingsCursor, setSettingsCursor] = createSignal(0)
+  const [showCreateJobModal, setShowCreateJobModal] = createSignal(false)
+  const localApiFiles = createMemo(() => {
+    // TODO: Scan for LocalAPI files - for now return empty array
+    // This would use the scanForLocalAPIs utility from the original code
+    return [] as string[]
+  })
   const modalLayout = createMemo(() => {
     const width = Math.min(100, Math.max(40, layout().totalWidth - 4))
     const height = Math.min(26, Math.max(12, layout().totalHeight - 6))
@@ -1574,11 +1581,19 @@ function SolidShell(props: { onExit?: () => void }) {
     }
     if (evt.name === "n") {
       evt.preventDefault()
-      // TODO: Implement Create Job modal - for now show status message
-      snapshot.status = "Create Job: Coming soon (n key pressed)"
-      data.ctx.render()
+      setShowCreateJobModal(true)
       return
     }
+
+    // Handle create job modal keys when open
+    if (showCreateJobModal()) {
+      const handled = (CreateJobModal as any).handleKeyPress?.(evt)
+      if (handled) {
+        data.ctx.render()
+        return
+      }
+    }
+
     if (evt.name === "o" && evt.shift) {
       evt.preventDefault()
       openSessionsModal()
@@ -2229,6 +2244,19 @@ function SolidShell(props: { onExit?: () => void }) {
       <Show when={activeModal()}>
         {(kind) => renderActiveModal(kind())}
       </Show>
+
+      <CreateJobModal
+        visible={showCreateJobModal()}
+        onClose={() => setShowCreateJobModal(false)}
+        onCreateJob={(options: CreateJobOptions) => {
+          snapshot.status = `Creating job: ${options.trainingType} with ${options.localApiPath}`
+          // TODO: Implement actual job creation via API
+          data.ctx.render()
+        }}
+        localApiFiles={localApiFiles()}
+        width={Math.min(70, layout().totalWidth - 4)}
+        height={Math.min(20, layout().totalHeight - 6)}
+      />
 
       <box
         height={defaultLayoutSpec.statusHeight}

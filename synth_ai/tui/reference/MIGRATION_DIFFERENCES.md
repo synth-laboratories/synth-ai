@@ -225,14 +225,16 @@ src/
 - OpenCode Agent integration
 - Settings modal keyboard navigation (fixed reactivity)
 - **SSE streaming for real-time job details** (`src/solid/api/job-details-stream.ts`)
-- **`n` key shortcut for Create Job** (placeholder - modal pending)
+- **`n` key shortcut for Create Job** with modal wizard (`src/solid/modals/CreateJobModal.tsx`)
 
 ⚠️ **Partially Complete**:
-- Create New Job functionality (shortcut exists, modal pending)
+- Create New Job modal (basic wizard structure, pending: LocalAPI scanning, actual job creation API)
 - Events pane selection (uses text-only selection, not background highlight)
 
-🔲 **Pending (Phase 4)**:
-- Full Create New Job wizard modal
+🔲 **Pending (Phase 5)**:
+- LocalAPI file scanning integration
+- Actual job creation API integration
+- Deployment workflow integration
 
 ## Next Steps
 
