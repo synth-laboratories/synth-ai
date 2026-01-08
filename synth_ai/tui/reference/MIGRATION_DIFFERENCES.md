@@ -212,16 +212,18 @@ src/
 
 ✅ **Completed**:
 - Core layout structure
-- Jobs pane
-- Events pane
-- Logs pane
-- Details pane
-- Status bar
-- Footer
+- Centralized theme constants (`src/solid/theme.ts`)
+- Gold-style tab navigation using `KeyHint` component
+- Jobs pane with background-based selection highlight and description column using `ListPanel`
+- Header styling alignment (removed scaffold suffix, fixed insets)
+- Footer styling alignment using `KeyHint`
 - OpenCode Agent integration
+- Settings modal keyboard navigation (fixed reactivity)
 
 ⚠️ **Partially Complete**:
 - Create New Job functionality (exists but not exposed in tabs)
+- Events pane parity (still uses text-only selection)
+- Logs pane parity (still uses text-only selection)
 
 ## Next Steps
 

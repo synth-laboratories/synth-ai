@@ -1,9 +1,19 @@
 import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { ChatPane } from "./opencode"
-import { ErrorBoundary, For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
+import { ErrorBoundary, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import fs from "node:fs"
 import path from "node:path"
-import { formatDetails, formatEventData, formatMetrics, formatResults, formatResultsExpanded, getFilteredEvents } from "../formatters"
+
+import { computeLayoutMetrics, defaultLayoutSpec } from "./layout"
+import { useSolidData } from "./data"
+import { COLORS } from "./theme"
+import { KeyHint } from "./components/KeyHint"
+import { JobsList } from "./ui/list-panels/JobsList"
+import { LogsList } from "./ui/list-panels/LogsList"
+import { JobsDetail } from "./ui/detail-panels/JobsDetail"
+import { LogsDetail } from "./ui/detail-panels/LogsDetail"
+
+import { formatResultsExpanded, getFilteredEvents } from "../formatters"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
 import { cancelSelected, fetchArtifacts, fetchMetrics, selectJob } from "../api/jobs"
 import { apiGet, apiGetV1 } from "../api/client"
@@ -88,8 +98,6 @@ type UsageData = {
     }>
   }
 }
-import { computeLayoutMetrics, defaultLayoutSpec } from "./layout"
-import { useSolidData } from "./data"
 
 export async function runSolidApp(): Promise<void> {
   return new Promise<void>((resolve) => {
@@ -117,19 +125,11 @@ function SolidShell(props: { onExit?: () => void }) {
   const data = useSolidData()
   const appState = data.ctx.state.appState
   const snapshot = data.ctx.state.snapshot
+  const snapshotMemo = createMemo(() => {
+    data.version()
+    return data.ctx.state.snapshot
+  })
   const [selectedIndex, setSelectedIndex] = createSignal(0)
-  const detailsText = createMemo(() => {
-    data.version()
-    return formatDetails(data.ctx.state.snapshot)
-  })
-  const resultsText = createMemo(() => {
-    data.version()
-    return formatResults(data.ctx.state.snapshot)
-  })
-  const metricsText = createMemo(() => {
-    data.version()
-    return formatMetrics(data.ctx.state.snapshot.metrics)
-  })
   const jobs = createMemo(() => {
     data.version()
     return data.ctx.state.snapshot.jobs
@@ -243,6 +243,27 @@ function SolidShell(props: { onExit?: () => void }) {
     }
     return "Logs (files)"
   })
+  const logsView = createMemo(() => {
+    data.version()
+    const files = logFiles()
+    const selected = appState.logsSelectedIndex
+    if (selected < 0 || selected >= files.length) {
+      return { lines: [], visible: [] }
+    }
+    const file = files[selected]
+    let content = ""
+    try {
+      content = fs.readFileSync(file.path, "utf8")
+    } catch (err: any) {
+      content = `Failed to read ${file.path}: ${err?.message || String(err)}`
+    }
+    const lines = content.split("\n")
+    const visibleHeight = Math.max(1, layout().contentHeight - 4)
+    const offset = appState.logsWindowStart ?? 0
+    const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, lines.length - visibleHeight)))
+    const visible = lines.slice(clampedOffset, clampedOffset + visibleHeight)
+    return { lines, visible }
+  })
   const openCodeStatus = createMemo(() => {
     data.version()
     return data.ctx.state.appState.openCodeStatus
@@ -256,12 +277,6 @@ function SolidShell(props: { onExit?: () => void }) {
     const session = opencodeSessionId()
     if (!openCode) return base
     return session ? `${base} | opencode=${openCode} (session ${session.slice(-6)})` : `${base} | opencode=${openCode}`
-  })
-  const footerText = createMemo(() => {
-    if (principalPane() === "opencode") {
-      return "Keys: shift+g back | shift+o sessions | q quit"
-    }
-    return "Keys: j/k select | enter view | r refresh | tab switch | shift+g agent | q quit"
   })
   const lastError = createMemo(() => {
     data.version()
@@ -2031,31 +2046,30 @@ function SolidShell(props: { onExit?: () => void }) {
     >
       <box
         height={defaultLayoutSpec.headerHeight}
-        backgroundColor="#1e293b"
+        backgroundColor={COLORS.bgHeader}
         border
         borderStyle="single"
-        borderColor="#334155"
-        paddingLeft={1}
+        borderColor={COLORS.border}
         alignItems="center"
       >
-        <text fg="#e2e8f0">Synth AI (SolidJS migration scaffold)</text>
+        <text fg={COLORS.text}>Synth AI</text>
       </box>
 
       <box
         height={defaultLayoutSpec.tabsHeight}
-        backgroundColor="#111827"
+        backgroundColor={COLORS.bgTabs}
         border
         borderStyle="single"
-        borderColor="#1f2937"
-        paddingLeft={1}
+        borderColor={COLORS.borderDim}
         alignItems="center"
         flexDirection="row"
         gap={2}
       >
-        <text fg={activePane() === "jobs" ? "#f8fafc" : "#94a3b8"}>[b] Jobs</text>
-        <text fg={activePane() === "events" ? "#f8fafc" : "#94a3b8"}>[e] Events</text>
-        <text fg={activePane() === "logs" ? "#f8fafc" : "#94a3b8"}>[g] Logs</text>
-        <text fg={principalPane() === "opencode" ? "#f8fafc" : "#94a3b8"}>[shift+g] Agent</text>
+        <KeyHint description="Create New Job" keyLabel="n" />
+        <KeyHint description="View Jobs" keyLabel="b" active={activePane() === "jobs"} />
+        <KeyHint description="View Job's Events" keyLabel="e" active={activePane() === "events"} />
+        <KeyHint description="View Logs" keyLabel="g" active={activePane() === "logs"} />
+        <KeyHint description="Agent" keyLabel="shift+g" active={principalPane() === "opencode"} />
       </box>
 
       <box
@@ -2064,39 +2078,26 @@ function SolidShell(props: { onExit?: () => void }) {
         flexGrow={1}
         border={false}
       >
-        <box
-          width={layout().jobsWidth}
-          minWidth={20}
-          border
-          borderStyle="single"
-          borderColor="#334155"
-          title="Jobs"
-          titleAlignment="left"
-          paddingLeft={1}
-          paddingTop={1}
-          flexDirection="column"
-          gap={0}
+        <Show
+          when={activePane() === "jobs"}
+          fallback={
+            <LogsList
+              logs={logFiles()}
+              selectedIndex={appState.logsSelectedIndex}
+              focused={activePane() === "logs"}
+              width={layout().jobsWidth}
+              height={layout().contentHeight}
+            />
+          }
         >
-          <Show
-            when={jobs().length > 0}
-            fallback={<text fg="#94a3b8">No jobs yet. Press r to refresh.</text>}
-          >
-            <For each={jobs().slice(0, Math.max(1, layout().contentHeight - 4))}>
-              {(job, idx) => {
-                const selected = idx() === selectedIndex()
-                const shortId = job.job_id.slice(-8)
-                const status = job.status || "-"
-                const label = job.training_type || job.job_source || "-"
-                const reward = job.best_reward == null ? "-" : job.best_reward.toFixed(3)
-                return (
-                  <text fg={selected ? "#60a5fa" : "#e2e8f0"}>
-                    {`${selected ? ">" : " "} ${shortId} ${status} ${label} ${reward}`}
-                  </text>
-                )
-              }}
-            </For>
-          </Show>
-        </box>
+          <JobsList
+            jobs={jobs()}
+            selectedIndex={selectedIndex()}
+            focused={activePane() === "jobs"}
+            width={layout().jobsWidth}
+            height={layout().contentHeight}
+          />
+        </Show>
 
         <Show
           when={principalPane() === "jobs"}
@@ -2105,9 +2106,9 @@ function SolidShell(props: { onExit?: () => void }) {
               <ErrorBoundary
                 fallback={(err) => (
                   <box flexDirection="column" paddingLeft={2} paddingTop={1} gap={1}>
-                    <text fg="#f87171">OpenCode embed failed to render.</text>
-                    <text fg="#94a3b8">{String(err)}</text>
-                    <text fg="#94a3b8">Try restarting the TUI or running opencode-synth tui standalone.</text>
+                    <text fg={COLORS.error}>OpenCode embed failed to render.</text>
+                    <text fg={COLORS.textDim}>{String(err)}</text>
+                    <text fg={COLORS.textDim}>Try restarting the TUI or running opencode-synth tui standalone.</text>
                   </box>
                 )}
               >
@@ -2125,111 +2126,24 @@ function SolidShell(props: { onExit?: () => void }) {
             </box>
           }
         >
-          <box flexDirection="column" flexGrow={1} border={false} gap={1}>
-            <Show
-              when={activePane() !== "logs"}
-              fallback={
-                <box
-                  border
-                  borderStyle="single"
-                  borderColor="#334155"
-                  title={logsTitle()}
-                  titleAlignment="left"
-                  paddingLeft={1}
-                  paddingTop={1}
-                  flexGrow={1}
-                >
-                  <Show
-                    when={logsWindow().slice.length > 0}
-                    fallback={<text fg="#94a3b8">No log files found.</text>}
-                  >
-                    <For each={logsWindow().slice}>
-                      {(file, idx) => {
-                        const globalIndex = logsWindow().windowStart + idx()
-                        const isSelected = globalIndex === logsWindow().selected
-                        const maxWidth = Math.max(10, layout().detailWidth - 6)
-                        const label = formatLogRow(file.name, maxWidth)
-                        return (
-                          <text fg={isSelected ? "#f8fafc" : "#e2e8f0"}>
-                            {`${isSelected ? ">" : " "} ${label}`}
-                          </text>
-                        )
-                      }}
-                    </For>
-                  </Show>
-                </box>
-              }
-            >
-              <box
-                border
-                borderStyle="single"
-                borderColor="#334155"
-                title="Details"
-                titleAlignment="left"
-                paddingLeft={1}
-                paddingTop={1}
-                height={6}
-              >
-                <text fg="#cbd5f5">{detailsText()}</text>
-              </box>
-              <box
-                border
-                borderStyle="single"
-                borderColor="#334155"
-                title="Results"
-                titleAlignment="left"
-                paddingLeft={1}
-                paddingTop={1}
-                height={4}
-              >
-                <text fg="#e2e8f0">{resultsText()}</text>
-              </box>
-              <box
-                border
-                borderStyle="single"
-                borderColor="#334155"
-                title="Metrics"
-                titleAlignment="left"
-                paddingLeft={1}
-                paddingTop={1}
-                height={4}
-              >
-                <text fg="#e2e8f0">{metricsText()}</text>
-              </box>
-              <box
-                border
-                borderStyle="single"
-                borderColor={activePane() === "events" ? "#60a5fa" : "#334155"}
-                title="Events"
-                titleAlignment="left"
-                paddingLeft={1}
-                paddingTop={1}
-                flexGrow={1}
-              >
-                <Show
-                  when={eventWindow().slice.length > 0}
-                  fallback={<text fg="#94a3b8">No events yet.</text>}
-                >
-                  <For each={eventWindow().slice}>
-                    {(event, idx) => {
-                      const globalIndex = eventWindow().windowStart + idx()
-                      const isSelected = globalIndex === eventWindow().selected
-                      const maxWidth = Math.max(10, layout().detailWidth - 6)
-                      const summary = formatEventSummary(event, maxWidth)
-                      return (
-                        <text fg={isSelected ? "#60a5fa" : "#e2e8f0"}>
-                          {`${isSelected ? ">" : " "} ${summary}`}
-                        </text>
-                      )
-                    }}
-                  </For>
-                </Show>
-              </box>
-              <Show when={lastError()}>
-                <text fg="#f97316">{`Error: ${lastError()}`}</text>
-              </Show>
-            </Show>
-          </box>
+          <Show
+            when={activePane() !== "logs"}
+            fallback={
+              <LogsDetail
+                title={logsTitle()}
+                lines={logsView().lines}
+                visibleLines={logsView().visible}
+              />
+            }
+          >
+            <JobsDetail
+              snapshot={snapshotMemo()}
+              events={events()}
+              eventWindow={eventWindow()}
+              lastError={lastError()}
+              detailWidth={layout().detailWidth}
+            />
+          </Show>
         </Show>
       </box>
 
@@ -2277,8 +2191,41 @@ function SolidShell(props: { onExit?: () => void }) {
         <text fg="#e2e8f0">{statusText()}</text>
       </box>
 
-      <box height={defaultLayoutSpec.footerHeight} backgroundColor="#111827" paddingLeft={1} alignItems="center">
-        <text fg="#94a3b8">{footerText()}</text>
+      <box
+        height={defaultLayoutSpec.footerHeight}
+        backgroundColor={COLORS.bgTabs}
+        paddingLeft={1}
+        alignItems="center"
+        flexDirection="row"
+        gap={2}
+      >
+        <text fg={COLORS.textDim}>Keys: </text>
+        <Show 
+          when={principalPane() === "opencode"}
+          fallback={
+            <box flexDirection="row" gap={2}>
+              <KeyHint description="select" keyLabel="j/k" />
+              <text fg={COLORS.textDim}> | </text>
+              <KeyHint description="view" keyLabel="enter" />
+              <text fg={COLORS.textDim}> | </text>
+              <KeyHint description="refresh" keyLabel="r" />
+              <text fg={COLORS.textDim}> | </text>
+              <KeyHint description="switch" keyLabel="tab" />
+              <text fg={COLORS.textDim}> | </text>
+              <KeyHint description="agent" keyLabel="shift+g" />
+              <text fg={COLORS.textDim}> | </text>
+              <KeyHint description="quit" keyLabel="q" />
+            </box>
+          }
+        >
+          <box flexDirection="row" gap={2}>
+            <KeyHint description="back" keyLabel="shift+g" />
+            <text fg={COLORS.textDim}> | </text>
+            <KeyHint description="sessions" keyLabel="shift+o" />
+            <text fg={COLORS.textDim}> | </text>
+            <KeyHint description="quit" keyLabel="q" />
+          </box>
+        </Show>
       </box>
     </box>
   )
@@ -2286,14 +2233,6 @@ function SolidShell(props: { onExit?: () => void }) {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
-}
-
-function formatEventSummary(event: JobEvent, maxWidth: number): string {
-  const seq = String(event.seq).padStart(5, " ")
-  const detail = event.message ?? formatEventData(event.data)
-  const text = detail ? `${seq} ${event.type} ${detail}` : `${seq} ${event.type}`
-  if (text.length <= maxWidth) return text
-  return `${text.slice(0, Math.max(0, maxWidth - 3))}...`
 }
 
 function formatEventDetail(data: JobEvent["data"]): string {
@@ -2305,30 +2244,6 @@ function formatEventDetail(data: JobEvent["data"]): string {
   } catch {
     return String(data)
   }
-}
-
-function formatLogLabel(name: string): string {
-  let type = "log"
-  if (name.includes("_deploy_")) {
-    type = "deploy"
-  } else if (name.includes("_serve_")) {
-    type = "serve"
-  }
-
-  const match = name.match(/(\\d{4}_\\d{2}_\\d{2})_([0-9]{2}[:\\-][0-9]{2}[:\\-][0-9]{2})/)
-  if (match) {
-    const date = match[1]
-    const time = match[2].replace(/-/g, ":")
-    return `${date} ${time} ${type}`
-  }
-
-  return `${type} ${name}`
-}
-
-function formatLogRow(name: string, maxWidth: number): string {
-  const label = formatLogLabel(name)
-  const maxLen = Math.max(4, maxWidth - 2)
-  return label.length > maxLen ? `${label.slice(0, maxLen - 3)}...` : label
 }
 
 function formatPlanName(planType: string): string {
