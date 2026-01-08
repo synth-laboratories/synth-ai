@@ -10,13 +10,34 @@ Usage:
 """
 
 import argparse
+import asyncio
+import base64
+import io
+import json
 import os
 import sys
-import asyncio
-import json
 import time
-from typing import Any
 from pathlib import Path
+from typing import Any
+
+import httpx
+import toml
+from datasets import load_from_disk
+from PIL import Image
+from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.task import RubricCriterion, RubricInfo, RubricSection, run_server_background
+from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
+from synth_ai.sdk.tunnels import (
+    PortConflictBehavior,
+    TunnelBackend,
+    TunneledLocalAPI,
+    acquire_port,
+    cleanup_all,
+)
 
 # Parse args early
 parser = argparse.ArgumentParser(description="Run Web Design GEPA demo")
@@ -35,27 +56,13 @@ sys.path.insert(0, str(repo_root))
 # Load .env (optional)
 try:
     from dotenv import load_dotenv
+
     env_file = repo_root / ".env"
     if env_file.exists():
         load_dotenv(env_file)
         print(f"Loaded {env_file}")
 except ImportError:
     print("python-dotenv not installed, using existing environment variables")
-
-# Imports
-import httpx
-from datasets import load_from_disk
-from PIL import Image
-import io
-
-from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, acquire_port, PortConflictBehavior
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
 
 
 # Backend config
@@ -105,118 +112,24 @@ print(f"Env key ready: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
 # IMAGE VERIFICATION FUNCTION
 # ==============================================================================
 
-async def verify_generated_image(
-    original_image: Image.Image,
-    generated_image_bytes: bytes,
-    inference_url: str,
-    api_key: str,
-) -> dict:
-    """Verify generated image against original using vision model via inference_url."""
-    import base64
-
-    if not inference_url:
-        raise ValueError("inference_url is required for verification")
-
-    generated_image = Image.open(io.BytesIO(generated_image_bytes))
-
-    prompt = """You are evaluating how well a GENERATED webpage matches the ORIGINAL webpage visually.
-
-Score on these criteria (0-10):
-1. COLOR SCHEME & BRANDING
-2. TYPOGRAPHY & STYLING
-3. LAYOUT & SPACING
-4. VISUAL ELEMENTS
-5. OVERALL VISUAL FIDELITY
-
-Return ONLY valid JSON (no markdown):
-{
-  "color_scheme_branding": <0-10>,
-  "typography_styling": <0-10>,
-  "layout_spacing": <0-10>,
-  "visual_elements": <0-10>,
-  "overall_visual_fidelity": <0-10>,
-  "average_score": <average>
-}"""
-
-    # Convert PIL images to base64 data URLs
-    original_bytes_io = io.BytesIO()
-    original_image.save(original_bytes_io, format="PNG")
-    original_bytes_io.seek(0)
-    original_b64 = base64.b64encode(original_bytes_io.read()).decode('utf-8')
-    original_data_url = f"data:image/png;base64,{original_b64}"
-
-    generated_bytes_io = io.BytesIO(generated_image_bytes)
-    generated_image_pil = Image.open(generated_bytes_io)
-    generated_bytes_io_2 = io.BytesIO()
-    generated_image_pil.save(generated_bytes_io_2, format="PNG")
-    generated_bytes_io_2.seek(0)
-    generated_b64 = base64.b64encode(generated_bytes_io_2.read()).decode('utf-8')
-    generated_data_url = f"data:image/png;base64,{generated_b64}"
-
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": f"{prompt}\n\nORIGINAL image first, then GENERATED image. Return JSON:"},
-                {"type": "image_url", "image_url": {"url": original_data_url}},
-                {"type": "image_url", "image_url": {"url": generated_data_url}},
-            ]
-        }
-    ]
-
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        response = await client.post(
-            f"{inference_url.rstrip('/')}/chat/completions",
-            json={
-                "model": "gemini-2.5-flash-image",
-                "messages": messages,
-                "temperature": 0.0,
-            },
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-        )
-        response.raise_for_status()
-        llm_response = response.json()
-
-    text = llm_response["choices"][0]["message"]["content"].strip()
-
-    # Parse JSON response
-    if text.startswith("```json"):
-        text = text[7:]
-    elif text.startswith("```"):
-        text = text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
-
-    result = json.loads(text.strip())
-
-    # Ensure average_score
-    if "average_score" not in result:
-        scores = [
-            result.get("color_scheme_branding", 0),
-            result.get("typography_styling", 0),
-            result.get("layout_spacing", 0),
-            result.get("visual_elements", 0),
-            result.get("overall_visual_fidelity", 0)
-        ]
-        result["average_score"] = sum(scores) / len(scores)
-
-    return result
+# No manual verification - GEPA's backend verifier will handle it
 
 
 # ==============================================================================
 # DATASET
 # ==============================================================================
 
+
 class WebDesignDataset:
     """Astral website pages for style optimization."""
 
-    def __init__(self):
+    def __init__(self, resize_size: int = 512):
         self._examples = None
         self._images_dir = demo_dir / "task_images"
         self._images_dir.mkdir(exist_ok=True)
+        self._resized_dir = self._images_dir / f"resized_{resize_size}"
+        self._resized_dir.mkdir(exist_ok=True)
+        self._resize_size = resize_size
 
     def _load(self):
         if self._examples is not None:
@@ -227,7 +140,8 @@ class WebDesignDataset:
 
         # Filter Astral pages
         astral = [
-            ex for ex in dataset
+            ex
+            for ex in dataset
             if ex.get("site_name") == "astral"
             and ex.get("functional_description")
             and len(ex["functional_description"]) > 100
@@ -248,6 +162,47 @@ class WebDesignDataset:
 
         self._examples = astral[:15]
 
+        # Pre-resize all images on startup
+        self._ensure_resized_images()
+
+    def _ensure_resized_images(self):
+        """Resize all images to cached versions if they don't exist."""
+        if self._examples is None:
+            return
+
+        for ex in self._examples:
+            original_path = Path(ex["image_path"])
+            resized_path = self._resized_dir / original_path.name
+
+            # Only resize if resized version doesn't exist or is older than original
+            if (
+                not resized_path.exists()
+                or resized_path.stat().st_mtime < original_path.stat().st_mtime
+            ):
+                try:
+                    with Image.open(original_path) as img:
+                        # Convert to RGB if needed (handles RGBA, P, etc.)
+                        if img.mode != "RGB":
+                            img = img.convert("RGB")
+
+                        # Resize maintaining aspect ratio
+                        img.thumbnail(
+                            (self._resize_size, self._resize_size), Image.Resampling.LANCZOS
+                        )
+
+                        # Save resized version
+                        img.save(resized_path, format="PNG", optimize=True)
+                        print(
+                            f"Resized {original_path.name} -> {resized_path.name} ({img.size[0]}x{img.size[1]})"
+                        )
+                    ex["resized_image_path"] = str(resized_path)
+                except Exception as e:
+                    print(f"Warning: Failed to resize {original_path.name}: {e}")
+                    # Fallback: use original path if resize fails
+                    ex["resized_image_path"] = str(original_path)
+            else:
+                ex["resized_image_path"] = str(resized_path)
+
     def size(self) -> int:
         self._load()
         return len(self._examples)
@@ -260,6 +215,7 @@ class WebDesignDataset:
             "index": idx,
             "functional_description": ex["functional_description"],
             "image_path": ex["image_path"],
+            "resized_image_path": ex.get("resized_image_path", ex["image_path"]),
             "site_name": ex["site_name"],
             "page_name": ex["page_name"],
         }
@@ -277,12 +233,13 @@ def create_web_design_local_api(style_prompt: str):
     """Create the local API for web design generation."""
     dataset = WebDesignDataset()
 
+    # Pre-load dataset and resize images BEFORE server starts
+    print("Pre-loading dataset and resizing images...")
+    dataset._load()  # This triggers _ensure_resized_images()
+    print(f"Dataset ready with {dataset.size()} examples")
+
     async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutResponse:
         """Run a single rollout: generate image using policy model and verify."""
-        import httpx
-        import base64
-        from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-
         seed = request.env.seed
         sample = dataset.sample(seed)
 
@@ -303,7 +260,7 @@ def create_web_design_local_api(style_prompt: str):
                 for key, value in (request.policy.config or {}).items()
                 if key not in {"trace_correlation_id", "trace"}
             }
-            
+
             # Build prompt: Gemini doesn't support system messages, so combine everything into user message
             # GEPA will match and optimize the style_prompt portion at the beginning
             full_prompt = f"""{style_prompt}
@@ -316,10 +273,8 @@ Apply the visual style guidelines to match the original design."""
 
             # Call policy model through inference interceptor
             # The interceptor will handle image generation models automatically
-            messages = [
-                {"role": "user", "content": full_prompt}
-            ]
-            
+            messages = [{"role": "user", "content": full_prompt}]
+
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
                     f"{inference_url.rstrip('/')}/chat/completions",
@@ -335,14 +290,14 @@ Apply the visual style guidelines to match the original design."""
                 )
                 response.raise_for_status()
                 llm_response = response.json()
-            
+
             # Extract image from response (multipart content format)
             generated_bytes = None
             choices = llm_response.get("choices", [])
             if choices:
                 message = choices[0].get("message", {})
                 content = message.get("content", "")
-                
+
                 if isinstance(content, list):
                     # Multipart content - find image_url part
                     for part in content:
@@ -357,7 +312,7 @@ Apply the visual style guidelines to match the original design."""
                     # Direct data URL
                     header, data = content.split(",", 1)
                     generated_bytes = base64.b64decode(data)
-            
+
             if not generated_bytes:
                 raise ValueError("No image data in policy model response")
 
@@ -368,24 +323,18 @@ Apply the visual style guidelines to match the original design."""
                 mode=request.mode,
             )
 
-            # Verify against original using inference_url
-            verification = await verify_generated_image(
-                original_image,
-                generated_bytes,
-                inference_url=inference_url,
-                api_key=ENVIRONMENT_API_KEY,
-            )
-
-            # Average score is our reward (0-10 scale, convert to 0-1)
-            reward = verification["average_score"] / 10.0
+            # Backend verifier will score this - return dummy reward
+            # The verifier config in gepa_config.toml will provide the real reward
+            reward = 0.0
 
         except Exception as e:
             print(f"Rollout error: {e}")
             import traceback
+
             traceback.print_exc()
             reward = 0.0
             # Keep trace_correlation_id if it was extracted before error
-            if 'trace_correlation_id' not in locals():
+            if "trace_correlation_id" not in locals():
                 trace_correlation_id = None
 
         return RolloutResponse(
@@ -405,26 +354,59 @@ Apply the visual style guidelines to match the original design."""
     def provide_task_instances(seeds):
         for seed in seeds:
             sample = dataset.sample(seed)
+
+            # Load resized image and encode to base64
+            resized_image_path = Path(sample["resized_image_path"])
+            try:
+                with Image.open(resized_image_path) as img:
+                    # Ensure RGB mode
+                    if img.mode != "RGB":
+                        img = img.convert("RGB")
+
+                    # Encode to base64
+                    buffer = io.BytesIO()
+                    img.save(buffer, format="PNG", optimize=True)
+                    img_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
+                    original_data_url = f"data:image/png;base64,{img_b64}"
+            except Exception as e:
+                print(f"Warning: Failed to load image {resized_image_path}: {e}")
+                original_data_url = None
+
             yield TaskInfo(
                 task={"id": APP_ID, "name": APP_NAME},
                 dataset={"id": APP_ID, "split": "train", "index": sample["index"]},
                 inference={},
                 limits={"max_turns": 1},
+                rubric=RubricInfo(
+                    outcome=RubricSection(
+                        name="Visual Fidelity",
+                        criteria=[
+                            RubricCriterion(
+                                id="visual_fidelity",
+                                description="How well does the generated webpage match the original webpage visually? Evaluate color scheme, typography, layout, spacing, and overall visual fidelity.",
+                                weight=1.0,
+                            )
+                        ],
+                    )
+                ),
                 task_metadata={
                     "page": f"{sample['site_name']}/{sample['page_name']}",
                     "description_length": len(sample["functional_description"]),
+                    "original_image_url": original_data_url,
                 },
             )
 
-    return create_local_api(LocalAPIConfig(
-        app_id=APP_ID,
-        name=APP_NAME,
-        description="Web design style prompt optimization local API",
-        provide_taskset_description=provide_taskset_description,
-        provide_task_instances=provide_task_instances,
-        rollout=run_rollout,
-        cors_origins=["*"],
-    ))
+    return create_local_api(
+        LocalAPIConfig(
+            app_id=APP_ID,
+            name=APP_NAME,
+            description="Web design style prompt optimization local API",
+            provide_taskset_description=provide_taskset_description,
+            provide_task_instances=provide_task_instances,
+            rollout=run_rollout,
+            cors_origins=["*"],
+        )
+    )
 
 
 print("Web design local API defined")
@@ -434,8 +416,9 @@ print("Web design local API defined")
 # MAIN
 # ==============================================================================
 
+
 async def main():
-    BASELINE_STYLE_PROMPT = """You are generating a professional startup website screenshot.
+    baseline_style_prompt = """You are generating a professional startup website screenshot.
 
 VISUAL STYLE GUIDELINES:
 - Use a clean, modern, minimalist design aesthetic
@@ -460,7 +443,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
     print("STARTING LOCAL API")
     print("=" * 80)
 
-    app = create_web_design_local_api(BASELINE_STYLE_PROMPT)
+    app = create_web_design_local_api(baseline_style_prompt)
     port = acquire_port(LOCAL_API_PORT, on_conflict=PortConflictBehavior.FIND_NEW)
 
     run_server_background(app, port)
@@ -471,7 +454,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
 
     # Get local API URL (with tunnel if production)
     if LOCAL_MODE:
-        LOCAL_API_URL = f"http://{LOCAL_HOST}:{port}"
+        local_api_url = f"http://{LOCAL_HOST}:{port}"
         tunnel = None
     else:
         print("\nProvisioning Cloudflare tunnel...")
@@ -481,10 +464,14 @@ Create a webpage that feels polished, modern, and trustworthy."""
             backend=TUNNEL_BACKEND,
             progress=True,
         )
-        LOCAL_API_URL = tunnel.url
+        local_api_url = tunnel.url
         timings["tunnel"] = time.time() - tunnel_start
 
-    print(f"Local API URL: {LOCAL_API_URL}")
+        # Wait a bit longer for DNS propagation to ensure backend can reach it
+        print("Waiting 10s for full DNS propagation...")
+        await asyncio.sleep(10)
+
+    print(f"Local API URL: {local_api_url}")
 
     # Run GEPA optimization
     print("\n" + "=" * 80)
@@ -493,16 +480,14 @@ Create a webpage that feels polished, modern, and trustworthy."""
 
     gepa_config_path = demo_dir / "gepa_config.toml"
 
-    # Create prompt learning job (synchronous submission)
-    import toml
-    from synth_ai.sdk.api.train.prompt_learning import PromptLearningJobConfig
-
-    # Read TOML and override task_app_url with tunnel URL
+    # Read TOML and override task_app_url and task_app_api_key
     with open(gepa_config_path) as f:
         config_dict = toml.load(f)
 
-    config_dict["prompt_learning"]["task_app_url"] = LOCAL_API_URL
-    print(f"Using task_app_url: {LOCAL_API_URL}")
+    config_dict["prompt_learning"]["task_app_url"] = local_api_url
+    config_dict["prompt_learning"]["task_app_api_key"] = ENVIRONMENT_API_KEY
+    print(f"Using task_app_url: {local_api_url}")
+    print(f"Using task_app_api_key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
 
     job_config = PromptLearningJobConfig(
         config_dict=config_dict,
@@ -527,7 +512,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
     print("=" * 80)
 
     if result.succeeded:
-        print(f"Status: SUCCESS")
+        print("Status: SUCCESS")
         print(f"Best Score: {result.best_score:.3f}/1.0 ({result.best_score * 10:.1f}/10)")
 
         if result.best_prompt:
@@ -550,13 +535,12 @@ Create a webpage that feels polished, modern, and trustworthy."""
             print(f"✓ Results: {result_file}")
 
     else:
-        print(f"Status: FAILED")
+        print("Status: FAILED")
         print(f"Error: {result.error}")
 
     # Cleanup
     if tunnel:
         print("\nCleaning up tunnel...")
-        from synth_ai.sdk.tunnels import cleanup_all
         cleanup_all()
 
     # Summary

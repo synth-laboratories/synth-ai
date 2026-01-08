@@ -74,3 +74,20 @@ children_per_generation = 2     # Create 2 children per generation
 crossover_rate = 0.6            # 60% crossover rate
 selection_pressure = 1.2        # Moderate selection pressure
 patience_generations = 2        # Stop if no improvement for 2 generations
+
+# Verifier configuration - use backend zero-shot verifier
+[prompt_learning.verifier]
+enabled = true
+reward_source = "verifier"          # Use verifier-provided score instead of task app reward
+backend_base = "http://localhost:8000"  # Use local backend with 10MB trace limit
+backend_provider = "google"
+backend_model = "gemini-2.5-flash"  # Vision model for comparing images
+verifier_graph_id = "zero_shot_verifier_rubric_single"  # Zero-shot rubric verifier
+backend_outcome_enabled = true
+backend_event_enabled = false       # Only outcome scoring needed
+concurrency = 3
+timeout = 120.0
+# Explicit weights required: use verifier outcome only (env/event set to 0)
+weight_env = 0.0
+weight_event = 0.0
+weight_outcome = 1.0
