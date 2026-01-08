@@ -3,155 +3,48 @@
  */
 import type { AppContext } from "../context"
 import type { LoginModalController } from "../login_modal"
-import { setActivePane } from "../ui/panes"
-import { moveEventSelection, toggleSelectedEventExpanded } from "../ui/events"
-import { refreshJobs, selectJob, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
-import { refreshEvents } from "../api/events"
-import { refreshIdentity } from "../api/identity"
-import { getFilteredJobs } from "../selectors/jobs"
+import { shutdown } from "../lifecycle"
+import { setActivePane, cycleActivePane } from "../ui/panes"
+import { refreshJobs, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
+import { focusManager } from "../focus"
 
 export type ModalControllers = {
   login: LoginModalController
-  event: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  results: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  config: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  settings: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  filter: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  jobFilter: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  key: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  envKey: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => Promise<void> }
-  snapshot: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  promptBrowser?: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  taskApps: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => void }
-  usage: { isVisible: boolean; handleKey: (key: any) => boolean; open: () => Promise<void> }
+  filter: { open: () => void }
+  jobFilter: { open: () => void }
+  key: { open: () => void }
+  settings: { open: () => void }
+  snapshot: { open: () => void }
+  profile: { open: () => void }
+  urls: { open: () => void }
+  usage: { open: () => Promise<void> }
+  event: { open: () => void }
+  results: { open: () => void }
+  config: { open: () => void }
+  createJob: { open: () => void }
+  taskApps: { open: () => void }
+  logFile: { open: (filePath: string) => void }
 }
 
 export function createKeyboardHandler(
   ctx: AppContext,
   modals: ModalControllers,
 ): (key: any) => void {
-  const { renderer, ui } = ctx
-  const { appState, snapshot } = ctx.state
-
   return function handleKeypress(key: any): void {
     // Ctrl+C always quits
     if (key.ctrl && key.name === "c") {
-      renderer.stop()
-      renderer.destroy()
-      process.exit(0)
+      void shutdown(0)
+      return
     }
 
-    // q/escape closes modals or quits
+    // Route to focused item (modal or pane)
+    if (focusManager.handleKey(key)) {
+      return
+    }
+
+    // No modal consumed the key - q/escape quits
     if (key.name === "q" || key.name === "escape") {
-      if (modals.login.isVisible) {
-        modals.login.toggle(false)
-        return
-      }
-      if (modals.key.isVisible) {
-        modals.key.handleKey(key)
-        return
-      }
-      if (modals.envKey.isVisible) {
-        modals.envKey.handleKey(key)
-        return
-      }
-      if (modals.jobFilter.isVisible) {
-        modals.jobFilter.handleKey(key)
-        return
-      }
-      if (modals.settings.isVisible) {
-        modals.settings.handleKey(key)
-        return
-      }
-      if (modals.event.isVisible) {
-        modals.event.handleKey(key)
-        return
-      }
-      if (modals.results.isVisible) {
-        modals.results.handleKey(key)
-        return
-      }
-      if (modals.config.isVisible) {
-        modals.config.handleKey(key)
-        return
-      }
-      if (modals.filter.isVisible) {
-        modals.filter.handleKey(key)
-        return
-      }
-      if (modals.promptBrowser?.isVisible) {
-        modals.promptBrowser.handleKey(key)
-        return
-      }
-      if (modals.snapshot.isVisible) {
-        modals.snapshot.handleKey(key)
-        return
-      }
-      if (modals.taskApps.isVisible) {
-        modals.taskApps.handleKey(key)
-        return
-      }
-      if (modals.usage.isVisible) {
-        modals.usage.handleKey(key)
-        return
-      }
-      // No modal open - quit
-      renderer.stop()
-      renderer.destroy()
-      process.exit(0)
-    }
-
-    // Login modal captures all keys
-    if (modals.login.isVisible) {
-      if (key.name === "return" || key.name === "enter") {
-        void modals.login.startAuth()
-      }
-      return
-    }
-
-    // Route to active modal
-    if (modals.key.isVisible) {
-      modals.key.handleKey(key)
-      return
-    }
-    if (modals.envKey.isVisible) {
-      modals.envKey.handleKey(key)
-      return
-    }
-    if (modals.event.isVisible) {
-      modals.event.handleKey(key)
-      return
-    }
-    if (modals.results.isVisible) {
-      modals.results.handleKey(key)
-      return
-    }
-    if (modals.config.isVisible) {
-      modals.config.handleKey(key)
-      return
-    }
-    if (modals.promptBrowser?.isVisible) {
-      modals.promptBrowser.handleKey(key)
-      return
-    }
-    if (modals.settings.isVisible) {
-      modals.settings.handleKey(key)
-      return
-    }
-    if (modals.filter.isVisible) {
-      modals.filter.handleKey(key)
-      return
-    }
-    if (modals.jobFilter.isVisible) {
-      modals.jobFilter.handleKey(key)
-      return
-    }
-    if (modals.snapshot.isVisible) {
-      modals.snapshot.handleKey(key)
-      return
-    }
-    if (modals.taskApps.isVisible) {
-      modals.taskApps.handleKey(key)
+      void shutdown(0)
       return
     }
     if (modals.usage.isVisible) {
@@ -161,7 +54,7 @@ export function createKeyboardHandler(
 
     // Global shortcuts
     if (key.name === "tab") {
-      setActivePane(ctx, appState.activePane === "jobs" ? "events" : "jobs")
+      cycleActivePane(ctx)
       return
     }
     if (key.name === "e") {
@@ -172,27 +65,20 @@ export function createKeyboardHandler(
       setActivePane(ctx, "jobs")
       return
     }
+    if (key.name === "g") {
+      setActivePane(ctx, "logs")
+      return
+    }
     if (key.name === "r") {
       void refreshJobs(ctx).then(() => ctx.render())
       return
     }
-    if (key.name === "l" && !key.shift) {
-      modals.login.toggle(true)
-      return
-    }
-    if (key.name === "l" && key.shift) {
-      // Logout
-      ctx.state.backendKeys[appState.currentBackend] = ""
-      snapshot.status = "Logged out"
-      ctx.render()
+    if (key.name === "l") {
+      void modals.login.logout()
       return
     }
     if (key.name === "f") {
       modals.filter.open()
-      return
-    }
-    if (key.name === "t") {
-      modals.settings.open()
       return
     }
     if (key.name === "i") {
@@ -200,6 +86,11 @@ export function createKeyboardHandler(
       return
     }
     if (key.name === "p") {
+      if (!process.env.SYNTH_API_KEY) return // do nothing if not logged in
+      modals.profile.open()
+      return
+    }
+    if (key.name === "o") {
       modals.results.open()
       return
     }
@@ -207,8 +98,24 @@ export function createKeyboardHandler(
       modals.jobFilter.open()
       return
     }
-    if (key.name === "s") {
+    if (key.name === "s" && !key.shift) {
       modals.snapshot.open()
+      return
+    }
+    if (key.name === "s" && key.shift) {
+      modals.urls.open()
+      return
+    }
+    if (key.name === "t") {
+      modals.settings.open()
+      return
+    }
+    if (key.name === "d") {
+      void modals.usage.open()
+      return
+    }
+    if (key.name === "n") {
+      modals.createJob.open()
       return
     }
     if (key.name === "u") {
@@ -232,47 +139,7 @@ export function createKeyboardHandler(
       return
     }
 
-    // Pane-specific navigation
-    if (appState.activePane === "events") {
-      if (key.name === "up" || key.name === "k") {
-        moveEventSelection(ctx, -1)
-        ctx.render()
-        return
-      }
-      if (key.name === "down" || key.name === "j") {
-        moveEventSelection(ctx, 1)
-        ctx.render()
-        return
-      }
-      if (key.name === "return" || key.name === "enter") {
-        modals.event.open()
-        return
-      }
-      if (key.name === "x") {
-        toggleSelectedEventExpanded(ctx)
-        ctx.render()
-        return
-      }
-    }
-
-    // Jobs pane - let the select widget handle j/k navigation
+    // Pane-specific navigation is handled by focus system (see panes.ts)
+    // Jobs pane uses the select widget's built-in navigation
   }
 }
-
-export function createPasteHandler(ctx: AppContext, keyModal: { isVisible: boolean }): (key: any) => void {
-  const { ui, renderer } = ctx
-
-  return function handlePaste(key: any): void {
-    if (!keyModal.isVisible) return
-    const seq = typeof key?.sequence === "string" ? key.sequence : ""
-    if (!seq) return
-    const cleaned = seq
-      .replace("\u001b[200~", "")
-      .replace("\u001b[201~", "")
-      .replace(/\s+/g, "")
-    if (!cleaned) return
-    ui.keyModalInput.value = (ui.keyModalInput.value || "") + cleaned
-    renderer.requestRender()
-  }
-}
-

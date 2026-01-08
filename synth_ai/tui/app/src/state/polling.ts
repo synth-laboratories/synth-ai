@@ -17,7 +17,7 @@ export const config = {
   jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
   envKeyVisibleCount: parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10),
   envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
-  settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path.join(process.cwd(), ".env.synth"),
+  settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path.join(process.env.HOME || process.cwd(), ".synth-ai", "tui-settings"),
   jobFilterVisibleCount: 6,
 }
 
@@ -29,6 +29,12 @@ export const pollingState = {
   eventsInFlight: false,
   jobsTimer: null as ReturnType<typeof setTimeout> | null,
   eventsTimer: null as ReturnType<typeof setTimeout> | null,
+  // SSE state
+  sseConnected: false,
+  sseDisconnect: null as (() => void) | null,
+  sseReconnectTimer: null as ReturnType<typeof setTimeout> | null,
+  sseReconnectDelay: 1000, // Start with 1s, exponential backoff
+  lastSseSeq: 0,
 }
 
 export function clearJobsTimer(): void {

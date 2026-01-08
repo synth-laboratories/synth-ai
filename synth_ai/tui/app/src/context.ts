@@ -6,7 +6,7 @@
 import type { CliRenderer } from "@opentui/core"
 import type { UI } from "./components/layout"
 
-import { appState, backendConfigs, backendKeys, backendKeySources } from "./state/app-state"
+import { appState } from "./state/app-state"
 import { config, pollingState } from "./state/polling"
 import { snapshot } from "./state/snapshot"
 
@@ -21,10 +21,6 @@ export type AppContext = {
     appState: typeof appState
     pollingState: typeof pollingState
     config: typeof config
-
-    backendConfigs: typeof backendConfigs
-    backendKeys: typeof backendKeys
-    backendKeySources: typeof backendKeySources
   }
 
   /** Triggers a full UI sync from state (implemented in ui/render.ts). */
@@ -47,9 +43,6 @@ export function createAppContext(args: {
       appState,
       pollingState,
       config,
-      backendConfigs,
-      backendKeys,
-      backendKeySources,
     },
     render,
     requestRender: () => renderer.requestRender(),

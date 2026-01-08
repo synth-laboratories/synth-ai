@@ -2,7 +2,7 @@
  * Global application state.
  */
 
-import type { BackendConfig, BackendId, BackendKeySource, EnvKeyOption } from "../types"
+import type { ActivePane, BackendConfig, BackendId, BackendKeySource, EnvKeyOption, FrontendUrlId, LogSource } from "../types"
 
 /** Ensure URL ends with /api */
 function ensureApiBase(url: string): string {
@@ -21,6 +21,24 @@ export function normalizeBackendId(value: string): BackendId {
   return "prod"
 }
 
+/** Get frontend URL identifier for a backend (keys are shared by frontend URL) */
+export function getFrontendUrlId(backendId: BackendId): FrontendUrlId {
+  switch (backendId) {
+    case "prod": return "usesynth.ai"
+    case "dev":
+    case "local": return "localhost:3000"
+  }
+}
+
+/** Get frontend URL for a backend (used for auth and billing pages) */
+export function getFrontendUrl(backendId: BackendId): string {
+  switch (backendId) {
+    case "prod": return "https://usesynth.ai"
+    case "dev":
+    case "local": return "http://localhost:3000"
+  }
+}
+
 // Backend configurations
 export const backendConfigs: Record<BackendId, BackendConfig> = {
   prod: {
@@ -34,7 +52,7 @@ export const backendConfigs: Record<BackendId, BackendConfig> = {
     id: "dev",
     label: "Dev",
     baseUrl: ensureApiBase(
-      process.env.SYNTH_TUI_DEV_API_BASE || "https://agent-learning.onrender.com/api",
+      process.env.SYNTH_TUI_DEV_API_BASE || "https://synth-backend-dev-docker.onrender.com/api",
     ),
   },
   local: {
@@ -46,24 +64,45 @@ export const backendConfigs: Record<BackendId, BackendConfig> = {
   },
 }
 
-// API keys per backend (SYNTH_API_KEY is used as fallback for local and dev)
-export const backendKeys: Record<BackendId, string> = {
-  prod: process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
-  dev: process.env.SYNTH_TUI_API_KEY_DEV || process.env.SYNTH_API_KEY || "",
-  local: process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || "",
+// API keys per frontend URL (keys are shared by frontend URL, not backend mode)
+// dev and local both use localhost:3000, so they share the same key
+export const frontendKeys: Record<FrontendUrlId, string> = {
+  "usesynth.ai": process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
+  "localhost:3000": process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || "",
 }
 
 // Key source tracking (for display purposes)
-export const backendKeySources: Record<BackendId, BackendKeySource> = {
-  prod: { sourcePath: null, varName: null },
-  dev: { sourcePath: null, varName: null },
-  local: { sourcePath: null, varName: null },
+export const frontendKeySources: Record<FrontendUrlId, BackendKeySource> = {
+  "usesynth.ai": { sourcePath: null, varName: null },
+  "localhost:3000": { sourcePath: null, varName: null },
+}
+
+/** Get API key for a backend (looks up by frontend URL) */
+export function getKeyForBackend(backendId: BackendId): string {
+  return frontendKeys[getFrontendUrlId(backendId)]
+}
+
+/** Set API key for a backend (stores by frontend URL) */
+export function setKeyForBackend(backendId: BackendId, key: string): void {
+  frontendKeys[getFrontendUrlId(backendId)] = key
+}
+
+/** Get key source for a backend (looks up by frontend URL) */
+export function getKeySourceForBackend(backendId: BackendId): BackendKeySource {
+  return frontendKeySources[getFrontendUrlId(backendId)]
+}
+
+/** Set key source for a backend (stores by frontend URL) */
+export function setKeySourceForBackend(backendId: BackendId, source: BackendKeySource): void {
+  frontendKeySources[getFrontendUrlId(backendId)] = source
 }
 
 // Mutable app state
 export const appState = {
+  // Backend state
   currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod") as BackendId,
-  activePane: "jobs" as "jobs" | "events",
+
+  activePane: "jobs" as ActivePane,
   healthStatus: "unknown",
   autoSelected: false,
 
@@ -79,14 +118,14 @@ export const appState = {
   jobFilterCursor: 0,
   jobFilterWindowStart: 0,
 
-  // Settings modal state
-  settingsCursor: 0,
-  settingsOptions: [] as BackendConfig[],
-
   // Key modal state
   keyModalBackend: "prod" as BackendId,
   keyPasteActive: false,
   keyPasteBuffer: "",
+
+  // Settings modal state
+  settingsCursor: 0,
+  settingsOptions: [] as BackendConfig[],
 
   // Env key modal state
   envKeyOptions: [] as EnvKeyOption[],
@@ -95,10 +134,15 @@ export const appState = {
   envKeyScanInProgress: false,
   envKeyError: null as string | null,
 
+  // Usage modal state
+  usageModalOffset: 0,
+
   // Modal scroll offsets
   eventModalOffset: 0,
   resultsModalOffset: 0,
   configModalOffset: 0,
+  logsModalOffset: 0,
+  logsModalTail: true,
   promptBrowserIndex: 0,
   promptBrowserOffset: 0,
 
@@ -106,23 +150,25 @@ export const appState = {
   taskAppsModalOffset: 0,
   taskAppsModalSelectedIndex: 0,
 
-  // Usage modal state
-  usageModalOffset: 0,
+  // Create Job modal state
+  createJobCursor: 0,
+
+  // Deploy state
+  deployedUrl: null as string | null,
+  deployProc: null as import("child_process").ChildProcess | null,
+
+  // Logs pane state
+  logsActiveDeploymentId: null as string | null,
+  logsSourceFilter: new Set<LogSource>(["uvicorn", "cloudflare", "app"]),
+  logsSelectedIndex: 0,
+  logsWindowStart: 0,
+  logsTailMode: true,
 
   // Request tokens for cancellation
   jobSelectToken: 0,
   eventsToken: 0,
 }
 
-// Helper functions
-export function getBackendConfig(): BackendConfig {
-  return backendConfigs[appState.currentBackend]
-}
-
-export function getActiveApiKey(): string {
-  return backendKeys[appState.currentBackend]
-}
-
-export function setActivePane(pane: "jobs" | "events"): void {
+export function setActivePane(pane: ActivePane): void {
   appState.activePane = pane
 }

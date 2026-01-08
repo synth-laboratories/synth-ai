@@ -50,6 +50,15 @@ from .proxy import (
     prepare_for_openai,
     synthesize_tool_call_if_missing,
 )
+from .rollout_helpers import build_rollout_response
+from .llm_call_guards import (
+    install_all_guards,
+    install_httpx_guard,
+    install_requests_guard,
+    install_openai_guard,
+    install_anthropic_guard,
+    warn_if_direct_provider_call,
+)
 from .rubrics import (
     Criterion,
     Rubric,
@@ -90,6 +99,13 @@ from .vendors import (
 )
 
 __all__ = [
+    "build_rollout_response",
+    "install_all_guards",
+    "install_httpx_guard",
+    "install_requests_guard",
+    "install_openai_guard",
+    "install_anthropic_guard",
+    "warn_if_direct_provider_call",
     "normalize_inference_url",
     "validate_rollout_response_for_rl",
     "validate_task_app_url",

@@ -43,9 +43,7 @@ export async function refreshHealth(ctx: AppContext): Promise<void> {
   const { appState } = ctx.state
 
   try {
-    // Use current backend configuration (reads appState.currentBackend)
-    const baseRoot = getActiveBaseRoot()
-    const res = await fetch(`${baseRoot}/health`)
+    const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`)
     appState.healthStatus = res.ok ? "ok" : `bad(${res.status})`
   } catch (err: any) {
     appState.healthStatus = `err(${err?.message || "unknown"})`

@@ -13,49 +13,658 @@ var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __promiseAll = (args) => Promise.all(args);
 var __require = import.meta.require;
 
-// node_modules/@opentui/core/assets/javascript/highlights.scm
-var highlights_default = "./highlights-ghv9g403.scm";
-var init_highlights = () => {};
+// src/state/polling.ts
+var exports_polling = {};
+__export(exports_polling, {
+  pollingState: () => pollingState,
+  config: () => config,
+  clearJobsTimer: () => clearJobsTimer,
+  clearEventsTimer: () => clearEventsTimer
+});
+import path2 from "path";
+function clearJobsTimer() {
+  if (pollingState.jobsTimer) {
+    clearTimeout(pollingState.jobsTimer);
+    pollingState.jobsTimer = null;
+  }
+}
+function clearEventsTimer() {
+  if (pollingState.eventsTimer) {
+    clearTimeout(pollingState.eventsTimer);
+    pollingState.eventsTimer = null;
+  }
+}
+var config, pollingState;
+var init_polling = __esm(() => {
+  config = {
+    initialJobId: process.env.SYNTH_TUI_JOB_ID || "",
+    refreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_INTERVAL || "5"),
+    eventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_INTERVAL || "2"),
+    maxRefreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_MAX || "60"),
+    maxEventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_MAX || "15"),
+    eventHistoryLimit: parseInt(process.env.SYNTH_TUI_EVENT_CARDS || "200", 10),
+    eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
+    eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
+    jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
+    envKeyVisibleCount: parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10),
+    envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
+    settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path2.join(process.env.HOME || process.cwd(), ".synth-ai", "tui-settings"),
+    jobFilterVisibleCount: 6
+  };
+  pollingState = {
+    jobsPollMs: Math.max(1, config.refreshInterval) * 1000,
+    eventsPollMs: Math.max(0.5, config.eventInterval) * 1000,
+    jobsInFlight: false,
+    eventsInFlight: false,
+    jobsTimer: null,
+    eventsTimer: null,
+    sseConnected: false,
+    sseDisconnect: null,
+    sseReconnectTimer: null,
+    sseReconnectDelay: 1000,
+    lastSseSeq: 0
+  };
+});
 
-// node_modules/@opentui/core/assets/javascript/tree-sitter-javascript.wasm
-var tree_sitter_javascript_default = "./tree-sitter-javascript-nd0q4pe9.wasm";
-var init_tree_sitter_javascript = () => {};
+// src/tui_data.ts
+function extractJobs(payload, source) {
+  const list = Array.isArray(payload) ? payload : Array.isArray(payload?.jobs) ? payload.jobs : Array.isArray(payload?.data) ? payload.data : [];
+  return list.map((job) => coerceJob(job, source));
+}
+function extractEvents(payload) {
+  const list = Array.isArray(payload) ? payload : Array.isArray(payload?.events) ? payload.events : [];
+  const events = list.map((e, idx) => {
+    const seqCandidate = e.seq ?? e.sequence ?? e.id;
+    const seqValue = Number(seqCandidate);
+    return {
+      seq: Number.isFinite(seqValue) ? seqValue : idx,
+      type: String(e.type || e.event_type || "event"),
+      message: e.message || null,
+      data: e.data ?? null,
+      timestamp: e.timestamp || e.created_at || null
+    };
+  });
+  const nextSeqRaw = payload?.next_seq;
+  const nextSeqValue = Number(nextSeqRaw);
+  const nextSeq = Number.isFinite(nextSeqValue) ? nextSeqValue : null;
+  return { events, nextSeq };
+}
+function isEvalJob(job) {
+  if (!job)
+    return false;
+  return job.job_source === "eval" || job.training_type === "eval" || job.job_id.startsWith("eval_");
+}
+function coerceJob(payload, source) {
+  const jobId = String(payload?.job_id || payload?.id || "");
+  const meta = payload?.metadata;
+  let trainingType = payload?.algorithm || payload?.training_type || meta?.algorithm || meta?.training_type || meta?.prompt_initial_snapshot?.raw_config?.prompt_learning?.algorithm || meta?.config?.algorithm || null;
+  const isEval = jobId.startsWith("eval_") || trainingType === "eval";
+  if (isEval && !trainingType) {
+    trainingType = "eval";
+  }
+  const resolvedSource = isEval && source === "learning" ? "eval" : source ?? (isEval ? "eval" : null);
+  return {
+    job_id: jobId,
+    status: String(payload?.status || "unknown"),
+    training_type: trainingType,
+    job_source: resolvedSource,
+    created_at: payload?.created_at || null,
+    started_at: payload?.started_at || null,
+    finished_at: payload?.finished_at || null,
+    best_reward: num(payload?.best_reward ?? payload?.best_score),
+    best_snapshot_id: payload?.best_snapshot_id || payload?.best_snapshot?.id || null,
+    total_tokens: int(payload?.total_tokens),
+    total_cost_usd: num(payload?.total_cost_usd || payload?.total_cost),
+    error: payload?.error || null,
+    metadata: payload?.metadata || null
+  };
+}
+function mergeJobs(primary, secondary) {
+  const byId = new Map;
+  for (const job of primary) {
+    if (job.job_id)
+      byId.set(job.job_id, job);
+  }
+  for (const job of secondary) {
+    if (!job.job_id || byId.has(job.job_id))
+      continue;
+    byId.set(job.job_id, job);
+  }
+  const merged = Array.from(byId.values());
+  merged.sort((a, b) => toSortTimestamp(b.created_at) - toSortTimestamp(a.created_at));
+  return merged;
+}
+function num(value) {
+  if (value == null)
+    return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+function int(value) {
+  if (value == null)
+    return null;
+  const n = parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : null;
+}
+function toSortTimestamp(value) {
+  if (!value)
+    return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
-// node_modules/@opentui/core/assets/typescript/highlights.scm
-var highlights_default2 = "./highlights-eq9cgrbb.scm";
-var init_highlights2 = () => {};
+// src/utils/env.ts
+import path7 from "path";
+import { promises as fs4 } from "fs";
+function parseEnvFile(content) {
+  const values = {};
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#"))
+      continue;
+    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
+    if (!match)
+      continue;
+    const key = match[1];
+    let value = match[2].trim();
+    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+      const quoted = value;
+      value = value.slice(1, -1);
+      if (quoted.startsWith('"')) {
+        value = value.replace(/\\\\/g, "\\").replace(/\\"/g, '"');
+      }
+    } else {
+      value = value.split(/\s+#/)[0].trim();
+    }
+    values[key] = value;
+  }
+  return values;
+}
+function formatEnvLine(key, value) {
+  return `${key}=${escapeEnvValue(value)}`;
+}
+function escapeEnvValue(value) {
+  const safe = value ?? "";
+  return `"${safe.replace(/\\/g, "\\\\").replace(/\"/g, "\\\"")}"`;
+}
+function parseEnvKeys(content, sourcePath, scanRoot = config.envKeyScanRoot) {
+  const results2 = [];
+  const lines = content.split(/\r?\n/);
+  const relPath = path7.relative(scanRoot, sourcePath) || sourcePath;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#"))
+      continue;
+    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
+    if (!match)
+      continue;
+    const varName = match[1];
+    if (!KEY_VAR_NAMES.has(varName))
+      continue;
+    let value = match[2].trim();
+    if (!value || value.startsWith("$"))
+      continue;
+    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
+      value = value.slice(1, -1);
+    } else {
+      value = value.split(/\s+#/)[0].trim();
+    }
+    if (!value)
+      continue;
+    results2.push({ key: value, source: relPath, varName });
+  }
+  return results2;
+}
+async function walkEnvDir(dir, results2, scanRoot = config.envKeyScanRoot) {
+  let entries;
+  try {
+    entries = await fs4.readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    const fullPath = path7.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (IGNORED_DIRS.has(entry.name))
+        continue;
+      await walkEnvDir(fullPath, results2, scanRoot);
+      continue;
+    }
+    if (!entry.isFile())
+      continue;
+    if (!/^\.env(\.|$)/.test(entry.name))
+      continue;
+    try {
+      const stat = await fs4.stat(fullPath);
+      if (stat.size > 256 * 1024)
+        continue;
+      const content = await fs4.readFile(fullPath, "utf8");
+      const found = parseEnvKeys(content, fullPath, scanRoot);
+      for (const item of found) {
+        const existing = results2.get(item.key);
+        if (existing) {
+          if (!existing.sources.includes(item.source)) {
+            existing.sources.push(item.source);
+          }
+          if (!existing.varNames.includes(item.varName)) {
+            existing.varNames.push(item.varName);
+          }
+        } else {
+          results2.set(item.key, {
+            key: item.key,
+            sources: [item.source],
+            varNames: [item.varName]
+          });
+        }
+      }
+    } catch {}
+  }
+}
+async function scanEnvKeys(rootDir) {
+  const results2 = new Map;
+  await walkEnvDir(rootDir, results2, rootDir);
+  return Array.from(results2.values());
+}
+var IGNORED_DIRS, KEY_VAR_NAMES;
+var init_env = __esm(() => {
+  init_polling();
+  IGNORED_DIRS = new Set([
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tox",
+    ".next",
+    ".turbo",
+    ".cache",
+    "dist",
+    "build",
+    "out"
+  ]);
+  KEY_VAR_NAMES = new Set([
+    "SYNTH_API_KEY",
+    "SYNTH_TUI_API_KEY_PROD",
+    "SYNTH_TUI_API_KEY_DEV",
+    "SYNTH_TUI_API_KEY_LOCAL"
+  ]);
+});
 
-// node_modules/@opentui/core/assets/typescript/tree-sitter-typescript.wasm
-var tree_sitter_typescript_default = "./tree-sitter-typescript-zxjzwt75.wasm";
-var init_tree_sitter_typescript = () => {};
+// src/persistence/settings.ts
+var exports_settings = {};
+__export(exports_settings, {
+  persistSettings: () => persistSettings,
+  loadPersistedSettings: () => loadPersistedSettings
+});
+import path8 from "path";
+import { promises as fs5 } from "fs";
+async function loadPersistedSettings(deps) {
+  const {
+    settingsFilePath,
+    normalizeBackendId: normalizeBackendId2,
+    setCurrentBackend,
+    setFrontendKey,
+    setFrontendKeySource
+  } = deps;
+  try {
+    const content = await fs5.readFile(settingsFilePath, "utf8");
+    const values = parseEnvFile(content);
+    const backend = values.SYNTH_TUI_BACKEND;
+    if (backend) {
+      setCurrentBackend(normalizeBackendId2(backend));
+    }
+    const usesynthKey = values.SYNTH_TUI_API_KEY_USESYNTH || values.SYNTH_TUI_API_KEY_PROD;
+    const localhostKeyFromFile = values.SYNTH_TUI_API_KEY_LOCALHOST || values.SYNTH_TUI_API_KEY_DEV || values.SYNTH_TUI_API_KEY_LOCAL;
+    const localhostKey = typeof localhostKeyFromFile === "string" && localhostKeyFromFile.trim() ? localhostKeyFromFile.trim() : (process.env.SYNTH_API_KEY || "").trim();
+    if (typeof usesynthKey === "string" && usesynthKey.trim()) {
+      setFrontendKey("usesynth.ai", usesynthKey.trim());
+    }
+    if (localhostKey) {
+      setFrontendKey("localhost:3000", localhostKey);
+    }
+    setFrontendKeySource("usesynth.ai", {
+      sourcePath: values.SYNTH_TUI_API_KEY_USESYNTH_SOURCE || values.SYNTH_TUI_API_KEY_PROD_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_USESYNTH_VAR || values.SYNTH_TUI_API_KEY_PROD_VAR || null
+    });
+    setFrontendKeySource("localhost:3000", {
+      sourcePath: values.SYNTH_TUI_API_KEY_LOCALHOST_SOURCE || values.SYNTH_TUI_API_KEY_DEV_SOURCE || values.SYNTH_TUI_API_KEY_LOCAL_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_LOCALHOST_VAR || values.SYNTH_TUI_API_KEY_DEV_VAR || values.SYNTH_TUI_API_KEY_LOCAL_VAR || null
+    });
+  } catch (err) {
+    if (err?.code !== "ENOENT") {}
+  }
+}
+async function persistSettings(deps) {
+  const {
+    settingsFilePath,
+    getCurrentBackend,
+    getFrontendKey,
+    getFrontendKeySource,
+    onError
+  } = deps;
+  try {
+    await fs5.mkdir(path8.dirname(settingsFilePath), { recursive: true });
+    const backend = getCurrentBackend();
+    const usesynthSource = getFrontendKeySource("usesynth.ai");
+    const localhostSource = getFrontendKeySource("localhost:3000");
+    const lines = [
+      "# synth-ai tui settings",
+      "# Keys are stored by frontend URL (usesynth.ai or localhost:3000)",
+      formatEnvLine("SYNTH_TUI_BACKEND", backend),
+      "# usesynth.ai (prod)",
+      formatEnvLine("SYNTH_TUI_API_KEY_USESYNTH", getFrontendKey("usesynth.ai")),
+      formatEnvLine("SYNTH_TUI_API_KEY_USESYNTH_SOURCE", usesynthSource.sourcePath || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_USESYNTH_VAR", usesynthSource.varName || ""),
+      "# localhost:3000 (dev/local - shared)",
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCALHOST", getFrontendKey("localhost:3000")),
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCALHOST_SOURCE", localhostSource.sourcePath || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCALHOST_VAR", localhostSource.varName || "")
+    ];
+    await fs5.writeFile(settingsFilePath, `${lines.join(`
+`)}
+`, "utf8");
+  } catch (err) {
+    onError?.(`Failed to save settings: ${err?.message || "unknown"}`);
+  }
+}
+var init_settings = __esm(() => {
+  init_env();
+});
 
-// node_modules/@opentui/core/assets/markdown/highlights.scm
-var highlights_default3 = "./highlights-r812a2qc.scm";
-var init_highlights3 = () => {};
+// src/api/client.ts
+var exports_client = {};
+__export(exports_client, {
+  checkBackendHealth: () => checkBackendHealth,
+  apiPost: () => apiPost,
+  apiGetV1: () => apiGetV1,
+  apiGet: () => apiGet
+});
+async function apiGet(path6) {
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key");
+  }
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path6}`, {
+    headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    const suffix = body ? ` - ${body.slice(0, 160)}` : "";
+    throw new Error(`GET ${path6}: HTTP ${res.status} ${res.statusText}${suffix}`);
+  }
+  return res.json();
+}
+async function apiGetV1(path6) {
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key");
+  }
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path6}`, {
+    headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` }
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    const suffix = body ? ` - ${body.slice(0, 160)}` : "";
+    throw new Error(`GET /api/v1${path6}: HTTP ${res.status} ${res.statusText}${suffix}`);
+  }
+  return res.json();
+}
+async function apiPost(path6, body) {
+  if (!process.env.SYNTH_API_KEY) {
+    throw new Error("Missing API key");
+  }
+  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path6}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.SYNTH_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    const suffix = text ? ` - ${text.slice(0, 160)}` : "";
+    throw new Error(`POST ${path6}: HTTP ${res.status} ${res.statusText}${suffix}`);
+  }
+  return res.json().catch(() => ({}));
+}
+async function checkBackendHealth() {
+  try {
+    const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`);
+    return res.ok ? "ok" : `bad(${res.status})`;
+  } catch (err) {
+    return `err(${err?.message || "unknown"})`;
+  }
+}
 
-// node_modules/@opentui/core/assets/markdown/tree-sitter-markdown.wasm
-var tree_sitter_markdown_default = "./tree-sitter-markdown-411r6y9b.wasm";
-var init_tree_sitter_markdown = () => {};
-
-// node_modules/@opentui/core/assets/markdown/injections.scm
-var injections_default = "./injections-73j83es3.scm";
-var init_injections = () => {};
-
-// node_modules/@opentui/core/assets/markdown_inline/highlights.scm
-var highlights_default4 = "./highlights-x6tmsnaa.scm";
-var init_highlights4 = () => {};
-
-// node_modules/@opentui/core/assets/markdown_inline/tree-sitter-markdown_inline.wasm
-var tree_sitter_markdown_inline_default = "./tree-sitter-markdown_inline-j5349f42.wasm";
-var init_tree_sitter_markdown_inline = () => {};
-
-// node_modules/@opentui/core/assets/zig/highlights.scm
-var highlights_default5 = "./highlights-hk7bwhj4.scm";
-var init_highlights5 = () => {};
-
-// node_modules/@opentui/core/assets/zig/tree-sitter-zig.wasm
-var tree_sitter_zig_default = "./tree-sitter-zig-e78zbjpm.wasm";
-var init_tree_sitter_zig = () => {};
+// src/api/jobs.ts
+var exports_jobs = {};
+__export(exports_jobs, {
+  selectJob: () => selectJob,
+  refreshJobs: () => refreshJobs,
+  fetchMetrics: () => fetchMetrics,
+  fetchEvalResults: () => fetchEvalResults,
+  fetchBestSnapshot: () => fetchBestSnapshot,
+  fetchArtifacts: () => fetchArtifacts,
+  cancelSelected: () => cancelSelected
+});
+function extractBestSnapshotId(payload) {
+  if (!payload)
+    return null;
+  return payload.best_snapshot_id || payload.best_snapshot?.id || null;
+}
+async function refreshJobs(ctx) {
+  const { snapshot: snapshot2, appState: appState2, config: config2 } = ctx.state;
+  try {
+    snapshot2.status = "Refreshing jobs...";
+    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config2.jobLimit}&offset=0`);
+    const promptJobs = extractJobs(promptPayload, "prompt-learning");
+    let learningJobs = [];
+    let learningError = null;
+    try {
+      const learningPayload = await apiGet(`/learning/jobs?limit=${config2.jobLimit}`);
+      learningJobs = extractJobs(learningPayload, "learning");
+    } catch (err) {
+      learningError = err?.message || "Failed to load learning jobs";
+    }
+    const jobs = mergeJobs(promptJobs, learningJobs);
+    snapshot2.jobs = jobs;
+    snapshot2.lastRefresh = Date.now();
+    snapshot2.lastError = learningError;
+    if (!snapshot2.selectedJob && jobs.length > 0 && !appState2.autoSelected) {
+      appState2.autoSelected = true;
+      await selectJob(ctx, jobs[0].job_id);
+      return true;
+    }
+    if (snapshot2.selectedJob) {
+      const match = jobs.find((j) => j.job_id === snapshot2.selectedJob?.job_id);
+      if (match && !snapshot2.selectedJob.metadata) {
+        snapshot2.selectedJob = match;
+      }
+    }
+    if (jobs.length === 0) {
+      snapshot2.status = "No jobs found";
+    } else {
+      const promptCount = promptJobs.length;
+      const learningCount = learningJobs.length;
+      snapshot2.status = learningCount > 0 ? `Loaded ${promptCount} prompt-learning, ${learningCount} learning job(s)` : `Loaded ${promptCount} prompt-learning job(s)`;
+    }
+    return true;
+  } catch (err) {
+    snapshot2.lastError = err?.message || "Failed to load jobs";
+    snapshot2.status = "Failed to load jobs";
+    return false;
+  }
+}
+async function selectJob(ctx, jobId) {
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const token = ++appState2.jobSelectToken;
+  appState2.eventsToken++;
+  appState2.lastSeq = 0;
+  snapshot2.events = [];
+  snapshot2.metrics = {};
+  snapshot2.bestSnapshotId = null;
+  snapshot2.bestSnapshot = null;
+  snapshot2.evalSummary = null;
+  snapshot2.evalResultRows = [];
+  snapshot2.allCandidates = [];
+  appState2.selectedEventIndex = 0;
+  appState2.eventWindowStart = 0;
+  const immediate = snapshot2.jobs.find((job) => job.job_id === jobId);
+  snapshot2.selectedJob = immediate ?? {
+    job_id: jobId,
+    status: "loading",
+    training_type: null,
+    created_at: null,
+    started_at: null,
+    finished_at: null,
+    best_reward: null,
+    best_snapshot_id: null,
+    total_tokens: null,
+    total_cost_usd: null,
+    error: null,
+    job_source: null
+  };
+  snapshot2.status = `Loading job ${jobId}...`;
+  const jobSource = immediate?.job_source ?? null;
+  try {
+    const path6 = jobSource === "eval" ? `/eval/jobs/${jobId}` : jobSource === "learning" ? `/learning/jobs/${jobId}?include_metadata=true` : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`;
+    const job = await apiGet(path6);
+    if (token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    const coerced = coerceJob(job, jobSource ?? "prompt-learning");
+    if (jobSource !== "eval") {
+      const jobMeta = job?.metadata ?? {};
+      if (job?.prompt_initial_snapshot && !jobMeta.prompt_initial_snapshot) {
+        coerced.metadata = { ...jobMeta, prompt_initial_snapshot: job.prompt_initial_snapshot };
+      } else {
+        coerced.metadata = jobMeta;
+      }
+      snapshot2.bestSnapshotId = extractBestSnapshotId(job);
+    }
+    if (jobSource === "eval" || isEvalJob(coerced)) {
+      snapshot2.evalSummary = job?.results && typeof job.results === "object" ? job.results : null;
+    }
+    snapshot2.selectedJob = coerced;
+    snapshot2.status = `Selected job ${jobId}`;
+  } catch (err) {
+    if (token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    const errMsg = err?.message || `Failed to load job ${jobId}`;
+    snapshot2.lastError = errMsg;
+    snapshot2.status = `Error: ${errMsg}`;
+  }
+  if (jobSource !== "learning" && jobSource !== "eval" && !isEvalJob(snapshot2.selectedJob)) {
+    await fetchBestSnapshot(ctx, token);
+  }
+  if (jobSource === "eval" || isEvalJob(snapshot2.selectedJob)) {
+    await fetchEvalResults(ctx, token);
+  }
+}
+async function fetchBestSnapshot(ctx, token) {
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return;
+  const jobId = job.job_id;
+  const snapshotId = snapshot2.bestSnapshotId;
+  if (!snapshotId)
+    return;
+  try {
+    const payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/snapshots/${snapshotId}`);
+    if (token != null && token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.bestSnapshot = payload?.payload || payload;
+    snapshot2.status = `Loaded best snapshot`;
+  } catch (err) {
+    if (token != null && token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.lastError = err?.message || "Failed to load best snapshot";
+  }
+}
+async function fetchEvalResults(ctx, token) {
+  const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job || !isEvalJob(job))
+    return;
+  const jobId = job.job_id;
+  try {
+    snapshot2.status = "Loading eval results...";
+    const payload = await apiGet(`/eval/jobs/${job.job_id}/results`);
+    if (token != null && token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.evalSummary = payload?.summary && typeof payload.summary === "object" ? payload.summary : null;
+    snapshot2.evalResultRows = Array.isArray(payload?.results) ? payload.results : [];
+    snapshot2.status = `Loaded eval results for ${job.job_id}`;
+  } catch (err) {
+    if (token != null && token !== appState2.jobSelectToken || snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.lastError = err?.message || "Failed to load eval results";
+    snapshot2.status = "Failed to load eval results";
+  }
+}
+async function fetchMetrics(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return;
+  const jobId = job.job_id;
+  try {
+    if (isEvalJob(job)) {
+      await fetchEvalResults(ctx);
+      return;
+    }
+    snapshot2.status = "Loading metrics...";
+    const path6 = job.job_source === "learning" ? `/learning/jobs/${job.job_id}/metrics` : `/prompt-learning/online/jobs/${job.job_id}/metrics`;
+    const payload = await apiGet(path6);
+    if (snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.metrics = payload;
+    snapshot2.status = `Loaded metrics for ${job.job_id}`;
+  } catch (err) {
+    if (snapshot2.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    snapshot2.lastError = err?.message || "Failed to load metrics";
+    snapshot2.status = "Failed to load metrics";
+  }
+}
+async function cancelSelected(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return;
+  try {
+    const { apiPost: apiPost2 } = await Promise.resolve().then(() => exports_client);
+    await apiPost2(`/prompt-learning/online/jobs/${job.job_id}/cancel`, {});
+    snapshot2.status = "Cancel requested";
+  } catch (err) {
+    snapshot2.lastError = err?.message || "Cancel failed";
+  }
+}
+async function fetchArtifacts(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  const job = snapshot2.selectedJob;
+  if (!job)
+    return;
+  try {
+    const payload = await apiGet(`/prompt-learning/online/jobs/${job.job_id}/artifacts`);
+    snapshot2.artifacts = Array.isArray(payload) ? payload : payload?.artifacts || [];
+    snapshot2.status = "Artifacts fetched";
+  } catch (err) {
+    snapshot2.lastError = err?.message || "Artifacts fetch failed";
+  }
+}
+var init_jobs = () => {};
 
 // node_modules/@opentui/core/index-zj0wwh9d.js
 import { Buffer as Buffer2 } from "buffer";
@@ -19017,125 +19626,123 @@ function normalizeBackendId(value) {
     return "local";
   return "prod";
 }
-var backendConfigs, backendKeys, backendKeySources, appState;
-var init_app_state = __esm(() => {
-  backendConfigs = {
-    prod: {
-      id: "prod",
-      label: "Prod",
-      baseUrl: ensureApiBase(process.env.SYNTH_TUI_PROD_API_BASE || "https://api.usesynth.ai/api")
-    },
-    dev: {
-      id: "dev",
-      label: "Dev",
-      baseUrl: ensureApiBase(process.env.SYNTH_TUI_DEV_API_BASE || "https://agent-learning.onrender.com/api")
-    },
-    local: {
-      id: "local",
-      label: "Local",
-      baseUrl: ensureApiBase(process.env.SYNTH_TUI_LOCAL_API_BASE || "http://localhost:8000/api")
-    }
-  };
-  backendKeys = {
-    prod: process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
-    dev: process.env.SYNTH_TUI_API_KEY_DEV || process.env.SYNTH_API_KEY || "",
-    local: process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || ""
-  };
-  backendKeySources = {
-    prod: { sourcePath: null, varName: null },
-    dev: { sourcePath: null, varName: null },
-    local: { sourcePath: null, varName: null }
-  };
-  appState = {
-    currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod"),
-    activePane: "jobs",
-    healthStatus: "unknown",
-    autoSelected: false,
-    lastSeq: 0,
-    selectedEventIndex: 0,
-    eventWindowStart: 0,
-    eventFilter: "",
-    jobStatusFilter: new Set,
-    jobFilterOptions: [],
-    jobFilterCursor: 0,
-    jobFilterWindowStart: 0,
-    settingsCursor: 0,
-    settingsOptions: [],
-    keyModalBackend: "prod",
-    keyPasteActive: false,
-    keyPasteBuffer: "",
-    envKeyOptions: [],
-    envKeyCursor: 0,
-    envKeyWindowStart: 0,
-    envKeyScanInProgress: false,
-    envKeyError: null,
-    eventModalOffset: 0,
-    resultsModalOffset: 0,
-    configModalOffset: 0,
-    promptBrowserIndex: 0,
-    promptBrowserOffset: 0,
-    taskAppsModalOffset: 0,
-    taskAppsModalSelectedIndex: 0,
-    usageModalOffset: 0,
-    jobSelectToken: 0,
-    eventsToken: 0
-  };
-});
+function getFrontendUrlId(backendId) {
+  switch (backendId) {
+    case "prod":
+      return "usesynth.ai";
+    case "dev":
+    case "local":
+      return "localhost:3000";
+  }
+}
+function getFrontendUrl(backendId) {
+  switch (backendId) {
+    case "prod":
+      return "https://usesynth.ai";
+    case "dev":
+    case "local":
+      return "http://localhost:3000";
+  }
+}
+var backendConfigs = {
+  prod: {
+    id: "prod",
+    label: "Prod",
+    baseUrl: ensureApiBase(process.env.SYNTH_TUI_PROD_API_BASE || "https://api.usesynth.ai/api")
+  },
+  dev: {
+    id: "dev",
+    label: "Dev",
+    baseUrl: ensureApiBase(process.env.SYNTH_TUI_DEV_API_BASE || "https://synth-backend-dev-docker.onrender.com/api")
+  },
+  local: {
+    id: "local",
+    label: "Local",
+    baseUrl: ensureApiBase(process.env.SYNTH_TUI_LOCAL_API_BASE || "http://localhost:8000/api")
+  }
+};
+var frontendKeys = {
+  "usesynth.ai": process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
+  "localhost:3000": process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || ""
+};
+var frontendKeySources = {
+  "usesynth.ai": { sourcePath: null, varName: null },
+  "localhost:3000": { sourcePath: null, varName: null }
+};
+function getKeyForBackend(backendId) {
+  return frontendKeys[getFrontendUrlId(backendId)];
+}
+var appState = {
+  currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod"),
+  activePane: "jobs",
+  healthStatus: "unknown",
+  autoSelected: false,
+  lastSeq: 0,
+  selectedEventIndex: 0,
+  eventWindowStart: 0,
+  eventFilter: "",
+  jobStatusFilter: new Set,
+  jobFilterOptions: [],
+  jobFilterCursor: 0,
+  jobFilterWindowStart: 0,
+  keyModalBackend: "prod",
+  keyPasteActive: false,
+  keyPasteBuffer: "",
+  settingsCursor: 0,
+  settingsOptions: [],
+  envKeyOptions: [],
+  envKeyCursor: 0,
+  envKeyWindowStart: 0,
+  envKeyScanInProgress: false,
+  envKeyError: null,
+  usageModalOffset: 0,
+  eventModalOffset: 0,
+  resultsModalOffset: 0,
+  configModalOffset: 0,
+  logsModalOffset: 0,
+  logsModalTail: true,
+  promptBrowserIndex: 0,
+  promptBrowserOffset: 0,
+  taskAppsModalOffset: 0,
+  taskAppsModalSelectedIndex: 0,
+  createJobCursor: 0,
+  deployedUrl: null,
+  deployProc: null,
+  logsActiveDeploymentId: null,
+  logsSourceFilter: new Set(["uvicorn", "cloudflare", "app"]),
+  logsSelectedIndex: 0,
+  logsWindowStart: 0,
+  logsTailMode: true,
+  jobSelectToken: 0,
+  eventsToken: 0
+};
 
-// src/state/polling.ts
-import path2 from "path";
-var config, pollingState;
-var init_polling = __esm(() => {
-  config = {
-    initialJobId: process.env.SYNTH_TUI_JOB_ID || "",
-    refreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_INTERVAL || "5"),
-    eventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_INTERVAL || "2"),
-    maxRefreshInterval: parseFloat(process.env.SYNTH_TUI_REFRESH_MAX || "60"),
-    maxEventInterval: parseFloat(process.env.SYNTH_TUI_EVENT_MAX || "15"),
-    eventHistoryLimit: parseInt(process.env.SYNTH_TUI_EVENT_CARDS || "200", 10),
-    eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
-    eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
-    jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
-    envKeyVisibleCount: parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10),
-    envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
-    settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path2.join(process.cwd(), ".env.synth"),
-    jobFilterVisibleCount: 6
-  };
-  pollingState = {
-    jobsPollMs: Math.max(1, config.refreshInterval) * 1000,
-    eventsPollMs: Math.max(0.5, config.eventInterval) * 1000,
-    jobsInFlight: false,
-    eventsInFlight: false,
-    jobsTimer: null,
-    eventsTimer: null
-  };
-});
+// src/context.ts
+init_polling();
 
 // src/state/snapshot.ts
-var snapshot;
-var init_snapshot = __esm(() => {
-  snapshot = {
-    jobs: [],
-    selectedJob: null,
-    events: [],
-    metrics: {},
-    bestSnapshotId: null,
-    bestSnapshot: null,
-    evalSummary: null,
-    evalResultRows: [],
-    artifacts: [],
-    orgId: null,
-    userId: null,
-    balanceDollars: null,
-    status: "Loading jobs...",
-    lastError: null,
-    lastRefresh: null,
-    allCandidates: [],
-    tunnels: [],
-    tunnelHealthResults: new Map,
-    tunnelsLoading: false
-  };
-});
+var snapshot = {
+  jobs: [],
+  selectedJob: null,
+  events: [],
+  metrics: {},
+  bestSnapshotId: null,
+  bestSnapshot: null,
+  evalSummary: null,
+  evalResultRows: [],
+  artifacts: [],
+  orgId: null,
+  userId: null,
+  balanceDollars: null,
+  status: "Loading jobs...",
+  lastError: null,
+  lastRefresh: null,
+  allCandidates: [],
+  tunnels: [],
+  tunnelHealthResults: new Map,
+  tunnelsLoading: false,
+  deployments: new Map
+};
 
 // src/context.ts
 function createAppContext(args) {
@@ -19147,10 +19754,7 @@ function createAppContext(args) {
       snapshot,
       appState,
       pollingState,
-      config,
-      backendConfigs,
-      backendKeys,
-      backendKeySources
+      config
     },
     render,
     requestRender: () => renderer.requestRender()
@@ -19161,6 +19765,15 @@ var init_context = __esm(() => {
   init_polling();
   init_snapshot();
 });
+
+// src/components/key-hint.ts
+function createKeyHint(renderer, opts) {
+  return new TextRenderable(renderer, {
+    id: opts.id,
+    content: `${opts.description} (${opts.key})`,
+    fg: opts.active ? "#f8fafc" : "#94a3b8"
+  });
+}
 
 // src/components/layout.ts
 function buildLayout(renderer, getFooterText) {
@@ -19189,25 +19802,10 @@ function buildLayout(renderer, getFooterText) {
   });
   const headerText = new TextRenderable(renderer, {
     id: "header-text",
-    content: "Synth AI Prompt Learning Monitor",
+    content: "Synth AI",
     fg: "#e2e8f0"
   });
-  const headerSpacer = new BoxRenderable(renderer, {
-    id: "header-spacer",
-    width: "auto",
-    height: "auto",
-    flexGrow: 1,
-    flexShrink: 1,
-    border: false
-  });
-  const headerMetaText = new TextRenderable(renderer, {
-    id: "header-meta-text",
-    content: "",
-    fg: "#94a3b8"
-  });
   headerBox.add(headerText);
-  headerBox.add(headerSpacer);
-  headerBox.add(headerMetaText);
   root.add(headerBox);
   const tabsBox = new BoxRenderable(renderer, {
     id: "tabs-box",
@@ -19220,18 +19818,31 @@ function buildLayout(renderer, getFooterText) {
     gap: 2,
     border: true
   });
-  const jobsTabText = new TextRenderable(renderer, {
+  const newJobTabText = createKeyHint(renderer, {
+    id: "tabs-new-job",
+    description: "Create New Job",
+    key: "n"
+  });
+  const jobsTabText = createKeyHint(renderer, {
     id: "tabs-jobs",
-    content: "[Jobs] (b)",
-    fg: "#f8fafc"
+    description: "View Jobs",
+    key: "b",
+    active: true
   });
-  const eventsTabText = new TextRenderable(renderer, {
+  const eventsTabText = createKeyHint(renderer, {
     id: "tabs-events",
-    content: "[Events] (e)",
-    fg: "#94a3b8"
+    description: "View Job's Events",
+    key: "e"
   });
+  const logsTabText = createKeyHint(renderer, {
+    id: "tabs-logs",
+    description: "View Logs",
+    key: "g"
+  });
+  tabsBox.add(newJobTabText);
   tabsBox.add(jobsTabText);
   tabsBox.add(eventsTabText);
+  tabsBox.add(logsTabText);
   root.add(tabsBox);
   const main2 = new BoxRenderable(renderer, {
     id: "main",
@@ -19386,6 +19997,37 @@ function buildLayout(renderer, getFooterText) {
   eventsBox.add(eventsList);
   eventsBox.add(eventsEmptyText);
   detailColumn.add(eventsBox);
+  const logsBox = new BoxRenderable(renderer, {
+    id: "logs-box",
+    width: "auto",
+    height: "auto",
+    flexGrow: 1,
+    flexShrink: 1,
+    borderStyle: "single",
+    borderColor: "#334155",
+    title: "Logs",
+    titleAlignment: "left",
+    border: true,
+    visible: false
+  });
+  const logsContent = new BoxRenderable(renderer, {
+    id: "logs-content",
+    width: "auto",
+    height: "auto",
+    flexDirection: "column",
+    flexGrow: 1,
+    flexShrink: 1,
+    gap: 0,
+    border: false
+  });
+  const logsEmptyText = new TextRenderable(renderer, {
+    id: "logs-empty-text",
+    content: "No log files found.",
+    fg: "#94a3b8"
+  });
+  logsBox.add(logsContent);
+  logsBox.add(logsEmptyText);
+  detailColumn.add(logsBox);
   const statusBox = new BoxRenderable(renderer, {
     id: "status-box",
     width: "auto",
@@ -19419,661 +20061,15 @@ function buildLayout(renderer, getFooterText) {
   });
   footerBox.add(footerTextNode);
   root.add(footerBox);
-  const modalBox = new BoxRenderable(renderer, {
-    id: "modal-box",
-    width: 50,
-    height: 5,
-    position: "absolute",
-    left: 4,
-    top: 4,
-    backgroundColor: "#0f172a",
-    borderStyle: "single",
-    borderColor: "#94a3b8",
-    border: true,
-    zIndex: 5
-  });
-  const modalLabel = new TextRenderable(renderer, {
-    id: "modal-label",
-    content: "Snapshot ID:",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 6,
-    top: 5,
-    zIndex: 6
-  });
-  const modalInput = new InputRenderable(renderer, {
-    id: "modal-input",
-    width: 44,
-    height: 1,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    placeholder: "Enter snapshot id",
-    backgroundColor: "#111827",
-    focusedBackgroundColor: "#1f2937",
-    textColor: "#e2e8f0",
-    focusedTextColor: "#ffffff"
-  });
-  modalBox.visible = false;
-  modalLabel.visible = false;
-  modalInput.visible = false;
-  renderer.root.add(modalBox);
-  renderer.root.add(modalLabel);
-  renderer.root.add(modalInput);
-  const filterBox = new BoxRenderable(renderer, {
-    id: "filter-box",
-    width: 52,
-    height: 5,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0f172a",
-    borderStyle: "single",
-    borderColor: "#60a5fa",
-    border: true,
-    zIndex: 5
-  });
-  const filterLabel = new TextRenderable(renderer, {
-    id: "filter-label",
-    content: "Event filter:",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 6
-  });
-  const filterInput = new InputRenderable(renderer, {
-    id: "filter-input",
-    width: 46,
-    height: 1,
-    position: "absolute",
-    left: 8,
-    top: 8,
-    placeholder: "Type to filter events",
-    backgroundColor: "#111827",
-    focusedBackgroundColor: "#1f2937",
-    textColor: "#e2e8f0",
-    focusedTextColor: "#ffffff"
-  });
-  filterBox.visible = false;
-  filterLabel.visible = false;
-  filterInput.visible = false;
-  renderer.root.add(filterBox);
-  renderer.root.add(filterLabel);
-  renderer.root.add(filterInput);
-  const jobFilterBox = new BoxRenderable(renderer, {
-    id: "job-filter-box",
-    width: 52,
-    height: 11,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0f172a",
-    borderStyle: "single",
-    borderColor: "#60a5fa",
-    border: true,
-    zIndex: 5
-  });
-  const jobFilterLabel = new TextRenderable(renderer, {
-    id: "job-filter-label",
-    content: "Job filter (status: all)",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 6
-  });
-  const jobFilterHelp = new TextRenderable(renderer, {
-    id: "job-filter-help",
-    content: "Enter/space toggle | a select all | x clear | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 8,
-    zIndex: 6
-  });
-  const jobFilterListText = new TextRenderable(renderer, {
-    id: "job-filter-list",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 9,
-    zIndex: 6
-  });
-  jobFilterBox.visible = false;
-  jobFilterLabel.visible = false;
-  jobFilterHelp.visible = false;
-  jobFilterListText.visible = false;
-  renderer.root.add(jobFilterBox);
-  renderer.root.add(jobFilterLabel);
-  renderer.root.add(jobFilterHelp);
-  renderer.root.add(jobFilterListText);
-  const eventModalBox = new BoxRenderable(renderer, {
-    id: "event-modal-box",
-    width: 80,
-    height: 16,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#60a5fa",
-    border: true,
-    zIndex: 6
-  });
-  const eventModalTitle = new TextRenderable(renderer, {
-    id: "event-modal-title",
-    content: "Event details",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 7
-  });
-  const eventModalText = new TextRenderable(renderer, {
-    id: "event-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 8,
-    zIndex: 7
-  });
-  const eventModalHint = new TextRenderable(renderer, {
-    id: "event-modal-hint",
-    content: "Event details",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 9,
-    zIndex: 7
-  });
-  eventModalBox.visible = false;
-  eventModalTitle.visible = false;
-  eventModalText.visible = false;
-  eventModalHint.visible = false;
-  renderer.root.add(eventModalBox);
-  renderer.root.add(eventModalTitle);
-  renderer.root.add(eventModalText);
-  renderer.root.add(eventModalHint);
-  const resultsModalBox = new BoxRenderable(renderer, {
-    id: "results-modal-box",
-    width: 100,
-    height: 24,
-    position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#22c55e",
-    border: true,
-    zIndex: 8
-  });
-  const resultsModalTitle = new TextRenderable(renderer, {
-    id: "results-modal-title",
-    content: "Results - Best Prompt",
-    fg: "#22c55e",
-    position: "absolute",
-    left: 8,
-    top: 5,
-    zIndex: 9
-  });
-  const resultsModalText = new TextRenderable(renderer, {
-    id: "results-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 6,
-    zIndex: 9
-  });
-  const resultsModalHint = new TextRenderable(renderer, {
-    id: "results-modal-hint",
-    content: "Results | j/k scroll | esc/q/enter close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 26,
-    zIndex: 9
-  });
-  resultsModalBox.visible = false;
-  resultsModalTitle.visible = false;
-  resultsModalText.visible = false;
-  resultsModalHint.visible = false;
-  renderer.root.add(resultsModalBox);
-  renderer.root.add(resultsModalTitle);
-  renderer.root.add(resultsModalText);
-  renderer.root.add(resultsModalHint);
-  const configModalBox = new BoxRenderable(renderer, {
-    id: "config-modal-box",
-    width: 100,
-    height: 24,
-    position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#f59e0b",
-    border: true,
-    zIndex: 8
-  });
-  const configModalTitle = new TextRenderable(renderer, {
-    id: "config-modal-title",
-    content: "Job Configuration",
-    fg: "#f59e0b",
-    position: "absolute",
-    left: 8,
-    top: 5,
-    zIndex: 9
-  });
-  const configModalText = new TextRenderable(renderer, {
-    id: "config-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 6,
-    zIndex: 9
-  });
-  const configModalHint = new TextRenderable(renderer, {
-    id: "config-modal-hint",
-    content: "Config | j/k scroll | esc/q/enter close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 26,
-    zIndex: 9
-  });
-  configModalBox.visible = false;
-  configModalTitle.visible = false;
-  configModalText.visible = false;
-  configModalHint.visible = false;
-  renderer.root.add(configModalBox);
-  renderer.root.add(configModalTitle);
-  renderer.root.add(configModalText);
-  renderer.root.add(configModalHint);
-  const promptBrowserBox = new BoxRenderable(renderer, {
-    id: "prompt-browser-box",
-    width: 100,
-    height: 24,
-    position: "absolute",
-    left: 6,
-    top: 4,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#a855f7",
-    border: true,
-    zIndex: 10
-  });
-  const promptBrowserTitle = new TextRenderable(renderer, {
-    id: "prompt-browser-title",
-    content: "Prompt Browser",
-    fg: "#a855f7",
-    position: "absolute",
-    left: 8,
-    top: 5,
-    zIndex: 11
-  });
-  const promptBrowserText = new TextRenderable(renderer, {
-    id: "prompt-browser-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 6,
-    zIndex: 11
-  });
-  const promptBrowserHint = new TextRenderable(renderer, {
-    id: "prompt-browser-hint",
-    content: "Prompts | h/l prev/next | j/k scroll | y copy | esc close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 26,
-    zIndex: 11
-  });
-  promptBrowserBox.visible = false;
-  promptBrowserTitle.visible = false;
-  promptBrowserText.visible = false;
-  promptBrowserHint.visible = false;
-  renderer.root.add(promptBrowserBox);
-  renderer.root.add(promptBrowserTitle);
-  renderer.root.add(promptBrowserText);
-  renderer.root.add(promptBrowserHint);
-  const settingsBox = new BoxRenderable(renderer, {
-    id: "settings-modal-box",
-    width: 64,
-    height: 14,
-    position: "absolute",
-    left: 6,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#38bdf8",
-    border: true,
-    zIndex: 8
-  });
-  const settingsTitle = new TextRenderable(renderer, {
-    id: "settings-modal-title",
-    content: "Settings - Backend",
-    fg: "#38bdf8",
-    position: "absolute",
-    left: 8,
-    top: 7,
-    zIndex: 9
-  });
-  const settingsHelp = new TextRenderable(renderer, {
-    id: "settings-modal-help",
-    content: "Enter apply | j/k navigate | a pick key | m manual | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 8,
-    zIndex: 9
-  });
-  const settingsListText = new TextRenderable(renderer, {
-    id: "settings-modal-list",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 8,
-    top: 9,
-    zIndex: 9
-  });
-  const settingsInfoText = new TextRenderable(renderer, {
-    id: "settings-modal-info",
-    content: "",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 8,
-    top: 12,
-    zIndex: 9
-  });
-  settingsBox.visible = false;
-  settingsTitle.visible = false;
-  settingsHelp.visible = false;
-  settingsListText.visible = false;
-  settingsInfoText.visible = false;
-  renderer.root.add(settingsBox);
-  renderer.root.add(settingsTitle);
-  renderer.root.add(settingsHelp);
-  renderer.root.add(settingsListText);
-  renderer.root.add(settingsInfoText);
-  const keyModalBox = new BoxRenderable(renderer, {
-    id: "key-modal-box",
-    width: 70,
-    height: 7,
-    position: "absolute",
-    left: 8,
-    top: 8,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#7dd3fc",
-    border: true,
-    zIndex: 10
-  });
-  const keyModalLabel = new TextRenderable(renderer, {
-    id: "key-modal-label",
-    content: "Set API key (saved for this session only)",
-    fg: "#7dd3fc",
-    position: "absolute",
-    left: 10,
-    top: 9,
-    zIndex: 11
-  });
-  const keyModalInput = new InputRenderable(renderer, {
-    id: "key-modal-input",
-    width: 62,
-    height: 1,
-    position: "absolute",
-    left: 10,
-    top: 10,
-    backgroundColor: "#0f172a",
-    borderStyle: "single",
-    borderColor: "#1d4ed8",
-    border: true,
-    fg: "#e2e8f0",
-    zIndex: 11
-  });
-  const keyModalHelp = new TextRenderable(renderer, {
-    id: "key-modal-help",
-    content: "Paste any way | enter save | q close | empty clears",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 10,
-    top: 12,
-    zIndex: 11
-  });
-  keyModalBox.visible = false;
-  keyModalLabel.visible = false;
-  keyModalInput.visible = false;
-  keyModalHelp.visible = false;
-  renderer.root.add(keyModalBox);
-  renderer.root.add(keyModalLabel);
-  renderer.root.add(keyModalInput);
-  renderer.root.add(keyModalHelp);
-  const envKeyModalBox = new BoxRenderable(renderer, {
-    id: "env-key-modal-box",
-    width: 78,
-    height: 14,
-    position: "absolute",
-    left: 8,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#7dd3fc",
-    border: true,
-    zIndex: 11
-  });
-  const envKeyModalTitle = new TextRenderable(renderer, {
-    id: "env-key-modal-title",
-    content: "Settings - API Key",
-    fg: "#7dd3fc",
-    position: "absolute",
-    left: 10,
-    top: 7,
-    zIndex: 12
-  });
-  const envKeyModalHelp = new TextRenderable(renderer, {
-    id: "env-key-modal-help",
-    content: "Enter apply | j/k navigate | r rescan | m manual | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 10,
-    top: 8,
-    zIndex: 12
-  });
-  const envKeyModalListText = new TextRenderable(renderer, {
-    id: "env-key-modal-list",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 10,
-    top: 9,
-    zIndex: 12
-  });
-  const envKeyModalInfoText = new TextRenderable(renderer, {
-    id: "env-key-modal-info",
-    content: "",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 10,
-    top: 13,
-    zIndex: 12
-  });
-  envKeyModalBox.visible = false;
-  envKeyModalTitle.visible = false;
-  envKeyModalHelp.visible = false;
-  envKeyModalListText.visible = false;
-  envKeyModalInfoText.visible = false;
-  renderer.root.add(envKeyModalBox);
-  renderer.root.add(envKeyModalTitle);
-  renderer.root.add(envKeyModalHelp);
-  renderer.root.add(envKeyModalListText);
-  renderer.root.add(envKeyModalInfoText);
-  const loginModalBox = new BoxRenderable(renderer, {
-    id: "login-modal-box",
-    width: 60,
-    height: 10,
-    position: "absolute",
-    left: 10,
-    top: 6,
-    backgroundColor: "#0b1220",
-    borderStyle: "single",
-    borderColor: "#22c55e",
-    border: true,
-    zIndex: 15
-  });
-  const loginModalTitle = new TextRenderable(renderer, {
-    id: "login-modal-title",
-    content: "Sign In",
-    fg: "#22c55e",
-    position: "absolute",
-    left: 12,
-    top: 7,
-    zIndex: 16
-  });
-  const loginModalText = new TextRenderable(renderer, {
-    id: "login-modal-text",
-    content: "Press Enter to open browser and sign in...",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: 12,
-    top: 9,
-    zIndex: 16
-  });
-  const loginModalHelp = new TextRenderable(renderer, {
-    id: "login-modal-help",
-    content: "Enter start | q cancel",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: 12,
-    top: 13,
-    zIndex: 16
-  });
-  loginModalBox.visible = false;
-  loginModalTitle.visible = false;
-  loginModalText.visible = false;
-  loginModalHelp.visible = false;
-  renderer.root.add(loginModalBox);
-  renderer.root.add(loginModalTitle);
-  renderer.root.add(loginModalText);
-  renderer.root.add(loginModalHelp);
-  const usageModalBox = new BoxRenderable(renderer, {
-    id: "usage-modal-box",
-    width: 100,
-    height: 30,
-    position: "absolute",
-    left: "center",
-    top: "center",
-    backgroundColor: "#0b1120",
-    borderStyle: "single",
-    borderColor: "#10b981",
-    border: true,
-    zIndex: 8
-  });
-  const usageModalTitle = new TextRenderable(renderer, {
-    id: "usage-modal-title",
-    content: "Usage & Plan",
-    fg: "#10b981",
-    position: "absolute",
-    left: "center",
-    top: "center",
-    offsetY: -14,
-    zIndex: 9
-  });
-  const usageModalText = new TextRenderable(renderer, {
-    id: "usage-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: "center",
-    top: "center",
-    offsetX: -45,
-    offsetY: -10,
-    width: 90,
-    height: 22,
-    zIndex: 9
-  });
-  const usageModalHint = new TextRenderable(renderer, {
-    id: "usage-modal-hint",
-    content: "j/k scroll | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: "center",
-    top: "center",
-    offsetY: 14,
-    zIndex: 9
-  });
-  usageModalBox.visible = false;
-  usageModalTitle.visible = false;
-  usageModalText.visible = false;
-  usageModalHint.visible = false;
-  renderer.root.add(usageModalBox);
-  renderer.root.add(usageModalTitle);
-  renderer.root.add(usageModalText);
-  renderer.root.add(usageModalHint);
-  const taskAppsModalBox = new BoxRenderable(renderer, {
-    id: "task-apps-modal-box",
-    width: 100,
-    height: 30,
-    position: "absolute",
-    left: "center",
-    top: "center",
-    backgroundColor: "#0b1120",
-    borderStyle: "single",
-    borderColor: "#06b6d4",
-    border: true,
-    zIndex: 8
-  });
-  const taskAppsModalTitle = new TextRenderable(renderer, {
-    id: "task-apps-modal-title",
-    content: "Task Apps",
-    fg: "#06b6d4",
-    position: "absolute",
-    left: "center",
-    top: "center",
-    offsetY: -14,
-    zIndex: 9
-  });
-  const taskAppsModalText = new TextRenderable(renderer, {
-    id: "task-apps-modal-text",
-    content: "",
-    fg: "#e2e8f0",
-    position: "absolute",
-    left: "center",
-    top: "center",
-    offsetX: -45,
-    offsetY: -12,
-    width: 90,
-    height: 24,
-    zIndex: 9
-  });
-  const taskAppsModalHint = new TextRenderable(renderer, {
-    id: "task-apps-modal-hint",
-    content: "j/k select | y copy hostname | q close",
-    fg: "#94a3b8",
-    position: "absolute",
-    left: "center",
-    top: "center",
-    offsetY: 13,
-    zIndex: 9
-  });
-  taskAppsModalBox.visible = false;
-  taskAppsModalTitle.visible = false;
-  taskAppsModalText.visible = false;
-  taskAppsModalHint.visible = false;
-  renderer.root.add(taskAppsModalBox);
-  renderer.root.add(taskAppsModalTitle);
-  renderer.root.add(taskAppsModalText);
-  renderer.root.add(taskAppsModalHint);
   return {
     jobsBox,
     eventsBox,
     jobsSelect,
+    detailBox,
     detailText,
+    resultsBox,
     resultsText,
+    metricsBox,
     metricsText,
     taskAppsBox,
     taskAppsText,
@@ -20081,78 +20077,16 @@ function buildLayout(renderer, getFooterText) {
     eventsEmptyText,
     jobsTabText,
     eventsTabText,
-    headerMetaText,
+    logsTabText,
     statusText,
     footerText: footerTextNode,
-    modalBox,
-    modalLabel,
-    modalInput,
-    modalVisible: false,
-    filterBox,
-    filterLabel,
-    filterInput,
-    filterModalVisible: false,
-    jobFilterBox,
-    jobFilterLabel,
-    jobFilterHelp,
-    jobFilterListText,
-    jobFilterModalVisible: false,
-    eventModalBox,
-    eventModalTitle,
-    eventModalText,
-    eventModalHint,
-    eventModalVisible: false,
-    eventModalPayload: "",
-    resultsModalBox,
-    resultsModalTitle,
-    resultsModalText,
-    resultsModalHint,
-    resultsModalVisible: false,
-    resultsModalPayload: "",
-    configModalBox,
-    configModalTitle,
-    configModalText,
-    configModalHint,
-    configModalVisible: false,
-    configModalPayload: "",
-    promptBrowserBox,
-    promptBrowserTitle,
-    promptBrowserText,
-    promptBrowserHint,
-    promptBrowserVisible: false,
-    settingsBox,
-    settingsTitle,
-    settingsHelp,
-    settingsListText,
-    settingsInfoText,
-    settingsModalVisible: false,
-    keyModalBox,
-    keyModalLabel,
-    keyModalInput,
-    keyModalHelp,
-    keyModalVisible: false,
-    envKeyModalBox,
-    envKeyModalTitle,
-    envKeyModalHelp,
-    envKeyModalListText,
-    envKeyModalInfoText,
-    envKeyModalVisible: false,
-    loginModalBox,
-    loginModalTitle,
-    loginModalText,
-    loginModalHelp,
-    loginModalVisible: false,
-    taskAppsModalBox,
-    taskAppsModalTitle,
-    taskAppsModalText,
-    taskAppsModalHint,
-    taskAppsModalVisible: false,
-    usageModalBox,
-    usageModalTitle,
-    usageModalText,
-    usageModalHint,
-    usageModalVisible: false,
-    eventCards: []
+    taskAppsBox,
+    taskAppsText,
+    logsBox,
+    logsContent,
+    logsEmptyText,
+    eventCards: [],
+    logEntries: []
   };
 }
 var init_layout = __esm(async () => {
@@ -20409,11 +20343,13 @@ function formatEvalDetails(snapshot2, job) {
     "",
     "\u2550\u2550\u2550 Eval Summary \u2550\u2550\u2550"
   ];
-  if (summary.mean_score != null) {
-    lines.push(`  Mean Score: ${formatValue(summary.mean_score)}`);
+  const meanReward = summary.mean_reward ?? summary.mean_score;
+  if (meanReward != null) {
+    lines.push(`  Mean Reward: ${formatValue(meanReward)}`);
   }
-  if (summary.accuracy != null) {
-    lines.push(`  Accuracy: ${(summary.accuracy * 100).toFixed(1)}%`);
+  const reward = summary.reward ?? summary.objectives?.reward ?? summary.accuracy;
+  if (reward != null) {
+    lines.push(`  Reward: ${(reward * 100).toFixed(1)}%`);
   }
   if (summary.pass_rate != null) {
     lines.push(`  Pass Rate: ${(summary.pass_rate * 100).toFixed(1)}%`);
@@ -20428,12 +20364,12 @@ function formatEvalDetails(snapshot2, job) {
   }
   if (rows.length > 0) {
     lines.push(`  Results: ${rows.length} rows`);
-    const scores = rows.map((row) => num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed)).filter((val) => typeof val === "number");
-    if (scores.length > 0) {
-      const mean = scores.reduce((sum, val) => sum + val, 0) / scores.length;
-      const passed = scores.filter((s) => s >= 0.5 || s === 1).length;
-      lines.push(`  Avg Score: ${mean.toFixed(4)}`);
-      lines.push(`  Pass Rate: ${(passed / scores.length * 100).toFixed(1)}%`);
+    const rewards = rows.map((row) => num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed)).filter((val) => typeof val === "number");
+    if (rewards.length > 0) {
+      const mean = rewards.reduce((sum, val) => sum + val, 0) / rewards.length;
+      const passed = rewards.filter((s) => s >= 0.5 || s === 1).length;
+      lines.push(`  Avg Reward: ${mean.toFixed(4)}`);
+      lines.push(`  Pass Rate: ${(passed / rewards.length * 100).toFixed(1)}%`);
     }
   }
   lines.push("");
@@ -20458,7 +20394,7 @@ function formatLearningDetails(job) {
     `Env: ${envName || "-"}`,
     "",
     "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
-    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Reward: ${job.best_reward != null ? job.best_reward.toFixed(4) : "-"}`,
     `  Best Snapshot: ${job.best_snapshot_id || "-"}`,
     "",
     "\u2550\u2550\u2550 Timing \u2550\u2550\u2550",
@@ -20495,7 +20431,7 @@ function formatPromptLearningDetails(snapshot2, job) {
     `Last Event: ${lastEventTs}`,
     "",
     "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
-    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Reward: ${job.best_reward != null ? job.best_reward.toFixed(4) : "-"}`,
     `  Events: ${snapshot2.events.length}`,
     `  Tokens: ${tokensDisplay}`,
     `  Cost: ${costDisplay}`
@@ -20571,36 +20507,73 @@ function truncate(value, max) {
     return value;
   return value.slice(0, max - 1) + "\u2026";
 }
+function formatErrorMessage(error, maxWidth = 64, maxLines = 3) {
+  let msg = error;
+  if (msg.includes("bad_auth") || msg.includes("auth_failed")) {
+    msg = "Authentication failed - check SYNTH_API_KEY or run 'synth auth'";
+  }
+  const lines = [];
+  while (msg.length > 0) {
+    if (msg.length <= maxWidth) {
+      lines.push(msg);
+      break;
+    }
+    let breakAt = msg.lastIndexOf(" ", maxWidth);
+    if (breakAt <= 0)
+      breakAt = maxWidth;
+    lines.push(msg.slice(0, breakAt));
+    msg = msg.slice(breakAt).trimStart();
+    if (lines.length >= maxLines) {
+      if (msg.length > 0) {
+        const lastLine = lines[maxLines - 1];
+        lines[maxLines - 1] = lastLine.slice(0, Math.max(0, maxWidth - 3)) + "...";
+      }
+      break;
+    }
+  }
+  return lines;
+}
 
 // src/formatters/results.ts
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
-function extractBestPrompt(snapshotPayload) {
+function extractBestCandidate(snapshotPayload) {
   if (!snapshotPayload)
     return null;
-  return isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt || isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template || isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern || null;
+  return isRecord(snapshotPayload.best_candidate) && snapshotPayload.best_candidate || isRecord(snapshotPayload.best_candidate_template) && snapshotPayload.best_candidate_template || isRecord(snapshotPayload.best_candidate_pattern) && snapshotPayload.best_candidate_pattern || isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt || isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template || isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern || null;
 }
-function extractBestPromptText(snapshotPayload) {
+function extractBestCandidateText(snapshotPayload) {
   if (!snapshotPayload)
     return null;
-  const bestPromptMessages = snapshotPayload.best_prompt_messages;
-  if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-    return bestPromptMessages.map((msg) => {
+  const bestCandidateMessages = snapshotPayload.best_candidate_messages ?? snapshotPayload.best_prompt_messages;
+  if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
+    return bestCandidateMessages.map((msg) => {
       const role = msg?.role || "unknown";
       const content = msg?.content || "";
       return `[${role}] ${content}`;
     }).join(`
 `);
   }
-  const rendered = snapshotPayload.best_prompt_text || snapshotPayload.rendered_prompt;
+  const rendered = snapshotPayload.best_candidate_text || snapshotPayload.best_prompt_text || snapshotPayload.rendered_candidate || snapshotPayload.rendered_prompt;
   if (typeof rendered === "string" && rendered.trim())
     return rendered;
   return null;
 }
-function extractPromptSections(bestPrompt) {
-  const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
-  return Array.isArray(sections) ? sections : [];
+function extractCandidateStages(bestCandidate) {
+  if (!bestCandidate)
+    return [];
+  const stages = bestCandidate.stages || bestCandidate.sections || bestCandidate.prompt_sections || [];
+  if (Array.isArray(stages))
+    return stages;
+  if (isRecord(stages)) {
+    return Object.entries(stages).map(([id, value]) => {
+      if (isRecord(value))
+        return { id, ...value };
+      return { id, content: value };
+    });
+  }
+  return [];
 }
 function formatResults(snapshot2) {
   const job = snapshot2.selectedJob;
@@ -20619,27 +20592,27 @@ function formatResults(snapshot2) {
     lines.push(`Best snapshot: ${bestId} (press p to load)`);
   }
   if (snapshot2.bestSnapshot) {
-    const bestPrompt = extractBestPrompt(snapshot2.bestSnapshot);
-    const bestPromptText = extractBestPromptText(snapshot2.bestSnapshot);
-    if (bestPrompt) {
-      const promptId = bestPrompt.id || bestPrompt.template_id;
-      const promptName = bestPrompt.name;
-      const promptLabel = [promptName, promptId].filter(Boolean).join(" ");
-      if (promptLabel)
-        lines.push(`Best prompt: ${promptLabel}`);
-      const sections = extractPromptSections(bestPrompt);
-      if (sections.length > 0) {
-        const summary = sections.slice(0, 3).map((section) => {
-          const role = section.role || "stage";
-          const name = section.name || section.id || "";
+    const bestCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+    const bestCandidateText = extractBestCandidateText(snapshot2.bestSnapshot);
+    if (bestCandidate) {
+      const candidateId = bestCandidate.id || bestCandidate.template_id;
+      const candidateName = bestCandidate.name;
+      const candidateLabel = [candidateName, candidateId].filter(Boolean).join(" ");
+      if (candidateLabel)
+        lines.push(`Best candidate: ${candidateLabel}`);
+      const stages = extractCandidateStages(bestCandidate);
+      if (stages.length > 0) {
+        const summary = stages.slice(0, 3).map((stage) => {
+          const role = stage.role || "stage";
+          const name = stage.name || stage.id || "";
           return name ? `${role}:${name}` : role;
         });
-        const suffix = sections.length > 3 ? " \u2026" : "";
+        const suffix = stages.length > 3 ? " \u2026" : "";
         lines.push(`Stages: ${summary.join(", ")}${suffix}`);
       }
     }
-    if (bestPromptText) {
-      lines.push(`Best prompt text: ${truncate(bestPromptText, 90)}`);
+    if (bestCandidateText) {
+      lines.push(`Best candidate text: ${truncate(bestCandidateText, 90)}`);
     }
   }
   return ["Results:", ...lines].join(`
@@ -20651,18 +20624,29 @@ function formatEvalResults(snapshot2) {
   const lines = [];
   if (Object.keys(summary).length > 0) {
     lines.push("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
-    const keyOrder = ["mean_score", "accuracy", "pass_rate", "completed", "failed", "total"];
+    const keyOrder = ["mean_reward", "reward", "pass_rate", "completed", "failed", "total"];
     const shown = new Set;
     for (const key of keyOrder) {
-      if (summary[key] != null) {
-        const val = summary[key];
-        if (key === "accuracy" || key === "pass_rate") {
-          lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`);
-        } else {
-          lines.push(`  ${key}: ${formatValue(val)}`);
+      let val = summary[key];
+      if (key === "reward") {
+        val = summary.reward ?? summary.objectives?.reward ?? summary.accuracy;
+        if (val != null) {
+          shown.add("accuracy");
         }
-        shown.add(key);
+      } else if (key === "mean_reward") {
+        val = summary.mean_reward ?? summary.mean_score;
+        if (val != null) {
+          shown.add("mean_score");
+        }
       }
+      if (val == null)
+        continue;
+      if (key === "reward" || key === "pass_rate") {
+        lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`);
+      } else {
+        lines.push(`  ${key}: ${formatValue(val)}`);
+      }
+      shown.add(key);
     }
     for (const [key, value] of Object.entries(summary)) {
       if (shown.has(key))
@@ -20673,14 +20657,14 @@ function formatEvalResults(snapshot2) {
     }
     lines.push("");
   }
-  if (summary.mean_score == null && rows.length > 0) {
-    const scores = rows.map((row) => row.outcome_reward ?? row.score ?? row.reward_mean ?? row.events_score).filter((val) => typeof val === "number" && Number.isFinite(val));
-    if (scores.length > 0) {
-      const mean = scores.reduce((acc, val) => acc + val, 0) / scores.length;
+  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
+    const rewards = rows.map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score).filter((val) => typeof val === "number" && Number.isFinite(val));
+    if (rewards.length > 0) {
+      const mean = rewards.reduce((acc, val) => acc + val, 0) / rewards.length;
       if (lines.length === 0 || lines[0] !== "\u2550\u2550\u2550 Summary \u2550\u2550\u2550") {
         lines.unshift("\u2550\u2550\u2550 Summary \u2550\u2550\u2550");
       }
-      lines.splice(1, 0, `  mean_score: ${formatValue(mean)}`);
+      lines.splice(1, 0, `  mean_reward: ${formatValue(mean)}`);
       lines.push("");
     }
   }
@@ -20690,16 +20674,16 @@ function formatEvalResults(snapshot2) {
     const displayRows = rows.slice(0, limit);
     for (const row of displayRows) {
       const taskId = row.task_id || row.id || row.name || "?";
-      const score = num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed);
+      const reward = num(row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.passed);
       const passed = row.passed != null ? row.passed ? "\u2713" : "\u2717" : "";
       const status = row.status || "";
-      const scoreStr = score != null ? score.toFixed(3) : "-";
+      const rewardStr = reward != null ? reward.toFixed(3) : "-";
       if (passed) {
-        lines.push(`  ${passed} ${taskId}: ${scoreStr}`);
+        lines.push(`  ${passed} ${taskId}: ${rewardStr}`);
       } else if (status) {
-        lines.push(`  [${status}] ${taskId}: ${scoreStr}`);
+        lines.push(`  [${status}] ${taskId}: ${rewardStr}`);
       } else {
-        lines.push(`  ${taskId}: ${scoreStr}`);
+        lines.push(`  ${taskId}: ${rewardStr}`);
       }
     }
     if (rows.length > limit) {
@@ -20725,30 +20709,30 @@ Press 'p' to try loading the best snapshot.`;
   const lines = [];
   lines.push(`Job: ${job.job_id}`);
   lines.push(`Status: ${job.status}`);
-  lines.push(`Best Score: ${job.best_score ?? "-"}`);
+  lines.push(`Best Reward: ${job.best_reward ?? "-"}`);
   lines.push(`Best Snapshot ID: ${snapshot2.bestSnapshotId || "-"}`);
   lines.push("");
   if (snapshot2.bestSnapshot) {
-    const bestPrompt = snapshot2.bestSnapshot.best_prompt;
-    const bestPromptMessages = snapshot2.bestSnapshot.best_prompt_messages;
-    if (bestPrompt && typeof bestPrompt === "object") {
-      const promptId = bestPrompt.id || bestPrompt.template_id;
-      const promptName = bestPrompt.name;
-      if (promptName)
-        lines.push(`Prompt Name: ${promptName}`);
-      if (promptId)
-        lines.push(`Prompt ID: ${promptId}`);
+    const bestCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+    const bestCandidateMessages = snapshot2.bestSnapshot.best_candidate_messages ?? snapshot2.bestSnapshot.best_prompt_messages;
+    if (bestCandidate && typeof bestCandidate === "object") {
+      const candidateId = bestCandidate.id || bestCandidate.template_id;
+      const candidateName = bestCandidate.name;
+      if (candidateName)
+        lines.push(`Candidate Name: ${candidateName}`);
+      if (candidateId)
+        lines.push(`Candidate ID: ${candidateId}`);
       lines.push("");
-      const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
-      if (Array.isArray(sections) && sections.length > 0) {
-        lines.push(`=== PROMPT TEMPLATE (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
+      const stages = extractCandidateStages(bestCandidate);
+      if (Array.isArray(stages) && stages.length > 0) {
+        lines.push(`=== CANDIDATE STAGES (${stages.length} stage${stages.length > 1 ? "s" : ""}) ===`);
         lines.push("");
-        for (let i = 0;i < sections.length; i++) {
-          const section = sections[i];
-          const role = section.role || "stage";
-          const name = section.name || section.id || "";
-          const content = section.content || "";
-          const order = section.order !== undefined ? section.order : i;
+        for (let i = 0;i < stages.length; i++) {
+          const stage = stages[i];
+          const role = stage.role || "stage";
+          const name = stage.name || stage.id || "";
+          const content = stage.content || "";
+          const order = stage.order !== undefined ? stage.order : i;
           lines.push(`\u250C\u2500 Stage ${order + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
           lines.push("");
           if (content) {
@@ -20762,11 +20746,11 @@ Press 'p' to try loading the best snapshot.`;
         }
       }
     }
-    if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-      lines.push(`=== RENDERED MESSAGES (${bestPromptMessages.length} message${bestPromptMessages.length > 1 ? "s" : ""}) ===`);
+    if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
+      lines.push(`=== RENDERED CANDIDATE MESSAGES (${bestCandidateMessages.length} message${bestCandidateMessages.length > 1 ? "s" : ""}) ===`);
       lines.push("");
-      for (let i = 0;i < bestPromptMessages.length; i++) {
-        const msg = bestPromptMessages[i];
+      for (let i = 0;i < bestCandidateMessages.length; i++) {
+        const msg = bestCandidateMessages[i];
         const role = msg.role || "unknown";
         const content = msg.content || "";
         lines.push(`\u250C\u2500 Message ${i + 1}: [${role}] \u2500\u2510`);
@@ -20777,19 +20761,19 @@ Press 'p' to try loading the best snapshot.`;
         lines.push("");
       }
     }
-    if (!bestPrompt && !bestPromptMessages) {
-      const legacyPrompt = extractBestPrompt(snapshot2.bestSnapshot);
-      const legacyText = extractBestPromptText(snapshot2.bestSnapshot);
-      if (legacyPrompt) {
-        const sections = extractPromptSections(legacyPrompt);
-        if (sections.length > 0) {
-          lines.push(`=== PROMPT SECTIONS (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
+    if (!bestCandidate && !bestCandidateMessages) {
+      const legacyCandidate = extractBestCandidate(snapshot2.bestSnapshot);
+      const legacyText = extractBestCandidateText(snapshot2.bestSnapshot);
+      if (legacyCandidate) {
+        const stages = extractCandidateStages(legacyCandidate);
+        if (stages.length > 0) {
+          lines.push(`=== CANDIDATE STAGES (${stages.length} stage${stages.length > 1 ? "s" : ""}) ===`);
           lines.push("");
-          for (let i = 0;i < sections.length; i++) {
-            const section = sections[i];
-            const role = section.role || "stage";
-            const name = section.name || section.id || "";
-            const content = section.content || "";
+          for (let i = 0;i < stages.length; i++) {
+            const stage = stages[i];
+            const role = stage.role || "stage";
+            const name = stage.name || stage.id || "";
+            const content = stage.content || "";
             lines.push(`\u250C\u2500 Stage ${i + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
             lines.push("");
             if (content) {
@@ -20802,11 +20786,11 @@ Press 'p' to try loading the best snapshot.`;
         }
       }
       if (legacyText) {
-        lines.push("=== RENDERED PROMPT ===");
+        lines.push("=== RENDERED CANDIDATE ===");
         lines.push("");
         lines.push(legacyText);
       }
-      if (!legacyPrompt && !legacyText) {
+      if (!legacyCandidate && !legacyText) {
         lines.push("=== RAW SNAPSHOT DATA ===");
         lines.push("");
         try {
@@ -20966,28 +20950,304 @@ var init_events = __esm(async () => {
   await init_core();
 });
 
+// src/ui/logs.ts
+import * as fs2 from "fs";
+import * as path3 from "path";
+import * as os2 from "os";
+function clamp2(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+function getLogsLayoutMetrics(_ctx) {
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const available = Math.max(1, rows - 16);
+  return { visibleCount: available };
+}
+function getLogsDirectory() {
+  return path3.join(os2.homedir(), ".synth-ai", "tui", "logs");
+}
+function listLogFiles() {
+  const logsDir = getLogsDirectory();
+  try {
+    const entries = fs2.readdirSync(logsDir);
+    const files = entries.map((name) => {
+      const fullPath = path3.join(logsDir, name);
+      const stat = fs2.statSync(fullPath);
+      if (!stat.isFile())
+        return null;
+      return {
+        path: fullPath,
+        name,
+        mtimeMs: stat.mtimeMs,
+        size: stat.size
+      };
+    }).filter((file) => Boolean(file));
+    return files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  } catch {
+    return [];
+  }
+}
+function formatLogFileLabel(name) {
+  let type = "log";
+  if (name.includes("_deploy_")) {
+    type = "deploy";
+  } else if (name.includes("_serve_")) {
+    type = "serve";
+  }
+  const match = name.match(/(\d{4}_\d{2}_\d{2})_([0-9]{2}[:\-][0-9]{2}[:\-][0-9]{2})/);
+  if (match) {
+    const date = match[1];
+    const time2 = match[2].replace(/-/g, ":");
+    return `${date} ${time2} ${type}`;
+  }
+  return `${type} ${name}`;
+}
+function formatLogFileRow(file, maxWidth) {
+  const label = formatLogFileLabel(file.name);
+  const maxLen = Math.max(4, maxWidth - 2);
+  return label.length > maxLen ? label.slice(0, maxLen - 3) + "..." : label;
+}
+function getSelectedLogFile(ctx) {
+  const files = listLogFiles();
+  const idx = ctx.state.appState.logsSelectedIndex;
+  return files[idx] ?? null;
+}
+function renderLogs(ctx) {
+  const { ui, renderer } = ctx;
+  const { appState: appState2 } = ctx.state;
+  const files = listLogFiles();
+  if (!files.length) {
+    ui.logsContent.visible = false;
+    ui.logsEmptyText.visible = true;
+    ui.logsEmptyText.content = `No log files found.
+
+${getLogsDirectory()}`;
+    return;
+  }
+  ui.logsEmptyText.visible = false;
+  ui.logsContent.visible = true;
+  const { visibleCount } = getLogsLayoutMetrics(ctx);
+  const total = files.length;
+  appState2.logsSelectedIndex = clamp2(appState2.logsSelectedIndex, 0, Math.max(0, total - 1));
+  appState2.logsWindowStart = clamp2(appState2.logsWindowStart, 0, Math.max(0, total - visibleCount));
+  if (appState2.logsSelectedIndex < appState2.logsWindowStart) {
+    appState2.logsWindowStart = appState2.logsSelectedIndex;
+  } else if (appState2.logsSelectedIndex >= appState2.logsWindowStart + visibleCount) {
+    appState2.logsWindowStart = appState2.logsSelectedIndex - visibleCount + 1;
+  }
+  const visibleFiles = files.slice(appState2.logsWindowStart, appState2.logsWindowStart + visibleCount);
+  for (const entry of ui.logEntries) {
+    ui.logsContent.remove(entry.text.id);
+  }
+  ui.logEntries = [];
+  const termWidth = typeof process.stdout?.columns === "number" ? process.stdout.columns : 80;
+  const maxWidth = termWidth - 4;
+  visibleFiles.forEach((file, index) => {
+    const globalIndex = appState2.logsWindowStart + index;
+    const isSelected = globalIndex === appState2.logsSelectedIndex;
+    const content = formatLogFileRow(file, maxWidth);
+    const text = new TextRenderable(renderer, {
+      id: `log-entry-${index}`,
+      content,
+      fg: isSelected ? "#ffffff" : "#e2e8f0",
+      bg: isSelected ? "#1e293b" : undefined
+    });
+    ui.logsContent.add(text);
+    ui.logEntries.push({ text });
+  });
+  const position = total > visibleCount ? ` [${appState2.logsWindowStart + 1}-${Math.min(appState2.logsWindowStart + visibleCount, total)}/${total}]` : "";
+  ui.logsBox.title = `Logs (files)${position}`;
+}
+function moveLogSelection(ctx, delta) {
+  const files = listLogFiles();
+  if (!files.length)
+    return;
+  const { appState: appState2 } = ctx.state;
+  appState2.logsSelectedIndex = clamp2(appState2.logsSelectedIndex + delta, 0, files.length - 1);
+}
+function pageLogSelection(ctx, direction) {
+  const { visibleCount } = getLogsLayoutMetrics(ctx);
+  const delta = direction === "up" ? -visibleCount : visibleCount;
+  moveLogSelection(ctx, delta);
+}
+function setActiveDeployment(ctx, deploymentId) {
+  const { appState: appState2 } = ctx.state;
+  appState2.logsActiveDeploymentId = deploymentId;
+  appState2.logsSelectedIndex = 0;
+  appState2.logsWindowStart = 0;
+  appState2.logsTailMode = true;
+}
+
+// src/focus.ts
+class FocusManager {
+  stack = [];
+  defaultFocusable = null;
+  setDefault(focusable) {
+    this.defaultFocusable = focusable;
+    if (this.stack.length === 0) {
+      focusable.onFocus?.();
+    }
+  }
+  push(focusable) {
+    const current = this.current() ?? this.defaultFocusable;
+    current?.onBlur?.();
+    this.stack.push(focusable);
+    focusable.onFocus?.();
+  }
+  pop(id) {
+    if (id) {
+      const idx = this.stack.findIndex((f) => f.id === id);
+      if (idx >= 0) {
+        const removed = this.stack.splice(idx, 1)[0];
+        removed?.onBlur?.();
+      }
+    } else {
+      const removed = this.stack.pop();
+      removed?.onBlur?.();
+    }
+    const next = this.current() ?? this.defaultFocusable;
+    next?.onFocus?.();
+  }
+  current() {
+    return this.stack[this.stack.length - 1] ?? null;
+  }
+  handleKey(key) {
+    const active = this.current();
+    if (active?.handleKey) {
+      return active.handleKey(key);
+    }
+    return false;
+  }
+  hasOverlay() {
+    return this.stack.length > 0;
+  }
+  clear() {
+    while (this.stack.length > 0) {
+      const removed = this.stack.pop();
+      removed?.onBlur?.();
+    }
+    this.defaultFocusable?.onFocus?.();
+  }
+}
+var focusManager = new FocusManager;
+
 // src/ui/panes.ts
+function createLogsPaneFocusable(ctx, openLogFileModal) {
+  return {
+    id: "logs-pane",
+    handleKey: (key) => {
+      if (key.name === "up" || key.name === "k") {
+        moveLogSelection(ctx, -1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "down" || key.name === "j") {
+        moveLogSelection(ctx, 1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "pageup") {
+        pageLogSelection(ctx, "up");
+        ctx.render();
+        return true;
+      }
+      if (key.name === "pagedown") {
+        pageLogSelection(ctx, "down");
+        ctx.render();
+        return true;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        const file = getSelectedLogFile(ctx);
+        if (file) {
+          openLogFileModal(file.path);
+        }
+        return true;
+      }
+      return false;
+    }
+  };
+}
+function createEventsPaneFocusable(ctx, openEventModal) {
+  return {
+    id: "events-pane",
+    handleKey: (key) => {
+      if (key.name === "up" || key.name === "k") {
+        moveEventSelection(ctx, -1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "down" || key.name === "j") {
+        moveEventSelection(ctx, 1);
+        ctx.render();
+        return true;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        openEventModal();
+        return true;
+      }
+      if (key.name === "x") {
+        toggleSelectedEventExpanded(ctx);
+        ctx.render();
+        return true;
+      }
+      return false;
+    }
+  };
+}
+var logsFocusable = null;
+var eventsFocusable = null;
+function initPaneFocusables(ctx, openEventModal, openLogFileModal) {
+  logsFocusable = createLogsPaneFocusable(ctx, openLogFileModal);
+  eventsFocusable = createEventsPaneFocusable(ctx, openEventModal);
+}
 function setActivePane(ctx, pane) {
   const { ui } = ctx;
   const { appState: appState2 } = ctx.state;
   if (appState2.activePane === pane)
     return;
+  if (appState2.activePane === "logs" && logsFocusable) {
+    focusManager.pop("logs-pane");
+  }
+  if (appState2.activePane === "events" && eventsFocusable) {
+    focusManager.pop("events-pane");
+  }
   appState2.activePane = pane;
   if (pane === "jobs") {
     ui.jobsSelect.focus();
   } else {
     ui.jobsSelect.blur();
+    if (pane === "logs" && logsFocusable) {
+      focusManager.push(logsFocusable);
+    }
+    if (pane === "events" && eventsFocusable) {
+      focusManager.push(eventsFocusable);
+    }
   }
   updatePaneIndicators(ctx);
   ctx.requestRender();
+}
+function cycleActivePane(ctx) {
+  const { appState: appState2 } = ctx.state;
+  const panes = ["jobs", "events", "logs"];
+  const currentIdx = panes.indexOf(appState2.activePane);
+  const nextIdx = (currentIdx + 1) % panes.length;
+  setActivePane(ctx, panes[nextIdx]);
 }
 function updatePaneIndicators(ctx) {
   const { ui } = ctx;
   const { appState: appState2 } = ctx.state;
   ui.jobsTabText.fg = appState2.activePane === "jobs" ? "#f8fafc" : "#94a3b8";
   ui.eventsTabText.fg = appState2.activePane === "events" ? "#f8fafc" : "#94a3b8";
+  ui.logsTabText.fg = appState2.activePane === "logs" ? "#f8fafc" : "#94a3b8";
   ui.jobsBox.borderColor = appState2.activePane === "jobs" ? "#60a5fa" : "#334155";
   ui.eventsBox.borderColor = appState2.activePane === "events" ? "#60a5fa" : "#334155";
+  ui.logsBox.borderColor = appState2.activePane === "logs" ? "#60a5fa" : "#334155";
+  const inLogsMode = appState2.activePane === "logs";
+  ui.detailBox.visible = !inLogsMode;
+  ui.resultsBox.visible = !inLogsMode;
+  ui.metricsBox.visible = !inLogsMode;
+  ui.taskAppsBox.visible = !inLogsMode;
+  ui.eventsBox.visible = !inLogsMode;
+  ui.logsBox.visible = inLogsMode;
 }
 function blurForModal(ctx) {
   ctx.ui.jobsSelect.blur();
@@ -21098,36 +21358,93 @@ var init_client = __esm(() => {
   init_app_state();
 });
 
-// src/ui/text.ts
-function formatHeaderMeta(ctx) {
-  const { snapshot: snapshot2 } = ctx.state;
-  const org = snapshot2.orgId || "-";
-  const user = snapshot2.userId || "-";
-  const balance = snapshot2.balanceDollars == null ? "unknown" : `$${snapshot2.balanceDollars.toFixed(2)}`;
-  const backendLabel = getBackendConfig().label;
-  return `backend: ${backendLabel}  org: ${org}  user: ${user}  Balance: ${balance}`;
-}
+// src/ui/status.ts
 function formatStatus(ctx) {
   const { snapshot: snapshot2, appState: appState2 } = ctx.state;
+  const balance = snapshot2.balanceDollars == null ? "-" : `$${snapshot2.balanceDollars.toFixed(2)}`;
   const ts = snapshot2.lastRefresh ? new Date(snapshot2.lastRefresh).toLocaleTimeString() : "-";
-  const baseLabel = getActiveBaseRoot().replace(/^https?:\/\//, "");
   const health = `health=${appState2.healthStatus}`;
   if (snapshot2.lastError) {
-    return `Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot2.lastError}`;
+    return `Balance: ${balance} | Last refresh: ${ts} | ${health} | Error: ${snapshot2.lastError}`;
   }
-  return `Last refresh: ${ts} | ${health} | ${baseLabel} | ${snapshot2.status}`;
+  return `Balance: ${balance} | Last refresh: ${ts} | ${health} | ${snapshot2.status}`;
 }
+
+// src/ui/footer.ts
 function footerText(ctx) {
   const { appState: appState2 } = ctx.state;
   const filterLabel = appState2.eventFilter ? `filter=${appState2.eventFilter}` : "filter=off";
   const jobFilterLabel = appState2.jobStatusFilter.size ? `status=${Array.from(appState2.jobStatusFilter).join(",")}` : "status=all";
-  return `Keys: b jobs | tab toggle | j/k nav | enter view | r refresh | l login | L logout | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | u tunnels | c cancel | d usage | q quit`;
+  if (appState2.activePane === "logs") {
+    const keys2 = [
+      "j/k select",
+      "enter open",
+      "e events",
+      "b jobs",
+      "tab toggle",
+      "n create",
+      "q quit"
+    ].filter(Boolean);
+    return `Keys: ${keys2.join(" | ")}`;
+  }
+  const keys = [
+    "e events",
+    "b jobs",
+    "g logs",
+    "n create",
+    "tab toggle",
+    "j/k nav",
+    "enter view",
+    "r refresh",
+    "l logout",
+    `f ${filterLabel}`,
+    `shift+j ${jobFilterLabel}`,
+    "c cancel",
+    "a artifacts",
+    "o results",
+    "s snapshot",
+    ...process.env.SYNTH_API_KEY ? ["p profile"] : [],
+    "q quit"
+  ];
+  return `Keys: ${keys.join(" | ")}`;
 }
 var init_text = __esm(() => {
   init_client();
 });
 
 // src/ui/render.ts
+function formatTaskApps(tunnels, healthResults, loading) {
+  if (loading) {
+    return "Loading task apps...";
+  }
+  if (tunnels.length === 0) {
+    return "No active task apps";
+  }
+  const lines = [];
+  for (const tunnel of tunnels.slice(0, 4)) {
+    const health = healthResults.get(tunnel.id);
+    const hostname = tunnel.hostname.replace(/^https?:\/\//, "");
+    const shortHost = hostname.length > 35 ? hostname.slice(0, 32) + "..." : hostname;
+    let statusIcon;
+    let statusText;
+    if (!health) {
+      statusIcon = "?";
+      statusText = "checking";
+    } else if (health.healthy) {
+      statusIcon = "\u2713";
+      statusText = health.response_time_ms != null ? `${health.response_time_ms}ms` : "healthy";
+    } else {
+      statusIcon = "\u2717";
+      statusText = health.error?.slice(0, 20) || "unhealthy";
+    }
+    lines.push(`[${statusIcon}] ${shortHost} (${statusText})`);
+  }
+  if (tunnels.length > 4) {
+    lines.push(`  ... +${tunnels.length - 4} more`);
+  }
+  return lines.join(`
+`);
+}
 function renderApp(ctx) {
   const { ui, renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
@@ -21135,11 +21452,28 @@ function renderApp(ctx) {
   ui.jobsBox.title = appState2.jobStatusFilter.size ? `Jobs (status: ${Array.from(appState2.jobStatusFilter).join(", ")})` : "Jobs";
   ui.jobsSelect.options = filteredJobs.length ? filteredJobs.map((job) => {
     const shortId = job.job_id.slice(-8);
-    const score = job.best_score == null ? "-" : job.best_score.toFixed(4);
+    const reward = job.best_reward == null ? "-" : job.best_reward.toFixed(4);
     const label = job.training_type || (job.job_source === "learning" ? "eval" : "prompt");
     const envName = extractEnvName(job);
-    const desc = envName ? `${job.status} | ${label} | ${envName} | ${score}` : `${job.status} | ${label} | ${score}`;
-    return { name: shortId, description: desc, value: job.job_id };
+    const currentYear = new Date().getFullYear();
+    let dateStr = "";
+    if (job.created_at) {
+      const d = new Date(job.created_at);
+      const jobYear = d.getFullYear();
+      const opts = {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      };
+      if (jobYear !== currentYear) {
+        opts.year = "numeric";
+      }
+      dateStr = d.toLocaleString("en-US", opts);
+    }
+    const name = dateStr ? `${shortId} - ${dateStr}` : shortId;
+    const desc = [job.status, label, envName, reward].filter(Boolean).join(" | ");
+    return { name, description: desc, value: job.job_id };
   }) : [
     {
       name: "no jobs",
@@ -21150,10 +21484,11 @@ function renderApp(ctx) {
   ui.detailText.content = formatDetails(snapshot2);
   ui.resultsText.content = formatResults(snapshot2);
   ui.metricsText.content = formatMetrics(snapshot2.metrics);
-  ui.taskAppsBox.visible = false;
+  ui.taskAppsText.content = formatTaskApps(snapshot2.tunnels, snapshot2.tunnelHealthResults, snapshot2.tunnelsLoading);
+  ui.taskAppsBox.title = snapshot2.tunnels.length > 0 ? `Task Apps (${snapshot2.tunnels.length})` : "Task Apps";
   renderEventCards(ctx);
+  renderLogs(ctx);
   updatePaneIndicators(ctx);
-  ui.headerMetaText.content = formatHeaderMeta(ctx);
   ui.statusText.content = formatStatus(ctx);
   ui.footerText.content = footerText(ctx);
   ui.eventsBox.title = appState2.eventFilter ? `Events (filter: ${appState2.eventFilter})` : "Events";
@@ -21167,18 +21502,12 @@ var init_render = __esm(async () => {
 
 // src/auth.ts
 import { spawn } from "child_process";
-function getFrontendUrl(backend) {
-  switch (backend) {
-    case "prod":
-      return process.env.SYNTH_TUI_FRONTEND_PROD || "https://www.usesynth.ai";
-    case "dev":
-      return process.env.SYNTH_TUI_FRONTEND_DEV || "https://synth-frontend-dev.onrender.com";
-    case "local":
-      return process.env.SYNTH_TUI_FRONTEND_LOCAL || "http://localhost:3000";
-  }
+var POLL_INTERVAL_MS = 3000;
+function getAuthFrontendUrl() {
+  return getFrontendUrl(appState.currentBackend);
 }
-async function initAuthSession(backend) {
-  const frontendUrl = getFrontendUrl(backend);
+async function initAuthSession() {
+  const frontendUrl = getAuthFrontendUrl();
   const initUrl = `${frontendUrl}/api/sdk/handshake/init`;
   const res = await fetch(initUrl, {
     method: "POST",
@@ -21201,8 +21530,8 @@ async function initAuthSession(backend) {
     expiresAt: Date.now() + expiresIn * 1000
   };
 }
-async function pollForToken(backend, deviceCode) {
-  const frontendUrl = getFrontendUrl(backend);
+async function pollForToken(deviceCode) {
+  const frontendUrl = getAuthFrontendUrl();
   const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`;
   try {
     const res = await fetch(tokenUrl, {
@@ -21253,19 +21582,19 @@ function openBrowser(url) {
     child.unref();
   } catch {}
 }
-async function runDeviceCodeAuth(backend, onStatus) {
+async function runDeviceCodeAuth(onStatus) {
   const updateStatus = (status) => {
     if (onStatus)
       onStatus(status);
   };
   try {
     updateStatus({ state: "initializing" });
-    const session = await initAuthSession(backend);
+    const session = await initAuthSession();
     updateStatus({ state: "waiting", verificationUri: session.verificationUri });
     openBrowser(session.verificationUri);
     updateStatus({ state: "polling" });
     while (Date.now() < session.expiresAt) {
-      const result = await pollForToken(backend, session.deviceCode);
+      const result = await pollForToken(session.deviceCode);
       if (result.apiKey) {
         updateStatus({ state: "success", apiKey: result.apiKey });
         return { success: true, apiKey: result.apiKey, error: null };
@@ -21274,7 +21603,6 @@ async function runDeviceCodeAuth(backend, onStatus) {
         updateStatus({ state: "error", message: "Authentication timed out" });
         return { success: false, apiKey: null, error: "Authentication timed out" };
       }
-      if (result.error) {}
       await sleep(POLL_INTERVAL_MS);
     }
     updateStatus({ state: "error", message: "Authentication timed out" });
@@ -21291,168 +21619,166 @@ function sleep(ms) {
 var POLL_INTERVAL_MS = 3000;
 var init_auth = () => {};
 
-// src/login_modal.ts
-function createLoginModal(deps) {
-  let loginModalVisible = false;
-  let loginAuthStatus = { state: "idle" };
-  let loginAuthInProgress = false;
+// src/modals/base.ts
+var MODAL_DEFAULTS = {
+  width: 50,
+  height: 10,
+  borderColor: "#60a5fa",
+  titleColor: "#60a5fa",
+  backgroundColor: "#0b1220",
+  textColor: "#e2e8f0",
+  hintColor: "#94a3b8",
+  zIndex: 10,
+  padding: 2
+};
+function createModalUI(renderer, config2) {
   const {
-    ui,
-    renderer,
-    getCurrentBackend,
-    getBackendConfig: getBackendConfig2,
-    setBackendKey,
-    persistSettings,
-    bootstrap,
-    getSnapshot,
-    renderSnapshot,
-    getActivePane
-  } = deps;
-  function updateUIVisibility(visible) {
-    loginModalVisible = visible;
-    ui.loginModalVisible = visible;
-    ui.loginModalBox.visible = visible;
-    ui.loginModalTitle.visible = visible;
-    ui.loginModalText.visible = visible;
-    ui.loginModalHelp.visible = visible;
-  }
-  function updateLoginModalStatus(status) {
-    loginAuthStatus = status;
-    switch (status.state) {
-      case "idle":
-        ui.loginModalText.content = "Press Enter to open browser and sign in...";
-        ui.loginModalHelp.content = "Enter start | q cancel";
-        break;
-      case "initializing":
-        ui.loginModalText.content = "Initializing...";
-        ui.loginModalHelp.content = "Please wait...";
-        break;
-      case "waiting":
-        ui.loginModalText.content = [
-          "Browser opened. Complete sign-in there.",
-          "",
-          `URL: ${status.verificationUri}`
-        ].join(`
-`);
-        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel";
-        break;
-      case "polling":
-        ui.loginModalText.content = [
-          "Browser opened. Complete sign-in there.",
-          "",
-          "Checking for completion..."
-        ].join(`
-`);
-        ui.loginModalHelp.content = "Waiting for browser auth... | q cancel";
-        break;
-      case "success":
-        ui.loginModalText.content = "Authentication successful!";
-        ui.loginModalHelp.content = "Loading...";
-        break;
-      case "error":
-        ui.loginModalText.content = `Error: ${status.message}`;
-        ui.loginModalHelp.content = "Enter retry | q close";
-        break;
-    }
-    renderer.requestRender();
-  }
-  function toggle(visible) {
-    updateUIVisibility(visible);
-    if (visible) {
-      const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
-      const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
-      const width = 60;
-      const height = 10;
-      const left = Math.max(0, Math.floor((cols - width) / 2));
-      const top = Math.max(1, Math.floor((rows - height) / 2));
-      ui.loginModalBox.left = left;
-      ui.loginModalBox.top = top;
-      ui.loginModalBox.width = width;
-      ui.loginModalBox.height = height;
-      ui.loginModalTitle.left = left + 2;
-      ui.loginModalTitle.top = top + 1;
-      ui.loginModalText.left = left + 2;
-      ui.loginModalText.top = top + 3;
-      ui.loginModalHelp.left = left + 2;
-      ui.loginModalHelp.top = top + height - 2;
-      loginAuthStatus = { state: "idle" };
-      loginAuthInProgress = false;
-      ui.loginModalTitle.content = `Sign In / Sign Up`;
-      ui.loginModalText.content = "Press Enter to open browser";
-      ui.loginModalHelp.content = "Enter start | q cancel";
-      ui.jobsSelect.blur();
-    } else {
-      if (getActivePane() === "jobs") {
-        ui.jobsSelect.focus();
-      }
-    }
-    renderer.requestRender();
-  }
-  async function startAuth() {
-    if (loginAuthInProgress)
-      return;
-    loginAuthInProgress = true;
-    const currentBackend = getCurrentBackend();
-    const result = await runDeviceCodeAuth(currentBackend, updateLoginModalStatus);
-    loginAuthInProgress = false;
-    if (result.success && result.apiKey) {
-      setBackendKey(currentBackend, result.apiKey, {
-        sourcePath: "browser-auth",
-        varName: null
+    id,
+    width = MODAL_DEFAULTS.width,
+    height = MODAL_DEFAULTS.height,
+    borderColor = MODAL_DEFAULTS.borderColor,
+    titleColor = MODAL_DEFAULTS.titleColor,
+    zIndex = MODAL_DEFAULTS.zIndex
+  } = config2;
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+  const left = Math.max(0, Math.floor((cols - width) / 2));
+  const top = Math.max(1, Math.floor((rows - height) / 2));
+  const box = new BoxRenderable(renderer, {
+    id: `${id}-box`,
+    width,
+    height,
+    position: "absolute",
+    left,
+    top,
+    backgroundColor: MODAL_DEFAULTS.backgroundColor,
+    borderStyle: "single",
+    borderColor,
+    border: true,
+    zIndex
+  });
+  const title = new TextRenderable(renderer, {
+    id: `${id}-title`,
+    content: "",
+    fg: titleColor,
+    position: "absolute",
+    left: left + MODAL_DEFAULTS.padding,
+    top: top + 1,
+    zIndex: zIndex + 1
+  });
+  const content = new TextRenderable(renderer, {
+    id: `${id}-content`,
+    content: "",
+    fg: MODAL_DEFAULTS.textColor,
+    position: "absolute",
+    left: left + MODAL_DEFAULTS.padding,
+    top: top + 3,
+    zIndex: zIndex + 1
+  });
+  const hint = new TextRenderable(renderer, {
+    id: `${id}-hint`,
+    content: "",
+    fg: MODAL_DEFAULTS.hintColor,
+    position: "absolute",
+    left: left + MODAL_DEFAULTS.padding,
+    top: top + height - 2,
+    zIndex: zIndex + 1
+  });
+  let inputElement;
+  let inputLabelElement;
+  if (config2.input) {
+    const inputWidth = config2.input.width ?? width - MODAL_DEFAULTS.padding * 2 - 2;
+    if (config2.input.label) {
+      inputLabelElement = new TextRenderable(renderer, {
+        id: `${id}-input-label`,
+        content: config2.input.label,
+        fg: MODAL_DEFAULTS.textColor,
+        position: "absolute",
+        left: left + MODAL_DEFAULTS.padding,
+        top: top + 1,
+        zIndex: zIndex + 1
       });
-      await persistSettings();
-      toggle(false);
-      const snapshot2 = getSnapshot();
-      snapshot2.lastError = null;
-      snapshot2.status = "Authenticated! Loading...";
-      renderSnapshot();
-      await bootstrap();
+      inputLabelElement.visible = false;
+      renderer.root.add(inputLabelElement);
     }
+    inputElement = new InputRenderable(renderer, {
+      id: `${id}-input`,
+      width: inputWidth,
+      position: "absolute",
+      left: left + MODAL_DEFAULTS.padding,
+      top: top + (config2.input.label ? 2 : 1),
+      placeholder: config2.input.placeholder ?? "",
+      zIndex: zIndex + 1
+    });
+    inputElement.visible = false;
+    renderer.root.add(inputElement);
   }
-  async function logout() {
-    const currentBackend = getCurrentBackend();
-    setBackendKey(currentBackend, "", { sourcePath: null, varName: null });
-    await persistSettings();
-    const snapshot2 = getSnapshot();
-    snapshot2.jobs = [];
-    snapshot2.selectedJob = null;
-    snapshot2.events = [];
-    snapshot2.metrics = {};
-    snapshot2.bestSnapshotId = null;
-    snapshot2.bestSnapshot = null;
-    snapshot2.evalSummary = null;
-    snapshot2.evalResultRows = [];
-    snapshot2.artifacts = [];
-    snapshot2.orgId = null;
-    snapshot2.userId = null;
-    snapshot2.balanceDollars = null;
-    snapshot2.lastRefresh = null;
-    snapshot2.allCandidates = [];
-    snapshot2.lastError = `Logged out from ${getBackendConfig2().label}`;
-    snapshot2.status = "Sign in required";
-    renderSnapshot();
-    toggle(true);
+  box.visible = false;
+  title.visible = false;
+  content.visible = false;
+  hint.visible = false;
+  renderer.root.add(box);
+  renderer.root.add(title);
+  renderer.root.add(content);
+  renderer.root.add(hint);
+  let visible = false;
+  function setVisible(v) {
+    visible = v;
+    box.visible = v;
+    title.visible = v;
+    content.visible = v;
+    hint.visible = v;
+    if (inputElement)
+      inputElement.visible = v;
+    if (inputLabelElement)
+      inputLabelElement.visible = v;
+    renderer.requestRender();
+  }
+  function center() {
+    const rows2 = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+    const cols2 = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const newLeft = Math.max(0, Math.floor((cols2 - width) / 2));
+    const newTop = Math.max(1, Math.floor((rows2 - height) / 2));
+    box.left = newLeft;
+    box.top = newTop;
+    title.left = newLeft + MODAL_DEFAULTS.padding;
+    title.top = newTop + 1;
+    content.left = newLeft + MODAL_DEFAULTS.padding;
+    content.top = newTop + 3;
+    hint.left = newLeft + MODAL_DEFAULTS.padding;
+    hint.top = newTop + height - 2;
+    if (inputLabelElement) {
+      inputLabelElement.left = newLeft + MODAL_DEFAULTS.padding;
+      inputLabelElement.top = newTop + 1;
+    }
+    if (inputElement) {
+      inputElement.left = newLeft + MODAL_DEFAULTS.padding;
+      inputElement.top = newTop + (config2.input?.label ? 2 : 1);
+    }
   }
   return {
-    get isVisible() {
-      return loginModalVisible;
+    box,
+    title,
+    content,
+    hint,
+    input: inputElement,
+    inputLabel: inputLabelElement,
+    get visible() {
+      return visible;
     },
-    get isInProgress() {
-      return loginAuthInProgress;
+    setVisible,
+    setTitle: (t2) => {
+      title.content = t2;
     },
-    get status() {
-      return loginAuthStatus;
+    setContent: (c) => {
+      content.content = c;
     },
-    toggle,
-    startAuth,
-    logout
+    setHint: (h2) => {
+      hint.content = h2;
+    },
+    center
   };
 }
-var init_login_modal = __esm(() => {
-  init_auth();
-});
-
-// src/modals/base.ts
 function wrapModalText(text, width) {
   const lines = [];
   for (const raw of text.split(`
@@ -21473,188 +21799,218 @@ function wrapModalText(text, width) {
   }
   return lines;
 }
-function clamp2(value, min, max) {
+function clamp3(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-// src/modals/event-modal.ts
-function createEventModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
-  function toggle(visible) {
-    ui.eventModalVisible = visible;
-    ui.eventModalBox.visible = visible;
-    ui.eventModalTitle.visible = visible;
-    ui.eventModalText.visible = visible;
-    ui.eventModalHint.visible = visible;
-    if (visible) {
-      blurForModal(ctx);
-    } else {
-      ui.eventModalText.content = "";
-      restoreFocusFromModal(ctx);
-    }
-    renderer.requestRender();
-  }
-  function updateContent() {
-    if (!ui.eventModalVisible)
-      return;
-    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
-    const event = filtered[appState2.selectedEventIndex];
-    if (!event) {
-      ui.eventModalText.content = "(no event)";
-      renderer.requestRender();
-      return;
-    }
-    const raw = event.message ?? formatEventData(event.data) ?? "(no data)";
-    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
-    const maxWidth = Math.max(20, cols - 20);
-    const wrapped = wrapModalText(raw, maxWidth);
-    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
-    appState2.eventModalOffset = clamp2(appState2.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines));
-    const visible = wrapped.slice(appState2.eventModalOffset, appState2.eventModalOffset + maxLines);
-    ui.eventModalTitle.content = `Event ${event.seq} - ${event.type}`;
-    ui.eventModalText.content = visible.join(`
-`);
-    ui.eventModalHint.content = wrapped.length > maxLines ? `[${appState2.eventModalOffset + 1}-${appState2.eventModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close";
-    renderer.requestRender();
-  }
-  function move(delta) {
-    appState2.eventModalOffset = Math.max(0, appState2.eventModalOffset + delta);
-    updateContent();
-  }
-  function open() {
-    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
-    if (!filtered.length)
-      return;
-    appState2.eventModalOffset = 0;
-    toggle(true);
-    updateContent();
-  }
-  function handleKey(key) {
-    if (!ui.eventModalVisible)
-      return false;
-    if (key.name === "up" || key.name === "k") {
-      move(-1);
-      return true;
-    }
-    if (key.name === "down" || key.name === "j") {
-      move(1);
-      return true;
-    }
-    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
-      toggle(false);
-      return true;
-    }
-    return true;
-  }
-  return {
-    get isVisible() {
-      return ui.eventModalVisible;
-    },
-    toggle,
-    open,
-    move,
-    updateContent,
-    handleKey
-  };
-}
-var init_event_modal = __esm(() => {
-  init_formatters();
-});
+// src/login_modal.ts
+init_polling();
 
-// src/utils/clipboard.ts
-async function copyToClipboard(text) {
-  const proc = Bun.spawn(["pbcopy"], {
-    stdin: "pipe"
+// src/utils/logout-marker.ts
+import fs3 from "fs";
+import path5 from "path";
+import os3 from "os";
+var STATE_DIR = path5.join(os3.homedir(), ".synth-ai", ".tui");
+var MARKER_PATH = path5.join(STATE_DIR, "logged-out");
+var API_KEY_PATH = path5.join(STATE_DIR, "api-key");
+function isLoggedOutMarkerSet() {
+  try {
+    fs3.accessSync(MARKER_PATH, fs3.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function setLoggedOutMarker() {
+  try {
+    await fs3.promises.mkdir(STATE_DIR, { recursive: true });
+    await fs3.promises.writeFile(MARKER_PATH, "", "utf8");
+  } catch {}
+}
+async function clearLoggedOutMarker() {
+  try {
+    await fs3.promises.unlink(MARKER_PATH);
+  } catch {}
+}
+function loadSavedApiKey() {
+  try {
+    const key = fs3.readFileSync(API_KEY_PATH, "utf8").trim();
+    return key || null;
+  } catch {
+    return null;
+  }
+}
+async function saveApiKey(key) {
+  try {
+    await fs3.promises.mkdir(STATE_DIR, { recursive: true });
+    await fs3.promises.writeFile(API_KEY_PATH, key, { encoding: "utf8", mode: 384 });
+  } catch {}
+}
+async function deleteSavedApiKey() {
+  try {
+    await fs3.promises.unlink(API_KEY_PATH);
+  } catch {}
+}
+
+// src/login_modal.ts
+function createLoginModal(deps) {
+  let loginAuthStatus = { state: "idle" };
+  let loginAuthInProgress = false;
+  const { renderer, bootstrap, getSnapshot, renderSnapshot } = deps;
+  const modal = createModalUI(renderer, {
+    id: "login-modal",
+    width: 60,
+    height: 10,
+    borderColor: "#22c55e",
+    titleColor: "#22c55e",
+    zIndex: 15
   });
-  proc.stdin.write(text);
-  proc.stdin.end();
-  await proc.exited;
-}
-
-// src/modals/results-modal.ts
-function createResultsModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  function updateLoginModalStatus(status) {
+    loginAuthStatus = status;
+    switch (status.state) {
+      case "idle":
+        modal.setContent("Press Enter to open browser and sign in...");
+        modal.setHint("Enter start | q cancel");
+        break;
+      case "initializing":
+        modal.setContent("Initializing...");
+        modal.setHint("Please wait...");
+        break;
+      case "waiting":
+        modal.setContent([
+          "Browser opened. Complete sign-in there.",
+          "",
+          `URL: ${status.verificationUri}`
+        ].join(`
+`));
+        modal.setHint("Waiting for browser auth... | q cancel");
+        break;
+      case "polling":
+        modal.setContent([
+          "Browser opened. Complete sign-in there.",
+          "",
+          "Checking for completion..."
+        ].join(`
+`));
+        modal.setHint("Waiting for browser auth... | q cancel");
+        break;
+      case "success":
+        modal.setContent("Authentication successful!");
+        modal.setHint("Loading...");
+        break;
+      case "error":
+        modal.setContent(`Error: ${status.message}`);
+        modal.setHint("Enter retry | q close");
+        break;
+    }
+    renderer.requestRender();
+  }
   function toggle(visible) {
-    ui.resultsModalVisible = visible;
-    ui.resultsModalBox.visible = visible;
-    ui.resultsModalTitle.visible = visible;
-    ui.resultsModalText.visible = visible;
-    ui.resultsModalHint.visible = visible;
     if (visible) {
-      blurForModal(ctx);
+      focusManager.push({
+        id: "login-modal",
+        handleKey
+      });
+      modal.center();
+      loginAuthStatus = { state: "idle" };
+      loginAuthInProgress = false;
+      modal.setTitle("Sign In / Sign Up");
+      modal.setContent("Press Enter to open browser");
+      modal.setHint("Enter start | q cancel");
     } else {
-      ui.resultsModalText.content = "";
-      restoreFocusFromModal(ctx);
+      focusManager.pop("login-modal");
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
-  function updateContent() {
-    if (!ui.resultsModalVisible)
+  async function startAuth() {
+    if (loginAuthInProgress)
       return;
-    const raw = formatResultsExpanded(snapshot2);
-    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
-    const maxWidth = Math.max(20, cols - 20);
-    const wrapped = wrapModalText(raw, maxWidth);
-    const maxLines = 19;
-    appState2.resultsModalOffset = clamp2(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
-    const visible = wrapped.slice(appState2.resultsModalOffset, appState2.resultsModalOffset + maxLines);
-    ui.resultsModalTitle.content = "Results - Best Snapshot";
-    ui.resultsModalText.content = visible.join(`
-`);
-    ui.resultsModalHint.content = wrapped.length > maxLines ? `[${appState2.resultsModalOffset + 1}-${appState2.resultsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy | q close` : "y copy | q close";
-    renderer.requestRender();
-  }
-  function move(delta) {
-    appState2.resultsModalOffset = Math.max(0, appState2.resultsModalOffset + delta);
-    updateContent();
-  }
-  function open() {
-    appState2.resultsModalOffset = 0;
-    toggle(true);
-    updateContent();
-  }
-  async function copyPrompt() {
-    const text = formatResultsExpanded(snapshot2);
-    if (text) {
-      await copyToClipboard(text);
-      snapshot2.status = "Results copied to clipboard";
-      ctx.render();
+    loginAuthInProgress = true;
+    const result = await runDeviceCodeAuth(updateLoginModalStatus);
+    loginAuthInProgress = false;
+    if (result.success && result.apiKey) {
+      const frontendUrlId = getFrontendUrlId(appState.currentBackend);
+      frontendKeys[frontendUrlId] = result.apiKey;
+      frontendKeySources[frontendUrlId] = { sourcePath: null, varName: "device_code_auth" };
+      process.env.SYNTH_API_KEY = result.apiKey;
+      await saveApiKey(result.apiKey);
+      const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
+      const { config: config2 } = await Promise.resolve().then(() => (init_polling(), exports_polling));
+      await persistSettings2({
+        settingsFilePath: config2.settingsFilePath,
+        getCurrentBackend: () => appState.currentBackend,
+        getFrontendKey: (id) => frontendKeys[id],
+        getFrontendKeySource: (id) => frontendKeySources[id]
+      });
+      await clearLoggedOutMarker();
+      toggle(false);
+      const snapshot2 = getSnapshot();
+      snapshot2.lastError = null;
+      snapshot2.status = "Authenticated! Loading...";
+      renderSnapshot();
+      await bootstrap();
     }
+  }
+  async function logout() {
+    await setLoggedOutMarker();
+    await deleteSavedApiKey();
+    process.env.SYNTH_API_KEY = "";
+    if (pollingState.sseDisconnect) {
+      pollingState.sseDisconnect();
+      pollingState.sseDisconnect = null;
+    }
+    pollingState.sseConnected = false;
+    clearJobsTimer();
+    clearEventsTimer();
+    const snapshot2 = getSnapshot();
+    snapshot2.jobs = [];
+    snapshot2.selectedJob = null;
+    snapshot2.events = [];
+    snapshot2.metrics = {};
+    snapshot2.bestSnapshotId = null;
+    snapshot2.bestSnapshot = null;
+    snapshot2.evalSummary = null;
+    snapshot2.evalResultRows = [];
+    snapshot2.artifacts = [];
+    snapshot2.orgId = null;
+    snapshot2.userId = null;
+    snapshot2.balanceDollars = null;
+    snapshot2.lastRefresh = null;
+    snapshot2.allCandidates = [];
+    snapshot2.lastError = "Logged out";
+    snapshot2.status = "Sign in required";
+    renderSnapshot();
+    toggle(true);
   }
   function handleKey(key) {
-    if (!ui.resultsModalVisible)
+    if (!modal.visible)
       return false;
-    if (key.name === "up" || key.name === "k") {
-      move(-1);
-      return true;
-    }
-    if (key.name === "down" || key.name === "j") {
-      move(1);
-      return true;
-    }
-    if (key.name === "y") {
-      copyPrompt();
-      return true;
-    }
-    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+    if (key.name === "q" || key.name === "escape") {
       toggle(false);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      startAuth();
       return true;
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.resultsModalVisible;
+      return modal.visible;
+    },
+    get isInProgress() {
+      return loginAuthInProgress;
+    },
+    get status() {
+      return loginAuthStatus;
     },
     toggle,
-    open,
-    move,
-    updateContent,
-    copyPrompt,
-    handleKey
+    handleKey,
+    startAuth,
+    logout
   };
+  return controller;
 }
 var init_results_modal = __esm(() => {
   init_formatters();
@@ -21662,21 +22018,28 @@ var init_results_modal = __esm(() => {
 
 // src/modals/config-modal.ts
 function createConfigModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "config-modal",
+    width: 100,
+    height: 24,
+    borderColor: "#f59e0b",
+    titleColor: "#f59e0b",
+    zIndex: 8
+  });
   function toggle(visible) {
-    ui.configModalVisible = visible;
-    ui.configModalBox.visible = visible;
-    ui.configModalTitle.visible = visible;
-    ui.configModalText.visible = visible;
-    ui.configModalHint.visible = visible;
     if (visible) {
-      blurForModal(ctx);
+      focusManager.push({
+        id: "config-modal",
+        handleKey
+      });
+      modal.center();
     } else {
-      ui.configModalText.content = "";
-      restoreFocusFromModal(ctx);
+      focusManager.pop("config-modal");
+      modal.setContent("");
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   function formatConfigMetadata() {
     const job = snapshot2.selectedJob;
@@ -21745,21 +22108,19 @@ function createConfigModal(ctx) {
 `);
   }
   function updateContent() {
-    if (!ui.configModalVisible)
+    if (!modal.visible)
       return;
     const raw = formatConfigMetadata() || "(no metadata)";
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
     const maxWidth = Math.max(20, cols - 20);
     const wrapped = wrapModalText(raw, maxWidth);
     const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
-    appState2.configModalOffset = clamp2(appState2.configModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    appState2.configModalOffset = clamp3(appState2.configModalOffset, 0, Math.max(0, wrapped.length - maxLines));
     const visible = wrapped.slice(appState2.configModalOffset, appState2.configModalOffset + maxLines);
-    ui.configModalTitle.content = "Job Configuration";
-    ui.configModalText.content = visible.join(`
-`);
-    ui.configModalPayload = raw;
-    ui.configModalHint.content = wrapped.length > maxLines ? `[${appState2.configModalOffset + 1}-${appState2.configModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close";
-    renderer.requestRender();
+    modal.setTitle("Job Configuration");
+    modal.setContent(visible.join(`
+`));
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.configModalOffset + 1}-${appState2.configModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close");
   }
   function move(delta) {
     appState2.configModalOffset = Math.max(0, appState2.configModalOffset + delta);
@@ -21771,7 +22132,7 @@ function createConfigModal(ctx) {
     updateContent();
   }
   function handleKey(key) {
-    if (!ui.configModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "up" || key.name === "k") {
       move(-1);
@@ -21787,9 +22148,9 @@ function createConfigModal(ctx) {
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.configModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -21797,321 +22158,1217 @@ function createConfigModal(ctx) {
     updateContent,
     handleKey
   };
+  return controller;
 }
-var init_config_modal = () => {};
-
-// src/utils/env.ts
-import path3 from "path";
-import { promises as fs2 } from "fs";
-function parseEnvFile(content) {
-  const values = {};
-  const lines = content.split(/\r?\n/);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#"))
-      continue;
-    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
-    if (!match)
-      continue;
-    const key = match[1];
-    let value = match[2].trim();
-    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
-      const quoted = value;
-      value = value.slice(1, -1);
-      if (quoted.startsWith('"')) {
-        value = value.replace(/\\\\/g, "\\").replace(/\\"/g, '"');
-      }
-    } else {
-      value = value.split(/\s+#/)[0].trim();
+// src/modals/env-key-modal.ts
+init_env();
+function createEnvKeyModal(ctx) {
+  const { renderer } = ctx;
+  const { config: config2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "env-key-modal",
+    width: 64,
+    height: 16,
+    borderColor: "#a78bfa",
+    titleColor: "#a78bfa",
+    zIndex: 11
+  });
+  modal.setTitle("Scan .env Files for API Keys");
+  modal.setHint("j/k navigate  Enter select  r rescan  q close");
+  function renderList() {
+    if (appState.envKeyScanInProgress) {
+      modal.setContent("Scanning...");
+      renderer.requestRender();
+      return;
     }
-    values[key] = value;
-  }
-  return values;
-}
-function formatEnvLine(key, value) {
-  return `${key}=${escapeEnvValue(value)}`;
-}
-function escapeEnvValue(value) {
-  const safe = value ?? "";
-  return `"${safe.replace(/\\/g, "\\\\").replace(/\"/g, "\\\"")}"`;
-}
-function parseEnvKeys(content, sourcePath, scanRoot = config.envKeyScanRoot) {
-  const results2 = [];
-  const lines = content.split(/\r?\n/);
-  const relPath = path3.relative(scanRoot, sourcePath) || sourcePath;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#"))
-      continue;
-    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
-    if (!match)
-      continue;
-    const varName = match[1];
-    if (!KEY_VAR_NAMES.has(varName))
-      continue;
-    let value = match[2].trim();
-    if (!value || value.startsWith("$"))
-      continue;
-    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
-      value = value.slice(1, -1);
-    } else {
-      value = value.split(/\s+#/)[0].trim();
+    if (appState.envKeyError) {
+      modal.setContent(`Error: ${appState.envKeyError}`);
+      renderer.requestRender();
+      return;
     }
-    if (!value)
-      continue;
-    results2.push({ key: value, source: relPath, varName });
-  }
-  return results2;
-}
-async function walkEnvDir(dir, results2, scanRoot = config.envKeyScanRoot) {
-  let entries;
-  try {
-    entries = await fs2.readdir(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    const fullPath = path3.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (IGNORED_DIRS.has(entry.name))
-        continue;
-      await walkEnvDir(fullPath, results2, scanRoot);
-      continue;
+    if (!appState.envKeyOptions.length) {
+      modal.setContent("No API keys found in .env files");
+      renderer.requestRender();
+      return;
     }
-    if (!entry.isFile())
-      continue;
-    if (!/^\.env(\.|$)/.test(entry.name))
-      continue;
-    try {
-      const stat = await fs2.stat(fullPath);
-      if (stat.size > 256 * 1024)
-        continue;
-      const content = await fs2.readFile(fullPath, "utf8");
-      const found = parseEnvKeys(content, fullPath, scanRoot);
-      for (const item of found) {
-        const existing = results2.get(item.key);
-        if (existing) {
-          if (!existing.sources.includes(item.source)) {
-            existing.sources.push(item.source);
-          }
-          if (!existing.varNames.includes(item.varName)) {
-            existing.varNames.push(item.varName);
-          }
-        } else {
-          results2.set(item.key, {
-            key: item.key,
-            sources: [item.source],
-            varNames: [item.varName]
-          });
-        }
-      }
-    } catch {}
-  }
-}
-async function scanEnvKeys(rootDir) {
-  const results2 = new Map;
-  await walkEnvDir(rootDir, results2, rootDir);
-  return Array.from(results2.values());
-}
-var IGNORED_DIRS, KEY_VAR_NAMES;
-var init_env = __esm(() => {
-  init_polling();
-  IGNORED_DIRS = new Set([
-    ".git",
-    "node_modules",
-    ".venv",
-    "venv",
-    "__pycache__",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".tox",
-    ".next",
-    ".turbo",
-    ".cache",
-    "dist",
-    "build",
-    "out"
-  ]);
-  KEY_VAR_NAMES = new Set([
-    "SYNTH_API_KEY",
-    "SYNTH_TUI_API_KEY_PROD",
-    "SYNTH_TUI_API_KEY_DEV",
-    "SYNTH_TUI_API_KEY_LOCAL"
-  ]);
-});
-
-// src/persistence/settings.ts
-var exports_settings = {};
-__export(exports_settings, {
-  persistSettings: () => persistSettings,
-  loadPersistedSettings: () => loadPersistedSettings
-});
-import path5 from "path";
-import { promises as fs3 } from "fs";
-async function loadPersistedSettings(deps) {
-  const {
-    settingsFilePath,
-    normalizeBackendId: normalizeBackendId2,
-    setCurrentBackend,
-    setBackendKey,
-    setBackendKeySource
-  } = deps;
-  try {
-    const content = await fs3.readFile(settingsFilePath, "utf8");
-    const values = parseEnvFile(content);
-    const backend = values.SYNTH_TUI_BACKEND;
-    if (backend) {
-      setCurrentBackend(normalizeBackendId2(backend));
+    const max = Math.max(0, appState.envKeyOptions.length - 1);
+    appState.envKeyCursor = clamp3(appState.envKeyCursor, 0, max);
+    const start = clamp3(appState.envKeyWindowStart, 0, Math.max(0, max));
+    const end = Math.min(appState.envKeyOptions.length, start + config2.envKeyVisibleCount);
+    const lines = [];
+    for (let idx = start;idx < end; idx++) {
+      const option = appState.envKeyOptions[idx];
+      const cursor = idx === appState.envKeyCursor ? ">" : " ";
+      const preview = option.key ? `${option.key.slice(0, 8)}...` : "(empty)";
+      lines.push(`${cursor} ${preview}`);
     }
-    const prodKey = values.SYNTH_TUI_API_KEY_PROD;
-    const devKey = values.SYNTH_TUI_API_KEY_DEV;
-    const localKeyFromFile = values.SYNTH_TUI_API_KEY_LOCAL;
-    const localKey = typeof localKeyFromFile === "string" && localKeyFromFile.trim() ? localKeyFromFile.trim() : (process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || "").trim();
-    if (typeof prodKey === "string" && prodKey.trim())
-      setBackendKey("prod", prodKey.trim());
-    if (typeof devKey === "string" && devKey.trim())
-      setBackendKey("dev", devKey.trim());
-    if (localKey)
-      setBackendKey("local", localKey);
-    setBackendKeySource("prod", {
-      sourcePath: values.SYNTH_TUI_API_KEY_PROD_SOURCE || null,
-      varName: values.SYNTH_TUI_API_KEY_PROD_VAR || null
-    });
-    setBackendKeySource("dev", {
-      sourcePath: values.SYNTH_TUI_API_KEY_DEV_SOURCE || null,
-      varName: values.SYNTH_TUI_API_KEY_DEV_VAR || null
-    });
-    setBackendKeySource("local", {
-      sourcePath: values.SYNTH_TUI_API_KEY_LOCAL_SOURCE || null,
-      varName: values.SYNTH_TUI_API_KEY_LOCAL_VAR || null
-    });
-  } catch (err) {
-    if (err?.code !== "ENOENT") {}
-  }
-}
-async function persistSettings(deps) {
-  const {
-    settingsFilePath,
-    getCurrentBackend,
-    getBackendKey,
-    getBackendKeySource,
-    onError
-  } = deps;
-  try {
-    await fs3.mkdir(path5.dirname(settingsFilePath), { recursive: true });
-    const backend = getCurrentBackend();
-    const prodSource = getBackendKeySource("prod");
-    const devSource = getBackendKeySource("dev");
-    const localSource = getBackendKeySource("local");
-    const lines = [
-      "# synth-ai tui settings",
-      formatEnvLine("SYNTH_TUI_BACKEND", backend),
-      formatEnvLine("SYNTH_TUI_API_KEY_PROD", getBackendKey("prod")),
-      formatEnvLine("SYNTH_TUI_API_KEY_PROD_SOURCE", prodSource.sourcePath || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_PROD_VAR", prodSource.varName || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_DEV", getBackendKey("dev")),
-      formatEnvLine("SYNTH_TUI_API_KEY_DEV_SOURCE", devSource.sourcePath || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_DEV_VAR", devSource.varName || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL", getBackendKey("local")),
-      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL_SOURCE", localSource.sourcePath || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL_VAR", localSource.varName || "")
-    ];
-    await fs3.writeFile(settingsFilePath, `${lines.join(`
-`)}
-`, "utf8");
-  } catch (err) {
-    onError?.(`Failed to save settings: ${err?.message || "unknown"}`);
-  }
-}
-var init_settings = __esm(() => {
-  init_env();
-});
-
-// src/modals/settings-modal.ts
-function createSettingsModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, backendConfigs: backendConfigs2, backendKeys: backendKeys2 } = ctx.state;
-  function buildSettingsOptions() {
-    return [backendConfigs2.prod, backendConfigs2.dev, backendConfigs2.local];
+    const selected = appState.envKeyOptions[appState.envKeyCursor];
+    if (selected) {
+      const sources = selected.sources.slice(0, 2).join(", ");
+      const suffix = selected.sources.length > 2 ? ` +${selected.sources.length - 2}` : "";
+      lines.push("");
+      lines.push(`Source: ${sources}${suffix}`);
+      lines.push(`Vars: ${selected.varNames.join(", ")}`);
+    }
+    modal.setContent(lines.join(`
+`));
+    renderer.requestRender();
   }
   function toggle(visible) {
-    ui.settingsModalVisible = visible;
-    ui.settingsBox.visible = visible;
-    ui.settingsTitle.visible = visible;
-    ui.settingsHelp.visible = visible;
-    ui.settingsListText.visible = visible;
-    ui.settingsInfoText.visible = visible;
     if (visible) {
-      blurForModal(ctx);
-      const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || "";
-      if (!backendKeys2.local?.trim() && synthApiKey) {
-        backendKeys2.local = synthApiKey;
-      }
-      appState2.settingsOptions = buildSettingsOptions();
-      appState2.settingsCursor = Math.max(0, appState2.settingsOptions.findIndex((opt) => opt.id === appState2.currentBackend));
-      renderList();
+      focusManager.push({
+        id: "env-key-modal",
+        handleKey
+      });
+      modal.center();
     } else {
-      restoreFocusFromModal(ctx);
+      focusManager.pop("env-key-modal");
     }
-    renderer.requestRender();
-  }
-  function renderList() {
-    const lines = [];
-    for (let idx = 0;idx < appState2.settingsOptions.length; idx++) {
-      const opt = appState2.settingsOptions[idx];
-      const active = appState2.currentBackend === opt.id;
-      const cursor = idx === appState2.settingsCursor ? ">" : " ";
-      lines.push(`${cursor} [${active ? "x" : " "}] ${opt.label} (${opt.id})`);
-    }
-    ui.settingsListText.content = lines.join(`
-`);
-    const selected = appState2.settingsOptions[appState2.settingsCursor];
-    if (selected) {
-      let key = backendKeys2[selected.id];
-      if (selected.id === "local" && (!key || !key.trim())) {
-        key = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || "";
-      }
-      const keyPreview = key && key.trim() ? `${key.slice(0, 5)}...` : "(no key)";
-      ui.settingsInfoText.content = `URL: ${selected.baseUrl}
-Key: ${keyPreview}`;
-    } else {
-      ui.settingsInfoText.content = "";
-    }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   function move(delta) {
-    const max = Math.max(0, appState2.settingsOptions.length - 1);
-    appState2.settingsCursor = clamp2(appState2.settingsCursor + delta, 0, max);
+    const max = Math.max(0, appState.envKeyOptions.length - 1);
+    appState.envKeyCursor = clamp3(appState.envKeyCursor + delta, 0, max);
+    if (appState.envKeyCursor < appState.envKeyWindowStart) {
+      appState.envKeyWindowStart = appState.envKeyCursor;
+    } else if (appState.envKeyCursor >= appState.envKeyWindowStart + config2.envKeyVisibleCount) {
+      appState.envKeyWindowStart = appState.envKeyCursor - config2.envKeyVisibleCount + 1;
+    }
     renderList();
   }
+  async function rescan() {
+    appState.envKeyScanInProgress = true;
+    appState.envKeyError = null;
+    renderList();
+    try {
+      appState.envKeyOptions = await scanEnvKeys(config2.envKeyScanRoot);
+      appState.envKeyCursor = 0;
+      appState.envKeyWindowStart = 0;
+    } catch (err) {
+      appState.envKeyError = err?.message || "Scan failed";
+    } finally {
+      appState.envKeyScanInProgress = false;
+      renderList();
+    }
+  }
+  async function open() {
+    toggle(true);
+    await rescan();
+  }
   async function select() {
-    const selected = appState2.settingsOptions[appState2.settingsCursor];
+    const selected = appState.envKeyOptions[appState.envKeyCursor];
     if (!selected)
       return;
-    appState2.currentBackend = selected.id;
+    const frontendUrlId = getFrontendUrlId(appState.currentBackend);
+    frontendKeys[frontendUrlId] = selected.key;
+    frontendKeySources[frontendUrlId] = {
+      sourcePath: selected.sources[0] || null,
+      varName: selected.varNames[0] || null
+    };
+    process.env.SYNTH_API_KEY = selected.key;
     toggle(false);
-    ctx.render();
     const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
     await persistSettings2({
-      settingsFilePath: ctx.state.config.settingsFilePath,
-      getCurrentBackend: () => appState2.currentBackend,
-      getBackendKey: (id) => backendKeys2[id],
-      getBackendKeySource: (id) => ctx.state.backendKeySources[id]
+      settingsFilePath: config2.settingsFilePath,
+      getCurrentBackend: () => appState.currentBackend,
+      getFrontendKey: (id) => frontendKeys[id],
+      getFrontendKeySource: (id) => frontendKeySources[id]
     });
-  }
-  function open() {
-    toggle(true);
-  }
-  function openKeyModal() {
-    toggle(false);
-  }
-  function openEnvKeyModal() {
-    toggle(false);
+    ctx.state.snapshot.status = "API key loaded from env file";
+    ctx.render();
   }
   function handleKey(key) {
-    if (!ui.settingsModalVisible)
+    if (!modal.visible)
       return false;
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      select();
+      return true;
+    }
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "r") {
+      rescan();
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    select,
+    rescan,
+    handleKey
+  };
+}
+// src/types.ts
+var JobType;
+((JobType2) => {
+  JobType2["Eval"] = "eval";
+})(JobType ||= {});
+
+// src/templates/localapi.ts
+var LOCALAPI_TEMPLATE = `"""
+LocalAPI Task App - Define your evaluation task for Synth AI.
+
+This file creates a task app that Synth AI uses to evaluate prompts.
+The backend calls your /rollout endpoint with different seeds (test cases)
+and aggregates the scores.
+"""
+
+from fastapi import Request
+import httpx
+
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.task import normalize_inference_url
+from synth_ai.sdk.task.contracts import (
+    RolloutRequest,
+    RolloutResponse,
+    RolloutMetrics,
+    TaskInfo,
+)
+from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
+
+
+# =============================================================================
+# APP CONFIGURATION
+# =============================================================================
+
+APP_ID = "my-task"
+APP_NAME = "My Evaluation Task"
+
+
+# =============================================================================
+# TODO: IMPLEMENT YOUR DATASET
+# =============================================================================
+#
+# Load your evaluation dataset here. Examples:
+#
+#   # Option 1: HuggingFace datasets
+#   from datasets import load_dataset
+#   DATASET = load_dataset("your-dataset", split="test")
+#
+#   # Option 2: JSON file
+#   import json
+#   with open("data.json") as f:
+#       DATASET = json.load(f)
+#
+#   # Option 3: Inline list
+#   DATASET = [
+#       {"input": "What is 2+2?", "expected": "4"},
+#       {"input": "Capital of France?", "expected": "Paris"},
+#   ]
+#
+# =============================================================================
+
+
+def get_dataset_size() -> int:
+    """Return the total number of samples in your dataset."""
+    raise NotImplementedError(
+        "Implement get_dataset_size() to return len(DATASET)"
+    )
+
+
+def get_sample(seed: int) -> dict:
+    """
+    Get a test case by seed index.
+
+    Args:
+        seed: The seed/index for this evaluation (from request.env.seed)
+
+    Returns:
+        Dict with your test case fields (e.g. {"input": ..., "expected": ...})
+    """
+    raise NotImplementedError(
+        "Implement get_sample() to return a test case for the given seed.\\n"
+        "Example: return DATASET[seed % len(DATASET)]"
+    )
+
+
+# =============================================================================
+# TODO: IMPLEMENT YOUR SCORING LOGIC
+# =============================================================================
+
+
+def score_response(response: str, sample: dict) -> float:
+    """
+    Score the model response. Returns 0.0 to 1.0.
+
+    Args:
+        response: The model's response text
+        sample: The test case dict from get_sample()
+
+    Returns:
+        Score between 0.0 (wrong) and 1.0 (correct)
+    """
+    raise NotImplementedError(
+        "Implement score_response() to score the model output.\\n"
+        "Example: return 1.0 if sample['expected'] in response else 0.0"
+    )
+
+
+# =============================================================================
+# TASK APP PROVIDERS (required by Synth backend)
+# =============================================================================
+
+
+def provide_taskset_description() -> dict:
+    """Return metadata about your task set (splits, sizes, etc.)."""
+    return {
+        "splits": ["default"],
+        "sizes": {"default": get_dataset_size()},
+    }
+
+
+def provide_task_instances(seeds: list[int]):
+    """Yield TaskInfo for each seed. Called by Synth to get task metadata."""
+    for seed in seeds:
+        sample = get_sample(seed)
+        yield TaskInfo(
+            task={"id": APP_ID, "name": APP_NAME},
+            dataset={"id": APP_ID, "split": "default", "index": seed % get_dataset_size()},
+            inference={},
+            limits={"max_turns": 1},
+            task_metadata=sample,
+        )
+
+
+# =============================================================================
+# LLM CALL HELPER
+# =============================================================================
+
+async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) -> str:
+    """Call the LLM via the inference URL provided by Synth."""
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["X-API-Key"] = api_key
+
+    payload = {
+        "model": "gpt-4.1-nano",  # Or get from policy_config
+        "messages": [{"role": "user", "content": prompt}],
+    }
+
+    # Use SDK's normalize_inference_url to ensure correct path structure
+    # This handles appending /v1/chat/completions and preserving query params
+    url = normalize_inference_url(inference_url)
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+
+
+# =============================================================================
+# ROLLOUT HANDLER
+# =============================================================================
+
+async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
+    """
+    Handle a single evaluation rollout.
+
+    Args:
+        request: Contains seed, policy config, env config
+        fastapi_request: The FastAPI request object
+
+    Returns:
+        RolloutResponse with the evaluation score
+    """
+    # Get test case for this seed
+    seed = request.env.seed
+    sample = get_sample(seed)
+
+    # Get inference URL from policy config (Synth provides this)
+    policy_config = request.policy.config or {}
+    inference_url = policy_config.get("inference_url")
+
+    if not inference_url:
+        raise ValueError("No inference_url provided in policy config")
+
+    # Call the LLM
+    response = await call_llm(
+        prompt=sample["input"],
+        inference_url=inference_url,
+        api_key=policy_config.get("api_key"),
+    )
+
+    # Score the response
+    score = score_response(response, sample)
+
+    # Extract trace correlation ID for proper tracing
+    policy_cfg_for_trace = {
+        key: value
+        for key, value in policy_config.items()
+        if key not in {"trace_correlation_id", "trace"}
+    }
+    trace_correlation_id = extract_trace_correlation_id(
+        policy_config=policy_cfg_for_trace,
+        inference_url=str(inference_url or ""),
+        mode=request.mode,
+    )
+
+    return RolloutResponse(
+        run_id=request.run_id,
+        metrics=RolloutMetrics(outcome_reward=score),
+        trace=None,
+        trace_correlation_id=trace_correlation_id,
+        inference_url=str(inference_url or ""),
+    )
+
+
+# =============================================================================
+# CREATE THE APP
+# =============================================================================
+
+app = create_local_api(LocalAPIConfig(
+    app_id=APP_ID,
+    name=APP_NAME,
+    description="",
+    provide_taskset_description=provide_taskset_description,
+    provide_task_instances=provide_task_instances,
+    rollout=run_rollout,
+    cors_origins=["*"],
+))
+
+
+# =============================================================================
+# RUNNING LOCALLY
+# =============================================================================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
+`;
+
+// src/utils/files.ts
+import * as fs6 from "fs";
+import * as path9 from "path";
+import * as os4 from "os";
+function toDisplayPath(absolutePath) {
+  const home = os4.homedir();
+  if (absolutePath.startsWith(home)) {
+    return "~" + absolutePath.slice(home.length);
+  }
+  return absolutePath;
+}
+function expandPath(displayPath) {
+  if (displayPath.startsWith("~/")) {
+    return path9.join(os4.homedir(), displayPath.slice(2));
+  }
+  if (displayPath === "~") {
+    return os4.homedir();
+  }
+  return displayPath;
+}
+function getUniqueFilename(dir, baseName, ext) {
+  const baseFilePath = path9.join(dir, `${baseName}${ext}`);
+  if (!fs6.existsSync(baseFilePath)) {
+    return baseFilePath;
+  }
+  const now = new Date;
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+  const time2 = `${hours}${minutes}${seconds}`;
+  const newName = `${baseName}_${year}_${month}_${day}_${time2}${ext}`;
+  return path9.join(dir, newName);
+}
+function formatTimestampForFilename(date = new Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}_${month}_${day}_${hours}-${minutes}-${seconds}`;
+}
+
+// src/utils/localapi-scanner.ts
+import * as fs7 from "fs";
+import * as path10 from "path";
+function scanForLocalAPIs(directory) {
+  const results2 = [];
+  try {
+    const entries = fs7.readdirSync(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith(".py"))
+        continue;
+      const filepath = path10.join(directory, entry.name);
+      try {
+        const content = fs7.readFileSync(filepath, "utf-8");
+        if (isLocalAPIFile(content)) {
+          results2.push({
+            filename: entry.name,
+            filepath
+          });
+        }
+      } catch {}
+    }
+  } catch {}
+  return results2;
+}
+function isLocalAPIFile(content) {
+  return content.includes("from synth_ai.sdk.localapi import") || content.includes("create_local_api(");
+}
+
+// src/utils/clipboard.ts
+async function copyToClipboard(text) {
+  const proc = Bun.spawn(["pbcopy"], {
+    stdin: "pipe"
+  });
+  proc.stdin.write(text);
+  proc.stdin.end();
+  await proc.exited;
+}
+
+// src/components/error-box.ts
+function clamp4(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+function createErrorBox(options) {
+  const state = {
+    rawError: null,
+    lines: [],
+    offset: 0,
+    visibleLines: options.defaultVisibleLines ?? 3,
+    maxWidth: options.maxWidth ?? 64,
+    focused: false,
+    wrapWidth: Math.max(8, (options.maxWidth ?? 64) - 4)
+  };
+  const focusable = {
+    id: options.id,
+    onFocus: () => {
+      state.focused = true;
+      options.onChange?.();
+    },
+    onBlur: () => {
+      state.focused = false;
+      options.onChange?.();
+    },
+    handleKey: (key) => handleKeyInternal(key, false)
+  };
+  function triggerUpdate() {
+    options.onChange?.();
+  }
+  function rewrapIfNeeded(maxWidth) {
+    if (!state.rawError)
+      return;
+    const nextMaxWidth = Math.max(10, maxWidth ?? state.maxWidth);
+    const wrapWidth = Math.max(4, nextMaxWidth - 4);
+    if (wrapWidth !== state.wrapWidth) {
+      state.wrapWidth = wrapWidth;
+      state.lines = formatErrorMessage(state.rawError, wrapWidth, Infinity);
+      clampOffset();
+    }
+    state.maxWidth = nextMaxWidth;
+  }
+  function clampOffset() {
+    const maxOffset = Math.max(0, state.lines.length - state.visibleLines);
+    state.offset = clamp4(state.offset, 0, maxOffset);
+  }
+  function setError(error, override) {
+    state.rawError = error;
+    state.visibleLines = override?.visibleLines ?? options.defaultVisibleLines ?? 3;
+    state.maxWidth = override?.maxWidth ?? options.maxWidth ?? state.maxWidth;
+    state.wrapWidth = Math.max(4, state.maxWidth - 4);
+    state.offset = 0;
+    state.lines = error ? formatErrorMessage(error, state.wrapWidth, Infinity) : [];
+    if (!error && state.focused) {
+      focusManager.pop(options.id);
+    }
+    triggerUpdate();
+  }
+  function clear() {
+    setError(null);
+  }
+  function scroll(delta) {
+    if (!state.rawError)
+      return;
+    const maxOffset = Math.max(0, state.lines.length - state.visibleLines);
+    state.offset = clamp4(state.offset + delta, 0, maxOffset);
+    triggerUpdate();
+  }
+  async function copy() {
+    if (!state.rawError)
+      return;
+    try {
+      await copyToClipboard(state.rawError);
+      options.onCopy?.(state.rawError);
+    } catch {}
+  }
+  function focus() {
+    if (!state.rawError || state.focused)
+      return;
+    focusManager.push(focusable);
+  }
+  function blur() {
+    if (!state.focused)
+      return;
+    focusManager.pop(options.id);
+  }
+  function handleKeyInternal(key, allowWhenNotFocused) {
+    if (!state.rawError)
+      return false;
+    if (!state.focused && allowWhenNotFocused) {
+      if (key.shift && key.name === "tab") {
+        focus();
+        return true;
+      }
+      if (key.shift && (key.name === "j" || key.name === "down")) {
+        scroll(1);
+        return true;
+      }
+      if (key.shift && (key.name === "k" || key.name === "up")) {
+        scroll(-1);
+        return true;
+      }
+      if (key.name === "y" || key.name === "c") {
+        copy();
+        return true;
+      }
+      return false;
+    }
+    if (!state.focused)
+      return false;
+    if (key.name === "tab") {
+      blur();
+      return true;
+    }
+    if (key.name === "escape" || key.name === "q") {
+      blur();
+      return true;
+    }
+    if (key.name === "up" || key.name === "k") {
+      scroll(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      scroll(1);
+      return true;
+    }
+    if (key.name === "pageup") {
+      scroll(-state.visibleLines);
+      return true;
+    }
+    if (key.name === "pagedown") {
+      scroll(state.visibleLines);
+      return true;
+    }
+    if (key.name === "y" || key.name === "c") {
+      copy();
+      return true;
+    }
+    return false;
+  }
+  function handleKey(key, opts) {
+    return handleKeyInternal(key, opts?.allowWhenNotFocused ?? false);
+  }
+  function renderLines(opts) {
+    if (!state.rawError)
+      return [];
+    const indent = " ".repeat(opts?.indent ?? 2);
+    const maxWidth = Math.max(10, opts?.maxWidth ?? state.maxWidth);
+    rewrapIfNeeded(maxWidth);
+    const innerWidth = maxWidth - 2;
+    const contentWidth = Math.max(1, innerWidth - 2);
+    const visible = state.lines.slice(state.offset, state.offset + state.visibleLines);
+    const borderColor = state.focused ? "\x1B[91m" : "\x1B[90m";
+    const lines = [];
+    lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m`);
+    for (let i = 0;i < state.visibleLines; i++) {
+      const raw = visible[i] ?? "";
+      const clipped = raw.length > contentWidth ? raw.slice(0, contentWidth) : raw;
+      const padded = clipped.padEnd(contentWidth, " ");
+      lines.push(`${indent}${borderColor}|\x1B[0m \x1B[31m${padded}\x1B[0m ${borderColor}|\x1B[0m`);
+    }
+    lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m`);
+    return lines;
+  }
+  function getPositionLabel() {
+    if (!state.rawError)
+      return null;
+    const start = state.offset + 1;
+    const end = Math.min(state.offset + state.visibleLines, state.lines.length);
+    return `[${start}-${end}/${state.lines.length}]`;
+  }
+  function getHint() {
+    if (!state.rawError)
+      return null;
+    const position = getPositionLabel();
+    const scrollHint = state.lines.length > state.visibleLines ? state.focused ? "j/k scroll" : "shift+j/k scroll" : null;
+    const focusHint = state.focused ? "tab back" : "shift+tab focus";
+    const copyHint = "y copy";
+    return [position, scrollHint, copyHint, focusHint].filter(Boolean).join(" | ");
+  }
+  return {
+    hasError: () => !!state.rawError,
+    setError,
+    clear,
+    renderLines,
+    handleKey,
+    getHint,
+    getPositionLabel,
+    focus,
+    blur,
+    isFocused: () => state.focused
+  };
+}
+
+// src/modals/create-job-modal.ts
+import * as fs8 from "fs";
+import * as path11 from "path";
+import * as readline from "readline";
+import { spawn as spawn2 } from "child_process";
+function deployLocalApi(ctx, filePath) {
+  return new Promise((resolve3) => {
+    const fileName = path11.basename(filePath, ".py");
+    const timestamp = formatTimestampForFilename(new Date);
+    const deploymentId = `${fileName}_${timestamp}`;
+    const deployment = {
+      id: deploymentId,
+      localApiPath: filePath,
+      url: null,
+      status: "deploying",
+      logs: [],
+      proc: null,
+      startedAt: new Date
+    };
+    ctx.state.snapshot.deployments.set(deploymentId, deployment);
+    setActiveDeployment(ctx, deploymentId);
+    const proc = spawn2("python", ["-m", "synth_ai.tui.deploy", filePath, "--deployment-id", deploymentId], {
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    deployment.proc = proc;
+    let resolved = false;
+    const finalize = (result) => {
+      if (resolved)
+        return;
+      resolved = true;
+      resolve3({ deploymentId, ...result });
+    };
+    const rl = readline.createInterface({ input: proc.stdout });
+    rl.on("line", (line) => {
+      if (resolved)
+        return;
+      try {
+        const result = JSON.parse(line);
+        if (result.type === "status") {
+          if (result.status === "ready") {
+            deployment.status = "ready";
+            deployment.url = result.url;
+            finalize({ success: true, url: result.url, proc });
+          } else if (result.status === "error") {
+            deployment.status = "error";
+            deployment.error = result.error || "Deployment failed";
+            finalize({ success: false, error: result.error || "Deployment failed" });
+          }
+        }
+      } catch {}
+    });
+    let stderrBuffer = "";
+    proc.stderr.on("data", (data) => {
+      stderrBuffer += data.toString();
+    });
+    proc.on("error", (err) => {
+      deployment.status = "error";
+      deployment.error = err.message;
+      finalize({ success: false, error: err.message, deploymentId });
+    });
+    proc.on("close", (code) => {
+      if (code !== 0) {
+        const errorMsg = stderrBuffer.trim() || `Process exited with code ${code}`;
+        finalize({ success: false, error: errorMsg });
+      } else {
+        finalize({ success: true, url: deployment.url ?? undefined, proc });
+      }
+    });
+  });
+}
+var CREATE_NEW_OPTION = "Create new";
+var ENTER_MANUAL_PATH = "Enter manual path";
+function createCreateJobModal(ctx) {
+  const { renderer } = ctx;
+  const modal = createModalUI(renderer, {
+    id: "create-job-modal",
+    width: 70,
+    height: 24,
+    borderColor: "#10b981",
+    titleColor: "#10b981",
+    zIndex: 10
+  });
+  const deployErrorBox = createErrorBox({
+    id: "deploy-error-box",
+    defaultVisibleLines: 3,
+    maxWidth: 64,
+    onChange: () => {
+      if (modal.visible) {
+        updateContent();
+        updateHint();
+        ctx.requestRender();
+      }
+    },
+    onCopy: () => {
+      ctx.state.snapshot.status = "Error copied to clipboard";
+      ctx.render();
+    }
+  });
+  let createdFilePath = null;
+  let deployedUrl = null;
+  let isDeploying = false;
+  let isInputMode = false;
+  let inputBuffer = "";
+  let scannedLocalAPIs = [];
+  function getSteps() {
+    const localApiOptions = [
+      ...scannedLocalAPIs.map((api) => toDisplayPath(api.filepath)),
+      CREATE_NEW_OPTION
+    ];
+    const baseSteps = [
+      {
+        id: "localApi",
+        label: "LocalAPI file",
+        prompt: "Select or create LocalAPI file:",
+        getOptions: () => localApiOptions
+      }
+    ];
+    const localApiSelection = getSelectionForStep("localApi");
+    const selectedExistingApi = scannedLocalAPIs.find((api) => toDisplayPath(api.filepath) === localApiSelection?.value);
+    if (selectedExistingApi) {
+      createdFilePath = selectedExistingApi.filepath;
+      const fileName = selectedExistingApi.filename;
+      baseSteps.push({
+        id: "deployLocalApi",
+        label: "Deploy",
+        prompt: `Deploy ${fileName}?`,
+        getOptions: () => ["Yes", "No"],
+        hideFromSummary: true,
+        onSelect: async (value) => {
+          deployErrorBox.clear();
+          if (value === "Yes" && createdFilePath) {
+            isDeploying = true;
+            ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
+            updateContent();
+            ctx.render();
+            const result = await deployLocalApi(ctx, createdFilePath);
+            isDeploying = false;
+            if (result.success) {
+              deployedUrl = result.url;
+              deployErrorBox.clear();
+              ctx.state.snapshot.status = `Deployed: ${result.url}`;
+              ctx.state.appState.deployedUrl = result.url;
+              ctx.state.appState.deployProc = result.proc;
+              updateContent();
+              ctx.render();
+              return true;
+            } else {
+              const errMsg = result.error || "Unknown error";
+              deployErrorBox.setError(errMsg);
+              ctx.state.snapshot.status = `Deploy failed: ${errMsg}`;
+              updateContent();
+              ctx.render();
+              return false;
+            }
+          }
+          return true;
+        }
+      });
+    }
+    if (localApiSelection?.value === CREATE_NEW_OPTION) {
+      const cwdDisplay = `CWD: ${toDisplayPath(process.cwd())}`;
+      baseSteps.push({
+        id: "selectDirectory",
+        label: "Directory",
+        prompt: "Where to save localapi.py?",
+        getOptions: () => [cwdDisplay, ENTER_MANUAL_PATH]
+      });
+      const dirSelection = getSelectionForStep("selectDirectory");
+      if (dirSelection) {
+        const dirValue = dirSelection.value.startsWith("CWD: ") ? dirSelection.value.slice(5) : dirSelection.value;
+        const selectedDir = expandPath(dirValue);
+        const actualFilePath = createdFilePath ?? getUniqueFilename(selectedDir, "localapi", ".py");
+        const actualFileName = path11.basename(actualFilePath);
+        const displayDir = toDisplayPath(selectedDir);
+        baseSteps.push({
+          id: "confirmCreate",
+          label: "Confirm",
+          prompt: `Create ${actualFileName} in ${displayDir}?`,
+          getOptions: () => ["Yes, create it", "No, go back"],
+          hideFromSummary: true,
+          onSelect: async (value) => {
+            if (value === "No, go back") {
+              goBack();
+              return false;
+            }
+            try {
+              fs8.mkdirSync(selectedDir, { recursive: true });
+              fs8.writeFileSync(actualFilePath, LOCALAPI_TEMPLATE, "utf-8");
+              createdFilePath = actualFilePath;
+              ctx.state.snapshot.status = `Created ${toDisplayPath(actualFilePath)}`;
+              ctx.render();
+              return true;
+            } catch (err) {
+              ctx.state.snapshot.status = `Error creating file: ${err}`;
+              ctx.render();
+              return false;
+            }
+          }
+        });
+        baseSteps.push({
+          id: "openForReview",
+          label: "Review",
+          prompt: `Open ${actualFileName} for review?`,
+          getOptions: () => ["Yes, open in editor", "No, skip"],
+          hideFromSummary: true,
+          onSelect: async (value) => {
+            if (value === "Yes, open in editor" && createdFilePath) {
+              const editor = process.env.EDITOR;
+              if (editor) {
+                spawn2(editor, [createdFilePath], {
+                  detached: true,
+                  stdio: "ignore"
+                }).unref();
+              } else {
+                spawn2("open", [createdFilePath], {
+                  detached: true,
+                  stdio: "ignore"
+                }).unref();
+              }
+            }
+            return true;
+          }
+        });
+        baseSteps.push({
+          id: "deployLocalApi",
+          label: "Deploy",
+          prompt: `Deploy ${actualFileName}?`,
+          getOptions: () => ["Yes, deploy now", "No, deploy later"],
+          hideFromSummary: true,
+          onSelect: async (value) => {
+            deployErrorBox.clear();
+            if (value === "Yes, deploy now" && createdFilePath) {
+              isDeploying = true;
+              ctx.state.snapshot.status = `Deploying ${toDisplayPath(createdFilePath)}...`;
+              updateContent();
+              ctx.render();
+              const result = await deployLocalApi(ctx, createdFilePath);
+              isDeploying = false;
+              if (result.success) {
+                deployedUrl = result.url;
+                deployErrorBox.clear();
+                ctx.state.snapshot.status = `Deployed: ${result.url}`;
+                ctx.state.appState.deployedUrl = result.url;
+                ctx.state.appState.deployProc = result.proc;
+                updateContent();
+                ctx.render();
+                return true;
+              } else {
+                const errMsg = result.error || "Unknown error";
+                deployErrorBox.setError(errMsg);
+                ctx.state.snapshot.status = `Deploy failed: ${errMsg}`;
+                updateContent();
+                ctx.render();
+                return false;
+              }
+            }
+            return true;
+          }
+        });
+      }
+    }
+    baseSteps.push({
+      id: "jobType",
+      label: "Job Type",
+      prompt: "Select Job Type:",
+      getOptions: () => Object.values(JobType),
+      onSelect: async (value) => {
+        if (value === "eval" /* Eval */ && deployedUrl) {
+          ctx.state.snapshot.status = "Submitting eval job...";
+          ctx.render();
+          const proc = spawn2("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, "default"], {
+            stdio: "ignore",
+            detached: true
+          });
+          proc.on("error", () => {});
+          proc.unref();
+          ctx.state.snapshot.status = "Eval job submitted";
+          toggle(false);
+          ctx.render();
+        } else {
+          toggle(false);
+        }
+        return true;
+      }
+    });
+    return baseSteps;
+  }
+  let currentStepIndex = 0;
+  let cursor = 0;
+  let selections = [];
+  function getCurrentStep() {
+    return getSteps()[currentStepIndex];
+  }
+  function getSelectionForStep(stepId) {
+    return selections.find((s) => s.stepId === stepId);
+  }
+  function renderSummary() {
+    const lines = [];
+    const steps = getSteps();
+    for (let i = 0;i < currentStepIndex; i++) {
+      const step = steps[i];
+      if (step.hideFromSummary)
+        continue;
+      const selection = getSelectionForStep(step.id);
+      if (step.id === "localApi" && selection) {
+        const selectedExistingApi = scannedLocalAPIs.find((api) => toDisplayPath(api.filepath) === selection.value);
+        if (selectedExistingApi) {
+          lines.push(`  LocalAPI file: ${toDisplayPath(selectedExistingApi.filepath)}`);
+          continue;
+        }
+        continue;
+      }
+      if (step.id === "selectDirectory" && selection) {
+        if (createdFilePath) {
+          lines.push(`  LocalAPI file: ${toDisplayPath(createdFilePath)}`);
+          continue;
+        }
+        const dirValue = selection.value.startsWith("CWD: ") ? selection.value.slice(5) : selection.value;
+        const selectedDir = expandPath(dirValue);
+        const filePath = getUniqueFilename(selectedDir, "localapi", ".py");
+        lines.push(`  LocalAPI file: ${toDisplayPath(filePath)}`);
+        continue;
+      }
+      const value = selection?.value ?? "(not set)";
+      lines.push(`  ${step.label}: ${value}`);
+    }
+    if (deployedUrl) {
+      lines.push(`  LocalAPI URL: ${deployedUrl}`);
+    }
+    return lines;
+  }
+  function updateContent() {
+    const step = getCurrentStep();
+    const options = step.getOptions();
+    const lines = [];
+    const summary = renderSummary();
+    if (summary.length > 0) {
+      lines.push(...summary);
+      lines.push("");
+    }
+    lines.push(`  ${step.prompt}`);
+    lines.push("");
+    if (isDeploying) {
+      lines.push(`  Deploying...`);
+    } else if (isInputMode) {
+      lines.push(`  Path: ~/${inputBuffer}\u2588`);
+      lines.push("");
+      lines.push("  (enter to confirm, escape to cancel)");
+    } else {
+      for (let idx = 0;idx < options.length; idx++) {
+        const option = options[idx];
+        const isCursor = idx === cursor;
+        const cursorChar = isCursor ? "\u203A" : " ";
+        lines.push(`  ${cursorChar} ${option}`);
+      }
+    }
+    if (deployErrorBox.hasError()) {
+      lines.push("");
+      lines.push(...deployErrorBox.renderLines({ indent: 2, maxWidth: 64 }));
+      const errorHint = deployErrorBox.getHint();
+      if (errorHint) {
+        lines.push(`  \x1B[90m${errorHint}\x1B[0m`);
+      }
+    }
+    while (lines.length < 18) {
+      lines.push("");
+    }
+    modal.setContent(lines.join(`
+`));
+  }
+  function updateHint() {
+    if (isInputMode) {
+      modal.setHint("enter confirm | escape cancel");
+      return;
+    }
+    const hints = ["j/k navigate", "enter select"];
+    if (currentStepIndex > 0) {
+      hints.push("backspace back");
+    }
+    const errorHint = deployErrorBox.getHint();
+    if (errorHint) {
+      hints.push(errorHint);
+    }
+    hints.push("q close");
+    modal.setHint(hints.join(" | "));
+  }
+  function reset() {
+    currentStepIndex = 0;
+    cursor = 0;
+    selections = [];
+    createdFilePath = null;
+    deployedUrl = null;
+    isDeploying = false;
+    isInputMode = false;
+    inputBuffer = "";
+    deployErrorBox.clear();
+    scannedLocalAPIs = scanForLocalAPIs(process.cwd());
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "create-job-modal",
+        handleKey
+      });
+      reset();
+      modal.center();
+      updateContent();
+      updateHint();
+    } else {
+      deployErrorBox.blur();
+      focusManager.pop("create-job-modal");
+    }
+    modal.setVisible(visible);
+  }
+  function open() {
+    modal.setTitle("Create New Job");
+    toggle(true);
+  }
+  function move(delta) {
+    const step = getCurrentStep();
+    const options = step.getOptions();
+    const max = options.length - 1;
+    cursor = clamp3(cursor + delta, 0, max);
+    updateContent();
+  }
+  function goBack() {
+    if (currentStepIndex > 0) {
+      currentStepIndex--;
+      const step = getCurrentStep();
+      const prevSelection = getSelectionForStep(step.id);
+      if (prevSelection) {
+        const options = step.getOptions();
+        cursor = options.indexOf(prevSelection.value);
+        if (cursor < 0)
+          cursor = 0;
+        selections = selections.filter((s) => s.stepId !== step.id);
+      } else {
+        cursor = 0;
+      }
+      updateContent();
+      updateHint();
+    }
+  }
+  async function select() {
+    const step = getCurrentStep();
+    const options = step.getOptions();
+    const selected = options[cursor];
+    if (!selected)
+      return;
+    if (selected === ENTER_MANUAL_PATH) {
+      isInputMode = true;
+      inputBuffer = "";
+      updateContent();
+      updateHint();
+      return;
+    }
+    if (step.onSelect) {
+      const shouldContinue = await step.onSelect(selected);
+      if (!shouldContinue) {
+        updateContent();
+        updateHint();
+        return;
+      }
+    }
+    selections = selections.filter((s) => s.stepId !== step.id);
+    selections.push({
+      stepId: step.id,
+      value: selected,
+      displayLabel: step.label
+    });
+    const steps = getSteps();
+    if (currentStepIndex < steps.length - 1) {
+      currentStepIndex++;
+      cursor = 0;
+      updateContent();
+      updateHint();
+    } else {
+      const summary = selections.filter((s) => {
+        const step2 = steps.find((st) => st.id === s.stepId);
+        return !step2?.hideFromSummary;
+      }).map((s) => `${s.displayLabel}: ${s.value}`).join(", ");
+      toggle(false);
+      ctx.state.snapshot.status = `Creating job: ${summary}`;
+      ctx.render();
+    }
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (isDeploying) {
+      if (key.name === "q" || key.name === "escape") {
+        toggle(false);
+        return true;
+      }
+      return true;
+    }
+    if (deployErrorBox.handleKey(key, { allowWhenNotFocused: true })) {
+      return true;
+    }
+    if (isInputMode) {
+      if (key.name === "escape") {
+        isInputMode = false;
+        inputBuffer = "";
+        updateContent();
+        updateHint();
+        return true;
+      }
+      if (key.name === "return" || key.name === "enter") {
+        const step = getCurrentStep();
+        const inputValue = inputBuffer.trim();
+        const fullPath = `~/${inputValue}`;
+        isInputMode = false;
+        selections = selections.filter((s) => s.stepId !== step.id);
+        selections.push({
+          stepId: step.id,
+          value: fullPath,
+          displayLabel: step.label
+        });
+        inputBuffer = "";
+        currentStepIndex++;
+        cursor = 0;
+        updateContent();
+        updateHint();
+        return true;
+      }
+      if (key.name === "backspace") {
+        if (inputBuffer.length > 0) {
+          inputBuffer = inputBuffer.slice(0, -1);
+          updateContent();
+        }
+        return true;
+      }
+      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
+        inputBuffer += key.sequence;
+        updateContent();
+        return true;
+      }
+      return true;
+    }
     if (key.name === "up" || key.name === "k") {
       move(-1);
       return true;
@@ -22124,12 +23381,8 @@ Key: ${keyPreview}`;
       select();
       return true;
     }
-    if (key.name === "k" && key.shift) {
-      openKeyModal();
-      return true;
-    }
-    if (key.name === "e" && key.shift) {
-      openEnvKeyModal();
+    if (key.name === "backspace" && currentStepIndex > 0) {
+      goBack();
       return true;
     }
     if (key.name === "q" || key.name === "escape") {
@@ -22140,36 +23393,135 @@ Key: ${keyPreview}`;
   }
   return {
     get isVisible() {
-      return ui.settingsModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
     move,
     select,
-    openKeyModal,
-    openEnvKeyModal,
     handleKey
   };
 }
-var init_settings_modal = () => {};
-
+// src/modals/event-modal.ts
+function createEventModal(ctx) {
+  const { renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "event-modal",
+    width: 80,
+    height: 16,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 6
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "event-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("event-modal");
+      modal.setContent("");
+    }
+    modal.setVisible(visible);
+  }
+  function updateContent() {
+    if (!modal.visible)
+      return;
+    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+    const event = filtered[appState2.selectedEventIndex];
+    if (!event) {
+      modal.setContent("(no event)");
+      return;
+    }
+    const raw = event.message ?? formatEventData(event.data) ?? "(no data)";
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.eventModalOffset = clamp3(appState2.eventModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.eventModalOffset, appState2.eventModalOffset + maxLines);
+    modal.setTitle(`Event ${event.seq} - ${event.type}`);
+    modal.setContent(visible.join(`
+`));
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.eventModalOffset + 1}-${appState2.eventModalOffset + visible.length}/${wrapped.length}] j/k scroll | q close` : "q close");
+  }
+  function move(delta) {
+    appState2.eventModalOffset = Math.max(0, appState2.eventModalOffset + delta);
+    updateContent();
+  }
+  function open() {
+    const filtered = getFilteredEvents(snapshot2.events, appState2.eventFilter);
+    if (!filtered.length)
+      return;
+    appState2.eventModalOffset = 0;
+    modal.center();
+    toggle(true);
+    updateContent();
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  const controller = {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    handleKey
+  };
+  return controller;
+}
 // src/modals/filter-modal.ts
 function createFilterModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2 } = ctx.state;
-  function toggle(visible) {
-    ui.filterModalVisible = visible;
-    ui.filterBox.visible = visible;
-    ui.filterLabel.visible = visible;
-    ui.filterInput.visible = visible;
-    if (visible) {
-      blurForModal(ctx);
-      ui.filterInput.value = appState2.eventFilter;
-      ui.filterInput.focus();
-    } else {
-      restoreFocusFromModal(ctx);
+  const modal = createModalUI(renderer, {
+    id: "filter-modal",
+    width: 52,
+    height: 5,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5,
+    input: {
+      label: "Event filter:",
+      placeholder: "Type to filter events",
+      width: 46
     }
-    renderer.requestRender();
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "filter-modal",
+        handleKey
+      });
+      modal.center();
+      if (modal.input) {
+        modal.input.value = appState2.eventFilter;
+        modal.input.focus();
+      }
+    } else {
+      focusManager.pop("filter-modal");
+    }
+    modal.setVisible(visible);
   }
   function open() {
     toggle(true);
@@ -22179,26 +23531,29 @@ function createFilterModal(ctx) {
     toggle(false);
     ctx.render();
   }
+  if (modal.input) {
+    modal.input.on(InputRenderableEvents.CHANGE, (value) => {
+      apply(value);
+    });
+  }
   function handleKey(key) {
-    if (!ui.filterModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "q" || key.name === "escape") {
       toggle(false);
       return true;
     }
-    return false;
+    return true;
   }
-  ui.filterInput.on?.("change", (value) => {
-    apply(value);
-  });
-  return {
+  const controller = {
     get isVisible() {
-      return ui.filterModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
     handleKey
   };
+  return controller;
 }
 var init_filter_modal = () => {};
 
@@ -22433,36 +23788,43 @@ var init_jobs = __esm(() => {
 
 // src/modals/job-filter-modal.ts
 function createJobFilterModal(ctx) {
-  const { ui, renderer } = ctx;
+  const { renderer } = ctx;
   const { appState: appState2, snapshot: snapshot2, config: config2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "job-filter-modal",
+    width: 52,
+    height: 11,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5
+  });
   function toggle(visible) {
-    ui.jobFilterModalVisible = visible;
-    ui.jobFilterBox.visible = visible;
-    ui.jobFilterLabel.visible = visible;
-    ui.jobFilterHelp.visible = visible;
-    ui.jobFilterListText.visible = visible;
     if (visible) {
-      blurForModal(ctx);
-      ui.jobFilterLabel.content = "Job filter (status)";
+      focusManager.push({
+        id: "job-filter-modal",
+        handleKey
+      });
+      modal.setTitle("Job filter (status)");
+      modal.center();
       refreshOptions();
       appState2.jobFilterCursor = 0;
       appState2.jobFilterWindowStart = 0;
       renderList();
     } else {
-      restoreFocusFromModal(ctx);
+      focusManager.pop("job-filter-modal");
     }
-    renderer.requestRender();
+    modal.setVisible(visible);
   }
   function refreshOptions() {
     appState2.jobFilterOptions = buildJobStatusOptions(snapshot2.jobs);
     const maxIndex = Math.max(0, appState2.jobFilterOptions.length - 1);
-    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor, 0, maxIndex);
-    appState2.jobFilterWindowStart = clamp2(appState2.jobFilterWindowStart, 0, Math.max(0, maxIndex));
+    appState2.jobFilterCursor = clamp3(appState2.jobFilterCursor, 0, maxIndex);
+    appState2.jobFilterWindowStart = clamp3(appState2.jobFilterWindowStart, 0, Math.max(0, maxIndex));
   }
   function renderList() {
     const max = Math.max(0, appState2.jobFilterOptions.length - 1);
-    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor, 0, max);
-    const start = clamp2(appState2.jobFilterWindowStart, 0, Math.max(0, max));
+    appState2.jobFilterCursor = clamp3(appState2.jobFilterCursor, 0, max);
+    const start = clamp3(appState2.jobFilterWindowStart, 0, Math.max(0, max));
     const end = Math.min(appState2.jobFilterOptions.length, start + config2.jobFilterVisibleCount);
     const lines = [];
     for (let idx = start;idx < end; idx++) {
@@ -22474,13 +23836,13 @@ function createJobFilterModal(ctx) {
     if (!lines.length) {
       lines.push("  (no statuses available)");
     }
-    ui.jobFilterListText.content = lines.join(`
-`);
-    renderer.requestRender();
+    modal.setContent(lines.join(`
+`));
+    modal.setHint("j/k move | space select | c clear | q close");
   }
   function move(delta) {
     const max = Math.max(0, appState2.jobFilterOptions.length - 1);
-    appState2.jobFilterCursor = clamp2(appState2.jobFilterCursor + delta, 0, max);
+    appState2.jobFilterCursor = clamp3(appState2.jobFilterCursor + delta, 0, max);
     if (appState2.jobFilterCursor < appState2.jobFilterWindowStart) {
       appState2.jobFilterWindowStart = appState2.jobFilterCursor;
     } else if (appState2.jobFilterCursor >= appState2.jobFilterWindowStart + config2.jobFilterVisibleCount) {
@@ -22522,7 +23884,7 @@ function createJobFilterModal(ctx) {
     }
     if (!snapshot2.selectedJob || !filteredJobs.some((job) => job.job_id === snapshot2.selectedJob?.job_id)) {
       Promise.resolve().then(() => (init_jobs(), exports_jobs)).then(({ selectJob: selectJob2 }) => {
-        selectJob2(ctx, filteredJobs[0].job_id).then(() => ctx.render());
+        selectJob2(ctx, filteredJobs[0].job_id).then(() => ctx.render()).catch(() => {});
       });
       return;
     }
@@ -22532,7 +23894,7 @@ function createJobFilterModal(ctx) {
     toggle(true);
   }
   function handleKey(key) {
-    if (!ui.jobFilterModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "up" || key.name === "k") {
       move(-1);
@@ -22556,9 +23918,9 @@ function createJobFilterModal(ctx) {
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.jobFilterModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -22567,32 +23929,44 @@ function createJobFilterModal(ctx) {
     clearAll,
     handleKey
   };
+  return controller;
 }
 var init_job_filter_modal = () => {};
 
 // src/modals/key-modal.ts
 function createKeyModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, backendKeys: backendKeys2, backendKeySources: backendKeySources2, config: config2 } = ctx.state;
-  function toggle(visible) {
-    ui.keyModalVisible = visible;
-    ui.keyModalBox.visible = visible;
-    ui.keyModalLabel.visible = visible;
-    ui.keyModalInput.visible = visible;
-    ui.keyModalHelp.visible = visible;
-    if (visible) {
-      blurForModal(ctx);
-      ui.keyModalInput.value = "";
-      ui.keyModalInput.focus();
-      ui.keyModalLabel.content = `API Key for ${appState2.keyModalBackend}:`;
-      ui.keyModalHelp.content = "Paste or type key | Enter to apply | q to cancel";
-    } else {
-      restoreFocusFromModal(ctx);
+  const { renderer } = ctx;
+  const modal = createModalUI(renderer, {
+    id: "key-modal",
+    width: 70,
+    height: 7,
+    borderColor: "#7dd3fc",
+    titleColor: "#7dd3fc",
+    zIndex: 10,
+    input: {
+      label: "API Key:",
+      placeholder: "",
+      width: 62
     }
-    renderer.requestRender();
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "key-modal",
+        handleKey
+      });
+      modal.center();
+      if (modal.input) {
+        modal.input.value = "";
+        modal.input.focus();
+      }
+      modal.setHint("Paste or type key | Enter to apply | q to cancel");
+    } else {
+      focusManager.pop("key-modal");
+    }
+    modal.setVisible(visible);
   }
   function open() {
-    appState2.keyModalBackend = appState2.currentBackend;
     toggle(true);
   }
   async function apply(value) {
@@ -22601,19 +23975,8 @@ function createKeyModal(ctx) {
       toggle(false);
       return;
     }
-    backendKeys2[appState2.keyModalBackend] = trimmed;
-    backendKeySources2[appState2.keyModalBackend] = {
-      sourcePath: "manual-input",
-      varName: null
-    };
+    process.env.SYNTH_API_KEY = trimmed;
     toggle(false);
-    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
-    await persistSettings2({
-      settingsFilePath: config2.settingsFilePath,
-      getCurrentBackend: () => appState2.currentBackend,
-      getBackendKey: (id) => backendKeys2[id],
-      getBackendKeySource: (id) => backendKeySources2[id]
-    });
     ctx.state.snapshot.status = "API key updated";
     ctx.render();
   }
@@ -22630,19 +23993,21 @@ function createKeyModal(ctx) {
       const text = result.stdout ? String(result.stdout).replace(/\s+/g, "") : "";
       if (!text)
         return;
-      ui.keyModalInput.value = (ui.keyModalInput.value || "") + text;
+      if (modal.input) {
+        modal.input.value = (modal.input.value || "") + text;
+      }
     } catch {}
     renderer.requestRender();
   }
   function handleKey(key) {
-    if (!ui.keyModalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "q" || key.name === "escape") {
       toggle(false);
       return true;
     }
     if (key.name === "return" || key.name === "enter") {
-      apply(ui.keyModalInput.value || "");
+      apply(modal.input?.value || "");
       return true;
     }
     if (key.name === "v" && (key.ctrl || key.meta)) {
@@ -22650,22 +24015,26 @@ function createKeyModal(ctx) {
       return true;
     }
     if (key.name === "backspace" || key.name === "delete") {
-      const current = ui.keyModalInput.value || "";
-      ui.keyModalInput.value = current.slice(0, Math.max(0, current.length - 1));
+      if (modal.input) {
+        const current = modal.input.value || "";
+        modal.input.value = current.slice(0, Math.max(0, current.length - 1));
+      }
       renderer.requestRender();
       return true;
     }
     const seq = key.sequence || "";
     if (seq && !seq.startsWith("\x1B") && !key.ctrl && !key.meta) {
-      ui.keyModalInput.value = (ui.keyModalInput.value || "") + seq;
+      if (modal.input) {
+        modal.input.value = (modal.input.value || "") + seq;
+      }
       renderer.requestRender();
       return true;
     }
     return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.keyModalVisible;
+      return modal.visible;
     },
     toggle,
     open,
@@ -22673,130 +24042,181 @@ function createKeyModal(ctx) {
     paste,
     handleKey
   };
+  return controller;
 }
-var init_key_modal = () => {};
-
-// src/modals/env-key-modal.ts
-function createEnvKeyModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, backendKeys: backendKeys2, backendKeySources: backendKeySources2, config: config2 } = ctx.state;
-  function toggle(visible) {
-    ui.envKeyModalVisible = visible;
-    ui.envKeyModalBox.visible = visible;
-    ui.envKeyModalTitle.visible = visible;
-    ui.envKeyModalHelp.visible = visible;
-    ui.envKeyModalListText.visible = visible;
-    ui.envKeyModalInfoText.visible = visible;
-    if (visible) {
-      blurForModal(ctx);
-    } else {
-      restoreFocusFromModal(ctx);
-    }
-    renderer.requestRender();
+// src/lifecycle/shutdown.ts
+var ANSI_RESET = "\x1B[0m";
+var ANSI_SHOW_CURSOR = "\x1B[?25h";
+var ANSI_EXIT_ALT_SCREEN = "\x1B[?1049l";
+var state = {
+  abortController: new AbortController,
+  intervals: new Set,
+  timeouts: new Set,
+  cleanups: new Map,
+  isShuttingDown: false,
+  renderer: null
+};
+function registerRenderer(renderer) {
+  state.renderer = renderer;
+}
+function registerInterval(id) {
+  state.intervals.add(id);
+  return id;
+}
+function registerTimeout(id) {
+  state.timeouts.add(id);
+  return id;
+}
+function unregisterTimeout(id) {
+  state.timeouts.delete(id);
+}
+function registerCleanup(name, fn) {
+  state.cleanups.set(name, fn);
+}
+function unregisterCleanup(name) {
+  state.cleanups.delete(name);
+}
+async function shutdown(exitCode = 0) {
+  if (state.isShuttingDown) {
+    return new Promise(() => {});
   }
-  function renderList() {
-    if (appState2.envKeyScanInProgress) {
-      ui.envKeyModalListText.content = "Scanning...";
-      ui.envKeyModalInfoText.content = "";
-      renderer.requestRender();
-      return;
-    }
-    if (appState2.envKeyError) {
-      ui.envKeyModalListText.content = `Error: ${appState2.envKeyError}`;
-      ui.envKeyModalInfoText.content = "";
-      renderer.requestRender();
-      return;
-    }
-    if (!appState2.envKeyOptions.length) {
-      ui.envKeyModalListText.content = "No API keys found in .env files";
-      ui.envKeyModalInfoText.content = "";
-      renderer.requestRender();
-      return;
-    }
-    const max = Math.max(0, appState2.envKeyOptions.length - 1);
-    appState2.envKeyCursor = clamp2(appState2.envKeyCursor, 0, max);
-    const start = clamp2(appState2.envKeyWindowStart, 0, Math.max(0, max));
-    const end = Math.min(appState2.envKeyOptions.length, start + config2.envKeyVisibleCount);
-    const lines = [];
-    for (let idx = start;idx < end; idx++) {
-      const option = appState2.envKeyOptions[idx];
-      const cursor = idx === appState2.envKeyCursor ? ">" : " ";
-      const preview = option.key ? `${option.key.slice(0, 8)}...` : "(empty)";
-      lines.push(`${cursor} ${preview}`);
-    }
-    ui.envKeyModalListText.content = lines.join(`
+  state.isShuttingDown = true;
+  state.abortController.abort();
+  for (const id of state.intervals) {
+    clearInterval(id);
+  }
+  state.intervals.clear();
+  for (const id of state.timeouts) {
+    clearTimeout(id);
+  }
+  state.timeouts.clear();
+  for (const [, fn] of state.cleanups) {
+    try {
+      await fn();
+    } catch {}
+  }
+  state.cleanups.clear();
+  if (state.renderer) {
+    try {
+      state.renderer.stop();
+      state.renderer.destroy();
+    } catch {}
+  }
+  process.stdout.write(ANSI_SHOW_CURSOR);
+  process.stdout.write(ANSI_EXIT_ALT_SCREEN);
+  process.stdout.write(ANSI_RESET);
+  process.stdout.write(`
 `);
-    const selected = appState2.envKeyOptions[appState2.envKeyCursor];
-    if (selected) {
-      const sources = selected.sources.slice(0, 2).join(", ");
-      const suffix = selected.sources.length > 2 ? ` +${selected.sources.length - 2}` : "";
-      ui.envKeyModalInfoText.content = `Source: ${sources}${suffix}
-Vars: ${selected.varNames.join(", ")}`;
-    } else {
-      ui.envKeyModalInfoText.content = "";
+  process.exit(exitCode);
+}
+function installSignalHandlers() {
+  process.on("SIGINT", () => void shutdown(0));
+  process.on("SIGTERM", () => void shutdown(0));
+}
+// src/modals/log-file-modal.ts
+import * as fs9 from "fs";
+import * as path12 from "path";
+function createLogFileModal(ctx) {
+  const { renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modalHeight = 24;
+  const modal = createModalUI(renderer, {
+    id: "log-file-modal",
+    width: 100,
+    height: modalHeight,
+    borderColor: "#38bdf8",
+    titleColor: "#38bdf8",
+    zIndex: 9
+  });
+  let currentFilePath = null;
+  let refreshTimer = null;
+  const cleanupName = "log-file-modal-refresh";
+  function startAutoRefresh() {
+    if (refreshTimer)
+      return;
+    refreshTimer = setInterval(() => {
+      if (modal.visible)
+        updateContent();
+    }, 1000);
+    registerCleanup(cleanupName, () => {
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+    });
+  }
+  function stopAutoRefresh() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
     }
-    renderer.requestRender();
+    unregisterCleanup(cleanupName);
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "log-file-modal",
+        handleKey
+      });
+      modal.center();
+      startAutoRefresh();
+    } else {
+      focusManager.pop("log-file-modal");
+      modal.setContent("");
+      stopAutoRefresh();
+    }
+    modal.setVisible(visible);
+  }
+  function readFileContent(filePath) {
+    try {
+      return fs9.readFileSync(filePath, "utf-8");
+    } catch (err) {
+      return `Failed to read file: ${err}`;
+    }
+  }
+  function updateContent() {
+    if (!modal.visible || !currentFilePath)
+      return;
+    const raw = readFileContent(currentFilePath);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, modalHeight - 5);
+    const maxOffset = Math.max(0, wrapped.length - maxLines);
+    if (appState2.logsModalTail) {
+      appState2.logsModalOffset = maxOffset;
+    } else {
+      appState2.logsModalOffset = clamp3(appState2.logsModalOffset, 0, maxOffset);
+    }
+    const visible = wrapped.slice(appState2.logsModalOffset, appState2.logsModalOffset + maxLines);
+    modal.setTitle(`Log File: ${path12.basename(currentFilePath)}`);
+    modal.setContent(visible.join(`
+`));
+    const tailLabel = appState2.logsModalTail ? " [TAIL]" : "";
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.logsModalOffset + 1}-${appState2.logsModalOffset + visible.length}/${wrapped.length}] j/k scroll | t tail${tailLabel} | y copy | q close` : `t tail${tailLabel} | y copy | q close`);
   }
   function move(delta) {
-    const max = Math.max(0, appState2.envKeyOptions.length - 1);
-    appState2.envKeyCursor = clamp2(appState2.envKeyCursor + delta, 0, max);
-    if (appState2.envKeyCursor < appState2.envKeyWindowStart) {
-      appState2.envKeyWindowStart = appState2.envKeyCursor;
-    } else if (appState2.envKeyCursor >= appState2.envKeyWindowStart + config2.envKeyVisibleCount) {
-      appState2.envKeyWindowStart = appState2.envKeyCursor - config2.envKeyVisibleCount + 1;
-    }
-    renderList();
+    appState2.logsModalTail = false;
+    appState2.logsModalOffset = Math.max(0, appState2.logsModalOffset + delta);
+    updateContent();
   }
-  async function rescan() {
-    appState2.envKeyScanInProgress = true;
-    appState2.envKeyError = null;
-    renderList();
-    try {
-      appState2.envKeyOptions = await scanEnvKeys(config2.envKeyScanRoot);
-      appState2.envKeyCursor = 0;
-      appState2.envKeyWindowStart = 0;
-    } catch (err) {
-      appState2.envKeyError = err?.message || "Scan failed";
-    } finally {
-      appState2.envKeyScanInProgress = false;
-      renderList();
-    }
-  }
-  async function open() {
+  function open(filePath) {
+    currentFilePath = filePath;
+    appState2.logsModalTail = true;
     toggle(true);
-    await rescan();
+    updateContent();
   }
-  async function select() {
-    const selected = appState2.envKeyOptions[appState2.envKeyCursor];
-    if (!selected)
+  async function copyContent() {
+    if (!currentFilePath)
       return;
-    backendKeys2[appState2.currentBackend] = selected.key;
-    backendKeySources2[appState2.currentBackend] = {
-      sourcePath: selected.sources[0] || null,
-      varName: selected.varNames[0] || null
-    };
-    toggle(false);
-    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
-    await persistSettings2({
-      settingsFilePath: config2.settingsFilePath,
-      getCurrentBackend: () => appState2.currentBackend,
-      getBackendKey: (id) => backendKeys2[id],
-      getBackendKeySource: (id) => backendKeySources2[id]
-    });
-    ctx.state.snapshot.status = "API key loaded from env file";
+    const raw = readFileContent(currentFilePath);
+    await copyToClipboard(raw);
+    snapshot2.status = `Copied: ${path12.basename(currentFilePath)}`;
     ctx.render();
   }
   function handleKey(key) {
-    if (!ui.envKeyModalVisible)
+    if (!modal.visible)
       return false;
-    if (key.name === "q" || key.name === "escape") {
-      toggle(false);
-      return true;
-    }
-    if (key.name === "return" || key.name === "enter") {
-      select();
-      return true;
-    }
     if (key.name === "up" || key.name === "k") {
       move(-1);
       return true;
@@ -22805,11 +24225,16 @@ Vars: ${selected.varNames.join(", ")}`;
       move(1);
       return true;
     }
-    if (key.name === "r") {
-      rescan();
+    if (key.name === "y") {
+      copyContent();
       return true;
     }
-    if (key.name === "m") {
+    if (key.name === "t") {
+      appState2.logsModalTail = true;
+      updateContent();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
       toggle(false);
       return true;
     }
@@ -22817,13 +24242,300 @@ Vars: ${selected.varNames.join(", ")}`;
   }
   return {
     get isVisible() {
-      return ui.envKeyModalVisible;
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    copyContent,
+    handleKey
+  };
+}
+// src/modals/profile-modal.ts
+function createProfileModal(ctx) {
+  const { renderer } = ctx;
+  const { snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "profile-modal",
+    width: 72,
+    height: 15,
+    borderColor: "#818cf8",
+    titleColor: "#818cf8",
+    zIndex: 10
+  });
+  modal.setTitle("Profile");
+  modal.setHint("q close");
+  function updateContent() {
+    const org = snapshot2.orgId || "-";
+    const user = snapshot2.userId || "-";
+    const apiKey = process.env.SYNTH_API_KEY || "-";
+    modal.setContent(`Organization:
+${org}
+
+User:
+${user}
+
+API Key:
+${apiKey}`);
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "profile-modal",
+        handleKey
+      });
+      modal.center();
+      updateContent();
+    } else {
+      focusManager.pop("profile-modal");
+    }
+    modal.setVisible(visible);
+  }
+  function open() {
+    toggle(true);
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  const controller = {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    handleKey
+  };
+  return controller;
+}
+// src/modals/results-modal.ts
+function createResultsModal(ctx) {
+  const { renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "results-modal",
+    width: 100,
+    height: 24,
+    borderColor: "#22c55e",
+    titleColor: "#22c55e",
+    zIndex: 8
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "results-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("results-modal");
+      modal.setContent("");
+    }
+    modal.setVisible(visible);
+  }
+  function updateContent() {
+    if (!modal.visible)
+      return;
+    const raw = formatResultsExpanded(snapshot2) ?? "No results available";
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.resultsModalOffset = clamp3(appState2.resultsModalOffset, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.resultsModalOffset, appState2.resultsModalOffset + maxLines);
+    modal.setTitle("Results - Best Snapshot");
+    modal.setContent(visible.join(`
+`));
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.resultsModalOffset + 1}-${appState2.resultsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy | q close` : "y copy | q close");
+  }
+  function move(delta) {
+    appState2.resultsModalOffset = Math.max(0, appState2.resultsModalOffset + delta);
+    updateContent();
+  }
+  function open() {
+    appState2.resultsModalOffset = 0;
+    toggle(true);
+    updateContent();
+  }
+  async function copyPrompt() {
+    const text = formatResultsExpanded(snapshot2);
+    if (text) {
+      await copyToClipboard(text);
+      snapshot2.status = "Results copied to clipboard";
+      ctx.render();
+    }
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "y") {
+      copyPrompt();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  const controller = {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    copyPrompt,
+    handleKey
+  };
+  return controller;
+}
+// src/modals/settings-modal.ts
+function createSettingsModal(ctx, deps) {
+  const { renderer } = ctx;
+  const { config: config2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "settings-modal",
+    width: 64,
+    height: 14,
+    borderColor: "#38bdf8",
+    titleColor: "#38bdf8",
+    zIndex: 10
+  });
+  modal.setTitle("Settings - Backend");
+  modal.setHint("j/k navigate  Enter select  Shift+E env keys  q close");
+  function buildSettingsOptions() {
+    return [backendConfigs.prod, backendConfigs.dev, backendConfigs.local];
+  }
+  function renderList() {
+    const lines = [];
+    for (let idx = 0;idx < appState.settingsOptions.length; idx++) {
+      const opt = appState.settingsOptions[idx];
+      const active = appState.currentBackend === opt.id;
+      const cursor = idx === appState.settingsCursor ? ">" : " ";
+      lines.push(`${cursor} [${active ? "x" : " "}] ${opt.label} (${opt.id})`);
+    }
+    const selected = appState.settingsOptions[appState.settingsCursor];
+    if (selected) {
+      const key = getKeyForBackend(selected.id);
+      const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)";
+      const frontendUrl = getFrontendUrl(selected.id);
+      lines.push("");
+      lines.push(`Backend: ${selected.baseUrl}`);
+      lines.push(`Frontend: ${frontendUrl}`);
+      lines.push(`Key: ${keyPreview}`);
+    }
+    modal.setContent(lines.join(`
+`));
+    renderer.requestRender();
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "settings-modal",
+        handleKey
+      });
+      modal.center();
+      appState.settingsOptions = buildSettingsOptions();
+      appState.settingsCursor = Math.max(0, appState.settingsOptions.findIndex((opt) => opt.id === appState.currentBackend));
+      renderList();
+    } else {
+      focusManager.pop("settings-modal");
+    }
+    modal.setVisible(visible);
+  }
+  function move(delta) {
+    const max = Math.max(0, appState.settingsOptions.length - 1);
+    appState.settingsCursor = clamp3(appState.settingsCursor + delta, 0, max);
+    renderList();
+  }
+  async function select() {
+    const selected = appState.settingsOptions[appState.settingsCursor];
+    if (!selected)
+      return;
+    appState.currentBackend = selected.id;
+    const baseUrl = selected.baseUrl.replace(/\/api$/, "");
+    process.env.SYNTH_BACKEND_URL = baseUrl;
+    process.env.SYNTH_API_KEY = getKeyForBackend(selected.id) || "";
+    toggle(false);
+    ctx.state.snapshot.status = `Switching to ${selected.label}...`;
+    ctx.render();
+    const { persistSettings: persistSettings2 } = await Promise.resolve().then(() => (init_settings(), exports_settings));
+    await persistSettings2({
+      settingsFilePath: config2.settingsFilePath,
+      getCurrentBackend: () => appState.currentBackend,
+      getFrontendKey: (id) => frontendKeys[id],
+      getFrontendKeySource: (id) => frontendKeySources[id]
+    });
+    if (deps?.onBackendSwitch) {
+      await deps.onBackendSwitch();
+    }
+  }
+  function open() {
+    toggle(true);
+  }
+  function openKeyModal() {
+    toggle(false);
+    deps?.onOpenKeyModal?.();
+  }
+  function openEnvKeyModal() {
+    toggle(false);
+    deps?.onOpenEnvKeyModal?.();
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter") {
+      select();
+      return true;
+    }
+    if (key.name === "k" && key.shift) {
+      openKeyModal();
+      return true;
+    }
+    if (key.name === "e" && key.shift) {
+      openEnvKeyModal();
+      return true;
+    }
+    if (key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
     },
     toggle,
     open,
     move,
     select,
-    rescan,
+    openKeyModal,
+    openEnvKeyModal,
     handleKey
   };
 }
@@ -22833,21 +24545,36 @@ var init_env_key_modal = __esm(() => {
 
 // src/modals/snapshot-modal.ts
 function createSnapshotModal(ctx) {
-  const { ui, renderer } = ctx;
-  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
-  function toggle(visible) {
-    ui.modalVisible = visible;
-    ui.modalBox.visible = visible;
-    ui.modalLabel.visible = visible;
-    ui.modalInput.visible = visible;
-    if (visible) {
-      blurForModal(ctx);
-      ui.modalInput.value = "";
-      ui.modalInput.focus();
-    } else {
-      restoreFocusFromModal(ctx);
+  const { renderer } = ctx;
+  const { snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "snapshot-modal",
+    width: 50,
+    height: 5,
+    borderColor: "#60a5fa",
+    titleColor: "#60a5fa",
+    zIndex: 5,
+    input: {
+      label: "Snapshot ID:",
+      placeholder: "Enter snapshot id",
+      width: 44
     }
-    renderer.requestRender();
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "snapshot-modal",
+        handleKey
+      });
+      modal.center();
+      if (modal.input) {
+        modal.input.value = "";
+        modal.input.focus();
+      }
+    } else {
+      focusManager.pop("snapshot-modal");
+    }
+    modal.setVisible(visible);
   }
   function open() {
     toggle(true);
@@ -22865,7 +24592,7 @@ function createSnapshotModal(ctx) {
     }
     toggle(false);
     try {
-      const { apiGet: apiGet2 } = await Promise.resolve().then(() => (init_client(), exports_client));
+      const { apiGet: apiGet2 } = await Promise.resolve().then(() => exports_client);
       await apiGet2(`/prompt-learning/online/jobs/${job.job_id}/snapshots/${trimmed}`);
       snapshot2.status = `Snapshot ${trimmed} fetched`;
     } catch (err) {
@@ -22873,24 +24600,451 @@ function createSnapshotModal(ctx) {
     }
     ctx.render();
   }
+  if (modal.input) {
+    modal.input.on(InputRenderableEvents.ENTER, (value) => {
+      apply(value);
+    });
+  }
   function handleKey(key) {
-    if (!ui.modalVisible)
+    if (!modal.visible)
       return false;
     if (key.name === "q" || key.name === "escape") {
       toggle(false);
       return true;
     }
-    return false;
+    return true;
   }
-  return {
+  const controller = {
     get isVisible() {
-      return ui.modalVisible;
+      return modal.visible;
     },
     toggle,
     open,
     apply,
     handleKey
   };
+  return controller;
+}
+// src/modals/urls-modal.ts
+function createUrlsModal(renderer) {
+  const modal = createModalUI(renderer, {
+    id: "urls-modal",
+    width: 60,
+    height: 10,
+    borderColor: "#f59e0b",
+    titleColor: "#f59e0b",
+    zIndex: 10
+  });
+  modal.setTitle("URLs");
+  modal.setHint("q close");
+  function updateContent() {
+    const backend = process.env.SYNTH_BACKEND_URL || "-";
+    const frontend = process.env.SYNTH_FRONTEND_URL || "-";
+    modal.setContent(`Backend:
+${backend}
+
+Frontend:
+${frontend}`);
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "urls-modal",
+        handleKey
+      });
+      modal.center();
+      updateContent();
+    } else {
+      focusManager.pop("urls-modal");
+    }
+    modal.setVisible(visible);
+  }
+  function open() {
+    toggle(true);
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  const controller = {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    handleKey
+  };
+  return controller;
+}
+// src/modals/usage-modal.ts
+function formatPlanName(planType) {
+  switch (planType) {
+    case "pro":
+      return "Pro";
+    case "team":
+      return "Team";
+    case "byok":
+      return "BYOK";
+    case "free":
+    default:
+      return "Free";
+  }
+}
+function formatStatus2(status) {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "trialing":
+      return "Trial";
+    case "past_due":
+      return "Past Due";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+}
+function formatUSD(amount) {
+  if (amount == null)
+    return "-";
+  return `$${amount.toFixed(2)}`;
+}
+function formatUsageDetails(data) {
+  if (!data) {
+    return "Loading usage data...";
+  }
+  const lines = [];
+  lines.push("=== PLAN INFO ===");
+  lines.push("");
+  lines.push(`Plan:     ${formatPlanName(data.plan_type)}`);
+  lines.push(`Status:   ${formatStatus2(data.status)}`);
+  const accessTier = data.access_tier || "alpha";
+  lines.push(`Access:   ${accessTier.charAt(0).toUpperCase() + accessTier.slice(1)}`);
+  if (data.byok_providers && data.byok_providers.length > 0) {
+    const providers = data.byok_providers.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(", ");
+    lines.push(`BYOK:     ${providers}`);
+  }
+  lines.push("");
+  lines.push("Features:");
+  if (data.limits.unlimited_non_rollout) {
+    lines.push("  [*] Unlimited non-rollout usage");
+  }
+  if (data.limits.byok_enabled) {
+    lines.push("  [*] BYOK enabled");
+  }
+  if (data.limits.team_features_enabled) {
+    lines.push("  [*] Team features");
+  }
+  lines.push("");
+  if (data.plan_type === "pro" || data.plan_type === "team") {
+    lines.push("=== ROLLOUT CREDITS ===");
+    lines.push("");
+    lines.push(`Monthly:   ${formatUSD(data.limits.monthly_rollout_credits_usd)}`);
+    lines.push(`Remaining: ${formatUSD(data.rollout_credits_balance_usd)}`);
+    lines.push(`Used:      ${formatUSD(data.rollout_credits_used_this_period_usd)}`);
+    lines.push("");
+  }
+  lines.push("=== USAGE (30 DAYS) ===");
+  lines.push("");
+  if (data.usage_summary) {
+    const summary = data.usage_summary;
+    lines.push(`Total:   ${formatUSD(summary.total_cost_usd)}`);
+    lines.push(`Charged: ${formatUSD(summary.total_charged_usd)}`);
+    if (summary.total_uncharged_usd > 0) {
+      lines.push(`Savings: ${formatUSD(summary.total_uncharged_usd)}`);
+    }
+    lines.push("");
+    if (summary.by_type && summary.by_type.length > 0) {
+      lines.push("By type:");
+      for (const item of summary.by_type) {
+        const byok = item.byok_event_count > 0 ? ` (${item.byok_event_count} BYOK)` : "";
+        lines.push(`  ${item.usage_type.padEnd(12)} ${formatUSD(item.total_cost_usd).padStart(10)} (${item.event_count} events${byok})`);
+      }
+    } else {
+      lines.push("No usage in last 30 days.");
+    }
+  } else {
+    lines.push("No usage data available.");
+  }
+  return lines.join(`
+`);
+}
+function createUsageModal(ctx) {
+  const { renderer } = ctx;
+  let usageData = null;
+  const modal = createModalUI(renderer, {
+    id: "usage-modal",
+    width: 72,
+    height: 28,
+    borderColor: "#10b981",
+    titleColor: "#10b981",
+    zIndex: 10
+  });
+  modal.setTitle("Usage & Plan");
+  modal.setHint("j/k scroll  b open billing  q close");
+  function updateContent() {
+    const raw = formatUsageDetails(usageData);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.min(68, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, 22);
+    appState.usageModalOffset = clamp3(appState.usageModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState.usageModalOffset, appState.usageModalOffset + maxLines);
+    const scrollIndicator = wrapped.length > maxLines ? `[${appState.usageModalOffset + 1}-${appState.usageModalOffset + visible.length}/${wrapped.length}]` : "";
+    modal.setTitle(`Usage & Plan - ${formatPlanName(usageData?.plan_type || "free")} ${scrollIndicator}`);
+    modal.setContent(visible.join(`
+`));
+    renderer.requestRender();
+  }
+  function setData(data) {
+    usageData = data;
+    updateContent();
+  }
+  async function fetchUsageData() {
+    try {
+      const response = await apiGetV1("/usage-plan");
+      const data = {
+        plan_type: response.plan_type,
+        status: response.status,
+        access_tier: response.access_tier ?? "alpha",
+        rollout_credits_balance_usd: response.rollout_credits_balance_usd ?? null,
+        rollout_credits_used_this_period_usd: response.rollout_credits_used_this_period_usd ?? null,
+        byok_providers: response.byok_providers || [],
+        limits: {
+          monthly_rollout_credits_usd: response.limits?.monthly_rollout_credits_usd ?? 0,
+          max_overdraft_usd: response.limits?.max_overdraft_usd ?? 0,
+          unlimited_non_rollout: response.limits?.unlimited_non_rollout ?? false,
+          team_features_enabled: response.limits?.team_features_enabled ?? false,
+          byok_enabled: response.limits?.byok_enabled ?? false
+        },
+        usage_summary: response.usage_summary ? {
+          total_cost_usd: response.usage_summary.total_cost_usd ?? 0,
+          total_charged_usd: response.usage_summary.total_charged_usd ?? 0,
+          total_uncharged_usd: response.usage_summary.total_uncharged_usd ?? 0,
+          by_type: response.usage_summary.by_type || []
+        } : undefined
+      };
+      setData(data);
+    } catch (err) {
+      const fallbackData = {
+        plan_type: "free",
+        status: "active",
+        rollout_credits_balance_usd: null,
+        rollout_credits_used_this_period_usd: null,
+        byok_providers: [],
+        limits: {
+          monthly_rollout_credits_usd: 0,
+          max_overdraft_usd: 0,
+          unlimited_non_rollout: false,
+          team_features_enabled: false,
+          byok_enabled: false
+        }
+      };
+      setData(fallbackData);
+      ctx.state.snapshot.lastError = `Usage fetch failed: ${err?.message || "Unknown"}`;
+      ctx.render();
+    }
+  }
+  function openBillingPage() {
+    try {
+      const frontendUrl = getFrontendUrl(appState.currentBackend);
+      const usageUrl = `${frontendUrl}/usage`;
+      openBrowser(usageUrl);
+      ctx.state.snapshot.status = `Opened: ${usageUrl}`;
+      ctx.render();
+    } catch (err) {
+      ctx.state.snapshot.status = `Failed to open browser: ${err?.message || "Unknown"}`;
+      ctx.render();
+    }
+  }
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "usage-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("usage-modal");
+    }
+    modal.setVisible(visible);
+  }
+  async function open() {
+    appState.usageModalOffset = 0;
+    setData(null);
+    toggle(true);
+    updateContent();
+    await fetchUsageData();
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "b") {
+      openBillingPage();
+      return true;
+    }
+    if (key.name === "up" || key.name === "k") {
+      appState.usageModalOffset = Math.max(0, (appState.usageModalOffset || 0) - 1);
+      updateContent();
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      appState.usageModalOffset = (appState.usageModalOffset || 0) + 1;
+      updateContent();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  return {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    setData,
+    handleKey
+  };
+}
+// src/modals/task-apps-modal.ts
+function formatTunnelDetails(tunnels, healthResults, selectedIndex) {
+  if (tunnels.length === 0) {
+    return `No active task apps (tunnels).
+
+Task apps are Cloudflare managed tunnels that expose
+local APIs to the internet for remote execution.`;
+  }
+  const lines = [];
+  tunnels.forEach((tunnel, idx) => {
+    const health = healthResults.get(tunnel.id);
+    const isSelected = idx === selectedIndex;
+    let healthIcon = "?";
+    let healthText = "Unknown";
+    if (health) {
+      if (health.healthy) {
+        healthIcon = "\u2713";
+        healthText = `Healthy (${health.response_time_ms}ms)`;
+      } else {
+        healthIcon = "\u2717";
+        healthText = health.error || "Unhealthy";
+      }
+    }
+    const portMatch = tunnel.hostname.match(/task-(\d+)-\d+/);
+    const displayPort = portMatch ? portMatch[1] : tunnel.local_port;
+    const prefix = isSelected ? "> " : "  ";
+    lines.push(`${prefix}[${healthIcon}] ${tunnel.hostname}`);
+    lines.push(`     Port: ${displayPort} | ${healthText}`);
+    lines.push(`     Local: ${tunnel.local_host}:${tunnel.local_port}`);
+    if (tunnel.org_name) {
+      lines.push(`     Org: ${tunnel.org_name}`);
+    }
+    lines.push("");
+  });
+  return lines.join(`
+`);
+}
+function createTaskAppsModal(ctx) {
+  const { renderer } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const modal = createModalUI(renderer, {
+    id: "task-apps-modal",
+    width: 90,
+    height: 20,
+    borderColor: "#06b6d4",
+    titleColor: "#06b6d4",
+    zIndex: 8
+  });
+  function toggle(visible) {
+    if (visible) {
+      focusManager.push({
+        id: "task-apps-modal",
+        handleKey
+      });
+      modal.center();
+    } else {
+      focusManager.pop("task-apps-modal");
+      modal.setContent("");
+    }
+    modal.setVisible(visible);
+  }
+  function updateContent() {
+    if (!modal.visible)
+      return;
+    const raw = formatTunnelDetails(snapshot2.tunnels, snapshot2.tunnelHealthResults, appState2.taskAppsModalSelectedIndex || 0);
+    const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+    const maxWidth = Math.max(20, cols - 20);
+    const wrapped = wrapModalText(raw, maxWidth);
+    const maxLines = Math.max(1, (typeof process.stdout?.rows === "number" ? process.stdout.rows : 40) - 12);
+    appState2.taskAppsModalOffset = clamp3(appState2.taskAppsModalOffset || 0, 0, Math.max(0, wrapped.length - maxLines));
+    const visible = wrapped.slice(appState2.taskAppsModalOffset, appState2.taskAppsModalOffset + maxLines);
+    const tunnelCount = snapshot2.tunnels.length;
+    modal.setTitle(`Task Apps (${tunnelCount} tunnel${tunnelCount !== 1 ? "s" : ""})`);
+    modal.setContent(visible.join(`
+`));
+    modal.setHint(wrapped.length > maxLines ? `[${appState2.taskAppsModalOffset + 1}-${appState2.taskAppsModalOffset + visible.length}/${wrapped.length}] j/k scroll | y copy hostname | q close` : "j/k select | y copy hostname | q close");
+  }
+  function move(delta) {
+    const maxIndex = Math.max(0, snapshot2.tunnels.length - 1);
+    appState2.taskAppsModalSelectedIndex = clamp3((appState2.taskAppsModalSelectedIndex || 0) + delta, 0, maxIndex);
+    updateContent();
+  }
+  function open() {
+    appState2.taskAppsModalOffset = 0;
+    appState2.taskAppsModalSelectedIndex = 0;
+    toggle(true);
+    updateContent();
+  }
+  async function copyHostname() {
+    const selectedIndex = appState2.taskAppsModalSelectedIndex || 0;
+    const tunnel = snapshot2.tunnels[selectedIndex];
+    if (tunnel) {
+      const url = `https://${tunnel.hostname}`;
+      await copyToClipboard(url);
+      snapshot2.status = `Copied: ${url}`;
+      ctx.render();
+    }
+  }
+  function handleKey(key) {
+    if (!modal.visible)
+      return false;
+    if (key.name === "up" || key.name === "k") {
+      move(-1);
+      return true;
+    }
+    if (key.name === "down" || key.name === "j") {
+      move(1);
+      return true;
+    }
+    if (key.name === "y") {
+      copyHostname();
+      return true;
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "q" || key.name === "escape") {
+      toggle(false);
+      return true;
+    }
+    return true;
+  }
+  const controller = {
+    get isVisible() {
+      return modal.visible;
+    },
+    toggle,
+    open,
+    move,
+    updateContent,
+    copyHostname,
+    handleKey
+  };
+  return controller;
 }
 var init_snapshot_modal = () => {};
 
@@ -23368,115 +25522,16 @@ var init_modals = __esm(() => {
 
 // src/handlers/keyboard.ts
 function createKeyboardHandler(ctx, modals) {
-  const { renderer, ui } = ctx;
-  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
   return function handleKeypress(key) {
     if (key.ctrl && key.name === "c") {
-      renderer.stop();
-      renderer.destroy();
-      process.exit(0);
+      shutdown(0);
+      return;
+    }
+    if (focusManager.handleKey(key)) {
+      return;
     }
     if (key.name === "q" || key.name === "escape") {
-      if (modals.login.isVisible) {
-        modals.login.toggle(false);
-        return;
-      }
-      if (modals.key.isVisible) {
-        modals.key.handleKey(key);
-        return;
-      }
-      if (modals.envKey.isVisible) {
-        modals.envKey.handleKey(key);
-        return;
-      }
-      if (modals.jobFilter.isVisible) {
-        modals.jobFilter.handleKey(key);
-        return;
-      }
-      if (modals.settings.isVisible) {
-        modals.settings.handleKey(key);
-        return;
-      }
-      if (modals.event.isVisible) {
-        modals.event.handleKey(key);
-        return;
-      }
-      if (modals.results.isVisible) {
-        modals.results.handleKey(key);
-        return;
-      }
-      if (modals.config.isVisible) {
-        modals.config.handleKey(key);
-        return;
-      }
-      if (modals.filter.isVisible) {
-        modals.filter.handleKey(key);
-        return;
-      }
-      if (modals.promptBrowser?.isVisible) {
-        modals.promptBrowser.handleKey(key);
-        return;
-      }
-      if (modals.snapshot.isVisible) {
-        modals.snapshot.handleKey(key);
-        return;
-      }
-      if (modals.taskApps.isVisible) {
-        modals.taskApps.handleKey(key);
-        return;
-      }
-      if (modals.usage.isVisible) {
-        modals.usage.handleKey(key);
-        return;
-      }
-      renderer.stop();
-      renderer.destroy();
-      process.exit(0);
-    }
-    if (modals.login.isVisible) {
-      if (key.name === "return" || key.name === "enter") {
-        modals.login.startAuth();
-      }
-      return;
-    }
-    if (modals.key.isVisible) {
-      modals.key.handleKey(key);
-      return;
-    }
-    if (modals.envKey.isVisible) {
-      modals.envKey.handleKey(key);
-      return;
-    }
-    if (modals.event.isVisible) {
-      modals.event.handleKey(key);
-      return;
-    }
-    if (modals.results.isVisible) {
-      modals.results.handleKey(key);
-      return;
-    }
-    if (modals.config.isVisible) {
-      modals.config.handleKey(key);
-      return;
-    }
-    if (modals.promptBrowser?.isVisible) {
-      modals.promptBrowser.handleKey(key);
-      return;
-    }
-    if (modals.settings.isVisible) {
-      modals.settings.handleKey(key);
-      return;
-    }
-    if (modals.filter.isVisible) {
-      modals.filter.handleKey(key);
-      return;
-    }
-    if (modals.jobFilter.isVisible) {
-      modals.jobFilter.handleKey(key);
-      return;
-    }
-    if (modals.snapshot.isVisible) {
-      modals.snapshot.handleKey(key);
+      shutdown(0);
       return;
     }
     if (modals.taskApps.isVisible) {
@@ -23488,7 +25543,7 @@ function createKeyboardHandler(ctx, modals) {
       return;
     }
     if (key.name === "tab") {
-      setActivePane(ctx, appState2.activePane === "jobs" ? "events" : "jobs");
+      cycleActivePane(ctx);
       return;
     }
     if (key.name === "e") {
@@ -23499,26 +25554,20 @@ function createKeyboardHandler(ctx, modals) {
       setActivePane(ctx, "jobs");
       return;
     }
+    if (key.name === "g") {
+      setActivePane(ctx, "logs");
+      return;
+    }
     if (key.name === "r") {
       refreshJobs(ctx).then(() => ctx.render());
       return;
     }
-    if (key.name === "l" && !key.shift) {
-      modals.login.toggle(true);
-      return;
-    }
-    if (key.name === "l" && key.shift) {
-      ctx.state.backendKeys[appState2.currentBackend] = "";
-      snapshot2.status = "Logged out";
-      ctx.render();
+    if (key.name === "l") {
+      modals.login.logout();
       return;
     }
     if (key.name === "f") {
       modals.filter.open();
-      return;
-    }
-    if (key.name === "t") {
-      modals.settings.open();
       return;
     }
     if (key.name === "i") {
@@ -23526,6 +25575,12 @@ function createKeyboardHandler(ctx, modals) {
       return;
     }
     if (key.name === "p") {
+      if (!process.env.SYNTH_API_KEY)
+        return;
+      modals.profile.open();
+      return;
+    }
+    if (key.name === "o") {
       modals.results.open();
       return;
     }
@@ -23533,16 +25588,28 @@ function createKeyboardHandler(ctx, modals) {
       modals.jobFilter.open();
       return;
     }
-    if (key.name === "s") {
+    if (key.name === "s" && !key.shift) {
       modals.snapshot.open();
       return;
     }
-    if (key.name === "u") {
-      modals.taskApps.open();
+    if (key.name === "s" && key.shift) {
+      modals.urls.open();
+      return;
+    }
+    if (key.name === "t") {
+      modals.settings.open();
       return;
     }
     if (key.name === "d") {
       modals.usage.open();
+      return;
+    }
+    if (key.name === "n") {
+      modals.createJob.open();
+      return;
+    }
+    if (key.name === "u") {
+      modals.taskApps.open();
       return;
     }
     if (key.name === "c") {
@@ -23557,51 +25624,14 @@ function createKeyboardHandler(ctx, modals) {
       fetchMetrics(ctx).then(() => ctx.render());
       return;
     }
-    if (appState2.activePane === "events") {
-      if (key.name === "up" || key.name === "k") {
-        moveEventSelection(ctx, -1);
-        ctx.render();
-        return;
-      }
-      if (key.name === "down" || key.name === "j") {
-        moveEventSelection(ctx, 1);
-        ctx.render();
-        return;
-      }
-      if (key.name === "return" || key.name === "enter") {
-        modals.event.open();
-        return;
-      }
-      if (key.name === "x") {
-        toggleSelectedEventExpanded(ctx);
-        ctx.render();
-        return;
-      }
-    }
   };
 }
-function createPasteHandler(ctx, keyModal) {
-  const { ui, renderer } = ctx;
-  return function handlePaste(key) {
-    if (!keyModal.isVisible)
-      return;
-    const seq = typeof key?.sequence === "string" ? key.sequence : "";
-    if (!seq)
-      return;
-    const cleaned = seq.replace("\x1B[200~", "").replace("\x1B[201~", "").replace(/\s+/g, "");
-    if (!cleaned)
-      return;
-    ui.keyModalInput.value = (ui.keyModalInput.value || "") + cleaned;
-    renderer.requestRender();
-  };
-}
-var init_keyboard = __esm(async () => {
-  init_jobs();
-  await init_events();
-});
+
+// src/app.ts
+init_jobs();
 
 // src/api/events.ts
-function clamp3(value, min, max) {
+function clamp5(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 function eventMatchesFilter2(event, filter) {
@@ -23678,8 +25708,8 @@ async function refreshEvents(ctx) {
       }
       if (config2.eventHistoryLimit > 0 && snapshot2.events.length > config2.eventHistoryLimit) {
         snapshot2.events = snapshot2.events.slice(-config2.eventHistoryLimit);
-        appState2.selectedEventIndex = clamp3(appState2.selectedEventIndex, 0, Math.max(0, snapshot2.events.length - 1));
-        appState2.eventWindowStart = clamp3(appState2.eventWindowStart, 0, Math.max(0, snapshot2.events.length - Math.max(1, config2.eventVisibleCount)));
+        appState2.selectedEventIndex = clamp5(appState2.selectedEventIndex, 0, Math.max(0, snapshot2.events.length - 1));
+        appState2.eventWindowStart = clamp5(appState2.eventWindowStart, 0, Math.max(0, snapshot2.events.length - Math.max(1, config2.eventVisibleCount)));
       }
       appState2.lastSeq = Math.max(appState2.lastSeq, ...events2.map((e) => e.seq));
     }
@@ -23722,11 +25752,10 @@ async function refreshIdentity(ctx) {
     snapshot2.balanceDollars = null;
   }
 }
-async function refreshHealth2(ctx) {
+async function refreshHealth(ctx) {
   const { appState: appState2 } = ctx.state;
   try {
-    const baseRoot = getActiveBaseRoot();
-    const res = await fetch(`${baseRoot}/health`);
+    const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`);
     appState2.healthStatus = res.ok ? "ok" : `bad(${res.status})`;
   } catch (err) {
     appState2.healthStatus = `err(${err?.message || "unknown"})`;
@@ -23841,11 +25870,193 @@ var init_tunnels = __esm(() => {
   init_client();
 });
 
+// src/api/tunnels.ts
+async function fetchTunnels(statusFilter = "active") {
+  try {
+    const tunnels = await apiGetV1(`/tunnels/?status_filter=${statusFilter}`);
+    return tunnels || [];
+  } catch (err) {
+    console.error("Failed to fetch tunnels:", err?.message || err);
+    return [];
+  }
+}
+async function refreshTunnels(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  try {
+    snapshot2.tunnelsLoading = true;
+    const tunnels = await fetchTunnels("active");
+    snapshot2.tunnels = tunnels;
+    snapshot2.tunnelsLoading = false;
+    return true;
+  } catch (err) {
+    snapshot2.tunnelsLoading = false;
+    return false;
+  }
+}
+async function refreshTunnelHealth(ctx) {
+  const { snapshot: snapshot2 } = ctx.state;
+  if (snapshot2.tunnels.length === 0)
+    return;
+  const results2 = await checkAllTunnelsHealth(snapshot2.tunnels);
+  snapshot2.tunnelHealthResults = results2;
+}
+async function checkTunnelHealth(tunnel, timeout = 5000) {
+  const url = tunnel.hostname.startsWith("http") ? tunnel.hostname : `https://${tunnel.hostname}`;
+  const healthUrl = `${url}/health`;
+  const startTime = Date.now();
+  try {
+    const controller = new AbortController;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const response = await fetch(healthUrl, {
+      signal: controller.signal,
+      method: "GET"
+    });
+    clearTimeout(timeoutId);
+    const elapsed = Date.now() - startTime;
+    const statusCode = response.status;
+    if (statusCode === 200) {
+      return {
+        healthy: true,
+        status_code: statusCode,
+        response_time_ms: elapsed,
+        checked_at: new Date
+      };
+    } else if (statusCode === 404 || statusCode === 405) {
+      return {
+        healthy: true,
+        status_code: statusCode,
+        response_time_ms: elapsed,
+        error: "Health endpoint not found (tunnel working)",
+        checked_at: new Date
+      };
+    } else if (statusCode === 530) {
+      return {
+        healthy: false,
+        status_code: statusCode,
+        response_time_ms: elapsed,
+        error: "Tunnel not connected (530)",
+        checked_at: new Date
+      };
+    } else {
+      return {
+        healthy: false,
+        status_code: statusCode,
+        response_time_ms: elapsed,
+        error: `Unhealthy status: ${statusCode}`,
+        checked_at: new Date
+      };
+    }
+  } catch (err) {
+    const elapsed = Date.now() - startTime;
+    const errorMessage = err?.name === "AbortError" ? `Timeout after ${timeout}ms` : err?.message || "Unknown error";
+    return {
+      healthy: false,
+      error: errorMessage,
+      response_time_ms: elapsed,
+      checked_at: new Date
+    };
+  }
+}
+async function checkAllTunnelsHealth(tunnels, timeout = 5000, maxConcurrent = 15) {
+  const results2 = new Map;
+  for (let i = 0;i < tunnels.length; i += maxConcurrent) {
+    const batch = tunnels.slice(i, i + maxConcurrent);
+    const batchResults = await Promise.all(batch.map(async (tunnel) => {
+      const result = await checkTunnelHealth(tunnel, timeout);
+      return { id: tunnel.id, result };
+    }));
+    for (const { id, result } of batchResults) {
+      results2.set(id, result);
+    }
+  }
+  return results2;
+}
+
+// src/api/jobs-stream.ts
+function connectJobsStream(onEvent, onError, sinceSeq = 0) {
+  let aborted = false;
+  const controller = new AbortController;
+  const url = `${process.env.SYNTH_BACKEND_URL}/api/jobs/stream?since_seq=${sinceSeq}`;
+  const apiKey = process.env.SYNTH_API_KEY || "";
+  (async () => {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "text/event-stream"
+        },
+        signal: controller.signal
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`SSE stream failed: HTTP ${res.status} ${res.statusText} - ${body.slice(0, 100)}`);
+      }
+      if (!res.body) {
+        throw new Error("SSE stream: no response body");
+      }
+      const reader = res.body.getReader();
+      const decoder2 = new TextDecoder;
+      let buffer = "";
+      let currentEvent = {};
+      while (!aborted) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        buffer += decoder2.decode(value, { stream: true });
+        const lines = buffer.split(`
+`);
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.startsWith(":")) {
+            continue;
+          }
+          if (line === "") {
+            if (currentEvent.data) {
+              try {
+                const data = JSON.parse(currentEvent.data);
+                onEvent(data);
+              } catch {}
+            }
+            currentEvent = {};
+            continue;
+          }
+          const colonIdx = line.indexOf(":");
+          if (colonIdx === -1)
+            continue;
+          const field = line.slice(0, colonIdx);
+          let value2 = line.slice(colonIdx + 1);
+          if (value2.startsWith(" "))
+            value2 = value2.slice(1);
+          switch (field) {
+            case "event":
+              currentEvent.type = value2;
+              break;
+            case "data":
+              currentEvent.data = (currentEvent.data ?? "") + value2;
+              break;
+            case "id":
+              currentEvent.id = value2;
+              break;
+          }
+        }
+      }
+    } catch (err) {
+      if (!aborted && err?.name !== "AbortError") {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+  })();
+  return {
+    disconnect: () => {
+      aborted = true;
+      controller.abort();
+    }
+  };
+}
+
 // src/app.ts
-var exports_app = {};
-__export(exports_app, {
-  runApp: () => runApp
-});
+init_polling();
+init_settings();
 async function runApp() {
   const renderer = await createCliRenderer({
     useConsole: false,
@@ -23853,159 +26064,246 @@ async function runApp() {
     openConsoleOnError: false,
     backgroundColor: "#0b1120"
   });
+  registerRenderer(renderer);
+  installSignalHandlers();
+  await loadPersistedSettings({
+    settingsFilePath: config.settingsFilePath,
+    normalizeBackendId,
+    setCurrentBackend: (id) => {
+      appState.currentBackend = id;
+    },
+    setFrontendKey: (id, key) => {
+      frontendKeys[id] = key;
+    },
+    setFrontendKeySource: (id, source) => {
+      frontendKeySources[id] = source;
+    }
+  });
+  const currentConfig = backendConfigs[appState.currentBackend];
+  process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "");
+  process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || "";
   const ui = buildLayout(renderer, () => "");
   let ctx;
   function render() {
-    renderApp(ctx);
+    try {
+      renderApp(ctx);
+    } catch {}
   }
   ctx = createAppContext({
     renderer,
     ui,
     render
   });
-  await loadPersistedSettings({
-    settingsFilePath: ctx.state.config.settingsFilePath,
-    normalizeBackendId,
-    setCurrentBackend: (id) => {
-      ctx.state.appState.currentBackend = id;
-    },
-    setBackendKey: (id, key) => {
-      ctx.state.backendKeys[id] = key;
-    },
-    setBackendKeySource: (id, source) => {
-      ctx.state.backendKeySources[id] = source;
-    }
-  });
-  const synthApiKey = process.env.SYNTH_API_KEY || process.env.SYNTH_TUI_API_KEY_LOCAL || "";
-  if (!ctx.state.backendKeys.local?.trim() && synthApiKey) {
-    ctx.state.backendKeys.local = synthApiKey;
-  }
   const loginModal = createLoginModal({
-    ui,
     renderer,
-    getCurrentBackend: () => ctx.state.appState.currentBackend,
-    getBackendConfig: () => ctx.state.backendConfigs[ctx.state.appState.currentBackend],
-    getBackendKeys: () => ctx.state.backendKeys,
-    setBackendKey: (backend, key, source) => {
-      ctx.state.backendKeys[backend] = key;
-      ctx.state.backendKeySources[backend] = source;
-    },
-    persistSettings: async () => {
-      await persistSettings({
-        settingsFilePath: ctx.state.config.settingsFilePath,
-        getCurrentBackend: () => ctx.state.appState.currentBackend,
-        getBackendKey: (id) => ctx.state.backendKeys[id],
-        getBackendKeySource: (id) => ctx.state.backendKeySources[id]
-      });
-    },
     bootstrap: async () => {
       await bootstrap();
     },
     getSnapshot: () => ctx.state.snapshot,
-    renderSnapshot: render,
-    getActivePane: () => ctx.state.appState.activePane
+    renderSnapshot: render
   });
   const eventModal = createEventModal(ctx);
   const resultsModal = createResultsModal(ctx);
   const configModal = createConfigModal(ctx);
-  const settingsModal = createSettingsModal(ctx);
   const filterModal = createFilterModal(ctx);
   const jobFilterModal = createJobFilterModal(ctx);
   const keyModal = createKeyModal(ctx);
   const envKeyModal = createEnvKeyModal(ctx);
+  const settingsModal = createSettingsModal(ctx, {
+    onOpenKeyModal: () => keyModal.open(),
+    onOpenEnvKeyModal: () => void envKeyModal.open(),
+    onBackendSwitch: async () => {
+      try {
+        await refreshIdentity(ctx);
+        await refreshJobs(ctx);
+        if (ctx.state.snapshot.jobs.length > 0) {
+          await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id);
+        }
+        ctx.state.snapshot.status = `Connected to ${appState.currentBackend}`;
+      } catch (err) {
+        ctx.state.snapshot.status = `Switch failed: ${err?.message || "unknown error"}`;
+      }
+      render();
+    }
+  });
   const snapshotModal = createSnapshotModal(ctx);
-  const taskAppsModal = createTaskAppsModal(ctx);
+  const profileModal = createProfileModal(ctx);
+  const urlsModal = createUrlsModal(renderer);
   const usageModal = createUsageModal(ctx);
+  const createJobModal = createCreateJobModal(ctx);
+  const taskAppsModal = createTaskAppsModal(ctx);
+  const logFileModal = createLogFileModal(ctx);
   const modals = {
     login: loginModal,
     event: eventModal,
     results: resultsModal,
     config: configModal,
-    settings: settingsModal,
     filter: filterModal,
     jobFilter: jobFilterModal,
     key: keyModal,
-    envKey: envKeyModal,
+    settings: settingsModal,
     snapshot: snapshotModal,
+    profile: profileModal,
+    urls: urlsModal,
+    usage: usageModal,
+    createJob: createJobModal,
     taskApps: taskAppsModal,
-    usage: usageModal
+    logFile: logFileModal
   };
   const handleKeypress = createKeyboardHandler(ctx, modals);
-  const handlePaste = createPasteHandler(ctx, keyModal);
   renderer.keyInput.on("keypress", handleKeypress);
-  renderer.keyInput.on("paste", handlePaste);
   ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx, option) => {
     if (!option?.value)
       return;
     if (ctx.state.snapshot.selectedJob?.job_id !== option.value) {
-      selectJob(ctx, option.value).then(() => render());
+      selectJob(ctx, option.value).then(() => render()).catch(() => {});
     }
   });
-  ui.modalInput.on(InputRenderableEvents.CHANGE, (value) => {
-    if (!value.trim()) {
-      snapshotModal.toggle(false);
-      return;
-    }
-    snapshotModal.apply(value.trim());
+  focusManager.setDefault({
+    id: "jobs-pane",
+    onFocus: () => ui.jobsSelect.focus(),
+    onBlur: () => ui.jobsSelect.blur()
   });
-  ui.modalInput.on(InputRenderableEvents.ENTER, (value) => {
-    if (!value.trim()) {
-      snapshotModal.toggle(false);
-      return;
-    }
-    snapshotModal.apply(value.trim());
-  });
-  ui.filterInput.on(InputRenderableEvents.CHANGE, (value) => {
-    ctx.state.appState.eventFilter = value.trim();
-    filterModal.toggle(false);
-    render();
-  });
-  ui.keyModalInput.on(InputRenderableEvents.ENTER, (value) => {
-    keyModal.apply(value);
-  });
+  initPaneFocusables(ctx, modals.event.open, modals.logFile.open);
   renderer.start();
-  ui.jobsSelect.focus();
   render();
-  if (!getActiveApiKey()) {
-    ctx.state.snapshot.lastError = `Missing API key for ${ctx.state.backendConfigs[ctx.state.appState.currentBackend].label}`;
+  registerInterval(setInterval(() => {
+    if (ctx.state.appState.activePane === "logs") {
+      render();
+    }
+  }, 1000));
+  const loggedOutMarkerSet = isLoggedOutMarkerSet();
+  if (loggedOutMarkerSet) {
     ctx.state.snapshot.status = "Sign in required";
     render();
     loginModal.toggle(true);
   } else {
-    bootstrap().catch((err) => {
-      ctx.state.snapshot.lastError = err?.message || "Bootstrap failed";
-      ctx.state.snapshot.status = "Startup error";
+    if (!process.env.SYNTH_API_KEY) {
+      const savedKey = loadSavedApiKey();
+      if (savedKey) {
+        process.env.SYNTH_API_KEY = savedKey;
+      }
+    }
+    if (!process.env.SYNTH_API_KEY) {
+      ctx.state.snapshot.status = "Sign in required";
       render();
-    });
+      loginModal.toggle(true);
+    } else {
+      tryAutoLogin().catch(() => {
+        process.env.SYNTH_API_KEY = "";
+        ctx.state.snapshot.status = "Sign in required";
+        render();
+        loginModal.toggle(true);
+      });
+    }
+  }
+  async function tryAutoLogin() {
+    await refreshIdentity(ctx);
+    if (!ctx.state.snapshot.userId) {
+      throw new Error("Invalid API key");
+    }
+    await bootstrap();
   }
   async function bootstrap() {
-    refreshHealth2(ctx);
+    refreshHealth(ctx).catch(() => {});
     await refreshIdentity(ctx);
     await refreshJobs(ctx);
     await refreshTunnels(ctx);
-    refreshTunnelHealth(ctx).then(() => render());
+    refreshTunnelHealth(ctx).then(() => render()).catch(() => {});
     const { initialJobId } = ctx.state.config;
     if (initialJobId) {
       await selectJob(ctx, initialJobId);
     } else if (ctx.state.snapshot.jobs.length > 0) {
       await selectJob(ctx, ctx.state.snapshot.jobs[0].job_id);
     }
-    scheduleJobsPoll();
+    startJobsStream();
     scheduleEventsPoll();
-    setInterval(() => void refreshHealth2(ctx), 30000);
-    setInterval(() => void refreshIdentity(ctx).then(() => render()), 60000);
-    setInterval(() => void refreshTunnels(ctx).then(() => render()), 30000);
-    setInterval(() => void refreshTunnelHealth(ctx).then(() => render()), 15000);
+    registerInterval(setInterval(() => void refreshHealth(ctx).catch(() => {}), 30000));
+    registerInterval(setInterval(() => void refreshIdentity(ctx).then(() => render()).catch(() => {}), 60000));
+    registerInterval(setInterval(() => void refreshTunnels(ctx).then(() => render()).catch(() => {}), 30000));
+    registerInterval(setInterval(() => void refreshTunnelHealth(ctx).then(() => render()).catch(() => {}), 15000));
+    registerCleanup("sse", () => pollingState.sseDisconnect?.());
     render();
   }
+  function startJobsStream() {
+    const { pollingState: pollingState2 } = ctx.state;
+    if (!process.env.SYNTH_API_KEY) {
+      scheduleJobsPoll();
+      return;
+    }
+    const stream = connectJobsStream((event) => handleJobStreamEvent(event), (err) => handleJobStreamError(err), pollingState2.lastSseSeq);
+    pollingState2.sseConnected = true;
+    pollingState2.sseDisconnect = stream.disconnect;
+    pollingState2.sseReconnectDelay = 1000;
+    clearJobsTimer();
+  }
+  function handleJobStreamEvent(event) {
+    const { snapshot: snapshot2, pollingState: pollingState2 } = ctx.state;
+    pollingState2.lastSseSeq = event.seq;
+    const selectedJobId = snapshot2.selectedJob?.job_id;
+    const idx = snapshot2.jobs.findIndex((j) => j.job_id === event.job_id);
+    if (event.type === "job.created" && idx === -1) {
+      snapshot2.jobs.unshift({
+        job_id: event.job_id,
+        status: event.status,
+        training_type: event.algorithm ?? null,
+        created_at: event.created_at ?? null,
+        started_at: event.started_at ?? null,
+        finished_at: event.finished_at ?? null,
+        best_reward: null,
+        best_snapshot_id: null,
+        total_tokens: null,
+        total_cost_usd: null,
+        error: event.error ?? null,
+        job_source: event.job_type === "prompt_learning" ? "prompt-learning" : "learning"
+      });
+    } else if (idx !== -1) {
+      const job = snapshot2.jobs[idx];
+      job.status = event.status;
+      if (event.started_at)
+        job.started_at = event.started_at;
+      if (event.finished_at)
+        job.finished_at = event.finished_at;
+      if (event.error)
+        job.error = event.error;
+    }
+    render();
+    if (selectedJobId) {
+      const newIdx = snapshot2.jobs.findIndex((j) => j.job_id === selectedJobId);
+      if (newIdx !== -1) {
+        ui.jobsSelect.setSelectedIndex(newIdx);
+      }
+    }
+  }
+  function handleJobStreamError(_err) {
+    const { pollingState: pollingState2 } = ctx.state;
+    pollingState2.sseConnected = false;
+    pollingState2.sseDisconnect = null;
+    scheduleJobsPoll();
+    if (pollingState2.sseReconnectTimer) {
+      clearTimeout(pollingState2.sseReconnectTimer);
+      unregisterTimeout(pollingState2.sseReconnectTimer);
+    }
+    pollingState2.sseReconnectTimer = registerTimeout(setTimeout(() => {
+      pollingState2.sseReconnectTimer = null;
+      startJobsStream();
+    }, pollingState2.sseReconnectDelay));
+    pollingState2.sseReconnectDelay = Math.min(pollingState2.sseReconnectDelay * 2, 30000);
+  }
   function scheduleJobsPoll() {
-    const { pollingState: pollingState2, config: config2 } = ctx.state;
-    if (pollingState2.jobsTimer)
+    const { pollingState: pollingState2 } = ctx.state;
+    if (pollingState2.sseConnected)
+      return;
+    if (pollingState2.jobsTimer) {
       clearTimeout(pollingState2.jobsTimer);
-    pollingState2.jobsTimer = setTimeout(pollJobs, pollingState2.jobsPollMs);
+      unregisterTimeout(pollingState2.jobsTimer);
+    }
+    pollingState2.jobsTimer = registerTimeout(setTimeout(pollJobs, pollingState2.jobsPollMs));
   }
   async function pollJobs() {
     const { pollingState: pollingState2, config: config2 } = ctx.state;
+    if (pollingState2.sseConnected)
+      return;
     if (pollingState2.jobsInFlight) {
       scheduleJobsPoll();
       return;
@@ -24023,9 +26321,11 @@ async function runApp() {
   }
   function scheduleEventsPoll() {
     const { pollingState: pollingState2 } = ctx.state;
-    if (pollingState2.eventsTimer)
+    if (pollingState2.eventsTimer) {
       clearTimeout(pollingState2.eventsTimer);
-    pollingState2.eventsTimer = setTimeout(pollEvents, pollingState2.eventsPollMs);
+      unregisterTimeout(pollingState2.eventsTimer);
+    }
+    pollingState2.eventsTimer = registerTimeout(setTimeout(pollEvents, pollingState2.eventsPollMs));
   }
   async function pollEvents() {
     const { pollingState: pollingState2, config: config2 } = ctx.state;
@@ -24065,60 +26365,8 @@ var init_app = __esm(async () => {
 });
 
 // src/index.ts
-import { readFileSync, existsSync as existsSync3 } from "fs";
-import { join as join2 } from "path";
-function parseEnvContent(content) {
-  const values = {};
-  const lines = content.split(/\r?\n/);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#"))
-      continue;
-    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/);
-    if (!match)
-      continue;
-    const key = match[1];
-    let value = match[2].trim();
-    if (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'")) {
-      const quoted = value;
-      value = value.slice(1, -1);
-      if (quoted.startsWith('"')) {
-        value = value.replace(/\\\\/g, "\\").replace(/\\"/g, '"');
-      }
-    } else {
-      value = value.split(/\s+#/)[0].trim();
-    }
-    values[key] = value;
-  }
-  return values;
-}
-function loadEnvFiles() {
-  const cwd = process.cwd();
-  const envFiles = [
-    join2(cwd, ".env"),
-    join2(cwd, ".env.local"),
-    join2(cwd, "backend", ".env")
-  ];
-  const parentDir = join2(cwd, "..");
-  envFiles.push(join2(parentDir, ".env"));
-  for (const envFile of envFiles) {
-    try {
-      if (!existsSync3(envFile))
-        continue;
-      const content = readFileSync(envFile, "utf8");
-      const values = parseEnvContent(content);
-      for (const [key, value] of Object.entries(values)) {
-        if (process.env[key] === undefined || process.env[key] === "") {
-          process.env[key] = value;
-        }
-      }
-    } catch {}
-  }
-}
-loadEnvFiles();
-init_app().then(() => exports_app).then(({ runApp: runApp2 }) => {
-  runApp2().catch((err) => {
-    console.error("Fatal error:", err);
-    process.exit(1);
-  });
+process.on("unhandledRejection", () => {});
+process.on("uncaughtException", () => {});
+runApp().catch(() => {
+  shutdown(1);
 });

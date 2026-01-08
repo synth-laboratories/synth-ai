@@ -25,7 +25,7 @@ Example:
         print(f"Error: {result.error}")
 
 See Also:
-    - `synth_ai.cli.commands.eval`: CLI implementation
+    - `synth_ai.cli.commands.eval`: CLI implementation3
     - `synth_ai.sdk.api.train.prompt_learning`: Similar pattern for training
 """
 
@@ -42,6 +42,7 @@ from typing import Any, Callable, Dict, List, Optional
 import httpx
 
 from synth_ai.core.telemetry import log_info
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 
@@ -188,8 +189,8 @@ class EvalJobConfig:
     """
 
     task_app_url: str = field(default="")
-    backend_url: str = field(default="")
     api_key: str = field(default="")
+    backend_url: Optional[str] = field(default="")
     task_app_api_key: Optional[str] = None
     app_id: Optional[str] = None
     env_name: Optional[str] = None
@@ -212,8 +213,9 @@ class EvalJobConfig:
 
         if not self.task_app_url:
             raise ValueError("task_app_url (or local_api_url) is required")
+        # Use backend_url from config if provided, otherwise fall back to BACKEND_URL_BASE
         if not self.backend_url:
-            raise ValueError("backend_url is required")
+            self.backend_url = BACKEND_URL_BASE
         if not self.api_key:
             raise ValueError("api_key is required")
         if not self.seeds:
@@ -345,12 +347,6 @@ class EvalJob:
                     "policy_config": pl_config.get("gepa", {}).get("policy", {}),
                 }
 
-        # Resolve backend URL
-        if not backend_url:
-            backend_url = os.environ.get("SYNTH_BASE_URL") or os.environ.get("BACKEND_BASE_URL")
-            if not backend_url:
-                backend_url = "https://api.usesynth.ai"
-
         # Resolve API key
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
@@ -407,12 +403,6 @@ class EvalJob:
             >>> if status["status"] == "completed":
             ...     results = job.get_results()
         """
-        # Resolve backend URL
-        if not backend_url:
-            backend_url = os.environ.get("SYNTH_BASE_URL") or os.environ.get("BACKEND_BASE_URL")
-            if not backend_url:
-                backend_url = "https://api.usesynth.ai"
-
         # Resolve API key
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
@@ -431,7 +421,7 @@ class EvalJob:
 
     def _base_url(self) -> str:
         """Get normalized base URL for API calls."""
-        base = self.config.backend_url.rstrip("/")
+        base = (self.config.backend_url or BACKEND_URL_BASE).rstrip("/")
         if not base.endswith("/api"):
             base = f"{base}/api"
         return base
