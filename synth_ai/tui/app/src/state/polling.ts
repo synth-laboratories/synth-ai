@@ -61,17 +61,32 @@ export function clearEventsTimer(): void {
 export function clearEvalSseTimer(): void {
   if (pollingState.evalSseReconnectTimer) {
     clearTimeout(pollingState.evalSseReconnectTimer)
+    // Import here to avoid circular dependency at module load time
+    try {
+      const { unregisterTimeout } = require("../lifecycle")
+      unregisterTimeout(pollingState.evalSseReconnectTimer)
+    } catch {
+      // Ignore - lifecycle module may not be available during shutdown
+    }
     pollingState.evalSseReconnectTimer = null
   }
 }
 
 export function disconnectEvalSse(): void {
-  if (pollingState.evalSseDisconnect) {
-    pollingState.evalSseDisconnect()
-    pollingState.evalSseDisconnect = null
+  try {
+    if (pollingState.evalSseDisconnect) {
+      try {
+        pollingState.evalSseDisconnect()
+      } catch {
+        // Ignore disconnect errors
+      }
+      pollingState.evalSseDisconnect = null
+    }
+    pollingState.evalSseConnected = false
+    pollingState.evalSseJobId = null
+    pollingState.lastEvalSseSeq = 0
+    clearEvalSseTimer()
+  } catch {
+    // Ignore errors during cleanup
   }
-  pollingState.evalSseConnected = false
-  pollingState.evalSseJobId = null
-  pollingState.lastEvalSseSeq = 0
-  clearEvalSseTimer()
 }

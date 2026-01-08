@@ -1,5 +1,22 @@
 // @bun
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __moduleCache = /* @__PURE__ */ new WeakMap;
+var __toCommonJS = (from) => {
+  var entry = __moduleCache.get(from), desc;
+  if (entry)
+    return entry;
+  entry = __defProp({}, "__esModule", { value: true });
+  if (from && typeof from === "object" || typeof from === "function")
+    __getOwnPropNames(from).map((key) => !__hasOwnProp.call(entry, key) && __defProp(entry, key, {
+      get: () => from[key],
+      enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+    }));
+  __moduleCache.set(from, entry);
+  return entry;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, {
@@ -11,6 +28,100 @@ var __export = (target, all) => {
 };
 var __esm = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
 var __require = import.meta.require;
+
+// src/lifecycle/shutdown.ts
+function getAbortSignal() {
+  return state.abortController.signal;
+}
+function isShuttingDown() {
+  return state.isShuttingDown;
+}
+function registerRenderer(renderer) {
+  state.renderer = renderer;
+}
+function registerInterval(id) {
+  state.intervals.add(id);
+  return id;
+}
+function registerTimeout(id) {
+  state.timeouts.add(id);
+  return id;
+}
+function unregisterTimeout(id) {
+  state.timeouts.delete(id);
+}
+function registerCleanup(name, fn) {
+  state.cleanups.set(name, fn);
+}
+function unregisterCleanup(name) {
+  state.cleanups.delete(name);
+}
+async function shutdown(exitCode = 0) {
+  if (state.isShuttingDown) {
+    return new Promise(() => {});
+  }
+  state.isShuttingDown = true;
+  state.abortController.abort();
+  for (const id of state.intervals) {
+    clearInterval(id);
+  }
+  state.intervals.clear();
+  for (const id of state.timeouts) {
+    clearTimeout(id);
+  }
+  state.timeouts.clear();
+  for (const [, fn] of state.cleanups) {
+    try {
+      await fn();
+    } catch {}
+  }
+  state.cleanups.clear();
+  if (state.renderer) {
+    try {
+      state.renderer.stop();
+      state.renderer.destroy();
+    } catch {}
+  }
+  process.stdout.write(ANSI_SHOW_CURSOR);
+  process.stdout.write(ANSI_EXIT_ALT_SCREEN);
+  process.stdout.write(ANSI_RESET);
+  process.stdout.write(`
+`);
+  process.exit(exitCode);
+}
+function installSignalHandlers() {
+  process.on("SIGINT", () => void shutdown(0));
+  process.on("SIGTERM", () => void shutdown(0));
+}
+var ANSI_RESET = "\x1B[0m", ANSI_SHOW_CURSOR = "\x1B[?25h", ANSI_EXIT_ALT_SCREEN = "\x1B[?1049l", state;
+var init_shutdown = __esm(() => {
+  state = {
+    abortController: new AbortController,
+    intervals: new Set,
+    timeouts: new Set,
+    cleanups: new Map,
+    isShuttingDown: false,
+    renderer: null
+  };
+});
+
+// src/lifecycle/index.ts
+var exports_lifecycle = {};
+__export(exports_lifecycle, {
+  unregisterTimeout: () => unregisterTimeout,
+  unregisterCleanup: () => unregisterCleanup,
+  shutdown: () => shutdown,
+  registerTimeout: () => registerTimeout,
+  registerRenderer: () => registerRenderer,
+  registerInterval: () => registerInterval,
+  registerCleanup: () => registerCleanup,
+  isShuttingDown: () => isShuttingDown,
+  installSignalHandlers: () => installSignalHandlers,
+  getAbortSignal: () => getAbortSignal
+});
+var init_lifecycle = __esm(() => {
+  init_shutdown();
+});
 
 // src/state/polling.ts
 var exports_polling = {};
@@ -38,18 +149,26 @@ function clearEventsTimer() {
 function clearEvalSseTimer() {
   if (pollingState.evalSseReconnectTimer) {
     clearTimeout(pollingState.evalSseReconnectTimer);
+    try {
+      const { unregisterTimeout: unregisterTimeout2 } = (init_lifecycle(), __toCommonJS(exports_lifecycle));
+      unregisterTimeout2(pollingState.evalSseReconnectTimer);
+    } catch {}
     pollingState.evalSseReconnectTimer = null;
   }
 }
 function disconnectEvalSse() {
-  if (pollingState.evalSseDisconnect) {
-    pollingState.evalSseDisconnect();
-    pollingState.evalSseDisconnect = null;
-  }
-  pollingState.evalSseConnected = false;
-  pollingState.evalSseJobId = null;
-  pollingState.lastEvalSseSeq = 0;
-  clearEvalSseTimer();
+  try {
+    if (pollingState.evalSseDisconnect) {
+      try {
+        pollingState.evalSseDisconnect();
+      } catch {}
+      pollingState.evalSseDisconnect = null;
+    }
+    pollingState.evalSseConnected = false;
+    pollingState.evalSseJobId = null;
+    pollingState.lastEvalSseSeq = 0;
+    clearEvalSseTimer();
+  } catch {}
 }
 var config, pollingState;
 var init_polling = __esm(() => {
@@ -22986,7 +23105,7 @@ function clamp4(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 function createErrorBox(options) {
-  const state = {
+  const state2 = {
     rawError: null,
     lines: [],
     offset: 0,
@@ -22998,11 +23117,11 @@ function createErrorBox(options) {
   const focusable = {
     id: options.id,
     onFocus: () => {
-      state.focused = true;
+      state2.focused = true;
       options.onChange?.();
     },
     onBlur: () => {
-      state.focused = false;
+      state2.focused = false;
       options.onChange?.();
     },
     handleKey: (key) => handleKeyInternal(key, false)
@@ -23011,29 +23130,29 @@ function createErrorBox(options) {
     options.onChange?.();
   }
   function rewrapIfNeeded(maxWidth) {
-    if (!state.rawError)
+    if (!state2.rawError)
       return;
-    const nextMaxWidth = Math.max(10, maxWidth ?? state.maxWidth);
+    const nextMaxWidth = Math.max(10, maxWidth ?? state2.maxWidth);
     const wrapWidth = Math.max(4, nextMaxWidth - 4);
-    if (wrapWidth !== state.wrapWidth) {
-      state.wrapWidth = wrapWidth;
-      state.lines = formatErrorMessage(state.rawError, wrapWidth, Infinity);
+    if (wrapWidth !== state2.wrapWidth) {
+      state2.wrapWidth = wrapWidth;
+      state2.lines = formatErrorMessage(state2.rawError, wrapWidth, Infinity);
       clampOffset();
     }
-    state.maxWidth = nextMaxWidth;
+    state2.maxWidth = nextMaxWidth;
   }
   function clampOffset() {
-    const maxOffset = Math.max(0, state.lines.length - state.visibleLines);
-    state.offset = clamp4(state.offset, 0, maxOffset);
+    const maxOffset = Math.max(0, state2.lines.length - state2.visibleLines);
+    state2.offset = clamp4(state2.offset, 0, maxOffset);
   }
   function setError(error, override) {
-    state.rawError = error;
-    state.visibleLines = override?.visibleLines ?? options.defaultVisibleLines ?? 3;
-    state.maxWidth = override?.maxWidth ?? options.maxWidth ?? state.maxWidth;
-    state.wrapWidth = Math.max(4, state.maxWidth - 4);
-    state.offset = 0;
-    state.lines = error ? formatErrorMessage(error, state.wrapWidth, Infinity) : [];
-    if (!error && state.focused) {
+    state2.rawError = error;
+    state2.visibleLines = override?.visibleLines ?? options.defaultVisibleLines ?? 3;
+    state2.maxWidth = override?.maxWidth ?? options.maxWidth ?? state2.maxWidth;
+    state2.wrapWidth = Math.max(4, state2.maxWidth - 4);
+    state2.offset = 0;
+    state2.lines = error ? formatErrorMessage(error, state2.wrapWidth, Infinity) : [];
+    if (!error && state2.focused) {
       focusManager.pop(options.id);
     }
     triggerUpdate();
@@ -23042,34 +23161,34 @@ function createErrorBox(options) {
     setError(null);
   }
   function scroll(delta) {
-    if (!state.rawError)
+    if (!state2.rawError)
       return;
-    const maxOffset = Math.max(0, state.lines.length - state.visibleLines);
-    state.offset = clamp4(state.offset + delta, 0, maxOffset);
+    const maxOffset = Math.max(0, state2.lines.length - state2.visibleLines);
+    state2.offset = clamp4(state2.offset + delta, 0, maxOffset);
     triggerUpdate();
   }
   async function copy() {
-    if (!state.rawError)
+    if (!state2.rawError)
       return;
     try {
-      await copyToClipboard(state.rawError);
-      options.onCopy?.(state.rawError);
+      await copyToClipboard(state2.rawError);
+      options.onCopy?.(state2.rawError);
     } catch {}
   }
   function focus() {
-    if (!state.rawError || state.focused)
+    if (!state2.rawError || state2.focused)
       return;
     focusManager.push(focusable);
   }
   function blur() {
-    if (!state.focused)
+    if (!state2.focused)
       return;
     focusManager.pop(options.id);
   }
   function handleKeyInternal(key, allowWhenNotFocused) {
-    if (!state.rawError)
+    if (!state2.rawError)
       return false;
-    if (!state.focused && allowWhenNotFocused) {
+    if (!state2.focused && allowWhenNotFocused) {
       if (key.shift && key.name === "tab") {
         focus();
         return true;
@@ -23088,7 +23207,7 @@ function createErrorBox(options) {
       }
       return false;
     }
-    if (!state.focused)
+    if (!state2.focused)
       return false;
     if (key.name === "tab") {
       blur();
@@ -23107,11 +23226,11 @@ function createErrorBox(options) {
       return true;
     }
     if (key.name === "pageup") {
-      scroll(-state.visibleLines);
+      scroll(-state2.visibleLines);
       return true;
     }
     if (key.name === "pagedown") {
-      scroll(state.visibleLines);
+      scroll(state2.visibleLines);
       return true;
     }
     if (key.name === "y" || key.name === "c") {
@@ -23124,18 +23243,18 @@ function createErrorBox(options) {
     return handleKeyInternal(key, opts?.allowWhenNotFocused ?? false);
   }
   function renderLines(opts) {
-    if (!state.rawError)
+    if (!state2.rawError)
       return [];
     const indent = " ".repeat(opts?.indent ?? 2);
-    const maxWidth = Math.max(10, opts?.maxWidth ?? state.maxWidth);
+    const maxWidth = Math.max(10, opts?.maxWidth ?? state2.maxWidth);
     rewrapIfNeeded(maxWidth);
     const innerWidth = maxWidth - 2;
     const contentWidth = Math.max(1, innerWidth - 2);
-    const visible = state.lines.slice(state.offset, state.offset + state.visibleLines);
-    const borderColor = state.focused ? "\x1B[91m" : "\x1B[90m";
+    const visible = state2.lines.slice(state2.offset, state2.offset + state2.visibleLines);
+    const borderColor = state2.focused ? "\x1B[91m" : "\x1B[90m";
     const lines = [];
     lines.push(`${indent}${borderColor}+${"-".repeat(innerWidth)}+\x1B[0m\x1B[K`);
-    for (let i = 0;i < state.visibleLines; i++) {
+    for (let i = 0;i < state2.visibleLines; i++) {
       const raw = visible[i] ?? "";
       const clipped = raw.slice(0, contentWidth);
       const padded = clipped.padEnd(contentWidth, " ");
@@ -23145,23 +23264,23 @@ function createErrorBox(options) {
     return lines;
   }
   function getPositionLabel() {
-    if (!state.rawError)
+    if (!state2.rawError)
       return null;
-    const start = state.offset + 1;
-    const end = Math.min(state.offset + state.visibleLines, state.lines.length);
-    return `[${start}-${end}/${state.lines.length}]`;
+    const start = state2.offset + 1;
+    const end = Math.min(state2.offset + state2.visibleLines, state2.lines.length);
+    return `[${start}-${end}/${state2.lines.length}]`;
   }
   function getHint() {
-    if (!state.rawError)
+    if (!state2.rawError)
       return null;
     const position = getPositionLabel();
-    const scrollHint = state.lines.length > state.visibleLines ? state.focused ? "j/k scroll" : "shift+j/k scroll" : null;
-    const focusHint = state.focused ? "tab back" : "shift+tab focus";
+    const scrollHint = state2.lines.length > state2.visibleLines ? state2.focused ? "j/k scroll" : "shift+j/k scroll" : null;
+    const focusHint = state2.focused ? "tab back" : "shift+tab focus";
     const copyHint = "y copy";
     return [position, scrollHint, copyHint, focusHint].filter(Boolean).join(" | ");
   }
   return {
-    hasError: () => !!state.rawError,
+    hasError: () => !!state2.rawError,
     setError,
     clear,
     renderLines,
@@ -23170,7 +23289,7 @@ function createErrorBox(options) {
     getPositionLabel,
     focus,
     blur,
-    isFocused: () => state.focused
+    isFocused: () => state2.focused
   };
 }
 
@@ -24155,76 +24274,8 @@ function createKeyModal(ctx) {
   };
   return controller;
 }
-// src/lifecycle/shutdown.ts
-var ANSI_RESET = "\x1B[0m";
-var ANSI_SHOW_CURSOR = "\x1B[?25h";
-var ANSI_EXIT_ALT_SCREEN = "\x1B[?1049l";
-var state = {
-  abortController: new AbortController,
-  intervals: new Set,
-  timeouts: new Set,
-  cleanups: new Map,
-  isShuttingDown: false,
-  renderer: null
-};
-function registerRenderer(renderer) {
-  state.renderer = renderer;
-}
-function registerInterval(id) {
-  state.intervals.add(id);
-  return id;
-}
-function registerTimeout(id) {
-  state.timeouts.add(id);
-  return id;
-}
-function unregisterTimeout(id) {
-  state.timeouts.delete(id);
-}
-function registerCleanup(name, fn) {
-  state.cleanups.set(name, fn);
-}
-function unregisterCleanup(name) {
-  state.cleanups.delete(name);
-}
-async function shutdown(exitCode = 0) {
-  if (state.isShuttingDown) {
-    return new Promise(() => {});
-  }
-  state.isShuttingDown = true;
-  state.abortController.abort();
-  for (const id of state.intervals) {
-    clearInterval(id);
-  }
-  state.intervals.clear();
-  for (const id of state.timeouts) {
-    clearTimeout(id);
-  }
-  state.timeouts.clear();
-  for (const [, fn] of state.cleanups) {
-    try {
-      await fn();
-    } catch {}
-  }
-  state.cleanups.clear();
-  if (state.renderer) {
-    try {
-      state.renderer.stop();
-      state.renderer.destroy();
-    } catch {}
-  }
-  process.stdout.write(ANSI_SHOW_CURSOR);
-  process.stdout.write(ANSI_EXIT_ALT_SCREEN);
-  process.stdout.write(ANSI_RESET);
-  process.stdout.write(`
-`);
-  process.exit(exitCode);
-}
-function installSignalHandlers() {
-  process.on("SIGINT", () => void shutdown(0));
-  process.on("SIGTERM", () => void shutdown(0));
-}
 // src/modals/log-file-modal.ts
+init_lifecycle();
 import * as fs9 from "fs";
 import * as path12 from "path";
 function createLogFileModal(ctx) {
@@ -25510,6 +25561,7 @@ function createSessionsModal(ctx) {
   };
 }
 // src/handlers/keyboard.ts
+init_lifecycle();
 init_jobs();
 function createKeyboardHandler(ctx, modals) {
   return function handleKeypress(key) {
@@ -25949,7 +26001,7 @@ function connectJobsStream(onEvent, onError, sinceSeq = 0) {
 function connectEvalStream(jobId, onEvent, onError, sinceSeq = 0) {
   let aborted = false;
   const controller = new AbortController;
-  const url = `${process.env.SYNTH_BACKEND_URL}/api/eval/jobs/${jobId}/stream?since_seq=${sinceSeq}`;
+  const url = `${process.env.SYNTH_BACKEND_URL}/api/prompt-learning/online/jobs/${jobId}/events/stream?since_seq=${sinceSeq}`;
   const apiKey = process.env.SYNTH_API_KEY || "";
   (async () => {
     try {
@@ -26030,9 +26082,11 @@ function connectEvalStream(jobId, onEvent, onError, sinceSeq = 0) {
 
 // src/app.ts
 init_polling();
+init_lifecycle();
 init_settings();
 
 // src/utils/opencode-server.ts
+init_lifecycle();
 import { spawn as spawn3 } from "child_process";
 var openCodeProcess = null;
 var serverUrl = null;
@@ -26210,11 +26264,13 @@ async function runApp() {
     }
   });
   function maybeStartEvalStream(jobId) {
-    disconnectEvalSse();
-    const job = ctx.state.snapshot.selectedJob;
-    if (job && isEvalJob(job)) {
-      startEvalStream(jobId);
-    }
+    try {
+      disconnectEvalSse();
+      const job = ctx.state.snapshot.selectedJob;
+      if (job && isEvalJob(job)) {
+        startEvalStream(jobId);
+      }
+    } catch {}
   }
   focusManager.setDefault({
     id: "jobs-pane",
@@ -26362,107 +26418,118 @@ async function runApp() {
   }
   let evalStreamConnection = null;
   function startEvalStream(jobId) {
-    const { pollingState: pollingState2 } = ctx.state;
-    if (!process.env.SYNTH_API_KEY) {
-      return;
-    }
-    if (evalStreamConnection) {
-      evalStreamConnection.disconnect();
-      evalStreamConnection = null;
-    }
-    evalStreamConnection = connectEvalStream(jobId, (event) => handleEvalStreamEvent(event), (err) => handleEvalStreamError(err, jobId), pollingState2.lastEvalSseSeq);
-    pollingState2.evalSseConnected = true;
-    pollingState2.evalSseJobId = jobId;
-    pollingState2.evalSseDisconnect = evalStreamConnection.disconnect;
-    pollingState2.evalSseReconnectDelay = 1000;
+    try {
+      const { pollingState: pollingState2 } = ctx.state;
+      if (!process.env.SYNTH_API_KEY) {
+        return;
+      }
+      if (evalStreamConnection) {
+        try {
+          evalStreamConnection.disconnect();
+        } catch {}
+        evalStreamConnection = null;
+      }
+      evalStreamConnection = connectEvalStream(jobId, (event) => handleEvalStreamEvent(event), (err) => handleEvalStreamError(err, jobId), pollingState2.lastEvalSseSeq);
+      pollingState2.evalSseConnected = true;
+      pollingState2.evalSseJobId = jobId;
+      pollingState2.evalSseDisconnect = evalStreamConnection.disconnect;
+      pollingState2.evalSseReconnectDelay = 1000;
+    } catch {}
   }
   function handleEvalStreamEvent(event) {
-    const { snapshot: snapshot2, pollingState: pollingState2, config: appConfig } = ctx.state;
-    if (snapshot2.selectedJob?.job_id !== event.job_id)
-      return;
-    pollingState2.lastEvalSseSeq = event.seq;
-    snapshot2.events.push({
-      seq: event.seq,
-      type: event.type,
-      message: event.message,
-      data: event.data,
-      timestamp: new Date(event.ts * 1000).toISOString()
-    });
-    switch (event.type) {
-      case "eval.results.updated":
-      case "eval.seed.completed": {
-        const seedData = event.data;
-        if (typeof seedData.seed === "number") {
-          const existingIdx = snapshot2.evalResultRows.findIndex((r) => r.seed === seedData.seed);
-          const resultRow = {
-            seed: seedData.seed,
-            trial_id: String(seedData.trial_id ?? ""),
-            correlation_id: String(seedData.correlation_id ?? ""),
-            score: seedData.score ?? null,
-            reward_mean: null,
-            outcome_reward: seedData.outcome_reward ?? null,
-            outcome_score: null,
-            events_score: seedData.events_score ?? null,
-            verifier_score: seedData.verifier_score ?? null,
-            latency_ms: seedData.latency_ms ?? null,
-            tokens: seedData.tokens ?? null,
-            cost_usd: seedData.cost_usd ?? null,
-            error: seedData.error ?? null,
-            trace_id: seedData.trace_id ?? null
-          };
-          if (existingIdx !== -1) {
-            snapshot2.evalResultRows[existingIdx] = resultRow;
-          } else {
-            snapshot2.evalResultRows.push(resultRow);
-            snapshot2.evalResultRows.sort((a, b) => a.seed - b.seed);
+    try {
+      const { snapshot: snapshot2, pollingState: pollingState2, config: appConfig } = ctx.state;
+      if (snapshot2.selectedJob?.job_id !== event.job_id)
+        return;
+      if (typeof event.seq === "number") {
+        pollingState2.lastEvalSseSeq = event.seq;
+      }
+      const ts = typeof event.ts === "number" && event.ts > 0 ? new Date(event.ts * 1000).toISOString() : new Date().toISOString();
+      snapshot2.events.push({
+        seq: event.seq ?? 0,
+        type: event.type ?? "unknown",
+        message: event.message ?? "",
+        data: event.data ?? {},
+        timestamp: ts
+      });
+      switch (event.type) {
+        case "eval.results.updated":
+        case "eval.seed.completed": {
+          const seedData = event.data ?? {};
+          if (typeof seedData.seed === "number") {
+            const existingIdx = snapshot2.evalResultRows.findIndex((r) => r.seed === seedData.seed);
+            const resultRow = {
+              seed: seedData.seed,
+              trial_id: String(seedData.trial_id ?? ""),
+              correlation_id: String(seedData.correlation_id ?? ""),
+              score: seedData.score ?? null,
+              reward_mean: null,
+              outcome_reward: seedData.outcome_reward ?? null,
+              outcome_score: null,
+              events_score: seedData.events_score ?? null,
+              verifier_score: seedData.verifier_score ?? null,
+              latency_ms: seedData.latency_ms ?? null,
+              tokens: seedData.tokens ?? null,
+              cost_usd: seedData.cost_usd ?? null,
+              error: seedData.error ?? null,
+              trace_id: seedData.trace_id ?? null
+            };
+            if (existingIdx !== -1) {
+              snapshot2.evalResultRows[existingIdx] = resultRow;
+            } else {
+              snapshot2.evalResultRows.push(resultRow);
+              snapshot2.evalResultRows.sort((a, b) => a.seed - b.seed);
+            }
           }
+          break;
         }
-        break;
-      }
-      case "eval.job.progress": {
-        const completed = event.data.completed ?? 0;
-        const total = event.data.total ?? 0;
-        snapshot2.status = `Eval: ${completed}/${total} seeds completed`;
-        break;
-      }
-      case "eval.job.completed": {
-        snapshot2.evalSummary = event.data;
-        if (snapshot2.selectedJob) {
-          snapshot2.selectedJob.status = event.data.error ? "failed" : "completed";
-          if (event.data.error) {
-            snapshot2.selectedJob.error = String(event.data.error);
+        case "eval.job.progress": {
+          const completed = event.data?.completed ?? 0;
+          const total = event.data?.total ?? 0;
+          snapshot2.status = `Eval: ${completed}/${total} seeds completed`;
+          break;
+        }
+        case "eval.job.completed": {
+          snapshot2.evalSummary = event.data ?? {};
+          if (snapshot2.selectedJob) {
+            snapshot2.selectedJob.status = event.data?.error ? "failed" : "completed";
+            if (event.data?.error) {
+              snapshot2.selectedJob.error = String(event.data.error);
+            }
           }
+          snapshot2.status = event.data?.error ? `Eval failed: ${String(event.data.error).slice(0, 50)}` : `Eval completed: ${event.data?.completed ?? 0}/${event.data?.total ?? 0} seeds (mean reward: ${event.data?.mean_reward?.toFixed(3) ?? "N/A"})`;
+          break;
         }
-        snapshot2.status = event.data.error ? `Eval failed: ${String(event.data.error).slice(0, 50)}` : `Eval completed: ${event.data.completed}/${event.data.total} seeds (mean reward: ${event.data.mean_reward?.toFixed(3) ?? "N/A"})`;
-        break;
+        case "eval.job.started": {
+          snapshot2.status = `Eval started: ${event.data?.seed_count ?? 0} seeds`;
+          break;
+        }
       }
-      case "eval.job.started": {
-        snapshot2.status = `Eval started: ${event.data.seed_count ?? 0} seeds`;
-        break;
+      const eventHistoryLimit = appConfig.eventHistoryLimit;
+      if (eventHistoryLimit > 0 && snapshot2.events.length > eventHistoryLimit) {
+        snapshot2.events = snapshot2.events.slice(-eventHistoryLimit);
       }
-    }
-    const eventHistoryLimit = appConfig.eventHistoryLimit;
-    if (eventHistoryLimit > 0 && snapshot2.events.length > eventHistoryLimit) {
-      snapshot2.events = snapshot2.events.slice(-eventHistoryLimit);
-    }
-    render();
+      render();
+    } catch {}
   }
   function handleEvalStreamError(_err, jobId) {
-    const { pollingState: pollingState2 } = ctx.state;
-    pollingState2.evalSseConnected = false;
-    pollingState2.evalSseDisconnect = null;
-    evalStreamConnection = null;
-    scheduleEventsPoll();
-    clearEvalSseTimer();
-    if (ctx.state.snapshot.selectedJob?.job_id === jobId && isEvalJob(ctx.state.snapshot.selectedJob)) {
-      pollingState2.evalSseReconnectTimer = registerTimeout(setTimeout(() => {
-        pollingState2.evalSseReconnectTimer = null;
-        if (ctx.state.snapshot.selectedJob?.job_id === jobId) {
-          startEvalStream(jobId);
-        }
-      }, pollingState2.evalSseReconnectDelay));
-      pollingState2.evalSseReconnectDelay = Math.min(pollingState2.evalSseReconnectDelay * 2, 30000);
-    }
+    try {
+      const { pollingState: pollingState2 } = ctx.state;
+      pollingState2.evalSseConnected = false;
+      pollingState2.evalSseDisconnect = null;
+      evalStreamConnection = null;
+      scheduleEventsPoll();
+      clearEvalSseTimer();
+      if (ctx.state.snapshot.selectedJob?.job_id === jobId && isEvalJob(ctx.state.snapshot.selectedJob)) {
+        pollingState2.evalSseReconnectTimer = registerTimeout(setTimeout(() => {
+          pollingState2.evalSseReconnectTimer = null;
+          if (ctx.state.snapshot.selectedJob?.job_id === jobId) {
+            startEvalStream(jobId);
+          }
+        }, pollingState2.evalSseReconnectDelay));
+        pollingState2.evalSseReconnectDelay = Math.min(pollingState2.evalSseReconnectDelay * 2, 30000);
+      }
+    } catch {}
   }
   function scheduleJobsPoll() {
     const { pollingState: pollingState2 } = ctx.state;
@@ -26521,6 +26588,7 @@ async function runApp() {
 }
 
 // src/index.ts
+init_lifecycle();
 process.on("unhandledRejection", () => {});
 process.on("uncaughtException", () => {});
 runApp().catch(() => {

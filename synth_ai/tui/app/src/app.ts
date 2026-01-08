@@ -179,12 +179,16 @@ export async function runApp(): Promise<void> {
 
   // Helper to start eval stream for eval jobs
   function maybeStartEvalStream(jobId: string): void {
-    // Disconnect existing eval stream first
-    disconnectEvalSse()
+    try {
+      // Disconnect existing eval stream first
+      disconnectEvalSse()
 
-    const job = ctx.state.snapshot.selectedJob
-    if (job && isEvalJob(job)) {
-      startEvalStream(jobId)
+      const job = ctx.state.snapshot.selectedJob
+      if (job && isEvalJob(job)) {
+        startEvalStream(jobId)
+      }
+    } catch {
+      // Ignore errors - don't crash
     }
   }
 
@@ -406,148 +410,171 @@ export async function runApp(): Promise<void> {
   let evalStreamConnection: EvalStreamConnection | null = null
 
   function startEvalStream(jobId: string): void {
-    const { pollingState } = ctx.state
+    try {
+      const { pollingState } = ctx.state
 
-    if (!process.env.SYNTH_API_KEY) {
-      // No API key, fall back to polling
-      return
+      if (!process.env.SYNTH_API_KEY) {
+        // No API key, fall back to polling
+        return
+      }
+
+      // Disconnect any existing eval stream
+      if (evalStreamConnection) {
+        try {
+          evalStreamConnection.disconnect()
+        } catch {
+          // Ignore disconnect errors
+        }
+        evalStreamConnection = null
+      }
+
+      evalStreamConnection = connectEvalStream(
+        jobId,
+        (event) => handleEvalStreamEvent(event),
+        (err) => handleEvalStreamError(err, jobId),
+        pollingState.lastEvalSseSeq,
+      )
+
+      // SSE connected - mark as connected
+      pollingState.evalSseConnected = true
+      pollingState.evalSseJobId = jobId
+      pollingState.evalSseDisconnect = evalStreamConnection.disconnect
+      pollingState.evalSseReconnectDelay = 1000 // Reset backoff
+    } catch {
+      // Failed to start stream - fall back to polling (already scheduled)
     }
-
-    // Disconnect any existing eval stream
-    if (evalStreamConnection) {
-      evalStreamConnection.disconnect()
-      evalStreamConnection = null
-    }
-
-    evalStreamConnection = connectEvalStream(
-      jobId,
-      (event) => handleEvalStreamEvent(event),
-      (err) => handleEvalStreamError(err, jobId),
-      pollingState.lastEvalSseSeq,
-    )
-
-    // SSE connected - mark as connected
-    pollingState.evalSseConnected = true
-    pollingState.evalSseJobId = jobId
-    pollingState.evalSseDisconnect = evalStreamConnection.disconnect
-    pollingState.evalSseReconnectDelay = 1000 // Reset backoff
   }
 
   function handleEvalStreamEvent(event: EvalStreamEvent): void {
-    const { snapshot, pollingState, config: appConfig } = ctx.state
+    try {
+      const { snapshot, pollingState, config: appConfig } = ctx.state
 
-    // Ignore if job changed
-    if (snapshot.selectedJob?.job_id !== event.job_id) return
+      // Ignore if job changed
+      if (snapshot.selectedJob?.job_id !== event.job_id) return
 
-    // Track sequence for reconnection
-    pollingState.lastEvalSseSeq = event.seq
+      // Track sequence for reconnection (handle undefined seq)
+      if (typeof event.seq === "number") {
+        pollingState.lastEvalSseSeq = event.seq
+      }
 
-    // Add event to events list
-    snapshot.events.push({
-      seq: event.seq,
-      type: event.type,
-      message: event.message,
-      data: event.data,
-      timestamp: new Date(event.ts * 1000).toISOString(),
-    })
+      // Safely compute timestamp (ts may be null or undefined from connected event)
+      const ts = typeof event.ts === "number" && event.ts > 0
+        ? new Date(event.ts * 1000).toISOString()
+        : new Date().toISOString()
 
-    // Handle specific event types
-    switch (event.type) {
-      case "eval.results.updated":
-      case "eval.seed.completed": {
-        // Update or add result row
-        const seedData = event.data
-        if (typeof seedData.seed === "number") {
-          const existingIdx = snapshot.evalResultRows.findIndex(
-            (r) => r.seed === seedData.seed
-          )
-          const resultRow = {
-            seed: seedData.seed,
-            trial_id: String(seedData.trial_id ?? ""),
-            correlation_id: String(seedData.correlation_id ?? ""),
-            score: seedData.score ?? null,
-            reward_mean: null,
-            outcome_reward: seedData.outcome_reward ?? null,
-            outcome_score: null,
-            events_score: seedData.events_score ?? null,
-            verifier_score: seedData.verifier_score ?? null,
-            latency_ms: seedData.latency_ms ?? null,
-            tokens: seedData.tokens ?? null,
-            cost_usd: seedData.cost_usd ?? null,
-            error: seedData.error ?? null,
-            trace_id: seedData.trace_id ?? null,
+      // Add event to events list
+      snapshot.events.push({
+        seq: event.seq ?? 0,
+        type: event.type ?? "unknown",
+        message: event.message ?? "",
+        data: event.data ?? {},
+        timestamp: ts,
+      })
+
+      // Handle specific event types
+      switch (event.type) {
+        case "eval.results.updated":
+        case "eval.seed.completed": {
+          // Update or add result row
+          const seedData = event.data ?? {}
+          if (typeof seedData.seed === "number") {
+            const existingIdx = snapshot.evalResultRows.findIndex(
+              (r) => r.seed === seedData.seed
+            )
+            const resultRow = {
+              seed: seedData.seed,
+              trial_id: String(seedData.trial_id ?? ""),
+              correlation_id: String(seedData.correlation_id ?? ""),
+              score: seedData.score ?? null,
+              reward_mean: null,
+              outcome_reward: seedData.outcome_reward ?? null,
+              outcome_score: null,
+              events_score: seedData.events_score ?? null,
+              verifier_score: seedData.verifier_score ?? null,
+              latency_ms: seedData.latency_ms ?? null,
+              tokens: seedData.tokens ?? null,
+              cost_usd: seedData.cost_usd ?? null,
+              error: seedData.error ?? null,
+              trace_id: seedData.trace_id ?? null,
+            }
+            if (existingIdx !== -1) {
+              snapshot.evalResultRows[existingIdx] = resultRow
+            } else {
+              snapshot.evalResultRows.push(resultRow)
+              snapshot.evalResultRows.sort((a, b) => a.seed - b.seed)
+            }
           }
-          if (existingIdx !== -1) {
-            snapshot.evalResultRows[existingIdx] = resultRow
-          } else {
-            snapshot.evalResultRows.push(resultRow)
-            snapshot.evalResultRows.sort((a, b) => a.seed - b.seed)
-          }
+          break
         }
-        break
-      }
 
-      case "eval.job.progress": {
-        // Update status with progress
-        const completed = event.data.completed ?? 0
-        const total = event.data.total ?? 0
-        snapshot.status = `Eval: ${completed}/${total} seeds completed`
-        break
-      }
-
-      case "eval.job.completed": {
-        // Update summary and job status
-        snapshot.evalSummary = event.data
-        if (snapshot.selectedJob) {
-          snapshot.selectedJob.status = event.data.error ? "failed" : "completed"
-          if (event.data.error) {
-            snapshot.selectedJob.error = String(event.data.error)
-          }
+        case "eval.job.progress": {
+          // Update status with progress
+          const completed = event.data?.completed ?? 0
+          const total = event.data?.total ?? 0
+          snapshot.status = `Eval: ${completed}/${total} seeds completed`
+          break
         }
-        snapshot.status = event.data.error
-          ? `Eval failed: ${String(event.data.error).slice(0, 50)}`
-          : `Eval completed: ${event.data.completed}/${event.data.total} seeds (mean reward: ${event.data.mean_reward?.toFixed(3) ?? "N/A"})`
-        break
+
+        case "eval.job.completed": {
+          // Update summary and job status
+          snapshot.evalSummary = event.data ?? {}
+          if (snapshot.selectedJob) {
+            snapshot.selectedJob.status = event.data?.error ? "failed" : "completed"
+            if (event.data?.error) {
+              snapshot.selectedJob.error = String(event.data.error)
+            }
+          }
+          snapshot.status = event.data?.error
+            ? `Eval failed: ${String(event.data.error).slice(0, 50)}`
+            : `Eval completed: ${event.data?.completed ?? 0}/${event.data?.total ?? 0} seeds (mean reward: ${event.data?.mean_reward?.toFixed(3) ?? "N/A"})`
+          break
+        }
+
+        case "eval.job.started": {
+          snapshot.status = `Eval started: ${event.data?.seed_count ?? 0} seeds`
+          break
+        }
       }
 
-      case "eval.job.started": {
-        snapshot.status = `Eval started: ${event.data.seed_count ?? 0} seeds`
-        break
+      // Enforce history limit
+      const eventHistoryLimit = appConfig.eventHistoryLimit
+      if (eventHistoryLimit > 0 && snapshot.events.length > eventHistoryLimit) {
+        snapshot.events = snapshot.events.slice(-eventHistoryLimit)
       }
-    }
 
-    // Enforce history limit
-    const eventHistoryLimit = appConfig.eventHistoryLimit
-    if (eventHistoryLimit > 0 && snapshot.events.length > eventHistoryLimit) {
-      snapshot.events = snapshot.events.slice(-eventHistoryLimit)
+      render()
+    } catch {
+      // Swallow errors in event handler - don't crash the app
     }
-
-    render()
   }
 
   function handleEvalStreamError(_err: Error, jobId: string): void {
-    const { pollingState } = ctx.state
+    try {
+      const { pollingState } = ctx.state
 
-    pollingState.evalSseConnected = false
-    pollingState.evalSseDisconnect = null
-    evalStreamConnection = null
+      pollingState.evalSseConnected = false
+      pollingState.evalSseDisconnect = null
+      evalStreamConnection = null
 
-    // Resume events polling as fallback
-    scheduleEventsPoll()
+      // Resume events polling as fallback
+      scheduleEventsPoll()
 
-    // Schedule reconnect with exponential backoff
-    clearEvalSseTimer()
+      // Schedule reconnect with exponential backoff
+      clearEvalSseTimer()
 
-    if (ctx.state.snapshot.selectedJob?.job_id === jobId && isEvalJob(ctx.state.snapshot.selectedJob)) {
-      pollingState.evalSseReconnectTimer = registerTimeout(setTimeout(() => {
-        pollingState.evalSseReconnectTimer = null
-        if (ctx.state.snapshot.selectedJob?.job_id === jobId) {
-          startEvalStream(jobId)
-        }
-      }, pollingState.evalSseReconnectDelay))
+      if (ctx.state.snapshot.selectedJob?.job_id === jobId && isEvalJob(ctx.state.snapshot.selectedJob)) {
+        pollingState.evalSseReconnectTimer = registerTimeout(setTimeout(() => {
+          pollingState.evalSseReconnectTimer = null
+          if (ctx.state.snapshot.selectedJob?.job_id === jobId) {
+            startEvalStream(jobId)
+          }
+        }, pollingState.evalSseReconnectDelay))
 
-      // Exponential backoff: 1s, 2s, 4s, ... up to 30s
-      pollingState.evalSseReconnectDelay = Math.min(pollingState.evalSseReconnectDelay * 2, 30_000)
+        // Exponential backoff: 1s, 2s, 4s, ... up to 30s
+        pollingState.evalSseReconnectDelay = Math.min(pollingState.evalSseReconnectDelay * 2, 30_000)
+      }
+    } catch {
+      // Swallow errors in error handler - don't crash the app
     }
   }
 

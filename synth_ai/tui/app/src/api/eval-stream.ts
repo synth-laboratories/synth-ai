@@ -58,7 +58,8 @@ export function connectEvalStream(
 	let aborted = false
 	const controller = new AbortController()
 
-	const url = `${process.env.SYNTH_BACKEND_URL}/api/eval/jobs/${jobId}/stream?since_seq=${sinceSeq}`
+	// Use existing prompt-learning SSE endpoint (works for all jobs in learning_jobs table)
+	const url = `${process.env.SYNTH_BACKEND_URL}/api/prompt-learning/online/jobs/${jobId}/events/stream?since_seq=${sinceSeq}`
 	const apiKey = process.env.SYNTH_API_KEY || ""
 
 	// Start streaming in the background
