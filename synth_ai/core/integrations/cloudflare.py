@@ -1903,3 +1903,211 @@ def _keep_tunnel_alive(port: int, url: str) -> None:
             stop_tunnel(_TUNNEL_PROCESSES[port])
             _TUNNEL_PROCESSES.pop(port, None)
         print("\n🛑 Tunnel stopped")
+
+
+# ---------------------------------------------------------------------------
+# Health Check Functions
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class HealthResult:
+    """Result of a tunnel health check."""
+
+    healthy: bool
+    status_code: Optional[int] = None
+    error: Optional[str] = None
+    response_time_ms: Optional[float] = None
+
+
+async def check_tunnel_health(
+    url: str,
+    *,
+    timeout: float = 5.0,
+    endpoint: str = "/health",
+) -> HealthResult:
+    """
+    Check if a tunnel is healthy by making an HTTP request to its health endpoint.
+
+    Args:
+        url: Base URL of the tunnel (e.g., "https://task-8114-12345.usesynth.ai")
+        timeout: Request timeout in seconds
+        endpoint: Health check endpoint path (default: "/health")
+
+    Returns:
+        HealthResult with healthy status, status code, and timing info
+
+    Health status logic:
+        - 200: Healthy
+        - 404/405: Healthy (endpoint missing but tunnel works)
+        - 502/503: Unhealthy (backend not ready)
+        - 530: Unhealthy (Cloudflare error - tunnel not connected)
+        - Timeout/Error: Unhealthy
+    """
+    # Normalize URL
+    base_url = url.rstrip("/")
+    if not base_url.startswith(("http://", "https://")):
+        base_url = f"https://{base_url}"
+
+    health_url = f"{base_url}{endpoint}"
+    start_time = time.monotonic()
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout, verify=True) as client:
+            response = await client.get(health_url)
+            elapsed_ms = (time.monotonic() - start_time) * 1000
+
+            # Determine health based on status code
+            status_code = response.status_code
+
+            # 200 = healthy
+            # 404/405 = endpoint missing but tunnel works (healthy)
+            # 530 = Cloudflare error (tunnel not connected)
+            # 502/503 = backend not ready
+            if status_code == 200:
+                return HealthResult(
+                    healthy=True,
+                    status_code=status_code,
+                    response_time_ms=elapsed_ms,
+                )
+            elif status_code in (404, 405):
+                # Tunnel works, just no /health endpoint
+                return HealthResult(
+                    healthy=True,
+                    status_code=status_code,
+                    response_time_ms=elapsed_ms,
+                    error="Health endpoint not found (tunnel is working)",
+                )
+            elif status_code == 530:
+                return HealthResult(
+                    healthy=False,
+                    status_code=status_code,
+                    response_time_ms=elapsed_ms,
+                    error="Tunnel not connected (Cloudflare 530)",
+                )
+            else:
+                return HealthResult(
+                    healthy=False,
+                    status_code=status_code,
+                    response_time_ms=elapsed_ms,
+                    error=f"Unhealthy status: {status_code}",
+                )
+
+    except httpx.TimeoutException:
+        elapsed_ms = (time.monotonic() - start_time) * 1000
+        return HealthResult(
+            healthy=False,
+            error=f"Timeout after {timeout}s",
+            response_time_ms=elapsed_ms,
+        )
+    except httpx.ConnectError as e:
+        elapsed_ms = (time.monotonic() - start_time) * 1000
+        return HealthResult(
+            healthy=False,
+            error=f"Connection error: {e}",
+            response_time_ms=elapsed_ms,
+        )
+    except Exception as e:
+        elapsed_ms = (time.monotonic() - start_time) * 1000
+        return HealthResult(
+            healthy=False,
+            error=f"Error: {e}",
+            response_time_ms=elapsed_ms,
+        )
+
+
+def check_tunnel_health_sync(
+    url: str,
+    *,
+    timeout: float = 5.0,
+    endpoint: str = "/health",
+) -> HealthResult:
+    """
+    Synchronous wrapper for check_tunnel_health.
+
+    See check_tunnel_health for full documentation.
+    """
+    return asyncio.run(check_tunnel_health(url, timeout=timeout, endpoint=endpoint))
+
+
+async def check_all_tunnels_health(
+    tunnels: Iterable[Any],
+    *,
+    timeout: float = 5.0,
+    endpoint: str = "/health",
+    max_concurrent: int = 15,
+    url_attr: str = "url",
+    id_attr: str = "id",
+) -> dict[str, HealthResult]:
+    """
+    Check health of multiple tunnels in parallel.
+
+    Args:
+        tunnels: Iterable of tunnel objects (ManagedTunnelRecord or dicts)
+        timeout: Request timeout per tunnel in seconds
+        endpoint: Health check endpoint path
+        max_concurrent: Maximum concurrent health checks
+        url_attr: Attribute name for URL (default: "url")
+        id_attr: Attribute name for ID (default: "id")
+
+    Returns:
+        Dict mapping tunnel ID to HealthResult
+    """
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    async def check_one(tunnel: Any) -> Tuple[str, HealthResult]:
+        # Extract URL and ID from tunnel object or dict
+        if isinstance(tunnel, dict):
+            url = tunnel.get(url_attr) or tunnel.get("hostname")
+            tunnel_id = str(tunnel.get(id_attr, tunnel.get("hostname", "unknown")))
+        else:
+            url = getattr(tunnel, url_attr, None) or getattr(tunnel, "hostname", None)
+            tunnel_id = str(getattr(tunnel, id_attr, getattr(tunnel, "hostname", "unknown")))
+
+        if not url:
+            return tunnel_id, HealthResult(healthy=False, error="No URL available")
+
+        async with semaphore:
+            result = await check_tunnel_health(url, timeout=timeout, endpoint=endpoint)
+            return tunnel_id, result
+
+    # Run all health checks in parallel
+    tasks = [check_one(t) for t in tunnels]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Build result dict
+    health_map: dict[str, HealthResult] = {}
+    for result in results:
+        if isinstance(result, Exception):
+            # This shouldn't happen since we catch exceptions in check_tunnel_health
+            continue
+        tunnel_id, health_result = result
+        health_map[tunnel_id] = health_result
+
+    return health_map
+
+
+def check_all_tunnels_health_sync(
+    tunnels: Iterable[Any],
+    *,
+    timeout: float = 5.0,
+    endpoint: str = "/health",
+    max_concurrent: int = 15,
+    url_attr: str = "url",
+    id_attr: str = "id",
+) -> dict[str, HealthResult]:
+    """
+    Synchronous wrapper for check_all_tunnels_health.
+
+    See check_all_tunnels_health for full documentation.
+    """
+    return asyncio.run(
+        check_all_tunnels_health(
+            tunnels,
+            timeout=timeout,
+            endpoint=endpoint,
+            max_concurrent=max_concurrent,
+            url_attr=url_attr,
+            id_attr=id_attr,
+        )
+    )
