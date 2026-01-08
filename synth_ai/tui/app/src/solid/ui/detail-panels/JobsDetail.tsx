@@ -21,20 +21,31 @@ interface JobsDetailProps {
 }
 
 /**
- * Format event type for display (truncate long types)
+ * Truncate text to max width
  */
-function formatEventType(type: string, maxWidth: number): string {
-  if (type.length <= maxWidth) return type
-  return type.slice(0, maxWidth - 3) + "..."
+function truncate(text: string, maxWidth: number): string {
+  if (text.length <= maxWidth) return text
+  return text.slice(0, maxWidth - 3) + "..."
 }
 
 /**
- * Get event message/description
+ * Format a single event line for display
+ * Gold reference format: "  seq type.name message"
  */
-function getEventMessage(event: JobEvent): string {
-  if (event.message) return event.message
-  const data = formatEventData(event.data)
-  return data || ""
+function formatEventLine(event: JobEvent, maxWidth: number): string {
+  const seq = String(event.seq).padStart(3, " ")
+  const type = event.type || ""
+  const message = event.message || formatEventData(event.data) || ""
+  
+  // Build the line: seq + space + type + space + message
+  const prefix = `${seq} ${type}`
+  
+  if (message) {
+    const fullLine = `${prefix} ${message}`
+    return truncate(fullLine, maxWidth)
+  }
+  
+  return truncate(prefix, maxWidth)
 }
 
 /**
@@ -86,7 +97,7 @@ export function JobsDetail(props: JobsDetailProps) {
         <text fg={COLORS.text}>{metricsText()}</text>
       </box>
 
-      {/* Events Box - gold reference style with two-line cards */}
+      {/* Events Box - single line per event with truncation */}
       <box
         flexGrow={1}
         border
@@ -95,35 +106,26 @@ export function JobsDetail(props: JobsDetailProps) {
         title="Events"
         titleAlignment="left"
         flexDirection="column"
+        paddingLeft={1}
       >
         <Show
           when={props.events.length > 0}
-          fallback={<text fg={COLORS.textDim}>  No events yet.</text>}
+          fallback={<text fg={COLORS.textDim}>No events yet.</text>}
         >
           <For each={props.eventWindow.slice}>
             {(event, idx) => {
               const globalIndex = props.eventWindow.windowStart + idx()
               const isSelected = globalIndex === props.eventWindow.selected
               const bg = isSelected ? COLORS.bgSelection : undefined
-              const fgPrimary = isSelected ? COLORS.textBright : COLORS.text
-              const fgSecondary = isSelected ? COLORS.textBright : COLORS.textDim
-              const maxTypeWidth = Math.max(10, props.detailWidth - 10)
-              const eventType = formatEventType(event.type, maxTypeWidth)
-              const eventMessage = getEventMessage(event)
+              const fg = isSelected ? COLORS.textBright : COLORS.text
+              // Leave room for border + padding
+              const maxWidth = Math.max(20, props.detailWidth - 4)
+              const line = formatEventLine(event, maxWidth)
+              const indicator = isSelected ? "▸" : " "
 
               return (
-                <box flexDirection="column">
-                  {/* Line 1: sequence number + event type */}
-                  <box flexDirection="row" backgroundColor={bg} width="100%">
-                    <text fg={fgSecondary}>  </text>
-                    <text fg={fgSecondary}>{String(event.seq).padStart(3, " ")} </text>
-                    <text fg={fgPrimary}>{eventType}</text>
-                  </box>
-                  {/* Line 2: event message (indented) */}
-                  <box flexDirection="row" backgroundColor={bg} width="100%">
-                    <text fg={fgSecondary}>  </text>
-                    <text fg={fgSecondary}>{eventMessage}</text>
-                  </box>
+                <box backgroundColor={bg} width="100%">
+                  <text fg={fg}>{`${indicator} ${line}`}</text>
                 </box>
               )
             }}
