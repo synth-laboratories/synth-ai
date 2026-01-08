@@ -14,7 +14,7 @@ import { JobsDetail } from "./ui/detail-panels/JobsDetail"
 import { LogsDetail } from "./ui/detail-panels/LogsDetail"
 import { useJobDetailsStream } from "./api/useJobDetailsStream"
 import type { JobDetailsStreamEvent } from "./api/job-details-stream"
-import { CreateJobModal, type CreateJobOptions } from "./modals/CreateJobModal"
+import { CreateJobModal, type JobCreatedInfo } from "./modals/CreateJobModal"
 import { scanMultipleDirectories, type ScannedLocalAPI } from "./utils/localapi-scanner"
 import { toDisplayPath } from "./utils/files"
 
@@ -2263,30 +2263,30 @@ function SolidShell(props: { onExit?: () => void }) {
       <CreateJobModal
         visible={showCreateJobModal()}
         onClose={() => setShowCreateJobModal(false)}
-        onCreateJob={async (options: CreateJobOptions) => {
-          // Get the full path from scanned APIs
-          const fullPath = scannedLocalAPIs().find(
-            api => toDisplayPath(api.filepath) === options.localApiPath
-          )?.filepath ?? options.localApiPath
-          
-          snapshot.status = `Creating ${options.trainingType} job for ${options.localApiPath}...`
-          data.ctx.render()
-          
-          try {
-            // TODO: Implement actual job creation via spawn or API
-            // For now, show instructions
-            snapshot.status = `Job creation pending. Run: python -m synth_ai.tui.${options.trainingType === "eval" ? "eval_job" : "deploy"} ${fullPath}`
-            snapshot.lastError = null
-          } catch (err: unknown) {
-            const errorMsg = err instanceof Error ? err.message : String(err)
-            snapshot.lastError = `Job creation failed: ${errorMsg}`
-            snapshot.status = "Job creation failed"
+        onJobCreated={(info: JobCreatedInfo) => {
+          if (info.jobSubmitted) {
+            snapshot.status = `${info.trainingType} job submitted for ${toDisplayPath(info.localApiPath)}`
+          } else if (info.deployedUrl) {
+            snapshot.status = `Deployed: ${info.deployedUrl}`
+          } else {
+            snapshot.status = `Ready to deploy: ${toDisplayPath(info.localApiPath)}`
           }
+          snapshot.lastError = null
+          data.ctx.render()
+          // Refresh jobs list to show new job
+          void data.refresh()
+        }}
+        onStatusUpdate={(status: string) => {
+          snapshot.status = status
+          data.ctx.render()
+        }}
+        onError={(error: string) => {
+          snapshot.lastError = error
           data.ctx.render()
         }}
         localApiFiles={localApiFiles()}
         width={Math.min(70, layout().totalWidth - 4)}
-        height={Math.min(20, layout().totalHeight - 6)}
+        height={Math.min(24, layout().totalHeight - 4)}
       />
 
       <box

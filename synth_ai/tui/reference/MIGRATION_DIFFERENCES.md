@@ -225,18 +225,21 @@ src/
 - OpenCode Agent integration
 - Settings modal keyboard navigation (fixed reactivity)
 - SSE streaming for real-time job details (`src/solid/api/job-details-stream.ts`)
-- `n` key shortcut for Create Job with modal wizard (`src/solid/modals/CreateJobModal.tsx`)
-- **LocalAPI file scanning** (`src/solid/utils/localapi-scanner.ts`)
-- **File path utilities** (`src/solid/utils/files.ts`)
-- **Enhanced Create Job modal** (file selection, type selection, confirmation)
+- LocalAPI file scanning (`src/solid/utils/localapi-scanner.ts`)
+- File path utilities (`src/solid/utils/files.ts`)
+- **Full Create Job wizard** (`src/solid/modals/CreateJobModal.tsx`)
+  - LocalAPI file selection
+  - File creation with template (`src/solid/templates/localapi.ts`)
+  - Job type selection
+  - **Deployment with NDJSON parsing** (`src/solid/services/deployment.ts`)
+  - **Job submission** (eval, prompt_learning, learning)
+- **File creation service** (`src/solid/services/file-creation.ts`)
 
 ⚠️ **Partially Complete**:
-- Job creation (wizard complete, actual spawn/API call pending)
 - Events pane selection (uses text-only selection, not background highlight)
 
 🔲 **Pending**:
-- Deployment workflow integration (NDJSON stream parsing, status updates)
-- File creation flow in Create Job modal
+- (None - all major features implemented)
 
 ## Next Steps
 
