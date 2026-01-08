@@ -294,7 +294,13 @@ async def call_llm(
             raise RuntimeError(f"Proxy error ({response.status_code}): {error_msg}")
 
         data = response.json()
-        tool_call = (data.get("choices") or [])[0].get("message", {}).get("tool_calls", [])[0]
+        choices = data.get("choices", [])
+        if not choices:
+            raise RuntimeError("No choices returned from model")
+        tool_calls = choices[0].get("message", {}).get("tool_calls", [])
+        if not tool_calls:
+            raise RuntimeError("No tool calls returned from model")
+        tool_call = tool_calls[0]
         args_raw = tool_call.get("function", {}).get("arguments")
 
     if not args_raw:
