@@ -107,6 +107,13 @@ function createOpenCodePaneFocusable(ctx: AppContext) {
         handleOpenCodeBackspace(ctx)
         return true
       }
+      // Let global shortcuts through (Shift+O for sessions, Shift+G for toggle, q for quit)
+      if (key.shift && (key.name === "o" || key.name === "g")) {
+        return false
+      }
+      if (key.name === "q" || key.name === "escape") {
+        return false
+      }
       // Handle character input
       if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
         handleOpenCodeInput(ctx, key.sequence)
@@ -245,7 +252,7 @@ export function restoreFocusFromModal(ctx: AppContext): void {
 }
 
 /** Set the principal pane (jobs view vs opencode view) */
-export function setPrincipalPane(ctx: AppContext, pane: "jobs" | "opencode"): void {
+export function setPrincipalPane(ctx: AppContext, pane: PrincipalPane): void {
   const { ui } = ctx
   const { appState } = ctx.state
 

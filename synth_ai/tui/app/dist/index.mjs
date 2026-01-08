@@ -21606,6 +21606,12 @@ function createOpenCodePaneFocusable(ctx) {
         handleOpenCodeBackspace(ctx);
         return true;
       }
+      if (key.shift && (key.name === "o" || key.name === "g")) {
+        return false;
+      }
+      if (key.name === "q" || key.name === "escape") {
+        return false;
+      }
       if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
         handleOpenCodeInput(ctx, key.sequence);
         return true;
@@ -21703,6 +21709,46 @@ function restoreFocusFromModal(ctx) {
   } else if (paneToRestore === "events" && eventsFocusable) {
     focusManager.push(eventsFocusable);
   }
+}
+function setPrincipalPane(ctx, pane) {
+  const { ui } = ctx;
+  const { appState: appState2 } = ctx.state;
+  if (appState2.principalPane === pane)
+    return;
+  if (appState2.principalPane === "opencode" && openCodeFocusable) {
+    focusManager.pop("opencode-pane");
+  }
+  if (appState2.activePane === "logs" && logsFocusable) {
+    focusManager.pop("logs-pane");
+  }
+  if (appState2.activePane === "events" && eventsFocusable) {
+    focusManager.pop("events-pane");
+  }
+  ui.jobsSelect.blur();
+  appState2.principalPane = pane;
+  if (pane === "jobs") {
+    ui.detailColumn.visible = true;
+    ui.openCodeBox.visible = false;
+    ui.jobsSelect.focus();
+  } else {
+    ui.detailColumn.visible = false;
+    ui.openCodeBox.visible = true;
+    if (openCodeFocusable) {
+      focusManager.push(openCodeFocusable);
+    }
+  }
+  updatePrincipalIndicators(ctx);
+  ctx.requestRender();
+}
+function togglePrincipalPane(ctx) {
+  const { appState: appState2 } = ctx.state;
+  const newPane = appState2.principalPane === "jobs" ? "opencode" : "jobs";
+  setPrincipalPane(ctx, newPane);
+}
+function updatePrincipalIndicators(ctx) {
+  const { ui } = ctx;
+  const { appState: appState2 } = ctx.state;
+  ui.openCodeBox.borderColor = appState2.principalPane === "opencode" ? "#60a5fa" : "#334155";
 }
 
 // src/ui/status.ts
@@ -25500,8 +25546,12 @@ function createKeyboardHandler(ctx, modals) {
       setActivePane(ctx, "jobs");
       return;
     }
-    if (key.name === "g") {
+    if (key.name === "g" && !key.shift) {
       setActivePane(ctx, "logs");
+      return;
+    }
+    if (key.name === "g" && key.shift) {
+      togglePrincipalPane(ctx);
       return;
     }
     if (key.name === "r") {
@@ -25526,7 +25576,7 @@ function createKeyboardHandler(ctx, modals) {
       modals.profile.open();
       return;
     }
-    if (key.name === "o") {
+    if (key.name === "o" && !key.shift) {
       modals.results.open();
       return;
     }

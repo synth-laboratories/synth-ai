@@ -4,7 +4,7 @@
 import type { AppContext } from "../context"
 import type { LoginModalController } from "../login_modal"
 import { shutdown } from "../lifecycle"
-import { setActivePane, cycleActivePane } from "../ui/panes"
+import { setActivePane, cycleActivePane, togglePrincipalPane } from "../ui/panes"
 import { refreshJobs, cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
 import { focusManager } from "../focus"
 
@@ -70,8 +70,12 @@ export function createKeyboardHandler(
       setActivePane(ctx, "jobs")
       return
     }
-    if (key.name === "g") {
+    if (key.name === "g" && !key.shift) {
       setActivePane(ctx, "logs")
+      return
+    }
+    if (key.name === "g" && key.shift) {
+      togglePrincipalPane(ctx)
       return
     }
     if (key.name === "r") {
@@ -95,7 +99,7 @@ export function createKeyboardHandler(
       modals.profile.open()
       return
     }
-    if (key.name === "o") {
+    if (key.name === "o" && !key.shift) {
       modals.results.open()
       return
     }
