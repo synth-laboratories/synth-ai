@@ -38,7 +38,7 @@ export function footerText(ctx: AppContext): string {
 		`shift+j ${jobFilterLabel}`,
 		"c cancel",
 		"a artifacts",
-		"o results",
+		"v candidates",
 		"s snapshot",
 		...(process.env.SYNTH_API_KEY ? ["p profile"] : []),
 		"q quit",

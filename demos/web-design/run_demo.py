@@ -158,7 +158,7 @@ API_KEY = os.environ.get("SYNTH_API_KEY", "")
 
 if not API_KEY:
     print("No SYNTH_API_KEY, minting demo key...")
-    API_KEY = mint_demo_api_key()
+    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
     print(f"Demo API Key: {API_KEY[:25]}...")
 else:
     print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
@@ -491,6 +491,15 @@ Apply the visual style guidelines to match the original design."""
 
             if not generated_bytes:
                 raise ValueError("No image data in policy model response")
+
+            # Save generated image for review
+            output_dir = Path(__file__).parent / "generated_images"
+            output_dir.mkdir(exist_ok=True)
+            run_id_short = request.run_id[:8] if request.run_id else "unknown"
+            img_path = output_dir / f"seed_{seed}_run_{run_id_short}.png"
+            with open(img_path, "wb") as f:
+                f.write(generated_bytes)
+            logger.info(f"Saved generated image to {img_path}")
 
             # Extract trace correlation ID from generation call (before verification)
             trace_correlation_id = extract_trace_correlation_id(

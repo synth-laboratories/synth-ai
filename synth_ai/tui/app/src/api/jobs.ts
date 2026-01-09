@@ -7,9 +7,13 @@ import { apiGet } from "./client"
 
 function extractBestSnapshotId(payload: any): string | null {
   if (!payload) return null
+  // Check multiple possible locations for the best snapshot ID
   return (
     payload.best_snapshot_id ||
+    payload.prompt_best_snapshot_id ||
     payload.best_snapshot?.id ||
+    payload.metadata?.prompt_best_snapshot_id ||
+    payload.metadata?.best_snapshot_id ||
     null
   )
 }
@@ -154,14 +158,27 @@ export async function fetchBestSnapshot(ctx: AppContext, token?: number): Promis
 
   const jobId = job.job_id
   const snapshotId = snapshot.bestSnapshotId
-  if (!snapshotId) return
 
   try {
-    const payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/snapshots/${snapshotId}`)
+    let payload: any
+    // If we have a snapshot ID, use the specific snapshot endpoint
+    if (snapshotId) {
+      payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/snapshots/${snapshotId}`)
+      payload = payload?.payload || payload
+    } else {
+      // Otherwise, use the best-snapshot endpoint which can find it even without an explicit ID
+      payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/best-snapshot`)
+      // Update bestSnapshotId from the response if it wasn't set
+      if (payload?.best_snapshot_id && !snapshot.bestSnapshotId) {
+        snapshot.bestSnapshotId = payload.best_snapshot_id
+      }
+      payload = payload?.best_snapshot || payload
+    }
+
     if ((token != null && token !== appState.jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
-    snapshot.bestSnapshot = payload?.payload || payload
+    snapshot.bestSnapshot = payload
     snapshot.status = `Loaded best snapshot`
   } catch (err: any) {
     if ((token != null && token !== appState.jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
@@ -216,7 +233,14 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
       return
     }
     snapshot.metrics = payload
-    snapshot.status = `Loaded metrics for ${job.job_id}`
+    const p: any = payload ?? {}
+    const points = Array.isArray(p?.points) ? p.points : []
+    const hasAny =
+      (Array.isArray(points) && points.length > 0) ||
+      (p && typeof p === "object" && Object.keys(p).some((k) => k !== "points" && k !== "job_id"))
+    snapshot.status = hasAny
+      ? `Loaded metrics for ${job.job_id}`
+      : `No metrics available yet for ${job.job_id}`
   } catch (err: any) {
     if (snapshot.selectedJob?.job_id !== jobId) {
       return

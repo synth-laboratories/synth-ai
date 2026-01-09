@@ -30,6 +30,7 @@ LOCAL_MODE = args.local
 LOCAL_HOST = args.local_host
 
 # Cell 1: Imports, Config, and Backend Health Check
+from copy import deepcopy
 import json
 import threading
 import time
@@ -108,7 +109,7 @@ else:
 API_KEY = os.environ.get('SYNTH_API_KEY', '')
 if not API_KEY:
     print('No SYNTH_API_KEY found, minting demo key...')
-    API_KEY = mint_demo_api_key()
+    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
     print(f'Demo API Key: {API_KEY[:25]}...')
 else:
     print(f'Using SYNTH_API_KEY: {API_KEY[:20]}...')
@@ -432,10 +433,21 @@ async def main():
         },
     }
 
+    # NOTE: PromptLearningJob.submit() validates/builds the payload and may mutate the provided mapping
+    # (e.g., nested dicts can be parsed into Pydantic models like GEPAConfig). Anything that expects
+    # dict-like `.get(...)` access should be derived BEFORE submission or from a copy.
+    total_pareto_seeds = int(
+        (config_body.get("prompt_learning", {}) or {})
+        .get("gepa", {})
+        .get("archive", {})
+        .get("pareto_set_size", 0)
+        or 0
+    )
+
     print(f'Creating GEPA job (local_api_url={BASELINE_LOCAL_API_URL})...')
 
     pl_job = PromptLearningJob.from_dict(
-        config_dict=config_body,
+        config_dict=deepcopy(config_body),
         backend_url=SYNTH_API_BASE,
     )
 
@@ -466,6 +478,33 @@ async def main():
                 
                 data = event.get('data', {})
                 message = event.get('message', '')
+
+                def format_pareto_growth(growth: Any) -> str:
+                    if not isinstance(growth, dict):
+                        return ""
+                    all_time = growth.get("all_time")
+                    last_1 = growth.get("last_1")
+                    last_5 = growth.get("last_5")
+                    last_20 = growth.get("last_20")
+                    parts = []
+                    if all_time is not None:
+                        parts.append(f"all={all_time:.2f}")
+                    if last_1 is not None:
+                        parts.append(f"last1={last_1:.2f}")
+                    if last_5 is not None:
+                        parts.append(f"last5={last_5:.2f}")
+                    if last_20 is not None:
+                        parts.append(f"last20={last_20:.2f}")
+                    return " ".join(parts)
+
+                def format_seeds_outstanding(total_solved: Any) -> str:
+                    if total_pareto_seeds <= 0 or total_solved is None:
+                        return ""
+                    try:
+                        outstanding = max(0, total_pareto_seeds - int(total_solved))
+                    except (TypeError, ValueError):
+                        return ""
+                    return f"outstanding={outstanding}/{total_pareto_seeds}"
                 
                 # GEPA-specific events (from backend logs)
                 if event_type == 'prompt.learning.gepa.rollouts_limit_progress':
@@ -497,7 +536,7 @@ async def main():
                         
                         if accuracy is not None:
                             status = "✓" if accepted else "✗"
-                            print(f'  {status} Candidate {version_id}: accuracy = {accuracy:.2%}')
+                            print(f'  {status} Candidate {version_id}: mean reward = {accuracy:.2f}')
                 
                 elif event_type == 'prompt.learning.gepa.proposal.completed':
                     # Message format: "Proposal generated in 11.23s (evaluation will start next)"
@@ -508,6 +547,81 @@ async def main():
                     # Message format: "Generation 1/2 starting"
                     if 'Generation' in message:
                         print(f'\n  {message}')
+
+                elif event_type == 'prompt.learning.gepa.progress':
+                    frontier_density = data.get("frontier_density")
+                    frontier_size = data.get("frontier_size") or data.get("archive_size")
+                    total_seeds_solved = data.get("total_seeds_solved")
+                    pareto_growth = format_pareto_growth(data.get("pareto_growth"))
+                    seeds_outstanding = format_seeds_outstanding(total_seeds_solved)
+                    best_reward = data.get("best_reward")
+                    details = []
+                    if frontier_density is not None:
+                        details.append(f"density={frontier_density:.3f}")
+                    if frontier_size is not None:
+                        details.append(f"frontier={frontier_size}")
+                    if total_seeds_solved is not None:
+                        details.append(f"total_seeds={total_seeds_solved}")
+                    if seeds_outstanding:
+                        details.append(seeds_outstanding)
+                    if pareto_growth:
+                        details.append(f"growth[{pareto_growth}]")
+                    if best_reward is not None:
+                        details.append(f"best={best_reward:.3f}")
+                    if details:
+                        print(f"\n  GEPA progress: {' | '.join(details)}")
+                    else:
+                        print(f"\n  GEPA progress (raw): {data}")
+
+                elif event_type == 'prompt.learning.gepa.archive.frontier_improved':
+                    frontier_density = data.get("frontier_density")
+                    frontier_size = data.get("archive_size")
+                    total_seeds_solved = data.get("total_seeds_solved")
+                    pareto_growth = format_pareto_growth(data.get("pareto_growth"))
+                    seeds_outstanding = format_seeds_outstanding(total_seeds_solved)
+                    best_reward = data.get("best_reward")
+                    details = []
+                    if best_reward is not None:
+                        details.append(f"best={best_reward:.3f}")
+                    if frontier_density is not None:
+                        details.append(f"density={frontier_density:.3f}")
+                    if frontier_size is not None:
+                        details.append(f"frontier={frontier_size}")
+                    if total_seeds_solved is not None:
+                        details.append(f"total_seeds={total_seeds_solved}")
+                    if seeds_outstanding:
+                        details.append(seeds_outstanding)
+                    if pareto_growth:
+                        details.append(f"growth[{pareto_growth}]")
+                    if details:
+                        print(f"\n  Frontier improved: {' | '.join(details)}")
+                    else:
+                        print(f"\n  Frontier improved (raw): {data}")
+
+                elif event_type == 'prompt.learning.gepa.generation.complete':
+                    frontier_density = data.get("frontier_density")
+                    frontier_size = data.get("archive_size")
+                    total_seeds_solved = data.get("total_seeds_solved")
+                    pareto_growth = format_pareto_growth(data.get("pareto_growth"))
+                    seeds_outstanding = format_seeds_outstanding(total_seeds_solved)
+                    best_reward = data.get("best_reward")
+                    details = []
+                    if best_reward is not None:
+                        details.append(f"best={best_reward:.3f}")
+                    if frontier_density is not None:
+                        details.append(f"density={frontier_density:.3f}")
+                    if frontier_size is not None:
+                        details.append(f"frontier={frontier_size}")
+                    if total_seeds_solved is not None:
+                        details.append(f"total_seeds={total_seeds_solved}")
+                    if seeds_outstanding:
+                        details.append(seeds_outstanding)
+                    if pareto_growth:
+                        details.append(f"growth[{pareto_growth}]")
+                    if details:
+                        print(f"\n  Generation complete metrics: {' | '.join(details)}")
+                    else:
+                        print(f"\n  Generation complete metrics (raw): {data}")
                 
                 elif event_type == 'prompt.learning.candidate.evaluation.started':
                     # Message format: "Evaluating candidate trans_00004... (10 seeds)"
@@ -525,13 +639,13 @@ async def main():
                     version_id = data.get('version_id', '')
                     accuracy = data.get('accuracy')
                     if accuracy is not None:
-                        print(f'  Proposal {version_id}: accuracy = {accuracy:.2%}')
+                        print(f'  Proposal {version_id}: mean reward = {accuracy:.2f}')
                 
                 elif event_type == 'prompt.learning.optimized.scored':
                     version_id = data.get('version_id', '')
                     accuracy = data.get('accuracy')
                     if accuracy is not None:
-                        print(f'  Optimized {version_id}: accuracy = {accuracy:.2%}')
+                        print(f'  Optimized {version_id}: mean reward = {accuracy:.2f}')
         
         except Exception:
             # Silently ignore event fetching errors to avoid polluting output
@@ -549,7 +663,7 @@ async def main():
     print(f'\nFINAL: {gepa_result.status.value} ({format_duration(timings["optimization"])})')
 
     if gepa_result.succeeded:
-        print(f'BEST SCORE: {gepa_result.best_score}')
+        print(f'BEST REWARD: {gepa_result.best_score:.1%}')
     elif gepa_result.failed:
         print(f'ERROR: {gepa_result.error}')
         # Print full raw response for debugging
@@ -772,7 +886,25 @@ async def main():
         timings['baseline_eval'] = time.time() - eval_start
 
         if baseline_result.succeeded:
-            print(f'  Baseline eval reward: {baseline_result.mean_score:.1%} ({format_duration(timings["baseline_eval"])})')
+            # Try mean_score first, then mean_reward from summary, then calculate from seed_results
+            score = baseline_result.mean_score
+            if score is None:
+                summary = baseline_result.raw.get("summary", {})
+                score = summary.get("mean_reward") or summary.get("mean_score")
+            if score is None and baseline_result.seed_results:
+                # Calculate from seed results
+                rewards = [
+                    r.get("outcome_reward") or r.get("reward_mean") or r.get("score")
+                    for r in baseline_result.seed_results
+                    if isinstance(r, dict) and (r.get("outcome_reward") or r.get("reward_mean") or r.get("score")) is not None
+                ]
+                if rewards:
+                    score = sum(rewards) / len(rewards)
+            
+            if score is not None:
+                print(f'  Baseline eval reward: {score:.1%} ({format_duration(timings["baseline_eval"])})')
+            else:
+                print(f'  Baseline eval completed but no reward available ({format_duration(timings["baseline_eval"])})')
         else:
             print(f'  Baseline eval failed: {baseline_result.error}')
 
@@ -786,30 +918,77 @@ async def main():
         timings['optimized_eval'] = time.time() - eval_start
 
         if optimized_result.succeeded:
-            print(f'  Optimized eval reward: {optimized_result.mean_score:.1%} ({format_duration(timings["optimized_eval"])})')
+            # Try mean_score first, then mean_reward from summary, then calculate from seed_results
+            score = optimized_result.mean_score
+            if score is None:
+                summary = optimized_result.raw.get("summary", {})
+                score = summary.get("mean_reward") or summary.get("mean_score")
+            if score is None and optimized_result.seed_results:
+                # Calculate from seed results
+                rewards = [
+                    r.get("outcome_reward") or r.get("reward_mean") or r.get("score")
+                    for r in optimized_result.seed_results
+                    if isinstance(r, dict) and (r.get("outcome_reward") or r.get("reward_mean") or r.get("score")) is not None
+                ]
+                if rewards:
+                    score = sum(rewards) / len(rewards)
+            
+            if score is not None:
+                print(f'  Optimized eval reward: {score:.1%} ({format_duration(timings["optimized_eval"])})')
+            else:
+                print(f'  Optimized eval completed but no reward available ({format_duration(timings["optimized_eval"])})')
         else:
             print(f'  Optimized eval failed: {optimized_result.error}')
 
         if baseline_result.succeeded and optimized_result.succeeded:
-            print('\n' + '=' * 60)
-            print('FINAL COMPARISON')
-            print('=' * 60)
-            print(f"Training:")
-            print(f"  Best Train Reward: {best_train_reward:.1%}")
+            # Extract scores with fallback logic
+            def extract_score(result: EvalResult) -> float | None:
+                score = result.mean_score
+                if score is None:
+                    summary = result.raw.get("summary", {})
+                    score = summary.get("mean_reward") or summary.get("mean_score")
+                if score is None and result.seed_results:
+                    rewards = [
+                        r.get("outcome_reward") or r.get("reward_mean") or r.get("score")
+                        for r in result.seed_results
+                        if isinstance(r, dict) and (r.get("outcome_reward") or r.get("reward_mean") or r.get("score")) is not None
+                    ]
+                    if rewards:
+                        score = sum(rewards) / len(rewards)
+                return score
+            
+            baseline_score = extract_score(baseline_result)
+            optimized_score = extract_score(optimized_result)
+            
+            if baseline_score is not None and optimized_score is not None:
+                print('\n' + '=' * 60)
+                print('FINAL COMPARISON')
+                print('=' * 60)
+                print(f"Training:")
+                print(f"  Best Train Reward: {best_train_reward:.1%}")
 
-            print(f"\nEval (seeds {EVAL_SEEDS[0]}-{EVAL_SEEDS[-1]}, held-out):")
-            print(f"  Baseline Reward:  {baseline_result.mean_score:.1%}")
-            print(f"  Optimized Reward: {optimized_result.mean_score:.1%}")
+                print(f"\nEval (seeds {EVAL_SEEDS[0]}-{EVAL_SEEDS[-1]}, held-out):")
+                print(f"  Baseline Reward:  {baseline_score:.1%}")
+                print(f"  Optimized Reward: {optimized_score:.1%}")
 
-            eval_lift = optimized_result.mean_score - baseline_result.mean_score
-            print(f"  Lift:             {eval_lift:+.1%}")
+                eval_lift = optimized_score - baseline_score
+                print(f"  Lift:             {eval_lift:+.1%}")
 
-            if eval_lift > 0:
-                print("\n>>> OPTIMIZATION GENERALIZES TO HELD-OUT DATA!")
-            elif eval_lift == 0:
-                print("\n=== Same performance on held-out data")
+                if eval_lift > 0:
+                    print("\n>>> OPTIMIZATION GENERALIZES TO HELD-OUT DATA!")
+                elif eval_lift == 0:
+                    print("\n=== Same performance on held-out data")
+                else:
+                    print("\n<<< Baseline better on held-out (possible overfitting)")
             else:
-                print("\n<<< Baseline better on held-out (possible overfitting)")
+                print('\n' + '=' * 60)
+                print('FINAL COMPARISON')
+                print('=' * 60)
+                print("Eval jobs completed but rewards not available for comparison")
+                if baseline_score is None:
+                    print("  Baseline: reward not available")
+                if optimized_score is None:
+                    print("  Optimized: reward not available")
     else:
         print(f"Job did not succeed: {gepa_result.status.value}")
         # Error details already printed above for failed jobs

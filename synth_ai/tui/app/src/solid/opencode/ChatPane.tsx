@@ -82,34 +82,24 @@ export function ChatPane(props: ChatPaneProps) {
 
   const client = getClient(props.url)
 
-  // Flatten models from connected providers (prioritize synth for routing through Synth backend)
+  // Flatten models from connected providers (only show synth models)
   const availableModels = createMemo(() => {
     const models: { providerID: string; modelID: string; providerName: string; modelName: string }[] = []
-    // Prioritize synth provider first (routed through Synth backend), then other providers
-    const preferredProviders = ["synth", "openai", "anthropic", "groq", "mistral"]
-
-    for (const provider of state().providers) {
-      for (const [modelId, model] of Object.entries(provider.models)) {
+    // Only include synth provider models
+    const synthProvider = state().providers.find((p) => p.id === "synth")
+    
+    if (synthProvider) {
+      for (const [modelId, model] of Object.entries(synthProvider.models)) {
         models.push({
-          providerID: provider.id,
+          providerID: synthProvider.id,
           modelID: modelId,
-          providerName: provider.name,
+          providerName: synthProvider.name,
           modelName: model.name || modelId,
         })
       }
     }
 
-    // Sort to put preferred providers first
-    models.sort((a, b) => {
-      const aIdx = preferredProviders.indexOf(a.providerID)
-      const bIdx = preferredProviders.indexOf(b.providerID)
-      if (aIdx >= 0 && bIdx < 0) return -1
-      if (bIdx >= 0 && aIdx < 0) return 1
-      if (aIdx >= 0 && bIdx >= 0) return aIdx - bIdx
-      return 0
-    })
-
-    return models.slice(0, 50) // Limit to 50 models
+    return models
   })
 
   // Current model display info

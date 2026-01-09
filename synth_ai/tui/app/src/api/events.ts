@@ -2,7 +2,8 @@
  * Event polling operations.
  */
 import type { AppContext } from "../context"
-import { extractEvents, isEvalJob, type JobEvent } from "../tui_data"
+import { extractEvents, isEvalJob, num, type JobEvent } from "../tui_data"
+import type { PromptCandidate } from "../types"
 import { apiGet } from "./client"
 
 function clamp(value: number, min: number, max: number): number {
@@ -30,6 +31,95 @@ function safeEventDataText(data: unknown): string {
     return JSON.stringify(data)
   } catch {
     return ""
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, any> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function extractCandidateFromEvent(event: JobEvent): PromptCandidate | null {
+  const data = event.data
+  if (!isRecord(data)) return null
+
+  const candidatePayload =
+    (isRecord(data.program_candidate) && data.program_candidate) ||
+    (isRecord(data.candidate) && data.candidate) ||
+    data
+  if (!isRecord(candidatePayload)) return null
+
+  const candidateId =
+    candidatePayload.candidate_id ||
+    candidatePayload.version_id ||
+    candidatePayload.id ||
+    null
+  if (!candidateId) return null
+
+  const score = isRecord(candidatePayload.score) ? candidatePayload.score : null
+  const reward =
+    num(
+      candidatePayload.reward ??
+        candidatePayload.accuracy ??
+        candidatePayload.full_score ??
+        candidatePayload.minibatch_score ??
+        score?.reward ??
+        score?.accuracy,
+    ) ?? null
+
+  const mutationType =
+    candidatePayload.mutation_type || candidatePayload.operator || candidatePayload.mutation || null
+  const isBaseline =
+    mutationType === "baseline" ||
+    mutationType === "initial_population" ||
+    candidatePayload.is_baseline === true
+
+  return {
+    id: String(candidateId),
+    isBaseline,
+    reward,
+    payload: candidatePayload,
+    createdAt: event.timestamp ?? null,
+    tag: event.type,
+  }
+}
+
+function updateCandidatesFromEvents(ctx: AppContext, events: JobEvent[]): void {
+  const { snapshot } = ctx.state
+  if (events.length === 0) return
+
+  const byId = new Map<string, PromptCandidate>()
+  for (const candidate of snapshot.allCandidates) {
+    byId.set(candidate.id, candidate)
+  }
+
+  for (const event of events) {
+    if (event.type === "prompt.learning.gepa.frontier_updated") {
+      const data = isRecord(event.data) ? event.data : null
+      const frontier = Array.isArray(data?.frontier) ? data?.frontier : []
+      const frontierScores = isRecord(data?.frontier_scores) ? data?.frontier_scores : null
+      const frontierSet = new Set(frontier.map((id) => String(id)))
+      for (const candidate of snapshot.allCandidates) {
+        candidate.payload = { ...candidate.payload, is_pareto: frontierSet.has(candidate.id) }
+        if (frontierScores && frontierScores[candidate.id] != null) {
+          candidate.reward = num(frontierScores[candidate.id]) ?? candidate.reward
+        }
+      }
+      continue
+    }
+
+    const candidate = extractCandidateFromEvent(event)
+    if (!candidate) continue
+    const existing = byId.get(candidate.id)
+    if (existing) {
+      if (candidate.reward != null) existing.reward = candidate.reward
+      existing.payload = { ...existing.payload, ...candidate.payload }
+      existing.tag = candidate.tag
+      existing.createdAt = existing.createdAt || candidate.createdAt
+      existing.isBaseline = existing.isBaseline || candidate.isBaseline
+    } else {
+      byId.set(candidate.id, candidate)
+      snapshot.allCandidates.push(candidate)
+    }
   }
 }
 
@@ -84,10 +174,24 @@ export async function refreshEvents(ctx: AppContext): Promise<boolean> {
 
     const { events, nextSeq } = extractEvents(payload)
     if (events.length > 0) {
-      snapshot.events.push(...events)
+      // Deduplicate by seq to be resilient to overlapping polling/SSE/backfills.
+      const existingSeqs = new Set(snapshot.events.map((e) => e.seq))
+      const newEvents = events.filter((e) => !existingSeqs.has(e.seq))
+      if (newEvents.length === 0) {
+        // Still advance lastSeq if the server tells us to.
+        if (typeof nextSeq === "number" && Number.isFinite(nextSeq)) {
+          appState.lastSeq = Math.max(appState.lastSeq, nextSeq)
+        }
+        return true
+      }
+
+      snapshot.events.push(...newEvents)
+      updateCandidatesFromEvents(ctx, newEvents)
       const filter = appState.eventFilter.trim().toLowerCase()
       const newMatchCount =
-        filter.length === 0 ? events.length : events.filter((event) => eventMatchesFilter(event, filter)).length
+        filter.length === 0
+          ? newEvents.length
+          : newEvents.filter((event) => eventMatchesFilter(event, filter)).length
 
       if (appState.activePane === "events" && newMatchCount > 0) {
         if (appState.selectedEventIndex > 0) {
@@ -111,7 +215,7 @@ export async function refreshEvents(ctx: AppContext): Promise<boolean> {
           Math.max(0, snapshot.events.length - Math.max(1, config.eventVisibleCount)),
         )
       }
-      appState.lastSeq = Math.max(appState.lastSeq, ...events.map((e) => e.seq))
+      appState.lastSeq = Math.max(appState.lastSeq, ...newEvents.map((e) => e.seq))
     }
 
     if (typeof nextSeq === "number" && Number.isFinite(nextSeq)) {
@@ -123,4 +227,3 @@ export async function refreshEvents(ctx: AppContext): Promise<boolean> {
     return false
   }
 }
-

@@ -748,6 +748,18 @@ class GraphGenJobConfig(BaseModel):
         le=10000,
         description="Total number of rollouts for optimization",
     )
+    rollout_max_concurrent: int = Field(
+        default=25,
+        ge=1,
+        le=100,
+        description="Maximum parallel rollouts per candidate evaluation",
+    )
+    rollout_timeout_seconds: float = Field(
+        default=60.0,
+        ge=10.0,
+        le=600.0,
+        description="Timeout per graph rollout execution in seconds",
+    )
 
     # Proposer settings (controls prompt mutation quality/cost)
     proposer_effort: Literal["low", "medium", "high"] = Field(
@@ -791,6 +803,10 @@ class GraphGenJobConfig(BaseModel):
     evaluation_seeds: Optional[List[int]] = Field(
         default=None,
         description="Specific seeds to use for evaluation (auto-generated if not specified)",
+    )
+    initial_graph_id: Optional[str] = Field(
+        default=None,
+        description="Graph ID to warm-start optimization from. If provided, skips initial graph generation and starts evolution from this graph.",
     )
     problem_spec: Optional[str] = Field(
         default=None,

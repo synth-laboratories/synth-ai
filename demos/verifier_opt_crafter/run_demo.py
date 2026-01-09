@@ -393,7 +393,7 @@ async def main():
         api_key=API_KEY,
         graph_type="verifier",
         policy_models=["gpt-4o-mini"],  # Policy models for graph execution
-        verifier_model="gpt-4o-mini",  # Verifier model for scoring traces
+        judge_model="gpt-4o-mini",  # Judge/verifier model for scoring traces
         rollout_budget=args.rollout_budget,
         proposer_effort="medium",
         num_generations=args.generations,

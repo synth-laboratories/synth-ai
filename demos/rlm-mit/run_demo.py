@@ -126,7 +126,7 @@ else:
 API_KEY = os.environ.get('SYNTH_API_KEY', '')
 if not API_KEY:
     print('No SYNTH_API_KEY found, minting demo key...')
-    API_KEY = mint_demo_api_key()
+    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
     print(f'Demo API Key: {API_KEY[:25]}...')
 else:
     print(f'Using SYNTH_API_KEY: {API_KEY[:20]}...')

@@ -129,8 +129,11 @@ def setup_backend() -> str:
 # - Set SYNTH_API_KEY environment variable for production use
 # - Or we'll mint a temporary demo key for testing
 
-def setup_api_key() -> str:
+def setup_api_key(backend_url: str | None = None) -> str:
     """Get or create an API key for authentication.
+
+    Args:
+        backend_url: Backend URL to use for minting demo keys (defaults to PROD_BASE_URL)
 
     Returns:
         The API key string
@@ -141,7 +144,7 @@ def setup_api_key() -> str:
         print(f"\nUsing existing SYNTH_API_KEY: {api_key[:20]}...")
     else:
         print("\nNo SYNTH_API_KEY found, minting demo key...")
-        api_key = mint_demo_api_key()
+        api_key = mint_demo_api_key(backend_url=backend_url)
         print(f"  Demo API Key: {api_key[:25]}...")
 
     # Set in environment for SDK to use automatically
@@ -600,7 +603,7 @@ def main():
     backend_url = setup_backend()
 
     # Step 2: Configure API key
-    api_key = setup_api_key()
+    api_key = setup_api_key(backend_url=backend_url)
 
     # Step 3: Build dataset
     dataset, label_names = build_banking77_graphgen_dataset(

@@ -150,5 +150,23 @@ export async function walkEnvDir(
 export async function scanEnvKeys(rootDir: string): Promise<EnvKeyOption[]> {
   const results = new Map<string, EnvKeyOption>()
   await walkEnvDir(rootDir, results, rootDir)
+  
+  // If no keys found, try parent directories up to 3 levels
+  if (results.size === 0) {
+    let currentDir = rootDir
+    for (let i = 0; i < 3; i++) {
+      const parentDir = path.dirname(currentDir)
+      if (parentDir === currentDir) break // reached root
+      currentDir = parentDir
+      await walkEnvDir(currentDir, results, currentDir)
+      if (results.size > 0) break
+    }
+  }
+  
   return Array.from(results.values())
+}
+
+/** Returns the scan root being used for display purposes */
+export function getScanRoot(): string {
+  return config.envKeyScanRoot
 }

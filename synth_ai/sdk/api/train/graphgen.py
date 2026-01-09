@@ -165,6 +165,8 @@ class GraphGenJob:
         num_generations: Optional[int] = None,
         problem_spec: Optional[str] = None,
         target_llm_calls: Optional[int] = None,
+        graph_type: Optional[Literal["policy", "verifier", "rlm"]] = None,
+        initial_graph_id: Optional[str] = None,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         auto_start: bool = True,
@@ -186,6 +188,10 @@ class GraphGenJob:
                 Include domain-specific info like valid output labels for classification.
             target_llm_calls: Target number of LLM calls for the graph (1-10).
                 Controls how many LLM nodes the graph should use. Defaults to 5.
+            graph_type: Type of graph to train - "policy" (default), "verifier", or "rlm"
+            initial_graph_id: Optional graph ID to warm-start optimization from.
+                If provided, skips initial graph generation and starts evolution from this graph.
+                Useful for starting from a known good graph (e.g., map-reduce verifier).
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             auto_start: Whether to start the job immediately
@@ -250,6 +256,11 @@ class GraphGenJob:
             raise ValueError("policy_models must contain at least one model")
         
         # Build config
+        from synth_ai.data.enums import GraphType
+        
+        # Convert graph_type string to GraphType enum if provided, otherwise use default
+        graph_type_enum = GraphType(graph_type) if graph_type else GraphType.POLICY
+        
         config = GraphGenJobConfig(
             policy_models=policy_models_list,
             rollout_budget=rollout_budget,
@@ -260,6 +271,8 @@ class GraphGenJob:
             num_generations=num_generations,
             problem_spec=problem_spec,
             target_llm_calls=target_llm_calls,
+            graph_type=graph_type_enum,
+            initial_graph_id=initial_graph_id,
         )
 
         return cls(
@@ -402,6 +415,10 @@ class GraphGenJob:
             "metadata": metadata,
             "auto_start": self.auto_start,
         }
+        
+        # Add initial_graph_id if provided
+        if self.config.initial_graph_id:
+            payload["initial_graph_id"] = self.config.initial_graph_id
 
         # Strip unset optional fields so we don't send nulls to strict backends.
         if payload.get("eval_sample_size") is None:

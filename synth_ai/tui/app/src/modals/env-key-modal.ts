@@ -52,7 +52,18 @@ export function createEnvKeyModal(ctx: AppContext): EnvKeyModalController {
     }
 
     if (!appState.envKeyOptions.length) {
-      modal.setContent("No API keys found in .env files")
+      const lines = [
+        "No API keys found in .env files",
+        "",
+        `Scanned: ${config.envKeyScanRoot}`,
+        "",
+        "Looking for vars:",
+        "  SYNTH_API_KEY",
+        "  SYNTH_TUI_API_KEY_PROD",
+        "  SYNTH_TUI_API_KEY_DEV",
+        "  SYNTH_TUI_API_KEY_LOCAL",
+      ]
+      modal.setContent(lines.join("\n"))
       renderer.requestRender()
       return
     }
@@ -131,7 +142,11 @@ export function createEnvKeyModal(ctx: AppContext): EnvKeyModalController {
 
   async function select(): Promise<void> {
     const selected = appState.envKeyOptions[appState.envKeyCursor]
-    if (!selected) return
+    if (!selected) {
+      // Close modal when no keys available (pressing enter should dismiss)
+      toggle(false)
+      return
+    }
 
     // Store by frontend URL (dev and local share the same key)
     const frontendUrlId = getFrontendUrlId(appState.currentBackend)

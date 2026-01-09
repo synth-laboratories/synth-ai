@@ -139,7 +139,6 @@ export const appState = {
 
   // Modal scroll offsets
   eventModalOffset: 0,
-  resultsModalOffset: 0,
   configModalOffset: 0,
   logsModalOffset: 0,
   logsModalTail: true,
