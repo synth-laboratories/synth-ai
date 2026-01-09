@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.4.9"
+version = "0.4.10"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
@@ -138,6 +138,7 @@ include-package-data = true
     "demos/demo_task_apps/math/deploy_task_app.sh",
     "_tui/dist/*",
     "tui/app/package.json",
+    "tui/app/package.dist.json",
     "tui/app/bunfig.toml",
     "tui/app/tsconfig.json",
     "tui/app/tsconfig.typecheck.json",

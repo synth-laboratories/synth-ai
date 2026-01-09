@@ -65,7 +65,11 @@ def _find_runtime() -> str | None:
 
 def _ensure_dependencies_installed(tui_root: Path, runtime: str) -> None:
     """Ensure JavaScript dependencies are installed before running the TUI."""
+    import shutil
+    import sys
+
     package_json = tui_root / "package.json"
+    package_dist_json = tui_root / "package.dist.json"
     node_modules = tui_root / "node_modules"
 
     # Check if package.json exists
@@ -76,26 +80,39 @@ def _ensure_dependencies_installed(tui_root: Path, runtime: str) -> None:
 
     # Check if node_modules exists (or if solid-js is installed as a quick check)
     if not node_modules.exists() or not (node_modules / "solid-js").exists():
-        import sys
-
         print("Installing TUI dependencies...", file=sys.stderr)
         sys.stderr.flush()
 
-        # Run bun install
-        install_result = subprocess.run(
-            [runtime, "install"],
-            cwd=tui_root,
-            capture_output=True,
-            text=True,
-        )
+        # If package.dist.json exists, we're running from PyPI install and need to use it
+        # The regular package.json has workspace refs that only work in dev
+        use_dist = package_dist_json.exists()
+        original_package_json = None
 
-        if install_result.returncode != 0:
-            raise RuntimeError(
-                f"Failed to install TUI dependencies:\n"
-                f"stdout: {install_result.stdout}\n"
-                f"stderr: {install_result.stderr}\n"
-                f"Run manually: cd {tui_root} && bun install"
+        if use_dist:
+            # Backup and replace package.json with dist version
+            original_package_json = package_json.read_text()
+            shutil.copy(package_dist_json, package_json)
+
+        try:
+            # Run bun install
+            install_result = subprocess.run(
+                [runtime, "install"],
+                cwd=tui_root,
+                capture_output=True,
+                text=True,
             )
+
+            if install_result.returncode != 0:
+                raise RuntimeError(
+                    f"Failed to install TUI dependencies:\n"
+                    f"stdout: {install_result.stdout}\n"
+                    f"stderr: {install_result.stderr}\n"
+                    f"Run manually: cd {tui_root} && bun install"
+                )
+        finally:
+            # Restore original package.json if we swapped it
+            if use_dist and original_package_json is not None:
+                package_json.write_text(original_package_json)
 
         # Verify installation succeeded
         if not node_modules.exists() or not (node_modules / "solid-js").exists():

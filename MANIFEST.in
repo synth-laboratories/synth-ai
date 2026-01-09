@@ -20,6 +20,7 @@ recursive-exclude synth_ai **/tests/*
 recursive-exclude synth_ai *.json
 # But include TUI package.json and other config files
 include synth_ai/tui/app/package.json
+include synth_ai/tui/app/package.dist.json
 include synth_ai/tui/app/bunfig.toml
 include synth_ai/tui/app/tsconfig.json
 include synth_ai/tui/app/tsconfig.typecheck.json

@@ -1,0 +1,34 @@
+{
+  "name": "synth-ai-tui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run typecheck",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "^1.1.8",
+    "@opentui/core": "^0.1.0",
+    "@opentui/solid": "0.1.69",
+    "solid-js": "^1.9.9"
+  },
+  "optionalDependencies": {
+    "@opentui/core-darwin-arm64": "0.1.69",
+    "@opentui/core-darwin-x64": "0.1.69",
+    "@opentui/core-linux-arm64": "0.1.69",
+    "@opentui/core-linux-x64": "0.1.69",
+    "@opentui/core-win32-arm64": "0.1.69",
+    "@opentui/core-win32-x64": "0.1.69"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.5",
+    "typescript": "^5.9.3"
+  },
+  "resolutions": {
+    "@opentui/solid": "0.1.69",
+    "@opentui/core": "0.1.69",
+    "solid-js": "1.9.10"
+  }
+}
+
