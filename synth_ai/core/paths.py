@@ -1,3 +1,4 @@
+import contextlib
 import os
 import shutil
 import sys
@@ -89,6 +90,26 @@ def configure_import_paths(
     for dir in reversed(unique_dirs):
         if dir and dir not in sys.path:
             sys.path.insert(0, dir)
+
+
+@contextlib.contextmanager
+def temporary_import_paths(app: Path, repo_root: Path | None = REPO_ROOT):
+    """Temporarily configure PYTHONPATH/sys.path for loading a task app from a file path.
+
+    Prefer this context manager over calling `configure_import_paths` directly when you
+    only need the paths for the duration of a single import/load operation.
+    """
+    original_sys_path = sys.path.copy()
+    original_pythonpath = os.environ.get("PYTHONPATH")
+    configure_import_paths(app, repo_root)
+    try:
+        yield
+    finally:
+        sys.path[:] = original_sys_path
+        if original_pythonpath is None:
+            os.environ.pop("PYTHONPATH", None)
+        else:
+            os.environ["PYTHONPATH"] = original_pythonpath
 
 
 def cleanup_paths(*, file: Path, dir: Path) -> None:

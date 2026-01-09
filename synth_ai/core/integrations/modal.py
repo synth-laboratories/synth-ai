@@ -10,7 +10,7 @@ import click
 from modal.config import config
 
 from synth_ai.core.cfgs import ModalDeployCfg
-from synth_ai.core.paths import REPO_ROOT, cleanup_paths, configure_import_paths
+from synth_ai.core.paths import REPO_ROOT, cleanup_paths, configure_import_paths, temporary_import_paths
 from synth_ai.core.telemetry import log_error, log_info
 
 
@@ -215,13 +215,12 @@ def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
     }
     log_info("deploy_app_modal invoked", ctx=ctx)
 
-    __validate_modal_app(cfg.modal_app_path)
+    with temporary_import_paths(cfg.modal_app_path, REPO_ROOT):
+        __validate_modal_app(cfg.modal_app_path)
 
     if is_modal_setup_needed():
         log_info("modal setup required", ctx=ctx)
         run_modal_setup(cfg.modal_bin_path)
-
-    configure_import_paths(cfg.modal_app_path, REPO_ROOT)
 
     wrapper_dir, wrapper_file = create_modal_wrapper(cfg)
 

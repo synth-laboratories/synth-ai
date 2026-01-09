@@ -88,7 +88,7 @@ def extract_trace_correlation_id(
                 potential_cid = path_segments[-3]
                 # Verify it looks like a correlation ID (starts with trace_, cid_, or eval_)
                 if potential_cid.startswith(("trace_", "cid_", "eval_")):
-                    logger.info(
+                    logger.debug(
                         "extract_trace_correlation_id: extracted from URL path=%s",
                         potential_cid,
                     )
@@ -97,7 +97,7 @@ def extract_trace_correlation_id(
         # 1b. Fallback: look for any path segment that looks like a correlation ID
         for segment in reversed(path_segments):
             if segment.startswith(("trace_", "cid_", "eval_")):
-                logger.info(
+                logger.debug(
                     "extract_trace_correlation_id: extracted from URL path segment=%s",
                     segment,
                 )
@@ -113,7 +113,7 @@ def extract_trace_correlation_id(
             for value in values:
                 if isinstance(value, str) and value.strip():
                     correlation_id = value.strip()
-                    logger.info(
+                    logger.debug(
                         "extract_trace_correlation_id: extracted from URL param %s=%s",
                         param_name,
                         correlation_id,
@@ -219,7 +219,7 @@ def include_trace_correlation_id_in_response(
     # 1. Add to top-level (REQUIRED)
     if "trace_correlation_id" not in response_data:
         response_data["trace_correlation_id"] = trace_correlation_id
-        logger.info(
+        logger.debug(
             "include_trace_correlation_id: added to top-level run_id=%s cid=%s",
             run_id,
             trace_correlation_id
@@ -233,7 +233,7 @@ def include_trace_correlation_id_in_response(
     
     if "trace_correlation_id" not in pipeline_meta:
         pipeline_meta["trace_correlation_id"] = trace_correlation_id
-        logger.info(
+        logger.debug(
             "include_trace_correlation_id: added to pipeline_metadata run_id=%s cid=%s",
             run_id,
             trace_correlation_id
@@ -264,7 +264,7 @@ def include_trace_correlation_id_in_response(
                 session_trace["metadata"] = session_meta
             session_meta.setdefault("trace_correlation_id", trace_correlation_id)
 
-    logger.info(
+    logger.debug(
         "include_trace_correlation_id: completed run_id=%s cid=%s "
         "added to top-level, metadata, and trace",
         run_id,
@@ -436,7 +436,7 @@ def include_event_history_in_response(
     if isinstance(session_trace, dict) and "event_history" not in session_trace:
         session_trace["event_history"] = trace_block["event_history"]
 
-    logger.info(
+    logger.debug(
         "include_event_history_in_response: added event_history run_id=%s events=%d",
         run_id,
         len(trace_block.get("event_history", [])),
@@ -532,7 +532,7 @@ def verify_trace_correlation_id_in_response(
         )
         return False
     
-    logger.info(
+    logger.debug(
         "verify_trace_correlation_id: PASSED run_id=%s cid=%s",
         run_id,
         expected_correlation_id

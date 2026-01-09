@@ -50,7 +50,7 @@ env_name = "web_design"
 # Rollout configuration (how many evaluations to run)
 [prompt_learning.gepa.rollout]
 budget = 3                  # Total number of evaluations (minimal for testing)
-max_concurrent = 1          # Run 1 evaluation at a time
+max_concurrent = 10         # Run up to 10 evaluations at a time (local speed)
 minibatch_size = 3          # Evaluate on 3 examples per candidate (minimum required)
 
 # Evaluation seeds (which examples from dataset to use)
@@ -85,8 +85,8 @@ backend_model = "gemini-2.5-flash"  # Vision model for comparing images
 verifier_graph_id = "zero_shot_verifier_rubric_single"  # Zero-shot rubric verifier
 backend_outcome_enabled = true
 backend_event_enabled = false       # Only outcome scoring needed
-concurrency = 3
-timeout = 120.0
+concurrency = 10
+timeout = 240.0  # Increased for vision model generation + verification
 # Explicit weights required: use verifier outcome only (env/event set to 0)
 weight_env = 0.0
 weight_event = 0.0

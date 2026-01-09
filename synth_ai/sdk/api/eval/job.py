@@ -197,6 +197,7 @@ class EvalJobConfig:
     seeds: List[int] = field(default_factory=list)
     policy_config: Dict[str, Any] = field(default_factory=dict)
     env_config: Dict[str, Any] = field(default_factory=dict)
+    verifier_config: Optional[Dict[str, Any]] = None
     concurrency: int = 5
     timeout: float = 600.0
     # Aliases for backwards compatibility (not stored, just used in __init__)
@@ -345,6 +346,7 @@ class EvalJob:
                     "env_name": pl_config.get("gepa", {}).get("env_name"),
                     "seeds": pl_config.get("gepa", {}).get("evaluation", {}).get("seeds", []),
                     "policy_config": pl_config.get("gepa", {}).get("policy", {}),
+                    "verifier_config": pl_config.get("verifier", {}) if isinstance(pl_config.get("verifier"), dict) else None,
                 }
 
         # Resolve API key
@@ -372,6 +374,7 @@ class EvalJob:
             seeds=list(final_seeds),
             policy_config=eval_config.get("policy_config", {}),
             env_config=eval_config.get("env_config", {}),
+            verifier_config=eval_config.get("verifier_config"),
             concurrency=eval_config.get("concurrency", 5),
             timeout=eval_config.get("timeout", 600.0),
         )
@@ -470,6 +473,7 @@ class EvalJob:
             "seeds": self.config.seeds,
             "policy": policy,
             "env_config": self.config.env_config,
+            "verifier_config": self.config.verifier_config,
             "max_concurrent": self.config.concurrency,
             "timeout": self.config.timeout,
         }

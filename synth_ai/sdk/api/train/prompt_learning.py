@@ -631,14 +631,16 @@ class PromptLearningJob:
         interval: float = 5.0,
         progress: bool = False,
         on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
+        request_timeout: float = 180.0,
     ) -> PromptLearningResult:
         """Poll job until it reaches a terminal state.
 
         Args:
-            timeout: Maximum seconds to wait
+            timeout: Maximum seconds to wait for job completion
             interval: Seconds between poll attempts
             progress: If True, print status updates during polling (useful for notebooks)
             on_status: Optional callback called on each status update (for custom progress handling)
+            request_timeout: HTTP timeout for each status request (increase for slow vision tasks)
 
         Returns:
             PromptLearningResult with typed status, best_score, etc.
@@ -675,7 +677,7 @@ class PromptLearningJob:
             try:
                 # Fetch job status
                 url = f"{base_url}/prompt-learning/online/jobs/{job_id}"
-                resp = http_get(url, headers=headers)
+                resp = http_get(url, headers=headers, timeout=request_timeout)
                 data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                 last_data = dict(data) if isinstance(data, dict) else {}
 

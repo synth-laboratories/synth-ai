@@ -665,11 +665,13 @@ class InProcessTaskApp:
 
         elif self._task_app_path:
             # File path - load module and extract app
-            configure_import_paths(self._task_app_path, REPO_ROOT)
-            module = load_module(
-                self._task_app_path,
-                f"_inprocess_{self._task_app_path.stem}_{id(self)}",
-            )
+            from synth_ai.core.paths import temporary_import_paths
+
+            with temporary_import_paths(self._task_app_path, REPO_ROOT):
+                module = load_module(
+                    self._task_app_path,
+                    f"_inprocess_{self._task_app_path.stem}_{id(self)}",
+                )
             
             # Try to get app directly first
             try:

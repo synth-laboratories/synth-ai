@@ -26,7 +26,7 @@ from starlette.types import ASGIApp
 
 from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.cfgs import CFDeployCfg
-from synth_ai.core.paths import REPO_ROOT, configure_import_paths
+from synth_ai.core.paths import REPO_ROOT, configure_import_paths, temporary_import_paths
 from synth_ai.core.telemetry import log_error, log_event, log_info
 from synth_ai.core.urls import BACKEND_URL_BASE
 
@@ -1756,9 +1756,9 @@ async def deploy_app_tunnel(
     else:
         os.environ.pop("TASKAPP_TRACING_ENABLED", None)
 
-    configure_import_paths(cfg.task_app_path, REPO_ROOT)
-    module = load_module(cfg.task_app_path, f"_synth_tunnel_task_app_{cfg.task_app_path.stem}")
-    app = get_asgi_app(module)
+    with temporary_import_paths(cfg.task_app_path, REPO_ROOT):
+        module = load_module(cfg.task_app_path, f"_synth_tunnel_task_app_{cfg.task_app_path.stem}")
+        app = get_asgi_app(module)
 
     # Always use non-daemon thread so it survives when main process exits
     _start_uvicorn_background(app, cfg.host, cfg.port, daemon=False)

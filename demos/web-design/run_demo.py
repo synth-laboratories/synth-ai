@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pyright: reportMissingImports=false
 """Run Web Design Style Prompt Optimization with GEPA.
 
 This demo optimizes a style system prompt that guides Gemini 2.5 Flash Image
@@ -14,23 +15,57 @@ import asyncio
 import base64
 import io
 import json
+import logging
 import os
-import sys
 import time
+import threading
 from pathlib import Path
 from typing import Any
 
 import httpx
 import toml
-from datasets import load_from_disk
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
+
+# Suppress verbose HTTP logs from httpx and google-genai
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("google").setLevel(logging.WARNING)
+logging.getLogger("google.auth").setLevel(logging.WARNING)
+logging.getLogger("google_genai").setLevel(logging.WARNING)
+from datasets import Image as HFImage
+from datasets import load_dataset, load_from_disk
 from PIL import Image
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
-from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.task import RubricCriterion, RubricInfo, RubricSection, run_server_background
+try:
+    from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+    from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
+    from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+except ImportError as e:  # pragma: no cover
+    raise ImportError(
+        "Failed to import `synth_ai`.\n"
+        "This demo expects the `synth-ai` package to be installed in your environment.\n\n"
+        "If you're running from a repo checkout, install it first (from the repo root):\n"
+        "  - uv:  `uv sync`  (then run: `uv run python demos/web-design/run_demo.py`)\n"
+        "  - pip: `python -m pip install -e .`\n"
+    ) from e
+try:
+    # Preferred: stable locations (avoids relying on sdk.task re-exports).
+    from synth_ai.sdk.task.server import run_server_background
+except ImportError:  # pragma: no cover
+    # Back-compat with older packaging.
+    from synth_ai.sdk.task import run_server_background
+
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+try:
+    from synth_ai.sdk.task.contracts import RubricCriterion, RubricInfo, RubricSection
+except ImportError:  # pragma: no cover
+    # Back-compat with older versions that exposed these at synth_ai.sdk.task.*
+    from synth_ai.sdk.task import RubricCriterion, RubricInfo, RubricSection
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
+from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.tunnels import (
     PortConflictBehavior,
     TunnelBackend,
@@ -51,7 +86,35 @@ LOCAL_HOST = args.local_host
 # Setup paths
 demo_dir = Path(__file__).parent
 repo_root = demo_dir.parent.parent
-sys.path.insert(0, str(repo_root))
+
+# Print a quick diagnostic if we're accidentally importing synth_ai from elsewhere.
+def _maybe_warn_on_synth_ai_mismatch() -> None:
+    try:
+        import synth_ai as _synth_ai  # noqa: WPS433
+    except Exception:
+        return
+
+    synth_path = Path(getattr(_synth_ai, "__file__", "") or "").resolve()
+    if synth_path and repo_root not in synth_path.parents:
+        version_str = "unknown"
+        try:
+            from importlib import metadata  # noqa: WPS433
+
+            version_str = metadata.version("synth-ai")
+        except Exception:
+            pass
+
+        print(
+            "WARNING: You are not importing `synth_ai` from this repo checkout.\n"
+            f"- Repo root: {repo_root}\n"
+            f"- Imported synth_ai from: {synth_path}\n"
+            f"- Installed distribution version (if any): {version_str}\n"
+            "This can cause import errors if your installed package is older than the demo.\n"
+            "Fix: run from the repo venv, or uninstall the old `synth-ai` wheel, or ensure this repo is first on PYTHONPATH."
+        )
+
+
+_maybe_warn_on_synth_ai_mismatch()
 
 # Load .env (optional)
 try:
@@ -60,7 +123,7 @@ try:
     env_file = repo_root / ".env"
     if env_file.exists():
         load_dotenv(env_file)
-        print(f"Loaded {env_file}")
+        logger.debug(f"Loaded {env_file}")
 except ImportError:
     print("python-dotenv not installed, using existing environment variables")
 
@@ -119,51 +182,157 @@ print(f"Env key ready: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
 # DATASET
 # ==============================================================================
 
+HF_DATASET_ID_ENV = "SYNTH_WEB_DESIGN_DATASET"
+HF_DATASET_REVISION_ENV = "SYNTH_WEB_DESIGN_DATASET_REVISION"
+HF_DATASET_SPLIT = "train"
+
+DEFAULT_HF_DATASET_ID = "JoshPurtell/web-design-screenshots"
+
+DEFAULT_SITE_FILTER = "astral"
+DEFAULT_MAX_EXAMPLES = int(os.environ.get("SYNTH_WEB_DESIGN_MAX_EXAMPLES", "8"))
+DEFAULT_MAX_IMAGE_PIXELS = int(os.environ.get("SYNTH_WEB_DESIGN_MAX_IMAGE_PIXELS", "12000000"))  # 12MP
+
 
 class WebDesignDataset:
     """Astral website pages for style optimization."""
 
-    def __init__(self, resize_size: int = 512):
+    def __init__(
+        self,
+        resize_size: int = 384,
+        site_filter: str = DEFAULT_SITE_FILTER,
+        max_examples: int = DEFAULT_MAX_EXAMPLES,
+    ):
         self._examples = None
-        self._images_dir = demo_dir / "task_images"
-        self._images_dir.mkdir(exist_ok=True)
+        self._site_filter = site_filter
+        self._max_examples = max_examples
+
+        cache_dir = os.environ.get("SYNTH_WEB_DESIGN_CACHE_DIR", "").strip()
+        if cache_dir:
+            self._cache_dir = Path(cache_dir).expanduser()
+        else:
+            self._cache_dir = Path.home() / ".cache" / "synth_ai" / "web_design"
+
+        self._images_dir = self._cache_dir / "task_images"
+        self._images_dir.mkdir(parents=True, exist_ok=True)
+
         self._resized_dir = self._images_dir / f"resized_{resize_size}"
-        self._resized_dir.mkdir(exist_ok=True)
+        self._resized_dir.mkdir(parents=True, exist_ok=True)
         self._resize_size = resize_size
+        self._max_image_pixels = DEFAULT_MAX_IMAGE_PIXELS
 
     def _load(self):
         if self._examples is not None:
             return
 
-        dataset_path = demo_dir / "hf_dataset"
-        dataset = load_from_disk(str(dataset_path))
+        dataset_id_env = (os.environ.get(HF_DATASET_ID_ENV) or "").strip()
+        # Allow an explicit "local only" escape hatch for offline/CI.
+        if dataset_id_env.lower() in {"local", "disk"}:
+            dataset_id = ""
+        else:
+            dataset_id = dataset_id_env or DEFAULT_HF_DATASET_ID
+        dataset_revision = os.environ.get(HF_DATASET_REVISION_ENV, "").strip() or None
 
-        # Filter Astral pages
-        astral = [
-            ex
-            for ex in dataset
-            if ex.get("site_name") == "astral"
-            and ex.get("functional_description")
-            and len(ex["functional_description"]) > 100
-            and isinstance(ex.get("image"), Image.Image)
-        ]
+        if dataset_id:
+            logger.info(f"Loading web-design dataset from Hub: {dataset_id} (split={HF_DATASET_SPLIT})")
+            dataset = load_dataset(dataset_id, split=HF_DATASET_SPLIT, revision=dataset_revision)
+        else:
+            dataset_path = demo_dir / "hf_dataset"
+            if not dataset_path.exists():
+                raise RuntimeError(
+                    f"No dataset configured.\n\n"
+                    f"- Set {HF_DATASET_ID_ENV} to your public Hugging Face dataset (e.g. org/web-design-screenshots)\n"
+                    f"- OR create a local dataset at {dataset_path} via create_hf_dataset.py\n"
+                )
+            logger.info(f"Loading web-design dataset from disk: {dataset_path}")
+            dataset = load_from_disk(str(dataset_path))
 
-        print(f"Loaded {len(astral)} Astral pages")
+        # CRITICAL: Avoid decoding images during filtering; some screenshots are extremely large and can
+        # trigger PIL DecompressionBombWarning (and/or use huge memory) even if we later downsample.
+        # We only filter on metadata columns here.
+        if "image" in dataset.column_names:
+            dataset = dataset.cast_column("image", HFImage(decode=False))
 
-        # Save images
-        for i, ex in enumerate(astral[:15]):  # Limit to 15 for quick iteration
-            page_name = ex["page_name"].replace("/", "_").replace(" ", "_")
-            image_path = self._images_dir / f"astral_{page_name}_{i:03d}.png"
+        dataset = dataset.filter(
+            lambda site_name, functional_description: (
+                site_name == self._site_filter
+                and bool(functional_description)
+                and len(functional_description) > 100
+            ),
+            input_columns=["site_name", "functional_description"],
+        )
 
-            if not image_path.exists():
-                ex["image"].save(image_path)
+        logger.info(f"Loaded {len(dataset)} '{self._site_filter}' pages")
 
-            ex["image_path"] = str(image_path)
+        selected: list[dict] = []
+        cursor = 0
+        max_to_scan = min(len(dataset), max(self._max_examples * 10, self._max_examples))
 
-        self._examples = astral[:15]
+        while len(selected) < self._max_examples and cursor < max_to_scan:
+            ex = dict(dataset[cursor])
+            cursor += 1
 
-        # Pre-resize all images on startup
-        self._ensure_resized_images()
+            site_name = (ex.get("site_name") or "site").replace("/", "_").replace(" ", "_")
+            page_name = (ex.get("page_name") or f"page_{cursor:03d}").replace("/", "_").replace(" ", "_")
+
+            # We only cache a resized image to avoid storing/encoding huge screenshots.
+            resized_path = self._resized_dir / f"{site_name}_{page_name}_{len(selected):03d}.png"
+
+            if resized_path.exists():
+                # Validate cached file is actually small; if not, overwrite it.
+                try:
+                    with Image.open(resized_path) as cached:
+                        if (cached.size[0] * cached.size[1]) > self._max_image_pixels or max(cached.size) > self._resize_size:
+                            resized_path.unlink(missing_ok=True)
+                except Exception:
+                    # If unreadable/corrupt, overwrite.
+                    resized_path.unlink(missing_ok=True)
+
+            if not resized_path.exists():
+                img_obj = ex.get("image")
+                if isinstance(img_obj, Image.Image):
+                    img = img_obj
+                elif isinstance(img_obj, dict):
+                    # When datasets.Image(decode=False), rows look like {"bytes": <bytes|None>, "path": <str|None>}
+                    raw_bytes = img_obj.get("bytes")
+                    raw_path = img_obj.get("path")
+                    if isinstance(raw_bytes, (bytes, bytearray)) and raw_bytes:
+                        img = Image.open(io.BytesIO(raw_bytes))
+                    elif isinstance(raw_path, str) and raw_path:
+                        img = Image.open(raw_path)
+                    else:
+                        raise RuntimeError(
+                            f"Dataset row {cursor - 1} had an undecodable image dict (no bytes/path). "
+                            f"keys={list(img_obj.keys())}"
+                        )
+                else:
+                    raise RuntimeError(
+                        f"Dataset row {cursor - 1} did not decode 'image' to a PIL Image and had no usable bytes/path. "
+                        f"Got type={type(img_obj)}"
+                    )
+
+                # Size check (cheap; reads header for most formats). Skip pathological images.
+                width, height = img.size
+                pixels = int(width) * int(height)
+                if pixels > self._max_image_pixels:
+                    print(
+                        f"Skipping oversized image: {site_name}/{page_name} "
+                        f"({width}x{height}={pixels:,} px; limit={self._max_image_pixels:,})"
+                    )
+                    continue
+
+                # Downscale before writing to disk.
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                img.thumbnail((self._resize_size, self._resize_size), Image.Resampling.LANCZOS)
+                img.save(resized_path, format="PNG", optimize=True)
+
+            ex["image_path"] = str(resized_path)
+            ex["resized_image_path"] = str(resized_path)
+            selected.append(ex)
+
+        self._examples = selected
+
+        # Images are already written in resized form (and capped by pixel limit).
 
     def _ensure_resized_images(self):
         """Resize all images to cached versions if they don't exist."""
@@ -192,12 +361,12 @@ class WebDesignDataset:
 
                         # Save resized version
                         img.save(resized_path, format="PNG", optimize=True)
-                        print(
+                        logger.debug(
                             f"Resized {original_path.name} -> {resized_path.name} ({img.size[0]}x{img.size[1]})"
                         )
                     ex["resized_image_path"] = str(resized_path)
                 except Exception as e:
-                    print(f"Warning: Failed to resize {original_path.name}: {e}")
+                    logger.warning(f"Failed to resize {original_path.name}: {e}")
                     # Fallback: use original path if resize fails
                     ex["resized_image_path"] = str(original_path)
             else:
@@ -234,17 +403,14 @@ def create_web_design_local_api(style_prompt: str):
     dataset = WebDesignDataset()
 
     # Pre-load dataset and resize images BEFORE server starts
-    print("Pre-loading dataset and resizing images...")
+    logger.info("Pre-loading dataset and resizing images...")
     dataset._load()  # This triggers _ensure_resized_images()
-    print(f"Dataset ready with {dataset.size()} examples")
+    logger.info(f"Dataset ready with {dataset.size()} examples")
 
     async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutResponse:
         """Run a single rollout: generate image using policy model and verify."""
         seed = request.env.seed
         sample = dataset.sample(seed)
-
-        # Load original image
-        original_image = Image.open(sample["image_path"])
 
         try:
             # Get inference URL from policy config (points to inference interceptor)
@@ -328,7 +494,7 @@ Apply the visual style guidelines to match the original design."""
             reward = 0.0
 
         except Exception as e:
-            print(f"Rollout error: {e}")
+            logger.error(f"Rollout error: {e}")
             import traceback
 
             traceback.print_exc()
@@ -348,7 +514,7 @@ Apply the visual style guidelines to match the original design."""
     def provide_taskset_description():
         return {
             "splits": ["train"],
-            "sizes": {"train": 15},  # Hardcoded to avoid loading dataset on health check
+            "sizes": {"train": dataset.size()},
         }
 
     def provide_task_instances(seeds):
@@ -375,6 +541,7 @@ Apply the visual style guidelines to match the original design."""
             yield TaskInfo(
                 task={"id": APP_ID, "name": APP_NAME},
                 dataset={"id": APP_ID, "split": "train", "index": sample["index"]},
+                environment="web_design",  # Must match gepa_config.toml prompt_learning.gepa.env_name
                 inference={},
                 limits={"max_turns": 1},
                 rubric=RubricInfo(
@@ -503,7 +670,88 @@ Create a webpage that feels polished, modern, and trustworthy."""
     print(f"Job ID: {job_id}")
 
     print("\nPolling for completion...")
-    result = job.poll_until_complete(timeout=3600.0, interval=10.0, progress=True)
+
+    # Banking77-style event polling: run in a background thread so it keeps printing even if
+    # status polling is slow/blocked, and so we can print progress even when backend doesn't
+    # attach a message field.
+    def _format_event_line(event_type: str, message: str, data: dict) -> str | None:
+        if message:
+            return message
+
+        if event_type == "prompt.learning.phase.changed":
+            prev = data.get("from") or data.get("prev") or data.get("old")
+            nxt = data.get("to") or data.get("next") or data.get("new")
+            if prev or nxt:
+                return f"Phase: {prev} → {nxt}"
+            return "Phase changed"
+
+        if event_type in {"prompt.learning.progress", "prompt.learning.gepa.rollouts_limit_progress"}:
+            step = data.get("step") or data.get("iteration") or data.get("iter")
+            total = data.get("total") or data.get("max")
+            best = data.get("best_score") or data.get("best_reward")
+            parts: list[str] = []
+            if step is not None and total is not None:
+                parts.append(f"{step}/{total}")
+            elif step is not None:
+                parts.append(str(step))
+            if best is not None:
+                parts.append(f"best={best}")
+            return "Progress: " + " ".join(parts) if parts else "Progress"
+
+        if event_type in {"prompt.learning.gepa.new_best", "prompt.learning.gepa.candidate.evaluated"}:
+            score = data.get("score") or data.get("best_score") or data.get("best_reward")
+            if score is not None:
+                return f"✨ New best: {score}" if event_type.endswith("new_best") else f"Candidate scored: {score}"
+            return "GEPA update"
+
+        return None
+
+    stop_events = threading.Event()
+
+    def _event_poller() -> None:
+        # The backend uses `seq > since_seq` (strict gt), so we keep `since_seq` as the last seen seq.
+        last_seq = 0
+        url = f"{SYNTH_API_BASE}/api/prompt-learning/online/jobs/{job_id}/events"
+        headers = {"Authorization": f"Bearer {API_KEY}"}
+        while not stop_events.is_set():
+            try:
+                resp = httpx.get(url, params={"since_seq": last_seq, "limit": 200}, headers=headers, timeout=30.0)
+                if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("application/json"):
+                    payload = resp.json() or {}
+                    events = payload.get("events") or []
+                    next_seq = payload.get("next_seq")
+                    if isinstance(next_seq, int) and next_seq >= 0:
+                        last_seq = max(last_seq, next_seq - 1)
+
+                    for ev in events:
+                        if not isinstance(ev, dict):
+                            continue
+                        event_type = str(ev.get("type") or "")
+                        message = str(ev.get("message") or "")
+                        data = ev.get("data") or {}
+                        if not isinstance(data, dict):
+                            data = {}
+                        line = _format_event_line(event_type, message, data)
+                        if line:
+                            print(f"\n  {line}", flush=True)
+
+                        ev_seq = ev.get("seq")
+                        if isinstance(ev_seq, int) and ev_seq > last_seq:
+                            last_seq = ev_seq
+            except Exception:
+                pass
+            time.sleep(2.0)
+
+    event_thread = threading.Thread(target=_event_poller, daemon=True)
+    event_thread.start()
+
+    result = job.poll_until_complete(
+        timeout=3600.0,
+        interval=3.0,
+        progress=False,  # we print events instead
+        request_timeout=300.0,  # 5 min timeout for vision model generation + verification
+    )
+    stop_events.set()
     timings["optimization"] = time.time() - opt_start
 
     # Display results

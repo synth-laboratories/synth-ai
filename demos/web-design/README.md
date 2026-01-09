@@ -55,16 +55,36 @@ Large bold headings. Generous spacing..."
 demos/web-design/
 ├── README.md                    # This file
 ├── run_demo.py                  # Main demo script
-├── task_app.py                  # Local API task app (image gen + verification)
 ├── gepa_config.toml             # GEPA optimization configuration
 ├── verify_generation.py         # Original verification script
 ├── run_batch_verification.py   # Batch verification script
 ├── VERIFICATION_ANALYSIS.md    # Analysis of baseline results
-├── hf_dataset/                  # Hugging Face dataset (620 screenshots)
-├── task_images/                 # Original images for task app
+├── create_hf_dataset.py         # Build + (optionally) push the dataset to Hugging Face Hub
 ├── verification_results/        # Baseline verification outputs
 └── optimization_results/        # GEPA optimization outputs
 ```
+
+## Using a public Hugging Face dataset (recommended)
+
+The demo is designed to **download screenshots + descriptions from a public Hugging Face dataset**
+instead of relying on git-committed images.
+
+By default, `run_demo.py` uses:
+
+- `JoshPurtell/web-design-screenshots`
+
+To override, set:
+
+- `SYNTH_WEB_DESIGN_DATASET=org/web-design-screenshots` (your public dataset repo id)
+- (optional) `SYNTH_WEB_DESIGN_DATASET_REVISION=<git sha or tag>` for reproducibility
+- (optional) `SYNTH_WEB_DESIGN_MAX_EXAMPLES=8` to cap the number of images used (defaults to 8)
+- (optional) `SYNTH_WEB_DESIGN_MAX_IMAGE_PIXELS=12000000` to skip oversized screenshots (defaults to 12MP)
+- (optional) `SYNTH_WEB_DESIGN_CACHE_DIR=...` to control where downsampled images are cached
+- (optional) For dataset publishing: slice tall pages into multiple segments so 384px-downsampled images stay readable.
+
+To force **local disk mode** (no Hub download), set:
+
+- `SYNTH_WEB_DESIGN_DATASET=local`
 
 ## Dataset
 
@@ -133,13 +153,27 @@ python3 run_demo.py --local            # Use local backend
 ```
 
 **Workflow**:
-1. Load Astral dataset (37 pages)
-2. Save images to `task_images/` for task app access
+1. Load dataset (from Hub by default via `SYNTH_WEB_DESIGN_DATASET`)
+2. Materialize a small subset of images into a local cache (outside the repo) for task app access
 3. Start task app server on port 8103
 4. Submit GEPA job to Synth backend
 5. Poll for completion (10-30 minutes)
 6. Display optimized style prompt
 7. Save results to `optimization_results/`
+
+## Publishing the dataset to the Hub
+
+From a machine that has the screenshots available locally:
+
+```bash
+# HF_TOKEN must have write access to the org dataset repo
+export HF_TOKEN=...
+
+# Example: build the dataset from a JSON of descriptions that reference local screenshot paths
+uv run python demos/web-design/create_hf_dataset.py \
+  --descriptions-file demos/web-design/all_functional_descriptions.json \
+  --push --repo-name org/web-design-screenshots
+```
 
 ## Requirements
 
@@ -164,8 +198,14 @@ Or use the project's existing environment (uv, poetry, etc.)
 ### Quick Start
 
 ```bash
-cd demos/web-design
-python3 run_demo.py
+cd /path/to/synth-ai
+
+# Ensure synth-ai is importable (pick one):
+uv sync
+# OR:
+python -m pip install -e .
+
+uv run python demos/web-design/run_demo.py
 ```
 
 ### Expected Output

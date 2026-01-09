@@ -29,18 +29,10 @@ import argparse
 import asyncio
 import json
 import os
-import sys
 import time
 from datetime import datetime
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-
-# Add synth-ai to path
-SYNTH_AI_PATH = Path(__file__).resolve().parents[4] / "synth-ai"
-if not SYNTH_AI_PATH.exists():
-    # Try alternate location
-    SYNTH_AI_PATH = Path("/Users/joshpurtell/Documents/GitHub/synth-ai")
-if SYNTH_AI_PATH.exists():
-    sys.path.insert(0, str(SYNTH_AI_PATH))
 
 import httpx
 
@@ -56,10 +48,22 @@ from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, k
 from synth_ai.sdk.task import run_server_background
 from synth_ai.core.env import mint_demo_api_key
 
-# Import the banking77 local API creator from the demo
-DEMO_PATH = SYNTH_AI_PATH / "demos" / "gepa_banking77"
-sys.path.insert(0, str(DEMO_PATH))
-from run_demo import create_banking77_local_api, BANKING77_LABELS
+def _load_gepa_banking77_demo_module():
+    repo_root = Path(__file__).resolve().parents[2]
+    demo_path = repo_root / "demos" / "gepa_banking77" / "run_demo.py"
+    if not demo_path.exists():
+        raise FileNotFoundError(f"Expected demo file not found: {demo_path}")
+    spec = spec_from_file_location("gepa_banking77_demo", demo_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load module spec for: {demo_path}")
+    module = module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_demo = _load_gepa_banking77_demo_module()
+create_banking77_local_api = _demo.create_banking77_local_api
+BANKING77_LABELS = _demo.BANKING77_LABELS
 
 # Constants
 PROD_BACKEND = "https://api.usesynth.ai"

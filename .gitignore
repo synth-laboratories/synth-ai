@@ -206,3 +206,5 @@ examples/blog_posts/**/task_specific/*/results/
 # Local dev scripts
 /dev/
 demos/web-design/hf_dataset/
+demos/web-design/task_images/
+demos/web-design/generated_pages/

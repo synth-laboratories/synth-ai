@@ -10,7 +10,7 @@ from starlette.types import ASGIApp
 
 from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.cfgs import LocalDeployCfg
-from synth_ai.core.paths import REPO_ROOT, configure_import_paths
+from synth_ai.core.paths import REPO_ROOT, configure_import_paths, temporary_import_paths
 from synth_ai.core.telemetry import log_error, log_info
 
 _THREADS: dict[int, threading.Thread] = {}
@@ -69,11 +69,11 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
         else:
             os.environ.pop("TASKAPP_TRACING_ENABLED", None)
 
-        configure_import_paths(cfg.task_app_path, REPO_ROOT)
-        module = load_module(
-            cfg.task_app_path,
-            f"_synth_local_task_app_{cfg.task_app_path.stem}"
-        )
+        with temporary_import_paths(cfg.task_app_path, REPO_ROOT):
+            module = load_module(
+                cfg.task_app_path,
+                f"_synth_local_task_app_{cfg.task_app_path.stem}"
+            )
         log_info("task app module loaded", ctx=ctx)
         app = get_asgi_app(module)
 
