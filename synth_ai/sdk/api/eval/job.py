@@ -31,7 +31,6 @@ See Also:
 
 from __future__ import annotations
 
-import asyncio
 import os
 import time
 from dataclasses import dataclass, field
@@ -56,7 +55,7 @@ class EvalStatus(str, Enum):
     CANCELLED = "cancelled"
 
     @classmethod
-    def from_string(cls, status: str) -> "EvalStatus":
+    def from_string(cls, status: str) -> EvalStatus:
         """Convert string to EvalStatus, defaulting to PENDING for unknown values."""
         try:
             return cls(status.lower())
@@ -101,7 +100,7 @@ class EvalResult:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_response(cls, job_id: str, data: Dict[str, Any]) -> "EvalResult":
+    def from_response(cls, job_id: str, data: Dict[str, Any]) -> EvalResult:
         """Create result from API response dict."""
         status_str = data.get("status", "pending")
         status = EvalStatus.from_string(status_str)

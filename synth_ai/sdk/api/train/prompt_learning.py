@@ -34,7 +34,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
@@ -52,7 +52,7 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
     @classmethod
-    def from_string(cls, status: str) -> "JobStatus":
+    def from_string(cls, status: str) -> JobStatus:
         """Convert string to JobStatus, defaulting to PENDING for unknown values."""
         try:
             return cls(status.lower())
@@ -93,7 +93,7 @@ class PromptLearningResult:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_response(cls, job_id: str, data: Dict[str, Any]) -> "PromptLearningResult":
+    def from_response(cls, job_id: str, data: Dict[str, Any]) -> PromptLearningResult:
         """Create result from API response dict."""
         status_str = data.get("status", "pending")
         status = JobStatus.from_string(status_str)
@@ -135,8 +135,8 @@ from .builders import (
     build_prompt_learning_payload,
     build_prompt_learning_payload_from_mapping,
 )
-from .pollers import JobPoller, PollOutcome
 from .local_api import check_local_api_health
+from .pollers import JobPoller, PollOutcome
 from .utils import ensure_api_base, http_get, http_post
 
 
@@ -312,7 +312,6 @@ class PromptLearningJob:
             ValueError: If required config is missing
             FileNotFoundError: If config file doesn't exist
         """
-        import os
         
         config_path_obj = Path(config_path)
         
@@ -402,7 +401,6 @@ class PromptLearningJob:
             ... )
             >>> job_id = job.submit()
         """
-        import os
 
         # Resolve backend URL - default to production API
         if not backend_url:
@@ -455,7 +453,6 @@ class PromptLearningJob:
         Returns:
             PromptLearningJob instance for the existing job
         """
-        import os
         
         # Resolve backend URL - default to production API
         if not backend_url:

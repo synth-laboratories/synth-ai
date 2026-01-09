@@ -2,7 +2,6 @@
 """Quick evaluation of web design image generation - just test baseline and report metrics."""
 
 import asyncio
-import json
 import os
 import time
 from pathlib import Path
@@ -79,7 +78,7 @@ async def main():
                 )
                 if response.status_code == 200:
                     break
-        except Exception as e:
+        except Exception:
             if i == 0:  # Only print on first attempt
                 pass
         await asyncio.sleep(1)

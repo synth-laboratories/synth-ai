@@ -8,6 +8,11 @@ import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { copyToClipboard } from "../utils/clipboard"
 import { clamp, wrapModalText, type ModalController } from "./base"
 import { fetchSessions, disconnectSession, checkSessionHealth } from "../api/sessions"
+import { renderOpenCodePane } from "../ui/opencode"
+import { subscribeToOpenCodeEvents, processOpenCodeEvent, type EventSubscription } from "../api/opencode"
+
+// Track active SSE subscription
+let activeSubscription: EventSubscription | null = null
 
 /**
  * Format session details for the modal.
@@ -15,12 +20,15 @@ import { fetchSessions, disconnectSession, checkSessionHealth } from "../api/ses
 function formatSessionDetails(
   sessions: SessionRecord[],
   healthResults: Map<string, SessionHealthResult>,
-  selectedIndex: number
+  selectedIndex: number,
+  openCodeUrl: string | null
 ): string {
   // Filter to connected/connecting sessions
   const activeSessions = sessions.filter((s) =>
     s.state === "connected" || s.state === "connecting" || s.state === "reconnecting"
   )
+
+  const serverUrl = openCodeUrl || "(not started)"
 
   if (activeSessions.length === 0) {
     return `No active OpenCode sessions.
@@ -28,8 +36,10 @@ function formatSessionDetails(
 Interactive sessions connect to local or remote OpenCode servers
 for real-time agent interaction.
 
+OpenCode server: ${serverUrl}
+
 Quick connect:
-  Press 'c' to connect to a local OpenCode server (localhost:3000)
+  Press 'c' to connect to the local OpenCode server
   Press 'C' to connect with custom URL
 
 Press 'q' to close.`
@@ -146,7 +156,7 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
       s.state === "connected" || s.state === "connecting" || s.state === "reconnecting"
     )
 
-    const raw = formatSessionDetails(sessions, healthResults, selectedIndex)
+    const raw = formatSessionDetails(sessions, healthResults, selectedIndex, appState.openCodeUrl)
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
     const maxWidth = Math.max(20, cols - 20)
     const wrapped = wrapModalText(raw, maxWidth)
@@ -226,10 +236,17 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
   }
 
   async function connectLocalSession(): Promise<void> {
-    snapshot.status = "Connecting to local OpenCode..."
-    ctx.render()
+    const opencode_url = appState.openCodeUrl
 
-    const opencode_url = "http://localhost:3000"
+    if (!opencode_url) {
+      snapshot.lastError = "OpenCode server not started"
+      snapshot.status = "No OpenCode server URL available - server may not be running"
+      ctx.render()
+      return
+    }
+
+    snapshot.status = `Connecting to OpenCode at ${opencode_url}...`
+    ctx.render()
 
     try {
       // First check if OpenCode server is reachable
@@ -253,13 +270,32 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
 
       if (!healthCheck.healthy) {
         snapshot.lastError = healthCheck.error || "OpenCode server not reachable"
-        snapshot.status = "Connection failed - is OpenCode running on localhost:3000?"
+        snapshot.status = `Connection failed - is OpenCode running at ${opencode_url}?`
         ctx.render()
         return
       }
 
-      // Create a local session record
-      const sessionId = `local-${Date.now()}`
+      // Create a REAL session on the OpenCode server
+      snapshot.status = `Creating session on OpenCode...`
+      ctx.render()
+
+      const createResponse = await fetch(`${opencode_url}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text().catch(() => "")
+        snapshot.lastError = `Failed to create session: ${createResponse.status} ${errorText}`
+        snapshot.status = "Session creation failed"
+        ctx.render()
+        return
+      }
+
+      const sessionData = await createResponse.json() as { id: string; title?: string }
+      const sessionId = sessionData.id
+
       const localSession: SessionRecord = {
         session_id: sessionId,
         container_id: "",
@@ -286,9 +322,29 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
 
       // Set as active session
       appState.openCodeSessionId = sessionId
-      snapshot.status = `Connected to local OpenCode (${healthCheck.response_time_ms}ms)`
+      snapshot.status = `Connected to OpenCode at ${opencode_url} | Session: ${sessionId}`
+
+      // Start SSE subscription for events
+      if (activeSubscription) {
+        activeSubscription.unsubscribe()
+      }
+      activeSubscription = subscribeToOpenCodeEvents(opencode_url, {
+        onEvent: (event) => {
+          processOpenCodeEvent(ctx, event)
+          renderOpenCodePane(ctx)
+        },
+        onError: (error) => {
+          snapshot.lastError = error.message
+          ctx.render()
+        },
+        onConnect: () => {
+          snapshot.status = `SSE connected | Session: ${sessionId}`
+          ctx.render()
+        },
+      })
 
       updateContent()
+      renderOpenCodePane(ctx)
       ctx.render()
     } catch (err: any) {
       snapshot.lastError = err?.message || "Failed to connect"
@@ -338,8 +394,32 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
     const session = activeSessions[selectedIndex]
     if (session) {
       appState.openCodeSessionId = session.session_id
+      // Ensure the session is in snapshot.sessions for renderOpenCodePane to find it
+      if (!snapshot.sessions.find((s) => s.session_id === session.session_id)) {
+        snapshot.sessions.push(session)
+      }
       snapshot.status = `Selected session: ${session.session_id}`
+
+      // Start SSE subscription for events
+      const sessionUrl = session.opencode_url || session.access_url
+      if (sessionUrl) {
+        if (activeSubscription) {
+          activeSubscription.unsubscribe()
+        }
+        activeSubscription = subscribeToOpenCodeEvents(sessionUrl, {
+          onEvent: (event) => {
+            processOpenCodeEvent(ctx, event)
+            renderOpenCodePane(ctx)
+          },
+          onError: (error) => {
+            snapshot.lastError = error.message
+            ctx.render()
+          },
+        })
+      }
+
       toggle(false)
+      renderOpenCodePane(ctx)
       ctx.render()
     }
   }

@@ -168,42 +168,60 @@ function subscribeToOpenCodeEvents(baseUrl, options) {
     url.searchParams.set("directory", directory);
   }
   let isActive = true;
-  let eventSource = null;
-  try {
-    eventSource = new EventSource(url.toString());
-    eventSource.onopen = () => {
+  let abortController = new AbortController;
+  (async () => {
+    try {
+      const response = await fetch(url.toString(), {
+        headers: {
+          Accept: "text/event-stream"
+        },
+        signal: abortController?.signal
+      });
+      if (!response.ok) {
+        throw new Error(`SSE connection failed: ${response.status}`);
+      }
+      if (!response.body) {
+        throw new Error("No response body for SSE stream");
+      }
       if (onConnect)
         onConnect();
-    };
-    eventSource.onmessage = (event) => {
+      const reader = response.body.getReader();
+      const decoder2 = new TextDecoder;
+      let buffer = "";
+      while (isActive) {
+        const { done, value } = await reader.read();
+        if (done)
+          break;
+        buffer += decoder2.decode(value, { stream: true });
+        const lines = buffer.split(`
+`);
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            try {
+              const event = JSON.parse(data);
+              onEvent(event);
+            } catch {}
+          }
+        }
+      }
+    } catch (err) {
       if (!isActive)
         return;
-      try {
-        const data = JSON.parse(event.data);
-        onEvent(data);
-      } catch (err) {
-        console.error("Failed to parse OpenCode event:", err);
-      }
-    };
-    eventSource.onerror = (_err) => {
-      if (!isActive)
+      if (err.name === "AbortError")
         return;
       if (onError) {
-        onError(new Error("EventSource connection error"));
+        onError(err);
       }
-    };
-  } catch (err) {
-    if (onError) {
-      onError(err);
     }
-    isActive = false;
-  }
+  })();
   return {
     unsubscribe: () => {
       isActive = false;
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
+      if (abortController) {
+        abortController.abort();
+        abortController = null;
       }
     },
     get isActive() {
@@ -219,8 +237,9 @@ async function sendPrompt(baseUrl, sessionId, prompt) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        content: prompt,
-        role: "user"
+        parts: [
+          { type: "text", text: prompt }
+        ]
       })
     });
     if (!response.ok) {
@@ -21356,9 +21375,16 @@ class FocusManager {
 var focusManager = new FocusManager;
 
 // src/ui/opencode.ts
-function formatMessages(messages, maxWidth) {
+function formatMessages(messages, maxWidth, isConnected = false) {
   const lines = [];
   if (messages.length === 0) {
+    if (isConnected) {
+      return [
+        "Connected! Ready to chat.",
+        "",
+        "Type your message below and press Enter to send."
+      ];
+    }
     return [
       "No messages yet.",
       "",
@@ -21424,14 +21450,42 @@ function wrapText(text, maxWidth) {
   }
   return lines;
 }
-function renderOpenCodePane(_ctx) {}
+function renderOpenCodePane(ctx) {
+  const { ui } = ctx;
+  const { appState: appState2, snapshot: snapshot2 } = ctx.state;
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const maxWidth = Math.max(20, cols - 50);
+  const maxLines = Math.max(5, rows - 15);
+  const isConnected = !!appState2.openCodeSessionId;
+  const messageLines = formatMessages(appState2.openCodeMessages, maxWidth, isConnected);
+  const visibleLines = messageLines.slice(appState2.openCodeScrollOffset, appState2.openCodeScrollOffset + maxLines);
+  ui.openCodeMessagesText.content = visibleLines.join(`
+`);
+  ui.openCodeInputText.content = appState2.openCodeInputValue || "";
+  if (appState2.openCodeSessionId) {
+    const session = snapshot2.sessions.find((s) => s.session_id === appState2.openCodeSessionId);
+    if (session) {
+      const url = session.opencode_url || session.access_url || "unknown";
+      ui.openCodeStatusText.content = appState2.openCodeIsProcessing ? `Processing... | Session: ${session.session_id}` : `Connected to ${url} | Session: ${session.session_id.slice(0, 20)}...`;
+      ui.openCodeStatusText.fg = "#22c55e";
+    } else {
+      ui.openCodeStatusText.content = `Session ${appState2.openCodeSessionId} not found`;
+      ui.openCodeStatusText.fg = "#f97316";
+    }
+  } else {
+    ui.openCodeStatusText.content = "Not connected - Press Shift+O for sessions";
+    ui.openCodeStatusText.fg = "#94a3b8";
+  }
+}
 function scrollOpenCode(ctx, delta) {
   const { appState: appState2 } = ctx.state;
   const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
   const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
   const maxWidth = Math.max(20, cols - 50);
   const maxLines = Math.max(5, rows - 15);
-  const messageLines = formatMessages(appState2.openCodeMessages, maxWidth);
+  const isConnected = !!appState2.openCodeSessionId;
+  const messageLines = formatMessages(appState2.openCodeMessages, maxWidth, isConnected);
   const maxOffset = Math.max(0, messageLines.length - maxLines);
   appState2.openCodeScrollOffset = Math.max(0, Math.min(appState2.openCodeScrollOffset + delta, maxOffset));
   renderOpenCodePane(ctx);
@@ -21501,12 +21555,14 @@ function handleOpenCodeInput(ctx, char) {
     appState2.openCodeInputValue = "";
   }
   appState2.openCodeInputValue += char;
+  renderOpenCodePane(ctx);
   ctx.render();
 }
 function handleOpenCodeBackspace(ctx) {
   const { appState: appState2 } = ctx.state;
   if (appState2.openCodeInputValue && appState2.openCodeInputValue.length > 0) {
     appState2.openCodeInputValue = appState2.openCodeInputValue.slice(0, -1);
+    renderOpenCodePane(ctx);
     ctx.render();
   }
 }
@@ -21689,6 +21745,9 @@ function blurForModal(ctx) {
   }
   if (appState2.activePane === "events" && eventsFocusable) {
     focusManager.pop("events-pane");
+  }
+  if (appState2.principalPane === "opencode" && openCodeFocusable) {
+    focusManager.pop("opencode-pane");
   }
 }
 function restoreFocusFromModal(ctx) {
@@ -25211,16 +25270,20 @@ async function checkSessionHealth(session, timeout = 5000) {
 }
 
 // src/modals/sessions-modal.ts
-function formatSessionDetails(sessions, healthResults, selectedIndex) {
+var activeSubscription = null;
+function formatSessionDetails(sessions, healthResults, selectedIndex, openCodeUrl) {
   const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting");
+  const serverUrl = openCodeUrl || "(not started)";
   if (activeSessions.length === 0) {
     return `No active OpenCode sessions.
 
 Interactive sessions connect to local or remote OpenCode servers
 for real-time agent interaction.
 
+OpenCode server: ${serverUrl}
+
 Quick connect:
-  Press 'c' to connect to a local OpenCode server (localhost:3000)
+  Press 'c' to connect to the local OpenCode server
   Press 'C' to connect with custom URL
 
 Press 'q' to close.`;
@@ -25301,7 +25364,7 @@ function createSessionsModal(ctx) {
     if (!ui.sessionsModalVisible)
       return;
     const activeSessions = sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting");
-    const raw = formatSessionDetails(sessions, healthResults, selectedIndex);
+    const raw = formatSessionDetails(sessions, healthResults, selectedIndex, appState2.openCodeUrl);
     const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
     const maxWidth = Math.max(20, cols - 20);
     const wrapped = wrapModalText(raw, maxWidth);
@@ -25359,9 +25422,15 @@ function createSessionsModal(ctx) {
     }
   }
   async function connectLocalSession() {
-    snapshot2.status = "Connecting to local OpenCode...";
+    const opencode_url = appState2.openCodeUrl;
+    if (!opencode_url) {
+      snapshot2.lastError = "OpenCode server not started";
+      snapshot2.status = "No OpenCode server URL available - server may not be running";
+      ctx.render();
+      return;
+    }
+    snapshot2.status = `Connecting to OpenCode at ${opencode_url}...`;
     ctx.render();
-    const opencode_url = "http://localhost:3000";
     try {
       const healthCheck = await checkSessionHealth({
         session_id: "local",
@@ -25382,11 +25451,26 @@ function createSessionsModal(ctx) {
       });
       if (!healthCheck.healthy) {
         snapshot2.lastError = healthCheck.error || "OpenCode server not reachable";
-        snapshot2.status = "Connection failed - is OpenCode running on localhost:3000?";
+        snapshot2.status = `Connection failed - is OpenCode running at ${opencode_url}?`;
         ctx.render();
         return;
       }
-      const sessionId = `local-${Date.now()}`;
+      snapshot2.status = `Creating session on OpenCode...`;
+      ctx.render();
+      const createResponse = await fetch(`${opencode_url}/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text().catch(() => "");
+        snapshot2.lastError = `Failed to create session: ${createResponse.status} ${errorText}`;
+        snapshot2.status = "Session creation failed";
+        ctx.render();
+        return;
+      }
+      const sessionData = await createResponse.json();
+      const sessionId = sessionData.id;
       const localSession = {
         session_id: sessionId,
         container_id: "",
@@ -25409,8 +25493,26 @@ function createSessionsModal(ctx) {
       healthResults.set(sessionId, healthCheck);
       snapshot2.sessionHealthResults.set(sessionId, healthCheck);
       appState2.openCodeSessionId = sessionId;
-      snapshot2.status = `Connected to local OpenCode (${healthCheck.response_time_ms}ms)`;
+      snapshot2.status = `Connected to OpenCode at ${opencode_url} | Session: ${sessionId}`;
+      if (activeSubscription) {
+        activeSubscription.unsubscribe();
+      }
+      activeSubscription = subscribeToOpenCodeEvents(opencode_url, {
+        onEvent: (event) => {
+          processOpenCodeEvent(ctx, event);
+          renderOpenCodePane(ctx);
+        },
+        onError: (error) => {
+          snapshot2.lastError = error.message;
+          ctx.render();
+        },
+        onConnect: () => {
+          snapshot2.status = `SSE connected | Session: ${sessionId}`;
+          ctx.render();
+        }
+      });
       updateContent();
+      renderOpenCodePane(ctx);
       ctx.render();
     } catch (err) {
       snapshot2.lastError = err?.message || "Failed to connect";
@@ -25451,8 +25553,28 @@ function createSessionsModal(ctx) {
     const session = activeSessions[selectedIndex];
     if (session) {
       appState2.openCodeSessionId = session.session_id;
+      if (!snapshot2.sessions.find((s) => s.session_id === session.session_id)) {
+        snapshot2.sessions.push(session);
+      }
       snapshot2.status = `Selected session: ${session.session_id}`;
+      const sessionUrl = session.opencode_url || session.access_url;
+      if (sessionUrl) {
+        if (activeSubscription) {
+          activeSubscription.unsubscribe();
+        }
+        activeSubscription = subscribeToOpenCodeEvents(sessionUrl, {
+          onEvent: (event) => {
+            processOpenCodeEvent(ctx, event);
+            renderOpenCodePane(ctx);
+          },
+          onError: (error) => {
+            snapshot2.lastError = error.message;
+            ctx.render();
+          }
+        });
+      }
       toggle(false);
+      renderOpenCodePane(ctx);
       ctx.render();
     }
   }

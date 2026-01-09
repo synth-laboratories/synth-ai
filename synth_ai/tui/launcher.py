@@ -22,13 +22,12 @@ def run_prompt_learning_tui(
     synth_key = api_key or get_api_key(required=False) or ""
 
     tui_root = Path(__file__).resolve().parent / "app"
-    entry = tui_root / "dist" / "index.mjs"
+    entry = tui_root / "src" / "index.ts"
     if not entry.exists():
         raise RuntimeError(
-            "OpenTUI bundle not found. Build the TUI first:\n"
+            "OpenTUI entrypoint not found. Ensure the repo is intact:\n"
             "  cd synth_ai/tui/app\n"
             "  bun install\n"
-            "  bun run build\n"
             f"Missing file: {entry}"
         )
 
@@ -49,7 +48,7 @@ def run_prompt_learning_tui(
     env["SYNTH_TUI_EVENT_INTERVAL"] = str(event_interval)
     env["SYNTH_TUI_LIMIT"] = str(limit)
 
-    result = subprocess.run([runtime, str(entry)], env=env)
+    result = subprocess.run([runtime, str(entry)], env=env, cwd=tui_root)
     # Exit silently regardless of how the TUI process ended
     # (could be user quit, backend disconnect, etc.)
     if result.returncode != 0:

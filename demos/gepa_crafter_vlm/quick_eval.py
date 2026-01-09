@@ -6,11 +6,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import sys
 from pathlib import Path
 
-# Setup
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 os.chdir(Path(__file__).parent)
 
 from dotenv import load_dotenv

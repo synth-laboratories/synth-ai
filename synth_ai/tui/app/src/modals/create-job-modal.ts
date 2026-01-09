@@ -57,7 +57,9 @@ function deployLocalApi(ctx: AppContext, filePath: string): Promise<DeployResult
 		}
 
 		// Read NDJSON stream line by line
-		const rl = readline.createInterface({ input: proc.stdout })
+		const rl = readline.createInterface({
+			input: proc.stdout as unknown as NodeJS.ReadableStream,
+		})
 
 		rl.on("line", (line: string) => {
 			if (resolved) return

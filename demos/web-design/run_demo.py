@@ -17,8 +17,8 @@ import io
 import json
 import logging
 import os
-import time
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +38,7 @@ logging.getLogger("google_genai").setLevel(logging.WARNING)
 from datasets import Image as HFImage
 from datasets import load_dataset, load_from_disk
 from PIL import Image
+
 try:
     from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
@@ -59,13 +60,13 @@ except ImportError:  # pragma: no cover
     from synth_ai.sdk.task import run_server_background
 
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+
 try:
     from synth_ai.sdk.task.contracts import RubricCriterion, RubricInfo, RubricSection
 except ImportError:  # pragma: no cover
     # Back-compat with older versions that exposed these at synth_ai.sdk.task.*
     from synth_ai.sdk.task import RubricCriterion, RubricInfo, RubricSection
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.tunnels import (
     PortConflictBehavior,
     TunnelBackend,

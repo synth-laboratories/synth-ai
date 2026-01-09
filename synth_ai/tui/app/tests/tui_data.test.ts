@@ -26,7 +26,7 @@ describe("tui_data extraction", () => {
       status: "succeeded",
       training_type: "gepa",
       job_source: "prompt-learning",
-      best_score: 0.7,
+      best_reward: 0.7,
     })
   })
 

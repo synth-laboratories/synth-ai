@@ -16,9 +16,9 @@ import time
 from pathlib import Path
 
 import httpx
-
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
 from synth_ai.sdk.task.server import run_server_background
+
 
 def _load_task_app_module() -> object:
     """Load the local task app module from this folder without sys.path hacks."""
@@ -135,7 +135,7 @@ def main() -> int:
 
     task_mod = _load_task_app_module()
     app_id = getattr(task_mod, "APP_ID", "web_design_generator")
-    create_web_design_local_api = getattr(task_mod, "create_web_design_local_api")
+    create_web_design_local_api = task_mod.create_web_design_local_api
 
     # Start task app (only if we aren't reusing an existing one)
     if started_task_app:

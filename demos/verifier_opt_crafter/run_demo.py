@@ -12,7 +12,6 @@ import argparse
 import asyncio
 import json
 import os
-import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -65,13 +64,12 @@ args = parser.parse_args()
 LOCAL_MODE = args.local
 LOCAL_HOST = args.local_host
 
-# Add synth-ai to path
-repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, repo_root)
+# Repo root (demos/verifier_opt_crafter/run_demo.py -> demos -> repo)
+repo_root = Path(__file__).resolve().parents[2]
 
 # Load .env file from repo root
 from dotenv import load_dotenv
-env_path = Path(repo_root) / ".env"
+env_path = repo_root / ".env"
 if env_path.exists():
     load_dotenv(env_path, override=True)
     print(f"Loaded environment variables from {env_path}")

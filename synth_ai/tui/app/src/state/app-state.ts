@@ -172,6 +172,8 @@ export const appState = {
   principalPane: "jobs" as "jobs" | "opencode",
   openCodeSessionId: null as string | null,
   openCodeUrl: null as string | null,
+  openCodeStatus: null as string | null,
+  openCodeAutoConnectAttempted: false,
   openCodeMessages: [] as Array<{
     id: string
     role: "user" | "assistant" | "tool"

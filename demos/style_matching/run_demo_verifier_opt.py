@@ -10,7 +10,6 @@ import argparse
 import asyncio
 import json
 import os
-import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List
@@ -32,7 +31,6 @@ parser.add_argument(
 args = parser.parse_args()
 
 synth_root = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(synth_root))
 
 def _load_env_file(path: Path) -> None:
     if not path.exists():

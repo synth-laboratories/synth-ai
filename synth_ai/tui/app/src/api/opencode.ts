@@ -61,6 +61,7 @@ export type EventSubscription = {
 
 /**
  * Create an SSE connection to OpenCode event stream.
+ * Uses fetch() streaming since Bun doesn't have native EventSource.
  *
  * @param baseUrl - OpenCode server URL (e.g., http://localhost:3000)
  * @param directory - Optional directory to scope events to
@@ -86,45 +87,69 @@ export function subscribeToOpenCodeEvents(
   }
 
   let isActive = true
-  let eventSource: EventSource | null = null
+  let abortController: AbortController | null = new AbortController()
 
-  try {
-    eventSource = new EventSource(url.toString())
+  // Start the SSE connection using fetch streaming
+  ;(async () => {
+    try {
+      const response = await fetch(url.toString(), {
+        headers: {
+          Accept: "text/event-stream",
+        },
+        signal: abortController?.signal,
+      })
 
-    eventSource.onopen = () => {
+      if (!response.ok) {
+        throw new Error(`SSE connection failed: ${response.status}`)
+      }
+
+      if (!response.body) {
+        throw new Error("No response body for SSE stream")
+      }
+
       if (onConnect) onConnect()
-    }
 
-    eventSource.onmessage = (event) => {
-      if (!isActive) return
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
 
-      try {
-        const data = JSON.parse(event.data) as OpenCodeEvent
-        onEvent(data)
-      } catch (err) {
-        console.error("Failed to parse OpenCode event:", err)
+      while (isActive) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+
+        // Process complete SSE messages (each ends with \n\n)
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || "" // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6)
+            try {
+              const event = JSON.parse(data) as OpenCodeEvent
+              onEvent(event)
+            } catch {
+              // Ignore parse errors for heartbeats etc
+            }
+          }
+        }
       }
-    }
-
-    eventSource.onerror = (_err) => {
-      if (!isActive) return
+    } catch (err: any) {
+      if (!isActive) return // Ignore errors after unsubscribe
+      if (err.name === "AbortError") return // Expected on unsubscribe
       if (onError) {
-        onError(new Error("EventSource connection error"))
+        onError(err)
       }
     }
-  } catch (err: any) {
-    if (onError) {
-      onError(err)
-    }
-    isActive = false
-  }
+  })()
 
   return {
     unsubscribe: () => {
       isActive = false
-      if (eventSource) {
-        eventSource.close()
-        eventSource = null
+      if (abortController) {
+        abortController.abort()
+        abortController = null
       }
     },
     get isActive() {
@@ -154,8 +179,9 @@ export async function sendPrompt(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        content: prompt,
-        role: "user",
+        parts: [
+          { type: "text", text: prompt }
+        ]
       }),
     })
 

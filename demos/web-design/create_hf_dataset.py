@@ -21,9 +21,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from datasets import Dataset, Features, Image as HFImage, Value
+from datasets import Dataset, Features, Value
+from datasets import Image as HFImage
 from PIL import Image
-
 
 # Mapping of site names to base URLs
 SITE_URLS = {
@@ -102,7 +102,7 @@ def create_dataset(
         print("Provide --descriptions-file or generate descriptions first.")
         exit(1)
 
-    with open(descriptions_file, "r") as f:
+    with open(descriptions_file) as f:
         descriptions_data = json.load(f)
 
     print(f"Loaded {len(descriptions_data)} functional descriptions")
@@ -232,10 +232,10 @@ def create_dataset(
     dataset.save_to_disk(str(output_dir))
 
     print(f"\n✓ Dataset saved to: {output_dir}")
-    print(f"\nDataset info:")
+    print("\nDataset info:")
     print(f"  Total examples: {len(dataset)}")
     print(f"  Sites represented: {len(set(dataset['site_name']))}")
-    print(f"\nExample row:")
+    print("\nExample row:")
     print(f"  Site: {dataset[0]['site_name']}")
     print(f"  Page: {dataset[0]['page_name']}")
     print(f"  URL: {dataset[0]['url']}")

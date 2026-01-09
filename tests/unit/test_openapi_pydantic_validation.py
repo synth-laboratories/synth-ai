@@ -3,16 +3,12 @@
 Tests the validation script that ensures task_app.yaml stays in sync
 with Pydantic models in synth_ai/task/contracts.py.
 """
-
-import sys
 from pathlib import Path
 
 import pytest
 import yaml
 
-# Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
 
 from synth_ai.sdk.task.contracts import (  # noqa: E402
     RolloutMetrics,

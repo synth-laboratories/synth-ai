@@ -22,11 +22,20 @@ import httpx
 from datasets import Image as HFImage
 from datasets import load_dataset, load_from_disk
 from PIL import Image
-
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.task.contracts import RubricCriterion, RubricInfo, RubricSection
-from synth_ai.sdk.task.trace_correlation_helpers import build_trace_payload, extract_trace_correlation_id
+from synth_ai.sdk.task.contracts import (
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    RubricCriterion,
+    RubricInfo,
+    RubricSection,
+    TaskInfo,
+)
+from synth_ai.sdk.task.trace_correlation_helpers import (
+    build_trace_payload,
+    extract_trace_correlation_id,
+)
 
 logger = logging.getLogger(__name__)
 

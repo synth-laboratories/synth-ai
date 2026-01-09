@@ -26,7 +26,7 @@ from starlette.types import ASGIApp
 
 from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.cfgs import CFDeployCfg
-from synth_ai.core.paths import REPO_ROOT, configure_import_paths, temporary_import_paths
+from synth_ai.core.paths import REPO_ROOT, temporary_import_paths
 from synth_ai.core.telemetry import log_error, log_event, log_info
 from synth_ai.core.urls import BACKEND_URL_BASE
 

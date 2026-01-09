@@ -42,11 +42,18 @@ try:
 except ImportError:
     pass
 
+from synth_ai.core.env import mint_demo_api_key
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
-from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
 from synth_ai.sdk.task import run_server_background
-from synth_ai.core.env import mint_demo_api_key
+from synth_ai.sdk.tunnels import (
+    TunnelBackend,
+    TunneledLocalAPI,
+    cleanup_all,
+    kill_port,
+    wait_for_health_check,
+)
+
 
 def _load_gepa_banking77_demo_module():
     repo_root = Path(__file__).resolve().parents[2]
@@ -196,8 +203,8 @@ async def main():
 
     experiments = [(m, r) for m in models_to_run for r in runs_to_run]
 
-    print(f"Banking77 GEPA Benchmark - LangProBe Dec 31 2024")
-    print(f"=" * 60)
+    print("Banking77 GEPA Benchmark - LangProBe Dec 31 2024")
+    print("=" * 60)
     print(f"Models: {models_to_run}")
     print(f"Runs: {runs_to_run}")
     print(f"Total experiments: {len(experiments)}")
@@ -217,7 +224,7 @@ async def main():
     r = httpx.get(f"{backend_url}/health", timeout=30)
     if r.status_code != 200:
         raise RuntimeError(f"Backend not healthy: {r.status_code}")
-    print(f"Backend health: OK")
+    print("Backend health: OK")
 
     # Get API key
     api_key = os.environ.get("SYNTH_API_KEY", "")

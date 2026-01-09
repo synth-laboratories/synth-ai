@@ -15,10 +15,9 @@ import os
 from pathlib import Path
 from typing import Final
 
+from create_hf_dataset import create_dataset, push_to_hub
 from dotenv import dotenv_values
 from huggingface_hub import HfApi
-
-from create_hf_dataset import create_dataset, push_to_hub
 
 DEFAULT_ENV_FILE: Final[Path] = Path("/Users/joshpurtell/Documents/GitHub/monorepo/backend/.env.dev")
 DEFAULT_REPO_ID: Final[str] = "synth-laboratories/web-design-screenshots"
@@ -59,9 +58,9 @@ def _candidate_env_files(primary: Path) -> list[Path]:
     # Back-compat with older location
     candidates.append(Path("/Users/joshpurtell/Documents/GitHub/monorepo/.env.dev"))
     # Relative to synth-ai repo (../monorepo/backend/.env.dev)
-    candidates.append((Path(__file__).resolve().parents[3] / "monorepo" / "backend" / ".env.dev"))
+    candidates.append(Path(__file__).resolve().parents[3] / "monorepo" / "backend" / ".env.dev")
     # Relative to synth-ai repo (../monorepo/.env.dev)
-    candidates.append((Path(__file__).resolve().parents[3] / "monorepo" / ".env.dev"))
+    candidates.append(Path(__file__).resolve().parents[3] / "monorepo" / ".env.dev")
 
     seen: set[Path] = set()
     out: list[Path] = []

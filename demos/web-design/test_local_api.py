@@ -18,17 +18,18 @@ except ImportError:
     pass
 
 import os
+
 import httpx
+
 try:
     from synth_ai.sdk.task.server import run_server_background
 except ImportError:  # pragma: no cover
     from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.tunnels import acquire_port, PortConflictBehavior
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.core.env import PROD_BASE_URL
-
 # Import the app creation function
 from run_demo import create_web_design_local_api
+from synth_ai.core.env import PROD_BASE_URL
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 # Get API key
 API_KEY = os.environ.get("SYNTH_API_KEY", "")

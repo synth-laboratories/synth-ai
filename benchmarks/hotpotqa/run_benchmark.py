@@ -4,7 +4,6 @@
 import asyncio
 import json
 import os
-import sys
 import time
 import re
 import argparse
@@ -15,9 +14,6 @@ from typing import Optional
 import httpx
 from datasets import load_dataset
 from openai import AsyncOpenAI
-
-# Add synth-ai to path
-sys.path.insert(0, "/Users/joshpurtell/Documents/GitHub/synth-ai")
 
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient

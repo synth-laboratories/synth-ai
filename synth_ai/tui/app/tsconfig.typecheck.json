@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@opencode/tui/embedded": ["src/types/opencode.d.ts"]
+    }
+  }
+}

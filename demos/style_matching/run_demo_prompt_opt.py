@@ -10,7 +10,6 @@ import argparse
 import asyncio
 import json
 import os
-import sys
 import threading
 import time
 from pathlib import Path
@@ -47,7 +46,6 @@ parser.add_argument(
 args = parser.parse_args()
 
 synth_root = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(synth_root))
 
 
 def _load_env_file(path: Path) -> None:

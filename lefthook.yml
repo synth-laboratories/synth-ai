@@ -50,3 +50,4 @@ pre-commit:
       root: synth_ai/tui/app
       run: bun run build
 
+

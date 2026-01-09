@@ -224,6 +224,10 @@ export function blurForModal(ctx: AppContext): void {
   if (appState.activePane === "events" && eventsFocusable) {
     focusManager.pop("events-pane")
   }
+  // Pop opencode pane if in opencode mode
+  if (appState.principalPane === "opencode" && openCodeFocusable) {
+    focusManager.pop("opencode-pane")
+  }
 }
 
 /** Restore focus after closing a modal */

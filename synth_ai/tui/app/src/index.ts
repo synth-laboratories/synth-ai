@@ -7,8 +7,8 @@
  * IMPORTANT: We load .env files synchronously BEFORE importing any other modules
  * so that process.env is populated with SYNTH_API_KEY for local/dev backends.
  */
-import { runApp } from "./app"
 import { shutdown } from "./lifecycle"
+import { runSolidApp } from "./solid/app"
 
 // Swallow unhandled errors - TUI should survive backend issues
 process.on("unhandledRejection", () => {
@@ -18,7 +18,7 @@ process.on("uncaughtException", () => {
   // Ignore - don't crash or exit
 })
 
-runApp().catch(() => {
+runSolidApp().catch(() => {
   // Fatal startup error - clean exit
   void shutdown(1)
 })

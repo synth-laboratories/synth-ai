@@ -27,7 +27,7 @@ from synth_ai.core.integrations.cloudflare import (
     stop_tunnel,
     wait_for_health_check,
 )
-from synth_ai.core.paths import REPO_ROOT, configure_import_paths
+from synth_ai.core.paths import REPO_ROOT
 from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
 
 logger = logging.getLogger(__name__)
@@ -894,11 +894,11 @@ class InProcessTaskApp:
             if ready:
                 # Tunnel already accessible - cloudflared must be running elsewhere
                 self._tunnel_proc = None
-                print(f"[CLOUDFLARE] Tunnel already accessible (cloudflared running externally)")
+                print("[CLOUDFLARE] Tunnel already accessible (cloudflared running externally)")
                 logger.info(f"Tunnel {self.url} is already accessible (cloudflared running externally)")
             else:
                 # Tunnel not accessible - start cloudflared FIRST, then verify
-                print(f"[CLOUDFLARE] Starting cloudflared (DNS requires active tunnel connection)...")
+                print("[CLOUDFLARE] Starting cloudflared (DNS requires active tunnel connection)...")
                 logger.info(f"Starting cloudflared for {self.url}...")
                 try:
                     self._tunnel_proc = open_managed_tunnel(tunnel_token)
@@ -912,7 +912,7 @@ class InProcessTaskApp:
                     ) from e
 
                 # Wait for cloudflared to connect and tunnel to become accessible
-                print(f"[CLOUDFLARE] Waiting for tunnel to become accessible...")
+                print("[CLOUDFLARE] Waiting for tunnel to become accessible...")
                 ready = await _verify_tunnel_ready(
                     self.url,
                     api_key,

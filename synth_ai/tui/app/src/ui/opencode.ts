@@ -10,10 +10,17 @@ import type { OpenCodeMessage } from "../types"
 /**
  * Format messages for display in the OpenCode pane.
  */
-export function formatMessages(messages: OpenCodeMessage[], maxWidth: number): string[] {
+export function formatMessages(messages: OpenCodeMessage[], maxWidth: number, isConnected: boolean = false): string[] {
   const lines: string[] = []
 
   if (messages.length === 0) {
+    if (isConnected) {
+      return [
+        "Connected! Ready to chat.",
+        "",
+        "Type your message below and press Enter to send.",
+      ]
+    }
     return [
       "No messages yet.",
       "",
@@ -97,11 +104,46 @@ function wrapText(text: string, maxWidth: number): string[] {
 
 /**
  * Render the OpenCode pane content.
- *
- * STUB: UI components not yet added to layout.ts
  */
-export function renderOpenCodePane(_ctx: AppContext): void {
-  // TODO: Implement when OpenCode pane UI is added to layout.ts
+export function renderOpenCodePane(ctx: AppContext): void {
+  const { ui } = ctx
+  const { appState, snapshot } = ctx.state
+
+  // Calculate dimensions
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40
+  const maxWidth = Math.max(20, cols - 50)
+  const maxLines = Math.max(5, rows - 15)
+
+  // Format and display messages
+  const isConnected = !!appState.openCodeSessionId
+  const messageLines = formatMessages(appState.openCodeMessages, maxWidth, isConnected)
+  const visibleLines = messageLines.slice(
+    appState.openCodeScrollOffset,
+    appState.openCodeScrollOffset + maxLines
+  )
+  ui.openCodeMessagesText.content = visibleLines.join("\n")
+
+  // Update input field
+  ui.openCodeInputText.content = appState.openCodeInputValue || ""
+
+  // Update status text based on session state
+  if (appState.openCodeSessionId) {
+    const session = snapshot.sessions.find((s) => s.session_id === appState.openCodeSessionId)
+    if (session) {
+      const url = session.opencode_url || session.access_url || "unknown"
+      ui.openCodeStatusText.content = appState.openCodeIsProcessing
+        ? `Processing... | Session: ${session.session_id}`
+        : `Connected to ${url} | Session: ${session.session_id.slice(0, 20)}...`
+      ui.openCodeStatusText.fg = "#22c55e"  // green for connected
+    } else {
+      ui.openCodeStatusText.content = `Session ${appState.openCodeSessionId} not found`
+      ui.openCodeStatusText.fg = "#f97316"  // orange for warning
+    }
+  } else {
+    ui.openCodeStatusText.content = "Not connected - Press Shift+O for sessions"
+    ui.openCodeStatusText.fg = "#94a3b8"  // gray for disconnected
+  }
 }
 
 /**
@@ -115,7 +157,8 @@ export function scrollOpenCode(ctx: AppContext, delta: number): void {
   const maxWidth = Math.max(20, cols - 50)
   const maxLines = Math.max(5, rows - 15)
 
-  const messageLines = formatMessages(appState.openCodeMessages, maxWidth)
+  const isConnected = !!appState.openCodeSessionId
+  const messageLines = formatMessages(appState.openCodeMessages, maxWidth, isConnected)
   const maxOffset = Math.max(0, messageLines.length - maxLines)
 
   appState.openCodeScrollOffset = Math.max(
@@ -215,6 +258,7 @@ export function handleOpenCodeInput(ctx: AppContext, char: string): void {
     appState.openCodeInputValue = ""
   }
   appState.openCodeInputValue += char
+  renderOpenCodePane(ctx)
   ctx.render()
 }
 
@@ -225,6 +269,7 @@ export function handleOpenCodeBackspace(ctx: AppContext): void {
   const { appState } = ctx.state
   if (appState.openCodeInputValue && appState.openCodeInputValue.length > 0) {
     appState.openCodeInputValue = appState.openCodeInputValue.slice(0, -1)
+    renderOpenCodePane(ctx)
     ctx.render()
   }
 }
