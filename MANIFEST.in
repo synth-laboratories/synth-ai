@@ -18,6 +18,14 @@ recursive-exclude synth_ai **/tests/*
 
 # Remove large data files from package
 recursive-exclude synth_ai *.json
+# But include TUI package.json and other config files
+include synth_ai/tui/app/package.json
+include synth_ai/tui/app/bunfig.toml
+include synth_ai/tui/app/tsconfig.json
+include synth_ai/tui/app/tsconfig.typecheck.json
+# Include TUI TypeScript source files
+recursive-include synth_ai/tui/app/src *.ts
+recursive-include synth_ai/tui/app/src *.tsx
 recursive-exclude synth_ai *.db
 recursive-exclude synth_ai *.duckdb
 recursive-exclude synth_ai *.sqlite
