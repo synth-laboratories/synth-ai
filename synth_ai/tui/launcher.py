@@ -35,6 +35,9 @@ def run_prompt_learning_tui(
     if runtime is None:
         raise RuntimeError("Missing runtime. Install bun to run the TUI.")
 
+    # Ensure dependencies are installed
+    _ensure_dependencies_installed(tui_root, runtime)
+
     env = dict(os.environ)
     # URLs from urls.py (source of truth), unless overridden
     env["SYNTH_BACKEND_URL"] = backend_base or BACKEND_URL_BASE
@@ -58,3 +61,45 @@ def run_prompt_learning_tui(
 
 def _find_runtime() -> str | None:
     return which("bun")
+
+
+def _ensure_dependencies_installed(tui_root: Path, runtime: str) -> None:
+    """Ensure JavaScript dependencies are installed before running the TUI."""
+    package_json = tui_root / "package.json"
+    node_modules = tui_root / "node_modules"
+
+    # Check if package.json exists
+    if not package_json.exists():
+        raise RuntimeError(
+            f"package.json not found in TUI app directory: {tui_root}\nEnsure the repo is intact."
+        )
+
+    # Check if node_modules exists (or if solid-js is installed as a quick check)
+    if not node_modules.exists() or not (node_modules / "solid-js").exists():
+        import sys
+
+        print("Installing TUI dependencies...", file=sys.stderr)
+        sys.stderr.flush()
+
+        # Run bun install
+        install_result = subprocess.run(
+            [runtime, "install"],
+            cwd=tui_root,
+            capture_output=True,
+            text=True,
+        )
+
+        if install_result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to install TUI dependencies:\n"
+                f"stdout: {install_result.stdout}\n"
+                f"stderr: {install_result.stderr}\n"
+                f"Run manually: cd {tui_root} && bun install"
+            )
+
+        # Verify installation succeeded
+        if not node_modules.exists() or not (node_modules / "solid-js").exists():
+            raise RuntimeError(
+                f"Dependencies installed but solid-js not found.\n"
+                f"Run manually: cd {tui_root} && bun install"
+            )
