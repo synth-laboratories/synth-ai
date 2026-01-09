@@ -78,7 +78,7 @@ from synth_ai.sdk.tunnels import (
 # Parse args early
 parser = argparse.ArgumentParser(description="Run Web Design GEPA demo")
 parser.add_argument("--local", action="store_true", help="Local mode (localhost, no tunnels)")
-parser.add_argument("--local-host", type=str, default="localhost", help="Local host for APIs")
+parser.add_argument("--local-host", type=str, default="127.0.0.1", help="Local host for APIs")
 args = parser.parse_args()
 
 LOCAL_MODE = args.local
@@ -87,6 +87,7 @@ LOCAL_HOST = args.local_host
 # Setup paths
 demo_dir = Path(__file__).parent
 repo_root = demo_dir.parent.parent
+
 
 # Print a quick diagnostic if we're accidentally importing synth_ai from elsewhere.
 def _maybe_warn_on_synth_ai_mismatch() -> None:
@@ -131,7 +132,7 @@ except ImportError:
 
 # Backend config
 if LOCAL_MODE:
-    SYNTH_API_BASE = "http://localhost:8000"
+    SYNTH_API_BASE = "http://127.0.0.1:8000"
     TUNNEL_BACKEND = TunnelBackend.Localhost
     LOCAL_API_PORT = 8103
     print("=" * 80)
@@ -146,7 +147,7 @@ print(f"Backend: {SYNTH_API_BASE}")
 print(f"Local API Port: {LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=60)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
 else:
@@ -191,7 +192,9 @@ DEFAULT_HF_DATASET_ID = "JoshPurtell/web-design-screenshots"
 
 DEFAULT_SITE_FILTER = "astral"
 DEFAULT_MAX_EXAMPLES = int(os.environ.get("SYNTH_WEB_DESIGN_MAX_EXAMPLES", "8"))
-DEFAULT_MAX_IMAGE_PIXELS = int(os.environ.get("SYNTH_WEB_DESIGN_MAX_IMAGE_PIXELS", "12000000"))  # 12MP
+DEFAULT_MAX_IMAGE_PIXELS = int(
+    os.environ.get("SYNTH_WEB_DESIGN_MAX_IMAGE_PIXELS", "12000000")
+)  # 12MP
 
 
 class WebDesignDataset:
@@ -234,7 +237,9 @@ class WebDesignDataset:
         dataset_revision = os.environ.get(HF_DATASET_REVISION_ENV, "").strip() or None
 
         if dataset_id:
-            logger.info(f"Loading web-design dataset from Hub: {dataset_id} (split={HF_DATASET_SPLIT})")
+            logger.info(
+                f"Loading web-design dataset from Hub: {dataset_id} (split={HF_DATASET_SPLIT})"
+            )
             dataset = load_dataset(dataset_id, split=HF_DATASET_SPLIT, revision=dataset_revision)
         else:
             dataset_path = demo_dir / "hf_dataset"
@@ -273,7 +278,9 @@ class WebDesignDataset:
             cursor += 1
 
             site_name = (ex.get("site_name") or "site").replace("/", "_").replace(" ", "_")
-            page_name = (ex.get("page_name") or f"page_{cursor:03d}").replace("/", "_").replace(" ", "_")
+            page_name = (
+                (ex.get("page_name") or f"page_{cursor:03d}").replace("/", "_").replace(" ", "_")
+            )
 
             # We only cache a resized image to avoid storing/encoding huge screenshots.
             resized_path = self._resized_dir / f"{site_name}_{page_name}_{len(selected):03d}.png"
@@ -282,7 +289,9 @@ class WebDesignDataset:
                 # Validate cached file is actually small; if not, overwrite it.
                 try:
                     with Image.open(resized_path) as cached:
-                        if (cached.size[0] * cached.size[1]) > self._max_image_pixels or max(cached.size) > self._resize_size:
+                        if (cached.size[0] * cached.size[1]) > self._max_image_pixels or max(
+                            cached.size
+                        ) > self._resize_size:
                             resized_path.unlink(missing_ok=True)
                 except Exception:
                     # If unreadable/corrupt, overwrite.
@@ -686,7 +695,10 @@ Create a webpage that feels polished, modern, and trustworthy."""
                 return f"Phase: {prev} → {nxt}"
             return "Phase changed"
 
-        if event_type in {"prompt.learning.progress", "prompt.learning.gepa.rollouts_limit_progress"}:
+        if event_type in {
+            "prompt.learning.progress",
+            "prompt.learning.gepa.rollouts_limit_progress",
+        }:
             step = data.get("step") or data.get("iteration") or data.get("iter")
             total = data.get("total") or data.get("max")
             best = data.get("best_score") or data.get("best_reward")
@@ -699,10 +711,17 @@ Create a webpage that feels polished, modern, and trustworthy."""
                 parts.append(f"best={best}")
             return "Progress: " + " ".join(parts) if parts else "Progress"
 
-        if event_type in {"prompt.learning.gepa.new_best", "prompt.learning.gepa.candidate.evaluated"}:
+        if event_type in {
+            "prompt.learning.gepa.new_best",
+            "prompt.learning.gepa.candidate.evaluated",
+        }:
             score = data.get("score") or data.get("best_score") or data.get("best_reward")
             if score is not None:
-                return f"✨ New best: {score}" if event_type.endswith("new_best") else f"Candidate scored: {score}"
+                return (
+                    f"✨ New best: {score}"
+                    if event_type.endswith("new_best")
+                    else f"Candidate scored: {score}"
+                )
             return "GEPA update"
 
         return None
@@ -716,8 +735,12 @@ Create a webpage that feels polished, modern, and trustworthy."""
         headers = {"Authorization": f"Bearer {API_KEY}"}
         while not stop_events.is_set():
             try:
-                resp = httpx.get(url, params={"since_seq": last_seq, "limit": 200}, headers=headers, timeout=30.0)
-                if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("application/json"):
+                resp = httpx.get(
+                    url, params={"since_seq": last_seq, "limit": 200}, headers=headers, timeout=30.0
+                )
+                if resp.status_code == 200 and resp.headers.get("content-type", "").startswith(
+                    "application/json"
+                ):
                     payload = resp.json() or {}
                     events = payload.get("events") or []
                     next_seq = payload.get("next_seq")
