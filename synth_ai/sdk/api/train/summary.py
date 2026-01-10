@@ -1,7 +1,5 @@
 """Final summary display for prompt learning jobs."""
 
-from __future__ import annotations
-
 from typing import Any, Optional
 
 import click
@@ -82,7 +80,13 @@ def display_prompt_learning_summary(
         rollout_tokens_millions = None
         time_seconds = None
 
-        # Extract from billing.end event
+        # Extract MIPRO-specific metrics first (needed for billing.end fallback)
+        mipro_budget_events = [e for e in all_events if e.get("type") == "mipro.budget.summary"]
+        mipro_baseline_events = [e for e in all_events if e.get("type") == "mipro.baseline.test"]
+        mipro_topk_events = [e for e in all_events if e.get("type") == "mipro.topk.evaluated"]
+        mipro_completed_events = [e for e in all_events if e.get("type") == "mipro.job.completed"]
+
+        # Extract from billing.end event (works for both GEPA and MIPRO)
         billing_end_events = [
             e for e in all_events if e.get("type") == "prompt.learning.billing.end"
         ]
@@ -90,6 +94,15 @@ def display_prompt_learning_summary(
             billing_data = billing_end_events[-1].get("data", {})
             time_seconds = billing_data.get("seconds")
             total_cost_usd = billing_data.get("total_usd")
+            # For MIPRO, also extract costs from billing.end if category_costs not available
+            if algorithm == "mipro" and not mipro_budget_events:
+                # Fallback: try to extract from billing.end if available
+                tokens_usd = billing_data.get("tokens_usd", 0.0) or 0.0
+                # Estimate policy/proposal split (conservative: assume policy is 80% of tokens)
+                if tokens_usd > 0:
+                    policy_cost_usd = tokens_usd * 0.8
+                    proposal_cost_usd = tokens_usd * 0.2
+
         # Extract from completed event
         completed_events = [e for e in all_events if e.get("type") == "prompt.learning.completed"]
         completed_data = {}
@@ -105,6 +118,45 @@ def display_prompt_learning_summary(
             rollout_tokens_total = rollouts_prompt + rollouts_completion + rollouts_unknown
             rollout_tokens_millions = rollout_tokens_total / 1_000_000.0
 
+        if algorithm == "mipro":
+            # Try budget summary first, then fall back to job completed event, then billing.end
+            if mipro_budget_events:
+                budget_data = mipro_budget_events[-1].get("data", {})
+                category_costs = budget_data.get("category_costs", {})
+                if category_costs:
+                    # Cost categories are "rollout" and "proposal" (lowercase)
+                    policy_cost_usd = (
+                        category_costs.get("rollout", 0.0)
+                        or category_costs.get("policy", 0.0)
+                        or 0.0
+                    )
+                    proposal_cost_usd = category_costs.get("proposal", 0.0) or 0.0
+
+                # Extract token counts (policy tokens are rollout tokens)
+                policy_tokens = budget_data.get("policy_tokens", 0) or 0
+                proposer_tokens = budget_data.get("proposer_tokens", 0) or 0
+                # Rollout tokens = policy tokens only (not proposer)
+                rollout_tokens_millions = policy_tokens / 1_000_000.0
+            elif mipro_completed_events:
+                # Fallback to job completed event
+                completed_data_mipro = mipro_completed_events[-1].get("data", {})
+                category_costs_completed = completed_data_mipro.get("category_costs", {})
+                if category_costs_completed:
+                    policy_cost_usd = (
+                        category_costs_completed.get("rollout", 0.0)
+                        or category_costs_completed.get("policy", 0.0)
+                        or 0.0
+                    )
+                    proposal_cost_usd = category_costs_completed.get("proposal", 0.0) or 0.0
+                # Also try direct fields
+                if not policy_cost_usd:
+                    policy_cost_usd = completed_data_mipro.get("policy_cost_usd", 0.0) or 0.0
+                if not proposal_cost_usd:
+                    proposal_cost_usd = completed_data_mipro.get("proposal_cost_usd", 0.0) or 0.0
+            # If total_cost_usd is still None, use it from billing.end
+            if total_cost_usd is None and billing_end_events:
+                total_cost_usd = billing_data.get("total_usd")
+
         # Extract rollout count from progress events
         progress_events = [e for e in all_events if e.get("type") == "prompt.learning.progress"]
         trial_rollouts = 0
@@ -117,24 +169,63 @@ def display_prompt_learning_summary(
             if all_rollout_counts:
                 trial_rollouts = max(all_rollout_counts)
 
-        # Add heldout evaluation rollouts (GEPA)
-        heldout_rollouts = 0
-        validation_summary_events = [
-            e for e in all_events if e.get("type") == "prompt.learning.validation.summary"
-        ]
-        if validation_summary_events:
-            val_summary = validation_summary_events[-1].get("data", {})
-            baseline = val_summary.get("baseline", {})
-            results = val_summary.get("results", [])
+        # For MIPRO, count rollouts from trial events
+        if algorithm == "mipro":
+            mipro_trial_events = [e for e in all_events if e.get("type") == "mipro.trial.complete"]
+            mipro_fulleval_events = [
+                e for e in all_events if e.get("type") == "mipro.fulleval.complete"
+            ]
+            mipro_test_events = [e for e in all_events if e.get("type") == "mipro.test.complete"]
 
-            baseline_seeds = baseline.get("seeds", [])
-            if baseline_seeds:
-                heldout_rollouts += len(baseline_seeds)
+            trial_rollouts = 0
+            for event in mipro_trial_events:
+                data = event.get("data", {})
+                num_seeds = data.get("num_seeds", 0) or 0
+                trial_rollouts += num_seeds
 
-            for result in results:
-                result_seeds = result.get("seeds", [])
-                if result_seeds:
-                    heldout_rollouts += len(result_seeds)
+            heldout_rollouts = 0
+            for event in mipro_fulleval_events:
+                data = event.get("data", {})
+                num_seeds = data.get("num_seeds", 0) or 0
+                heldout_rollouts += num_seeds
+
+            for event in mipro_test_events:
+                data = event.get("data", {})
+                num_seeds = data.get("num_seeds", 0) or 0
+                heldout_rollouts += num_seeds
+
+            # Add baseline test rollouts
+            if mipro_baseline_events:
+                baseline_data = mipro_baseline_events[-1].get("data", {})
+                baseline_seeds = baseline_data.get("seeds", [])
+                if baseline_seeds:
+                    heldout_rollouts += len(baseline_seeds)
+
+            # Add top-k evaluation rollouts
+            for event in mipro_topk_events:
+                data = event.get("data", {})
+                test_seeds = data.get("test_seeds", [])
+                if test_seeds:
+                    heldout_rollouts += len(test_seeds)
+        else:
+            # Add heldout evaluation rollouts (GEPA)
+            heldout_rollouts = 0
+            validation_summary_events = [
+                e for e in all_events if e.get("type") == "prompt.learning.validation.summary"
+            ]
+            if validation_summary_events:
+                val_summary = validation_summary_events[-1].get("data", {})
+                baseline = val_summary.get("baseline", {})
+                results = val_summary.get("results", [])
+
+                baseline_seeds = baseline.get("seeds", [])
+                if baseline_seeds:
+                    heldout_rollouts += len(baseline_seeds)
+
+                for result in results:
+                    result_seeds = result.get("seeds", [])
+                    if result_seeds:
+                        heldout_rollouts += len(result_seeds)
 
         n_rollouts = trial_rollouts + heldout_rollouts
 
@@ -163,14 +254,51 @@ def display_prompt_learning_summary(
 
         # Rollouts
         rollouts_str = f"{n_rollouts}" if n_rollouts is not None else "N/A"
-        tokens_str = (
-            f"{rollout_tokens_millions:.4f}M" if rollout_tokens_millions is not None else "N/A"
-        )
+        if algorithm == "mipro" and mipro_budget_events:
+            # For MIPRO, show policy (rollout) tokens separately from proposal tokens
+            budget_data = mipro_budget_events[-1].get("data", {})
+            policy_tokens = budget_data.get("policy_tokens", 0) or 0
+            proposer_tokens = budget_data.get("proposer_tokens", 0) or 0
+            policy_tokens_millions = policy_tokens / 1_000_000.0
+            proposer_tokens_millions = proposer_tokens / 1_000_000.0
+            tokens_str = (
+                f"Policy: {policy_tokens_millions:.4f}M | Proposal: {proposer_tokens_millions:.4f}M"
+            )
+        else:
+            tokens_str = (
+                f"{rollout_tokens_millions:.4f}M" if rollout_tokens_millions is not None else "N/A"
+            )
         rows.append(("Rollouts", f"N: {rollouts_str} | Tokens: {tokens_str}"))
 
-        # Throughput (extract from completed event)
+        # Throughput (extract from completed event for both GEPA and MIPRO)
         rollouts_per_min = completed_data.get("rollouts_per_minute")
         tokens_per_min = completed_data.get("tokens_per_minute")
+        # For MIPRO, also check billing.end if not in completed event
+        if (
+            algorithm == "mipro"
+            and (rollouts_per_min is None or tokens_per_min is None)
+            and billing_end_events
+        ):
+            billing_data = billing_end_events[-1].get("data", {})
+            # Calculate from time_seconds and total_rollouts if available
+            if (
+                time_seconds
+                and time_seconds > 0
+                and rollouts_per_min is None
+                and n_rollouts is not None
+            ):
+                rollouts_per_min = (n_rollouts / time_seconds * 60.0) if n_rollouts > 0 else None
+            if (
+                time_seconds
+                and time_seconds > 0
+                and tokens_per_min is None
+                and rollout_tokens_millions is not None
+            ):
+                tokens_per_min = (
+                    (rollout_tokens_millions * 1_000_000.0 / time_seconds * 60.0)
+                    if rollout_tokens_millions > 0
+                    else None
+                )
         if rollouts_per_min is not None or tokens_per_min is not None:
             throughput_parts = []
             if rollouts_per_min is not None:
@@ -190,7 +318,39 @@ def display_prompt_learning_summary(
             rows.append(("Finish Reason", finish_reason))
 
         # Heldout Evaluation
-        if validation_summary:
+        if algorithm == "mipro":
+            # Extract MIPRO baseline and top-k results
+            baseline_score = None
+            if mipro_baseline_events:
+                baseline_data = mipro_baseline_events[-1].get("data", {})
+                baseline_score = _extract_reward_value(baseline_data)
+
+            # Show baseline first
+            if baseline_score is not None:
+                rows.append(("Baseline", f"Accuracy: {baseline_score:.4f}"))
+
+            # Show all top-K candidates (sorted by rank)
+            if mipro_topk_events:
+                # Sort by rank to ensure correct order
+                sorted_topk = sorted(
+                    mipro_topk_events, key=lambda e: e.get("data", {}).get("rank", 999)
+                )
+                for event in sorted_topk:
+                    data = event.get("data", {})
+                    rank = data.get("rank", 0)
+                    test_score = _extract_reward_value(data)
+                    if test_score is not None and baseline_score is not None:
+                        delta = test_score - baseline_score
+                        delta_pct = (delta / baseline_score * 100) if baseline_score > 0 else 0
+                        rows.append(
+                            (
+                                f"Candidate {rank}",
+                                f"Accuracy: {test_score:.4f} (Δ{delta:+.4f}, {delta_pct:+.1f}% vs baseline)",
+                            )
+                        )
+                    elif test_score is not None:
+                        rows.append((f"Candidate {rank}", f"Accuracy: {test_score:.4f}"))
+        elif validation_summary:
             baseline = validation_summary.get("baseline", {})
             results = validation_summary.get("results", [])
             baseline_acc = _extract_reward_value(baseline) if isinstance(baseline, dict) else None
@@ -254,6 +414,12 @@ def _generate_summary_text(
     rollout_tokens_millions = None
     time_seconds = None
 
+    # Extract MIPRO-specific metrics first
+    mipro_budget_events = [e for e in events if e.get("type") == "mipro.budget.summary"]
+    mipro_baseline_events = [e for e in events if e.get("type") == "mipro.baseline.test"]
+    mipro_topk_events = [e for e in events if e.get("type") == "mipro.topk.evaluated"]
+    # mipro_completed_events not currently used but may be needed for future metrics
+
     # Extract from billing.end event
     billing_end_events = [e for e in events if e.get("type") == "prompt.learning.billing.end"]
     if billing_end_events:
@@ -275,17 +441,55 @@ def _generate_summary_text(
         rollout_tokens_total = rollouts_prompt + rollouts_completion + rollouts_unknown
         rollout_tokens_millions = rollout_tokens_total / 1_000_000.0
 
-    # Extract rollout count from progress events
-    progress_events = [e for e in events if e.get("type") == "prompt.learning.progress"]
-    n_rollouts = None
-    if progress_events:
-        all_rollout_counts = [
-            e.get("data", {}).get("rollouts_completed", 0) or 0
-            for e in progress_events
-            if e.get("data", {}).get("rollouts_completed") is not None
-        ]
-        if all_rollout_counts:
-            n_rollouts = max(all_rollout_counts)
+    if algorithm == "mipro" and mipro_budget_events:
+        budget_data = mipro_budget_events[-1].get("data", {})
+        category_costs = budget_data.get("category_costs", {})
+        if category_costs:
+            policy_cost_usd = (
+                category_costs.get("rollout", 0.0) or category_costs.get("policy", 0.0) or 0.0
+            )
+            proposal_cost_usd = category_costs.get("proposal", 0.0) or 0.0
+
+        policy_tokens = budget_data.get("policy_tokens", 0) or 0
+        proposer_tokens = budget_data.get("proposer_tokens", 0) or 0
+        rollout_tokens_millions = policy_tokens / 1_000_000.0
+
+    # Extract rollout count
+    if algorithm == "mipro":
+        mipro_trial_events = [e for e in events if e.get("type") == "mipro.trial.complete"]
+        mipro_fulleval_events = [e for e in events if e.get("type") == "mipro.fulleval.complete"]
+        mipro_test_events = [e for e in events if e.get("type") == "mipro.test.complete"]
+
+        trial_rollouts = 0
+        for event in mipro_trial_events:
+            data = event.get("data", {})
+            num_seeds = data.get("num_seeds", 0) or 0
+            trial_rollouts += num_seeds
+
+        heldout_rollouts = 0
+        for event in mipro_fulleval_events:
+            data = event.get("data", {})
+            num_seeds = data.get("num_seeds", 0) or 0
+            heldout_rollouts += num_seeds
+
+        for event in mipro_test_events:
+            data = event.get("data", {})
+            num_seeds = data.get("num_seeds", 0) or 0
+            heldout_rollouts += num_seeds
+
+        if mipro_baseline_events:
+            baseline_data = mipro_baseline_events[-1].get("data", {})
+            baseline_seeds = baseline_data.get("seeds", [])
+            if baseline_seeds:
+                heldout_rollouts += len(baseline_seeds)
+
+        for event in mipro_topk_events:
+            data = event.get("data", {})
+            test_seeds = data.get("test_seeds", [])
+            if test_seeds:
+                heldout_rollouts += len(test_seeds)
+
+        n_rollouts = trial_rollouts + heldout_rollouts
 
     # Build summary table text
     summary_lines = []
@@ -301,7 +505,19 @@ def _generate_summary_text(
 
     # Rollouts
     rollouts_str = f"{n_rollouts}" if n_rollouts is not None else "N/A"
-    tokens_str = f"{rollout_tokens_millions:.4f}M" if rollout_tokens_millions is not None else "N/A"
+    if algorithm == "mipro" and mipro_budget_events:
+        budget_data = mipro_budget_events[-1].get("data", {})
+        policy_tokens = budget_data.get("policy_tokens", 0) or 0
+        proposer_tokens = budget_data.get("proposer_tokens", 0) or 0
+        policy_tokens_millions = policy_tokens / 1_000_000.0
+        proposer_tokens_millions = proposer_tokens / 1_000_000.0
+        tokens_str = (
+            f"Policy: {policy_tokens_millions:.4f}M | Proposal: {proposer_tokens_millions:.4f}M"
+        )
+    else:
+        tokens_str = (
+            f"{rollout_tokens_millions:.4f}M" if rollout_tokens_millions is not None else "N/A"
+        )
     rows.append(("Rollouts", f"N: {rollouts_str} | Tokens: {tokens_str}"))
 
     # Throughput
@@ -327,6 +543,36 @@ def _generate_summary_text(
         finish_reason = completed_data_for_text.get("finish_reason")
         if finish_reason:
             rows.append(("Finish Reason", finish_reason))
+
+    # Heldout Evaluation
+    if algorithm == "mipro":
+        baseline_score = None
+        if mipro_baseline_events:
+            baseline_data = mipro_baseline_events[-1].get("data", {})
+            baseline_score = _extract_reward_value(baseline_data)
+
+        if baseline_score is not None:
+            rows.append(("Baseline", f"Accuracy: {baseline_score:.4f}"))
+
+        if mipro_topk_events:
+            sorted_topk = sorted(
+                mipro_topk_events, key=lambda e: e.get("data", {}).get("rank", 999)
+            )
+            for event in sorted_topk:
+                data = event.get("data", {})
+                rank = data.get("rank", 0)
+                test_score = _extract_reward_value(data)
+                if test_score is not None and baseline_score is not None:
+                    delta = test_score - baseline_score
+                    delta_pct = (delta / baseline_score * 100) if baseline_score > 0 else 0
+                    rows.append(
+                        (
+                            f"Candidate {rank}",
+                            f"Accuracy: {test_score:.4f} (Δ{delta:+.4f}, {delta_pct:+.1f}% vs baseline)",
+                        )
+                    )
+                elif test_score is not None:
+                    rows.append((f"Candidate {rank}", f"Accuracy: {test_score:.4f}"))
 
     # Format table
     max_label_len = max(len(row[0]) for row in rows) if rows else 0

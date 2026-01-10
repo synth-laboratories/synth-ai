@@ -4,8 +4,6 @@ Prefer synth_ai.sdk.localapi.server moving forward. This module remains for
 backward compatibility during the naming transition.
 """
 
-from __future__ import annotations
-
 import asyncio
 import inspect
 import os
@@ -173,7 +171,7 @@ class TaskAppConfig:
     startup_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
     shutdown_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
 
-    def clone(self) -> TaskAppConfig:
+    def clone(self) -> "TaskAppConfig":
         """Return a shallow copy safe to mutate when wiring the app."""
 
         return TaskAppConfig(

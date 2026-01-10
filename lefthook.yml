@@ -13,52 +13,22 @@
 pre-commit:
   parallel: true
   jobs:
-    # Python: Ruff linting with auto-fix (only on staged Python files that exist)
+    # Python: Ruff linting with auto-fix (only on staged Python files)
     - name: python-ruff
       tags:
         - python
         - lint
       glob: "**/*.py"
-      run: |
-        files=""
-        for f in {staged_files}; do
-          [ -f "$f" ] && files="$files $f"
-        done
-        if [ -n "$files" ]; then
-          uv run ruff check --fix $files
-        fi
+      run: uv run ruff check --fix {staged_files}
       stage_fixed: true
 
-    # Python: Ruff format with auto-fix (only on staged Python files that exist)
+    # Python: Ruff format with auto-fix (only on staged Python files)
     - name: python-ruff-format
       tags:
         - python
         - format
       glob: "**/*.py"
-      run: |
-        files=""
-        for f in {staged_files}; do
-          [ -f "$f" ] && files="$files $f"
-        done
-        if [ -n "$files" ]; then
-          uv run ruff format $files
-        fi
-      stage_fixed: true
-
-    # Jupyter: Strip notebook outputs before commit
-    - name: notebook-strip
-      tags:
-        - jupyter
-        - clean
-      glob: "**/*.ipynb"
-      run: |
-        files=""
-        for f in {staged_files}; do
-          [ -f "$f" ] && files="$files $f"
-        done
-        if [ -n "$files" ]; then
-          uv run nbstripout $files
-        fi
+      run: uv run ruff format {staged_files}
       stage_fixed: true
 
     # TUI: TypeScript build check

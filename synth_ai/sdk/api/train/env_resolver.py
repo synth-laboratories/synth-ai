@@ -1,10 +1,9 @@
-from __future__ import annotations
-
+import importlib
 import os
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Callable, Iterable, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -16,10 +15,14 @@ from .utils import REPO_ROOT, mask_value, read_env_file, write_env_value
 
 
 def _load_saved_env_path() -> Path | None:
-    """Load saved environment file path.
-
-    Note: Demo apps have been removed. This function always returns None.
-    """
+    try:
+        module = cast(Any, importlib.import_module("synth_ai.core.demo_apps.demo_task_apps.core"))
+        loader = cast(Callable[[], str | None], module.load_env_file_path)
+        saved_path = loader()
+        if saved_path:
+            return Path(saved_path)
+    except Exception:
+        return None
     return None
 
 

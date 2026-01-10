@@ -1,12 +1,10 @@
-"""Validation for prompt learning (GEPA) configurations.
+"""Validation for prompt learning (GEPA/MIPRO) configurations.
 
 This module validates TOML configs and warns about:
 1. Unrecognized/unknown sections/fields that won't be processed
 2. Deprecated fields that should be migrated
 3. Missing required fields
 """
-
-from __future__ import annotations
 
 import warnings
 from pathlib import Path
@@ -26,8 +24,8 @@ KNOWN_PROMPT_LEARNING_FIELDS = {
     "task_app_api_key",
     "task_app_id",
     "initial_prompt",
-    "auto_discover_patterns",
     "policy",
+    "mipro",
     "gepa",
     "verifier",
     "proxy_models",
@@ -54,10 +52,6 @@ KNOWN_POLICY_FIELDS = {
     "temperature",
     "max_completion_tokens",
     "policy_name",
-    # Pass-through config for task apps (agent selection, timeouts, etc.)
-    "config",
-    # Context override baseline in config (legacy + unified optimization bootstrap)
-    "context_override",
 }
 
 # Known fields in [prompt_learning.termination_config] section
@@ -95,8 +89,6 @@ KNOWN_GEPA_FIELDS = {
     "proxy_models",
     "adaptive_pool",
     "adaptive_batch",
-    # Unified optimization (prompt + context engineering)
-    "unified_optimization",
     # Backwards-compat flat fields (deprecated but recognized)
     "rollout_budget",
     "max_concurrent_rollouts",
@@ -176,6 +168,53 @@ KNOWN_GEPA_TOKEN_FIELDS = {
     "counting_model",
     "enforce_pattern_limit",
     "max_spend_usd",
+}
+
+# Known fields in [prompt_learning.mipro] section
+KNOWN_MIPRO_FIELDS = {
+    "task_app_url",
+    "task_app_api_key",
+    "task_app_id",
+    "num_iterations",
+    "num_evaluations_per_iteration",
+    "batch_size",
+    "max_concurrent",
+    "env_name",
+    "env_config",
+    "meta_model",
+    "meta_model_provider",
+    "meta_model_inference_url",
+    "few_shot_score_threshold",
+    "results_file",
+    "max_wall_clock_seconds",
+    "max_total_tokens",
+    "policy_config",
+    "meta",
+    "modules",
+    "seeds",
+    "proposer_effort",
+    "proposer_output_tokens",
+    "max_token_limit",
+    "max_spend_usd",
+    "token_counting_model",
+    "enforce_token_limit",
+    "tpe",
+    "demo",
+    "grounding",
+    "meta_update",
+    "verifier",
+    "proxy_models",
+    "adaptive_pool",
+    "spec_path",
+    "spec_max_tokens",
+    "spec_include_examples",
+    "spec_priority_threshold",
+    "metaprompt",
+    "bootstrap_train_seeds",
+    "online_pool",
+    "test_pool",
+    "reference_pool",
+    "min_bootstrap_demos",
 }
 
 # Known fields in [prompt_learning.verifier]
@@ -375,18 +414,11 @@ def validate_prompt_learning_config(
     algorithm = pl_config.get("algorithm")
     if not algorithm:
         result.add_error(f"{path_prefix}Missing required 'algorithm' field in [prompt_learning]")
-    elif algorithm != "gepa":
-        result.add_error(f"{path_prefix}Invalid algorithm '{algorithm}'. Must be 'gepa'")
+    elif algorithm not in ("gepa", "mipro"):
+        result.add_error(f"{path_prefix}Invalid algorithm '{algorithm}'. Must be 'gepa' or 'mipro'")
 
     if not pl_config.get("task_app_url"):
         result.add_error(f"{path_prefix}Missing required 'task_app_url' in [prompt_learning]")
-
-    auto_discover = pl_config.get("auto_discover_patterns", False)
-    if not pl_config.get("initial_prompt") and not auto_discover:
-        result.add_warning(
-            f"{path_prefix}Missing 'initial_prompt' and auto_discover_patterns is disabled. "
-            "Provide an initial prompt pattern or enable auto-discovery."
-        )
 
     # Validate [prompt_learning.policy] if present
     policy = pl_config.get("policy")
@@ -422,6 +454,8 @@ def validate_prompt_learning_config(
     # Validate algorithm-specific sections
     if algorithm == "gepa":
         _validate_gepa_config(pl_config.get("gepa", {}), result, path_prefix)
+    elif algorithm == "mipro":
+        _validate_mipro_config(pl_config.get("mipro", {}), result, path_prefix)
 
     return result
 
@@ -519,6 +553,44 @@ def _validate_gepa_config(
     if "verifier" in gepa and isinstance(gepa["verifier"], dict):
         _check_unknown_fields(
             gepa["verifier"], KNOWN_VERIFIER_FIELDS, "prompt_learning.gepa.verifier", result
+        )
+
+
+def _validate_mipro_config(
+    mipro: dict[str, Any],
+    result: PromptLearningValidationResult,
+    path_prefix: str,
+) -> None:
+    """Validate MIPRO-specific configuration."""
+    if not mipro:
+        result.add_warning(
+            f"{path_prefix}No [prompt_learning.mipro] section found for MIPRO algorithm"
+        )
+        return
+
+    # Check for unknown fields
+    _check_unknown_fields(mipro, KNOWN_MIPRO_FIELDS, "prompt_learning.mipro", result)
+
+    # Validate nested sections
+    if "verifier" in mipro and isinstance(mipro["verifier"], dict):
+        _check_unknown_fields(
+            mipro["verifier"], KNOWN_VERIFIER_FIELDS, "prompt_learning.mipro.verifier", result
+        )
+
+    if "adaptive_pool" in mipro and isinstance(mipro["adaptive_pool"], dict):
+        _check_unknown_fields(
+            mipro["adaptive_pool"],
+            KNOWN_ADAPTIVE_POOL_FIELDS,
+            "prompt_learning.mipro.adaptive_pool",
+            result,
+        )
+
+    if "proxy_models" in mipro and isinstance(mipro["proxy_models"], dict):
+        _check_unknown_fields(
+            mipro["proxy_models"],
+            KNOWN_PROXY_MODELS_FIELDS,
+            "prompt_learning.mipro.proxy_models",
+            result,
         )
 
 

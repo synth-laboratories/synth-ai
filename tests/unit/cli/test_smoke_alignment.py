@@ -1,0 +1,169 @@
+import importlib
+from typing import Any
+
+import pytest
+import synth_ai.cli.smoke as smoke_module
+from synth_ai.sdk.task.contracts import (
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
+from synth_ai.sdk.task.trace_correlation_helpers import build_trace_payload
+
+
+class _FakeLocalAPIClient:
+    def __init__(
+        self, base_url: str, api_key: str | None = None, *, timeout: float = 600.0, retries: int = 3
+    ) -> None:
+        self.base_url = base_url
+        self.api_key = api_key
+        self.timeout = timeout
+        self.retries = retries
+        self.health_calls = 0
+        self.task_info_calls = 0
+        self.task_info_last_seeds: list[int] | None = None
+        self.rollout_calls = 0
+        self.last_rollout_request: RolloutRequest | None = None
+
+    async def __aenter__(self) -> "_FakeLocalAPIClient":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:  # noqa: D401
+        return None
+
+    async def health(self) -> dict[str, Any]:
+        self.health_calls += 1
+        return {"status": "ok"}
+
+    async def task_info(self, seeds: list[int] | None = None) -> TaskInfo:
+        self.task_info_calls += 1
+        self.task_info_last_seeds = list(seeds or []) if seeds else None
+        # Minimal valid TaskInfo
+        return TaskInfo(
+            task=TaskDescriptor(id="crafter", name="crafter"),
+            environment="crafter",
+            dataset={},
+            rubric={},
+            inference={},
+            limits={},
+        )
+
+    async def rollout(self, request: RolloutRequest) -> RolloutResponse:  # type: ignore[override]
+        self.rollout_calls += 1
+        self.last_rollout_request = request
+
+        trace_correlation_id = "test-cid-123"
+        trace_payload = build_trace_payload(
+            messages=[{"role": "user", "content": "ping"}],
+            response={"message": {"role": "assistant", "content": "pong"}},
+            correlation_id=trace_correlation_id,
+            metadata={"run_id": request.run_id},
+        )
+        metrics = RolloutMetrics(
+            episode_rewards=[0.0], reward_mean=0.0, num_steps=1, num_episodes=1
+        )
+        return RolloutResponse(
+            run_id=request.run_id,
+            branches={},
+            metrics=metrics,
+            aborted=False,
+            trace_correlation_id=trace_correlation_id,
+            trace=trace_payload,
+            pipeline_metadata={
+                "inference_url": "https://mock.local/v1/chat/completions?cid=test-cid-123",
+                "trace_correlation_id": trace_correlation_id,
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_smoke_rollout_request_alignment_structured_trace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    smoke_core = importlib.reload(smoke_module)
+
+    created_instances: list[_FakeLocalAPIClient] = []
+
+    def _factory(*args: Any, **kwargs: Any) -> _FakeLocalAPIClient:
+        inst = _FakeLocalAPIClient(*args, **kwargs)
+        created_instances.append(inst)
+        return inst
+
+    # Patch the LocalAPIClient used by the smoke tool
+    monkeypatch.setattr(smoke_core, "LocalAPIClient", _factory)
+
+    exit_code = await smoke_core._run_smoke_async(
+        task_app_url="http://task.local:8000",
+        api_key="k1",
+        env_name_opt="crafter",
+        policy_name="react",
+        model="gpt-5-nano",
+        inference_url_opt="https://api.openai.com/v1",  # ensure normalization appends /chat/completions
+        inference_policy=None,
+        max_steps=2,
+        return_trace=True,
+        use_mock=False,
+        mock_port=0,
+        mock_backend="synthetic",
+        config_path=None,
+        rollouts=1,
+        group_size=1,
+        batch_size=None,
+    )
+
+    assert exit_code == 0
+
+    assert created_instances, "Expected LocalAPIClient to be instantiated"
+    inst = created_instances[-1]
+    sent = inst.last_rollout_request
+    assert sent is not None
+    assert sent.record.return_trace is True
+    assert sent.record.trace_format == "structured"
+    # inference_url should be normalized to include /chat/completions and have a cid
+    url = str((sent.policy.config or {}).get("inference_url"))
+    assert "/chat/completions" in url
+    assert "?cid=" in url
+
+
+@pytest.mark.asyncio
+async def test_smoke_calls_health_and_task_info_when_env_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    smoke_core = importlib.reload(smoke_module)
+
+    created_instances: list[_FakeLocalAPIClient] = []
+
+    def _factory(*args: Any, **kwargs: Any) -> _FakeLocalAPIClient:  # type: ignore[no-redef]
+        inst = _FakeLocalAPIClient(*args, **kwargs)
+        created_instances.append(inst)
+        return inst
+
+    monkeypatch.setattr(smoke_core, "LocalAPIClient", _factory)
+
+    exit_code = await smoke_core._run_smoke_async(
+        task_app_url="http://task.local:8000",
+        api_key="k1",
+        env_name_opt=None,  # force task_info path
+        policy_name="react",
+        model="gpt-5-nano",
+        inference_url_opt="https://api.openai.com/v1/chat/completions",
+        inference_policy=None,
+        max_steps=1,
+        return_trace=False,
+        use_mock=False,
+        mock_port=0,
+        mock_backend="synthetic",
+        config_path=None,
+        rollouts=1,
+        group_size=1,
+        batch_size=None,
+    )
+
+    assert exit_code == 0
+    assert created_instances, "Expected LocalAPIClient to be instantiated"
+    inst = created_instances[-1]
+    assert inst.health_calls >= 1
+    assert inst.task_info_calls >= 1
+    assert inst.task_info_last_seeds == [0]

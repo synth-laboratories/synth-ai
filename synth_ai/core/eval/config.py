@@ -1,12 +1,4 @@
-"""Eval command configuration loading and normalization.
-
-This module handles loading and resolving evaluation configuration from:
-- TOML config files (minimal, legacy eval, or prompt_learning format)
-- Command-line arguments (override config values)
-- Environment variables (for API keys, etc.)
-"""
-
-from __future__ import annotations
+"""Eval command configuration loading and normalization."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,6 +6,7 @@ from typing import Any, Literal
 
 from synth_ai.sdk.api.train.configs.prompt_learning import PromptLearningConfig
 from synth_ai.sdk.api.train.utils import load_toml
+from synth_ai.sdk.task.contracts import RolloutMode
 
 SeedSet = Literal["seeds", "validation_seeds", "test_pool"]
 
@@ -24,13 +17,14 @@ class EvalRunConfig:
 
     app_id: str
     task_app_url: str | None
-    task_app_api_key: str | None = None
-    env_name: str | None = None
+    task_app_api_key: str | None
+    env_name: str | None
     env_config: dict[str, Any] = field(default_factory=dict)
     policy_name: str | None = None
     policy_config: dict[str, Any] = field(default_factory=dict)
     seeds: list[int] = field(default_factory=list)
     ops: list[str] = field(default_factory=list)
+    mode: RolloutMode = RolloutMode.EVAL
     return_trace: bool = False
     trace_format: str = "compact"
     concurrency: int = 1
@@ -78,14 +72,6 @@ def _from_prompt_learning(
     *,
     seed_set: SeedSet,
 ) -> EvalRunConfig:
-    from synth_ai.config_expansion import expand_gepa_config, is_minimal_config
-
-    if "prompt_learning" in raw:
-        pl_section = raw["prompt_learning"]
-        if is_minimal_config(pl_section):
-            expanded = expand_gepa_config(pl_section)
-            raw = {"prompt_learning": expanded}
-
     pl_cfg = PromptLearningConfig.from_mapping(raw)
     gepa = pl_cfg.gepa
     mipro = pl_cfg.mipro
@@ -110,11 +96,11 @@ def _from_prompt_learning(
     policy_cfg: dict[str, Any] = {}
     if pl_cfg.policy:
         policy_cfg = {
-            "provider": pl_cfg.policy.provider.value if pl_cfg.policy.provider else None,
+            "model": pl_cfg.policy.model,
+            "provider": pl_cfg.policy.provider,
         }
         if pl_cfg.policy.inference_url:
             policy_cfg["inference_url"] = pl_cfg.policy.inference_url
-        policy_cfg = {k: v for k, v in policy_cfg.items() if v is not None}
 
     app_id = pl_cfg.task_app_id or (env_name or "")
     verifier_cfg = None
@@ -123,12 +109,6 @@ def _from_prompt_learning(
             verifier_cfg = dict(pl_cfg.verifier)
         else:
             verifier_cfg = pl_cfg.verifier.model_dump(mode="python")
-
-    concurrency = 1
-    if gepa and gepa.rollout and gepa.rollout.max_concurrent:
-        concurrency = gepa.rollout.max_concurrent
-    if mipro and mipro.rollout and mipro.rollout.max_concurrent:
-        concurrency = mipro.rollout.max_concurrent
 
     return EvalRunConfig(
         app_id=app_id,
@@ -140,31 +120,22 @@ def _from_prompt_learning(
         policy_config=policy_cfg,
         seeds=seeds,
         ops=[],
-        concurrency=concurrency,
+        concurrency=(gepa.rollout.max_concurrent if gepa and gepa.rollout else 1),
         verifier_config=verifier_cfg,
     )
 
 
 def _from_legacy_eval(raw: dict[str, Any]) -> EvalRunConfig:
-    """Parse legacy [eval] config format."""
-    from synth_ai.config_expansion import expand_eval_config
-
     eval_section = raw.get("eval", {})
     if not isinstance(eval_section, dict):
         eval_section = {}
-
-    if eval_section.get("task_app_url") and eval_section.get("seeds"):
-        expanded = expand_eval_config(eval_section)
-        eval_section = {**expanded, **eval_section}
-
     app_id = str(eval_section.get("app_id") or "").strip()
     model = str(eval_section.get("model") or "").strip()
-    policy_cfg = dict(eval_section.get("policy_config") or eval_section.get("policy") or {})
+    policy_cfg = dict(eval_section.get("policy_config") or {})
     if model and "model" not in policy_cfg:
         policy_cfg["model"] = model
     if "provider" not in policy_cfg and eval_section.get("provider"):
         policy_cfg["provider"] = eval_section.get("provider")
-
     return EvalRunConfig(
         app_id=app_id,
         task_app_url=eval_section.get("url") or eval_section.get("task_app_url"),
@@ -177,9 +148,8 @@ def _from_legacy_eval(raw: dict[str, Any]) -> EvalRunConfig:
         ops=list(eval_section.get("ops") or []),
         return_trace=bool(eval_section.get("return_trace", False)),
         trace_format=str(eval_section.get("trace_format") or "compact"),
-        concurrency=int(eval_section.get("concurrency") or eval_section.get("max_concurrent") or 1),
+        concurrency=int(eval_section.get("concurrency") or 1),
         metadata=dict(eval_section.get("metadata") or {}),
-        timeout=eval_section.get("timeout"),
     )
 
 
