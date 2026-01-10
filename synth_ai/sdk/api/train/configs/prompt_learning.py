@@ -3,34 +3,65 @@
 This module defines the configuration schema for prompt optimization jobs using:
 - **GEPA**: Genetic Evolution of Prompt Architectures - evolutionary optimization
 
-Example TOML configuration (GEPA):
+Minimal Config (Recommended)
+----------------------------
+Only 6 fields required - everything else is auto-derived:
+
     ```toml
     [prompt_learning]
     algorithm = "gepa"
     task_app_url = "https://your-tunnel.trycloudflare.com"
-    task_app_api_key = "$ENVIRONMENT_API_KEY"
+    total_seeds = 200
+    proposer_effort = "LOW"
+    proposer_output_tokens = "FAST"
+    num_generations = 10
+    children_per_generation = 5
 
-    [prompt_learning.policy]
-    model = "gpt-4o-mini"
-    provider = "openai"
+    # Optional budget constraint (omit to use account balance)
+    max_cost_usd = 10.0
+    ```
+
+Auto-derived fields include:
+    - train_seeds (70% of total_seeds)
+    - validation_seeds (30% of total_seeds)
+    - population.initial_size
+    - archive.size, mutation.rate, and all other nested configs
+
+To pin defaults version for reproducibility:
+    ```toml
+    defaults_version = "v1"  # Optional: locks behavior forever
+    ```
+
+Full Config (Advanced)
+----------------------
+For complete control over all parameters:
+
+    ```toml
+    [prompt_learning]
+    algorithm = "gepa"
+    task_app_url = "https://your-tunnel.trycloudflare.com"
 
     [prompt_learning.gepa]
     env_name = "banking77"
     proposer_effort = "LOW"
+    proposer_output_tokens = "FAST"
 
     [prompt_learning.gepa.rollout]
-    budget = 100
+    budget = 100_000_000
     max_concurrent = 20
 
     [prompt_learning.gepa.evaluation]
-    seeds = {start = 0, end = 50}
+    train_seeds = {start = 0, end = 140}
+    validation_seeds = {start = 140, end = 200}
 
     [prompt_learning.gepa.population]
+    initial_size = 20
     num_generations = 10
     children_per_generation = 5
     ```
 
 See Also:
+    - Config expansion: synth_ai.config_expansion
     - Training reference: /training/gepa
     - Quickstart: /quickstart/prompt-optimization-gepa
 """
@@ -1280,8 +1311,6 @@ class PromptLearningConfig(ExtraModel):
     Attributes:
         algorithm: Optimization algorithm - "gepa".
         task_app_url: URL of your task app (typically a Cloudflare tunnel URL).
-        task_app_api_key: API key for authenticating with the task app.
-            Defaults to ENVIRONMENT_API_KEY env var.
         task_app_id: Optional identifier for the task app (for logging).
         initial_prompt: Initial prompt pattern to seed optimization.
         policy: Policy (LLM) configuration for rollouts.
@@ -1329,7 +1358,6 @@ class PromptLearningConfig(ExtraModel):
 
     algorithm: str  # "gepa"
     task_app_url: str
-    task_app_api_key: str | None = None
     task_app_id: str | None = None
     initial_prompt: PromptPatternConfig | None = None
     policy: PromptLearningPolicyConfig | None = None
@@ -1415,7 +1443,7 @@ class PromptLearningConfig(ExtraModel):
             return data
 
         # Silently remove deprecated fields (don't raise errors)
-        deprecated_fields = {"display", "results_folder", "env_file_path"}
+        deprecated_fields = {"display", "results_folder", "env_file_path", "task_app_api_key"}
 
         for field in deprecated_fields:
             if field in data:
@@ -1437,7 +1465,7 @@ class PromptLearningConfig(ExtraModel):
         """Load prompt learning config from dict/TOML mapping."""
         # Remove deprecated fields at top level (silently for backwards compatibility)
         # The CLI validation module will warn about these
-        deprecated_top_level = {"display", "results_folder", "env_file_path"}
+        deprecated_top_level = {"display", "results_folder", "env_file_path", "task_app_api_key"}
 
         # Convert to mutable dict (creates a copy to avoid modifying the original)
         data = dict(data)

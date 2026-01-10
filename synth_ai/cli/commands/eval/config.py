@@ -1,13 +1,27 @@
 """Eval command configuration loading and normalization.
 
 This module handles loading and resolving evaluation configuration from:
-- TOML config files (legacy eval format or prompt_learning format)
+- TOML config files (minimal, legacy eval, or prompt_learning format)
 - Command-line arguments (override config values)
 - Environment variables (for API keys, etc.)
 
-**Config File Formats:**
+**Minimal Config (Recommended):**
 
-1. **Legacy Eval Format:**
+Only 2 fields required for eval:
+
+    ```toml
+    [eval]
+    task_app_url = "http://localhost:8103"
+    seeds = [0, 1, 2, 3, 4]
+    ```
+
+Auto-derived fields include:
+    - max_concurrent (min of 20 or seed count)
+    - timeout (600 seconds)
+    - policy (detected from task app calls)
+
+**Legacy Eval Format:**
+
     ```toml
     [eval]
     app_id = "banking77"
@@ -20,7 +34,8 @@ This module handles loading and resolving evaluation configuration from:
     provider = "openai"
     ```
 
-2. **Prompt Learning Format:**
+**Prompt Learning Format:**
+
     ```toml
     [prompt_learning]
     task_app_id = "banking77"
@@ -34,6 +49,7 @@ This module handles loading and resolving evaluation configuration from:
     ```
 
 **See Also:**
+    - Config expansion: synth_ai.config_expansion
     - `synth_ai.cli.commands.eval.core.eval_command()`: CLI entry point
     - `synth_ai.cli.commands.eval.runner.run_eval()`: Uses resolved config
 """
@@ -87,15 +103,12 @@ class EvalRunConfig:
 
     app_id: str
     task_app_url: str | None
-    task_app_api_key: str | None
     env_name: str | None
     env_config: dict[str, Any] = field(default_factory=dict)
     policy_name: str | None = None
     policy_config: dict[str, Any] = field(default_factory=dict)
     seeds: list[int] = field(default_factory=list)
-    ops: list[str] = field(default_factory=list)
     return_trace: bool = False
-    trace_format: str = "compact"
     concurrency: int = 1
     metadata: dict[str, str] = field(default_factory=dict)
     output_txt: Path | None = None
@@ -103,7 +116,6 @@ class EvalRunConfig:
     verifier_config: dict[str, Any] | None = None
     backend_url: str | None = None
     backend_api_key: str | None = None
-    wait: bool = False
     poll_interval: float = 5.0
     traces_dir: Path | None = None
     config_path: Path | None = None
@@ -141,6 +153,15 @@ def _from_prompt_learning(
     *,
     seed_set: SeedSet,
 ) -> EvalRunConfig:
+    # Expand minimal config if needed
+    from synth_ai.config_expansion import expand_gepa_config, is_minimal_config
+
+    if "prompt_learning" in raw:
+        pl_section = raw["prompt_learning"]
+        if is_minimal_config(pl_section):
+            expanded = expand_gepa_config(pl_section)
+            raw = {"prompt_learning": expanded}
+
     pl_cfg = PromptLearningConfig.from_mapping(raw)
     gepa = pl_cfg.gepa
 
@@ -160,12 +181,14 @@ def _from_prompt_learning(
 
     policy_cfg: dict[str, Any] = {}
     if pl_cfg.policy:
+        # Note: model is auto-detected from task app calls, not configured
         policy_cfg = {
-            "model": pl_cfg.policy.model,
-            "provider": pl_cfg.policy.provider,
+            "provider": pl_cfg.policy.provider.value if pl_cfg.policy.provider else None,
         }
         if pl_cfg.policy.inference_url:
             policy_cfg["inference_url"] = pl_cfg.policy.inference_url
+        # Remove None values
+        policy_cfg = {k: v for k, v in policy_cfg.items() if v is not None}
 
     app_id = pl_cfg.task_app_id or (env_name or "")
     verifier_cfg = None
@@ -178,25 +201,42 @@ def _from_prompt_learning(
     return EvalRunConfig(
         app_id=app_id,
         task_app_url=pl_cfg.task_app_url,
-        task_app_api_key=pl_cfg.task_app_api_key,
         env_name=env_name,
         env_config=env_config,
         policy_name=pl_cfg.policy.policy_name if pl_cfg.policy else None,
         policy_config=policy_cfg,
         seeds=seeds,
-        ops=[],
         concurrency=(gepa.rollout.max_concurrent if gepa and gepa.rollout else 1),
         verifier_config=verifier_cfg,
     )
 
 
 def _from_legacy_eval(raw: dict[str, Any]) -> EvalRunConfig:
+    """Parse legacy [eval] config format.
+
+    Also supports minimal eval config with auto-expansion:
+        ```toml
+        [eval]
+        task_app_url = "http://localhost:8103"
+        seeds = [0, 1, 2, 3, 4]
+        ```
+    """
+    from synth_ai.config_expansion import expand_eval_config
+
     eval_section = raw.get("eval", {})
     if not isinstance(eval_section, dict):
         eval_section = {}
+
+    # Check if this is a minimal config (has required fields but missing optional)
+    # Expand to add defaults for max_concurrent, timeout, etc.
+    if eval_section.get("task_app_url") and eval_section.get("seeds"):
+        expanded = expand_eval_config(eval_section)
+        # Merge expanded defaults with original (original takes precedence)
+        eval_section = {**expanded, **eval_section}
+
     app_id = str(eval_section.get("app_id") or "").strip()
     model = str(eval_section.get("model") or "").strip()
-    policy_cfg = dict(eval_section.get("policy_config") or {})
+    policy_cfg = dict(eval_section.get("policy_config") or eval_section.get("policy") or {})
     if model and "model" not in policy_cfg:
         policy_cfg["model"] = model
     if "provider" not in policy_cfg and eval_section.get("provider"):
@@ -204,17 +244,15 @@ def _from_legacy_eval(raw: dict[str, Any]) -> EvalRunConfig:
     return EvalRunConfig(
         app_id=app_id,
         task_app_url=eval_section.get("url") or eval_section.get("task_app_url"),
-        task_app_api_key=eval_section.get("task_app_api_key"),
         env_name=eval_section.get("env_name"),
         env_config=dict(eval_section.get("env_config") or {}),
         policy_name=eval_section.get("policy_name"),
         policy_config=policy_cfg,
         seeds=list(eval_section.get("seeds") or []),
-        ops=list(eval_section.get("ops") or []),
         return_trace=bool(eval_section.get("return_trace", False)),
-        trace_format=str(eval_section.get("trace_format") or "compact"),
-        concurrency=int(eval_section.get("concurrency") or 1),
+        concurrency=int(eval_section.get("concurrency") or eval_section.get("max_concurrent") or 1),
         metadata=dict(eval_section.get("metadata") or {}),
+        timeout=eval_section.get("timeout"),
     )
 
 
@@ -226,13 +264,11 @@ def resolve_eval_config(
     cli_seeds: list[int] | None,
     cli_url: str | None,
     cli_env_file: str | None,
-    cli_ops: list[str] | None,
     cli_return_trace: bool | None,
     cli_concurrency: int | None,
     cli_output_txt: Path | None,
     cli_output_json: Path | None,
     cli_backend_url: str | None,
-    cli_wait: bool,
     cli_poll_interval: float | None,
     cli_traces_dir: Path | None,
     seed_set: SeedSet,
@@ -296,8 +332,6 @@ def resolve_eval_config(
         resolved.task_app_url = cli_url
     if cli_seeds:
         resolved.seeds = cli_seeds
-    if cli_ops:
-        resolved.ops = cli_ops
     if cli_return_trace is not None:
         resolved.return_trace = cli_return_trace
     if cli_concurrency is not None:
@@ -308,8 +342,6 @@ def resolve_eval_config(
         resolved.output_json = cli_output_json
     if cli_backend_url:
         resolved.backend_url = cli_backend_url
-    if cli_wait:
-        resolved.wait = True
     if cli_poll_interval is not None:
         resolved.poll_interval = cli_poll_interval
     if cli_traces_dir is not None:
