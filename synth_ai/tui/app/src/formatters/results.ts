@@ -1,7 +1,7 @@
 /**
  * Results panel formatting (best snapshot + eval results + expanded view).
  */
-import type { PromptCandidate, Snapshot } from "../types"
+import type { Snapshot } from "../types"
 import { num } from "../tui_data"
 import { truncate } from "../utils/truncate"
 import { formatValue } from "./time"

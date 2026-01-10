@@ -149,6 +149,18 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   if (jobSource === "eval" || isEvalJob(snapshot.selectedJob)) {
     await fetchEvalResults(ctx, token)
   }
+  
+  // Auto-fetch metrics for GEPA jobs
+  if (token === appState.jobSelectToken && snapshot.selectedJob) {
+    const isGepa = snapshot.selectedJob.training_type === "gepa" || snapshot.selectedJob.training_type === "graph_gepa"
+    if (isGepa) {
+      // Small delay to ensure job data is fully loaded
+      await new Promise(resolve => setTimeout(resolve, 100))
+      if (token === appState.jobSelectToken && snapshot.selectedJob?.job_id === jobId) {
+        await fetchMetrics(ctx)
+      }
+    }
+  }
 }
 
 export async function fetchBestSnapshot(ctx: AppContext, token?: number): Promise<void> {
@@ -235,12 +247,17 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
     snapshot.metrics = payload
     const p: any = payload ?? {}
     const points = Array.isArray(p?.points) ? p.points : []
-    const hasAny =
-      (Array.isArray(points) && points.length > 0) ||
-      (p && typeof p === "object" && Object.keys(p).some((k) => k !== "points" && k !== "job_id"))
-    snapshot.status = hasAny
-      ? `Loaded metrics for ${job.job_id}`
-      : `No metrics available yet for ${job.job_id}`
+    
+    // Debug: log metrics structure for troubleshooting
+    if (points.length === 0) {
+      // Always log when no points - helps diagnose the issue
+      const gepaMetrics = points.filter((pt: any) => pt?.name?.startsWith("gepa."))
+      const allMetricNames = [...new Set(points.map((pt: any) => pt?.name).filter(Boolean))]
+      snapshot.status = `No GEPA metrics found (${points.length} total points, ${gepaMetrics.length} gepa metrics, names: ${allMetricNames.slice(0, 5).join(", ") || "none"})`
+    } else {
+      const gepaMetrics = points.filter((pt: any) => pt?.name?.startsWith("gepa."))
+      snapshot.status = `Loaded ${points.length} metric points (${gepaMetrics.length} GEPA metrics) for ${job.job_id}`
+    }
   } catch (err: any) {
     if (snapshot.selectedJob?.job_id !== jobId) {
       return

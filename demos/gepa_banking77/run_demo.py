@@ -424,10 +424,10 @@ async def main():
             'gepa': {
                 'env_name': 'banking77',
                 'evaluation': {'seeds': list(range(30)), 'validation_seeds': list(range(50, 70))},
-                'rollout': {'budget': 50, 'max_concurrent': 5, 'minibatch_size': 5},
+                'rollout': {'budget': 200, 'max_concurrent': 20, 'minibatch_size': 5},
                 'mutation': {'rate': 0.3},
-                'population': {'initial_size': 3, 'num_generations': 2, 'children_per_generation': 2},
-                'archive': {'pareto_set_size': 10},
+                'population': {'initial_size': 3, 'num_generations': 4, 'children_per_generation': 2},
+                'archive': {'pareto_set_size': 20},
                 'token': {'counting_model': 'gpt-4'},
             },
         },

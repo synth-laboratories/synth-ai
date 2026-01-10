@@ -20,6 +20,7 @@ import { scanMultipleDirectories, type ScannedLocalAPI } from "./utils/localapi-
 import { toDisplayPath } from "./utils/files"
 
 import { getFilteredEvents } from "../formatters"
+import { formatMetricsCharts } from "../formatters/metrics"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
 import { cancelSelected, fetchArtifacts, fetchMetrics, selectJob } from "../api/jobs"
 import { apiGet, apiGetV1 } from "../api/client"
@@ -52,6 +53,7 @@ type ModalState =
       title: string
       raw: string
       offset: number
+      fullscreen?: boolean
     }
   | {
       type: "log"
@@ -60,6 +62,7 @@ type ModalState =
       offset: number
       tail: boolean
       path: string
+      fullscreen?: boolean
     }
 
 type ActiveModal =
@@ -77,6 +80,7 @@ type ActiveModal =
   | "profile"
   | "urls"
   | "login"
+  | "metrics"
 
 type UsageData = {
   plan_type: "free" | "pro" | "team" | "byok"
@@ -402,6 +406,15 @@ function SolidShell(props: { onExit?: () => void }) {
     return scannedLocalAPIs().map(api => toDisplayPath(api.filepath))
   })
   const modalLayout = createMemo(() => {
+    const state = modal()
+    if (state?.fullscreen) {
+      return {
+        width: Math.max(1, layout().totalWidth),
+        height: Math.max(1, layout().totalHeight),
+        left: 0,
+        top: 0,
+      }
+    }
     const width = Math.min(100, Math.max(40, layout().totalWidth - 4))
     const height = Math.min(26, Math.max(12, layout().totalHeight - 6))
     const left = Math.max(0, Math.floor((layout().totalWidth - width) / 2))
@@ -438,11 +451,12 @@ function SolidShell(props: { onExit?: () => void }) {
     const range = view.total > view.visibleCount
       ? `[${view.offset + 1}-${Math.min(view.offset + view.visible.length, view.total)}/${view.total}] `
       : ""
+    const fullscreenHint = "Shift+F fullscreen | "
     if (state.type === "log") {
       const tail = state.tail ? " [TAIL]" : ""
-      return `${range}j/k scroll | t tail${tail} | y copy | q close`
+      return `${range}${fullscreenHint}j/k scroll | t tail${tail} | y copy | q close`
     }
-    return `${range}j/k scroll | q close`
+    return `${range}${fullscreenHint}j/k scroll | q close`
   })
 
   function buildScrollableModal(raw: string, width: number, height: number, offset: number) {
@@ -844,6 +858,11 @@ function SolidShell(props: { onExit?: () => void }) {
     void fetchUsageData()
   }
 
+  function openMetricsModal(): void {
+    appState.metricsModalOffset = 0
+    setActiveModal("metrics")
+  }
+
   async function fetchUsageData(): Promise<void> {
     try {
       const response = await apiGetV1("/usage-plan")
@@ -1204,6 +1223,11 @@ function SolidShell(props: { onExit?: () => void }) {
   useKeyboard((evt) => {
     const detailModal = modal()
     if (detailModal) {
+      if ((evt.name === "f" && evt.shift) || evt.name === "F") {
+        evt.preventDefault()
+        setModal({ ...detailModal, fullscreen: !detailModal.fullscreen })
+        return
+      }
       if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
         evt.preventDefault()
         setModal(null)
@@ -1372,6 +1396,31 @@ function SolidShell(props: { onExit?: () => void }) {
           evt.preventDefault()
           appState.usageModalOffset = (appState.usageModalOffset || 0) + 1
           data.ctx.render()
+          return
+        }
+        if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
+          evt.preventDefault()
+          closeActiveModal()
+          return
+        }
+        return
+      }
+      if (overlayModal === "metrics") {
+        if (evt.name === "up" || evt.name === "k") {
+          evt.preventDefault()
+          appState.metricsModalOffset = Math.max(0, (appState.metricsModalOffset || 0) - 1)
+          data.ctx.render()
+          return
+        }
+        if (evt.name === "down" || evt.name === "j") {
+          evt.preventDefault()
+          appState.metricsModalOffset = (appState.metricsModalOffset || 0) + 1
+          data.ctx.render()
+          return
+        }
+        if (evt.name === "m") {
+          evt.preventDefault()
+          void fetchMetrics(data.ctx).then(() => data.ctx.render())
           return
         }
         if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
@@ -1664,6 +1713,12 @@ function SolidShell(props: { onExit?: () => void }) {
     if (evt.name === "a") {
       evt.preventDefault()
       void fetchArtifacts(data.ctx).then(() => data.ctx.render())
+      return
+    }
+    if (evt.name === "M" || (evt.name === "m" && evt.shift)) {
+      // Shift+M = fullscreen metrics modal
+      evt.preventDefault()
+      openMetricsModal()
       return
     }
     if (evt.name === "m") {
@@ -2028,6 +2083,36 @@ function SolidShell(props: { onExit?: () => void }) {
       )
     }
 
+    if (kind === "metrics") {
+      const m: any = snapshot.metrics || {}
+      const pts = Array.isArray(m?.points) ? m.points : []
+      const job = snapshot.selectedJob
+      const isGepa = job?.training_type === "gepa" || job?.training_type === "graph_gepa"
+      
+      // Build fullscreen metrics content
+      const raw = formatMetricsCharts(snapshot.metrics, {
+        width: dimensions().width - 6,
+        height: dimensions().height - 8,
+        isGepa,
+      })
+      const view = buildScrollableModal(raw, dimensions().width - 4, dimensions().height - 6, appState.metricsModalOffset || 0)
+      const hint = view.lines.length > view.bodyHeight
+        ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] j/k scroll | m refresh | q close`
+        : "m refresh | q close"
+      return (
+        <ModalFrame
+          title={`Metrics (${pts.length} points)`}
+          width={dimensions().width - 4}
+          height={dimensions().height - 6}
+          borderColor="#8b5cf6"
+          titleColor="#8b5cf6"
+          hint={hint}
+        >
+          <text fg="#e2e8f0">{view.visible.join("\n")}</text>
+        </ModalFrame>
+      )
+    }
+
     if (kind === "task-apps") {
       const raw = formatTunnelDetails(snapshot.tunnels, snapshot.tunnelHealthResults, appState.taskAppsModalSelectedIndex || 0)
       const view = buildScrollableModal(raw, 90, 20, appState.taskAppsModalOffset || 0)
@@ -2312,7 +2397,9 @@ function SolidShell(props: { onExit?: () => void }) {
               eventWindow={eventWindow()}
               lastError={lastError()}
               detailWidth={layout().detailWidth}
+              detailHeight={layout().contentHeight}
               eventsFocused={activePane() === "events"}
+              metricsView={data.ctx.state.appState.metricsView}
             />
           </Show>
         </Show>
@@ -2413,6 +2500,8 @@ function SolidShell(props: { onExit?: () => void }) {
               <KeyHint description="candidates" keyLabel="v" />
               <text fg={COLORS.textDim}>|</text>
               <KeyHint description="metrics" keyLabel="m" />
+              <text fg={COLORS.textDim}>|</text>
+              <KeyHint description="fullscreen" keyLabel="M" />
               <text fg={COLORS.textDim}>|</text>
               <KeyHint description="new" keyLabel="n" />
               <text fg={COLORS.textDim}>|</text>

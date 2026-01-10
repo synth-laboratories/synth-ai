@@ -83,6 +83,114 @@ function extractCandidateFromEvent(event: JobEvent): PromptCandidate | null {
   }
 }
 
+function extractGEPAMetricsFromEvents(ctx: AppContext, events: JobEvent[]): void {
+  const { snapshot } = ctx.state
+  const job = snapshot.selectedJob
+  if (!job) return
+  
+  const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa"
+  if (!isGepa) return
+  
+  // Only extract if metrics endpoint returned empty
+  const metrics: any = snapshot.metrics || {}
+  const existingPoints = Array.isArray(metrics?.points) ? metrics.points : []
+  if (existingPoints.length > 0) return // Metrics endpoint has data, don't override
+  
+  // Extract metrics from events and convert to metric points format
+  const metricPoints: Array<{ name: string; value: number; step: number; timestamp?: string }> = []
+  
+  for (const event of events) {
+    const data = isRecord(event.data) ? event.data : null
+    if (!data) continue
+    
+    // Extract from prompt.learning.gepa.progress events
+    if (event.type === "prompt.learning.gepa.progress") {
+      const step = num(data.generation) ?? num(data.candidates_evaluated) ?? 0
+      if (typeof data.frontier_density === "number") {
+        metricPoints.push({
+          name: "gepa.frontier.density",
+          value: data.frontier_density,
+          step: step,
+          timestamp: event.timestamp ?? undefined,
+        })
+      }
+      if (typeof data.total_seeds_solved === "number") {
+        metricPoints.push({
+          name: "gepa.frontier.total_seeds_solved",
+          value: data.total_seeds_solved,
+          step: step,
+          timestamp: event.timestamp ?? undefined,
+        })
+      }
+      if (isRecord(data.pareto_growth)) {
+        const growth = data.pareto_growth
+        if (typeof growth.all_time === "number") {
+          metricPoints.push({
+            name: "gepa.pareto.growth.all_time",
+            value: growth.all_time,
+            step: step,
+            timestamp: event.timestamp ?? undefined,
+          })
+        }
+      }
+    }
+    
+    // Extract from prompt.learning.gepa.archive.frontier_improved events
+    if (event.type === "prompt.learning.gepa.archive.frontier_improved" || 
+        event.type === "prompt.learning.gepa.frontier_updated") {
+      const step = num(data.generation) ?? num(data.candidates_evaluated) ?? 0
+      if (typeof data.frontier_density === "number") {
+        metricPoints.push({
+          name: "gepa.frontier.density",
+          value: data.frontier_density,
+          step: step,
+          timestamp: event.timestamp ?? undefined,
+        })
+      }
+      if (typeof data.total_seeds_solved === "number") {
+        metricPoints.push({
+          name: "gepa.frontier.total_seeds_solved",
+          value: data.total_seeds_solved,
+          step: step,
+          timestamp: event.timestamp ?? undefined,
+        })
+      }
+      if (isRecord(data.pareto_growth)) {
+        const growth = data.pareto_growth
+        if (typeof growth.all_time === "number") {
+          metricPoints.push({
+            name: "gepa.pareto.growth.all_time",
+            value: growth.all_time,
+            step: step,
+            timestamp: event.timestamp ?? undefined,
+          })
+        }
+      }
+    }
+  }
+  
+  // If we found metrics in events, add them to snapshot.metrics
+  if (metricPoints.length > 0) {
+    if (!snapshot.metrics || typeof snapshot.metrics !== "object") {
+      snapshot.metrics = { points: [] }
+    }
+    const currentPoints = Array.isArray((snapshot.metrics as any).points) 
+      ? (snapshot.metrics as any).points 
+      : []
+    // Merge, keeping latest by step for each metric name
+    const byNameAndStep = new Map<string, any>()
+    for (const pt of [...currentPoints, ...metricPoints]) {
+      const key = `${pt.name}:${pt.step}`
+      const existing = byNameAndStep.get(key)
+      if (!existing || (pt.timestamp && existing.timestamp && pt.timestamp > existing.timestamp)) {
+        byNameAndStep.set(key, pt)
+      }
+    }
+    ;(snapshot.metrics as any).points = Array.from(byNameAndStep.values())
+      .sort((a, b) => (a.step ?? 0) - (b.step ?? 0))
+  }
+}
+
 function updateCandidatesFromEvents(ctx: AppContext, events: JobEvent[]): void {
   const { snapshot } = ctx.state
   if (events.length === 0) return
@@ -187,6 +295,10 @@ export async function refreshEvents(ctx: AppContext): Promise<boolean> {
 
       snapshot.events.push(...newEvents)
       updateCandidatesFromEvents(ctx, newEvents)
+      
+      // Extract GEPA metrics from events as fallback if metrics endpoint is empty
+      extractGEPAMetricsFromEvents(ctx, newEvents)
+      
       const filter = appState.eventFilter.trim().toLowerCase()
       const newMatchCount =
         filter.length === 0

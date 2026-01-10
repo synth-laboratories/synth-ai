@@ -4,7 +4,7 @@ import type { Snapshot } from "../../../types"
 import type { JobEvent } from "../../../tui_data"
 import { formatDetails } from "../../formatters/job-details"
 import { formatResults } from "../../formatters/results"
-import { formatMetrics } from "../../formatters/metrics"
+import { formatMetrics, formatMetricsCharts } from "../../formatters/metrics"
 import { formatEventData } from "../../../formatters"
 
 interface JobsDetailProps {
@@ -17,7 +17,9 @@ interface JobsDetailProps {
   }
   lastError: string | null
   detailWidth: number
+  detailHeight: number
   eventsFocused?: boolean
+  metricsView: "latest" | "charts"
 }
 
 /**
@@ -61,9 +63,14 @@ function wrapText(text: string, maxWidth: number): string[] {
   return lines.map((l) => (l.length > maxWidth ? truncate(l, maxWidth) : l))
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
 function formatEventHeader(event: JobEvent): string {
   const seq = String(event.seq).padStart(3, " ")
-  const type = event.type || ""
+  const typeRaw = event.type || ""
+  const type = typeRaw.replace(/^prompt\.learning\./, "")
   return `${seq} ${type}`.trimEnd()
 }
 
@@ -97,8 +104,7 @@ function buildEventCardLines(event: JobEvent, width: number, isSelected: boolean
   const needsEllipsis = wrapText(body, Math.max(10, width - 4)).length > bodyLines.length
   const ellipsis = needsEllipsis ? [`${prefix}  …`] : []
 
-  const sep = `${prefix}${"-".repeat(Math.max(0, width - prefix.length))}`
-  return [sep, `${prefix}${header}`, ...content, ...ellipsis]
+  return [`${prefix}${header}`, ...content, ...ellipsis]
 }
 
 /**
@@ -107,7 +113,43 @@ function buildEventCardLines(event: JobEvent, width: number, isSelected: boolean
 export function JobsDetail(props: JobsDetailProps) {
   const detailsText = createMemo(() => formatDetails(props.snapshot))
   const resultsText = createMemo(() => formatResults(props.snapshot))
-  const metricsText = createMemo(() => formatMetrics(props.snapshot.metrics))
+  const isGepa = createMemo(() => {
+    const job = props.snapshot.selectedJob
+    return job?.training_type === "gepa" || job?.training_type === "graph_gepa"
+  })
+  const metricPointsCount = createMemo(() => {
+    const m: any = props.snapshot.metrics || {}
+    const pts = Array.isArray(m?.points) ? m.points : []
+    return pts.length
+  })
+  const metricsPanelHeight = createMemo(() => {
+    // Reserve fixed space for Details/Results and ensure Events always has room.
+    const detailsH = 6
+    const resultsH = 4
+    const minEventsH = 12
+    const maxH = Math.max(4, props.detailHeight - (detailsH + resultsH + minEventsH))
+
+    if (props.metricsView === "charts") {
+      const desired = metricPointsCount() > 0 ? 22 : 18
+      return clamp(desired, 12, maxH)
+    }
+    // Latest mode: expand a bit when we actually have metrics.
+    const desired = metricPointsCount() > 0 ? 8 : 4
+    return clamp(desired, 4, maxH)
+  })
+  const metricsText = createMemo(() => {
+    if (props.metricsView === "charts") {
+      const innerWidth = Math.max(30, props.detailWidth - 6)
+      const panelHeight = metricsPanelHeight()
+      // In charts mode we use the full panel height for larger charts.
+      return formatMetricsCharts(props.snapshot.metrics, {
+        width: innerWidth,
+        height: panelHeight,
+        isGepa: isGepa(),
+      })
+    }
+    return formatMetrics(props.snapshot.metrics)
+  })
 
   return (
     <box flexDirection="column" flexGrow={1} border={false} gap={0}>
@@ -145,7 +187,7 @@ export function JobsDetail(props: JobsDetailProps) {
         title="Metrics"
         titleAlignment="left"
         paddingLeft={1}
-        height={4}
+        height={metricsPanelHeight()}
       >
         <text fg={COLORS.text}>{metricsText()}</text>
       </box>

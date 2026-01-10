@@ -141,6 +141,7 @@ export const appState = {
   eventModalOffset: 0,
   configModalOffset: 0,
   logsModalOffset: 0,
+  metricsModalOffset: 0,
   logsModalTail: true,
   promptBrowserIndex: 0,
   promptBrowserOffset: 0,
@@ -184,6 +185,9 @@ export const appState = {
   openCodeScrollOffset: 0,
   openCodeInputValue: "",
   openCodeIsProcessing: false,
+
+  // Metrics panel view state
+  metricsView: "latest" as "latest" | "charts",
 }
 
 export function setActivePane(pane: ActivePane): void {
