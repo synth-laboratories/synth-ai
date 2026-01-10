@@ -21,9 +21,7 @@ from synth_ai.core.tracing_v3.turso.daemon import start_sqld
 from synth_ai.sdk.localapi.client import LocalAPIClient
 from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
-    RolloutMode,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
 )
 from synth_ai.sdk.task.validators import (
@@ -888,17 +886,9 @@ async def _run_smoke_async(
                         trace_correlation_id=correlation_id,
                         env=RolloutEnvSpec(env_name=env_name, config={}, seed=i),
                         policy=RolloutPolicySpec(policy_name=policy_name, config=policy_cfg),
-                        record=RolloutRecordConfig(
-                            trajectories=True,
-                            logprobs=False,
-                            value=False,
-                            return_trace=return_trace,
-                            trace_format=("structured" if return_trace else "compact"),
-                        ),
                         on_done="reset",
                         training_session_id=None,
                         synth_base_url=synth_base,
-                        mode=RolloutMode.RL,
                     )
 
                     try:

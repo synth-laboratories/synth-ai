@@ -64,9 +64,7 @@ from synth_ai.sdk.task.client import TaskAppClient
 from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
-    RolloutMode,
 )
 
 from .config import EvalRunConfig
@@ -169,27 +167,15 @@ def _build_rollout_request(config: EvalRunConfig, seed: int) -> RolloutRequest:
     if structured_config is not None:
         policy_kwargs["structured_config"] = structured_config
 
-    # Cast trace_format to expected literal type
-    trace_fmt: Any = config.trace_format
-    record = RolloutRecordConfig(
-        trajectories=True,
-        logprobs=False,
-        value=False,
-        return_trace=config.return_trace,
-        trace_format=trace_fmt,
-    )
-
     synth_base = os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL")
 
     return RolloutRequest(
         trace_correlation_id=_build_trace_correlation_id(config, seed),
         env=RolloutEnvSpec(env_name=config.env_name, config=env_config, seed=seed),
         policy=RolloutPolicySpec(**policy_kwargs),
-        record=record,
         on_done="reset",
         training_session_id=None,
         synth_base_url=synth_base,
-        mode=config.mode or RolloutMode.EVAL,
     )
 
 

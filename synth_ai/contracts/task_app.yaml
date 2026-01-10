@@ -5,14 +5,14 @@ info:
   description: |
     # Task App Contract
 
-    Task Apps are HTTP services that evaluate prompts for Synth's MIPRO and
-    GEPA optimizers. Implement this contract in any language.
+    Task Apps are HTTP services that evaluate prompts for Synth's GEPA optimizer.
+    Implement this contract in any language.
 
     ## How It Works
 
     ```
     ┌─────────────────┐         ┌──────────────────┐
-    │  MIPRO/GEPA     │  HTTP   │  Your Task App   │
+    │  GEPA          │  HTTP   │  Your Task App   │
     │  Optimizer      │ ──────> │  (any language)  │
     │                 │         │                  │
     │  Proposes new   │         │  Evaluates the   │
@@ -54,7 +54,7 @@ info:
     synth prompt-learning run \
       --task-app-url https://your-tunnel.trycloudflare.com \
       --task-app-api-key your-env-key \
-      --algorithm mipro
+      --algorithm gepa
     ```
 
     **Option B - Via API (no Python needed):**
@@ -63,7 +63,7 @@ info:
       -H "Authorization: Bearer $SYNTH_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-        "algorithm": "mipro",
+        "algorithm": "gepa",
         "config_body": {
           "prompt_learning": {
             "task_app_url": "https://your-tunnel.trycloudflare.com",
@@ -119,7 +119,6 @@ components:
         - trace_correlation_id
         - env
         - policy
-        - mode
       properties:
         trace_correlation_id:
           type: string
@@ -141,9 +140,6 @@ components:
         policy:
           $ref: '#/components/schemas/RolloutPolicySpec'
 
-        record:
-          $ref: '#/components/schemas/RolloutRecordConfig'
-
         on_done:
           type: string
           default: "reset"
@@ -161,15 +157,6 @@ components:
           type: string
           nullable: true
           description: Base URL for Synth API callbacks
-
-        mode:
-          type: string
-          enum:
-            - rl
-            - eval
-          description: |
-            Rollout mode. Task Apps MAY ignore this field.
-            Synth uses `"eval"` for prompt optimization.
       example:
         trace_correlation_id: "trace_abc123"
         env:
@@ -191,7 +178,6 @@ components:
                 - role: "user"
                   pattern: "Customer query: {query}\n\nClassify into one of: {intents}"
                   order: 1
-        mode: "eval"
 
     RolloutEnvSpec:
       type: object
@@ -499,34 +485,6 @@ components:
               default: false
               description: Enable strict mode for parameter validation
 
-    RolloutRecordConfig:
-      type: object
-      description: Recording configuration for trace payloads
-      properties:
-        logprobs:
-          type: boolean
-          default: false
-          description: Whether to record log probabilities
-
-        value:
-          type: boolean
-          default: false
-          description: Whether to record value estimates
-
-        return_trace:
-          type: boolean
-          default: false
-          description: Whether to return detailed trace
-
-        trace_format:
-          type: string
-          enum:
-            - compact
-            - full
-            - structured
-          default: compact
-          description: Format for trace output
-
     RolloutSafetyConfig:
       type: object
       description: Safety limits for rollout execution
@@ -716,7 +674,7 @@ components:
           type: number
           description: |
             REQUIRED - The reward for this rollout. Single source of truth for scoring.
-            This is what MIPRO/GEPA maximizes:
+            This is what GEPA maximizes:
             - 1.0 = prompt produced correct answer
             - 0.0 = prompt produced wrong answer
 

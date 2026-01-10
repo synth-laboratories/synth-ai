@@ -9,7 +9,6 @@ from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
     TaskDescriptor,
@@ -57,18 +56,17 @@ class _FakeLocalAPIClient:
         self.rollout_calls += 1
         self.last_rollout_request = request
 
-        trace_correlation_id = "test-cid-123"
+        trace_correlation_id = request.trace_correlation_id
         trace_payload = build_trace_payload(
             messages=[{"role": "user", "content": "ping"}],
             response={"message": {"role": "assistant", "content": "pong"}},
             correlation_id=trace_correlation_id,
-            metadata={"run_id": request.run_id},
+            metadata={"trace_correlation_id": trace_correlation_id},
         )
         metrics = RolloutMetrics(outcome_reward=0.0)
         return RolloutResponse(
-            run_id=request.run_id,
-            metrics=metrics,
             trace_correlation_id=trace_correlation_id,
+            metrics=metrics,
             trace=trace_payload,
             inference_url="https://mock.local/v1/chat/completions?cid=test-cid-123",
         )
@@ -127,8 +125,8 @@ async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pyt
     inst = created_instances[-1]
     sent = inst.last_rollout_request
     assert sent is not None
-    assert sent.record.return_trace is True
-    assert sent.record.trace_format == "structured"
+    # trace_correlation_id should be set
+    assert sent.trace_correlation_id is not None
     # inference_url should be normalized to include /chat/completions and have a cid
     url = str((sent.policy.config or {}).get("inference_url"))
     assert "/chat/completions" in url

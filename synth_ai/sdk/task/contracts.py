@@ -8,16 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-
-
-class RolloutMode(str, Enum):
-    """Mode controls how rollout infrastructure processes inference URLs."""
-
-    RL = "rl"
-    EVAL = "eval"
 
 
 class OutputMode(str, Enum):
@@ -101,20 +94,6 @@ class RolloutPolicySpec(BaseModel):
     )
 
 
-class RolloutRecordConfig(BaseModel):
-    """Configuration for what to record during rollout.
-
-    DEPRECATED: All fields in this config are currently unused. Trace collection
-    happens unconditionally. This config is retained for backward compatibility
-    but will be removed in a future release.
-    """
-
-    logprobs: bool = False  # DEPRECATED: Unused
-    value: bool = False  # DEPRECATED: Unused
-    return_trace: bool = False  # DEPRECATED: Unused
-    trace_format: Literal["compact", "full", "structured"] = "compact"  # DEPRECATED: Unused
-
-
 class RolloutSafetyConfig(BaseModel):
     """Safety configuration for rollout execution.
 
@@ -140,12 +119,10 @@ class RolloutRequest(BaseModel):
     )
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
-    record: RolloutRecordConfig = RolloutRecordConfig()  # DEPRECATED: Fields unused
     on_done: str = "reset"
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     training_session_id: str | None = None
     synth_base_url: str | None = None
-    mode: RolloutMode = RolloutMode.RL  # DEPRECATED: Never read, kept for compatibility
 
 
 class RolloutMetrics(BaseModel):

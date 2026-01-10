@@ -33,7 +33,6 @@ from .rl import (
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
     RolloutSafetyConfig,
@@ -76,7 +75,6 @@ __all__ = [
     # RL types
     "RolloutEnvSpec",
     "RolloutPolicySpec",
-    "RolloutRecordConfig",
     "RolloutSafetyConfig",
     "RolloutRequest",
     "RolloutMetrics",

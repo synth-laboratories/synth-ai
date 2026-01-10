@@ -46,7 +46,6 @@ from typing import Any, Literal
 
 from synth_ai.sdk.api.train.configs.prompt_learning import PromptLearningConfig
 from synth_ai.sdk.api.train.utils import load_toml
-from synth_ai.sdk.task.contracts import RolloutMode
 
 
 SeedSet = Literal["seeds", "validation_seeds", "test_pool"]
@@ -96,7 +95,6 @@ class EvalRunConfig:
     policy_config: dict[str, Any] = field(default_factory=dict)
     seeds: list[int] = field(default_factory=list)
     ops: list[str] = field(default_factory=list)
-    mode: RolloutMode = RolloutMode.EVAL
     return_trace: bool = False
     trace_format: str = "compact"
     concurrency: int = 1
