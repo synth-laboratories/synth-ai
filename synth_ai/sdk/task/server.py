@@ -581,7 +581,7 @@ def run_task_app(
     try:
         import os
 
-        from synth_ai.cli.lib.tunnel_records import record_service
+        from synth_ai.core.service_records import record_service
 
         local_url = f"http://{host if host not in ('0.0.0.0', '::') else '127.0.0.1'}:{port}"
         # Try to get current process PID
@@ -602,7 +602,7 @@ def run_task_app(
     finally:
         # Clean up record when server exits
         try:
-            from synth_ai.cli.lib.tunnel_records import remove_service_record
+            from synth_ai.core.service_records import remove_service_record
 
             remove_service_record(port)
         except Exception:
