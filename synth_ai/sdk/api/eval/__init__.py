@@ -24,7 +24,7 @@ Example SDK usage:
         print(f"Total cost: ${result.total_cost_usd:.4f}")
 
 See Also:
-    - `synth_ai.cli.commands.eval`: CLI implementation
+    - `synth_ai.cli.eval`: CLI implementation
     - Backend API: POST /api/eval/jobs
 """
 

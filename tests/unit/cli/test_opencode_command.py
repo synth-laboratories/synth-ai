@@ -1,16 +1,9 @@
-from __future__ import annotations
-
 from unittest import mock
 
 import pytest
 from click.testing import CliRunner
-
-from synth_ai.cli.agents.opencode import (
-    opencode_cmd,
-    CONFIG_PATH,
-    AUTH_PATH,
-    SYNTH_PROVIDER_ID,
-)
+from synth_ai.cli.opencode import opencode as opencode_cmd
+from synth_ai.core.agents.opencode import AUTH_PATH, CONFIG_PATH, SYNTH_PROVIDER_ID
 from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
 
 
@@ -27,9 +20,10 @@ def empty_config():
 
 def test_opencode_cmd_not_found_no_install(runner: CliRunner):
     """Command exits when OpenCode missing and install declined."""
-    with mock.patch("synth_ai.cli.opencode.get_bin_path", return_value=None), \
-         mock.patch("synth_ai.cli.opencode.install_bin", return_value=False):
-
+    with (
+        mock.patch("synth_ai.core.agents.opencode.get_bin_path", return_value=None),
+        mock.patch("synth_ai.core.agents.opencode.install_bin", return_value=False),
+    ):
         result = runner.invoke(opencode_cmd)
 
     assert result.exit_code == 0
@@ -40,9 +34,10 @@ def test_opencode_cmd_found_but_not_runnable(runner: CliRunner):
     """Command exits when OpenCode fails verification."""
     mock_bin_path = "/usr/local/bin/opencode"
 
-    with mock.patch("synth_ai.cli.opencode.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.opencode.verify_bin", return_value=False):
-
+    with (
+        mock.patch("synth_ai.core.agents.opencode.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.opencode.verify_bin", return_value=False),
+    ):
         result = runner.invoke(opencode_cmd)
 
     assert result.exit_code == 0
@@ -55,14 +50,17 @@ def test_opencode_cmd_configures_model(runner: CliRunner, empty_config):
     mock_bin_path = "/usr/local/bin/opencode"
     mock_api_key = "test-api-key"
 
-    with mock.patch("synth_ai.cli.opencode.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.opencode.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.opencode.write_agents_md"), \
-         mock.patch("synth_ai.cli.opencode.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.opencode.load_json_to_dict", return_value=empty_config.copy()), \
-         mock.patch("synth_ai.cli.opencode.create_and_write_json") as mock_write, \
-         mock.patch("synth_ai.cli.opencode.subprocess.run") as mock_run:
-
+    with (
+        mock.patch("synth_ai.core.agents.opencode.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.opencode.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.opencode.write_agents_md"),
+        mock.patch("synth_ai.core.agents.opencode.resolve_env_var", return_value=mock_api_key),
+        mock.patch(
+            "synth_ai.core.agents.opencode.load_json_to_dict", return_value=empty_config.copy()
+        ),
+        mock.patch("synth_ai.core.agents.opencode.create_and_write_json") as mock_write,
+        mock.patch("synth_ai.core.agents.opencode.subprocess.run") as mock_run,
+    ):
         result = runner.invoke(opencode_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
@@ -75,7 +73,10 @@ def test_opencode_cmd_configures_model(runner: CliRunner, empty_config):
     written_config = config_call.args[1]
     assert written_auth[SYNTH_PROVIDER_ID]["key"] == mock_api_key
     assert written_config["model"] == f"{SYNTH_PROVIDER_ID}/synth-small"
-    assert written_config["provider"][SYNTH_PROVIDER_ID]["options"]["baseURL"] == BACKEND_URL_SYNTH_RESEARCH_BASE
+    assert (
+        written_config["provider"][SYNTH_PROVIDER_ID]["options"]["baseURL"]
+        == BACKEND_URL_SYNTH_RESEARCH_BASE
+    )
 
 
 def test_opencode_cmd_override_url(runner: CliRunner, empty_config):
@@ -84,14 +85,17 @@ def test_opencode_cmd_override_url(runner: CliRunner, empty_config):
     mock_api_key = "test-api-key"
     override_url = "https://custom.example.com/api"
 
-    with mock.patch("synth_ai.cli.opencode.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.opencode.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.opencode.write_agents_md"), \
-         mock.patch("synth_ai.cli.opencode.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.opencode.load_json_to_dict", return_value=empty_config.copy()), \
-         mock.patch("synth_ai.cli.opencode.create_and_write_json") as mock_write, \
-         mock.patch("synth_ai.cli.opencode.subprocess.run"):
-
+    with (
+        mock.patch("synth_ai.core.agents.opencode.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.opencode.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.opencode.write_agents_md"),
+        mock.patch("synth_ai.core.agents.opencode.resolve_env_var", return_value=mock_api_key),
+        mock.patch(
+            "synth_ai.core.agents.opencode.load_json_to_dict", return_value=empty_config.copy()
+        ),
+        mock.patch("synth_ai.core.agents.opencode.create_and_write_json") as mock_write,
+        mock.patch("synth_ai.core.agents.opencode.subprocess.run"),
+    ):
         result = runner.invoke(opencode_cmd, ["--model", "synth-small", "--url", override_url])
 
     assert result.exit_code == 0
@@ -107,15 +111,18 @@ def test_opencode_cmd_install_retry(runner: CliRunner, empty_config):
 
     find_calls = [None, mock_bin_path]
 
-    with mock.patch("synth_ai.cli.opencode.get_bin_path", side_effect=find_calls), \
-         mock.patch("synth_ai.cli.opencode.install_bin", return_value=True), \
-         mock.patch("synth_ai.cli.opencode.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.opencode.write_agents_md"), \
-         mock.patch("synth_ai.cli.opencode.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.opencode.load_json_to_dict", return_value=empty_config.copy()), \
-         mock.patch("synth_ai.cli.opencode.create_and_write_json"), \
-         mock.patch("synth_ai.cli.opencode.subprocess.run"):
-
+    with (
+        mock.patch("synth_ai.core.agents.opencode.get_bin_path", side_effect=find_calls),
+        mock.patch("synth_ai.core.agents.opencode.install_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.opencode.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.opencode.write_agents_md"),
+        mock.patch("synth_ai.core.agents.opencode.resolve_env_var", return_value=mock_api_key),
+        mock.patch(
+            "synth_ai.core.agents.opencode.load_json_to_dict", return_value=empty_config.copy()
+        ),
+        mock.patch("synth_ai.core.agents.opencode.create_and_write_json"),
+        mock.patch("synth_ai.core.agents.opencode.subprocess.run"),
+    ):
         result = runner.invoke(opencode_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0

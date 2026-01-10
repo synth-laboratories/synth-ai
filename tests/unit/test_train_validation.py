@@ -1,8 +1,7 @@
 """Unit tests for train TOML validation logic."""
 
 import pytest
-
-from synth_ai.cli.commands.train.errors import (
+from synth_ai.sdk.api.train.validation import (
     InvalidRLConfigError,
     InvalidSFTConfigError,
     MissingAlgorithmError,
@@ -10,8 +9,6 @@ from synth_ai.cli.commands.train.errors import (
     MissingDatasetError,
     MissingModelError,
     UnsupportedAlgorithmError,
-)
-from synth_ai.cli.commands.train.validation import (
     validate_rl_config,
     validate_sft_config,
 )
@@ -52,7 +49,7 @@ class TestSFTValidation:
                 "global_batch": 4,
             },
         }
-        
+
         result = validate_sft_config(config)
         assert result is not None
         assert result["job"]["model"] == "Qwen/Qwen3-4B"
@@ -84,7 +81,7 @@ class TestSFTValidation:
                 "train_kind": "peft",
             },
         }
-        
+
         result = validate_sft_config(config)
         assert result is not None
         assert result["training"]["mode"] == "lora"
@@ -102,7 +99,7 @@ class TestSFTValidation:
                 "nodes": 1,
             },
         }
-        
+
         with pytest.raises(MissingAlgorithmError):
             validate_sft_config(config)
 
@@ -119,7 +116,7 @@ class TestSFTValidation:
                 "nodes": 1,
             },
         }
-        
+
         with pytest.raises(InvalidSFTConfigError):
             validate_sft_config(config)
 
@@ -139,7 +136,7 @@ class TestSFTValidation:
                 "nodes": 1,
             },
         }
-        
+
         with pytest.raises(MissingModelError):
             validate_sft_config(config)
 
@@ -159,7 +156,7 @@ class TestSFTValidation:
                 "nodes": 1,
             },
         }
-        
+
         with pytest.raises(MissingDatasetError):
             validate_sft_config(config)
 
@@ -176,7 +173,7 @@ class TestSFTValidation:
                 "data": "dataset.jsonl",
             },
         }
-        
+
         with pytest.raises(MissingComputeError):
             validate_sft_config(config)
 
@@ -197,7 +194,7 @@ class TestSFTValidation:
                 "nodes": 1,
             },
         }
-        
+
         with pytest.raises(MissingComputeError):
             validate_sft_config(config)
 
@@ -219,7 +216,7 @@ class TestSFTValidation:
                 "nodes": 1,
             },
         }
-        
+
         with pytest.raises(UnsupportedAlgorithmError):
             validate_sft_config(config)
 
@@ -241,7 +238,7 @@ class TestSFTValidation:
                 "nodes": 1,
             },
         }
-        
+
         with pytest.raises(MissingAlgorithmError):
             validate_sft_config(config)
 
@@ -292,7 +289,7 @@ class TestRLValidation:
                 "seeds": [0, 1],
             },
         }
-        
+
         result = validate_rl_config(config)
         assert result is not None
         assert result["model"]["trainer_mode"] == "full"
@@ -350,7 +347,7 @@ class TestRLValidation:
                 "seeds": [0, 1],
             },
         }
-        
+
         result = validate_rl_config(config)
         assert result is not None
         assert result["policy"]["trainer_mode"] == "lora"
@@ -372,7 +369,7 @@ class TestRLValidation:
                 "gpu_count": 2,
             },
         }
-        
+
         with pytest.raises(MissingAlgorithmError):
             validate_rl_config(config)
 
@@ -388,7 +385,7 @@ class TestRLValidation:
                 "gpu_count": 2,
             },
         }
-        
+
         with pytest.raises(MissingModelError):
             validate_rl_config(config)
 
@@ -420,7 +417,7 @@ class TestRLValidation:
                 "max_concurrent_rollouts": 2,
             },
         }
-        
+
         with pytest.raises(MissingModelError):
             validate_rl_config(config)
 
@@ -452,7 +449,7 @@ class TestRLValidation:
                 "max_concurrent_rollouts": 2,
             },
         }
-        
+
         with pytest.raises(InvalidRLConfigError):
             validate_rl_config(config)
 
@@ -470,7 +467,7 @@ class TestRLValidation:
                 "label": "test",
             },
         }
-        
+
         with pytest.raises(MissingComputeError):
             validate_rl_config(config)
 
@@ -496,7 +493,7 @@ class TestRLValidation:
                 "gpus_for_training": 1,
             },
         }
-        
+
         with pytest.raises(InvalidRLConfigError):
             validate_rl_config(config)
 
@@ -525,7 +522,7 @@ class TestRLValidation:
                 "max_concurrent_rollouts": 2,
             },
         }
-        
+
         with pytest.raises(InvalidRLConfigError):
             validate_rl_config(config)
 
@@ -558,7 +555,7 @@ class TestRLValidation:
                 "max_concurrent_rollouts": 2,
             },
         }
-        
+
         with pytest.raises(UnsupportedAlgorithmError):
             validate_rl_config(config)
 
@@ -591,7 +588,7 @@ class TestRLValidation:
                 "max_concurrent_rollouts": 2,
             },
         }
-        
+
         with pytest.raises(MissingAlgorithmError):
             validate_rl_config(config)
 
@@ -624,7 +621,7 @@ class TestRLValidation:
                 "max_concurrent_rollouts": 2,
             },
         }
-        
+
         with pytest.raises(InvalidRLConfigError):
             validate_rl_config(config)
 
@@ -661,7 +658,7 @@ class TestRLValidation:
                 # Missing other required fields
             },
         }
-        
+
         with pytest.raises(InvalidRLConfigError) as exc_info:
             validate_rl_config(config)
         assert "iterations_per_epoch" in exc_info.value.detail
@@ -707,7 +704,7 @@ class TestRLValidation:
                 # Missing every_n_iters and seeds
             },
         }
-        
+
         with pytest.raises(InvalidRLConfigError) as exc_info:
             validate_rl_config(config)
         assert "every_n_iters" in exc_info.value.detail
@@ -754,7 +751,7 @@ class TestRLValidation:
                 "seeds": [0, 1],
             },
         }
-        
+
         result = validate_rl_config(config)
         assert result is not None
         # Services should be injected
@@ -767,4 +764,3 @@ class TestRLValidation:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

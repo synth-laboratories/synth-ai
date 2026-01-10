@@ -1,13 +1,9 @@
-from __future__ import annotations
-
 import os
 from unittest import mock
 
 import pytest
 from click.testing import CliRunner
-
-from synth_ai.cli.agents.codex import codex_cmd
-from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
+from synth_ai.cli.codex import codex as codex_cmd
 
 
 @pytest.fixture()
@@ -26,9 +22,10 @@ def mock_env():
 
 def test_codex_cmd_codex_not_found_no_install(runner: CliRunner):
     """Test that codex_cmd exits when Codex is not found and install fails."""
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=None), \
-         mock.patch("synth_ai.cli.codex.install_bin", return_value=False):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=None),
+        mock.patch("synth_ai.core.agents.codex.install_bin", return_value=False),
+    ):
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
@@ -39,9 +36,10 @@ def test_codex_cmd_codex_found_but_not_runnable(runner: CliRunner):
     """Test that codex_cmd exits when Codex is found but not runnable."""
     mock_bin_path = "/usr/local/bin/codex"
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=False):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=False),
+    ):
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
@@ -53,12 +51,13 @@ def test_codex_cmd_with_default_url(runner: CliRunner, mock_env):
     """Test codex_cmd with default URL (no override)."""
     mock_bin_path = "/usr/local/bin/codex"
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+        mock.patch("synth_ai.core.agents.codex.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(codex_cmd)
 
     assert result.exit_code == 0
@@ -89,13 +88,14 @@ def test_codex_cmd_with_override_url(runner: CliRunner, mock_env):
     mock_api_key = "test-api-key-456"
     override_url = "https://custom.example.com/api"
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+        mock.patch("synth_ai.core.agents.codex.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.codex.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(codex_cmd, ["--model", "synth-small", "--url", override_url])
 
     assert result.exit_code == 0
@@ -113,13 +113,16 @@ def test_codex_cmd_with_force_flag(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/codex"
     mock_api_key = "test-api-key-force"
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key) as mock_resolve, \
-         mock.patch("synth_ai.cli.codex.subprocess.run"), \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+        mock.patch(
+            "synth_ai.core.agents.codex.resolve_env_var", return_value=mock_api_key
+        ) as mock_resolve,
+        mock.patch("synth_ai.core.agents.codex.subprocess.run"),
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(codex_cmd, ["--model", "synth-small", "--force"])
 
     assert result.exit_code == 0
@@ -139,15 +142,17 @@ def test_codex_cmd_subprocess_error(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/codex"
     mock_api_key = "test-api-key-error"
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+        mock.patch("synth_ai.core.agents.codex.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.codex.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         # Simulate subprocess failure
         from subprocess import CalledProcessError
+
         mock_run.side_effect = CalledProcessError(1, "codex")
 
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
@@ -164,14 +169,15 @@ def test_codex_cmd_install_loop_success(runner: CliRunner, mock_env):
     # First call returns None, second call returns path
     find_calls = [None, mock_bin_path]
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", side_effect=find_calls), \
-         mock.patch("synth_ai.cli.codex.install_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.codex.subprocess.run"), \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", side_effect=find_calls),
+        mock.patch("synth_ai.core.agents.codex.install_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+        mock.patch("synth_ai.core.agents.codex.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.codex.subprocess.run"),
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
@@ -184,13 +190,14 @@ def test_codex_cmd_config_structure(runner: CliRunner, mock_env):
     mock_api_key = "test-api-key-config"
     model = "synth-small"
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+        mock.patch("synth_ai.core.agents.codex.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.codex.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(codex_cmd, ["--model", model])
 
     assert result.exit_code == 0
@@ -222,13 +229,14 @@ def test_codex_cmd_different_models(runner: CliRunner, mock_env):
     models = ["synth-small", "synth-medium"]
 
     for model in models:
-        with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-             mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-             mock.patch("synth_ai.cli.codex.write_agents_md"), \
-             mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
-             mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
-             mock.patch.dict(os.environ, mock_env, clear=True):
-
+        with (
+            mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+            mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+            mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+            mock.patch("synth_ai.core.agents.codex.resolve_env_var", return_value=mock_api_key),
+            mock.patch("synth_ai.core.agents.codex.subprocess.run") as mock_run,
+            mock.patch.dict(os.environ, mock_env, clear=True),
+        ):
             result = runner.invoke(codex_cmd, ["--model", model])
 
         assert result.exit_code == 0
@@ -243,13 +251,14 @@ def test_codex_cmd_prints_launch_command(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/codex"
     mock_api_key = "test-api-key-launch"
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.codex.subprocess.run"), \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+        mock.patch("synth_ai.core.agents.codex.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.codex.subprocess.run"),
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
@@ -267,13 +276,14 @@ def test_codex_cmd_preserves_existing_env_vars(runner: CliRunner):
         "CUSTOM_VAR": "custom_value",
     }
 
-    with mock.patch("synth_ai.cli.codex.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, test_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.codex.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.codex.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.codex.write_agents_md"),
+        mock.patch("synth_ai.core.agents.codex.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.codex.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, test_env, clear=True),
+    ):
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0

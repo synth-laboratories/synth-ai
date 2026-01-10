@@ -4,13 +4,9 @@ Comprehensive test coverage for all parsing edge cases, error conditions,
 and failure modes.
 """
 
-from __future__ import annotations
-
 import pytest
-
-from synth_ai.cli.commands.artifacts.parsing import (
+from synth_ai.sdk.artifacts.parsing import (
     ParsedModelId,
-    ParsedPromptId,
     detect_artifact_type,
     is_model_id,
     is_prompt_id,
@@ -382,7 +378,9 @@ class TestWasabiKeyResolution:
     def test_resolve_wasabi_key_invalid_type(self) -> None:
         """Test resolving Wasabi key for invalid model type."""
         # Create a parsed model with invalid prefix (shouldn't happen in practice)
-        parsed = ParsedModelId(prefix="invalid", base_model="test", job_id="job", full_id="invalid:test:job")
+        parsed = ParsedModelId(
+            prefix="invalid", base_model="test", job_id="job", full_id="invalid:test:job"
+        )
         with pytest.raises(ValueError, match="Unsupported model type"):
             resolve_wasabi_key_for_model(parsed)
 
@@ -448,4 +446,3 @@ class TestDetectionFunctions:
         """Test detection functions handle whitespace."""
         assert is_model_id("  ft:Qwen/Qwen3-0.6B:job_12345  ") is True
         assert is_prompt_id("  pl_71c12c4c7c474c34  ") is True
-

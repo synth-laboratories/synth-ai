@@ -1,9 +1,7 @@
 """Unit tests for prompt learning CLI helper functions."""
 
-from __future__ import annotations
-
 import pytest
-from synth_ai.sdk.api.train.cli import _format_text_replacements
+from synth_ai.cli.train import _format_text_replacements
 
 pytestmark = pytest.mark.unit
 
@@ -54,8 +52,7 @@ class TestFormatTextReplacements:
         """Test that max_display limits the number of replacements shown."""
         obj = {
             "text_replacements": [
-                {"new_text": f"Message {i}", "apply_to_role": "system"}
-                for i in range(10)
+                {"new_text": f"Message {i}", "apply_to_role": "system"} for i in range(10)
             ]
         }
         lines = _format_text_replacements(obj, max_display=3)
@@ -107,11 +104,7 @@ class TestFormatTextReplacements:
 
     def test_format_replacement_with_default_role(self) -> None:
         """Test that default role is 'system' when not specified."""
-        obj = {
-            "text_replacements": [
-                {"new_text": "Message without role"}
-            ]
-        }
+        obj = {"text_replacements": [{"new_text": "Message without role"}]}
         lines = _format_text_replacements(obj)
         assert "[SYSTEM]: Message without role" in lines[0]
 
@@ -156,5 +149,3 @@ class TestFormatTextReplacements:
         assert "[SYSTEM]: Message" in lines[0]
         assert "[USER]: Message" in lines[2]
         assert "[ASSISTANT]: Message" in lines[4]
-
-

@@ -1,14 +1,10 @@
 import asyncio
 import json
-from datetime import datetime, UTC
-from types import SimpleNamespace
+from datetime import UTC, datetime
 
-import pytest
-
-from synth_ai.core.tracing_v3.session_tracer import SessionTracer
-from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 from click.testing import CliRunner
-from synth_ai.cli.commands.filter.core import filter_command
+from synth_ai.cli.filter import filter as filter_command
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 
 
 def _write_toml(tmp_path, db_path, out_path):
@@ -29,9 +25,9 @@ def test_filter_preserves_multimodal_messages(tmp_path, monkeypatch):
 
     # Insert minimal session with a multimodal user message
     from synth_ai.core.tracing_v3.abstractions import (
-        SessionTrace,
         SessionEventMarkovBlanketMessage,
         SessionMessageContent,
+        SessionTrace,
         TimeRecord,
     )
 
@@ -63,11 +59,17 @@ def test_filter_preserves_multimodal_messages(tmp_path, monkeypatch):
         ],
         event_history=[],
         session_time_steps=[],
-        metadata={"env_name": "crafter", "policy_name": "crafter-react", "seed": 0, "model": "mock"},
+        metadata={
+            "env_name": "crafter",
+            "policy_name": "crafter-react",
+            "seed": 0,
+            "model": "mock",
+        },
     )
 
     async def _setup():
         await mgr.insert_session_trace(trace)
+
     asyncio.run(_setup())
 
     # Monkeypatch tracer in filter_command to use our DB
@@ -86,5 +88,3 @@ def test_filter_preserves_multimodal_messages(tmp_path, monkeypatch):
     user = rec["messages"][0]
     assert isinstance(user["content"], list), "user content should preserve multimodal list"
     assert any(p.get("type") == "image_url" for p in user["content"] if isinstance(p, dict))
-
-

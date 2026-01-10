@@ -1,18 +1,15 @@
-from __future__ import annotations
-
 import json
+import tomllib
 from pathlib import Path
 
-import tomllib
-
-from synth_ai.cli.local.experiment_queue.config_utils import prepare_config_file
-from synth_ai.cli.local.experiment_queue.results import collect_result_summary
+from synth_ai.core.experiment_queue.config_utils import prepare_config_file
+from synth_ai.core.experiment_queue.results import collect_result_summary
 
 
 def test_prepare_config_file_resolves_paths_and_overrides(tmp_path):
     config_path = tmp_path / "source.toml"
     config_path.write_text(
-        "[prompt_learning]\nresults_folder = \"rel_results\"\nenv_file_path = \"../.env\"\n",
+        '[prompt_learning]\nresults_folder = "rel_results"\nenv_file_path = "../.env"\n',
         encoding="utf-8",
     )
 

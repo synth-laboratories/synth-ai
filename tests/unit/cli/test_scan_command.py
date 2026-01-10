@@ -4,20 +4,17 @@ Tests individual components of the scan command in isolation, including
 health checks, metadata extraction, data structures, and formatting.
 """
 
-from __future__ import annotations
-
 import json
 from unittest import mock
 
 import pytest
-
-from synth_ai.cli.commands.scan.health_checker import (
+from synth_ai.core.scanning import format_app_json, format_app_table
+from synth_ai.core.scanning.health_checker import (
     check_app_health,
     check_multiple_apps_health,
     extract_app_info,
 )
-from synth_ai.cli.commands.scan.models import ScannedApp
-from synth_ai.cli.commands.scan.core import format_app_table, format_app_json
+from synth_ai.core.scanning.models import ScannedApp
 
 
 class TestScannedApp:
@@ -251,7 +248,7 @@ class TestCheckMultipleAppsHealth:
     @pytest.mark.asyncio
     async def test_check_multiple_apps_health(self):
         """Test concurrent health checks for multiple apps."""
-        with mock.patch("synth_ai.cli.commands.scan.health_checker.check_app_health") as mock_check:
+        with mock.patch("synth_ai.core.scanning.health_checker.check_app_health") as mock_check:
             mock_check.side_effect = [
                 ("healthy", {"app": "1"}),
                 ("unhealthy", {"app": "2"}),
@@ -259,7 +256,9 @@ class TestCheckMultipleAppsHealth:
             ]
 
             urls = ["http://localhost:8000", "http://localhost:8001", "http://localhost:8002"]
-            results = await check_multiple_apps_health(urls, "test_key", timeout=1.0, max_concurrent=2)
+            results = await check_multiple_apps_health(
+                urls, "test_key", timeout=1.0, max_concurrent=2
+            )
 
             assert len(results) == 3
             assert results["http://localhost:8000"][0] == "healthy"
@@ -429,10 +428,3 @@ class TestFormatAppJson:
         assert data["scan_summary"]["unhealthy"] == 1
         assert data["scan_summary"]["local_count"] == 2
         assert data["scan_summary"]["cloudflare_count"] == 1
-
-
-
-
-
-
-

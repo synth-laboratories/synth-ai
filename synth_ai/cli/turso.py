@@ -1,47 +1,67 @@
-"""Backwards-compatible Turso CLI entry point.
+"""Turso sqld management command."""
 
-This module re-exports the infra.turso helpers so existing imports
-(`synth_ai.cli.turso`) continue to work for tests and downstream users.
-It also proxies infra functions so monkeypatching works in tests.
-"""
+import subprocess
 
-from __future__ import annotations
+import click
 
-import synth_ai.cli.infra.turso as _infra_turso
-from synth_ai.cli.infra.turso import turso  # noqa: F401
-from synth_ai.cli.root import SQLD_VERSION, find_sqld_binary, install_sqld  # noqa: F401
-
-_get_sqld_version_inner = _infra_turso._get_sqld_version
+from synth_ai.core.tracing_v3.sqld import SQLD_VERSION, find_sqld_binary, install_sqld
 
 
-def _get_sqld_version(binary: str) -> str | None:  # noqa: F401
-    """Delegates to the original infra implementation (monkeypatchable)."""
-    return _get_sqld_version_inner(binary)
+def _get_sqld_version(binary: str) -> str | None:
+    """Return the version string reported by the sqld binary."""
+    try:
+        result = subprocess.run(
+            [binary, "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        return None
+
+    output = result.stdout.strip() or result.stderr.strip()
+    return output or None
 
 
-def _proxy_get_sqld_version(binary: str) -> str | None:
-    # Dynamic lookup so monkeypatching synth_ai.cli.turso._get_sqld_version is honored
-    import synth_ai.cli.turso as mod
+@click.command()
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Reinstall the pinned sqld build even if one is already available.",
+)
+def turso(force: bool) -> None:
+    """Ensure the Turso sqld binary required for tracing v3 is installed."""
+    existing_path = find_sqld_binary()
 
-    return mod._get_sqld_version(binary)
+    if existing_path and not force:
+        version_info = _get_sqld_version(existing_path)
+        click.echo(f"✅ Turso sqld detected at {existing_path}.")
+        if version_info:
+            click.echo(f"   Reported version: {version_info}")
+        if version_info and SQLD_VERSION not in version_info:
+            click.echo(
+                f"⚠️ Pinned version is {SQLD_VERSION}. Run with --force to install the supported build."
+            )
+        else:
+            click.echo("No action taken. Use --force to reinstall the pinned build.")
+        return
 
+    if existing_path and force:
+        click.echo(f"♻️ Reinstalling Turso sqld {SQLD_VERSION} (previously at {existing_path}).")
+    else:
+        click.echo(f"📦 Installing Turso sqld {SQLD_VERSION}…")
 
-def _proxy_find_sqld_binary() -> str | None:
-    import synth_ai.cli.turso as mod
+    try:
+        installed_path = install_sqld()
+    except subprocess.CalledProcessError as exc:  # pragma: no cover - surfaced as Click error
+        raise click.ClickException(
+            f"sqld installation failed (exit code {exc.returncode})."
+        ) from exc
 
-    return mod.find_sqld_binary()
+    click.echo(f"✅ sqld installed to {installed_path}")
+    click.echo("Ensure ~/.local/bin is on your PATH before running Synth AI services.")
 
-
-def _proxy_install_sqld():
-    import synth_ai.cli.turso as mod
-
-    return mod.install_sqld()
-
-
-# Point infra at proxies so tests that monkeypatch this module influence the CLI command.
-_infra_turso._get_sqld_version = _proxy_get_sqld_version  # type: ignore[assignment]
-_infra_turso.find_sqld_binary = _proxy_find_sqld_binary  # type: ignore[assignment]
-_infra_turso.install_sqld = _proxy_install_sqld  # type: ignore[assignment]
 
 __all__ = [
     "turso",

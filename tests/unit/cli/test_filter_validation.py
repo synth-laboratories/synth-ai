@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from synth_ai.cli.commands.filter.validation import validate_filter_options
+from synth_ai.cli.filter import validate_filter_options
 
 
 def test_validate_filter_options_normalizes_lists() -> None:

@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from click.testing import CliRunner
-from synth_ai.cli.commands.filter.core import filter_command
+from synth_ai.cli.filter import filter as filter_command
 from synth_ai.core.tracing_v3.abstractions import (
     SessionEventMarkovBlanketMessage,
     SessionMessageContent,
@@ -44,9 +42,7 @@ def _build_trace(
     messages = [
         SessionEventMarkovBlanketMessage(
             message_type="user",
-            content=SessionMessageContent(
-                json_payload={"role": "user", "content": user_text}
-            ),
+            content=SessionMessageContent(json_payload={"role": "user", "content": user_text}),
             time_record=TimeRecord(event_time=0.0, message_time=0),
             metadata={},
         ),

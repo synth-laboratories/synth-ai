@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Any
 
-from synth_ai.core._utils.http import AsyncHttpClient, HTTPError
+from synth_ai.core.http import AsyncHttpClient, HTTPError
 
 from .config import prepare_sft_job_payload
 from .data import validate_jsonl_or_raise
@@ -59,10 +57,10 @@ class FtClient:
 
     async def get_job_status(self, job_id: str) -> dict[str, Any]:
         """Get the status and details of an SFT job.
-        
+
         Args:
             job_id: The job ID to check
-            
+
         Returns:
             Job details including status, progress, etc.
         """
@@ -71,11 +69,11 @@ class FtClient:
 
     async def list_jobs(self, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
         """List SFT jobs.
-        
+
         Args:
             limit: Max number of jobs to return
             offset: Pagination offset
-            
+
         Returns:
             List of job objects
         """

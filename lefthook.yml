@@ -13,33 +13,23 @@
 pre-commit:
   parallel: true
   jobs:
-    # Python: Ruff linting (only on staged Python files)
+    # Python: Ruff linting with auto-fix (only on staged Python files)
     - name: python-ruff
       tags:
         - python
         - lint
       glob: "**/*.py"
-      run: |
-        # Use staged files directly (no path prefix stripping needed)
-        files=$(echo "{staged_files}" | tr '\n' ' ')
-        if [ -n "$files" ]; then
-          uv run ruff check $files
-        fi
+      run: uv run ruff check --fix {staged_files}
       stage_fixed: true
 
-    # Python: Ruff format check (only on staged Python files)
+    # Python: Ruff format with auto-fix (only on staged Python files)
     - name: python-ruff-format
       tags:
         - python
         - format
       glob: "**/*.py"
-      run: |
-        # Use staged files directly (no path prefix stripping needed)
-        files=$(echo "{staged_files}" | tr '\n' ' ')
-        if [ -n "$files" ]; then
-          uv run ruff format --check $files
-        fi
-      stage_fixed: false
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
 
     # TUI: TypeScript build check
     - name: tui-build
@@ -49,5 +39,3 @@ pre-commit:
       glob: "synth_ai/tui/app/**/*.ts"
       root: synth_ai/tui/app
       run: bun run build
-
-

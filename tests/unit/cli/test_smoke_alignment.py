@@ -1,15 +1,10 @@
-from __future__ import annotations
-
-from pathlib import Path
+import importlib
 from typing import Any
 
 import pytest
-
+import synth_ai.cli.smoke as smoke_module
 from synth_ai.sdk.task.contracts import (
-    RolloutEnvSpec,
     RolloutMetrics,
-    RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
     TaskDescriptor,
@@ -19,7 +14,9 @@ from synth_ai.sdk.task.trace_correlation_helpers import build_trace_payload
 
 
 class _FakeLocalAPIClient:
-    def __init__(self, base_url: str, api_key: str | None = None, *, timeout: float = 600.0, retries: int = 3) -> None:
+    def __init__(
+        self, base_url: str, api_key: str | None = None, *, timeout: float = 600.0, retries: int = 3
+    ) -> None:
         self.base_url = base_url
         self.api_key = api_key
         self.timeout = timeout
@@ -64,7 +61,9 @@ class _FakeLocalAPIClient:
             correlation_id=trace_correlation_id,
             metadata={"run_id": request.run_id},
         )
-        metrics = RolloutMetrics(episode_rewards=[0.0], reward_mean=0.0, num_steps=1, num_episodes=1)
+        metrics = RolloutMetrics(
+            episode_rewards=[0.0], reward_mean=0.0, num_steps=1, num_episodes=1
+        )
         return RolloutResponse(
             run_id=request.run_id,
             branches={},
@@ -79,23 +78,11 @@ class _FakeLocalAPIClient:
         )
 
 
-SMOKE_CORE_PATH = Path(__file__).resolve().parents[2] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
-
-
-SMOKE_CORE_PATH = Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
-
-
 @pytest.mark.asyncio
-async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Import by file path to avoid CLI package side effects
-    import importlib.util
-    import sys as _sys
-
-    spec = importlib.util.spec_from_file_location("smoke_core_test", SMOKE_CORE_PATH)
-    assert spec and spec.loader
-    smoke_core = importlib.util.module_from_spec(spec)
-    _sys.modules[spec.name] = smoke_core
-    spec.loader.exec_module(smoke_core)  # type: ignore[arg-type]
+async def test_smoke_rollout_request_alignment_structured_trace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    smoke_core = importlib.reload(smoke_module)
 
     created_instances: list[_FakeLocalAPIClient] = []
 
@@ -141,14 +128,10 @@ async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pyt
 
 
 @pytest.mark.asyncio
-async def test_smoke_calls_health_and_task_info_when_env_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    import importlib.util
-    import sys as _sys
-    spec = importlib.util.spec_from_file_location("smoke_core_test2", SMOKE_CORE_PATH)
-    assert spec and spec.loader
-    smoke_core = importlib.util.module_from_spec(spec)
-    _sys.modules[spec.name] = smoke_core
-    spec.loader.exec_module(smoke_core)  # type: ignore[arg-type]
+async def test_smoke_calls_health_and_task_info_when_env_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    smoke_core = importlib.reload(smoke_module)
 
     created_instances: list[_FakeLocalAPIClient] = []
 

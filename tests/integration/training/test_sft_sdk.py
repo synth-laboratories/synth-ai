@@ -9,11 +9,8 @@ Tests are marked with pytest markers for selective execution:
 - @pytest.mark.integration: All integration tests
 """
 
-from __future__ import annotations
-
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -25,52 +22,53 @@ class TestSFTConfigValidation:
 
     def test_validate_sft_config_requires_algorithm(self) -> None:
         """SFT config requires algorithm section."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import MissingAlgorithmError
+        from synth_ai.sdk.api.train.validation import MissingAlgorithmError, validate_sft_config
 
         with pytest.raises(MissingAlgorithmError):
             validate_sft_config({})
 
     def test_validate_sft_config_requires_job_section(self) -> None:
         """SFT config requires job section."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import InvalidSFTConfigError
+        from synth_ai.sdk.api.train.validation import InvalidSFTConfigError, validate_sft_config
 
         with pytest.raises(InvalidSFTConfigError):
             validate_sft_config({"algorithm": {"variety": "fft"}})
 
     def test_validate_sft_config_requires_model(self) -> None:
         """SFT config requires model in job section."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import MissingModelError
+        from synth_ai.sdk.api.train.validation import MissingModelError, validate_sft_config
 
         with pytest.raises(MissingModelError):
-            validate_sft_config({
-                "algorithm": {"variety": "fft"},
-                "job": {"data": "/path/to/train.jsonl"},  # non-empty but no model
-            })
+            validate_sft_config(
+                {
+                    "algorithm": {"variety": "fft"},
+                    "job": {"data": "/path/to/train.jsonl"},  # non-empty but no model
+                }
+            )
 
     def test_validate_sft_config_requires_dataset(self) -> None:
         """SFT config requires dataset path."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import MissingDatasetError
+        from synth_ai.sdk.api.train.validation import MissingDatasetError, validate_sft_config
 
         with pytest.raises(MissingDatasetError):
-            validate_sft_config({
-                "algorithm": {"variety": "fft"},
-                "job": {"model": "Qwen/Qwen3-0.6B"},
-            })
+            validate_sft_config(
+                {
+                    "algorithm": {"variety": "fft"},
+                    "job": {"model": "Qwen/Qwen3-0.6B"},
+                }
+            )
 
     def test_validate_sft_config_requires_compute(self) -> None:
         """SFT config requires compute section."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import MissingComputeError
+        from synth_ai.sdk.api.train.validation import MissingComputeError, validate_sft_config
 
         with pytest.raises(MissingComputeError):
-            validate_sft_config({
-                "algorithm": {"variety": "fft"},
-                "job": {"model": "Qwen/Qwen3-0.6B", "data": "/path/to/data.jsonl"},
-            })
+            validate_sft_config(
+                {
+                    "algorithm": {"variety": "fft"},
+                    "job": {"model": "Qwen/Qwen3-0.6B", "data": "/path/to/data.jsonl"},
+                }
+            )
 
 
 class TestSFTDataValidation:
@@ -196,7 +194,9 @@ class TestFtClientUpload:
         assert "file" in call_files
 
     @pytest.mark.asyncio
-    async def test_upload_training_file_validates_jsonl(self, invalid_jsonl_dataset, monkeypatch) -> None:
+    async def test_upload_training_file_validates_jsonl(
+        self, invalid_jsonl_dataset, monkeypatch
+    ) -> None:
         """upload_training_file should reject invalid JSONL."""
         from synth_ai.sdk.learning.sft.client import FtClient
 

@@ -4,8 +4,6 @@ Prefer synth_ai.sdk.localapi.server moving forward. This module remains for
 backward compatibility during the naming transition.
 """
 
-from __future__ import annotations
-
 import asyncio
 import inspect
 import os
@@ -68,17 +66,17 @@ class ProxyConfig:
 @dataclass(slots=True)
 class TaskAppConfig:
     """Declarative configuration describing a Task App.
-    
+
     A TaskAppConfig defines all the components needed to create a task app:
     - Task information (base_task_info)
     - Task set description (provide_taskset_description)
     - Task instance provider (provide_task_instances)
     - Rollout executor (rollout)
     - Optional rubrics, datasets, proxy config, etc.
-    
+
     This config is used by `create_task_app()` to build a FastAPI application
     that implements the Synth AI task app contract.
-    
+
     Example:
         >>> from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
         >>>
@@ -95,7 +93,7 @@ class TaskAppConfig:
         >>>
         >>> app = create_task_app(build_config())
         >>> # app is a FastAPI instance ready to run
-    
+
     Attributes:
         app_id: Unique identifier for this task app
         name: Human-readable name
@@ -138,7 +136,7 @@ class TaskAppConfig:
     startup_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
     shutdown_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
 
-    def clone(self) -> TaskAppConfig:
+    def clone(self) -> "TaskAppConfig":
         """Return a shallow copy safe to mutate when wiring the app."""
 
         return TaskAppConfig(
@@ -576,12 +574,13 @@ def run_task_app(
         raise RuntimeError("uvicorn must be installed to run the task app locally") from exc
 
     print(f"[task:server] Starting '{config.app_id}' on {host}:{port}", flush=True)
-    
+
     # Record local service before starting
     try:
         import os
 
-        from synth_ai.cli.lib.tunnel_records import record_service
+        from synth_ai.core.service_records import record_service
+
         local_url = f"http://{host if host not in ('0.0.0.0', '::') else '127.0.0.1'}:{port}"
         # Try to get current process PID
         pid: int | None = os.getpid()
@@ -589,19 +588,20 @@ def run_task_app(
             url=local_url,
             port=port,
             service_type="local",
-            local_host=host if host not in ('0.0.0.0', '::') else '127.0.0.1',
+            local_host=host if host not in ("0.0.0.0", "::") else "127.0.0.1",
             app_id=config.app_id,
             pid=pid,
         )
     except Exception:
         pass  # Fail silently - records are optional
-    
+
     try:
         uvicorn.run(app, host=host, port=port, reload=reload)
     finally:
         # Clean up record when server exits
         try:
-            from synth_ai.cli.lib.tunnel_records import remove_service_record
+            from synth_ai.core.service_records import remove_service_record
+
             remove_service_record(port)
         except Exception:
             pass

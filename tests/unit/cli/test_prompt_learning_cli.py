@@ -1,22 +1,18 @@
 """Unit tests for prompt learning CLI functionality."""
 
-from __future__ import annotations
-
-import json
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-pytestmark = pytest.mark.unit
-
-from synth_ai.sdk.api.train.cli import (
+from synth_ai.cli.train import (
     _DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS,
     _save_prompt_learning_results_locally,
     handle_prompt_learning,
 )
 from synth_ai.sdk.streaming import CLIHandler, StreamConfig, StreamEndpoints, StreamType
+
+pytestmark = pytest.mark.unit
 
 
 class TestPromptLearningCLIConfiguration:
@@ -32,7 +28,7 @@ class TestPromptLearningCLIConfiguration:
             hidden_event_types=_DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS,
             hidden_event_substrings={"modal", "hatchet"},
         )
-        
+
         assert "prompt.learning.policy.tokens" in handler._hidden_event_types
         assert "modal" in handler._hidden_event_substrings
         assert "hatchet" in handler._hidden_event_substrings
@@ -43,7 +39,7 @@ class TestPromptLearningCLIConfiguration:
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
             metric_names={"gepa.transformation.mean_score"},
         )
-        
+
         assert StreamType.METRICS in config.enabled_streams
         assert "gepa.transformation.mean_score" in config.metric_names
 
@@ -58,7 +54,7 @@ class TestPromptLearningCLIConfiguration:
             },
             metric_names={"gepa.transformation.mean_score"},
         )
-        
+
         assert StreamType.METRICS in config.enabled_streams
         assert "prompt.learning.progress" in config.event_types
         assert "gepa.transformation.mean_score" in config.metric_names
@@ -114,10 +110,10 @@ class TestSavePromptLearningResults:
             ]
         }
 
-        with patch("synth_ai.api.train.cli.http_get") as mock_get:
+        with patch("synth_ai.cli.train.http_get") as mock_get:
             mock_get.return_value.status_code = 200
             mock_get.return_value.json.return_value = events_response
-            
+
             # Call the function
             _save_prompt_learning_results_locally(
                 backend_base="http://localhost:8000/api",
@@ -141,16 +137,16 @@ class TestSavePromptLearningResults:
         config_path = tmp_path / "test.toml"
         config_path.write_text('[prompt_learning]\nalgorithm = "gepa"')
 
-        with patch("synth_ai.api.train.cli.http_get") as mock_get:
+        with patch("synth_ai.cli.train.http_get") as mock_get:
             mock_get.return_value.status_code = 404
-            
-            with patch("synth_ai.api.train.cli.Path") as mock_path:
+
+            with patch("synth_ai.cli.train.Path") as mock_path:
                 mock_config_dir = MagicMock()
                 mock_config_dir.__truediv__ = lambda self, other: tmp_path / other
                 mock_config_dir.__str__ = lambda self: str(tmp_path)
                 mock_path.return_value = mock_config_dir
                 mock_path.cwd.return_value = tmp_path
-                
+
                 # Should not raise exception
                 _save_prompt_learning_results_locally(
                     backend_base="http://localhost:8000/api",
@@ -185,10 +181,10 @@ class TestSavePromptLearningResults:
             ]
         }
 
-        with patch("synth_ai.api.train.cli.http_get") as mock_get:
+        with patch("synth_ai.cli.train.http_get") as mock_get:
             mock_get.return_value.status_code = 200
             mock_get.return_value.json.return_value = events_response
-            
+
             _save_prompt_learning_results_locally(
                 backend_base="http://localhost:8000/api",
                 api_key="sk-test",
@@ -227,12 +223,13 @@ num_generations = 5
             config_path = Path(f.name)
 
         try:
-            with patch("synth_ai.api.train.cli.build_prompt_learning_payload") as mock_build, \
-                 patch("synth_ai.api.train.cli.check_local_api_health") as mock_health, \
-                 patch("synth_ai.api.train.cli.http_post") as mock_post, \
-                 patch("synth_ai.api.train.cli.JobStreamer") as mock_streamer, \
-                 patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}):
-                
+            with (
+                patch("synth_ai.cli.train.build_prompt_learning_payload") as mock_build,
+                patch("synth_ai.cli.train.check_local_api_health") as mock_health,
+                patch("synth_ai.cli.train.http_post") as mock_post,
+                patch("synth_ai.cli.train.JobStreamer") as mock_streamer,
+                patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}),
+            ):
                 mock_build.return_value.task_url = "http://localhost:8001"
                 mock_build.return_value.payload = {
                     "algorithm": "gepa",
@@ -241,14 +238,14 @@ num_generations = 5
                 mock_health.return_value.ok = True
                 mock_post.return_value.status_code = 201
                 mock_post.return_value.json.return_value = {"job_id": "pl_test123"}
-                
+
                 async def mock_stream_until_terminal():
                     return {"status": "succeeded"}
-                
+
                 mock_streamer_instance = MagicMock()
                 mock_streamer_instance.stream_until_terminal = mock_stream_until_terminal
                 mock_streamer.return_value = mock_streamer_instance
-                
+
                 handle_prompt_learning(
                     cfg_path=config_path,
                     backend_base="http://localhost:8000/api",
@@ -270,7 +267,9 @@ num_generations = 5
                 # Verify streamer was configured correctly
                 mock_streamer.assert_called_once()
                 streamer_call = mock_streamer.call_args
-                assert streamer_call.kwargs["endpoints"] == StreamEndpoints.prompt_learning("pl_test123")
+                assert streamer_call.kwargs["endpoints"] == StreamEndpoints.prompt_learning(
+                    "pl_test123"
+                )
                 assert StreamType.METRICS in streamer_call.kwargs["config"].enabled_streams
 
         finally:
@@ -294,18 +293,19 @@ num_generations = 5
             config_path = Path(f.name)
 
         try:
-            with patch("synth_ai.api.train.cli.build_prompt_learning_payload") as mock_build, \
-                 patch("synth_ai.api.train.cli.check_local_api_health") as mock_health, \
-                 patch("synth_ai.api.train.cli.http_post") as mock_post, \
-                 patch("synth_ai.api.train.cli.JobStreamer") as mock_streamer, \
-                 patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}):
-                
+            with (
+                patch("synth_ai.cli.train.build_prompt_learning_payload") as mock_build,
+                patch("synth_ai.cli.train.check_local_api_health") as mock_health,
+                patch("synth_ai.cli.train.http_post") as mock_post,
+                patch("synth_ai.cli.train.JobStreamer") as mock_streamer,
+                patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}),
+            ):
                 mock_build.return_value.task_url = "http://localhost:8001"
                 mock_build.return_value.payload = {"algorithm": "gepa"}
                 mock_health.return_value.ok = True
                 mock_post.return_value.status_code = 201
                 mock_post.return_value.json.return_value = {"job_id": "pl_test123"}
-                
+
                 handle_prompt_learning(
                     cfg_path=config_path,
                     backend_base="http://localhost:8000/api",
@@ -343,16 +343,17 @@ num_generations = 5
             config_path = Path(f.name)
 
         try:
-            with patch("synth_ai.api.train.cli.build_prompt_learning_payload") as mock_build, \
-                 patch("synth_ai.api.train.cli.check_local_api_health") as mock_health, \
-                 patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}):
-                
+            with (
+                patch("synth_ai.cli.train.build_prompt_learning_payload") as mock_build,
+                patch("synth_ai.cli.train.check_local_api_health") as mock_health,
+                patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}),
+            ):
                 mock_build.return_value.task_url = "http://localhost:8001"
                 mock_health.return_value.ok = False
                 mock_health.return_value.detail = "Connection refused"
-                
+
                 from click import ClickException
-                
+
                 with pytest.raises(ClickException, match="health check"):
                     handle_prompt_learning(
                         cfg_path=config_path,

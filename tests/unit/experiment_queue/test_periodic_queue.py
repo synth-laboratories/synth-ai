@@ -1,18 +1,14 @@
 """Tests for periodic queue check task."""
 
-from __future__ import annotations
-
 import importlib
-from pathlib import Path
 
 import pytest
-
-from synth_ai.cli.local.experiment_queue import celery_app as queue_celery
-from synth_ai.cli.local.experiment_queue import config as queue_config
-from synth_ai.cli.local.experiment_queue import database as queue_db
-from synth_ai.cli.local.experiment_queue import models as queue_models
-from synth_ai.cli.local.experiment_queue import tasks as queue_tasks
-from synth_ai.cli.local.experiment_queue.schemas import ExperimentSubmitRequest
+from synth_ai.core.experiment_queue import celery_app as queue_celery
+from synth_ai.core.experiment_queue import config as queue_config
+from synth_ai.core.experiment_queue import database as queue_db
+from synth_ai.core.experiment_queue import models as queue_models
+from synth_ai.core.experiment_queue import tasks as queue_tasks
+from synth_ai.core.experiment_queue.schemas import ExperimentSubmitRequest
 
 
 @pytest.fixture(autouse=True)
@@ -56,15 +52,15 @@ def test_process_experiment_queue_no_experiments():
 
 def test_process_experiment_queue_with_queued_jobs(tmp_path, monkeypatch):
     """Test periodic task dispatches queued jobs."""
-    from synth_ai.cli.local.experiment_queue import dispatcher as queue_dispatcher
-    from synth_ai.cli.local.experiment_queue import service as queue_service
+    from synth_ai.core.experiment_queue import dispatcher as queue_dispatcher
+    from synth_ai.core.experiment_queue import service as queue_service
 
     # Create a stub Celery app that records send_task calls
     sent_tasks = []
 
     class StubCelery:
         def send_task(self, name: str, args: list):
-            task_id = f"stub-{len(sent_tasks)+1}"
+            task_id = f"stub-{len(sent_tasks) + 1}"
             sent_tasks.append((name, args))
             return type("Result", (), {"id": task_id})()
 
@@ -128,5 +124,3 @@ def test_process_experiment_queue_with_queued_jobs(tmp_path, monkeypatch):
     # Should have dispatched at least one job
     assert result["dispatched"] >= 0  # May be 0 if parallelism limit reached
     assert len(sent_tasks) >= 0  # May be 0 if already at parallelism limit
-
-

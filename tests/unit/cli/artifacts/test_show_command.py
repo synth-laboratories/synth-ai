@@ -1,18 +1,16 @@
 """Unit tests for artifacts show command."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
-
-from synth_ai.cli.commands.artifacts.show import (
+from synth_ai.cli.artifacts import (
     _extract_prompt_messages,
-    _format_best_prompt,
     _format_model_details,
     _format_prompt_details,
-    show_command,
+)
+from synth_ai.cli.artifacts import (
+    show as show_command,
 )
 
 
@@ -203,7 +201,7 @@ class TestFormatModelDetails:
 class TestShowCommand:
     """Test show command CLI behavior."""
 
-    @patch("synth_ai.cli.commands.artifacts.show.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_show_prompt_default(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_prompt_data: dict
     ) -> None:
@@ -222,7 +220,7 @@ class TestShowCommand:
         assert "gepa" in result.output
         assert "0.25" in result.output
 
-    @patch("synth_ai.cli.commands.artifacts.show.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_show_prompt_json(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_prompt_data: dict
     ) -> None:
@@ -238,7 +236,7 @@ class TestShowCommand:
 
         assert result.exit_code == 0
         import json
-        
+
         # Rich console.print might add formatting, so strip any ANSI codes and try to parse JSON
         output = result.output.strip()
         # Try to find JSON in the output (might be mixed with other output)
@@ -256,11 +254,11 @@ class TestShowCommand:
             assert "pl_71c12c4c7c474c34" in output
             assert "gepa" in output
             return
-        
+
         assert output_data["job_id"] == "pl_71c12c4c7c474c34"
         assert output_data["algorithm"] == "gepa"
 
-    @patch("synth_ai.cli.commands.artifacts.show.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_show_prompt_verbose(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_prompt_data: dict
     ) -> None:
@@ -277,7 +275,7 @@ class TestShowCommand:
         assert result.exit_code == 0
         assert "Full Details" in result.output or "Metadata" in result.output
 
-    @patch("synth_ai.cli.commands.artifacts.show.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_show_model(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_model_data: dict
     ) -> None:
@@ -294,10 +292,8 @@ class TestShowCommand:
         assert result.exit_code == 0
         assert "ft:Qwen/Qwen3-0.6B:job_12345" in result.output
 
-    @patch("synth_ai.cli.commands.artifacts.show.ArtifactsClient")
-    def test_show_invalid_id(
-        self, mock_client_class: MagicMock, runner: CliRunner
-    ) -> None:
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
+    def test_show_invalid_id(self, mock_client_class: MagicMock, runner: CliRunner) -> None:
         """Test show command with invalid artifact ID."""
         mock_client = AsyncMock()
         mock_client.get_model = AsyncMock(side_effect=Exception("Not found"))
@@ -310,4 +306,3 @@ class TestShowCommand:
         )
 
         assert result.exit_code != 0
-

@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import time
 from collections.abc import Callable
 from contextlib import suppress
 from typing import Any
 
-from synth_ai.core._utils.http import AsyncHttpClient, HTTPError, sleep
+from synth_ai.core.http import AsyncHttpClient, HTTPError, sleep
 from synth_ai.sdk.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,

@@ -2,7 +2,7 @@ from unittest import mock
 
 import pytest
 from click.testing import CliRunner
-from synth_ai.cli.commands.eval.core import eval_command
+from synth_ai.cli.eval import eval as eval_command
 
 
 @pytest.mark.slow
@@ -10,6 +10,7 @@ def test_eval_in_process_and_remote_overrides(monkeypatch, tmp_path):
     # Mock httpx client to avoid network
     class DummyResp:
         status_code = 200
+
         def json(self):
             return {
                 "run_id": "test",
@@ -59,7 +60,9 @@ task_app_url = "http://localhost:9999"
     )
 
     env_file = tmp_path / ".env"
-    env_file.write_text("SYNTH_API_KEY=test-synth\nENVIRONMENT_API_KEY=test-env\n", encoding="utf-8")
+    env_file.write_text(
+        "SYNTH_API_KEY=test-synth\nENVIRONMENT_API_KEY=test-env\n", encoding="utf-8"
+    )
 
     # Run with task_app_url from config
     runner = CliRunner()

@@ -1,26 +1,15 @@
-from __future__ import annotations
-
-import importlib.util
-import sys
+import importlib
 from pathlib import Path
 from typing import Any
 
 import pytest
+import synth_ai.cli.smoke as smoke_module
 from click.testing import CliRunner
-
-MODULE_PATH = Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
 
 
 @pytest.fixture()
 def smoke_core_module(monkeypatch: pytest.MonkeyPatch):
-    spec = importlib.util.spec_from_file_location(
-        "tests.unit.cli.test_smoke_command.smoke_core",
-        MODULE_PATH,
-    )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    monkeypatch.setitem(sys.modules, spec.name, module)
-    spec.loader.exec_module(module)  # type: ignore[arg-type]
+    module = importlib.reload(smoke_module)
 
     monkeypatch.setattr(module, "_ensure_local_libsql", lambda: None)
     monkeypatch.setattr(module, "_refresh_tracing_config", lambda: None)
@@ -28,7 +17,9 @@ def smoke_core_module(monkeypatch: pytest.MonkeyPatch):
     return module
 
 
-def test_smoke_command_invokes_run_smoke_async(smoke_core_module, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_smoke_command_invokes_run_smoke_async(
+    smoke_core_module, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     module = smoke_core_module
     captured: dict[str, Any] = {}
 
@@ -49,7 +40,7 @@ def test_smoke_command_invokes_run_smoke_async(smoke_core_module, monkeypatch: p
     runner = CliRunner()
     env = {"SYNTH_TRACES_DIR": str(tmp_path)}
     result = runner.invoke(
-        module.command,
+        module.smoke,
         [
             "--url",
             "http://task.local",
@@ -103,7 +94,9 @@ def test_smoke_command_invokes_run_smoke_async(smoke_core_module, monkeypatch: p
     assert called_train is False
 
 
-def test_smoke_command_parallel_uses_train_step(smoke_core_module, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_smoke_command_parallel_uses_train_step(
+    smoke_core_module, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     module = smoke_core_module
     called_smoke = False
 
@@ -124,7 +117,7 @@ def test_smoke_command_parallel_uses_train_step(smoke_core_module, monkeypatch: 
     runner = CliRunner()
     env = {"SYNTH_TRACES_DIR": str(tmp_path)}
     result = runner.invoke(
-        module.command,
+        module.smoke,
         [
             "--url",
             "http://task.local",

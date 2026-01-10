@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import importlib.util
 import sys
 from pathlib import Path
@@ -11,7 +9,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-MODULE_PATH = Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "demo" / "core.py"
+MODULE_PATH = Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "demo.py"
 
 
 @pytest.fixture()
@@ -21,14 +19,14 @@ def runner() -> CliRunner:
 
 @pytest.fixture()
 def demo_core_module(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, ModuleType]:
-    fake_cli = ModuleType("synth_ai.demos.core.cli")
+    fake_cli = ModuleType("synth_ai.core.demo_apps.core.cli")
     fake_cli.init = mock.Mock(return_value=None)
     fake_cli.deploy = mock.Mock(return_value=None)
     fake_cli.run = mock.Mock(return_value=None)
     fake_cli.setup = mock.Mock(return_value=None)
-    monkeypatch.setitem(sys.modules, "synth_ai.demos.core.cli", fake_cli)
+    monkeypatch.setitem(sys.modules, "synth_ai.core.demo_apps.core.cli", fake_cli)
 
-    spec = importlib.util.spec_from_file_location("synth_ai.cli.commands.demo.core", MODULE_PATH)
+    spec = importlib.util.spec_from_file_location("synth_ai.cli.demo", MODULE_PATH)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -44,14 +42,14 @@ def _invoke(runner: CliRunner, command, args: list[str] | None = None, **kwargs)
 
 def test_demo_default_invokes_init(runner: CliRunner, demo_core_module) -> None:
     demo_core, fake_cli = demo_core_module
-    result = _invoke(runner, demo_core.command)
+    result = _invoke(runner, demo_core.demo)
     assert result.exit_code == 0
     fake_cli.init.assert_called_once_with(force=False)
 
 
 def test_demo_force_flag_passes_through(runner: CliRunner, demo_core_module) -> None:
     demo_core, fake_cli = demo_core_module
-    result = _invoke(runner, demo_core.command, ["--force"])
+    result = _invoke(runner, demo_core.demo, ["--force"])
     assert result.exit_code == 0
     fake_cli.init.assert_called_once_with(force=True)
 
@@ -59,7 +57,7 @@ def test_demo_force_flag_passes_through(runner: CliRunner, demo_core_module) -> 
 def test_demo_list_without_scripts_prints_message(runner: CliRunner, demo_core_module) -> None:
     demo_core, fake_cli = demo_core_module
     with mock.patch.object(demo_core, "_find_demo_scripts", return_value=[]):
-        result = _invoke(runner, demo_core.command, ["--list"])
+        result = _invoke(runner, demo_core.demo, ["--list"])
     assert result.exit_code == 0
     assert "No run_demo.sh scripts found" in result.output
     fake_cli.init.assert_not_called()
@@ -73,8 +71,8 @@ def test_demo_list_runs_selected_script(runner: CliRunner, demo_core_module) -> 
         script_path.write_text("#!/bin/bash\necho demo\n", encoding="utf-8")
         expected = str(script_path)
 
-        with mock.patch("synth_ai.cli.commands.demo.core.subprocess.run") as run_mock:
-            result = _invoke(runner, demo_core.command, ["--list"], input="1\n")
+        with mock.patch("synth_ai.cli.demo.subprocess.run") as run_mock:
+            result = _invoke(runner, demo_core.demo, ["--list"], input="1\n")
 
     assert result.exit_code == 0
     run_mock.assert_called_once()
@@ -87,21 +85,21 @@ def test_demo_list_runs_selected_script(runner: CliRunner, demo_core_module) -> 
 
 def test_demo_deploy_subcommand_calls_cli(runner: CliRunner, demo_core_module) -> None:
     demo_core, fake_cli = demo_core_module
-    result = _invoke(runner, demo_core.command, ["deploy", "--name", "custom"])
+    result = _invoke(runner, demo_core.demo, ["deploy", "--name", "custom"])
     assert result.exit_code == 0
-    fake_cli.deploy.assert_called_once_with(local=False, app=None, name="custom", script=None)
+    fake_cli.deploy.assert_called_once_with(app=None, name="custom")
 
 
 def test_demo_configure_subcommand_calls_run(runner: CliRunner, demo_core_module) -> None:
     demo_core, fake_cli = demo_core_module
-    result = _invoke(runner, demo_core.command, ["configure"])
+    result = _invoke(runner, demo_core.demo, ["configure"])
     assert result.exit_code == 0
     fake_cli.run.assert_called_once_with()
 
 
 def test_demo_setup_subcommand_calls_setup(runner: CliRunner, demo_core_module) -> None:
     demo_core, fake_cli = demo_core_module
-    result = _invoke(runner, demo_core.command, ["setup"])
+    result = _invoke(runner, demo_core.demo, ["setup"])
     assert result.exit_code == 0
     fake_cli.setup.assert_called_once_with()
 
@@ -110,7 +108,7 @@ def test_demo_run_subcommand_passes_options(runner: CliRunner, demo_core_module)
     demo_core, fake_cli = demo_core_module
     result = _invoke(
         runner,
-        demo_core.command,
+        demo_core.demo,
         [
             "run",
             "--batch-size",

@@ -19,27 +19,20 @@ Environment Variables:
 - SYNTH_TUNNEL_MODE: Override tunnel mode (e.g., "preconfigured", "local")
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 
+from synth_ai.core.dict_utils import deep_update as _deep_update
 from synth_ai.core.env import get_backend_from_env
 from synth_ai.core.telemetry import log_info
+from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.api.train.rl import RLJob
-from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
 from synth_ai.sdk.api.train.utils import ensure_api_base
 from synth_ai.sdk.task.in_process import InProcessTaskApp
-
-try:  # CLI deep-update utility (dot-notation aware)
-    from synth_ai.cli.local.experiment_queue.config_utils import _deep_update
-except Exception as exc:  # pragma: no cover - defensive
-    raise RuntimeError("Failed to import config override helper (_deep_update)") from exc
-
 
 BackendMode = Literal["prompt_learning", "rl"]
 
@@ -192,10 +185,10 @@ async def run_in_process_job(
         InProcessJobResult with job_id, status, and URLs
     """
     backend_api_base = resolve_backend_api_base(backend_url)
-    
+
     # Set SYNTH_BACKEND_URL so that tunnel operations (like rotate_tunnel) use the correct backend
     os.environ["SYNTH_BACKEND_URL"] = backend_api_base
-    
+
     resolved_api_key = api_key or _require_env("SYNTH_API_KEY", friendly_name="Backend API key")
     resolved_task_app_key = task_app_api_key or _require_env(
         "ENVIRONMENT_API_KEY", friendly_name="Task app API key"
@@ -233,7 +226,11 @@ async def run_in_process_job(
         # 2. OR backend verified DNS propagation (safe to skip redundant local check)
         should_skip_health_check = skip_tunnel_verification or dns_verified_by_backend
         if should_skip_health_check:
-            reason = "tunnel verification disabled" if skip_tunnel_verification else "backend verified DNS"
+            reason = (
+                "tunnel verification disabled"
+                if skip_tunnel_verification
+                else "backend verified DNS"
+            )
             health = LocalAPIHealth(
                 ok=True,
                 health_status=200,

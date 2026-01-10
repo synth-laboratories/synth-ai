@@ -1,13 +1,10 @@
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
-
-from synth_ai.cli.lib.agents import (
+from synth_ai.core.agents.utils import (
+    AGENTS_TEXT,
     SYNTH_DIV_END,
     SYNTH_DIV_START,
-    AGENTS_TEXT,
     write_agents_md,
 )
 
@@ -48,11 +45,7 @@ def test_write_agents_md_updates_existing_block(agents_path: Path) -> None:
     write_agents_md()
 
     content = agents_path.read_text(encoding="utf-8")
-    expected = (
-        "header\n\n"
-        f"{SYNTH_DIV_START}\n{AGENTS_TEXT}\n{SYNTH_DIV_END}\n"
-        "\nfooter\n"
-    )
+    expected = f"header\n\n{SYNTH_DIV_START}\n{AGENTS_TEXT}\n{SYNTH_DIV_END}\n\nfooter\n"
     assert content == expected
 
 
@@ -68,8 +61,5 @@ def test_write_agents_md_consolidates_multiple_sections(agents_path: Path) -> No
     write_agents_md()
 
     content = agents_path.read_text(encoding="utf-8")
-    expected = (
-        "who\n\n"
-        f"{SYNTH_DIV_START}\n{AGENTS_TEXT}\n{SYNTH_DIV_END}\n"
-    )
+    expected = f"who\n\n{SYNTH_DIV_START}\n{AGENTS_TEXT}\n{SYNTH_DIV_END}\n"
     assert content == expected

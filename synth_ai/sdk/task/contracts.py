@@ -4,8 +4,6 @@ Prefer synth_ai.sdk.localapi.contracts moving forward. This module remains for
 backward compatibility during the naming transition.
 """
 
-from __future__ import annotations
-
 import warnings
 from dataclasses import dataclass
 from enum import Enum
@@ -16,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class RolloutMode(str, Enum):
     """Mode controls how rollout infrastructure processes inference URLs."""
+
     RL = "rl"
     EVAL = "eval"
 
@@ -27,6 +26,7 @@ class OutputMode(str, Enum):
     - TEXT: Plain text in message.content
     - STRUCTURED: JSON via response_format (OpenAI json_schema, Groq json_object, Gemini responseSchema)
     """
+
     TOOL_CALLS = "tool_calls"
     TEXT = "text"
     STRUCTURED = "structured"
@@ -41,18 +41,26 @@ class StructuredOutputConfig(BaseModel):
     - Groq: response_format.json_schema or json_object
     - Gemini: generationConfig.responseSchema
     """
-    schema: dict[str, Any] = Field(
-        ...,
-        description="JSON Schema for the expected response structure"
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    json_schema: dict[str, Any] = Field(
+        ..., alias="schema", description="JSON Schema for the expected response structure"
     )
     schema_name: str = Field(
-        default="response",
-        description="Name for the schema (required by some providers)"
+        default="response", description="Name for the schema (required by some providers)"
     )
     strict: bool = Field(
-        default=True,
-        description="Whether to enforce strict schema validation (OpenAI strict mode)"
+        default=True, description="Whether to enforce strict schema validation (OpenAI strict mode)"
     )
+
+    @property
+    def schema(self) -> dict[str, Any]:
+        return self.json_schema
+
+    @schema.setter
+    def schema(self, value: dict[str, Any]) -> None:
+        self.json_schema = value
 
 
 @dataclass(frozen=True)
@@ -94,11 +102,11 @@ class RolloutPolicySpec(BaseModel):
     # Output mode configuration (defaults to tool_calls for backward compatibility)
     output_mode: OutputMode = Field(
         default=OutputMode.TOOL_CALLS,
-        description="How the policy expects model outputs: tool_calls, text, or structured"
+        description="How the policy expects model outputs: tool_calls, text, or structured",
     )
     structured_config: StructuredOutputConfig | None = Field(
         default=None,
-        description="Configuration for structured output mode (required if output_mode=STRUCTURED)"
+        description="Configuration for structured output mode (required if output_mode=STRUCTURED)",
     )
 
 
@@ -268,7 +276,7 @@ class RolloutResponse(BaseModel):
         description="[LEGACY] Additional metadata. Prefer top-level fields instead.",
     )
 
-    @field_validator('trace_correlation_id')
+    @field_validator("trace_correlation_id")
     @classmethod
     def warn_missing_correlation_id(cls, v: str | None) -> str | None:
         """Warn if trace_correlation_id is None - this breaks trace hydration.
@@ -288,7 +296,7 @@ class RolloutResponse(BaseModel):
                 "See: https://docs.usesynth.ai/guides/local-api#trace-correlation "
                 "or use build_rollout_response() helper from synth_ai.sdk.task",
                 UserWarning,
-                stacklevel=4
+                stacklevel=4,
             )
         return v
 

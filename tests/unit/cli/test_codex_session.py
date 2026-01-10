@@ -1,16 +1,11 @@
 """Tests for codex command session management and TOML config."""
 
-from __future__ import annotations
-
-import os
 import tempfile
 from pathlib import Path
-from unittest import mock
 
 import pytest
 from click.testing import CliRunner
-
-from synth_ai.cli.agents.codex import codex_cmd, _load_session_config
+from synth_ai.core.agents.codex import _load_session_config
 
 
 @pytest.fixture()
@@ -49,7 +44,7 @@ limit_cost_usd = 50.0
 limit_tokens = 100000
 limit_gpu_hours = 10.0
 """)
-    
+
     config = _load_session_config(temp_toml_file)
     assert config["limit_cost_usd"] == 50.0
     assert config["limit_tokens"] == 100000
@@ -62,7 +57,7 @@ def test_load_session_config_defaults_to_20(temp_toml_file):
 [session]
 limit_tokens = 50000
 """)
-    
+
     config = _load_session_config(temp_toml_file)
     assert config["limit_cost_usd"] == 20.0  # Default
     assert config["limit_tokens"] == 50000
@@ -75,7 +70,7 @@ def test_load_session_config_finds_codex_toml(tmp_path, monkeypatch):
 [session]
 limit_cost_usd = 30.0
 """)
-    
+
     monkeypatch.chdir(tmp_path)
     config = _load_session_config(None)
     assert config["limit_cost_usd"] == 30.0
@@ -88,7 +83,7 @@ def test_load_session_config_finds_synth_toml(tmp_path, monkeypatch):
 [session]
 limit_cost_usd = 40.0
 """)
-    
+
     monkeypatch.chdir(tmp_path)
     config = _load_session_config(None)
     assert config["limit_cost_usd"] == 40.0
@@ -96,4 +91,3 @@ limit_cost_usd = 40.0
 
 # Note: Session creation/ending is tested in integration tests
 # These unit tests focus on config loading which is the critical logic
-
