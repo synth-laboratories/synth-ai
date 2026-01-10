@@ -203,10 +203,9 @@ def include_trace_correlation_id_in_response(
     """
     Include trace_correlation_id in all required locations of rollout response.
 
-    Required locations (trace-only):
+    Required locations:
     1. Top-level response["trace_correlation_id"]
-    2. response["pipeline_metadata"]["trace_correlation_id"] (legacy - for monorepo compat)
-    3. response["trace"]["metadata"]["trace_correlation_id"] (and session_trace metadata if present)
+    2. response["trace"]["metadata"]["trace_correlation_id"] (and session_trace metadata if present)
 
     Args:
         response_data: RolloutResponse dict (from .model_dump())
@@ -234,21 +233,7 @@ def include_trace_correlation_id_in_response(
             trace_correlation_id,
         )
 
-    # 2. Add to pipeline_metadata (LEGACY - for monorepo backward compatibility)
-    pipeline_meta = response_data.get("pipeline_metadata")
-    if not isinstance(pipeline_meta, dict):
-        pipeline_meta = {}
-        response_data["pipeline_metadata"] = pipeline_meta
-
-    if "trace_correlation_id" not in pipeline_meta:
-        pipeline_meta["trace_correlation_id"] = trace_correlation_id
-        logger.debug(
-            "include_trace_correlation_id: added to pipeline_metadata id=%s cid=%s",
-            id_for_log,
-            trace_correlation_id,
-        )
-
-    # 3. Add to trace metadata (REQUIRED)
+    # 2. Add to trace metadata (REQUIRED)
     trace_block = response_data.get("trace")
     if isinstance(trace_block, dict):
         trace_meta = trace_block.get("metadata")
@@ -275,7 +260,7 @@ def include_trace_correlation_id_in_response(
 
     logger.debug(
         "include_trace_correlation_id: completed id=%s cid=%s "
-        "added to top-level, pipeline_metadata, and trace metadata",
+        "added to top-level and trace metadata",
         id_for_log,
         trace_correlation_id,
     )
@@ -512,17 +497,6 @@ def verify_trace_correlation_id_in_response(
         errors.append(
             f"Top-level missing or mismatch: "
             f"expected={expected_correlation_id} actual={response_data.get('trace_correlation_id')}"
-        )
-
-    # Check pipeline_metadata (legacy - for monorepo backward compatibility)
-    pipeline_meta = response_data.get("pipeline_metadata", {})
-    if (
-        not isinstance(pipeline_meta, dict)
-        or pipeline_meta.get("trace_correlation_id") != expected_correlation_id
-    ):
-        errors.append(
-            f"pipeline_metadata missing or mismatch: "
-            f"expected={expected_correlation_id} actual={pipeline_meta.get('trace_correlation_id') if isinstance(pipeline_meta, dict) else 'NOT_A_DICT'}"
         )
 
     # Check trace metadata

@@ -35,7 +35,6 @@ class RolloutResponseBuilder:
         event_rewards: list[float] | None = None,
         inference_url: str | None = None,
         details: dict[str, Any] | None = None,
-        aborted: bool = False,
         run_id: str | None = None,
     ) -> RolloutResponse:
         """Build a RolloutResponse with standardized metrics.
@@ -47,7 +46,6 @@ class RolloutResponseBuilder:
             event_rewards: Optional per-step rewards for multi-step tasks
             inference_url: Inference URL used for this rollout
             details: Metadata dict (debugging info, not rewards)
-            aborted: [DEPRECATED] Whether rollout was aborted early
             run_id: [DEPRECATED] Use trace_correlation_id instead
         """
         metrics = RolloutMetrics(
@@ -61,7 +59,6 @@ class RolloutResponseBuilder:
             metrics=metrics,
             trace=_with_trace_metadata(trace, trace_correlation_id),
             inference_url=inference_url,
-            aborted=aborted,
             run_id=run_id,
         )
 

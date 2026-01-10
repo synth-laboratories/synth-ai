@@ -35,11 +35,9 @@ def test_eval_multimodal_paths_are_built(monkeypatch, tmp_path, use_remote):
                         "inference_url": "http://localhost",
                     }
                 ],
-                "branches": {},
                 "metrics": {
                     "outcome_reward": 0.0,
                 },
-                "aborted": False,
                 "trace": {"session_id": "sess", "event_history": [], "metadata": {}},
             }
 

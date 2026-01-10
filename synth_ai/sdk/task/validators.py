@@ -19,7 +19,7 @@ def validate_rollout_response_for_rl(
 
     The backend RL trainer requires:
     1. A v3 trace with event_history (preferred), OR
-    2. pipeline_metadata["inference_url"] with ?cid= for trace hydration fallback
+    2. Top-level inference_url with ?cid= for trace hydration fallback
 
     Args:
         response_data: The rollout response dict from task app
@@ -60,24 +60,21 @@ def validate_rollout_response_for_rl(
             "Return a v3 trace or provide inference_url for hydration."
         )
 
-    # Check pipeline_metadata inference_url only when trace is missing/empty
-    pipeline_metadata = response_data.get("pipeline_metadata")
-    inference_url = None
-    if isinstance(pipeline_metadata, dict):
-        inference_url = pipeline_metadata.get("inference_url")
+    # Check top-level inference_url only when trace is missing/empty
+    inference_url = response_data.get("inference_url")
     if not has_event_history:
         if not inference_url:
             issues.append(
-                "pipeline_metadata['inference_url'] is missing. "
+                "inference_url is missing. "
                 "RL trainer needs this to hydrate traces when event_history is absent."
             )
         elif not isinstance(inference_url, str):
             issues.append(
-                f"pipeline_metadata['inference_url'] must be a string, got: {type(inference_url).__name__}"
+                f"inference_url must be a string, got: {type(inference_url).__name__}"
             )
         elif "?cid=" not in inference_url:
             issues.append(
-                f"pipeline_metadata['inference_url'] should contain '?cid=' for trace correlation. "
+                f"inference_url should contain '?cid=' for trace correlation. "
                 f"Got: {inference_url[:80]}..."
             )
 

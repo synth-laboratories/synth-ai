@@ -1323,7 +1323,7 @@ def command(
     This command posts a minimal RL rollout to the task app, with a valid
     OpenAI-compatible inference URL including a trace correlation id, and
     validates that the response contains the fields required by the RL trainer
-    (e.g. pipeline_metadata.inference_url and per-step info.meta.inference_url).
+    (e.g. top-level inference_url and per-step info.meta.inference_url).
 
     If --config is provided, loads settings from the [smoke] section in the TOML file.
     CLI arguments override TOML values.

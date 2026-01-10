@@ -67,15 +67,10 @@ class _FakeLocalAPIClient:
         metrics = RolloutMetrics(outcome_reward=0.0)
         return RolloutResponse(
             run_id=request.run_id,
-            branches={},
             metrics=metrics,
-            aborted=False,
             trace_correlation_id=trace_correlation_id,
             trace=trace_payload,
-            pipeline_metadata={
-                "inference_url": "https://mock.local/v1/chat/completions?cid=test-cid-123",
-                "trace_correlation_id": trace_correlation_id,
-            },
+            inference_url="https://mock.local/v1/chat/completions?cid=test-cid-123",
         )
 
 

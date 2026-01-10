@@ -265,23 +265,15 @@ def create_crafter_vlm_local_api(system_prompt: str):
         metrics = RolloutMetrics(
             outcome_reward=score,
             event_rewards=episode_rewards,
-            episode_rewards=episode_rewards,
-            reward_mean=sum(episode_rewards) / len(episode_rewards) if episode_rewards else 0.0,
-            num_steps=len(episode_rewards),
-            num_episodes=1,
-            outcome_score=score,
-            events_score=score,
             details=details,
         )
 
         return RolloutResponse(
             run_id=request.run_id,
-            branches={},
             metrics=metrics,
-            aborted=False,
             trace_correlation_id=trace_correlation_id,
             trace=trace,
-            pipeline_metadata={"inference_url": policy_config.get("inference_url", "")},
+            inference_url=policy_config.get("inference_url", ""),
         )
 
     def describe_taskset() -> Dict[str, Any]:

@@ -31,11 +31,9 @@ def test_eval_in_process_and_remote_overrides(monkeypatch, tmp_path):
                         "inference_url": "http://localhost",
                     }
                 ],
-                "branches": {},
                 "metrics": {
                     "outcome_reward": 0.0,
                 },
-                "aborted": False,
                 "trace": {"session_id": "sess", "event_history": [], "metadata": {}},
             }
 

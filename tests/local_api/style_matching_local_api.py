@@ -365,12 +365,10 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 
     return RolloutResponse(
         run_id=request.run_id,
-        branches={},
         metrics=metrics,
-        aborted=False,
         trace_correlation_id=trace_correlation_id,
         trace=trace_payload,
-        pipeline_metadata={"inference_url": str(inference_url or "")},
+        inference_url=str(inference_url or ""),
     )
 
 
