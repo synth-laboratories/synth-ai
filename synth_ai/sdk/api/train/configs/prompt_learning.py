@@ -5,7 +5,7 @@ This module defines the configuration schema for prompt optimization jobs using:
 
 Minimal Config (Recommended)
 ----------------------------
-Only 4 fields required - everything else is auto-derived:
+Only 6 fields required - everything else is auto-derived:
 
     ```toml
     [prompt_learning]
@@ -14,6 +14,8 @@ Only 4 fields required - everything else is auto-derived:
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
+    num_generations = 10
+    children_per_generation = 5
 
     # Optional budget constraint (omit to use account balance)
     max_cost_usd = 10.0
@@ -22,7 +24,7 @@ Only 4 fields required - everything else is auto-derived:
 Auto-derived fields include:
     - train_seeds (70% of total_seeds)
     - validation_seeds (30% of total_seeds)
-    - population.initial_size, num_generations, children_per_generation
+    - population.initial_size
     - archive.size, mutation.rate, and all other nested configs
 
 To pin defaults version for reproducibility:

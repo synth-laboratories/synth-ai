@@ -6,7 +6,7 @@ Collection of CLI commands to run demos, setup credentials, start training jobs,
 
 The CLI supports simplified config files with auto-derived defaults.
 
-### Minimal GEPA Config (4 required fields)
+### Minimal GEPA Config (6 required fields)
 
 ```toml
 [prompt_learning]
@@ -15,12 +15,14 @@ task_app_url = "https://your-tunnel.trycloudflare.com"
 total_seeds = 200
 proposer_effort = "LOW"
 proposer_output_tokens = "FAST"
+num_generations = 10
+children_per_generation = 5
 
 # Optional budget (omit to use account balance)
 max_cost_usd = 10.0
 ```
 
-Everything else (population size, generations, archive, mutation rate, etc.) is auto-derived.
+Everything else (population size, archive, mutation rate, etc.) is auto-derived.
 
 ### Minimal Eval Config (2 required fields)
 

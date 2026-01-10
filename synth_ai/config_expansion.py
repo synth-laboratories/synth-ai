@@ -4,7 +4,7 @@ This module allows users to specify minimal configs that auto-expand into
 full configs using smart defaults. All defaults are versioned and frozen
 to ensure reproducibility.
 
-## Minimal GEPA Config (4 required fields)
+## Minimal GEPA Config (6 required fields)
 
     ```toml
     [prompt_learning]
@@ -13,6 +13,8 @@ to ensure reproducibility.
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
+    num_generations = 10
+    children_per_generation = 5
 
     # Optional budget constraints (if omitted -> uses account balance)
     max_cost_usd = 10.0
@@ -48,10 +50,11 @@ Any field can be overridden by specifying it explicitly:
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
+    num_generations = 10
+    children_per_generation = 5
 
     # Override specific defaults
     population_size = 30
-    num_generations = 15
     ```
 
 See Also:
@@ -227,6 +230,8 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
         - task_app_url: URL of the task app
         - proposer_effort: "LOW_CONTEXT" | "LOW" | "MEDIUM" | "HIGH"
         - proposer_output_tokens: "RAPID" | "FAST" | "SLOW"
+        - num_generations: Number of evolutionary generations
+        - children_per_generation: Number of children per generation
         - One of:
             - total_seeds: Total number of seeds (auto-split 70/30)
             - train_seeds + validation_seeds: Explicit seed lists/ranges
@@ -235,7 +240,6 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
         - env_name: Environment name
         - defaults_version: Pin to specific defaults version
         - population_size: Override auto-derived population size
-        - num_generations: Override default generations
         - max_cost_usd: Budget constraint in USD
         - max_rollouts: Budget constraint by rollout count
         - max_seconds: Budget constraint by time
@@ -255,6 +259,8 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
         ...     "total_seeds": 200,
         ...     "proposer_effort": "LOW",
         ...     "proposer_output_tokens": "FAST",
+        ...     "num_generations": 10,
+        ...     "children_per_generation": 5,
         ... }
         >>> full = expand_gepa_config(minimal)
         >>> full["gepa"]["population"]["initial_size"]
@@ -271,6 +277,10 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("proposer_effort is required")
     if "proposer_output_tokens" not in minimal:
         raise ValueError("proposer_output_tokens is required")
+    if "num_generations" not in minimal:
+        raise ValueError("num_generations is required")
+    if "children_per_generation" not in minimal:
+        raise ValueError("children_per_generation is required")
 
     # Handle total_seeds -> train/validation split
     if "total_seeds" in minimal:
@@ -302,13 +312,13 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
             stacklevel=2,
         )
 
-    # Derive population parameters
+    # Population parameters (num_generations and children_per_generation are required)
     pop_size = minimal.get(
         "population_size",
         max(d.pop_size_min, min(d.pop_size_max, n_train // d.pop_size_divisor)),
     )
-    num_gens = minimal.get("num_generations", d.num_generations)
-    children = max(3, pop_size // d.children_divisor)
+    num_gens = minimal["num_generations"]
+    children = minimal["children_per_generation"]
 
     # Build full config with defaults
     return {
