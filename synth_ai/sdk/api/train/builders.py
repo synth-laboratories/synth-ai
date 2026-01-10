@@ -30,7 +30,6 @@ except Exception as exc:  # pragma: no cover - critical dependency
 
 from synth_ai.core.config.resolver import ConfigResolver
 from synth_ai.core.telemetry import log_info
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 from .configs import PromptLearningConfig, RLConfig, SFTConfig
 from .supported_algos import (
@@ -39,6 +38,47 @@ from .supported_algos import (
     validate_algorithm_config,
 )
 from .utils import TrainError, ensure_api_base
+
+
+def _maybe_expand_minimal_config(raw_config: dict[str, Any]) -> dict[str, Any]:
+    """Expand minimal config to full config if needed.
+
+    Detects if the config uses the simplified minimal format and expands it
+    to the full nested format expected by PromptLearningConfig.
+
+    Minimal config indicators:
+        - Has 'total_seeds' at prompt_learning level
+        - Has 'proposer_effort' at prompt_learning level without 'gepa' section
+        - Has 'train_seeds' at prompt_learning level without 'gepa' section
+
+    Args:
+        raw_config: Raw config dict, potentially in minimal format.
+
+    Returns:
+        Full config dict (original if already full, expanded if minimal).
+    """
+    from synth_ai.config_expansion import expand_gepa_config, is_minimal_config
+
+    if "prompt_learning" not in raw_config:
+        return raw_config
+
+    pl_config = raw_config.get("prompt_learning", {})
+
+    # Check if this looks like a minimal config
+    if not is_minimal_config(pl_config):
+        return raw_config
+
+    # Only expand GEPA configs for now
+    algorithm = pl_config.get("algorithm", "gepa")
+    if algorithm != "gepa":
+        return raw_config
+
+    # Expand minimal config
+    log_info("Expanding minimal config to full config", ctx={"algorithm": algorithm})
+    expanded = expand_gepa_config(pl_config)
+
+    # Return in the expected wrapper format
+    return {"prompt_learning": expanded}
 
 
 @dataclass(slots=True)
@@ -371,7 +411,11 @@ def build_prompt_learning_payload(
     overrides: dict[str, Any],
     allow_experimental: bool | None = None,
 ) -> PromptLearningBuildResult:
-    """Build payload for prompt learning job (GEPA)."""
+    """Build payload for prompt learning job (GEPA).
+
+    Supports both minimal and full config formats in TOML files.
+    Minimal configs are auto-expanded before validation.
+    """
     ctx: dict[str, Any] = {"config_path": str(config_path), "task_url": task_url}
     log_info("build_prompt_learning_payload invoked", ctx=ctx)
     from pydantic import ValidationError
@@ -382,10 +426,15 @@ def build_prompt_learning_payload(
     from .validators import validate_prompt_learning_config
 
     raw_config = load_toml(config_path)
+
+    # Expand minimal config to full config if needed
+    raw_config = _maybe_expand_minimal_config(raw_config)
+
     validate_prompt_learning_config(raw_config, config_path)
 
     try:
-        pl_cfg = PromptLearningConfig.from_path(config_path)
+        # Use from_mapping to support expanded configs
+        pl_cfg = PromptLearningConfig.from_mapping(raw_config)
     except ValidationError as exc:
         raise click.ClickException(_format_validation_error(config_path, exc)) from exc
 
@@ -444,26 +493,14 @@ def build_prompt_learning_payload(
         )
     assert final_task_url is not None  # required=True guarantees non-None
 
-    # Get task_app_api_key from config or environment
-    config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
-    cli_api_key = overrides.get("task_app_api_key")
-    env_api_key = ensure_localapi_auth()
-    task_app_api_key = ConfigResolver.resolve(
-        "task_app_api_key",
-        cli_value=cli_api_key,
-        env_value=env_api_key,
-        config_value=config_api_key,
-        required=True,
-    )
-
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
 
-    # Ensure task_app_url and task_app_api_key are set
+    # Ensure task_app_url is set
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         pl_section["task_app_url"] = final_task_url
-        pl_section["task_app_api_key"] = task_app_api_key
+        pl_section.pop("task_app_api_key", None)
 
         # GEPA: Extract train_seeds from nested structure for backwards compatibility
         # Backend checks for train_seeds at top level before parsing nested structure
@@ -505,10 +542,7 @@ def build_prompt_learning_payload(
                 pl_section["evaluation_seeds"] = train_seeds
 
     else:
-        config_dict["prompt_learning"] = {
-            "task_app_url": final_task_url,
-            "task_app_api_key": task_app_api_key,
-        }
+        config_dict["prompt_learning"] = {"task_app_url": final_task_url}
 
     # Build payload matching backend API format
     # Extract nested overrides if present, otherwise use flat overrides directly
@@ -519,7 +553,15 @@ def build_prompt_learning_payload(
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start")
+        if k
+        not in (
+            "backend",
+            "task_url",
+            "metadata",
+            "auto_start",
+            "task_app_api_key",
+            "prompt_learning.task_app_api_key",
+        )
     }
 
     # CRITICAL: Merge overrides into config_dict BEFORE sending to backend
@@ -529,6 +571,9 @@ def build_prompt_learning_payload(
         from synth_ai.cli.local.experiment_queue.config_utils import _deep_update
 
         _deep_update(config_dict, config_overrides)
+        pl_section = config_dict.get("prompt_learning", {})
+        if isinstance(pl_section, dict):
+            pl_section.pop("task_app_api_key", None)
 
     # ASSERT: Verify critical overrides are reflected in config_body
     pl_section_in_dict = config_dict.get("prompt_learning", {})
@@ -612,6 +657,36 @@ def build_prompt_learning_payload_from_mapping(
     This is the same as build_prompt_learning_payload but accepts a dict instead of a file path.
     Both functions route through the same PromptLearningConfig Pydantic validation.
 
+    Supports both minimal and full config formats. Minimal configs are auto-expanded:
+
+    Minimal config (4 required fields):
+        >>> result = build_prompt_learning_payload_from_mapping(
+        ...     raw_config={
+        ...         "prompt_learning": {
+        ...             "algorithm": "gepa",
+        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "total_seeds": 200,
+        ...             "proposer_effort": "LOW",
+        ...             "proposer_output_tokens": "FAST",
+        ...         }
+        ...     },
+        ...     task_url=None,
+        ...     overrides={},
+        ... )
+
+    Full config (explicit control):
+        >>> result = build_prompt_learning_payload_from_mapping(
+        ...     raw_config={
+        ...         "prompt_learning": {
+        ...             "algorithm": "gepa",
+        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "gepa": {...},
+        ...         }
+        ...     },
+        ...     task_url=None,
+        ...     overrides={},
+        ... )
+
     Args:
         raw_config: Configuration dictionary with the same structure as the TOML file.
                    Should have a 'prompt_learning' section.
@@ -622,23 +697,12 @@ def build_prompt_learning_payload_from_mapping(
 
     Returns:
         PromptLearningBuildResult with payload and task_url
-
-    Example:
-        >>> result = build_prompt_learning_payload_from_mapping(
-        ...     raw_config={
-        ...         "prompt_learning": {
-        ...             "algorithm": "gepa",
-        ...             "task_app_url": "https://tunnel.example.com",
-        ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
-        ...             "gepa": {...},
-        ...         }
-        ...     },
-        ...     task_url=None,
-        ...     overrides={},
-        ... )
     """
     ctx: dict[str, Any] = {"source": source_label}
     log_info("build_prompt_learning_payload_from_mapping invoked", ctx=ctx)
+
+    # Expand minimal config to full config if needed
+    raw_config = _maybe_expand_minimal_config(raw_config)
     from pydantic import ValidationError
 
     # SDK-SIDE VALIDATION: Catch errors BEFORE sending to backend
@@ -712,26 +776,14 @@ def build_prompt_learning_payload_from_mapping(
         )
     assert final_task_url is not None
 
-    # Get task_app_api_key from config or environment
-    config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
-    cli_api_key = overrides.get("task_app_api_key")
-    env_api_key = ensure_localapi_auth()
-    task_app_api_key = ConfigResolver.resolve(
-        "task_app_api_key",
-        cli_value=cli_api_key,
-        env_value=env_api_key,
-        config_value=config_api_key,
-        required=True,
-    )
-
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
 
-    # Ensure task_app_url and task_app_api_key are set
+    # Ensure task_app_url is set
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         pl_section["task_app_url"] = final_task_url
-        pl_section["task_app_api_key"] = task_app_api_key
+        pl_section.pop("task_app_api_key", None)
 
         # GEPA: Extract train_seeds from nested structure
         if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:
@@ -746,17 +798,22 @@ def build_prompt_learning_payload_from_mapping(
             if train_seeds and not pl_section.get("evaluation_seeds"):
                 pl_section["evaluation_seeds"] = train_seeds
     else:
-        config_dict["prompt_learning"] = {
-            "task_app_url": final_task_url,
-            "task_app_api_key": task_app_api_key,
-        }
+        config_dict["prompt_learning"] = {"task_app_url": final_task_url}
 
     # Build payload matching backend API format
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start")
+        if k
+        not in (
+            "backend",
+            "task_url",
+            "metadata",
+            "auto_start",
+            "task_app_api_key",
+            "prompt_learning.task_app_api_key",
+        )
     }
 
     # Merge overrides into config_dict
@@ -764,6 +821,9 @@ def build_prompt_learning_payload_from_mapping(
         from synth_ai.cli.local.experiment_queue.config_utils import _deep_update
 
         _deep_update(config_dict, config_overrides)
+        pl_section = config_dict.get("prompt_learning", {})
+        if isinstance(pl_section, dict):
+            pl_section.pop("task_app_api_key", None)
 
     # Final validation
     if "prompt_learning" not in config_dict:
