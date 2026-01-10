@@ -64,7 +64,7 @@ class _FakeLocalAPIClient:
             correlation_id=trace_correlation_id,
             metadata={"run_id": request.run_id},
         )
-        metrics = RolloutMetrics(episode_rewards=[0.0], reward_mean=0.0, num_steps=1, num_episodes=1)
+        metrics = RolloutMetrics(outcome_reward=0.0)
         return RolloutResponse(
             run_id=request.run_id,
             branches={},

@@ -145,83 +145,56 @@ class RolloutRequest(BaseModel):
 class RolloutMetrics(BaseModel):
     """Metrics from a rollout execution.
 
-    ## Preferred Fields (New - Normalized)
+    ## Required Fields
 
-    - `outcome_reward`: The reward for this rollout (PREFERRED)
-    - `event_rewards`: Optional per-step rewards
+    - `outcome_reward`: REQUIRED - The reward for this rollout
 
-    ## Legacy Fields (Backward Compatibility)
+    ## Optional Fields
 
-    - `episode_rewards`, `reward_mean`, `num_steps`: Still supported for backward
-      compatibility. For new implementations, just use `outcome_reward`.
-    - `outcome_score`: Alias for `outcome_reward` (deprecated)
+    - `event_rewards`: Per-step rewards for multi-step tasks
+    - `outcome_objectives`: Multi-objective outcomes (e.g., {'reward': 0.9, 'latency': 0.5})
+    - `event_objectives`: Per-event objectives aligned to trace events
+    - `details`: Metadata only (not for scoring)
 
-    ## Example - Minimal (New Style)
+    ## Example - Minimal
 
-        metrics = RolloutMetrics(
-            outcome_reward=1.0,  # PREFERRED - just provide the reward
-        )
+        metrics = RolloutMetrics(outcome_reward=1.0)
 
-    ## Example - Full (Backward Compatible)
+    ## Example - Multi-objective
 
         metrics = RolloutMetrics(
-            episode_rewards=[1.0],
-            reward_mean=1.0,
-            num_steps=1,
-            outcome_reward=1.0,  # PREFERRED
+            outcome_reward=0.85,
+            outcome_objectives={"reward": 0.85, "latency": 0.7},
+            event_rewards=[0.8, 0.9, 0.85],
         )
     """
 
     # =========================================================================
-    # PREFERRED FIELDS (New - Normalized)
+    # REQUIRED FIELD
     # =========================================================================
+    outcome_reward: float = Field(
+        ...,
+        description="REQUIRED - The reward for this rollout. Single source of truth for scoring.",
+    )
+
+    # =========================================================================
+    # OPTIONAL FIELDS
+    # =========================================================================
+    event_rewards: list[float] | None = Field(
+        default=None,
+        description="Optional per-step/event rewards for multi-step tasks.",
+    )
     outcome_objectives: Optional[Dict[str, float]] = Field(
         default=None,
-        description="Canonical outcome objectives (e.g., {'reward': 0.9}).",
+        description="Multi-objective outcomes (e.g., {'reward': 0.9, 'latency': 0.5}).",
     )
     event_objectives: Optional[List[Dict[str, float]]] = Field(
         default=None,
         description="Optional per-event objectives aligned to trace events.",
     )
-    outcome_reward: float | None = Field(
-        default=None,
-        description="The reward for this rollout. PREFERRED field for scoring.",
-    )
-    event_rewards: list[float] | None = Field(
-        default=None,
-        description="Optional per-step/event rewards for multi-step tasks.",
-    )
-
-    # =========================================================================
-    # LEGACY FIELDS (Backward Compatibility)
-    # =========================================================================
-    episode_rewards: list[float] = Field(
-        default_factory=list,
-        description="[LEGACY] Per-episode rewards. Use outcome_reward instead.",
-    )
-    reward_mean: float = Field(
-        default=0.0,
-        description="[LEGACY] Mean reward. Use outcome_reward instead.",
-    )
-    num_steps: int = Field(
-        default=1,
-        description="[LEGACY] Step count. Can be derived from event_rewards or trace.",
-    )
-    num_episodes: int = Field(
-        default=1,
-        description="[LEGACY] Episode count. Usually 1 for GEPA tasks.",
-    )
-    outcome_score: float | None = Field(
-        default=None,
-        description="[DEPRECATED] Alias for outcome_reward. Use outcome_reward instead.",
-    )
-    events_score: float | None = Field(
-        default=None,
-        description="[LEGACY] Aggregate event score. Use event_rewards instead.",
-    )
     details: dict[str, Any] = Field(
         default_factory=dict,
-        description="Metadata only. Do NOT use details.correct for rewards.",
+        description="Metadata only. Do NOT use details for reward computation.",
     )
 
 

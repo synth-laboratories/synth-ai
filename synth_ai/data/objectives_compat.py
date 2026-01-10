@@ -49,40 +49,28 @@ def _coerce_str(value: Any) -> Optional[str]:
 
 
 def extract_outcome_reward(payload: Mapping[str, Any]) -> Optional[float]:
-    """Extract outcome reward from legacy payloads with a precedence chain."""
+    """Extract outcome reward from payloads.
+
+    Checks these locations in order:
+    1. outcome_objectives['reward'] - preferred multi-objective format
+    2. outcome_reward - required single reward field
+
+    Legacy fields (episode_rewards, reward_mean, outcome_score) are no longer checked.
+    """
     if not isinstance(payload, Mapping):
         return None
 
+    # Check outcome_objectives first (multi-objective format)
     outcome_objectives = payload.get("outcome_objectives")
     if isinstance(outcome_objectives, Mapping):
         reward_val = _coerce_float(outcome_objectives.get("reward"))
         if reward_val is not None:
             return reward_val
-    objectives = payload.get("objectives")
-    if isinstance(objectives, Mapping):
-        reward_val = _coerce_float(objectives.get("reward"))
-        if reward_val is not None:
-            return reward_val
 
-    for key in (
-        "outcome_reward",
-        "total_reward",
-        "outcome_score",
-        "score",
-        "accuracy",
-        "reward_mean",
-    ):
-        reward_val = _coerce_float(payload.get(key))
-        if reward_val is not None:
-            if key == "outcome_score":
-                _warn_legacy_field("outcome_score", "outcome_reward or objectives['reward']")
-            elif key == "accuracy":
-                _warn_legacy_field("accuracy", "objectives['reward']")
-            return reward_val
-
-    episode_rewards = payload.get("episode_rewards")
-    if _is_sequence(episode_rewards) and episode_rewards:
-        return _coerce_float(episode_rewards[0])
+    # Then check outcome_reward (required field)
+    reward_val = _coerce_float(payload.get("outcome_reward"))
+    if reward_val is not None:
+        return reward_val
 
     return None
 
@@ -199,24 +187,18 @@ def normalize_to_event_objectives(payload: Mapping[str, Any]) -> EventObjectiveA
 
 
 def to_legacy_format(assignment: OutcomeObjectiveAssignment) -> Dict[str, Any]:
-    """Convert OutcomeObjectiveAssignment to legacy payload fields."""
+    """Convert OutcomeObjectiveAssignment to payload fields.
+
+    Note: Legacy fields (episode_rewards, reward_mean, outcome_score, etc.)
+    have been removed. Only outcome_reward and outcome_objectives are populated.
+    """
     result: Dict[str, Any] = {
-        "objectives": dict(assignment.objectives),
+        "outcome_objectives": dict(assignment.objectives),
     }
 
     reward_val = assignment.objectives.get("reward")
     if reward_val is not None:
-        result.update(
-            {
-                "outcome_reward": reward_val,
-                "total_reward": reward_val,
-                "outcome_score": reward_val,
-                "score": reward_val,
-                "accuracy": reward_val,
-                "reward_mean": reward_val,
-                "episode_rewards": [reward_val],
-            }
-        )
+        result["outcome_reward"] = reward_val
 
     if assignment.session_id is not None:
         result["session_id"] = assignment.session_id

@@ -359,12 +359,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     )
 
     metrics = RolloutMetrics(
-        episode_rewards=[score],
-        reward_mean=score,
-        num_steps=1,
-        num_episodes=1,
-        outcome_score=score,
-        events_score=score,
+        outcome_reward=score,
         details={"verifier_score": score},
     )
 

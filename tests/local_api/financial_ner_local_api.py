@@ -249,12 +249,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             metadata_block["correlation_ids"] = corr_map
 
     metrics = RolloutMetrics(
-        episode_rewards=[reward],
-        reward_mean=reward,
-        num_steps=1,
-        num_episodes=1,
-        outcome_score=reward,
-        events_score=reward,
+        outcome_reward=reward,
         details={"correct": is_correct, "correct_types": correct_types},
     )
 

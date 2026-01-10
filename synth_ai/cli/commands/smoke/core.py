@@ -926,12 +926,15 @@ async def _run_smoke_async(
                     metrics = response.metrics
                     if inferred_url:
                         click.echo(f"  rollout[{i}:{g}] inference_url: {inferred_url}")
+                    # Use outcome_reward as the primary metric
+                    outcome_reward = metrics.outcome_reward
+                    event_count = len(metrics.event_rewards) if metrics.event_rewards else 1
                     click.echo(
-                        f"  rollout[{i}:{g}] episodes={metrics.num_episodes} steps={metrics.num_steps} reward_mean={metrics.reward_mean:.4f}"
+                        f"  rollout[{i}:{g}] outcome_reward={outcome_reward:.4f} events={event_count}"
                     )
 
-                    total_steps += int(metrics.num_steps)
-                    if (metrics.reward_mean or 0.0) != 0.0:
+                    total_steps += event_count
+                    if (outcome_reward or 0.0) != 0.0:
                         nonzero_returns += 1
                     if response.trace is not None and isinstance(response.trace, dict):
                         v3_traces += 1
@@ -958,14 +961,13 @@ async def _run_smoke_async(
                             metrics_dump = response.metrics.model_dump()
                         except Exception:
                             metrics_dump = {
-                                "episode_rewards": getattr(
-                                    response.metrics, "episode_rewards", None
+                                "outcome_reward": getattr(
+                                    response.metrics, "outcome_reward", None
                                 ),
-                                "reward_mean": getattr(response.metrics, "reward_mean", None),
-                                "num_steps": getattr(response.metrics, "num_steps", None),
-                                "num_episodes": getattr(response.metrics, "num_episodes", None),
-                                "outcome_score": getattr(response.metrics, "outcome_score", None),
-                                "events_score": getattr(response.metrics, "events_score", None),
+                                "event_rewards": getattr(response.metrics, "event_rewards", None),
+                                "outcome_objectives": getattr(
+                                    response.metrics, "outcome_objectives", None
+                                ),
                             }
                         click.echo("  reward.info (metrics): " + str(metrics_dump))
 

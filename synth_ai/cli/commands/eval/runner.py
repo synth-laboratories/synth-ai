@@ -80,15 +80,13 @@ _MAX_POLL_ATTEMPTS = 600  # 20 minutes max
 class EvalResult:
     seed: int
     score: float | None
-    reward_mean: float | None
-    outcome_score: float | None
-    events_score: float | None
     latency_ms: float | None
     verifier_score: float | None
     tokens: int | None
     cost_usd: float | None
     error: str | None = None
     trace: dict[str, Any] | None = None
+    outcome_objectives: dict[str, float] | None = None
 
 
 def _count_tokens_from_trace(trace: dict[str, Any] | None) -> int:
@@ -224,22 +222,12 @@ async def _eval_seed(
             latency_ms = (time.perf_counter() - start) * 1000.0
 
             metrics = response.metrics
-            reward_mean = metrics.reward_mean
-            outcome_score = metrics.outcome_score
-            events_score = metrics.events_score
             outcome_reward = metrics.outcome_reward
             outcome_objectives = metrics.outcome_objectives
 
-            reward_val = None
-            if isinstance(outcome_objectives, dict):
-                reward_val = outcome_objectives.get("reward")
-            if reward_val is None and outcome_reward is not None:
-                reward_val = outcome_reward
-            if reward_val is None and outcome_score is not None:
-                reward_val = outcome_score
-            if reward_val is None and reward_mean is not None:
-                reward_val = reward_mean
-            score = float(reward_val) if reward_val is not None else None
+            # Score is outcome_reward (required field)
+            score = float(outcome_reward) if outcome_reward is not None else None
+
             verifier_score = None
             tokens = None
             cost_usd = None
@@ -266,30 +254,26 @@ async def _eval_seed(
             return EvalResult(
                 seed=seed,
                 score=score,
-                reward_mean=reward_mean,
-                outcome_score=outcome_score,
-                events_score=events_score,
                 latency_ms=latency_ms,
                 verifier_score=verifier_score,
                 tokens=tokens,
                 cost_usd=cost_usd,
                 error=None,
                 trace=trace,
+                outcome_objectives=dict(outcome_objectives) if outcome_objectives else None,
             )
         except Exception as exc:
             latency_ms = (time.perf_counter() - start) * 1000.0
             return EvalResult(
                 seed=seed,
                 score=None,
-                reward_mean=None,
-                outcome_score=None,
-                events_score=None,
                 latency_ms=latency_ms,
                 verifier_score=None,
                 tokens=None,
                 cost_usd=None,
                 error=str(exc),
                 trace=None,
+                outcome_objectives=None,
             )
 
 
@@ -536,15 +520,13 @@ async def run_eval_via_backend(
                 EvalResult(
                     seed=int(row.get("seed", 0)),
                     score=row.get("score"),
-                    reward_mean=row.get("reward_mean"),
-                    outcome_score=row.get("outcome_score"),
-                    events_score=row.get("events_score"),
                     latency_ms=row.get("latency_ms"),
                     verifier_score=row.get("verifier_score"),
                     tokens=row.get("tokens"),
                     cost_usd=row.get("cost_usd"),
                     error=row.get("error"),
                     trace=None,  # Traces fetched separately if needed
+                    outcome_objectives=row.get("outcome_objectives"),
                 )
             )
 
@@ -598,9 +580,6 @@ def format_eval_table(results: list[EvalResult]) -> str:
     headers = [
         "seed",
         "score",
-        "reward_mean",
-        "outcome",
-        "events",
         "latency_ms",
         "verifier",
         "tokens",
@@ -619,9 +598,6 @@ def format_eval_table(results: list[EvalResult]) -> str:
         [
             r.seed,
             _fmt(r.score),
-            _fmt(r.reward_mean),
-            _fmt(r.outcome_score),
-            _fmt(r.events_score),
             _fmt(r.latency_ms),
             _fmt(r.verifier_score),
             _fmt(r.tokens),
@@ -635,9 +611,6 @@ def format_eval_table(results: list[EvalResult]) -> str:
         return sum(values) / len(values) if values else None
 
     scores = [r.score for r in results if isinstance(r.score, (int, float))]
-    reward_means = [r.reward_mean for r in results if isinstance(r.reward_mean, (int, float))]
-    outcomes = [r.outcome_score for r in results if isinstance(r.outcome_score, (int, float))]
-    events = [r.events_score for r in results if isinstance(r.events_score, (int, float))]
     latencies = [r.latency_ms for r in results if isinstance(r.latency_ms, (int, float))]
     verifier_scores = [
         r.verifier_score for r in results if isinstance(r.verifier_score, (int, float))
@@ -649,9 +622,6 @@ def format_eval_table(results: list[EvalResult]) -> str:
         [
             "avg",
             _fmt(_avg(scores)),
-            _fmt(_avg(reward_means)),
-            _fmt(_avg(outcomes)),
-            _fmt(_avg(events)),
             _fmt(_avg(latencies)),
             _fmt(_avg(verifier_scores)),
             _fmt(int(sum(tokens) / len(tokens)) if tokens else None),

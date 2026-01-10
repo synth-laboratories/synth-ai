@@ -107,15 +107,19 @@ class TestOpenAPIPydanticValidation:
         assert "trace" in props
         assert "metrics" in props
 
-    def test_rollout_metrics_has_reward_mean(self):
-        """Test that RolloutMetrics has reward_mean field."""
+    def test_rollout_metrics_has_outcome_reward(self):
+        """Test that RolloutMetrics has outcome_reward field (required)."""
         schema = RolloutMetrics.model_json_schema()
-        
+
         assert "properties" in schema
         props = schema["properties"]
-        
-        # This is the critical field for optimization
-        assert "reward_mean" in props, "RolloutMetrics must have reward_mean field"
+
+        # outcome_reward is the required field for scoring
+        assert "outcome_reward" in props, "RolloutMetrics must have outcome_reward field"
+
+        # Check that outcome_reward is required
+        required = schema.get("required", [])
+        assert "outcome_reward" in required, "outcome_reward must be a required field"
 
     def test_validation_script_runs(self):
         """Test that validation script can be imported and run."""

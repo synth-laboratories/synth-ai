@@ -406,12 +406,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         }
 
         metrics = RolloutMetrics(
-            episode_rewards=[final_reward],
-            reward_mean=final_reward,
-            num_steps=len(steps),
-            num_episodes=1,
-            outcome_score=final_reward,
-            events_score=final_reward,
+            outcome_reward=final_reward,
             details={"passed": workspace.passed, "steps": len(steps)},
         )
 

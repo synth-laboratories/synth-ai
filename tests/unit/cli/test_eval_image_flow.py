@@ -37,10 +37,7 @@ def test_eval_multimodal_paths_are_built(monkeypatch, tmp_path, use_remote):
                 ],
                 "branches": {},
                 "metrics": {
-                    "episode_rewards": [0.0],
-                    "reward_mean": 0.0,
-                    "num_steps": 1,
-                    "num_episodes": 1,
+                    "outcome_reward": 0.0,
                 },
                 "aborted": False,
                 "trace": {"session_id": "sess", "event_history": [], "metadata": {}},
