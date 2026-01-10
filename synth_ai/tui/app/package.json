@@ -58,6 +58,7 @@
     "@opencode-ai/sdk": "workspace:*",
     "@opentui/core": "^0.1.0",
     "@opentui/solid": "0.1.69",
+    "jimp": "^1.6.0",
     "solid-js": "^1.9.9"
   },
   "optionalDependencies": {
