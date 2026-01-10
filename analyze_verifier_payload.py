@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Analyze verifier payload to understand token consumption breakdown."""
+
 import json
 from pathlib import Path
 from typing import Any
@@ -25,10 +26,12 @@ def analyze_size(obj: Any, name: str, depth: int = 0) -> dict:
             "bytes": size,
             "tokens": tokens,
             "is_image": is_image,
-            "preview": obj[:100] if not is_image else f"[IMAGE: {size:,} bytes]"
+            "preview": obj[:100] if not is_image else f"[IMAGE: {size:,} bytes]",
         }
 
-        print(f"{indent}{name}: {size:,} bytes (~{tokens:,} tokens) {'⚠️  IMAGE' if is_image else ''}")
+        print(
+            f"{indent}{name}: {size:,} bytes (~{tokens:,} tokens) {'⚠️  IMAGE' if is_image else ''}"
+        )
         if not is_image and size > 1000:
             print(f"{indent}  Preview: {obj[:200]}...")
 
@@ -52,7 +55,7 @@ def analyze_size(obj: Any, name: str, depth: int = 0) -> dict:
             "count": len(obj),
             "bytes": total_bytes,
             "tokens": total_tokens,
-            "items": items
+            "items": items,
         }
 
     elif isinstance(obj, dict):
@@ -73,7 +76,7 @@ def analyze_size(obj: Any, name: str, depth: int = 0) -> dict:
             "keys": list(obj.keys()),
             "bytes": total_bytes,
             "tokens": total_tokens,
-            "fields": fields
+            "fields": fields,
         }
 
     else:
@@ -86,42 +89,42 @@ def analyze_size(obj: Any, name: str, depth: int = 0) -> dict:
             "type": type(obj).__name__,
             "bytes": size,
             "tokens": tokens,
-            "value": obj
+            "value": obj,
         }
 
 
 def analyze_trace_file(file_path: Path):
     """Analyze a captured trace file."""
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"ANALYZING: {file_path}")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     data = json.loads(file_path.read_text())
 
     # Overall breakdown
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TOP-LEVEL BREAKDOWN")
-    print("="*80)
+    print("=" * 80)
 
     breakdown = analyze_size(data, "verifier_payload", 0)
 
     # Summary
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("SUMMARY")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     print(f"Total payload bytes: {breakdown['bytes']:,}")
     print(f"Total estimated tokens: {breakdown['tokens']:,}")
     print(f"Gemini 2.5 Flash limit: 1,048,576 tokens")
 
-    if breakdown['tokens'] > 1_048_576:
+    if breakdown["tokens"] > 1_048_576:
         print(f"⚠️  EXCEEDS LIMIT by {breakdown['tokens'] - 1_048_576:,} tokens")
     else:
         print(f"✓ Within limit ({1_048_576 - breakdown['tokens']:,} tokens remaining)")
 
     # Breakdown by major components
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("COMPONENT BREAKDOWN")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     if "fields" in breakdown:
         components = []
@@ -131,13 +134,13 @@ def analyze_trace_file(file_path: Path):
         components.sort(key=lambda x: x[1], reverse=True)
 
         for key, bytes_val, tokens_val in components:
-            pct = (bytes_val / breakdown['bytes'] * 100) if breakdown['bytes'] > 0 else 0
+            pct = (bytes_val / breakdown["bytes"] * 100) if breakdown["bytes"] > 0 else 0
             print(f"{key:30} {bytes_val:12,} bytes  {tokens_val:12,} tokens  {pct:5.1f}%")
 
     # Look for images
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("IMAGE DETECTION")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     def find_images(obj, path=""):
         """Recursively find all images."""
@@ -167,9 +170,9 @@ def analyze_trace_file(file_path: Path):
         trace_fields = breakdown["fields"]["trace"].get("fields", {})
         if "event_history" in trace_fields:
             event_history = trace_fields["event_history"]
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print(f"EVENT HISTORY ({event_history.get('count', 0)} events)")
-            print(f"{'='*80}")
+            print(f"{'=' * 80}")
 
             if "items" in event_history:
                 for i, event in enumerate(event_history["items"]):

@@ -94,6 +94,7 @@ class Experiment(Base):
         Index("idx_experiments_created", "created_at"),
     )
 
+
 class ExperimentJob(Base):
     __tablename__ = "experiment_jobs"
 
@@ -192,35 +193,36 @@ class Trial(Base):
 
 class JobExecutionLog(Base):
     """Detailed execution logs for job subprocess runs.
-    
+
     Stores full stdout, stderr, command, and environment info for ALL jobs (successful and failed).
     This allows querying failures directly from the database without guessing.
     """
+
     __tablename__ = "job_execution_logs"
 
     log_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     job_id: Mapped[str] = mapped_column(
         String(64), ForeignKey("experiment_jobs.job_id", ondelete="CASCADE"), nullable=False
     )
-    
+
     # Execution details
     command: Mapped[str] = mapped_column(Text(), nullable=False)  # Full command executed
     working_directory: Mapped[str] = mapped_column(Text(), nullable=False)
     returncode: Mapped[int] = mapped_column(Integer, nullable=False)
-    
+
     # Output (stored as Text to handle large outputs)
     stdout: Mapped[str] = mapped_column(Text(), nullable=False, default="")
     stderr: Mapped[str] = mapped_column(Text(), nullable=False, default="")
-    
+
     # Environment info (for debugging)
     python_executable: Mapped[str | None] = mapped_column(String(255))
     environment_keys: Mapped[list[str] | None] = mapped_column(JSON)  # List of env var keys present
-    
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    
+
     # Relationship
     job: Mapped[ExperimentJob] = relationship(back_populates="execution_logs")
 

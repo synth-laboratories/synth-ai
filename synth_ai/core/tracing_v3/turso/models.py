@@ -468,7 +468,9 @@ class EventReward(Base):
     __table_args__ = (
         Index("idx_event_rewards_session", "session_id"),
         Index("idx_event_rewards_event", "event_id"),
-        Index("idx_event_rewards_session_event_objective", "session_id", "event_id", "objective_key"),
+        Index(
+            "idx_event_rewards_session_event_objective", "session_id", "event_id", "objective_key"
+        ),
         Index("idx_event_rewards_type", "reward_type"),
         Index("idx_event_rewards_key", "key"),
     )

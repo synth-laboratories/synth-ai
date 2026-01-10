@@ -20,7 +20,13 @@ from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
+from synth_ai.sdk.tunnels import (
+    TunnelBackend,
+    TunneledLocalAPI,
+    cleanup_all,
+    kill_port,
+    wait_for_health_check,
+)
 from synth_ai.core.env import mint_demo_api_key
 
 # Configuration
@@ -41,7 +47,13 @@ TOOL_SCHEMA = {
         "description": "Verify whether the claim is supported or refuted by the evidence",
         "parameters": {
             "type": "object",
-            "properties": {"verdict": {"type": "string", "enum": ["SUPPORTED", "REFUTED"], "description": "The verdict"}},
+            "properties": {
+                "verdict": {
+                    "type": "string",
+                    "enum": ["SUPPORTED", "REFUTED"],
+                    "description": "The verdict",
+                }
+            },
             "required": ["verdict"],
         },
     },
@@ -211,15 +223,17 @@ def create_hover_local_api(system_prompt: str, env_api_key: str):
                 },
             )
 
-    return create_local_api(LocalAPIConfig(
-        app_id=APP_ID,
-        name=APP_NAME,
-        description=f"{APP_NAME} local API for claim verification.",
-        provide_taskset_description=provide_taskset_description,
-        provide_task_instances=provide_task_instances,
-        rollout=run_rollout,
-        cors_origins=["*"],
-    ))
+    return create_local_api(
+        LocalAPIConfig(
+            app_id=APP_ID,
+            name=APP_NAME,
+            description=f"{APP_NAME} local API for claim verification.",
+            provide_taskset_description=provide_taskset_description,
+            provide_task_instances=provide_task_instances,
+            rollout=run_rollout,
+            cors_origins=["*"],
+        )
+    )
 
 
 async def run_single_experiment(
@@ -231,9 +245,9 @@ async def run_single_experiment(
     dry_run: bool = False,
 ) -> dict:
     """Run a single GEPA experiment."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running: {model} run {run_number}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if dry_run:
         print(f"[DRY RUN] Would run {model} run {run_number}")
@@ -370,18 +384,28 @@ async def run_single_experiment(
             except Exception as e:
                 print(f"Warning: Could not get prompt text: {e}")
 
-            prompt_file = results_dir / f"hover_{model.replace('-', '_')}_run{run_number}_prompt.json"
+            prompt_file = (
+                results_dir / f"hover_{model.replace('-', '_')}_run{run_number}_prompt.json"
+            )
             with open(prompt_file, "w") as f:
-                json.dump({
-                    "model": model,
-                    "run": run_number,
-                    "job_id": job_id,
-                    "best_score": result.best_score,
-                    "train_accuracy": top_prompt.get("train_accuracy") if isinstance(top_prompt, dict) else None,
-                    "val_accuracy": top_prompt.get("val_accuracy") if isinstance(top_prompt, dict) else None,
-                    "optimized_prompt_text": optimized_full_text,
-                    "raw_prompt_data": top_prompt,
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "model": model,
+                        "run": run_number,
+                        "job_id": job_id,
+                        "best_score": result.best_score,
+                        "train_accuracy": top_prompt.get("train_accuracy")
+                        if isinstance(top_prompt, dict)
+                        else None,
+                        "val_accuracy": top_prompt.get("val_accuracy")
+                        if isinstance(top_prompt, dict)
+                        else None,
+                        "optimized_prompt_text": optimized_full_text,
+                        "raw_prompt_data": top_prompt,
+                    },
+                    f,
+                    indent=2,
+                )
             print(f"Saved optimized prompt to {prompt_file}")
             experiment_result["prompt_file"] = str(prompt_file)
     else:
@@ -452,13 +476,15 @@ async def main():
                 all_results.append(result)
             except Exception as e:
                 print(f"Error in {model} run {run}: {e}")
-                all_results.append({
-                    "model": model,
-                    "run": run,
-                    "status": "error",
-                    "error": str(e),
-                    "timestamp": datetime.now().isoformat(),
-                })
+                all_results.append(
+                    {
+                        "model": model,
+                        "run": run,
+                        "status": "error",
+                        "error": str(e),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
     # Save summary
     summary = {
@@ -477,7 +503,7 @@ async def main():
     print("BENCHMARK SUMMARY")
     print("=" * 60)
     for r in all_results:
-        score = f"{r['best_score']:.1%}" if r.get('best_score') is not None else "N/A"
+        score = f"{r['best_score']:.1%}" if r.get("best_score") is not None else "N/A"
         print(f"{r['model']} run {r['run']}: {r['status']} (score: {score})")
 
 

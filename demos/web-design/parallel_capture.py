@@ -1,6 +1,7 @@
 """
 Parallel screenshot capture for multiple websites.
 """
+
 import asyncio
 from pathlib import Path
 from discover_urls import discover_urls
@@ -63,10 +64,10 @@ async def process_all_sites(sites):
     all_results = []
 
     for i in range(0, len(sites), batch_size):
-        batch = sites[i:i+batch_size]
-        print(f"\n{'='*80}")
-        print(f"Processing batch {i//batch_size + 1}: {', '.join(s['name'] for s in batch)}")
-        print(f"{'='*80}")
+        batch = sites[i : i + batch_size]
+        print(f"\n{'=' * 80}")
+        print(f"Processing batch {i // batch_size + 1}: {', '.join(s['name'] for s in batch)}")
+        print(f"{'=' * 80}")
 
         tasks = [process_site(site) for site in batch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -86,9 +87,9 @@ if __name__ == "__main__":
     results = asyncio.run(process_all_sites(SITES))
 
     # Print summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("CAPTURE SUMMARY")
-    print("="*80)
+    print("=" * 80)
 
     successful = [r for r in results if not isinstance(r, Exception) and r.get("success")]
     failed = [r for r in results if isinstance(r, Exception) or not r.get("success")]

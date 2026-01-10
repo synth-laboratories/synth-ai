@@ -32,7 +32,9 @@ def _generate_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:12]}"
 
 
-def _normalize_statuses(values: Iterable[str | ExperimentStatus] | None) -> list[ExperimentStatus] | None:
+def _normalize_statuses(
+    values: Iterable[str | ExperimentStatus] | None,
+) -> list[ExperimentStatus] | None:
     if not values:
         return None
     normalized: list[ExperimentStatus] = []
@@ -49,28 +51,28 @@ def _normalize_statuses(values: Iterable[str | ExperimentStatus] | None) -> list
 
 def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
     """Validate job spec and reject if config_overrides cannot be applied.
-    
+
     This prevents jobs from being created with invalid config overrides that would
     silently fail or cause confusion (e.g., limits not being applied).
-    
+
     Raises:
         FileNotFoundError: If config file or referenced env file doesn't exist
         ValueError: If config file is invalid or config_overrides cannot be applied
     """
     from pathlib import Path
-    
+
     config_path = Path(job_spec.config_path).expanduser().resolve()
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
-    
+
     if not config_path.suffix == ".toml":
         raise ValueError(f"Config file must be a TOML file: {config_path}")
-    
+
     # VALIDATION: Verify config_overrides can be applied (fail fast)
     if job_spec.config_overrides:
         try:
             from .config_utils import prepare_config_file
-            
+
             # Try to apply overrides - this will raise ValueError if they can't be applied
             prepared = prepare_config_file(config_path, job_spec.config_overrides)
             prepared.cleanup()  # Clean up immediately after validation
@@ -86,17 +88,16 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
         except Exception:
             # Other errors (file not found, etc.) should propagate
             raise
-    
+
     # Check if config references an env file
     try:
         from .config_utils import _load_toml
-        
+
         config_data = _load_toml(config_path)
-        env_file_path = (
-            config_data.get("prompt_learning", {}).get("env_file_path")
-            or config_data.get("env_file_path")
-        )
-        
+        env_file_path = config_data.get("prompt_learning", {}).get(
+            "env_file_path"
+        ) or config_data.get("env_file_path")
+
         if env_file_path:
             env_path = Path(env_file_path)
             if not env_path.is_absolute():
@@ -104,7 +105,7 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
                 env_path = (config_path.parent / env_path).resolve()
             else:
                 env_path = env_path.expanduser().resolve()
-            
+
             if not env_path.exists():
                 raise FileNotFoundError(
                     f"Env file referenced in config not found: {env_path}\n"
@@ -120,15 +121,15 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
 
 def create_experiment(request: ExperimentSubmitRequest) -> Experiment:
     """Persist a new experiment and enqueue initial jobs.
-    
+
     Validates that all job specs have required files (config TOML and env files).
     """
     init_db()
-    
+
     # Validate all job specs before creating experiment
     for job_spec in request.jobs:
         validate_job_spec(job_spec)
-    
+
     experiment_id = _generate_id("exp")
     # Exclude None values for TOML serialization (TOML doesn't support None)
     request_dict = request.model_dump(mode="json", exclude_none=True)
@@ -165,49 +166,47 @@ def create_experiment(request: ExperimentSubmitRequest) -> Experiment:
 
 def update_job_status(job_id: str, status_json: dict[str, Any]) -> None:
     """Update the status_json field for a job.
-    
+
     Merges new status_json with existing status_json, preserving existing fields
     that aren't being updated. This ensures partial updates don't clear existing data.
-    
+
     Args:
         job_id: Job ID to update
         status_json: Status dictionary to merge (only non-None values update existing fields)
-        
+
     Raises:
         AssertionError: If job_id is invalid or status_json is not a dict
     """
     # Validate inputs
-    assert isinstance(job_id, str), (
-        f"job_id must be str, got {type(job_id).__name__}: {job_id}"
-    )
+    assert isinstance(job_id, str), f"job_id must be str, got {type(job_id).__name__}: {job_id}"
     assert job_id, "job_id cannot be empty"
     assert isinstance(status_json, dict), (
         f"status_json must be dict, got {type(status_json).__name__}: {status_json}"
     )
-    
+
     init_db()
     with session_scope() as session:
         job = session.get(ExperimentJob, job_id)
         assert job is not None, f"Job {job_id} not found in database"
-        
+
         # Merge with existing status_json to preserve fields not being updated
         existing = job.status_json or {}
         assert isinstance(existing, dict), (
             f"Existing status_json must be dict, got {type(existing).__name__}: {existing}"
         )
-        
+
         merged = {**existing, **status_json}
         assert isinstance(merged, dict), (
             f"Merged status_json must be dict, got {type(merged).__name__}"
         )
-        
+
         job.status_json = merged
         session.commit()
 
 
 def fetch_experiment(experiment_id: str) -> Experiment | None:
     """Load an experiment with jobs and trials.
-    
+
     Eagerly loads jobs.trials relationship to avoid DetachedInstanceError.
     """
     init_db()
@@ -286,6 +285,7 @@ def cancel_experiment(experiment_id: str) -> Experiment | None:
                 job.completed_at = datetime.now(UTC)
                 if job.celery_task_id:
                     from contextlib import suppress
+
                     with suppress(Exception):
                         app.control.revoke(job.celery_task_id, terminate=True)
 
@@ -315,9 +315,7 @@ def collect_dashboard_data(
             )
             .filter(Experiment.status.in_(live_statuses))
         )
-        live = (
-            live_query.order_by(Experiment.started_at.desc().nullslast()).limit(50).all()
-        )
+        live = live_query.order_by(Experiment.started_at.desc().nullslast()).limit(50).all()
 
         default_recent_statuses = [
             ExperimentStatus.COMPLETED,

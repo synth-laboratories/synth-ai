@@ -58,38 +58,43 @@ from rlm.utils.prompts import RLM_SYSTEM_PROMPT, USER_PROMPT, USER_PROMPT_WITH_R
 from rlm.core import rlm as rlm_core
 from rlm.core import types as rlm_types
 
+
 class PatchedQueryMetadata:
     def __init__(self, prompt):
         if isinstance(prompt, str):
             self.context_lengths = [len(prompt)]
-            self.context_type = 'str'
+            self.context_type = "str"
         elif isinstance(prompt, dict):
             self.context_lengths = [len(chunk) for chunk in prompt.values()]
-            self.context_type = 'dict'
+            self.context_type = "dict"
         elif isinstance(prompt, list):
-            self.context_type = 'list'
+            self.context_type = "list"
             if prompt and isinstance(prompt[0], dict):
-                if 'content' in prompt[0]:
-                    self.context_lengths = [len(chunk['content']) for chunk in prompt]
+                if "content" in prompt[0]:
+                    self.context_lengths = [len(chunk["content"]) for chunk in prompt]
                 else:
                     self.context_lengths = [len(chunk) for chunk in prompt]
             else:
                 self.context_lengths = [len(chunk) for chunk in prompt]
         else:
-            raise ValueError(f'Invalid prompt type: {type(prompt)}')
+            raise ValueError(f"Invalid prompt type: {type(prompt)}")
 
         self.context_total_length = sum(self.context_lengths)
+
 
 rlm_types.QueryMetadata = PatchedQueryMetadata
 rlm_core.QueryMetadata = PatchedQueryMetadata
 
+
 def patched_build_rlm_system_prompt(system_prompt, query_metadata=None, **_kwargs):
     return [
-        {'role': 'system', 'content': system_prompt},
-        {'role': 'assistant', 'content': '{context_metadata}'},
+        {"role": "system", "content": system_prompt},
+        {"role": "assistant", "content": "{context_metadata}"},
     ]
 
+
 from rlm.utils import prompts as rlm_prompts
+
 rlm_prompts.build_rlm_system_prompt = patched_build_rlm_system_prompt
 rlm_core.build_rlm_system_prompt = patched_build_rlm_system_prompt
 
@@ -110,29 +115,29 @@ else:
     TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
     LOCAL_API_PORT = 8115
 
-print(f'Backend: {SYNTH_API_BASE}')
-print(f'Tunnel backend: {TUNNEL_BACKEND.value}')
-print(f'Local API Port: {LOCAL_API_PORT}')
+print(f"Backend: {SYNTH_API_BASE}")
+print(f"Tunnel backend: {TUNNEL_BACKEND.value}")
+print(f"Local API Port: {LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(f'{SYNTH_API_BASE}/health', timeout=30)
+r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
 if r.status_code == 200:
-    print(f'Backend health: {r.json()}')
+    print(f"Backend health: {r.json()}")
 else:
-    print(f'WARNING: Backend returned status {r.status_code}')
-    raise RuntimeError(f'Backend not healthy: status {r.status_code}')
+    print(f"WARNING: Backend returned status {r.status_code}")
+    raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 # Get API Key
-API_KEY = os.environ.get('SYNTH_API_KEY', '')
+API_KEY = os.environ.get("SYNTH_API_KEY", "")
 if not API_KEY:
-    print('No SYNTH_API_KEY found, minting demo key...')
+    print("No SYNTH_API_KEY found, minting demo key...")
     API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
-    print(f'Demo API Key: {API_KEY[:25]}...')
+    print(f"Demo API Key: {API_KEY[:25]}...")
 else:
-    print(f'Using SYNTH_API_KEY: {API_KEY[:20]}...')
+    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
 
 # Set API key in environment for SDK to use
-os.environ['SYNTH_API_KEY'] = API_KEY
+os.environ["SYNTH_API_KEY"] = API_KEY
 
 ENVIRONMENT_API_KEY = ensure_localapi_auth(
     backend_base=SYNTH_API_BASE,
@@ -141,12 +146,13 @@ ENVIRONMENT_API_KEY = ensure_localapi_auth(
 
 USE_TUNNEL = not LOCAL_MODE
 
-print('Config loaded')
+print("Config loaded")
 
 RLM_BASE_SYSTEM_PROMPT = (
-    'You are a recursive language model. Use the REPL with the context variable to reason. '
-    'Call llm_query or llm_query_batched as needed. When finished, answer with FINAL.'
+    "You are a recursive language model. Use the REPL with the context variable to reason. "
+    "Call llm_query or llm_query_batched as needed. When finished, answer with FINAL."
 )
+
 
 # Dataset wrapper
 @dataclass
@@ -159,7 +165,7 @@ class OolongSample:
 
 
 class OolongDataset:
-    def __init__(self, hf_dataset: str = 'oolongbench/oolong-real', hf_config: str = 'dnd'):
+    def __init__(self, hf_dataset: str = "oolongbench/oolong-real", hf_config: str = "dnd"):
         self.hf_dataset = hf_dataset
         self.hf_config = hf_config
         self._cache = {}
@@ -181,9 +187,9 @@ class OolongDataset:
         ds = self._load_split(split)
         idx = index % len(ds)
         row = ds[idx]
-        query = row.get('query') or row.get('question') or ''
-        context = row.get('context_window_text') or row.get('context') or row.get('text') or ''
-        answer = row.get('answer') or ''
+        query = row.get("query") or row.get("question") or ""
+        context = row.get("context_window_text") or row.get("context") or row.get("text") or ""
+        answer = row.get("answer") or ""
         return OolongSample(
             index=idx,
             split=split,
@@ -195,7 +201,7 @@ class OolongDataset:
 
 # Prompt template helpers
 def _normalize_prompt_template(policy_config: Dict[str, Any]) -> Dict[str, Any]:
-    template = policy_config.get('prompt_template') or {}
+    template = policy_config.get("prompt_template") or {}
     if not isinstance(template, dict):
         template = {}
     return template
@@ -204,37 +210,39 @@ def _normalize_prompt_template(policy_config: Dict[str, Any]) -> Dict[str, Any]:
 def _get_prompt_sections(policy_config: Dict[str, Any]) -> List[Dict[str, Any]]:
     template = _normalize_prompt_template(policy_config)
     sections = (
-        template.get('sections')
-        or template.get('prompt_sections')
-        or policy_config.get('prompt_sections')
+        template.get("sections")
+        or template.get("prompt_sections")
+        or policy_config.get("prompt_sections")
         or []
     )
     if not isinstance(sections, list):
         return []
-    return sorted(sections, key=lambda s: s.get('order', 0))
+    return sorted(sections, key=lambda s: s.get("order", 0))
 
 
-def render_prompt_sections(sections: List[Dict[str, Any]], placeholders: Dict[str, str]) -> List[Dict[str, str]]:
+def render_prompt_sections(
+    sections: List[Dict[str, Any]], placeholders: Dict[str, str]
+) -> List[Dict[str, str]]:
     rendered: List[Dict[str, str]] = []
     for section in sections:
-        role = section.get('role', 'user')
-        pattern = section.get('content') or section.get('pattern') or ''
+        role = section.get("role", "user")
+        pattern = section.get("content") or section.get("pattern") or ""
         content = pattern.format(**placeholders)
-        rendered.append({'role': role, 'content': content})
+        rendered.append({"role": role, "content": content})
     return rendered
 
 
 def split_system_and_user(messages: List[Dict[str, str]]) -> tuple[str, str]:
-    system_parts = [m['content'] for m in messages if m.get('role') == 'system']
-    user_parts = [m['content'] for m in messages if m.get('role') != 'system']
-    system_prompt = '\n\n'.join(system_parts).strip()
-    user_prompt = '\n\n'.join(user_parts).strip()
+    system_parts = [m["content"] for m in messages if m.get("role") == "system"]
+    user_parts = [m["content"] for m in messages if m.get("role") != "system"]
+    system_prompt = "\n\n".join(system_parts).strip()
+    user_prompt = "\n\n".join(user_parts).strip()
     return system_prompt, user_prompt
 
 
 def extract_final_answer(text: str) -> str:
     """Extract the final numeric answer from RLM output.
-    
+
     RLM outputs can be verbose with reasoning and REPL code blocks.
     We need to:
     1. Remove REPL code blocks first (they contain numbers but aren't answers)
@@ -244,136 +252,141 @@ def extract_final_answer(text: str) -> str:
     5. Only as last resort, extract last number
     """
     if not text:
-        return ''
-    
+        return ""
+
     import re
+
     text = str(text).strip()
-    
+
     # Step 1: Remove REPL code blocks (```repl...``` or ```python...```)
     # These contain numbers but aren't the final answer
-    text = re.sub(r'```(?:repl|python|code)?\s*\n.*?```', '', text, flags=re.DOTALL | re.IGNORECASE)
-    
+    text = re.sub(r"```(?:repl|python|code)?\s*\n.*?```", "", text, flags=re.DOTALL | re.IGNORECASE)
+
     # Step 2: Try to extract from LaTeX boxed format: \boxed{4} or \(boxed{4}\)
-    boxed_match = re.search(r'\\boxed\{([^}]+)\}', text)
+    boxed_match = re.search(r"\\boxed\{([^}]+)\}", text)
     if boxed_match:
         answer = boxed_match.group(1).strip()
         # Extract just the number if it's mixed with text
-        num_match = re.search(r'\d+', answer)
+        num_match = re.search(r"\d+", answer)
         if num_match:
             return num_match.group(0)
         return answer
-    
+
     # Step 3: Look for "FINAL" marker (case-insensitive) and extract what follows
-    final_match = re.search(r'FINAL\s*[:\-]?\s*(.+?)(?:\n|$)', text, re.IGNORECASE | re.DOTALL)
+    final_match = re.search(r"FINAL\s*[:\-]?\s*(.+?)(?:\n|$)", text, re.IGNORECASE | re.DOTALL)
     if final_match:
         after_final = final_match.group(1).strip()
         # Try boxed format first
-        boxed_in_final = re.search(r'\\boxed\{([^}]+)\}', after_final)
+        boxed_in_final = re.search(r"\\boxed\{([^}]+)\}", after_final)
         if boxed_in_final:
             answer = boxed_in_final.group(1).strip()
-            num_match = re.search(r'\d+', answer)
+            num_match = re.search(r"\d+", answer)
             if num_match:
                 return num_match.group(0)
             return answer
         # Extract first number after FINAL
-        num_match = re.search(r'\d+', after_final)
+        num_match = re.search(r"\d+", after_final)
         if num_match:
             return num_match.group(0)
-    
+
     # Step 4: Look for final answer patterns in the last 500 chars (where final answers usually are)
     # This avoids matching numbers from early reasoning
     last_part = text[-500:] if len(text) > 500 else text
-    
+
     # Patterns that indicate a final answer
     final_patterns = [
-        r'(?:the|final)\s+(?:answer|count|total|number|result)\s+(?:is|:)?\s*(\d+)',
-        r'(?:answer|count|total|number|result)\s+(?:is|:)?\s*(\d+)',
-        r'(?:is|equals?)\s+(\d+)\s*(?:\.|$|\n)',
-        r'(\d+)\s*(?:\.|$|\n)\s*(?:This|Therefore|So|Thus|Hence)',
+        r"(?:the|final)\s+(?:answer|count|total|number|result)\s+(?:is|:)?\s*(\d+)",
+        r"(?:answer|count|total|number|result)\s+(?:is|:)?\s*(\d+)",
+        r"(?:is|equals?)\s+(\d+)\s*(?:\.|$|\n)",
+        r"(\d+)\s*(?:\.|$|\n)\s*(?:This|Therefore|So|Thus|Hence)",
     ]
     for pattern in final_patterns:
         matches = list(re.finditer(pattern, last_part, re.IGNORECASE))
         if matches:
             # Take the last match (most likely the final answer)
             return matches[-1].group(1).strip()
-    
+
     # Step 5: Fallback - extract last number from the cleaned text (no code blocks)
     # But only if the text is reasonably short (not full reasoning)
     if len(text) < 2000:
-        numbers = re.findall(r'\d+', text)
+        numbers = re.findall(r"\d+", text)
         if numbers:
             return numbers[-1]
-    
+
     return text
 
 
 def normalize_answer(text: str) -> str:
     """Normalize answer for comparison - extract numeric answer first, then normalize."""
     if text is None:
-        return ''
+        return ""
     if not isinstance(text, str):
         text = str(text)
-    
+
     # First try to extract the final numeric answer
     extracted = extract_final_answer(text)
     if extracted:
         # Normalize the extracted answer (strip to just alphanumeric)
-        normalized = ''.join(ch.lower() for ch in extracted.strip() if ch.isalnum() or ch.isspace()).strip()
+        normalized = "".join(
+            ch.lower() for ch in extracted.strip() if ch.isalnum() or ch.isspace()
+        ).strip()
         if normalized:
             return normalized
-    
+
     # Fallback to original normalization
-    return ''.join(ch.lower() for ch in text.strip() if ch.isalnum() or ch.isspace()).strip()
+    return "".join(ch.lower() for ch in text.strip() if ch.isalnum() or ch.isspace()).strip()
 
 
 # Local API factory
-APP_ID = 'oolong_rlm'
-APP_NAME = 'OOLONG RLM (Recursive Language Model) QA'
+APP_ID = "oolong_rlm"
+APP_NAME = "OOLONG RLM (Recursive Language Model) QA"
 
-BASELINE_SYSTEM_PROMPT = 'Answer questions using the context.'
-BASELINE_USER_PROMPT = 'Query: {query}\n\nContext:\n{context}\n\nAnswer the query using the context.'
+BASELINE_SYSTEM_PROMPT = "Answer questions using the context."
+BASELINE_USER_PROMPT = (
+    "Query: {query}\n\nContext:\n{context}\n\nAnswer the query using the context."
+)
 
-RLM_CONTEXT_METADATA_PATTERN = '{context_metadata}'
+RLM_CONTEXT_METADATA_PATTERN = "{context_metadata}"
 RLM_FIRST_USER_PROMPT = (
-    'You have not interacted with the REPL environment or seen your prompt / context yet. '
-    'Your next action should be to look through and figure out how to answer the prompt, '
+    "You have not interacted with the REPL environment or seen your prompt / context yet. "
+    "Your next action should be to look through and figure out how to answer the prompt, "
     "so don't just provide a final answer yet.\n\n" + USER_PROMPT
 )
 
-COMPOSED_SYSTEM_PROMPT = RLM_BASE_SYSTEM_PROMPT + ' ' + BASELINE_SYSTEM_PROMPT
+COMPOSED_SYSTEM_PROMPT = RLM_BASE_SYSTEM_PROMPT + " " + BASELINE_SYSTEM_PROMPT
 
 
 def create_oolong_rlm_local_api():
     oolong = OolongDataset()
-    oolong.ensure_ready(['validation', 'test'])
+    oolong.ensure_ready(["validation", "test"])
 
     async def run_rollout(request: RolloutRequest, fastapi_request) -> RolloutResponse:
         policy_config = request.policy.config or {}
         env_config = request.env.config or {}
-        split = env_config.get('split', 'validation')
+        split = env_config.get("split", "validation")
         seed = request.env.seed or 0
 
         sample = oolong.sample(split=split, index=seed)
         placeholders = {
-            'query': sample.query,
-            'context': sample.context,
-            'context_metadata': '{context_metadata}',
+            "query": sample.query,
+            "context": sample.context,
+            "context_metadata": "{context_metadata}",
         }
 
         sections = _get_prompt_sections(policy_config)
         if not sections:
             sections = [
-                {'role': 'system', 'content': COMPOSED_SYSTEM_PROMPT, 'order': 0},
-                {'role': 'assistant', 'content': RLM_CONTEXT_METADATA_PATTERN, 'order': 1},
-                {'role': 'user', 'content': RLM_FIRST_USER_PROMPT, 'order': 2},
-                {'role': 'user', 'content': BASELINE_USER_PROMPT, 'order': 3},
+                {"role": "system", "content": COMPOSED_SYSTEM_PROMPT, "order": 0},
+                {"role": "assistant", "content": RLM_CONTEXT_METADATA_PATTERN, "order": 1},
+                {"role": "user", "content": RLM_FIRST_USER_PROMPT, "order": 2},
+                {"role": "user", "content": BASELINE_USER_PROMPT, "order": 3},
             ]
         rendered = render_prompt_sections(sections, placeholders)
         messages_for_validation = []
         for section in sections:
-            role = section.get('role', 'user')
-            pattern = section.get('content') or section.get('pattern') or ''
-            messages_for_validation.append({'role': role, 'content': pattern})
+            role = section.get("role", "user")
+            pattern = section.get("content") or section.get("pattern") or ""
+            messages_for_validation.append({"role": role, "content": pattern})
 
         system_prompt, root_prompt = split_system_and_user(rendered)
         if system_prompt:
@@ -381,29 +394,29 @@ def create_oolong_rlm_local_api():
         else:
             custom_system_prompt = RLM_BASE_SYSTEM_PROMPT
         inference_url = (
-            policy_config.get('inference_url')
-            or policy_config.get('api_base')
-            or policy_config.get('base_url')
+            policy_config.get("inference_url")
+            or policy_config.get("api_base")
+            or policy_config.get("base_url")
         )
         if not inference_url:
-            raise ValueError('Missing inference_url in policy config')
+            raise ValueError("Missing inference_url in policy config")
 
-        api_key = policy_config.get('api_key') or API_KEY
+        api_key = policy_config.get("api_key") or API_KEY
         if not api_key:
-            raise ValueError('Missing policy api_key for inference proxy')
+            raise ValueError("Missing policy api_key for inference proxy")
 
-        model_name = policy_config.get('model', 'gpt-4o-mini')
-        max_iterations = int(env_config.get('max_iterations', 2))
-        max_depth = int(env_config.get('max_depth', 0))
+        model_name = policy_config.get("model", "gpt-4o-mini")
+        max_iterations = int(env_config.get("max_iterations", 2))
+        max_depth = int(env_config.get("max_depth", 0))
 
         rlm = RLM(
-            backend='openai',
+            backend="openai",
             backend_kwargs={
-                'model_name': model_name,
-                'api_key': api_key,
-                'base_url': inference_url,
+                "model_name": model_name,
+                "api_key": api_key,
+                "base_url": inference_url,
             },
-            environment='local',
+            environment="local",
             environment_kwargs={},
             custom_system_prompt=custom_system_prompt,
             max_iterations=max_iterations,
@@ -424,41 +437,51 @@ def create_oolong_rlm_local_api():
             else:
                 # Try multiple ways to extract the answer
                 predicted = (
-                    getattr(completion, 'response', None) or
-                    getattr(completion, 'answer', None) or
-                    getattr(completion, 'final_answer', None) or
-                    getattr(completion, 'completion', None) or
-                    str(completion)
+                    getattr(completion, "response", None)
+                    or getattr(completion, "answer", None)
+                    or getattr(completion, "final_answer", None)
+                    or getattr(completion, "completion", None)
+                    or str(completion)
                 )
-                
+
                 # If response contains "FINAL", extract everything after it
-                if predicted and 'FINAL' in str(predicted).upper():
-                    parts = str(predicted).upper().split('FINAL', 1)
+                if predicted and "FINAL" in str(predicted).upper():
+                    parts = str(predicted).upper().split("FINAL", 1)
                     if len(parts) > 1:
                         predicted = parts[1].strip()
-                
+
                 # Convert to string if not already
-                predicted = str(predicted) if predicted else ''
+                predicted = str(predicted) if predicted else ""
         except Exception as e:
             print(f"[RLM ERROR seed={seed}] Completion failed: {e}", flush=True)
             import traceback
+
             traceback.print_exc()
-            predicted = ''
-        
-        gold = sample.answer or ''
-        
+            predicted = ""
+
+        gold = sample.answer or ""
+
         # Extract final answer from verbose RLM output
         extracted_predicted = extract_final_answer(predicted)
-        
+
         # Debug logging for first few seeds to diagnose issues
         if seed < 3:
-            print(f"[DEBUG seed={seed}] predicted (raw)={predicted[:300] if predicted else 'EMPTY'}...", flush=True)
+            print(
+                f"[DEBUG seed={seed}] predicted (raw)={predicted[:300] if predicted else 'EMPTY'}...",
+                flush=True,
+            )
             print(f"[DEBUG seed={seed}] predicted (extracted)={extracted_predicted}", flush=True)
             print(f"[DEBUG seed={seed}] gold={gold}", flush=True)
-            print(f"[DEBUG seed={seed}] normalized_predicted={normalize_answer(extracted_predicted)}", flush=True)
+            print(
+                f"[DEBUG seed={seed}] normalized_predicted={normalize_answer(extracted_predicted)}",
+                flush=True,
+            )
             print(f"[DEBUG seed={seed}] normalized_gold={normalize_answer(gold)}", flush=True)
-            print(f"[DEBUG seed={seed}] match={normalize_answer(extracted_predicted) == normalize_answer(gold)}", flush=True)
-        
+            print(
+                f"[DEBUG seed={seed}] match={normalize_answer(extracted_predicted) == normalize_answer(gold)}",
+                flush=True,
+            )
+
         # Use extracted answer for comparison
         predicted = extracted_predicted
 
@@ -466,37 +489,42 @@ def create_oolong_rlm_local_api():
 
         return RolloutResponse(
             run_id=request.run_id,
-            metrics=RolloutMetrics(outcome_reward=reward, details={'messages': messages_for_validation, 'predicted': predicted, 'gold': gold}),
+            metrics=RolloutMetrics(
+                outcome_reward=reward,
+                details={"messages": messages_for_validation, "predicted": predicted, "gold": gold},
+            ),
             trace=None,
-            trace_correlation_id=policy_config.get('trace_correlation_id'),
+            trace_correlation_id=policy_config.get("trace_correlation_id"),
         )
 
     def provide_taskset_description():
         return {
-            'splits': ['validation', 'test'],
-            'sizes': {'validation': oolong.size('validation'), 'test': oolong.size('test')},
+            "splits": ["validation", "test"],
+            "sizes": {"validation": oolong.size("validation"), "test": oolong.size("test")},
         }
 
     def provide_task_instances(seeds):
         for seed in seeds:
-            sample = oolong.sample(split='validation', index=seed)
+            sample = oolong.sample(split="validation", index=seed)
             yield TaskInfo(
-                task={'id': APP_ID, 'name': APP_NAME},
-                dataset={'id': APP_ID, 'split': sample.split, 'index': sample.index},
-                inference={'tool': 'rlm_repl'},
-                limits={'max_turns': 1},
-                task_metadata={'query': sample.query},
+                task={"id": APP_ID, "name": APP_NAME},
+                dataset={"id": APP_ID, "split": sample.split, "index": sample.index},
+                inference={"tool": "rlm_repl"},
+                limits={"max_turns": 1},
+                task_metadata={"query": sample.query},
             )
 
-    return create_local_api(LocalAPIConfig(
-        app_id=APP_ID,
-        name=APP_NAME,
-        description='OOLONG RLM local API for prompt optimization.',
-        provide_taskset_description=provide_taskset_description,
-        provide_task_instances=provide_task_instances,
-        rollout=run_rollout,
-        cors_origins=['*'],
-    ))
+    return create_local_api(
+        LocalAPIConfig(
+            app_id=APP_ID,
+            name=APP_NAME,
+            description="OOLONG RLM local API for prompt optimization.",
+            provide_taskset_description=provide_taskset_description,
+            provide_task_instances=provide_task_instances,
+            rollout=run_rollout,
+            cors_origins=["*"],
+        )
+    )
 
 
 def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -533,21 +561,21 @@ async def main():
     total_start = time.time()
 
     # Start Local API
-    print('\n' + '=' * 60)
-    print('STARTING LOCAL API')
-    print('=' * 60)
-    print('Creating OOLONG RLM local API...')
+    print("\n" + "=" * 60)
+    print("STARTING LOCAL API")
+    print("=" * 60)
+    print("Creating OOLONG RLM local API...")
     app = create_oolong_rlm_local_api()
 
     kill_port(LOCAL_API_PORT)
     run_server_background(app, LOCAL_API_PORT)
 
-    print(f'Waiting for local API on port {LOCAL_API_PORT}...')
+    print(f"Waiting for local API on port {LOCAL_API_PORT}...")
     wait_for_health_check_sync("localhost", LOCAL_API_PORT, ENVIRONMENT_API_KEY, timeout=60.0)
-    print('Local API ready!')
+    print("Local API ready!")
 
     if USE_TUNNEL:
-        print('\nProvisioning Cloudflare tunnel...')
+        print("\nProvisioning Cloudflare tunnel...")
         tunnel_start = time.time()
         tunnel = await TunneledLocalAPI.create(
             local_port=LOCAL_API_PORT,
@@ -557,55 +585,66 @@ async def main():
             progress=True,
         )
         LOCAL_API_URL = tunnel.url
-        timings['tunnel'] = time.time() - tunnel_start
+        timings["tunnel"] = time.time() - tunnel_start
     else:
-        print(f'\nUsing {LOCAL_HOST} (no tunnel)...')
+        print(f"\nUsing {LOCAL_HOST} (no tunnel)...")
         LOCAL_API_URL = f"http://{LOCAL_HOST}:{LOCAL_API_PORT}"
 
-    print(f'Local API URL: {LOCAL_API_URL}' + (f' ({format_duration(timings["tunnel"])})' if 'tunnel' in timings else ''))
+    print(
+        f"Local API URL: {LOCAL_API_URL}"
+        + (f" ({format_duration(timings['tunnel'])})" if "tunnel" in timings else "")
+    )
 
     # Run GEPA optimization
-    print('\n' + '=' * 60)
-    print('RUNNING GEPA OPTIMIZATION')
-    print('=' * 60)
+    print("\n" + "=" * 60)
+    print("RUNNING GEPA OPTIMIZATION")
+    print("=" * 60)
 
     config_body = {
-        'prompt_learning': {
-            'algorithm': 'gepa',
-            'task_app_url': LOCAL_API_URL,
-            'env_name': 'oolong',
-            'initial_prompt': {
-                'messages': [
-                    {'role': 'system', 'order': 0, 'pattern': COMPOSED_SYSTEM_PROMPT},
-                    {'role': 'assistant', 'order': 1, 'pattern': RLM_CONTEXT_METADATA_PATTERN},
-                    {'role': 'user', 'order': 2, 'pattern': RLM_FIRST_USER_PROMPT},
-                    {'role': 'user', 'order': 3, 'pattern': BASELINE_USER_PROMPT},
+        "prompt_learning": {
+            "algorithm": "gepa",
+            "task_app_url": LOCAL_API_URL,
+            "env_name": "oolong",
+            "initial_prompt": {
+                "messages": [
+                    {"role": "system", "order": 0, "pattern": COMPOSED_SYSTEM_PROMPT},
+                    {"role": "assistant", "order": 1, "pattern": RLM_CONTEXT_METADATA_PATTERN},
+                    {"role": "user", "order": 2, "pattern": RLM_FIRST_USER_PROMPT},
+                    {"role": "user", "order": 3, "pattern": BASELINE_USER_PROMPT},
                 ],
-                'wildcards': {'query': 'REQUIRED', 'context': 'REQUIRED', 'context_metadata': 'REQUIRED'},
-            },
-            'policy': {
-                'model': 'gpt-4o-mini',
-                'inference_mode': 'synth_hosted',
-                'provider': 'openai',
-                'temperature': 0.0,
-                'max_completion_tokens': 256,
-            },
-            'gepa': {
-                'env_name': 'oolong',
-                'evaluation': {
-                    'seeds': list(range(13)),
-                    'validation_seeds': list(range(13, 15)),
+                "wildcards": {
+                    "query": "REQUIRED",
+                    "context": "REQUIRED",
+                    "context_metadata": "REQUIRED",
                 },
-                'rollout': {'budget': 6, 'max_concurrent': 3, 'minibatch_size': 3},
-                'mutation': {'rate': 0.3},
-                'population': {'initial_size': 2, 'num_generations': 1, 'children_per_generation': 1},
-                'archive': {'size': 10, 'pareto_set_size': 10},
-                'token': {'counting_model': 'gpt-4'},
             },
-            'env_config': {
-                'split': 'validation',
-                'max_iterations': 2,
-                'max_depth': 0,
+            "policy": {
+                "model": "gpt-4o-mini",
+                "inference_mode": "synth_hosted",
+                "provider": "openai",
+                "temperature": 0.0,
+                "max_completion_tokens": 256,
+            },
+            "gepa": {
+                "env_name": "oolong",
+                "evaluation": {
+                    "seeds": list(range(13)),
+                    "validation_seeds": list(range(13, 15)),
+                },
+                "rollout": {"budget": 6, "max_concurrent": 3, "minibatch_size": 3},
+                "mutation": {"rate": 0.3},
+                "population": {
+                    "initial_size": 2,
+                    "num_generations": 1,
+                    "children_per_generation": 1,
+                },
+                "archive": {"size": 10, "pareto_set_size": 10},
+                "token": {"counting_model": "gpt-4"},
+            },
+            "env_config": {
+                "split": "validation",
+                "max_iterations": 2,
+                "max_depth": 0,
             },
         },
     }
@@ -616,41 +655,40 @@ async def main():
         api_key=API_KEY,
     )
 
-    print('\nSubmitting GEPA job...')
+    print("\nSubmitting GEPA job...")
     job_id = job.submit()
-    print(f'GEPA job submitted: {job_id}')
+    print(f"GEPA job submitted: {job_id}")
 
     optimization_start = time.time()
-    print('\nStreaming events...')
-    print('Note: RLM rollouts can take 30-60+ seconds each due to recursive LLM calls.')
-    print('Polling will continue even if individual status checks timeout.\n')
-    
+    print("\nStreaming events...")
+    print("Note: RLM rollouts can take 30-60+ seconds each due to recursive LLM calls.")
+    print("Polling will continue even if individual status checks timeout.\n")
+
     # RLM rollouts are slow (multiple recursive calls), so increase interval
     # and handle timeout errors gracefully - the job is still running
     result = job.poll_until_complete(timeout=3600.0, interval=10.0, progress=True)
-    timings['optimization'] = time.time() - optimization_start
+    timings["optimization"] = time.time() - optimization_start
 
-    print('\n' + '=' * 60)
-    print('RESULTS')
-    print('=' * 60)
-    print(f'Final status: {result.status.value}')
-    print(f'Best score: {result.best_score:.2%}')
-    print(f'Duration: {format_duration(timings["optimization"])}')
+    print("\n" + "=" * 60)
+    print("RESULTS")
+    print("=" * 60)
+    print(f"Final status: {result.status.value}")
+    print(f"Best score: {result.best_score:.2%}")
+    print(f"Duration: {format_duration(timings['optimization'])}")
 
     # Timing summary
-    timings['total'] = time.time() - total_start
-    print('\n' + '=' * 60)
-    print('TIMING SUMMARY')
-    print('=' * 60)
-    if 'tunnel' in timings:
+    timings["total"] = time.time() - total_start
+    print("\n" + "=" * 60)
+    print("TIMING SUMMARY")
+    print("=" * 60)
+    if "tunnel" in timings:
         print(f"  Tunnel setup:  {format_duration(timings['tunnel'])}")
     print(f"  Optimization:  {format_duration(timings['optimization'])}")
     print(f"  ─────────────────────────")
     print(f"  Total:         {format_duration(timings['total'])}")
 
-    print('\nDemo complete!')
+    print("\nDemo complete!")
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-

@@ -8,16 +8,9 @@ from synth_ai.core.paths import print_paths_formatted
 
 
 @click.command()
+@click.argument("action", type=click.Choice(["check", "list"]), metavar="[ACTION]")
 @click.argument(
-    "action",
-    type=click.Choice(["check", "list"]),
-    metavar="[ACTION]"
-)
-@click.argument(
-    "path",
-    type=click.Path(path_type=Path, exists=True),
-    metavar="[PATH]",
-    required=False
+    "path", type=click.Path(path_type=Path, exists=True), metavar="[PATH]", required=False
 )
 def modal_app_cmd(
     action: str,

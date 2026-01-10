@@ -10,91 +10,93 @@ from typing import Any, Literal, Optional
 @dataclass(slots=True)
 class EvalConfig:
     """Configuration for 'synth-ai eval' command.
-    
+
     Validates and provides defaults for evaluation runs against task apps.
     """
-    
+
     # Required: Task app identifier
     app_id: str
-    
+
     # Required: Model to evaluate
     model: str
-    
+
     # Required: Seeds to run
     seeds: list[int]
-    
+
     # Optional: Task app URL (None = spawn in-process)
     task_app_url: str | None = None
-    
+
     # Optional: Data split to use
     split: str = "train"
-    
+
     # Optional: Maximum turns/steps per episode
     max_turns: int | None = None
-    
+
     # Optional: Maximum LLM calls per episode
     max_llm_calls: int = 10
-    
+
     # Optional: Concurrency for parallel rollouts
     concurrency: int = 1
-    
+
     # Optional: Environment name
     env_name: str | None = None
-    
+
     # Optional: Policy name
     policy_name: str | None = None
-    
+
     # Optional: Trace format ("compact", "full", "structured")
     trace_format: Literal["compact", "full", "structured"] = "compact"
-    
+
     # Optional: Whether to return traces in response
     return_trace: bool = False
-    
+
     # Optional: Environment config overrides
     env_config: dict[str, Any] = field(default_factory=dict)
-    
+
     # Optional: Policy config overrides
     policy_config: dict[str, Any] = field(default_factory=dict)
-    
+
     # Optional: Metadata for traces
     metadata: dict[str, str] = field(default_factory=dict)
-    
+
     # Optional: SQL query for metadata filtering
     metadata_sql: str | None = None
-    
+
     def __post_init__(self):
         """Validate configuration after initialization."""
         if not self.app_id:
             raise ValueError("app_id is required")
-        
+
         if not self.model:
             raise ValueError("model is required")
-        
+
         if not self.seeds:
             raise ValueError("seeds list cannot be empty")
-        
+
         if not isinstance(self.seeds, list):
             raise ValueError("seeds must be a list of integers")
-        
+
         if self.concurrency < 1:
             raise ValueError("concurrency must be >= 1")
-        
+
         if self.max_llm_calls < 1:
             raise ValueError("max_llm_calls must be >= 1")
-        
+
         if self.max_turns is not None and self.max_turns < 1:
             raise ValueError("max_turns must be >= 1")
-        
+
         if self.trace_format not in ("compact", "full", "structured"):
-            raise ValueError(f"trace_format must be 'compact', 'full', or 'structured', got: {self.trace_format}")
-    
+            raise ValueError(
+                f"trace_format must be 'compact', 'full', or 'structured', got: {self.trace_format}"
+            )
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EvalConfig:
         """Create EvalConfig from a dictionary (e.g. from TOML).
-        
+
         Args:
             data: Dictionary with eval configuration
-            
+
         Returns:
             Validated EvalConfig instance
         """
@@ -117,29 +119,29 @@ class EvalConfig:
             "metadata": data.get("metadata", {}),
             "metadata_sql": data.get("metadata_sql"),
         }
-        
+
         return cls(**config_dict)
 
 
 @dataclass(slots=True)
 class FilterConfig:
     """Configuration for 'synth-ai filter' command.
-    
+
     Validates and provides defaults for filtering traces into SFT datasets.
     """
-    
+
     # Required: Database path or URL
     db: str
-    
+
     # Required: Output JSONL path
     output: str
-    
+
     # Optional: Filter by data splits
     splits: list[str] = field(default_factory=list)
-    
+
     # Optional: Filter by task IDs
     task_ids: list[str] = field(default_factory=list)
-    
+
     # Optional: Filter by models
     models: list[str] = field(default_factory=list)
 
@@ -148,41 +150,41 @@ class FilterConfig:
 
     # Optional: Minimum official score threshold
     min_official_score: float | None = None
-    
+
     # Optional: Maximum official score threshold
     max_official_score: float | None = None
-    
+
     # Optional: Minimum verifier scores (verifier_name -> min_score)
     min_verifier_scores: dict[str, float] = field(default_factory=dict)
-    
+
     # Optional: Maximum verifier scores (verifier_name -> max_score)
     max_verifier_scores: dict[str, float] = field(default_factory=dict)
-    
+
     # Optional: Limit number of examples
     limit: int | None = None
-    
+
     # Optional: Offset for pagination
     offset: int | None = None
-    
+
     # Optional: Whether to shuffle results
     shuffle: bool = False
-    
+
     # Optional: Random seed for shuffling
     shuffle_seed: int | None = None
-    
+
     def __post_init__(self):
         """Validate configuration after initialization."""
         if not self.db:
             raise ValueError("db (database path or URL) is required")
-        
+
         if not self.output:
             raise ValueError("output (JSONL file path) is required")
-        
+
         # Validate output has .jsonl extension
         output_path = Path(self.output)
         if output_path.suffix.lower() not in (".jsonl", ".json"):
             raise ValueError(f"output must be a .jsonl or .json file, got: {self.output}")
-        
+
         # Validate score thresholds
         if (
             self.min_official_score is not None
@@ -195,25 +197,25 @@ class FilterConfig:
             self.objective = str(self.objective).strip()
             if not self.objective:
                 self.objective = None
-        
+
         # Validate limit/offset
         if self.limit is not None and self.limit < 1:
             raise ValueError("limit must be >= 1")
-        
+
         if self.offset is not None and self.offset < 0:
             raise ValueError("offset must be >= 0")
-        
+
         # Validate shuffle seed requires shuffle
         if self.shuffle_seed is not None and not self.shuffle:
             raise ValueError("shuffle_seed requires shuffle=true")
-    
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FilterConfig:
         """Create FilterConfig from a dictionary (e.g. from TOML).
-        
+
         Args:
             data: Dictionary with filter configuration
-            
+
         Returns:
             Validated FilterConfig instance
         """
@@ -234,12 +236,12 @@ class FilterConfig:
             "shuffle": data.get("shuffle", False),
             "shuffle_seed": data.get("shuffle_seed"),
         }
-        
+
         return cls(**config_dict)
-    
+
     def get_db_url(self) -> str:
         """Convert db path to proper SQLite URL if needed.
-        
+
         Returns:
             Database URL suitable for SQLAlchemy/aiosqlite
         """
@@ -251,10 +253,10 @@ class FilterConfig:
             # Ensure parent directory exists
             db_path.parent.mkdir(parents=True, exist_ok=True)
             return f"sqlite+aiosqlite:///{db_path}"
-    
+
     def get_output_path(self) -> Path:
         """Get resolved output path with parent directory created.
-        
+
         Returns:
             Resolved Path object with parent directory created
         """

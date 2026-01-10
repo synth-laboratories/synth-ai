@@ -10,6 +10,7 @@ repo_root = demo_dir.parent.parent
 # Load .env
 try:
     from dotenv import load_dotenv
+
     env_file = repo_root / ".env"
     if env_file.exists():
         load_dotenv(env_file)
@@ -42,6 +43,7 @@ ENVIRONMENT_API_KEY = ensure_localapi_auth(
 )
 print(f"Env key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
 
+
 async def main():
     BASELINE_STYLE_PROMPT = """You are generating a professional startup website screenshot.
 
@@ -73,8 +75,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.get(
-                url,
-                headers={"Authorization": f"Bearer {ENVIRONMENT_API_KEY}"}
+                url, headers={"Authorization": f"Bearer {ENVIRONMENT_API_KEY}"}
             )
             print(f"Status: {response.status_code}")
             if response.status_code == 200:
@@ -88,10 +89,12 @@ Create a webpage that feels polished, modern, and trustworthy."""
     except Exception as e:
         print(f"Exception: {e}")
         import traceback
+
         traceback.print_exc()
 
     print("\nKeeping server running for 60 seconds...")
     await asyncio.sleep(60)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

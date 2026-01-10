@@ -13,5 +13,3 @@ __all__ = [
     "codex_cmd",
     "opencode_cmd",
 ]
-
-

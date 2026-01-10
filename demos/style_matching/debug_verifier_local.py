@@ -26,7 +26,9 @@ def extract_verifier_score(result: Dict[str, Any]) -> float:
     output = result.get("output", result)
     if isinstance(output, dict):
         outcome_review = output.get("outcome_review")
-        if isinstance(outcome_review, dict) and isinstance(outcome_review.get("total"), (int, float)):
+        if isinstance(outcome_review, dict) and isinstance(
+            outcome_review.get("total"), (int, float)
+        ):
             return float(outcome_review["total"])
         event_reviews = output.get("event_reviews")
         if isinstance(event_reviews, list) and event_reviews:
@@ -82,7 +84,9 @@ def make_gold_examples(session_trace: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Debug verifier scoring against localhost backend.")
+    parser = argparse.ArgumentParser(
+        description="Debug verifier scoring against localhost backend."
+    )
     parser.add_argument("--backend", default="http://localhost:8000", help="Backend base URL")
     parser.add_argument(
         "--verifier-job-id",

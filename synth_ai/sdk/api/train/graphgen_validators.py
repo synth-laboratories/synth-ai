@@ -67,7 +67,9 @@ def validate_graphgen_job_config(config: GraphGenJobConfig, dataset: GraphGenTas
                         "field": "policy_models",
                         "error": f"Unsupported policy model: {policy_model_clean}",
                         "suggestion": f"Supported models: {sorted(SUPPORTED_POLICY_MODELS)}",
-                        "similar": _find_similar_models(policy_model_clean, SUPPORTED_POLICY_MODELS),
+                        "similar": _find_similar_models(
+                            policy_model_clean, SUPPORTED_POLICY_MODELS
+                        ),
                     }
                 )
 
@@ -116,4 +118,3 @@ def validate_graphgen_job_config(config: GraphGenJobConfig, dataset: GraphGenTas
 
 
 __all__ = ["GraphGenValidationError", "validate_graphgen_job_config"]
-

@@ -7,6 +7,7 @@ from pathlib import Path
 # Install log filter as early as possible to suppress noisy codex_otel logs
 try:
     from synth_ai.core.log_filter import install_log_filter
+
     install_log_filter()
 except Exception:
     # Silently fail if log filter can't be installed

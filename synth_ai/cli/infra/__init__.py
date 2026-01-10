@@ -10,5 +10,3 @@ __all__ = [
     "mcp_cmd",
     "modal_app_cmd",
 ]
-
-

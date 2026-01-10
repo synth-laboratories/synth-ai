@@ -17,13 +17,13 @@ from .validation import validate_path
 
 def _load_toml(config_path: Path) -> dict[str, Any]:
     """Load TOML using tomllib/tomli depending on runtime.
-    
+
     Args:
         config_path: Path to TOML config file
-        
+
     Returns:
         Parsed TOML as dictionary
-        
+
     Raises:
         AssertionError: If config_path is invalid or file cannot be parsed
         FileNotFoundError: If config file doesn't exist
@@ -31,35 +31,31 @@ def _load_toml(config_path: Path) -> dict[str, Any]:
     # Validate input
     assert config_path is not None, "config_path cannot be None"
     path = validate_path(config_path, "config_path", must_exist=True)
-    
+
     try:
         import tomllib  # type: ignore[attr-defined]
     except ModuleNotFoundError:
         import tomli as tomllib  # type: ignore[no-redef]
-    
+
     with open(path, "rb") as fh:
         config = tomllib.load(fh)
-        assert isinstance(config, dict), (
-            f"TOML config must be dict, got {type(config).__name__}"
-        )
+        assert isinstance(config, dict), f"TOML config must be dict, got {type(config).__name__}"
         return config
 
 
 def _ensure_prompt_learning_section(config: dict[str, Any]) -> dict[str, Any]:
     """Ensure prompt_learning section exists and is a dict.
-    
+
     Args:
         config: TOML config dictionary
-        
+
     Returns:
         prompt_learning section dictionary
-        
+
     Raises:
         AssertionError: If config is invalid or section is wrong type
     """
-    assert isinstance(config, dict), (
-        f"config must be dict, got {type(config).__name__}"
-    )
+    assert isinstance(config, dict), f"config must be dict, got {type(config).__name__}"
     section = config.setdefault("prompt_learning", {})
     assert isinstance(section, dict), (
         f"Expected [prompt_learning] section to be a dict, got {type(section).__name__}"
@@ -67,11 +63,13 @@ def _ensure_prompt_learning_section(config: dict[str, Any]) -> dict[str, Any]:
     return section
 
 
-def _find_similar_keys(data: dict[str, Any], search_key: str, results: list[str], prefix: str = "") -> None:
+def _find_similar_keys(
+    data: dict[str, Any], search_key: str, results: list[str], prefix: str = ""
+) -> None:
     """Recursively find keys similar to search_key in nested dict structure."""
     if not isinstance(data, dict):
         return
-    
+
     for key, value in data.items():
         current_path = f"{prefix}.{key}" if prefix else key
         if search_key.lower() in key.lower() or key.lower() in search_key.lower():
@@ -80,9 +78,11 @@ def _find_similar_keys(data: dict[str, Any], search_key: str, results: list[str]
             _find_similar_keys(value, search_key, results, current_path)
 
 
-def _deep_update(base: MutableMapping[str, Any], overrides: Mapping[str, Any]) -> MutableMapping[str, Any]:
+def _deep_update(
+    base: MutableMapping[str, Any], overrides: Mapping[str, Any]
+) -> MutableMapping[str, Any]:
     """Deep update with support for dot-notation keys (e.g., 'prompt_learning.gepa.rollout.budget').
-    
+
     Dot-notation keys are split and create nested dictionaries.
     Regular keys are updated normally.
     """
@@ -171,7 +171,9 @@ class PreparedConfig:
             shutil.rmtree(self.workdir, ignore_errors=True)
 
 
-def prepare_config_file(config_path: str | Path, overrides: Mapping[str, Any] | None = None) -> PreparedConfig:
+def prepare_config_file(
+    config_path: str | Path, overrides: Mapping[str, Any] | None = None
+) -> PreparedConfig:
     """
     Load a TOML config, apply overrides, and materialize a temporary file.
 
@@ -191,24 +193,20 @@ def prepare_config_file(config_path: str | Path, overrides: Mapping[str, Any] | 
     # Validate inputs
     assert config_path is not None, "config_path cannot be None"
     source_path = validate_path(config_path, "config_path", must_exist=True)
-    
+
     if overrides is not None:
         assert isinstance(overrides, Mapping), (
             f"overrides must be Mapping, got {type(overrides).__name__}"
         )
 
     data = _load_toml(source_path)
-    assert isinstance(data, dict), (
-        f"_load_toml must return dict, got {type(data).__name__}"
-    )
-    
+    assert isinstance(data, dict), f"_load_toml must return dict, got {type(data).__name__}"
+
     if overrides:
         _deep_update(data, overrides)
         # Validate after merge
-        assert isinstance(data, dict), (
-            f"Config after merge must be dict, got {type(data).__name__}"
-        )
-        
+        assert isinstance(data, dict), f"Config after merge must be dict, got {type(data).__name__}"
+
         # VALIDATION: Verify critical overrides were actually applied
         # This prevents silent failures where overrides don't match expected paths
         for override_key, override_value in overrides.items():
@@ -216,14 +214,14 @@ def prepare_config_file(config_path: str | Path, overrides: Mapping[str, Any] | 
             keys = override_key.split(".")
             current = data
             found = True
-            
+
             # Navigate through nested structure
             for key in keys:
                 if not isinstance(current, dict) or key not in current:
                     found = False
                     break
                 current = current[key]
-            
+
             if not found:
                 # Try to find similar keys for better error message
                 similar_keys = []
@@ -254,17 +252,15 @@ def prepare_config_file(config_path: str | Path, overrides: Mapping[str, Any] | 
 
     normalize_env_file_path(data, source_path)
     results_folder = resolve_results_folder(data, source_path)
-    assert results_folder.exists(), (
-        f"results_folder must exist after creation: {results_folder}"
-    )
+    assert results_folder.exists(), f"results_folder must exist after creation: {results_folder}"
 
     workdir = Path(tempfile.mkdtemp(prefix="experiment_queue_cfg_"))
     assert workdir.exists(), f"workdir must exist after creation: {workdir}"
-    
+
     tmp_config_path = workdir / source_path.name
     with open(tmp_config_path, "wb") as fh:
         tomli_w.dump(data, fh)
-    
+
     assert tmp_config_path.exists(), (
         f"Temporary config file must exist after writing: {tmp_config_path}"
     )

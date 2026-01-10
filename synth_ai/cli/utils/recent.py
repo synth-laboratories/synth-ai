@@ -19,6 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 else:
     pd = Any  # type: ignore[assignment]
 
+
 def _fmt_int(v: Any) -> str:
     try:
         return f"{int(v):,}"

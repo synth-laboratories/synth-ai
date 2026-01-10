@@ -29,11 +29,15 @@ TOOL_SCHEMA = {
         "parameters": {
             "type": "object",
             "properties": {
-                "verdict": {"type": "string", "enum": ["SUPPORTED", "REFUTED"], "description": "The verdict"}
+                "verdict": {
+                    "type": "string",
+                    "enum": ["SUPPORTED", "REFUTED"],
+                    "description": "The verdict",
+                }
             },
-            "required": ["verdict"]
-        }
-    }
+            "required": ["verdict"],
+        },
+    },
 }
 
 
@@ -130,10 +134,7 @@ async def evaluate_baseline(model: str, seeds: list, max_concurrency: int = 20) 
     semaphore = asyncio.Semaphore(max_concurrency)
 
     # Create all tasks
-    tasks = [
-        evaluate_single(client, model, seed, dataset[seed], semaphore)
-        for seed in valid_seeds
-    ]
+    tasks = [evaluate_single(client, model, seed, dataset[seed], semaphore) for seed in valid_seeds]
 
     print(f"Running {len(tasks)} evaluations with concurrency={max_concurrency}...")
 
@@ -159,7 +160,9 @@ async def evaluate_baseline(model: str, seeds: list, max_concurrency: int = 20) 
                 correct += 1
             if i < print_limit:
                 pred_norm = normalize_verdict(predicted)
-                print(f"[{seed:4d}] {'V' if is_correct else 'X'} pred={pred_norm:12s} exp={expected}")
+                print(
+                    f"[{seed:4d}] {'V' if is_correct else 'X'} pred={pred_norm:12s} exp={expected}"
+                )
 
     if len(results) > print_limit:
         print(f"... ({len(results) - print_limit} more results)")
@@ -172,8 +175,12 @@ async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True, help="Model to evaluate")
     parser.add_argument("--seeds", default=None, help="Seed range (e.g., 0-149 or 0,10,20)")
-    parser.add_argument("--split", choices=["train", "val"], default=None,
-                        help="Use predefined split: train (0-149) or val (150-649)")
+    parser.add_argument(
+        "--split",
+        choices=["train", "val"],
+        default=None,
+        help="Use predefined split: train (0-149) or val (150-649)",
+    )
     parser.add_argument("--concurrency", type=int, default=20, help="Max concurrent requests")
     args = parser.parse_args()
 
@@ -197,10 +204,10 @@ async def main():
     print(f"\nEvaluating baseline for {args.model} on {len(seeds)} seeds...")
     result = await evaluate_baseline(args.model, seeds, args.concurrency)
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"BASELINE RESULT: {result['model']}")
-    print(f"Accuracy: {result['accuracy']*100:.1f}% ({result['correct']}/{result['total']})")
-    print(f"{'='*50}")
+    print(f"Accuracy: {result['accuracy'] * 100:.1f}% ({result['correct']}/{result['total']})")
+    print(f"{'=' * 50}")
 
 
 if __name__ == "__main__":

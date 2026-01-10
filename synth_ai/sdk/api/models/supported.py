@@ -100,7 +100,9 @@ RL_SUPPORTED_MODELS: frozenset[str] = frozenset(
 )
 
 # SFT allowlist includes core Qwen3 plus Coder and VL families
-SFT_SUPPORTED_MODELS: frozenset[str] = frozenset([*QWEN3_MODELS, *QWEN3_CODER_MODELS, *QWEN3_VL_MODELS])
+SFT_SUPPORTED_MODELS: frozenset[str] = frozenset(
+    [*QWEN3_MODELS, *QWEN3_CODER_MODELS, *QWEN3_VL_MODELS]
+)
 
 # Models that support <think> reasoning tags
 THINKING_MODELS: frozenset[str] = frozenset(
@@ -387,7 +389,10 @@ def supported_model_ids(
     exclude: Sequence[str] | None = None,
 ) -> list[str]:
     """Return just the model identifiers for supported models."""
-    return [m.model_id for m in iter_supported_models(families=families, include=include, exclude=exclude)]
+    return [
+        m.model_id
+        for m in iter_supported_models(families=families, include=include, exclude=exclude)
+    ]
 
 
 def experimental_model_ids(*, families: Sequence[str] | None = None) -> list[str]:
@@ -407,7 +412,9 @@ def format_supported_models(
     exclude: Sequence[str] | None = None,
 ) -> str:
     """Produce a human readable table of supported models."""
-    rows: Iterable[SupportedModel] = iter_supported_models(families=families, include=include, exclude=exclude)
+    rows: Iterable[SupportedModel] = iter_supported_models(
+        families=families, include=include, exclude=exclude
+    )
     lines = ["model_id | family | provider | lifecycle | modalities | training_modes", "-" * 96]
     for model in rows:
         modalities = ",".join(model.modalities) or "-"
@@ -429,17 +436,17 @@ def training_modes_for_model(model_id: str) -> tuple[str, ...]:
 
 def supports_thinking(model_id: str) -> bool:
     """Return True if the model supports <think> reasoning tags.
-    
+
     Thinking models use structured <think>...</think> tags for reasoning.
     Instruct models do not have these tags and should not use thinking-specific logic.
-    
+
     Args:
         model_id: Model identifier (can include prefixes like 'rl:', 'fft:', etc.)
-        
+
     Returns:
         True if the model supports thinking tags, False otherwise.
         Returns False for unsupported models.
-        
+
     Example:
         >>> supports_thinking("Qwen/Qwen3-4B-Thinking-2507")
         True
@@ -460,13 +467,13 @@ def supports_thinking(model_id: str) -> bool:
 
 def get_model_metadata(model_id: str) -> SupportedModel | None:
     """Return the full metadata for a supported model, or None if not supported.
-    
+
     Args:
         model_id: Model identifier (can include prefixes like 'rl:', 'fft:', etc.)
-        
+
     Returns:
         SupportedModel instance with full metadata, or None if model is not supported.
-        
+
     Example:
         >>> meta = get_model_metadata("Qwen/Qwen3-4B-Instruct-2507")
         >>> meta.supports_thinking
@@ -511,4 +518,3 @@ __all__ = [
     "supports_thinking",
     "get_model_metadata",
 ]
-

@@ -28,7 +28,7 @@ class StreamConfig:
             event_types_exclude={
                 # Filter out noisy events that just announce what metrics already show
                 "sft.progress",  # Generic "Training progress" with no data
-                "sft.loss",      # Generic "Loss update" with no data
+                "sft.loss",  # Generic "Loss update" with no data
                 "sft.upstream.status",  # Very verbose status echo events
             }
         )
@@ -49,7 +49,12 @@ class StreamConfig:
         return cls(
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
             event_types={"sft.progress", "rl.train.step", "sft.validation.summary"},
-            metric_names={"train.loss", "eval.reward_mean", "eval.outcome_reward", "eval.objectives.reward"},
+            metric_names={
+                "train.loss",
+                "eval.reward_mean",
+                "eval.outcome_reward",
+                "eval.objectives.reward",
+            },
         )
 
     @classmethod
@@ -63,15 +68,15 @@ class StreamConfig:
     def should_include_event(self, event: dict[str, Any]) -> bool:
         """Determine whether an event message should be included."""
         event_type = event.get("type")
-        
+
         # Apply blacklist first (takes precedence)
         if self.event_types_exclude and event_type in self.event_types_exclude:
             return False
-        
+
         # Then apply whitelist
         if self.event_types and event_type not in self.event_types:
             return False
-        
+
         if self.event_levels:
             return event.get("level") in self.event_levels
         return True

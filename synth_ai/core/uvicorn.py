@@ -25,31 +25,20 @@ def serve_app_uvicorn(
     ctx: dict[str, Any] = {"host": host, "port": port}
     log_info("starting uvicorn server", ctx=ctx)
     try:
-        uvicorn.run(
-            app,
-            host=host,
-            port=port,
-            reload=False,
-            log_level="info"
-        )
+        uvicorn.run(app, host=host, port=port, reload=False, log_level="info")
         log_info("uvicorn server exited cleanly", ctx=ctx)
     except Exception as exc:
         ctx["error"] = type(exc).__name__
         log_error("uvicorn server failed", ctx=ctx)
         raise RuntimeError(f"Failed to serve app with Uvicorn: {exc}") from exc
-    
 
-def serve_app_uvicorn_background(
-    app: ASGIApp,
-    host: str,
-    port: int,
-    daemon: bool = True
-) -> None:
+
+def serve_app_uvicorn_background(app: ASGIApp, host: str, port: int, daemon: bool = True) -> None:
     thread = threading.Thread(
         target=serve_app_uvicorn,
         args={app, host, port},
         name=f"synth-uvicorn-{port}",
-        daemon=daemon
+        daemon=daemon,
     )
     thread.start()
 
@@ -71,8 +60,7 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
 
         with temporary_import_paths(cfg.task_app_path, REPO_ROOT):
             module = load_module(
-                cfg.task_app_path,
-                f"_synth_local_task_app_{cfg.task_app_path.stem}"
+                cfg.task_app_path, f"_synth_local_task_app_{cfg.task_app_path.stem}"
             )
         log_info("task app module loaded", ctx=ctx)
         app = get_asgi_app(module)
@@ -101,7 +89,7 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
                 target=serve_app_uvicorn,
                 args=(app, cfg.host, cfg.port),
                 name=f"synth-uvicorn-{cfg.port}",
-                daemon=True
+                daemon=True,
             )
             thread.start()
             _THREADS[cfg.port] = thread
@@ -115,12 +103,13 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
 
         # Create a wrapper script to run uvicorn
         import tempfile
+
         task_app_path_str = str(cfg.task_app_path)
         repo_root_str = str(REPO_ROOT)
         task_app_parent_str = str(cfg.task_app_path.parent)
         module_name = f"_synth_local_task_app_{cfg.task_app_path.stem}"
 
-        wrapper_content = f'''#!/usr/bin/env python3
+        wrapper_content = f"""#!/usr/bin/env python3
 import sys
 from pathlib import Path
 
@@ -144,17 +133,17 @@ app = get_asgi_app(module)
 # Set environment
 import os
 os.environ["ENVIRONMENT_API_KEY"] = {repr(cfg.env_api_key)}
-'''
+"""
         if cfg.trace:
             wrapper_content += 'os.environ["TASKAPP_TRACING_ENABLED"] = "1"\n'
         else:
             wrapper_content += 'os.environ.pop("TASKAPP_TRACING_ENABLED", None)\n'
 
-        wrapper_content += f'''
+        wrapper_content += f"""
 # Run uvicorn
 import uvicorn
 uvicorn.run(app, host={repr(cfg.host)}, port={cfg.port}, reload=False, log_level="info")
-'''
+"""
 
         # Write wrapper script
         wrapper_file = Path(tempfile.gettempdir()) / f"synth_uvicorn_{cfg.port}.py"
@@ -187,12 +176,13 @@ uvicorn.run(app, host={repr(cfg.host)}, port={cfg.port}, reload=False, log_level
             # Record local service with correct PID
             try:
                 from synth_ai.cli.lib.tunnel_records import record_service
+
                 local_url = f"http://{'127.0.0.1' if cfg.host in {'0.0.0.0', '::'} else cfg.host}:{cfg.port}"
                 record_service(
                     url=local_url,
                     port=cfg.port,
                     service_type="local",
-                    local_host=cfg.host if cfg.host not in ('0.0.0.0', '::') else '127.0.0.1',
+                    local_host=cfg.host if cfg.host not in ("0.0.0.0", "::") else "127.0.0.1",
                     task_app_path=str(cfg.task_app_path) if cfg.task_app_path else None,
                     app_id=app_id,
                     pid=proc.pid,

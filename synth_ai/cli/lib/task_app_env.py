@@ -64,7 +64,9 @@ def ensure_port_free(port: int, host: str, *, force: bool) -> None:
     message = f"Port {port} is still in use. Stop the running server and try again."
     if force:
         raise click.ClickException(message)
-    raise click.ClickException(f"Port {port} appears to be in use. Restart with --force to terminate it.")
+    raise click.ClickException(
+        f"Port {port} appears to be in use. Restart with --force to terminate it."
+    )
 
 
 def preflight_env_key(*, crash_on_failure: bool = False) -> None:
@@ -146,7 +148,9 @@ def preflight_env_key(*, crash_on_failure: bool = False) -> None:
             click.echo("[preflight] fetching public key…")
             rpk = client.get(f"{backend_base.rstrip('/')}/v1/crypto/public-key")
             if rpk.status_code != 200:
-                click.echo(f"[preflight] public key fetch failed with {rpk.status_code}; skipping upload")
+                click.echo(
+                    f"[preflight] public key fetch failed with {rpk.status_code}; skipping upload"
+                )
                 return
             pk = (rpk.json() or {}).get("public_key")
             if not pk:
@@ -180,9 +184,8 @@ def preflight_env_key(*, crash_on_failure: bool = False) -> None:
                 return
 
             snippet = response.text[:400] if response.text else ""
-            message = (
-                f"ENVIRONMENT_API_KEY upload failed with status {response.status_code}"
-                + (f" body={snippet}" if snippet else "")
+            message = f"ENVIRONMENT_API_KEY upload failed with status {response.status_code}" + (
+                f" body={snippet}" if snippet else ""
             )
             if crash_on_failure:
                 raise click.ClickException(f"[CRITICAL] {message}")
@@ -256,7 +259,11 @@ def interactive_fill_env(env_path: Path) -> Path | None:
                 value = click.prompt(
                     label, default=default, show_default=bool(default) or not required
                 ).strip()
-            except (click.Abort, EOFError, KeyboardInterrupt):  # pragma: no cover - interactive paths
+            except (
+                click.Abort,
+                EOFError,
+                KeyboardInterrupt,
+            ):  # pragma: no cover - interactive paths
                 click.echo("Aborted env creation.")
                 return None
             if value or not required:
@@ -271,16 +278,22 @@ def interactive_fill_env(env_path: Path) -> Path | None:
     )
     if env_api_key is None:
         return None
-    synth_key = _prompt(
-        "SYNTH_API_KEY (optional)",
-        default=existing.get("SYNTH_API_KEY", ""),
-        required=False,
-    ) or ""
-    openai_key = _prompt(
-        "OPENAI_API_KEY (optional)",
-        default=existing.get("OPENAI_API_KEY", ""),
-        required=False,
-    ) or ""
+    synth_key = (
+        _prompt(
+            "SYNTH_API_KEY (optional)",
+            default=existing.get("SYNTH_API_KEY", ""),
+            required=False,
+        )
+        or ""
+    )
+    openai_key = (
+        _prompt(
+            "OPENAI_API_KEY (optional)",
+            default=existing.get("OPENAI_API_KEY", ""),
+            required=False,
+        )
+        or ""
+    )
 
     updates = {
         "ENVIRONMENT_API_KEY": env_api_key,

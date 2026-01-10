@@ -19,7 +19,7 @@ def build_template_config(
     **kwargs: Any,
 ) -> LocalAPIConfig:
     """Build a minimal LocalAPIConfig for testing/scaffolding.
-    
+
     This is a placeholder - real task apps should build their own config.
     """
     from synth_ai.sdk.task.contracts import RolloutRequest, RolloutResponse, RolloutMetrics
@@ -27,7 +27,7 @@ def build_template_config(
     async def stub_rollout(request: RolloutRequest, http_request: Any) -> RolloutResponse:
         """Stub rollout that returns empty metrics."""
         return RolloutResponse(
-            run_id=request.run_id,
+            trace_correlation_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=0.0),
             trace={"event_history": [], "metadata": {}},
         )

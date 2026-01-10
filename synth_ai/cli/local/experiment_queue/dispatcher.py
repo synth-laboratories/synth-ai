@@ -25,28 +25,23 @@ TASK_NAME = "synth_ai.cli.local.experiment_queue.run_experiment_job"
 
 def _active_jobs_query(experiment_id: str) -> Select[tuple[int]]:
     """Build a SQLAlchemy query to count active jobs for an experiment.
-    
+
     Counts jobs that are:
     - QUEUED or RUNNING status
     - Have a Celery task ID assigned (dispatched)
     - Not yet completed (completed_at is None)
-    
+
     Args:
         experiment_id: Experiment identifier
-        
+
     Returns:
         SQLAlchemy Select query that returns a count
     """
-    return (
-        select(func.count(ExperimentJob.job_id))
-        .where(
-            ExperimentJob.experiment_id == experiment_id,
-            ExperimentJob.status.in_(
-                [ExperimentJobStatus.RUNNING, ExperimentJobStatus.QUEUED]
-            ),
-            ExperimentJob.celery_task_id.is_not(None),
-            ExperimentJob.completed_at.is_(None),
-        )
+    return select(func.count(ExperimentJob.job_id)).where(
+        ExperimentJob.experiment_id == experiment_id,
+        ExperimentJob.status.in_([ExperimentJobStatus.RUNNING, ExperimentJobStatus.QUEUED]),
+        ExperimentJob.celery_task_id.is_not(None),
+        ExperimentJob.completed_at.is_(None),
     )
 
 
@@ -87,20 +82,20 @@ def dispatch_available_jobs(session: Session, experiment_id: str) -> list[str]:
         len(ready_jobs),
         broker_url,
     )
-    
+
     # Extract job IDs before committing session
     job_ids = [job.job_id for job in ready_jobs]
-    
+
     # Commit session before calling send_task
     # Redis broker handles concurrency natively, no locking issues
     session.flush()
     session.commit()
-    
+
     dispatched: list[str] = []
     for job_id in job_ids:
         # send_task sends message to Redis broker
         result = app.send_task(TASK_NAME, args=[job_id])
-        
+
         # Update celery_task_id in a new transaction
         job = session.query(ExperimentJob).filter(ExperimentJob.job_id == job_id).first()
         if job:
@@ -111,7 +106,7 @@ def dispatch_available_jobs(session: Session, experiment_id: str) -> list[str]:
                 result.id,
             )
             dispatched.append(job_id)
-    
+
     # Flush to persist celery_task_id updates
     session.flush()
     # Note: Task message is sent to Redis broker

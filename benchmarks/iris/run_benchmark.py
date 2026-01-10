@@ -23,7 +23,13 @@ from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
+from synth_ai.sdk.tunnels import (
+    TunnelBackend,
+    TunneledLocalAPI,
+    cleanup_all,
+    kill_port,
+    wait_for_health_check,
+)
 from synth_ai.core.env import mint_demo_api_key
 
 # Configuration
@@ -63,9 +69,13 @@ RUNS_PER_MODEL = 3
 # IMPORTANT: Iris dataset is ordered by class (0-49: setosa, 50-99: versicolor, 100-149: virginica)
 # We need both training AND validation to include all 3 classes for proper evaluation!
 # Training: 30 samples from each class = 90 total
-TRAINING_SEEDS = list(range(0, 30)) + list(range(50, 80)) + list(range(100, 130))  # 90 seeds, all classes
+TRAINING_SEEDS = (
+    list(range(0, 30)) + list(range(50, 80)) + list(range(100, 130))
+)  # 90 seeds, all classes
 # Validation: 20 samples from each class = 60 total
-VALIDATION_SEEDS = list(range(30, 50)) + list(range(80, 100)) + list(range(130, 150))  # 60 seeds, all classes
+VALIDATION_SEEDS = (
+    list(range(30, 50)) + list(range(80, 100)) + list(range(130, 150))
+)  # 60 seeds, all classes
 ROLLOUT_BUDGET = 500  # Lower budget for smaller dataset
 
 
@@ -212,15 +222,17 @@ def create_iris_local_api(system_prompt: str, env_api_key: str):
                 task_metadata={"features": sample["features"], "expected_species": sample["label"]},
             )
 
-    return create_local_api(LocalAPIConfig(
-        app_id=APP_ID,
-        name=APP_NAME,
-        description=f"{APP_NAME} local API for classifying iris species.",
-        provide_taskset_description=provide_taskset_description,
-        provide_task_instances=provide_task_instances,
-        rollout=run_rollout,
-        cors_origins=["*"],
-    ))
+    return create_local_api(
+        LocalAPIConfig(
+            app_id=APP_ID,
+            name=APP_NAME,
+            description=f"{APP_NAME} local API for classifying iris species.",
+            provide_taskset_description=provide_taskset_description,
+            provide_task_instances=provide_task_instances,
+            rollout=run_rollout,
+            cors_origins=["*"],
+        )
+    )
 
 
 async def run_single_experiment(
@@ -232,9 +244,9 @@ async def run_single_experiment(
     dry_run: bool = False,
 ) -> dict:
     """Run a single GEPA experiment."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running: {model} run {run_number}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if dry_run:
         print(f"[DRY RUN] Would run {model} run {run_number}")
@@ -378,34 +390,44 @@ async def run_single_experiment(
             def extract_system_prompt(prompt_data) -> str:
                 if isinstance(prompt_data, dict):
                     # Check for full_text first (preferred)
-                    if prompt_data.get('full_text'):
-                        return prompt_data['full_text']
-                    if 'template' in prompt_data:
-                        sections = prompt_data['template'].get('sections', [])
+                    if prompt_data.get("full_text"):
+                        return prompt_data["full_text"]
+                    if "template" in prompt_data:
+                        sections = prompt_data["template"].get("sections", [])
                         for s in sections:
-                            if s.get('role') == 'system':
-                                return s.get('content', '')
-                    if 'system_prompt' in prompt_data:
-                        return prompt_data['system_prompt']
-                    if 'prompt' in prompt_data:
-                        return prompt_data['prompt']
+                            if s.get("role") == "system":
+                                return s.get("content", "")
+                    if "system_prompt" in prompt_data:
+                        return prompt_data["system_prompt"]
+                    if "prompt" in prompt_data:
+                        return prompt_data["prompt"]
                 return str(prompt_data)
 
             if not optimized_full_text:
                 optimized_full_text = extract_system_prompt(top_prompt)
 
-            prompt_file = results_dir / f"iris_{model.replace('-', '_')}_run{run_number}_prompt.json"
+            prompt_file = (
+                results_dir / f"iris_{model.replace('-', '_')}_run{run_number}_prompt.json"
+            )
             with open(prompt_file, "w") as f:
-                json.dump({
-                    "model": model,
-                    "run": run_number,
-                    "job_id": job_id,
-                    "best_score": result.best_score,
-                    "train_accuracy": top_prompt.get("train_accuracy") if isinstance(top_prompt, dict) else None,
-                    "val_accuracy": top_prompt.get("val_accuracy") if isinstance(top_prompt, dict) else None,
-                    "optimized_prompt_text": optimized_full_text,
-                    "raw_prompt_data": top_prompt,
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "model": model,
+                        "run": run_number,
+                        "job_id": job_id,
+                        "best_score": result.best_score,
+                        "train_accuracy": top_prompt.get("train_accuracy")
+                        if isinstance(top_prompt, dict)
+                        else None,
+                        "val_accuracy": top_prompt.get("val_accuracy")
+                        if isinstance(top_prompt, dict)
+                        else None,
+                        "optimized_prompt_text": optimized_full_text,
+                        "raw_prompt_data": top_prompt,
+                    },
+                    f,
+                    indent=2,
+                )
             print(f"Saved optimized prompt to {prompt_file}")
             if optimized_full_text:
                 print(f"Optimized prompt preview: {optimized_full_text[:300]}...")
@@ -478,13 +500,15 @@ async def main():
                 all_results.append(result)
             except Exception as e:
                 print(f"Error in {model} run {run}: {e}")
-                all_results.append({
-                    "model": model,
-                    "run": run,
-                    "status": "error",
-                    "error": str(e),
-                    "timestamp": datetime.now().isoformat(),
-                })
+                all_results.append(
+                    {
+                        "model": model,
+                        "run": run,
+                        "status": "error",
+                        "error": str(e),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
     # Save summary
     summary = {
@@ -503,7 +527,7 @@ async def main():
     print("BENCHMARK SUMMARY")
     print("=" * 60)
     for r in all_results:
-        score = f"{r['best_score']:.1%}" if r.get('best_score') is not None else "N/A"
+        score = f"{r['best_score']:.1%}" if r.get("best_score") is not None else "N/A"
         print(f"{r['model']} run {r['run']}: {r['status']} (score: {score})")
 
 

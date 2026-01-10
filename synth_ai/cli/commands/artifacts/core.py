@@ -21,4 +21,3 @@ artifacts_group.add_command(list_command, name="list")
 artifacts_group.add_command(export_command, name="export")
 artifacts_group.add_command(download_command, name="download")
 artifacts_group.add_command(show_command, name="show")
-

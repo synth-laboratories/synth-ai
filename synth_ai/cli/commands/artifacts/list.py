@@ -34,7 +34,7 @@ def _format_table(data: dict[str, Any]) -> None:
             job_id = model.get("job_id", "")
             table.add_row(model_id[:40], base[:30], str(created)[:19], job_id[:20])
         console.print(table)
-    
+
     # RL models
     rl_models = data.get("rl_models", [])
     if rl_models:
@@ -51,7 +51,7 @@ def _format_table(data: dict[str, Any]) -> None:
             job_id = model.get("job_id", "")
             table.add_row(model_id[:40], base[:30], str(created)[:19], job_id[:20])
         console.print(table)
-    
+
     # Prompts
     prompts = data.get("prompts", [])
     if prompts:
@@ -69,7 +69,7 @@ def _format_table(data: dict[str, Any]) -> None:
             score_str = f"{score:.3f}" if score is not None else "N/A"
             table.add_row(job_id[:30], algorithm[:10], score_str, str(created)[:19])
         console.print(table)
-    
+
     # Summary
     summary = data.get("summary", {})
     total = summary.get("total_count", 0)
@@ -135,7 +135,7 @@ def list_command(
 ) -> None:
     """List all artifacts (fine-tuned models, RL models, and optimized prompts)."""
     config = resolve_backend_config(base_url=base_url, api_key=api_key, timeout=timeout)
-    
+
     async def _run() -> None:
         client = ArtifactsClient(config.api_base_url, config.api_key, timeout=config.timeout)
         try:
@@ -151,6 +151,5 @@ def list_command(
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise click.ClickException(str(e)) from e
-    
-    asyncio.run(_run())
 
+    asyncio.run(_run())

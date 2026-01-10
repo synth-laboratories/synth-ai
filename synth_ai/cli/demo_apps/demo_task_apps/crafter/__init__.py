@@ -1,1 +1,0 @@
-# Crafter demo task app

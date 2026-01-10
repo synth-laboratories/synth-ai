@@ -1,6 +1,7 @@
 """
 Generate HTML/CSS webpage from functional description using Gemini 2.5.
 """
+
 import os
 import json
 from pathlib import Path
@@ -39,19 +40,17 @@ def generate_webpage(functional_description: str, api_key: str) -> str:
     genai.configure(api_key=api_key)
 
     # Create model
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
     # Generate the webpage
-    response = model.generate_content(
-        WEBPAGE_GENERATION_PROMPT + functional_description
-    )
+    response = model.generate_content(WEBPAGE_GENERATION_PROMPT + functional_description)
 
     return response.text
 
 
 def load_functional_description(json_file: str, index: int = 0) -> dict:
     """Load a functional description from the JSON file."""
-    with open(json_file, 'r') as f:
+    with open(json_file, "r") as f:
         data = json.load(f)
     return data[index]
 
@@ -82,7 +81,7 @@ if __name__ == "__main__":
     descriptions_file = Path(__file__).parent / "sample_functional_descriptions.json"
 
     # Let user choose which description to use
-    with open(descriptions_file, 'r') as f:
+    with open(descriptions_file, "r") as f:
         data = json.load(f)
 
     print("Available functional descriptions:")
@@ -98,15 +97,19 @@ if __name__ == "__main__":
     functional_description = item["functional_description"]
     image_path = Path(item["image_path"])
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"Generating webpage from: {image_path.parent.name}/{image_path.name}")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     print("Functional Description:")
-    print(functional_description[:500] + "..." if len(functional_description) > 500 else functional_description)
-    print(f"\n{'='*80}")
+    print(
+        functional_description[:500] + "..."
+        if len(functional_description) > 500
+        else functional_description
+    )
+    print(f"\n{'=' * 80}")
     print("Generating HTML/CSS with Gemini 2.5...")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     # Generate the webpage
     html = generate_webpage(functional_description, api_key)
@@ -117,7 +120,7 @@ if __name__ == "__main__":
     output_dir.mkdir(exist_ok=True)
 
     output_file = output_dir / f"{image_path.parent.name}_{image_path.stem}.html"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write(html)
 
     print(f"✓ Generated webpage saved to: {output_file}")

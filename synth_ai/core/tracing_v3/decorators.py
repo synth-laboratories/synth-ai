@@ -38,15 +38,9 @@ from .utils import calculate_cost, detect_provider
 # Context variables for session and turn tracking
 # These variables automatically propagate across async call boundaries,
 # allowing deeply nested code to access tracing context without explicit passing
-_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "session_id"
-)
-_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar(
-    "turn_number"
-)
-_session_tracer_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
-    "session_tracer"
-)
+_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar("session_id")
+_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar("turn_number")
+_session_tracer_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar("session_tracer")
 
 
 def set_session_id(session_id: str | None) -> None:
@@ -94,13 +88,13 @@ T = TypeVar("T")
 
 
 @overload
-def with_session(require: bool = True) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
-    ...
+def with_session(
+    require: bool = True,
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]: ...
 
 
 @overload
-def with_session(require: bool = True) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    ...
+def with_session(require: bool = True) -> Callable[[Callable[..., T]], Callable[..., T]]: ...
 
 
 def with_session(require: bool = True):
@@ -124,7 +118,9 @@ def with_session(require: bool = True):
         ```
     """
 
-    def decorator(fn: Callable[..., Awaitable[T]] | Callable[..., T]) -> Callable[..., Awaitable[T]] | Callable[..., T]:
+    def decorator(
+        fn: Callable[..., Awaitable[T]] | Callable[..., T],
+    ) -> Callable[..., Awaitable[T]] | Callable[..., T]:
         if asyncio.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
@@ -295,7 +291,7 @@ def trace_method(event_type: str = "runtime", system_id: str | None = None):
     """
 
     def decorator(
-        fn: Callable[..., Awaitable[T]] | Callable[..., T]
+        fn: Callable[..., Awaitable[T]] | Callable[..., T],
     ) -> Callable[..., Awaitable[T]] | Callable[..., T]:
         if asyncio.iscoroutinefunction(fn):
             async_fn = cast(Callable[..., Awaitable[T]], fn)

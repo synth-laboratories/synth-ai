@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Quick script to capture and inspect trace structure."""
+
 import json
 import sys
 from pathlib import Path
@@ -11,13 +12,14 @@ import httpx
 original_post = httpx.AsyncClient.post
 captured_payload = None
 
+
 async def capturing_post(self, url, **kwargs):
     global captured_payload
     if "verifiers/completions" in str(url):
         captured_payload = kwargs.get("json", {})
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print("CAPTURED VERIFIER REQUEST")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         trace = captured_payload.get("trace", {})
         event_history = trace.get("event_history", [])
@@ -39,11 +41,15 @@ async def capturing_post(self, url, **kwargs):
                         content = msg.get("content")
                         content_type = type(content).__name__
                         if isinstance(content, str):
-                            print(f"    msg[{j}]: role={msg.get('role')}, content type=str, len={len(content)}")
+                            print(
+                                f"    msg[{j}]: role={msg.get('role')}, content type=str, len={len(content)}"
+                            )
                             if "data:image" in content[:200]:
                                 print(f"      ⚠️  STRING CONTAINS BASE64 IMAGE!")
                         elif isinstance(content, list):
-                            print(f"    msg[{j}]: role={msg.get('role')}, content type=list, len={len(content)}")
+                            print(
+                                f"    msg[{j}]: role={msg.get('role')}, content type=list, len={len(content)}"
+                            )
                             for k, part in enumerate(content):
                                 if isinstance(part, dict):
                                     part_type = part.get("type", "unknown")
@@ -83,13 +89,15 @@ async def capturing_post(self, url, **kwargs):
                                                 url = img_url.get("url", "")
                                             else:
                                                 url = str(img_url)
-                                            print(f"        image_url len: {len(url) if url else 0}")
+                                            print(
+                                                f"        image_url len: {len(url) if url else 0}"
+                                            )
 
         # Calculate total size
         trace_str = json.dumps(trace)
-        print(f"\n{'='*80}")
-        print(f"TOTAL TRACE SIZE: {len(trace_str):,} bytes ({len(trace_str)/1024/1024:.2f} MB)")
-        print(f"{'='*80}\n")
+        print(f"\n{'=' * 80}")
+        print(f"TOTAL TRACE SIZE: {len(trace_str):,} bytes ({len(trace_str) / 1024 / 1024:.2f} MB)")
+        print(f"{'=' * 80}\n")
 
         # Save to file
         debug_file = Path("/tmp/captured_trace.json")
@@ -98,13 +106,11 @@ async def capturing_post(self, url, **kwargs):
 
     return await original_post(self, url, **kwargs)
 
+
 httpx.AsyncClient.post = capturing_post
 
 # Now run the demo
 if __name__ == "__main__":
     import subprocess
-    subprocess.run([
-        "uv", "run", "python",
-        "demos/web-design/run_demo.py",
-        "--local"
-    ])
+
+    subprocess.run(["uv", "run", "python", "demos/web-design/run_demo.py", "--local"])

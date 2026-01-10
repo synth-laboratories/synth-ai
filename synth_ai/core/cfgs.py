@@ -23,7 +23,7 @@ class LocalDeployCfg(BaseModel):
         env_api_key: str,
         trace: bool = True,
         host: str = "127.0.0.1",
-        port: int = 8000
+        port: int = 8000,
     ) -> "LocalDeployCfg":
         ctx: dict[str, Any] = {
             "task_app_path": str(task_app_path),
@@ -47,10 +47,7 @@ class LocalDeployCfg(BaseModel):
             raise
 
     @classmethod
-    def create_from_dict(
-        cls,
-        data: dict[str, Any]
-    ) -> "LocalDeployCfg":
+    def create_from_dict(cls, data: dict[str, Any]) -> "LocalDeployCfg":
         path = Path(data["task_app_path"])
         trace = bool(data.get("trace", True))
         host = str(data.get("host", "127.0.0.1"))
@@ -79,7 +76,7 @@ class LocalDeployCfg(BaseModel):
             ctx["error"] = type(err).__name__
             log_error("LocalDeployCfg from dict failed", ctx=ctx)
             raise ValueError(f"Invalid local deploy configuration: {err}") from err
-        
+
 
 class ModalDeployCfg(BaseModel):
     task_app_path: Path
@@ -117,7 +114,9 @@ class ModalDeployCfg(BaseModel):
         if modal_bin_path is None:
             ctx["error"] = "ModalCLINotFound"
             log_error("ModalDeployCfg creation failed", ctx=ctx)
-            raise ValueError("Modal CLI not found; install `modal` or pass --modal-cli with its path.")
+            raise ValueError(
+                "Modal CLI not found; install `modal` or pass --modal-cli with its path."
+            )
         ctx["modal_bin_path"] = str(modal_bin_path)
         try:
             cfg = cls(
@@ -160,14 +159,22 @@ class ModalDeployCfg(BaseModel):
         if dry_run and cmd_arg == "serve":
             ctx["error"] = "dry_run_serve"
             log_error("ModalDeployCfg create_from_kwargs blocked", ctx=ctx)
-            raise ValueError("`synth-ai deploy --runtime modal --modal-mode serve` cannot be used with `--dry-run`")
+            raise ValueError(
+                "`synth-ai deploy --runtime modal --modal-mode serve` cannot be used with `--dry-run`"
+            )
 
         modal_bin_path_arg = kwargs.get("modal_cli")
-        modal_bin_path = Path(str(modal_bin_path_arg)).expanduser() if modal_bin_path_arg else get_bin_path("modal")
+        modal_bin_path = (
+            Path(str(modal_bin_path_arg)).expanduser()
+            if modal_bin_path_arg
+            else get_bin_path("modal")
+        )
         if modal_bin_path is None or not modal_bin_path.exists():
             ctx["error"] = "ModalCLINotFound"
             log_error("ModalDeployCfg create_from_kwargs failed", ctx=ctx)
-            raise ValueError('Modal binary not found via shutil.which("modal"). Install `modal` or pass --modal-cli with its path.')
+            raise ValueError(
+                'Modal binary not found via shutil.which("modal"). Install `modal` or pass --modal-cli with its path.'
+            )
         modal_bin_path = modal_bin_path.resolve()
 
         modal_app_name = kwargs.get("name")

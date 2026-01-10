@@ -14,6 +14,7 @@ Dataset schema:
 - capture_date (string, ISO8601 or empty)
 - model_used (string)
 """
+
 import json
 import re
 import warnings
@@ -170,7 +171,7 @@ def create_dataset(
                                     "functional_description": item["functional_description"],
                                     "image": crop_img,
                                     "site_name": site_name,
-                                    "page_name": f"{page_name}__slice_{idx+1:02d}_of_{slice_count:02d}",
+                                    "page_name": f"{page_name}__slice_{idx + 1:02d}_of_{slice_count:02d}",
                                     "url": url,
                                     "capture_date": capture_date,
                                     "model_used": item.get("model", "gemini-2.0-flash-exp"),
@@ -200,15 +201,17 @@ def create_dataset(
     print(f"Created {len(dataset_rows)} dataset rows")
 
     # Define features schema
-    features = Features({
-        "functional_description": Value("string"),
-        "image": HFImage(),
-        "site_name": Value("string"),
-        "page_name": Value("string"),
-        "url": Value("string"),
-        "capture_date": Value("string"),
-        "model_used": Value("string")
-    })
+    features = Features(
+        {
+            "functional_description": Value("string"),
+            "image": HFImage(),
+            "site_name": Value("string"),
+            "page_name": Value("string"),
+            "url": Value("string"),
+            "capture_date": Value("string"),
+            "model_used": Value("string"),
+        }
+    )
 
     # Create dataset
     dataset = Dataset.from_dict(
@@ -221,7 +224,7 @@ def create_dataset(
             "capture_date": [row["capture_date"] for row in dataset_rows],
             "model_used": [row["model_used"] for row in dataset_rows],
         },
-        features=features
+        features=features,
     )
 
     print(f"\nDataset created with {len(dataset)} examples")
@@ -253,7 +256,7 @@ def push_to_hub(dataset, repo_name: str, token: str = None):
     dataset.push_to_hub(
         repo_name,
         token=token,
-        private=False  # Set to True if you want a private dataset
+        private=False,  # Set to True if you want a private dataset
     )
 
     print(f"✓ Dataset pushed to: https://huggingface.co/datasets/{repo_name}")
@@ -324,6 +327,7 @@ if __name__ == "__main__":
             exit(1)
 
         import os
+
         token = args.token or os.environ.get("HF_TOKEN")
         if not token:
             print("Error: HF token required. Set --token or HF_TOKEN env var")

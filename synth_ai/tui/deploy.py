@@ -51,14 +51,16 @@ class LogAggregator:
         if persist_dir:
             persist_dir.mkdir(parents=True, exist_ok=True)
             timestamp = _timestamp_for_filename()
-            self._deploy_handle = open(persist_dir / f"{deployment_id}_deploy_{timestamp}.jsonl", "a", encoding="utf-8")
-            self._runtime_handle = open(persist_dir / f"{deployment_id}_serve_{timestamp}.jsonl", "a", encoding="utf-8")
+            self._deploy_handle = open(
+                persist_dir / f"{deployment_id}_deploy_{timestamp}.jsonl", "a", encoding="utf-8"
+            )
+            self._runtime_handle = open(
+                persist_dir / f"{deployment_id}_serve_{timestamp}.jsonl", "a", encoding="utf-8"
+            )
 
         # Start writer thread
         self._writer_thread = threading.Thread(
-            target=self._writer_loop,
-            daemon=True,
-            name=f"log-writer-{deployment_id}"
+            target=self._writer_loop, daemon=True, name=f"log-writer-{deployment_id}"
         )
         self._writer_thread.start()
 
@@ -98,22 +100,26 @@ class LogAggregator:
 
     def log(self, source: str, message: str, level: str = "INFO") -> None:
         """Convenience method to log a message."""
-        self.put({
-            "type": "log",
-            "source": source,
-            "message": message,
-            "level": level,
-            "timestamp": time.time(),
-        })
+        self.put(
+            {
+                "type": "log",
+                "source": source,
+                "message": message,
+                "level": level,
+                "timestamp": time.time(),
+            }
+        )
 
     def status(self, status: str, **kwargs) -> None:
         """Convenience method to output a status message."""
-        self.put({
-            "type": "status",
-            "status": status,
-            "timestamp": time.time(),
-            **kwargs,
-        })
+        self.put(
+            {
+                "type": "status",
+                "status": status,
+                "timestamp": time.time(),
+                **kwargs,
+            }
+        )
 
     def stop(self) -> None:
         """Stop the writer thread and close resources."""
@@ -133,12 +139,7 @@ class StreamCapture(io.TextIOWrapper):
     forwarding them both to the original stream and to the log aggregator.
     """
 
-    def __init__(
-        self,
-        original_stream: TextIO,
-        aggregator: LogAggregator,
-        source: str
-    ):
+    def __init__(self, original_stream: TextIO, aggregator: LogAggregator, source: str):
         self.original = original_stream
         self.aggregator = aggregator
         self.source = source
@@ -195,13 +196,15 @@ class QueueLogHandler(logging.Handler):
         """Emit a log record to the aggregator."""
         try:
             message = self.format(record)
-            self.aggregator.put({
-                "type": "log",
-                "source": self.source,
-                "level": record.levelname,
-                "message": message,
-                "timestamp": record.created,
-            })
+            self.aggregator.put(
+                {
+                    "type": "log",
+                    "source": self.source,
+                    "level": record.levelname,
+                    "message": message,
+                    "timestamp": record.created,
+                }
+            )
         except Exception:
             # Don't crash on logging errors
             pass
@@ -299,13 +302,17 @@ def _validate_localapi(module: ModuleType, path: Path) -> str | None:
 
 def _timestamp_for_filename() -> str:
     now = datetime.now()
-    return f"{now.year}_{now.month:02d}_{now.day:02d}_{now.hour:02d}-{now.minute:02d}-{now.second:02d}"
+    return (
+        f"{now.year}_{now.month:02d}_{now.day:02d}_{now.hour:02d}-{now.minute:02d}-{now.second:02d}"
+    )
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Deploy a LocalAPI with streaming logs.")
     parser.add_argument("localapi_path", help="Path to localapi.py")
-    parser.add_argument("--deployment-id", dest="deployment_id", default=None, help="Optional deployment identifier")
+    parser.add_argument(
+        "--deployment-id", dest="deployment_id", default=None, help="Optional deployment identifier"
+    )
     return parser.parse_args()
 
 
@@ -334,7 +341,9 @@ async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) 
 
         # Check for API key early
         if not os.environ.get("SYNTH_API_KEY"):
-            aggregator.status("error", error="SYNTH_API_KEY not set - run 'synth auth' or export SYNTH_API_KEY")
+            aggregator.status(
+                "error", error="SYNTH_API_KEY not set - run 'synth auth' or export SYNTH_API_KEY"
+            )
             return
 
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
@@ -437,10 +446,8 @@ async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) 
                 aggregator.log("cloudflare", f"Tunnel created: {url}")
 
                 # Start background task to stream cloudflare logs
-                if hasattr(tunnel, 'process') and tunnel.process:
-                    asyncio.create_task(
-                        _stream_cloudflare_logs(tunnel.process, aggregator)
-                    )
+                if hasattr(tunnel, "process") and tunnel.process:
+                    asyncio.create_task(_stream_cloudflare_logs(tunnel.process, aggregator))
             except Exception as e:
                 aggregator.status("error", error=f"Failed to create tunnel: {e}")
                 return

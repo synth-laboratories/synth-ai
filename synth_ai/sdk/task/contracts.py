@@ -6,16 +6,16 @@ backward compatibility during the naming transition.
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RolloutMode(str, Enum):
     """Mode controls how rollout infrastructure processes inference URLs."""
+
     RL = "rl"
     EVAL = "eval"
 
@@ -27,6 +27,7 @@ class OutputMode(str, Enum):
     - TEXT: Plain text in message.content
     - STRUCTURED: JSON via response_format (OpenAI json_schema, Groq json_object, Gemini responseSchema)
     """
+
     TOOL_CALLS = "tool_calls"
     TEXT = "text"
     STRUCTURED = "structured"
@@ -41,17 +42,15 @@ class StructuredOutputConfig(BaseModel):
     - Groq: response_format.json_schema or json_object
     - Gemini: generationConfig.responseSchema
     """
+
     schema: dict[str, Any] = Field(
-        ...,
-        description="JSON Schema for the expected response structure"
+        ..., description="JSON Schema for the expected response structure"
     )
     schema_name: str = Field(
-        default="response",
-        description="Name for the schema (required by some providers)"
+        default="response", description="Name for the schema (required by some providers)"
     )
     strict: bool = Field(
-        default=True,
-        description="Whether to enforce strict schema validation (OpenAI strict mode)"
+        default=True, description="Whether to enforce strict schema validation (OpenAI strict mode)"
     )
 
 
@@ -94,11 +93,11 @@ class RolloutPolicySpec(BaseModel):
     # Output mode configuration (defaults to tool_calls for backward compatibility)
     output_mode: OutputMode = Field(
         default=OutputMode.TOOL_CALLS,
-        description="How the policy expects model outputs: tool_calls, text, or structured"
+        description="How the policy expects model outputs: tool_calls, text, or structured",
     )
     structured_config: StructuredOutputConfig | None = Field(
         default=None,
-        description="Configuration for structured output mode (required if output_mode=STRUCTURED)"
+        description="Configuration for structured output mode (required if output_mode=STRUCTURED)",
     )
 
 
@@ -114,7 +113,25 @@ class RolloutSafetyConfig(BaseModel):
 
 
 class RolloutRequest(BaseModel):
-    run_id: str
+    """Request to execute a rollout.
+
+    ## Identifier Fields
+
+    - `trace_correlation_id`: REQUIRED - Single source of truth for rollout identification.
+      Used for trace correlation, registry operations, seed derivation, and resource tracking.
+    - `run_id`: DEPRECATED - Use `trace_correlation_id` instead. Will be removed in future version.
+      If provided, should match trace_correlation_id or be derived from it.
+    """
+
+    trace_correlation_id: str = Field(
+        ...,
+        description="REQUIRED - Unique identifier for this rollout. Used for trace correlation, "
+        "registry operations, seed derivation, and resource tracking. Single source of truth.",
+    )
+    run_id: str | None = Field(
+        default=None,
+        description="[DEPRECATED] Use trace_correlation_id instead. Will be removed in future version.",
+    )
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
     record: RolloutRecordConfig = RolloutRecordConfig()
@@ -213,13 +230,14 @@ class RolloutResponse(BaseModel):
 
     ## Key Fields
 
-    - `run_id`: Echo from request (required)
+    - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
     - `metrics`: Rollout metrics with `outcome_reward` (required)
     - `trace`: v3 trace payload (required for verifier scoring)
+    - `run_id`: DEPRECATED - Use `trace_correlation_id` instead
 
     ## Canonical Locations (Top-Level)
 
-    - `trace_correlation_id`: Correlation ID for trace recovery (TOP-LEVEL CANONICAL)
+    - `trace_correlation_id`: Correlation ID for trace recovery (TOP-LEVEL CANONICAL, REQUIRED)
     - `inference_url`: Inference URL used for this rollout (TOP-LEVEL CANONICAL)
 
     These fields SHOULD be at top-level. The monorepo parses from top-level first,
@@ -228,25 +246,24 @@ class RolloutResponse(BaseModel):
     ## Example
 
         response = RolloutResponse(
-            run_id=request.run_id,
+            trace_correlation_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=1.0),
             trace=trace_payload,
-            trace_correlation_id="trace_abc123",
             inference_url="https://api.usesynth.ai/v1/trial-xyz",
         )
     """
 
-    run_id: str
+    trace_correlation_id: str = Field(
+        ...,
+        description="REQUIRED - Correlation ID for trace recovery. Single source of truth. "
+        "Echo from request.trace_correlation_id.",
+    )
     metrics: RolloutMetrics
     trace: dict[str, Any] | None = None
 
     # =========================================================================
     # CANONICAL LOCATIONS (Top-Level - Preferred for Parsing)
     # =========================================================================
-    trace_correlation_id: str | None = Field(
-        default=None,
-        description="Correlation ID for trace recovery. TOP-LEVEL CANONICAL location.",
-    )
     inference_url: str | None = Field(
         default=None,
         description="Inference URL used for this rollout. TOP-LEVEL CANONICAL location.",
@@ -255,6 +272,10 @@ class RolloutResponse(BaseModel):
     # =========================================================================
     # LEGACY FIELDS (Backward Compatibility)
     # =========================================================================
+    run_id: str | None = Field(
+        default=None,
+        description="[DEPRECATED] Use trace_correlation_id instead. Will be removed in future version.",
+    )
     branches: dict[str, list[str]] = Field(
         default_factory=dict,
         description="[LEGACY] Branch tracking. Usually empty for single-path rollouts.",
@@ -267,30 +288,6 @@ class RolloutResponse(BaseModel):
         default_factory=dict,
         description="[LEGACY] Additional metadata. Prefer top-level fields instead.",
     )
-
-    @field_validator('trace_correlation_id')
-    @classmethod
-    def warn_missing_correlation_id(cls, v: str | None) -> str | None:
-        """Warn if trace_correlation_id is None - this breaks trace hydration.
-
-        When trace_correlation_id is None, the backend cannot correlate LLM traces
-        with eval seeds, causing trace hydration to fail. This results in warnings like:
-        "missing correlation_id" and prevents proper trace tracking.
-
-        To fix: Call extract_trace_correlation_id() from
-        synth_ai.sdk.task.trace_correlation_helpers and include the result
-        in your RolloutResponse, or use build_rollout_response() helper.
-        """
-        if v is None:
-            warnings.warn(
-                "RolloutResponse.trace_correlation_id is None. "
-                "Trace hydration will fail. "
-                "See: https://docs.usesynth.ai/guides/local-api#trace-correlation "
-                "or use build_rollout_response() helper from synth_ai.sdk.task",
-                UserWarning,
-                stacklevel=4
-            )
-        return v
 
 
 class _ExtraAllowModel(BaseModel):

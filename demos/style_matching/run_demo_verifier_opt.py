@@ -32,6 +32,7 @@ args = parser.parse_args()
 
 synth_root = Path(__file__).resolve().parents[2]
 
+
 def _load_env_file(path: Path) -> None:
     if not path.exists():
         return
@@ -40,14 +41,20 @@ def _load_env_file(path: Path) -> None:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
-        value = value.strip().strip("\"").strip("' ")
+        value = value.strip().strip('"').strip("' ")
         if key:
             os.environ[key] = value
+
 
 _load_env_file(synth_root / ".env")
 
 from synth_ai.products.graph_evolve import GraphOptimizationClient, GraphOptimizationConfig
-from synth_ai.products.graph_evolve.config import EvolutionConfig, SeedsConfig, LimitsConfig, ProposerConfig
+from synth_ai.products.graph_evolve.config import (
+    EvolutionConfig,
+    SeedsConfig,
+    LimitsConfig,
+    ProposerConfig,
+)
 
 USE_LOCAL_BACKEND = args.local
 SYNTH_API_BASE = "http://127.0.0.1:8000" if USE_LOCAL_BACKEND else "https://api.usesynth.ai"

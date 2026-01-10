@@ -116,14 +116,24 @@ components:
         8. Compare prediction to your ground truth
         9. Return RolloutResponse with reward in `metrics.reward_mean`
       required:
-        - run_id
+        - trace_correlation_id
         - env
         - policy
         - mode
       properties:
+        trace_correlation_id:
+          type: string
+          description: |
+            REQUIRED - Unique identifier for this rollout. Used for trace correlation,
+            registry operations, seed derivation, and resource tracking.
+            Echo this back in the response.
+
         run_id:
           type: string
-          description: Unique ID for this rollout - echo it back in response
+          nullable: true
+          deprecated: true
+          description: |
+            [DEPRECATED] Use trace_correlation_id instead. Will be removed in future version.
 
         env:
           $ref: '#/components/schemas/RolloutEnvSpec'
@@ -161,7 +171,7 @@ components:
             Rollout mode. Task Apps MAY ignore this field.
             Synth uses `"eval"` for prompt optimization.
       example:
-        run_id: "run_abc123"
+        trace_correlation_id: "trace_abc123"
         env:
           seed: 42
           config:
@@ -536,35 +546,44 @@ components:
 
         ## Key Fields
 
-        - `run_id`: Echo from request (required)
+        - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
         - `metrics.outcome_reward`: THE OPTIMIZATION TARGET. Higher = better prompt.
         - `trace`: v3 trace payload (required for verifier scoring)
+        - `run_id`: DEPRECATED - Use trace_correlation_id instead
 
         ## Canonical Locations (Top-Level)
 
         These fields SHOULD be at top-level for optimal parsing:
-        - `trace_correlation_id`: Correlation ID for trace recovery
+        - `trace_correlation_id`: REQUIRED - Correlation ID for trace recovery
         - `inference_url`: Inference URL used for this rollout
 
         ## Example
 
         ```json
         {
-          "run_id": "run_abc123",
+          "trace_correlation_id": "trace_abc123",
           "metrics": {"outcome_reward": 1.0},
           "trace": {...},
-          "trace_correlation_id": "trace_abc123",
           "inference_url": "https://api.usesynth.ai/v1/trial-xyz"
         }
         ```
       required:
-        - run_id
+        - trace_correlation_id
         - metrics
         - trace
       properties:
+        trace_correlation_id:
+          type: string
+          description: |
+            REQUIRED - Correlation ID for trace recovery. Single source of truth.
+            Echo from request.trace_correlation_id.
+
         run_id:
           type: string
-          description: Echo the run_id from the request
+          nullable: true
+          deprecated: true
+          description: |
+            [DEPRECATED] Use trace_correlation_id instead. Will be removed in future version.
 
         metrics:
           $ref: '#/components/schemas/RolloutMetrics'
@@ -574,14 +593,6 @@ components:
           nullable: true
           additionalProperties: true
           description: v3 trace payload for training and evaluation
-
-        # CANONICAL LOCATIONS (Top-Level - Preferred)
-        trace_correlation_id:
-          type: string
-          nullable: true
-          description: |
-            Correlation ID for trace recovery.
-            TOP-LEVEL CANONICAL LOCATION. Required for verifier scoring.
 
         inference_url:
           type: string
@@ -611,7 +622,7 @@ components:
           default: {}
           description: "[LEGACY] Pipeline metadata. Prefer top-level fields."
       example:
-        run_id: "run_abc123"
+        trace_correlation_id: "trace_abc123"
         metrics:
           # PREFERRED - objectives-first
           outcome_objectives:
@@ -623,8 +634,6 @@ components:
             - 1.0
           reward_mean: 1.0
           num_steps: 1
-        # CANONICAL LOCATIONS (top-level)
-        trace_correlation_id: "trace_abc123"
         inference_url: "https://api.usesynth.ai/v1/trial-xyz"
         aborted: false
         trace:

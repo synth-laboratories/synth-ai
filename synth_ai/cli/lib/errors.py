@@ -78,7 +78,7 @@ def get_required_value(
         solutions=[
             (f"Use --{name.replace('_', '-')}", "Provide the value explicitly via CLI"),
             (f"Set {name.upper()}=<value>", "Populate it via environment variables"),
-            (f"Add {name} = \"<value>\" to config", "Persist it in the TOML config"),
+            (f'Add {name} = "<value>" to config', "Persist it in the TOML config"),
         ],
         docs_url=docs_url,
     )

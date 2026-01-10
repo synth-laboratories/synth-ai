@@ -28,13 +28,7 @@ from synth_ai.sdk.task.server import ProxyConfig, RubricBundle, TaskAppConfig
 
 def validate_required_routes_exist(app: ASGIApp) -> None:
     routes = set(extract_routes_from_app(app))
-    required_endpoints: Set[str] = {
-        '/',
-        "/health",
-        "/info",
-        "/task_info",
-        "/rollout"
-    }
+    required_endpoints: Set[str] = {"/", "/health", "/info", "/task_info", "/rollout"}
     missing = required_endpoints - routes
     if missing:
         raise ValueError(f"Missing required FastAPI endpoints: {', '.join(sorted(missing))}")
@@ -75,10 +69,12 @@ ROUTE_CONTRACTS: dict[str, RouteContract] = {
     },
 }
 
+
 def _ensure_mapping(payload: Any, path: str) -> Mapping[str, Any]:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{path} must return a JSON object")
     return payload
+
 
 def _validate_root_payload(payload: Any) -> None:
     data = _ensure_mapping(payload, "/")
@@ -88,6 +84,7 @@ def _validate_root_payload(payload: Any) -> None:
         raise ValueError("`/` must return a status string")
     if not isinstance(service, str) or not service:
         raise ValueError("`/` must return a service string")
+
 
 def _validate_health_payload(payload: Any) -> None:
     data = _ensure_mapping(payload, "/health")
@@ -102,6 +99,7 @@ def _validate_health_payload(payload: Any) -> None:
     if missing:
         raise ValueError(f"`/health` auth payload missing keys: {', '.join(sorted(missing))}")
 
+
 def _validate_info_payload(payload: Any) -> None:
     data = _ensure_mapping(payload, "/info")
     service = data.get("service")
@@ -113,10 +111,12 @@ def _validate_info_payload(payload: Any) -> None:
     if dataset is None:
         raise ValueError("`/info` must include dataset metadata")
 
+
 def _validate_task_info_payload(payload: Any) -> None:
     data = _ensure_mapping(payload, "/task_info")
     if "taskset" not in data:
         raise ValueError("`/task_info` without seeds must include a `taskset` field")
+
 
 def _validate_rollout_payload(payload: Any) -> None:
     """Validate that /rollout returns a proper RolloutResponse schema.
@@ -129,12 +129,12 @@ def _validate_rollout_payload(payload: Any) -> None:
     data = _ensure_mapping(payload, "/rollout")
 
     # Check required top-level fields
-    required_fields = ["run_id", "trajectories", "metrics"]
+    required_fields = ["trace_correlation_id", "trajectories", "metrics"]
     for field in required_fields:
         if field not in data:
             raise ValueError(
                 f"`/rollout` response missing required field '{field}'. "
-                f"The response must include: run_id, trajectories, and metrics. "
+                f"The response must include: trace_correlation_id, trajectories, and metrics. "
                 f"This error often occurs with manual FastAPI implementations. "
                 f"Use create_task_app(build_config()) instead."
             )
@@ -215,7 +215,7 @@ def _validate_rollout_payload(payload: Any) -> None:
             f"`/rollout` trajectory 'steps' must be a list, got {type(steps).__name__}"
         )
 
-    # For prompt learning (MIPRO, etc), we need messages in step.info
+    # For prompt learning (GEPA), we need messages in step.info
     # This catches: "Could not extract messages from rollout response - ensure task app stores messages in step.info"
     if len(steps) > 0:
         first_step = steps[0]
@@ -229,7 +229,7 @@ def _validate_rollout_payload(payload: Any) -> None:
         if step_info is None:
             raise ValueError(
                 "`/rollout` step.info is missing. "
-                "For prompt learning (MIPRO), each step must include an 'info' field with 'messages'. "
+                "For prompt learning (GEPA), each step must include an 'info' field with 'messages'. "
                 "Use create_task_app(build_config()) with a proper rollout executor."
             )
 
@@ -278,10 +278,18 @@ def _validate_rollout_payload(payload: Any) -> None:
     has_outcome_objectives = isinstance(outcome_objectives, Mapping)
     has_outcome_reward = isinstance(outcome_reward, (int, float))
     has_outcome_score = isinstance(outcome_score, (int, float))
-    has_episode_rewards = isinstance(episode_rewards, list) or isinstance(episode_rewards, (int, float))
+    has_episode_rewards = isinstance(episode_rewards, list) or isinstance(
+        episode_rewards, (int, float)
+    )
     has_reward_mean = isinstance(reward_mean, (int, float))
 
-    if not (has_outcome_objectives or has_outcome_reward or has_outcome_score or has_episode_rewards or has_reward_mean):
+    if not (
+        has_outcome_objectives
+        or has_outcome_reward
+        or has_outcome_score
+        or has_episode_rewards
+        or has_reward_mean
+    ):
         raise ValueError(
             "`/rollout` metrics missing required reward fields. "
             "Provide outcome_objectives/outcome_reward (preferred) or legacy episode_rewards/reward_mean."
@@ -401,7 +409,7 @@ def test_route_contracts(app: ASGIApp) -> None:
                     # Send the actual RolloutRequest format used by prompt learning backend
                     # This matches the payload from evaluation.py:_execute_rollout_request()
                     json_payload = {
-                        "run_id": "validate",
+                        "trace_correlation_id": rollout_trace_id,
                         "env": {
                             "env_name": "validation",
                             "config": {"index": 0},
@@ -414,10 +422,9 @@ def test_route_contracts(app: ASGIApp) -> None:
                                 "provider": "openai",
                                 "temperature": 0.7,
                                 "inference_url": rollout_interceptor_url,
-                                "trace_correlation_id": rollout_trace_id,
                             },
-                            "assert_proxy": True,   # Backend always sets this for prompt learning
-                            "proxy_only": True,     # Backend always sets this for prompt learning
+                            "assert_proxy": True,  # Backend always sets this for prompt learning
+                            "proxy_only": True,  # Backend always sets this for prompt learning
                         },
                         "record": {"trajectories": True},
                         "mode": "eval",
@@ -480,7 +487,7 @@ def validate_config_structure(cfg: TaskAppConfig) -> TaskAppConfig:
             return inspect.signature(fn)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{name} must be a callable with an inspectable signature") from exc
-    
+
     def required_parameters(sig: inspect.Signature) -> list[inspect.Parameter]:
         positional_kinds = {
             inspect.Parameter.POSITIONAL_ONLY,
@@ -491,7 +498,7 @@ def validate_config_structure(cfg: TaskAppConfig) -> TaskAppConfig:
             for param in sig.parameters.values()
             if param.kind in positional_kinds and param.default is inspect._empty
         ]
-    
+
     for field_name in ("app_id", "name", "description"):
         value = getattr(cfg, field_name, None)
         if not isinstance(value, str) or not value.strip():
@@ -579,27 +586,23 @@ def validate_config_structure(cfg: TaskAppConfig) -> TaskAppConfig:
     return cfg
 
 
-def validate_task_app(
-    path: Path,
-    discovery: bool = False
-) -> Path:
-
+def validate_task_app(path: Path, discovery: bool = False) -> Path:
     def print_pass():
         ctx_print("Check passed", not discovery)
 
     ctx_print("\nChecking if .py file", not discovery)
     validate_file_type(path, ".py")
     print_pass()
-    
+
     ctx_print("\nChecking if compiles", not discovery)
     validate_py_file_compiles(path)
     print_pass()
-    
+
     ctx_print("\nChecking if loads to module", not discovery)
     with contextlib.redirect_stdout(io.StringIO()):
         module = load_module(path)
     print_pass()
-    
+
     ctx_print("\nChecking if is ASGI app", not discovery)
     with contextlib.redirect_stdout(io.StringIO()):
         app = get_asgi_app(module)
@@ -614,29 +617,26 @@ def validate_task_app(
                 raise TypeError("build_config must return a TaskAppConfig instance")
             validate_config_structure(config)
     print_pass()
-    
+
     ctx_print("\nChecking if required routes exist", not discovery)
     validate_required_routes_exist(app)
     print_pass()
-    
+
     ctx_print("\nChecking if required route contracts exist", not discovery)
     validate_route_contracts(app)
     print_pass()
-    
+
     if discovery:
         return path
-    
+
     ctx_print("Testing route contracts", not discovery)
     test_route_contracts(app)
     print_pass()
-    print('\n')
+    print("\n")
     return path
 
 
-def is_valid_task_app(
-    path: Path,
-    discovery: bool = False
-) -> bool:
+def is_valid_task_app(path: Path, discovery: bool = False) -> bool:
     try:
         validate_task_app(path, discovery)
     except Exception:

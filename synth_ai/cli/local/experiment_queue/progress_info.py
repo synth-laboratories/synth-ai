@@ -9,7 +9,7 @@ from typing import Any
 @dataclass(frozen=True, slots=True)
 class ProgressInfo:
     """Type-safe representation of progress information parsed from output.
-    
+
     This replaces dict[str, Any] usage in status_tracker.py for better type safety.
     """
 
@@ -38,18 +38,14 @@ class ProgressInfo:
             assert isinstance(self.total_rollouts, int), (
                 f"total_rollouts must be int, got {type(self.total_rollouts).__name__}"
             )
-            assert self.total_rollouts > 0, (
-                f"total_rollouts must be > 0, got {self.total_rollouts}"
-            )
+            assert self.total_rollouts > 0, f"total_rollouts must be > 0, got {self.total_rollouts}"
 
         # Validate best_score
         if self.best_score is not None:
             assert isinstance(self.best_score, int | float), (
                 f"best_score must be int | float, got {type(self.best_score).__name__}"
             )
-            assert 0 <= self.best_score <= 1, (
-                f"best_score must be in [0, 1], got {self.best_score}"
-            )
+            assert 0 <= self.best_score <= 1, f"best_score must be in [0, 1], got {self.best_score}"
 
         # Validate trials_completed
         if self.trials_completed is not None:
@@ -72,13 +68,13 @@ class ProgressInfo:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ProgressInfo:
         """Create from dictionary with type coercion and validation.
-        
+
         Args:
             data: Dictionary with progress information (may have wrong types)
-            
+
         Returns:
             ProgressInfo instance with validated and coerced types
-            
+
         Raises:
             AssertionError: If data cannot be coerced or is invalid
         """
@@ -157,4 +153,3 @@ class ProgressInfo:
             best_score=best_score,
             trials_completed=trials_completed,
         )
-

@@ -59,12 +59,7 @@ def write_task_app_config(apps: dict[str, Any]) -> None:
 
 
 def now_iso() -> str:
-    return (
-        datetime.now(UTC)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def task_app_id_from_path(path: str | Path | None) -> str | None:
@@ -141,7 +136,6 @@ def record_task_app(
     template_id: str | None = None,
     secret_name: str | None = None,
 ) -> None:
-
     def _mutate(entry: dict[str, Any]) -> None:
         if secret_name:
             modal_block = entry.setdefault(
@@ -215,7 +209,9 @@ def persist_demo_dir(demo_dir: str) -> None:
 
 
 def load_demo_dir() -> str | None:
-    path, _ = _select_entry(predicate=lambda entry: entry.get("is_demo") or entry.get("template_id"))
+    path, _ = _select_entry(
+        predicate=lambda entry: entry.get("is_demo") or entry.get("template_id")
+    )
     return path
 
 

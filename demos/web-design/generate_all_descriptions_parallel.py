@@ -1,6 +1,7 @@
 """
 Generate functional descriptions for ALL screenshots in parallel.
 """
+
 import os
 import json
 import asyncio
@@ -55,17 +56,19 @@ Now, analyze this screenshot and provide the functional description following th
 """
 
 
-async def generate_functional_description(image_path: str, api_key: str, semaphore: asyncio.Semaphore) -> dict:
+async def generate_functional_description(
+    image_path: str, api_key: str, semaphore: asyncio.Semaphore
+) -> dict:
     """Generate functional description from screenshot using Gemini."""
     async with semaphore:
         # Configure the API (thread-safe)
         genai.configure(api_key=api_key)
 
         # Create model
-        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
         # Load image
-        with open(image_path, 'rb') as f:
+        with open(image_path, "rb") as f:
             image_data = f.read()
 
         # Create the prompt with image
@@ -73,19 +76,15 @@ async def generate_functional_description(image_path: str, api_key: str, semapho
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
-            lambda: model.generate_content([
-                FUNCTIONAL_DESCRIPTION_PROMPT,
-                {
-                    'mime_type': 'image/png',
-                    'data': image_data
-                }
-            ])
+            lambda: model.generate_content(
+                [FUNCTIONAL_DESCRIPTION_PROMPT, {"mime_type": "image/png", "data": image_data}]
+            ),
         )
 
         return {
             "image_path": str(image_path),
             "functional_description": response.text,
-            "model": "gemini-2.0-flash-exp"
+            "model": "gemini-2.0-flash-exp",
         }
 
 
@@ -100,7 +99,14 @@ def find_all_screenshots(data_dir: Path) -> list:
     return screenshots
 
 
-async def process_batch(screenshots: list, api_key: str, results: list, failed: list, output_file: Path, max_concurrent: int = 10):
+async def process_batch(
+    screenshots: list,
+    api_key: str,
+    results: list,
+    failed: list,
+    output_file: Path,
+    max_concurrent: int = 10,
+):
     """Process a batch of screenshots in parallel."""
     semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -110,10 +116,7 @@ async def process_batch(screenshots: list, api_key: str, results: list, failed: 
             results.append(result)
             return result
         except Exception as e:
-            error = {
-                "image_path": str(img_path),
-                "error": str(e)
-            }
+            error = {"image_path": str(img_path), "error": str(e)}
             failed.append(error)
             return None
 
@@ -122,7 +125,7 @@ async def process_batch(screenshots: list, api_key: str, results: list, failed: 
     await async_tqdm.gather(*tasks, desc="Generating descriptions")
 
     # Save results
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
 
 
@@ -142,7 +145,7 @@ async def main():
     # Check if we already have descriptions
     output_file = Path(__file__).parent / "all_functional_descriptions.json"
     if output_file.exists():
-        with open(output_file, 'r') as f:
+        with open(output_file, "r") as f:
             existing_results = json.load(f)
         existing_paths = {r["image_path"] for r in existing_results}
         print(f"Found {len(existing_results)} existing descriptions")
@@ -167,8 +170,10 @@ async def main():
     max_concurrent = 20  # Adjust based on API rate limits
 
     for i in range(0, len(screenshots_to_process), batch_size):
-        batch = screenshots_to_process[i:i+batch_size]
-        print(f"\nProcessing batch {i//batch_size + 1}/{(len(screenshots_to_process) + batch_size - 1)//batch_size}")
+        batch = screenshots_to_process[i : i + batch_size]
+        print(
+            f"\nProcessing batch {i // batch_size + 1}/{(len(screenshots_to_process) + batch_size - 1) // batch_size}"
+        )
         print(f"Batch size: {len(batch)}, Concurrency: {max_concurrent}")
 
         await process_batch(batch, api_key, results, failed, output_file, max_concurrent)
@@ -184,7 +189,7 @@ async def main():
             print(f"  - {f['image_path']}: {f['error']}")
 
         failed_file = Path(__file__).parent / "failed_descriptions.json"
-        with open(failed_file, 'w') as f:
+        with open(failed_file, "w") as f:
             json.dump(failed, f, indent=2)
         print(f"✓ Failed images saved to {failed_file}")
 

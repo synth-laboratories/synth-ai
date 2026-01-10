@@ -107,6 +107,7 @@ from synth_ai.sdk.tunnels.ports import (
 # New: high-level tunnel abstraction
 from synth_ai.sdk.tunnels.tunneled_api import TunneledLocalAPI, TunnelBackend
 
+
 # Convenience function for creating tunnels from apps
 async def create_tunneled_api(
     app: Any,
@@ -119,13 +120,13 @@ async def create_tunneled_api(
     progress: bool = False,
 ) -> TunneledLocalAPI:
     """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
-    
+
     This is a convenience function that handles the common pattern of:
     1. Finding an available port (or using the provided one)
     2. Starting the app server
     3. Waiting for health check
     4. Creating the tunnel
-    
+
     Args:
         app: FastAPI or ASGI application to tunnel
         local_port: Port to use (defaults to auto-finding an available port from 8001)
@@ -134,10 +135,10 @@ async def create_tunneled_api(
         backend_url: Backend URL (defaults to production)
         verify_dns: Whether to verify DNS resolution
         progress: If True, print status updates
-        
+
     Returns:
         TunneledLocalAPI instance
-        
+
     Example:
         >>> from fastapi import FastAPI
         >>> app = FastAPI()
@@ -153,6 +154,7 @@ async def create_tunneled_api(
         verify_dns=verify_dns,
         progress=progress,
     )
+
 
 __all__ = [
     # High-level (RECOMMENDED)

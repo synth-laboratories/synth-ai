@@ -64,7 +64,8 @@ def _ensure_local_libsql() -> None:
         if "Address already in use" in str(exc):
             started_new = False
             click.echo(
-                f"[libsql] sqld already running on 127.0.0.1:{hrana_port} (hrana) and 127.0.0.1:{http_port} (http); attempting to reuse", err=True
+                f"[libsql] sqld already running on 127.0.0.1:{hrana_port} (hrana) and 127.0.0.1:{http_port} (http); attempting to reuse",
+                err=True,
             )
         else:
             raise click.ClickException(
@@ -119,22 +120,22 @@ def _refresh_tracing_config() -> None:
 
 def _load_smoke_config(config_path: Path | None) -> dict[str, Any]:
     """Load [smoke] section from TOML config file.
-    
+
     Returns an empty dict if no config file or no [smoke] section.
     """
     if not config_path:
         return {}
-    
+
     try:
         with open(config_path, "rb") as f:
             full_config = tomllib.load(f)
-        
+
         smoke_config = full_config.get("smoke", {})
-        
+
         if smoke_config:
             click.echo(f"[smoke] Loaded configuration from {config_path}", err=True)
             click.echo(f"[smoke] Config keys: {', '.join(smoke_config.keys())}", err=True)
-        
+
         return smoke_config
     except Exception as exc:
         click.echo(f"[smoke] Warning: Failed to load config from {config_path}: {exc}", err=True)
@@ -152,7 +153,7 @@ def _kill_process_on_port(port: int) -> None:
             timeout=2,
         )
         if result.stdout.strip():
-            pids = result.stdout.strip().split('\n')
+            pids = result.stdout.strip().split("\n")
             for pid in pids:
                 try:
                     subprocess.run(["kill", "-9", pid], timeout=2)
@@ -165,50 +166,52 @@ def _kill_process_on_port(port: int) -> None:
 
 
 def _start_task_app_server(
-    task_app_name: str,
-    port: int,
-    env_file: str | None,
-    force: bool
+    task_app_name: str, port: int, env_file: str | None, force: bool
 ) -> tuple[Any, str]:
     """Start a task app server in the background using task-app serve.
-    
+
     Returns (process, url) tuple.
     """
     import subprocess
     import time as time_module
-    
+
     # Build command using task-app serve (for TaskAppConfig-based apps)
     cmd = [
         "nohup",
-        "uvx", "synth-ai",
-        "task-app", "serve", task_app_name,
-        "--port", str(port),
+        "uvx",
+        "synth-ai",
+        "task-app",
+        "serve",
+        task_app_name,
+        "--port",
+        str(port),
     ]
-    
+
     if env_file:
         cmd.extend(["--env-file", env_file])
-    
+
     if force:
         cmd.append("--force")
-    
+
     # Resolve the synth-ai root directory
     import synth_ai
+
     synth_ai_root = Path(synth_ai.__file__ or Path(__file__).resolve()).resolve().parent.parent
-    
+
     click.echo(f"[smoke] Starting task app '{task_app_name}' on port {port}...", err=True)
     click.echo(f"[smoke] Command: {' '.join(cmd)}", err=True)
     click.echo(f"[smoke] Working directory: {synth_ai_root}", err=True)
-    
+
     # nohup requires output redirection to a file
     # Open file, start process, then close file handle so process is fully detached
     # Run from synth-ai root so task app discovery works
     nohup_log = Path(synth_ai_root) / "nohup_task_app.out"
-    
+
     # Inherit SYNTH_QUIET environment variable to suppress patch messages
     env = os.environ.copy()
     if os.getenv("SYNTH_QUIET"):
         env["SYNTH_QUIET"] = "1"
-    
+
     with open(nohup_log, "w") as log_file:
         proc = subprocess.Popen(
             cmd,
@@ -219,12 +222,13 @@ def _start_task_app_server(
             env=env,
         )
     # File is closed immediately so process is detached
-    
+
     # Wait for server to be ready
     url = f"http://localhost:{port}"
     click.echo(f"[smoke] Waiting for task app to be ready at {url}...", err=True)
-    
+
     import httpx
+
     deadline = time.time() + 120.0  # Give it 2 minutes for initial setup
     attempt = 0
     last_log_line = None
@@ -238,7 +242,7 @@ def _start_task_app_server(
                 return proc, url
         except Exception:
             pass
-        
+
         # Show polling progress every 5 seconds with last log line
         if attempt % 10 == 0:
             elapsed = int(time.time() - (deadline - 120.0))
@@ -256,75 +260,90 @@ def _start_task_app_server(
                                     # Truncate if too long
                                     if len(stripped) > 80:
                                         stripped = stripped[:77] + "..."
-                                    click.echo(f"[smoke] Waiting ({elapsed}s): {stripped}", err=True)
+                                    click.echo(
+                                        f"[smoke] Waiting ({elapsed}s): {stripped}", err=True
+                                    )
                                     break
                             else:
-                                click.echo(f"[smoke] Still waiting for task app... ({elapsed}s elapsed)", err=True)
+                                click.echo(
+                                    f"[smoke] Still waiting for task app... ({elapsed}s elapsed)",
+                                    err=True,
+                                )
                         else:
-                            click.echo(f"[smoke] Still waiting for task app... ({elapsed}s elapsed)", err=True)
+                            click.echo(
+                                f"[smoke] Still waiting for task app... ({elapsed}s elapsed)",
+                                err=True,
+                            )
             except Exception:
                 click.echo(f"[smoke] Still waiting for task app... ({elapsed}s elapsed)", err=True)
-        
+
         # Check if process died
         if proc.poll() is not None:
             # Build a manual command that the user can copy-paste
-            manual_cmd_parts = ["uvx", "synth-ai", "task-app", "serve", task_app_name, "--port", str(port)]
+            manual_cmd_parts = [
+                "uvx",
+                "synth-ai",
+                "task-app",
+                "serve",
+                task_app_name,
+                "--port",
+                str(port),
+            ]
             if env_file:
                 manual_cmd_parts.extend(["--env-file", env_file])
             if force:
                 manual_cmd_parts.append("--force")
-            
+
             raise click.ClickException(
                 f"Task app '{task_app_name}' process exited unexpectedly (code={proc.returncode}). "
                 f"Check that the task app name is correct and .env has required keys. "
                 f"Try running manually: {' '.join(manual_cmd_parts)}"
             )
-        
+
         time_module.sleep(0.5)
-    
+
     proc.kill()
     raise click.ClickException("Task app failed to start within 120 seconds")
 
 
-def _start_sqld_server(
-    db_path: str,
-    hrana_port: int,
-    http_port: int
-) -> Any:
+def _start_sqld_server(db_path: str, hrana_port: int, http_port: int) -> Any:
     """Start sqld server in the background.
-    
+
     Returns the process handle.
     """
     import shutil
     import subprocess
-    
+
     # Check if sqld is available
     sqld_bin = shutil.which("sqld")
     if not sqld_bin:
         click.echo("[smoke] Warning: sqld not found in PATH, skipping auto-start", err=True)
         click.echo("[smoke] Install sqld: brew install sqld", err=True)
         return None
-    
+
     # Ensure db directory exists
     db_path_obj = Path(db_path).expanduser().resolve()
     db_path_obj.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Kill any existing processes on these ports
     for port in [hrana_port, http_port]:
         _kill_process_on_port(port)
-    
+
     cmd = [
         sqld_bin,
-        "--db-path", str(db_path_obj),
-        "--hrana-listen-addr", f"127.0.0.1:{hrana_port}",
-        "--http-listen-addr", f"127.0.0.1:{http_port}",
+        "--db-path",
+        str(db_path_obj),
+        "--hrana-listen-addr",
+        f"127.0.0.1:{hrana_port}",
+        "--http-listen-addr",
+        f"127.0.0.1:{http_port}",
     ]
-    
+
     click.echo("[smoke] Starting sqld server...", err=True)
     click.echo(f"[smoke] DB path: {db_path_obj}", err=True)
     click.echo(f"[smoke] Hrana port: {hrana_port}, HTTP port: {http_port}", err=True)
     click.echo(f"[smoke] Command: {' '.join(cmd)}", err=True)
-    
+
     # Redirect to devnull to avoid process dying from pipe buffer issues
     proc = subprocess.Popen(
         cmd,
@@ -332,11 +351,11 @@ def _start_sqld_server(
         stderr=subprocess.DEVNULL,
         text=True,
     )
-    
+
     # Wait for server to be ready
     health_url = f"http://127.0.0.1:{http_port}/health"
     click.echo(f"[smoke] Waiting for sqld to be ready at {health_url}...", err=True)
-    
+
     deadline = time.time() + 10.0
     while time.time() < deadline:
         try:
@@ -351,16 +370,19 @@ def _start_sqld_server(
                 return proc
         except Exception:
             pass
-        
+
         # Check if process died
         if proc.poll() is not None:
-            click.echo(f"[smoke] Warning: sqld process exited with code {proc.returncode}", err=True)
+            click.echo(
+                f"[smoke] Warning: sqld process exited with code {proc.returncode}", err=True
+            )
             return None
-        
+
         time.sleep(0.2)
-    
+
     click.echo("[smoke] Warning: sqld health check timed out, continuing anyway...", err=True)
     return proc
+
 
 class MockRLTrainer:
     """Minimal trainer emulator with a local FastAPI mock for GPT-5-Nano.
@@ -410,7 +432,7 @@ class MockRLTrainer:
             )
 
             # Explicit Body(...) avoids FastAPI interpreting parameters as query args
-            model = (body.get("model") or "gpt-5-nano")
+            model = body.get("model") or "gpt-5-nano"
             messages = body.get("messages") or []
             tools = body.get("tools") or []
 
@@ -546,7 +568,8 @@ class MockRLTrainer:
                             cid,
                         )
                         click.echo(
-                            "[mock-rl] ✗ proxy response missing tool_calls; failing request", err=True
+                            "[mock-rl] ✗ proxy response missing tool_calls; failing request",
+                            err=True,
                         )
                     return JSONResponse(data_typed)
                 return JSONResponse(result)
@@ -582,11 +605,17 @@ class MockRLTrainer:
                     "MockRLTrainer received request without tool schema; responding with text content (cid=%s)",
                     cid,
                 )
-                last_user = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
+                last_user = next(
+                    (m.get("content", "") for m in reversed(messages) if m.get("role") == "user"),
+                    "",
+                )
                 text = (last_user or "").strip()
                 if len(text) > 160:
                     text = text[:160] + "..."
-                message_payload = {"role": "assistant", "content": f"MOCK(gpt-5-nano): {text or 'ack'}"}
+                message_payload = {
+                    "role": "assistant",
+                    "content": f"MOCK(gpt-5-nano): {text or 'ack'}",
+                }
                 finish_reason = "stop"
 
             response = {
@@ -594,7 +623,9 @@ class MockRLTrainer:
                 "object": "chat.completion",
                 "created": int(asyncio.get_event_loop().time()),
                 "model": model,
-                "choices": [{"index": 0, "message": message_payload, "finish_reason": finish_reason}],
+                "choices": [
+                    {"index": 0, "message": message_payload, "finish_reason": finish_reason}
+                ],
                 "usage": {"prompt_tokens": 32, "completion_tokens": 16, "total_tokens": 48},
                 "synth": {"cid": correlation},
             }
@@ -704,6 +735,7 @@ class MockRLTrainer:
         self._server = None
         click.echo("[mock-rl] server stopped", err=True)
 
+
 async def _run_smoke_async(
     *,
     task_app_url: str,
@@ -730,6 +762,7 @@ async def _run_smoke_async(
             from synth_ai.sdk.api.train.configs.rl import (
                 RLConfig as _RLConfig,  # lazy import to avoid heavy deps when unused
             )
+
             cfg = _RLConfig.from_path(config_path)
         except Exception as exc:
             click.echo(f"Failed to load RL config {config_path}: {exc}", err=True)
@@ -777,7 +810,10 @@ async def _run_smoke_async(
         try:
             _ = await client.health()
         except Exception:
-            click.echo("Auth or connectivity check failed on /health. If this endpoint requires a key, pass --api-key or set ENVIRONMENT_API_KEY.", err=True)
+            click.echo(
+                "Auth or connectivity check failed on /health. If this endpoint requires a key, pass --api-key or set ENVIRONMENT_API_KEY.",
+                err=True,
+            )
             # Continue; rollout may still clarify the error
 
         # Fetch a sample task instance to infer environment name if not provided
@@ -787,7 +823,9 @@ async def _run_smoke_async(
                 ti = await client.task_info(seeds=[0])
                 # task_info returns TaskInfo or list[TaskInfo]; normalize
                 info: Any = ti[0] if isinstance(ti, list) else ti
-                env_name = getattr(info, "environment", None) or getattr(info, "task", {}).get("name")  # type: ignore[attr-defined]
+                env_name = getattr(info, "environment", None) or getattr(info, "task", {}).get(
+                    "name"
+                )  # type: ignore[attr-defined]
             except Exception:
                 env_name = None
         if not env_name:
@@ -795,7 +833,9 @@ async def _run_smoke_async(
             return 2
 
         # Inference URL: user override > preset > local mock > Synth API default
-        synth_base = (os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL") or "https://api.synth.run").rstrip("/")
+        synth_base = (
+            os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL") or "https://api.synth.run"
+        ).rstrip("/")
         # Avoid double '/api' if base already includes it
         if synth_base.endswith("/api"):
             default_infer = f"{synth_base}/inference/v1/chat/completions"
@@ -822,7 +862,9 @@ async def _run_smoke_async(
             except Exception:
                 pass
 
-            num_outer = batch_size if (batch_size is not None and batch_size > 0) else max(1, int(rollouts))
+            num_outer = (
+                batch_size if (batch_size is not None and batch_size > 0) else max(1, int(rollouts))
+            )
             for i in range(num_outer):
                 for g in range(max(1, int(group_size))):
                     if inference_url_raw.startswith("/"):
@@ -831,9 +873,10 @@ async def _run_smoke_async(
                         inference_url_abs = inference_url_raw
                     inference_url_norm = normalize_inference_url(inference_url_abs)
                     correlation_id = f"smoke-{uuid.uuid4()}"
-                    inference_url_with_cid = _append_query_param(inference_url_norm, "cid", correlation_id)
+                    inference_url_with_cid = _append_query_param(
+                        inference_url_norm, "cid", correlation_id
+                    )
 
-                    run_id = correlation_id
                     policy_cfg: dict[str, Any] = {
                         "model": model,
                         "inference_url": inference_url_with_cid,
@@ -842,7 +885,7 @@ async def _run_smoke_async(
                         policy_cfg.update(sampling)
 
                     request = RolloutRequest(
-                        run_id=run_id,
+                        trace_correlation_id=correlation_id,
                         env=RolloutEnvSpec(env_name=env_name, config={}, seed=i),
                         policy=RolloutPolicySpec(policy_name=policy_name, config=policy_cfg),
                         record=RolloutRecordConfig(
@@ -859,11 +902,16 @@ async def _run_smoke_async(
                     )
 
                     try:
-                        click.echo(f">> POST /rollout run_id={run_id} env={env_name} policy={policy_name} url={inference_url_with_cid}")
+                        click.echo(
+                            f">> POST /rollout trace_correlation_id={correlation_id} env={env_name} policy={policy_name} url={inference_url_with_cid}"
+                        )
                         response = await client.rollout(request)
                     except Exception as exc:
-                        click.echo(f"Rollout[{i}:{g}] failed: {type(exc).__name__}: {exc}", err=True)
+                        click.echo(
+                            f"Rollout[{i}:{g}] failed: {type(exc).__name__}: {exc}", err=True
+                        )
                         import traceback
+
                         click.echo(f"Traceback: {traceback.format_exc()}", err=True)
                         continue
 
@@ -878,7 +926,9 @@ async def _run_smoke_async(
                     metrics = response.metrics
                     if inferred_url:
                         click.echo(f"  rollout[{i}:{g}] inference_url: {inferred_url}")
-                    click.echo(f"  rollout[{i}:{g}] episodes={metrics.num_episodes} steps={metrics.num_steps} reward_mean={metrics.reward_mean:.4f}")
+                    click.echo(
+                        f"  rollout[{i}:{g}] episodes={metrics.num_episodes} steps={metrics.num_steps} reward_mean={metrics.reward_mean:.4f}"
+                    )
 
                     total_steps += int(metrics.num_steps)
                     if (metrics.reward_mean or 0.0) != 0.0:
@@ -897,7 +947,9 @@ async def _run_smoke_async(
                                     step_meta_url = meta.get("inference_url")
                                     break
                             if step_meta_url:
-                                click.echo(f"  step.meta.inference_url: {str(step_meta_url)[:120]}...")
+                                click.echo(
+                                    f"  step.meta.inference_url: {str(step_meta_url)[:120]}..."
+                                )
                         except Exception:
                             pass
 
@@ -906,7 +958,9 @@ async def _run_smoke_async(
                             metrics_dump = response.metrics.model_dump()
                         except Exception:
                             metrics_dump = {
-                                "episode_rewards": getattr(response.metrics, "episode_rewards", None),
+                                "episode_rewards": getattr(
+                                    response.metrics, "episode_rewards", None
+                                ),
                                 "reward_mean": getattr(response.metrics, "reward_mean", None),
                                 "num_steps": getattr(response.metrics, "num_steps", None),
                                 "num_episodes": getattr(response.metrics, "num_episodes", None),
@@ -944,10 +998,10 @@ async def _run_smoke_async(
                             pass
 
                         # Extract and display tool calls from v3 trace
-                        # 
+                        #
                         # IMPORTANT: Tool calls are extracted from the structured v3 trace format.
                         # The trace must be requested with return_trace=True for this to work.
-                        # 
+                        #
                         # Trace structure:
                         #   trace.event_history[] - list of events (policy calls, env steps)
                         #     ├─ event.call_records[] - LLM calls made during this event
@@ -961,7 +1015,7 @@ async def _run_smoke_async(
                         if tr:
                             event_history = tr.get("event_history", [])
                             tool_call_count = 0
-                            
+
                             # Extract tool calls from event_history call_records
                             if event_history and isinstance(event_history, list):
                                 for event in event_history:
@@ -973,16 +1027,22 @@ async def _run_smoke_async(
                                         for call_record in call_records:
                                             if isinstance(call_record, dict):
                                                 # Extract tool calls from this LLM call
-                                                output_tool_calls = call_record.get("output_tool_calls", [])
-                                                if output_tool_calls and isinstance(output_tool_calls, list):
+                                                output_tool_calls = call_record.get(
+                                                    "output_tool_calls", []
+                                                )
+                                                if output_tool_calls and isinstance(
+                                                    output_tool_calls, list
+                                                ):
                                                     for tc in output_tool_calls:
                                                         if isinstance(tc, dict):
                                                             fn_name = tc.get("name", "unknown")
                                                             fn_args = tc.get("arguments_json", "{}")
                                                             # Display tool call with truncated args for readability
-                                                            click.echo(f"  TOOL_CALL[{tool_call_count}]: {fn_name}({fn_args[:100]}{'...' if len(fn_args) > 100 else ''})")
+                                                            click.echo(
+                                                                f"  TOOL_CALL[{tool_call_count}]: {fn_name}({fn_args[:100]}{'...' if len(fn_args) > 100 else ''})"
+                                                            )
                                                             tool_call_count += 1
-                            
+
                             if tool_call_count > 0:
                                 click.echo(f"  ✓ {tool_call_count} tool calls executed")
                             else:
@@ -998,7 +1058,9 @@ async def _run_smoke_async(
 
             click.echo("✓ Smoke rollouts complete")
             denom = num_outer * max(1, int(group_size))
-            click.echo(f"  successes={successes}/{denom} total_steps={total_steps} v3_traces={v3_traces}/{denom} nonzero_returns={nonzero_returns}/{denom}")
+            click.echo(
+                f"  successes={successes}/{denom} total_steps={total_steps} v3_traces={v3_traces}/{denom} nonzero_returns={nonzero_returns}/{denom}"
+            )
 
             if successes == 0:
                 click.echo("  ⚠ All rollouts failed", err=True)
@@ -1050,6 +1112,8 @@ async def _run_smoke_async(
                 with contextlib.suppress(Exception):
                     await mock.stop()
         return result
+
+
 async def _run_train_step(
     *,
     task_app_url: str,
@@ -1068,6 +1132,7 @@ async def _run_train_step(
     parallel: int,
 ) -> int:
     import time
+
     start = time.perf_counter()
 
     async def one(seed_idx: int) -> dict[str, Any]:
@@ -1117,7 +1182,9 @@ async def _run_train_step(
     successes = sum(1 for r in results if _exit_code(r) == 0)
     avg_wall = sum(float(r.get("wall_ms", 0.0)) for r in results) / max(len(results), 1)
     click.echo("✓ Train-step emulation complete")
-    click.echo(f"  parallel={parallel} successes={successes}/{len(results)} total_wall_ms={total_wall_ms:.1f} avg_rollout_wall_ms={avg_wall:.1f}")
+    click.echo(
+        f"  parallel={parallel} successes={successes}/{len(results)} total_wall_ms={total_wall_ms:.1f} avg_rollout_wall_ms={avg_wall:.1f}"
+    )
 
     # Show brief failure codes to aid diagnosis
     if successes < len(results):
@@ -1133,7 +1200,13 @@ async def _run_train_step(
 
 
 @click.command("smoke")
-@click.option("--url", "task_app_url", type=str, default=lambda: os.getenv("TASK_APP_URL", "http://localhost:8765"), help="Task app base URL.")
+@click.option(
+    "--url",
+    "task_app_url",
+    type=str,
+    default=lambda: os.getenv("TASK_APP_URL", "http://localhost:8765"),
+    help="Task app base URL.",
+)
 @click.option(
     "--api-key",
     type=str,
@@ -1141,9 +1214,16 @@ async def _run_train_step(
     envvar="ENVIRONMENT_API_KEY",
     help="Environment API key (X-API-Key).",
 )
-@click.option("--env-name", type=str, default=None, help="Environment name to roll out (auto-detected if possible).")
+@click.option(
+    "--env-name",
+    type=str,
+    default=None,
+    help="Environment name to roll out (auto-detected if possible).",
+)
 @click.option("--policy-name", type=str, default="react", help="Policy name to pass to task app.")
-@click.option("--model", type=str, default="gpt-5-nano", help="Model id to route in inference payload.")
+@click.option(
+    "--model", type=str, default="gpt-5-nano", help="Model id to route in inference payload."
+)
 @click.option(
     "--policy",
     "inference_policy",
@@ -1151,10 +1231,22 @@ async def _run_train_step(
     default=None,
     help="Inference route preset (mock, gpt-5-nano via Synth, OpenAI or Groq).",
 )
-@click.option("--inference-url", type=str, default=None, help="Override inference URL (default: Synth API chat completions).")
-@click.option("--max-steps", type=int, default=3, show_default=True, help="Number of agent/env step pairs.")
+@click.option(
+    "--inference-url",
+    type=str,
+    default=None,
+    help="Override inference URL (default: Synth API chat completions).",
+)
+@click.option(
+    "--max-steps", type=int, default=3, show_default=True, help="Number of agent/env step pairs."
+)
 @click.option("--return-trace", is_flag=True, help="Request v3 trace in response if supported.")
-@click.option("--use-mock/--no-mock", default=True, show_default=True, help="Use local mock inference server (GPT-5-Nano emulation).")
+@click.option(
+    "--use-mock/--no-mock",
+    default=True,
+    show_default=True,
+    help="Use local mock inference server (GPT-5-Nano emulation).",
+)
 @click.option(
     "--mock-backend",
     type=click.Choice(["synthetic", "openai"], case_sensitive=False),
@@ -1162,12 +1254,41 @@ async def _run_train_step(
     show_default=True,
     help="Mock inference backend: synthetic deterministic tooling or OpenAI passthrough.",
 )
-@click.option("--mock-port", type=int, default=0, show_default=True, help="Port for local mock inference server (0 = auto).")
-@click.option("--config", type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None, help="RL TOML config to derive URL/env/model.")
-@click.option("--env-file", type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None, help="Path to .env to load before running.")
-@click.option("--rollouts", type=int, default=1, show_default=True, help="Number of rollouts (seeds 0..N-1).")
-@click.option("--group-size", type=int, default=1, show_default=True, help="Completions per seed to emulate GRPO grouping.")
-@click.option("--batch-size", type=int, default=None, help="Alias for rollouts; when set, overrides --rollouts.")
+@click.option(
+    "--mock-port",
+    type=int,
+    default=0,
+    show_default=True,
+    help="Port for local mock inference server (0 = auto).",
+)
+@click.option(
+    "--config",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="RL TOML config to derive URL/env/model.",
+)
+@click.option(
+    "--env-file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to .env to load before running.",
+)
+@click.option(
+    "--rollouts", type=int, default=1, show_default=True, help="Number of rollouts (seeds 0..N-1)."
+)
+@click.option(
+    "--group-size",
+    type=int,
+    default=1,
+    show_default=True,
+    help="Completions per seed to emulate GRPO grouping.",
+)
+@click.option(
+    "--batch-size",
+    type=int,
+    default=None,
+    help="Alias for rollouts; when set, overrides --rollouts.",
+)
 @click.option(
     "--parallel",
     type=int,
@@ -1201,24 +1322,24 @@ def command(
     OpenAI-compatible inference URL including a trace correlation id, and
     validates that the response contains the fields required by the RL trainer
     (e.g. pipeline_metadata.inference_url and per-step info.meta.inference_url).
-    
+
     If --config is provided, loads settings from the [smoke] section in the TOML file.
     CLI arguments override TOML values.
     """
-    
+
     # Load [smoke] section from TOML if config is provided
     smoke_config = _load_smoke_config(config)
-    
+
     # Track background processes for cleanup
     background_procs: list[Any] = []
-    
+
     try:
         # Auto-start sqld if configured
         if smoke_config.get("sqld_auto_start"):
             sqld_db_path = smoke_config.get("sqld_db_path", "./traces/local.db")
             sqld_hrana_port = smoke_config.get("sqld_hrana_port", 8080)
             sqld_http_port = smoke_config.get("sqld_http_port", 8081)
-            
+
             sqld_proc = _start_sqld_server(
                 db_path=sqld_db_path,
                 hrana_port=sqld_hrana_port,
@@ -1226,7 +1347,7 @@ def command(
             )
             if sqld_proc:
                 background_procs.append(("sqld", sqld_proc))
-        
+
         # Auto-start task app if configured
         task_app_override_url = None
         if smoke_config.get("task_app_name"):
@@ -1234,7 +1355,7 @@ def command(
             task_app_port = smoke_config.get("task_app_port", 8765)
             task_app_env_file = smoke_config.get("task_app_env_file")
             task_app_force = smoke_config.get("task_app_force", True)
-            
+
             task_app_proc, task_app_url = _start_task_app_server(
                 task_app_name=task_app_name,
                 port=task_app_port,
@@ -1254,27 +1375,27 @@ def command(
                     proc.wait(timeout=3)
                 except Exception:
                     proc.kill()
-        
+
         click.echo(f"[smoke] ERROR: Auto-start failed: {exc}", err=True)
         raise click.ClickException(f"Auto-start failed: {exc}") from exc
-    
+
     # Apply TOML defaults (CLI args take precedence)
     # Override task_url with auto-started task app URL if applicable
     if task_app_override_url:
         task_app_url = task_app_override_url
     # For string/int args: use TOML value if CLI value matches the default
     ctx = click.get_current_context()
-    
+
     # Helper to check if a CLI param was explicitly provided or is using default
     def use_toml_default(param_name: str, cli_value: Any, toml_key: str) -> Any:
         """Use TOML value if CLI param is at its default, otherwise use CLI value."""
         if not smoke_config or toml_key not in smoke_config:
             return cli_value
-        
+
         param = next((p for p in ctx.command.params if p.name == param_name), None)
         if not param:
             return cli_value
-        
+
         # Check if value was explicitly provided (not default)
         # If it matches the default, use TOML value
         param_default = param.default() if callable(param.default) else param.default
@@ -1282,9 +1403,9 @@ def command(
             toml_value = smoke_config[toml_key]
             click.echo(f"[smoke] Using {toml_key}={toml_value} from config", err=True)
             return toml_value
-        
+
         return cli_value
-    
+
     # Apply TOML defaults
     task_app_url = use_toml_default("task_app_url", task_app_url, "task_url")
     env_name = use_toml_default("env_name", env_name, "env_name")
@@ -1331,9 +1452,7 @@ def command(
 
         resolved_url, resolved_token = resolve_trace_db_settings()
         os.environ.setdefault("SYNTH_TRACES_DB", resolved_url)
-        if resolved_token and not (
-            os.getenv("LIBSQL_AUTH_TOKEN") or os.getenv("TURSO_AUTH_TOKEN")
-        ):
+        if resolved_token and not (os.getenv("LIBSQL_AUTH_TOKEN") or os.getenv("TURSO_AUTH_TOKEN")):
             os.environ["LIBSQL_AUTH_TOKEN"] = resolved_token
 
         _refresh_tracing_config()
@@ -1346,6 +1465,7 @@ def command(
         if env_file is not None:
             try:
                 from dotenv import load_dotenv as _ld
+
                 _ld(env_file, override=False)
             except Exception:
                 pass
@@ -1354,6 +1474,7 @@ def command(
             try:
                 from dotenv import find_dotenv as _fd
                 from dotenv import load_dotenv as _ld
+
                 _ld(_fd(usecwd=True), override=False)
             except Exception:
                 pass
@@ -1420,7 +1541,7 @@ def command(
                     proc.kill()
         if background_procs:
             click.echo("[smoke] Background services stopped", err=True)
-    
+
     sys.exit(exit_code)
 
 

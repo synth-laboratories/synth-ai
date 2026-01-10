@@ -55,6 +55,7 @@ APP_NAME = "My Task Name"
 # DATASET
 # =============================================================================
 
+
 def get_dataset_size() -> int:
     """Return the total number of samples in your dataset."""
     return 100  # Replace with actual dataset size
@@ -85,6 +86,7 @@ def get_sample(seed: int) -> dict:
 # SCORING
 # =============================================================================
 
+
 def score_response(predicted: str, sample: dict) -> float:
     """Score the LLM's response against the expected output.
 
@@ -104,6 +106,7 @@ def score_response(predicted: str, sample: dict) -> float:
 # =============================================================================
 # TASK APP PROVIDERS
 # =============================================================================
+
 
 def provide_taskset_description() -> dict:
     """Provide metadata about available dataset splits."""
@@ -133,11 +136,9 @@ def provide_task_instances(seeds: list[int]):
 # LLM CALL
 # =============================================================================
 
+
 async def call_llm(
-    user_prompt: str,
-    inference_url: str,
-    api_key: str | None = None,
-    model: str = "gpt-4o-mini"
+    user_prompt: str, inference_url: str, api_key: str | None = None, model: str = "gpt-4o-mini"
 ) -> str:
     """Call the LLM to process the input.
 
@@ -172,6 +173,7 @@ async def call_llm(
 # =============================================================================
 # ROLLOUT HANDLER
 # =============================================================================
+
 
 async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
     """Handle a single evaluation rollout.
@@ -219,17 +221,20 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 # CREATE THE APP
 # =============================================================================
 
-app = create_local_api(LocalAPIConfig(
-    app_id=APP_ID,
-    name=APP_NAME,
-    description="Description of what this task evaluates",
-    provide_taskset_description=provide_taskset_description,
-    provide_task_instances=provide_task_instances,
-    rollout=run_rollout,
-    cors_origins=["*"],
-))
+app = create_local_api(
+    LocalAPIConfig(
+        app_id=APP_ID,
+        name=APP_NAME,
+        description="Description of what this task evaluates",
+        provide_taskset_description=provide_taskset_description,
+        provide_task_instances=provide_task_instances,
+        rollout=run_rollout,
+        cors_origins=["*"],
+    )
+)
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8001)

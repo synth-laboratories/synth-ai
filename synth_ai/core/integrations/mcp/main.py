@@ -26,83 +26,66 @@ async def list_tools() -> list[Tool]:
             description="Deploy a task app to a local server",
             inputSchema={
                 "type": "object",
-                "required": [
-                    "task_app_path",
-                    "env_api_key"
-                ],
+                "required": ["task_app_path", "env_api_key"],
                 "properties": {
                     "task_app_path": {
                         "type": "string",
-                        "description": "Absolute path to the task app Python file"
+                        "description": "Absolute path to the task app Python file",
                     },
                     "env_api_key": {
                         "type": "string",
-                        "description": "Use the ENVIRONMENT_API_KEY fetched via the setup function or supplied by user"
+                        "description": "Use the ENVIRONMENT_API_KEY fetched via the setup function or supplied by user",
                     },
-                    "trace": {
-                        "type": "boolean",
-                        "default": True
-                    },
-                    "host": {
-                        "type": "string",
-                        "default": "127.0.0.1"
-                    },
-                    "port": {
-                        "type": "integer",
-                        "default": 8000
-                    }
-                }
-            }
+                    "trace": {"type": "boolean", "default": True},
+                    "host": {"type": "string", "default": "127.0.0.1"},
+                    "port": {"type": "integer", "default": 8000},
+                },
+            },
         ),
         Tool(
             name="deploy_modal",
             description="Deploy a task app to Modal",
             inputSchema={
                 "type": "object",
-                "required": [
-                    "task_app_path",
-                    "modal_app_path",
-                    "synth_api_key",
-                    "env_api_key"
-                ],
+                "required": ["task_app_path", "modal_app_path", "synth_api_key", "env_api_key"],
                 "properties": {
                     "task_app_path": {
                         "type": "string",
-                        "description": "Absolute path to the task app Python file"
+                        "description": "Absolute path to the task app Python file",
                     },
                     "modal_app_path": {
                         "type": "string",
-                        "description": "Absolute path to the Modal app Python file"
+                        "description": "Absolute path to the Modal app Python file",
                     },
                     "synth_api_key": {
                         "type": "string",
-                        "description": "SYNTH_API_KEY for authentication"
+                        "description": "SYNTH_API_KEY for authentication",
                     },
                     "env_api_key": {
                         "type": "string",
-                        "description": "ENVIRONMENT_API_KEY used to access the task app"
+                        "description": "ENVIRONMENT_API_KEY used to access the task app",
                     },
                     "modal_bin_path": {
                         "type": "string",
-                        "description": "Optional path to the Modal CLI binary"
+                        "description": "Optional path to the Modal CLI binary",
                     },
                     "cmd_arg": {
                         "type": "string",
                         "enum": ["deploy", "serve"],
                         "default": "deploy",
-                        "description": "Modal command to run"
+                        "description": "Modal command to run",
                     },
                     "task_app_name": {
                         "type": "string",
-                        "description": "Optional Modal app name override"
+                        "description": "Optional Modal app name override",
                     },
                     "dry_run": {
                         "type": "boolean",
                         "default": False,
-                        "description": "Print the Modal command without executing it"
-                    }
-                }
-            }
+                        "description": "Print the Modal command without executing it",
+                    },
+                },
+            },
         ),
         Tool(
             name="setup_poll",
@@ -114,8 +97,8 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "required": ["device_code"],
-                "properties": {"device_code": {"type": "string"}}
-            }
+                "properties": {"device_code": {"type": "string"}},
+            },
         ),
         Tool(
             name="setup_start",
@@ -124,7 +107,7 @@ async def list_tools() -> list[Tool]:
                 "`origin`, `verification_uri`, `device_code`, `expires_at`, `expires_in`, and "
                 "`poll_interval` so the caller can instruct the user and schedule polling."
             ),
-            inputSchema={"type": "object"}
+            inputSchema={"type": "object"},
         ),
         Tool(
             name="create_rl_task_app",
@@ -135,44 +118,29 @@ async def list_tools() -> list[Tool]:
             name="create_sft_task_app",
             description="Instructions on how to create a supervised fine-tuning task app, required for all deployments",
             inputSchema={},
-        )
+        ),
     ]
 
 
 @server.call_tool()
-async def call_tool(
-    name: str,
-    arguments: dict[str, Any] | None
-) -> list[TextContent]:
+async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
     args = arguments or {}
     match name:
         case "deploy_local":
             try:
                 cfg = LocalDeployCfg.create_from_dict(args)
             except Exception as exc:
-                return [TextContent(
-                    type="text",
-                    text=f"{name} invalid configuration: {exc}"
-                )]
+                return [TextContent(type="text", text=f"{name} invalid configuration: {exc}")]
             try:
                 msg = deploy_app_uvicorn(cfg)
             except Exception as exc:
                 msg = f"{name} failed: {exc}"
-            return [TextContent(
-                type="text",
-                text=msg or f"{name} task app deployed"
-            )]
+            return [TextContent(type="text", text=msg or f"{name} task app deployed")]
         case "setup_poll":
-            device_code = args.get("device_code", '')
-            return [TextContent(
-                type="text",
-                text=setup_fetch(device_code)
-            )]
+            device_code = args.get("device_code", "")
+            return [TextContent(type="text", text=setup_fetch(device_code))]
         case "setup_start":
-            return [TextContent(
-                type="text",
-                text=setup_start()
-            )]
+            return [TextContent(type="text", text=setup_start())]
         case "deploy_modal":
             missing: list[str] = []
             synth_api_key = str(args.get("synth_api_key")).strip()
@@ -188,10 +156,7 @@ async def call_tool(
             if not modal_app_path_raw:
                 missing.append("modal_app_path")
             if len(missing) > 0:
-                return [TextContent(
-                    type="text",
-                    text=f"{name} missing args: {missing}"
-                )]
+                return [TextContent(type="text", text=f"{name} missing args: {missing}")]
             assert synth_api_key is not None
             assert env_api_key is not None
             assert task_app_path_raw is not None
@@ -209,35 +174,30 @@ async def call_tool(
                     task_app_path=Path(task_app_path_raw),
                     synth_api_key=synth_api_key,
                     env_api_key=env_api_key,
-                    **cfg_kwargs
+                    **cfg_kwargs,
                 )
             except Exception as exc:
-                return [TextContent(
-                    type="text",
-                    text=f"{name} invalid configuration: {exc}"
-                )]
+                return [TextContent(type="text", text=f"{name} invalid configuration: {exc}")]
             try:
                 msg = deploy_app_modal(cfg)
             except Exception as exc:
                 msg = f"{name} failed: {exc}"
-            return [TextContent(
-                type="text",
-                text=msg or f"{name} task app deployed"
-            )]
+            return [TextContent(type="text", text=msg or f"{name} task app deployed")]
         case "create_rl_task_app":
-            return [TextContent(
-                type="text",
-                text="Instructions for creating an RL task app are at Synth AI's official docs: https://docs.usesynth.ai/task-app/task-app-rl",
-            )]
+            return [
+                TextContent(
+                    type="text",
+                    text="Instructions for creating an RL task app are at Synth AI's official docs: https://docs.usesynth.ai/task-app/task-app-rl",
+                )
+            ]
         case "create_sft_task_app":
-            return [TextContent(
-                type="text",
-                text="Instructions for creating an SFT task app are at Synth AI's official docs: https://docs.usesynth.ai/task-app/task-app-sft",
-            )]
-    return [TextContent(
-        type="text",
-        text=f"Unknown tool '{name}'"
-    )]
+            return [
+                TextContent(
+                    type="text",
+                    text="Instructions for creating an SFT task app are at Synth AI's official docs: https://docs.usesynth.ai/task-app/task-app-sft",
+                )
+            ]
+    return [TextContent(type="text", text=f"Unknown tool '{name}'")]
 
 
 async def main() -> None:
@@ -245,7 +205,7 @@ async def main() -> None:
         init_options = InitializationOptions(
             server_name="synth-ai",
             server_version="0.1.0",
-            capabilities=ServerCapabilities(tools=ToolsCapability())
+            capabilities=ServerCapabilities(tools=ToolsCapability()),
         )
         await server.run(read_stream, write_stream, init_options)
 

@@ -3,17 +3,16 @@
 ## Usage
 
     response = RolloutResponseBuilder.trace_only(
-        run_id=request.run_id,
+        trace_correlation_id=request.trace_correlation_id,
         reward=1.0,
         trace=trace_payload,
-        trace_correlation_id="trace_abc123",
         inference_url="https://api.usesynth.ai/v1/trial-xyz",
     )
 
 ## Key Fields
 
+- `trace_correlation_id`: REQUIRED - Single source of truth for rollout identification
 - `reward`: The outcome reward (required) → `metrics.outcome_reward`
-- `trace_correlation_id`: Correlation ID for trace recovery (top-level)
 - `inference_url`: Inference URL used (top-level)
 """
 
@@ -30,26 +29,26 @@ class RolloutResponseBuilder:
     @staticmethod
     def trace_only(
         *,
-        run_id: str,
+        trace_correlation_id: str,
         reward: float,
         trace: dict[str, Any] | None,
         event_rewards: list[float] | None = None,
-        trace_correlation_id: str | None = None,
         inference_url: str | None = None,
         details: dict[str, Any] | None = None,
         aborted: bool = False,
+        run_id: str | None = None,
     ) -> RolloutResponse:
         """Build a RolloutResponse with standardized metrics.
 
         Args:
-            run_id: Request run_id to echo back
+            trace_correlation_id: REQUIRED - Correlation ID (echo from request)
             reward: Outcome reward for this rollout
             trace: v3 trace payload
             event_rewards: Optional per-step rewards for multi-step tasks
-            trace_correlation_id: Correlation ID for trace recovery
             inference_url: Inference URL used for this rollout
             details: Metadata dict (debugging info, not rewards)
             aborted: Whether rollout was aborted early
+            run_id: DEPRECATED - Use trace_correlation_id instead
         """
         metrics = RolloutMetrics(
             outcome_reward=float(reward),
@@ -58,12 +57,12 @@ class RolloutResponseBuilder:
         )
 
         return RolloutResponse(
-            run_id=run_id,
+            trace_correlation_id=trace_correlation_id,
             metrics=metrics,
             trace=_with_trace_metadata(trace, trace_correlation_id),
-            trace_correlation_id=trace_correlation_id,
             inference_url=inference_url,
             aborted=aborted,
+            run_id=run_id,
         )
 
 

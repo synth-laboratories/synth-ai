@@ -17,9 +17,7 @@ from synth_ai.core.paths import print_paths_formatted
 from synth_ai.data import extract_outcome_reward
 
 try:
-    _config_module = cast(
-        Any, importlib.import_module("synth_ai.core.env")
-    )
+    _config_module = cast(Any, importlib.import_module("synth_ai.core.env"))
     get_backend_from_env = cast(Callable[[], str], _config_module.get_backend_from_env)
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load backend configuration helpers") from exc
@@ -61,7 +59,6 @@ _PROMPT_LEARNING_EVENT_BEST_PROMPT = "prompt.learning.best.prompt"
 _PROMPT_LEARNING_EVENT_FINAL_RESULTS = "prompt.learning.final.results"
 _PROMPT_LEARNING_EVENT_VALIDATION_SCORED = "prompt.learning.validation.scored"
 _PROMPT_LEARNING_EVENT_GEPA_COMPLETE = "prompt.learning.gepa.complete"
-_PROMPT_LEARNING_EVENT_MIPRO_COMPLETE = "prompt.learning.mipro.complete"
 _PROMPT_LEARNING_EVENT_GEPA_NEW_BEST = "prompt.learning.gepa.new_best"
 _PROMPT_LEARNING_EVENT_PHASE_CHANGED = "prompt.learning.phase.changed"
 _PROMPT_LEARNING_EVENT_PROGRESS = "prompt.learning.progress"
@@ -72,24 +69,26 @@ _MAX_TEXT_REPLACEMENTS_DISPLAY = 3  # Max number of text replacements to show in
 _RESULTS_FILE_MAX_EVENTS = 10000  # Max events to fetch for results file generation
 
 
-def _format_text_replacements(obj: dict[str, Any] | None, max_display: int = _MAX_TEXT_REPLACEMENTS_DISPLAY) -> list[str]:
+def _format_text_replacements(
+    obj: dict[str, Any] | None, max_display: int = _MAX_TEXT_REPLACEMENTS_DISPLAY
+) -> list[str]:
     """Extract and format text replacements from a candidate object.
-    
+
     Args:
         obj: Candidate object dictionary containing text_replacements
         max_display: Maximum number of replacements to display
-        
+
     Returns:
         List of formatted lines showing role and replacement text
     """
     lines = []
     if not obj or not isinstance(obj, dict):
         return lines
-    
+
     text_replacements = obj.get("text_replacements", [])
     if not text_replacements or not isinstance(text_replacements, list):
         return lines
-    
+
     for replacement in text_replacements[:max_display]:
         if isinstance(replacement, dict):
             new_text = replacement.get("new_text", "")
@@ -97,11 +96,13 @@ def _format_text_replacements(obj: dict[str, Any] | None, max_display: int = _MA
             if new_text:
                 lines.append(f"  [{role.upper()}]: {new_text}")
                 lines.append("")
-    
+
     return lines
 
 
-def _extract_reward_value(payload: Any, *, fallback_keys: Optional[list[str]] = None) -> Optional[float]:
+def _extract_reward_value(
+    payload: Any, *, fallback_keys: Optional[list[str]] = None
+) -> Optional[float]:
     if not isinstance(payload, dict):
         return None
     for key in ("outcome_objectives", "objectives"):
@@ -126,13 +127,13 @@ def _extract_reward_value(payload: Any, *, fallback_keys: Optional[list[str]] = 
 
 def _default_backend() -> str:
     """Resolve backend URL with proper production default.
-    
+
     Priority order:
     1. BACKEND_BASE_URL env var (highest priority) - checked FIRST before any .env loading
     2. BACKEND_OVERRIDE env var
     3. get_backend_from_env() standard resolution (which may use SYNTH_BASE_URL from .env)
-    
-    CRITICAL: This function MUST check BACKEND_BASE_URL directly from os.getenv() 
+
+    CRITICAL: This function MUST check BACKEND_BASE_URL directly from os.getenv()
     to ensure it's not overridden by .env file loading.
     """
     # Check explicit override first (BACKEND_BASE_URL takes absolute precedence)
@@ -141,12 +142,12 @@ def _default_backend() -> str:
     if explicit:
         # Return as-is, ensure_api_base() will normalize it
         return explicit
-    
+
     # Fallback to BACKEND_OVERRIDE (also read directly from environ)
     override = os.environ.get("BACKEND_OVERRIDE", "").strip()
     if override:
         return override
-    
+
     # Use standard resolution logic (may use SYNTH_BASE_URL from .env)
     base, _ = get_backend_from_env()
     return f"{base}/api" if not base.endswith("/api") else base
@@ -174,19 +175,7 @@ _DEFAULT_RL_HIDDEN_SUBSTRINGS = {"modal", "hatchet"}
 
 _DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS = {
     "prompt.learning.policy.tokens",
-    "mipro.bootstrap.progress",  # Hide individual bootstrap seed scores
-    "mipro.tpe.rankings",  # Hide verbose TPE rankings
-    "mipro.tpe.selected",  # Hide TPE selection details
-    "mipro.tpe.update",  # Hide TPE density updates
-    "mipro.trial.duplicate",  # Hide duplicate trial messages
-    "mipro.trial.started",  # Hide individual trial start messages (too verbose with instructions)
-    "mipro.trial.minibatch",  # Hide minibatch completion (only show full eval)
-    "mipro.trial.complete",  # Hide individual trial completion
-    "mipro.iteration.skip_generation",  # Hide skip generation messages
-    "mipro.budget.update",  # Hide verbose budget updates (progress handler shows summary)
-    "mipro.instruction.proposed",  # Hide proposed instructions (shown in results/logs only)
     "gepa.transformation.proposed",  # Hide proposed transformations (shown in results/logs only)
-    # Note: mipro.stage_proposer.called is shown so users know instruction generation is happening
 }
 
 
@@ -200,7 +189,7 @@ def _load_toml_config(config_path: Path) -> dict[str, Any]:
             import tomllib as tomli
         except ImportError:
             return {}
-    
+
     try:
         with open(config_path, "rb") as f:
             return tomli.load(f)
@@ -210,34 +199,34 @@ def _load_toml_config(config_path: Path) -> dict[str, Any]:
 
 def parse_env_file_path_from_config(config_path: Path) -> str | None:
     """Parse env_file_path from TOML config.
-    
+
     Checks both [prompt_learning] and top-level sections.
     """
     config = _load_toml_config(config_path)
-    
+
     # Check prompt_learning section first
     pl_section = config.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         env_file_path = pl_section.get("env_file_path")
         if env_file_path:
             return str(env_file_path)
-    
+
     # Check top-level
     env_file_path = config.get("env_file_path")
     if env_file_path:
         return str(env_file_path)
-    
+
     return None
 
 
 def parse_results_folder(config_path: Path) -> Path:
     """Parse results_folder from TOML config and validate it exists.
-    
+
     Checks both [prompt_learning] and top-level sections.
     Raises ClickException if missing or invalid.
     """
     config = _load_toml_config(config_path)
-    
+
     # Check prompt_learning section first
     pl_section = config.get("prompt_learning", {})
     if isinstance(pl_section, dict):
@@ -250,7 +239,7 @@ def parse_results_folder(config_path: Path) -> Path:
                 results_path = (config_dir / results_folder_str).resolve()
             else:
                 results_path = Path(results_folder_str).expanduser().resolve()
-            
+
             # Validate that the folder exists or can be created
             try:
                 results_path.mkdir(parents=True, exist_ok=True)
@@ -261,9 +250,9 @@ def parse_results_folder(config_path: Path) -> Path:
                     f"  Config: {config_path}\n"
                     f"  TOML results_folder: {results_folder}"
                 ) from e
-            
+
             return results_path
-    
+
     # Check top-level section
     results_folder = config.get("results_folder")
     if results_folder:
@@ -274,7 +263,7 @@ def parse_results_folder(config_path: Path) -> Path:
             results_path = (config_dir / results_folder_str).resolve()
         else:
             results_path = Path(results_folder_str).expanduser().resolve()
-        
+
         # Validate that the folder exists or can be created
         try:
             results_path.mkdir(parents=True, exist_ok=True)
@@ -285,9 +274,9 @@ def parse_results_folder(config_path: Path) -> Path:
                 f"  Config: {config_path}\n"
                 f"  TOML results_folder: {results_folder}"
             ) from e
-        
+
         return results_path
-    
+
     # Missing - raise error
     raise click.ClickException(
         f"Missing required 'results_folder' field in TOML config: {config_path}\n"
@@ -300,7 +289,7 @@ def parse_display_config(config_path: Path) -> dict[str, Any]:
     """Parse [display] section from TOML config."""
     config = _load_toml_config(config_path)
     display_section = config.get("display", {})
-    
+
     # Also extract termination_config for max limits
     termination_section = config.get("termination_config", {})
     # Also check prompt_learning.termination_config
@@ -310,7 +299,7 @@ def parse_display_config(config_path: Path) -> dict[str, Any]:
         if isinstance(pl_termination, dict):
             # Merge with top-level termination_config (top-level takes precedence)
             termination_section = {**pl_termination, **termination_section}
-    
+
     return {
         "local_backend": display_section.get("local_backend", False),
         "tui": display_section.get("tui", False),
@@ -395,23 +384,16 @@ import sys  # noqa: E402
 _logger = _logging.getLogger(__name__)
 _logger.debug("[TRAIN_MODULE] Module synth_ai.sdk.api.train.cli imported")
 
+
 @click.command("train")
-@click.argument(
-    "cfg_path",
-    required=False,
-    type=click.Path(exists=True, path_type=Path)
-)
+@click.argument("cfg_path", required=False, type=click.Path(exists=True, path_type=Path))
 @click.option(
     "--env",
     "env_file",
     type=click.Path(exists=True, path_type=Path),
     help=".env file(s) to preload (skips selection prompt)",
 )
-@click.option(
-    "--task-url",
-    default=None,
-    help="Override task app base URL (RL only)"
-)
+@click.option("--task-url", default=None, help="Override task app base URL (RL only)")
 @click.option(
     "--dataset",
     "dataset_path",
@@ -530,7 +512,6 @@ def train_command(
     rollout_budget: int | None,
     proposer_effort: str | None,
 ) -> None:
-
     """Interactive launcher for RL / SFT / Prompt Learning / GraphGen / Context Learning jobs."""
     import traceback
 
@@ -552,7 +533,7 @@ def train_command(
         click.echo(f"[TRAIN_CMD] Args: cfg_path={cfg_path}, poll={poll}", err=True)
         click.echo(f"[TRAIN_CMD] Python executable: {sys.executable}", err=True)
         click.echo(f"[TRAIN_CMD] Working directory: {os.getcwd()}", err=True)
-        
+
         try:
             load_env_file()
             click.echo("[TRAIN_CMD] Environment file loaded", err=True)
@@ -564,6 +545,7 @@ def train_command(
         # CRITICAL: Load explicit .env file BEFORE config validation to ensure BACKEND_BASE_URL is available
         if env_file and Path(env_file).exists():
             from dotenv import load_dotenv
+
             # Load with override=True to ensure BACKEND_BASE_URL from .env takes precedence
             load_dotenv(Path(env_file), override=True)
             click.echo(f"[TRAIN_CMD] Loaded explicit .env: {env_file}", err=True)
@@ -597,9 +579,9 @@ def train_command(
                     return None
 
             train_type = train_type_override or validate_train_cfg(cfg_path)
-        
+
         synth_api_key, _ = get_synth_and_env_keys(env_file)
-        
+
         # Resolve backend URL with priority: --backend flag > BACKEND_BASE_URL env > default
         if backend_override:
             # CLI flag takes highest precedence
@@ -609,16 +591,20 @@ def train_command(
             # Check BACKEND_BASE_URL AFTER loading env file
             backend_base_url_env = os.environ.get("BACKEND_BASE_URL", "").strip()
             backend_override_env = os.environ.get("BACKEND_OVERRIDE", "").strip()
-            
+
             # Debug: Show what env vars are set
-            click.echo(f"🔍 DEBUG: BACKEND_BASE_URL={backend_base_url_env or '(not set)'}", err=True)
-            click.echo(f"🔍 DEBUG: BACKEND_OVERRIDE={backend_override_env or '(not set)'}", err=True)
-            
+            click.echo(
+                f"🔍 DEBUG: BACKEND_BASE_URL={backend_base_url_env or '(not set)'}", err=True
+            )
+            click.echo(
+                f"🔍 DEBUG: BACKEND_OVERRIDE={backend_override_env or '(not set)'}", err=True
+            )
+
             # Use _default_backend() to respect BACKEND_BASE_URL env var
             backend_raw = _default_backend()
             click.echo(f"🔍 DEBUG: _default_backend() returned: {backend_raw}", err=True)
             backend_base = ensure_api_base(backend_raw)
-            
+
             # Assertion: Validate backend URL is what we expect
             if backend_base_url_env:
                 expected_backend = ensure_api_base(backend_base_url_env)
@@ -633,7 +619,7 @@ def train_command(
                         f"   3. Set BACKEND_OVERRIDE=http://localhost:8000 in your shell\n"
                         f"   4. Set SYNTH_BACKEND_URL_OVERRIDE=local and LOCAL_BACKEND_URL=http://localhost:8000"
                     )
-            
+
             click.echo(f"Backend base: {backend_base} (key {mask_str(synth_api_key)})")
             if backend_base_url_env:
                 click.echo(f"  (from BACKEND_BASE_URL={backend_base_url_env})")
@@ -691,7 +677,9 @@ def train_command(
             case "sft":
                 if not cfg_path:
                     raise click.ClickException("SFT requires a TOML config file.")
-                dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
+                dataset_override_path = (
+                    Path(dataset_path).expanduser().resolve() if dataset_path else None
+                )
                 handle_sft(
                     cfg_path=cfg_path,
                     backend_base=backend_base,
@@ -781,9 +769,7 @@ def handle_context_learning(
             if best.preflight_script:
                 click.echo(best.preflight_script[:2000])
                 if len(best.preflight_script) > 2000:
-                    click.echo(
-                        f"\n... (truncated, {len(best.preflight_script)} chars total)"
-                    )
+                    click.echo(f"\n... (truncated, {len(best.preflight_script)} chars total)")
         except Exception as e:
             click.echo(f"⚠️  Could not download best script: {e}")
 
@@ -792,10 +778,10 @@ def _wait_for_training_file(
     backend_base: str, api_key: str, file_id: str, *, timeout: float = 10.0
 ) -> None:
     """Wait for training file to be visible after upload.
-    
+
     Reduced from 120s to 10s because:
     - POST response already confirms file is uploaded
-    - Backend now forces read-your-writes consistency  
+    - Backend now forces read-your-writes consistency
     - By job creation time, replica lag has resolved
     - Quick sanity check only, not critical path
     """
@@ -987,7 +973,7 @@ def handle_rl(
         return
 
     click.echo("\n=== Streaming Job Progress ===")
-    
+
     # Enable metrics for prompt learning
     if stream_format == "chart":
         config = StreamConfig(
@@ -1007,7 +993,7 @@ def handle_rl(
             metric_names={"gepa.transformation.mean_score"},
         )
         handlers = [CLIHandler(hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS)]
-    
+
     streamer = JobStreamer(
         base_url=backend_base,
         api_key=synth_key,
@@ -1181,7 +1167,7 @@ def handle_sft(
             timeout_seconds=poll_timeout,
         )
         final_status = asyncio.run(streamer.stream_until_terminal())
-        status = final_status.get('status') if isinstance(final_status, dict) else 'unknown'
+        status = final_status.get("status") if isinstance(final_status, dict) else "unknown"
         click.echo(f"Final status: {status}")
         click.echo(preview_json(final_status, limit=600))
     finally:
@@ -1298,7 +1284,7 @@ def handle_graphgen(
     except TimeoutError as e:
         raise click.ClickException(str(e))
 
-    status = final_status.get('status') if isinstance(final_status, dict) else 'unknown'
+    status = final_status.get("status") if isinstance(final_status, dict) else "unknown"
     click.echo(f"\nFinal status: {status}")
     click.echo(preview_json(final_status, limit=600))
 
@@ -1329,9 +1315,18 @@ def _raise_sft_usage_error(exc: TrainError) -> NoReturn:
                 problem="No dataset path was provided via config or CLI",
                 impact=impact,
                 solutions=[
-                    ("Add [job].data = \"/path/to/data.jsonl\" to the config", "Persist the dataset path in the TOML file"),
-                    ("Re-run with --dataset /path/to/data.jsonl", "Override the dataset path from the CLI"),
-                    ("Use an absolute path accessible from the current working directory", "Relative paths are resolved from the shell cwd"),
+                    (
+                        'Add [job].data = "/path/to/data.jsonl" to the config',
+                        "Persist the dataset path in the TOML file",
+                    ),
+                    (
+                        "Re-run with --dataset /path/to/data.jsonl",
+                        "Override the dataset path from the CLI",
+                    ),
+                    (
+                        "Use an absolute path accessible from the current working directory",
+                        "Relative paths are resolved from the shell cwd",
+                    ),
                 ],
             )
         ) from exc
@@ -1344,9 +1339,18 @@ def _raise_sft_usage_error(exc: TrainError) -> NoReturn:
                 problem=message,
                 impact=impact,
                 solutions=[
-                    ("Verify the dataset path exists on disk", "Double-check spelling and that the file hasn't moved"),
-                    ("Provide an absolute path to the dataset file", "Avoid relying on relative paths that resolve incorrectly"),
-                    ("Sync the dataset to this machine before running the CLI", "Remote paths must be accessible locally"),
+                    (
+                        "Verify the dataset path exists on disk",
+                        "Double-check spelling and that the file hasn't moved",
+                    ),
+                    (
+                        "Provide an absolute path to the dataset file",
+                        "Avoid relying on relative paths that resolve incorrectly",
+                    ),
+                    (
+                        "Sync the dataset to this machine before running the CLI",
+                        "Remote paths must be accessible locally",
+                    ),
                 ],
             )
         ) from exc
@@ -1362,12 +1366,12 @@ def _save_verbose_log_file(
     append_summary: bool = False,
 ) -> None:
     """Save a verbose log file with all events in chronological order, including summary.
-    
+
     If append_summary is True, only append the summary section (events were already streamed live).
     """
     import json
     from datetime import datetime
-    
+
     try:
         lines = []
         if not append_summary:
@@ -1380,25 +1384,25 @@ def _save_verbose_log_file(
             lines.append(f"Total Events: {len(events)}")
             lines.append("=" * 80)
             lines.append("")
-        
+
         # Sort events by timestamp if available
         def get_timestamp(event: dict[str, Any]) -> str:
             return event.get("timestamp", event.get("created_at", ""))
-        
+
         sorted_events = sorted(events, key=get_timestamp)
-        
+
         # Only include events if not appending summary (events were already streamed live)
         if not append_summary:
             for idx, event in enumerate(sorted_events, 1):
                 if not isinstance(event, dict):
                     continue
-                
+
                 event_type = event.get("type", "unknown")
                 timestamp = event.get("timestamp") or event.get("created_at", "")
                 level = event.get("level", "info")
                 message = event.get("message", "")
                 data = event.get("data", {})
-                
+
                 lines.append(f"[{idx}] {timestamp} [{level.upper()}] {event_type}")
                 if message:
                     lines.append(f"  Message: {message}")
@@ -1416,40 +1420,41 @@ def _save_verbose_log_file(
                             formatted_data[key] = value[:500] + "... (truncated)"
                         else:
                             formatted_data[key] = value
-                    
+
                     if formatted_data:
                         lines.append(f"  Data: {json.dumps(formatted_data, indent=2)}")
                 lines.append("")
-        
+
         # Add summary table and chart at the end (always included)
         if append_summary:
             lines.append("\n\n")
         lines.append("=" * 80)
         lines.append("FINAL SUMMARY")
         lines.append("=" * 80)
-        
+
         try:
             from .summary import _generate_summary_text
+
             # Extract optimization curve from events
             optimization_curve = None
             trial_scores = []
             for event in sorted_events:
                 if isinstance(event, dict):
                     event_type = event.get("type", "")
-                    if event_type in ("prompt.learning.trial.complete", "mipro.new_incumbent"):
+                    if event_type == "prompt.learning.trial.complete":
                         data = event.get("data", {})
                         trial_num = data.get("trial") or data.get("trial_num")
                         score = data.get("score") or data.get("minibatch_score")
                         if trial_num is not None and score is not None:
                             trial_scores.append((trial_num, score))
-            
+
             if trial_scores:
                 best_so_far = {}
                 for trial_num, score in sorted(trial_scores):
                     if trial_num not in best_so_far or score > best_so_far[trial_num]:
                         best_so_far[trial_num] = score
                 optimization_curve = sorted(best_so_far.items())
-            
+
             summary_text, curve_text = _generate_summary_text(
                 events=sorted_events,
                 algorithm=algorithm_name.lower() if algorithm_name else None,
@@ -1462,18 +1467,18 @@ def _save_verbose_log_file(
                 lines.append(curve_text)
         except Exception as e:
             lines.append(f"⚠️  Could not generate summary: {e}")
-        
+
         lines.append("=" * 80)
         lines.append("END OF LOG")
         lines.append("=" * 80)
-        
+
         # Write to file (append if summary-only mode)
         mode = "a" if append_summary else "w"
         with open(log_file, mode, encoding="utf-8") as f:
             if append_summary:
                 f.write("\n")
             f.write("\n".join(lines))
-    
+
     except Exception as e:
         click.echo(f"⚠️  Could not save verbose log file: {e}")
 
@@ -1488,17 +1493,19 @@ def _save_prompt_learning_results_locally(
 ) -> None:
     """Fetch events and generate results file locally after prompt learning completes."""
     from datetime import datetime
-    
+
     try:
         # Fetch all events
         url = f"{backend_base}/prompt-learning/online/jobs/{job_id}/events?limit={_RESULTS_FILE_MAX_EVENTS}"
         headers = {"Authorization": f"Bearer {api_key}"}
         resp = http_get(url, headers=headers, timeout=30.0)
-        
+
         if resp.status_code != 200:
-            click.echo(f"⚠️  Could not fetch events to generate results file (status={resp.status_code})")
+            click.echo(
+                f"⚠️  Could not fetch events to generate results file (status={resp.status_code})"
+            )
             return
-        
+
         data = resp.json()
         # Handle both list response (backend) and dict response (legacy compatibility)
         if isinstance(data, list):
@@ -1511,29 +1518,27 @@ def _save_prompt_learning_results_locally(
         else:
             click.echo(f"⚠️  Unexpected response type: {type(data).__name__}")
             return
-        
+
         if not events:
             return
-        
+
         # Extract key data from events
         best_score = None
         best_prompt = None
         baseline_score = None
         attempted_candidates = []
         optimized_candidates = []
-        mipro_topk_candidates = []  # Collect MIPRO top-K candidates
-        proposed_instructions = []  # Collect proposed instructions from MIPRO
         proposed_transformations = []  # Collect proposed transformations from GEPA
-        
+
         for event in events:
             if not isinstance(event, dict):
                 continue  # Skip malformed events
-            
+
             event_type = event.get("type", "")
             event_data = event.get("data", {})
             if not isinstance(event_data, dict):
                 event_data = {}  # Fallback to empty dict for safety
-            
+
             if event_type == _PROMPT_LEARNING_EVENT_BEST_PROMPT:
                 best_score = event_data.get("best_score")
                 best_prompt = event_data.get("best_prompt")
@@ -1550,75 +1555,29 @@ def _save_prompt_learning_results_locally(
                     baseline_score = _extract_reward_value(event_data)
             elif event_type == _PROMPT_LEARNING_EVENT_GEPA_COMPLETE and best_score is None:
                 best_score = event_data.get("best_score")
-            elif event_type == _PROMPT_LEARNING_EVENT_MIPRO_COMPLETE:
-                # MIPRO completion event includes best_prompt and best_score
-                if best_score is None:
-                    best_score = event_data.get("best_score")
-                if best_prompt is None:
-                    best_prompt = event_data.get("best_prompt")
-            elif event_type == "mipro.topk.evaluated":
-                # Extract MIPRO top-K candidate data with full details
-                rank = event_data.get("rank")
-                train_score = event_data.get("train_score")
-                test_score = event_data.get("test_score")
-                if rank is not None and train_score is not None and test_score is not None:
-                    # Extract full instruction text (may be multi-line)
-                    instruction_text = event_data.get("instruction_text", "")
-                    if not instruction_text:
-                        # Try to get from instruction_lines if available
-                        instruction_lines = event_data.get("instruction_lines", [])
-                        if instruction_lines:
-                            instruction_text = "\n".join(str(line) for line in instruction_lines)
-                    
-                    mipro_topk_candidates.append({
-                        "rank": rank,
-                        "train_score": train_score,
-                        "test_score": test_score,
-                        "lift_absolute": event_data.get("lift_absolute"),
-                        "lift_percent": event_data.get("lift_percent"),
-                        "instruction_text": instruction_text,
-                        "instruction_lines": event_data.get("instruction_lines", []),
-                        "demo_indices": event_data.get("demo_indices", []),
-                        "stage_payloads": event_data.get("stage_payloads", {}),
-                        "instruction_indices": event_data.get("instruction_indices", []),
-                        "test_per_seed": event_data.get("test_per_seed", {}),
-                    })
-            elif event_type == "mipro.baseline.test":
-                # Extract baseline test score
-                if baseline_score is None:
-                    baseline_score = event_data.get("test_score")
-            elif event_type == "mipro.instruction.proposed":
-                # Collect proposed instructions
-                proposed_instructions.append({
-                    "iteration": event_data.get("iteration"),
-                    "stage_id": event_data.get("stage_id"),
-                    "module_id": event_data.get("module_id"),
-                    "instruction_id": event_data.get("instruction_id"),
-                    "instruction_text": event_data.get("instruction_text", ""),
-                    "instruction_lines": event_data.get("instruction_lines", []),
-                    "demo_indices": event_data.get("demo_indices", []),
-                    "proposal_id": event_data.get("proposal_id"),
-                    "timestamp": event.get("created_at"),
-                })
             elif event_type == "gepa.transformation.proposed":
                 # Collect proposed transformations
-                proposed_transformations.append({
-                    "generation": event_data.get("generation"),
-                    "mutation_type": event_data.get("mutation_type"),
-                    "operator": event_data.get("operator"),
-                    "transformation_id": event_data.get("transformation_id"),
-                    "parent_id": event_data.get("parent_id"),
-                    "transformation_text": event_data.get("transformation_text", ""),
-                    "transformation_dict": event_data.get("transformation_dict", {}),
-                    "mutation_params": event_data.get("mutation_params", {}),
-                    "timestamp": event.get("created_at"),
-                })
-        
+                proposed_transformations.append(
+                    {
+                        "generation": event_data.get("generation"),
+                        "mutation_type": event_data.get("mutation_type"),
+                        "operator": event_data.get("operator"),
+                        "transformation_id": event_data.get("transformation_id"),
+                        "parent_id": event_data.get("parent_id"),
+                        "transformation_text": event_data.get("transformation_text", ""),
+                        "transformation_dict": event_data.get("transformation_dict", {}),
+                        "mutation_params": event_data.get("mutation_params", {}),
+                        "timestamp": event.get("created_at"),
+                    }
+                )
+
         # Check if we have any results to display (best_prompt, best_score, or candidates)
-        has_results = bool(attempted_candidates or optimized_candidates or best_prompt or best_score is not None)
+        has_results = bool(
+            attempted_candidates or optimized_candidates or best_prompt or best_score is not None
+        )
         if not has_results:
             return
-        
+
         # Determine algorithm name from events
         algorithm_name = "PROMPT LEARNING"
         for event in events:
@@ -1627,10 +1586,7 @@ def _save_prompt_learning_results_locally(
                 if "gepa" in event_type.lower():
                     algorithm_name = "GEPA"
                     break
-                elif "mipro" in event_type.lower():
-                    algorithm_name = "MIPRO"
-                    break
-        
+
         # Generate formatted report
         lines = []
         lines.append("=" * 80)
@@ -1640,15 +1596,19 @@ def _save_prompt_learning_results_locally(
         lines.append(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append("")
         if baseline_score is not None:
-            lines.append(f"📊 Baseline Score: {baseline_score:.4f} ({baseline_score*100:.1f}%)")
+            lines.append(f"📊 Baseline Score: {baseline_score:.4f} ({baseline_score * 100:.1f}%)")
         if best_score is not None:
-            lines.append(f"🏆 Best Score:     {best_score:.4f} ({best_score*100:.1f}%)")
+            lines.append(f"🏆 Best Score:     {best_score:.4f} ({best_score * 100:.1f}%)")
         if baseline_score is not None and best_score is not None:
-            improvement = ((best_score - baseline_score) / baseline_score) * 100 if baseline_score > 0 else 0
-            lines.append(f"📈 Improvement:    {improvement:+.1f}% relative ({(best_score - baseline_score)*100:+.1f} pp absolute)")
+            improvement = (
+                ((best_score - baseline_score) / baseline_score) * 100 if baseline_score > 0 else 0
+            )
+            lines.append(
+                f"📈 Improvement:    {improvement:+.1f}% relative ({(best_score - baseline_score) * 100:+.1f} pp absolute)"
+            )
         lines.append("=" * 80)
         lines.append("")
-        
+
         # Add best prompt if available
         if best_prompt and isinstance(best_prompt, dict):
             lines.append("🏆 BEST PROMPT")
@@ -1664,14 +1624,14 @@ def _save_prompt_learning_results_locally(
                 lines.append(f"\n[{role.upper()}]:")
                 lines.append(content)
             lines.append("")
-        
+
         # Add optimized candidates
         if optimized_candidates and isinstance(optimized_candidates, list):
             lines.append("=" * 80)
             lines.append(f"✨ TOP OPTIMIZED CANDIDATES ({len(optimized_candidates)})")
             lines.append("=" * 80)
             lines.append("")
-            
+
             for idx, cand in enumerate(optimized_candidates):
                 if not isinstance(cand, dict):
                     continue
@@ -1683,18 +1643,24 @@ def _save_prompt_learning_results_locally(
                     reward_val = 0.0
                 prompt_length = candidate_score.get("prompt_length", 0)
                 payload_kind = cand.get("payload_kind", "unknown")
-                
+
                 # Try score.instance_scores first, then cand.instance_scores (explicit check)
                 instance_scores = (
-                    candidate_score.get('instance_scores') 
-                    if 'instance_scores' in candidate_score 
-                    else cand.get('instance_scores')
+                    candidate_score.get("instance_scores")
+                    if "instance_scores" in candidate_score
+                    else cand.get("instance_scores")
                 )
-                n_eval = len(instance_scores) if instance_scores and isinstance(instance_scores, list) else 0
-                
-                lines.append(f"[{idx+1}] Reward: {reward_val:.4f} | Length: {prompt_length} | Type: {payload_kind} | N: {n_eval}")
+                n_eval = (
+                    len(instance_scores)
+                    if instance_scores and isinstance(instance_scores, list)
+                    else 0
+                )
+
+                lines.append(
+                    f"[{idx + 1}] Reward: {reward_val:.4f} | Length: {prompt_length} | Type: {payload_kind} | N: {n_eval}"
+                )
                 lines.append("-" * 80)
-                
+
                 obj = cand.get("object")
                 if obj and isinstance(obj, dict) and payload_kind == "transformation":
                     # For transformations, text_replacements are nested in data
@@ -1702,152 +1668,44 @@ def _save_prompt_learning_results_locally(
                     replacement_lines = _format_text_replacements(data_obj)
                     lines.extend(replacement_lines)
                 lines.append("")
-        
-        # Add MIPRO top-K candidates
-        if mipro_topk_candidates and isinstance(mipro_topk_candidates, list):
-            # Sort by rank
-            mipro_topk_candidates.sort(key=lambda x: x.get("rank", 999))
-            lines.append("=" * 80)
-            lines.append(f"🎯 TOP-K CANDIDATES ({len(mipro_topk_candidates)})")
-            lines.append("=" * 80)
-            lines.append("")
-            
-            for cand in mipro_topk_candidates:
-                rank = cand.get("rank", 0)
-                train_score = cand.get("train_score", 0.0)
-                test_score = cand.get("test_score", 0.0)
-                lift_abs = cand.get("lift_absolute")
-                lift_pct = cand.get("lift_percent")
-                instruction_text = cand.get("instruction_text", "")
-                instruction_lines = cand.get("instruction_lines", [])
-                demo_indices = cand.get("demo_indices", [])
-                instruction_indices = cand.get("instruction_indices", [])
-                stage_payloads = cand.get("stage_payloads", {})
-                test_per_seed = cand.get("test_per_seed", {})
-                
-                lift_str = ""
-                if lift_abs is not None and lift_pct is not None:
-                    lift_str = f" | Lift: {lift_abs:+.3f} ({lift_pct:+.1f}%)"
-                
-                lines.append(f"[Rank {rank}] Train: {train_score:.4f} ({train_score*100:.1f}%) | Test: {test_score:.4f} ({test_score*100:.1f}%){lift_str}")
-                lines.append("-" * 80)
-                
-                # Show full instruction text (use instruction_lines if available, otherwise instruction_text)
-                if instruction_lines:
-                    lines.append("Instructions:")
-                    for idx, instr_line in enumerate(instruction_lines, 1):
-                        lines.append(f"  {idx}. {instr_line}")
-                elif instruction_text:
-                    # Split multi-line instructions
-                    instr_parts = instruction_text.split("\n")
-                    if len(instr_parts) > 1:
-                        lines.append("Instructions:")
-                        for idx, part in enumerate(instr_parts, 1):
-                            if part.strip():
-                                lines.append(f"  {idx}. {part.strip()}")
-                    else:
-                        lines.append(f"Instruction: {instruction_text}")
-                
-                if instruction_indices:
-                    lines.append(f"Instruction Indices: {instruction_indices}")
-                if demo_indices:
-                    lines.append(f"Demo Indices: {demo_indices}")
-                
-                # Show per-stage breakdown if available
-                if stage_payloads:
-                    lines.append("Per-stage breakdown:")
-                    for stage_id, payload in stage_payloads.items():
-                        if isinstance(payload, dict):
-                            instr_ids = payload.get("instruction_indices", [])
-                            demo_ids = payload.get("demo_indices", [])
-                            module_id = payload.get("module_id", "unknown")
-                            lines.append(f"  [{module_id}/{stage_id}] instr_ids={instr_ids} demo_ids={demo_ids}")
-                
-                # Show test per-seed scores if available
-                if test_per_seed:
-                    seed_scores = []
-                    for seed, score in sorted(test_per_seed.items()):
-                        seed_scores.append(f"{seed}: {score:.2f}")
-                    if seed_scores:
-                        lines.append(f"Test per-seed: {', '.join(seed_scores)}")
-                
-                lines.append("")
-        
+
         # Add all proposal candidates
         if attempted_candidates and isinstance(attempted_candidates, list):
             lines.append("=" * 80)
             lines.append(f"💡 ALL PROPOSAL CANDIDATES ({len(attempted_candidates)})")
             lines.append("=" * 80)
             lines.append("")
-            
+
             for idx, cand in enumerate(attempted_candidates):
                 if not isinstance(cand, dict):
                     continue
                 reward_val = _extract_reward_value(cand)
                 if reward_val is None:
                     reward_val = 0.0
-                prompt_length = cand.get('prompt_length', 0)
-                tool_rate = cand.get('tool_call_rate', 0.0)
-                instance_scores = cand.get('instance_scores', [])
+                prompt_length = cand.get("prompt_length", 0)
+                tool_rate = cand.get("tool_call_rate", 0.0)
+                instance_scores = cand.get("instance_scores", [])
                 n_eval = len(instance_scores) if instance_scores else 0
-                
-                lines.append(f"[{idx+1}] Reward: {reward_val:.4f} | Length: {prompt_length} | Tool Rate: {tool_rate:.2f} | N: {n_eval}")
+
+                lines.append(
+                    f"[{idx + 1}] Reward: {reward_val:.4f} | Length: {prompt_length} | Tool Rate: {tool_rate:.2f} | N: {n_eval}"
+                )
                 lines.append("-" * 80)
-                
+
                 obj = cand.get("object")
                 if obj and isinstance(obj, dict):
                     # For proposals, text_replacements are at top level of object
                     replacement_lines = _format_text_replacements(obj)
                     lines.extend(replacement_lines)
                 lines.append("")
-        
-        # Add proposed instructions section (MIPRO)
-        if proposed_instructions and isinstance(proposed_instructions, list):
-            lines.append("=" * 80)
-            lines.append(f"💡 PROPOSED INSTRUCTIONS ({len(proposed_instructions)})")
-            lines.append("=" * 80)
-            lines.append("")
-            
-            for idx, instr in enumerate(proposed_instructions):
-                if not isinstance(instr, dict):
-                    continue
-                iteration = instr.get("iteration", "?")
-                stage_id = instr.get("stage_id", "?")
-                module_id = instr.get("module_id", "?")
-                instruction_id = instr.get("instruction_id", "?")
-                instruction_text = instr.get("instruction_text", "")
-                instruction_lines = instr.get("instruction_lines", [])
-                demo_indices = instr.get("demo_indices", [])
-                
-                lines.append(f"[{idx+1}] Iteration {iteration} | Stage: {stage_id} | Module: {module_id} | ID: {instruction_id}")
-                if demo_indices:
-                    lines.append(f"Demo Indices: {demo_indices}")
-                lines.append("-" * 80)
-                
-                # Show instruction text (use instruction_lines if available, otherwise instruction_text)
-                if instruction_lines:
-                    for line_idx, line in enumerate(instruction_lines, 1):
-                        if line.strip():
-                            lines.append(f"  {line_idx}. {line.strip()}")
-                elif instruction_text:
-                    # Split multi-line instructions
-                    instr_parts = instruction_text.split("\n")
-                    if len(instr_parts) > 1:
-                        for line_idx, part in enumerate(instr_parts, 1):
-                            if part.strip():
-                                lines.append(f"  {line_idx}. {part.strip()}")
-                    else:
-                        lines.append(f"  {instruction_text}")
-                
-                lines.append("")
-        
+
         # Add proposed transformations section (GEPA)
         if proposed_transformations and isinstance(proposed_transformations, list):
             lines.append("=" * 80)
             lines.append(f"🧬 PROPOSED TRANSFORMATIONS ({len(proposed_transformations)})")
             lines.append("=" * 80)
             lines.append("")
-            
+
             for idx, trans in enumerate(proposed_transformations):
                 if not isinstance(trans, dict):
                     continue
@@ -1858,16 +1716,18 @@ def _save_prompt_learning_results_locally(
                 parent_id = trans.get("parent_id", "?")
                 transformation_text = trans.get("transformation_text", "")
                 transformation_dict = trans.get("transformation_dict", {})
-                
-                lines.append(f"[{idx+1}] Generation {generation} | Type: {mutation_type} | Operator: {operator}")
+
+                lines.append(
+                    f"[{idx + 1}] Generation {generation} | Type: {mutation_type} | Operator: {operator}"
+                )
                 lines.append(f"Transformation ID: {transformation_id} | Parent ID: {parent_id}")
                 lines.append("-" * 80)
-                
+
                 # Show transformation text
                 if transformation_text:
                     lines.append("Transformation Text:")
                     lines.append(f"  {transformation_text}")
-                
+
                 # Show transformation dict details if available
                 if transformation_dict:
                     text_replacements = transformation_dict.get("text_replacements", [])
@@ -1883,18 +1743,19 @@ def _save_prompt_learning_results_locally(
                                     lines.append(f"      Old: {old_text}...")
                                 if new_text:
                                     lines.append(f"      New: {new_text}...")
-                
+
                 lines.append("")
-        
+
         # Add summary table and chart before END OF REPORT
         lines.append("")
         lines.append("=" * 80)
         lines.append("FINAL SUMMARY")
         lines.append("=" * 80)
-        
+
         # Generate summary table text (reuse summary.py logic)
         try:
             from .summary import _generate_summary_text
+
             # Extract optimization curve from events if available
             optimization_curve = None
             # Try to extract curve from trial events
@@ -1902,13 +1763,13 @@ def _save_prompt_learning_results_locally(
             for event in events:
                 if isinstance(event, dict):
                     event_type = event.get("type", "")
-                    if event_type in ("prompt.learning.trial.complete", "mipro.new_incumbent"):
+                    if event_type == "prompt.learning.trial.complete":
                         data = event.get("data", {})
                         trial_num = data.get("trial") or data.get("trial_num")
                         score = data.get("score") or data.get("minibatch_score")
                         if trial_num is not None and score is not None:
                             trial_scores.append((trial_num, score))
-            
+
             if trial_scores:
                 # Build optimization curve (best score so far at each trial)
                 best_so_far = {}
@@ -1916,7 +1777,7 @@ def _save_prompt_learning_results_locally(
                     if trial_num not in best_so_far or score > best_so_far[trial_num]:
                         best_so_far[trial_num] = score
                 optimization_curve = sorted(best_so_far.items())
-            
+
             summary_text, curve_text = _generate_summary_text(
                 events=events,
                 algorithm=algorithm_name.lower() if algorithm_name else None,
@@ -1929,33 +1790,37 @@ def _save_prompt_learning_results_locally(
                 lines.append(curve_text)
         except Exception as e:
             lines.append(f"⚠️  Could not generate summary: {e}")
-        
+
         lines.append("=" * 80)
         lines.append("END OF REPORT")
         lines.append("=" * 80)
-        
+
         # Determine save location
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         # Use results_folder from config (create if it doesn't exist)
         output_dir = results_folder
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Use algorithm-specific filename
         algorithm_prefix = algorithm_name.lower() if algorithm_name else "prompt_learning"
         output_file = output_dir / f"{algorithm_prefix}_results_{job_id}_{timestamp}.txt"
-        
+
         with open(output_file, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        
+
         click.echo(f"\n📄 Results saved locally to: {output_file}")
-        
+
         # Also save verbose log file with all events (append summary if log was streamed live)
         log_file = output_dir / f"{algorithm_prefix}_log_{job_id}_{timestamp}.log"
-        append_summary = log_file.exists()  # If log file exists, it was streamed live, so just append summary
-        _save_verbose_log_file(events, log_file, algorithm_name, job_id, append_summary=append_summary)
+        append_summary = (
+            log_file.exists()
+        )  # If log file exists, it was streamed live, so just append summary
+        _save_verbose_log_file(
+            events, log_file, algorithm_name, job_id, append_summary=append_summary
+        )
         click.echo(f"📋 Verbose log saved locally to: {log_file}")
-        
+
     except (PermissionError, OSError) as e:
         click.echo(f"⚠️  Could not save results file locally: {e}")
     except Exception as e:
@@ -1979,7 +1844,7 @@ def handle_prompt_learning(
     show_curve: bool = True,
     verbose_summary: bool = True,
 ) -> None:
-    """Handle prompt learning job creation (MIPRO or GEPA)."""
+    """Handle prompt learning job creation (GEPA)."""
     ctx: dict[str, Any] = {
         "cfg_path": str(cfg_path),
         "backend_base": backend_base,
@@ -1992,30 +1857,36 @@ def handle_prompt_learning(
         env_value=os.environ.get("ENVIRONMENT_API_KEY"),
     )
     os.environ["ENVIRONMENT_API_KEY"] = env_key
-    
+
     overrides: dict[str, Any] = {
         "backend": backend_base,
         "task_url": task_url_override,
     }
-    
+
     build = build_prompt_learning_payload(
         config_path=cfg_path,
         task_url=task_url_override,
         overrides=overrides,
         allow_experimental=allow_experimental,
     )
-    
+
     # Assertion: Validate task app URL is reachable from backend perspective
     # If backend is localhost and task app is localhost, they should be able to communicate
     task_app_url = build.task_url or ""
     if backend_base.startswith("http://localhost") or backend_base.startswith("http://127.0.0.1"):
-        if task_app_url.startswith("http://localhost") or task_app_url.startswith("http://127.0.0.1"):
+        if task_app_url.startswith("http://localhost") or task_app_url.startswith(
+            "http://127.0.0.1"
+        ):
             # Both are local - this should work
             pass
         else:
-            click.echo(f"⚠️  WARNING: Backend is local ({backend_base}) but task app is remote ({task_app_url})")
-            click.echo("   The backend may not be able to reach the task app. Consider using a tunnel or local task app.")
-    
+            click.echo(
+                f"⚠️  WARNING: Backend is local ({backend_base}) but task app is remote ({task_app_url})"
+            )
+            click.echo(
+                "   The backend may not be able to reach the task app. Consider using a tunnel or local task app."
+            )
+
     click.echo("Performing task app health check…")
     click.echo(f"Task app URL: {build.task_url}")
     click.echo("⏳ Checking /health endpoint (timeout: 10s)...")
@@ -2032,23 +1903,23 @@ def handle_prompt_learning(
         raise click.ClickException("Aborting due to failing health check")
     else:
         click.echo("Task app healthy")
-    
+
     # Ensure backend_base has /api prefix
     if not backend_base.endswith("/api"):
         backend_base = ensure_api_base(backend_base)
-    
+
     # Assertion: Validate backend URL before making request
     if not backend_base.startswith("http"):
         raise click.ClickException(
             f"Invalid backend URL: {backend_base}. Must start with http:// or https://"
         )
-    
+
     create_url = f"{backend_base}/prompt-learning/online/jobs"
     headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}
-    
+
     click.echo(f"POST {create_url}")
     click.echo("Payload preview:\n" + preview_json(build.payload, limit=800))
-    
+
     # Assertion: If using local backend, verify it's actually localhost
     if (
         os.getenv("BACKEND_BASE_URL")
@@ -2060,7 +1931,7 @@ def handle_prompt_learning(
             f"BACKEND_BASE_URL was set to localhost but backend_base resolved to {backend_base}. "
             f"This indicates the environment variable is not being respected."
         )
-    
+
     # Increase timeout for job creation (can take longer due to validation checks)
     resp = http_post(create_url, headers=headers, json_body=build.payload, timeout=180.0)
     try:
@@ -2074,11 +1945,11 @@ def handle_prompt_learning(
     job_id = js.get("job_id") or js.get("id")
     if not job_id:
         raise click.ClickException("Response missing job id")
-    
+
     if not poll:
         click.echo(f"Created job {job_id} (polling disabled)")
         return
-    
+
     algorithm = str(build.payload.get("algorithm") or "").lower()
     metric_names: set[str] | None = None
     if algorithm == "gepa":
@@ -2086,15 +1957,18 @@ def handle_prompt_learning(
 
     chart_mode = stream_format == "chart" and algorithm == "gepa"
     if stream_format == "chart" and not chart_mode:
-        click.echo("Chart streaming is only available for GEPA jobs; showing textual updates instead.")
+        click.echo(
+            "Chart streaming is only available for GEPA jobs; showing textual updates instead."
+        )
 
     # Prepare log file path for real-time streaming
     results_folder = parse_results_folder(cfg_path)
     from datetime import datetime
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     algorithm_prefix = algorithm.lower() if algorithm else "prompt_learning"
     log_file = results_folder / f"{algorithm_prefix}_log_{job_id}_{timestamp}.log"
-    
+
     # Write initial streaming message to log file if handler will be created
     if not chart_mode:
         try:
@@ -2103,7 +1977,7 @@ def handle_prompt_learning(
                 f.write("\n=== Streaming Job Progress ===\n")
         except Exception:
             pass  # Continue even if log file can't be written
-    
+
     click.echo("\n=== Streaming Job Progress ===")
 
     # Create appropriate handler based on algorithm
@@ -2122,7 +1996,12 @@ def handle_prompt_learning(
             click.echo("Using live loss chart (metric=gepa.transformation.mean_score)")
         else:
             config = StreamConfig(
-                enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS, StreamType.TIMELINE},
+                enabled_streams={
+                    StreamType.STATUS,
+                    StreamType.EVENTS,
+                    StreamType.METRICS,
+                    StreamType.TIMELINE,
+                },
                 metric_names=metric_names,
                 max_events_per_poll=500,  # Capture more events per poll
                 deduplicate=True,  # Still deduplicate but capture more
@@ -2133,9 +2012,15 @@ def handle_prompt_learning(
             )
             # Use PromptLearningHandler for enhanced event handling
             handler = PromptLearningHandler(
-                show_trial_results=display_config.get("show_trial_results", True) if display_config else True,
-                show_transformations=display_config.get("show_transformations", False) if display_config else False,
-                show_validation=display_config.get("show_validation", True) if display_config else True,
+                show_trial_results=display_config.get("show_trial_results", True)
+                if display_config
+                else True,
+                show_transformations=display_config.get("show_transformations", False)
+                if display_config
+                else False,
+                show_validation=display_config.get("show_validation", True)
+                if display_config
+                else True,
                 max_tokens=display_config.get("max_tokens") if display_config else None,
                 max_time_seconds=display_config.get("max_time_seconds") if display_config else None,
                 max_rollouts=display_config.get("max_rollouts") if display_config else None,
@@ -2143,9 +2028,14 @@ def handle_prompt_learning(
             )
             handlers = [handler]
     else:
-        # Use PromptLearningHandler for MIPRO (same as GEPA)
+        # Use PromptLearningHandler for GEPA
         config = StreamConfig(
-            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS, StreamType.TIMELINE},
+            enabled_streams={
+                StreamType.STATUS,
+                StreamType.EVENTS,
+                StreamType.METRICS,
+                StreamType.TIMELINE,
+            },
             metric_names=metric_names,
             max_events_per_poll=500,  # Capture more events per poll
             deduplicate=True,  # Still deduplicate but capture more
@@ -2155,8 +2045,12 @@ def handle_prompt_learning(
             event_levels=None,  # Show all levels
         )
         handler = PromptLearningHandler(
-            show_trial_results=display_config.get("show_trial_results", True) if display_config else True,
-            show_transformations=display_config.get("show_transformations", False) if display_config else False,
+            show_trial_results=display_config.get("show_trial_results", True)
+            if display_config
+            else True,
+            show_transformations=display_config.get("show_transformations", False)
+            if display_config
+            else False,
             show_validation=display_config.get("show_validation", True) if display_config else True,
             max_tokens=display_config.get("max_tokens") if display_config else None,
             max_time_seconds=display_config.get("max_time_seconds") if display_config else None,
@@ -2164,7 +2058,7 @@ def handle_prompt_learning(
             log_file=log_file,
         )
         handlers = [handler]
-    
+
     streamer = JobStreamer(
         base_url=backend_base,
         api_key=synth_key,
@@ -2176,22 +2070,23 @@ def handle_prompt_learning(
         timeout_seconds=poll_timeout,
     )
     final_status = asyncio.run(streamer.stream_until_terminal())
-    
+
     # Write final status to log file if handler has one
     if isinstance(handlers[0], PromptLearningHandler) and handlers[0]._log_file_handle:
         handlers[0]._write_log(f"Final status: {final_status.get('status', 'unknown')}")
         handlers[0]._write_log(preview_json(final_status, limit=600))
-    
+
     click.echo(f"Final status: {final_status.get('status', 'unknown')}")
     click.echo(preview_json(final_status, limit=600))
-    
-    # Display final summary for GEPA/MIPRO jobs if requested
-    if verbose_summary and algorithm in ("gepa", "mipro"):
+
+    # Display final summary for GEPA jobs if requested
+    if verbose_summary and algorithm == "gepa":
         optimization_curve = None
         if isinstance(handlers[0], PromptLearningHandler):
             optimization_curve = handlers[0].optimization_curve
-        
+
         from .summary import display_prompt_learning_summary
+
         # Pass log_writer if handler has one
         log_writer = None
         if isinstance(handlers[0], PromptLearningHandler) and handlers[0]._log_file_handle:
@@ -2205,16 +2100,16 @@ def handle_prompt_learning(
             algorithm=algorithm,
             log_writer=log_writer,
         )
-    
+
     # Save results file locally
     # Parse and validate results_folder from config (already done above, but ensure it's available)
-    if 'results_folder' not in locals():
+    if "results_folder" not in locals():
         results_folder = parse_results_folder(cfg_path)
-    
+
     # Close log file if handler has one (flush is already called by streamer, but ensure it's closed)
     if isinstance(handlers[0], PromptLearningHandler) and handlers[0]._log_file_handle:
         handlers[0].flush()
-    
+
     _save_prompt_learning_results_locally(
         backend_base=backend_base,
         api_key=synth_key,

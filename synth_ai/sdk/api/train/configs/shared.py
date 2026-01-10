@@ -17,6 +17,7 @@ class AlgorithmConfig(ExtraModel):
 
 class TopologyConfig(ExtraModel):
     """Compute topology configuration - how GPUs are distributed across processes."""
+
     type: str | None = None  # e.g., "single_node_split"
     gpus_for_vllm: int | None = None
     gpus_for_training: int | None = None
@@ -27,6 +28,7 @@ class TopologyConfig(ExtraModel):
 
 class LoraConfig(ExtraModel):
     """LoRA (Low-Rank Adaptation) training configuration."""
+
     r: int | None = None  # Rank
     alpha: int | None = None
     dropout: float | None = None
@@ -42,17 +44,17 @@ class ComputeConfig(ExtraModel):
 
 class PolicyConfig(ExtraModel):
     """Unified policy configuration for both SFT and RL.
-    
+
     This is the SINGLE SOURCE OF TRUTH for:
     - What model to use (model_name or source)
     - How to sample from it (temperature, max_tokens, etc.)
     - How to train it (trainer_mode, label)
     """
-    
+
     # Model specification (exactly one required)
     model_name: str | None = None  # e.g., "Qwen/Qwen3-4B"
-    source: str | None = None       # e.g., "ft:abc123" for checkpoints
-    
+    source: str | None = None  # e.g., "ft:abc123" for checkpoints
+
     # Sampling parameters (with sensible defaults)
     max_tokens: int = 512
     temperature: float = 0.7
@@ -60,22 +62,27 @@ class PolicyConfig(ExtraModel):
     top_k: int | None = None
     repetition_penalty: float = 1.0
     stop_sequences: list[str] | None = None
-    
+
     # Training-specific
     trainer_mode: str  # "lora", "full", "qlora"
-    label: str         # Model identifier/name
-    
+    label: str  # Model identifier/name
+
     # Optional - for distributed inference
     inference_url: str | None = None
-    
+
     @model_validator(mode="after")
     def _ensure_exactly_one_source(self) -> PolicyConfig:
         """Ensure exactly one of model_name or source is set."""
         if not (bool(self.model_name) ^ bool(self.source)):
-            raise ValueError(
-                "Must set exactly one: [policy].model_name OR [policy].source"
-            )
+            raise ValueError("Must set exactly one: [policy].model_name OR [policy].source")
         return self
 
 
-__all__ = ["ExtraModel", "AlgorithmConfig", "ComputeConfig", "PolicyConfig", "TopologyConfig", "LoraConfig"]
+__all__ = [
+    "ExtraModel",
+    "AlgorithmConfig",
+    "ComputeConfig",
+    "PolicyConfig",
+    "TopologyConfig",
+    "LoraConfig",
+]

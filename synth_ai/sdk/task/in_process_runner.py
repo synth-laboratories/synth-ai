@@ -192,10 +192,10 @@ async def run_in_process_job(
         InProcessJobResult with job_id, status, and URLs
     """
     backend_api_base = resolve_backend_api_base(backend_url)
-    
+
     # Set SYNTH_BACKEND_URL so that tunnel operations (like rotate_tunnel) use the correct backend
     os.environ["SYNTH_BACKEND_URL"] = backend_api_base
-    
+
     resolved_api_key = api_key or _require_env("SYNTH_API_KEY", friendly_name="Backend API key")
     resolved_task_app_key = task_app_api_key or _require_env(
         "ENVIRONMENT_API_KEY", friendly_name="Task app API key"
@@ -233,7 +233,11 @@ async def run_in_process_job(
         # 2. OR backend verified DNS propagation (safe to skip redundant local check)
         should_skip_health_check = skip_tunnel_verification or dns_verified_by_backend
         if should_skip_health_check:
-            reason = "tunnel verification disabled" if skip_tunnel_verification else "backend verified DNS"
+            reason = (
+                "tunnel verification disabled"
+                if skip_tunnel_verification
+                else "backend verified DNS"
+            )
             health = LocalAPIHealth(
                 ok=True,
                 health_status=200,

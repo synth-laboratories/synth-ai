@@ -41,6 +41,7 @@ class StageInfo:
     - temperature: Optional temperature override
     - prompts: Optional list of prompt variants (for multi-prompt stages)
     """
+
     instruction: str
     rules: dict[str, Any] = field(default_factory=dict)
     temperature: float | None = None
@@ -79,6 +80,7 @@ class SeedInfo:
     Includes the seed ID, query text, expected output, and optionally
     the model's prediction and whether it was correct.
     """
+
     seed: int
     query: str = ""
     expected: str = ""
@@ -116,6 +118,7 @@ class SeedInfo:
 @dataclass
 class TokenUsage:
     """Token usage for a candidate evaluation."""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -165,6 +168,7 @@ class StageInfo:
     - temperature: Optional temperature override
     - prompts: Optional list of prompt variants (for multi-prompt stages)
     """
+
     instruction: str
     rules: dict[str, Any] = field(default_factory=dict)
     temperature: float | None = None
@@ -203,6 +207,7 @@ class SeedInfo:
     Includes the seed ID, query text, expected output, and optionally
     the model's prediction and whether it was correct.
     """
+
     seed: int
     query: str = ""
     expected: str = ""
@@ -240,6 +245,7 @@ class SeedInfo:
 @dataclass
 class TokenUsage:
     """Token usage for a candidate evaluation."""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -334,8 +340,12 @@ class CandidateInfo:
     evaluation_duration_ms: int | None = None
 
     # === Evaluation details ===
-    minibatch_scores: list[float] = field(default_factory=list)  # Per-minibatch scores during evaluation
-    skip_reason: str | None = None  # Reason why candidate was skipped (e.g., "minibatch_rejected", "budget_exhausted")
+    minibatch_scores: list[float] = field(
+        default_factory=list
+    )  # Per-minibatch scores during evaluation
+    skip_reason: str | None = (
+        None  # Reason why candidate was skipped (e.g., "minibatch_rejected", "budget_exhausted")
+    )
 
     # === Raw data for debugging ===
     raw_data: dict[str, Any] = field(default_factory=dict)
@@ -368,7 +378,9 @@ class CandidateInfo:
         return summary
 
     @classmethod
-    def from_event_data(cls, data: dict[str, Any], candidate_id: str | None = None) -> CandidateInfo:
+    def from_event_data(
+        cls, data: dict[str, Any], candidate_id: str | None = None
+    ) -> CandidateInfo:
         """Create from SSE event data payload.
 
         Supports both legacy flat format and new program_candidate block format.
@@ -552,7 +564,9 @@ class BaselineInfo:
         if isinstance(objectives, dict):
             reward_value = objectives.get("reward")
         if reward_value is None:
-            reward_value = data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy")
+            reward_value = (
+                data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy")
+            )
         if objectives is None and reward_value is not None:
             objectives = {"reward": float(reward_value)}
 

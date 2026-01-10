@@ -20,7 +20,7 @@ from synth_ai.core.log_filter import should_filter_log_line
 
 def get_subprocess_env(extra_env: dict[str, Any] | None = None) -> dict[str, str]:
     """Get environment dict for subprocesses with RUST_LOG set to suppress noisy logs.
-    
+
     Always includes RUST_LOG="codex_otel::otel_event_manager=warn" unless overridden.
     """
     env = os.environ.copy()
@@ -53,9 +53,7 @@ def popen_capture(
         return 1, str(exc)
 
 
-def popen_stream(
-    cmd: list[str], cwd: str | None = None, env: dict[str, Any] | None = None
-) -> int:
+def popen_stream(cmd: list[str], cwd: str | None = None, env: dict[str, Any] | None = None) -> int:
     """Stream subprocess output line-by-line to stdout for real-time feedback."""
     import subprocess
     import threading
@@ -206,7 +204,9 @@ def ensure_local_port_available(host: str, port: int, *, force: bool = False) ->
 
     if not force:
         try:
-            choice = input(f"Stop the existing process on port {port}? [y/N]: ").strip().lower() or "n"
+            choice = (
+                input(f"Stop the existing process on port {port}? [y/N]: ").strip().lower() or "n"
+            )
         except Exception:
             choice = "n"
         if not choice.startswith("y"):

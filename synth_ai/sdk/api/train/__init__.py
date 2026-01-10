@@ -8,12 +8,12 @@ CLI Usage:
 
 SDK Usage:
     from synth_ai.sdk.api.train import PromptLearningJob, SFTJob
-    
+
     # Prompt Learning
     job = PromptLearningJob.from_config("my_config.toml")
     job.submit()
     result = job.poll_until_complete()
-    
+
     # SFT
     sft_job = SFTJob.from_config("my_sft_config.toml")
     sft_job.submit()

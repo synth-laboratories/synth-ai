@@ -69,6 +69,7 @@ repo_root = Path(__file__).resolve().parents[2]
 
 # Load .env file from repo root
 from dotenv import load_dotenv
+
 env_path = repo_root / ".env"
 if env_path.exists():
     load_dotenv(env_path, override=True)
@@ -77,6 +78,7 @@ else:
     print(f"No .env file found at {env_path}, using system environment variables")
 
 import nest_asyncio
+
 nest_asyncio.apply()
 
 # Imports
@@ -101,61 +103,73 @@ if LOCAL_MODE:
 else:
     SYNTH_API_BASE = PROD_BASE_URL
 
-print(f'Backend: {SYNTH_API_BASE}')
+print(f"Backend: {SYNTH_API_BASE}")
 
 # Check backend health
 try:
-    r = httpx.get(f'{SYNTH_API_BASE}/health', timeout=30)
+    r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
     if r.status_code == 200:
-        print(f'Backend health: {r.json()}')
+        print(f"Backend health: {r.json()}")
     else:
-        print(f'WARNING: Backend returned status {r.status_code}')
+        print(f"WARNING: Backend returned status {r.status_code}")
 except Exception as e:
-    print(f'WARNING: Could not check backend health: {e}')
+    print(f"WARNING: Could not check backend health: {e}")
 
 # Get API Key
-API_KEY = os.environ.get('SYNTH_API_KEY', '')
+API_KEY = os.environ.get("SYNTH_API_KEY", "")
 if not API_KEY:
-    print('ERROR: SYNTH_API_KEY not found in environment')
+    print("ERROR: SYNTH_API_KEY not found in environment")
     sys.exit(1)
 else:
-    print(f'Using SYNTH_API_KEY: {API_KEY[:20]}...')
+    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
 
-os.environ['SYNTH_API_KEY'] = API_KEY
+os.environ["SYNTH_API_KEY"] = API_KEY
 
 
 def _find_default_dataset() -> Optional[Path]:
     """Find default Crafter trace dataset locations."""
     # Common locations relative to repo root
     candidates = [
-        Path(repo_root) / ".." / "monorepo" / "traces" / "judge_demo" / "crafter_judge_adas_dataset.json",
-        Path(repo_root) / ".." / "monorepo" / "traces" / "verifier_demo" / "crafter_verifier_graph_opt_dataset.json",
-        Path(repo_root) / ".." / "monorepo" / "backend" / "traces" / "verifier_demo" / "crafter_verifier_graph_opt_dataset.json",
+        Path(repo_root)
+        / ".."
+        / "monorepo"
+        / "traces"
+        / "judge_demo"
+        / "crafter_judge_adas_dataset.json",
+        Path(repo_root)
+        / ".."
+        / "monorepo"
+        / "traces"
+        / "verifier_demo"
+        / "crafter_verifier_graph_opt_dataset.json",
+        Path(repo_root)
+        / ".."
+        / "monorepo"
+        / "backend"
+        / "traces"
+        / "verifier_demo"
+        / "crafter_verifier_graph_opt_dataset.json",
         Path(repo_root) / "traces" / "crafter_traces.json",
     ]
-    
+
     for candidate in candidates:
         resolved = candidate.resolve()
         if resolved.exists():
             return resolved
-    
+
     return None
 
 
 def _load_adas_dataset(path: Path) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
     """Load an ADAS-style dataset with tasks + gold_outputs.
-    
+
     Returns:
         Tuple of (traces, gold_outputs_by_id) where gold_outputs_by_id maps task_id -> full gold output
     """
     data = json.loads(path.read_text(encoding="utf-8"))
     tasks = data.get("tasks") or []
     gold_outputs = data.get("gold_outputs") or []
-    gold_by_task = {
-        g.get("task_id"): g.get("output")
-        for g in gold_outputs
-        if isinstance(g, dict)
-    }
+    gold_by_task = {g.get("task_id"): g.get("output") for g in gold_outputs if isinstance(g, dict)}
 
     traces: List[Dict[str, Any]] = []
     for t in tasks:
@@ -167,14 +181,16 @@ def _load_adas_dataset(path: Path) -> Tuple[List[Dict[str, Any]], Dict[str, Dict
         gold = gold_by_task.get(trace_id) or {}
         gold_score = gold.get("score")
         if trace_id and trace is not None and gold_score is not None:
-            traces.append({
-                "trace_id": trace_id,
-                "trace": trace,
-                "gold_score": float(gold_score),
-                "gold_event_rewards": gold.get("event_rewards", []),
-                "gold_outcome_feedback": gold.get("outcome_feedback", ""),
-                "gold_event_feedback": gold.get("event_feedback", ""),
-            })
+            traces.append(
+                {
+                    "trace_id": trace_id,
+                    "trace": trace,
+                    "gold_score": float(gold_score),
+                    "gold_event_rewards": gold.get("event_rewards", []),
+                    "gold_outcome_feedback": gold.get("outcome_feedback", ""),
+                    "gold_event_feedback": gold.get("event_feedback", ""),
+                }
+            )
     return traces, gold_by_task
 
 
@@ -189,14 +205,15 @@ def _load_jsonl_traces(path: Path) -> List[Dict[str, Any]]:
 
 def _truncate_trace_for_context(trace: Any, max_items: int = 10, max_chars: int = 2000) -> Any:
     """Recursively truncate heavy trace structures and long strings.
-    
+
     Crafter traces contain huge arrays and very long string content that can crash LLM contexts.
     """
     if isinstance(trace, list):
         if len(trace) > max_items:
-            return [_truncate_trace_for_context(item, max_items, max_chars) for item in trace[:max_items]] + [
-                {"__truncated__": f"... {len(trace) - max_items} more items ..."}
-            ]
+            return [
+                _truncate_trace_for_context(item, max_items, max_chars)
+                for item in trace[:max_items]
+            ] + [{"__truncated__": f"... {len(trace) - max_items} more items ..."}]
         return [_truncate_trace_for_context(item, max_items, max_chars) for item in trace]
     elif isinstance(trace, dict):
         return {k: _truncate_trace_for_context(v, max_items, max_chars) for k, v in trace.items()}
@@ -219,30 +236,36 @@ def _build_graphgen_dataset(traces: List[Dict[str, Any]]) -> GraphGenTaskSet:
     """Build GraphGen dataset from traces."""
     tasks = []
     gold_outputs = []
-    
+
     for trace in traces:
         trace_id = trace.get("trace_id", f"trace_{len(tasks)}")
         # Truncate trace for context efficiency
-        truncated_trace = _truncate_trace_for_context(trace.get("trace", {}), max_items=10, max_chars=2000)
-        
-        tasks.append(GraphGenTask(
-            id=trace_id,
-            input={
-                "trace": truncated_trace,
-                "trace_id": trace_id,
-            }
-        ))
-        
-        gold_outputs.append(GraphGenGoldOutput(
-            task_id=trace_id,
-            output={
-                "score": trace.get("gold_score", 0.0),
-                "event_rewards": trace.get("gold_event_rewards", []),
-                "outcome_feedback": trace.get("gold_outcome_feedback", ""),
-                "event_feedback": trace.get("gold_event_feedback", ""),
-            }
-        ))
-    
+        truncated_trace = _truncate_trace_for_context(
+            trace.get("trace", {}), max_items=10, max_chars=2000
+        )
+
+        tasks.append(
+            GraphGenTask(
+                id=trace_id,
+                input={
+                    "trace": truncated_trace,
+                    "trace_id": trace_id,
+                },
+            )
+        )
+
+        gold_outputs.append(
+            GraphGenGoldOutput(
+                task_id=trace_id,
+                output={
+                    "score": trace.get("gold_score", 0.0),
+                    "event_rewards": trace.get("gold_event_rewards", []),
+                    "outcome_feedback": trace.get("gold_outcome_feedback", ""),
+                    "event_feedback": trace.get("gold_event_feedback", ""),
+                },
+            )
+        )
+
     # Define schemas for the verifier
     input_schema = {
         "type": "object",
@@ -255,18 +278,22 @@ def _build_graphgen_dataset(traces: List[Dict[str, Any]]) -> GraphGenTaskSet:
         },
         "required": ["trace"],
     }
-    
+
     output_schema = {
         "type": "object",
         "properties": {
             "score": {"type": "number", "description": "Final score [0, 1]"},
             "outcome_feedback": {"type": "string", "description": "Summary of entire episode"},
-            "event_rewards": {"type": "array", "items": {"type": "number"}, "description": "Score for each event"},
+            "event_rewards": {
+                "type": "array",
+                "items": {"type": "number"},
+                "description": "Score for each event",
+            },
             "event_feedback": {"type": "string", "description": "Detailed event-level feedback"},
         },
         "required": ["score", "outcome_feedback", "event_rewards", "event_feedback"],
     }
-    
+
     return GraphGenTaskSet(
         metadata=GraphGenTaskSetMetadata(
             name="crafter_verifier_optimization",
@@ -306,7 +333,7 @@ Secondary objective: produce actionable feedback aligned with the score.""",
 
 async def main():
     """Main demo function."""
-    
+
     # Timing helper
     def format_duration(seconds: float) -> str:
         if seconds < 60:
@@ -321,7 +348,7 @@ async def main():
     print("\n" + "=" * 60)
     print("LOADING CRAFTER TRACES")
     print("=" * 60)
-    
+
     dataset_path = None
     if args.dataset_path:
         dataset_path = Path(args.dataset_path).expanduser()
@@ -336,12 +363,12 @@ async def main():
             print("  - ../monorepo/traces/judge_demo/crafter_judge_adas_dataset.json")
             print("  - ../monorepo/traces/verifier_demo/crafter_verifier_graph_opt_dataset.json")
             sys.exit(1)
-    
+
     print(f"Loading dataset from: {dataset_path}")
-    
+
     traces: List[Dict[str, Any]] = []
     gold_outputs: Dict[str, Dict[str, Any]] = {}
-    
+
     if dataset_path.suffix == ".json":
         traces, gold_outputs = _load_adas_dataset(dataset_path)
         print(f"Loaded {len(traces)} traces from ADAS dataset")
@@ -356,36 +383,36 @@ async def main():
     else:
         print(f"ERROR: Unsupported file format: {dataset_path.suffix}")
         sys.exit(1)
-    
+
     if not traces:
         print("ERROR: No traces loaded")
         sys.exit(1)
-    
+
     # Limit traces if requested
     if args.max_traces and len(traces) > args.max_traces:
-        traces = traces[:args.max_traces]
+        traces = traces[: args.max_traces]
         trace_ids = {t.get("trace_id") for t in traces}
         gold_outputs = {k: v for k, v in gold_outputs.items() if k in trace_ids}
         print(f"Limited to {len(traces)} traces")
-    
+
     # Split train/val
     train_traces, val_traces = _split_train_val(traces, train_ratio=0.8)
     print(f"Train: {len(train_traces)} traces, Val: {len(val_traces)} traces")
-    
+
     # Build GraphGen dataset
     print("\n" + "=" * 60)
     print("BUILDING GRAPHGEN DATASET")
     print("=" * 60)
     dataset = _build_graphgen_dataset(train_traces)
     print(f"Dataset built: {len(dataset.tasks)} tasks, {len(dataset.gold_outputs)} gold outputs")
-    
+
     # Run GraphGen optimization
     print("\n" + "=" * 60)
     print("RUNNING VERIFIER GRAPH OPTIMIZATION")
     print("=" * 60)
-    
+
     optimization_start = time.time()
-    
+
     # Create GraphGen job for verifier optimization
     job = GraphGenJob.from_dataset(
         dataset=dataset,
@@ -397,26 +424,28 @@ async def main():
         rollout_budget=args.rollout_budget,
         proposer_effort="medium",
         num_generations=args.generations,
-        population_size=max(2, args.children),  # GraphGen uses population_size instead of children_per_generation
+        population_size=max(
+            2, args.children
+        ),  # GraphGen uses population_size instead of children_per_generation
     )
-    
+
     try:
         job_id = job.submit()
         print(f"GraphGen Job ID: {job_id.graphgen_job_id}")
         print(f"Graph Evolve Job ID: {job_id.graph_evolve_job_id}")
     except Exception as e:
-        if hasattr(e, 'errors'):
+        if hasattr(e, "errors"):
             print("\n" + "=" * 60)
             print("VALIDATION ERRORS")
             print("=" * 60)
             for error in e.errors:
                 print(f"  {error.get('field', 'unknown')}: {error.get('error', 'unknown error')}")
-                if 'suggestion' in error:
+                if "suggestion" in error:
                     print(f"    Suggestion: {error['suggestion']}")
         else:
             print(f"\nERROR: {e}")
         raise
-    
+
     # Stream events and wait for completion
     print("\nStreaming optimization progress...")
     print("-" * 60)
@@ -438,12 +467,16 @@ async def main():
 
         if event_type == "graph_evolve.initial_graph_generated":
             initial_graph_time = time.time()
-            print(f"  [TIMING] Initial graph generated: {format_duration(initial_graph_time - optimization_start)}")
+            print(
+                f"  [TIMING] Initial graph generated: {format_duration(initial_graph_time - optimization_start)}"
+            )
 
         elif event_type == "graph_evolve.initial_validation":
             initial_validation_time = time.time()
             if initial_graph_time:
-                print(f"  [TIMING] Initial validation: {format_duration(initial_validation_time - initial_graph_time)}")
+                print(
+                    f"  [TIMING] Initial validation: {format_duration(initial_validation_time - initial_graph_time)}"
+                )
 
         elif event_type == "graph_evolve.generation_started":
             gen_num = event.get("generation", len(generation_timings) + 1)
@@ -467,7 +500,9 @@ async def main():
                 evals = generation_timings[gen_num]["evals"]
                 generation_timings[gen_num]["duration"] = duration
                 generation_timings[gen_num]["end"] = end_time
-                print(f"  [TIMING] Generation {gen_num} completed: {format_duration(duration)} ({evals} evals)")
+                print(
+                    f"  [TIMING] Generation {gen_num} completed: {format_duration(duration)} ({evals} evals)"
+                )
 
         elif event_type == "graph_evolve.holdout_evaluation":
             holdout_start_time = time.time()
@@ -484,7 +519,7 @@ async def main():
             timeout=3600.0,
             handlers=[GraphGenHandler(), timing_handler],
         )
-        timings['optimization'] = time.time() - optimization_start
+        timings["optimization"] = time.time() - optimization_start
 
         # Print holdout timing if we have it
         if holdout_start_time:
@@ -509,18 +544,21 @@ async def main():
                 gen_data = generation_timings[gen_num]
                 duration = gen_data.get("duration", 0)
                 evals = gen_data.get("evals", 0)
-                print(f"  Gen {gen_num}: {format_duration(duration)} ({evals} candidates evaluated)")
-        
-        if result.get('status') not in ('succeeded', 'completed'):
+                print(
+                    f"  Gen {gen_num}: {format_duration(duration)} ({evals} candidates evaluated)"
+                )
+
+        if result.get("status") not in ("succeeded", "completed"):
             print(f"ERROR: Optimization failed: {result.get('error', 'Unknown error')}")
             return
-        
+
     except Exception as e:
         print(f"\nERROR during optimization: {e}")
         import traceback
+
         traceback.print_exc()
         return
-    
+
     # Validation: Display holdout evaluation results from backend
     print("\n" + "=" * 60)
     print("HOLDOUT EVALUATION RESULTS")
@@ -528,12 +566,14 @@ async def main():
 
     # The backend runs holdout evaluation automatically using val_seeds (20% holdout)
     # Results are included in the job status
-    train_score = result.get('best_score')
-    val_score = result.get('val_score')
-    best_snapshot_id = result.get('best_snapshot_id')
+    train_score = result.get("best_score")
+    val_score = result.get("val_score")
+    best_snapshot_id = result.get("best_snapshot_id")
 
     print(f"Train Score: {train_score if train_score is not None else 'N/A'}")
-    print(f"Validation Score: {val_score if val_score is not None else 'N/A (no val_seeds configured)'}")
+    print(
+        f"Validation Score: {val_score if val_score is not None else 'N/A (no val_seeds configured)'}"
+    )
     print(f"Best Snapshot ID: {best_snapshot_id or 'N/A'}")
 
     if train_score is not None and val_score is not None:
@@ -552,9 +592,9 @@ async def main():
 
     for i, trace in enumerate(val_traces[:3]):  # Show first 3 val traces
         trace_id = trace.get("trace_id", f"trace_{i}")
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Trace: {trace_id}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # Get gold outputs for this trace
         gold = gold_outputs.get(trace_id, {})
@@ -565,7 +605,9 @@ async def main():
 
         # Run inference with optimized graph
         try:
-            truncated_trace = _truncate_trace_for_context(trace.get("trace", {}), max_items=10, max_chars=2000)
+            truncated_trace = _truncate_trace_for_context(
+                trace.get("trace", {}), max_items=10, max_chars=2000
+            )
             verifier_result = job.run_inference(
                 input_data={
                     "trace": truncated_trace,
@@ -590,8 +632,10 @@ async def main():
 
             # Score comparison
             print(f"\n--- COMPARISON ---")
-            if isinstance(output.get('score'), (int, float)) and isinstance(gold_score, (int, float)):
-                diff = abs(output['score'] - gold_score)
+            if isinstance(output.get("score"), (int, float)) and isinstance(
+                gold_score, (int, float)
+            ):
+                diff = abs(output["score"] - gold_score)
                 print(f"Predicted score: {output['score']:.3f}")
                 print(f"Gold score:      {gold_score:.3f}")
                 print(f"Difference:      {diff:.3f} {'✓' if diff < 0.1 else '⚠️'}")
@@ -602,6 +646,7 @@ async def main():
         except Exception as e:
             print(f"  ERROR running inference: {e}")
             import traceback
+
             traceback.print_exc()
 
     # Print summary
@@ -615,8 +660,8 @@ async def main():
     print(f"  Generations: {args.generations}")
     print(f"  Children/gen: {args.children}")
     print(f"  Rollout budget: {args.rollout_budget}")
-    
-    timings['total'] = time.time() - total_start
+
+    timings["total"] = time.time() - total_start
     print(f"\nTotal time: {format_duration(timings['total'])}")
 
     # Print the optimized graph
@@ -640,4 +685,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

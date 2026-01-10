@@ -128,7 +128,9 @@ def create_http_client_hooks(
             try:
                 import httpx
 
-                limits = httpx_limits or httpx.Limits(max_keepalive_connections=5, max_connections=10)
+                limits = httpx_limits or httpx.Limits(
+                    max_keepalive_connections=5, max_connections=10
+                )
                 app.state.http_client = httpx.AsyncClient(timeout=timeout, limits=limits)
                 _log("Created app-level httpx client singleton (fallback)")
             except Exception as exc:
@@ -320,7 +322,9 @@ async def call_chat_completion_api(
                 headers["Host"] = host
 
     if http_client is None:
-        raise HTTPException(status_code=500, detail="HTTP client not initialized (should be created at startup)")
+        raise HTTPException(
+            status_code=500, detail="HTTP client not initialized (should be created at startup)"
+        )
 
     response_json: dict[str, Any] | None = None
     try:
@@ -356,7 +360,10 @@ async def call_chat_completion_api(
                     try:
                         error_json = await response.json()
                         error_message = _extract_error_message(error_json)
-                        raise HTTPException(status_code=status_code, detail=f"Interceptor/provider error: {error_message}")
+                        raise HTTPException(
+                            status_code=status_code,
+                            detail=f"Interceptor/provider error: {error_message}",
+                        )
                     except HTTPException:
                         raise
                     except Exception:
@@ -371,7 +378,9 @@ async def call_chat_completion_api(
                 except Exception:
                     response_text = await response.text()
                     if status_code >= 400:
-                        raise HTTPException(status_code=status_code, detail=f"HTTP error: {response_text[:200]}")
+                        raise HTTPException(
+                            status_code=status_code, detail=f"HTTP error: {response_text[:200]}"
+                        )
                     response_json = {}
         else:
             response = await http_client.post(inference_url, json=payload, headers=headers)
@@ -380,11 +389,16 @@ async def call_chat_completion_api(
                 try:
                     error_json = response.json()
                     error_message = _extract_error_message(error_json)
-                    raise HTTPException(status_code=status_code, detail=f"Interceptor/provider error: {error_message}")
+                    raise HTTPException(
+                        status_code=status_code,
+                        detail=f"Interceptor/provider error: {error_message}",
+                    )
                 except HTTPException:
                     raise
                 except Exception:
-                    error_text = response.text[:500] if hasattr(response, "text") else "Unknown error"
+                    error_text = (
+                        response.text[:500] if hasattr(response, "text") else "Unknown error"
+                    )
                     raise HTTPException(
                         status_code=status_code,
                         detail=f"Interceptor/provider returned error: {error_text}",
@@ -395,7 +409,9 @@ async def call_chat_completion_api(
             except Exception:
                 response_text = response.text
                 if status_code >= 400:
-                    raise HTTPException(status_code=status_code, detail=f"HTTP error: {response_text[:200]}")
+                    raise HTTPException(
+                        status_code=status_code, detail=f"HTTP error: {response_text[:200]}"
+                    )
                 response_json = {}
     except HTTPException:
         raise
@@ -431,7 +447,9 @@ async def call_chat_completion_api(
             raise HTTPException(status_code=502, detail="Proxy JSON message malformed")
         content_text = str(first_msg.get("content", ""))
         if not tool_calls and not content_text.strip():
-            raise HTTPException(status_code=502, detail="Empty model output: no tool_calls and no content")
+            raise HTTPException(
+                status_code=502, detail="Empty model output: no tool_calls and no content"
+            )
 
     return response_text, response_json, tool_calls
 

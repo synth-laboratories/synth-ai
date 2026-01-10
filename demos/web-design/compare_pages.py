@@ -1,6 +1,7 @@
 """
 Capture screenshot of generated HTML and create a side-by-side comparison.
 """
+
 import asyncio
 from pathlib import Path
 from playwright.async_api import async_playwright
@@ -62,9 +63,9 @@ async def main():
         original_path = Path(__file__).parent / "data" / site_name / original_name
 
         if original_path.exists():
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print("COMPARISON:")
-            print(f"{'='*80}")
+            print(f"{'=' * 80}")
             print(f"Original:  {original_path}")
             print(f"Generated: {output_path}")
             print(f"\nOpen both images to compare:")

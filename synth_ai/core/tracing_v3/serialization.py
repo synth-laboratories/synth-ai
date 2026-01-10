@@ -126,5 +126,3 @@ def serialize_trace_for_http(trace: Any) -> str:
         except Exception:
             return dumps_http_json(getattr(trace, "__dict__", {}))
     return dumps_http_json(trace)
-
-

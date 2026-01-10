@@ -375,21 +375,28 @@ class SessionTracer:
 
             # Save if requested
             should_save = save if save is not None else self.auto_save
-            
+
             # Debug logging
             import logging
+
             _logger = logging.getLogger(__name__)
-            _logger.info(f"[TRACE_DEBUG] end_session: should_save={should_save}, self.db={self.db is not None}, auto_save={self.auto_save}")
-            
+            _logger.info(
+                f"[TRACE_DEBUG] end_session: should_save={should_save}, self.db={self.db is not None}, auto_save={self.auto_save}"
+            )
+
             if should_save and self.db:
-                _logger.info(f"[TRACE_DEBUG] Calling insert_session_trace with {len(self._current_trace.markov_blanket_message_history)} messages")
+                _logger.info(
+                    f"[TRACE_DEBUG] Calling insert_session_trace with {len(self._current_trace.markov_blanket_message_history)} messages"
+                )
                 await self.db.insert_session_trace(self._current_trace)
                 _logger.info("[TRACE_DEBUG] insert_session_trace completed")
 
                 # Trigger post-save hooks
                 await self.hooks.trigger("after_save", session=self._current_trace)
             else:
-                _logger.warning(f"[TRACE_DEBUG] Skipping save: should_save={should_save}, self.db={self.db is not None}")
+                _logger.warning(
+                    f"[TRACE_DEBUG] Skipping save: should_save={should_save}, self.db={self.db is not None}"
+                )
 
             # Trigger session end hooks
             await self.hooks.trigger("session_end", session=self._current_trace)

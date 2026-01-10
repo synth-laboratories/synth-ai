@@ -66,9 +66,7 @@ def is_port_available(port: int, host: str = "0.0.0.0") -> bool:
     return True
 
 
-def find_available_port(
-    start_port: int, host: str = "0.0.0.0", max_attempts: int = 100
-) -> int:
+def find_available_port(start_port: int, host: str = "0.0.0.0", max_attempts: int = 100) -> int:
     """Find an available port starting from start_port.
 
     Args:
@@ -136,9 +134,7 @@ def kill_port(port: int, host: str = "0.0.0.0") -> bool:
             )
             if result.stdout.strip():
                 for pid in result.stdout.strip().split():
-                    subprocess.run(
-                        ["kill", "-9", pid], capture_output=True, check=False
-                    )
+                    subprocess.run(["kill", "-9", pid], capture_output=True, check=False)
                 return True
     except Exception:
         pass
@@ -196,6 +192,7 @@ def acquire_port(
         if killed:
             # Give the OS a moment to release the port
             import time
+
             time.sleep(0.5)
             if is_port_available(port, host):
                 return port

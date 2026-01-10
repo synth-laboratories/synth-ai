@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 libsql = cast(Any, importlib.import_module("libsql"))
 
+
 class ReplicaSync:
     """Manages synchronization of embedded SQLite replica with remote Turso database.
 

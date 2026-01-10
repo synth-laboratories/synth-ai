@@ -111,23 +111,20 @@ Generate a webpage screenshot based on this functional description:
 
 Apply the visual style guidelines to match the original design."""
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash-image',
-        contents=full_prompt
-    )
+    response = client.models.generate_content(model="gemini-2.5-flash-image", contents=full_prompt)
 
     # Extract image bytes from response
-    if hasattr(response, 'candidates') and len(response.candidates) > 0:
+    if hasattr(response, "candidates") and len(response.candidates) > 0:
         candidate = response.candidates[0]
-        if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+        if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
             for part in candidate.content.parts:
-                if hasattr(part, 'inline_data') and part.inline_data is not None:
+                if hasattr(part, "inline_data") and part.inline_data is not None:
                     return part.inline_data.data
 
     # Try response.parts directly
-    if hasattr(response, 'parts'):
+    if hasattr(response, "parts"):
         for part in response.parts:
-            if hasattr(part, 'inline_data') and part.inline_data is not None:
+            if hasattr(part, "inline_data") and part.inline_data is not None:
                 return part.inline_data.data
 
     raise ValueError(f"No image data in response: {response}")
@@ -153,6 +150,7 @@ def main():
     except Exception as e:
         print(f"    ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         baseline_path = None
 
@@ -167,6 +165,7 @@ def main():
     except Exception as e:
         print(f"    ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         mutated_path = None
 

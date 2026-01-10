@@ -23,7 +23,7 @@ if TYPE_CHECKING:
         run_task_app,
     )
     from .template import build_template_config, create_template_app
-    
+
     # Type aliases for Pyright
     create_local_api = create_task_app
     run_local_api = run_task_app
@@ -58,7 +58,7 @@ def __getattr__(name: str):
     if name in ("build_template_config", "create_template_app"):
         # Lazy import template functions to avoid circular dependency
         from .template import build_template_config, create_template_app
-        
+
         if name == "build_template_config":
             return build_template_config
         if name == "create_template_app":

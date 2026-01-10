@@ -174,9 +174,7 @@ def log_event(
     if DISABLE_LOGGING:
         return
     try:
-        entry = _build_entry(
-            level, msg, attributes=attributes, ctx=ctx, req_id=req_id
-        )
+        entry = _build_entry(level, msg, attributes=attributes, ctx=ctx, req_id=req_id)
         if entry is None:
             return
         _enqueue(entry)
@@ -197,9 +195,7 @@ def log_error(msg: str, **kwargs: Any) -> None:
     log_event("error", msg, **kwargs)
 
 
-def log_batch(
-    entries: Sequence[Mapping[str, Any]], *, batch_id: str | None = None
-) -> None:
+def log_batch(entries: Sequence[Mapping[str, Any]], *, batch_id: str | None = None) -> None:
     """Send a batch of pre-built entries. Invalid entries are skipped silently."""
     if DISABLE_LOGGING:
         return

@@ -345,17 +345,23 @@ class EvalJob:
                     "env_name": pl_config.get("gepa", {}).get("env_name"),
                     "seeds": pl_config.get("gepa", {}).get("evaluation", {}).get("seeds", []),
                     "policy_config": pl_config.get("gepa", {}).get("policy", {}),
-                    "verifier_config": pl_config.get("verifier", {}) if isinstance(pl_config.get("verifier"), dict) else None,
+                    "verifier_config": pl_config.get("verifier", {})
+                    if isinstance(pl_config.get("verifier"), dict)
+                    else None,
                 }
 
         # Resolve API key
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
             if not api_key:
-                raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY env var)")
+                raise ValueError(
+                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                )
 
         # Build config with overrides
-        final_task_app_url = task_app_url or eval_config.get("url") or eval_config.get("task_app_url")
+        final_task_app_url = (
+            task_app_url or eval_config.get("url") or eval_config.get("task_app_url")
+        )
         if not final_task_app_url:
             raise ValueError("task_app_url is required (in config or as argument)")
 
@@ -409,7 +415,9 @@ class EvalJob:
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
             if not api_key:
-                raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY env var)")
+                raise ValueError(
+                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                )
 
         # Create minimal config for resumed job
         config = EvalJobConfig(
@@ -596,8 +604,14 @@ class EvalJob:
 
                 # Extract progress info
                 results_info = status_data.get("results", {})
-                completed = results_info.get("completed", 0) if isinstance(results_info, dict) else 0
-                total = results_info.get("total", len(self.config.seeds)) if isinstance(results_info, dict) else len(self.config.seeds)
+                completed = (
+                    results_info.get("completed", 0) if isinstance(results_info, dict) else 0
+                )
+                total = (
+                    results_info.get("total", len(self.config.seeds))
+                    if isinstance(results_info, dict)
+                    else len(self.config.seeds)
+                )
 
                 # Progress output
                 if progress:
@@ -607,14 +621,18 @@ class EvalJob:
                         try:
                             final_results = self.get_results()
                             mean_score = final_results.get("summary", {}).get("mean_score")
-                            score_str = f"mean_score: {mean_score:.2f}" if mean_score is not None else ""
+                            score_str = (
+                                f"mean_score: {mean_score:.2f}" if mean_score is not None else ""
+                            )
                             print(f"[{mins:02d}:{secs:02d}] {status.value} | {score_str}")
                             # Use final results for the return value
                             last_data = final_results
                         except Exception:
                             print(f"[{mins:02d}:{secs:02d}] {status.value}")
                     else:
-                        print(f"[{mins:02d}:{secs:02d}] {status.value} | {completed}/{total} completed")
+                        print(
+                            f"[{mins:02d}:{secs:02d}] {status.value} | {completed}/{total} completed"
+                        )
 
                 # Callback for custom handling
                 if on_status:

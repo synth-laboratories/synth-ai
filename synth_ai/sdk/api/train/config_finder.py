@@ -104,7 +104,7 @@ def _infer_config_type(data: dict) -> str:
     algorithm = data.get("algorithm")
     if isinstance(algorithm, str) and algorithm.lower() in {"mipro", "gepa"}:
         return "prompt_learning"
-    
+
     # 1) Strong signals from [algorithm]
     algo = data.get("algorithm")
     if isinstance(algo, dict):
@@ -195,7 +195,7 @@ def prompt_for_config(
     candidates: list[ConfigCandidate], *, requested_type: str | None, allow_autoselect: bool = False
 ) -> ConfigCandidate:
     import sys
-    
+
     if not candidates:
         raise click.ClickException("No training configs found. Pass --config explicitly.")
 
@@ -204,8 +204,8 @@ def prompt_for_config(
     default_idx = 1
 
     # Auto-select if only one candidate OR if allow_autoselect=True and we're in non-interactive mode
-    is_interactive = sys.stdin.isatty() if hasattr(sys.stdin, 'isatty') else False
-    
+    is_interactive = sys.stdin.isatty() if hasattr(sys.stdin, "isatty") else False
+
     if allow_autoselect and (len(candidates) == 1 or not is_interactive):
         # In non-interactive mode with allow_autoselect, use the first candidate (or last used if available)
         if last_config:
@@ -229,7 +229,9 @@ def prompt_for_config(
 
     # If not interactive and allow_autoselect is False, we can't prompt - use first candidate
     if not is_interactive:
-        click.echo(f"[AUTO-SELECT] Non-interactive mode: using first config {candidates[0].path}", err=True)
+        click.echo(
+            f"[AUTO-SELECT] Non-interactive mode: using first config {candidates[0].path}", err=True
+        )
         chosen = candidates[0]
         _save_last_config(chosen.path)
         return chosen

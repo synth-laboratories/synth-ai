@@ -28,12 +28,12 @@ except ImportError:
 
 def _load_session_config(config_path: Path | None = None) -> dict[str, Any]:
     """Load session configuration from TOML file.
-    
+
     Looks for [session] section with:
     - limit_cost_usd: float (default: 20.0)
     - limit_tokens: int | None
     - limit_gpu_hours: float | None
-    
+
     Returns dict with session limits.
     """
     if config_path is None:
@@ -43,29 +43,29 @@ def _load_session_config(config_path: Path | None = None) -> dict[str, Any]:
             if path.exists():
                 config_path = path
                 break
-    
+
     if config_path is None or not config_path.exists():
         # Default: $20 cost limit
         return {"limit_cost_usd": 20.0}
-    
+
     if tomllib is None:
         return {"limit_cost_usd": 20.0}
-    
+
     try:
         with config_path.open("rb") as f:
             config = tomllib.load(f)
-        
+
         session_config = config.get("session", {})
         result: dict[str, Any] = {}
-        
+
         # Default cost limit is $20 if not specified
         result["limit_cost_usd"] = session_config.get("limit_cost_usd", 20.0)
-        
+
         if "limit_tokens" in session_config:
             result["limit_tokens"] = session_config["limit_tokens"]
         if "limit_gpu_hours" in session_config:
             result["limit_gpu_hours"] = session_config["limit_gpu_hours"]
-        
+
         return result
     except Exception as e:
         click.echo(f"Warning: Failed to load session config from {config_path}: {e}", err=True)
@@ -73,17 +73,8 @@ def _load_session_config(config_path: Path | None = None) -> dict[str, Any]:
 
 
 @click.command("opencode")
-@click.option(
-    "--model",
-    "model_name",
-    type=str,
-    default=None
-)
-@click.option(
-    "--force",
-    is_flag=True,
-    help="Prompt for API keys even if cached values exist."
-)
+@click.option("--model", "model_name", type=str, default=None)
+@click.option("--force", is_flag=True, help="Prompt for API keys even if cached values exist.")
 @click.option(
     "--url",
     "override_url",
@@ -95,7 +86,7 @@ def _load_session_config(config_path: Path | None = None) -> dict[str, Any]:
     "config_path",
     type=click.Path(exists=True, path_type=Path),
     default=None,
-    help="Path to TOML config file (default: opencode.toml or synth.toml in current directory)"
+    help="Path to TOML config file (default: opencode.toml or synth.toml in current directory)",
 )
 def opencode_cmd(
     model_name: str | None = None,
@@ -103,7 +94,6 @@ def opencode_cmd(
     override_url: str | None = None,
     config_path: Path | None = None,
 ) -> None:
-
     while True:
         bin_path = get_bin_path("opencode")
         if bin_path:
@@ -115,8 +105,8 @@ def opencode_cmd(
                 "bun add -g opencode-ai",
                 "curl -fsSL https://opencode.ai/install | bash",
                 "npm i -g opencode-ai",
-                "paru -S opencode"
-            ]
+                "paru -S opencode",
+            ],
         ):
             print("Failed to find your installed OpenCode")
             print("Please install from: https://opencode.ai")
@@ -134,7 +124,7 @@ def opencode_cmd(
     session_limit_cost = session_config.get("limit_cost_usd")
     session_limit_tokens = session_config.get("limit_tokens")
     session_limit_gpu_hours = session_config.get("limit_gpu_hours")
-    
+
     # Get API key and base URL for session creation
     synth_api_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
     if override_url:
@@ -143,39 +133,45 @@ def opencode_cmd(
             base_url = base_url[:-4]
     else:
         base_url, _ = get_backend_from_env()
-    
+
     # Create agent session with limits from config (default: $20 cost limit)
     session_id: str | None = None
     if session_limit_tokens or session_limit_cost or session_limit_gpu_hours:
         try:
             import asyncio
-            
+
             # Create session - org_id will be fetched from backend /me endpoint
             async def create_session():
                 from synth_ai.cli.local.session import AgentSessionClient
-                
+
                 client = AgentSessionClient(f"{base_url}/api", synth_api_key)
-                
+
                 limits = []
                 if session_limit_tokens:
-                    limits.append({
-                        "limit_type": "hard",
-                        "metric_type": "tokens",
-                        "limit_value": float(session_limit_tokens),
-                    })
+                    limits.append(
+                        {
+                            "limit_type": "hard",
+                            "metric_type": "tokens",
+                            "limit_value": float(session_limit_tokens),
+                        }
+                    )
                 if session_limit_cost:
-                    limits.append({
-                        "limit_type": "hard",
-                        "metric_type": "cost_usd",
-                        "limit_value": float(session_limit_cost),
-                    })
+                    limits.append(
+                        {
+                            "limit_type": "hard",
+                            "metric_type": "cost_usd",
+                            "limit_value": float(session_limit_cost),
+                        }
+                    )
                 if session_limit_gpu_hours:
-                    limits.append({
-                        "limit_type": "hard",
-                        "metric_type": "gpu_hours",
-                        "limit_value": float(session_limit_gpu_hours),
-                    })
-                
+                    limits.append(
+                        {
+                            "limit_type": "hard",
+                            "metric_type": "gpu_hours",
+                            "limit_value": float(session_limit_gpu_hours),
+                        }
+                    )
+
                 # org_id will be automatically fetched from /api/v1/me endpoint
                 session = await client.create(
                     org_id=None,  # Will be fetched from backend
@@ -184,7 +180,7 @@ def opencode_cmd(
                     session_type="opencode_agent",
                 )
                 return session.session_id
-            
+
             session_id = asyncio.run(create_session())
             click.echo(f"✓ Created agent session: {session_id}")
             if session_limit_tokens:
@@ -241,13 +237,14 @@ def opencode_cmd(
                 # Assign to local variable to help type checker
                 final_session_id: str = session_id
                 import asyncio
-                
+
                 async def end_session():
                     from synth_ai.cli.local.session import AgentSessionClient
+
                     client = AgentSessionClient(f"{base_url}/api", synth_api_key)
                     await client.end(final_session_id)
                     click.echo(f"✓ Ended agent session: {final_session_id}")
-                
+
                 asyncio.run(end_session())
             except Exception as e:
                 click.echo(f"Warning: Failed to end agent session: {e}", err=True)

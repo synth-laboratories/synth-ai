@@ -137,8 +137,7 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
         # Add stages (first-class program structure)
         if c.stages:
             candidate_dict["stages"] = {
-                stage_id: stage.to_dict()
-                for stage_id, stage in c.stages.items()
+                stage_id: stage.to_dict() for stage_id, stage in c.stages.items()
             }
 
         # Add seed_scores [{seed, score}, ...]
@@ -268,11 +267,13 @@ def save_seeds(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
                     "evaluated_by": [],
                 }
             # Add this candidate to the list of evaluators
-            seeds_map[seed]["evaluated_by"].append({
-                "candidate_id": c.candidate_id,
-                "score": si.score,
-                "correct": si.correct,
-            })
+            seeds_map[seed]["evaluated_by"].append(
+                {
+                    "candidate_id": c.candidate_id,
+                    "score": si.score,
+                    "correct": si.correct,
+                }
+            )
 
         # From rollout_sample (has query text)
         for rs in c.rollout_sample:
@@ -399,29 +400,35 @@ def save_summary_txt(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
         f"Finish Reason: {tracker.progress.finish_reason or 'N/A'}",
         "",
         "Scoring:",
-        f"  Baseline:  {tracker.baseline_score:.2%}" if tracker.baseline_score else "  Baseline:  N/A",
+        f"  Baseline:  {tracker.baseline_score:.2%}"
+        if tracker.baseline_score
+        else "  Baseline:  N/A",
         f"  Best:      {tracker.best_score:.2%}",
     ]
 
     if tracker.progress.lift is not None:
         lines.append(f"  Lift:      {tracker.progress.lift:+.2%}")
 
-    lines.extend([
-        "",
-        "Stats:",
-        f"  Rollouts:     {tracker.progress.rollouts_completed}",
-        f"  Candidates:   {len(tracker.candidates)}",
-        f"  Generations:  {tracker.progress.generations_completed}",
-        f"  Frontier:     {len(tracker.current_frontier)}",
-        f"  Time:         {tracker.progress.elapsed_seconds:.1f}s",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "Stats:",
+            f"  Rollouts:     {tracker.progress.rollouts_completed}",
+            f"  Candidates:   {len(tracker.candidates)}",
+            f"  Generations:  {tracker.progress.generations_completed}",
+            f"  Frontier:     {len(tracker.current_frontier)}",
+            f"  Time:         {tracker.progress.elapsed_seconds:.1f}s",
+            "",
+        ]
+    )
 
     # Pareto frontier candidates
-    lines.extend([
-        "PARETO FRONTIER",
-        "-" * 40,
-    ])
+    lines.extend(
+        [
+            "PARETO FRONTIER",
+            "-" * 40,
+        ]
+    )
 
     frontier_candidates = tracker.get_pareto_candidates()
     frontier_candidates.sort(key=_candidate_reward_value, reverse=True)
@@ -432,16 +439,20 @@ def save_summary_txt(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
         lines.append(f"{i}. {c.candidate_id}: {acc_str} (gen {c.generation})")
         if c.prompt_summary:
             # Truncate long prompts
-            summary = c.prompt_summary[:200] + "..." if len(c.prompt_summary) > 200 else c.prompt_summary
+            summary = (
+                c.prompt_summary[:200] + "..." if len(c.prompt_summary) > 200 else c.prompt_summary
+            )
             lines.append(f"   {summary}")
 
     lines.extend(["", ""])
 
     # Top candidates
-    lines.extend([
-        "ALL CANDIDATES (sorted by accuracy)",
-        "-" * 40,
-    ])
+    lines.extend(
+        [
+            "ALL CANDIDATES (sorted by accuracy)",
+            "-" * 40,
+        ]
+    )
 
     sorted_candidates = sorted(tracker.candidates, key=_candidate_reward_value, reverse=True)
 
@@ -449,7 +460,9 @@ def save_summary_txt(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
         reward_val = _candidate_reward_optional(c)
         acc_str = f"{reward_val:.2%}" if reward_val is not None else "N/A"
         pareto_mark = "*" if c.candidate_id in tracker.current_frontier else " "
-        lines.append(f"{pareto_mark}{i:2d}. {c.candidate_id:<20} acc={acc_str:<8} gen={c.generation}")
+        lines.append(
+            f"{pareto_mark}{i:2d}. {c.candidate_id:<20} acc={acc_str:<8} gen={c.generation}"
+        )
 
     if len(sorted_candidates) > 20:
         lines.append(f"   ... and {len(sorted_candidates) - 20} more")

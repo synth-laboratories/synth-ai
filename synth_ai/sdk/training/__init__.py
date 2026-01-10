@@ -1,7 +1,7 @@
 """Training SDK - prompt learning, SFT, RL, and GraphGen jobs.
 
 This module provides high-level APIs for running training jobs:
-- PromptLearningJob: GEPA and MIPRO prompt optimization
+- PromptLearningJob: GEPA prompt optimization
 - SFTJob: Supervised fine-tuning
 - RLJob: Reinforcement learning (GSPO, GRPO, PPO, etc.)
 - GraphGenJob: Graph Opt (simplified workflows API)

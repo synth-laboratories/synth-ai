@@ -23,9 +23,13 @@ def get_synth_and_env_keys(env_file: Path | None) -> tuple[str, str]:
     synth_api_key = file_synth_api_key or env_synth_api_key
     env_api_key = file_env_api_key or env_env_api_key
     if not synth_api_key:
-        raise RuntimeError("SYNTH_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
+        raise RuntimeError(
+            "SYNTH_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env"
+        )
     if not env_api_key:
-        raise RuntimeError("ENVIRONMENT_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
+        raise RuntimeError(
+            "ENVIRONMENT_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env"
+        )
     return synth_api_key, env_api_key
 
 
@@ -89,20 +93,20 @@ def _strip_inline_comment(value: str) -> str:
         if char == '"' and not in_single:
             in_double = not in_double
             continue
-        if char == '#' and not in_single and not in_double:
+        if char == "#" and not in_single and not in_double:
             return value[:idx].rstrip()
     return value.rstrip()
 
 
 def _parse_env_assignment(line: str) -> tuple[str, str] | None:
     stripped = line.strip()
-    if not stripped or stripped.startswith('#'):
+    if not stripped or stripped.startswith("#"):
         return None
     if stripped.lower().startswith("export "):
         stripped = stripped[7:].lstrip()
-    if '=' not in stripped:
+    if "=" not in stripped:
         return None
-    key_part, value_part = stripped.split('=', 1)
+    key_part, value_part = stripped.split("=", 1)
     key = key_part.strip()
     if not key:
         return None
@@ -144,7 +148,7 @@ def filter_env_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, str
     matches: list[tuple[Path, str]] = []
     for path in paths:
         try:
-            with path.open('r', encoding="utf-8") as file:
+            with path.open("r", encoding="utf-8") as file:
                 for line in file:
                     parsed = _parse_env_assignment(line)
                     if parsed is None:
@@ -160,7 +164,7 @@ def filter_env_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, str
 
 def read_env_var_from_file(key: str, path: Path) -> str | None:
     try:
-        with path.open('r', encoding="utf-8") as f:
+        with path.open("r", encoding="utf-8") as f:
             for line in f:
                 parsed = _parse_env_assignment(line)
                 if parsed is None:
@@ -177,7 +181,7 @@ def filter_json_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, st
     matches: list[tuple[Path, str]] = []
     for path in paths:
         try:
-            with path.open('r', encoding="utf-8") as file:
+            with path.open("r", encoding="utf-8") as file:
                 data = json.load(file)
                 if key in data and isinstance(data[key], str):
                     matches.append((path, data[key]))
@@ -192,12 +196,9 @@ def ensure_env_var(key: str, expected_value: str) -> None:
         raise ValueError(f"Expected: {key}={expected_value}\nActual: {key}={actual_value}")
 
 
-def resolve_env_var(
-    key: str,
-    override_process_env: bool = False
-) -> str:
+def resolve_env_var(key: str, override_process_env: bool = False) -> str:
     """Resolve an environment variable from available sources.
-    
+
     Non-interactive: uses first available option or raises error.
     Never prompts - fails hard if value cannot be found.
     """
@@ -217,7 +218,7 @@ def resolve_env_var(
     repo_root_env = None
     regular_env_files = []
     example_env_files = []
-    
+
     repo_root_env_path = REPO_ROOT / ".env"
     for path, value in all_env_files:
         resolved = path.resolve()
@@ -227,7 +228,7 @@ def resolve_env_var(
             example_env_files.append((path, value))
         else:
             regular_env_files.append((path, value))
-    
+
     # Priority order: process env > repo root .env > regular .env files > example .env files > synth files
     if env_value is not None and override_process_env:
         value = env_value
@@ -251,7 +252,10 @@ def resolve_env_var(
             rel_path = str(resolved_path.relative_to(Path.cwd()))
         except ValueError:
             rel_path = str(resolved_path)
-        click.echo(f"⚠️  Warning: Using example .env file ({rel_path}). Consider using {REPO_ROOT / '.env'} instead.", err=True)
+        click.echo(
+            f"⚠️  Warning: Using example .env file ({rel_path}). Consider using {REPO_ROOT / '.env'} instead.",
+            err=True,
+        )
         source = f".env.example file ({rel_path})"
     elif synth_file_paths:
         _, value = synth_file_paths[0]
@@ -265,13 +269,13 @@ def resolve_env_var(
             f"  2. Add to .env file: {key}=<value>\n"
             f"  3. Use --env-file to specify a .env file path\n"
             f"  4. Add env_file_path to your TOML config: [prompt_learning]\n"
-            f"     env_file_path = \"/path/to/.env\"\n\n"
+            f'     env_file_path = "/path/to/.env"\n\n'
             f"  Searched for {key} in:\n"
             f"    - Process environment\n"
             f"    - .env files in current directory and subdirectories\n"
             f"    - ~/.synth-ai/*.json config files"
         )
-    
+
     os.environ[key] = value
     ensure_env_var(key, value)
     click.echo(f"Loaded {key}={mask_str(value)} from {source}")
@@ -283,7 +287,7 @@ def write_env_var_to_dotenv(
     value: str,
     output_file_path: str | Path | None = None,
     print_msg: bool = True,
-    mask_msg: bool = True
+    mask_msg: bool = True,
 ) -> None:
     path = Path(".env") if output_file_path is None else Path(output_file_path)
     path = path.expanduser()
@@ -296,7 +300,7 @@ def write_env_var_to_dotenv(
 
     if path.is_file():
         try:
-            with path.open('r', encoding="utf-8") as handle:
+            with path.open("r", encoding="utf-8") as handle:
                 lines = handle.readlines()
         except OSError as exc:
             raise RuntimeError(f"Failed to read {path}: {exc}") from exc
@@ -306,23 +310,23 @@ def write_env_var_to_dotenv(
             if parsed is None or parsed[0] != key:
                 continue
 
-            leading_len = len(line) - len(line.lstrip(' \t'))
+            leading_len = len(line) - len(line.lstrip(" \t"))
             leading = line[:leading_len]
             stripped = line.lstrip()
-            has_export = stripped.lower().startswith('export ')
-            newline = '\n' if line.endswith('\n') else ''
-            prefix = 'export ' if has_export else ''
+            has_export = stripped.lower().startswith("export ")
+            newline = "\n" if line.endswith("\n") else ""
+            prefix = "export " if has_export else ""
             lines[index] = f"{leading}{prefix}{key}={encoded_value}{newline}"
             key_written = True
             break
 
     if not key_written:
-        if lines and not lines[-1].endswith('\n'):
+        if lines and not lines[-1].endswith("\n"):
             lines[-1] = f"{lines[-1]}\n"
         lines.append(f"{key}={encoded_value}\n")
 
     try:
-        with path.open('w', encoding="utf-8") as handle:
+        with path.open("w", encoding="utf-8") as handle:
             handle.writelines(lines)
     except OSError as exc:
         raise RuntimeError(f"Failed to write {path}: {exc}") from exc
@@ -344,7 +348,7 @@ def write_env_var_to_json(
 
     if path.is_file():
         try:
-            with path.open('r', encoding="utf-8") as handle:
+            with path.open("r", encoding="utf-8") as handle:
                 existing = json.load(handle)
         except json.JSONDecodeError as exc:
             raise RuntimeError(f"Invalid JSON in {path}: {exc}") from exc
@@ -366,9 +370,9 @@ def write_env_var_to_json(
     path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        with path.open('w', encoding="utf-8") as handle:
+        with path.open("w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=2, sort_keys=True)
-            handle.write('\n')
+            handle.write("\n")
     except OSError as exc:
         raise RuntimeError(f"Failed to write {path}: {exc}") from exc
 

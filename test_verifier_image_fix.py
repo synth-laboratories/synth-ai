@@ -7,15 +7,17 @@ import base64
 from io import BytesIO
 from PIL import Image
 
+
 # Create a small test image (red square)
 def create_test_image() -> str:
     """Create a small red square image as base64 data URL."""
-    img = Image.new('RGB', (100, 100), color='red')
+    img = Image.new("RGB", (100, 100), color="red")
     buffer = BytesIO()
-    img.save(buffer, format='PNG')
+    img.save(buffer, format="PNG")
     img_bytes = buffer.getvalue()
-    img_b64 = base64.b64encode(img_bytes).decode('ascii')
+    img_b64 = base64.b64encode(img_bytes).decode("ascii")
     return f"data:image/png;base64,{img_b64}"
+
 
 # Create a mock trace with an image in the response
 def create_mock_trace_with_image(image_url: str) -> dict:
@@ -30,24 +32,14 @@ def create_mock_trace_with_image(image_url: str) -> dict:
                 "trace_id": "test_trace_001",
                 "policy_iter": 0,
                 "llm_request": {
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": "Generate a red square image"
-                        }
-                    ]
+                    "messages": [{"role": "user", "content": "Generate a red square image"}]
                 },
                 "llm_response": {
                     "message": {
                         "role": "assistant",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": image_url}
-                            }
-                        ]
+                        "content": [{"type": "image_url", "image_url": {"url": image_url}}],
                     }
-                }
+                },
             }
         ],
         "session_time_steps": [
@@ -56,29 +48,20 @@ def create_mock_trace_with_image(image_url: str) -> dict:
                     {
                         "type": "lm_call",
                         "llm_request": {
-                            "messages": [
-                                {
-                                    "role": "user",
-                                    "content": "Generate a red square image"
-                                }
-                            ]
+                            "messages": [{"role": "user", "content": "Generate a red square image"}]
                         },
                         "llm_response": {
                             "message": {
                                 "role": "assistant",
-                                "content": [
-                                    {
-                                        "type": "image_url",
-                                        "image_url": {"url": image_url}
-                                    }
-                                ]
+                                "content": [{"type": "image_url", "image_url": {"url": image_url}}],
                             }
-                        }
+                        },
                     }
                 ]
             }
-        ]
+        ],
     }
+
 
 def test_verifier():
     """Test the verifier with an image."""
@@ -105,9 +88,9 @@ def test_verifier():
                 {
                     "id": "color_accuracy",
                     "description": "Does the generated image show a red square?",
-                    "weight": 1.0
+                    "weight": 1.0,
                 }
-            ]
+            ],
         }
     }
 
@@ -117,24 +100,13 @@ def test_verifier():
 
     payload = {
         "job_id": "zero_shot_verifier_rubric_single",
-        "input": {
-            "trace": trace,
-            "rubric": rubric,
-            "options": {
-                "model": "gemini-2.5-flash"
-            }
-        },
-        "model": "gemini-2.5-flash"
+        "input": {"trace": trace, "rubric": rubric, "options": {"model": "gemini-2.5-flash"}},
+        "model": "gemini-2.5-flash",
     }
 
     try:
         response = httpx.post(
-            url,
-            json=payload,
-            timeout=60.0,
-            headers={
-                "Content-Type": "application/json"
-            }
+            url, json=payload, timeout=60.0, headers={"Content-Type": "application/json"}
         )
 
         print(f"   Status: {response.status_code}")
@@ -159,7 +131,11 @@ def test_verifier():
                     print(f"  Reason: {reason}")
 
                 # Check if the reason mentions seeing the image
-                if "red" in reason.lower() or "square" in reason.lower() or "image" in reason.lower():
+                if (
+                    "red" in reason.lower()
+                    or "square" in reason.lower()
+                    or "image" in reason.lower()
+                ):
                     print("\n" + "=" * 80)
                     print("✅✅✅ SUCCESS! Verifier can SEE the image!")
                     print("=" * 80)
@@ -177,7 +153,9 @@ def test_verifier():
     except Exception as e:
         print(f"\n❌ Exception: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     test_verifier()

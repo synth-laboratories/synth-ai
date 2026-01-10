@@ -19,22 +19,24 @@ from copy import deepcopy
 # EVIDENCE SYSTEM
 # =============================================================================
 
+
 class EvidenceType(Enum):
-    OBSERVATION = "observation"      # Saw something happen
-    MEASUREMENT = "measurement"      # Counted/measured something
-    INFERENCE = "inference"          # Derived from other beliefs
+    OBSERVATION = "observation"  # Saw something happen
+    MEASUREMENT = "measurement"  # Counted/measured something
+    INFERENCE = "inference"  # Derived from other beliefs
     CONTRADICTION = "contradiction"  # Saw something that conflicts
 
 
 @dataclass
 class Evidence:
     """A piece of evidence that can support multiple claims."""
+
     id: str
     type: EvidenceType
-    source: str                      # e.g., "step_1234"
-    observation: str                 # What was observed
-    time: int = 0                    # Evidentiary time (step number)
-    annotation: str = ""             # Freeform notes for clarity
+    source: str  # e.g., "step_1234"
+    observation: str  # What was observed
+    time: int = 0  # Evidentiary time (step number)
+    annotation: str = ""  # Freeform notes for clarity
     weight: float = 1.0
 
     def __repr__(self):
@@ -43,8 +45,8 @@ class Evidence:
 
 @dataclass
 class Claim:
-    subject: str         # e.g., "zombie"
-    predicate: str       # e.g., "damage"
+    subject: str  # e.g., "zombie"
+    predicate: str  # e.g., "damage"
     value: Any
     confidence: float = 0.0
     relevance: float = 1.0  # How important/useful is this fact? (0-1)
@@ -80,9 +82,10 @@ class Claim:
 @dataclass
 class RelevanceEdge:
     """Pairwise relevance between two claims/subjects."""
-    source: str      # claim key or subject name
-    target: str      # claim key or subject name
-    weight: float    # 0-1, how related are these?
+
+    source: str  # claim key or subject name
+    target: str  # claim key or subject name
+    weight: float  # 0-1, how related are these?
     relation: str = ""  # e.g., "damages", "drops", "crafts_into"
 
 
@@ -120,10 +123,10 @@ class OntologyRecord:
             evidence_ids = claim.evidence_ids
             contradiction_ids = claim.contradiction_ids
         else:
-            evidence_ids = [eid for eid in claim.evidence_ids
-                          if self.evidence[eid].time <= at_time]
-            contradiction_ids = [eid for eid in claim.contradiction_ids
-                                if self.evidence[eid].time <= at_time]
+            evidence_ids = [eid for eid in claim.evidence_ids if self.evidence[eid].time <= at_time]
+            contradiction_ids = [
+                eid for eid in claim.contradiction_ids if self.evidence[eid].time <= at_time
+            ]
 
         supporting = sum(self.evidence[eid].weight for eid in evidence_ids)
         contradicting = sum(self.evidence[eid].weight for eid in contradiction_ids)
@@ -138,8 +141,7 @@ class OntologyRecord:
         self.evidence[evidence.id] = evidence
         return evidence.id
 
-    def observe(self, subject: str, predicate: str, value: Any,
-                evidence: Evidence) -> Claim:
+    def observe(self, subject: str, predicate: str, value: Any, evidence: Evidence) -> Claim:
         """Record an observation, creating or updating a claim."""
         key = self._claim_key(subject, predicate)
         t = self.current_time
@@ -150,20 +152,23 @@ class OntologyRecord:
 
         if key not in self.claims:
             # New claim
-            claim = Claim(subject=subject, predicate=predicate, value=value,
-                         created_at=t, updated_at=t)
+            claim = Claim(
+                subject=subject, predicate=predicate, value=value, created_at=t, updated_at=t
+            )
             claim.evidence_ids.append(evidence.id)
             self._update_confidence(claim)
             self.claims[key] = claim
-            self.history.append({
-                "time": t,
-                "action": "new_claim",
-                "key": key,
-                "value": value,
-                "confidence": claim.confidence,
-                "evidence_id": evidence.id,
-                "source": evidence.source,
-            })
+            self.history.append(
+                {
+                    "time": t,
+                    "action": "new_claim",
+                    "key": key,
+                    "value": value,
+                    "confidence": claim.confidence,
+                    "evidence_id": evidence.id,
+                    "source": evidence.source,
+                }
+            )
         else:
             claim = self.claims[key]
             claim.updated_at = t
@@ -172,29 +177,33 @@ class OntologyRecord:
                 if evidence.id not in claim.evidence_ids:
                     claim.evidence_ids.append(evidence.id)
                 self._update_confidence(claim)
-                self.history.append({
-                    "time": t,
-                    "action": "confirm",
-                    "key": key,
-                    "confidence": claim.confidence,
-                    "evidence_id": evidence.id,
-                    "source": evidence.source,
-                })
+                self.history.append(
+                    {
+                        "time": t,
+                        "action": "confirm",
+                        "key": key,
+                        "confidence": claim.confidence,
+                        "evidence_id": evidence.id,
+                        "source": evidence.source,
+                    }
+                )
             else:
                 # Contradicting evidence!
                 if evidence.id not in claim.contradiction_ids:
                     claim.contradiction_ids.append(evidence.id)
                 self._update_confidence(claim)
-                self.history.append({
-                    "time": t,
-                    "action": "contradict",
-                    "key": key,
-                    "old_value": claim.value,
-                    "observed_value": value,
-                    "confidence": claim.confidence,
-                    "evidence_id": evidence.id,
-                    "source": evidence.source,
-                })
+                self.history.append(
+                    {
+                        "time": t,
+                        "action": "contradict",
+                        "key": key,
+                        "old_value": claim.value,
+                        "observed_value": value,
+                        "confidence": claim.confidence,
+                        "evidence_id": evidence.id,
+                        "source": evidence.source,
+                    }
+                )
 
                 # If heavily contradicted, create superseding claim
                 if claim.confidence < 0.3:
@@ -206,22 +215,29 @@ class OntologyRecord:
                     self.superseded_claims[key].append(old_claim)
 
                     # Create new claim
-                    new_claim = Claim(subject=subject, predicate=predicate, value=value,
-                                     created_at=t, updated_at=t)
+                    new_claim = Claim(
+                        subject=subject,
+                        predicate=predicate,
+                        value=value,
+                        created_at=t,
+                        updated_at=t,
+                    )
                     new_claim.evidence_ids.append(evidence.id)
                     self._update_confidence(new_claim)
                     claim.superseded_by = key
                     claim.superseded_at = t
                     self.claims[key] = new_claim
-                    self.history.append({
-                        "time": t,
-                        "action": "supersede",
-                        "key": key,
-                        "old_value": old_claim.value,
-                        "new_value": value,
-                        "evidence_id": evidence.id,
-                        "source": evidence.source,
-                    })
+                    self.history.append(
+                        {
+                            "time": t,
+                            "action": "supersede",
+                            "key": key,
+                            "old_value": old_claim.value,
+                            "new_value": value,
+                            "evidence_id": evidence.id,
+                            "source": evidence.source,
+                        }
+                    )
                     return new_claim
 
         return self.claims[key]
@@ -241,7 +257,7 @@ class OntologyRecord:
                 subject=obs["subject"],
                 predicate=obs["predicate"],
                 value=obs["value"],
-                evidence=evidence
+                evidence=evidence,
             )
             claims.append(claim)
         return claims
@@ -265,10 +281,12 @@ class OntologyRecord:
                     "evidence_count": len(claim.evidence_ids),
                 }
             else:
-                uncertain.append({
-                    "claim": f"{claim.subject}.{claim.predicate}={claim.value}",
-                    "confidence": round(claim.confidence, 2),
-                })
+                uncertain.append(
+                    {
+                        "claim": f"{claim.subject}.{claim.predicate}={claim.value}",
+                        "confidence": round(claim.confidence, 2),
+                    }
+                )
 
         return {"knowledge": ontology, "uncertain": uncertain}
 
@@ -311,10 +329,10 @@ class OntologyRecord:
                 claim = active_claim
 
             # Recompute confidence using only evidence up to at_time
-            evidence_ids = [eid for eid in claim.evidence_ids
-                          if self.evidence[eid].time <= at_time]
-            contradiction_ids = [eid for eid in claim.contradiction_ids
-                                if self.evidence[eid].time <= at_time]
+            evidence_ids = [eid for eid in claim.evidence_ids if self.evidence[eid].time <= at_time]
+            contradiction_ids = [
+                eid for eid in claim.contradiction_ids if self.evidence[eid].time <= at_time
+            ]
 
             if not evidence_ids:
                 continue
@@ -332,10 +350,12 @@ class OntologyRecord:
                     "evidence_count": len(evidence_ids),
                 }
             else:
-                uncertain.append({
-                    "claim": f"{claim.subject}.{claim.predicate}={claim.value}",
-                    "confidence": round(confidence, 2),
-                })
+                uncertain.append(
+                    {
+                        "claim": f"{claim.subject}.{claim.predicate}={claim.value}",
+                        "confidence": round(confidence, 2),
+                    }
+                )
 
         return {"time": at_time, "knowledge": ontology, "uncertain": uncertain}
 
@@ -377,22 +397,32 @@ class OntologyRecord:
             for event in snap["events_at_time"]:
                 action = event["action"].upper()
                 if action == "NEW_CLAIM":
-                    print(f"  + NEW: {event['key']} = {event['value']} (conf: {event['confidence']:.2f})")
+                    print(
+                        f"  + NEW: {event['key']} = {event['value']} (conf: {event['confidence']:.2f})"
+                    )
                 elif action == "CONFIRM":
                     print(f"  ✓ CONFIRM: {event['key']} (conf: {event['confidence']:.2f})")
                 elif action == "CONTRADICT":
-                    print(f"  ✗ CONTRADICT: {event['key']}: expected {event['old_value']}, saw {event['observed_value']}")
+                    print(
+                        f"  ✗ CONTRADICT: {event['key']}: expected {event['old_value']}, saw {event['observed_value']}"
+                    )
                 elif action == "SUPERSEDE":
-                    print(f"  ⟳ SUPERSEDE: {event['key']}: {event['old_value']} → {event['new_value']}")
+                    print(
+                        f"  ⟳ SUPERSEDE: {event['key']}: {event['old_value']} → {event['new_value']}"
+                    )
 
             # Show current beliefs
             if snap["knowledge"]:
                 print(f"\n  Beliefs at t={t}:")
                 for subject, props in sorted(snap["knowledge"].items()):
                     for pred, data in props.items():
-                        conf_bar = "█" * int(data["confidence"] * 10) + "░" * (10 - int(data["confidence"] * 10))
+                        conf_bar = "█" * int(data["confidence"] * 10) + "░" * (
+                            10 - int(data["confidence"] * 10)
+                        )
                         print(f"    {subject}.{pred} = {data['value']}")
-                        print(f"      [{conf_bar}] {data['confidence']:.0%} ({data['evidence_count']} evidence)")
+                        print(
+                            f"      [{conf_bar}] {data['confidence']:.0%} ({data['evidence_count']} evidence)"
+                        )
 
     def get_belief_timeline(self, subject: str, predicate: str) -> List[Dict]:
         """Get the timeline of a specific belief."""
@@ -430,7 +460,9 @@ class OntologyRecord:
             self._relevance_index[target] = []
         self._relevance_index[target].append(edge)
 
-    def get_related_subjects(self, subject: str, min_weight: float = 0.0) -> List[Tuple[str, float, str]]:
+    def get_related_subjects(
+        self, subject: str, min_weight: float = 0.0
+    ) -> List[Tuple[str, float, str]]:
         """Get subjects related to this one, sorted by relevance weight."""
         if subject not in self._relevance_index:
             return []
@@ -443,7 +475,9 @@ class OntologyRecord:
 
         return sorted(related, key=lambda x: -x[1])
 
-    def expand_from_seeds(self, seeds: List[str], hops: int = 1, min_weight: float = 0.3) -> Set[str]:
+    def expand_from_seeds(
+        self, seeds: List[str], hops: int = 1, min_weight: float = 0.3
+    ) -> Set[str]:
         """Expand from seed subjects following relevance edges."""
         subjects = set(seeds)
         frontier = set(seeds)
@@ -463,8 +497,13 @@ class OntologyRecord:
     # COMPILE TO TEXT
     # =========================================================================
 
-    def compile_to_text(self, min_confidence: float = 0.4, min_relevance: float = 0.0,
-                        subjects: Set[str] = None, include_evidence: bool = False) -> str:
+    def compile_to_text(
+        self,
+        min_confidence: float = 0.4,
+        min_relevance: float = 0.0,
+        subjects: Set[str] = None,
+        include_evidence: bool = False,
+    ) -> str:
         """Compile ontology to readable text format."""
         lines = []
         lines.append("# Ontology")
@@ -498,7 +537,9 @@ class OntologyRecord:
             for claim in claims:
                 conf_pct = int(claim.confidence * 100)
                 rel_pct = int(claim.relevance * 100)
-                lines.append(f"- {claim.predicate}: {claim.value}  [conf={conf_pct}%, rel={rel_pct}%]")
+                lines.append(
+                    f"- {claim.predicate}: {claim.value}  [conf={conf_pct}%, rel={rel_pct}%]"
+                )
 
                 if include_evidence:
                     for ev_id in claim.evidence_ids[:3]:  # Limit to 3
@@ -517,9 +558,14 @@ class OntologyRecord:
 
         return "\n".join(lines)
 
-    def compile_to_file(self, filepath: str, min_confidence: float = 0.4,
-                        min_relevance: float = 0.0, subjects: Set[str] = None,
-                        include_evidence: bool = False):
+    def compile_to_file(
+        self,
+        filepath: str,
+        min_confidence: float = 0.4,
+        min_relevance: float = 0.0,
+        subjects: Set[str] = None,
+        include_evidence: bool = False,
+    ):
         """Write compiled ontology to a text file."""
         text = self.compile_to_text(min_confidence, min_relevance, subjects, include_evidence)
         with open(filepath, "w") as f:
@@ -539,20 +585,22 @@ class OntologyRecord:
             medium_subjects = self.expand_from_seeds(seeds, hops=2, min_weight=0.3)
             large_subjects = None  # All
 
-            self.compile_to_file(f"{base_path}_small.txt",
-                               min_confidence=0.5, subjects=small_subjects)
-            self.compile_to_file(f"{base_path}_medium.txt",
-                               min_confidence=0.4, subjects=medium_subjects)
-            self.compile_to_file(f"{base_path}_large.txt",
-                               min_confidence=0.3, include_evidence=True)
+            self.compile_to_file(
+                f"{base_path}_small.txt", min_confidence=0.5, subjects=small_subjects
+            )
+            self.compile_to_file(
+                f"{base_path}_medium.txt", min_confidence=0.4, subjects=medium_subjects
+            )
+            self.compile_to_file(
+                f"{base_path}_large.txt", min_confidence=0.3, include_evidence=True
+            )
         else:
             # Relevance-based tiers
-            self.compile_to_file(f"{base_path}_small.txt",
-                               min_confidence=0.6, min_relevance=0.7)
-            self.compile_to_file(f"{base_path}_medium.txt",
-                               min_confidence=0.5, min_relevance=0.4)
-            self.compile_to_file(f"{base_path}_large.txt",
-                               min_confidence=0.3, include_evidence=True)
+            self.compile_to_file(f"{base_path}_small.txt", min_confidence=0.6, min_relevance=0.7)
+            self.compile_to_file(f"{base_path}_medium.txt", min_confidence=0.5, min_relevance=0.4)
+            self.compile_to_file(
+                f"{base_path}_large.txt", min_confidence=0.3, include_evidence=True
+            )
 
         return [f"{base_path}_small.txt", f"{base_path}_medium.txt", f"{base_path}_large.txt"]
 
@@ -569,7 +617,9 @@ class OntologyRecord:
         lines = []
         conf_pct = int(claim.confidence * 100)
         rel_pct = int(claim.relevance * 100)
-        lines.append(f"- {claim.subject}.{claim.predicate}: {claim.value}  [conf={conf_pct}%, rel={rel_pct}%]")
+        lines.append(
+            f"- {claim.subject}.{claim.predicate}: {claim.value}  [conf={conf_pct}%, rel={rel_pct}%]"
+        )
 
         if include_evidence:
             for ev_id in claim.evidence_ids[:2]:
@@ -578,8 +628,9 @@ class OntologyRecord:
 
         return "\n".join(lines)
 
-    def _get_ranked_claims(self, min_confidence: float = 0.3,
-                          subjects: Set[str] = None) -> List[Claim]:
+    def _get_ranked_claims(
+        self, min_confidence: float = 0.3, subjects: Set[str] = None
+    ) -> List[Claim]:
         """Get claims sorted by score (confidence * relevance)."""
         claims = []
         for claim in self.claims.values():
@@ -593,9 +644,14 @@ class OntologyRecord:
 
         return sorted(claims, key=lambda c: -c.score)
 
-    def compile_to_length(self, max_chars: int = None, max_tokens: int = None,
-                         seeds: List[str] = None, min_confidence: float = 0.3,
-                         include_evidence: bool = False) -> str:
+    def compile_to_length(
+        self,
+        max_chars: int = None,
+        max_tokens: int = None,
+        seeds: List[str] = None,
+        min_confidence: float = 0.3,
+        include_evidence: bool = False,
+    ) -> str:
         """
         Compile ontology up to a character/token limit.
 
@@ -628,17 +684,20 @@ class OntologyRecord:
             priority_subjects = None
 
         # Get ranked claims
-        claims = self._get_ranked_claims(min_confidence,
-                                         set(priority_subjects) if priority_subjects else None)
+        claims = self._get_ranked_claims(
+            min_confidence, set(priority_subjects) if priority_subjects else None
+        )
 
         # If we have priority subjects, re-sort to respect that order
         if priority_subjects:
+
             def priority_key(claim):
                 try:
                     subj_priority = priority_subjects.index(claim.subject)
                 except ValueError:
                     subj_priority = 999
                 return (subj_priority, -claim.score)
+
             claims = sorted(claims, key=priority_key)
 
         # Build output incrementally
@@ -681,8 +740,9 @@ class OntologyRecord:
 
         return result
 
-    def compile_to_file_with_limit(self, filepath: str, max_chars: int = None,
-                                   max_tokens: int = None, **kwargs) -> str:
+    def compile_to_file_with_limit(
+        self, filepath: str, max_chars: int = None, max_tokens: int = None, **kwargs
+    ) -> str:
         """Compile to file with length limit."""
         text = self.compile_to_length(max_chars=max_chars, max_tokens=max_tokens, **kwargs)
         with open(filepath, "w") as f:
@@ -714,6 +774,7 @@ class OntologyRecord:
 
         # Parse numeric budgets
         import re
+
         match = re.match(r"(\d+\.?\d*)\s*(k)?\s*(chars?|tokens?|c|t)?", budget)
         if match:
             num = float(match.group(1))
@@ -727,12 +788,15 @@ class OntologyRecord:
             else:
                 return self.compile_to_length(max_chars=value, seeds=seeds)
 
-        raise ValueError(f"Unknown budget format: {budget}. Try '500 chars', '1k tokens', 'small', 'medium', 'large'")
+        raise ValueError(
+            f"Unknown budget format: {budget}. Try '500 chars', '1k tokens', 'small', 'medium', 'large'"
+        )
 
 
 # =============================================================================
 # CRAFTER OBSERVER
 # =============================================================================
+
 
 class CrafterObserver:
     """Simulates an agent observing Crafter gameplay and building beliefs."""
@@ -741,9 +805,9 @@ class CrafterObserver:
         self.record = OntologyRecord()
         self.step = 0
 
-    def _make_evidence(self, observation: str,
-                       etype: EvidenceType = EvidenceType.OBSERVATION,
-                       annotation: str = "") -> Evidence:
+    def _make_evidence(
+        self, observation: str, etype: EvidenceType = EvidenceType.OBSERVATION, annotation: str = ""
+    ) -> Evidence:
         ev_id = f"ev_{self.step}_{self.record._evidence_counter + 1}"
         return Evidence(
             id=ev_id,
@@ -772,8 +836,8 @@ class CrafterObserver:
                 value=damage,
                 evidence=self._make_evidence(
                     f"{attacker} dealt {damage} damage ({context})",
-                    annotation=event.get("annotation", "")
-                )
+                    annotation=event.get("annotation", ""),
+                ),
             )
 
         elif event_type == "resource_collected":
@@ -787,8 +851,8 @@ class CrafterObserver:
                 value=item,
                 evidence=self._make_evidence(
                     f"Collected {amount} {item} from {source}",
-                    annotation=event.get("annotation", "")
-                )
+                    annotation=event.get("annotation", ""),
+                ),
             )
 
         elif event_type == "creature_died":
@@ -804,8 +868,8 @@ class CrafterObserver:
                 evidence=self._make_evidence(
                     f"{creature} died after {hits} hits with {weapon_damage} damage weapon",
                     etype=EvidenceType.INFERENCE,
-                    annotation=f"Health inferred: {hits} hits × {weapon_damage} dmg = {inferred_health} HP"
-                )
+                    annotation=f"Health inferred: {hits} hits × {weapon_damage} dmg = {inferred_health} HP",
+                ),
             )
 
         elif event_type == "crafting_observed":
@@ -815,13 +879,15 @@ class CrafterObserver:
 
             # Single evidence, multiple claims!
             ev = self._make_evidence(
-                f"Crafted {output} using {inputs}",
-                annotation=f"Recipe discovered: {recipe}"
+                f"Crafted {output} using {inputs}", annotation=f"Recipe discovered: {recipe}"
             )
-            self.record.observe_multiple([
-                {"subject": recipe, "predicate": "inputs", "value": inputs},
-                {"subject": recipe, "predicate": "output", "value": output},
-            ], ev)
+            self.record.observe_multiple(
+                [
+                    {"subject": recipe, "predicate": "inputs", "value": inputs},
+                    {"subject": recipe, "predicate": "output", "value": output},
+                ],
+                ev,
+            )
 
         elif event_type == "sleep_attack":
             # Complex event: single observation updates MULTIPLE premises
@@ -831,7 +897,7 @@ class CrafterObserver:
 
             ev = self._make_evidence(
                 f"While sleeping, {attacker} attacked for {damage} damage",
-                annotation=event.get("annotation", "Critical discovery about sleep vulnerability!")
+                annotation=event.get("annotation", "Critical discovery about sleep vulnerability!"),
             )
 
             observations = [
@@ -841,16 +907,12 @@ class CrafterObserver:
             # If we know normal damage, we can also infer the multiplier
             if normal_damage:
                 multiplier = round(damage / normal_damage, 1)
-                observations.append({
-                    "subject": "sleep",
-                    "predicate": "damage_multiplier",
-                    "value": multiplier
-                })
-                observations.append({
-                    "subject": "player",
-                    "predicate": "sleep_is_dangerous",
-                    "value": True
-                })
+                observations.append(
+                    {"subject": "sleep", "predicate": "damage_multiplier", "value": multiplier}
+                )
+                observations.append(
+                    {"subject": "player", "predicate": "sleep_is_dangerous", "value": True}
+                )
 
             self.record.observe_multiple(observations, ev)
 
@@ -865,14 +927,15 @@ class CrafterObserver:
                 value=location,
                 evidence=self._make_evidence(
                     f"{creature} spawned at {location} during {time_of_day}",
-                    annotation=f"Time: {time_of_day}"
-                )
+                    annotation=f"Time: {time_of_day}",
+                ),
             )
 
 
 # =============================================================================
 # SIMULATION
 # =============================================================================
+
 
 def simulate_gameplay_session():
     """Simulate an observer watching a Crafter gameplay session."""
@@ -890,14 +953,29 @@ def simulate_gameplay_session():
     print("-" * 40)
 
     events = [
-        {"step": 10, "type": "resource_collected", "source": "tree", "item": "wood",
-         "annotation": "First tree I found"},
+        {
+            "step": 10,
+            "type": "resource_collected",
+            "source": "tree",
+            "item": "wood",
+            "annotation": "First tree I found",
+        },
         {"step": 15, "type": "resource_collected", "source": "tree", "item": "wood"},
         {"step": 20, "type": "resource_collected", "source": "tree", "item": "wood"},
-        {"step": 50, "type": "crafting_observed", "recipe": "place_table",
-         "inputs": {"wood": 2}, "output": "table"},
-        {"step": 55, "type": "crafting_observed", "recipe": "make_wood_pickaxe",
-         "inputs": {"wood": 1}, "output": "wood_pickaxe"},
+        {
+            "step": 50,
+            "type": "crafting_observed",
+            "recipe": "place_table",
+            "inputs": {"wood": 2},
+            "output": "table",
+        },
+        {
+            "step": 55,
+            "type": "crafting_observed",
+            "recipe": "make_wood_pickaxe",
+            "inputs": {"wood": 1},
+            "output": "wood_pickaxe",
+        },
     ]
 
     for event in events:
@@ -908,7 +986,9 @@ def simulate_gameplay_session():
     ontology = observer.record.compile(min_confidence=0.3)
     for subject, props in ontology["knowledge"].items():
         for pred, data in props.items():
-            print(f"    {subject}.{pred} = {data['value']} (conf: {data['confidence']}, n={data['evidence_count']})")
+            print(
+                f"    {subject}.{pred} = {data['value']} (conf: {data['confidence']}, n={data['evidence_count']})"
+            )
 
     # =========================================================================
     # FIRST COMBAT: Learning about zombies
@@ -917,8 +997,13 @@ def simulate_gameplay_session():
     print("-" * 40)
 
     events = [
-        {"step": 110, "type": "damage_dealt", "attacker": "zombie", "damage": 2,
-         "annotation": "First zombie encounter - scary!"},
+        {
+            "step": 110,
+            "type": "damage_dealt",
+            "attacker": "zombie",
+            "damage": 2,
+            "annotation": "First zombie encounter - scary!",
+        },
         {"step": 115, "type": "damage_dealt", "attacker": "zombie", "damage": 2},
         {"step": 120, "type": "creature_died", "creature": "zombie", "hits": 5, "weapon_damage": 1},
     ]
@@ -954,21 +1039,23 @@ def simulate_gameplay_session():
             observation="Assumed sleep damage equals normal damage",
             time=199,
             annotation="No direct evidence - just a guess based on normal combat",
-            weight=0.3
-        )
+            weight=0.3,
+        ),
     )
     print("  Hypothesis: zombie.sleep_damage = 2 (weak, conf ~0.23)")
 
     # Now the real observation - updates multiple beliefs at once!
     observer.step = 200
-    observer.observe_event({
-        "step": 200,
-        "type": "sleep_attack",
-        "attacker": "zombie",
-        "damage": 7,
-        "known_normal_damage": 2,
-        "annotation": "OUCH! Woke up to massive damage. Sleep is dangerous!"
-    })
+    observer.observe_event(
+        {
+            "step": 200,
+            "type": "sleep_attack",
+            "attacker": "zombie",
+            "damage": 7,
+            "known_normal_damage": 2,
+            "annotation": "OUCH! Woke up to massive damage. Sleep is dangerous!",
+        }
+    )
 
     print("\n  After sleep attack, ONE evidence updated THREE beliefs:")
     ontology = observer.record.compile(min_confidence=0.3)
@@ -995,13 +1082,36 @@ def simulate_gameplay_session():
         {"step": 310, "type": "damage_dealt", "attacker": "zombie", "damage": 2},
         {"step": 350, "type": "damage_dealt", "attacker": "zombie", "damage": 2},
         {"step": 400, "type": "creature_died", "creature": "zombie", "hits": 5, "weapon_damage": 1},
-        {"step": 420, "type": "damage_dealt", "attacker": "skeleton", "damage": 1,
-         "annotation": "Skeleton arrows hurt less than zombie melee"},
-        {"step": 425, "type": "creature_died", "creature": "skeleton", "hits": 3, "weapon_damage": 1},
-        {"step": 450, "type": "spawn_observed", "creature": "skeleton", "location": "mountain", "time": "night"},
+        {
+            "step": 420,
+            "type": "damage_dealt",
+            "attacker": "skeleton",
+            "damage": 1,
+            "annotation": "Skeleton arrows hurt less than zombie melee",
+        },
+        {
+            "step": 425,
+            "type": "creature_died",
+            "creature": "skeleton",
+            "hits": 3,
+            "weapon_damage": 1,
+        },
+        {
+            "step": 450,
+            "type": "spawn_observed",
+            "creature": "skeleton",
+            "location": "mountain",
+            "time": "night",
+        },
         {"step": 470, "type": "creature_died", "creature": "cow", "hits": 3, "weapon_damage": 1},
-        {"step": 480, "type": "resource_collected", "source": "cow", "item": "food", "amount": 6,
-         "annotation": "Cows drop a lot of food!"},
+        {
+            "step": 480,
+            "type": "resource_collected",
+            "source": "cow",
+            "item": "food",
+            "amount": 6,
+            "annotation": "Cows drop a lot of food!",
+        },
     ]
 
     for event in events:
@@ -1023,7 +1133,9 @@ def simulate_gameplay_session():
         print(f"\n  {subject}:")
         for pred, data in props.items():
             status_icon = "✓" if data["status"] == "confident" else "~"
-            print(f"    {status_icon} {pred}: {data['value']} (conf: {data['confidence']}, evidence: {data['evidence_count']})")
+            print(
+                f"    {status_icon} {pred}: {data['value']} (conf: {data['confidence']}, evidence: {data['evidence_count']})"
+            )
 
     if ontology["uncertain"]:
         print("\n[UNCERTAIN - NEEDS MORE EVIDENCE]")
@@ -1139,10 +1251,7 @@ def simulate_gameplay_session():
     # =========================================================================
     # REPLAY: Watch beliefs evolve over time
     # =========================================================================
-    observer.record.print_replay(
-        times=[10, 110, 199, 200, 400],
-        min_confidence=0.2
-    )
+    observer.record.print_replay(times=[10, 110, 199, 200, 400], min_confidence=0.2)
 
     # =========================================================================
     # SINGLE BELIEF TIMELINE
@@ -1158,7 +1267,9 @@ def simulate_gameplay_session():
         if action == "new_claim":
             print(f"  t={t}: CREATED with value={entry['value']}, conf={entry['confidence']:.2f}")
         elif action == "contradict":
-            print(f"  t={t}: CONTRADICTED - expected {entry['old_value']}, saw {entry['observed_value']}, conf={entry['confidence']:.2f}")
+            print(
+                f"  t={t}: CONTRADICTED - expected {entry['old_value']}, saw {entry['observed_value']}, conf={entry['confidence']:.2f}"
+            )
         elif action == "supersede":
             print(f"  t={t}: SUPERSEDED - {entry['old_value']} → {entry['new_value']}")
 

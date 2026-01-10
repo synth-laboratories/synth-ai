@@ -6,9 +6,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 try:
-    _models_module = cast(
-        Any, importlib.import_module("synth_ai.sdk.api.models.supported")
-    )
+    _models_module = cast(Any, importlib.import_module("synth_ai.sdk.api.models.supported"))
     RL_SUPPORTED_MODELS = cast(tuple[str, ...], _models_module.RL_SUPPORTED_MODELS)
     SFT_SUPPORTED_MODELS = cast(tuple[str, ...], _models_module.SFT_SUPPORTED_MODELS)
     training_modes_for_model = cast(
@@ -32,6 +30,7 @@ def _normalize(value: object) -> str:
         return ""
     return str(value).strip().lower()
 
+
 RL_ALGORITHM_MODEL_IDS: tuple[str, ...] = tuple(sorted(RL_SUPPORTED_MODELS))
 RL_ALGORITHM_MODEL_SET: frozenset[str] = frozenset(RL_ALGORITHM_MODEL_IDS)
 
@@ -40,9 +39,7 @@ SFT_ALGORITHM_MODEL_SET: frozenset[str] = frozenset(SFT_ALGORITHM_MODEL_IDS)
 
 
 SUPPORTED_ALGORITHMS: tuple[AlgorithmSpec, ...] = (
-    AlgorithmSpec(
-        "online", "policy_gradient", "gspo", "online policy_gradient / gspo", "rl"
-    ),
+    AlgorithmSpec("online", "policy_gradient", "gspo", "online policy_gradient / gspo", "rl"),
     AlgorithmSpec(
         "offline", "supervised_finetune", "fft", "offline supervised_finetune / fft", "sft"
     ),

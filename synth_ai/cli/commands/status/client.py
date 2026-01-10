@@ -88,4 +88,3 @@ class StatusAPIClient:
     async def list_job_runs(self, job_id: str) -> list[dict[str, Any]]:
         payload = await self._get(f"/jobs/{job_id}/runs")
         return payload.get("runs", [])
-

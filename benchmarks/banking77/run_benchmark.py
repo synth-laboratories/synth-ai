@@ -38,6 +38,7 @@ import httpx
 
 try:
     import nest_asyncio
+
     nest_asyncio.apply()
 except ImportError:
     pass
@@ -129,13 +130,14 @@ async def run_single_experiment(
     config_path = get_config_path(model, run)
     result_path = get_result_path(model, run)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running: {model} - Run {run}")
     print(f"Config: {config_path}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Load config
     import tomllib
+
     with open(config_path, "rb") as f:
         config = tomllib.load(f)
 
@@ -287,13 +289,15 @@ async def main():
                 all_results.append(record)
             except Exception as e:
                 print(f"ERROR in {model} run {run}: {e}")
-                all_results.append({
-                    "model": model,
-                    "run": run,
-                    "status": "error",
-                    "error": str(e),
-                    "timestamp": datetime.now().isoformat(),
-                })
+                all_results.append(
+                    {
+                        "model": model,
+                        "run": run,
+                        "status": "error",
+                        "error": str(e),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
     finally:
         print("\nCleaning up...")
         cleanup_all()
@@ -311,11 +315,15 @@ async def main():
     # Save summary
     summary_path = RESULTS_DIR / "benchmark_summary.json"
     with open(summary_path, "w") as f:
-        json.dump({
-            "timestamp": datetime.now().isoformat(),
-            "backend_url": backend_url,
-            "experiments": all_results,
-        }, f, indent=2)
+        json.dump(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "backend_url": backend_url,
+                "experiments": all_results,
+            },
+            f,
+            indent=2,
+        )
     print(f"\nSummary saved to: {summary_path}")
 
 

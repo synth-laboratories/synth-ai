@@ -136,4 +136,3 @@ class AgentSessionManager:
 
         # Note: Usage recording would need an API endpoint
         # For now, this is a placeholder
-

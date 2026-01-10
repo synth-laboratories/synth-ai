@@ -77,22 +77,28 @@ def load_benchmark_results(benchmarks_dir: Path) -> Dict[str, Dict[str, List[flo
 
                 # Try to get score from result file
                 score = data.get("best_score")
-                
+
                 # If score is None, try loading from prompt file (for iris)
                 if score is None and "prompt_file" in data:
                     prompt_file = Path(data["prompt_file"])
                     if prompt_file.exists():
                         with open(prompt_file) as pf:
                             prompt_data = json.load(pf)
-                            score = prompt_data.get("best_score") or prompt_data.get("train_accuracy")
-                
+                            score = prompt_data.get("best_score") or prompt_data.get(
+                                "train_accuracy"
+                            )
+
                 # If still None, try finding corresponding prompt file
                 if score is None:
-                    prompt_file = result_file.parent / result_file.name.replace("_result.json", "_prompt.json")
+                    prompt_file = result_file.parent / result_file.name.replace(
+                        "_result.json", "_prompt.json"
+                    )
                     if prompt_file.exists():
                         with open(prompt_file) as pf:
                             prompt_data = json.load(pf)
-                            score = prompt_data.get("best_score") or prompt_data.get("train_accuracy")
+                            score = prompt_data.get("best_score") or prompt_data.get(
+                                "train_accuracy"
+                            )
 
                 if score is None:
                     continue
@@ -270,7 +276,9 @@ def main():
             avg = sum(scores) / len(scores) if scores else 0
             baseline = BASELINE_SCORES.get(benchmark, {}).get(model, 0)
             improvement = (avg - baseline) * 100
-            print(f"  {model}: {avg*100:.1f}% (baseline: {baseline*100:.1f}%, +{improvement:.1f}%)")
+            print(
+                f"  {model}: {avg * 100:.1f}% (baseline: {baseline * 100:.1f}%, +{improvement:.1f}%)"
+            )
 
     # Generate charts
     print("\nGenerating charts...")
@@ -291,4 +299,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

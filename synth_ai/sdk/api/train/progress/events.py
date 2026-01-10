@@ -146,7 +146,12 @@ class EventParser:
 
     # Event type patterns for each category
     BASELINE_PATTERNS = (".baseline",)
-    CANDIDATE_PATTERNS = (".candidate.evaluated", ".proposal.scored", ".optimized.scored", ".candidate_scored")
+    CANDIDATE_PATTERNS = (
+        ".candidate.evaluated",
+        ".proposal.scored",
+        ".optimized.scored",
+        ".candidate_scored",
+    )
     FRONTIER_PATTERNS = (".frontier_updated",)
     PROGRESS_PATTERNS = (".progress", ".rollouts_limit_progress")
     GENERATION_PATTERNS = (".generation.complete",)
@@ -234,7 +239,9 @@ class EventParser:
                 timestamp_ms=timestamp_ms,
                 accuracy=reward_value
                 if reward_value is not None
-                else data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy"),
+                else data.get("accuracy")
+                or data.get("baseline_score")
+                or data.get("baseline_accuracy"),
                 objectives=objectives if isinstance(objectives, dict) else None,
                 instance_scores=instance_scores,
                 instance_objectives=instance_objectives,
@@ -242,7 +249,11 @@ class EventParser:
             )
 
         if category == EventCategory.CANDIDATE:
-            candidate_data = data.get("program_candidate") if isinstance(data.get("program_candidate"), dict) else data
+            candidate_data = (
+                data.get("program_candidate")
+                if isinstance(data.get("program_candidate"), dict)
+                else data
+            )
             objectives = candidate_data.get("objectives")
             reward_value = None
             if isinstance(objectives, dict):
@@ -294,7 +305,9 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                rollouts_completed=data.get("rollouts_completed") or data.get("rollouts_executed") or 0,
+                rollouts_completed=data.get("rollouts_completed")
+                or data.get("rollouts_executed")
+                or 0,
                 rollouts_total=data.get("rollouts_total") or data.get("total_rollouts"),
                 trials_completed=data.get("trials_completed") or 0,
                 best_score=data.get("best_score"),

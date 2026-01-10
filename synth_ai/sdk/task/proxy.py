@@ -22,7 +22,7 @@ _GPT5_MIN_COMPLETION_TOKENS = 16000
 
 def prepare_for_openai(model: str | None, payload: dict[str, Any]) -> dict[str, Any]:
     """Sanitise an OpenAI chat completions payload for Task App usage.
-    
+
     The task app is responsible for providing tools in the payload.
     This function only handles model-specific parameter normalization.
     """
@@ -42,7 +42,7 @@ def prepare_for_openai(model: str | None, payload: dict[str, Any]) -> dict[str, 
         mct = sanitized.get("max_completion_tokens")
         if not isinstance(mct, int) or mct < _GPT5_MIN_COMPLETION_TOKENS:
             sanitized["max_completion_tokens"] = _GPT5_MIN_COMPLETION_TOKENS
-        
+
         # Set tool_choice to first provided tool (task app must provide tools)
         # If tool_choice not already set and tools are provided, use the first one
         if "tool_choice" not in sanitized:
@@ -50,8 +50,11 @@ def prepare_for_openai(model: str | None, payload: dict[str, Any]) -> dict[str, 
             if isinstance(tools, list) and tools:
                 first_func = tools[0].get("function", {})
                 if isinstance(first_func, dict) and "name" in first_func:
-                    sanitized["tool_choice"] = {"type": "function", "function": {"name": first_func["name"]}}
-        
+                    sanitized["tool_choice"] = {
+                        "type": "function",
+                        "function": {"name": first_func["name"]},
+                    }
+
         sanitized["parallel_tool_calls"] = False
 
     return sanitized
@@ -98,10 +101,7 @@ def normalize_response_format_for_groq(model: str | None, payload: dict[str, Any
         return
 
     model_lower = (model or "").lower()
-    supports_json_schema = any(
-        supported in model_lower
-        for supported in _GROQ_JSON_SCHEMA_MODELS
-    )
+    supports_json_schema = any(supported in model_lower for supported in _GROQ_JSON_SCHEMA_MODELS)
 
     # If model doesn't support json_schema and we're using it, convert to json_object
     if not supports_json_schema and response_format.get("type") == "json_schema":
@@ -225,14 +225,13 @@ def parse_tool_call_from_text(text: str) -> tuple[list[str], str]:
 
 
 def synthesize_tool_call_if_missing(
-    openai_response: dict[str, Any],
-    fallback_tool_name: str = "interact"
+    openai_response: dict[str, Any], fallback_tool_name: str = "interact"
 ) -> dict[str, Any]:
     """Ensure the first choice carries a tool_call derived from text if absent.
-    
+
     This is a fallback for models that don't properly support tool calling.
     Task apps can specify their preferred fallback tool name (e.g., "interact", "execute_sequence").
-    
+
     DEPRECATED: Task apps should prefer models with native tool calling support.
     This function will be removed in a future version.
     """
@@ -263,7 +262,7 @@ def synthesize_tool_call_if_missing(
     }
     if reasoning.strip():
         payload["reasoning"] = reasoning.strip()
-    
+
     tool_call = {
         "id": f"tool_{fallback_tool_name}_fallback",
         "type": "function",

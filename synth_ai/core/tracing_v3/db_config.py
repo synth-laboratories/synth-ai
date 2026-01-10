@@ -156,7 +156,11 @@ def get_default_db_config() -> DatabaseConfig:
         try:
             # Check for either hrana or http port in the process command line
             result = subprocess.run(
-                ["pgrep", "-f", f"sqld.*(--hrana-listen-addr.*:{sqld_hrana_port}|--http-listen-addr.*:{sqld_http_port})"],
+                [
+                    "pgrep",
+                    "-f",
+                    f"sqld.*(--hrana-listen-addr.*:{sqld_hrana_port}|--http-listen-addr.*:{sqld_http_port})",
+                ],
                 capture_output=True,
                 text=True,
             )
@@ -164,12 +168,16 @@ def get_default_db_config() -> DatabaseConfig:
                 # sqld is already running, don't start a new one
                 sqld_running = True
                 use_sqld = False
-                logger.debug(f"✅ Detected sqld already running on ports {sqld_hrana_port} (hrana) and {sqld_http_port} (http)")
+                logger.debug(
+                    f"✅ Detected sqld already running on ports {sqld_hrana_port} (hrana) and {sqld_http_port} (http)"
+                )
         except Exception as e:
             logger.debug(f"Could not check for sqld process: {e}")
 
         if not sqld_running and use_sqld:
-            logger.warning("sqld service not detected. Start the Turso daemon (./serve.sh) before running tracing workloads.")
+            logger.warning(
+                "sqld service not detected. Start the Turso daemon (./serve.sh) before running tracing workloads."
+            )
 
         _default_config = DatabaseConfig(db_path=db_path, use_sqld=use_sqld)
 

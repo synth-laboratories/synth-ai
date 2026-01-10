@@ -1,6 +1,7 @@
 """
 Manual URL capture for sites that need specific URLs defined.
 """
+
 import asyncio
 import json
 from pathlib import Path

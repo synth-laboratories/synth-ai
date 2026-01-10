@@ -60,17 +60,21 @@ class StorageConfig:
             self.backend = self._infer_backend(self.connection_string or "")
 
         if native_flag is False:
-            raise RuntimeError("TURSO_NATIVE=false is no longer supported; only Turso/libSQL backend is available.")
+            raise RuntimeError(
+                "TURSO_NATIVE=false is no longer supported; only Turso/libSQL backend is available."
+            )
 
         # Allow both TURSO_NATIVE and SQLITE backends (both use libsql.connect)
         if self.backend not in (StorageBackend.TURSO_NATIVE, StorageBackend.SQLITE):
-            raise RuntimeError(f"Unsupported backend: {self.backend}. Only Turso/libSQL and SQLite are supported.")
+            raise RuntimeError(
+                f"Unsupported backend: {self.backend}. Only Turso/libSQL and SQLite are supported."
+            )
 
     @staticmethod
     def _infer_backend(connection_string: str) -> StorageBackend:
         """Infer backend type from the connection string."""
         scheme = connection_string.split(":", 1)[0].lower()
-        
+
         # Plain SQLite files: file://, /absolute/path, or no scheme
         if (
             scheme == "file"
@@ -79,11 +83,11 @@ class StorageConfig:
             or "://" not in connection_string
         ):
             return StorageBackend.SQLITE
-        
+
         # Turso/sqld: libsql://, http://, https://
         if scheme.startswith("libsql") or "libsql" in scheme or scheme in ("http", "https"):
             return StorageBackend.TURSO_NATIVE
-        
+
         raise RuntimeError(f"Unsupported tracing backend scheme: {scheme}")
 
     def get_connection_string(self) -> str:

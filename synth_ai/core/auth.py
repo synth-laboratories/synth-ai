@@ -20,14 +20,16 @@ class AuthSession:
     expires_at: float
 
 
-def init_auth_session() -> AuthSession:    
+def init_auth_session() -> AuthSession:
     try:
         res = requests.post(INIT_URL, timeout=10)
     except RequestException as exc:
         raise RuntimeError(f"Failed to reach handshake init endpoint: {exc}") from exc
     if res.status_code != 200:
         body = res.text.strip()
-        raise RuntimeError(f"Handshake init failed ({res.status_code}): {body or 'no response body'}")
+        raise RuntimeError(
+            f"Handshake init failed ({res.status_code}): {body or 'no response body'}"
+        )
 
     try:
         data = res.json()
@@ -38,12 +40,14 @@ def init_auth_session() -> AuthSession:
     verification_uri = str(data.get("verification_uri") or "").strip()
     expires_in = int(data.get("expires_in") or 600)
     if not device_code or not verification_uri or not expires_in:
-        raise RuntimeError("Handshake init response missing device_code or verification_uri or expires_in.")
+        raise RuntimeError(
+            "Handshake init response missing device_code or verification_uri or expires_in."
+        )
 
     return AuthSession(
         device_code=device_code,
         verification_uri=verification_uri,
-        expires_at=time.time() + expires_in
+        expires_at=time.time() + expires_in,
     )
 
 
@@ -91,5 +95,5 @@ def fetch_credentials_from_web_browser() -> dict:
 
     return {
         "SYNTH_API_KEY": str(credentials.get("synth") or "").strip(),
-        "ENVIRONMENT_API_KEY": str(credentials.get("rl_env") or "").strip()
+        "ENVIRONMENT_API_KEY": str(credentials.get("rl_env") or "").strip(),
     }

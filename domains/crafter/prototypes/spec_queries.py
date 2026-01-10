@@ -108,18 +108,42 @@ def load_sqlite_data(conn):
     # Ontology: Actions
     actions = [
         ("do", "5", '["facing_tile has target"]', '[{"varies_by": "target"}]'),
-        ("place_table", "9", '["wood >= 2", "facing grass/sand/path"]',
-         '[{"decrement": "wood", "by": 2}, {"place": "table"}]'),
-        ("place_furnace", "10", '["stone >= 4", "facing grass/sand/path"]',
-         '[{"decrement": "stone", "by": 4}, {"place": "furnace"}]'),
-        ("make_wood_pickaxe", "11", '["table nearby", "wood >= 1"]',
-         '[{"decrement": "wood", "by": 1}, {"grant": "wood_pickaxe"}]'),
-        ("make_stone_pickaxe", "12", '["table nearby", "wood >= 1", "stone >= 1"]',
-         '[{"decrement": "wood", "by": 1}, {"decrement": "stone", "by": 1}, {"grant": "stone_pickaxe"}]'),
-        ("make_wood_sword", "14", '["table nearby", "wood >= 1"]',
-         '[{"decrement": "wood", "by": 1}, {"grant": "wood_sword"}]'),
-        ("place_stone", "17", '["stone >= 1", "facing water/lava"]',
-         '[{"decrement": "stone", "by": 1}, {"set_tile": "path"}]'),
+        (
+            "place_table",
+            "9",
+            '["wood >= 2", "facing grass/sand/path"]',
+            '[{"decrement": "wood", "by": 2}, {"place": "table"}]',
+        ),
+        (
+            "place_furnace",
+            "10",
+            '["stone >= 4", "facing grass/sand/path"]',
+            '[{"decrement": "stone", "by": 4}, {"place": "furnace"}]',
+        ),
+        (
+            "make_wood_pickaxe",
+            "11",
+            '["table nearby", "wood >= 1"]',
+            '[{"decrement": "wood", "by": 1}, {"grant": "wood_pickaxe"}]',
+        ),
+        (
+            "make_stone_pickaxe",
+            "12",
+            '["table nearby", "wood >= 1", "stone >= 1"]',
+            '[{"decrement": "wood", "by": 1}, {"decrement": "stone", "by": 1}, {"grant": "stone_pickaxe"}]',
+        ),
+        (
+            "make_wood_sword",
+            "14",
+            '["table nearby", "wood >= 1"]',
+            '[{"decrement": "wood", "by": 1}, {"grant": "wood_sword"}]',
+        ),
+        (
+            "place_stone",
+            "17",
+            '["stone >= 1", "facing water/lava"]',
+            '[{"decrement": "stone", "by": 1}, {"set_tile": "path"}]',
+        ),
         ("sleep", "8", '["energy < 9"]', '[{"set": "sleeping", "to": true}]'),
     ]
     c.executemany("INSERT INTO actions VALUES (?, ?, ?, ?)", actions)
@@ -136,48 +160,127 @@ def load_sqlite_data(conn):
 
     # Spec: Rules (with ontology references)
     rules = [
-        ("no_lava", "Never move onto lava tiles", "Instant death",
-         '["entities.lava"]'),
-        ("no_sleep_near_zombies", "Never sleep when zombies within 8 tiles",
-         "Zombie damage 2->7 while sleeping",
-         '["entities.zombie", "dynamics.sleeping"]'),
-        ("maintain_vitals", "Never let vitals reach 0", "Each depleted vital drains health",
-         '["dynamics.health_regen", "dynamics.thirst", "dynamics.hunger"]'),
-        ("escape_route", "Maintain escape route in combat", "Combat is risky",
-         '["entities.zombie", "entities.skeleton"]'),
-        ("armed_in_tunnels", "Never enter tunnels without weapon", "Skeletons deal ranged damage",
-         '["entities.skeleton", "entities.wood_sword"]'),
+        ("no_lava", "Never move onto lava tiles", "Instant death", '["entities.lava"]'),
+        (
+            "no_sleep_near_zombies",
+            "Never sleep when zombies within 8 tiles",
+            "Zombie damage 2->7 while sleeping",
+            '["entities.zombie", "dynamics.sleeping"]',
+        ),
+        (
+            "maintain_vitals",
+            "Never let vitals reach 0",
+            "Each depleted vital drains health",
+            '["dynamics.health_regen", "dynamics.thirst", "dynamics.hunger"]',
+        ),
+        (
+            "escape_route",
+            "Maintain escape route in combat",
+            "Combat is risky",
+            '["entities.zombie", "entities.skeleton"]',
+        ),
+        (
+            "armed_in_tunnels",
+            "Never enter tunnels without weapon",
+            "Skeletons deal ranged damage",
+            '["entities.skeleton", "entities.wood_sword"]',
+        ),
     ]
     c.executemany("INSERT INTO rules VALUES (?, ?, ?, ?)", rules)
 
     # Spec: Heuristics (with ontology references)
     heuristics = [
-        ("collect_wood_first", "early_game", "Collect 5-10 wood immediately",
-         "Wood unlocks tech tree", '["entities.tree", "entities.wood"]'),
-        ("place_table_early", "early_game", "Place table with 2 wood",
-         "Enables crafting", '["actions.place_table"]'),
-        ("craft_pickaxe_immediately", "early_game", "Craft wood_pickaxe after table",
-         "Unlocks stone mining", '["actions.make_wood_pickaxe"]'),
-        ("find_water_early", "early_game", "Find water before drink < 5",
-         "Drink depletes fast", '["entities.water", "dynamics.thirst"]'),
-        ("avoid_zombies_early", "early_game", "Flee until wood_sword",
-         "Running > unarmed combat", '["entities.zombie", "entities.wood_sword"]'),
-        ("establish_base", "mid_game", "Create base with table+furnace+water",
-         "Centralizes operations", '["entities.table", "entities.furnace", "entities.water"]'),
-        ("collect_stone_for_furnace", "mid_game", "Collect 4 stone for furnace",
-         "Furnace needs 4 stone", '["actions.place_furnace", "entities.stone"]'),
-        ("pickaxe_before_sword", "mid_game", "Upgrade pickaxe before sword",
-         "Pickaxe unlocks resources", '["entities.stone_pickaxe", "entities.iron_pickaxe"]'),
-        ("farm_plants", "mid_game", "Plant saplings near base",
-         "Sustainable food", '["entities.plant"]'),
-        ("hunt_daytime", "mid_game", "Hunt cows during day",
-         "More cows, fewer zombies", '["entities.cow", "dynamics.daylight"]'),
-        ("prioritize_iron_pickaxe", "late_game", "Get iron_pickaxe for diamonds",
-         "Diamonds need full tech", '["entities.iron_pickaxe"]'),
-        ("clear_tunnels", "late_game", "Clear skeletons from tunnels",
-         "Only skeleton spawns", '["entities.skeleton"]'),
-        ("build_bridges", "late_game", "Use stone to bridge water/lava",
-         "Access isolated areas", '["actions.place_stone", "entities.water", "entities.lava"]'),
+        (
+            "collect_wood_first",
+            "early_game",
+            "Collect 5-10 wood immediately",
+            "Wood unlocks tech tree",
+            '["entities.tree", "entities.wood"]',
+        ),
+        (
+            "place_table_early",
+            "early_game",
+            "Place table with 2 wood",
+            "Enables crafting",
+            '["actions.place_table"]',
+        ),
+        (
+            "craft_pickaxe_immediately",
+            "early_game",
+            "Craft wood_pickaxe after table",
+            "Unlocks stone mining",
+            '["actions.make_wood_pickaxe"]',
+        ),
+        (
+            "find_water_early",
+            "early_game",
+            "Find water before drink < 5",
+            "Drink depletes fast",
+            '["entities.water", "dynamics.thirst"]',
+        ),
+        (
+            "avoid_zombies_early",
+            "early_game",
+            "Flee until wood_sword",
+            "Running > unarmed combat",
+            '["entities.zombie", "entities.wood_sword"]',
+        ),
+        (
+            "establish_base",
+            "mid_game",
+            "Create base with table+furnace+water",
+            "Centralizes operations",
+            '["entities.table", "entities.furnace", "entities.water"]',
+        ),
+        (
+            "collect_stone_for_furnace",
+            "mid_game",
+            "Collect 4 stone for furnace",
+            "Furnace needs 4 stone",
+            '["actions.place_furnace", "entities.stone"]',
+        ),
+        (
+            "pickaxe_before_sword",
+            "mid_game",
+            "Upgrade pickaxe before sword",
+            "Pickaxe unlocks resources",
+            '["entities.stone_pickaxe", "entities.iron_pickaxe"]',
+        ),
+        (
+            "farm_plants",
+            "mid_game",
+            "Plant saplings near base",
+            "Sustainable food",
+            '["entities.plant"]',
+        ),
+        (
+            "hunt_daytime",
+            "mid_game",
+            "Hunt cows during day",
+            "More cows, fewer zombies",
+            '["entities.cow", "dynamics.daylight"]',
+        ),
+        (
+            "prioritize_iron_pickaxe",
+            "late_game",
+            "Get iron_pickaxe for diamonds",
+            "Diamonds need full tech",
+            '["entities.iron_pickaxe"]',
+        ),
+        (
+            "clear_tunnels",
+            "late_game",
+            "Clear skeletons from tunnels",
+            "Only skeleton spawns",
+            '["entities.skeleton"]',
+        ),
+        (
+            "build_bridges",
+            "late_game",
+            "Use stone to bridge water/lava",
+            "Access isolated areas",
+            '["actions.place_stone", "entities.water", "entities.lava"]',
+        ),
     ]
     c.executemany("INSERT INTO heuristics VALUES (?, ?, ?, ?, ?)", heuristics)
 
@@ -200,6 +303,7 @@ def load_sqlite_data(conn):
 # =============================================================================
 # SQLITE QUERIES (showing complexity)
 # =============================================================================
+
 
 def sqlite_queries(conn):
     c = conn.cursor()
@@ -242,7 +346,9 @@ def sqlite_queries(conn):
         refs = json.loads(refs_json)
         action_refs = [r.replace("actions.", "") for r in refs if r.startswith("actions.")]
         for action_name in action_refs:
-            c.execute("SELECT name, preconditions, effects FROM actions WHERE name = ?", (action_name,))
+            c.execute(
+                "SELECT name, preconditions, effects FROM actions WHERE name = ?", (action_name,)
+            )
             action = c.fetchone()
             if action:
                 print(f"  -> {h_id}: {action[0]} - preconds: {action[1][:50]}...")
@@ -286,7 +392,9 @@ def sqlite_queries(conn):
     print(f"  {sql.strip()}")
     c.execute(sql)
     for row in c.fetchall():
-        print(f"  -> {row[0]} ({row[1]}): ontology={row[2][:30] if row[2] else 'N/A'}... spec={row[3][:30]}...")
+        print(
+            f"  -> {row[0]} ({row[1]}): ontology={row[2][:30] if row[2] else 'N/A'}... spec={row[3][:30]}..."
+        )
     print("  NOTE: This one is actually clean with JOIN!")
 
     # -------------------------------------------------------------------------
@@ -342,6 +450,7 @@ def sqlite_queries(conn):
 # =============================================================================
 # HELIX QUERIES (showing simplicity)
 # =============================================================================
+
 
 def helix_queries():
     print("\n" + "=" * 70)
@@ -424,6 +533,7 @@ def helix_queries():
 # =============================================================================
 # SIDE BY SIDE COMPARISON
 # =============================================================================
+
 
 def comparison_table():
     print("\n" + "=" * 70)

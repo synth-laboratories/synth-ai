@@ -39,15 +39,15 @@ _registered_instances: set[InProcessTaskApp] = set()
 def _find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
     """
     Find an available port starting from start_port.
-    
+
     Args:
         host: Host to bind to
         start_port: Starting port number
         max_attempts: Maximum number of ports to try
-        
+
     Returns:
         Available port number
-        
+
     Raises:
         RuntimeError: If no available port found
     """
@@ -60,10 +60,9 @@ def _find_available_port(host: str, start_port: int, max_attempts: int = 100) ->
                 return port
         except OSError:
             continue
-    
+
     raise RuntimeError(
-        f"Could not find available port starting from {start_port} "
-        f"(tried {max_attempts} ports)"
+        f"Could not find available port starting from {start_port} (tried {max_attempts} ports)"
     )
 
 
@@ -78,17 +77,15 @@ def _is_port_available(host: str, port: int) -> bool:
         return False
 
 
-
-
 def _kill_process_on_port(host: str, port: int) -> None:
     """
     Attempt to kill any process using the specified port.
-    
+
     Note: This is a best-effort operation and may not work on all systems.
     """
     import subprocess
     import sys
-    
+
     try:
         if sys.platform == "win32":
             # Windows
@@ -233,7 +230,9 @@ async def _verify_tunnel_ready(
             [api_key, *[p.strip() for p in aliases.split(",") if p.strip()]]
         )
 
-    logger.info(f"Verifying tunnel is routing traffic (max {max_retries} attempts, {retry_delay}s delay)...")
+    logger.info(
+        f"Verifying tunnel is routing traffic (max {max_retries} attempts, {retry_delay}s delay)..."
+    )
 
     # Track resolved IP to avoid re-resolving every attempt
     resolved_ip: Optional[str] = None
@@ -244,7 +243,9 @@ async def _verify_tunnel_ready(
             if resolved_ip is None:
                 resolved_ip = await _resolve_via_public_dns(hostname)
                 if resolved_ip:
-                    logger.info(f"Resolved tunnel hostname via public DNS: {hostname} -> {resolved_ip}")
+                    logger.info(
+                        f"Resolved tunnel hostname via public DNS: {hostname} -> {resolved_ip}"
+                    )
 
             # If we have a resolved IP, use curl with --resolve for proper SNI handling
             # httpx connecting to an IP directly fails SSL handshake due to SNI issues
@@ -258,10 +259,18 @@ async def _verify_tunnel_ready(
                             None,
                             lambda: subprocess.run(
                                 [
-                                    "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-                                    "--resolve", f"{hostname}:443:{resolved_ip}",
-                                    "-H", f"X-API-Key: {api_key}",
-                                    "-H", f"Authorization: Bearer {api_key}",
+                                    "curl",
+                                    "-s",
+                                    "-o",
+                                    "/dev/null",
+                                    "-w",
+                                    "%{http_code}",
+                                    "--resolve",
+                                    f"{hostname}:443:{resolved_ip}",
+                                    "-H",
+                                    f"X-API-Key: {api_key}",
+                                    "-H",
+                                    f"Authorization: Bearer {api_key}",
                                     f"https://{hostname}{path}",
                                 ],
                                 capture_output=True,
@@ -293,7 +302,9 @@ async def _verify_tunnel_ready(
             else:
                 # Fall back to hostname-based request (local DNS)
                 base = tunnel_url.rstrip("/")
-                async with httpx.AsyncClient(timeout=timeout_per_request, verify=verify_tls) as client:
+                async with httpx.AsyncClient(
+                    timeout=timeout_per_request, verify=verify_tls
+                ) as client:
                     health = await client.get(f"{base}/health", headers=headers)
                     task_info = await client.get(f"{base}/task_info", headers=headers)
 
@@ -347,10 +358,10 @@ async def _verify_preconfigured_url_ready(
 ) -> bool:
     """
     Verify that a preconfigured tunnel URL is routing traffic.
-    
+
     This is similar to _verify_tunnel_ready but designed for external tunnel
     providers (ngrok, etc.) where we don't control the tunnel setup.
-    
+
     Args:
         tunnel_url: The external tunnel URL to verify
         api_key: API key for task app authentication
@@ -358,7 +369,7 @@ async def _verify_preconfigured_url_ready(
         max_retries: Number of retry attempts
         retry_delay: Delay between retries in seconds
         timeout_per_request: Timeout for each HTTP request
-        
+
     Returns:
         True if tunnel is accessible, False otherwise
     """
@@ -367,18 +378,18 @@ async def _verify_preconfigured_url_ready(
         "X-API-Key": api_key,
         "Authorization": f"Bearer {api_key}",
     }
-    
+
     # Add any extra headers (e.g., custom auth tokens)
     if extra_headers:
         headers.update(extra_headers)
-    
+
     logger.info(f"Verifying preconfigured URL is accessible (max {max_retries} attempts)...")
-    
+
     for attempt in range(max_retries):
         try:
             async with httpx.AsyncClient(timeout=timeout_per_request) as client:
                 health = await client.get(f"{base}/health", headers=headers)
-            
+
             # Only accept 200 for health checks - other codes may indicate misrouting
             if health.status_code == 200:
                 logger.info(
@@ -386,7 +397,7 @@ async def _verify_preconfigured_url_ready(
                     f"health={health.status_code}"
                 )
                 return True
-            
+
             logger.debug(
                 "Preconfigured URL not ready (attempt %s/%s): health=%s",
                 attempt + 1,
@@ -400,10 +411,10 @@ async def _verify_preconfigured_url_ready(
                 max_retries,
                 exc,
             )
-        
+
         if attempt < max_retries - 1:
             await asyncio.sleep(retry_delay)
-    
+
     logger.warning(f"Preconfigured URL verification exhausted after {max_retries} attempts")
     return False
 
@@ -414,7 +425,7 @@ class InProcessTaskApp:
     This class simplifies local development and demos by:
     1. Starting a Local API server in a background thread
     2. Opening a tunnel automatically (Cloudflare by default, or use preconfigured URL)
-    3. Providing the tunnel URL for GEPA/MIPRO/RL jobs
+    3. Providing the tunnel URL for GEPA/RL jobs
     4. Cleaning up everything on exit
 
     (Alias: also known as "task app" in older documentation)
@@ -510,7 +521,7 @@ class InProcessTaskApp:
                              Use this when an existing managed tunnel is stale/broken.
             on_start: Optional callback called when task app starts (receives self)
             on_stop: Optional callback called when task app stops (receives self)
-            
+
         Raises:
             ValueError: If multiple or no input methods provided, or invalid parameters
             FileNotFoundError: If task_app_path doesn't exist
@@ -544,9 +555,7 @@ class InProcessTaskApp:
             if not path.exists():
                 raise FileNotFoundError(f"Task app path does not exist: {task_app_path}")
             if path.suffix != ".py":
-                raise ValueError(
-                    f"Task app path must be a .py file, got {task_app_path}"
-                )
+                raise ValueError(f"Task app path must be a .py file, got {task_app_path}")
 
         self._app_input = app
         self._config = config
@@ -578,13 +587,14 @@ class InProcessTaskApp:
 
     async def __aenter__(self) -> InProcessTaskApp:
         """Start task app and tunnel."""
-        
+
         # For named tunnels, pre-fetch tunnel config to get the correct port
         # (existing tunnels are configured for a specific port)
         mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
         if mode == "named":
             try:
                 from synth_ai.core.env import get_api_key as get_synth_api_key
+
                 synth_api_key = get_synth_api_key()
                 if synth_api_key is None:
                     raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
@@ -603,25 +613,27 @@ class InProcessTaskApp:
                 self._prefetched_tunnel_config = None
         else:
             self._prefetched_tunnel_config = None
-        
+
         logger.debug(f"Starting in-process task app on {self.host}:{self.port}")
 
         # For named tunnels, the port is baked into the tunnel config - we MUST use it
         tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
         tunnel_port = tunnel_config.get("local_port")
         is_named_tunnel_port = mode == "named" and tunnel_port and tunnel_port == self.port
-        
+
         # Handle port conflicts
         if not _is_port_available(self.host, self.port):
             if is_named_tunnel_port:
                 # Named tunnel port is REQUIRED - kill whatever is using it
-                print(f"[CLOUDFLARE-FIX] Named tunnel requires port {self.port}, killing existing process...")
+                print(
+                    f"[CLOUDFLARE-FIX] Named tunnel requires port {self.port}, killing existing process..."
+                )
                 logger.warning(
                     f"Named tunnel is configured for port {self.port}, killing existing process..."
                 )
                 _kill_process_on_port(self.host, self.port)
                 await asyncio.sleep(1.0)  # Wait for port to free
-                
+
                 if not _is_port_available(self.host, self.port):
                     raise RuntimeError(
                         f"Named tunnel requires port {self.port} but it's still in use after kill attempt. "
@@ -630,19 +642,15 @@ class InProcessTaskApp:
                 print(f"[CLOUDFLARE-FIX] Port {self.port} freed successfully")
             elif self.auto_find_port:
                 print(f"Port {self.port} is in use, attempting to find available port...")
-                logger.warning(
-                    f"Port {self.port} is in use, attempting to find available port..."
-                )
+                logger.warning(f"Port {self.port} is in use, attempting to find available port...")
                 self.port = _find_available_port(self.host, self.port)
                 logger.debug(f"Using port {self.port} instead")
             else:
                 # Try to kill process on port
-                logger.warning(
-                    f"Port {self.port} is in use, attempting to free it..."
-                )
+                logger.warning(f"Port {self.port} is in use, attempting to free it...")
                 _kill_process_on_port(self.host, self.port)
                 await asyncio.sleep(0.5)  # Brief wait for port to free
-                
+
                 if not _is_port_available(self.host, self.port):
                     raise RuntimeError(
                         f"Port {self.port} is still in use. "
@@ -672,7 +680,7 @@ class InProcessTaskApp:
                     self._task_app_path,
                     f"_inprocess_{self._task_app_path.stem}_{id(self)}",
                 )
-            
+
             # Try to get app directly first
             try:
                 self._app = get_asgi_app(module)  # type: ignore[assignment]
@@ -685,6 +693,7 @@ class InProcessTaskApp:
                 else:
                     # Try registry lookup as last resort
                     from synth_ai.sdk.task.apps import registry
+
                     app_id = getattr(module, "APP_ID", None) or self._task_app_path.stem
                     entry = registry.get(app_id)
                     if entry and entry.config_factory:
@@ -717,7 +726,7 @@ class InProcessTaskApp:
                 self._uvicorn_server.run()  # type: ignore[attr-defined]
             except Exception as exc:
                 logger.debug(f"Uvicorn server stopped: {exc}")
-        
+
         self._server_thread = threading.Thread(
             target=serve,
             name=f"synth-uvicorn-{self.port}",
@@ -735,16 +744,16 @@ class InProcessTaskApp:
 
         # 4. Determine tunnel mode (env var can override)
         mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
-        
+
         # Check for preconfigured URL via env var
         env_preconfigured_url = os.getenv("SYNTH_TASK_APP_URL")
         if env_preconfigured_url:
             mode = "preconfigured"
             self.preconfigured_url = env_preconfigured_url
             logger.info(f"Using preconfigured URL from SYNTH_TASK_APP_URL: {env_preconfigured_url}")
-        
+
         override_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
-        
+
         if mode == "preconfigured":
             # Preconfigured mode: use externally-provided URL (e.g., ngrok, localtunnel)
             # This bypasses Cloudflare entirely - the caller is responsible for the tunnel
@@ -753,21 +762,21 @@ class InProcessTaskApp:
                     "tunnel_mode='preconfigured' requires preconfigured_url parameter "
                     "or SYNTH_TASK_APP_URL environment variable"
                 )
-            
+
             self.url = self.preconfigured_url.rstrip("/")
             self._tunnel_proc = None
             self._is_preconfigured = True
             logger.info(f"Using preconfigured tunnel URL: {self.url}")
-            
+
             # Optionally verify the preconfigured URL is accessible
             if not self.skip_tunnel_verification:
                 api_key = self.api_key or self._get_api_key()
-                
+
                 # Build headers including any custom auth for the tunnel
                 extra_headers: dict[str, str] = {}
                 if self.preconfigured_auth_header and self.preconfigured_auth_token:
                     extra_headers[self.preconfigured_auth_header] = self.preconfigured_auth_token
-                
+
                 ready = await _verify_preconfigured_url_ready(
                     self.url,
                     api_key,
@@ -794,9 +803,10 @@ class InProcessTaskApp:
             # 3. Auto-start cloudflared if not accessible
             # 4. Verify tunnel is working
             ensure_cloudflared_installed()
-            
+
             # For tunnel config, we need the SYNTH_API_KEY (not ENVIRONMENT_API_KEY)
             from synth_ai.core.env import get_api_key as get_synth_api_key
+
             synth_api_key = get_synth_api_key()
             if synth_api_key is None:
                 raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
@@ -809,10 +819,10 @@ class InProcessTaskApp:
             if not tunnel_config:
                 # Fetch if not pre-fetched (shouldn't happen normally)
                 tunnel_config = await self._fetch_tunnel_config(synth_api_key)
-            
+
             named_host = tunnel_config.get("hostname")
             tunnel_token = tunnel_config.get("tunnel_token")
-            
+
             # Track if backend verified DNS (so we can skip local verification)
             dns_verified_by_backend = False
 
@@ -831,10 +841,16 @@ class InProcessTaskApp:
                     dns_verified_by_backend = rotated.get("dns_verified", False)
                     print(f"[CLOUDFLARE-FIX] Rotated to fresh tunnel: {named_host}")
                     print(f"[CLOUDFLARE-FIX] DNS verified by backend: {dns_verified_by_backend}")
-                    logger.info(f"Rotated to fresh managed tunnel: {named_host}, dns_verified={dns_verified_by_backend}")
+                    logger.info(
+                        f"Rotated to fresh managed tunnel: {named_host}, dns_verified={dns_verified_by_backend}"
+                    )
                 except Exception as e:
-                    print(f"[CLOUDFLARE-FIX] Rotation failed: {e}, using existing tunnel: {named_host}")
-                    logger.warning(f"Rotation failed: {e}, falling back to existing tunnel: {named_host}")
+                    print(
+                        f"[CLOUDFLARE-FIX] Rotation failed: {e}, using existing tunnel: {named_host}"
+                    )
+                    logger.warning(
+                        f"Rotation failed: {e}, falling back to existing tunnel: {named_host}"
+                    )
                     if not named_host or not tunnel_token:
                         raise RuntimeError(
                             f"Tunnel rotation failed and no existing tunnel found: {e}\n"
@@ -854,7 +870,9 @@ class InProcessTaskApp:
                     named_host = new_tunnel.get("hostname")
                     tunnel_token = new_tunnel.get("tunnel_token")
                     dns_verified_by_backend = new_tunnel.get("dns_verified", False)
-                    logger.info(f"Created managed tunnel: {named_host}, dns_verified={dns_verified_by_backend}")
+                    logger.info(
+                        f"Created managed tunnel: {named_host}, dns_verified={dns_verified_by_backend}"
+                    )
                 except Exception as e:
                     # If tunnel creation fails, suggest using quick tunnels
                     raise RuntimeError(
@@ -864,7 +882,7 @@ class InProcessTaskApp:
                         "  1. Use tunnel_mode='quick' for automatic quick tunnels\n"
                         "  2. Ask your admin to configure Cloudflare credentials on the backend"
                     ) from e
-            
+
             if not named_host or not tunnel_token:
                 raise RuntimeError(
                     "Tunnel configuration incomplete (missing hostname or token). "
@@ -895,10 +913,14 @@ class InProcessTaskApp:
                 # Tunnel already accessible - cloudflared must be running elsewhere
                 self._tunnel_proc = None
                 print("[CLOUDFLARE] Tunnel already accessible (cloudflared running externally)")
-                logger.info(f"Tunnel {self.url} is already accessible (cloudflared running externally)")
+                logger.info(
+                    f"Tunnel {self.url} is already accessible (cloudflared running externally)"
+                )
             else:
                 # Tunnel not accessible - start cloudflared FIRST, then verify
-                print("[CLOUDFLARE] Starting cloudflared (DNS requires active tunnel connection)...")
+                print(
+                    "[CLOUDFLARE] Starting cloudflared (DNS requires active tunnel connection)..."
+                )
                 logger.info(f"Starting cloudflared for {self.url}...")
                 try:
                     self._tunnel_proc = open_managed_tunnel(tunnel_token)
@@ -948,7 +970,9 @@ class InProcessTaskApp:
 
                         # Start cloudflared with the new token
                         self._tunnel_proc = open_managed_tunnel(tunnel_token)
-                        print(f"[CLOUDFLARE] Started cloudflared for rotated tunnel, PID={self._tunnel_proc.pid}")
+                        print(
+                            f"[CLOUDFLARE] Started cloudflared for rotated tunnel, PID={self._tunnel_proc.pid}"
+                        )
 
                         # Verify the new tunnel
                         ready = await _verify_tunnel_ready(
@@ -983,10 +1007,10 @@ class InProcessTaskApp:
             # Quick tunnel mode: create tunnel with DNS verification and retry
             # Cloudflare quick tunnels can be flaky - retry with fresh tunnels if needed
             ensure_cloudflared_installed()
-            
+
             api_key = self.api_key or self._get_api_key()
             max_tunnel_attempts = int(os.getenv("SYNTH_TUNNEL_MAX_ATTEMPTS", "3"))
-            
+
             for tunnel_attempt in range(max_tunnel_attempts):
                 if tunnel_attempt > 0:
                     logger.warning(
@@ -1000,7 +1024,7 @@ class InProcessTaskApp:
                             await asyncio.sleep(1)
                         except Exception:
                             pass
-                
+
                 logger.info("Opening Cloudflare quick tunnel...")
                 try:
                     self.url, self._tunnel_proc = await open_quick_tunnel_with_dns_verification(
@@ -1011,13 +1035,13 @@ class InProcessTaskApp:
                     if tunnel_attempt == max_tunnel_attempts - 1:
                         raise
                     continue
-                
+
                 # Apply hostname override if provided
                 if override_host:
                     parsed = urlparse(self.url)
                     self.url = f"{parsed.scheme}://{override_host}"
                     logger.info(f"Overriding hostname: {self.url}")
-                
+
                 logger.info(f"Tunnel opened: {self.url}")
 
                 # Extra guard: wait for tunnel HTTP routing to become ready (not just DNS)
@@ -1077,7 +1101,7 @@ class InProcessTaskApp:
             stop_tunnel(self._tunnel_proc)
             self._tunnel_proc = None
             logger.info("Tunnel stopped")
-        
+
         # Stop the uvicorn server thread gracefully to avoid killing the host process
         if self._server_thread and self._server_thread.is_alive():
             logger.debug("Stopping uvicorn server thread...")
@@ -1091,8 +1115,7 @@ class InProcessTaskApp:
                 self._server_thread.join(timeout=1.0)
             if self._server_thread.is_alive():
                 logger.warning(
-                    "Uvicorn server thread did not stop cleanly; "
-                    "it will exit with the main process"
+                    "Uvicorn server thread did not stop cleanly; it will exit with the main process"
                 )
             self._server_thread = None
             self._uvicorn_server = None
@@ -1100,10 +1123,11 @@ class InProcessTaskApp:
     def _get_api_key(self) -> str:
         """Get API key from environment or default."""
         import os
-        
+
         # Try to load .env file if available
         try:
             from dotenv import load_dotenv
+
             load_dotenv(override=False)
         except ImportError:
             pass
@@ -1112,10 +1136,10 @@ class InProcessTaskApp:
 
     async def _fetch_tunnel_config(self, api_key: str) -> dict:
         """Fetch the customer's tunnel configuration from the backend.
-        
+
         Uses the existing /api/v1/tunnels/tunnel endpoint to get the customer's
         active tunnels. Returns the first active tunnel's config.
-        
+
         Returns a dict with:
             - hostname: The customer's configured tunnel hostname (e.g., "myapp.usesynth.ai")
             - tunnel_token: The cloudflared tunnel token for running the tunnel
@@ -1123,10 +1147,10 @@ class InProcessTaskApp:
             - local_host: The local host the tunnel routes to
         """
         from synth_ai.core.env import get_backend_url
-        
+
         backend_url = get_backend_url()
         url = f"{backend_url}/api/v1/tunnels/"
-        
+
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
                 resp = await client.get(
@@ -1136,19 +1160,17 @@ class InProcessTaskApp:
                         "X-API-Key": api_key,
                     },
                 )
-                
+
                 if resp.status_code == 404:
                     logger.debug("No tunnels found for this API key")
                     return {}
-                
+
                 if resp.status_code == 401:
-                    raise RuntimeError(
-                        "Invalid API key. Please check your SYNTH_API_KEY."
-                    )
-                
+                    raise RuntimeError("Invalid API key. Please check your SYNTH_API_KEY.")
+
                 resp.raise_for_status()
                 tunnels = resp.json()
-                
+
                 # Return the first active tunnel
                 if tunnels and len(tunnels) > 0:
                     tunnel = tunnels[0]
@@ -1158,9 +1180,9 @@ class InProcessTaskApp:
                         "local_port": tunnel.get("local_port", 8000),
                         "local_host": tunnel.get("local_host", "127.0.0.1"),
                     }
-                
+
                 return {}
-                
+
             except httpx.HTTPStatusError as e:
                 logger.warning(f"Failed to fetch tunnel config: {e}")
                 return {}
@@ -1174,7 +1196,9 @@ def _setup_signal_handlers() -> None:
 
     def signal_handler(signum, frame):
         """Handle SIGINT/SIGTERM by cleaning up all registered instances."""
-        logger.info(f"Received signal {signum}, cleaning up {len(_registered_instances)} instances...")
+        logger.info(
+            f"Received signal {signum}, cleaning up {len(_registered_instances)} instances..."
+        )
         for instance in list(_registered_instances):
             try:
                 # Trigger cleanup

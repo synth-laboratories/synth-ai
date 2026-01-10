@@ -17,16 +17,10 @@ from .utils import REPO_ROOT, mask_value, read_env_file, write_env_value
 
 
 def _load_saved_env_path() -> Path | None:
-    try:
-        module = cast(
-            Any, importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps.core")
-        )
-        loader = cast(Callable[[], str | None], module.load_env_file_path)
-        saved_path = loader()
-        if saved_path:
-            return Path(saved_path)
-    except Exception:
-        return None
+    """Load saved environment file path.
+
+    Note: Demo apps have been removed. This function always returns None.
+    """
     return None
 
 
@@ -205,7 +199,7 @@ def resolve_env(
         else:
             # Fallback: resolve relative to current working directory
             env_path = Path(env_path_str).expanduser().resolve()
-        
+
         if not env_path.exists():
             raise click.ClickException(
                 f"Env file specified in TOML config not found: {env_path}\n"
@@ -236,7 +230,7 @@ def resolve_env(
                         f"  2. Create a .env file with these keys\n"
                         f"  3. Use --env-file to specify a .env file path\n"
                         f"  4. Add env_file_path to your TOML config: [prompt_learning]\n"
-                        f"     env_file_path = \"/path/to/.env\"\n\n"
+                        f'     env_file_path = "/path/to/.env"\n\n'
                         f"  Searched for .env files in:\n"
                         f"    - {Path.cwd() / '.env'}\n"
                         f"    - {config_path.parent / '.env' if config_path else 'N/A'}\n"
@@ -275,12 +269,12 @@ def resolve_env(
 
 def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
     """Resolve a key value without interactive prompts.
-    
+
     Priority:
     1. Environment variable
     2. Value from .env file
     3. Secrets helper (resolve_env_var)
-    
+
     Fails hard if not found (no interactive prompts).
     """
     # Priority: existing environment variable
@@ -321,12 +315,12 @@ def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
     # Not found - fail hard with informative message
     if spec.optional:
         return ""
-    
+
     # Build helpful error message
     env_file_hint = ""
     if resolver.current_path.exists():
         env_file_hint = f"\n  Checked .env file: {resolver.current_path}"
-    
+
     raise click.ClickException(
         f"❌ Missing required credential: {spec.name}\n\n"
         f"  Description: {spec.description}\n"
@@ -335,7 +329,7 @@ def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
         f"  2. Add to .env file: {spec.name}=<value>\n"
         f"  3. Use --env-file to specify a .env file path\n"
         f"  4. Add env_file_path to your TOML config: [prompt_learning]\n"
-        f"     env_file_path = \"/path/to/.env\"{env_file_hint}"
+        f'     env_file_path = "/path/to/.env"{env_file_hint}'
     )
 
 

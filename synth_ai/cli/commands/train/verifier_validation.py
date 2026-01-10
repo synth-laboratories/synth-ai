@@ -63,51 +63,51 @@ def _reject_deprecated_fields(
 def validate_rubric_config(config: MutableMapping[str, Any]) -> RubricConfig:
     """
     Validate and normalize rubric configuration from TOML.
-    
+
     Args:
         config: Raw [rubric] section from TOML
-        
+
     Returns:
         Validated RubricConfig instance
-        
+
     Raises:
         InvalidRubricConfigError: If validation fails
     """
     if not config:
         # Default: rubric disabled
         return RubricConfig(enabled=False)
-    
+
     config_dict = dict(config)
-    
+
     _reject_deprecated_fields(
         "rubric",
         DEPRECATED_RUBRIC_FIELDS,
         set(config_dict.keys()),
         InvalidRubricConfigError,
     )
-    
+
     if "event" in config_dict:
         raise InvalidRubricConfigError(
             detail="[rubric.event] is not supported. Use [verifier.options.rubric_overrides] instead."
         )
-    
+
     if "outcome" in config_dict:
         raise InvalidRubricConfigError(
             detail="[rubric.outcome] is not supported. Use [verifier.options.rubric_overrides] instead."
         )
-    
+
     # Extract only valid fields
     enabled = config_dict.get("enabled", False)
     weights_dict = config_dict.get("weights", {})
-    
+
     # Validate using Pydantic
     try:
         if not isinstance(weights_dict, dict):
             raise ValueError("[rubric.weights] must be a dictionary")
-        
+
         weights = RubricWeightsConfig(**weights_dict)
         return RubricConfig(enabled=enabled, weights=weights)
-    
+
     except ValidationError as exc:
         errors = []
         for error in exc.errors():
@@ -118,60 +118,56 @@ def validate_rubric_config(config: MutableMapping[str, Any]) -> RubricConfig:
             detail="Rubric validation failed:\n" + "\n".join(errors)
         ) from exc
     except Exception as exc:
-        raise InvalidRubricConfigError(
-            detail=f"Rubric validation failed: {exc}"
-        ) from exc
+        raise InvalidRubricConfigError(detail=f"Rubric validation failed: {exc}") from exc
 
 
 def validate_verifier_config(config: MutableMapping[str, Any]) -> Optional[VerifierConfig]:
     """
     Validate and normalize verifier configuration from TOML.
-    
+
     Args:
         config: Raw [verifier] section from TOML
-        
+
     Returns:
         Validated VerifierConfig instance, or None if not present
-        
+
     Raises:
         InvalidVerifierConfigError: If validation fails
     """
     if not config:
         return None
-    
+
     config_dict = dict(config)
-    
+
     _reject_deprecated_fields(
         "verifier",
         DEPRECATED_VERIFIER_FIELDS,
         set(config_dict.keys()),
         InvalidVerifierConfigError,
     )
-    
+
     # Extract verifier.options (required)
     options_dict = config_dict.get("options")
     if not options_dict:
         raise InvalidVerifierConfigError(
             detail="[verifier.options] section is required when [verifier] is present"
         )
-    
+
     if not isinstance(options_dict, dict):
-        raise InvalidVerifierConfigError(
-            detail="[verifier.options] must be a dictionary"
-        )
-    
+        raise InvalidVerifierConfigError(detail="[verifier.options] must be a dictionary")
+
     _reject_deprecated_fields(
         "verifier.options",
         DEPRECATED_VERIFIER_OPTIONS_FIELDS,
         set(options_dict.keys()),
         InvalidVerifierConfigError,
     )
-    
+
     # Validate using Pydantic
     try:
         options = VerifierOptionsConfig(**options_dict)
         return VerifierConfig(options=options)
-    
+
     except ValidationError as exc:
         errors = []
         for error in exc.errors():
@@ -182,54 +178,51 @@ def validate_verifier_config(config: MutableMapping[str, Any]) -> Optional[Verif
             detail="Verifier validation failed:\n" + "\n".join(errors)
         ) from exc
     except Exception as exc:
-        raise InvalidVerifierConfigError(
-            detail=f"Verifier validation failed: {exc}"
-        ) from exc
+        raise InvalidVerifierConfigError(detail=f"Verifier validation failed: {exc}") from exc
 
 
 def extract_and_validate_verifier_rubric(
-    toml_config: MutableMapping[str, Any]
+    toml_config: MutableMapping[str, Any],
 ) -> Tuple[RubricConfig, Optional[VerifierConfig]]:
     """
     Extract and validate verifier/rubric config from full TOML config.
-    
+
     Args:
         toml_config: Full TOML configuration dict
-        
+
     Returns:
         Tuple of (validated_rubric, validated_verifier_or_none)
-        
+
     Raises:
         InvalidRubricConfigError: If rubric validation fails
         InvalidVerifierConfigError: If verifier validation fails
     """
     rubric_dict = toml_config.get("rubric", {})
     verifier_dict = toml_config.get("verifier", {})
-    
+
     # Validate rubric
     rubric_config = validate_rubric_config(rubric_dict)
-    
+
     # Validate verifier (if present)
     verifier_config = validate_verifier_config(verifier_dict) if verifier_dict else None
-    
+
     if rubric_config.enabled and not verifier_config:
         raise InvalidVerifierConfigError(
             detail="[rubric].enabled=true requires a [verifier] section."
         )
-    
+
     if rubric_config.enabled and verifier_config:
         weights = rubric_config.weights
         options = verifier_config.options
-        
+
         if weights.event > 0 and not options.event:
             raise InvalidVerifierConfigError(
                 detail="[rubric.weights].event > 0 requires [verifier.options].event=true."
             )
-        
+
         if weights.outcome > 0 and not options.outcome:
             raise InvalidVerifierConfigError(
                 detail="[rubric.weights].outcome > 0 requires [verifier.options].outcome=true."
             )
-    
-    return rubric_config, verifier_config
 
+    return rubric_config, verifier_config

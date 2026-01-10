@@ -43,16 +43,16 @@ class SqldDaemon:
 
     def _find_binary(self) -> str:
         """Find sqld binary in PATH, auto-installing if needed.
-        
+
         Search order:
         1. CONFIG.sqld_binary in PATH
         2. libsql-server in PATH
         3. Common install locations (~/.turso/bin, /usr/local/bin, etc.)
         4. Auto-install via synth_ai.utils.sqld (if interactive terminal)
-        
+
         Returns:
             Path to sqld binary
-            
+
         Raises:
             RuntimeError: If binary not found and auto-install fails/disabled
         """
@@ -61,41 +61,43 @@ class SqldDaemon:
         if binary:
             logger.debug(f"Found sqld binary in PATH: {binary}")
             return binary
-        
+
         # Check common install locations
         try:
             from synth_ai.cli.lib.sqld import find_sqld_binary
+
             binary = find_sqld_binary()
             if binary:
                 logger.debug(f"Found sqld binary in common location: {binary}")
                 return binary
         except ImportError:
             logger.debug("synth_ai.utils.sqld not available, skipping common location check")
-        
+
         # Try auto-install if enabled and interactive
         auto_install_enabled = os.getenv("SYNTH_AI_AUTO_INSTALL_SQLD", "true").lower() == "true"
-        
+
         if auto_install_enabled and sys.stdin.isatty():
             try:
                 from synth_ai.cli.lib.sqld import install_sqld
+
                 logger.info("sqld binary not found. Attempting automatic installation...")
-                
+
                 # Use click if available for better UX, otherwise proceed automatically
                 try:
                     import click
+
                     if not click.confirm(
-                        "sqld not found. Install automatically via Homebrew?",
-                        default=True
+                        "sqld not found. Install automatically via Homebrew?", default=True
                     ):
                         raise RuntimeError("User declined automatic installation")
                 except ImportError:
                     # click not available, auto-install without prompt
                     logger.info("Installing sqld automatically (non-interactive mode)")
-                
+
                 binary = install_sqld()
                 logger.info(f"Successfully installed sqld to: {binary}")
                 return binary
-                
+
             except Exception as exc:
                 logger.warning(f"Auto-install failed: {exc}")
                 # Fall through to error message below
@@ -103,7 +105,7 @@ class SqldDaemon:
             logger.debug("Auto-install disabled via SYNTH_AI_AUTO_INSTALL_SQLD=false")
         elif not sys.stdin.isatty():
             logger.debug("Non-interactive terminal, skipping auto-install prompt")
-        
+
         # If we get here, all methods failed
         raise RuntimeError(
             "sqld binary not found. Install using one of these methods:\n"
@@ -247,7 +249,7 @@ def start_sqld(
     http_port: int | None = None,
 ) -> SqldDaemon:
     """Start a global sqld daemon instance.
-    
+
     Args:
         db_path: Path to database file
         port: Legacy parameter - used as hrana_port if hrana_port not specified

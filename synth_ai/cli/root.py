@@ -26,7 +26,7 @@ if "RUST_LOG" not in os.environ:
 # Install log filter early to suppress noisy codex_otel logs
 try:
     from synth_ai.core.log_filter import install_log_filter
-    
+
     # Only install if not already filtered (to avoid double-wrapping)
     install_log_filter()
 except Exception:
@@ -173,6 +173,7 @@ def cli(ctx: click.Context):
     """Top-level command group for Synth AI."""
     # Add logging to track CLI invocation
     import sys
+
     if "train" in sys.argv:
         sys.stderr.write(f"[CLI_ROOT] CLI invoked with args: {sys.argv}\n")
         sys.stderr.flush()
@@ -180,12 +181,18 @@ def cli(ctx: click.Context):
     # Launch TUI when no subcommand is given
     if ctx.invoked_subcommand is None:
         from synth_ai.tui import run_prompt_learning_tui
+
         run_prompt_learning_tui()
 
 
 @cli.command()
 @click.option("--db-file", default="traces/v3/synth_ai.db", help="Database file path")
-@click.option("--sqld-port", default=8080, type=int, help="Port for sqld Hrana WebSocket interface (HTTP API will be port+1)")
+@click.option(
+    "--sqld-port",
+    default=8080,
+    type=int,
+    help="Port for sqld Hrana WebSocket interface (HTTP API will be port+1)",
+)
 @click.option("--env-port", default=8901, type=int, help="Port for environment service")
 @click.option("--no-sqld", is_flag=True, help="Skip starting sqld daemon")
 @click.option("--no-env", is_flag=True, help="Skip starting environment service")
@@ -234,13 +241,19 @@ def serve_deprecated(
             hrana_port = sqld_port
             http_port = sqld_port + 1
             result = subprocess.run(
-                ["pgrep", "-f", f"sqld.*(--hrana-listen-addr.*:{hrana_port}|--http-listen-addr.*:{http_port})"],
+                [
+                    "pgrep",
+                    "-f",
+                    f"sqld.*(--hrana-listen-addr.*:{hrana_port}|--http-listen-addr.*:{http_port})",
+                ],
                 capture_output=True,
                 text=True,
             )
             if result.returncode != 0:
                 sqld_bin = find_sqld_binary() or install_sqld()
-                click.echo(f"🗄️  Starting sqld (local only) on hrana port {hrana_port}, HTTP API port {http_port}")
+                click.echo(
+                    f"🗄️  Starting sqld (local only) on hrana port {hrana_port}, HTTP API port {http_port}"
+                )
                 proc = subprocess.Popen(
                     [
                         sqld_bin,
@@ -305,7 +318,9 @@ def serve_deprecated(
         click.echo(f"   Working directory: {os.getcwd()}")
         click.echo("")
         click.echo("🔄 Starting services...")
-        click.echo(f"   - sqld daemon: libsql://127.0.0.1:{sqld_port} (HTTP API: http://127.0.0.1:{sqld_port + 1})")
+        click.echo(
+            f"   - sqld daemon: libsql://127.0.0.1:{sqld_port} (HTTP API: http://127.0.0.1:{sqld_port + 1})"
+        )
         click.echo(f"   - Environment service: http://127.0.0.1:{env_port}")
         click.echo("")
         click.echo("💡 Tips:")

@@ -56,12 +56,14 @@ def _resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
 @dataclass(slots=True)
 class CurlResponse:
     """Minimal response object from curl to match requests.Response interface."""
+
     status_code: int
     text: str
     _json: dict | None = None
 
     def json(self) -> dict:
         import json
+
         if self._json is None:
             self._json = json.loads(self.text) if self.text else {}
         return self._json
@@ -104,11 +106,15 @@ def _curl_with_resolve(
     port = parsed.port or (443 if scheme == "https" else 80)
 
     curl_cmd = [
-        "curl", "-s",
-        "-w", "\n%{http_code}",  # Append status code on new line
-        "--max-time", str(int(timeout)),
+        "curl",
+        "-s",
+        "-w",
+        "\n%{http_code}",  # Append status code on new line
+        "--max-time",
+        str(int(timeout)),
         "-k",  # Allow self-signed certs (tunnel certs)
-        "--resolve", f"{hostname}:{port}:{resolved_ip}",
+        "--resolve",
+        f"{hostname}:{port}:{resolved_ip}",
         url,
     ]
 
@@ -153,32 +159,34 @@ def _curl_with_resolve(
 def _resolve_url_to_ip(url: str) -> tuple[str, str]:
     """
     Resolve URL's hostname to IP using explicit resolvers, return (ip_url, hostname).
-    
+
     NOTE: For HTTPS URLs, we DON'T resolve to IP because SSL/TLS requires SNI
     (Server Name Indication) with the hostname. Connecting via IP causes handshake
     failures since the server (e.g., Cloudflare) doesn't know which cert to present.
-    
+
     Returns:
         Tuple of (url_with_ip, original_hostname)
     """
     parsed = urlparse(url)
     hostname = parsed.hostname
-    
+
     # Skip resolution for localhost
     if not hostname or hostname in ("localhost", "127.0.0.1"):
         return url, hostname or ""
-    
+
     # Skip resolution for HTTPS URLs - SSL/TLS requires hostname for SNI
     # Connecting to IP directly causes "SSLV3_ALERT_HANDSHAKE_FAILURE" because
     # the server doesn't know which certificate to present
     if parsed.scheme == "https":
         return url, hostname
-    
+
     # Only resolve HTTP URLs to IP
     try:
         resolved_ip = _resolve_hostname_with_explicit_resolvers(hostname)
         # Replace hostname with IP in URL
-        new_parsed = parsed._replace(netloc=f"{resolved_ip}:{parsed.port}" if parsed.port else resolved_ip)
+        new_parsed = parsed._replace(
+            netloc=f"{resolved_ip}:{parsed.port}" if parsed.port else resolved_ip
+        )
         ip_url = urlunparse(new_parsed)
         return ip_url, hostname
     except Exception:
@@ -207,7 +215,9 @@ def _health_response_ok(resp: requests.Response | None) -> tuple[bool, str]:
     return False, ""
 
 
-def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0, max_retries: int = 5) -> TaskAppHealth:
+def check_task_app_health(
+    base_url: str, api_key: str, *, timeout: float = 10.0, max_retries: int = 5
+) -> TaskAppHealth:
     # Send ALL known environment keys so the server can authorize any valid one
     import os
 
@@ -225,13 +235,16 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
     def _is_dns_error(exc: requests.RequestException) -> bool:
         """Check if exception is a DNS resolution error."""
         exc_str = str(exc).lower()
-        return any(phrase in exc_str for phrase in [
-            "failed to resolve",
-            "name resolution",
-            "nodename nor servname",
-            "name or service not known",
-            "[errno 8]",
-        ])
+        return any(
+            phrase in exc_str
+            for phrase in [
+                "failed to resolve",
+                "name resolution",
+                "nodename nor servname",
+                "name or service not known",
+                "[errno 8]",
+            ]
+        )
 
     health_resp: requests.Response | CurlResponse | None = None
     health_ok = False
@@ -276,13 +289,19 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
         use_ip_directly = ip_health_url != health_url  # True if we resolved to IP
 
         # Ensure Host header is set if we resolved to IP
-        if use_ip_directly and original_hostname and original_hostname not in ("localhost", "127.0.0.1"):
+        if (
+            use_ip_directly
+            and original_hostname
+            and original_hostname not in ("localhost", "127.0.0.1")
+        ):
             headers["Host"] = original_hostname
 
         try:
             # If using IP directly, disable SSL verification (cert is for hostname, not IP)
             if use_ip_directly:
-                health_resp = requests.get(ip_health_url, headers=headers, timeout=timeout, verify=False)
+                health_resp = requests.get(
+                    ip_health_url, headers=headers, timeout=timeout, verify=False
+                )
             else:
                 health_resp = http_get(ip_health_url, headers=headers, timeout=timeout)
             health_ok, note = _health_response_ok(health_resp)
@@ -311,8 +330,11 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
         except requests.RequestException as exc:
             if _is_dns_error(exc) and attempt < max_retries - 1:
                 # DNS error, retry with exponential backoff
-                delay = 2 ** attempt  # 1s, 2s, 4s, 8s, 16s
-                print(f"DNS resolution failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...", flush=True)
+                delay = 2**attempt  # 1s, 2s, 4s, 8s, 16s
+                print(
+                    f"DNS resolution failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...",
+                    flush=True,
+                )
                 time.sleep(delay)
                 continue
             # Not a DNS error or final attempt, record and break
@@ -351,13 +373,19 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
         use_ip_directly_task = ip_task_info_url != task_info_url  # True if we resolved to IP
 
         # Ensure Host header is set if we resolved to IP
-        if use_ip_directly_task and task_info_hostname and task_info_hostname not in ("localhost", "127.0.0.1"):
+        if (
+            use_ip_directly_task
+            and task_info_hostname
+            and task_info_hostname not in ("localhost", "127.0.0.1")
+        ):
             headers["Host"] = task_info_hostname
 
         try:
             # If using IP directly, disable SSL verification (cert is for hostname, not IP)
             if use_ip_directly_task:
-                task_resp = requests.get(ip_task_info_url, headers=headers, timeout=timeout, verify=False)
+                task_resp = requests.get(
+                    ip_task_info_url, headers=headers, timeout=timeout, verify=False
+                )
             else:
                 task_resp = http_get(ip_task_info_url, headers=headers, timeout=timeout)
             task_ok = bool(task_resp.status_code == 200)
@@ -375,8 +403,11 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
             if _is_dns_error(exc) and attempt < max_retries - 1:
                 # DNS error, retry with exponential backoff
                 # DNS will be re-resolved on next iteration
-                delay = 2 ** attempt  # 1s, 2s, 4s, 8s, 16s
-                print(f"DNS resolution failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...", flush=True)
+                delay = 2**attempt  # 1s, 2s, 4s, 8s, 16s
+                print(
+                    f"DNS resolution failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...",
+                    flush=True,
+                )
                 time.sleep(delay)
                 continue
             # Not a DNS error or final attempt, record and break

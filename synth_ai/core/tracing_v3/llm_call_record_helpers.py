@@ -25,10 +25,10 @@ from .lm_call_record_abstractions import (
 class BaseLMResponse:
     """
     Standard response format from language model API calls.
-    
+
     This is a simple dataclass-like object for compatibility with tracing helpers.
     Can be used as a dict-like object or with attributes.
-    
+
     Attributes:
         raw_response: The raw text response from the model
         structured_output: Optional parsed Pydantic model if structured output was requested
@@ -38,7 +38,7 @@ class BaseLMResponse:
         api_type: Optional API type used ("chat", "responses", or "harmony")
         usage: Optional usage dictionary with token counts and costs
     """
-    
+
     def __init__(
         self,
         raw_response: str,
@@ -56,11 +56,11 @@ class BaseLMResponse:
         self.reasoning = reasoning
         self.api_type = api_type
         self.usage = usage
-    
+
     def __getitem__(self, key: str) -> Any:
         """Allow dict-like access for backward compatibility."""
         return getattr(self, key)
-    
+
     def get(self, key: str, default: Any = None) -> Any:
         """Allow dict-like .get() for backward compatibility."""
         return getattr(self, key, default)

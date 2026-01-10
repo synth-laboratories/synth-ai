@@ -42,7 +42,9 @@ def test_httpx_guard():
             async with httpx.AsyncClient() as client:
                 try:
                     # This should NOT trigger a warning
-                    await client.post("http://localhost:8000/api/interceptor/v1/test/chat/completions", json={})
+                    await client.post(
+                        "http://localhost:8000/api/interceptor/v1/test/chat/completions", json={}
+                    )
                 except Exception:
                     pass  # Expected to fail, we just want to check for warnings
 
@@ -183,7 +185,7 @@ if __name__ == "__main__":
 
     all_passed = all(passed for _, passed in results)
 
-    print("\n" + ("="*50))
+    print("\n" + ("=" * 50))
     if all_passed:
         print("✓ All tests passed!")
         sys.exit(0)

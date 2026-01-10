@@ -30,7 +30,7 @@ def extract_routes_from_app(app: object) -> list[str]:
     routes = getattr(router, "routes", None)
     if routes is None:
         return []
-    return [getattr(route, "path", '') for route in routes]
+    return [getattr(route, "path", "") for route in routes]
 
 
 def build_fastapi_route_index(app: ASGIApp) -> dict[str, list[APIRoute]]:
@@ -51,7 +51,7 @@ def get_asgi_app(module: ModuleType) -> ASGIApp:
         if callable(candidate):
             return cast(ASGIApp, candidate)
         return None
-    
+
     app = _coerce_app(getattr(module, "app", None))
     if app:
         return app
@@ -72,7 +72,9 @@ def get_asgi_app(module: ModuleType) -> ASGIApp:
                 app = coerced
                 break
     if app is None:
-        raise RuntimeError("Task app must expose an ASGI application via `app = FastAPI(...)` or a callable factory.")
+        raise RuntimeError(
+            "Task app must expose an ASGI application via `app = FastAPI(...)` or a callable factory."
+        )
     return app
 
 
@@ -87,10 +89,7 @@ def get_module(path: Path) -> AstModule:
         raise ValueError(f"{path} contains invalid Python syntax: {exc}") from exc
 
 
-def load_module(
-    path: Path,
-    module_name: str | None = None
-) -> ModuleType:
+def load_module(path: Path, module_name: str | None = None) -> ModuleType:
     name = module_name or path.stem
     spec = importlib.spec_from_file_location(name, str(path))
     if spec is None or spec.loader is None:

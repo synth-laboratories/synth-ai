@@ -34,13 +34,16 @@ from synth_ai.core.urls import BACKEND_URL_BASE
 def __resolve_env_var(key: str) -> str:
     """Lazy import to avoid circular dependency."""
     from synth_ai.cli.lib.env import resolve_env_var
+
     return resolve_env_var(key)
 
 
 def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
     """Lazy import to avoid circular dependency."""
     from synth_ai.cli.lib.env import write_env_var_to_dotenv
+
     write_env_var_to_dotenv(key, value, **kwargs)
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +55,12 @@ CLOUDFLARE_DOCS_URL = "https://developers.cloudflare.com/cloudflare-one/connecti
 # Regex for parsing quick tunnel URLs
 # Match partial URLs too (in case they're split across lines)
 _URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.I)
-_URL_PARTIAL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudf", re.I)  # Partial match for truncated lines (ends with trycloudf)
-_URL_PARTIAL_RE2 = re.compile(r"https://[a-z0-9-]+\.tryclo", re.I)  # Partial match for truncated lines (ends with tryclo)
+_URL_PARTIAL_RE = re.compile(
+    r"https://[a-z0-9-]+\.trycloudf", re.I
+)  # Partial match for truncated lines (ends with trycloudf)
+_URL_PARTIAL_RE2 = re.compile(
+    r"https://[a-z0-9-]+\.tryclo", re.I
+)  # Partial match for truncated lines (ends with tryclo)
 
 # Global state - store tunnel process handles for cleanup
 _TUNNEL_PROCESSES: dict[int, subprocess.Popen] = {}
@@ -152,12 +159,12 @@ def _select_existing_tunnel(
     if desired_subdomain:
         target = _normalize_subdomain(desired_subdomain)
         for tunnel in tunnels:
-            if _normalize_subdomain(tunnel.subdomain) == target or _normalize_subdomain(
-                tunnel.hostname
-            ) == target:
+            if (
+                _normalize_subdomain(tunnel.subdomain) == target
+                or _normalize_subdomain(tunnel.hostname) == target
+            ):
                 print(
-                    f"ℹ️  Using managed tunnel {tunnel.url} "
-                    f"(matched subdomain '{tunnel.subdomain}')"
+                    f"ℹ️  Using managed tunnel {tunnel.url} (matched subdomain '{tunnel.subdomain}')"
                 )
                 return tunnel
         _print_tunnel_choices(tunnels, header="Available managed tunnels:")
@@ -302,7 +309,9 @@ def require_cloudflared() -> Path:
     )
 
 
-def run_cloudflared_cmd(args: list[str], *, env: Optional[dict[str, str]] = None) -> subprocess.Popen:
+def run_cloudflared_cmd(
+    args: list[str], *, env: Optional[dict[str, str]] = None
+) -> subprocess.Popen:
     """Spawn cloudflared subprocess (mirrors synth_ai.core.integrations.modal.run_modal_cmd)."""
     bin_path = require_cloudflared()
     cmd = [str(bin_path), *args]
@@ -326,6 +335,7 @@ def run_cloudflared_cmd(args: list[str], *, env: Optional[dict[str, str]] = None
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _resolve_cloudflared_download_url() -> str:
     system = platform.system().lower()
     arch = platform.machine().lower()
@@ -338,7 +348,9 @@ def _resolve_cloudflared_download_url() -> str:
     if arch in ("arm64", "aarch64"):
         arch_key = "arm64"
 
-    resp = requests.get(f"{CLOUDFLARED_RELEASES}/v1/{platform_key}/{arch_key}/versions/stable", timeout=30.0)
+    resp = requests.get(
+        f"{CLOUDFLARED_RELEASES}/v1/{platform_key}/{arch_key}/versions/stable", timeout=30.0
+    )
     resp.raise_for_status()
     data = resp.json()
     url = data.get("url")
@@ -393,7 +405,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
         RuntimeError: If tunnel fails to start or URL cannot be parsed
     """
     bin_path = require_cloudflared()
-    
+
     # Verify cloudflared can run before attempting tunnel
     try:
         test_proc = subprocess.run(
@@ -421,7 +433,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
             f"Binary path: {bin_path}. "
             f"Try reinstalling: cloudflared update or brew reinstall cloudflared"
         ) from e
-    
+
     # Capture stderr separately for better error diagnostics
     # Use --config /dev/null to prevent loading any user config file
     # This fixes issues where ~/.cloudflared/config.yml has ingress rules
@@ -438,7 +450,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
     url: Optional[str] = None
     output_lines: list[str] = []
     stderr_lines: list[str] = []
-    
+
     # Use select for non-blocking I/O to avoid hanging on readline()
     import select
 
@@ -447,10 +459,10 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
     while time.time() - start < wait_s:
         elapsed = time.time() - start
         remaining_time = wait_s - elapsed
-        
+
         if remaining_time <= 0:
             break
-            
+
         if proc.poll() is not None:
             # Process exited early - try to read all available output
             try:
@@ -458,7 +470,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
             except subprocess.TimeoutExpired:
                 proc.kill()
                 stdout, stderr = proc.communicate()
-            
+
             # Combine stdout and stderr for error message
             all_output = ""
             if stdout:
@@ -469,12 +481,18 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                 all_output += f"Captured stdout:\n{''.join(output_lines)}\n"
             if stderr_lines:
                 all_output += f"Captured stderr:\n{''.join(stderr_lines)}\n"
-            
+
             # Check for rate limiting (429 Too Many Requests)
             is_rate_limited = False
-            if stderr and "429" in stderr and "Too Many Requests" in stderr or stderr and "rate limit" in stderr.lower():
+            if (
+                stderr
+                and "429" in stderr
+                and "Too Many Requests" in stderr
+                or stderr
+                and "rate limit" in stderr.lower()
+            ):
                 is_rate_limited = True
-            
+
             # Add diagnostic info
             if is_rate_limited:
                 error_msg = (
@@ -511,8 +529,10 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                     error_msg += "  2. cloudflared needs to be updated (try: cloudflared update)\n"
                     error_msg += "  3. System-level issue preventing cloudflared from running\n"
                     error_msg += "  4. Port conflict or network issue\n"
-                    error_msg += f"\nTry running manually: {bin_path} tunnel --url http://127.0.0.1:{port}"
-            
+                    error_msg += (
+                        f"\nTry running manually: {bin_path} tunnel --url http://127.0.0.1:{port}"
+                    )
+
             raise RuntimeError(error_msg)
 
         # Read from both stdout and stderr (cloudflared prints URL to stderr!)
@@ -525,7 +545,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
         if proc.stderr:
             with suppress(ValueError, OSError):
                 fds_to_check.append(("stderr", proc.stderr.fileno(), proc.stderr))
-        
+
         if not fds_to_check:
             if time.time() - start >= wait_s:
                 break
@@ -536,7 +556,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
         try:
             fds = [fd for _, fd, _ in fds_to_check]
             ready, _, _ = select.select(fds, [], [], min(0.1, remaining_time))
-            
+
             if ready:
                 # Check which file descriptors are ready
                 for name, fd, stream in fds_to_check:
@@ -549,13 +569,13 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                                 output_lines.append(line)
                             else:
                                 stderr_lines.append(line)
-                            
+
                             # Check current line for URL
                             match = _URL_RE.search(line)
                             if match:
                                 url = match.group(0)
                                 break
-                            
+
                             # Check for partial URL (truncated line) - wait for more data
                             partial_match = _URL_PARTIAL_RE.search(line)
                             if partial_match:
@@ -579,21 +599,21 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                                                 line += more_line
                                         except (OSError, ValueError):
                                             pass
-                                
+
                                 # Now check accumulated output for full URL
-                                all_accumulated = ''.join(output_lines + stderr_lines)
+                                all_accumulated = "".join(output_lines + stderr_lines)
                                 match = _URL_RE.search(all_accumulated)
                                 if match:
                                     url = match.group(0)
                                     break
-                            
+
                             # Also check accumulated output (URL might be split across lines)
-                            all_accumulated = ''.join(output_lines + stderr_lines)
+                            all_accumulated = "".join(output_lines + stderr_lines)
                             match = _URL_RE.search(all_accumulated)
                             if match:
                                 url = match.group(0)
                                 break
-                
+
                 if url:
                     break
             else:
@@ -640,14 +660,14 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                         if more_line:
                             stderr_lines.append(more_line)
                             line += more_line
-            
+
             # Check accumulated output
-            all_accumulated = ''.join(output_lines + stderr_lines)
+            all_accumulated = "".join(output_lines + stderr_lines)
             match = _URL_RE.search(all_accumulated)
             if match:
                 url = match.group(0)
                 break
-            
+
             if time.time() - start >= wait_s:
                 break
             time.sleep(0.05)
@@ -660,7 +680,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
         except subprocess.TimeoutExpired:
             proc.kill()
             stdout, stderr = proc.communicate()
-        
+
         all_output = ""
         if stdout:
             all_output += f"STDOUT:\n{stdout}\n"
@@ -670,14 +690,14 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
             all_output += f"Captured stdout:\n{''.join(output_lines)}\n"
         if stderr_lines:
             all_output += f"Captured stderr:\n{''.join(stderr_lines)}\n"
-        
+
         # Try to extract URL from accumulated output even if timeout occurred
-        all_accumulated = ''.join(output_lines + stderr_lines)
+        all_accumulated = "".join(output_lines + stderr_lines)
         if stdout:
             all_accumulated += stdout
         if stderr:
             all_accumulated += stderr
-        
+
         # Check for partial URL and try to reconstruct
         if not url:
             # Try first partial pattern (ends with trycloudf)
@@ -690,7 +710,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                 if _URL_RE.match(test_url):
                     url = test_url
                     logger.info(f"Reconstructed URL from partial match (trycloudf): {url}")
-            
+
             # Try second partial pattern (ends with tryclo)
             if not url:
                 partial_match2 = _URL_PARTIAL_RE2.search(all_accumulated)
@@ -701,10 +721,10 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                     if _URL_RE.match(test_url):
                         url = test_url
                         logger.info(f"Reconstructed URL from partial match (tryclo): {url}")
-        
+
         if url:
             return url, proc
-        
+
         error_msg = (
             f"Failed to parse trycloudflare URL from cloudflared output after {wait_s}s.\n"
             f"Command: {' '.join([str(bin_path), 'tunnel', '--url', f'http://127.0.0.1:{port}'])}\n"
@@ -713,7 +733,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
             error_msg += f"Output:\n{all_output[:1000]}"
         else:
             error_msg += "No output captured."
-        
+
         raise RuntimeError(error_msg)
 
     return url, proc
@@ -723,21 +743,21 @@ async def resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
     """
     Resolve hostname using explicit resolvers (1.1.1.1, 8.8.8.8) first,
     then fall back to system resolver.
-    
+
     This fixes resolver path issues where system DNS is slow or blocking.
-    
+
     Args:
         hostname: Hostname to resolve
-    
+
     Returns:
         Resolved IP address
-    
+
     Raises:
         socket.gaierror: If resolution fails with all resolvers
     """
     timeout = float(os.getenv("SYNTH_TUNNEL_DNS_TIMEOUT_PER_ATTEMPT_SECS", "5"))
     loop = asyncio.get_event_loop()
-    
+
     # Try various dig resolvers, then fall back to system resolver
     # Order: 1.1.1.1, 8.8.8.8, then plain dig (uses system's configured DNS but bypasses cache)
     resolvers = [
@@ -819,7 +839,9 @@ async def verify_tunnel_dns_resolution(
     attempt = 0
     start_time = loop.time()
 
-    logger.debug(f"Verifying DNS resolution for {name}: {hostname} (timeout {timeout_seconds:.0f}s)...")
+    logger.debug(
+        f"Verifying DNS resolution for {name}: {hostname} (timeout {timeout_seconds:.0f}s)..."
+    )
 
     last_exc: Optional[Exception] = None
     spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -843,7 +865,9 @@ async def verify_tunnel_dns_resolution(
         try:
             # 1. Resolve via explicit resolvers (1.1.1.1 / 8.8.8.8) → IP
             resolved_ip = await resolve_hostname_with_explicit_resolvers(hostname)
-            logger.debug(f"DNS resolution successful (attempt {attempt}): {hostname} -> {resolved_ip}")
+            logger.debug(
+                f"DNS resolution successful (attempt {attempt}): {hostname} -> {resolved_ip}"
+            )
 
             # 2. HTTP connectivity: use curl with --resolve to bypass system DNS cache
             #    The system resolver may have negative-cached the hostname, so we use
@@ -857,10 +881,17 @@ async def verify_tunnel_dns_resolution(
                 # Build curl command with --resolve to bypass system DNS
                 # Format: --resolve hostname:port:ip
                 curl_cmd = [
-                    "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-                    "--max-time", "5",
+                    "curl",
+                    "-s",
+                    "-o",
+                    "/dev/null",
+                    "-w",
+                    "%{http_code}",
+                    "--max-time",
+                    "5",
                     "-k",  # Allow self-signed certs
-                    "--resolve", f"{hostname}:{port}:{resolved_ip}",
+                    "--resolve",
+                    f"{hostname}:{port}:{resolved_ip}",
                     test_url,
                 ]
 
@@ -869,6 +900,7 @@ async def verify_tunnel_dns_resolution(
                     # Try to load .env file if available
                     try:
                         from dotenv import load_dotenv
+
                         load_dotenv(override=False)
                     except ImportError:
                         pass
@@ -881,7 +913,11 @@ async def verify_tunnel_dns_resolution(
                     lambda: subprocess.run(curl_cmd, capture_output=True, text=True, timeout=10),
                 )
 
-                status_code = int(result.stdout.strip()) if result.returncode == 0 and result.stdout.strip().isdigit() else 0
+                status_code = (
+                    int(result.stdout.strip())
+                    if result.returncode == 0 and result.stdout.strip().isdigit()
+                    else 0
+                )
 
                 # Accept various status codes that indicate the tunnel is working:
                 # - 200: OK (service is running)
@@ -959,36 +995,37 @@ async def open_quick_tunnel_with_dns_verification(
 ) -> Tuple[str, subprocess.Popen]:
     """
     Open a quick Cloudflare tunnel with DNS verification and retry logic.
-    
+
     This wraps open_quick_tunnel with DNS verification to ensure the tunnel
     is actually reachable before returning.
-    
+
     Args:
         port: Local port to tunnel to
         wait_s: Maximum time to wait for URL in seconds
         max_retries: Maximum number of tunnel creation retries (default: from SYNTH_TUNNEL_MAX_RETRIES env var, or 2)
         dns_timeout_s: Maximum time to wait for DNS resolution (default: from SYNTH_TUNNEL_DNS_TIMEOUT_SECS env var, or 60)
         api_key: Optional API key for health check authentication (defaults to ENVIRONMENT_API_KEY env var)
-    
+
     Returns:
         Tuple of (public_url, process_handle)
-    
+
     Raises:
         RuntimeError: If tunnel creation or DNS verification fails after retries
     """
     max_retries = max_retries or int(os.getenv("SYNTH_TUNNEL_MAX_RETRIES", "2"))
     dns_timeout_s = dns_timeout_s or float(os.getenv("SYNTH_TUNNEL_DNS_TIMEOUT_SECS", "60"))
-    
+
     # Get API key from parameter or env var
     if api_key is None:
         # Try to load .env file if available
         try:
             from dotenv import load_dotenv
+
             load_dotenv(override=False)
         except ImportError:
             pass
         api_key = os.getenv("ENVIRONMENT_API_KEY")
-    
+
     last_err: Optional[Exception] = None
     for attempt in range(1, max_retries + 1):
         proc: Optional[subprocess.Popen] = None
@@ -996,15 +1033,20 @@ async def open_quick_tunnel_with_dns_verification(
             logger.info(f"Tunnel attempt {attempt}/{max_retries}")
             url, proc = open_quick_tunnel(port, wait_s=wait_s)
             logger.info(f"Tunnel URL obtained: {url}")
-            
+
             # Give tunnel a moment to establish before verification
             # Cloudflare tunnels can take a few seconds to become fully ready
             logger.debug("Waiting 3s for tunnel to establish before verification...")
             await asyncio.sleep(3.0)
-            
+
             # Verify DNS (this is where failures usually happen)
-            await verify_tunnel_dns_resolution(url, timeout_seconds=dns_timeout_s, name=f"tunnel attempt {attempt}", api_key=api_key)
-            
+            await verify_tunnel_dns_resolution(
+                url,
+                timeout_seconds=dns_timeout_s,
+                name=f"tunnel attempt {attempt}",
+                api_key=api_key,
+            )
+
             logger.info("Tunnel verified and ready!")
             return url, proc
         except Exception as e:
@@ -1031,7 +1073,7 @@ async def open_quick_tunnel_with_dns_verification(
                 await asyncio.sleep(10.0)
             else:
                 break
-    
+
     assert last_err is not None
     raise last_err
 
@@ -1039,12 +1081,12 @@ async def open_quick_tunnel_with_dns_verification(
 async def check_rate_limit_status(test_port: int = 19999) -> dict[str, Any]:
     """
     Check if Cloudflare is currently rate-limiting quick tunnel creation.
-    
+
     This attempts to create a quick tunnel and checks for rate limit errors.
-    
+
     Args:
         test_port: Port to use for test tunnel (should be available)
-    
+
     Returns:
         dict with keys:
             - is_rate_limited: bool
@@ -1055,13 +1097,13 @@ async def check_rate_limit_status(test_port: int = 19999) -> dict[str, Any]:
     import http.server
     import socketserver
     import threading
-    
+
     bin_path = require_cloudflared()
-    
+
     # Start a dummy HTTP server
     server = None
     server_thread = None
-    
+
     try:
         handler = http.server.SimpleHTTPRequestHandler
         server = socketserver.TCPServer(("127.0.0.1", test_port), handler)
@@ -1069,20 +1111,27 @@ async def check_rate_limit_status(test_port: int = 19999) -> dict[str, Any]:
         server_thread = threading.Thread(target=server.serve_forever, daemon=True)
         server_thread.start()
         await asyncio.sleep(0.5)
-        
+
         # Try to create a tunnel (use --config /dev/null to ignore user config)
         proc = subprocess.Popen(
-            [str(bin_path), "tunnel", "--config", "/dev/null", "--url", f"http://127.0.0.1:{test_port}"],
+            [
+                str(bin_path),
+                "tunnel",
+                "--config",
+                "/dev/null",
+                "--url",
+                f"http://127.0.0.1:{test_port}",
+            ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
-        
+
         # Wait a few seconds
         start = time.time()
         output_lines = []
         stderr_lines = []
-        
+
         while time.time() - start < 3.0:
             if proc.poll() is not None:
                 stdout, stderr = proc.communicate()
@@ -1092,30 +1141,31 @@ async def check_rate_limit_status(test_port: int = 19999) -> dict[str, Any]:
                     stderr_lines.extend(stderr.splitlines())
                 break
             await asyncio.sleep(0.1)
-        
+
         # Clean up
         proc.terminate()
         try:
             proc.wait(timeout=2.0)
         except subprocess.TimeoutExpired:
             proc.kill()
-        
+
         all_output = "\n".join(stderr_lines + output_lines)
-        
+
         # Check for rate limit
         is_rate_limited = False
         if proc.returncode == 1 and (
-            ("429" in all_output and "Too Many Requests" in all_output) or "rate limit" in all_output.lower()
+            ("429" in all_output and "Too Many Requests" in all_output)
+            or "rate limit" in all_output.lower()
         ):
             is_rate_limited = True
-        
+
         return {
             "is_rate_limited": is_rate_limited,
             "exit_code": proc.returncode,
             "error_message": all_output if is_rate_limited else None,
             "output": all_output,
         }
-        
+
     finally:
         if server:
             server.shutdown()
@@ -1239,18 +1289,14 @@ async def wait_for_cloudflared_connection(
                         line_lower = line.lower()
                         for pattern in connection_patterns:
                             if pattern.lower() in line_lower:
-                                logger.info(
-                                    f"cloudflared connected after {elapsed:.1f}s: {line}"
-                                )
+                                logger.info(f"cloudflared connected after {elapsed:.1f}s: {line}")
                                 return True
 
                         # Check for fatal errors
                         for pattern in error_patterns:
                             if pattern.lower() in line_lower:
                                 logger.error(f"cloudflared error detected: {line}")
-                                raise RuntimeError(
-                                    f"cloudflared connection failed: {line}"
-                                )
+                                raise RuntimeError(f"cloudflared connection failed: {line}")
             except (ValueError, OSError) as e:
                 logger.debug(f"Error reading cloudflared output: {e}")
 
@@ -1430,6 +1476,7 @@ async def rotate_tunnel(
         error_detail = exc.response.text
         try:
             import json
+
             error_json = json.loads(error_detail)
             error_detail = str(error_json.get("detail", error_detail))
         except Exception:
@@ -1450,9 +1497,7 @@ async def rotate_tunnel(
         ) from exc
     except httpx.RequestError as exc:
         raise RuntimeError(
-            f"Failed to connect to backend when rotating tunnel:\n"
-            f"  URL: {url}\n"
-            f"  Error: {exc}"
+            f"Failed to connect to backend when rotating tunnel:\n  URL: {url}\n  Error: {exc}"
         ) from exc
 
 
@@ -1514,11 +1559,12 @@ async def create_tunnel(
         error_detail = exc.response.text
         try:
             import json
+
             error_json = json.loads(error_detail)
             error_detail = str(error_json.get("detail", error_detail))
         except Exception:
             pass
-        
+
         # Provide helpful error message
         if exc.response.status_code == 401:
             raise RuntimeError(
@@ -1581,7 +1627,7 @@ async def wait_for_health_check(
     """
     if api_key is None:
         api_key = os.environ.get("ENVIRONMENT_API_KEY", "")
-    
+
     health_url = f"http://{host}:{port}/health"
     headers = {"X-API-Key": api_key} if api_key else {}
     start = time.time()
@@ -1719,6 +1765,7 @@ async def deploy_app_tunnel(
     if env_file and env_file.exists():
         try:
             from dotenv import load_dotenv
+
             load_dotenv(str(env_file), override=True)
             # Also explicitly set critical env vars to ensure they're available
             # Read the file directly to set vars even if dotenv fails
@@ -1749,7 +1796,7 @@ async def deploy_app_tunnel(
                 logger.warning(f"Failed to read env_file directly: {file_exc}")
         except Exception as exc:
             logger.warning(f"Failed to load env_file {env_file}: {exc}")
-    
+
     os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
     if cfg.trace:
         os.environ["TASKAPP_TRACING_ENABLED"] = "1"
@@ -1762,14 +1809,17 @@ async def deploy_app_tunnel(
 
     # Always use non-daemon thread so it survives when main process exits
     _start_uvicorn_background(app, cfg.host, cfg.port, daemon=False)
-    
+
     # Only wait for health check if wait mode is enabled (for AI agents, skip to avoid stalls)
     if wait or keep_alive:
-        await wait_for_health_check(cfg.host, cfg.port, cfg.env_api_key, timeout=health_check_timeout)
+        await wait_for_health_check(
+            cfg.host, cfg.port, cfg.env_api_key, timeout=health_check_timeout
+        )
     else:
         # In background mode, give it a short moment to start, but don't wait for full health check
         # This prevents indefinite stalls while still allowing the server to start
         import asyncio
+
         await asyncio.sleep(1.0)  # Brief delay to let server start
 
     tunnel_proc: Optional[subprocess.Popen] = None
@@ -1782,12 +1832,15 @@ async def deploy_app_tunnel(
             # Record tunnel for scan command
             try:
                 from synth_ai.cli.lib.tunnel_records import record_tunnel
+
                 record_tunnel(
                     url=url,
                     port=cfg.port,
                     mode="quick",
                     pid=tunnel_proc.pid if tunnel_proc else None,
-                    hostname=url.replace("https://", "").split("/")[0] if url.startswith("https://") else None,
+                    hostname=url.replace("https://", "").split("/")[0]
+                    if url.startswith("https://")
+                    else None,
                     local_host=cfg.host,
                     task_app_path=str(cfg.task_app_path) if cfg.task_app_path else None,
                 )
@@ -1822,6 +1875,7 @@ async def deploy_app_tunnel(
             # Record tunnel for scan command
             try:
                 from synth_ai.cli.lib.tunnel_records import record_tunnel
+
                 record_tunnel(
                     url=url,
                     port=cfg.port,
@@ -1841,7 +1895,9 @@ async def deploy_app_tunnel(
             # Background mode: print URL and return immediately
             # Processes will keep running in background
             print(f"✓ Tunnel ready: {url}")
-            print(f"⏳ Tunnel running in background (PID: {tunnel_proc.pid if tunnel_proc else 'N/A'})")
+            print(
+                f"⏳ Tunnel running in background (PID: {tunnel_proc.pid if tunnel_proc else 'N/A'})"
+            )
             print("   Press Ctrl+C in this process to stop, or use: pkill -f cloudflared")
 
         return url
@@ -1854,6 +1910,7 @@ async def deploy_app_tunnel(
         # Remove record if it was created
         try:
             from synth_ai.cli.lib.tunnel_records import remove_tunnel_record
+
             remove_tunnel_record(cfg.port)
         except Exception:
             pass

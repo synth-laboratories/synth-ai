@@ -168,7 +168,9 @@ class ContextLearningJob:
         if not isinstance(evaluation_seeds, list):
             raise TrainError("[context_learning].evaluation_seeds must be a list")
 
-        env_section = section.get("environment") if isinstance(section.get("environment"), dict) else {}
+        env_section = (
+            section.get("environment") if isinstance(section.get("environment"), dict) else {}
+        )
         preflight_script = env_section.get("preflight_script")
         postflight_script = env_section.get("postflight_script")
 
@@ -183,7 +185,9 @@ class ContextLearningJob:
             p = Path(str(postflight_path))
             postflight_script = p.read_text(encoding="utf-8")
 
-        algo_section = section.get("algorithm") if isinstance(section.get("algorithm"), dict) else {}
+        algo_section = (
+            section.get("algorithm") if isinstance(section.get("algorithm"), dict) else {}
+        )
 
         algorithm_config: Dict[str, Any] = {}
         for key in (
@@ -234,7 +238,11 @@ class ContextLearningJob:
             raise RuntimeError(
                 f"Context learning submission failed: {resp.status_code} {resp.text[:500]}"
             )
-        js = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+        js = (
+            resp.json()
+            if resp.headers.get("content-type", "").startswith("application/json")
+            else {}
+        )
         job_id = js.get("job_id")
         if not job_id:
             raise RuntimeError("Response missing job_id")
@@ -290,9 +298,7 @@ class ContextLearningJob:
         headers = {"Authorization": f"Bearer {self.config.api_key}"}
         resp = http_get(url, headers=headers)
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Failed to fetch best script: {resp.status_code} {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Failed to fetch best script: {resp.status_code} {resp.text[:500]}")
         js = resp.json()
         return BestScriptResult(
             job_id=js.get("job_id", self._job_id),

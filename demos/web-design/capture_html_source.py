@@ -1,6 +1,7 @@
 """
 Capture HTML source code from original webpages.
 """
+
 import asyncio
 import json
 from pathlib import Path
@@ -80,12 +81,9 @@ async def process_screenshot_to_html_mapping():
                 # This is imperfect, we'll handle common cases
                 continue
 
-            results.append({
-                "site": site_name,
-                "screenshot": str(screenshot),
-                "url": url,
-                "filename": filename
-            })
+            results.append(
+                {"site": site_name, "screenshot": str(screenshot), "url": url, "filename": filename}
+            )
 
     return results
 
@@ -103,41 +101,39 @@ async def capture_all_html():
         print(f"\n[{i}/{len(mappings)}] Capturing: {mapping['site']} - {mapping['url']}")
 
         try:
-            html = await capture_html(mapping['url'])
+            html = await capture_html(mapping["url"])
 
             # Save HTML
             output_file = output_dir / f"{mapping['site']}_{mapping['filename']}.html"
-            with open(output_file, 'w', encoding='utf-8') as f:
+            with open(output_file, "w", encoding="utf-8") as f:
                 f.write(html)
 
-            results.append({
-                **mapping,
-                "html_file": str(output_file),
-                "html_length": len(html),
-                "success": True
-            })
+            results.append(
+                {
+                    **mapping,
+                    "html_file": str(output_file),
+                    "html_length": len(html),
+                    "success": True,
+                }
+            )
 
             print(f"  ✓ Captured {len(html)} characters")
 
         except Exception as e:
             print(f"  ✗ Error: {e}")
-            results.append({
-                **mapping,
-                "error": str(e),
-                "success": False
-            })
+            results.append({**mapping, "error": str(e), "success": False})
 
         # Small delay between requests
         await asyncio.sleep(2)
 
     # Save mapping
     mapping_file = Path(__file__).parent / "html_source_mapping.json"
-    with open(mapping_file, 'w') as f:
+    with open(mapping_file, "w") as f:
         json.dump(results, f, indent=2)
 
     print(f"\n✓ Saved mapping to {mapping_file}")
 
-    successful = sum(1 for r in results if r.get('success'))
+    successful = sum(1 for r in results if r.get("success"))
     print(f"\nCaptured {successful}/{len(results)} HTML sources successfully")
 
     return results

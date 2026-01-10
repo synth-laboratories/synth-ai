@@ -22,12 +22,10 @@ TOOL_SCHEMA = {
         "description": "Classify the iris species",
         "parameters": {
             "type": "object",
-            "properties": {
-                "species": {"type": "string", "description": "The classified species"}
-            },
-            "required": ["species"]
-        }
-    }
+            "properties": {"species": {"type": "string", "description": "The classified species"}},
+            "required": ["species"],
+        },
+    },
 }
 
 
@@ -128,10 +126,7 @@ async def evaluate_baseline(model: str, seeds: list, max_concurrency: int = 20) 
     semaphore = asyncio.Semaphore(max_concurrency)
 
     # Create all tasks
-    tasks = [
-        evaluate_single(client, model, seed, dataset[seed], semaphore)
-        for seed in valid_seeds
-    ]
+    tasks = [evaluate_single(client, model, seed, dataset[seed], semaphore) for seed in valid_seeds]
 
     print(f"Running {len(tasks)} evaluations with concurrency={max_concurrency}...")
 
@@ -179,10 +174,10 @@ async def main():
     print(f"\nEvaluating baseline for {args.model} on {len(seeds)} seeds...")
     result = await evaluate_baseline(args.model, seeds)
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"BASELINE RESULT: {result['model']}")
-    print(f"Accuracy: {result['accuracy']*100:.1f}% ({result['correct']}/{result['total']})")
-    print(f"{'='*50}")
+    print(f"Accuracy: {result['accuracy'] * 100:.1f}% ({result['correct']}/{result['total']})")
+    print(f"{'=' * 50}")
 
 
 if __name__ == "__main__":

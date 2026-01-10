@@ -35,6 +35,7 @@ See Also:
     - Training reference: /training/sft
     - Quickstart: /quickstart/supervised-fine-tuning
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -56,6 +57,7 @@ class JobConfig(ExtraModel):
         data_path: Path to JSONL training data file.
         poll_seconds: Polling interval for job status. Default: 10.
     """
+
     model: str
     data: str | None = None
     data_path: str | None = None
@@ -69,6 +71,7 @@ class SFTDataConfig(ExtraModel):
         topology: Data loading topology configuration.
         validation_path: Path to validation JSONL file for eval during training.
     """
+
     topology: dict[str, Any] | None = None
     validation_path: str | None = None
 
@@ -84,6 +87,7 @@ class TrainingValidationConfig(ExtraModel):
         metric_for_best_model: Metric to use for best model selection (e.g., "eval_loss").
         greater_is_better: Whether higher metric is better. Default: False for loss.
     """
+
     enabled: bool | None = None
     evaluation_strategy: str | None = None
     eval_steps: int | None = None
@@ -101,6 +105,7 @@ class TrainingConfig(ExtraModel):
         validation: Validation configuration.
         lora: LoRA hyperparameters (r, alpha, dropout, target_modules).
     """
+
     mode: str | None = None
     use_qlora: bool | None = None
     validation: TrainingValidationConfig | None = None
@@ -120,6 +125,7 @@ class HyperparametersParallelism(ExtraModel):
         tensor_parallel_size: Tensor parallelism degree.
         pipeline_parallel_size: Pipeline parallelism degree.
     """
+
     use_deepspeed: bool | None = None
     deepspeed_stage: int | None = None
     fsdp: bool | None = None
@@ -146,6 +152,7 @@ class HyperparametersConfig(ExtraModel):
         weight_decay: Weight decay coefficient. Default: 0.01.
         parallelism: Distributed training configuration.
     """
+
     n_epochs: int = 1
     batch_size: int | None = None
     global_batch: int | None = None
@@ -212,6 +219,7 @@ class SFTConfig(ExtraModel):
         - `sft.checkpoint.saved` - Checkpoint saved
         - `sft.succeeded` / `sft.failed` - Terminal states
     """
+
     algorithm: AlgorithmConfig | None = None
     job: JobConfig
     policy: PolicyConfig | None = None  # NEW: unified policy section

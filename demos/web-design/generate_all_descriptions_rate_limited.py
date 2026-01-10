@@ -1,6 +1,7 @@
 """
 Generate functional descriptions with proper rate limiting.
 """
+
 import os
 import json
 import asyncio
@@ -58,6 +59,7 @@ Now, analyze this screenshot and provide the functional description following th
 
 class RateLimiter:
     """Rate limiter that ensures we don't exceed API quota."""
+
     def __init__(self, max_requests_per_minute: int = 9):
         self.max_requests = max_requests_per_minute
         self.requests = []
@@ -82,7 +84,9 @@ class RateLimiter:
             self.requests.append(time.time())
 
 
-async def generate_functional_description(image_path: str, api_key: str, rate_limiter: RateLimiter, model_name: str = 'gemini-2.5-flash') -> dict:
+async def generate_functional_description(
+    image_path: str, api_key: str, rate_limiter: RateLimiter, model_name: str = "gemini-2.5-flash"
+) -> dict:
     """Generate functional description from screenshot using Gemini."""
     await rate_limiter.acquire()
 
@@ -93,26 +97,22 @@ async def generate_functional_description(image_path: str, api_key: str, rate_li
     model = genai.GenerativeModel(model_name)
 
     # Load image
-    with open(image_path, 'rb') as f:
+    with open(image_path, "rb") as f:
         image_data = f.read()
 
     # Create the prompt with image
     loop = asyncio.get_event_loop()
     response = await loop.run_in_executor(
         None,
-        lambda: model.generate_content([
-            FUNCTIONAL_DESCRIPTION_PROMPT,
-            {
-                'mime_type': 'image/png',
-                'data': image_data
-            }
-        ])
+        lambda: model.generate_content(
+            [FUNCTIONAL_DESCRIPTION_PROMPT, {"mime_type": "image/png", "data": image_data}]
+        ),
     )
 
     return {
         "image_path": str(image_path),
         "functional_description": response.text,
-        "model": model_name
+        "model": model_name,
     }
 
 
@@ -143,7 +143,7 @@ async def main():
     # Check if we already have descriptions
     output_file = Path(__file__).parent / "all_functional_descriptions.json"
     if output_file.exists():
-        with open(output_file, 'r') as f:
+        with open(output_file, "r") as f:
             existing_results = json.load(f)
         existing_paths = {r["image_path"] for r in existing_results}
         print(f"Found {len(existing_results)} existing descriptions")
@@ -160,7 +160,7 @@ async def main():
         return
 
     # Rotate between different models to spread quota
-    models = ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-2.0-flash-thinking-exp']
+    models = ["gemini-2.5-flash", "gemini-2.0-flash-exp", "gemini-2.0-flash-thinking-exp"]
 
     # Create rate limiter (50 requests per minute total across all models)
     rate_limiter = RateLimiter(max_requests_per_minute=50)
@@ -174,20 +174,19 @@ async def main():
         # Rotate through models
         model_name = models[idx % len(models)]
         try:
-            result = await generate_functional_description(str(img_path), api_key, rate_limiter, model_name)
+            result = await generate_functional_description(
+                str(img_path), api_key, rate_limiter, model_name
+            )
             results.append(result)
 
             # Save incrementally every 10 images
             if len(results) % 10 == 0:
-                with open(output_file, 'w') as f:
+                with open(output_file, "w") as f:
                     json.dump(results, f, indent=2)
 
             return result
         except Exception as e:
-            error = {
-                "image_path": str(img_path),
-                "error": str(e)
-            }
+            error = {"image_path": str(img_path), "error": str(e)}
             failed.append(error)
             return None
 
@@ -202,7 +201,7 @@ async def main():
     await async_tqdm.gather(*tasks, desc="Generating descriptions")
 
     # Final save
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
 
     print(f"\n✓ Generated {len(results)} functional descriptions")
@@ -214,7 +213,7 @@ async def main():
             print(f"  - {Path(f['image_path']).name}: {f['error']}")
 
         failed_file = Path(__file__).parent / "failed_descriptions.json"
-        with open(failed_file, 'w') as f:
+        with open(failed_file, "w") as f:
             json.dump(failed, f, indent=2)
         print(f"✓ Failed images saved to {failed_file}")
 

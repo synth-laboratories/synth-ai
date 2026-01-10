@@ -19,6 +19,7 @@ client = genai.Client(api_key=api_key)
 # Get an original image from the cached dataset
 CACHE_DIR = Path.home() / ".cache" / "synth_ai" / "web_design" / "task_images" / "resized_384"
 
+
 def get_original_image() -> Path:
     """Get the Astral homepage (about page slice 1) as reference."""
     # Use the about page slice 1 which shows the full homepage design
@@ -31,10 +32,12 @@ def get_original_image() -> Path:
         raise FileNotFoundError(f"No original images found in {CACHE_DIR}")
     return images[0]
 
+
 def encode_image(path: Path) -> str:
     """Encode image to base64."""
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
+
 
 def score_image(generated_path: Path, original_path: Path) -> dict:
     """Score a generated image against original using VLM."""
@@ -60,15 +63,16 @@ Respond with ONLY a JSON object in this exact format:
         original_bytes = f.read()
 
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model="gemini-2.5-flash",
         contents=[
             prompt,
             types.Part.from_bytes(data=generated_bytes, mime_type="image/png"),
             types.Part.from_bytes(data=original_bytes, mime_type="image/png"),
-        ]
+        ],
     )
 
     return response.text
+
 
 def main():
     comparison_dir = Path(__file__).parent / "comparison_images"
@@ -90,6 +94,7 @@ def main():
     print("\n" + "=" * 60)
     print("COMPARISON COMPLETE")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     main()

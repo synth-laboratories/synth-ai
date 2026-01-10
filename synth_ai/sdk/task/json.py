@@ -70,9 +70,7 @@ def to_jsonable(
                 dumped = getattr(value, attr)()  # type: ignore[misc]
             except TypeError:
                 dumped = getattr(value, attr)(exclude_none=False)  # pragma: no cover
-            return to_jsonable(
-                dumped, _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth
-            )
+            return to_jsonable(dumped, _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth)
 
     obj_id = id(value)
     if obj_id in _visited:
@@ -104,8 +102,6 @@ def to_jsonable(
 
     if hasattr(value, "__dict__"):
         _visited.add(obj_id)
-        return to_jsonable(
-            vars(value), _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth
-        )
+        return to_jsonable(vars(value), _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth)
 
     return repr(value)

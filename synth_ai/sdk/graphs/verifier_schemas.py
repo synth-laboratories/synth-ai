@@ -28,8 +28,7 @@ class ReviewPayload(BaseModel):
     """Rubric review (event-level or outcome-level)."""
 
     criteria: dict[str, CriterionScorePayload] = Field(
-        default_factory=dict,
-        description="Map of criterion keys to their scores"
+        default_factory=dict, description="Map of criterion keys to their scores"
     )
     total: float = Field(default=0.0, description="Aggregated total score")
     summary: Optional[str] = Field(None, description="Optional text summary")
@@ -45,16 +44,14 @@ class VerifierScoreResponse(BaseModel):
 
     status: Literal["ok", "failed"] = Field(default="ok", description="Request status")
     event_reviews: list[ReviewPayload] = Field(
-        default_factory=list,
-        description="List of per-event rubric reviews (one per step)"
+        default_factory=list, description="List of per-event rubric reviews (one per step)"
     )
     outcome_review: Optional[ReviewPayload] = Field(
-        None,
-        description="Optional outcome-level rubric review"
+        None, description="Optional outcome-level rubric review"
     )
     event_totals: list[float] = Field(
         default_factory=list,
-        description="List of aggregated scores per event (matches event_reviews length)"
+        description="List of aggregated scores per event (matches event_reviews length)",
     )
     objectives: Dict[str, float] = Field(
         default_factory=dict,
@@ -69,18 +66,16 @@ class VerifierScoreResponse(BaseModel):
         description="Per-event objectives aligned with trace events.",
     )
     details: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional details (provider, latency, etc.)"
+        default_factory=dict, description="Additional details (provider, latency, etc.)"
     )
     metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Request metadata (provider, options, etc.)"
+        default_factory=dict, description="Request metadata (provider, options, etc.)"
     )
 
     def aggregate_event_reward(self) -> Optional[float]:
         """
         Aggregate all event totals into a single reward.
-        
+
         Returns:
             Sum of all event_totals, or None if empty
         """
@@ -91,7 +86,7 @@ class VerifierScoreResponse(BaseModel):
     def aggregate_outcome_reward(self) -> Optional[float]:
         """
         Extract outcome reward from outcome_review.
-        
+
         Returns:
             outcome_review.total, or None if no outcome review
         """
@@ -102,16 +97,17 @@ class VerifierScoreResponse(BaseModel):
 
 # Request schemas for completeness
 
+
 class VerifierTaskApp(BaseModel):
     """Task application metadata."""
-    
+
     id: str = Field(..., description="Task app identifier")
     base_url: Optional[str] = Field(None, description="Optional base URL for task app")
 
 
 class VerifierOptions(BaseModel):
     """Verifier provider and configuration options."""
-    
+
     provider: Optional[str] = Field(None, description="Verifier provider (e.g., 'openai', 'groq')")
     model: Optional[str] = Field(None, description="Model identifier")
     rubric_id: Optional[str] = Field(None, description="Rubric identifier")
@@ -121,34 +117,36 @@ class VerifierOptions(BaseModel):
 
 class VerifierTracePayload(BaseModel):
     """Trace payload containing trajectory context."""
-    
+
     event_history: list[dict[str, Any]] = Field(..., description="List of events/steps")
     markov_blanket_message_history: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Optional message history for context"
+        default_factory=list, description="Optional message history for context"
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Trace metadata")
 
 
 class VerifierScoreRequest(BaseModel):
     """Request body for POST /api/graphs/verifiers/completions."""
-    
+
     policy_name: str = Field(..., description="Name of the policy being evaluated")
     task_app: VerifierTaskApp = Field(..., description="Task application metadata")
     trace: VerifierTracePayload = Field(..., description="Trajectory trace to evaluate")
-    options: VerifierOptions = Field(default_factory=lambda: VerifierOptions(), description="Verifier options")
+    options: VerifierOptions = Field(
+        default_factory=lambda: VerifierOptions(), description="Verifier options"
+    )
     rubric: Optional[dict[str, Any]] = Field(None, description="Optional explicit rubric criteria")
 
 
 # Verifier input validation schemas
 
+
 class CalibrationExampleInput(BaseModel):
     """Input schema for a calibration example (few-shot verifier).
-    
+
     Validates that the example has a valid trace and matching rewards/objectives.
     Uses synth_ai.data.rewards.CalibrationExample dataclass for structure.
     """
-    
+
     session_trace: dict[str, Any] = Field(
         ..., description="V3 SessionTrace format (validated separately)"
     )
@@ -177,7 +175,7 @@ class CalibrationExampleInput(BaseModel):
             data = dict(data)
             data["session_trace"] = data.pop("trace")
         return data
-    
+
     @model_validator(mode="after")
     def validate_rewards_match_trace(self) -> "CalibrationExampleInput":
         """Validate that event rewards/objectives length matches trace events."""
@@ -191,7 +189,7 @@ class CalibrationExampleInput(BaseModel):
             )
         _ = self._resolve_outcome_reward()
         return self
-    
+
     def _count_trace_events(self) -> int:
         """Count total events in session_trace."""
         count = 0
@@ -200,7 +198,7 @@ class CalibrationExampleInput(BaseModel):
             event_history = self.session_trace.get("event_history", [])
             if isinstance(event_history, list):
                 return len(event_history)
-            
+
             # Try session_time_steps format
             time_steps = self.session_trace.get("session_time_steps", [])
             if isinstance(time_steps, list):
@@ -220,7 +218,9 @@ class CalibrationExampleInput(BaseModel):
             for idx, item in enumerate(self.event_objectives):
                 if not isinstance(item, dict):
                     raise ValueError(f"event_objectives[{idx}] must be a mapping")
-                objectives = item.get("objectives") if isinstance(item.get("objectives"), dict) else item
+                objectives = (
+                    item.get("objectives") if isinstance(item.get("objectives"), dict) else item
+                )
                 reward_val = objectives.get("reward") if isinstance(objectives, dict) else None
                 if not isinstance(reward_val, (int, float)) or isinstance(reward_val, bool):
                     raise ValueError(f"event_objectives[{idx}].reward must be a number")
@@ -245,10 +245,11 @@ class CalibrationExampleInput(BaseModel):
         if self.outcome_reward is None:
             raise ValueError("outcome_reward or outcome_objectives is required")
         return float(self.outcome_reward)
-    
+
     def to_dataclass(self) -> "CalibrationExample":
         """Convert to synth_ai.data.rewards.CalibrationExample dataclass."""
         from synth_ai.data.rewards import CalibrationExample
+
         return CalibrationExample(
             session_trace=self.session_trace,
             event_rewards=self._resolve_event_rewards(),
@@ -259,20 +260,20 @@ class CalibrationExampleInput(BaseModel):
 
 class GoldExampleInput(BaseModel):
     """Input schema for a gold example (contrastive verifier).
-    
+
     Validates that the example has required fields with correct types.
     Uses synth_ai.data.rewards.GoldExample dataclass for structure.
     """
-    
+
     summary: str = Field(..., min_length=1, description="Summary of the trace being evaluated")
     gold_score: Annotated[float, Field(ge=0.0, le=1.0)] = Field(
-        ...,
-        description="Gold-standard score (0.0-1.0)"
+        ..., description="Gold-standard score (0.0-1.0)"
     )
-    gold_reasoning: str = Field(..., min_length=1, description="Gold-standard reasoning/explanation")
+    gold_reasoning: str = Field(
+        ..., min_length=1, description="Gold-standard reasoning/explanation"
+    )
     session_trace: Optional[dict[str, Any]] = Field(
-        None,
-        description="Optional full trace (for richer evaluation)"
+        None, description="Optional full trace (for richer evaluation)"
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Optional metadata")
 
@@ -283,10 +284,11 @@ class GoldExampleInput(BaseModel):
             data = dict(data)
             data["session_trace"] = data.pop("trace")
         return data
-    
+
     def to_dataclass(self) -> "GoldExample":
         """Convert to synth_ai.data.rewards.GoldExample dataclass."""
         from synth_ai.data.rewards import GoldExample
+
         return GoldExample(
             summary=self.summary,
             gold_score=self.gold_score,

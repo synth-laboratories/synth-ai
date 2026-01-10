@@ -254,9 +254,7 @@ def ensure_localapi_auth(
                     setup_environment_api_key(backend, synth_api_key, token=key)
                 except Exception as exc:
                     logger = logging.getLogger(__name__)
-                    logger.warning(
-                        "Failed to upload ENVIRONMENT_API_KEY to %s: %s", backend, exc
-                    )
+                    logger.warning("Failed to upload ENVIRONMENT_API_KEY to %s: %s", backend, exc)
 
     if not key:
         raise RuntimeError("ENVIRONMENT_API_KEY is required but missing")

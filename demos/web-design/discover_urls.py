@@ -2,6 +2,7 @@
 URL discovery tool for capturing all pages from a website.
 Crawls a site to find all internal URLs.
 """
+
 import asyncio
 import json
 from pathlib import Path
@@ -39,18 +40,13 @@ async def discover_urls(base_url: str, max_pages: int = 50):
                 # Get page title for naming
                 title = await page.title()
                 parsed = urlparse(url)
-                path = parsed.path.strip('/').replace('/', '_') or 'homepage'
+                path = parsed.path.strip("/").replace("/", "_") or "homepage"
 
-                discovered.append({
-                    "url": url,
-                    "name": path,
-                    "title": title
-                })
+                discovered.append({"url": url, "name": path, "title": title})
 
                 # Find all links on the page
                 links = await page.eval_on_selector_all(
-                    'a[href]',
-                    '(elements) => elements.map(e => e.href)'
+                    "a[href]", "(elements) => elements.map(e => e.href)"
                 )
 
                 # Filter for internal links
@@ -58,10 +54,11 @@ async def discover_urls(base_url: str, max_pages: int = 50):
                     parsed_link = urlparse(link)
 
                     # Same domain, not already visited, not a file download
-                    if (parsed_link.netloc == base_domain and
-                        link not in visited and
-                        not any(link.endswith(ext) for ext in ['.pdf', '.zip', '.jpg', '.png'])):
-
+                    if (
+                        parsed_link.netloc == base_domain
+                        and link not in visited
+                        and not any(link.endswith(ext) for ext in [".pdf", ".zip", ".jpg", ".png"])
+                    ):
                         # Remove fragments and query params for deduplication
                         clean_url = f"{parsed_link.scheme}://{parsed_link.netloc}{parsed_link.path}"
                         if clean_url not in visited:

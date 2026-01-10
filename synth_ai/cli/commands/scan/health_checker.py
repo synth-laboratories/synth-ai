@@ -64,7 +64,7 @@ async def check_app_health(
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             health_url = f"{url.rstrip('/')}/health"
             health_resp = await client.get(health_url, headers=headers)
-            
+
             # Check for Cloudflare tunnel errors (530, 502, etc.) or HTML responses
             if health_resp.status_code in (530, 502, 503, 504):
                 # Cloudflare error - tunnel pointing to dead server
@@ -122,7 +122,9 @@ async def check_app_health(
     return health_status, metadata
 
 
-def extract_app_info(metadata: dict[str, Any]) -> tuple[str | None, str | None, str | None, str | None]:
+def extract_app_info(
+    metadata: dict[str, Any],
+) -> tuple[str | None, str | None, str | None, str | None]:
     """Extract app information from /info endpoint metadata.
 
     Parses the metadata dictionary (typically from /info endpoint response) to
@@ -239,4 +241,3 @@ async def check_multiple_apps_health(
     await asyncio.gather(*[check_one(url) for url in urls], return_exceptions=True)
 
     return results
-

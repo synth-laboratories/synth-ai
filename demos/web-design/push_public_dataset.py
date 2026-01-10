@@ -19,7 +19,9 @@ from create_hf_dataset import create_dataset, push_to_hub
 from dotenv import dotenv_values
 from huggingface_hub import HfApi
 
-DEFAULT_ENV_FILE: Final[Path] = Path("/Users/joshpurtell/Documents/GitHub/monorepo/backend/.env.dev")
+DEFAULT_ENV_FILE: Final[Path] = Path(
+    "/Users/joshpurtell/Documents/GitHub/monorepo/backend/.env.dev"
+)
 DEFAULT_REPO_ID: Final[str] = "synth-laboratories/web-design-screenshots"
 
 TOKEN_KEYS: Final[tuple[str, ...]] = (
@@ -176,5 +178,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
