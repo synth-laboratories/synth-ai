@@ -102,13 +102,25 @@ class RolloutPolicySpec(BaseModel):
 
 
 class RolloutRecordConfig(BaseModel):
-    logprobs: bool = False
-    value: bool = False
-    return_trace: bool = False
-    trace_format: Literal["compact", "full", "structured"] = "compact"
+    """Configuration for what to record during rollout.
+
+    DEPRECATED: All fields in this config are currently unused. Trace collection
+    happens unconditionally. This config is retained for backward compatibility
+    but will be removed in a future release.
+    """
+
+    logprobs: bool = False  # DEPRECATED: Unused
+    value: bool = False  # DEPRECATED: Unused
+    return_trace: bool = False  # DEPRECATED: Unused
+    trace_format: Literal["compact", "full", "structured"] = "compact"  # DEPRECATED: Unused
 
 
 class RolloutSafetyConfig(BaseModel):
+    """Safety configuration for rollout execution.
+
+    Note: max_time_s is set but enforcement depends on the task app implementation.
+    """
+
     max_time_s: float = 3600.0
 
 
@@ -128,12 +140,12 @@ class RolloutRequest(BaseModel):
     )
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
-    record: RolloutRecordConfig = RolloutRecordConfig()
+    record: RolloutRecordConfig = RolloutRecordConfig()  # DEPRECATED: Fields unused
     on_done: str = "reset"
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     training_session_id: str | None = None
     synth_base_url: str | None = None
-    mode: RolloutMode = RolloutMode.RL  # Default to RL mode for training/optimization
+    mode: RolloutMode = RolloutMode.RL  # DEPRECATED: Never read, kept for compatibility
 
 
 class RolloutMetrics(BaseModel):
