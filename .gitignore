@@ -147,6 +147,7 @@ examples/agora_ex/
 **/*.md
 !README.md
 !**/README.md
+!**/agents.md
 !docs/*.md
 !docs/**/*.md
 
