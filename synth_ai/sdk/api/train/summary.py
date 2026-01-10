@@ -214,7 +214,7 @@ def display_prompt_learning_summary(
 
         # Display optimization curve if requested
         if show_curve and optimization_curve:
-            from synth_ai.cli.lib.plotting import plot_optimization_curve
+            from synth_ai.core.plotting import plot_optimization_curve
 
             trial_counts = [t for t, _ in optimization_curve]
             best_scores = [s for _, s in optimization_curve]
@@ -338,7 +338,7 @@ def _generate_summary_text(
     # Generate curve text
     curve_text = ""
     if optimization_curve:
-        from synth_ai.cli.lib.plotting import plot_optimization_curve
+        from synth_ai.core.plotting import plot_optimization_curve
 
         trial_counts = [t for t, _ in optimization_curve]
         best_scores = [s for _, s in optimization_curve]

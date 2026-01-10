@@ -1,0 +1,254 @@
+"""Eval command configuration loading and normalization.
+
+This module handles loading and resolving evaluation configuration from:
+- TOML config files (minimal, legacy eval, or prompt_learning format)
+- Command-line arguments (override config values)
+- Environment variables (for API keys, etc.)
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Literal
+
+from synth_ai.sdk.api.train.configs.prompt_learning import PromptLearningConfig
+from synth_ai.sdk.api.train.utils import load_toml
+
+SeedSet = Literal["seeds", "validation_seeds", "test_pool"]
+
+
+@dataclass(slots=True)
+class EvalRunConfig:
+    """Configuration for evaluation runs."""
+
+    app_id: str
+    task_app_url: str | None
+    task_app_api_key: str | None = None
+    env_name: str | None = None
+    env_config: dict[str, Any] = field(default_factory=dict)
+    policy_name: str | None = None
+    policy_config: dict[str, Any] = field(default_factory=dict)
+    seeds: list[int] = field(default_factory=list)
+    ops: list[str] = field(default_factory=list)
+    return_trace: bool = False
+    trace_format: str = "compact"
+    concurrency: int = 1
+    metadata: dict[str, str] = field(default_factory=dict)
+    output_txt: Path | None = None
+    output_json: Path | None = None
+    verifier_config: dict[str, Any] | None = None
+    backend_url: str | None = None
+    backend_api_key: str | None = None
+    wait: bool = False
+    poll_interval: float = 5.0
+    traces_dir: Path | None = None
+    config_path: Path | None = None
+    timeout: float | None = None
+
+
+def load_eval_toml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"Eval config not found: {path}")
+    return load_toml(path)
+
+
+def _select_seed_pool(
+    *,
+    seeds: list[int] | None,
+    validation_seeds: list[int] | None,
+    test_pool: list[int] | None,
+    seed_set: SeedSet,
+) -> list[int]:
+    if seed_set == "validation_seeds" and validation_seeds:
+        return validation_seeds
+    if seed_set == "test_pool" and test_pool:
+        return test_pool
+    if seeds:
+        return seeds
+    if validation_seeds:
+        return validation_seeds
+    if test_pool:
+        return test_pool
+    return []
+
+
+def _from_prompt_learning(
+    raw: dict[str, Any],
+    *,
+    seed_set: SeedSet,
+) -> EvalRunConfig:
+    from synth_ai.config_expansion import expand_gepa_config, is_minimal_config
+
+    if "prompt_learning" in raw:
+        pl_section = raw["prompt_learning"]
+        if is_minimal_config(pl_section):
+            expanded = expand_gepa_config(pl_section)
+            raw = {"prompt_learning": expanded}
+
+    pl_cfg = PromptLearningConfig.from_mapping(raw)
+    gepa = pl_cfg.gepa
+    mipro = pl_cfg.mipro
+
+    eval_cfg = gepa.evaluation if gepa else None
+    seeds = _select_seed_pool(
+        seeds=eval_cfg.seeds if eval_cfg else None,
+        validation_seeds=eval_cfg.validation_seeds if eval_cfg else None,
+        test_pool=eval_cfg.test_pool if eval_cfg else None,
+        seed_set=seed_set,
+    )
+
+    env_name = None
+    env_config: dict[str, Any] = {}
+    if gepa:
+        env_name = gepa.env_name
+        env_config = dict(gepa.env_config or {})
+    elif mipro:
+        env_name = mipro.env_name
+        env_config = dict(mipro.env_config or {})
+
+    policy_cfg: dict[str, Any] = {}
+    if pl_cfg.policy:
+        policy_cfg = {
+            "provider": pl_cfg.policy.provider.value if pl_cfg.policy.provider else None,
+        }
+        if pl_cfg.policy.inference_url:
+            policy_cfg["inference_url"] = pl_cfg.policy.inference_url
+        policy_cfg = {k: v for k, v in policy_cfg.items() if v is not None}
+
+    app_id = pl_cfg.task_app_id or (env_name or "")
+    verifier_cfg = None
+    if pl_cfg.verifier:
+        if isinstance(pl_cfg.verifier, dict):
+            verifier_cfg = dict(pl_cfg.verifier)
+        else:
+            verifier_cfg = pl_cfg.verifier.model_dump(mode="python")
+
+    concurrency = 1
+    if gepa and gepa.rollout and gepa.rollout.max_concurrent:
+        concurrency = gepa.rollout.max_concurrent
+    if mipro and mipro.rollout and mipro.rollout.max_concurrent:
+        concurrency = mipro.rollout.max_concurrent
+
+    return EvalRunConfig(
+        app_id=app_id,
+        task_app_url=pl_cfg.task_app_url,
+        task_app_api_key=pl_cfg.task_app_api_key,
+        env_name=env_name,
+        env_config=env_config,
+        policy_name=pl_cfg.policy.policy_name if pl_cfg.policy else None,
+        policy_config=policy_cfg,
+        seeds=seeds,
+        ops=[],
+        concurrency=concurrency,
+        verifier_config=verifier_cfg,
+    )
+
+
+def _from_legacy_eval(raw: dict[str, Any]) -> EvalRunConfig:
+    """Parse legacy [eval] config format."""
+    from synth_ai.config_expansion import expand_eval_config
+
+    eval_section = raw.get("eval", {})
+    if not isinstance(eval_section, dict):
+        eval_section = {}
+
+    if eval_section.get("task_app_url") and eval_section.get("seeds"):
+        expanded = expand_eval_config(eval_section)
+        eval_section = {**expanded, **eval_section}
+
+    app_id = str(eval_section.get("app_id") or "").strip()
+    model = str(eval_section.get("model") or "").strip()
+    policy_cfg = dict(eval_section.get("policy_config") or eval_section.get("policy") or {})
+    if model and "model" not in policy_cfg:
+        policy_cfg["model"] = model
+    if "provider" not in policy_cfg and eval_section.get("provider"):
+        policy_cfg["provider"] = eval_section.get("provider")
+
+    return EvalRunConfig(
+        app_id=app_id,
+        task_app_url=eval_section.get("url") or eval_section.get("task_app_url"),
+        task_app_api_key=eval_section.get("task_app_api_key"),
+        env_name=eval_section.get("env_name"),
+        env_config=dict(eval_section.get("env_config") or {}),
+        policy_name=eval_section.get("policy_name"),
+        policy_config=policy_cfg,
+        seeds=list(eval_section.get("seeds") or []),
+        ops=list(eval_section.get("ops") or []),
+        return_trace=bool(eval_section.get("return_trace", False)),
+        trace_format=str(eval_section.get("trace_format") or "compact"),
+        concurrency=int(eval_section.get("concurrency") or eval_section.get("max_concurrent") or 1),
+        metadata=dict(eval_section.get("metadata") or {}),
+        timeout=eval_section.get("timeout"),
+    )
+
+
+def resolve_eval_config(
+    *,
+    config_path: Path | None,
+    cli_app_id: str | None,
+    cli_model: str | None,
+    cli_seeds: list[int] | None,
+    cli_url: str | None,
+    cli_env_file: str | None,
+    cli_ops: list[str] | None,
+    cli_return_trace: bool | None,
+    cli_concurrency: int | None,
+    cli_output_txt: Path | None,
+    cli_output_json: Path | None,
+    cli_backend_url: str | None,
+    cli_wait: bool,
+    cli_poll_interval: float | None,
+    cli_traces_dir: Path | None,
+    seed_set: SeedSet,
+    metadata: dict[str, str],
+) -> EvalRunConfig:
+    """Resolve evaluation configuration from multiple sources."""
+    raw: dict[str, Any] = {}
+    if config_path is not None:
+        raw = load_eval_toml(config_path)
+
+    if raw and ("prompt_learning" in raw or raw.get("algorithm") in {"gepa", "mipro"}):
+        resolved = _from_prompt_learning(raw, seed_set=seed_set)
+    else:
+        resolved = _from_legacy_eval(raw)
+
+    if cli_app_id:
+        resolved.app_id = cli_app_id
+    if cli_url:
+        resolved.task_app_url = cli_url
+    if cli_seeds:
+        resolved.seeds = cli_seeds
+    if cli_ops:
+        resolved.ops = cli_ops
+    if cli_return_trace is not None:
+        resolved.return_trace = cli_return_trace
+    if cli_concurrency is not None:
+        resolved.concurrency = cli_concurrency
+    if cli_output_txt is not None:
+        resolved.output_txt = cli_output_txt
+    if cli_output_json is not None:
+        resolved.output_json = cli_output_json
+    if cli_backend_url:
+        resolved.backend_url = cli_backend_url
+    if cli_wait:
+        resolved.wait = True
+    if cli_poll_interval is not None:
+        resolved.poll_interval = cli_poll_interval
+    if cli_traces_dir is not None:
+        resolved.traces_dir = cli_traces_dir
+
+    if cli_model:
+        resolved.policy_config["model"] = cli_model
+    if metadata:
+        resolved.metadata = metadata
+
+    if cli_env_file:
+        resolved.metadata.setdefault("env_file", cli_env_file)
+
+    resolved.config_path = config_path
+
+    return resolved
+
+
+__all__ = ["EvalRunConfig", "resolve_eval_config", "SeedSet"]

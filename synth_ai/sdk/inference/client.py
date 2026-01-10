@@ -24,11 +24,9 @@ Example:
     >>> print(response["choices"][0]["message"]["content"])
 """
 
-from __future__ import annotations
-
 from typing import Any
 
-from synth_ai.core._utils.http import AsyncHttpClient
+from synth_ai.core.http import AsyncHttpClient
 from synth_ai.sdk.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,

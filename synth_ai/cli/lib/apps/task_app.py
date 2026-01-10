@@ -12,7 +12,7 @@ from fastapi.routing import APIRoute, APIRouter
 from fastapi.testclient import TestClient
 from starlette.middleware import Middleware
 from starlette.types import ASGIApp
-from synth_ai.cli.lib.prompts import ctx_print
+from synth_ai.core.prompts import ctx_print
 from synth_ai.core.apps.common import (
     build_fastapi_route_index,
     extract_routes_from_app,

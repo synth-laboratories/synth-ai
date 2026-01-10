@@ -70,39 +70,39 @@ from synth_ai.core.user_config import (
 
 # Lazy imports for CLI utilities to avoid circular imports
 _CLI_IMPORTS = {
-    # From cli.lib.agents
-    "write_agents_md": ("synth_ai.cli.lib.agents", "write_agents_md"),
+    # From core.agents.utils
+    "write_agents_md": ("synth_ai.core.agents.utils", "write_agents_md"),
     # From core.apps.common
     "extract_routes_from_app": ("synth_ai.core.apps.common", "extract_routes_from_app"),
     "get_asgi_app": ("synth_ai.core.apps.common", "get_asgi_app"),
     "load_module": ("synth_ai.core.apps.common", "load_module"),
-    # From cli.lib.bin
-    "install_bin": ("synth_ai.cli.lib.bin", "install_bin"),
-    "verify_bin": ("synth_ai.cli.lib.bin", "verify_bin"),
-    # From cli.lib.env
-    "mask_str": ("synth_ai.cli.lib.env", "mask_str"),
-    "read_env_var_from_file": ("synth_ai.cli.lib.env", "read_env_var_from_file"),
-    "resolve_env_var": ("synth_ai.cli.lib.env", "resolve_env_var"),
-    "write_env_var_to_dotenv": ("synth_ai.cli.lib.env", "write_env_var_to_dotenv"),
-    "write_env_var_to_json": ("synth_ai.cli.lib.env", "write_env_var_to_json"),
-    # From cli.lib.modal
-    "ensure_modal_installed": ("synth_ai.cli.lib.modal", "ensure_modal_installed"),
-    "ensure_task_app_ready": ("synth_ai.cli.lib.modal", "ensure_task_app_ready"),
-    "find_asgi_apps": ("synth_ai.cli.lib.modal", "find_asgi_apps"),
-    "is_local_demo_url": ("synth_ai.cli.lib.modal", "is_local_demo_url"),
-    "is_modal_public_url": ("synth_ai.cli.lib.modal", "is_modal_public_url"),
-    "normalize_endpoint_url": ("synth_ai.cli.lib.modal", "normalize_endpoint_url"),
-    # From cli.lib.prompts
-    "PromptedChoiceOption": ("synth_ai.cli.lib.prompts", "PromptedChoiceOption"),
-    "PromptedChoiceType": ("synth_ai.cli.lib.prompts", "PromptedChoiceType"),
-    "PromptedPathOption": ("synth_ai.cli.lib.prompts", "PromptedPathOption"),
-    "ctx_print": ("synth_ai.cli.lib.prompts", "ctx_print"),
-    "prompt_choice": ("synth_ai.cli.lib.prompts", "prompt_choice"),
-    "prompt_for_path": ("synth_ai.cli.lib.prompts", "prompt_for_path"),
-    # From cli.lib.sqld
-    "SQLD_VERSION": ("synth_ai.cli.lib.sqld", "SQLD_VERSION"),
-    "find_sqld_binary": ("synth_ai.cli.lib.sqld", "find_sqld_binary"),
-    "install_sqld": ("synth_ai.cli.lib.sqld", "install_sqld"),
+    # From core.bin
+    "install_bin": ("synth_ai.core.bin", "install_bin"),
+    "verify_bin": ("synth_ai.core.bin", "verify_bin"),
+    # From core.env_utils
+    "mask_str": ("synth_ai.core.env_utils", "mask_str"),
+    "read_env_var_from_file": ("synth_ai.core.env_utils", "read_env_var_from_file"),
+    "resolve_env_var": ("synth_ai.core.env_utils", "resolve_env_var"),
+    "write_env_var_to_dotenv": ("synth_ai.core.env_utils", "write_env_var_to_dotenv"),
+    "write_env_var_to_json": ("synth_ai.core.env_utils", "write_env_var_to_json"),
+    # From core.integrations.modal_utils
+    "ensure_modal_installed": ("synth_ai.core.integrations.modal_utils", "ensure_modal_installed"),
+    "ensure_task_app_ready": ("synth_ai.core.integrations.modal_utils", "ensure_task_app_ready"),
+    "find_asgi_apps": ("synth_ai.core.integrations.modal_utils", "find_asgi_apps"),
+    "is_local_demo_url": ("synth_ai.core.integrations.modal_utils", "is_local_demo_url"),
+    "is_modal_public_url": ("synth_ai.core.integrations.modal_utils", "is_modal_public_url"),
+    "normalize_endpoint_url": ("synth_ai.core.integrations.modal_utils", "normalize_endpoint_url"),
+    # From core.prompts
+    "PromptedChoiceOption": ("synth_ai.core.prompts", "PromptedChoiceOption"),
+    "PromptedChoiceType": ("synth_ai.core.prompts", "PromptedChoiceType"),
+    "PromptedPathOption": ("synth_ai.core.prompts", "PromptedPathOption"),
+    "ctx_print": ("synth_ai.core.prompts", "ctx_print"),
+    "prompt_choice": ("synth_ai.core.prompts", "prompt_choice"),
+    "prompt_for_path": ("synth_ai.core.prompts", "prompt_for_path"),
+    # From core.tracing_v3.sqld
+    "SQLD_VERSION": ("synth_ai.core.tracing_v3.sqld", "SQLD_VERSION"),
+    "find_sqld_binary": ("synth_ai.core.tracing_v3.sqld", "find_sqld_binary"),
+    "install_sqld": ("synth_ai.core.tracing_v3.sqld", "install_sqld"),
     # From cli.lib.task_app_discovery
     "AppChoice": ("synth_ai.cli.lib.task_app_discovery", "AppChoice"),
     "discover_eval_config_paths": (

@@ -175,7 +175,7 @@ uvicorn.run(app, host={repr(cfg.host)}, port={cfg.port}, reload=False, log_level
 
             # Record local service with correct PID
             try:
-                from synth_ai.cli.lib.tunnel_records import record_service
+                from synth_ai.core.service_records import record_service
 
                 local_url = f"http://{'127.0.0.1' if cfg.host in {'0.0.0.0', '::'} else cfg.host}:{cfg.port}"
                 record_service(

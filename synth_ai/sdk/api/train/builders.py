@@ -122,7 +122,7 @@ def build_rl_payload(
     ctx: dict[str, Any] = {"config_path": str(config_path), "task_url": task_url}
     log_info("build_rl_payload invoked", ctx=ctx)
     # Load and validate config with SDK-level checks
-    from synth_ai.cli.commands.train.validation import validate_rl_config
+    from synth_ai.sdk.api.train.validation.validation import validate_rl_config
     from synth_ai.sdk.api.train.utils import load_toml
 
     try:
@@ -568,7 +568,7 @@ def build_prompt_learning_payload(
     # This ensures early validation in backend sees merged values
     # Use the same _deep_update logic from experiment_queue/config_utils.py
     if config_overrides:
-        from synth_ai.cli.local.experiment_queue.config_utils import _deep_update
+        from synth_ai.core.experiment_queue.config_utils import _deep_update
 
         _deep_update(config_dict, config_overrides)
         pl_section = config_dict.get("prompt_learning", {})
@@ -818,7 +818,7 @@ def build_prompt_learning_payload_from_mapping(
 
     # Merge overrides into config_dict
     if config_overrides:
-        from synth_ai.cli.local.experiment_queue.config_utils import _deep_update
+        from synth_ai.core.experiment_queue.config_utils import _deep_update
 
         _deep_update(config_dict, config_overrides)
         pl_section = config_dict.get("prompt_learning", {})

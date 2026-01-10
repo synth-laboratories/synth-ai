@@ -3,8 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Tuple
 
-from synth_ai.cli.lib.prompts import ctx_print
 from synth_ai.core.paths import is_hidden_path, validate_file_type
+from synth_ai.core.prompts import ctx_print
 
 # Train config types: prompt optimization, reinforcement learning, supervised fine-tuning, graph opt, context learning
 TrainType = Literal["prompt", "rl", "sft", "graphgen", "context_learning"]
@@ -87,12 +87,18 @@ def validate_po_cfg(cfg: Dict[str, Any]) -> None:
     if not algorithm:
         raise ValueError("[prompt_learning].algorithm is required")
 
-    if algorithm != "gepa":
-        raise ValueError("[prompt_learning].algorithm must be 'gepa'")
+    if algorithm not in {"mipro", "gepa"}:
+        raise ValueError("[prompt_learning].algorithm must be 'mipro' or 'gepa'")
 
     if not pl_cfg.get("task_app_url"):
         raise ValueError("[prompt_learning].task_app_url is required")
 
+    if algorithm == "mipro":
+        mipro = pl_cfg.get("mipro")
+        if not isinstance(mipro, dict):
+            raise ValueError(
+                "[prompt_learning].mipro section is required when algorithm is 'mipro'"
+            )
     elif algorithm == "gepa":
         gepa = pl_cfg.get("gepa")
         if not isinstance(gepa, dict):

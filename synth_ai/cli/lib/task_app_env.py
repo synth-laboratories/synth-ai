@@ -6,11 +6,10 @@ from typing import Dict
 import click
 
 from synth_ai.core.env import PROD_BASE_URL_DEFAULT
+from synth_ai.core.env_utils import mask_str, resolve_env_var
 from synth_ai.core.process import ensure_local_port_available
 from synth_ai.core.task_app_state import persist_env_api_key
 from synth_ai.core.user_config import load_user_env, update_user_config
-
-from .env import mask_str, resolve_env_var
 
 __all__ = [
     "ensure_env_credentials",

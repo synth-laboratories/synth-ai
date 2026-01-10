@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from synth_ai.core._utils.http import AsyncHttpClient
+from synth_ai.core.http import AsyncHttpClient
 from synth_ai.data import extract_outcome_reward
 
 from .prompt_learning_types import PromptResults

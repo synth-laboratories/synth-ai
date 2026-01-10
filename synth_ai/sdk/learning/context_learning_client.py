@@ -32,13 +32,11 @@ Example usage:
     print(result.preflight_script)
 """
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from synth_ai.core._utils.http import AsyncHttpClient
+from synth_ai.core.http import AsyncHttpClient
 
 from .context_learning_types import (
     BestScriptResult,

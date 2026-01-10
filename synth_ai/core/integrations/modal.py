@@ -20,14 +20,14 @@ from synth_ai.core.telemetry import log_error, log_info
 
 def __validate_modal_app(*args, **kwargs):
     """Lazy import to avoid circular dependency."""
-    from synth_ai.cli.lib.apps.modal_app import validate_modal_app
+    from synth_ai.core.apps.modal_app import validate_modal_app
 
     return validate_modal_app(*args, **kwargs)
 
 
 def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
     """Lazy import to avoid circular dependency."""
-    from synth_ai.cli.lib.env import write_env_var_to_dotenv
+    from synth_ai.core.env_utils import write_env_var_to_dotenv
 
     write_env_var_to_dotenv(key, value, **kwargs)
 

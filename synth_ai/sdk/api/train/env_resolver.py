@@ -8,7 +8,7 @@ from typing import Any
 
 import click
 
-from synth_ai.cli.lib.env import resolve_env_var
+from synth_ai.core.env_utils import resolve_env_var
 from synth_ai.core.telemetry import log_info
 
 from . import task_app

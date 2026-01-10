@@ -48,7 +48,7 @@ class SqldDaemon:
         1. CONFIG.sqld_binary in PATH
         2. libsql-server in PATH
         3. Common install locations (~/.turso/bin, /usr/local/bin, etc.)
-        4. Auto-install via synth_ai.utils.sqld (if interactive terminal)
+        4. Auto-install via synth_ai.core.tracing_v3.sqld (if interactive terminal)
 
         Returns:
             Path to sqld binary
@@ -64,21 +64,23 @@ class SqldDaemon:
 
         # Check common install locations
         try:
-            from synth_ai.cli.lib.sqld import find_sqld_binary
+            from synth_ai.core.tracing_v3.sqld import find_sqld_binary
 
             binary = find_sqld_binary()
             if binary:
                 logger.debug(f"Found sqld binary in common location: {binary}")
                 return binary
         except ImportError:
-            logger.debug("synth_ai.utils.sqld not available, skipping common location check")
+            logger.debug(
+                "synth_ai.core.tracing_v3.sqld not available, skipping common location check"
+            )
 
         # Try auto-install if enabled and interactive
         auto_install_enabled = os.getenv("SYNTH_AI_AUTO_INSTALL_SQLD", "true").lower() == "true"
 
         if auto_install_enabled and sys.stdin.isatty():
             try:
-                from synth_ai.cli.lib.sqld import install_sqld
+                from synth_ai.core.tracing_v3.sqld import install_sqld
 
                 logger.info("sqld binary not found. Attempting automatic installation...")
 

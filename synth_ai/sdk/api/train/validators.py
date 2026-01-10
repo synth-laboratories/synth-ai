@@ -9,7 +9,7 @@ import click
 import toml
 
 # Import unknown field validation from CLI module
-from synth_ai.cli.commands.train.prompt_learning_validation import (
+from synth_ai.sdk.api.train.validation.prompt_learning_validation import (
     validate_prompt_learning_config as _validate_unknown_fields,
 )
 from synth_ai.core.telemetry import log_info

@@ -1,0 +1,92 @@
+# MIPROv2 Prompt Learning for Banking77
+# Local backend configuration targeting the Banking77 intent classification task app.
+
+[prompt_learning]
+algorithm = "mipro"
+task_app_url = "http://127.0.0.1:8102"
+task_app_id = "banking77"
+
+# Initial prompt pattern (pattern-based mode)
+[prompt_learning.initial_prompt]
+id = "banking77_pattern"
+name = "Banking77 Classification Pattern"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+query = "REQUIRED"  # Will be provided by task app at runtime
+
+# Policy configuration (model, provider, etc.)
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "openai/gpt-oss-20b"
+provider = "groq"
+temperature = 0.0
+max_completion_tokens = 128
+policy_name = "banking77-mipro"  # Required for Banking77 task app
+
+# Training split config
+[prompt_learning.env_config]
+pool = "train"
+
+# MIPROv2-specific configuration
+[prompt_learning.mipro]
+env_name = "banking77"
+num_iterations = 5  # 5 iterations × 2 per iteration = 10 total prompt combos
+num_evaluations_per_iteration = 2  # 2 proposals per iteration
+batch_size = 6
+max_concurrent = 16
+meta_model = "llama-3.3-70b-versatile"
+meta_model_provider = "groq"
+few_shot_score_threshold = 0.85
+max_instructions = 3
+
+# Retry guard for duplicate proposals/candidates
+duplicate_retry_limit = 10
+
+# Seed pools for different phases - tons of data for reliable evaluation
+bootstrap_train_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]  # 15 seeds for bootstrap
+online_pool = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]  # 25 seeds for online evaluation
+test_pool = [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]  # 10 held-out seeds for final evaluation
+val_seeds = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59]  # Validation seeds (matches GEPA terminology, used for top-K evaluation)
+reference_pool = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59]  # Reference corpus seeds (for meta-prompt context, same as val_seeds)
+
+# TPE hyperparameters
+[prompt_learning.mipro.tpe]
+gamma = 0.25              # Quantile for splitting good/bad observations
+n_candidates = 32         # Number of candidates to evaluate Expected Improvement
+n_startup_trials = 10     # Uniform random trials before TPE kicks in
+epsilon = 0.1             # Exploration probability (uniform sample)
+alpha = 1.0               # Smoothing parameter for KDE (Laplace smoothing for categorical variables)
+
+# Demo set selection hyperparameters
+[prompt_learning.mipro.demo]
+max_few_shot_examples = 5  # Maximum number of few-shot examples to include
+sets_per_size = 6          # Number of demo sets to generate per size
+include_empty = true       # Whether to include empty demo set (zero-shot)
+
+# Grounding configuration for instruction proposals
+[prompt_learning.mipro.grounding]
+n = 10                     # Number of instruction proposals to generate
+temperature = 0.7          # Temperature for LLM proposal generation
+max_tokens = 600           # Max tokens for proposal generation
+
+# Meta-update configuration
+[prompt_learning.mipro.meta_update]
+enabled = true             # Enable periodic meta-updates
+every_iterations = 3       # Regenerate instructions every N iterations
+topk_success = 5           # Number of top success examples to use for grounding
+topk_failure = 5           # Number of top failure examples to use for grounding
+validate_on_batch = 32     # Batch size for proposal validation
+keep_k = 12                # Maximum number of instruction variants to keep
+dedup_token_overlap = 0.8  # Token overlap threshold for deduplication
+regen_temperature_decay = 0.95  # Temperature decay factor per meta-update
+
