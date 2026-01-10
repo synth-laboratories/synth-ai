@@ -22,9 +22,6 @@ function getJobTypeLabel(job: JobSummary): string {
   
   // Map known types to readable labels
   switch (type.toLowerCase()) {
-    case "mipro":
-    case "mipro_v2":
-      return "MIPRO"
     case "gepa":
     case "gepa_v1":
       return "GEPA"

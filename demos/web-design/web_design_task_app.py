@@ -329,7 +329,6 @@ def create_web_design_local_api(style_prompt: str) -> Any:
         trace_correlation_id = extract_trace_correlation_id(
             policy_config=policy_cfg,
             inference_url=inference_url,
-            mode=request.mode,
         )
 
         trace_payload = build_trace_payload(

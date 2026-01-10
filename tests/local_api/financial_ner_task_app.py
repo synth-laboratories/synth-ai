@@ -25,7 +25,6 @@ from synth_ai.sdk.task.apps import LocalAPIEntry, ModalDeploymentConfig, registe
 from synth_ai.sdk.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
-    RolloutMode,
     RolloutRequest,
     RolloutResponse,
     TaskInfo,
@@ -579,7 +578,6 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     trace_correlation_id = extract_trace_correlation_id(
         policy_config=request.policy.config or {},
         inference_url=str(inference_url or ""),
-        mode=request.mode,
     )
 
     # Build V3 trace for verifier evaluation
@@ -812,12 +810,10 @@ EVENTS_RUBRIC: Rubric = cast(
 
 
 class RolloutRequestWrapper(BaseModel):
-    """Wrapper for RolloutRequest that makes mode optional with defaults."""
+    """Wrapper for RolloutRequest that handles optional fields with defaults."""
     run_id: str
     env: dict[str, Any] = {}
     policy: dict[str, Any] = {}
-    mode: str | None = None
-    record: dict[str, Any] | None = None
     on_done: str = "reset"
     safety: dict[str, Any] | None = None
     training_session_id: str | None = None
@@ -825,14 +821,12 @@ class RolloutRequestWrapper(BaseModel):
 
     def to_rollout_request(self) -> RolloutRequest:
         """Convert wrapper to proper RolloutRequest with defaults."""
-        from synth_ai.sdk.task.contracts import RolloutEnvSpec, RolloutPolicySpec, RolloutRecordConfig, RolloutSafetyConfig
+        from synth_ai.sdk.task.contracts import RolloutEnvSpec, RolloutPolicySpec, RolloutSafetyConfig
 
         return RolloutRequest(
-            run_id=self.run_id,
+            trace_correlation_id=self.run_id,
             env=RolloutEnvSpec(**self.env) if isinstance(self.env, dict) else self.env,
             policy=RolloutPolicySpec(**self.policy) if isinstance(self.policy, dict) else self.policy,
-            mode=RolloutMode(self.mode) if self.mode else RolloutMode.EVAL,
-            record=RolloutRecordConfig(**self.record) if self.record else RolloutRecordConfig(),
             on_done=self.on_done,
             safety=RolloutSafetyConfig(**self.safety) if self.safety else RolloutSafetyConfig(),
             training_session_id=self.training_session_id,
@@ -1012,17 +1006,13 @@ def fastapi_app():
 
             if "ops" not in body:
                 body["ops"] = []
-            if "mode" not in body:
-                body["mode"] = "eval"
 
             from synth_ai.sdk.task.contracts import RolloutEnvSpec, RolloutPolicySpec
 
             rollout_request = RolloutRequest(
-                run_id=body["run_id"],
+                trace_correlation_id=body.get("trace_correlation_id") or body.get("run_id"),
                 env=RolloutEnvSpec(**body["env"]) if isinstance(body["env"], dict) else body["env"],
                 policy=RolloutPolicySpec(**body["policy"]) if isinstance(body["policy"], dict) else body["policy"],
-                mode=RolloutMode(body["mode"]),
-                record=body.get("record"),
                 on_done=body.get("on_done", "reset"),
                 safety=body.get("safety"),
                 training_session_id=body.get("training_session_id"),
@@ -1122,19 +1112,8 @@ def fastapi_app():
 
 
 def wrapped_config_factory():
-    """Wrapper factory that creates a config and patches the Pydantic validation for /rollout."""
-    config = build_config()
-
-    original_executor = config.rollout
-
-    async def patched_rollout_executor(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
-        """Execute rollout, handling cases where mode might be None/missing."""
-        if not request.mode:
-            request.mode = RolloutMode.EVAL
-        return await original_executor(request, fastapi_request)
-
-    config.rollout = patched_rollout_executor
-    return config
+    """Wrapper factory that creates a config for /rollout."""
+    return build_config()
 
 
 if __name__ == "__main__":

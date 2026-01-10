@@ -505,7 +505,6 @@ Apply the visual style guidelines to match the original design."""
             trace_correlation_id = extract_trace_correlation_id(
                 policy_config=policy_cfg_for_trace,
                 inference_url=str(inference_url or ""),
-                mode=request.mode,
             )
 
             # Backend verifier will score this - return dummy reward

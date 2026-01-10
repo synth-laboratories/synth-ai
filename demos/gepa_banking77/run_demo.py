@@ -378,7 +378,6 @@ def create_banking77_local_api(system_prompt: str):
         trace_correlation_id = extract_trace_correlation_id(
             policy_config=policy_cfg_for_trace,
             inference_url=str(inference_url or ""),
-            mode=request.mode,
         )
 
         return RolloutResponse(

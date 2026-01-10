@@ -241,7 +241,6 @@ def create_crafter_vlm_local_api(system_prompt: str):
         trace_correlation_id = extract_trace_correlation_id(
             policy_config,
             policy_config.get("inference_url"),
-            request.mode,
         )
 
         trace_metadata: Dict[str, Any] = {
