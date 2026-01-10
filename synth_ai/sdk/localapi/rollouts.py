@@ -47,8 +47,8 @@ class RolloutResponseBuilder:
             event_rewards: Optional per-step rewards for multi-step tasks
             inference_url: Inference URL used for this rollout
             details: Metadata dict (debugging info, not rewards)
-            aborted: Whether rollout was aborted early
-            run_id: DEPRECATED - Use trace_correlation_id instead
+            aborted: [DEPRECATED] Whether rollout was aborted early
+            run_id: [DEPRECATED] Use trace_correlation_id instead
         """
         metrics = RolloutMetrics(
             outcome_reward=float(reward),

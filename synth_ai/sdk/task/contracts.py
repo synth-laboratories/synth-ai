@@ -244,6 +244,7 @@ class RolloutResponse(BaseModel):
 
     # =========================================================================
     # LEGACY FIELDS (Backward Compatibility)
+    # See docs/ROLLOUT_RESPONSE_DEPRECATION_PLAN.md for removal plan
     # =========================================================================
     run_id: str | None = Field(
         default=None,
@@ -251,15 +252,16 @@ class RolloutResponse(BaseModel):
     )
     branches: dict[str, list[str]] = Field(
         default_factory=dict,
-        description="[LEGACY] Branch tracking. Usually empty for single-path rollouts.",
+        description="[DEPRECATED] Branch tracking. Will be removed - rarely used.",
     )
     aborted: bool = Field(
         default=False,
-        description="Whether the rollout was aborted early.",
+        description="[DEPRECATED] Use trace.metadata.rollout_status instead.",
     )
     pipeline_metadata: dict[str, Any] = Field(
         default_factory=dict,
-        description="[LEGACY] Additional metadata. Prefer top-level fields instead.",
+        description="[DEPRECATED] Use top-level fields (trace_correlation_id, inference_url) instead. "
+        "Kept for monorepo backward compatibility. See docs/ROLLOUT_RESPONSE_DEPRECATION_PLAN.md",
     )
 
 

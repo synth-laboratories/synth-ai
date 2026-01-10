@@ -205,7 +205,7 @@ def include_trace_correlation_id_in_response(
 
     Required locations (trace-only):
     1. Top-level response["trace_correlation_id"]
-    2. response["pipeline_metadata"]["trace_correlation_id"]
+    2. response["pipeline_metadata"]["trace_correlation_id"] (legacy - for monorepo compat)
     3. response["trace"]["metadata"]["trace_correlation_id"] (and session_trace metadata if present)
 
     Args:
@@ -234,7 +234,7 @@ def include_trace_correlation_id_in_response(
             trace_correlation_id,
         )
 
-    # 2. Add to pipeline_metadata (REQUIRED)
+    # 2. Add to pipeline_metadata (LEGACY - for monorepo backward compatibility)
     pipeline_meta = response_data.get("pipeline_metadata")
     if not isinstance(pipeline_meta, dict):
         pipeline_meta = {}
@@ -275,7 +275,7 @@ def include_trace_correlation_id_in_response(
 
     logger.debug(
         "include_trace_correlation_id: completed id=%s cid=%s "
-        "added to top-level, metadata, and trace",
+        "added to top-level, pipeline_metadata, and trace metadata",
         id_for_log,
         trace_correlation_id,
     )
@@ -514,7 +514,7 @@ def verify_trace_correlation_id_in_response(
             f"expected={expected_correlation_id} actual={response_data.get('trace_correlation_id')}"
         )
 
-    # Check pipeline_metadata
+    # Check pipeline_metadata (legacy - for monorepo backward compatibility)
     pipeline_meta = response_data.get("pipeline_metadata", {})
     if (
         not isinstance(pipeline_meta, dict)

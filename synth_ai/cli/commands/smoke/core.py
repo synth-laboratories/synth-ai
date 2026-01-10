@@ -921,8 +921,8 @@ async def _run_smoke_async(
                     except Exception as vexc:
                         click.echo(f"  ⚠ RL response validation warning: {vexc}", err=True)
 
-                    pm = response.pipeline_metadata or {}
-                    inferred_url = pm.get("inference_url") if isinstance(pm, dict) else None
+                    # Use top-level inference_url (canonical location)
+                    inferred_url = response.inference_url
                     metrics = response.metrics
                     if inferred_url:
                         click.echo(f"  rollout[{i}:{g}] inference_url: {inferred_url}")
