@@ -119,18 +119,12 @@ class RolloutRequest(BaseModel):
 
     - `trace_correlation_id`: REQUIRED - Single source of truth for rollout identification.
       Used for trace correlation, registry operations, seed derivation, and resource tracking.
-    - `run_id`: DEPRECATED - Use `trace_correlation_id` instead. Will be removed in future version.
-      If provided, should match trace_correlation_id or be derived from it.
     """
 
     trace_correlation_id: str = Field(
         ...,
         description="REQUIRED - Unique identifier for this rollout. Used for trace correlation, "
         "registry operations, seed derivation, and resource tracking. Single source of truth.",
-    )
-    run_id: str | None = Field(
-        default=None,
-        description="[DEPRECATED] Use trace_correlation_id instead. Will be removed in future version.",
     )
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
@@ -206,15 +200,7 @@ class RolloutResponse(BaseModel):
     - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
     - `metrics`: Rollout metrics with `outcome_reward` (required)
     - `trace`: v3 trace payload (required for verifier scoring)
-    - `run_id`: DEPRECATED - Use `trace_correlation_id` instead
-
-    ## Canonical Locations (Top-Level)
-
-    - `trace_correlation_id`: Correlation ID for trace recovery (TOP-LEVEL CANONICAL, REQUIRED)
-    - `inference_url`: Inference URL used for this rollout (TOP-LEVEL CANONICAL)
-
-    These fields SHOULD be at top-level. The monorepo parses from top-level first,
-    with fallback to nested locations for backward compatibility.
+    - `inference_url`: Inference URL used for this rollout
 
     ## Example
 
@@ -233,21 +219,9 @@ class RolloutResponse(BaseModel):
     )
     metrics: RolloutMetrics
     trace: dict[str, Any] | None = None
-
-    # =========================================================================
-    # CANONICAL LOCATIONS (Top-Level - Preferred for Parsing)
-    # =========================================================================
     inference_url: str | None = Field(
         default=None,
-        description="Inference URL used for this rollout. TOP-LEVEL CANONICAL location.",
-    )
-
-    # =========================================================================
-    # LEGACY FIELD (Backward Compatibility)
-    # =========================================================================
-    run_id: str | None = Field(
-        default=None,
-        description="[DEPRECATED] Use trace_correlation_id instead. Will be removed in future version.",
+        description="Inference URL used for this rollout.",
     )
 
 

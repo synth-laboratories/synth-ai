@@ -35,7 +35,6 @@ class RolloutResponseBuilder:
         event_rewards: list[float] | None = None,
         inference_url: str | None = None,
         details: dict[str, Any] | None = None,
-        run_id: str | None = None,
     ) -> RolloutResponse:
         """Build a RolloutResponse with standardized metrics.
 
@@ -46,7 +45,6 @@ class RolloutResponseBuilder:
             event_rewards: Optional per-step rewards for multi-step tasks
             inference_url: Inference URL used for this rollout
             details: Metadata dict (debugging info, not rewards)
-            run_id: [DEPRECATED] Use trace_correlation_id instead
         """
         metrics = RolloutMetrics(
             outcome_reward=float(reward),
@@ -59,7 +57,6 @@ class RolloutResponseBuilder:
             metrics=metrics,
             trace=_with_trace_metadata(trace, trace_correlation_id),
             inference_url=inference_url,
-            run_id=run_id,
         )
 
 

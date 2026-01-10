@@ -45,6 +45,4 @@ def build_rollout_response(
         metrics=RolloutMetrics(outcome_reward=outcome_reward, **kwargs),
         trace=trace,
         inference_url=str(inference_url or ""),
-        # Legacy field for backward compatibility
-        run_id=request.run_id,
     )

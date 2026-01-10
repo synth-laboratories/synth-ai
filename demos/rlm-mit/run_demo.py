@@ -488,7 +488,7 @@ def create_oolong_rlm_local_api():
         reward = 1.0 if normalize_answer(predicted) == normalize_answer(gold) else 0.0
 
         return RolloutResponse(
-            run_id=request.run_id,
+            run_id=request.trace_correlation_id,
             metrics=RolloutMetrics(
                 outcome_reward=reward,
                 details={"messages": messages_for_validation, "predicted": predicted, "gold": gold},

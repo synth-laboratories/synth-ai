@@ -382,7 +382,7 @@ def create_banking77_local_api(system_prompt: str):
         )
 
         return RolloutResponse(
-            run_id=request.run_id,
+            run_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=reward),
             trace=None,
             trace_correlation_id=trace_correlation_id,

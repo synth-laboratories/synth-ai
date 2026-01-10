@@ -198,7 +198,7 @@ def create_hotpotqa_local_api(system_prompt: str, env_api_key: str):
         reward = 1.0 if is_correct else 0.0
 
         return RolloutResponse(
-            run_id=request.run_id,
+            run_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=reward),
             trace=None,
             trace_correlation_id=request.policy.config.get("trace_correlation_id"),

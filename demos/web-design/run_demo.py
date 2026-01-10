@@ -495,7 +495,7 @@ Apply the visual style guidelines to match the original design."""
             # Save generated image for review
             output_dir = Path(__file__).parent / "generated_images"
             output_dir.mkdir(exist_ok=True)
-            run_id_short = request.run_id[:8] if request.run_id else "unknown"
+            run_id_short = request.trace_correlation_id[:8] if request.trace_correlation_id else "unknown"
             img_path = output_dir / f"seed_{seed}_run_{run_id_short}.png"
             with open(img_path, "wb") as f:
                 f.write(generated_bytes)
@@ -523,7 +523,7 @@ Apply the visual style guidelines to match the original design."""
                 trace_correlation_id = None
 
         return RolloutResponse(
-            run_id=request.run_id,
+            run_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=reward),
             trace=None,
             trace_correlation_id=trace_correlation_id,

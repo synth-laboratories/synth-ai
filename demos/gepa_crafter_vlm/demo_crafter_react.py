@@ -269,7 +269,6 @@ def create_crafter_vlm_local_api(system_prompt: str):
         )
 
         return RolloutResponse(
-            run_id=request.run_id,
             metrics=metrics,
             trace_correlation_id=trace_correlation_id,
             trace=trace,

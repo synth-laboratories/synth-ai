@@ -174,7 +174,7 @@ def create_task_app(system_prompt: str):
         log(f"  Rollout seed={seed} done: score={score:.3f}, turns={turn + 1}")
 
         return RolloutResponse(
-            run_id=request.run_id,
+            run_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=score, details=details),
             trace=None,
             trace_correlation_id=policy_config.get("trace_correlation_id"),
