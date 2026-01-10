@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from typing import Any, TypedDict
 
-from synth_ai.core._utils.http import AsyncHttpClient, HTTPError, sleep
+from synth_ai.core.http import AsyncHttpClient, HTTPError, sleep
 from synth_ai.sdk.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,

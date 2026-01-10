@@ -1,10 +1,8 @@
 """Client utilities for querying prompt learning job results."""
 
-from __future__ import annotations
-
 from typing import Any, Dict, List, Optional
 
-from synth_ai.core._utils.http import AsyncHttpClient
+from synth_ai.core.http import AsyncHttpClient
 from synth_ai.data import extract_outcome_reward
 
 from .prompt_learning_types import PromptResults
@@ -292,6 +290,8 @@ class PromptLearningClient:
                     if best_score is not None:
                         result.best_score = best_score
 
+            # MIPRO completion event - extract best_score
+            elif event_type == "mipro.job.completed":
                 if result.best_score is None:
                     # Prefer unified best_score field, fallback to best_full_score or best_minibatch_score
                     result.best_score = _extract_reward_value(

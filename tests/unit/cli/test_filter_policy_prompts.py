@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import json
 
-from synth_ai.cli.commands.filter.core import _select_messages
+from synth_ai.cli.filter import _select_messages
 
 
 def _encode(obj: object) -> str:

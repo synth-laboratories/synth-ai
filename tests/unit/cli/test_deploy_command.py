@@ -1,13 +1,9 @@
-from __future__ import annotations
-
 import importlib
 from pathlib import Path
 from typing import Any
 
-import click
 import pytest
 from click.testing import CliRunner
-
 from synth_ai.core.cfgs import LocalDeployCfg, ModalDeployCfg
 
 
@@ -29,7 +25,9 @@ def _reload_deploy(monkeypatch: pytest.MonkeyPatch):
     return deploy_module
 
 
-def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
+def test_deploy_local_runtime_invokes_uvicorn(
+    monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path
+) -> None:
     captured: dict[str, Any] = {}
 
     def fake_deploy(cfg: LocalDeployCfg) -> None:
@@ -48,7 +46,7 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
     env_file.write_text("SYNTH_API_KEY=synth-key\nENVIRONMENT_API_KEY=test-key\n", encoding="utf-8")
 
     result = runner.invoke(
-        deploy_module.deploy_cmd,
+        deploy_module.deploy,
         [
             "local",
             str(task_app),
@@ -71,7 +69,9 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
     assert cfg.trace is False
 
 
-def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
+def test_deploy_modal_runtime_invokes_modal(
+    monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path
+) -> None:
     captured: dict[str, Any] = {}
 
     def fake_modal(cfg: ModalDeployCfg) -> None:
@@ -89,7 +89,7 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
     env_file.write_text("SYNTH_API_KEY=synth-key\nENVIRONMENT_API_KEY=test-key\n", encoding="utf-8")
 
     result = runner.invoke(
-        deploy_module.deploy_cmd,
+        deploy_module.deploy,
         [
             "modal",
             str(task_app),
@@ -109,7 +109,10 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
         print(f"Output: {result.output}")
         if result.exception:
             import traceback
-            traceback.print_exception(type(result.exception), result.exception, result.exception.__traceback__)
+
+            traceback.print_exception(
+                type(result.exception), result.exception, result.exception.__traceback__
+            )
 
     assert result.exit_code == 0, result.output
     assert "cfg" in captured, f"fake_modal not called. Output: {result.output}"
@@ -123,7 +126,9 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
     assert cfg.modal_bin_path == modal_cli_path
 
 
-def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_deploy_modal_requires_modal_app_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     runner = CliRunner()
     monkeypatch.setenv("SYNTH_API_KEY", "synth-key")
     monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
@@ -135,7 +140,7 @@ def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, t
     env_file.write_text("SYNTH_API_KEY=synth-key\nENVIRONMENT_API_KEY=test-key\n", encoding="utf-8")
 
     result = runner.invoke(
-        deploy_module.deploy_cmd,
+        deploy_module.deploy,
         [
             "modal",
             str(task_app),
@@ -150,7 +155,9 @@ def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, t
     assert "modal_app is required" in result.output
 
 
-def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_deploy_modal_disallows_dry_run_with_serve(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     runner = CliRunner()
     captured: dict[str, any] = {}
 
@@ -169,7 +176,7 @@ def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPat
     env_file = tmp_path / ".env"
     env_file.write_text("SYNTH_API_KEY=synth-key\nENVIRONMENT_API_KEY=test-key\n", encoding="utf-8")
     result = runner.invoke(
-        deploy_module.deploy_cmd,
+        deploy_module.deploy,
         [
             "modal",
             str(task_app),

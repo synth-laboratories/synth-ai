@@ -1,17 +1,13 @@
 """Unit tests for verifier/rubric configuration validation."""
 
-from __future__ import annotations
-
 import pytest
-
-from synth_ai.cli.commands.train import (
-    InvalidVerifierConfigError,
+from synth_ai.sdk.api.train.validation import (
     InvalidRubricConfigError,
-    RubricConfig,
+    InvalidVerifierConfigError,
     VerifierConfig,
     extract_and_validate_verifier_rubric,
-    validate_verifier_config,
     validate_rubric_config,
+    validate_verifier_config,
 )
 
 
@@ -28,14 +24,16 @@ class TestRubricValidation:
 
     def test_valid_rubric_config(self):
         """Valid rubric config should parse correctly."""
-        config = validate_rubric_config({
-            "enabled": True,
-            "weights": {
-                "env": 0.2,
-                "event": 0.4,
-                "outcome": 0.4,
-            },
-        })
+        config = validate_rubric_config(
+            {
+                "enabled": True,
+                "weights": {
+                    "env": 0.2,
+                    "event": 0.4,
+                    "outcome": 0.4,
+                },
+            }
+        )
         assert config.enabled is True
         assert config.weights.env == 0.2
         assert config.weights.event == 0.4
@@ -44,47 +42,55 @@ class TestRubricValidation:
     def test_rubric_weights_sum_zero_fails(self):
         """All zero weights should fail validation."""
         with pytest.raises(InvalidRubricConfigError, match="(?i)at least one"):
-            validate_rubric_config({
-                "enabled": True,
-                "weights": {
-                    "env": 0.0,
-                    "event": 0.0,
-                    "outcome": 0.0,
-                },
-            })
+            validate_rubric_config(
+                {
+                    "enabled": True,
+                    "weights": {
+                        "env": 0.0,
+                        "event": 0.0,
+                        "outcome": 0.0,
+                    },
+                }
+            )
 
     def test_rubric_negative_weight_fails(self):
         """Negative weights should fail validation."""
         with pytest.raises(InvalidRubricConfigError):
-            validate_rubric_config({
-                "enabled": True,
-                "weights": {
-                    "env": -0.1,
-                    "event": 0.5,
-                    "outcome": 0.5,
-                },
-            })
+            validate_rubric_config(
+                {
+                    "enabled": True,
+                    "weights": {
+                        "env": -0.1,
+                        "event": 0.5,
+                        "outcome": 0.5,
+                    },
+                }
+            )
 
     def test_deprecated_rubric_fields_rejected(self):
         """Deprecated fields should be rejected."""
         with pytest.raises(InvalidRubricConfigError, match="deprecated"):
-            validate_rubric_config({
-                "enabled": True,
-                "model": "openai/gpt-oss-120b",  # Deprecated
-                "weights": {"env": 1.0},
-            })
+            validate_rubric_config(
+                {
+                    "enabled": True,
+                    "model": "openai/gpt-oss-120b",  # Deprecated
+                    "weights": {"env": 1.0},
+                }
+            )
 
     def test_deprecated_rubric_event_section_rejected(self):
         """Deprecated [rubric.event] section should be rejected."""
         with pytest.raises(InvalidRubricConfigError, match="rubric.event"):
-            validate_rubric_config({
-                "enabled": True,
-                "weights": {"env": 1.0},
-                "event": {  # Deprecated section
-                    "rubric_id": "crafter/event@v1",
-                    "criteria": [],
-                },
-            })
+            validate_rubric_config(
+                {
+                    "enabled": True,
+                    "weights": {"env": 1.0},
+                    "event": {  # Deprecated section
+                        "rubric_id": "crafter/event@v1",
+                        "criteria": [],
+                    },
+                }
+            )
 
 
 class TestVerifierValidation:
@@ -97,15 +103,17 @@ class TestVerifierValidation:
 
     def test_valid_verifier_config(self):
         """Valid verifier config should parse correctly."""
-        config = validate_verifier_config({
-            "options": {
-                "provider": "openai",
-                "model": "gpt-5",
-                "rubric_id": "task@v1",
-                "event": True,
-                "outcome": True,
-            },
-        })
+        config = validate_verifier_config(
+            {
+                "options": {
+                    "provider": "openai",
+                    "model": "gpt-5",
+                    "rubric_id": "task@v1",
+                    "event": True,
+                    "outcome": True,
+                },
+            }
+        )
         assert config is not None
         assert config.options.provider == "openai"
         assert config.options.model == "gpt-5"
@@ -121,57 +129,67 @@ class TestVerifierValidation:
     def test_verifier_invalid_provider_fails(self):
         """Invalid provider should fail validation."""
         with pytest.raises(InvalidVerifierConfigError):
-            validate_verifier_config({
-                "options": {
-                    "provider": "invalid_provider",
-                    "model": "gpt-5",
-                },
-            })
+            validate_verifier_config(
+                {
+                    "options": {
+                        "provider": "invalid_provider",
+                        "model": "gpt-5",
+                    },
+                }
+            )
 
     def test_verifier_both_disabled_fails(self):
         """Both event and outcome disabled should fail."""
         with pytest.raises(InvalidVerifierConfigError, match="(?i)at least one"):
-            validate_verifier_config({
-                "options": {
-                    "provider": "openai",
-                    "model": "gpt-5",
-                    "event": False,
-                    "outcome": False,
-                },
-            })
+            validate_verifier_config(
+                {
+                    "options": {
+                        "provider": "openai",
+                        "model": "gpt-5",
+                        "event": False,
+                        "outcome": False,
+                    },
+                }
+            )
 
     def test_deprecated_verifier_type_rejected(self):
         """Deprecated verifier.type should be rejected."""
         with pytest.raises(InvalidVerifierConfigError, match="deprecated"):
-            validate_verifier_config({
-                "type": "groq",  # Deprecated
-                "options": {
-                    "provider": "openai",
-                    "model": "gpt-5",
-                },
-            })
+            validate_verifier_config(
+                {
+                    "type": "groq",  # Deprecated
+                    "options": {
+                        "provider": "openai",
+                        "model": "gpt-5",
+                    },
+                }
+            )
 
     def test_deprecated_max_concurrency_rejected(self):
         """Deprecated max_concurrency should be rejected."""
         with pytest.raises(InvalidVerifierConfigError, match="deprecated"):
-            validate_verifier_config({
-                "options": {
-                    "provider": "openai",
-                    "model": "gpt-5",
-                    "max_concurrency": 10,  # Deprecated
-                },
-            })
+            validate_verifier_config(
+                {
+                    "options": {
+                        "provider": "openai",
+                        "model": "gpt-5",
+                        "max_concurrency": 10,  # Deprecated
+                    },
+                }
+            )
 
     def test_timeout_rejected(self):
         """Top-level verifier.timeout_s should be rejected."""
         with pytest.raises(InvalidVerifierConfigError, match="deprecated"):
-            validate_verifier_config({
-                "timeout_s": 60,  # Deprecated location
-                "options": {
-                    "provider": "openai",
-                    "model": "gpt-5",
-                },
-            })
+            validate_verifier_config(
+                {
+                    "timeout_s": 60,  # Deprecated location
+                    "options": {
+                        "provider": "openai",
+                        "model": "gpt-5",
+                    },
+                }
+            )
 
 
 class TestVerifierRubricIntegration:
@@ -252,8 +270,8 @@ class TestBuildHTTPOptions:
 
     def test_build_minimal_options(self):
         """Minimal options should build correctly."""
-        from synth_ai.cli.commands.train import build_verifier_http_options
-        
+        from synth_ai.sdk.api.train.validation import build_verifier_http_options
+
         config = VerifierConfig(
             options={
                 "provider": "openai",
@@ -261,7 +279,7 @@ class TestBuildHTTPOptions:
             }
         )
         options = build_verifier_http_options(config.options)
-        
+
         assert options["provider"] == "openai"
         assert options["model"] == "gpt-5"
         assert options["event"] is True  # Default
@@ -271,8 +289,8 @@ class TestBuildHTTPOptions:
 
     def test_build_full_options(self):
         """Full options should build correctly."""
-        from synth_ai.cli.commands.train import build_verifier_http_options
-        
+        from synth_ai.sdk.api.train.validation import build_verifier_http_options
+
         config = VerifierConfig(
             options={
                 "provider": "groq",
@@ -286,7 +304,7 @@ class TestBuildHTTPOptions:
             }
         )
         options = build_verifier_http_options(config.options)
-        
+
         assert options["provider"] == "groq"
         assert options["model"] == "openai/gpt-oss-120b"
         assert options["rubric_id"] == "crafter/bundle@v1"
@@ -298,8 +316,8 @@ class TestBuildHTTPOptions:
 
     def test_task_info_overrides_static(self):
         """TaskInfo overrides should take priority over static config."""
-        from synth_ai.cli.commands.train import build_verifier_http_options
-        
+        from synth_ai.sdk.api.train.validation import build_verifier_http_options
+
         config = VerifierConfig(
             options={
                 "provider": "openai",
@@ -307,12 +325,12 @@ class TestBuildHTTPOptions:
                 "rubric_overrides": {"event": {"static": True}},
             }
         )
-        
+
         task_info_overrides = {"event": {"dynamic": True}}
         options = build_verifier_http_options(
             config.options,
             rubric_overrides_from_task_info=task_info_overrides,
         )
-        
+
         # TaskInfo overrides should replace static config
         assert options["rubric_overrides"] == {"event": {"dynamic": True}}

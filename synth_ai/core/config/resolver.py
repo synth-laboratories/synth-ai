@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Optional, overload
 
 import click
@@ -9,7 +7,7 @@ from synth_ai.core.telemetry import log_info
 
 def _get_required_value(*args, **kwargs):
     """Lazy import to avoid circular dependency."""
-    from synth_ai.cli.lib.errors import get_required_value
+    from synth_ai.core.config.errors import get_required_value
 
     return get_required_value(*args, **kwargs)
 

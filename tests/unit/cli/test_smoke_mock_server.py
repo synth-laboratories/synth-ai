@@ -1,23 +1,12 @@
-from __future__ import annotations
-
-import json
-from pathlib import Path
+import importlib
 
 import pytest
-
-SMOKE_CORE_PATH = Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
+import synth_ai.cli.smoke as smoke_module
 
 
 @pytest.mark.asyncio
 async def test_mock_rl_trainer_emits_tool_calls_and_sets_cid() -> None:
-    # Import the mock server by file path to avoid package side effects
-    import importlib.util
-    import sys as _sys
-    spec = importlib.util.spec_from_file_location("smoke_core_isolated", SMOKE_CORE_PATH)
-    assert spec and spec.loader
-    smoke_core = importlib.util.module_from_spec(spec)
-    _sys.modules[spec.name] = smoke_core
-    spec.loader.exec_module(smoke_core)  # type: ignore[arg-type]
+    smoke_core = importlib.reload(smoke_module)
 
     trainer = smoke_core.MockRLTrainer(port=0, backend="synthetic")
     app = trainer._build_app()  # FastAPI app

@@ -33,14 +33,14 @@ from synth_ai.core.urls import BACKEND_URL_BASE
 
 def __resolve_env_var(key: str) -> str:
     """Lazy import to avoid circular dependency."""
-    from synth_ai.cli.lib.env import resolve_env_var
+    from synth_ai.core.env_utils import resolve_env_var
 
     return resolve_env_var(key)
 
 
 def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
     """Lazy import to avoid circular dependency."""
-    from synth_ai.cli.lib.env import write_env_var_to_dotenv
+    from synth_ai.core.env_utils import write_env_var_to_dotenv
 
     write_env_var_to_dotenv(key, value, **kwargs)
 
@@ -1833,7 +1833,7 @@ async def deploy_app_tunnel(
             store_tunnel_credentials(url, None, None, env_file)
             # Record tunnel for scan command
             try:
-                from synth_ai.cli.lib.tunnel_records import record_tunnel
+                from synth_ai.core.service_records import record_tunnel
 
                 record_tunnel(
                     url=url,
@@ -1876,7 +1876,7 @@ async def deploy_app_tunnel(
             store_tunnel_credentials(url, access_client_id, access_client_secret, env_file)
             # Record tunnel for scan command
             try:
-                from synth_ai.cli.lib.tunnel_records import record_tunnel
+                from synth_ai.core.service_records import record_tunnel
 
                 record_tunnel(
                     url=url,
@@ -1911,7 +1911,7 @@ async def deploy_app_tunnel(
             _TUNNEL_PROCESSES.pop(cfg.port, None)
         # Remove record if it was created
         try:
-            from synth_ai.cli.lib.tunnel_records import remove_tunnel_record
+            from synth_ai.core.service_records import remove_tunnel_record
 
             remove_tunnel_record(cfg.port)
         except Exception:

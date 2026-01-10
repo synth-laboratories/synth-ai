@@ -8,12 +8,6 @@ Tests are marked with pytest markers for selective execution:
 - @pytest.mark.integration: All integration tests
 """
 
-from __future__ import annotations
-
-import json
-from pathlib import Path
-from typing import Any
-
 import pytest
 
 pytestmark = [pytest.mark.integration]
@@ -24,32 +18,33 @@ class TestRLConfigValidation:
 
     def test_validate_rl_config_requires_algorithm(self) -> None:
         """RL config requires algorithm section."""
-        from synth_ai.cli.commands.train.validation import validate_rl_config
-        from synth_ai.cli.commands.train.errors import MissingAlgorithmError
+        from synth_ai.sdk.api.train.validation import MissingAlgorithmError, validate_rl_config
 
         with pytest.raises(MissingAlgorithmError):
             validate_rl_config({})
 
     def test_validate_rl_config_requires_model_or_policy(self) -> None:
         """RL config requires model or policy section."""
-        from synth_ai.cli.commands.train.validation import validate_rl_config
-        from synth_ai.cli.commands.train.errors import MissingModelError
+        from synth_ai.sdk.api.train.validation import MissingModelError, validate_rl_config
 
         with pytest.raises(MissingModelError):
-            validate_rl_config({
-                "algorithm": {"type": "online", "variety": "gspo"},
-            })
+            validate_rl_config(
+                {
+                    "algorithm": {"type": "online", "variety": "gspo"},
+                }
+            )
 
     def test_validate_rl_config_requires_variety(self) -> None:
         """RL config requires algorithm variety."""
-        from synth_ai.cli.commands.train.validation import validate_rl_config
-        from synth_ai.cli.commands.train.errors import MissingAlgorithmError
+        from synth_ai.sdk.api.train.validation import MissingAlgorithmError, validate_rl_config
 
         with pytest.raises(MissingAlgorithmError):
-            validate_rl_config({
-                "algorithm": {"type": "online"},
-                "policy": {"model_name": "Qwen/Qwen3-0.6B"},
-            })
+            validate_rl_config(
+                {
+                    "algorithm": {"type": "online"},
+                    "policy": {"model_name": "Qwen/Qwen3-0.6B"},
+                }
+            )
 
 
 class TestRlClientWithMocks:

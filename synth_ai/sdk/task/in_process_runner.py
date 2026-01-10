@@ -19,14 +19,13 @@ Environment Variables:
 - SYNTH_TUNNEL_MODE: Override tunnel mode (e.g., "preconfigured", "local")
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 
+from synth_ai.core.dict_utils import deep_update as _deep_update
 from synth_ai.core.env import get_backend_from_env
 from synth_ai.core.telemetry import log_info
 from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
@@ -34,12 +33,6 @@ from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.api.train.rl import RLJob
 from synth_ai.sdk.api.train.utils import ensure_api_base
 from synth_ai.sdk.task.in_process import InProcessTaskApp
-
-try:  # CLI deep-update utility (dot-notation aware)
-    from synth_ai.cli.local.experiment_queue.config_utils import _deep_update
-except Exception as exc:  # pragma: no cover - defensive
-    raise RuntimeError("Failed to import config override helper (_deep_update)") from exc
-
 
 BackendMode = Literal["prompt_learning", "rl"]
 

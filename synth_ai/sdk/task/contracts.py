@@ -4,13 +4,19 @@ Prefer synth_ai.sdk.localapi.contracts moving forward. This module remains for
 backward compatibility during the naming transition.
 """
 
-from __future__ import annotations
-
+import warnings
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class RolloutMode(str, Enum):
+    """Mode controls how rollout infrastructure processes inference URLs."""
+
+    RL = "rl"
+    EVAL = "eval"
 
 
 class OutputMode(str, Enum):
@@ -36,8 +42,10 @@ class StructuredOutputConfig(BaseModel):
     - Gemini: generationConfig.responseSchema
     """
 
-    schema: dict[str, Any] = Field(
-        ..., description="JSON Schema for the expected response structure"
+    model_config = ConfigDict(populate_by_name=True)
+
+    json_schema: dict[str, Any] = Field(
+        ..., alias="schema", description="JSON Schema for the expected response structure"
     )
     schema_name: str = Field(
         default="response", description="Name for the schema (required by some providers)"
@@ -45,6 +53,14 @@ class StructuredOutputConfig(BaseModel):
     strict: bool = Field(
         default=True, description="Whether to enforce strict schema validation (OpenAI strict mode)"
     )
+
+    @property
+    def schema(self) -> dict[str, Any]:
+        return self.json_schema
+
+    @schema.setter
+    def schema(self, value: dict[str, Any]) -> None:
+        self.json_schema = value
 
 
 @dataclass(frozen=True)
@@ -94,90 +110,109 @@ class RolloutPolicySpec(BaseModel):
     )
 
 
+class RolloutRecordConfig(BaseModel):
+    logprobs: bool = False
+    value: bool = False
+    return_trace: bool = False
+    trace_format: Literal["compact", "full", "structured"] = "compact"
+
+
 class RolloutSafetyConfig(BaseModel):
-    """Safety configuration for rollout execution.
-
-    Note: max_time_s is set but enforcement depends on the task app implementation.
-    """
-
     max_time_s: float = 3600.0
 
 
 class RolloutRequest(BaseModel):
-    """Request to execute a rollout.
-
-    ## Identifier Fields
-
-    - `trace_correlation_id`: REQUIRED - Single source of truth for rollout identification.
-      Used for trace correlation, registry operations, seed derivation, and resource tracking.
-    """
-
-    trace_correlation_id: str = Field(
-        ...,
-        description="REQUIRED - Unique identifier for this rollout. Used for trace correlation, "
-        "registry operations, seed derivation, and resource tracking. Single source of truth.",
-    )
+    run_id: str
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
+    record: RolloutRecordConfig = RolloutRecordConfig()
     on_done: str = "reset"
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     training_session_id: str | None = None
     synth_base_url: str | None = None
+    mode: RolloutMode = RolloutMode.RL  # Default to RL mode for training/optimization
 
 
 class RolloutMetrics(BaseModel):
     """Metrics from a rollout execution.
 
-    ## Required Fields
+    ## Preferred Fields (New - Normalized)
 
-    - `outcome_reward`: REQUIRED - The reward for this rollout
+    - `outcome_reward`: The reward for this rollout (PREFERRED)
+    - `event_rewards`: Optional per-step rewards
 
-    ## Optional Fields
+    ## Legacy Fields (Backward Compatibility)
 
-    - `event_rewards`: Per-step rewards for multi-step tasks
-    - `outcome_objectives`: Multi-objective outcomes (e.g., {'reward': 0.9, 'latency': 0.5})
-    - `event_objectives`: Per-event objectives aligned to trace events
-    - `details`: Metadata only (not for scoring)
+    - `episode_rewards`, `reward_mean`, `num_steps`: Still supported for backward
+      compatibility. For new implementations, just use `outcome_reward`.
+    - `outcome_score`: Alias for `outcome_reward` (deprecated)
 
-    ## Example - Minimal
-
-        metrics = RolloutMetrics(outcome_reward=1.0)
-
-    ## Example - Multi-objective
+    ## Example - Minimal (New Style)
 
         metrics = RolloutMetrics(
-            outcome_reward=0.85,
-            outcome_objectives={"reward": 0.85, "latency": 0.7},
-            event_rewards=[0.8, 0.9, 0.85],
+            outcome_reward=1.0,  # PREFERRED - just provide the reward
+        )
+
+    ## Example - Full (Backward Compatible)
+
+        metrics = RolloutMetrics(
+            episode_rewards=[1.0],
+            reward_mean=1.0,
+            num_steps=1,
+            outcome_reward=1.0,  # PREFERRED
         )
     """
 
     # =========================================================================
-    # REQUIRED FIELD
+    # PREFERRED FIELDS (New - Normalized)
     # =========================================================================
-    outcome_reward: float = Field(
-        ...,
-        description="REQUIRED - The reward for this rollout. Single source of truth for scoring.",
-    )
-
-    # =========================================================================
-    # OPTIONAL FIELDS
-    # =========================================================================
-    event_rewards: list[float] | None = Field(
-        default=None,
-        description="Optional per-step/event rewards for multi-step tasks.",
-    )
     outcome_objectives: Optional[Dict[str, float]] = Field(
         default=None,
-        description="Multi-objective outcomes (e.g., {'reward': 0.9, 'latency': 0.5}).",
+        description="Canonical outcome objectives (e.g., {'reward': 0.9}).",
     )
     event_objectives: Optional[List[Dict[str, float]]] = Field(
         default=None,
         description="Optional per-event objectives aligned to trace events.",
     )
+    outcome_reward: float | None = Field(
+        default=None,
+        description="The reward for this rollout. PREFERRED field for scoring.",
+    )
+    event_rewards: list[float] | None = Field(
+        default=None,
+        description="Optional per-step/event rewards for multi-step tasks.",
+    )
+
+    # =========================================================================
+    # LEGACY FIELDS (Backward Compatibility)
+    # =========================================================================
+    episode_rewards: list[float] = Field(
+        default_factory=list,
+        description="[LEGACY] Per-episode rewards. Use outcome_reward instead.",
+    )
+    reward_mean: float = Field(
+        default=0.0,
+        description="[LEGACY] Mean reward. Use outcome_reward instead.",
+    )
+    num_steps: int = Field(
+        default=1,
+        description="[LEGACY] Step count. Can be derived from event_rewards or trace.",
+    )
+    num_episodes: int = Field(
+        default=1,
+        description="[LEGACY] Episode count. Usually 1 for GEPA tasks.",
+    )
+    outcome_score: float | None = Field(
+        default=None,
+        description="[DEPRECATED] Alias for outcome_reward. Use outcome_reward instead.",
+    )
+    events_score: float | None = Field(
+        default=None,
+        description="[LEGACY] Aggregate event score. Use event_rewards instead.",
+    )
     details: dict[str, Any] = Field(
         default_factory=dict,
-        description="Metadata only. Do NOT use details for reward computation.",
+        description="Metadata only. Do NOT use details.correct for rewards.",
     )
 
 
@@ -186,32 +221,84 @@ class RolloutResponse(BaseModel):
 
     ## Key Fields
 
-    - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
+    - `run_id`: Echo from request (required)
     - `metrics`: Rollout metrics with `outcome_reward` (required)
     - `trace`: v3 trace payload (required for verifier scoring)
-    - `inference_url`: Inference URL used for this rollout
+
+    ## Canonical Locations (Top-Level)
+
+    - `trace_correlation_id`: Correlation ID for trace recovery (TOP-LEVEL CANONICAL)
+    - `inference_url`: Inference URL used for this rollout (TOP-LEVEL CANONICAL)
+
+    These fields SHOULD be at top-level. The monorepo parses from top-level first,
+    with fallback to nested locations for backward compatibility.
 
     ## Example
 
         response = RolloutResponse(
-            trace_correlation_id=request.trace_correlation_id,
+            run_id=request.run_id,
             metrics=RolloutMetrics(outcome_reward=1.0),
             trace=trace_payload,
+            trace_correlation_id="trace_abc123",
             inference_url="https://api.usesynth.ai/v1/trial-xyz",
         )
     """
 
-    trace_correlation_id: str = Field(
-        ...,
-        description="REQUIRED - Correlation ID for trace recovery. Single source of truth. "
-        "Echo from request.trace_correlation_id.",
-    )
+    run_id: str
     metrics: RolloutMetrics
     trace: dict[str, Any] | None = None
+
+    # =========================================================================
+    # CANONICAL LOCATIONS (Top-Level - Preferred for Parsing)
+    # =========================================================================
+    trace_correlation_id: str | None = Field(
+        default=None,
+        description="Correlation ID for trace recovery. TOP-LEVEL CANONICAL location.",
+    )
     inference_url: str | None = Field(
         default=None,
-        description="Inference URL used for this rollout.",
+        description="Inference URL used for this rollout. TOP-LEVEL CANONICAL location.",
     )
+
+    # =========================================================================
+    # LEGACY FIELDS (Backward Compatibility)
+    # =========================================================================
+    branches: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="[LEGACY] Branch tracking. Usually empty for single-path rollouts.",
+    )
+    aborted: bool = Field(
+        default=False,
+        description="Whether the rollout was aborted early.",
+    )
+    pipeline_metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="[LEGACY] Additional metadata. Prefer top-level fields instead.",
+    )
+
+    @field_validator("trace_correlation_id")
+    @classmethod
+    def warn_missing_correlation_id(cls, v: str | None) -> str | None:
+        """Warn if trace_correlation_id is None - this breaks trace hydration.
+
+        When trace_correlation_id is None, the backend cannot correlate LLM traces
+        with eval seeds, causing trace hydration to fail. This results in warnings like:
+        "missing correlation_id" and prevents proper trace tracking.
+
+        To fix: Call extract_trace_correlation_id() from
+        synth_ai.sdk.task.trace_correlation_helpers and include the result
+        in your RolloutResponse, or use build_rollout_response() helper.
+        """
+        if v is None:
+            warnings.warn(
+                "RolloutResponse.trace_correlation_id is None. "
+                "Trace hydration will fail. "
+                "See: https://docs.usesynth.ai/guides/local-api#trace-correlation "
+                "or use build_rollout_response() helper from synth_ai.sdk.task",
+                UserWarning,
+                stacklevel=4,
+            )
+        return v
 
 
 class _ExtraAllowModel(BaseModel):

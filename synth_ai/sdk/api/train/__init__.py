@@ -20,10 +20,7 @@ SDK Usage:
     result = sft_job.poll_until_complete()
 """
 
-from __future__ import annotations
-
-from typing import Any
-
+# Re-export high-level SDK classes
 from .context_learning import (
     ContextLearningJob,
     ContextLearningJobConfig,
@@ -35,8 +32,6 @@ from .graphgen_models import (
     GraphGenJobConfig,
     GraphGenTaskSet,
 )
-
-# Re-export high-level SDK classes
 from .prompt_learning import (
     PromptLearningJob,
     PromptLearningJobConfig,
@@ -48,9 +43,6 @@ from .sft import (
 )
 
 __all__ = [
-    # CLI
-    "register",
-    "train_command",
     # SDK - Prompt Learning
     "PromptLearningJob",
     "PromptLearningJobConfig",
@@ -66,21 +58,3 @@ __all__ = [
     "GraphGenJobConfig",
     "GraphGenTaskSet",
 ]
-
-
-def register(cli: Any) -> None:
-    """Register the train command with the CLI."""
-    from synth_ai.sdk.api.train.cli import (
-        register as _register,  # local import avoids circular dependency
-    )
-
-    _register(cli)
-
-
-def train_command(*args: Any, **kwargs: Any) -> Any:
-    """Entrypoint for the train CLI command."""
-    from synth_ai.sdk.api.train.cli import (
-        train_command as _train_command,  # local import avoids cycle
-    )
-
-    return _train_command(*args, **kwargs)

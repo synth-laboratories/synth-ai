@@ -2,8 +2,8 @@
 
 import pytest
 from click.testing import CliRunner
-from synth_ai.cli.commands.help import COMMAND_HELP, DEPLOY_HELP, SETUP_HELP, get_command_help
-from synth_ai.cli.commands.help.core import help_command
+from synth_ai.cli.help import COMMAND_HELP, DEPLOY_HELP, SETUP_HELP, get_command_help
+from synth_ai.cli.help import help as help_command
 
 
 @pytest.fixture()
@@ -102,9 +102,7 @@ class TestHelpCommand:
         assert "WHAT YOU'LL NEED" in result.output
         assert "WHERE ARE KEYS STORED" in result.output
 
-    def test_help_command_with_unknown_command_fails_gracefully(
-        self, runner: CliRunner
-    ) -> None:
+    def test_help_command_with_unknown_command_fails_gracefully(self, runner: CliRunner) -> None:
         """Test help command with unknown command provides helpful error."""
         result = runner.invoke(help_command, ["nonexistent"])
         assert result.exit_code != 0
@@ -124,7 +122,10 @@ class TestHelpCommand:
         result = runner.invoke(help_command, [])
         assert result.exit_code == 0
         assert "--help" in result.output
-        assert "uvx synth-ai deploy --help" in result.output or "standard --help flags" in result.output
+        assert (
+            "uvx synth-ai deploy --help" in result.output
+            or "standard --help flags" in result.output
+        )
 
 
 class TestHelpIntegrationWithCommands:
@@ -132,17 +133,17 @@ class TestHelpIntegrationWithCommands:
 
     def test_deploy_command_is_registered(self) -> None:
         """Test deploy command is exposed under the new CLI module."""
-        from synth_ai.cli.deploy import deploy_cmd
+        from synth_ai.cli.deploy import deploy
 
-        assert deploy_cmd is not None, "deploy_cmd should not be None"
-        assert deploy_cmd.name == "deploy-cmd"
+        assert deploy is not None, "deploy command should not be None"
+        assert deploy.name == "deploy"
 
     def test_deploy_command_help_flag_works(self, runner: CliRunner) -> None:
         """Test deploy command --help flag displays help."""
-        from synth_ai.cli.deploy import deploy_cmd
+        from synth_ai.cli.deploy import deploy
 
-        assert deploy_cmd is not None, "deploy_cmd should not be None"
-        result = runner.invoke(deploy_cmd, ["--help"])
+        assert deploy is not None, "deploy command should not be None"
+        result = runner.invoke(deploy, ["--help"])
         assert result.exit_code == 0
         assert "[[local|modal|tunnel]]" in result.output
         assert "--env" in result.output

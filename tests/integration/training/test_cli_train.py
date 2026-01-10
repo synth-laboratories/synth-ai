@@ -11,13 +11,7 @@ Tests are marked with pytest markers for selective execution:
 - @pytest.mark.cli: CLI-specific tests
 """
 
-from __future__ import annotations
-
-import json
-import os
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -220,7 +214,7 @@ class TestTrainCommandParsing:
 
     def test_train_command_requires_config_or_auto_detect(self, cli_runner, tmp_path: Path) -> None:
         """Train command should require config or auto-detect."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         # Run in empty directory (no config to auto-detect)
         with cli_runner.isolated_filesystem(temp_dir=tmp_path):
@@ -231,7 +225,7 @@ class TestTrainCommandParsing:
 
     def test_train_command_accepts_config_path(self, cli_runner, tmp_path: Path) -> None:
         """Train command should accept --config path."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         config = tmp_path / "config.toml"
         config.write_text("""
@@ -258,7 +252,7 @@ class TestTrainCommandOptions:
 
     def test_train_command_has_poll_option(self, cli_runner) -> None:
         """Train command should have --poll/--no-poll option."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         result = cli_runner.invoke(train_command, ["--help"])
         assert "--poll" in result.output
@@ -266,7 +260,7 @@ class TestTrainCommandOptions:
 
     def test_train_command_has_stream_format_option(self, cli_runner) -> None:
         """Train command should have --stream-format option."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         result = cli_runner.invoke(train_command, ["--help"])
         assert "--stream-format" in result.output
@@ -275,28 +269,28 @@ class TestTrainCommandOptions:
 
     def test_train_command_has_task_url_option(self, cli_runner) -> None:
         """Train command should have --task-url option."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         result = cli_runner.invoke(train_command, ["--help"])
         assert "--task-url" in result.output
 
     def test_train_command_has_dataset_option(self, cli_runner) -> None:
         """Train command should have --dataset option."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         result = cli_runner.invoke(train_command, ["--help"])
         assert "--dataset" in result.output
 
     def test_train_command_has_backend_option(self, cli_runner) -> None:
         """Train command should have --backend option."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         result = cli_runner.invoke(train_command, ["--help"])
         assert "--backend" in result.output
 
     def test_train_command_has_env_option(self, cli_runner) -> None:
         """Train command should have --env option."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         result = cli_runner.invoke(train_command, ["--help"])
         assert "--env" in result.output
@@ -312,7 +306,7 @@ class TestTrainCLIErrorHandling:
 
     def test_invalid_config_path_error(self, cli_runner) -> None:
         """Should error on invalid config path."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         result = cli_runner.invoke(train_command, ["/nonexistent/config.toml"])
 
@@ -321,7 +315,7 @@ class TestTrainCLIErrorHandling:
 
     def test_malformed_config_error(self, cli_runner, tmp_path: Path) -> None:
         """Should error on malformed TOML config."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         config = tmp_path / "bad.toml"
         config.write_text("this is not valid toml [[[")
@@ -341,7 +335,7 @@ class TestTrainCLIEnvHandling:
 
     def test_loads_env_file(self, cli_runner, tmp_path: Path) -> None:
         """Should load .env file when --env specified."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         # Create env file
         env_file = tmp_path / ".env"
@@ -370,7 +364,7 @@ population_size = 5
 
     def test_backend_override_from_env(self, cli_runner, tmp_path: Path, monkeypatch) -> None:
         """Should use BACKEND_BASE_URL from environment."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         monkeypatch.setenv("BACKEND_BASE_URL", "http://localhost:8000")
         monkeypatch.setenv("SYNTH_API_KEY", "test-key")
@@ -391,7 +385,11 @@ population_size = 5
         result = cli_runner.invoke(train_command, [str(config), "--no-poll"])
 
         # Should mention localhost backend or accept the config
-        assert "localhost:8000" in result.output or "Backend" in result.output or result.exit_code in (0, 1)
+        assert (
+            "localhost:8000" in result.output
+            or "Backend" in result.output
+            or result.exit_code in (0, 1)
+        )
 
 
 class TestTrainCLIBackendFlag:
@@ -404,7 +402,7 @@ class TestTrainCLIBackendFlag:
 
     def test_backend_flag_overrides_env(self, cli_runner, tmp_path: Path, monkeypatch) -> None:
         """--backend flag should override BACKEND_BASE_URL."""
-        from synth_ai.sdk.api.train.cli import train_command
+        from synth_ai.cli.train import train as train_command
 
         monkeypatch.setenv("BACKEND_BASE_URL", "http://ignored:8000")
         monkeypatch.setenv("SYNTH_API_KEY", "test-key")
@@ -428,4 +426,8 @@ population_size = 5
         )
 
         # Should mention override backend, not ignored, or accept the config
-        assert "override:9000" in result.output or "--backend" in result.output or result.exit_code in (0, 1)
+        assert (
+            "override:9000" in result.output
+            or "--backend" in result.output
+            or result.exit_code in (0, 1)
+        )

@@ -8,11 +8,12 @@ from typing import Any, List, Tuple
 import click
 import toml
 
-# Import unknown field validation from CLI module
-from synth_ai.cli.commands.train.prompt_learning_validation import (
+from synth_ai.core.telemetry import log_info
+
+# Import unknown field validation from shared validation helpers
+from synth_ai.sdk.api.train.validation.prompt_learning_validation import (
     validate_prompt_learning_config as _validate_unknown_fields,
 )
-from synth_ai.core.telemetry import log_info
 
 
 class ConfigValidationError(Exception):
@@ -21,7 +22,7 @@ class ConfigValidationError(Exception):
     pass
 
 
-# Supported models for prompt learning (GEPA)
+# Supported models for prompt learning (GEPA & MIPRO)
 # NOTE: gpt-5-pro is explicitly EXCLUDED - too expensive for prompt learning
 OPENAI_SUPPORTED_MODELS = {
     "gpt-4o",
@@ -102,7 +103,7 @@ def _is_supported_google_model(model: str) -> bool:
 
 def _validate_adaptive_pool_config(
     adaptive_pool_section: dict[str, Any],
-    prefix: str,  # e.g., "gepa.adaptive_pool"
+    prefix: str,  # e.g., "gepa.adaptive_pool" or "mipro.adaptive_pool"
     errors: list[str],
 ) -> None:
     """Validate adaptive_pool configuration section.
@@ -134,7 +135,7 @@ def _validate_adaptive_pool_config(
             - heatup_size: Number of seeds to add during heat-up
             - heatup_cooldown_trials: Trials to wait before cooling down
             - heatup_reserve_pool: Optional list of seed IDs for heat-up
-        prefix: Prefix for error messages (e.g., "gepa.adaptive_pool")
+        prefix: Prefix for error messages (e.g., "gepa.adaptive_pool" or "mipro.adaptive_pool")
         errors: List to append validation errors to
     """
     if not isinstance(adaptive_pool_section, dict):
@@ -427,13 +428,17 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     if not algorithm:
         errors.append(
             "Missing required field: prompt_learning.algorithm\n"
-            "  Must be 'gepa'\n"
+            "  Must be one of: 'gepa', 'mipro'\n"
             "  Example:\n"
             "    [prompt_learning]\n"
             '    algorithm = "gepa"'
         )
-    elif algorithm != "gepa":
-        errors.append(f"Invalid algorithm: '{algorithm}'\n  Must be 'gepa'\n  Got: '{algorithm}'")
+    elif algorithm not in ("gepa", "mipro"):
+        errors.append(
+            f"Invalid algorithm: '{algorithm}'\n"
+            f"  Must be one of: 'gepa', 'mipro'\n"
+            f"  Got: '{algorithm}'"
+        )
 
     # Validate task_app_url
     task_app_url = pl_section.get("task_app_url")
@@ -582,7 +587,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 )
                 errors.extend(lo_errors)
 
-    # Validate verifier config (for GEPA)
+    # Validate verifier config (shared by GEPA and MIPRO)
     verifier_section = pl_section.get("verifier") or {}
     if verifier_section:
         if not isinstance(verifier_section, dict):
@@ -591,18 +596,10 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
             )
         else:
             reward_source = str(verifier_section.get("reward_source", "task_app")).strip().lower()
-            enabled = bool(verifier_section.get("enabled"))
             if reward_source and reward_source not in {"task_app", "verifier", "fused"}:
                 errors.append(
                     "prompt_learning.verifier.reward_source must be 'task_app', 'verifier', or 'fused'"
                 )
-            # backend_base, backend_provider, backend_model are extracted but
-            # validation is delegated to Pydantic model in configs/prompt_learning.py
-            _ = verifier_section.get("backend_base", "")
-            _ = verifier_section.get("backend_provider", "")
-            _ = verifier_section.get("backend_model", "")
-            if enabled:
-                pass
             if reward_source == "fused":
                 weight_event = verifier_section.get("weight_event", 0.0)
                 weight_outcome = verifier_section.get("weight_outcome", 0.0)
@@ -1191,6 +1188,370 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                                         f"Remove base_url from module policy."
                                     )
 
+    elif algorithm == "mipro":
+        mipro_config = pl_section.get("mipro")
+        if not mipro_config or not isinstance(mipro_config, dict):
+            errors.append("Missing [prompt_learning.mipro] section for MIPRO algorithm")
+        else:
+            # Validate required MIPRO fields
+            def _pos_int(name: str) -> None:
+                val = mipro_config.get(name)
+                if val is not None:
+                    try:
+                        ival = int(val)
+                        if ival <= 0:
+                            errors.append(f"prompt_learning.mipro.{name} must be > 0")
+                    except Exception:
+                        errors.append(f"prompt_learning.mipro.{name} must be an integer")
+
+            def _non_neg_int(name: str) -> None:
+                """Check non-negative int."""
+                val = mipro_config.get(name)
+                if val is not None:
+                    try:
+                        ival = int(val)
+                        if ival < 0:
+                            errors.append(f"prompt_learning.mipro.{name} must be >= 0")
+                    except Exception:
+                        errors.append(f"prompt_learning.mipro.{name} must be an integer")
+
+            def _rate_float(name: str) -> None:
+                """Check float in [0.0, 1.0] range."""
+                val = mipro_config.get(name)
+                if val is not None:
+                    try:
+                        fval = float(val)
+                        if not (0.0 <= fval <= 1.0):
+                            errors.append(
+                                f"prompt_learning.mipro.{name} must be between 0.0 and 1.0"
+                            )
+                    except Exception:
+                        errors.append(f"prompt_learning.mipro.{name} must be numeric")
+
+            def _pos_float(name: str) -> None:
+                """Check positive float."""
+                val = mipro_config.get(name)
+                if val is not None:
+                    try:
+                        fval = float(val)
+                        if fval <= 0:
+                            errors.append(f"prompt_learning.mipro.{name} must be > 0")
+                    except Exception:
+                        errors.append(f"prompt_learning.mipro.{name} must be numeric")
+
+            # Required numeric fields
+            for fld in (
+                "num_iterations",
+                "num_evaluations_per_iteration",
+                "batch_size",
+                "max_concurrent",
+            ):
+                _pos_int(fld)
+
+            # Additional MIPRO numeric validations
+            _pos_int("max_demo_set_size")
+            _pos_int("max_demo_sets")
+            _pos_int("max_instruction_sets")
+            _pos_int("full_eval_every_k")
+            _pos_int("instructions_per_batch")
+            _pos_int("max_instructions")
+            _pos_int("duplicate_retry_limit")
+
+            # Validate meta_model if set (optional - backend applies defaults)
+            meta_model = mipro_config.get("meta_model")
+            meta_model_provider = mipro_config.get("meta_model_provider", "").strip()
+            if meta_model:
+                # If meta_model is explicitly set, validate it
+                if not meta_model_provider:
+                    errors.append(
+                        "Missing required field: prompt_learning.mipro.meta_model_provider\n"
+                        "  Required when prompt_learning.mipro.meta_model is set"
+                    )
+                else:
+                    errors.extend(
+                        _validate_model_for_provider(
+                            meta_model,
+                            meta_model_provider,
+                            "prompt_learning.mipro.meta_model",
+                            allow_nano=False,
+                        )
+                    )
+            # If meta_model is not set, backend will use defaults (llama-3.3-70b-versatile/groq)
+
+            # Validate meta model temperature
+            meta_temperature = mipro_config.get("meta_model_temperature")
+            if meta_temperature is not None:
+                try:
+                    temp = float(meta_temperature)
+                    if temp < 0.0:
+                        errors.append("prompt_learning.mipro.meta_model_temperature must be >= 0.0")
+                except Exception:
+                    errors.append("prompt_learning.mipro.meta_model_temperature must be numeric")
+
+            # Validate meta model max_tokens
+            meta_max_tokens = mipro_config.get("meta_model_max_tokens")
+            if meta_max_tokens is not None:
+                try:
+                    mmt = int(meta_max_tokens)
+                    if mmt <= 0:
+                        errors.append("prompt_learning.mipro.meta_model_max_tokens must be > 0")
+                except Exception:
+                    errors.append("prompt_learning.mipro.meta_model_max_tokens must be an integer")
+
+            # Validate generate_at_iterations
+            generate_at_iterations = mipro_config.get("generate_at_iterations")
+            if generate_at_iterations is not None:
+                if not isinstance(generate_at_iterations, list):
+                    errors.append("prompt_learning.mipro.generate_at_iterations must be a list")
+                else:
+                    for idx, iter_val in enumerate(generate_at_iterations):
+                        try:
+                            iter_int = int(iter_val)
+                            if iter_int < 0:
+                                errors.append(
+                                    f"prompt_learning.mipro.generate_at_iterations[{idx}] must be >= 0"
+                                )
+                        except Exception:
+                            errors.append(
+                                f"prompt_learning.mipro.generate_at_iterations[{idx}] must be an integer"
+                            )
+
+            # Validate spec configuration
+            spec_path = mipro_config.get("spec_path")
+            if spec_path:
+                # Validate spec_max_tokens if provided
+                spec_max_tokens = mipro_config.get("spec_max_tokens")
+                if spec_max_tokens is not None:
+                    try:
+                        smt = int(spec_max_tokens)
+                        if smt <= 0:
+                            errors.append("prompt_learning.mipro.spec_max_tokens must be > 0")
+                    except Exception:
+                        errors.append("prompt_learning.mipro.spec_max_tokens must be an integer")
+
+                # Validate spec_priority_threshold if provided
+                spec_priority_threshold = mipro_config.get("spec_priority_threshold")
+                if spec_priority_threshold is not None:
+                    try:
+                        spt = int(spec_priority_threshold)
+                        if spt < 0:
+                            errors.append(
+                                "prompt_learning.mipro.spec_priority_threshold must be >= 0"
+                            )
+                    except Exception:
+                        errors.append(
+                            "prompt_learning.mipro.spec_priority_threshold must be an integer"
+                        )
+
+            # Validate modules/stages configuration
+            modules_config = mipro_config.get("modules")
+            if modules_config and isinstance(modules_config, list):
+                max_instruction_sets = mipro_config.get("max_instruction_sets", 128)
+                max_demo_sets = mipro_config.get("max_demo_sets", 128)
+                seen_module_ids = set()
+                seen_stage_ids = set()
+
+                for module_idx, module_entry in enumerate(modules_config):
+                    if not isinstance(module_entry, dict):
+                        errors.append(
+                            f"prompt_learning.mipro.modules[{module_idx}] must be a table/dict"
+                        )
+                        continue
+
+                    module_id = (
+                        module_entry.get("module_id")
+                        or module_entry.get("id")
+                        or f"module_{module_idx}"
+                    )
+                    if module_id in seen_module_ids:
+                        errors.append(
+                            f"Duplicate module_id '{module_id}' in prompt_learning.mipro.modules"
+                        )
+                    seen_module_ids.add(module_id)
+
+                    # Validate stages
+                    stages = module_entry.get("stages")
+                    if stages is not None:
+                        if not isinstance(stages, list):
+                            errors.append(
+                                f"prompt_learning.mipro.modules[{module_idx}].stages must be a list"
+                            )
+                        else:
+                            for stage_idx, stage_entry in enumerate(stages):
+                                if isinstance(stage_entry, dict):
+                                    stage_id = (
+                                        stage_entry.get("stage_id")
+                                        or stage_entry.get("module_stage_id")
+                                        or f"stage_{stage_idx}"
+                                    )
+                                    if stage_id in seen_stage_ids:
+                                        errors.append(
+                                            f"Duplicate stage_id '{stage_id}' across modules"
+                                        )
+                                    seen_stage_ids.add(stage_id)
+
+                                    # Validate max_instruction_slots <= max_instruction_sets
+                                    max_instr_slots = stage_entry.get("max_instruction_slots")
+                                    if max_instr_slots is not None:
+                                        try:
+                                            mis = int(max_instr_slots)
+                                            if mis < 1:
+                                                errors.append(
+                                                    f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].max_instruction_slots must be >= 1"
+                                                )
+                                            elif mis > max_instruction_sets:
+                                                errors.append(
+                                                    f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].max_instruction_slots ({mis}) "
+                                                    f"exceeds max_instruction_sets ({max_instruction_sets})"
+                                                )
+                                        except Exception:
+                                            errors.append(
+                                                f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].max_instruction_slots must be an integer"
+                                            )
+
+                                    # Validate max_demo_slots <= max_demo_sets
+                                    max_demo_slots = stage_entry.get("max_demo_slots")
+                                    if max_demo_slots is not None:
+                                        try:
+                                            mds = int(max_demo_slots)
+                                            if mds < 0:
+                                                errors.append(
+                                                    f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].max_demo_slots must be >= 0"
+                                                )
+                                            elif mds > max_demo_sets:
+                                                errors.append(
+                                                    f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].max_demo_slots ({mds}) "
+                                                    f"exceeds max_demo_sets ({max_demo_sets})"
+                                                )
+                                        except Exception:
+                                            errors.append(
+                                                f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].max_demo_slots must be an integer"
+                                            )
+
+                    # Validate edges reference valid stages
+                    edges = module_entry.get("edges")
+                    if edges is not None:
+                        if not isinstance(edges, list):
+                            errors.append(
+                                f"prompt_learning.mipro.modules[{module_idx}].edges must be a list"
+                            )
+                        else:
+                            stage_ids_in_module = set()
+                            if stages and isinstance(stages, list):
+                                for stage_entry in stages:
+                                    if isinstance(stage_entry, dict):
+                                        sid = stage_entry.get("stage_id") or stage_entry.get(
+                                            "module_stage_id"
+                                        )
+                                        if sid:
+                                            stage_ids_in_module.add(str(sid))
+
+                            for edge_idx, edge in enumerate(edges):
+                                if isinstance(edge, list | tuple) and len(edge) == 2:
+                                    source, target = edge
+                                elif isinstance(edge, dict):
+                                    source = edge.get("from") or edge.get("source")
+                                    target = edge.get("to") or edge.get("target")
+                                else:
+                                    errors.append(
+                                        f"prompt_learning.mipro.modules[{module_idx}].edges[{edge_idx}] must be a pair or mapping"
+                                    )
+                                    continue
+
+                                source_str = str(source or "").strip()
+                                target_str = str(target or "").strip()
+                                if source_str and source_str not in stage_ids_in_module:
+                                    errors.append(
+                                        f"prompt_learning.mipro.modules[{module_idx}].edges[{edge_idx}] references unknown source stage '{source_str}'"
+                                    )
+                                if target_str and target_str not in stage_ids_in_module:
+                                    errors.append(
+                                        f"prompt_learning.mipro.modules[{module_idx}].edges[{edge_idx}] references unknown target stage '{target_str}'"
+                                    )
+
+        # CRITICAL: Validate bootstrap_train_seeds and online_pool (can be at top level or under mipro)
+        bootstrap_seeds = pl_section.get("bootstrap_train_seeds") or (
+            mipro_config.get("bootstrap_train_seeds") if isinstance(mipro_config, dict) else None
+        )
+        online_pool = pl_section.get("online_pool") or (
+            mipro_config.get("online_pool") if isinstance(mipro_config, dict) else None
+        )
+
+        if not bootstrap_seeds:
+            errors.append(
+                "Missing required field: prompt_learning.bootstrap_train_seeds\n"
+                "  MIPRO requires bootstrap seeds for the few-shot bootstrapping phase.\n"
+                "  Example:\n"
+                "    [prompt_learning]\n"
+                "    bootstrap_train_seeds = [0, 1, 2, 3, 4]"
+            )
+        elif not isinstance(bootstrap_seeds, list):
+            errors.append("prompt_learning.bootstrap_train_seeds must be an array")
+        elif len(bootstrap_seeds) == 0:
+            errors.append("prompt_learning.bootstrap_train_seeds cannot be empty")
+
+        if not online_pool:
+            errors.append(
+                "Missing required field: prompt_learning.online_pool\n"
+                "  MIPRO requires online_pool seeds for mini-batch evaluation during optimization.\n"
+                "  Example:\n"
+                "    [prompt_learning]\n"
+                "    online_pool = [5, 6, 7, 8, 9]"
+            )
+        elif not isinstance(online_pool, list):
+            errors.append("prompt_learning.online_pool must be an array")
+        elif len(online_pool) == 0:
+            errors.append("prompt_learning.online_pool cannot be empty")
+
+        # Validate few_shot_score_threshold (if mipro_config exists)
+        if isinstance(mipro_config, dict):
+            threshold = mipro_config.get("few_shot_score_threshold")
+            if threshold is not None:
+                try:
+                    f = float(threshold)
+                    if not (0.0 <= f <= 1.0):
+                        errors.append(
+                            "prompt_learning.mipro.few_shot_score_threshold must be between 0.0 and 1.0"
+                        )
+                except Exception:
+                    errors.append("prompt_learning.mipro.few_shot_score_threshold must be a number")
+
+            # Validate min_bootstrap_demos (strict bootstrap mode)
+            min_bootstrap_demos = mipro_config.get("min_bootstrap_demos")
+            if min_bootstrap_demos is not None:
+                try:
+                    min_demos_int = int(min_bootstrap_demos)
+                    if min_demos_int < 0:
+                        errors.append("prompt_learning.mipro.min_bootstrap_demos must be >= 0")
+                    elif bootstrap_seeds and min_demos_int > len(bootstrap_seeds):
+                        errors.append(
+                            f"prompt_learning.mipro.min_bootstrap_demos ({min_demos_int}) exceeds "
+                            f"bootstrap_train_seeds count ({len(bootstrap_seeds)}). "
+                            f"You can never have more demos than bootstrap seeds."
+                        )
+                except (TypeError, ValueError):
+                    errors.append("prompt_learning.mipro.min_bootstrap_demos must be an integer")
+
+            # Validate reference pool doesn't overlap with bootstrap/online/test pools
+            reference_pool = mipro_config.get("reference_pool") or pl_section.get("reference_pool")
+            if reference_pool:
+                if not isinstance(reference_pool, list):
+                    errors.append(
+                        "prompt_learning.mipro.reference_pool (or prompt_learning.reference_pool) must be an array"
+                    )
+                else:
+                    all_train_test = (
+                        set(bootstrap_seeds or [])
+                        | set(online_pool or [])
+                        | set(mipro_config.get("test_pool") or pl_section.get("test_pool") or [])
+                    )
+                    overlapping = set(reference_pool) & all_train_test
+                    if overlapping:
+                        errors.append(
+                            f"reference_pool seeds must not overlap with bootstrap/online/test pools. "
+                            f"Found overlapping seeds: {sorted(overlapping)}"
+                        )
+
     # Raise all errors at once for better UX
     if errors:
         _raise_validation_errors(errors, config_path)
@@ -1210,6 +1571,7 @@ def _raise_validation_errors(errors: list[str], config_path: Path) -> None:
         error_msg += (
             "📖 See example configs:\n"
             "  - cookbooks/dev/blog_posts/gepa/configs/banking77_gepa_local.toml\n"
+            "  - cookbooks/dev/blog_posts/mipro/configs/banking77_mipro_local.toml\n"
         )
 
     raise click.ClickException(error_msg)
@@ -1654,12 +2016,584 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
     return len(errors) == 0, errors
 
 
+def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
+    """Validate MIPRO config from TOML file with comprehensive checks.
+
+    Returns:
+        (is_valid, errors) tuple where errors is a list of error messages
+    """
+    errors = []
+
+    try:
+        with open(config_path) as f:
+            config_dict = toml.load(f)
+    except Exception as e:
+        return False, [f"Failed to parse TOML: {e}"]
+
+    pl_section = config_dict.get("prompt_learning", {})
+    if not isinstance(pl_section, dict):
+        errors.append("❌ [prompt_learning] section is missing or invalid")
+        return False, errors
+
+    # Check algorithm
+    algorithm = pl_section.get("algorithm")
+    if algorithm != "mipro":
+        errors.append(f"❌ Expected algorithm='mipro', got '{algorithm}'")
+
+    # Check required top-level fields
+    required_top_level = ["task_app_url", "task_app_api_key"]
+    for field in required_top_level:
+        if not pl_section.get(field):
+            errors.append(f"❌ [prompt_learning].{field} is required")
+
+    # Check env_name (required - can be at top level or in mipro section)
+    env_name = pl_section.get("env_name") or pl_section.get("task_app_id")
+    mipro_section = pl_section.get("mipro", {})
+    if isinstance(mipro_section, dict):
+        env_name = env_name or mipro_section.get("env_name")
+    if not env_name:
+        errors.append(
+            "❌ env_name is required. "
+            "Must be in [prompt_learning].env_name, [prompt_learning].task_app_id, or [prompt_learning.mipro].env_name"
+        )
+
+    # Check MIPRO section
+    if not isinstance(mipro_section, dict):
+        errors.append("❌ [prompt_learning.mipro] section is missing or invalid")
+        return False, errors
+
+    # Validate policy section - reject inference_url
+    policy_section = pl_section.get("policy", {})
+    if isinstance(policy_section, dict):
+        if "inference_url" in policy_section:
+            errors.append(
+                "❌ inference_url must not be specified in [prompt_learning.policy]. "
+                "The trainer provides the inference URL in rollout requests. "
+                "Remove inference_url from your config file."
+            )
+        if "api_base" in policy_section:
+            errors.append(
+                "❌ api_base must not be specified in [prompt_learning.policy]. "
+                "The trainer provides the inference URL in rollout requests. "
+                "Remove api_base from your config file."
+            )
+        if "base_url" in policy_section:
+            errors.append(
+                "❌ base_url must not be specified in [prompt_learning.policy]. "
+                "The trainer provides the inference URL in rollout requests. "
+                "Remove base_url from your config file."
+            )
+
+    # CRITICAL: Validate bootstrap_train_seeds and online_pool (can be at top level or under mipro)
+    bootstrap_seeds = mipro_section.get("bootstrap_train_seeds") or pl_section.get(
+        "bootstrap_train_seeds"
+    )
+    if not bootstrap_seeds:
+        errors.append(
+            "❌ bootstrap_train_seeds is required. "
+            "Must be in [prompt_learning].bootstrap_train_seeds or [prompt_learning.mipro].bootstrap_train_seeds"
+        )
+    elif not isinstance(bootstrap_seeds, list):
+        errors.append(
+            f"❌ bootstrap_train_seeds must be a list, got {type(bootstrap_seeds).__name__}"
+        )
+    elif len(bootstrap_seeds) == 0:
+        errors.append("❌ bootstrap_train_seeds cannot be empty")
+    elif not all(isinstance(s, int) for s in bootstrap_seeds):
+        errors.append("❌ bootstrap_train_seeds must contain only integers")
+
+    online_pool = mipro_section.get("online_pool") or pl_section.get("online_pool")
+    if not online_pool:
+        errors.append(
+            "❌ online_pool is required. "
+            "Must be in [prompt_learning].online_pool or [prompt_learning.mipro].online_pool"
+        )
+    elif not isinstance(online_pool, list):
+        errors.append(f"❌ online_pool must be a list, got {type(online_pool).__name__}")
+    elif len(online_pool) == 0:
+        errors.append("❌ online_pool cannot be empty")
+    elif not all(isinstance(s, int) for s in online_pool):
+        errors.append("❌ online_pool must contain only integers")
+
+    # CRITICAL: Validate reference_pool is required (backend requires it)
+    reference_pool = mipro_section.get("reference_pool") or pl_section.get("reference_pool")
+    if not reference_pool:
+        errors.append(
+            "❌ reference_pool is required for MIPRO. "
+            "reference_pool seeds are used to build the reference corpus for meta-prompt context. "
+            "Add reference_pool at [prompt_learning] or [prompt_learning.mipro] level. "
+            "Example: reference_pool = [30, 31, 32, 33, 34]"
+        )
+    elif not isinstance(reference_pool, list):
+        errors.append(f"❌ reference_pool must be a list, got {type(reference_pool).__name__}")
+    elif len(reference_pool) == 0:
+        errors.append("❌ reference_pool cannot be empty")
+    elif not all(isinstance(s, int) for s in reference_pool):
+        errors.append("❌ reference_pool must contain only integers")
+    else:
+        # Validate reference pool doesn't overlap with bootstrap/online/test pools
+        test_pool = mipro_section.get("test_pool") or pl_section.get("test_pool") or []
+        all_train_test = set(bootstrap_seeds or []) | set(online_pool or []) | set(test_pool)
+        overlapping = set(reference_pool) & all_train_test
+        if overlapping:
+            errors.append(
+                f"❌ reference_pool seeds must not overlap with bootstrap/online/test pools. "
+                f"Found overlapping seeds: {sorted(overlapping)}"
+            )
+
+    # Validate required numeric fields
+    required_numeric_fields = [
+        "num_iterations",
+        "num_evaluations_per_iteration",
+        "batch_size",
+        "max_concurrent",
+    ]
+    for field in required_numeric_fields:
+        val = mipro_section.get(field)
+        if val is None:
+            errors.append(f"❌ [prompt_learning.mipro].{field} is required")
+        elif not isinstance(val, int):
+            errors.append(f"❌ mipro.{field} must be an integer, got {type(val).__name__}")
+        elif val <= 0:
+            errors.append(f"❌ mipro.{field} must be > 0, got {val}")
+
+    # Validate optional numeric fields
+    optional_numeric_fields = [
+        ("max_demo_set_size", True),
+        ("max_demo_sets", True),
+        ("max_instruction_sets", True),
+        ("full_eval_every_k", True),
+        ("instructions_per_batch", True),
+        ("max_instructions", True),
+        ("duplicate_retry_limit", True),
+    ]
+    for field, must_be_positive in optional_numeric_fields:
+        val = mipro_section.get(field)
+        if val is not None:
+            if not isinstance(val, int):
+                errors.append(f"❌ mipro.{field} must be an integer, got {type(val).__name__}")
+            elif must_be_positive and val <= 0:
+                errors.append(f"❌ mipro.{field} must be > 0, got {val}")
+            elif not must_be_positive and val < 0:
+                errors.append(f"❌ mipro.{field} must be >= 0, got {val}")
+
+    # Validate meta_model if set (optional - backend applies defaults)
+    meta_model = mipro_section.get("meta_model")
+    meta_model_provider = mipro_section.get("meta_model_provider", "").strip()
+    if meta_model:
+        # If meta_model is explicitly set, validate it
+        if not meta_model_provider:
+            errors.append(
+                "❌ [prompt_learning.mipro].meta_model_provider is required when meta_model is set"
+            )
+        else:
+            errors.extend(
+                _validate_model_for_provider(
+                    meta_model,
+                    meta_model_provider,
+                    "prompt_learning.mipro.meta_model",
+                    allow_nano=False,
+                )
+            )
+    # If meta_model is not set, backend will use defaults (llama-3.3-70b-versatile/groq)
+
+    # Validate meta model temperature
+    meta_temperature = mipro_section.get("meta_model_temperature")
+    if meta_temperature is not None:
+        if not isinstance(meta_temperature, int | float):
+            errors.append(
+                f"❌ mipro.meta_model_temperature must be numeric, got {type(meta_temperature).__name__}"
+            )
+        else:
+            temp = float(meta_temperature)
+            if temp < 0.0:
+                errors.append(f"❌ mipro.meta_model_temperature must be >= 0.0, got {temp}")
+
+    # Validate meta model max_tokens
+    meta_max_tokens = mipro_section.get("meta_model_max_tokens")
+    if meta_max_tokens is not None and not isinstance(meta_max_tokens, int):
+        errors.append(
+            f"❌ mipro.meta_model_max_tokens must be an integer, got {type(meta_max_tokens).__name__}"
+        )
+
+    # Validate proposer_effort (can be in instructions section or top-level mipro section)
+    instructions_section = mipro_section.get("instructions", {})
+    if not isinstance(instructions_section, dict):
+        instructions_section = {}
+    proposer_effort = str(
+        instructions_section.get("proposer_effort") or mipro_section.get("proposer_effort") or "LOW"
+    ).upper()
+    valid_effort_levels = {"LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"}
+    if proposer_effort not in valid_effort_levels:
+        errors.append(
+            f"❌ Invalid proposer_effort: '{proposer_effort}'\n"
+            f"  Must be one of: {', '.join(sorted(valid_effort_levels))}\n"
+            f"  Got: '{proposer_effort}'"
+        )
+
+    # Validate proposer_output_tokens (can be in instructions section or top-level mipro section)
+    proposer_output_tokens = str(
+        instructions_section.get("proposer_output_tokens")
+        or mipro_section.get("proposer_output_tokens")
+        or "FAST"
+    ).upper()
+    valid_output_tokens = {"RAPID", "FAST", "SLOW"}
+    if proposer_output_tokens not in valid_output_tokens:
+        errors.append(
+            f"❌ Invalid proposer_output_tokens: '{proposer_output_tokens}'\n"
+            f"  Must be one of: {', '.join(sorted(valid_output_tokens))}\n"
+            f"  Got: '{proposer_output_tokens}'"
+        )
+
+    # Note: RAPID can now be used with any proposer_effort level (5000 tokens)
+
+    # Validate meta_max_tokens if present
+    meta_max_tokens = mipro_section.get("meta_model_max_tokens")
+    if meta_max_tokens is not None:
+        try:
+            meta_max_tokens_val = int(meta_max_tokens)
+            if meta_max_tokens_val <= 0:
+                errors.append(
+                    f"❌ mipro.meta_model_max_tokens must be > 0, got {meta_max_tokens_val}"
+                )
+        except (TypeError, ValueError):
+            errors.append(
+                f"❌ mipro.meta_model_max_tokens must be an integer, got {type(meta_max_tokens).__name__}"
+            )
+
+    # Validate generate_at_iterations
+    generate_at_iterations = mipro_section.get("generate_at_iterations")
+    if generate_at_iterations is not None:
+        if not isinstance(generate_at_iterations, list):
+            errors.append(
+                f"❌ mipro.generate_at_iterations must be a list, got {type(generate_at_iterations).__name__}"
+            )
+        else:
+            for idx, iter_val in enumerate(generate_at_iterations):
+                try:
+                    iter_int = int(iter_val)
+                    if iter_int < 0:
+                        errors.append(
+                            f"❌ mipro.generate_at_iterations[{idx}] must be >= 0, got {iter_int}"
+                        )
+                except Exception:
+                    errors.append(
+                        f"❌ mipro.generate_at_iterations[{idx}] must be an integer, got {iter_val!r}"
+                    )
+
+    # Validate spec configuration
+    spec_path = mipro_section.get("spec_path")
+    if spec_path:
+        # Validate spec_max_tokens if provided
+        spec_max_tokens = mipro_section.get("spec_max_tokens")
+        if spec_max_tokens is not None:
+            if not isinstance(spec_max_tokens, int):
+                errors.append(
+                    f"❌ mipro.spec_max_tokens must be an integer, got {type(spec_max_tokens).__name__}"
+                )
+            elif spec_max_tokens <= 0:
+                errors.append(f"❌ mipro.spec_max_tokens must be > 0, got {spec_max_tokens}")
+
+        # Validate spec_priority_threshold if provided
+        spec_priority_threshold = mipro_section.get("spec_priority_threshold")
+        if spec_priority_threshold is not None:
+            if not isinstance(spec_priority_threshold, int):
+                errors.append(
+                    f"❌ mipro.spec_priority_threshold must be an integer, got {type(spec_priority_threshold).__name__}"
+                )
+            elif spec_priority_threshold < 0:
+                errors.append(
+                    f"❌ mipro.spec_priority_threshold must be >= 0, got {spec_priority_threshold}"
+                )
+
+    # Validate few_shot_score_threshold
+    few_shot_score_threshold = mipro_section.get("few_shot_score_threshold")
+    if few_shot_score_threshold is not None:
+        if not isinstance(few_shot_score_threshold, int | float):
+            errors.append(
+                f"❌ mipro.few_shot_score_threshold must be numeric, got {type(few_shot_score_threshold).__name__}"
+            )
+        else:
+            threshold = float(few_shot_score_threshold)
+            if not (0.0 <= threshold <= 1.0):
+                errors.append(
+                    f"❌ mipro.few_shot_score_threshold must be between 0.0 and 1.0, got {threshold}"
+                )
+
+    # Validate modules/stages configuration
+    modules_config = mipro_section.get("modules")
+    if modules_config is not None:
+        if not isinstance(modules_config, list):
+            errors.append(f"❌ mipro.modules must be a list, got {type(modules_config).__name__}")
+        else:
+            max_instruction_sets = mipro_section.get("max_instruction_sets", 128)
+            max_demo_sets = mipro_section.get("max_demo_sets", 128)
+            seen_module_ids = set()
+            seen_stage_ids = set()
+
+            for module_idx, module_entry in enumerate(modules_config):
+                if not isinstance(module_entry, dict):
+                    errors.append(
+                        f"❌ mipro.modules[{module_idx}] must be a table/dict, got {type(module_entry).__name__}"
+                    )
+                    continue
+
+                module_id = (
+                    module_entry.get("module_id")
+                    or module_entry.get("id")
+                    or f"module_{module_idx}"
+                )
+                if module_id in seen_module_ids:
+                    errors.append(f"❌ Duplicate module_id '{module_id}' in mipro.modules")
+                seen_module_ids.add(module_id)
+
+                # Validate stages
+                stages = module_entry.get("stages")
+                if stages is not None:
+                    if not isinstance(stages, list):
+                        errors.append(
+                            f"❌ mipro.modules[{module_idx}].stages must be a list, got {type(stages).__name__}"
+                        )
+                    else:
+                        for stage_idx, stage_entry in enumerate(stages):
+                            if isinstance(stage_entry, dict):
+                                stage_id = (
+                                    stage_entry.get("stage_id")
+                                    or stage_entry.get("module_stage_id")
+                                    or f"stage_{stage_idx}"
+                                )
+                                if stage_id in seen_stage_ids:
+                                    errors.append(
+                                        f"❌ Duplicate stage_id '{stage_id}' across modules"
+                                    )
+                                seen_stage_ids.add(stage_id)
+
+                                # Validate max_instruction_slots <= max_instruction_sets
+                                max_instr_slots = stage_entry.get("max_instruction_slots")
+                                if max_instr_slots is not None:
+                                    try:
+                                        mis = int(max_instr_slots)
+                                        if mis < 1:
+                                            errors.append(
+                                                f"❌ mipro.modules[{module_idx}].stages[{stage_idx}].max_instruction_slots must be >= 1, got {mis}"
+                                            )
+                                        elif mis > max_instruction_sets:
+                                            errors.append(
+                                                f"❌ mipro.modules[{module_idx}].stages[{stage_idx}].max_instruction_slots ({mis}) "
+                                                f"exceeds max_instruction_sets ({max_instruction_sets})"
+                                            )
+                                    except Exception:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}].max_instruction_slots must be an integer"
+                                        )
+
+                                # Validate max_demo_slots <= max_demo_sets
+                                max_demo_slots = stage_entry.get("max_demo_slots")
+                                if max_demo_slots is not None:
+                                    try:
+                                        mds = int(max_demo_slots)
+                                        if mds < 0:
+                                            errors.append(
+                                                f"❌ mipro.modules[{module_idx}].stages[{stage_idx}].max_demo_slots must be >= 0, got {mds}"
+                                            )
+                                        elif mds > max_demo_sets:
+                                            errors.append(
+                                                f"❌ mipro.modules[{module_idx}].stages[{stage_idx}].max_demo_slots ({mds}) "
+                                                f"exceeds max_demo_sets ({max_demo_sets})"
+                                            )
+                                    except Exception:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}].max_demo_slots must be an integer"
+                                        )
+
+                                # Validate per-stage policy config (REQUIRED)
+                                stage_policy = stage_entry.get("policy")
+                                if stage_policy is None:
+                                    errors.append(
+                                        f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy] table is REQUIRED. "
+                                        f"Each stage must have its own policy configuration with 'provider' field."
+                                    )
+                                elif not isinstance(stage_policy, dict):
+                                    errors.append(
+                                        f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy] must be a table/dict, got {type(stage_policy).__name__}"
+                                    )
+                                else:
+                                    # Validate required fields in stage policy
+                                    # Note: model is optional - detected from actual LLM calls during rollouts
+                                    if not stage_policy.get("provider"):
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].provider is required"
+                                        )
+                                    # Validate model/provider combination
+                                    stage_model = stage_policy.get("model")
+                                    stage_provider = stage_policy.get("provider")
+                                    if stage_model and stage_provider:
+                                        errors.extend(
+                                            _validate_model_for_provider(
+                                                stage_model,
+                                                stage_provider,
+                                                f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].policy.model",
+                                                allow_nano=True,  # Policy models can be nano
+                                            )
+                                        )
+                                    # Reject inference_url in stage policy (trainer provides it)
+                                    if "inference_url" in stage_policy:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].inference_url must not be specified. "
+                                            f"The trainer provides the inference URL in rollout requests. Remove inference_url from stage policy."
+                                        )
+                                    if "api_base" in stage_policy:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].api_base must not be specified. "
+                                            f"Remove api_base from stage policy."
+                                        )
+                                    if "base_url" in stage_policy:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].base_url must not be specified. "
+                                            f"Remove base_url from stage policy."
+                                        )
+
+                # Validate edges reference valid stages
+                edges = module_entry.get("edges")
+                if edges is not None:
+                    if not isinstance(edges, list):
+                        errors.append(
+                            f"❌ mipro.modules[{module_idx}].edges must be a list, got {type(edges).__name__}"
+                        )
+                    else:
+                        stage_ids_in_module = set()
+                        if stages and isinstance(stages, list):
+                            for stage_entry in stages:
+                                if isinstance(stage_entry, dict):
+                                    sid = stage_entry.get("stage_id") or stage_entry.get(
+                                        "module_stage_id"
+                                    )
+                                    if sid:
+                                        stage_ids_in_module.add(str(sid))
+
+                        for edge_idx, edge in enumerate(edges):
+                            if isinstance(edge, list | tuple) and len(edge) == 2:
+                                source, target = edge
+                            elif isinstance(edge, dict):
+                                source = edge.get("from") or edge.get("source")
+                                target = edge.get("to") or edge.get("target")
+                            else:
+                                errors.append(
+                                    f"❌ mipro.modules[{module_idx}].edges[{edge_idx}] must be a pair or mapping"
+                                )
+                                continue
+
+                            source_str = str(source or "").strip()
+                            target_str = str(target or "").strip()
+                            if source_str and source_str not in stage_ids_in_module:
+                                errors.append(
+                                    f"❌ mipro.modules[{module_idx}].edges[{edge_idx}] references unknown source stage '{source_str}'"
+                                )
+                            if target_str and target_str not in stage_ids_in_module:
+                                errors.append(
+                                    f"❌ mipro.modules[{module_idx}].edges[{edge_idx}] references unknown target stage '{target_str}'"
+                                )
+
+    # Check initial_prompt section
+    initial_prompt = pl_section.get("initial_prompt", {})
+    if not isinstance(initial_prompt, dict):
+        errors.append("❌ [prompt_learning.initial_prompt] section is missing or invalid")
+    else:
+        if not initial_prompt.get("id"):
+            errors.append("❌ [prompt_learning.initial_prompt].id is required")
+        if not initial_prompt.get("messages"):
+            errors.append(
+                "❌ [prompt_learning.initial_prompt].messages is required (must be a list)"
+            )
+        elif not isinstance(initial_prompt.get("messages"), list):
+            errors.append("❌ [prompt_learning.initial_prompt].messages must be a list")
+        elif len(initial_prompt.get("messages", [])) == 0:
+            errors.append("❌ [prompt_learning.initial_prompt].messages cannot be empty")
+
+    # Check policy section
+    if not isinstance(policy_section, dict):
+        errors.append("❌ [prompt_learning.policy] section is missing or invalid")
+    else:
+        # Note: model is optional - detected from actual LLM calls during rollouts
+        if not policy_section.get("provider"):
+            errors.append("❌ [prompt_learning.policy].provider is required")
+
+    # Validate proxy_models section (can be at top-level or mipro-specific)
+    proxy_models_section = pl_section.get("proxy_models") or mipro_section.get("proxy_models")
+    if proxy_models_section:
+        if not isinstance(proxy_models_section, dict):
+            errors.append("❌ proxy_models must be a table/dict when provided")
+        else:
+            required_fields = ["hi_provider", "hi_model", "lo_provider", "lo_model"]
+            for field in required_fields:
+                if not proxy_models_section.get(field):
+                    errors.append(f"❌ proxy_models.{field} is required")
+            # Validate numeric fields (same as GEPA)
+            for field, min_val in [
+                ("n_min_hi", 0),
+                ("r2_thresh", 0.0),
+                ("r2_stop", 0.0),
+                ("sigma_max", 0.0),
+                ("sigma_stop", 0.0),
+                ("verify_every", 0),
+            ]:
+                val = proxy_models_section.get(field)
+                if val is not None:
+                    try:
+                        if field in ("r2_thresh", "r2_stop"):
+                            fval = float(val)
+                            if not (0.0 <= fval <= 1.0):
+                                errors.append(
+                                    f"❌ proxy_models.{field} must be between 0.0 and 1.0, got {fval}"
+                                )
+                        elif field.startswith("sigma"):
+                            fval = float(val)
+                            if fval < min_val:
+                                errors.append(
+                                    f"❌ proxy_models.{field} must be >= {min_val}, got {fval}"
+                                )
+                        else:
+                            ival = int(val)
+                            if ival < min_val:
+                                errors.append(
+                                    f"❌ proxy_models.{field} must be >= {min_val}, got {ival}"
+                                )
+                    except (TypeError, ValueError):
+                        errors.append(
+                            f"❌ proxy_models.{field} must be numeric, got {type(val).__name__}"
+                        )
+            # Validate provider/model combinations
+            if proxy_models_section.get("hi_provider") and proxy_models_section.get("hi_model"):
+                hi_errors = _validate_model_for_provider(
+                    proxy_models_section["hi_model"],
+                    proxy_models_section["hi_provider"],
+                    "proxy_models.hi_model",
+                    allow_nano=True,
+                )
+                errors.extend(hi_errors)
+            if proxy_models_section.get("lo_provider") and proxy_models_section.get("lo_model"):
+                lo_errors = _validate_model_for_provider(
+                    proxy_models_section["lo_model"],
+                    proxy_models_section["lo_provider"],
+                    "proxy_models.lo_model",
+                    allow_nano=True,
+                )
+                errors.extend(lo_errors)
+
+    # Validate adaptive_pool section (MIPRO-specific, can be nested or flat)
+    adaptive_pool_section = mipro_section.get("adaptive_pool")
+    if adaptive_pool_section:
+        _validate_adaptive_pool_config(adaptive_pool_section, "mipro.adaptive_pool", errors)
+
+    return len(errors) == 0, errors
+
+
 def validate_prompt_learning_config_from_file(config_path: Path, algorithm: str) -> None:
     """Validate prompt learning config from TOML file and raise ConfigValidationError if invalid.
 
     Args:
         config_path: Path to TOML config file
-        algorithm: Must be 'gepa'
+        algorithm: Either 'gepa' or 'mipro'
 
     Raises:
         ConfigValidationError: If validation fails, with detailed error messages
@@ -1668,8 +2602,10 @@ def validate_prompt_learning_config_from_file(config_path: Path, algorithm: str)
     log_info("validate_prompt_learning_config_from_file invoked", ctx=ctx)
     if algorithm == "gepa":
         is_valid, errors = validate_gepa_config_from_file(config_path)
+    elif algorithm == "mipro":
+        is_valid, errors = validate_mipro_config_from_file(config_path)
     else:
-        raise ValueError(f"Unknown algorithm: {algorithm}. Must be 'gepa'")
+        raise ValueError(f"Unknown algorithm: {algorithm}. Must be 'gepa' or 'mipro'")
 
     if not is_valid:
         error_msg = "\n".join(errors)
@@ -1687,6 +2623,7 @@ __all__ = [
     "validate_prompt_learning_config",
     "validate_prompt_learning_config_from_file",
     "validate_gepa_config_from_file",
+    "validate_mipro_config_from_file",
     "validate_rl_config",
     "validate_sft_config",
 ]

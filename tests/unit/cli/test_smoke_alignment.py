@@ -1,9 +1,8 @@
-from __future__ import annotations
-
-from pathlib import Path
+import importlib
 from typing import Any
 
 import pytest
+import synth_ai.cli.smoke as smoke_module
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
@@ -28,7 +27,7 @@ class _FakeLocalAPIClient:
         self.rollout_calls = 0
         self.last_rollout_request: RolloutRequest | None = None
 
-    async def __aenter__(self) -> _FakeLocalAPIClient:
+    async def __aenter__(self) -> "_FakeLocalAPIClient":
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:  # noqa: D401
@@ -55,45 +54,35 @@ class _FakeLocalAPIClient:
         self.rollout_calls += 1
         self.last_rollout_request = request
 
-        trace_correlation_id = request.trace_correlation_id
+        trace_correlation_id = "test-cid-123"
         trace_payload = build_trace_payload(
             messages=[{"role": "user", "content": "ping"}],
             response={"message": {"role": "assistant", "content": "pong"}},
             correlation_id=trace_correlation_id,
-            metadata={"trace_correlation_id": trace_correlation_id},
+            metadata={"run_id": request.run_id},
         )
-        metrics = RolloutMetrics(outcome_reward=0.0)
+        metrics = RolloutMetrics(
+            episode_rewards=[0.0], reward_mean=0.0, num_steps=1, num_episodes=1
+        )
         return RolloutResponse(
-            trace_correlation_id=trace_correlation_id,
+            run_id=request.run_id,
+            branches={},
             metrics=metrics,
+            aborted=False,
+            trace_correlation_id=trace_correlation_id,
             trace=trace_payload,
-            inference_url="https://mock.local/v1/chat/completions?cid=test-cid-123",
+            pipeline_metadata={
+                "inference_url": "https://mock.local/v1/chat/completions?cid=test-cid-123",
+                "trace_correlation_id": trace_correlation_id,
+            },
         )
-
-
-SMOKE_CORE_PATH = (
-    Path(__file__).resolve().parents[2] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
-)
-
-
-SMOKE_CORE_PATH = (
-    Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
-)
 
 
 @pytest.mark.asyncio
 async def test_smoke_rollout_request_alignment_structured_trace(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Import by file path to avoid CLI package side effects
-    import importlib.util
-    import sys as _sys
-
-    spec = importlib.util.spec_from_file_location("smoke_core_test", SMOKE_CORE_PATH)
-    assert spec and spec.loader
-    smoke_core = importlib.util.module_from_spec(spec)
-    _sys.modules[spec.name] = smoke_core
-    spec.loader.exec_module(smoke_core)  # type: ignore[arg-type]
+    smoke_core = importlib.reload(smoke_module)
 
     created_instances: list[_FakeLocalAPIClient] = []
 
@@ -130,8 +119,8 @@ async def test_smoke_rollout_request_alignment_structured_trace(
     inst = created_instances[-1]
     sent = inst.last_rollout_request
     assert sent is not None
-    # trace_correlation_id should be set
-    assert sent.trace_correlation_id is not None
+    assert sent.record.return_trace is True
+    assert sent.record.trace_format == "structured"
     # inference_url should be normalized to include /chat/completions and have a cid
     url = str((sent.policy.config or {}).get("inference_url"))
     assert "/chat/completions" in url
@@ -142,14 +131,7 @@ async def test_smoke_rollout_request_alignment_structured_trace(
 async def test_smoke_calls_health_and_task_info_when_env_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import importlib.util
-    import sys as _sys
-
-    spec = importlib.util.spec_from_file_location("smoke_core_test2", SMOKE_CORE_PATH)
-    assert spec and spec.loader
-    smoke_core = importlib.util.module_from_spec(spec)
-    _sys.modules[spec.name] = smoke_core
-    spec.loader.exec_module(smoke_core)  # type: ignore[arg-type]
+    smoke_core = importlib.reload(smoke_module)
 
     created_instances: list[_FakeLocalAPIClient] = []
 

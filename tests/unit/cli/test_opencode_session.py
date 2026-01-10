@@ -1,16 +1,8 @@
 """Tests for opencode command session management and TOML config."""
 
-from __future__ import annotations
-
-import os
-import tempfile
-from pathlib import Path
-from unittest import mock
-
 import pytest
 from click.testing import CliRunner
-
-from synth_ai.cli.agents.opencode import opencode_cmd, _load_session_config
+from synth_ai.core.agents.opencode import _load_session_config
 
 
 @pytest.fixture()
@@ -42,7 +34,7 @@ limit_cost_usd = 75.0
 limit_tokens = 150000
 limit_gpu_hours = 8.0
 """)
-    
+
     config = _load_session_config(temp_toml)
     assert config["limit_cost_usd"] == 75.0
     assert config["limit_tokens"] == 150000
@@ -51,4 +43,3 @@ limit_gpu_hours = 8.0
 
 # Note: Session creation/ending is tested in integration tests
 # These unit tests focus on config loading which is the critical logic
-

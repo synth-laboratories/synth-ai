@@ -5,8 +5,8 @@ from typing import Any, Literal, TypeAlias, cast, get_args
 import click
 
 from synth_ai.cli.lib.apps.task_app import find_task_apps_in_cwd
-from synth_ai.cli.lib.env import get_synth_and_env_keys
 from synth_ai.core.cfgs import CFDeployCfg, LocalDeployCfg, ModalDeployCfg
+from synth_ai.core.env_utils import get_synth_and_env_keys
 from synth_ai.core.integrations.cloudflare import deploy_app_tunnel
 from synth_ai.core.integrations.modal import deploy_app_modal
 from synth_ai.core.paths import print_paths_formatted
@@ -25,6 +25,7 @@ RuntimeType: TypeAlias = Literal["local", "modal", "tunnel"]
 # --- Universal option(s) ---
 @click.option(
     "--env",
+    "env_file",
     type=click.Path(exists=True, dir_okay=False, file_okay=True, path_type=Path),
     required=True,
     help="Path to .env file to use (required)",
@@ -55,17 +56,14 @@ RuntimeType: TypeAlias = Literal["local", "modal", "tunnel"]
 )
 @click.option(
     "--keep-alive/--background",
+    "keep_alive",
     default=False,
     help="(Deprecated: use --wait) Keep tunnel alive (blocking mode). Default is background (non-blocking)",
 )
-@click.option(
-    "--wait/--no-wait",
-    "wait",
-    default=False,
-    help="Wait for deployment to complete (blocking mode). Default is non-blocking (background)",
-)
 # --- Modal runtime-only options ---
-@click.option("--modal-app", help="Enter the path to your Modal app")
+@click.option(
+    "--modal-app", type=click.Path(path_type=Path), help="Enter the path to your Modal app"
+)
 @click.option("--name", default=None, help="Override Modal app name")
 @click.option("--modal-mode", default="deploy", help="Mode: deploy or serve")
 @click.option(
@@ -75,8 +73,42 @@ RuntimeType: TypeAlias = Literal["local", "modal", "tunnel"]
     help="Path to Modal CLI",
 )
 @click.option("--dry-run", is_flag=True, help="Print Modal command without executing")
-def deploy_cmd(runtime: RuntimeType, task_app_path: Path | None, **kwargs) -> None:
-    ctx: dict[str, Any] = {"runtime": runtime, "task_app_path": str(task_app_path), **kwargs}
+def deploy(
+    runtime: RuntimeType,
+    task_app_path: Path | None,
+    env_file: Path,
+    force: bool,
+    trace: bool,
+    host: str,
+    port: int,
+    wait: bool,
+    tunnel_mode: str,
+    tunnel_subdomain: str | None,
+    keep_alive: bool,
+    modal_app: Path | None,
+    name: str | None,
+    modal_mode: str,
+    modal_cli: Path | None,
+    dry_run: bool,
+) -> None:
+    ctx: dict[str, Any] = {
+        "runtime": runtime,
+        "task_app_path": str(task_app_path),
+        "env_file": str(env_file),
+        "force": force,
+        "trace": trace,
+        "host": host,
+        "port": port,
+        "wait": wait,
+        "tunnel_mode": tunnel_mode,
+        "tunnel_subdomain": tunnel_subdomain,
+        "keep_alive": keep_alive,
+        "modal_app": str(modal_app) if modal_app else None,
+        "name": name,
+        "modal_mode": modal_mode,
+        "modal_cli": str(modal_cli) if modal_cli else None,
+        "dry_run": dry_run,
+    }
     try:
         log_info("deploy command hit", ctx=ctx)
 
@@ -95,8 +127,9 @@ def deploy_cmd(runtime: RuntimeType, task_app_path: Path | None, **kwargs) -> No
                 print("Usage: synth-ai deploy [RUNTIME] [TASK_APP_PATH]")
                 return None
 
-        env_file = kwargs.get("env")
         synth_api_key, env_api_key = get_synth_and_env_keys(env_file)
+        if keep_alive:
+            wait = True
 
         # if not kwargs.get("force", False):
         #     validate_task_app(task_app_path)
@@ -108,9 +141,9 @@ def deploy_cmd(runtime: RuntimeType, task_app_path: Path | None, **kwargs) -> No
                     LocalDeployCfg.create(  # type: ignore[call-arg, arg-type]
                         task_app_path=task_app_path,
                         env_api_key=env_api_key,  # type: ignore[arg-type]
-                        trace=bool(kwargs.get("trace", True)),
-                        host=str(kwargs.get("host", "127.0.0.1")),
-                        port=int(kwargs.get("port", 8000)),
+                        trace=trace,
+                        host=host,
+                        port=port,
                     )
                 )
             case "modal":
@@ -120,12 +153,15 @@ def deploy_cmd(runtime: RuntimeType, task_app_path: Path | None, **kwargs) -> No
                         task_app_path=task_app_path,
                         synth_api_key=synth_api_key,
                         env_api_key=env_api_key,
-                        **kwargs,
+                        modal_app=modal_app,
+                        name=name,
+                        modal_mode=modal_mode,
+                        modal_cli=modal_cli,
+                        dry_run=dry_run,
                     )
                 )
             case "tunnel":
                 log_info("starting tunnel deploy", ctx=ctx)
-                tunnel_mode = kwargs.get("tunnel_mode", "managed")
                 if tunnel_mode == "managed" and not synth_api_key:
                     raise RuntimeError(
                         "SYNTH_API_KEY required for managed tunnel mode. "
@@ -136,14 +172,15 @@ def deploy_cmd(runtime: RuntimeType, task_app_path: Path | None, **kwargs) -> No
                         CFDeployCfg.create(
                             task_app_path=task_app_path,
                             env_api_key=env_api_key,
-                            host=str(kwargs.get("host", "127.0.0.1")),
-                            port=int(kwargs.get("port", 8000)),
+                            host=host,
+                            port=port,
                             mode=cast(Literal["quick", "managed"], tunnel_mode),
-                            subdomain=kwargs.get("tunnel_subdomain"),
-                            trace=bool(kwargs.get("trace", True)),
+                            subdomain=tunnel_subdomain,
+                            trace=trace,
                         ),
                         env_file,
-                        keep_alive=bool(kwargs.get("keep_alive", False)),
+                        keep_alive=keep_alive,
+                        wait=wait,
                     )
                 )
 

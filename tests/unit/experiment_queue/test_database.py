@@ -1,11 +1,8 @@
-from __future__ import annotations
-
 import importlib
 
 from sqlalchemy import text
-
-from synth_ai.cli.local.experiment_queue import config as queue_config
-from synth_ai.cli.local.experiment_queue import database as queue_db
+from synth_ai.core.experiment_queue import config as queue_config
+from synth_ai.core.experiment_queue import database as queue_db
 
 
 def test_init_db_enables_wal(tmp_path, monkeypatch):

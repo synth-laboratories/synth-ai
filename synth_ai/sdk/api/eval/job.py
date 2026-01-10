@@ -25,11 +25,9 @@ Example:
         print(f"Error: {result.error}")
 
 See Also:
-    - `synth_ai.cli.commands.eval`: CLI implementation3
+    - `synth_ai.cli.eval`: CLI implementation
     - `synth_ai.sdk.api.train.prompt_learning`: Similar pattern for training
 """
-
-from __future__ import annotations
 
 import os
 import time
@@ -55,7 +53,7 @@ class EvalStatus(str, Enum):
     CANCELLED = "cancelled"
 
     @classmethod
-    def from_string(cls, status: str) -> EvalStatus:
+    def from_string(cls, status: str) -> "EvalStatus":
         """Convert string to EvalStatus, defaulting to PENDING for unknown values."""
         try:
             return cls(status.lower())
@@ -100,7 +98,7 @@ class EvalResult:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_response(cls, job_id: str, data: Dict[str, Any]) -> EvalResult:
+    def from_response(cls, job_id: str, data: Dict[str, Any]) -> "EvalResult":
         """Create result from API response dict."""
         status_str = data.get("status", "pending")
         status = EvalStatus.from_string(status_str)
@@ -296,7 +294,7 @@ class EvalJob:
         task_app_api_key: Optional[str] = None,
         task_app_url: Optional[str] = None,
         seeds: Optional[List[int]] = None,
-    ) -> EvalJob:
+    ) -> "EvalJob":
         """Create a job from a TOML config file.
 
         Loads evaluation configuration from a TOML file and allows
@@ -392,7 +390,7 @@ class EvalJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> EvalJob:
+    ) -> "EvalJob":
         """Resume an existing job by ID.
 
         Use this to check status or get results of a previously submitted job.

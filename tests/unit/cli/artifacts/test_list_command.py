@@ -1,13 +1,10 @@
 """Unit tests for artifacts list command."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
-
-from synth_ai.cli.commands.artifacts.list import list_command
+from synth_ai.cli.artifacts import list as list_command
 
 
 @pytest.fixture
@@ -53,7 +50,7 @@ def mock_artifacts_data() -> dict:
 class TestListCommand:
     """Test list command CLI behavior."""
 
-    @patch("synth_ai.cli.commands.artifacts.list.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_list_all_artifacts(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_artifacts_data: dict
     ) -> None:
@@ -70,9 +67,13 @@ class TestListCommand:
         assert result.exit_code == 0
         # Check for either models or prompts section (depending on what's returned)
         output_lower = result.output.lower()
-        assert ("models" in output_lower or "prompts" in output_lower or "optimized prompts" in output_lower)
+        assert (
+            "models" in output_lower
+            or "prompts" in output_lower
+            or "optimized prompts" in output_lower
+        )
 
-    @patch("synth_ai.cli.commands.artifacts.list.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_list_models_only(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_artifacts_data: dict
     ) -> None:
@@ -96,7 +97,7 @@ class TestListCommand:
             artifact_type="models", status="succeeded", limit=50
         )
 
-    @patch("synth_ai.cli.commands.artifacts.list.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_list_prompts_only(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_artifacts_data: dict
     ) -> None:
@@ -120,7 +121,7 @@ class TestListCommand:
             artifact_type="prompts", status="succeeded", limit=50
         )
 
-    @patch("synth_ai.cli.commands.artifacts.list.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_list_json_format(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_artifacts_data: dict
     ) -> None:
@@ -142,7 +143,7 @@ class TestListCommand:
         assert "models" in output_data
         assert "prompts" in output_data
 
-    @patch("synth_ai.cli.commands.artifacts.list.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_list_with_limit(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_artifacts_data: dict
     ) -> None:
@@ -161,7 +162,7 @@ class TestListCommand:
             artifact_type=None, status="succeeded", limit=10
         )
 
-    @patch("synth_ai.cli.commands.artifacts.list.ArtifactsClient")
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
     def test_list_with_status_filter(
         self, mock_client_class: MagicMock, runner: CliRunner, mock_artifacts_data: dict
     ) -> None:
@@ -180,10 +181,8 @@ class TestListCommand:
             artifact_type=None, status="running", limit=50
         )
 
-    @patch("synth_ai.cli.commands.artifacts.list.ArtifactsClient")
-    def test_list_empty_results(
-        self, mock_client_class: MagicMock, runner: CliRunner
-    ) -> None:
+    @patch("synth_ai.cli.artifacts.ArtifactsClient")
+    def test_list_empty_results(self, mock_client_class: MagicMock, runner: CliRunner) -> None:
         """Test list command with empty results."""
         mock_client = AsyncMock()
         empty_data = {
@@ -201,4 +200,3 @@ class TestListCommand:
 
         assert result.exit_code == 0
         assert "No artifacts found" in result.output or "0" in result.output
-

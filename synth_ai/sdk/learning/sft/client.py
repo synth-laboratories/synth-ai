@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Any
 
-from synth_ai.core._utils.http import AsyncHttpClient, HTTPError
+from synth_ai.core.http import AsyncHttpClient, HTTPError
 
 from .config import prepare_sft_job_payload
 from .data import validate_jsonl_or_raise

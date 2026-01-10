@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from synth_ai.cli.commands.eval.validation import validate_eval_options
+from synth_ai.core.eval.validation import validate_eval_options
 
 
 def test_validate_eval_options_normalizes_seed_and_metadata() -> None:

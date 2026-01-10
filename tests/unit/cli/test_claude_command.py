@@ -1,12 +1,9 @@
-from __future__ import annotations
-
 import os
 from unittest import mock
 
 import pytest
 from click.testing import CliRunner
-
-from synth_ai.cli.agents.claude import claude_cmd
+from synth_ai.cli.claude import claude as claude_cmd
 from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
 
 
@@ -26,8 +23,10 @@ def mock_env():
 
 def test_claude_cmd_no_claude_binary_found(runner: CliRunner):
     """Test that claude_cmd exits gracefully when Claude Code is not found."""
-    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=None), \
-         mock.patch("synth_ai.cli.claude.install_bin", return_value=False):
+    with (
+        mock.patch("synth_ai.core.agents.claude.get_bin_path", return_value=None),
+        mock.patch("synth_ai.core.agents.claude.install_bin", return_value=False),
+    ):
         result = runner.invoke(claude_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
@@ -40,13 +39,14 @@ def test_claude_cmd_with_default_url(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/claude"
     mock_api_key = "test-api-key-123"
 
-    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.claude.write_agents_md"), \
-         mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.claude.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.claude.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.claude.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.claude.write_agents_md"),
+        mock.patch("synth_ai.core.agents.claude.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.claude.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(claude_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
@@ -71,13 +71,14 @@ def test_claude_cmd_with_override_url(runner: CliRunner, mock_env):
     mock_api_key = "test-api-key-456"
     override_url = "https://custom.example.com/api"
 
-    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.claude.write_agents_md"), \
-         mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.claude.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.claude.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.claude.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.claude.write_agents_md"),
+        mock.patch("synth_ai.core.agents.claude.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.claude.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(claude_cmd, ["--model", "synth-small", "--url", override_url])
 
     assert result.exit_code == 0
@@ -94,13 +95,14 @@ def test_claude_cmd_with_override_url_trailing_slash(runner: CliRunner, mock_env
     mock_api_key = "test-api-key-789"
     override_url = "https://custom.example.com/api/"
 
-    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.claude.write_agents_md"), \
-         mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.claude.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.claude.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.claude.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.claude.write_agents_md"),
+        mock.patch("synth_ai.core.agents.claude.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.claude.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(claude_cmd, ["--model", "synth-small", "--url", override_url])
 
     assert result.exit_code == 0
@@ -115,13 +117,16 @@ def test_claude_cmd_with_force_flag(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/claude"
     mock_api_key = "test-api-key-force"
 
-    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.claude.write_agents_md"), \
-         mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key) as mock_resolve, \
-         mock.patch("synth_ai.cli.claude.subprocess.run"), \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.claude.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.claude.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.claude.write_agents_md"),
+        mock.patch(
+            "synth_ai.core.agents.claude.resolve_env_var", return_value=mock_api_key
+        ) as mock_resolve,
+        mock.patch("synth_ai.core.agents.claude.subprocess.run"),
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(claude_cmd, ["--model", "synth-small", "--force"])
 
     assert result.exit_code == 0
@@ -135,15 +140,17 @@ def test_claude_cmd_subprocess_error(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/claude"
     mock_api_key = "test-api-key-error"
 
-    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.claude.write_agents_md"), \
-         mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.claude.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.claude.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.claude.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.claude.write_agents_md"),
+        mock.patch("synth_ai.core.agents.claude.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.claude.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         # Simulate subprocess failure
         from subprocess import CalledProcessError
+
         mock_run.side_effect = CalledProcessError(1, "claude")
 
         result = runner.invoke(claude_cmd, ["--model", "synth-small"])
@@ -160,13 +167,14 @@ def test_claude_cmd_different_models(runner: CliRunner, mock_env):
     models = ["synth-small", "synth-medium"]
 
     for model in models:
-        with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
-             mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
-             mock.patch("synth_ai.cli.claude.write_agents_md"), \
-             mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
-             mock.patch("synth_ai.cli.claude.subprocess.run") as mock_run, \
-             mock.patch.dict(os.environ, mock_env, clear=True):
-
+        with (
+            mock.patch("synth_ai.core.agents.claude.get_bin_path", return_value=mock_bin_path),
+            mock.patch("synth_ai.core.agents.claude.verify_bin", return_value=True),
+            mock.patch("synth_ai.core.agents.claude.write_agents_md"),
+            mock.patch("synth_ai.core.agents.claude.resolve_env_var", return_value=mock_api_key),
+            mock.patch("synth_ai.core.agents.claude.subprocess.run") as mock_run,
+            mock.patch.dict(os.environ, mock_env, clear=True),
+        ):
             result = runner.invoke(claude_cmd, ["--model", model])
 
         assert result.exit_code == 0
@@ -188,13 +196,14 @@ def test_claude_cmd_preserves_existing_env_vars(runner: CliRunner):
         "ANOTHER_VAR": "another_value",
     }
 
-    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.claude.write_agents_md"), \
-         mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.claude.subprocess.run") as mock_run, \
-         mock.patch.dict(os.environ, test_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.claude.get_bin_path", return_value=mock_bin_path),
+        mock.patch("synth_ai.core.agents.claude.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.claude.write_agents_md"),
+        mock.patch("synth_ai.core.agents.claude.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.claude.subprocess.run") as mock_run,
+        mock.patch.dict(os.environ, test_env, clear=True),
+    ):
         result = runner.invoke(claude_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
@@ -211,14 +220,15 @@ def test_claude_cmd_install_loop_success(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/claude"
     mock_api_key = "test-api-key-install"
 
-    with mock.patch("synth_ai.cli.claude.get_bin_path", side_effect=[None, mock_bin_path]), \
-         mock.patch("synth_ai.cli.claude.install_bin", return_value=True), \
-         mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
-         mock.patch("synth_ai.cli.claude.write_agents_md"), \
-         mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
-         mock.patch("synth_ai.cli.claude.subprocess.run"), \
-         mock.patch.dict(os.environ, mock_env, clear=True):
-
+    with (
+        mock.patch("synth_ai.core.agents.claude.get_bin_path", side_effect=[None, mock_bin_path]),
+        mock.patch("synth_ai.core.agents.claude.install_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.claude.verify_bin", return_value=True),
+        mock.patch("synth_ai.core.agents.claude.write_agents_md"),
+        mock.patch("synth_ai.core.agents.claude.resolve_env_var", return_value=mock_api_key),
+        mock.patch("synth_ai.core.agents.claude.subprocess.run"),
+        mock.patch.dict(os.environ, mock_env, clear=True),
+    ):
         result = runner.invoke(claude_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0

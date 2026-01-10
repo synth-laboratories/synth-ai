@@ -1,4 +1,4 @@
-from synth_ai.cli.task_apps import _markov_message_from_dict
+from synth_ai.cli.task_app import _markov_message_from_dict
 
 
 def test_markov_message_normalizes_policy_prompts_to_system():

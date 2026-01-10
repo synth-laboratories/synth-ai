@@ -1,23 +1,13 @@
+import asyncio
 import json
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Literal
 
 import click
 import pytest
-import asyncio
-
-from synth_ai.core.tracing_v3.abstractions import (
-    SessionTrace,
-    SessionEventMarkovBlanketMessage,
-    SessionMessageContent,
-    TimeRecord,
-)
-from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+import synth_ai.cli.filter as filter_core
 from click.testing import CliRunner
-
-from synth_ai.cli.commands.filter import core as filter_core
-from synth_ai.cli.commands.filter.core import filter_command
-from synth_ai.cli.commands.filter.errors import (
+from synth_ai.cli.filter import (
     FilterConfigNotFoundError,
     FilterConfigParseError,
     InvalidFilterConfigError,
@@ -26,6 +16,14 @@ from synth_ai.cli.commands.filter.errors import (
     NoTracesFoundError,
     TomlUnavailableError,
 )
+from synth_ai.cli.filter import filter as filter_command
+from synth_ai.core.tracing_v3.abstractions import (
+    SessionEventMarkovBlanketMessage,
+    SessionMessageContent,
+    SessionTrace,
+    TimeRecord,
+)
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 from synth_ai.sdk.task.config import FilterConfig
 
 
@@ -44,7 +42,9 @@ def test_filter_preserves_assistant_multimodal(tmp_path):
                 content=SessionMessageContent(
                     json_payload={
                         "role": "user",
-                        "content": [{"type": "image_url", "image_url": {"url": "https://img/x.png"}}],
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": "https://img/x.png"}}
+                        ],
                     }
                 ),
                 time_record=TimeRecord(event_time=0.0, message_time=0),
@@ -57,7 +57,10 @@ def test_filter_preserves_assistant_multimodal(tmp_path):
                         "role": "assistant",
                         "content": [
                             {"type": "text", "text": "Here's a description"},
-                            {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAA"}},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": "data:image/png;base64,AAA"},
+                            },
                         ],
                     }
                 ),
@@ -67,11 +70,17 @@ def test_filter_preserves_assistant_multimodal(tmp_path):
         ],
         event_history=[],
         session_time_steps=[],
-        metadata={"env_name": "crafter", "policy_name": "crafter-react", "seed": 0, "model": "mock"},
+        metadata={
+            "env_name": "crafter",
+            "policy_name": "crafter-react",
+            "seed": 0,
+            "model": "mock",
+        },
     )
 
     async def _setup():
         await mgr.insert_session_trace(trace)
+
     asyncio.run(_setup())
 
     # Write filter config
