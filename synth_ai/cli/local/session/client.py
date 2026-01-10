@@ -61,14 +61,20 @@ class AgentSessionClient:
                     if limit_data.get("warning_threshold")
                     else None,
                     window_seconds=limit_data.get("window_seconds"),
-                    exceeded_at=datetime.fromisoformat(limit_data["exceeded_at"].replace("Z", "+00:00"))
+                    exceeded_at=datetime.fromisoformat(
+                        limit_data["exceeded_at"].replace("Z", "+00:00")
+                    )
                     if limit_data.get("exceeded_at")
                     else None,
                     exceeded_reason=limit_data.get("exceeded_reason"),
-                    created_at=datetime.fromisoformat(limit_data["created_at"].replace("Z", "+00:00"))
+                    created_at=datetime.fromisoformat(
+                        limit_data["created_at"].replace("Z", "+00:00")
+                    )
                     if limit_data.get("created_at")
                     else None,
-                    expires_at=datetime.fromisoformat(limit_data["expires_at"].replace("Z", "+00:00"))
+                    expires_at=datetime.fromisoformat(
+                        limit_data["expires_at"].replace("Z", "+00:00")
+                    )
                     if limit_data.get("expires_at")
                     else None,
                 )
@@ -107,7 +113,7 @@ class AgentSessionClient:
         make_active: bool = True,  # If True, ends existing active session and makes this one active
     ) -> AgentSession:
         """Create a new agent session.
-        
+
         If org_id is not provided, it will be fetched from /api/v1/me endpoint.
         """
         # Get org_id from /me endpoint if not provided
@@ -122,7 +128,7 @@ class AgentSessionClient:
                     f"Please provide org_id explicitly when creating a session, "
                     f"or ensure your API key is valid and has access to the /api/v1/me endpoint."
                 ) from e
-        
+
         payload: dict[str, Any] = {}
         if org_id:
             payload["org_id"] = str(org_id)
@@ -302,7 +308,9 @@ class AgentSessionClient:
                 data = await self._http.get(f"/api/v1/sessions/{session_id}/limits")
                 return [
                     AgentSessionLimit(
-                        limit_id=UUID(limit_data["limit_id"]) if limit_data.get("limit_id") else None,
+                        limit_id=UUID(limit_data["limit_id"])
+                        if limit_data.get("limit_id")
+                        else None,
                         limit_type=limit_data["limit_type"],
                         metric_type=limit_data["metric_type"],
                         limit_value=Decimal(str(limit_data["limit_value"])),
@@ -311,14 +319,20 @@ class AgentSessionClient:
                         if limit_data.get("warning_threshold")
                         else None,
                         window_seconds=limit_data.get("window_seconds"),
-                        exceeded_at=datetime.fromisoformat(limit_data["exceeded_at"].replace("Z", "+00:00"))
+                        exceeded_at=datetime.fromisoformat(
+                            limit_data["exceeded_at"].replace("Z", "+00:00")
+                        )
                         if limit_data.get("exceeded_at")
                         else None,
                         exceeded_reason=limit_data.get("exceeded_reason"),
-                        created_at=datetime.fromisoformat(limit_data["created_at"].replace("Z", "+00:00"))
+                        created_at=datetime.fromisoformat(
+                            limit_data["created_at"].replace("Z", "+00:00")
+                        )
                         if limit_data.get("created_at")
                         else None,
-                        expires_at=datetime.fromisoformat(limit_data["expires_at"].replace("Z", "+00:00"))
+                        expires_at=datetime.fromisoformat(
+                            limit_data["expires_at"].replace("Z", "+00:00")
+                        )
                         if limit_data.get("expires_at")
                         else None,
                     )
@@ -371,9 +385,13 @@ class AgentSessionClient:
                         reference_type=record_data.get("reference_type"),
                         reference_id=record_data.get("reference_id"),
                         org_id=UUID(record_data["org_id"]),
-                        user_id=UUID(record_data["user_id"]) if record_data.get("user_id") else None,
+                        user_id=UUID(record_data["user_id"])
+                        if record_data.get("user_id")
+                        else None,
                         metadata=record_data.get("metadata", {}),
-                        created_at=datetime.fromisoformat(record_data["created_at"].replace("Z", "+00:00")),
+                        created_at=datetime.fromisoformat(
+                            record_data["created_at"].replace("Z", "+00:00")
+                        ),
                     )
                     for record_data in data
                 ]

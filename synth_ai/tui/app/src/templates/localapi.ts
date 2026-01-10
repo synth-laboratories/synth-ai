@@ -196,14 +196,12 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     trace_correlation_id = extract_trace_correlation_id(
         policy_config=policy_cfg_for_trace,
         inference_url=str(inference_url or ""),
-        mode=request.mode,
     )
 
     return RolloutResponse(
-        run_id=request.run_id,
+        trace_correlation_id=request.trace_correlation_id,
         metrics=RolloutMetrics(outcome_reward=score),
         trace=None,
-        trace_correlation_id=trace_correlation_id,
         inference_url=str(inference_url or ""),
     )
 

@@ -6,12 +6,12 @@ Groq, etc.) based on the model identifier.
 
 Example:
     >>> from synth_ai.sdk.inference import InferenceClient
-    >>> 
+    >>>
     >>> client = InferenceClient(
     ...     base_url="https://api.usesynth.ai",
     ...     api_key=os.environ["SYNTH_API_KEY"],
     ... )
-    >>> 
+    >>>
     >>> response = await client.create_chat_completion(
     ...     model="gpt-4o-mini",
     ...     messages=[
@@ -20,7 +20,7 @@ Example:
     ...     temperature=0.7,
     ...     max_tokens=100,
     ... )
-    >>> 
+    >>>
     >>> print(response["choices"][0]["message"]["content"])
 """
 
@@ -37,25 +37,25 @@ from synth_ai.sdk.api.models.supported import (
 
 class InferenceClient:
     """Client for making inference requests through Synth AI's inference proxy.
-    
+
     This client provides a unified interface for calling LLMs through Synth AI's
     backend, which handles routing to appropriate providers (OpenAI, Groq, etc.)
     based on the model identifier.
-    
+
     Example:
         >>> from synth_ai.sdk.inference import InferenceClient
-        >>> 
+        >>>
         >>> client = InferenceClient(
         ...     base_url="https://api.usesynth.ai",
         ...     api_key=os.environ["SYNTH_API_KEY"],
         ... )
-        >>> 
+        >>>
         >>> # Simple completion
         >>> response = await client.create_chat_completion(
         ...     model="gpt-4o-mini",
         ...     messages=[{"role": "user", "content": "Hello!"}],
         ... )
-        >>> 
+        >>>
         >>> # With options
         >>> response = await client.create_chat_completion(
         ...     model="Qwen/Qwen3-4B",
@@ -65,10 +65,10 @@ class InferenceClient:
         ...     thinking_budget=512,
         ... )
     """
-    
+
     def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
         """Initialize the inference client.
-        
+
         Args:
             base_url: Base URL for the Synth AI API
             api_key: API key for authentication
@@ -82,10 +82,10 @@ class InferenceClient:
         self, *, model: str, messages: list[dict], **kwargs: Any
     ) -> dict[str, Any]:
         """Create a chat completion request.
-        
+
         This method sends a chat completion request to the Synth AI inference proxy,
         which routes it to the appropriate provider based on the model identifier.
-        
+
         Args:
             model: Model identifier (e.g., "gpt-4o-mini", "Qwen/Qwen3-4B")
             messages: List of message dicts with "role" and "content" keys
@@ -101,14 +101,14 @@ class InferenceClient:
                 - tool_choice: Tool choice strategy
                 - stream: Whether to stream responses
                 - ... (other OpenAI API parameters)
-                
+
         Returns:
             Completion response dict with:
                 - id: Request ID
                 - choices: List of completion choices
                 - usage: Token usage statistics
                 - ... (other OpenAI-compatible fields)
-                
+
         Raises:
             ValueError: If model is not supported or request is invalid
             HTTPError: If the API request fails

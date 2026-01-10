@@ -17,31 +17,29 @@ from .validation import validate_path
 
 def extract_config_info(config_path: Path) -> tuple[str | None, str | None]:
     """Extract policy and environment from GEPA config file.
-    
+
     Args:
         config_path: Path to TOML config file
-        
+
     Returns:
         Tuple of (policy_model, environment_name) or (None, None) if not found
-        
+
     Raises:
         AssertionError: If config_path is invalid
     """
     # Validate input
     assert config_path is not None, "config_path cannot be None"
     path = validate_path(config_path, "config_path", must_exist=True)
-    
+
     try:
         config = _load_toml(path)
-        assert isinstance(config, dict), (
-            f"Config must be dict, got {type(config).__name__}"
-        )
-        
+        assert isinstance(config, dict), f"Config must be dict, got {type(config).__name__}"
+
         pl_config = config.get("prompt_learning", {})
         assert isinstance(pl_config, dict), (
             f"prompt_learning section must be dict, got {type(pl_config).__name__}"
         )
-        
+
         # Extract environment name from gepa.env_name
         gepa_config = pl_config.get("gepa", {})
         assert isinstance(gepa_config, dict), (
@@ -52,7 +50,7 @@ def extract_config_info(config_path: Path) -> tuple[str | None, str | None]:
             assert isinstance(environment, str), (
                 f"env_name must be str, got {type(environment).__name__}: {environment}"
             )
-        
+
         # Extract policy model - try gepa.policy first, then policy
         policy = None
         gepa_policy_config = gepa_config.get("policy", {})
@@ -62,7 +60,7 @@ def extract_config_info(config_path: Path) -> tuple[str | None, str | None]:
                 assert isinstance(policy, str), (
                     f"policy.model must be str, got {type(policy).__name__}: {policy}"
                 )
-        
+
         if not policy:
             policy_config = pl_config.get("policy", {})
             if isinstance(policy_config, dict):
@@ -71,7 +69,7 @@ def extract_config_info(config_path: Path) -> tuple[str | None, str | None]:
                     assert isinstance(policy, str), (
                         f"policy.model must be str, got {type(policy).__name__}: {policy}"
                     )
-        
+
         return (policy, environment)
     except AssertionError:
         raise
@@ -81,37 +79,35 @@ def extract_config_info(config_path: Path) -> tuple[str | None, str | None]:
 
 def parse_progress_from_output(output: str) -> ProgressInfo:
     """Parse progress information from subprocess stdout/stderr.
-    
+
     Looks for JSON events like:
     - prompt.learning.progress events with rollouts_completed
     - gepa.start events
     - gepa.complete events
-    
+
     Also parses text patterns from backend logs and CLI output:
     - Backend log: "GEPA progress: overall=X% rollouts=(Y/Z rem=W)..."
     - CLI format: "Progress: rollouts=X/Y (Z%) elapsed=Xs eta=Ys"
-    
+
     Args:
         output: Combined stdout/stderr from training command
-        
+
     Returns:
         ProgressInfo instance with parsed progress data
-        
+
     Raises:
         AssertionError: If output is invalid or parsed data is inconsistent
     """
     # Validate input
-    assert isinstance(output, str), (
-        f"output must be str, got {type(output).__name__}"
-    )
-    
+    assert isinstance(output, str), f"output must be str, got {type(output).__name__}"
+
     progress_data: dict[str, Any] = {
         "rollouts_completed": None,
         "total_rollouts": None,
         "best_score": None,
         "trials_completed": None,
     }
-    
+
     # Look for JSON lines (events are often logged as JSON)
     json_lines = []
     for line in output.split("\n"):
@@ -119,7 +115,7 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
         if line.startswith("{") and line.endswith("}"):
             with contextlib.suppress(json.JSONDecodeError):
                 json_lines.append(json.loads(line))
-    
+
     # Also look for progress patterns in text output
     # Backend log format: "GEPA progress: overall=X% rollouts=(Y/Z rem=W) transforms=(A/B) elapsed=Xs eta=Ys"
     # CLI format: "Progress: rollouts=X/Y (Z%) elapsed=Xs eta=Ys"
@@ -134,7 +130,7 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
         # Just completed count: "rollouts_completed: 15"
         r"rollouts_completed[:\s]+(\d+)",
     ]
-    
+
     for pattern in rollout_patterns:
         matches = re.finditer(pattern, output, re.IGNORECASE)
         for match in matches:
@@ -162,16 +158,16 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
                 except (ValueError, AssertionError):
                     # Skip invalid matches
                     continue
-    
+
     # Extract from JSON events
     for event in json_lines:
         event_type = event.get("type", "")
         event_data = event.get("data", {})
-        
+
         assert isinstance(event_data, dict), (
             f"event.data must be dict, got {type(event_data).__name__}"
         )
-        
+
         if event_type == "prompt.learning.progress":
             if "rollouts_completed" in event_data:
                 val = event_data["rollouts_completed"]
@@ -203,7 +199,7 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
                     val_int = int(val)
                     assert val_int >= 0, f"trials_completed must be >= 0, got {val_int}"
                     progress_data["trials_completed"] = val_int
-        
+
         # Look for best score in other events too
         if "best_score" in event_data and progress_data["best_score"] is None:
             val = event_data["best_score"]
@@ -211,15 +207,15 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
                 val_float = float(val)
                 assert 0 <= val_float <= 1, f"best_score must be in [0, 1], got {val_float}"
                 progress_data["best_score"] = val_float
-        
+
         # Also check gepa.start event for rollout budget
         if event_type == "prompt.learning.gepa.start" and "rollout_budget" in event_data:
-                val = event_data["rollout_budget"]
-                if isinstance(val, int | float):
-                    val_int = int(val)
-                    assert val_int > 0, f"rollout_budget must be > 0, got {val_int}"
-                    progress_data["total_rollouts"] = val_int
-    
+            val = event_data["rollout_budget"]
+            if isinstance(val, int | float):
+                val_int = int(val)
+                assert val_int > 0, f"rollout_budget must be > 0, got {val_int}"
+                progress_data["total_rollouts"] = val_int
+
     # Look for best score in text output
     if progress_data["best_score"] is None:
         score_patterns = [
@@ -238,7 +234,7 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
                     break
                 except (ValueError, AssertionError):
                     pass
-    
+
     # Also try to extract rollout budget from config if we see gepa.start but no total yet
     if progress_data["total_rollouts"] is None:
         # Look for "rollout_budget" or "rollout_limit" in output
@@ -256,7 +252,7 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
                     break
                 except (ValueError, AssertionError):
                     pass
-    
+
     # Validate consistency before creating ProgressInfo
     if (
         progress_data["rollouts_completed"] is not None
@@ -266,7 +262,7 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
             f"rollouts_completed ({progress_data['rollouts_completed']}) > "
             f"total_rollouts ({progress_data['total_rollouts']})"
         )
-    
+
     # Create and return ProgressInfo (will validate in __post_init__)
     return ProgressInfo.from_dict(progress_data)
 
@@ -279,37 +275,35 @@ def update_status_from_output(
     start_time: float | None = None,
 ) -> None:
     """Update experiment status based on parsed output.
-    
+
     Always updates status_json to show at least elapsed time, even if no progress
     data is found. This ensures status is visible even for fast jobs that complete
     before progress events are emitted.
-    
+
     Args:
         tracker: ExperimentStatusTracker instance
         output: Subprocess output to parse
         policy: Policy model (from config)
         environment: Environment name (from config)
         start_time: Job start time for ETA calculation
-        
+
     Raises:
         AssertionError: If inputs are invalid or progress data is inconsistent
     """
     # Validate inputs
     assert tracker is not None, "tracker cannot be None"
-    assert isinstance(output, str), (
-        f"output must be str, got {type(output).__name__}"
-    )
+    assert isinstance(output, str), f"output must be str, got {type(output).__name__}"
     if start_time is not None:
         assert isinstance(start_time, int | float), (
             f"start_time must be int | float, got {type(start_time).__name__}"
         )
         assert start_time > 0, f"start_time must be > 0, got {start_time}"
-    
+
     progress = parse_progress_from_output(output)
     assert isinstance(progress, ProgressInfo), (
         f"parse_progress_from_output must return ProgressInfo, got {type(progress).__name__}"
     )
-    
+
     # Calculate ETA and rollouts/min if we have progress info
     eta_seconds = None
     rollouts_per_minute = None
@@ -331,7 +325,7 @@ def update_status_from_output(
         if rate > 0:
             eta_seconds = remaining / rate
             assert eta_seconds >= 0, f"eta_seconds must be >= 0, got {eta_seconds}"
-    
+
     # Calculate progress percentage
     progress_pct = None
     if (
@@ -340,10 +334,8 @@ def update_status_from_output(
         and progress.total_rollouts > 0
     ):
         progress_pct = (progress.rollouts_completed / progress.total_rollouts) * 100
-        assert 0 <= progress_pct <= 100, (
-            f"progress_pct must be in [0, 100], got {progress_pct}"
-        )
-    
+        assert 0 <= progress_pct <= 100, f"progress_pct must be in [0, 100], got {progress_pct}"
+
     # Always update status_json, even if we only have elapsed time
     # This ensures status is visible even for fast jobs
     tracker.update(
@@ -357,4 +349,3 @@ def update_status_from_output(
         progress_pct=progress_pct,
         rollouts_per_minute=rollouts_per_minute,
     )
-

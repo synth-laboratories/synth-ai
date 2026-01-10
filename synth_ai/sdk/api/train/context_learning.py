@@ -18,6 +18,7 @@ SDK usage:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,7 +27,6 @@ from typing import Any, Callable, Dict, Optional, Sequence
 from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-
 from synth_ai.sdk.streaming import (
     ContextLearningHandler,
     JobStreamer,
@@ -35,7 +35,7 @@ from synth_ai.sdk.streaming import (
     StreamType,
 )
 
-from .utils import ensure_api_base, http_get, http_post, load_toml, TrainError
+from .utils import TrainError, http_get, http_post, load_toml
 
 
 @dataclass
@@ -168,7 +168,9 @@ class ContextLearningJob:
         if not isinstance(evaluation_seeds, list):
             raise TrainError("[context_learning].evaluation_seeds must be a list")
 
-        env_section = section.get("environment") if isinstance(section.get("environment"), dict) else {}
+        env_section = (
+            section.get("environment") if isinstance(section.get("environment"), dict) else {}
+        )
         preflight_script = env_section.get("preflight_script")
         postflight_script = env_section.get("postflight_script")
 
@@ -183,7 +185,9 @@ class ContextLearningJob:
             p = Path(str(postflight_path))
             postflight_script = p.read_text(encoding="utf-8")
 
-        algo_section = section.get("algorithm") if isinstance(section.get("algorithm"), dict) else {}
+        algo_section = (
+            section.get("algorithm") if isinstance(section.get("algorithm"), dict) else {}
+        )
 
         algorithm_config: Dict[str, Any] = {}
         for key in (
@@ -234,7 +238,11 @@ class ContextLearningJob:
             raise RuntimeError(
                 f"Context learning submission failed: {resp.status_code} {resp.text[:500]}"
             )
-        js = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+        js = (
+            resp.json()
+            if resp.headers.get("content-type", "").startswith("application/json")
+            else {}
+        )
         job_id = js.get("job_id")
         if not job_id:
             raise RuntimeError("Response missing job_id")
@@ -275,10 +283,8 @@ class ContextLearningJob:
         final_status = asyncio.run(streamer.stream_until_terminal())
 
         if on_event and isinstance(final_status, dict):
-            try:
+            with contextlib.suppress(Exception):
                 on_event(final_status)
-            except Exception:
-                pass
 
         return final_status
 
@@ -290,9 +296,7 @@ class ContextLearningJob:
         headers = {"Authorization": f"Bearer {self.config.api_key}"}
         resp = http_get(url, headers=headers)
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Failed to fetch best script: {resp.status_code} {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Failed to fetch best script: {resp.status_code} {resp.text[:500]}")
         js = resp.json()
         return BestScriptResult(
             job_id=js.get("job_id", self._job_id),

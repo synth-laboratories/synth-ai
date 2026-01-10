@@ -11,12 +11,7 @@ def prompt_choice(msg: str, choices: list[str]) -> str:
         print(f" [{i}] {label}")
     while True:
         try:
-            choice = click.prompt(
-                "Select an option",
-                default=1,
-                type=int,
-                show_choices=False
-            )
+            choice = click.prompt("Select an option", default=1, type=int, show_choices=False)
         except click.Abort:
             raise
         if 1 <= choice <= len(choices):
@@ -65,7 +60,9 @@ class PromptedChoiceType(click.Choice):
         except click.BadParameter:
             cmd_name = self._get_cmd_name(ctx)
             if getattr(param, "opts", None):
-                click.echo(f'\n[{cmd_name}] Invalid value "{value}" for {self._get_arg_name(param)}')
+                click.echo(
+                    f'\n[{cmd_name}] Invalid value "{value}" for {self._get_arg_name(param)}'
+                )
             else:
                 click.echo(f'\n[{cmd_name}] Invalid value "{value}"')
             return self._prompt_user(param, ctx)
@@ -81,14 +78,9 @@ class PromptedChoiceType(click.Choice):
         for index, choice in enumerate(self.choices, 1):
             click.echo(f" [{index}] {choice}")
         while True:
-            choice = click.prompt(
-                "Select an option",
-                default=1,
-                type=int,
-                show_choices=False
-            )
+            choice = click.prompt("Select an option", default=1, type=int, show_choices=False)
             if 1 <= choice <= len(self.choices):
-                print('')
+                print("")
                 return cast(str, self.choices[choice - 1])
             click.echo(f"Invalid selection for {arg_name}, please try again")
 
@@ -222,11 +214,15 @@ def prompt_for_path(
             click.echo(str(exc))
             continue
 
-        result = converted if isinstance(converted, Path) else Path(str(converted) if isinstance(converted, bytes) else converted)
+        result = (
+            converted
+            if isinstance(converted, Path)
+            else Path(str(converted) if isinstance(converted, bytes) else converted)
+        )
         if expected_suffix and result.suffix.lower() != expected_suffix:
             click.echo(f"Expected a {expected_suffix} file. Received: {result}")
             continue
-        
+
         return result
 
 

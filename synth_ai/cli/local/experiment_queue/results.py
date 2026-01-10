@@ -8,7 +8,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-def _load_latest_json(directory: Path, pattern: str) -> tuple[dict[str, Any], Path] | tuple[None, None]:
+def _load_latest_json(
+    directory: Path, pattern: str
+) -> tuple[dict[str, Any], Path] | tuple[None, None]:
     candidates = sorted(directory.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
     for candidate in candidates:
         try:
@@ -79,30 +81,36 @@ def _parse_learning_curve(data: dict[str, Any]) -> list[LearningCurvePoint]:
                     or entry.get("score")
                     or entry.get("aggregate_score"),
                     checkpoint_pct=entry.get("checkpoint_pct"),
-                    metadata={k: v for k, v in entry.items() if k not in {"rollout_count", "performance", "checkpoint_pct"}},
+                    metadata={
+                        k: v
+                        for k, v in entry.items()
+                        if k not in {"rollout_count", "performance", "checkpoint_pct"}
+                    },
                 )
             )
     return points
 
 
-def _extract_rollouts_from_output(stdout: str, stderr: str, results_folder: Path | None = None) -> int | None:
+def _extract_rollouts_from_output(
+    stdout: str, stderr: str, results_folder: Path | None = None
+) -> int | None:
     """Extract rollout count from stdout/stderr and log files by looking for rollout patterns."""
     import re
-    
+
     # Look for patterns like "[BANKING77_ROLLOUT] ... index=75" or "rollout.*index=(\d+)"
     patterns = [
-        r'\[.*ROLLOUT\].*index=(\d+)',
-        r'rollout.*index=(\d+)',
-        r'rollout\s+(\d+)',
-        r'completed\s+(\d+)\s+rollouts?',
-        r'total.*rollouts?[:\s]+(\d+)',
+        r"\[.*ROLLOUT\].*index=(\d+)",
+        r"rollout.*index=(\d+)",
+        r"rollout\s+(\d+)",
+        r"completed\s+(\d+)\s+rollouts?",
+        r"total.*rollouts?[:\s]+(\d+)",
         r'"count":\s*(\d+).*rollout',  # JSON stats: "count": 59 in rollout_duration_stats
         r'rollout.*"count":\s*(\d+)',  # JSON stats in rollout context
     ]
-    
+
     max_rollout = None
     texts_to_check = [stdout, stderr]
-    
+
     # Also check log files if results_folder is provided
     if results_folder and results_folder.exists():
         log_files = sorted(
@@ -111,6 +119,7 @@ def _extract_rollouts_from_output(stdout: str, stderr: str, results_folder: Path
             reverse=True,
         )
         import logging
+
         logger = logging.getLogger(__name__)
         logger.debug(f"Found {len(log_files)} log files in {results_folder}")
         for log_file in log_files[:2]:  # Check up to 2 most recent log files
@@ -120,7 +129,7 @@ def _extract_rollouts_from_output(stdout: str, stderr: str, results_folder: Path
                 logger.debug(f"Read log file: {log_file.name} ({len(log_content)} chars)")
             except Exception as e:
                 logger.warning(f"Failed to read log file {log_file}: {e}")
-    
+
     for text in texts_to_check:
         for pattern in patterns:
             matches = re.findall(pattern, text, re.IGNORECASE)
@@ -128,7 +137,7 @@ def _extract_rollouts_from_output(stdout: str, stderr: str, results_folder: Path
                 rollout_nums = [int(m) for m in matches if m.isdigit()]
                 if rollout_nums:
                     max_rollout = max(max_rollout or 0, max(rollout_nums))
-    
+
     # Also try to extract from JSON stats if present
     if max_rollout is None:
         for text in texts_to_check:
@@ -166,69 +175,67 @@ def _extract_rollouts_from_output(stdout: str, stderr: str, results_folder: Path
                             # Only use if it's a reasonable rollout count (not 0 or 1)
                             if count > 1:
                                 max_rollout = max(max_rollout or 0, count) if max_rollout else count
-    
+
     return max_rollout if max_rollout is not None else None
 
 
 def _parse_text_results_file(results_file: Path) -> dict[str, Any]:
     """Parse GEPA/MIPRO text result files to extract scores and metadata."""
     import re
-    
+
     result = {}
     try:
         content = results_file.read_text(encoding="utf-8")
-        
+
         # Extract baseline score
-        baseline_match = re.search(r'Baseline Score:\s*([\d.]+)', content, re.IGNORECASE)
+        baseline_match = re.search(r"Baseline Score:\s*([\d.]+)", content, re.IGNORECASE)
         if baseline_match:
             result["baseline_score"] = float(baseline_match.group(1))
-        
+
         # Extract best score
-        best_match = re.search(r'Best Score:\s*([\d.]+)', content, re.IGNORECASE)
+        best_match = re.search(r"Best Score:\s*([\d.]+)", content, re.IGNORECASE)
         if best_match:
             result["best_score"] = float(best_match.group(1))
-        
+
         # Extract job ID
-        job_id_match = re.search(r'Job ID:\s*(\S+)', content, re.IGNORECASE)
+        job_id_match = re.search(r"Job ID:\s*(\S+)", content, re.IGNORECASE)
         if job_id_match:
             result["job_id"] = job_id_match.group(1)
-            
+
     except Exception:
         pass
-    
+
     return result
 
 
-def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str = "") -> ResultSummary:
+def collect_result_summary(
+    results_folder: Path, stdout: str = "", stderr: str = ""
+) -> ResultSummary:
     """Introspect result artifacts saved by prompt learning jobs.
-    
+
     Args:
         results_folder: Path to results directory
         stdout: Standard output from job execution
         stderr: Standard error from job execution
-        
+
     Returns:
         ResultSummary with parsed results
-        
+
     Raises:
         AssertionError: If inputs are invalid
     """
     from .validation import validate_path
-    
+
     # Validate inputs
     assert results_folder is not None, "results_folder cannot be None"
     path = validate_path(results_folder, "results_folder", must_exist=False)
-    assert isinstance(stdout, str), (
-        f"stdout must be str, got {type(stdout).__name__}"
-    )
-    assert isinstance(stderr, str), (
-        f"stderr must be str, got {type(stderr).__name__}"
-    )
-    
+    assert isinstance(stdout, str), f"stdout must be str, got {type(stdout).__name__}"
+    assert isinstance(stderr, str), f"stderr must be str, got {type(stderr).__name__}"
+
     summary = ResultSummary()
     summary.stdout = stdout
     summary.stderr = stderr
-    
+
     if not path.exists():
         # Try to extract rollouts from stdout/stderr even if no results folder
         extracted = _extract_rollouts_from_output(stdout, stderr, results_folder=None)
@@ -246,7 +253,7 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
         assert isinstance(summary.learning_curve_points, list), (
             f"learning_curve_points must be list, got {type(summary.learning_curve_points).__name__}"
         )
-        
+
         points = [p for p in summary.learning_curve_points if p.performance is not None]
         if points:
             baseline = points[0].performance
@@ -254,12 +261,12 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
                 f"baseline_score must be in [0, 1], got {baseline}"
             )
             summary.baseline_score = baseline
-            
+
             best = max((p.performance for p in points if p.performance is not None), default=None)
             if best is not None:
                 assert 0 <= best <= 1, f"best_score must be in [0, 1], got {best}"
             summary.best_score = best
-            
+
             if points[-1].rollout_count is not None:
                 assert points[-1].rollout_count > 0, (
                     f"rollout_count must be > 0, got {points[-1].rollout_count}"
@@ -289,14 +296,14 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
                 f"total_time must be >= 0, got {total_time}"
             )
         summary.total_time = total_time
-        
+
         total_rollouts_from_stats = stats_data.get("total_rollouts")
         if total_rollouts_from_stats is not None:
             assert isinstance(total_rollouts_from_stats, int) and total_rollouts_from_stats > 0, (
                 f"total_rollouts must be int > 0, got {total_rollouts_from_stats}"
             )
         summary.total_rollouts = summary.total_rollouts or total_rollouts_from_stats
-        
+
         if stats_path:
             assert isinstance(stats_path, Path), (
                 f"stats_path must be Path, got {type(stats_path).__name__}"
@@ -306,6 +313,7 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
     # If no JSON files found, try parsing text result files or extracting from stdout/stderr/log files
     if summary.total_rollouts is None:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.info(
             "No rollouts found in JSON files, attempting extraction from stdout/stderr/log files. "
@@ -330,7 +338,7 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
                 len(stderr),
                 path.exists() if path else False,
             )
-    
+
     if summary.best_score is None or summary.baseline_score is None:
         # Look for text result files (gepa_results_*.txt, mipro_results_*.txt)
         result_files = sorted(
@@ -343,21 +351,21 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
             assert isinstance(text_results, dict), (
                 f"_parse_text_results_file must return dict, got {type(text_results).__name__}"
             )
-            
+
             best_score = text_results.get("best_score")
             if best_score is not None:
                 assert isinstance(best_score, int | float) and 0 <= best_score <= 1, (
                     f"best_score must be in [0, 1], got {best_score}"
                 )
                 summary.best_score = float(best_score)
-            
+
             baseline_score = text_results.get("baseline_score")
             if baseline_score is not None:
                 assert isinstance(baseline_score, int | float) and 0 <= baseline_score <= 1, (
                     f"baseline_score must be in [0, 1], got {baseline_score}"
                 )
                 summary.baseline_score = float(baseline_score)
-            
+
             if result_files[0]:
                 summary.artifacts["results_txt_path"] = str(result_files[0])
 

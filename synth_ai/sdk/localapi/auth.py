@@ -11,7 +11,6 @@ import secrets
 from pathlib import Path
 from typing import Any, Iterable
 
-
 from synth_ai.core.env import PROD_BASE_URL_DEFAULT, get_backend_from_env
 from synth_ai.core.paths import REPO_ROOT, get_env_file_paths
 from synth_ai.core.user_config import update_user_config
@@ -240,13 +239,21 @@ def ensure_localapi_auth(
         if synth_api_key is None:
             synth_api_key = os.environ.get("SYNTH_API_KEY")
         if synth_api_key:
-            backend = _resolve_backend_base(backend_base)
-            try:
-                setup_environment_api_key(backend, synth_api_key, token=key)
-            except Exception as exc:
-                logging.getLogger(__name__).warning(
-                    "Failed to upload ENVIRONMENT_API_KEY: %s", exc
+            # Skip upload if backend_base is None to avoid hitting production
+            # The key will still work locally without being uploaded
+            if backend_base is None:
+                logger = logging.getLogger(__name__)
+                logger.debug(
+                    "Skipping ENVIRONMENT_API_KEY upload: no backend_base provided "
+                    "(key will work locally without upload)"
                 )
+            else:
+                backend = _resolve_backend_base(backend_base)
+                try:
+                    setup_environment_api_key(backend, synth_api_key, token=key)
+                except Exception as exc:
+                    logger = logging.getLogger(__name__)
+                    logger.warning("Failed to upload ENVIRONMENT_API_KEY to %s: %s", backend, exc)
 
     if not key:
         raise RuntimeError("ENVIRONMENT_API_KEY is required but missing")

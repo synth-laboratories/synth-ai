@@ -79,4 +79,3 @@ __all__ = [
     "suppress_noisy_loggers",
     "SDK_LOGGER_NAME",
 ]
-

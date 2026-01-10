@@ -37,6 +37,7 @@ See Also:
     - Training reference: /training/gspo
     - Job events: /sdk/jobs/rl
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -58,6 +59,7 @@ class RLServicesConfig(ExtraModel):
         verifier_url: Optional URL for verifier service. Defaults to Synth's
             hosted verifier at https://synth-backend.onrender.com/api.
     """
+
     task_url: str
     verifier_url: str | None = None
 
@@ -76,6 +78,7 @@ class ModelConfig(ExtraModel):
         trainer_mode: Training mode - "lora", "qlora", or "full".
         label: Human-readable identifier for this model.
     """
+
     source: str | None = None
     base: str | None = None
     trainer_mode: str
@@ -103,6 +106,7 @@ class RolloutConfig(ExtraModel):
         max_concurrent_rollouts: Maximum parallel rollouts to the task app.
         batches_per_step: Batches to collect per training step. Default: 1.
     """
+
     env_name: str
     policy_name: str
     env_config: dict[str, Any] | None = None
@@ -125,6 +129,7 @@ class WeightSyncConfig(ExtraModel):
         direct: Use direct sync method.
         verify_every_k: Verify sync every K iterations.
     """
+
     enable: bool | None = None
     targets: list[str] | None = None
     mode: str | None = None
@@ -145,6 +150,7 @@ class RewardsConfig(ExtraModel):
         step_rewards_strategy: Reward computation strategy.
         event_rewards_kind: Event reward aggregation - "unique" or "absolute".
     """
+
     step_rewards_enabled: bool | None = None
     step_rewards_mode: str | None = None
     step_rewards_indicator_lambda: float | None = None
@@ -171,6 +177,7 @@ class RLTrainingConfig(ExtraModel):
         lora: LoRA configuration (r, alpha, dropout, target_modules).
         rewards: Nested rewards configuration.
     """
+
     num_epochs: int
     iterations_per_epoch: int
     gradient_accumulation_steps: int | None = None
@@ -202,6 +209,7 @@ class EvaluationConfig(ExtraModel):
         every_n_iters: Run evaluation every N training iterations.
         seeds: List of seeds for reproducible evaluation.
     """
+
     instances: int
     every_n_iters: int
     seeds: list[int]
@@ -221,6 +229,7 @@ class VerifierOptionsConfig(ExtraModel):
         weights: Per-track scoring weights.
         max_concurrency: Maximum concurrent verifier API calls.
     """
+
     event: bool | None = None
     outcome: bool | None = None
     provider: str | None = None
@@ -239,6 +248,7 @@ class RubricConfig(ExtraModel):
         enabled: Enable rubric-based scoring. Default: False.
         reward_blend: Weights for reward sources - {"env": 1.0, "event": 0.0, "outcome": 0.0}.
     """
+
     enabled: bool = False
     reward_blend: dict[str, float] | None = None  # env, event, outcome weights
 
@@ -254,10 +264,13 @@ class VerifierConfig(ExtraModel):
         rubric: Deprecated - use reward_blend instead.
         options: Detailed verifier options.
     """
+
     type: str | None = None
     timeout_s: int | None = None
     enabled: bool | None = None  # Master switch for verifier/rubric
-    reward_blend: dict[str, float] | None = None  # NEW: nested reward blending (replaces rubric.weights)
+    reward_blend: dict[str, float] | None = (
+        None  # NEW: nested reward blending (replaces rubric.weights)
+    )
     rubric: RubricConfig | None = None  # DEPRECATED: use flat fields instead
     options: VerifierOptionsConfig | None = None
 
@@ -288,6 +301,7 @@ class SmokeConfig(ExtraModel):
         sqld_hrana_port: Hrana WebSocket port. Default: 8080.
         sqld_http_port: HTTP API port. Default: 8081.
     """
+
     # Test parameters
     task_url: str | None = None
     env_name: str | None = None
@@ -375,19 +389,24 @@ class RLConfig(ExtraModel):
         - `rl.evaluation.complete` - Evaluation finished with scores
         - `rl.succeeded` / `rl.failed` - Terminal states
     """
+
     algorithm: AlgorithmConfig
     services: RLServicesConfig
     compute: ComputeConfig | None = None
     topology: dict[str, Any] | None = None  # DEPRECATED: use compute.topology instead
     vllm: dict[str, Any] | None = None
-    reference: dict[str, Any] | None = None  # DEPRECATED: use compute.topology.reference_placement instead
+    reference: dict[str, Any] | None = (
+        None  # DEPRECATED: use compute.topology.reference_placement instead
+    )
     model: ModelConfig | None = None  # DEPRECATED: use policy instead
     policy: PolicyConfig | None = None  # NEW: unified policy (preferred)
     lora: dict[str, Any] | None = None  # DEPRECATED: use training.lora instead
     rollout: RolloutConfig | None = None
     evaluation: EvaluationConfig | None = None
     training: RLTrainingConfig | None = None
-    rubric: dict[str, Any] | None = None  # DEPRECATED: use verifier.reward_blend and verifier.enabled instead
+    rubric: dict[str, Any] | None = (
+        None  # DEPRECATED: use verifier.reward_blend and verifier.enabled instead
+    )
     verifier: VerifierConfig | None = None
     tags: dict[str, Any] | None = None
     smoke: SmokeConfig | None = None  # CLI-only: local smoke testing config (ignored by trainer)

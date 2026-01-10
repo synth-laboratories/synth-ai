@@ -226,21 +226,21 @@ def mint_demo_api_key(
     timeout: float = 30.0,
 ) -> str:
     """Mint a demo Synth API key from the backend.
-    
+
     This is useful for demos and notebooks where users don't have an API key yet.
     The demo key has a limited TTL (time-to-live) and is intended for temporary use.
-    
+
     Args:
         backend_url: Backend URL (defaults to PROD_BASE_URL)
         ttl_hours: Time-to-live in hours (default: 4)
         timeout: Request timeout in seconds (default: 30.0)
-    
+
     Returns:
         Demo API key string
-    
+
     Raises:
         RuntimeError: If the request fails or returns invalid response
-    
+
     Example:
         >>> from synth_ai.core.env import mint_demo_api_key
         >>> api_key = mint_demo_api_key()
@@ -248,10 +248,10 @@ def mint_demo_api_key(
     """
     if backend_url is None:
         backend_url = PROD_BASE_URL
-    
+
     backend_url = backend_url.rstrip("/")
     url = f"{backend_url}/api/demo/keys"
-    
+
     try:
         resp = httpx.post(
             url,
@@ -260,11 +260,11 @@ def mint_demo_api_key(
         )
         resp.raise_for_status()
         data = resp.json()
-        
+
         api_key = data.get("api_key")
         if not api_key or not isinstance(api_key, str):
             raise RuntimeError(f"Invalid response from demo key endpoint: {data}")
-        
+
         return api_key
     except httpx.HTTPError as e:
         raise RuntimeError(f"Failed to mint demo API key: {e}") from e
@@ -283,4 +283,3 @@ __all__ = [
     "PROD_BASE_URL",
     "PROD_BASE_URL_DEFAULT",
 ]
-

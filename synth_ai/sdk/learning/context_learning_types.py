@@ -13,10 +13,10 @@ from typing import Any, Dict, List, Optional
 @dataclass
 class EnvironmentConfig:
     """Environment configuration with pre-flight and post-flight scripts."""
-    
+
     preflight_script: Optional[str] = None
     postflight_script: Optional[str] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> EnvironmentConfig:
         """Create an EnvironmentConfig from a dictionary."""
@@ -24,7 +24,7 @@ class EnvironmentConfig:
             preflight_script=data.get("preflight_script"),
             postflight_script=data.get("postflight_script"),
         )
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API requests."""
         return {
@@ -36,14 +36,14 @@ class EnvironmentConfig:
 @dataclass
 class AlgorithmConfig:
     """Algorithm configuration for context learning optimization."""
-    
+
     initial_population_size: int = 10
     num_generations: int = 5
     children_per_generation: int = 5
     mutation_llm_model: Optional[str] = None
     mutation_llm_provider: str = "openai"
     policy_config: Optional[Dict[str, Any]] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> AlgorithmConfig:
         """Create an AlgorithmConfig from a dictionary."""
@@ -55,7 +55,7 @@ class AlgorithmConfig:
             mutation_llm_provider=data.get("mutation_llm_provider", "openai"),
             policy_config=data.get("policy_config"),
         )
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API requests."""
         result: Dict[str, Any] = {
@@ -74,7 +74,7 @@ class AlgorithmConfig:
 @dataclass
 class ContextLearningJobConfig:
     """Configuration for creating a context learning job."""
-    
+
     task_app_url: str
     evaluation_seeds: List[int]
     task_app_api_key: Optional[str] = None
@@ -88,16 +88,16 @@ class ContextLearningJobConfig:
     verifier_model: str = "gpt-4.1-mini"
     require_agent_trace_log: bool = True
     auto_start: bool = True
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> ContextLearningJobConfig:
         """Create a ContextLearningJobConfig from a dictionary."""
         env_data = data.get("environment")
         env = EnvironmentConfig.from_dict(env_data) if isinstance(env_data, dict) else None
-        
+
         algo_data = data.get("algorithm_config")
         algo = AlgorithmConfig.from_dict(algo_data) if isinstance(algo_data, dict) else None
-        
+
         return cls(
             task_app_url=data["task_app_url"],
             evaluation_seeds=data.get("evaluation_seeds", []),
@@ -113,7 +113,7 @@ class ContextLearningJobConfig:
             require_agent_trace_log=data.get("require_agent_trace_log", True),
             auto_start=data.get("auto_start", True),
         )
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API requests."""
         result: Dict[str, Any] = {
@@ -143,7 +143,7 @@ class ContextLearningJobConfig:
 @dataclass
 class ContextLearningJobStatus:
     """Status of a context learning job."""
-    
+
     job_id: str
     status: str
     created_at: str
@@ -155,7 +155,7 @@ class ContextLearningJobStatus:
     metadata: Optional[Dict[str, Any]] = None
     recent_events: List[Dict[str, Any]] = field(default_factory=list)
     error: Optional[str] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> ContextLearningJobStatus:
         """Create a ContextLearningJobStatus from a dictionary."""
@@ -172,12 +172,12 @@ class ContextLearningJobStatus:
             recent_events=data.get("recent_events", []),
             error=data.get("error"),
         )
-    
+
     @property
     def is_terminal(self) -> bool:
         """Check if the job is in a terminal state."""
         return self.status in {"completed", "succeeded", "failed", "cancelled"}
-    
+
     @property
     def is_successful(self) -> bool:
         """Check if the job completed successfully."""
@@ -187,13 +187,13 @@ class ContextLearningJobStatus:
 @dataclass
 class ContextLearningEvent:
     """An event from a context learning job."""
-    
+
     event_type: str
     message: str
     timestamp: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     seq: Optional[int] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> ContextLearningEvent:
         """Create a ContextLearningEvent from a dictionary."""
@@ -209,14 +209,14 @@ class ContextLearningEvent:
 @dataclass
 class BestScriptResult:
     """Result containing the best performing pre-flight script."""
-    
+
     job_id: str
     best_score: float
     preflight_script: str
     generation: int
     variation_id: str
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> BestScriptResult:
         """Create a BestScriptResult from a dictionary."""
@@ -233,13 +233,13 @@ class BestScriptResult:
 @dataclass
 class ContextLearningMetric:
     """A metric point from context learning optimization."""
-    
+
     name: str
     value: float
     step: int
     timestamp: str
     data: Dict[str, Any] = field(default_factory=dict)
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> ContextLearningMetric:
         """Create a ContextLearningMetric from a dictionary."""
@@ -255,7 +255,7 @@ class ContextLearningMetric:
 @dataclass
 class ContextLearningResults:
     """Complete results from a context learning job."""
-    
+
     job_id: str
     status: str
     best_score: Optional[float] = None
@@ -263,7 +263,7 @@ class ContextLearningResults:
     generations_completed: int = 0
     events: List[ContextLearningEvent] = field(default_factory=list)
     metrics: List[ContextLearningMetric] = field(default_factory=list)
-    
+
     @classmethod
     def from_status_and_events(
         cls,
@@ -279,7 +279,7 @@ class ContextLearningResults:
                 gen = event.metadata.get("generation", 0)
                 if isinstance(gen, int) and gen > generations_completed:
                     generations_completed = gen
-        
+
         return cls(
             job_id=status.job_id,
             status=status.status,
@@ -288,15 +288,3 @@ class ContextLearningResults:
             generations_completed=generations_completed,
             events=events,
         )
-
-
-
-
-
-
-
-
-
-
-
-

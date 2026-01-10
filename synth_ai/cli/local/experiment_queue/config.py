@@ -65,7 +65,7 @@ class ExperimentQueueConfig:
 @lru_cache(maxsize=1)
 def load_config() -> ExperimentQueueConfig:
     """Resolve configuration once per process.
-    
+
     Backend URL Resolution:
     - Default: Production backend (https://api.usesynth.ai/api)
     - Set EXPERIMENT_QUEUE_LOCAL=true to use local backend (http://localhost:8000/api)
@@ -75,11 +75,11 @@ def load_config() -> ExperimentQueueConfig:
     Examples:
         # Use production (default)
         load_config()  # Uses https://api.usesynth.ai/api
-        
+
         # Use local backend
         os.environ["EXPERIMENT_QUEUE_LOCAL"] = "true"
         load_config()  # Uses http://localhost:8000/api
-        
+
         # Use custom backend
         os.environ["EXPERIMENT_QUEUE_BACKEND_URL"] = "http://custom:9000/api"
         load_config()  # Uses http://custom:9000/api
@@ -95,8 +95,10 @@ def load_config() -> ExperimentQueueConfig:
 
     # Redis broker and backend (no longer using SQLite for Celery)
     broker_url = os.getenv("EXPERIMENT_QUEUE_BROKER_URL", "redis://localhost:6379/0")
-    result_backend_url = os.getenv("EXPERIMENT_QUEUE_RESULT_BACKEND_URL", "redis://localhost:6379/1")
-    
+    result_backend_url = os.getenv(
+        "EXPERIMENT_QUEUE_RESULT_BACKEND_URL", "redis://localhost:6379/1"
+    )
+
     # Backend API URL for progress polling
     # Defaults to production: https://api.usesynth.ai/api
     # Override with EXPERIMENT_QUEUE_BACKEND_URL or EXPERIMENT_QUEUE_LOCAL=true for localhost:8000
@@ -121,7 +123,7 @@ def load_config() -> ExperimentQueueConfig:
 
 def reset_config_cache() -> None:
     """Clear the cached config to force reload from environment variables.
-    
+
     Call this before importing/using the Celery app if EXPERIMENT_QUEUE_DB_PATH
     or EXPERIMENT_QUEUE_TRAIN_CMD environment variables have changed.
     """

@@ -100,7 +100,7 @@ class SFTJobPoller(JobPoller):
 
 
 class PromptLearningJobPoller(JobPoller):
-    """Poller for prompt learning jobs (MIPRO and GEPA)."""
+    """Poller for prompt learning jobs (GEPA)."""
 
     def poll_job(self, job_id: str) -> PollOutcome:
         """Poll a prompt learning job by ID.

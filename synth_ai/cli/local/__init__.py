@@ -10,5 +10,3 @@ These are CLI concerns, not SDK functionality.
 from __future__ import annotations
 
 __all__: list[str] = []
-
-

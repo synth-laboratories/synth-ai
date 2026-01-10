@@ -29,6 +29,7 @@ from synth_ai.core.ssl import SSLConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
+
 class TrainError(RuntimeError):
     """Raised for interactive CLI failures."""
 

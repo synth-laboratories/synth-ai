@@ -234,10 +234,10 @@ async def scan_service_records(
     try:
         from synth_ai.cli.commands.scan.health_checker import check_app_health, extract_app_info
         from synth_ai.cli.lib.tunnel_records import cleanup_stale_records, load_service_records
-        
+
         # Clean up stale records first
         cleanup_stale_records()
-        
+
         records = load_service_records()
         for _, record in records.items():
             service_type = record.get("type", "local")
@@ -245,15 +245,15 @@ async def scan_service_records(
                 url = record.get("url")
                 port = record.get("port")
                 app_id = record.get("app_id")
-                
+
                 if url and port:
                     # Check health
                     health_status, metadata = await check_app_health(url, api_key, timeout)
                     record_app_id, task_name, dataset_id, version = extract_app_info(metadata)
-                    
+
                     # Use app_id from metadata if available, otherwise from record
                     final_app_id = record_app_id or app_id
-                    
+
                     apps.append(
                         ScannedApp(
                             name=final_app_id or task_name or f"localhost:{port}",
@@ -275,4 +275,3 @@ async def scan_service_records(
         pass
 
     return apps
-

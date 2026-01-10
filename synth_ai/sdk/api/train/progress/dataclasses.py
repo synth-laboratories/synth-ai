@@ -41,6 +41,7 @@ class StageInfo:
     - temperature: Optional temperature override
     - prompts: Optional list of prompt variants (for multi-prompt stages)
     """
+
     instruction: str
     rules: dict[str, Any] = field(default_factory=dict)
     temperature: float | None = None
@@ -79,6 +80,7 @@ class SeedInfo:
     Includes the seed ID, query text, expected output, and optionally
     the model's prediction and whether it was correct.
     """
+
     seed: int
     query: str = ""
     expected: str = ""
@@ -116,130 +118,7 @@ class SeedInfo:
 @dataclass
 class TokenUsage:
     """Token usage for a candidate evaluation."""
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-    reasoning_tokens: int = 0
-    cached_tokens: int = 0
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "prompt_tokens": self.prompt_tokens,
-            "completion_tokens": self.completion_tokens,
-            "total_tokens": self.total_tokens,
-            "reasoning_tokens": self.reasoning_tokens,
-            "cached_tokens": self.cached_tokens,
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> TokenUsage:
-        """Create from dict."""
-        return cls(
-            prompt_tokens=d.get("prompt_tokens", 0),
-            completion_tokens=d.get("completion_tokens", 0),
-            total_tokens=d.get("total_tokens", 0),
-            reasoning_tokens=d.get("reasoning_tokens", 0),
-            cached_tokens=d.get("cached_tokens", 0),
-        )
-
-
-# =============================================================================
-# Size Limits (match backend)
-# =============================================================================
-MAX_INSTRUCTION_LENGTH = 4000  # Max chars per stage instruction
-MAX_ROLLOUT_SAMPLES = 5  # Max rollout samples per candidate
-MAX_SEED_INFO_COUNT = 50  # Max seeds to include in seed_info
-
-
-# =============================================================================
-# StageInfo - Single stage of a multi-stage program
-# =============================================================================
-@dataclass
-class StageInfo:
-    """
-    Single stage of a multi-stage program candidate.
-
-    A program consists of one or more stages, each with:
-    - instruction: The prompt text for this stage
-    - rules: Optional rules/constraints dict
-    - temperature: Optional temperature override
-    - prompts: Optional list of prompt variants (for multi-prompt stages)
-    """
-    instruction: str
-    rules: dict[str, Any] = field(default_factory=dict)
-    temperature: float | None = None
-    prompts: list[str] | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dict, excluding None/empty values."""
-        result: dict[str, Any] = {"instruction": self.instruction}
-        if self.rules:
-            result["rules"] = self.rules
-        if self.temperature is not None:
-            result["temperature"] = self.temperature
-        if self.prompts:
-            result["prompts"] = self.prompts
-        return result
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> StageInfo:
-        """Create from dict."""
-        return cls(
-            instruction=str(d.get("instruction", "")),
-            rules=d.get("rules", {}),
-            temperature=d.get("temperature"),
-            prompts=d.get("prompts"),
-        )
-
-
-# =============================================================================
-# SeedInfo - Information about a single evaluated seed
-# =============================================================================
-@dataclass
-class SeedInfo:
-    """
-    Information about a single evaluated seed.
-
-    Includes the seed ID, query text, expected output, and optionally
-    the model's prediction and whether it was correct.
-    """
-    seed: int
-    query: str = ""
-    expected: str = ""
-    predicted: str | None = None
-    correct: bool | None = None
-    score: float | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dict, excluding None values."""
-        result: dict[str, Any] = {"seed": self.seed, "query": self.query, "expected": self.expected}
-        if self.predicted is not None:
-            result["predicted"] = self.predicted
-        if self.correct is not None:
-            result["correct"] = self.correct
-        if self.score is not None:
-            result["score"] = self.score
-        return result
-
-    @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> SeedInfo:
-        """Create from dict."""
-        return cls(
-            seed=d.get("seed", -1),
-            query=d.get("query", ""),
-            expected=d.get("expected", ""),
-            predicted=d.get("predicted"),
-            correct=d.get("correct"),
-            score=d.get("score"),
-        )
-
-
-# =============================================================================
-# TokenUsage - Per-candidate token usage
-# =============================================================================
-@dataclass
-class TokenUsage:
-    """Token usage for a candidate evaluation."""
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -334,8 +213,12 @@ class CandidateInfo:
     evaluation_duration_ms: int | None = None
 
     # === Evaluation details ===
-    minibatch_scores: list[float] = field(default_factory=list)  # Per-minibatch scores during evaluation
-    skip_reason: str | None = None  # Reason why candidate was skipped (e.g., "minibatch_rejected", "budget_exhausted")
+    minibatch_scores: list[float] = field(
+        default_factory=list
+    )  # Per-minibatch scores during evaluation
+    skip_reason: str | None = (
+        None  # Reason why candidate was skipped (e.g., "minibatch_rejected", "budget_exhausted")
+    )
 
     # === Raw data for debugging ===
     raw_data: dict[str, Any] = field(default_factory=dict)
@@ -368,7 +251,9 @@ class CandidateInfo:
         return summary
 
     @classmethod
-    def from_event_data(cls, data: dict[str, Any], candidate_id: str | None = None) -> CandidateInfo:
+    def from_event_data(
+        cls, data: dict[str, Any], candidate_id: str | None = None
+    ) -> CandidateInfo:
         """Create from SSE event data payload.
 
         Supports both legacy flat format and new program_candidate block format.
@@ -552,7 +437,9 @@ class BaselineInfo:
         if isinstance(objectives, dict):
             reward_value = objectives.get("reward")
         if reward_value is None:
-            reward_value = data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy")
+            reward_value = (
+                data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy")
+            )
         if objectives is None and reward_value is not None:
             objectives = {"reward": float(reward_value)}
 

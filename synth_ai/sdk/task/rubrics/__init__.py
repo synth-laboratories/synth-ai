@@ -49,6 +49,3 @@ __all__ = [
 # Old code may import these names expecting the flexible variants
 RubricCriterion = StrictCriterion
 RubricSpec = StrictRubric
-
-
-

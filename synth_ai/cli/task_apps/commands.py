@@ -50,6 +50,7 @@ try:
     from synth_ai.core.tracing_v3 import (  # type: ignore[import-untyped]
         SessionTrace as V3SessionTrace,
     )
+
     _TRACING_AVAILABLE = True
 except (ImportError, ModuleNotFoundError, TypeError):
     # Tracing system not available (missing optional dependencies)
@@ -65,9 +66,7 @@ except (ImportError, ModuleNotFoundError, TypeError):
 ModalDeploymentConfigType = TaskAppConfigType = TaskAppEntryType = Any
 
 try:  # Resolve base URL defaults lazily
-    _config_module = cast(
-        Any, importlib.import_module("synth_ai.core.env")
-    )
+    _config_module = cast(Any, importlib.import_module("synth_ai.core.env"))
     PROD_BASE_URL_DEFAULT = cast(str, _config_module.PROD_BASE_URL_DEFAULT)
 except Exception:  # pragma: no cover - fallback
     PROD_BASE_URL_DEFAULT = "https://api.usesynth.ai"
@@ -92,20 +91,10 @@ except Exception as exc:  # pragma: no cover - critical dependency
 
 
 def _load_demo_directory() -> Path | None:
-    """Return the demo task apps directory if available."""
+    """Return the demo task apps directory if available.
 
-    try:
-        module = cast(
-            Any, importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps.core")
-        )
-        loader = cast(Callable[[], str | Path | None], module.load_demo_dir)
-        demo_dir = loader()
-        if isinstance(demo_dir, str | Path):
-            demo_path = Path(demo_dir)
-            if demo_path.exists():
-                return demo_path.resolve()
-    except Exception:
-        return None
+    Note: Demo apps have been removed. This function always returns None.
+    """
     return None
 
 
@@ -116,6 +105,7 @@ def _maybe_import(name: str) -> Any:
         return importlib.import_module(name)
     except Exception:
         return None
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -154,7 +144,7 @@ def _pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
         denom_y += dy * dy
     if denom_x <= 0 or denom_y <= 0:
         return None
-    return num / (denom_x ** 0.5 * denom_y ** 0.5)
+    return num / (denom_x**0.5 * denom_y**0.5)
 
 
 @dataclass
@@ -229,7 +219,7 @@ def _event_from_dict(payload: dict[str, Any]) -> BaseEvent:
     time_record = _time_record_from_dict(payload.get("time_record"))
     metadata = payload.get("metadata") or {}
     event_metadata = payload.get("event_metadata")
-    
+
     if "actions" in payload:
         return RuntimeEvent(
             system_instance_id=system_instance_id,
@@ -253,6 +243,7 @@ def _event_from_dict(payload: dict[str, Any]) -> BaseEvent:
     # Check for LM CAIS event fields
     if any(key in payload for key in ("model_name", "provider", "call_records")):
         from synth_ai.core.tracing_v3.abstractions import LMCAISEvent
+
         # Note: call_records are left as dicts - the storage layer will handle serialization
         call_records = payload.get("call_records") or []
         return LMCAISEvent(
@@ -287,7 +278,7 @@ def _markov_message_from_dict(payload: dict[str, Any]) -> SessionEventMarkovBlan
     )
     raw_type = (payload.get("message_type") or "").lower()
     original_type = payload.get("message_type") or raw_type
-    
+
     if raw_type in ("observation", "policy_system_prompt"):
         normalized_type = "system"
     elif raw_type in ("action", "policy_tool_call"):
@@ -310,9 +301,7 @@ def _markov_message_from_dict(payload: dict[str, Any]) -> SessionEventMarkovBlan
 
 def _step_from_dict(payload: dict[str, Any]) -> SessionTimeStep:
     events = [
-        _event_from_dict(event)
-        for event in payload.get("events", [])
-        if isinstance(event, dict)
+        _event_from_dict(event) for event in payload.get("events", []) if isinstance(event, dict)
     ]
     messages = [
         _markov_message_from_dict(msg)
@@ -371,16 +360,21 @@ async def _store_trace(
     extra_metadata: dict[str, Any] | None = None,
 ):
     import logging
+
     _logger = logging.getLogger(__name__)
-    
-    _logger.info(f"[STORE_TRACE_DEBUG] Called with tracer={tracer is not None}, trace_namespace={trace_namespace is not None}")
-    
+
+    _logger.info(
+        f"[STORE_TRACE_DEBUG] Called with tracer={tracer is not None}, trace_namespace={trace_namespace is not None}"
+    )
+
     if tracer is None or not isinstance(trace_namespace, dict):
-        _logger.warning(f"[STORE_TRACE_DEBUG] Early return: tracer={tracer is not None}, trace_namespace type={type(trace_namespace)}")
+        _logger.warning(
+            f"[STORE_TRACE_DEBUG] Early return: tracer={tracer is not None}, trace_namespace type={type(trace_namespace)}"
+        )
         return
-    
+
     _logger.info(f"[STORE_TRACE_DEBUG] trace_namespace keys: {list(trace_namespace.keys())}")
-    
+
     # Handle both formats:
     # - With session_trace key: {"session_trace": {...}}
     # - Without session_trace key (trace itself is the session): {"session_id": ..., "markov_blanket_message_history": ...}
@@ -389,32 +383,41 @@ async def _store_trace(
         # If no session_trace key, assume "full" format where trace itself is the session_trace
         if "session_id" in trace_namespace:
             session_payload = trace_namespace
-            _logger.info("[STORE_TRACE_DEBUG] Using trace_namespace directly as session_payload (no session_trace key)")
+            _logger.info(
+                "[STORE_TRACE_DEBUG] Using trace_namespace directly as session_payload (no session_trace key)"
+            )
         else:
-            _logger.warning(f"[STORE_TRACE_DEBUG] No session_trace found or wrong type: {type(session_payload)}")
+            _logger.warning(
+                f"[STORE_TRACE_DEBUG] No session_trace found or wrong type: {type(session_payload)}"
+            )
             return
-    
+
     _logger.info(f"[STORE_TRACE_DEBUG] session_payload keys: {list(session_payload.keys())}")
     msg_count = len(session_payload.get("markov_blanket_message_history", []))
     _logger.info(f"[STORE_TRACE_DEBUG] Found {msg_count} messages in session_payload")
-    
+
     trace_obj = _session_trace_from_dict(session_payload)
     if trace_obj is None:
         _logger.warning("[STORE_TRACE_DEBUG] _session_trace_from_dict returned None")
         return
-    
-    _logger.info(f"[STORE_TRACE_DEBUG] Created SessionTrace object with {len(trace_obj.markov_blanket_message_history)} messages")
-    
+
+    _logger.info(
+        f"[STORE_TRACE_DEBUG] Created SessionTrace object with {len(trace_obj.markov_blanket_message_history)} messages"
+    )
+
     if tracer.db is None:
         await tracer.initialize()
     meta = dict(trace_obj.metadata or {})
     if extra_metadata:
         meta.update(extra_metadata)
     trace_obj.metadata = meta
-    
-    _logger.info(f"[STORE_TRACE_DEBUG] Calling insert_session_trace for session_id={trace_obj.session_id}")
+
+    _logger.info(
+        f"[STORE_TRACE_DEBUG] Calling insert_session_trace for session_id={trace_obj.session_id}"
+    )
     await tracer.db.insert_session_trace(trace_obj)  # type: ignore[attr-defined]
     _logger.info("[STORE_TRACE_DEBUG] Successfully inserted trace")
+
 
 def _temporary_sys_path(paths: Sequence[Path]):
     """Context manager to prepend entries to sys.path temporarily."""
@@ -568,7 +571,9 @@ def _extract_app_id(node: ast.Call) -> str | None:
 
 def _is_register_task_app_call(node: ast.Call) -> bool:
     func = node.func
-    return (isinstance(func, ast.Name) and func.id in {"register_task_app", "register_local_api"}) or (
+    return (
+        isinstance(func, ast.Name) and func.id in {"register_task_app", "register_local_api"}
+    ) or (
         isinstance(func, ast.Attribute) and func.attr in {"register_task_app", "register_local_api"}
     )
 
@@ -578,7 +583,10 @@ def _extract_register_app_id(node: ast.Call) -> str | None:
     for kw in node.keywords:
         if kw.arg == "entry" and isinstance(kw.value, ast.Call):
             entry_call = kw.value
-            if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}:
+            if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {
+                "TaskAppEntry",
+                "LocalAPIEntry",
+            }:
                 for entry_kw in entry_call.keywords:
                     if (
                         entry_kw.arg in {"app_id", "api_id"}
@@ -646,8 +654,7 @@ def _collect_task_app_choices() -> list[AppChoice]:
     registry.clear()
 
     choices: list[AppChoice] = []
-    with contextlib.suppress(Exception):
-        _maybe_import("synth_ai.cli.demo_apps.demo_task_apps")
+    # Note: Demo apps have been removed
     # Only use discovered task apps, not registered ones (since we moved them to examples)
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())
@@ -862,10 +869,10 @@ def _has_modal_support_in_file(path: Path) -> bool:
                 for kw in node.keywords:
                     if kw.arg == "entry" and isinstance(kw.value, ast.Call):
                         entry_call = kw.value
-                        if (
-                            isinstance(entry_call.func, ast.Name)
-                            and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}
-                        ):
+                        if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {
+                            "TaskAppEntry",
+                            "LocalAPIEntry",
+                        }:
                             for entry_kw in entry_call.keywords:
                                 if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
                                     modal_call = entry_kw.value
@@ -892,10 +899,10 @@ def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfigType | N
                 for kw in node.keywords:
                     if kw.arg == "entry" and isinstance(kw.value, ast.Call):
                         entry_call = kw.value
-                        if (
-                            isinstance(entry_call.func, ast.Name)
-                            and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}
-                        ):
+                        if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {
+                            "TaskAppEntry",
+                            "LocalAPIEntry",
+                        }:
                             for entry_kw in entry_call.keywords:
                                 if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
                                     modal_call = entry_kw.value
@@ -934,8 +941,12 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfigT
                 if isinstance(value_node, ast.List | ast.Tuple):
                     for elt in value_node.elts:
                         if isinstance(elt, ast.List | ast.Tuple) and len(elt.elts) == 2:
-                            src = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
-                            dst = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
+                            src = (
+                                elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
+                            )
+                            dst = (
+                                elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
+                            )
                             if src and dst:
                                 dirs.append((src, dst))
                 kwargs[kw.arg] = tuple(dirs)
@@ -955,8 +966,12 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfigT
                 if isinstance(value_node, ast.List | ast.Tuple):
                     for elt in value_node.elts:
                         if isinstance(elt, ast.List | ast.Tuple) and len(elt.elts) == 2:
-                            name = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
-                            mount = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
+                            name = (
+                                elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
+                            )
+                            mount = (
+                                elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
+                            )
                             if name and mount:
                                 mounts.append((name, mount))
                 kwargs[kw.arg] = tuple(mounts)
@@ -1142,9 +1157,7 @@ def _safe_import_context() -> Iterator[None]:
                 pass
         if run_task_app_orig is not None:
             try:
-                _task_server_patch = cast(
-                    Any, importlib.import_module("synth_ai.sdk.task.server")
-                )
+                _task_server_patch = cast(Any, importlib.import_module("synth_ai.sdk.task.server"))
                 _task_server_patch.run_task_app = run_task_app_orig  # type: ignore[assignment]
             except Exception:
                 pass
@@ -1392,10 +1405,7 @@ def _is_modal_shim(path_str: str) -> bool:
         size is not None
         and size < 2048
         and "python" in (snippet.splitlines() or [""])[0]
-        and (
-            "modal.__main__" in snippet
-            or "modal.__main__" in snippet.replace(" ", "")
-        )
+        and ("modal.__main__" in snippet or "modal.__main__" in snippet.replace(" ", ""))
     ):
         return True
 
@@ -1490,7 +1500,9 @@ def _modal_command_prefix(modal_cli: str) -> list[str]:
         raise click.ClickException(f"Modal CLI not found (looked for '{lookup}')")
 
     if spec is not None:
-        warning = "[modal-prefix] Using synth-ai modal shim; pass --modal-cli /path/to/modal to override."
+        warning = (
+            "[modal-prefix] Using synth-ai modal shim; pass --modal-cli /path/to/modal to override."
+        )
         if shim_candidate is not None:
             warning = (
                 f"[modal-prefix] Using synth-ai modal shim at {shim_candidate}; "
@@ -1594,7 +1606,6 @@ def _build_modal_app_wrapper(original_script: Path) -> tuple[Path, Path]:
     return wrapper_path, temp_root
 
 
-
 def _run_modal_script(
     script_path: Path,
     modal_cli: str,
@@ -1694,7 +1705,9 @@ def _run_modal_script(
             shutil.rmtree(temp_root, ignore_errors=True)
 
 
-def _preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_failure: bool = False) -> None:
+def _preflight_env_key(
+    env_paths: Sequence[Path] | None = None, *, crash_on_failure: bool = False
+) -> None:
     try:
         raw_backend = (
             os.environ.get("BACKEND_BASE_URL")
@@ -1725,9 +1738,7 @@ def _preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_fail
                 os.environ["ENVIRONMENT_API_KEY"] = env_api_key
                 os.environ.setdefault("DEV_ENVIRONMENT_API_KEY", env_api_key)
                 minted = True
-                click.echo(
-                    f"[preflight] minted ENVIRONMENT_API_KEY ({_preview(env_api_key)})"
-                )
+                click.echo(f"[preflight] minted ENVIRONMENT_API_KEY ({_preview(env_api_key)})")
             except Exception as mint_err:
                 if crash_on_failure:
                     raise click.ClickException(
@@ -1817,14 +1828,14 @@ def _preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_fail
                             body_snip = up.text[:400] if up.text else ""
                         except Exception:
                             body_snip = ""
-                        click.echo(f"[preflight] upsert status={up.status_code}{(' body='+body_snip) if body_snip else ''}")
+                        click.echo(
+                            f"[preflight] upsert status={up.status_code}{(' body=' + body_snip) if body_snip else ''}"
+                        )
 
                         # If upload succeeded (2xx), consider it successful even if verification fails
                         # This handles cases where verification endpoint has issues
                         if 200 <= up.status_code < 300:
-                            key_preview = (
-                                _preview(env_api_key)
-                            )
+                            key_preview = _preview(env_api_key)
                             click.echo(
                                 f"✅ ENVIRONMENT_API_KEY uploaded successfully ({key_preview})"
                             )
@@ -2193,49 +2204,49 @@ def validate_task_app_cmd(
     output_json: bool,
 ) -> None:
     """Validate a task app deployment readiness.
-    
+
     This command verifies that a task app is properly configured and ready to run
     by checking all required HTTP endpoints, authentication, and task availability.
-    
+
     By default, it starts a temporary local server for validation. You can also
     validate a remote deployment by passing --url.
-    
+
     \b
     What gets validated:
     • Root endpoint (/) responds correctly
     • Health endpoint (/health) is accessible with proper authentication
-    • Info endpoint (/info) returns valid task metadata  
+    • Info endpoint (/info) returns valid task metadata
     • Task info endpoint (/task_info) provides task instances
     • Rollout endpoint (/rollout) is registered
     • At least N task instances are available (default: 10)
-    
+
     \b
     Examples:
-    
+
     \b
     Validate grpo-crafter (starts local server automatically):
         $ synth-ai task-app validate grpo-crafter
-    
+
     \b
     Validate sokoban with verbose output:
         $ synth-ai task-app validate sokoban --verbose
-    
+
     \b
     Validate with custom port:
         $ synth-ai task-app validate sokoban --port 9000
-    
+
     \b
     Validate a remote deployment:
         $ synth-ai task-app validate grpo-crafter --url https://my-crafter.modal.run
-    
+
     \b
     Require at least 20 task instances:
         $ synth-ai task-app validate grpo-crafter --min-instances 20
-    
+
     \b
     Get JSON output for automation:
         $ synth-ai task-app validate sokoban --json
-    
+
     \b
     Common use cases:
     • Pre-deployment verification: Check task app works before deploying to Modal
@@ -2247,13 +2258,13 @@ def validate_task_app_cmd(
     import subprocess
     import tempfile
     import time
-    
+
     # Import the validate_task_app function defined in this module
     from ._validate_task_app import validate_task_app  # type: ignore[attr-defined]
-    
+
     proc = None
     task_app_url = url
-    
+
     try:
         # If no URL provided, start a temporary server
         if not task_app_url:
@@ -2265,27 +2276,28 @@ def validate_task_app_cmd(
                         return True
                     except OSError:
                         return False
-            
+
             while not is_port_available(port):
                 port += 1
-            
+
             task_app_url = f"http://localhost:{port}"
-            
+
             if not output_json:
                 click.echo(f"Starting temporary {app_id} server on port {port}...")
-            
+
             # Start the server in background
             env = os.environ.copy()
             if api_key:
                 env["ENVIRONMENT_API_KEY"] = api_key
-            
+
             # Create a temporary trace DB and trace dir to avoid prompts
             import tempfile
+
             temp_dir = tempfile.mkdtemp()
             temp_trace_db = os.path.join(temp_dir, "validate_trace.db")
             temp_trace_dir = os.path.join(temp_dir, "traces")
             os.makedirs(temp_trace_dir, exist_ok=True)
-            
+
             proc = subprocess.Popen(
                 [
                     "uv",
@@ -2308,7 +2320,7 @@ def validate_task_app_cmd(
                 stderr=subprocess.DEVNULL if output_json else subprocess.PIPE,
                 text=True,
             )
-            
+
             # Write empty input to stdin to skip any prompts
             if proc.stdin:
                 try:
@@ -2317,46 +2329,52 @@ def validate_task_app_cmd(
                     proc.stdin.close()
                 except Exception:
                     pass
-            
+
             # Wait for server to be ready
             if not output_json:
                 click.echo("Waiting for server to start...")
-            
+
             import httpx
+
             for _attempt in range(60):  # 30 seconds timeout
                 try:
+
                     async def check_health():
                         async with httpx.AsyncClient(timeout=2.0) as client:
                             resp = await client.get(f"{task_app_url}/")
                             return resp.status_code == 200
-                    
+
                     if asyncio.run(check_health()):
                         break
                 except Exception:
                     pass
-                
+
                 # Check if process died
                 if proc.poll() is not None:
                     stderr_output = ""
                     if proc.stderr and not output_json:
                         stderr_output = proc.stderr.read()
-                    click.echo(click.style("✗ Server process exited unexpectedly", fg="red"), err=True)
+                    click.echo(
+                        click.style("✗ Server process exited unexpectedly", fg="red"), err=True
+                    )
                     if stderr_output and not output_json:
                         click.echo(f"Error output:\n{stderr_output}", err=True)
                     sys.exit(1)
-                
+
                 time.sleep(0.5)
             else:
-                click.echo(click.style("✗ Server failed to start within 30 seconds", fg="red"), err=True)
+                click.echo(
+                    click.style("✗ Server failed to start within 30 seconds", fg="red"), err=True
+                )
                 sys.exit(1)
-            
+
             if not output_json:
                 click.echo(click.style("✓ Server started", fg="green"))
                 click.echo()
-        
+
         # Ensure URL doesn't have trailing slash
         task_app_url = task_app_url.rstrip("/")
-        
+
         async def _run() -> tuple[bool, dict[str, Any]]:
             return await validate_task_app(
                 url=task_app_url,
@@ -2364,15 +2382,16 @@ def validate_task_app_cmd(
                 min_instances=min_instances,
                 verbose=verbose,
             )
-        
+
         success, results = asyncio.run(_run())
-        
+
         if output_json:
             import json as _json
+
             click.echo(_json.dumps(results, indent=2))
-        
+
         sys.exit(0 if success else 1)
-    
+
     finally:
         # Cleanup: stop the temporary server
         if proc is not None:
@@ -2383,11 +2402,12 @@ def validate_task_app_cmd(
                 proc.wait(timeout=5)
             except Exception:
                 proc.kill()
-        
+
         # Cleanup temp trace DB
-        if not url and 'temp_dir' in locals():
+        if not url and "temp_dir" in locals():
             import contextlib
             import shutil
+
             with contextlib.suppress(Exception):
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -2483,7 +2503,9 @@ def info_command(base_url: str | None, api_key: str | None, seeds: tuple[int, ..
     # Resolve API key, permitting dev fallbacks
     auth_module = _maybe_import("synth_ai.sdk.task.auth")
     if auth_module is not None:
-        _norm_key = getattr(auth_module, "normalize_environment_api_key", lambda: _os.getenv("ENVIRONMENT_API_KEY"))
+        _norm_key = getattr(
+            auth_module, "normalize_environment_api_key", lambda: _os.getenv("ENVIRONMENT_API_KEY")
+        )
     else:
         _norm_key = lambda: _os.getenv("ENVIRONMENT_API_KEY")  # noqa: E731
     key = (api_key or _norm_key() or "").strip()
@@ -2563,13 +2585,13 @@ def serve_task_group(
 ) -> None:
     """Serve a TaskAppConfig-based task app using uvicorn."""
     import contextlib
-    
+
     if not host:
         host = "0.0.0.0"
-    
+
     if port is None:
         port = 8001
-    
+
     # Auto-enable tracing by default
     try:
         auto_trace = os.getenv("SYNTH_AUTO_TRACE", "1")
@@ -2591,7 +2613,7 @@ def serve_task_group(
                 default_trace_db.parent.mkdir(parents=True, exist_ok=True)
             trace_db = str(default_trace_db)
             click.echo(f"[trace] Using trace DB: {trace_db}")
-    
+
     # Select and serve the app
     choice = _select_app_choice(app_id, purpose="serve")
     entry = choice.ensure_entry()
@@ -2605,7 +2627,6 @@ def serve_task_group(
         trace_dir=trace_dir,
         trace_db=trace_db,
     )
-
 
 
 def _determine_env_files(
@@ -2963,7 +2984,7 @@ def _write_modal_entrypoint(
     click.echo(f"[DEBUG] modal_cfg.apt_packages type: {type(modal_cfg.apt_packages)}")
     click.echo(f"[DEBUG] modal_cfg.apt_packages value: {modal_cfg.apt_packages}")
     click.echo(f"[DEBUG] apt_packages after list(): {apt_packages}")
-    
+
     local_dirs = [(str(Path(src)), dst) for src, dst in modal_cfg.extra_local_dirs]
     # Also mount the host synth_ai source if available to ensure latest code is used
     if host_synth is not None:

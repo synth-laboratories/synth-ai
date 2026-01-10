@@ -17,10 +17,11 @@ Examples:
 
 import json
 import os
-import httpx
-from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Set, Tuple
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+import httpx
 
 # Default HelixDB URL - can be overridden via environment
 DEFAULT_HELIX_URL = os.getenv("HELIX_URL", "http://localhost:6969")
@@ -29,6 +30,7 @@ DEFAULT_HELIX_URL = os.getenv("HELIX_URL", "http://localhost:6969")
 # =============================================================================
 # HELIXDB CLIENT
 # =============================================================================
+
 
 class HelixClient:
     """Thin HTTP client for HelixDB queries."""
@@ -61,6 +63,7 @@ class HelixClient:
 # DATA TYPES
 # =============================================================================
 
+
 class EvidenceType(Enum):
     OBSERVATION = "observation"
     MEASUREMENT = "measurement"
@@ -81,6 +84,7 @@ class NodeType(Enum):
 @dataclass
 class Evidence:
     """A piece of evidence supporting claims."""
+
     id: str = ""
     type: EvidenceType = EvidenceType.OBSERVATION
     source: str = ""
@@ -93,6 +97,7 @@ class Evidence:
 @dataclass
 class OntologyNode:
     """An entity in the ontology."""
+
     id: str = ""
     name: str = ""
     node_type: NodeType = NodeType.CREATURE
@@ -103,6 +108,7 @@ class OntologyNode:
 @dataclass
 class PropertyClaim:
     """A property/fact about a node."""
+
     id: str = ""
     predicate: str = ""
     value: Any = None
@@ -113,6 +119,7 @@ class PropertyClaim:
 @dataclass
 class RelationshipEdge:
     """A relationship between two nodes."""
+
     from_node: str = ""
     to_node: str = ""
     relation_type: str = ""
@@ -124,11 +131,12 @@ class RelationshipEdge:
 # NODE TYPE INFERENCE
 # =============================================================================
 
+
 def make_node_type_inferrer(
     type_map: Dict[str, NodeType] = None,
     prefix_rules: Dict[str, NodeType] = None,
     suffix_rules: Dict[str, NodeType] = None,
-    default: NodeType = NodeType.CREATURE
+    default: NodeType = NodeType.CREATURE,
 ):
     """
     Create a node type inference function.
@@ -164,6 +172,7 @@ def default_node_type_inferrer(name: str) -> NodeType:
 # ONTOLOGY RECORD (HelixDB-backed)
 # =============================================================================
 
+
 class OntologyRecord:
     """Evidence-based ontology backed by HelixDB with explicit graph structure.
 
@@ -171,8 +180,12 @@ class OntologyRecord:
     The org_id lives in Supabase (source of truth); HelixDB stores it on every node/edge.
     """
 
-    def __init__(self, org_id: str, helix_url: str = "http://localhost:6969",
-                 node_type_inferrer: callable = None):
+    def __init__(
+        self,
+        org_id: str,
+        helix_url: str = "http://localhost:6969",
+        node_type_inferrer: callable = None,
+    ):
         self.org_id = org_id
         self.helix = HelixClient(helix_url)
         self.current_time: int = 0
@@ -203,14 +216,14 @@ class OntologyRecord:
     # CONFIDENCE CALCULATION (App code)
     # =========================================================================
 
-    def _compute_confidence(self, supporting_weights: List[float],
-                           contradicting_weights: List[float]) -> float:
+    def _compute_confidence(
+        self, supporting_weights: List[float], contradicting_weights: List[float]
+    ) -> float:
         supporting = sum(supporting_weights)
         contradicting = sum(contradicting_weights)
         return supporting / (supporting + contradicting + 1.0)
 
-    def _get_status(self, confidence: float, contradiction_count: int,
-                    evidence_count: int) -> str:
+    def _get_status(self, confidence: float, contradiction_count: int, evidence_count: int) -> str:
         if contradiction_count > evidence_count:
             return "disproven"
         if confidence >= 0.7:
@@ -240,14 +253,17 @@ class OntologyRecord:
         if node_type is None:
             node_type = self._infer_node_type(name)
 
-        result = self.helix.query("addNode", {
-            "org_id": self.org_id,
-            "name": name,
-            "node_type": node_type.value,
-            "description": "",
-            "relevance": 1.0,
-            "created_at": self.current_time
-        })
+        result = self.helix.query(
+            "addNode",
+            {
+                "org_id": self.org_id,
+                "name": name,
+                "node_type": node_type.value,
+                "description": "",
+                "relevance": 1.0,
+                "created_at": self.current_time,
+            },
+        )
 
         # Result is wrapped: {"node": {...}}
         node_id = result["node"]["id"]
@@ -263,15 +279,18 @@ class OntologyRecord:
 
     def add_evidence(self, evidence: Evidence) -> str:
         """Add evidence to HelixDB."""
-        result = self.helix.query("addEvidence", {
-            "org_id": self.org_id,
-            "evidence_type": evidence.type.value,
-            "source": evidence.source,
-            "observation": evidence.observation,
-            "annotation": evidence.annotation,
-            "weight": evidence.weight,
-            "time": evidence.time or self.current_time
-        })
+        result = self.helix.query(
+            "addEvidence",
+            {
+                "org_id": self.org_id,
+                "evidence_type": evidence.type.value,
+                "source": evidence.source,
+                "observation": evidence.observation,
+                "annotation": evidence.annotation,
+                "weight": evidence.weight,
+                "time": evidence.time or self.current_time,
+            },
+        )
         # Result is wrapped: {"ev": {...}}
         ev_data = result.get("ev", result)
         evidence.id = ev_data.get("id", evidence.id)
@@ -281,8 +300,9 @@ class OntologyRecord:
     # PROPERTY OPERATIONS
     # =========================================================================
 
-    def _get_or_create_property(self, node_name: str, predicate: str,
-                                 value: Any) -> Tuple[str, bool]:
+    def _get_or_create_property(
+        self, node_name: str, predicate: str, value: Any
+    ) -> Tuple[str, bool]:
         """Get existing property ID or create new one. Returns (id, is_new)."""
         key = f"{node_name}.{predicate}"
 
@@ -290,11 +310,10 @@ class OntologyRecord:
             return self._property_cache[key], False
 
         # Query DB (scoped by org_id)
-        result = self.helix.query("getPropertyByPredicate", {
-            "org_id": self.org_id,
-            "node_name": node_name,
-            "predicate": predicate
-        })
+        result = self.helix.query(
+            "getPropertyByPredicate",
+            {"org_id": self.org_id, "node_name": node_name, "predicate": predicate},
+        )
 
         # Result is wrapped: {"properties": [...]} or []
         props = result.get("properties", []) if isinstance(result, dict) else result
@@ -309,24 +328,26 @@ class OntologyRecord:
         # Create new property
         node_id = self._get_or_create_node(node_name)
 
-        prop_result = self.helix.query("addProperty", {
-            "org_id": self.org_id,
-            "predicate": predicate,
-            "value": json.dumps(value),
-            "confidence": 0.0,
-            "status": "uncertain",
-            "created_at": self.current_time
-        })
+        prop_result = self.helix.query(
+            "addProperty",
+            {
+                "org_id": self.org_id,
+                "predicate": predicate,
+                "value": json.dumps(value),
+                "confidence": 0.0,
+                "status": "uncertain",
+                "created_at": self.current_time,
+            },
+        )
         # Result is wrapped: {"prop": {...}}
         prop_data = prop_result.get("prop", prop_result)
         prop_id = prop_data["id"]
 
         # Link node to property
-        self.helix.query("linkNodeToProperty", {
-            "org_id": self.org_id,
-            "node_id": node_id,
-            "property_id": prop_id
-        })
+        self.helix.query(
+            "linkNodeToProperty",
+            {"org_id": self.org_id, "node_id": node_id, "property_id": prop_id},
+        )
 
         self._property_cache[key] = prop_id
         return prop_id, True
@@ -337,10 +358,9 @@ class OntologyRecord:
         Note: HelixDB doesn't support SET operations, so confidence is computed
         on-the-fly from linked evidence rather than stored/updated.
         """
-        result = self.helix.query("getEvidenceForProperty", {
-            "org_id": self.org_id,
-            "property_id": property_id
-        })
+        result = self.helix.query(
+            "getEvidenceForProperty", {"org_id": self.org_id, "property_id": property_id}
+        )
 
         supporting = result.get("supporting") or []
         contradicting = result.get("contradicting") or []
@@ -351,11 +371,11 @@ class OntologyRecord:
         confidence = self._compute_confidence(supporting_weights, contradicting_weights)
         return confidence
 
-    def observe_property(self, node_name: str, predicate: str, value: Any,
-                        evidence: Evidence) -> PropertyClaim:
+    def observe_property(
+        self, node_name: str, predicate: str, value: Any, evidence: Evidence
+    ) -> PropertyClaim:
         """Observe a property of a node."""
         t = self.current_time
-        key = f"{node_name}.{predicate}"
 
         # Add evidence
         ev_id = self.add_evidence(evidence)
@@ -364,32 +384,32 @@ class OntologyRecord:
         prop_id, is_new = self._get_or_create_property(node_name, predicate, value)
 
         if is_new:
-            self.helix.query("linkPropertyEvidence", {
-                "org_id": self.org_id,
-                "property_id": prop_id,
-                "evidence_id": ev_id
-            })
+            self.helix.query(
+                "linkPropertyEvidence",
+                {"org_id": self.org_id, "property_id": prop_id, "evidence_id": ev_id},
+            )
             confidence = self._compute_property_confidence(prop_id)
 
-            self.history.append({
-                "time": t,
-                "action": "new_property",
-                "node": node_name,
-                "predicate": predicate,
-                "value": value,
-                "confidence": confidence,
-            })
+            self.history.append(
+                {
+                    "time": t,
+                    "action": "new_property",
+                    "node": node_name,
+                    "predicate": predicate,
+                    "value": value,
+                    "confidence": confidence,
+                }
+            )
         else:
             # Check if value matches
-            result = self.helix.query("getPropertyByPredicate", {
-                "org_id": self.org_id,
-                "node_name": node_name,
-                "predicate": predicate
-            })
+            result = self.helix.query(
+                "getPropertyByPredicate",
+                {"org_id": self.org_id, "node_name": node_name, "predicate": predicate},
+            )
             # Result is wrapped: {"properties": [...]} or []
             props = result.get("properties", []) if isinstance(result, dict) else result
             existing_value = None
-            for prop in (props or []):
+            for prop in props or []:
                 status = prop.get("status") or prop.get("Status")
                 if status == "active":
                     existing_value = json.loads(prop.get("value") or prop.get("Value", "null"))
@@ -397,38 +417,40 @@ class OntologyRecord:
 
             if existing_value == value:
                 # Confirming
-                self.helix.query("linkPropertyEvidence", {
-                    "org_id": self.org_id,
-                    "property_id": prop_id,
-                    "evidence_id": ev_id
-                })
+                self.helix.query(
+                    "linkPropertyEvidence",
+                    {"org_id": self.org_id, "property_id": prop_id, "evidence_id": ev_id},
+                )
                 confidence = self._compute_property_confidence(prop_id)
 
-                self.history.append({
-                    "time": t,
-                    "action": "confirm",
-                    "node": node_name,
-                    "predicate": predicate,
-                    "confidence": confidence,
-                })
+                self.history.append(
+                    {
+                        "time": t,
+                        "action": "confirm",
+                        "node": node_name,
+                        "predicate": predicate,
+                        "confidence": confidence,
+                    }
+                )
             else:
                 # Contradicting
-                self.helix.query("linkPropertyContradiction", {
-                    "org_id": self.org_id,
-                    "property_id": prop_id,
-                    "evidence_id": ev_id
-                })
+                self.helix.query(
+                    "linkPropertyContradiction",
+                    {"org_id": self.org_id, "property_id": prop_id, "evidence_id": ev_id},
+                )
                 confidence = self._compute_property_confidence(prop_id)
 
-                self.history.append({
-                    "time": t,
-                    "action": "contradict",
-                    "node": node_name,
-                    "predicate": predicate,
-                    "old_value": existing_value,
-                    "new_value": value,
-                    "confidence": confidence,
-                })
+                self.history.append(
+                    {
+                        "time": t,
+                        "action": "contradict",
+                        "node": node_name,
+                        "predicate": predicate,
+                        "old_value": existing_value,
+                        "new_value": value,
+                        "confidence": confidence,
+                    }
+                )
 
         return PropertyClaim(id=prop_id, predicate=predicate, value=value)
 
@@ -436,8 +458,14 @@ class OntologyRecord:
     # RELATIONSHIP OPERATIONS
     # =========================================================================
 
-    def observe_relationship(self, from_node: str, relation_type: str, to_node: str,
-                            evidence: Evidence, value: Any = None) -> RelationshipEdge:
+    def observe_relationship(
+        self,
+        from_node: str,
+        relation_type: str,
+        to_node: str,
+        evidence: Evidence,
+        value: Any = None,
+    ) -> RelationshipEdge:
         """Observe a relationship between nodes."""
         t = self.current_time
 
@@ -449,39 +477,48 @@ class OntologyRecord:
         self.add_evidence(evidence)
 
         # Add relationship edge
-        self.helix.query("addRelationship", {
-            "org_id": self.org_id,
-            "from_id": from_id,
-            "to_id": to_id,
-            "relation_type": relation_type,
-            "value": json.dumps(value) if value else "{}",
-            "confidence": 0.5,  # Initial confidence
-            "created_at": t
-        })
+        self.helix.query(
+            "addRelationship",
+            {
+                "org_id": self.org_id,
+                "from_id": from_id,
+                "to_id": to_id,
+                "relation_type": relation_type,
+                "value": json.dumps(value) if value else "{}",
+                "confidence": 0.5,  # Initial confidence
+                "created_at": t,
+            },
+        )
 
-        self.history.append({
-            "time": t,
-            "action": "new_relationship",
-            "from": from_node,
-            "relation": relation_type,
-            "to": to_node,
-            "value": value,
-        })
+        self.history.append(
+            {
+                "time": t,
+                "action": "new_relationship",
+                "from": from_node,
+                "relation": relation_type,
+                "to": to_node,
+                "value": value,
+            }
+        )
 
         return RelationshipEdge(
-            from_node=from_node,
-            to_node=to_node,
-            relation_type=relation_type,
-            value=value
+            from_node=from_node, to_node=to_node, relation_type=relation_type, value=value
         )
 
     # =========================================================================
     # SIMPLE OBSERVATION API (convenience methods)
     # =========================================================================
 
-    def record_observation(self, node: str, predicate: str, value: Any,
-                          observation_text: str, annotation: str = "",
-                          source: str = None, weight: float = 1.0) -> PropertyClaim:
+    def record_observation(
+        self,
+        node: str,
+        predicate: str,
+        value: Any,
+        observation_text: str,
+        annotation: str = "",
+        source: str = None,
+        weight: float = 1.0,
+    ) -> PropertyClaim:
         """
         Simple API: Record an observed property.
 
@@ -494,13 +531,21 @@ class OntologyRecord:
             observation=observation_text,
             annotation=annotation,
             weight=weight,
-            time=self.current_time
+            time=self.current_time,
         )
         return self.observe_property(node, predicate, value, ev)
 
-    def record_edge(self, from_node: str, relation: str, to_node: str,
-                   observation_text: str, annotation: str = "",
-                   value: Any = None, source: str = None, weight: float = 1.0) -> RelationshipEdge:
+    def record_edge(
+        self,
+        from_node: str,
+        relation: str,
+        to_node: str,
+        observation_text: str,
+        annotation: str = "",
+        value: Any = None,
+        source: str = None,
+        weight: float = 1.0,
+    ) -> RelationshipEdge:
         """
         Simple API: Record an observed relationship.
 
@@ -514,12 +559,13 @@ class OntologyRecord:
             observation=observation_text,
             annotation=annotation,
             weight=weight,
-            time=self.current_time
+            time=self.current_time,
         )
         return self.observe_relationship(from_node, relation, to_node, ev, value)
 
-    def record_inference(self, node: str, predicate: str, value: Any,
-                        reasoning: str, weight: float = 0.5) -> PropertyClaim:
+    def record_inference(
+        self, node: str, predicate: str, value: Any, reasoning: str, weight: float = 0.5
+    ) -> PropertyClaim:
         """
         Record an inferred property (derived from other observations).
 
@@ -532,12 +578,18 @@ class OntologyRecord:
             observation=f"Inferred: {node}.{predicate} = {value}",
             annotation=reasoning,
             weight=weight,
-            time=self.current_time
+            time=self.current_time,
         )
         return self.observe_property(node, predicate, value, ev)
 
-    def record_contradiction(self, node: str, predicate: str, observed_value: Any,
-                            observation_text: str, annotation: str = "") -> PropertyClaim:
+    def record_contradiction(
+        self,
+        node: str,
+        predicate: str,
+        observed_value: Any,
+        observation_text: str,
+        annotation: str = "",
+    ) -> PropertyClaim:
         """
         Record an observation that contradicts existing knowledge.
 
@@ -550,7 +602,7 @@ class OntologyRecord:
             observation=observation_text,
             annotation=annotation,
             weight=1.0,
-            time=self.current_time
+            time=self.current_time,
         )
         return self.observe_property(node, predicate, observed_value, ev)
 
@@ -558,8 +610,7 @@ class OntologyRecord:
     # FULL CONTROL API (when you need custom Evidence)
     # =========================================================================
 
-    def observe(self, subject: str, predicate: str, value: Any,
-                evidence: Evidence):
+    def observe(self, subject: str, predicate: str, value: Any, evidence: Evidence):
         """
         Full control: Observe a property with custom Evidence object.
         For simpler usage, see record_observation().
@@ -577,7 +628,7 @@ class OntologyRecord:
                 subject=obs["subject"],
                 predicate=obs["predicate"],
                 value=obs["value"],
-                evidence=evidence
+                evidence=evidence,
             )
             results.append(result)
         return results
@@ -586,47 +637,50 @@ class OntologyRecord:
     # RELEVANCE EDGES
     # =========================================================================
 
-    def add_relevance_edge(self, from_node: str, to_node: str,
-                          weight: float, relation: str = ""):
+    def add_relevance_edge(self, from_node: str, to_node: str, weight: float, relation: str = ""):
         """Add semantic relevance edge between nodes."""
         from_id = self._get_or_create_node(from_node)
         to_id = self._get_or_create_node(to_node)
 
-        self.helix.query("addRelevanceEdge", {
-            "org_id": self.org_id,
-            "from_node_id": from_id,
-            "to_node_id": to_id,
-            "weight": weight,
-            "relation": relation
-        })
+        self.helix.query(
+            "addRelevanceEdge",
+            {
+                "org_id": self.org_id,
+                "from_node_id": from_id,
+                "to_node_id": to_id,
+                "weight": weight,
+                "relation": relation,
+            },
+        )
 
-    def get_related_nodes(self, node_name: str, min_weight: float = 0.0) -> List[Tuple[str, float, str]]:
+    def get_related_nodes(
+        self, node_name: str, min_weight: float = 0.0
+    ) -> List[Tuple[str, float, str]]:
         """Get nodes related to this one."""
-        result = self.helix.query("getRelatedNodes", {"org_id": self.org_id, "node_name": node_name})
+        result = self.helix.query(
+            "getRelatedNodes", {"org_id": self.org_id, "node_name": node_name}
+        )
 
         related = []
-        for edge in (result.get("outgoing") or []):
+        for edge in result.get("outgoing") or []:
             if edge.get("Weight", 0) >= min_weight:
                 target = edge.get("to", {})
-                related.append((
-                    target.get("Name", "?"),
-                    edge.get("Weight", 0),
-                    edge.get("Relation", "")
-                ))
+                related.append(
+                    (target.get("Name", "?"), edge.get("Weight", 0), edge.get("Relation", ""))
+                )
 
-        for edge in (result.get("incoming") or []):
+        for edge in result.get("incoming") or []:
             if edge.get("Weight", 0) >= min_weight:
                 source = edge.get("from", {})
-                related.append((
-                    source.get("Name", "?"),
-                    edge.get("Weight", 0),
-                    edge.get("Relation", "")
-                ))
+                related.append(
+                    (source.get("Name", "?"), edge.get("Weight", 0), edge.get("Relation", ""))
+                )
 
         return sorted(related, key=lambda x: -x[1])
 
-    def expand_from_seeds(self, seeds: List[str], hops: int = 1,
-                         min_weight: float = 0.3) -> Set[str]:
+    def expand_from_seeds(
+        self, seeds: List[str], hops: int = 1, min_weight: float = 0.3
+    ) -> Set[str]:
         """Expand from seed nodes following relevance edges."""
         nodes = set(seeds)
         frontier = set(seeds)
@@ -634,7 +688,7 @@ class OntologyRecord:
         for _ in range(hops):
             new_frontier = set()
             for node in frontier:
-                for other, weight, _ in self.get_related_nodes(node, min_weight):
+                for other, _weight, _ in self.get_related_nodes(node, min_weight):
                     if other not in nodes:
                         new_frontier.add(other)
                         nodes.add(other)
@@ -656,39 +710,45 @@ class OntologyRecord:
             name = node_data["Name"]
 
             # Get properties
-            result = self.helix.query("getPropertiesForNode", {"org_id": self.org_id, "node_name": name})
+            result = self.helix.query(
+                "getPropertiesForNode", {"org_id": self.org_id, "node_name": name}
+            )
             properties = {}
-            for prop in (result.get("properties") or []):
+            for prop in result.get("properties") or []:
                 if prop.get("Status") == "active":
                     conf = prop.get("Confidence", 0)
                     if conf >= min_confidence:
                         properties[prop["Predicate"]] = {
                             "value": json.loads(prop["Value"]),
-                            "confidence": round(conf, 2)
+                            "confidence": round(conf, 2),
                         }
 
             # Get relationships
-            rels = self.helix.query("getRelationshipsFrom", {"org_id": self.org_id, "node_name": name}) or []
+            rels = (
+                self.helix.query("getRelationshipsFrom", {"org_id": self.org_id, "node_name": name})
+                or []
+            )
             for rel in rels:
                 if rel.get("Status") == "active":
-                    ontology["edges"].append({
-                        "from": name,
-                        "relation": rel.get("RelationType"),
-                        "to": rel.get("to", {}).get("Name", "?"),
-                        "value": json.loads(rel.get("Value", "{}")),
-                        "confidence": round(rel.get("Confidence", 0), 2)
-                    })
+                    ontology["edges"].append(
+                        {
+                            "from": name,
+                            "relation": rel.get("RelationType"),
+                            "to": rel.get("to", {}).get("Name", "?"),
+                            "value": json.loads(rel.get("Value", "{}")),
+                            "confidence": round(rel.get("Confidence", 0), 2),
+                        }
+                    )
 
             if properties:
                 ontology["nodes"][name] = {
                     "type": node_data.get("NodeType", "unknown"),
-                    "properties": properties
+                    "properties": properties,
                 }
 
         return ontology
 
-    def compile_to_text(self, min_confidence: float = 0.4,
-                        include_evidence: bool = False) -> str:
+    def compile_to_text(self, min_confidence: float = 0.4, include_evidence: bool = False) -> str:
         """Compile to readable text format."""
         ontology = self.compile(min_confidence)
         lines = ["# Ontology", ""]
@@ -748,7 +808,7 @@ class OntologyRecord:
 
         text = self.compile_to_text(min_confidence=0.3)
         if len(text) > max_chars:
-            text = text[:max_chars-20] + "\n\n[truncated]"
+            text = text[: max_chars - 20] + "\n\n[truncated]"
 
         return text
 
@@ -759,7 +819,7 @@ class OntologyRecord:
     def print_replay(self, times: List[int] = None):
         """Print belief evolution."""
         if times is None:
-            times = sorted(set(h["time"] for h in self.history))
+            times = sorted({h["time"] for h in self.history})
 
         print("\n" + "=" * 70)
         print("BELIEF EVOLUTION REPLAY")
@@ -777,11 +837,15 @@ class OntologyRecord:
             for e in events:
                 action = e["action"].upper()
                 if action == "NEW_PROPERTY":
-                    print(f"  + {e['node']}.{e['predicate']} = {e['value']} (conf: {e['confidence']:.2f})")
+                    print(
+                        f"  + {e['node']}.{e['predicate']} = {e['value']} (conf: {e['confidence']:.2f})"
+                    )
                 elif action == "NEW_RELATIONSHIP":
                     print(f"  + {e['from']} --{e['relation']}--> {e['to']}")
                 elif action == "CONFIRM":
-                    print(f"  ✓ {e['node']}.{e['predicate']} confirmed (conf: {e['confidence']:.2f})")
+                    print(
+                        f"  ✓ {e['node']}.{e['predicate']} confirmed (conf: {e['confidence']:.2f})"
+                    )
                 elif action == "CONTRADICT":
                     print(f"  ✗ {e['node']}.{e['predicate']}: {e['old_value']} vs {e['new_value']}")
 
@@ -802,16 +866,12 @@ class OntologyRecord:
 
         node = result["node"]
         properties = {}
-        for prop in (result.get("properties") or []):
+        for prop in result.get("properties") or []:
             pred = prop.get("Predicate") or prop.get("predicate")
             val = prop.get("Value") or prop.get("value") or "{}"
             conf = prop.get("Confidence") or prop.get("confidence") or 0
             status = prop.get("Status") or prop.get("status") or "unknown"
-            properties[pred] = {
-                "value": json.loads(val),
-                "confidence": conf,
-                "status": status
-            }
+            properties[pred] = {"value": json.loads(val), "confidence": conf, "status": status}
 
         # Note: HelixDB traversal returns target nodes, not edge properties
         # Edge properties (relation_type, value) are not accessible via traversal
@@ -819,29 +879,33 @@ class OntologyRecord:
         # HelixDB uses variable names as keys: "outgoing" not "relationships_from"
         relationships_out = []
         seen_targets = set()
-        for rel in (result.get("outgoing") or result.get("relationships_from") or []):
+        for rel in result.get("outgoing") or result.get("relationships_from") or []:
             # rel is the target node, not the edge
             target = rel.get("Name") or rel.get("name")
             if target and target not in seen_targets:
                 seen_targets.add(target)
-                relationships_out.append({
-                    "relation": "related_to",  # Edge type unknown from traversal
-                    "target": target,
-                    "value": {}
-                })
+                relationships_out.append(
+                    {
+                        "relation": "related_to",  # Edge type unknown from traversal
+                        "target": target,
+                        "value": {},
+                    }
+                )
 
         relationships_in = []
         seen_sources = set()
-        for rel in (result.get("incoming") or result.get("relationships_to") or []):
+        for rel in result.get("incoming") or result.get("relationships_to") or []:
             # rel is the source node, not the edge
             source = rel.get("Name") or rel.get("name")
             if source and source not in seen_sources:
                 seen_sources.add(source)
-                relationships_in.append({
-                    "relation": "related_to",  # Edge type unknown from traversal
-                    "source": source,
-                    "value": {}
-                })
+                relationships_in.append(
+                    {
+                        "relation": "related_to",  # Edge type unknown from traversal
+                        "source": source,
+                        "value": {},
+                    }
+                )
 
         return {
             "known": True,
@@ -849,7 +913,7 @@ class OntologyRecord:
             "type": node.get("NodeType"),
             "properties": properties,
             "outgoing": relationships_out,
-            "incoming": relationships_in
+            "incoming": relationships_in,
         }
 
     def get_outgoing_edges(self, node_name: str, relation_type: str = None) -> List[Dict[str, Any]]:
@@ -861,10 +925,10 @@ class OntologyRecord:
         Edge properties (relation_type, value) are not accessible via traversal.
         If relation_type filter is specified, it's ignored (all edges returned).
         """
-        result = self.helix.query("getOutgoingEdges", {
-            "org_id": self.org_id,
-            "node_name": node_name
-        }) or []
+        result = (
+            self.helix.query("getOutgoingEdges", {"org_id": self.org_id, "node_name": node_name})
+            or []
+        )
 
         # Result is wrapped: {"edges": [...]} - unwrap it
         # Note: edges contains TARGET NODES, not edge objects
@@ -872,17 +936,19 @@ class OntologyRecord:
 
         edges = []
         seen_targets = set()
-        for target_node in (edge_list or []):
+        for target_node in edge_list or []:
             # target_node is an OntologyNode, not a Relationship edge
             target = target_node.get("Name") or target_node.get("name")
             if target and target not in seen_targets:
                 seen_targets.add(target)
-                edges.append({
-                    "target": target,
-                    "relation": "related_to",  # Edge type unknown from traversal
-                    "value": {},
-                    "confidence": 0
-                })
+                edges.append(
+                    {
+                        "target": target,
+                        "relation": "related_to",  # Edge type unknown from traversal
+                        "value": {},
+                        "confidence": 0,
+                    }
+                )
         return edges
 
     def get_incoming_edges(self, node_name: str, relation_type: str = None) -> List[Dict[str, Any]]:
@@ -894,10 +960,10 @@ class OntologyRecord:
         Edge properties (relation_type, value) are not accessible via traversal.
         If relation_type filter is specified, it's ignored (all edges returned).
         """
-        result = self.helix.query("getIncomingEdges", {
-            "org_id": self.org_id,
-            "node_name": node_name
-        }) or []
+        result = (
+            self.helix.query("getIncomingEdges", {"org_id": self.org_id, "node_name": node_name})
+            or []
+        )
 
         # Result is wrapped: {"edges": [...]} - unwrap it
         # Note: edges contains SOURCE NODES, not edge objects
@@ -905,17 +971,19 @@ class OntologyRecord:
 
         edges = []
         seen_sources = set()
-        for source_node in (edge_list or []):
+        for source_node in edge_list or []:
             # source_node is an OntologyNode, not a Relationship edge
             source = source_node.get("Name") or source_node.get("name")
             if source and source not in seen_sources:
                 seen_sources.add(source)
-                edges.append({
-                    "source": source,
-                    "relation": "related_to",  # Edge type unknown from traversal
-                    "value": {},
-                    "confidence": 0
-                })
+                edges.append(
+                    {
+                        "source": source,
+                        "relation": "related_to",  # Edge type unknown from traversal
+                        "value": {},
+                        "confidence": 0,
+                    }
+                )
         return edges
 
     def get_all_edges_of_type(self, relation_type: str = None) -> List[Dict[str, Any]]:
@@ -935,18 +1003,20 @@ class OntologyRecord:
 
         edges = []
         seen_targets = set()
-        for target_node in (edge_list or []):
+        for target_node in edge_list or []:
             # target_node is an OntologyNode, not a Relationship edge
             target = target_node.get("Name") or target_node.get("name")
             if target and target not in seen_targets:
                 seen_targets.add(target)
-                edges.append({
-                    "source": None,  # Source unknown from getAllEdges traversal
-                    "target": target,
-                    "relation": "related_to",  # Edge type unknown from traversal
-                    "value": {},
-                    "confidence": 0
-                })
+                edges.append(
+                    {
+                        "source": None,  # Source unknown from getAllEdges traversal
+                        "target": target,
+                        "relation": "related_to",  # Edge type unknown from traversal
+                        "value": {},
+                        "confidence": 0,
+                    }
+                )
         return edges
 
     def get_property_value(self, node_name: str, predicate: str) -> Optional[Dict[str, Any]]:
@@ -954,17 +1024,19 @@ class OntologyRecord:
         Get a specific property value from a node.
         Example: get_property_value("zombie", "damage") -> {value: 2, confidence: 0.8}
         """
-        result = self.helix.query("getPropertyValue", {
-            "org_id": self.org_id,
-            "node_name": node_name,
-            "predicate": predicate
-        }) or []
+        result = (
+            self.helix.query(
+                "getPropertyValue",
+                {"org_id": self.org_id, "node_name": node_name, "predicate": predicate},
+            )
+            or []
+        )
 
         # Result is wrapped: {"props": [...]} - unwrap it
         props = result.get("props", []) if isinstance(result, dict) else result
 
         # Return first property found (any status)
-        for prop in (props or []):
+        for prop in props or []:
             status = prop.get("Status") or prop.get("status") or "unknown"
             val_str = prop.get("Value") or prop.get("value") or "{}"
             try:
@@ -974,7 +1046,7 @@ class OntologyRecord:
             return {
                 "value": value,
                 "confidence": prop.get("Confidence") or prop.get("confidence") or 0,
-                "status": status
+                "status": status,
             }
         return None
 
@@ -983,7 +1055,9 @@ class OntologyRecord:
         Find all nodes that have a specific property.
         Example: get_nodes_with_predicate("damage") -> nodes with damage properties
         """
-        result = self.helix.query("getNodesWithPredicate", {"org_id": self.org_id, "predicate": predicate})
+        result = self.helix.query(
+            "getNodesWithPredicate", {"org_id": self.org_id, "predicate": predicate}
+        )
         if not result:
             return []
 
@@ -1006,12 +1080,14 @@ class OntologyRecord:
                 value = json.loads(val_str)
             except (json.JSONDecodeError, TypeError):
                 value = val_str
-            nodes.append({
-                "node": node_name,
-                "type": node_type,
-                "value": value,
-                "confidence": prop.get("Confidence") or prop.get("confidence") or 0
-            })
+            nodes.append(
+                {
+                    "node": node_name,
+                    "type": node_type,
+                    "value": value,
+                    "confidence": prop.get("Confidence") or prop.get("confidence") or 0,
+                }
+            )
         return nodes
 
     def get_uncertain_claims(self) -> List[Dict[str, Any]]:
@@ -1019,25 +1095,32 @@ class OntologyRecord:
         result = self.helix.query("getUncertainClaims", {"org_id": self.org_id}) or []
         # Result is wrapped: {"claims": [...]} - unwrap it
         claims = result.get("claims", []) if isinstance(result, dict) else result
-        return [{
-            "predicate": c.get("Predicate") or c.get("predicate"),
-            "value": json.loads(c.get("Value") or c.get("value") or "{}"),
-            "confidence": c.get("Confidence") or c.get("confidence") or 0
-        } for c in (claims or [])]
+        return [
+            {
+                "predicate": c.get("Predicate") or c.get("predicate"),
+                "value": json.loads(c.get("Value") or c.get("value") or "{}"),
+                "confidence": c.get("Confidence") or c.get("confidence") or 0,
+            }
+            for c in (claims or [])
+        ]
 
     def get_hypotheses(self) -> List[Dict[str, Any]]:
         """Get untested hypothesis claims."""
         result = self.helix.query("getHypotheses", {"org_id": self.org_id}) or []
         # Result is wrapped: {"claims": [...]} - unwrap it
         claims = result.get("claims", []) if isinstance(result, dict) else result
-        return [{
-            "predicate": c.get("Predicate") or c.get("predicate"),
-            "value": json.loads(c.get("Value") or c.get("value") or "{}"),
-            "needs_testing": True
-        } for c in (claims or [])]
+        return [
+            {
+                "predicate": c.get("Predicate") or c.get("predicate"),
+                "value": json.loads(c.get("Value") or c.get("value") or "{}"),
+                "needs_testing": True,
+            }
+            for c in (claims or [])
+        ]
 
-    def record_hypothesis(self, node_name: str, predicate: str, guessed_value: Any,
-                         reason: str = "") -> PropertyClaim:
+    def record_hypothesis(
+        self, node_name: str, predicate: str, guessed_value: Any, reason: str = ""
+    ) -> PropertyClaim:
         """
         Record a guess/hypothesis before testing it.
         """
@@ -1047,45 +1130,55 @@ class OntologyRecord:
             observation=f"Hypothesis: {node_name}.{predicate} = {guessed_value}",
             annotation=reason or "Untested hypothesis",
             weight=0.1,  # Low weight until confirmed
-            time=self.current_time
+            time=self.current_time,
         )
 
         # Create property with hypothesis status
         node_id = self._get_or_create_node(node_name)
 
-        prop_result = self.helix.query("addHypothesis", {
-            "org_id": self.org_id,
-            "predicate": predicate,
-            "value": json.dumps(guessed_value),
-            "created_at": self.current_time
-        })
+        prop_result = self.helix.query(
+            "addHypothesis",
+            {
+                "org_id": self.org_id,
+                "predicate": predicate,
+                "value": json.dumps(guessed_value),
+                "created_at": self.current_time,
+            },
+        )
         # Result is wrapped: {"prop": {...}} - unwrap it
-        prop_data = prop_result.get("prop", prop_result) if isinstance(prop_result, dict) else prop_result
+        prop_data = (
+            prop_result.get("prop", prop_result) if isinstance(prop_result, dict) else prop_result
+        )
         prop_id = prop_data.get("id") or prop_data.get("ID")
 
-        self.helix.query("linkNodeToProperty", {
-            "org_id": self.org_id,
-            "node_id": node_id,
-            "property_id": prop_id
-        })
+        self.helix.query(
+            "linkNodeToProperty",
+            {"org_id": self.org_id, "node_id": node_id, "property_id": prop_id},
+        )
 
         ev_id = self.add_evidence(ev)
-        self.helix.query("linkPropertyEvidence", {
-            "org_id": self.org_id,
-            "property_id": prop_id,
-            "evidence_id": ev_id
-        })
+        self.helix.query(
+            "linkPropertyEvidence",
+            {"org_id": self.org_id, "property_id": prop_id, "evidence_id": ev_id},
+        )
 
-        self.history.append({
-            "time": self.current_time,
-            "action": "hypothesis",
-            "node": node_name,
-            "predicate": predicate,
-            "value": guessed_value
-        })
+        self.history.append(
+            {
+                "time": self.current_time,
+                "action": "hypothesis",
+                "node": node_name,
+                "predicate": predicate,
+                "value": guessed_value,
+            }
+        )
 
-        return PropertyClaim(id=prop_id, predicate=predicate, value=guessed_value,
-                            confidence=0.1, status="hypothesis")
+        return PropertyClaim(
+            id=prop_id,
+            predicate=predicate,
+            value=guessed_value,
+            confidence=0.1,
+            status="hypothesis",
+        )
 
 
 # =============================================================================
@@ -1142,15 +1235,15 @@ class CrafterObserver:
             type_map=CRAFTER_TYPE_MAP,
             prefix_rules=CRAFTER_PREFIX_RULES,
             suffix_rules=CRAFTER_SUFFIX_RULES,
-            default=NodeType.CREATURE
+            default=NodeType.CREATURE,
         )
         self.record = OntologyRecord(org_id, helix_url, node_type_inferrer=crafter_inferrer)
         self.step = 0
         self._ev_counter = 0
 
-    def _evidence(self, observation: str,
-                  etype: EvidenceType = EvidenceType.OBSERVATION,
-                  annotation: str = "") -> Evidence:
+    def _evidence(
+        self, observation: str, etype: EvidenceType = EvidenceType.OBSERVATION, annotation: str = ""
+    ) -> Evidence:
         self._ev_counter += 1
         return Evidence(
             id=f"ev_{self.step}_{self._ev_counter}",
@@ -1179,8 +1272,8 @@ class CrafterObserver:
                 value=damage,
                 evidence=self._evidence(
                     f"{attacker} dealt {damage} damage ({context})",
-                    annotation=event.get("annotation", "")
-                )
+                    annotation=event.get("annotation", ""),
+                ),
             )
 
         elif etype == "resource_collected":
@@ -1195,9 +1288,9 @@ class CrafterObserver:
                 to_node=item,
                 evidence=self._evidence(
                     f"Collected {amount} {item} from {source}",
-                    annotation=event.get("annotation", "")
+                    annotation=event.get("annotation", ""),
                 ),
-                value={"amount": amount}
+                value={"amount": amount},
             )
 
         elif etype == "creature_died":
@@ -1213,8 +1306,8 @@ class CrafterObserver:
                 evidence=self._evidence(
                     f"{creature} died after {hits} hits",
                     etype=EvidenceType.INFERENCE,
-                    annotation=f"Health = {hits} × {weapon_damage} = {health}"
-                )
+                    annotation=f"Health = {hits} × {weapon_damage} = {health}",
+                ),
             )
 
         elif etype == "crafting_observed":
@@ -1222,10 +1315,7 @@ class CrafterObserver:
             inputs = event["inputs"]
             output = event["output"]
 
-            ev = self._evidence(
-                f"Crafted {output} using {inputs}",
-                annotation=f"Recipe: {recipe}"
-            )
+            ev = self._evidence(f"Crafted {output} using {inputs}", annotation=f"Recipe: {recipe}")
 
             # Recipe --requires--> input resources
             for item, amount in inputs.items():
@@ -1234,15 +1324,12 @@ class CrafterObserver:
                     relation_type="requires",
                     to_node=item,
                     evidence=ev,
-                    value={"amount": amount}
+                    value={"amount": amount},
                 )
 
             # Recipe --produces--> output
             self.record.observe_relationship(
-                from_node=recipe,
-                relation_type="produces",
-                to_node=output,
-                evidence=ev
+                from_node=recipe, relation_type="produces", to_node=output, evidence=ev
             )
 
         elif etype == "sleep_attack":
@@ -1252,7 +1339,7 @@ class CrafterObserver:
 
             ev = self._evidence(
                 f"While sleeping, {attacker} attacked for {damage}",
-                annotation=event.get("annotation", "")
+                annotation=event.get("annotation", ""),
             )
 
             self.record.observe_property(attacker, "sleep_damage", damage, ev)
@@ -1272,8 +1359,8 @@ class CrafterObserver:
                 to_node=location,
                 evidence=self._evidence(
                     f"{creature} spawned at {location}",
-                    annotation=f"Time: {event.get('time', 'unknown')}"
-                )
+                    annotation=f"Time: {event.get('time', 'unknown')}",
+                ),
             )
 
     def close(self):
@@ -1283,6 +1370,7 @@ class CrafterObserver:
 # =============================================================================
 # DEMO
 # =============================================================================
+
 
 def demo():
     print("=" * 70)
@@ -1300,14 +1388,30 @@ def demo():
 
         events = [
             {"step": 10, "type": "resource_collected", "source": "tree", "item": "wood"},
-            {"step": 50, "type": "crafting_observed", "recipe": "place_table",
-             "inputs": {"wood": 2}, "output": "table"},
+            {
+                "step": 50,
+                "type": "crafting_observed",
+                "recipe": "place_table",
+                "inputs": {"wood": 2},
+                "output": "table",
+            },
             {"step": 110, "type": "damage_dealt", "attacker": "zombie", "damage": 2},
             {"step": 120, "type": "creature_died", "creature": "zombie", "hits": 5},
-            {"step": 200, "type": "sleep_attack", "attacker": "zombie", "damage": 7,
-             "known_normal_damage": 2, "annotation": "Sleep is dangerous!"},
-            {"step": 300, "type": "spawn_observed", "creature": "skeleton",
-             "location": "mountain", "time": "night"},
+            {
+                "step": 200,
+                "type": "sleep_attack",
+                "attacker": "zombie",
+                "damage": 7,
+                "known_normal_damage": 2,
+                "annotation": "Sleep is dangerous!",
+            },
+            {
+                "step": 300,
+                "type": "spawn_observed",
+                "creature": "skeleton",
+                "location": "mountain",
+                "time": "night",
+            },
         ]
 
         for e in events:

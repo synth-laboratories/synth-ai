@@ -48,20 +48,19 @@ def validate_app_declaration(path: Path) -> None:
                 and get_app_name(node)
             ):
                 return None
-    raise ValueError(f"{path} must declare `app = modal.App(...)` (or import `App` directly) with a literal name.")
+    raise ValueError(
+        f"{path} must declare `app = modal.App(...)` (or import `App` directly) with a literal name."
+    )
 
 
-def validate_modal_app(
-    path: Path,
-    discovery: bool = False
-) -> Path:
+def validate_modal_app(path: Path, discovery: bool = False) -> Path:
     def print_pass():
         ctx_print("Check passed", not discovery)
-    
+
     ctx_print("\nChecking if .py file", not discovery)
     validate_file_type(path, ".py")
     print_pass()
-    
+
     ctx_print("\nChecking if app = modal.App(...) declaration exists", not discovery)
     validate_app_declaration(path)
     print_pass()
@@ -69,7 +68,7 @@ def validate_modal_app(
     ctx_print("\nChecking if compiles", not discovery)
     validate_py_file_compiles(path)
     print_pass()
-    print('\n')
+    print("\n")
 
     return path
 

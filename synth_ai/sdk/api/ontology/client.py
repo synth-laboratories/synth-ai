@@ -24,9 +24,8 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from synth_ai.core.http import AsyncHttpClient
 from synth_ai.core.env import get_backend_from_env
-
+from synth_ai.core.http import AsyncHttpClient
 
 # =============================================================================
 # Data Models
@@ -45,7 +44,7 @@ class OntologyNode:
     created_at: int
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "OntologyNode":
+    def from_dict(cls, data: Dict[str, Any]) -> OntologyNode:
         """Create from API response dict."""
         return cls(
             id=str(data.get("id", "")),
@@ -68,7 +67,7 @@ class PropertyClaim:
     status: str
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PropertyClaim":
+    def from_dict(cls, data: Dict[str, Any]) -> PropertyClaim:
         """Create from API response dict."""
         return cls(
             id=str(data.get("id", "")),
@@ -91,7 +90,7 @@ class Relationship:
     confidence: float
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Relationship":
+    def from_dict(cls, data: Dict[str, Any]) -> Relationship:
         """Create from API response dict."""
         return cls(
             id=str(data.get("id", "")),
@@ -113,7 +112,7 @@ class NodeContext:
     relationships_to: List[Relationship] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "NodeContext":
+    def from_dict(cls, data: Dict[str, Any]) -> NodeContext:
         """Create from API response dict."""
         node_data = data.get("node")
         node = OntologyNode.from_dict(node_data) if node_data else None
@@ -150,17 +149,13 @@ class Neighborhood:
     incoming: List[Relationship] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Neighborhood":
+    def from_dict(cls, data: Dict[str, Any]) -> Neighborhood:
         """Create from API response dict."""
         outgoing = [
-            Relationship.from_dict(r)
-            for r in (data.get("outgoing") or [])
-            if isinstance(r, dict)
+            Relationship.from_dict(r) for r in (data.get("outgoing") or []) if isinstance(r, dict)
         ]
         incoming = [
-            Relationship.from_dict(r)
-            for r in (data.get("incoming") or [])
-            if isinstance(r, dict)
+            Relationship.from_dict(r) for r in (data.get("incoming") or []) if isinstance(r, dict)
         ]
         return cls(outgoing=outgoing, incoming=incoming)
 
@@ -205,7 +200,7 @@ class OntologyClient:
         self._timeout = timeout
         self._http: Optional[AsyncHttpClient] = None
 
-    async def __aenter__(self) -> "OntologyClient":
+    async def __aenter__(self) -> OntologyClient:
         self._http = AsyncHttpClient(
             self._base_url,
             self._api_key,
@@ -232,9 +227,7 @@ class OntologyClient:
     # Node Operations
     # -------------------------------------------------------------------------
 
-    async def list_nodes(
-        self, node_type: Optional[str] = None
-    ) -> List[OntologyNode]:
+    async def list_nodes(self, node_type: Optional[str] = None) -> List[OntologyNode]:
         """List public ontology nodes.
 
         Args:
@@ -251,11 +244,7 @@ class OntologyClient:
             return []
 
         nodes_data = data.get("nodes", [])
-        return [
-            OntologyNode.from_dict(n)
-            for n in nodes_data
-            if isinstance(n, dict)
-        ]
+        return [OntologyNode.from_dict(n) for n in nodes_data if isinstance(n, dict)]
 
     async def get_node(self, name: str) -> Optional[OntologyNode]:
         """Get a specific public node by name.
@@ -332,11 +321,7 @@ class OntologyClient:
             return []
 
         props_data = data.get("properties", [])
-        return [
-            PropertyClaim.from_dict(p)
-            for p in props_data
-            if isinstance(p, dict)
-        ]
+        return [PropertyClaim.from_dict(p) for p in props_data if isinstance(p, dict)]
 
     async def get_properties_for_node(self, name: str) -> List[PropertyClaim]:
         """Get public properties for a specific node.
@@ -352,11 +337,7 @@ class OntologyClient:
             data = await http.get(f"/api/ontology/nodes/{name}/properties")
             if isinstance(data, dict):
                 props_data = data.get("properties", [])
-                return [
-                    PropertyClaim.from_dict(p)
-                    for p in props_data
-                    if isinstance(p, dict)
-                ]
+                return [PropertyClaim.from_dict(p) for p in props_data if isinstance(p, dict)]
         except Exception:
             pass
         return []
@@ -376,15 +357,9 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get(
-                f"/api/ontology/nodes/{name}/relationships/outgoing"
-            )
+            data = await http.get(f"/api/ontology/nodes/{name}/relationships/outgoing")
             if isinstance(data, list):
-                return [
-                    Relationship.from_dict(r)
-                    for r in data
-                    if isinstance(r, dict)
-                ]
+                return [Relationship.from_dict(r) for r in data if isinstance(r, dict)]
         except Exception:
             pass
         return []
@@ -400,15 +375,9 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get(
-                f"/api/ontology/nodes/{name}/relationships/incoming"
-            )
+            data = await http.get(f"/api/ontology/nodes/{name}/relationships/incoming")
             if isinstance(data, list):
-                return [
-                    Relationship.from_dict(r)
-                    for r in data
-                    if isinstance(r, dict)
-                ]
+                return [Relationship.from_dict(r) for r in data if isinstance(r, dict)]
         except Exception:
             pass
         return []
@@ -451,6 +420,7 @@ def list_nodes_sync(
     Returns:
         List of OntologyNode objects
     """
+
     async def _run():
         async with OntologyClient(base_url=base_url, api_key=api_key) as client:
             return await client.list_nodes(node_type=node_type)
@@ -473,6 +443,7 @@ def get_node_context_sync(
     Returns:
         NodeContext with node data
     """
+
     async def _run():
         async with OntologyClient(base_url=base_url, api_key=api_key) as client:
             return await client.get_node_context(name)

@@ -15,11 +15,11 @@ DEFAULT_TIMEOUT = 30.0
 @dataclass
 class ArtifactsConfig:
     """Configuration for artifacts CLI commands."""
-    
+
     base_url: str
     api_key: str
     timeout: float = DEFAULT_TIMEOUT
-    
+
     @property
     def api_base_url(self) -> str:
         """Get the API base URL (ensures /api suffix)."""
@@ -41,17 +41,16 @@ def resolve_backend_config(
         base_url = base
         if api_key is None:
             api_key = key
-    
+
     if api_key is None:
         api_key = os.getenv("SYNTH_API_KEY", "")
         if not api_key:
             raise click.ClickException(
                 "API key required. Set SYNTH_API_KEY env var or use --api-key option."
             )
-    
+
     return ArtifactsConfig(
         base_url=base_url or "",
         api_key=api_key,
         timeout=timeout or DEFAULT_TIMEOUT,
     )
-

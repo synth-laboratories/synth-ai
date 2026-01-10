@@ -4,12 +4,13 @@ Generate functional descriptions of web pages from screenshots using Gemini 2.5.
 The goal is to create descriptions that capture WHAT is on the page (content, structure, purpose)
 but NOT HOW it looks (colors, fonts, spacing, visual design).
 """
-import os
-import json
-import base64
-from pathlib import Path
-import google.generativeai as genai
 
+import base64
+import json
+import os
+from pathlib import Path
+
+import google.generativeai as genai
 
 FUNCTIONAL_DESCRIPTION_PROMPT = """You are analyzing a screenshot of a web page. Your task is to create a detailed FUNCTIONAL description of the page.
 
@@ -69,25 +70,21 @@ def generate_functional_description(image_path: str, api_key: str) -> dict:
     genai.configure(api_key=api_key)
 
     # Create model
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
     # Load image
-    with open(image_path, 'rb') as f:
+    with open(image_path, "rb") as f:
         image_data = f.read()
 
     # Create the prompt with image
-    response = model.generate_content([
-        FUNCTIONAL_DESCRIPTION_PROMPT,
-        {
-            'mime_type': 'image/png',
-            'data': image_data
-        }
-    ])
+    response = model.generate_content(
+        [FUNCTIONAL_DESCRIPTION_PROMPT, {"mime_type": "image/png", "data": image_data}]
+    )
 
     return {
         "image_path": str(image_path),
         "functional_description": response.text,
-        "model": "gemini-2.0-flash-exp"
+        "model": "gemini-2.0-flash-exp",
     }
 
 
@@ -102,21 +99,18 @@ def process_sample_images(image_paths: list, api_key: str, output_file: str = No
             result = generate_functional_description(image_path, api_key)
             results.append(result)
 
-            print(f"\nFunctional Description:")
+            print("\nFunctional Description:")
             print("=" * 80)
             print(result["functional_description"])
             print("=" * 80)
 
         except Exception as e:
             print(f"Error processing {image_path}: {e}")
-            results.append({
-                "image_path": str(image_path),
-                "error": str(e)
-            })
+            results.append({"image_path": str(image_path), "error": str(e)})
 
     # Save results if output file specified
     if output_file:
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(results, f, indent=2)
         print(f"\n✓ Saved results to {output_file}")
 
@@ -143,9 +137,9 @@ def select_diverse_samples(data_dir: Path, samples_per_site: int = 2) -> list:
             other = None
 
             for img in images:
-                if 'homepage' in img.name or 'home' in img.name:
+                if "homepage" in img.name or "home" in img.name:
                     homepage = img
-                elif 'pricing' in img.name or 'docs' in img.name:
+                elif "pricing" in img.name or "docs" in img.name:
                     other = img
 
             if homepage:
@@ -183,9 +177,9 @@ if __name__ == "__main__":
     output_file = Path(__file__).parent / "sample_functional_descriptions.json"
     results = process_sample_images(sample_images, api_key, str(output_file))
 
-    print(f"\n{'='*80}")
-    print(f"EVALUATION CHECKLIST:")
-    print(f"{'='*80}")
+    print(f"\n{'=' * 80}")
+    print("EVALUATION CHECKLIST:")
+    print(f"{'=' * 80}")
     print("For each description above, verify:")
     print("  1. ✓ Describes WHAT is on the page (content, structure)")
     print("  2. ✓ Does NOT mention colors, fonts, spacing, visual design")

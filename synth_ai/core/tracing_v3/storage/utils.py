@@ -171,7 +171,9 @@ STORAGE_METRICS = StorageMetrics()
 def track_metrics(operation: str):
     """Decorator to track storage operation metrics."""
 
-    def decorator(func: Callable[..., Awaitable[T]] | Callable[..., T]) -> Callable[..., Awaitable[T]] | Callable[..., T]:
+    def decorator(
+        func: Callable[..., Awaitable[T]] | Callable[..., T],
+    ) -> Callable[..., Awaitable[T]] | Callable[..., T]:
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> T:
             start_time = time.time()

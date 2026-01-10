@@ -21,6 +21,7 @@ if _validators_module is not None:
         validate_task_app = candidate
 
 if validate_task_app is None:
+
     def _missing_validate_task_app(*_args: Any, **_kwargs: Any) -> None:
         raise RuntimeError("task validation utilities are unavailable in this environment")
 

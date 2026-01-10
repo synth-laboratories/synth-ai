@@ -3,9 +3,17 @@ from synth_ai.sdk.task import task_app_health, validate_task_app_url
 from .client import LearningClient
 from .context_learning_client import (
     ContextLearningClient,
+)
+from .context_learning_client import (
     create_job as create_context_learning_job,
+)
+from .context_learning_client import (
     get_best_script as get_context_learning_best_script,
+)
+from .context_learning_client import (
     get_job_status as get_context_learning_status,
+)
+from .context_learning_client import (
     run_job as run_context_learning_job,
 )
 from .context_learning_types import (
@@ -33,7 +41,6 @@ from .rl import (
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
     RolloutSafetyConfig,
@@ -76,7 +83,6 @@ __all__ = [
     # RL types
     "RolloutEnvSpec",
     "RolloutPolicySpec",
-    "RolloutRecordConfig",
     "RolloutSafetyConfig",
     "RolloutRequest",
     "RolloutMetrics",

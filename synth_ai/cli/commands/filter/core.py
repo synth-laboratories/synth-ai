@@ -87,13 +87,9 @@ def _load_filter_config(config_path: Path) -> tuple[FilterConfig, dict[str, Any]
     except (ValueError, TypeError) as validation_error:
         raise InvalidFilterConfigError(detail=str(validation_error)) from validation_error
 
-    click.echo(
-        f"✓ Config validated: db={filter_cfg.db}, output={filter_cfg.output}"
-    )
+    click.echo(f"✓ Config validated: db={filter_cfg.db}, output={filter_cfg.output}")
     if filter_cfg.min_official_score is not None:
-        click.echo(
-            f"  → Filtering for official score >= {filter_cfg.min_official_score}"
-        )
+        click.echo(f"  → Filtering for official score >= {filter_cfg.min_official_score}")
     if filter_cfg.objective:
         click.echo(f"  → Filtering objective: {filter_cfg.objective}")
     if filter_cfg.limit:
@@ -171,12 +167,16 @@ def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, A
             continue
 
         messages = []
-        
+
         # Add system prompt if found
         if system_msg is not None:
             try:
                 system_content_raw = system_msg.get("content")
-                system_content = json.loads(system_content_raw) if isinstance(system_content_raw, str) else system_content_raw
+                system_content = (
+                    json.loads(system_content_raw)
+                    if isinstance(system_content_raw, str)
+                    else system_content_raw
+                )
                 system_content = _extract_content(system_content)
                 system_text = _extract_text(system_content)
                 if system_text:
@@ -208,7 +208,11 @@ def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, A
         assistant_payload = (
             assistant_content
             if isinstance(assistant_content, list)
-            else (_extract_text(assistant_content) if assistant_content is not None else "[no response recorded]")
+            else (
+                _extract_text(assistant_content)
+                if assistant_content is not None
+                else "[no response recorded]"
+            )
         )
         messages.append({"role": "assistant", "content": assistant_payload})
 
@@ -316,9 +320,7 @@ def filter_command(config_path: str, objective_key: Optional[str]) -> None:
                         {"session_id": session_id},
                     )
                 reward_records = (
-                    reward_rows.to_dict("records")
-                    if hasattr(reward_rows, "to_dict")
-                    else []
+                    reward_rows.to_dict("records") if hasattr(reward_rows, "to_dict") else []
                 )
                 if reward_records:
                     total_reward = reward_records[0].get("total_reward")
@@ -343,15 +345,11 @@ def filter_command(config_path: str, objective_key: Optional[str]) -> None:
             if not include:
                 continue
 
-            messages_query = (
-                "\n            SELECT message_type, content, timestamp \n            FROM messages \n            WHERE session_id = :session_id\n            ORDER BY timestamp ASC, id ASC\n        "
-            )
+            messages_query = "\n            SELECT message_type, content, timestamp \n            FROM messages \n            WHERE session_id = :session_id\n            ORDER BY timestamp ASC, id ASC\n        "
             if tracer.db is None:
                 raise FilterCliError("Database not initialized")
             msg_df = await tracer.db.query_traces(messages_query, {"session_id": session_id})
-            message_rows = (
-                msg_df.to_dict("records") if hasattr(msg_df, "to_dict") else []
-            )
+            message_rows = msg_df.to_dict("records") if hasattr(msg_df, "to_dict") else []
 
             if not message_rows:
                 prompt = metadata.get("prompt") or ""

@@ -4,12 +4,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 from synth_ai.sdk.task.contracts import (
-    RolloutEnvSpec,
     RolloutMetrics,
-    RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
     TaskDescriptor,
@@ -19,7 +15,9 @@ from synth_ai.sdk.task.trace_correlation_helpers import build_trace_payload
 
 
 class _FakeLocalAPIClient:
-    def __init__(self, base_url: str, api_key: str | None = None, *, timeout: float = 600.0, retries: int = 3) -> None:
+    def __init__(
+        self, base_url: str, api_key: str | None = None, *, timeout: float = 600.0, retries: int = 3
+    ) -> None:
         self.base_url = base_url
         self.api_key = api_key
         self.timeout = timeout
@@ -30,7 +28,7 @@ class _FakeLocalAPIClient:
         self.rollout_calls = 0
         self.last_rollout_request: RolloutRequest | None = None
 
-    async def __aenter__(self) -> "_FakeLocalAPIClient":
+    async def __aenter__(self) -> _FakeLocalAPIClient:
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:  # noqa: D401
@@ -57,36 +55,36 @@ class _FakeLocalAPIClient:
         self.rollout_calls += 1
         self.last_rollout_request = request
 
-        trace_correlation_id = "test-cid-123"
+        trace_correlation_id = request.trace_correlation_id
         trace_payload = build_trace_payload(
             messages=[{"role": "user", "content": "ping"}],
             response={"message": {"role": "assistant", "content": "pong"}},
             correlation_id=trace_correlation_id,
-            metadata={"run_id": request.run_id},
+            metadata={"trace_correlation_id": trace_correlation_id},
         )
-        metrics = RolloutMetrics(episode_rewards=[0.0], reward_mean=0.0, num_steps=1, num_episodes=1)
+        metrics = RolloutMetrics(outcome_reward=0.0)
         return RolloutResponse(
-            run_id=request.run_id,
-            branches={},
-            metrics=metrics,
-            aborted=False,
             trace_correlation_id=trace_correlation_id,
+            metrics=metrics,
             trace=trace_payload,
-            pipeline_metadata={
-                "inference_url": "https://mock.local/v1/chat/completions?cid=test-cid-123",
-                "trace_correlation_id": trace_correlation_id,
-            },
+            inference_url="https://mock.local/v1/chat/completions?cid=test-cid-123",
         )
 
 
-SMOKE_CORE_PATH = Path(__file__).resolve().parents[2] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
+SMOKE_CORE_PATH = (
+    Path(__file__).resolve().parents[2] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
+)
 
 
-SMOKE_CORE_PATH = Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
+SMOKE_CORE_PATH = (
+    Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
+)
 
 
 @pytest.mark.asyncio
-async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_smoke_rollout_request_alignment_structured_trace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Import by file path to avoid CLI package side effects
     import importlib.util
     import sys as _sys
@@ -132,8 +130,8 @@ async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pyt
     inst = created_instances[-1]
     sent = inst.last_rollout_request
     assert sent is not None
-    assert sent.record.return_trace is True
-    assert sent.record.trace_format == "structured"
+    # trace_correlation_id should be set
+    assert sent.trace_correlation_id is not None
     # inference_url should be normalized to include /chat/completions and have a cid
     url = str((sent.policy.config or {}).get("inference_url"))
     assert "/chat/completions" in url
@@ -141,9 +139,12 @@ async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pyt
 
 
 @pytest.mark.asyncio
-async def test_smoke_calls_health_and_task_info_when_env_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_smoke_calls_health_and_task_info_when_env_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     import importlib.util
     import sys as _sys
+
     spec = importlib.util.spec_from_file_location("smoke_core_test2", SMOKE_CORE_PATH)
     assert spec and spec.loader
     smoke_core = importlib.util.module_from_spec(spec)

@@ -4,5 +4,3 @@ Utility commands for viewing and managing Synth data.
 """
 
 __all__: list[str] = []
-
-

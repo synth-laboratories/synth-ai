@@ -5,7 +5,7 @@ including file uploads, SFT jobs, RL jobs, and model management.
 
 Example:
     >>> from synth_ai.sdk.jobs import JobsClient
-    >>> 
+    >>>
     >>> async with JobsClient(
     ...     base_url="https://api.usesynth.ai",
     ...     api_key=os.environ["SYNTH_API_KEY"],
@@ -16,13 +16,13 @@ Example:
     ...         content=b"...",
     ...         purpose="training",
     ...     )
-    ...     
+    ...
     ...     # Create SFT job
     ...     job = await client.sft.create(
     ...         training_file=file_result["id"],
     ...         model="Qwen/Qwen3-4B",
     ...     )
-    ...     
+    ...
     ...     # Check job status
     ...     status = await client.sft.retrieve(job["id"])
 """
@@ -34,9 +34,7 @@ from collections.abc import Callable
 from typing import Any, cast
 
 try:
-    _supported_module = cast(
-        Any, importlib.import_module("synth_ai.sdk.api.models.supported")
-    )
+    _supported_module = cast(Any, importlib.import_module("synth_ai.sdk.api.models.supported"))
     normalize_model_identifier = cast(
         Callable[[str], str], _supported_module.normalize_model_identifier
     )
@@ -50,9 +48,7 @@ except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load HTTP client") from exc
 
 try:
-    _sft_config_module = cast(
-        Any, importlib.import_module("synth_ai.sdk.learning.sft.config")
-    )
+    _sft_config_module = cast(Any, importlib.import_module("synth_ai.sdk.learning.sft.config"))
     prepare_sft_job_payload = cast(
         Callable[..., dict[str, Any]], _sft_config_module.prepare_sft_job_payload
     )
@@ -299,16 +295,16 @@ class ModelsApi:
 
 class JobsClient:
     """High-level client for interacting with Synth AI job APIs.
-    
+
     This client provides a unified interface for managing training jobs, files, and models
     across different job types (SFT, RL, prompt learning). It aggregates multiple API
     endpoints into a single, easy-to-use interface.
-    
+
     The client is an async context manager, so it should be used with `async with`:
-    
+
     Example:
         >>> from synth_ai.sdk.jobs import JobsClient
-        >>> 
+        >>>
         >>> async with JobsClient(
         ...     base_url="https://api.usesynth.ai",
         ...     api_key=os.environ["SYNTH_API_KEY"],
@@ -319,19 +315,19 @@ class JobsClient:
         ...         content=b"...",
         ...         purpose="training",
         ...     )
-        ...     
+        ...
         ...     # Create an SFT job
         ...     job_result = await client.sft.create(
         ...         training_file=file_result["id"],
         ...         model="Qwen/Qwen3-4B",
         ...     )
-        ...     
+        ...
         ...     # Check RL job status
         ...     rl_status = await client.rl.retrieve("rl_job_123")
-        ...     
+        ...
         ...     # List models
         ...     models = await client.models.list()
-    
+
     Attributes:
         files: FilesApi - File upload and management
         sft: SftJobsApi - Supervised fine-tuning jobs
@@ -347,7 +343,7 @@ class JobsClient:
         http: AsyncHttpClient | None = None,
     ) -> None:
         """Initialize the Jobs API client.
-        
+
         Args:
             base_url: Base URL for the Synth AI API (e.g., "https://api.usesynth.ai")
             api_key: API key for authentication

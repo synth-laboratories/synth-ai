@@ -98,14 +98,31 @@ def main() -> int:
     _load_dotenv()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="http://localhost:8000", help="Backend base URL (default: localhost:8000)")
-    parser.add_argument("--task-port", type=int, default=8103, help="Task app port (default: 8103). Use 0 for auto.")
+    parser.add_argument(
+        "--backend",
+        default="http://localhost:8000",
+        help="Backend base URL (default: localhost:8000)",
+    )
+    parser.add_argument(
+        "--task-port", type=int, default=8103, help="Task app port (default: 8103). Use 0 for auto."
+    )
     parser.add_argument("--seeds", default="0-7", help="Seeds range/list (default: 0-7)")
-    parser.add_argument("--policy-model", default="gemini-2.5-flash-image", help="Image generation model")
+    parser.add_argument(
+        "--policy-model", default="gemini-2.5-flash-image", help="Image generation model"
+    )
     parser.add_argument("--policy-provider", default="google", help="Provider for policy model")
-    parser.add_argument("--concurrency", type=int, default=2, help="Max concurrent rollouts (default: 2)")
-    parser.add_argument("--timeout", type=float, default=600.0, help="Per-rollout timeout seconds (default: 600)")
-    parser.add_argument("--poll-timeout", type=float, default=2400.0, help="Overall eval job poll timeout (default: 2400)")
+    parser.add_argument(
+        "--concurrency", type=int, default=2, help="Max concurrent rollouts (default: 2)"
+    )
+    parser.add_argument(
+        "--timeout", type=float, default=600.0, help="Per-rollout timeout seconds (default: 600)"
+    )
+    parser.add_argument(
+        "--poll-timeout",
+        type=float,
+        default=2400.0,
+        help="Overall eval job poll timeout (default: 2400)",
+    )
     args = parser.parse_args()
 
     synth_api_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
@@ -215,7 +232,10 @@ def main() -> int:
         resp = client.post(
             submit_url,
             json=job_request,
-            headers={"Authorization": f"Bearer {synth_api_key}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {synth_api_key}",
+                "Content-Type": "application/json",
+            },
         )
         resp.raise_for_status()
         job_id = (resp.json() or {}).get("job_id")
@@ -249,7 +269,9 @@ def main() -> int:
             toks = r.get("tokens")
             lat = r.get("latency_ms")
             err = r.get("error")
-            print(f"- seed={seed} score={score} cost_usd={cost} tokens={toks} latency_ms={lat} error={err}")
+            print(
+                f"- seed={seed} score={score} cost_usd={cost} tokens={toks} latency_ms={lat} error={err}"
+            )
         return 0
 
     print(f"status: {result.status.value}")
@@ -259,5 +281,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

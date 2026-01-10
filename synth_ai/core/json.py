@@ -32,7 +32,7 @@ def strip_json_comments(raw: str) -> str:
 
         if in_string:
             result.append(char)
-            if char == "\"" and not escape:
+            if char == '"' and not escape:
                 in_string = False
             escape = (char == "\\") and not escape
             i += 1
@@ -48,7 +48,7 @@ def strip_json_comments(raw: str) -> str:
             i += 2
             continue
 
-        if char == "\"":
+        if char == '"':
             in_string = True
             escape = False
 

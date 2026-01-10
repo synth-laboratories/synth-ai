@@ -3,7 +3,6 @@
 from .prompt_learning import (
     GEPAConfig,
     MessagePatternConfig,
-    MIPROConfig,
     PromptLearningConfig,
     PromptLearningPolicyConfig,
     PromptLearningVerifierConfig,
@@ -45,7 +44,6 @@ __all__ = [
     "VerifierConfig",
     "VerifierOptionsConfig",
     "LoraConfig",
-    "MIPROConfig",
     "MessagePatternConfig",
     "ModelConfig",
     "PolicyConfig",

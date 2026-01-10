@@ -307,7 +307,7 @@ async def call_llm(
         raise RuntimeError("No tool call arguments returned from model")
 
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
-        return args.get("intent") or ""
+    return args.get("intent") or ""
 
 
 # =============================================================================
@@ -353,11 +353,10 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     trace_correlation_id = extract_trace_correlation_id(
         policy_config=policy_cfg_for_trace,
         inference_url=str(inference_url or ""),
-        mode=request.mode,
     )
 
     return RolloutResponse(
-        run_id=request.run_id,
+        run_id=request.trace_correlation_id,
         metrics=RolloutMetrics(outcome_reward=score),
         trace=None,
         trace_correlation_id=trace_correlation_id,

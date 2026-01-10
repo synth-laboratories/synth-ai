@@ -17,24 +17,6 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from starlette.requests import Request as StarletteRequest
-
-# Synth-AI SDK imports
-from synth_ai.sdk.task.apps import LocalAPIEntry, ModalDeploymentConfig, register_local_api
-from synth_ai.sdk.task.auth import is_api_key_header_authorized, normalize_environment_api_key
-from synth_ai.sdk.task.contracts import (
-    RolloutMetrics,
-    RolloutMode,
-    RolloutRequest,
-    RolloutResponse,
-    TaskInfo,
-)
-from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
-from synth_ai.sdk.task.rubrics import Rubric, load_rubric
-from synth_ai.sdk.localapi.server import LocalAPIConfig, ProxyConfig, RubricBundle, create_local_api, run_local_api
-from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-from synth_ai.sdk.task.vendors import normalize_vendor_keys
 
 # Business logic imports (no synth-ai dependencies)
 from financial_ner_business_logic import (
@@ -52,6 +34,28 @@ from financial_ner_business_logic import (
     get_extract_tool_schema,
     parse_entities_from_tool_call,
 )
+from pydantic import BaseModel
+from starlette.requests import Request as StarletteRequest
+from synth_ai.sdk.localapi.server import (
+    LocalAPIConfig,
+    ProxyConfig,
+    RubricBundle,
+    create_local_api,
+    run_local_api,
+)
+
+# Synth-AI SDK imports
+from synth_ai.sdk.task.apps import LocalAPIEntry, ModalDeploymentConfig, register_local_api
+from synth_ai.sdk.task.contracts import (
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskInfo,
+)
+from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.sdk.task.rubrics import Rubric, load_rubric
+from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
+from synth_ai.sdk.task.vendors import normalize_vendor_keys
 
 
 def get_current_module_code():
@@ -68,7 +72,7 @@ def get_current_module_code():
             return None
         try:
             return inspect.getsource(module)
-        except (OSError, TypeError, IOError):
+        except (OSError, TypeError):
             return None
     finally:
         del frame
@@ -101,7 +105,6 @@ financial_ner_router = APIRouter()
 
 @financial_ner_router.post("/extract", response_model=ExtractResponse)
 async def extract_endpoint(req: ExtractRequest, request: Request):
-    dataset: FinancialNERDataset = request.app.state.financial_ner_dataset
     return ExtractResponse(entities={etype: [] for etype in ENTITY_TYPES})
 
 
@@ -121,7 +124,9 @@ def _normalize_chat_url(url: str) -> str:
 
     if "/v1/" in path and not path.endswith("/v1"):
         new_path = f"{path}/chat/completions"
-        result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
+        result = urlunparse(
+            (parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment)
+        )
         return result
 
     if path.endswith("/v1"):
@@ -178,17 +183,15 @@ async def call_chat_completion(
                     flush=True,
                 )
     else:
-        route_base = (
-            (api_base_raw or "").strip()
-            or (base_url_raw or "").strip()
-        )
+        route_base = (api_base_raw or "").strip() or (base_url_raw or "").strip()
     if not route_base:
         missing_fields.append("inference_url")
     if missing_fields:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Missing policy fields in TOML [prompt_learning.policy]: " + ", ".join(missing_fields)
+                "Missing policy fields in TOML [prompt_learning.policy]: "
+                + ", ".join(missing_fields)
             ),
         )
 
@@ -211,7 +214,10 @@ async def call_chat_completion(
     else:
         max_tokens = _get_default_max_completion_tokens(model)
         with contextlib.suppress(Exception):
-            print(f"[TASK_APP] Using model-based default max_completion_tokens for {model}: {max_tokens}", flush=True)
+            print(
+                f"[TASK_APP] Using model-based default max_completion_tokens for {model}: {max_tokens}",
+                flush=True,
+            )
 
     with contextlib.suppress(Exception):
         print(f"[TASK_APP] POLICY ROUTE → {inference_url}", flush=True)
@@ -225,7 +231,11 @@ async def call_chat_completion(
         messages.append({"role": role, "content": content})
 
     preview = [
-        {"role": m.get("role"), "len": len(m.get("content", "")), "head": (m.get("content", "")[:160])}
+        {
+            "role": m.get("role"),
+            "len": len(m.get("content", "")),
+            "head": (m.get("content", "")[:160]),
+        }
         for m in messages
     ]
     print(f"[TASK_APP] MESSAGES: {preview}", flush=True)
@@ -236,11 +246,17 @@ async def call_chat_completion(
         if is_provider_host:
             headers["Authorization"] = f"Bearer {api_key}"
             with contextlib.suppress(Exception):
-                print(f"[TASK_APP] 🔐 DIRECT PROVIDER CALL with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})", flush=True)
+                print(
+                    f"[TASK_APP] 🔐 DIRECT PROVIDER CALL with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})",
+                    flush=True,
+                )
         else:
             headers["X-API-Key"] = api_key
             with contextlib.suppress(Exception):
-                print(f"[TASK_APP] 🔐 PROXY ROUTING with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})", flush=True)
+                print(
+                    f"[TASK_APP] 🔐 PROXY ROUTING with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})",
+                    flush=True,
+                )
     else:
         with contextlib.suppress(Exception):
             print("[TASK_APP] ⚠️  NO API KEY PROVIDED!", flush=True)
@@ -269,26 +285,36 @@ async def call_chat_completion(
         import aiohttp
     except ImportError:
         try:
-            import httpx
+            pass
         except Exception as _exc:
-            raise HTTPException(status_code=500, detail=f"Neither aiohttp nor httpx available: {_exc}")
+            raise HTTPException(
+                status_code=500, detail=f"Neither aiohttp nor httpx available: {_exc}"
+            ) from _exc
 
     # DNS pre-resolution for proxy URLs
     parsed = urlparse(inference_url)
     host = parsed.hostname or ""
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    print(f"[TASK_APP] PROXY_TARGET: scheme={parsed.scheme} host={host} port={port} path={parsed.path}", flush=True)
+    print(
+        f"[TASK_APP] PROXY_TARGET: scheme={parsed.scheme} host={host} port={port} path={parsed.path}",
+        flush=True,
+    )
 
     skip_dns_preresolution = is_provider_host
 
     if skip_dns_preresolution:
-        print(f"[TASK_APP] PROXY_DNS: Skipping DNS pre-resolution for direct provider host: {host}", flush=True)
+        print(
+            f"[TASK_APP] PROXY_DNS: Skipping DNS pre-resolution for direct provider host: {host}",
+            flush=True,
+        )
     else:
         try:
             addrinfo = socket.getaddrinfo(host, None, socket.AF_INET)
             ips = sorted({ai[4][0] for ai in addrinfo})
             resolved_ip = ips[0] if ips else None
-            print(f"[TASK_APP] PROXY_DNS: resolved {host} -> {resolved_ip} (from {ips})", flush=True)
+            print(
+                f"[TASK_APP] PROXY_DNS: resolved {host} -> {resolved_ip} (from {ips})", flush=True
+            )
 
             if resolved_ip and parsed.scheme == "https":
                 netloc = f"{resolved_ip}:{port}" if port else resolved_ip
@@ -298,15 +324,23 @@ async def call_chat_completion(
                 headers["_original_host"] = host
                 headers["_use_ip"] = "1"
                 headers["Host"] = host
-                print(f"[TASK_APP] PROXY_URL_REWRITTEN: {inference_url} (will use SNI with host={host}, Host header set)", flush=True)
+                print(
+                    f"[TASK_APP] PROXY_URL_REWRITTEN: {inference_url} (will use SNI with host={host}, Host header set)",
+                    flush=True,
+                )
         except Exception as e:
             print(f"[TASK_APP] PROXY_DNS_ERROR: {e}, continuing with original URL", flush=True)
 
     if http_client is None:
-        raise HTTPException(status_code=500, detail="HTTP client not initialized (should be created at startup)")
+        raise HTTPException(
+            status_code=500, detail="HTTP client not initialized (should be created at startup)"
+        )
 
     with contextlib.suppress(Exception):
-        headers_log = {k: (f"{v[:15]}..." if k == "X-API-Key" and len(v) > 15 else v) for k, v in headers.items()}
+        headers_log = {
+            k: (f"{v[:15]}..." if k == "X-API-Key" and len(v) > 15 else v)
+            for k, v in headers.items()
+        }
         print(f"[TASK_APP] 📤 Sending POST to: {inference_url}", flush=True)
         print(f"[TASK_APP] 📤 With headers: {headers_log}", flush=True)
 
@@ -314,6 +348,7 @@ async def call_chat_completion(
     response_json: dict[str, Any] | None = None
     try:
         import aiohttp
+
         is_aiohttp = isinstance(http_client, aiohttp.ClientSession)
 
         if is_aiohttp:
@@ -324,6 +359,7 @@ async def call_chat_completion(
             ssl_setting: Any = None
             if use_ip and original_host:
                 import ssl
+
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
@@ -344,17 +380,29 @@ async def call_chat_completion(
                         error_json = await response.json()
                         error_obj = error_json.get("error")
                         if isinstance(error_obj, dict):
-                            error_msg = error_obj.get("message") or error_obj.get("detail") or str(error_obj)
+                            error_msg = (
+                                error_obj.get("message")
+                                or error_obj.get("detail")
+                                or str(error_obj)
+                            )
                         elif isinstance(error_obj, str):
                             error_msg = error_obj
                         else:
-                            error_msg = error_json.get("detail") or str(error_json.get("error", "Unknown error"))
-                        raise HTTPException(status_code=status_code, detail=f"Interceptor/provider error: {error_msg}")
+                            error_msg = error_json.get("detail") or str(
+                                error_json.get("error", "Unknown error")
+                            )
+                        raise HTTPException(
+                            status_code=status_code,
+                            detail=f"Interceptor/provider error: {error_msg}",
+                        )
                     except HTTPException:
                         raise
                     except Exception:
                         error_text = (await response.text())[:500]
-                        raise HTTPException(status_code=status_code, detail=f"Interceptor/provider returned error: {error_text}")
+                        raise HTTPException(
+                            status_code=status_code,
+                            detail=f"Interceptor/provider returned error: {error_text}",
+                        ) from None
 
                 try:
                     response_json = await response.json()
@@ -362,13 +410,18 @@ async def call_chat_completion(
                     print(f"[TASK_APP] RESPONSE_JSON ({len(raw)} bytes): {raw}", flush=True)
                 except Exception:
                     response_text = await response.text()
-                    print(f"[TASK_APP] RESPONSE_TEXT ({len(response_text)} bytes): {response_text}", flush=True)
+                    print(
+                        f"[TASK_APP] RESPONSE_TEXT ({len(response_text)} bytes): {response_text}",
+                        flush=True,
+                    )
                     if status_code >= 400:
-                        raise HTTPException(status_code=status_code, detail=f"HTTP error: {response_text[:200]}")
+                        raise HTTPException(
+                            status_code=status_code, detail=f"HTTP error: {response_text[:200]}"
+                        ) from None
                     response_json = {}
         else:
             # httpx fallback
-            import httpx
+
             response = await http_client.post(inference_url, json=payload, headers=headers)
             status_code = response.status_code
 
@@ -377,32 +430,44 @@ async def call_chat_completion(
                     error_json = response.json()
                     error_obj = error_json.get("error")
                     if isinstance(error_obj, dict):
-                        error_msg = error_obj.get("message") or error_obj.get("detail") or str(error_obj)
+                        error_msg = (
+                            error_obj.get("message") or error_obj.get("detail") or str(error_obj)
+                        )
                     elif isinstance(error_obj, str):
                         error_msg = error_obj
                     else:
-                        error_msg = error_json.get("detail") or str(error_json.get("error", "Unknown error"))
-                    raise HTTPException(status_code=status_code, detail=f"Interceptor/provider error: {error_msg}")
+                        error_msg = error_json.get("detail") or str(
+                            error_json.get("error", "Unknown error")
+                        )
+                    raise HTTPException(
+                        status_code=status_code, detail=f"Interceptor/provider error: {error_msg}"
+                    )
                 except HTTPException:
                     raise
                 except Exception as e:
-                    error_text = response.text[:500] if hasattr(response, 'text') else str(e)
-                    raise HTTPException(status_code=status_code, detail=f"Interceptor/provider returned error: {error_text}")
+                    error_text = response.text[:500] if hasattr(response, "text") else str(e)
+                    raise HTTPException(
+                        status_code=status_code,
+                        detail=f"Interceptor/provider returned error: {error_text}",
+                    ) from e
 
             try:
                 response_json = response.json()
             except Exception:
                 response_text = response.text
                 if status_code >= 400:
-                    raise HTTPException(status_code=status_code, detail=f"HTTP error: {response_text[:200]}")
+                    raise HTTPException(
+                        status_code=status_code, detail=f"HTTP error: {response_text[:200]}"
+                    ) from None
                 response_json = {}
     except HTTPException:
         raise
     except Exception as e:
         print(f"[TASK_APP] POST_EXCEPTION: {type(e).__name__}: {e}", flush=True)
         import traceback
+
         traceback.print_exc()
-        raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}") from e
 
     if response_json is None:
         raise HTTPException(status_code=502, detail="No response data received")
@@ -414,23 +479,31 @@ async def call_chat_completion(
         tool_calls_raw = first_msg.get("tool_calls", []) or []
         content_text = str(first_msg.get("content", ""))
         if not tool_calls_raw and not content_text.strip():
-            raise HTTPException(status_code=502, detail="Empty model output: no tool_calls and no content")
+            raise HTTPException(
+                status_code=502, detail="Empty model output: no tool_calls and no content"
+            )
         if tool_calls_raw:
             for call in tool_calls_raw:
                 fn = (call or {}).get("function", {}) or {}
                 if fn.get("name") != TOOL_NAME:
-                    raise HTTPException(status_code=502, detail=f"Unexpected tool name: {fn.get('name')}")
+                    raise HTTPException(
+                        status_code=502, detail=f"Unexpected tool name: {fn.get('name')}"
+                    )
                 args_raw = fn.get("arguments", "{}")
                 try:
                     args = json.loads(args_raw)
-                except Exception:
-                    raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON")
+                except Exception as json_err:
+                    raise HTTPException(
+                        status_code=502, detail="Tool call arguments not valid JSON"
+                    ) from json_err
                 if "entities" not in args or not isinstance(args["entities"], dict):
-                    raise HTTPException(status_code=502, detail="Tool call missing valid 'entities' dict")
+                    raise HTTPException(
+                        status_code=502, detail="Tool call missing valid 'entities' dict"
+                    )
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Response validation failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Response validation failed: {exc}") from exc
 
     # Parse response
     response_text = ""
@@ -443,14 +516,16 @@ async def call_chat_completion(
 
         if "tool_calls" in message and message["tool_calls"]:
             for tc in message["tool_calls"]:
-                tool_calls.append({
-                    "id": tc.get("id", ""),
-                    "type": tc.get("type", "function"),
-                    "function": {
-                        "name": tc.get("function", {}).get("name", ""),
-                        "arguments": tc.get("function", {}).get("arguments", "{}"),
+                tool_calls.append(
+                    {
+                        "id": tc.get("id", ""),
+                        "type": tc.get("type", "function"),
+                        "function": {
+                            "name": tc.get("function", {}).get("name", ""),
+                            "arguments": tc.get("function", {}).get("arguments", "{}"),
+                        },
                     }
-                })
+                )
 
     return response_text, response_json, tool_calls
 
@@ -460,7 +535,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     dataset: FinancialNERDataset = fastapi_request.app.state.financial_ner_dataset
 
     with contextlib.suppress(Exception):
-        cfg = (request.policy.config or {})
+        cfg = request.policy.config or {}
         print(
             f"[TASK_APP] INBOUND_ROLLOUT: run_id={request.run_id} seed={request.env.seed} env={request.env.env_name} "
             f"policy.model={cfg.get('model')} provider={cfg.get('provider')} api_base={cfg.get('inference_url') or cfg.get('api_base') or cfg.get('base_url')}",
@@ -490,7 +565,10 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 
     # Extract API key
     inference_url_check = (request.policy.config or {}).get("inference_url") or ""
-    is_direct_provider = "api.groq.com" in inference_url_check.lower() or "api.openai.com" in inference_url_check.lower()
+    is_direct_provider = (
+        "api.groq.com" in inference_url_check.lower()
+        or "api.openai.com" in inference_url_check.lower()
+    )
 
     if is_direct_provider:
         if "api.groq.com" in inference_url_check.lower():
@@ -503,7 +581,11 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         api_key = (
             fastapi_request.headers.get("X-API-Key")
             or fastapi_request.headers.get("x-api-key")
-            or (fastapi_request.headers.get("Authorization", "").replace("Bearer ", "").strip() if fastapi_request.headers.get("Authorization") else None)
+            or (
+                fastapi_request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+                if fastapi_request.headers.get("Authorization")
+                else None
+            )
             or None
         )
 
@@ -522,7 +604,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         raw_upstream = json.dumps(response_json, ensure_ascii=False)
     except Exception:
         raw_upstream = str(response_json)
-    print(f"[TASK_APP] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True)
+    print(
+        f"[TASK_APP] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True
+    )
 
     if not isinstance(response_json, dict) or not response_json:
         raise RuntimeError("Proxy returned missing/empty JSON")
@@ -554,12 +638,17 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             print(f"[TASK_APP] CONTENT_FALLBACK_PARSE_ERROR: {response_text[:200]}", flush=True)
 
     if not any(predicted_entities.values()):
-        print(f"[TASK_APP] WARNING: No entities extracted from proxy response, returning 0 score", flush=True)
+        print(
+            "[TASK_APP] WARNING: No entities extracted from proxy response, returning 0 score",
+            flush=True,
+        )
 
     expected_entities = sample["entities"]
 
     # Score using business logic
-    correct_types, total_types, reward = FinancialNERScorer.score_entities(predicted_entities, expected_entities)
+    correct_types, total_types, reward = FinancialNERScorer.score_entities(
+        predicted_entities, expected_entities
+    )
     is_correct = reward == 1.0
 
     print(
@@ -579,7 +668,6 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     trace_correlation_id = extract_trace_correlation_id(
         policy_config=request.policy.config or {},
         inference_url=str(inference_url or ""),
-        mode=request.mode,
     )
 
     # Build V3 trace for verifier evaluation
@@ -646,12 +734,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             metadata_block["correlation_ids"] = corr_map
 
     metrics = RolloutMetrics(
-        episode_rewards=[reward],
-        reward_mean=reward,
-        num_steps=1,
-        num_episodes=1,
-        outcome_score=reward,
-        events_score=reward,
+        outcome_reward=reward,
         details={"correct": is_correct, "correct_types": correct_types},
     )
 
@@ -659,15 +742,10 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 
     return RolloutResponse(
         run_id=request.run_id,
-        branches={},
         metrics=metrics,
-        aborted=False,
         trace_correlation_id=trace_correlation_id,
         trace=trace_payload,
-        pipeline_metadata={
-            "inference_url": str(inference_url or ""),
-            "trace_correlation_id": trace_correlation_id,
-        },
+        inference_url=str(inference_url or ""),
     )
 
 
@@ -720,7 +798,9 @@ def describe_taskset(dataset: FinancialNERDataset) -> Mapping[str, Any]:
     }
 
 
-def provide_task_instances(dataset: FinancialNERDataset, seeds: Sequence[int]) -> Iterable[TaskInfo]:
+def provide_task_instances(
+    dataset: FinancialNERDataset, seeds: Sequence[int]
+) -> Iterable[TaskInfo]:
     """Provide task instances for the given seeds."""
     base_info = _base_task_info()
     for seed in seeds:
@@ -738,7 +818,7 @@ def provide_task_instances(dataset: FinancialNERDataset, seeds: Sequence[int]) -
                         "expected_answer": expected_entities.get(etype, []),
                     }
                     for etype in ENTITY_TYPES
-                ]
+                ],
             },
         }
 
@@ -746,10 +826,7 @@ def provide_task_instances(dataset: FinancialNERDataset, seeds: Sequence[int]) -
         if hasattr(dataset_dict, "model_dump"):
             dataset_dict = dataset_dict.model_dump()
         elif not isinstance(dataset_dict, dict):
-            if hasattr(dataset_dict, "__dict__"):
-                dataset_dict = dict(dataset_dict.__dict__)
-            else:
-                dataset_dict = {}
+            dataset_dict = dict(dataset_dict.__dict__) if hasattr(dataset_dict, "__dict__") else {}
 
         dataset_dict = {
             **dataset_dict,
@@ -822,12 +899,11 @@ EVENTS_RUBRIC: Rubric = cast(
 
 
 class RolloutRequestWrapper(BaseModel):
-    """Wrapper for RolloutRequest that makes mode optional with defaults."""
+    """Wrapper for RolloutRequest that handles optional fields with defaults."""
+
     run_id: str
     env: dict[str, Any] = {}
     policy: dict[str, Any] = {}
-    mode: str | None = None
-    record: dict[str, Any] | None = None
     on_done: str = "reset"
     safety: dict[str, Any] | None = None
     training_session_id: str | None = None
@@ -835,14 +911,18 @@ class RolloutRequestWrapper(BaseModel):
 
     def to_rollout_request(self) -> RolloutRequest:
         """Convert wrapper to proper RolloutRequest with defaults."""
-        from synth_ai.sdk.task.contracts import RolloutEnvSpec, RolloutPolicySpec, RolloutRecordConfig, RolloutSafetyConfig
+        from synth_ai.sdk.task.contracts import (
+            RolloutEnvSpec,
+            RolloutPolicySpec,
+            RolloutSafetyConfig,
+        )
 
         return RolloutRequest(
-            run_id=self.run_id,
+            trace_correlation_id=self.run_id,
             env=RolloutEnvSpec(**self.env) if isinstance(self.env, dict) else self.env,
-            policy=RolloutPolicySpec(**self.policy) if isinstance(self.policy, dict) else self.policy,
-            mode=RolloutMode(self.mode) if self.mode else RolloutMode.EVAL,
-            record=RolloutRecordConfig(**self.record) if self.record else RolloutRecordConfig(),
+            policy=RolloutPolicySpec(**self.policy)
+            if isinstance(self.policy, dict)
+            else self.policy,
             on_done=self.on_done,
             safety=RolloutSafetyConfig(**self.safety) if self.safety else RolloutSafetyConfig(),
             training_session_id=self.training_session_id,
@@ -858,10 +938,14 @@ def build_config() -> LocalAPIConfig:
     print("[financial_ner_task_app] Preloading dataset splits...", flush=True)
     try:
         dataset.ensure_ready(AVAILABLE_SPLITS)
-        print(f"[financial_ner_task_app] Dataset preloaded successfully: {[dataset.size(s) for s in AVAILABLE_SPLITS]} examples", flush=True)
+        print(
+            f"[financial_ner_task_app] Dataset preloaded successfully: {[dataset.size(s) for s in AVAILABLE_SPLITS]} examples",
+            flush=True,
+        )
     except Exception as exc:
         print(f"[financial_ner_task_app] WARNING: Dataset preload failed: {exc}", flush=True)
         import traceback
+
         traceback.print_exc()
 
     proxy_keys = normalize_vendor_keys()
@@ -874,6 +958,7 @@ def build_config() -> LocalAPIConfig:
     async def startup_http_client(app: Any) -> None:
         try:
             import aiohttp
+
             timeout = aiohttp.ClientTimeout(total=30.0)
             connector = aiohttp.TCPConnector(
                 limit=10,
@@ -885,33 +970,49 @@ def build_config() -> LocalAPIConfig:
                 timeout=timeout,
                 connector=connector,
             )
-            print("[financial_ner_task_app] Created app-level aiohttp client session singleton", flush=True)
+            print(
+                "[financial_ner_task_app] Created app-level aiohttp client session singleton",
+                flush=True,
+            )
         except ImportError:
             try:
                 import httpx
+
                 app.state.http_client = httpx.AsyncClient(
                     timeout=30.0,
                     limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
                 )
-                print("[financial_ner_task_app] Created app-level httpx client singleton (fallback)", flush=True)
+                print(
+                    "[financial_ner_task_app] Created app-level httpx client singleton (fallback)",
+                    flush=True,
+                )
             except Exception as exc:
-                print(f"[financial_ner_task_app] WARNING: Failed to create http client: {exc}", flush=True)
+                print(
+                    f"[financial_ner_task_app] WARNING: Failed to create http client: {exc}",
+                    flush=True,
+                )
                 app.state.http_client = None
         except Exception as exc:
-            print(f"[financial_ner_task_app] WARNING: Failed to create aiohttp client: {exc}", flush=True)
+            print(
+                f"[financial_ner_task_app] WARNING: Failed to create aiohttp client: {exc}",
+                flush=True,
+            )
             app.state.http_client = None
 
     async def shutdown_http_client(app: Any) -> None:
         http_client = getattr(app.state, "http_client", None)
         if http_client is not None:
             try:
-                if hasattr(http_client, 'close'):
+                if hasattr(http_client, "close"):
                     await http_client.close()
-                elif hasattr(http_client, 'aclose'):
+                elif hasattr(http_client, "aclose"):
                     await http_client.aclose()
                 print("[financial_ner_task_app] Closed app-level http client", flush=True)
             except Exception as exc:
-                print(f"[financial_ner_task_app] WARNING: Error closing http client: {exc}", flush=True)
+                print(
+                    f"[financial_ner_task_app] WARNING: Error closing http client: {exc}",
+                    flush=True,
+                )
 
     config = LocalAPIConfig(
         app_id="financial_ner",
@@ -990,25 +1091,36 @@ def fastapi_app():
     with contextlib.suppress(Exception):
         load_dotenv(str(REPO_ROOT / ".env"), override=False)
 
-    print(f"[financial_ner] Creating local API...", flush=True)
+    print("[financial_ner] Creating local API...", flush=True)
     app = create_local_api(build_config())
-    print(f"[financial_ner] Local API created, attempting to remove SDK /rollout route...", flush=True)
+    print(
+        "[financial_ner] Local API created, attempting to remove SDK /rollout route...", flush=True
+    )
 
     try:
-        all_routes = list(app.routes) + list(getattr(app, 'router', type('', (), {'routes': []})()).routes)
-        print(f"[financial_ner] All routes found: {[getattr(r, 'path', 'unknown') for r in all_routes]}", flush=True)
+        all_routes = list(app.routes) + list(
+            getattr(app, "router", type("", (), {"routes": []})()).routes
+        )
+        print(
+            f"[financial_ner] All routes found: {[getattr(r, 'path', 'unknown') for r in all_routes]}",
+            flush=True,
+        )
 
         if hasattr(app, "router"):
             routes_to_remove = []
             for route in list(app.router.routes):
-                if hasattr(route, "path") and route.path == "/rollout":
-                    if hasattr(route, "methods") and "POST" in (route.methods or set()):
-                        routes_to_remove.append(route)
-                        print(f"[financial_ner] Found /rollout POST in router to remove", flush=True)
+                if (
+                    hasattr(route, "path")
+                    and route.path == "/rollout"
+                    and hasattr(route, "methods")
+                    and "POST" in (route.methods or set())
+                ):
+                    routes_to_remove.append(route)
+                    print("[financial_ner] Found /rollout POST in router to remove", flush=True)
 
             for route in routes_to_remove:
                 app.router.routes.remove(route)
-                print(f"[financial_ner] Removed /rollout POST from router", flush=True)
+                print("[financial_ner] Removed /rollout POST from router", flush=True)
     except Exception as e:
         print(f"[financial_ner] Could not remove routes: {e}", flush=True)
 
@@ -1022,17 +1134,15 @@ def fastapi_app():
 
             if "ops" not in body:
                 body["ops"] = []
-            if "mode" not in body:
-                body["mode"] = "eval"
 
             from synth_ai.sdk.task.contracts import RolloutEnvSpec, RolloutPolicySpec
 
             rollout_request = RolloutRequest(
-                run_id=body["run_id"],
+                trace_correlation_id=body.get("trace_correlation_id") or body.get("run_id"),
                 env=RolloutEnvSpec(**body["env"]) if isinstance(body["env"], dict) else body["env"],
-                policy=RolloutPolicySpec(**body["policy"]) if isinstance(body["policy"], dict) else body["policy"],
-                mode=RolloutMode(body["mode"]),
-                record=body.get("record"),
+                policy=RolloutPolicySpec(**body["policy"])
+                if isinstance(body["policy"], dict)
+                else body["policy"],
                 on_done=body.get("on_done", "reset"),
                 safety=body.get("safety"),
                 training_session_id=body.get("training_session_id"),
@@ -1045,8 +1155,9 @@ def fastapi_app():
         except Exception as e:
             print(f"[financial_ner] Error in custom rollout handler: {e}", flush=True)
             import traceback
+
             traceback.print_exc()
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     routes_to_remove = []
     for route in list(app.router.routes):
@@ -1058,7 +1169,10 @@ def fastapi_app():
 
     for route in routes_to_remove:
         app.router.routes.remove(route)
-        print(f"[financial_ner] Removed default route: {getattr(route, 'path', 'unknown')}", flush=True)
+        print(
+            f"[financial_ner] Removed default route: {getattr(route, 'path', 'unknown')}",
+            flush=True,
+        )
 
     def _log_env_key_prefix(source: str, env_key: str | None) -> str | None:
         if not env_key:
@@ -1132,19 +1246,8 @@ def fastapi_app():
 
 
 def wrapped_config_factory():
-    """Wrapper factory that creates a config and patches the Pydantic validation for /rollout."""
-    config = build_config()
-
-    original_executor = config.rollout
-
-    async def patched_rollout_executor(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
-        """Execute rollout, handling cases where mode might be None/missing."""
-        if not request.mode:
-            request.mode = RolloutMode.EVAL
-        return await original_executor(request, fastapi_request)
-
-    config.rollout = patched_rollout_executor
-    return config
+    """Wrapper factory that creates a config for /rollout."""
+    return build_config()
 
 
 if __name__ == "__main__":

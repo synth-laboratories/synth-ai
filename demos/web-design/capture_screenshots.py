@@ -2,11 +2,13 @@
 Screenshot capture tool for web design training data.
 Captures full-page screenshots from a list of URLs.
 """
+
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
-from datetime import datetime
+
 from playwright.async_api import async_playwright
 
 
@@ -24,8 +26,8 @@ async def capture_screenshot(page, url: str, output_dir: Path, name: str = None)
         # Generate filename
         if name is None:
             parsed = urlparse(url)
-            path_parts = parsed.path.strip('/').replace('/', '_')
-            name = path_parts if path_parts else 'homepage'
+            path_parts = parsed.path.strip("/").replace("/", "_")
+            name = path_parts if path_parts else "homepage"
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{name}_{timestamp}.png"
@@ -51,7 +53,7 @@ async def capture_all(urls: list, output_dir: Path, site_name: str = "site"):
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         )
         page = await context.new_page()
 
@@ -73,11 +75,11 @@ async def capture_all(urls: list, output_dir: Path, site_name: str = "site"):
     # Save manifest
     manifest_path = output_dir / "manifest.json"
     with open(manifest_path, "w") as f:
-        json.dump({
-            "site": site_name,
-            "captured_at": datetime.now().isoformat(),
-            "screenshots": results
-        }, f, indent=2)
+        json.dump(
+            {"site": site_name, "captured_at": datetime.now().isoformat(), "screenshots": results},
+            f,
+            indent=2,
+        )
 
     print(f"\n✓ Captured {len(results)} screenshots")
     print(f"✓ Manifest saved to: {manifest_path}")
@@ -107,7 +109,7 @@ if __name__ == "__main__":
         ]
         print("Using default URLs")
 
-    print(f"Screenshot capture starting...")
+    print("Screenshot capture starting...")
     print(f"Output directory: {output_path}")
     print(f"URLs to capture: {len(urls_data)}\n")
 

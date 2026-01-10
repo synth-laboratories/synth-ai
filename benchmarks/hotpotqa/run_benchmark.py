@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
 """Run HotpotQA GEPA benchmark following banking77 demo standards."""
 
+import argparse
 import asyncio
 import json
 import os
-import time
 import re
-import argparse
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import httpx
 from datasets import load_dataset
 from openai import AsyncOpenAI
-
+from synth_ai.core.env import mint_demo_api_key
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
-from synth_ai.core.env import mint_demo_api_key
+from synth_ai.sdk.tunnels import (
+    TunnelBackend,
+    TunneledLocalAPI,
+    cleanup_all,
+    kill_port,
+    wait_for_health_check,
+)
 
 # Configuration
 BACKEND_URL = os.environ.get("SYNTH_BACKEND_URL", "http://localhost:8000")
@@ -68,7 +72,7 @@ ROLLOUT_BUDGET = 500
 def format_context(context: dict) -> str:
     """Format context paragraphs for the prompt."""
     paragraphs = []
-    for title, sentences in zip(context["title"], context["sentences"]):
+    for title, sentences in zip(context["title"], context["sentences"], strict=False):
         text = " ".join(sentences)
         paragraphs.append(f"**{title}**\n{text}")
     return "\n\n".join(paragraphs)
@@ -77,9 +81,9 @@ def format_context(context: dict) -> str:
 def normalize_answer(answer: str) -> str:
     """Normalize answer for comparison."""
     answer = answer.lower().strip()
-    answer = re.sub(r'\b(a|an|the)\b', ' ', answer)
-    answer = re.sub(r'[^\w\s]', '', answer)
-    answer = ' '.join(answer.split())
+    answer = re.sub(r"\b(a|an|the)\b", " ", answer)
+    answer = re.sub(r"[^\w\s]", "", answer)
+    answer = " ".join(answer.split())
     return answer
 
 
@@ -89,9 +93,7 @@ def answers_match(predicted: str, expected: str) -> bool:
     exp_norm = normalize_answer(expected)
     if pred_norm == exp_norm:
         return True
-    if pred_norm in exp_norm or exp_norm in pred_norm:
-        return True
-    return False
+    return pred_norm in exp_norm or exp_norm in pred_norm
 
 
 class HotpotQADataset:
@@ -192,7 +194,7 @@ def create_hotpotqa_local_api(system_prompt: str, env_api_key: str):
         reward = 1.0 if is_correct else 0.0
 
         return RolloutResponse(
-            run_id=request.run_id,
+            run_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=reward),
             trace=None,
             trace_correlation_id=request.policy.config.get("trace_correlation_id"),
@@ -220,15 +222,17 @@ def create_hotpotqa_local_api(system_prompt: str, env_api_key: str):
                 },
             )
 
-    return create_local_api(LocalAPIConfig(
-        app_id=APP_ID,
-        name=APP_NAME,
-        description=f"{APP_NAME} local API for multi-hop question answering.",
-        provide_taskset_description=provide_taskset_description,
-        provide_task_instances=provide_task_instances,
-        rollout=run_rollout,
-        cors_origins=["*"],
-    ))
+    return create_local_api(
+        LocalAPIConfig(
+            app_id=APP_ID,
+            name=APP_NAME,
+            description=f"{APP_NAME} local API for multi-hop question answering.",
+            provide_taskset_description=provide_taskset_description,
+            provide_task_instances=provide_task_instances,
+            rollout=run_rollout,
+            cors_origins=["*"],
+        )
+    )
 
 
 async def run_single_experiment(
@@ -240,9 +244,9 @@ async def run_single_experiment(
     dry_run: bool = False,
 ) -> dict:
     """Run a single GEPA experiment."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running: {model} run {run_number}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if dry_run:
         print(f"[DRY RUN] Would run {model} run {run_number}")
@@ -331,7 +335,7 @@ async def run_single_experiment(
         },
     }
 
-    print(f"Creating GEPA job...")
+    print("Creating GEPA job...")
 
     pl_job = PromptLearningJob.from_dict(
         config_dict=config_body,
@@ -379,18 +383,28 @@ async def run_single_experiment(
             except Exception as e:
                 print(f"Warning: Could not get prompt text: {e}")
 
-            prompt_file = results_dir / f"hotpotqa_{model.replace('-', '_')}_run{run_number}_prompt.json"
+            prompt_file = (
+                results_dir / f"hotpotqa_{model.replace('-', '_')}_run{run_number}_prompt.json"
+            )
             with open(prompt_file, "w") as f:
-                json.dump({
-                    "model": model,
-                    "run": run_number,
-                    "job_id": job_id,
-                    "best_score": result.best_score,
-                    "train_accuracy": top_prompt.get("train_accuracy") if isinstance(top_prompt, dict) else None,
-                    "val_accuracy": top_prompt.get("val_accuracy") if isinstance(top_prompt, dict) else None,
-                    "optimized_prompt_text": optimized_full_text,
-                    "raw_prompt_data": top_prompt,
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "model": model,
+                        "run": run_number,
+                        "job_id": job_id,
+                        "best_score": result.best_score,
+                        "train_accuracy": top_prompt.get("train_accuracy")
+                        if isinstance(top_prompt, dict)
+                        else None,
+                        "val_accuracy": top_prompt.get("val_accuracy")
+                        if isinstance(top_prompt, dict)
+                        else None,
+                        "optimized_prompt_text": optimized_full_text,
+                        "raw_prompt_data": top_prompt,
+                    },
+                    f,
+                    indent=2,
+                )
             print(f"Saved optimized prompt to {prompt_file}")
             experiment_result["prompt_file"] = str(prompt_file)
     else:
@@ -461,13 +475,15 @@ async def main():
                 all_results.append(result)
             except Exception as e:
                 print(f"Error in {model} run {run}: {e}")
-                all_results.append({
-                    "model": model,
-                    "run": run,
-                    "status": "error",
-                    "error": str(e),
-                    "timestamp": datetime.now().isoformat(),
-                })
+                all_results.append(
+                    {
+                        "model": model,
+                        "run": run,
+                        "status": "error",
+                        "error": str(e),
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
 
     # Save summary
     summary = {
@@ -486,7 +502,7 @@ async def main():
     print("BENCHMARK SUMMARY")
     print("=" * 60)
     for r in all_results:
-        score = f"{r['best_score']:.1%}" if r.get('best_score') is not None else "N/A"
+        score = f"{r['best_score']:.1%}" if r.get("best_score") is not None else "N/A"
         print(f"{r['model']} run {r['run']}: {r['status']} (score: {score})")
 
 

@@ -17,36 +17,38 @@ from .types import StreamMessage, StreamType
 
 def _mask_sensitive_urls(text: str) -> str:
     """Mask S3/Wasabi URLs and sensitive paths in log messages.
-    
+
     Replaces full S3/Wasabi URLs with masked versions to prevent leaking
     bucket names, paths, and infrastructure details in public SDK logs.
-    
+
     Examples:
         s3://synth-artifacts/models/... -> s3://***/***/[masked]
         Wasabi s3://bucket/path/file.tar.gz -> Wasabi s3://***/***/[masked]
     """
     if not text:
         return text
-    
+
     # Pattern matches:
     # - Optional "Wasabi " prefix
     # - s3:// or http(s):// scheme
     # - Any bucket/host
     # - Any path
     # - Common model file extensions
-    pattern = r'(Wasabi\s+)?((s3|https?)://[^\s]+\.(tar\.gz|zip|pt|pth|safetensors|ckpt|bin))'
-    
+    pattern = r"(Wasabi\s+)?((s3|https?)://[^\s]+\.(tar\.gz|zip|pt|pth|safetensors|ckpt|bin))"
+
     def replace_url(match: re.Match) -> str:
         prefix = match.group(1) or ""  # "Wasabi " or empty
-        url = match.group(2)
+        matched_url = match.group(2)
         # Extract just the filename
-        filename = url.split("/")[-1] if "/" in url else "file"
-        return f'{prefix}s3://***/***/[{filename}]'
-    
+        filename = matched_url.split("/")[-1] if "/" in matched_url else "file"
+        return f"{prefix}s3://***/***/[{filename}]"
+
     return re.sub(pattern, replace_url, text, flags=re.IGNORECASE)
 
 
-def _extract_event_reward(payload: Any, *, fallback_keys: Optional[list[str]] = None) -> Optional[float]:
+def _extract_event_reward(
+    payload: Any, *, fallback_keys: Optional[list[str]] = None
+) -> Optional[float]:
     if not isinstance(payload, dict):
         return None
     for key in ("outcome_objectives", "objectives"):
@@ -126,14 +128,16 @@ class CLIHandler(StreamHandler):
                 prefix += f" ({level})"
             # Mask sensitive URLs before displaying
             sanitized_msg = _mask_sensitive_urls(msg)
-            
+
             # For error events, show full details including underlying errors
             if level == "error" or event_type.endswith(".failed"):
                 click.echo(f"{prefix}: {sanitized_msg}")
                 # Show error details from data field if available
                 data = message.data.get("data", {})
                 if isinstance(data, dict):
-                    error_detail = data.get("detail") or data.get("error") or data.get("error_detail")
+                    error_detail = (
+                        data.get("detail") or data.get("error") or data.get("error_detail")
+                    )
                     if error_detail and str(error_detail) != sanitized_msg:
                         # Show underlying error if different from main message
                         click.echo(f"    Error details: {error_detail}")
@@ -148,76 +152,6 @@ class CLIHandler(StreamHandler):
             else:
                 click.echo(f"{prefix}: {sanitized_msg}".rstrip(": "))
 
-            data = message.data.get("data") if isinstance(message.data.get("data"), dict) else {}
-            if event_type == "prompt.learning.mipro.complete" and data:
-                best_prompt = data.get("best_prompt")
-                if isinstance(best_prompt, dict):
-                    sections = best_prompt.get("sections")
-                    if isinstance(sections, list) and sections:
-                        click.echo("    --- BEST PROMPT ---")
-                        for section in sections:
-                            if not isinstance(section, dict):
-                                continue
-                            role = section.get("role", "unknown").upper()
-                            name = section.get("name")
-                            header = f"    [{role}]"
-                            if name:
-                                header += f" {name}"
-                            click.echo(header)
-                            content = section.get("content", "")
-                            if isinstance(content, str) and content:
-                                click.echo(f"        {content}")
-                        click.echo("    -------------------")
-
-            if event_type == "mipro.topk.evaluated" and data:
-                rank = data.get("rank")
-                train_score = data.get("train_score")
-                test_score = data.get("test_score")
-                instruction_text = data.get("instruction_text", "")
-                demo_indices = data.get("demo_indices", [])
-                lift_abs = data.get("lift_absolute")
-                lift_pct = data.get("lift_percent")
-                stage_payloads = data.get("stage_payloads", {})
-                details: list[str] = []
-                if rank is not None:
-                    details.append(f"Rank {rank}")
-                if isinstance(train_score, int | float):
-                    train_score_float = float(train_score)
-                    details.append(f"train={train_score_float:.3f} ({train_score_float*100:.1f}%)")
-                if isinstance(test_score, int | float):
-                    test_score_float = float(test_score)
-                    details.append(f"test={test_score_float:.3f} ({test_score_float*100:.1f}%)")
-                if isinstance(lift_abs, int | float) and isinstance(lift_pct, int | float):
-                    details.append(f"lift={lift_abs:+.3f} ({lift_pct:+.1f}%)")
-                if details:
-                    click.echo("    --- TOP-K CANDIDATE ---")
-                    click.echo(f"    {' | '.join(details)}")
-                    if isinstance(instruction_text, str) and instruction_text.strip():
-                        snippet = instruction_text.strip()
-                        click.echo(f"        Instruction: {snippet}")
-                    if isinstance(demo_indices, list) and demo_indices:
-                        click.echo(f"        Demo indices: {demo_indices}")
-                    
-                    # Display per-stage information if available
-                    if isinstance(stage_payloads, dict) and stage_payloads:
-                        click.echo("        Per-stage breakdown:")
-                        for stage_id, payload in stage_payloads.items():
-                            if isinstance(payload, dict):
-                                module_id = payload.get("module_id", stage_id)
-                                instr_ids = payload.get("instruction_indices", [])
-                                demo_ids = payload.get("demo_indices", [])
-                                click.echo(f"          [{module_id}/{stage_id}] instr_ids={instr_ids} demo_ids={demo_ids}")
-                    
-                    seed_scores = data.get("test_seed_scores")
-                    if isinstance(seed_scores, list) and seed_scores:
-                        formatted_scores = ", ".join(
-                            f"{item.get('seed')}: {item.get('score'):.2f}"
-                            for item in seed_scores
-                            if isinstance(item, dict) and isinstance(item.get("seed"), int) and isinstance(item.get("score"), int | float)
-                        )
-                        if formatted_scores:
-                            click.echo(f"        Test per-seed: {formatted_scores}")
-                    click.echo("    ----------------------")
             return
 
         if message.stream_type is StreamType.METRICS:
@@ -225,18 +159,22 @@ class CLIHandler(StreamHandler):
             value = message.data.get("value")
             step = message.data.get("step")
             data = message.data.get("data", {})
-            
+
             # Format metric display
-            metric_str = f"[{timestamp}] [metric] {name}={value:.4f}" if isinstance(value, int | float) else f"[{timestamp}] [metric] {name}={value}"
+            metric_str = (
+                f"[{timestamp}] [metric] {name}={value:.4f}"
+                if isinstance(value, int | float)
+                else f"[{timestamp}] [metric] {name}={value}"
+            )
             if step is not None:
                 metric_str += f" (step={step})"
-            
+
             # Add any additional context from data field
             if isinstance(data, dict):
                 n = data.get("n")
                 if n is not None:
                     metric_str += f" n={n}"
-            
+
             click.echo(metric_str)
             return
 
@@ -327,7 +265,10 @@ class BufferedHandler(StreamHandler):
 
         self._buffer.append(message)
         now = time.time()
-        if len(self._buffer) >= self.max_buffer_size or now - self._last_flush >= self.flush_interval:
+        if (
+            len(self._buffer) >= self.max_buffer_size
+            or now - self._last_flush >= self.flush_interval
+        ):
             self.flush()
 
     def flush(self) -> None:
@@ -356,7 +297,7 @@ class IntegrationTestHandler(StreamHandler):
 
 class GraphGenHandler(StreamHandler):
     """Handler for Graph Opt jobs that delegate child job streams to an underlying handler.
-    
+
     Graph Opt jobs emit events from child jobs (GEPA, MIPRO, RL, SFT, etc.). This handler
     provides light Graph Opt-aware filtering and routing while keeping child job output
     intact via a delegate handler. The delegate can be supplied directly or created
@@ -401,9 +342,12 @@ class GraphGenHandler(StreamHandler):
             self._detect_child_job_type(message)
             self._maybe_reset_delegate_for_child_type()
 
-            if self.wrap_child_events and self.filter_verbose_events:
-                if self._should_filter_event(message):
-                    return
+            if (
+                self.wrap_child_events
+                and self.filter_verbose_events
+                and self._should_filter_event(message)
+            ):
+                return
 
             if self.wrap_child_events:
                 message = self._transform_event_message(message)
@@ -433,7 +377,9 @@ class GraphGenHandler(StreamHandler):
                 handler = CLIHandler()
 
         self.child_handler = handler
-        self._delegate_auto_created = self._child_handler_factory is None and self.child_handler is not None
+        self._delegate_auto_created = (
+            self._child_handler_factory is None and self.child_handler is not None
+        )
         return handler
 
     def _detect_child_job_type(self, message: StreamMessage) -> None:
@@ -447,8 +393,6 @@ class GraphGenHandler(StreamHandler):
 
         if event_type.startswith("graph_evolve."):
             self.child_job_type = "graph_evolve"
-        elif "mipro" in event_type:
-            self.child_job_type = "mipro"
         elif "gepa" in event_type or event_type.startswith("prompt.learning"):
             self.child_job_type = "prompt_learning"
         elif event_type.startswith("rl.") or ".rl." in event_type:
@@ -470,10 +414,12 @@ class GraphGenHandler(StreamHandler):
         wants_prompt_learning = self._is_prompt_learning_type(self.child_job_type)
         has_prompt_learning_handler = isinstance(self.child_handler, PromptLearningHandler)
 
-        if wants_prompt_learning and not has_prompt_learning_handler:
-            self.child_handler = None
-            self._delegate_auto_created = False
-        elif not wants_prompt_learning and has_prompt_learning_handler:
+        if (
+            wants_prompt_learning
+            and not has_prompt_learning_handler
+            or not wants_prompt_learning
+            and has_prompt_learning_handler
+        ):
             self.child_handler = None
             self._delegate_auto_created = False
 
@@ -487,14 +433,13 @@ class GraphGenHandler(StreamHandler):
             return False
 
         # Only filter prompt-learning style events; leave other job types untouched.
-        if not any(key in event_type_lower for key in ("prompt.learning", "gepa", "mipro")):
+        if not any(key in event_type_lower for key in ("prompt.learning", "gepa")):
             return False
 
         important_events = {
             "prompt.learning.created",
             "prompt.learning.gepa.start",
             "prompt.learning.gepa.complete",
-            "prompt.learning.mipro.job.started",
             "prompt.learning.mipro.optimization.exhausted",
             "prompt.learning.trial.results",
             "prompt.learning.progress",
@@ -518,7 +463,6 @@ class GraphGenHandler(StreamHandler):
             "gepa.transformation.proposed",
             "gepa.proposal.scored",
             "prompt.learning.proposal.scored",
-            "mipro.tpe.update",
             "prompt.learning.stream.connected",
         ]
         return any(pattern in event_type_lower for pattern in verbose_patterns)
@@ -672,6 +616,7 @@ class LossCurveHandler(StreamHandler):
         with contextlib.suppress(Exception):
             self.flush()
 
+
 class RichHandler(StreamHandler):
     """Rich powered handler with live progress and metrics table."""
 
@@ -742,7 +687,9 @@ class RichHandler(StreamHandler):
             if step and total_steps:
                 self._ensure_progress_started(total_steps)
                 if self._task_id is not None:
-                    self._progress.update(self._task_id, completed=int(step), total=int(total_steps))  # type: ignore[arg-type]
+                    self._progress.update(
+                        self._task_id, completed=int(step), total=int(total_steps)
+                    )  # type: ignore[arg-type]
             self._render_summary()
             return
 
@@ -800,6 +747,7 @@ class RichHandler(StreamHandler):
             self._console.print("\nRecent events:")
             for entry in list(self._event_log):
                 self._console.print(f"  • {entry}")
+
 
 class ContextLearningHandler(StreamHandler):
     """CLI-friendly handler for Context Learning jobs.
@@ -869,21 +817,19 @@ class ContextLearningHandler(StreamHandler):
 
 
 class PromptLearningHandler(StreamHandler):
-    """Enhanced handler for GEPA/MIPRO prompt optimization jobs with rich formatting and metrics tracking.
-    
-    This handler processes streaming events from both GEPA (Genetic Evolutionary Prompt
-    Algorithm) and MIPRO (Meta-Instruction PROposer) optimization jobs. It provides:
-    
+    """Enhanced handler for GEPA prompt optimization jobs with rich formatting and metrics tracking.
+
+    This handler processes streaming events from GEPA (Genetic Evolutionary Prompt
+    Algorithm) optimization jobs. It provides:
+
     - **Real-time progress tracking**: Shows trial results, rollouts, iterations, and budget usage
     - **Optimization curve tracking**: Maintains a history of best scores over time
     - **GEPA-specific features**: Tracks transformations, rollouts, and validation results
-    - **MIPRO-specific features**: Tracks iterations, trials, minibatch/full evaluations, and budget
     - **Dual output**: Writes to both console (via click.echo) and optional log file
-    
-    The handler filters verbose events (like TPE updates, proposed instructions) to keep
-    output readable while preserving important progress information. It formats output
-    consistently between GEPA and MIPRO for easier comparison.
-    
+
+    The handler filters verbose events (like proposed instructions) to keep
+    output readable while preserving important progress information.
+
     Example:
         >>> handler = PromptLearningHandler(
         ...     show_trial_results=True,
@@ -892,7 +838,7 @@ class PromptLearningHandler(StreamHandler):
         ... )
         >>> # Handler is used by JobStreamer to process events
     """
-    
+
     def __init__(
         self,
         *,
@@ -905,7 +851,7 @@ class PromptLearningHandler(StreamHandler):
         log_file: Path | None = None,
     ):
         """Initialize the prompt learning handler.
-        
+
         Args:
             show_trial_results: Whether to display individual trial scores (default: True).
                 When True, shows each trial's score and best score so far.
@@ -929,7 +875,7 @@ class PromptLearningHandler(StreamHandler):
         self.optimization_curve: list[tuple[int, float]] = []
         self.trial_counter = 0
         self.best_score_so_far = 0.0
-        
+
         # MIPRO progress tracking
         self.mipro_start_time: float | None = None
         self.mipro_total_trials: int | None = None
@@ -950,7 +896,7 @@ class PromptLearningHandler(StreamHandler):
         self.mipro_max_time_seconds: float | None = max_time_seconds  # From TOML termination_config
         self._last_progress_emit_time: float | None = None  # Throttle progress updates
         self._progress_emit_interval: float = 5.0  # Emit progress at most every 5 seconds
-        
+
         # Log file for real-time streaming
         self.log_file: Path | None = log_file
         self._log_file_handle = None
@@ -961,11 +907,14 @@ class PromptLearningHandler(StreamHandler):
                 # Open file in append mode for live streaming
                 # Note: File must remain open for streaming, so we can't use context manager
                 from datetime import datetime
+
                 self._log_file_handle = open(self.log_file, "a", encoding="utf-8")  # noqa: SIM115
                 # Write header
                 self._log_file_handle.write("=" * 80 + "\n")
                 self._log_file_handle.write("PROMPT LEARNING VERBOSE LOG\n")
-                self._log_file_handle.write(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                self._log_file_handle.write(
+                    f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                )
                 self._log_file_handle.write("=" * 80 + "\n\n")
                 self._log_file_handle.flush()
             except Exception as e:
@@ -973,7 +922,7 @@ class PromptLearningHandler(StreamHandler):
                 click.echo(f"⚠️  Could not open log file {log_file}: {e}", err=True)
                 self.log_file = None
                 self._log_file_handle = None
-    
+
     def _write_log(self, text: str) -> None:
         """Write text to both console and log file."""
         click.echo(text)
@@ -984,53 +933,54 @@ class PromptLearningHandler(StreamHandler):
             except Exception:
                 # If write fails, close handle and continue without logging
                 from contextlib import suppress
+
                 with suppress(Exception):
                     self._log_file_handle.close()
                 self._log_file_handle = None
-    
+
     def handle(self, message: StreamMessage) -> None:
         """Handle a stream message from the prompt learning job.
-        
+
         Routes messages to appropriate handlers based on stream type:
         - STATUS: Job status updates (queued, running, completed, etc.)
         - EVENTS: Algorithm-specific events (trials, iterations, transformations)
         - METRICS: Performance metrics (scores, accuracies, costs)
         - TIMELINE: Phase transitions
-        
+
         Filters verbose events (TPE updates, proposed instructions) to keep output
         readable. MIPRO and GEPA events are handled by specialized methods.
-        
+
         Args:
             message: StreamMessage containing event data from the backend
         """
         if not self.should_handle(message):
             return
-        
+
         timestamp = datetime.now().strftime("%H:%M:%S")
-        
+
         if message.stream_type is StreamType.STATUS:
             status = str(message.data.get("status") or message.data.get("state") or "unknown")
             self._write_log(f"[{timestamp}] status={status}")
             return
-        
+
         if message.stream_type is StreamType.EVENTS:
             event_type = message.data.get("type", "event")
             level = message.data.get("level")
             msg = message.data.get("message") or ""
-            
+
             # Handle MIPRO-specific events for progress tracking (before skipping hidden events)
             if event_type == "mipro.job.started":
                 self._handle_mipro_job_started(message.data)
                 # Continue to default display
-            
+
             if event_type == "mipro.budget.update":
                 self._handle_mipro_budget_update(message.data)
                 # Continue to default display
-            
+
             if event_type == "mipro.trial.complete":
                 self._handle_mipro_trial_complete(message.data)
                 # Continue to default display
-            
+
             # Show more MIPRO events - only hide the most verbose ones
             _hidden_mipro_events = {
                 # Keep only the most verbose TPE updates hidden
@@ -1038,49 +988,48 @@ class PromptLearningHandler(StreamHandler):
             }
             if event_type in _hidden_mipro_events:
                 return
-            
+
             # Show GEPA transformation proposals - they're useful for debugging
             # if event_type == "gepa.transformation.proposed":
             #     return
-            
+
             # Handle trial results for optimization curve tracking
             if event_type == "prompt.learning.trial.results":
                 self._handle_trial_results(message.data)
                 # Continue to default display
-            
+
             # Handle validation summary
-            if event_type == "prompt.learning.validation.summary":
-                if self.show_validation:
-                    self._handle_validation_summary(message.data)
+            if event_type == "prompt.learning.validation.summary" and self.show_validation:
+                self._handle_validation_summary(message.data)
                 # Continue to default display
-            
+
             # Handle progress events
             if event_type == "prompt.learning.progress":
                 self._handle_progress(message.data)
                 # Continue to default display
-            
+
             # Handle MIPRO-specific events for progress tracking
             if event_type == "mipro.iteration.start":
                 self._handle_mipro_iteration_start(message.data)
                 # Continue to default display
-            
+
             if event_type == "mipro.iteration.complete":
                 self._handle_mipro_iteration_complete(message.data)
                 # Continue to default display
-            
+
             if event_type == "mipro.fulleval.complete":
                 self._handle_mipro_fulleval_complete(message.data)
                 # Continue to default display
-            
+
             if event_type == "mipro.optimization.exhausted":
                 # Graceful conclusion - show final progress
                 self._emit_mipro_progress()
                 # Continue to default display
-            
+
             if event_type == "mipro.new_incumbent":
                 self._handle_mipro_new_incumbent(message.data)
                 # Continue to default display
-            
+
             # Handle rollouts start event
             if event_type == "prompt.learning.rollouts.start":
                 self._handle_rollouts_start(message.data)
@@ -1105,7 +1054,7 @@ class PromptLearningHandler(StreamHandler):
             if event_type == "prompt.learning.proposal.scored":
                 self._handle_proposal_scored(message.data)
                 # Continue to default display
-            
+
             # Show verbose transformation events by default - they're useful
             # Only skip if explicitly disabled via show_transformations=False
             # verbose_event_types = [
@@ -1116,66 +1065,89 @@ class PromptLearningHandler(StreamHandler):
             # ]
             # if event_type in verbose_event_types and not self.show_transformations:
             #     return
-            
+
             # Default event display - show more details
             prefix = f"[{timestamp}] {event_type}"
             if level:
                 prefix += f" ({level})"
             sanitized_msg = _mask_sensitive_urls(msg)
-            
+
             # Include key data fields if message is empty or short
             if not sanitized_msg or len(sanitized_msg) < 50:
                 data = message.data.get("data", {})
                 if isinstance(data, dict):
                     # Show useful fields
                     useful_fields = []
-                    for key in ["reward", "score", "accuracy", "mean", "step", "iteration", "trial", "completed", "total", "version_id"]:
+                    for key in [
+                        "reward",
+                        "score",
+                        "accuracy",
+                        "mean",
+                        "step",
+                        "iteration",
+                        "trial",
+                        "completed",
+                        "total",
+                        "version_id",
+                    ]:
                         if key in data:
                             value = data[key]
                             if isinstance(value, (int, float)):
-                                useful_fields.append(f"{key}={value:.4f}" if isinstance(value, float) else f"{key}={value}")
+                                useful_fields.append(
+                                    f"{key}={value:.4f}"
+                                    if isinstance(value, float)
+                                    else f"{key}={value}"
+                                )
                             else:
                                 useful_fields.append(f"{key}={value}")
                     if useful_fields:
-                        sanitized_msg = sanitized_msg + (" " if sanitized_msg else "") + " ".join(useful_fields[:5])  # Limit to 5 fields
-            
+                        sanitized_msg = (
+                            sanitized_msg
+                            + (" " if sanitized_msg else "")
+                            + " ".join(useful_fields[:5])
+                        )  # Limit to 5 fields
+
             self._write_log(f"{prefix}: {sanitized_msg}".rstrip(": "))
             return
-        
+
         if message.stream_type is StreamType.METRICS:
             name = message.data.get("name")
             value = message.data.get("value")
             step = message.data.get("step")
             data = message.data.get("data", {})
-            
-            metric_str = f"[{timestamp}] [metric] {name}={value:.4f}" if isinstance(value, int | float) else f"[{timestamp}] [metric] {name}={value}"
+
+            metric_str = (
+                f"[{timestamp}] [metric] {name}={value:.4f}"
+                if isinstance(value, int | float)
+                else f"[{timestamp}] [metric] {name}={value}"
+            )
             if step is not None:
                 metric_str += f" (step={step})"
-            
+
             if isinstance(data, dict):
                 n = data.get("n")
                 if n is not None:
                     metric_str += f" n={n}"
-            
+
             self._write_log(metric_str)
             return
-        
+
         if message.stream_type is StreamType.TIMELINE:
             phase = message.data.get("phase", "phase")
             self._write_log(f"[{timestamp}] timeline={phase}")
-    
+
     def _handle_trial_results(self, event_data: dict[str, Any]) -> None:
         """Handle GEPA trial results events and track optimization curve.
-        
+
         Processes trial completion events from GEPA optimization, tracking:
         - Mean score for the trial
         - Best score achieved so far
         - Number of rollouts completed (N)
         - Optimization curve data points
-        
+
         Updates the optimization curve with (trial_number, best_score) tuples
         for visualization. Displays trial results if show_trial_results is True.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.mean: Mean score for this trial
@@ -1185,31 +1157,37 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         mean_score = data.get("mean")
         if mean_score is not None:
             self.trial_counter += 1
             self.best_score_so_far = max(self.best_score_so_far, float(mean_score))
             self.optimization_curve.append((self.trial_counter, self.best_score_so_far))
-            
+
             if self.show_trial_results:
                 timestamp = datetime.now().strftime("%H:%M:%S")
-                
+
                 # Extract N (number of rollouts)
                 completed = data.get("completed")
                 total = data.get("total")
-                
-                n_str = f" N={completed}/{total}" if completed is not None and total is not None else (f" N={completed}" if completed is not None else "")
-                
-                self._write_log(f"[{timestamp}] [Trial {self.trial_counter}] Score: {mean_score:.4f} (Best: {self.best_score_so_far:.4f}){n_str}")
-    
+
+                n_str = (
+                    f" N={completed}/{total}"
+                    if completed is not None and total is not None
+                    else (f" N={completed}" if completed is not None else "")
+                )
+
+                self._write_log(
+                    f"[{timestamp}] [Trial {self.trial_counter}] Score: {mean_score:.4f} (Best: {self.best_score_so_far:.4f}){n_str}"
+                )
+
     def _handle_validation_summary(self, event_data: dict[str, Any]) -> None:
         """Handle validation summary events showing candidate performance.
-        
+
         Displays validation results comparing optimized prompts against a baseline.
         Shows baseline score, number of candidates evaluated (N), and top candidate
         scores. Only displayed if show_validation is True.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.baseline: Baseline score (dict with objectives/reward or number)
@@ -1218,9 +1196,9 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         timestamp = datetime.now().strftime("%H:%M:%S")
-        
+
         # Extract baseline
         baseline = data.get("baseline")
         baseline_score = None
@@ -1231,24 +1209,24 @@ class PromptLearningHandler(StreamHandler):
             )
         elif isinstance(baseline, int | float):
             baseline_score = float(baseline)
-        
+
         # Extract results
         results = data.get("results", [])
         if not isinstance(results, list):
             results = []
-        
+
         # Display validation summary
         self._write_log(f"[{timestamp}] Validation Summary:")
-        
+
         # Show baseline if available
         if baseline_score is not None:
             self._write_log(f"  Baseline: {baseline_score:.4f}")
-        
+
         # Show N (number of candidates)
         n_candidates = len(results)
         if n_candidates > 0:
             self._write_log(f"  N={n_candidates}")
-        
+
         # Display validation results
         if results:
             for i, result in enumerate(results[:10]):  # Show top 10
@@ -1258,20 +1236,20 @@ class PromptLearningHandler(StreamHandler):
                         fallback_keys=["accuracy", "score", "best_score"],
                     )
                     if reward_val is not None:
-                        self._write_log(f"  Candidate {i+1}: {reward_val:.4f}")
-    
+                        self._write_log(f"  Candidate {i + 1}: {reward_val:.4f}")
+
     def _handle_progress(self, event_data: dict[str, Any]) -> None:
         """Handle GEPA progress events with detailed rollout and transformation tracking.
-        
+
         Displays comprehensive progress information including:
         - Overall completion percentage
         - Rollout progress (completed/total with percentage)
         - Transformation progress (tried/planned with percentage)
         - Token usage (used/budget in millions)
         - Elapsed time and ETA
-        
+
         Formats progress in a human-readable format similar to CLI progress bars.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.rollouts_completed: Number of rollouts completed
@@ -1287,37 +1265,37 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         timestamp = datetime.now().strftime("%H:%M:%S")
-        
+
         # Extract rollout progress
         rollouts_completed = data.get("rollouts_completed")
         rollouts_total = data.get("rollouts_total")
         percent_rollouts = data.get("percent_rollouts")
-        
+
         # Extract transformation progress
         transformations_tried = data.get("transformations_tried")
         transformations_planned = data.get("transformations_planned")
         percent_transformations = data.get("percent_transformations")
-        
+
         # Extract overall progress
         percent_overall = data.get("percent_overall")
-        
+
         # Extract timing
         elapsed_seconds = data.get("elapsed_seconds")
         eta_seconds = data.get("eta_seconds")
-        
+
         # Extract token usage
         rollout_tokens_used = data.get("rollout_tokens_used")
         rollout_tokens_budget = data.get("rollout_tokens_budget")
-        
+
         # Build progress message
         parts = []
-        
+
         # Overall percentage
         if percent_overall is not None:
             parts.append(f"{int(percent_overall * 100)}% complete")
-        
+
         # Rollout progress
         if rollouts_completed is not None and rollouts_total is not None:
             parts.append(f"rollouts={rollouts_completed}/{rollouts_total}")
@@ -1325,7 +1303,7 @@ class PromptLearningHandler(StreamHandler):
                 parts.append(f"({int(percent_rollouts * 100)}%)")
         elif rollouts_completed is not None:
             parts.append(f"rollouts={rollouts_completed}")
-        
+
         # Transformation progress
         if transformations_tried is not None and transformations_planned is not None:
             parts.append(f"transformations={transformations_tried}/{transformations_planned}")
@@ -1333,7 +1311,7 @@ class PromptLearningHandler(StreamHandler):
                 parts.append(f"({int(percent_transformations * 100)}%)")
         elif transformations_tried is not None:
             parts.append(f"transformations={transformations_tried}")
-        
+
         # Token usage
         if rollout_tokens_used is not None:
             tokens_millions = rollout_tokens_used / 1_000_000.0
@@ -1342,7 +1320,7 @@ class PromptLearningHandler(StreamHandler):
                 parts.append(f"tokens={tokens_millions:.2f}M/{budget_millions:.2f}M")
             else:
                 parts.append(f"tokens={tokens_millions:.2f}M")
-        
+
         # Timing
         if elapsed_seconds is not None:
             if elapsed_seconds >= 60:
@@ -1350,29 +1328,29 @@ class PromptLearningHandler(StreamHandler):
             else:
                 elapsed_str = f"{int(elapsed_seconds)}s"
             parts.append(f"elapsed={elapsed_str}")
-        
+
         if eta_seconds is not None:
             eta_str = f"{eta_seconds / 60:.1f}min" if eta_seconds >= 60 else f"{int(eta_seconds)}s"
             parts.append(f"eta={eta_str}")
-        
+
         # Fallback to simple step/total_steps if no detailed info
         if not parts:
             step = data.get("step") or data.get("current_step")
             total_steps = data.get("total_steps") or data.get("max_steps")
             if step is not None and total_steps is not None:
                 parts.append(f"{step}/{total_steps} ({100 * step / total_steps:.1f}%)")
-        
+
         if parts:
             progress_msg = " ".join(parts)
             self._write_log(f"[{timestamp}] Progress: {progress_msg}")
-    
+
     def _handle_rollouts_start(self, event_data: dict[str, Any]) -> None:
         """Handle GEPA rollouts start event.
-        
+
         Displays when rollouts begin, showing the number of training seeds
         that will be evaluated. This marks the start of the main optimization
         phase for GEPA.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.train_seeds: List of training seed values
@@ -1380,10 +1358,10 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         train_seeds = data.get("train_seeds", [])
-        
+
         if isinstance(train_seeds, list) and train_seeds:
             num_seeds = len(train_seeds)
             self._write_log(f"[{timestamp}] Starting rollouts: {num_seeds} seeds")
@@ -1463,11 +1441,11 @@ class PromptLearningHandler(StreamHandler):
 
     def _handle_mipro_job_started(self, event_data: dict[str, Any]) -> None:
         """Handle MIPRO job start event and extract configuration.
-        
+
         Captures initial MIPRO configuration from the job start event to enable
         progress tracking. Extracts num_iterations and num_trials_per_iteration
         to estimate total trials and rollouts.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.num_iterations: Total number of optimization iterations
@@ -1476,28 +1454,28 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         # Extract config values to estimate max rollouts
         num_iterations = data.get("num_iterations")
         num_trials_per_iteration = data.get("num_trials_per_iteration")
-        
+
         if num_iterations is not None:
             self.mipro_num_iterations = num_iterations
         if num_trials_per_iteration is not None:
             self.mipro_trials_per_iteration = num_trials_per_iteration
-    
+
     def _handle_mipro_iteration_start(self, event_data: dict[str, Any]) -> None:
         """Handle MIPRO iteration start event and initialize progress tracking.
-        
+
         Called at the start of each MIPRO iteration. On the first iteration (0),
         initializes all progress tracking variables including:
         - Total iterations and trials per iteration
         - Batch size (for minibatch evaluations)
         - Max rollouts estimate (iterations * trials * batch_size)
         - Time and token budgets
-        
+
         Sets the start time for elapsed time tracking.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.iteration: Current iteration number (0-indexed)
@@ -1509,26 +1487,30 @@ class PromptLearningHandler(StreamHandler):
                 - data.max_time_seconds: Maximum time limit (optional)
         """
         import time
-        
+
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         iteration = data.get("iteration")
         if iteration == 0 and self.mipro_start_time is None:
             self.mipro_start_time = time.time()
-        
+
         # Extract total iterations and trials per iteration from first iteration
         if iteration == 0:
             self.mipro_num_iterations = data.get("num_iterations") or self.mipro_num_iterations
-            self.mipro_trials_per_iteration = data.get("num_trials_per_iteration") or self.mipro_trials_per_iteration
+            self.mipro_trials_per_iteration = (
+                data.get("num_trials_per_iteration") or self.mipro_trials_per_iteration
+            )
             batch_size = data.get("batch_size")
             if batch_size is not None:
                 self.mipro_batch_size = batch_size
-            
+
             if self.mipro_num_iterations and self.mipro_trials_per_iteration:
-                self.mipro_total_trials = self.mipro_num_iterations * self.mipro_trials_per_iteration
-            
+                self.mipro_total_trials = (
+                    self.mipro_num_iterations * self.mipro_trials_per_iteration
+                )
+
             # Extract max limits if available (from events, but TOML value takes precedence)
             # Only override if TOML value wasn't set
             max_trials = data.get("max_trials")
@@ -1540,27 +1522,37 @@ class PromptLearningHandler(StreamHandler):
                 elif max_trials is not None:
                     # Fallback: If max_trials is set, use it as max rollouts (approximation)
                     self.mipro_max_rollouts = max_trials
-                elif self.mipro_num_iterations and self.mipro_trials_per_iteration and self.mipro_batch_size:
+                elif (
+                    self.mipro_num_iterations
+                    and self.mipro_trials_per_iteration
+                    and self.mipro_batch_size
+                ):
                     # Estimate max rollouts: iterations * trials_per_iteration * batch_size
-                    self.mipro_max_rollouts = self.mipro_num_iterations * self.mipro_trials_per_iteration * self.mipro_batch_size
-            
+                    self.mipro_max_rollouts = (
+                        self.mipro_num_iterations
+                        * self.mipro_trials_per_iteration
+                        * self.mipro_batch_size
+                    )
+
             max_time_seconds = data.get("max_time_seconds") or data.get("max_wall_clock_seconds")
             if max_time_seconds is not None and self.mipro_max_time_seconds is None:
                 # Use event value only if TOML value wasn't set
                 self.mipro_max_time_seconds = float(max_time_seconds)
-        
-        self.mipro_current_iteration = iteration if iteration is not None else self.mipro_current_iteration
-    
+
+        self.mipro_current_iteration = (
+            iteration if iteration is not None else self.mipro_current_iteration
+        )
+
     def _handle_mipro_iteration_complete(self, event_data: dict[str, Any]) -> None:
         """Handle MIPRO iteration completion event.
-        
+
         Updates progress tracking when an iteration completes, including:
         - Cumulative trial count
         - Current iteration number
-        
+
         Emits a progress update showing overall progress, trials completed,
         iterations, rollouts, tokens, and time.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.iteration: Completed iteration number
@@ -1569,31 +1561,31 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         cumulative = data.get("cumulative")
         if cumulative is not None:
             self.mipro_completed_trials = cumulative
-        
+
         # Update current iteration
         iteration = data.get("iteration")
         if iteration is not None:
             self.mipro_current_iteration = iteration
-        
+
         # Emit progress update
         self._emit_mipro_progress()
-    
+
     def _handle_mipro_trial_complete(self, event_data: dict[str, Any]) -> None:
         """Handle MIPRO trial completion event (minibatch evaluation).
-        
+
         Processes minibatch trial completion events, which occur frequently during
         MIPRO optimization. Tracks:
         - Completed trial count
         - Rollouts completed (from num_seeds)
         - Minibatch scores (displayed if show_trial_results is True)
-        
+
         Displays trial results in GEPA-like format: [Trial X] Score: Y (Best: Z) N=W
         where N is the minibatch size. Emits throttled progress updates.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.minibatch_score: Score from minibatch evaluation
@@ -1604,55 +1596,63 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         # Increment completed trials counter
         self.mipro_completed_trials += 1
-        
+
         # Count rollouts from trial events
         num_seeds = data.get("num_seeds") or data.get("num_instances", 0)
         if num_seeds:
             self.mipro_rollouts_completed += num_seeds
-        
+
         # Show trial score (minibatch) - like GEPA trial format
         if self.show_trial_results:
             timestamp = datetime.now().strftime("%H:%M:%S")
             minibatch_score = data.get("minibatch_score")
             iteration = data.get("iteration")
             trial = data.get("trial")
-            
+
             if minibatch_score is not None:
                 try:
                     score_float = float(minibatch_score)
                     # Calculate trial number for display
-                    if iteration is not None and trial is not None and self.mipro_trials_per_iteration:
-                        trial_num_display = (iteration * self.mipro_trials_per_iteration) + (trial + 1)
+                    if (
+                        iteration is not None
+                        and trial is not None
+                        and self.mipro_trials_per_iteration
+                    ):
+                        trial_num_display = (iteration * self.mipro_trials_per_iteration) + (
+                            trial + 1
+                        )
                     else:
                         trial_num_display = self.mipro_completed_trials
-                    
+
                     n_str = f" N={num_seeds}" if num_seeds else ""
-                    best_str = f" (Best: {self.mipro_best_score:.4f})" if self.mipro_best_score > 0 else ""
-                    
+                    best_str = (
+                        f" (Best: {self.mipro_best_score:.4f})" if self.mipro_best_score > 0 else ""
+                    )
+
                     self._write_log(
                         f"[{timestamp}] [Trial {trial_num_display}] Score: {score_float:.4f}{best_str}{n_str}"
                     )
                 except (ValueError, TypeError):
                     pass
-        
+
         # Emit progress update after each trial (throttled internally)
         self._emit_mipro_progress()
-    
+
     def _handle_mipro_fulleval_complete(self, event_data: dict[str, Any]) -> None:
         """Handle MIPRO full evaluation completion event.
-        
+
         Processes full evaluation events, which occur less frequently than minibatch
         trials. Full evaluations use the full validation set and are more expensive.
         Only displays results if the score is "promising":
         - Better than current best score, OR
         - At least 5% improvement over baseline
-        
+
         Tracks rollouts from full evaluations and updates best score. Displays
         results with baseline comparison and improvement percentage.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.score: Full evaluation score
@@ -1664,27 +1664,27 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         # Count rollouts from full eval
         num_seeds = data.get("num_seeds") or data.get("seeds", 0)
         if isinstance(num_seeds, list):
             num_seeds = len(num_seeds)
         if num_seeds:
             self.mipro_rollouts_completed += num_seeds
-        
+
         score = data.get("score")
         if score is None:
             return
-        
+
         try:
             score_float = float(score)
         except (ValueError, TypeError):
             return
-        
+
         # Initialize baseline if not set (use first score as baseline)
         if self.mipro_baseline_score is None:
             self.mipro_baseline_score = score_float
-        
+
         # Only show if score is promising:
         # - Better than current best, OR
         # - At least 5% improvement over baseline
@@ -1694,10 +1694,14 @@ class PromptLearningHandler(StreamHandler):
             is_promising = True
         elif self.mipro_baseline_score is not None:
             improvement = score_float - self.mipro_baseline_score
-            improvement_pct = (improvement / self.mipro_baseline_score * 100) if self.mipro_baseline_score > 0 else 0
+            improvement_pct = (
+                (improvement / self.mipro_baseline_score * 100)
+                if self.mipro_baseline_score > 0
+                else 0
+            )
             if improvement_pct >= 5.0:  # At least 5% improvement over baseline
                 is_promising = True
-        
+
         if is_promising:
             timestamp = datetime.now().strftime("%H:%M:%S")
             iteration = data.get("iteration")
@@ -1705,29 +1709,35 @@ class PromptLearningHandler(StreamHandler):
             seeds = data.get("seeds") or data.get("num_seeds", 0)
             if isinstance(seeds, list):
                 seeds = len(seeds)
-            
+
             # Format similar to GEPA trial results with N displayed
             iter_str = f" iter={iteration}" if iteration is not None else ""
             trial_str = f" trial={trial}" if trial is not None else ""
             n_str = f" N={seeds}" if seeds else ""
-            
+
             baseline_str = ""
             if self.mipro_baseline_score is not None:
                 improvement = score_float - self.mipro_baseline_score
-                improvement_pct = (improvement / self.mipro_baseline_score * 100) if self.mipro_baseline_score > 0 else 0
-                baseline_str = f" (Baseline: {self.mipro_baseline_score:.4f}, +{improvement_pct:.1f}%)"
-            
+                improvement_pct = (
+                    (improvement / self.mipro_baseline_score * 100)
+                    if self.mipro_baseline_score > 0
+                    else 0
+                )
+                baseline_str = (
+                    f" (Baseline: {self.mipro_baseline_score:.4f}, +{improvement_pct:.1f}%)"
+                )
+
             self._write_log(
                 f"[{timestamp}] Full eval: Score={score_float:.4f} (Best: {self.mipro_best_score:.4f}){n_str}{baseline_str}{iter_str}{trial_str}"
             )
-    
+
     def _handle_mipro_new_incumbent(self, event_data: dict[str, Any]) -> None:
         """Handle MIPRO new incumbent event (best candidate found).
-        
+
         Processes events when MIPRO finds a new best candidate (incumbent).
         Updates the optimization curve and displays the result in GEPA-like format
         for consistency. Tracks cumulative trial count for curve visualization.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.minibatch_score: Minibatch score of the new incumbent
@@ -1740,22 +1750,22 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         minibatch_score = data.get("minibatch_score")
         best_score = data.get("best_score")
         iteration = data.get("iteration")
         trial = data.get("trial")
         num_seeds = data.get("num_seeds")  # N for minibatch
-        
+
         if minibatch_score is None:
             return
-        
+
         try:
             score_float = float(minibatch_score)
         except (ValueError, TypeError):
             return
-        
+
         # Update best score if this is better
         if best_score is not None:
             best_float = float(best_score)
@@ -1763,7 +1773,7 @@ class PromptLearningHandler(StreamHandler):
                 self.best_score_so_far = best_float
         elif score_float > self.best_score_so_far:
             self.best_score_so_far = score_float
-        
+
         # Track optimization curve
         if trial is not None:
             # Use cumulative trial count for x-axis
@@ -1776,32 +1786,36 @@ class PromptLearningHandler(StreamHandler):
                     trial_num = (iteration * self.mipro_trials_per_iteration) + (trial + 1)
                 else:
                     trial_num = self.trial_counter + 1
-            
+
             self.optimization_curve.append((trial_num, self.best_score_so_far))
             self.trial_counter = trial_num
-        
+
         # Format like GEPA: [Trial X] Score: X (Best: Y) N=Z
-        trial_num_display = self.trial_counter if self.trial_counter > 0 else (trial + 1 if trial is not None else 1)
+        trial_num_display = (
+            self.trial_counter
+            if self.trial_counter > 0
+            else (trial + 1 if trial is not None else 1)
+        )
         n_str = f" N={num_seeds}" if num_seeds is not None else ""
-        
+
         click.echo(
             f"[{timestamp}] [Trial {trial_num_display}] Score: {score_float:.4f} (Best: {self.best_score_so_far:.4f}){n_str}"
         )
-        
+
         # Emit progress update after each trial (throttled internally)
         self._emit_mipro_progress()
-    
+
     def _handle_mipro_budget_update(self, event_data: dict[str, Any]) -> None:
         """Handle MIPRO budget update events.
-        
+
         Tracks token usage and cost accumulation during optimization. Updates:
         - Total tokens consumed (all operations)
         - Policy tokens (rollout tokens only)
         - Total cost in USD
         - Max token and cost limits (if provided in event)
-        
+
         Emits throttled progress updates to show budget consumption.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.total_tokens: Total tokens consumed
@@ -1813,37 +1827,37 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         # Update token tracking
         total_tokens = data.get("total_tokens")
         if total_tokens is not None:
             self.mipro_total_tokens = total_tokens
-        
+
         # Track policy tokens separately (rollout tokens)
         policy_tokens = data.get("policy_tokens")
         if policy_tokens is not None:
             self.mipro_policy_tokens = policy_tokens
-        
+
         # Update cost tracking
         total_cost = data.get("total_cost_usd")
         if total_cost is not None:
             self.mipro_total_cost = total_cost
-        
+
         # Extract max limits if available in event data
         max_token_limit = data.get("max_token_limit")
         if max_token_limit is not None:
             self.mipro_max_tokens = max_token_limit
-        
+
         max_spend_usd = data.get("max_spend_usd")
         if max_spend_usd is not None:
             self.mipro_max_cost = max_spend_usd
-        
+
         # Emit progress update periodically (throttled)
         self._emit_mipro_progress()
-    
+
     def _emit_mipro_progress(self) -> None:
         """Emit a comprehensive progress update for MIPRO (throttled).
-        
+
         Formats and displays MIPRO progress in a format similar to GEPA for consistency.
         Shows:
         - Overall completion percentage
@@ -1853,40 +1867,40 @@ class PromptLearningHandler(StreamHandler):
         - Token usage (used/budget in millions)
         - Cost (USD)
         - Elapsed time and ETA
-        
+
         Progress updates are throttled to emit at most every 5 seconds to avoid
         overwhelming the console. This method is called after significant events
         (trial completion, iteration completion, budget updates).
-        
+
         Note:
             Only emits if start_time is set (job has started) and sufficient time
             has passed since the last update.
         """
         import time
-        
+
         if self.mipro_start_time is None:
             return
-        
+
         # Throttle progress updates - only emit every N seconds
         now = time.time()
         if self._last_progress_emit_time is not None:
             time_since_last = now - self._last_progress_emit_time
             if time_since_last < self._progress_emit_interval:
                 return  # Skip this update
-        
+
         self._last_progress_emit_time = now
-        
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         elapsed = now - self.mipro_start_time
-        
+
         parts = []
-        
+
         # Overall progress percentage
         percent_overall = None
         if self.mipro_total_trials and self.mipro_completed_trials is not None:
             percent_overall = (self.mipro_completed_trials / self.mipro_total_trials) * 100
             parts.append(f"{int(percent_overall)}% complete")
-        
+
         # Trial progress (like rollouts in GEPA)
         if self.mipro_total_trials and self.mipro_completed_trials is not None:
             parts.append(f"trials={self.mipro_completed_trials}/{self.mipro_total_trials}")
@@ -1899,55 +1913,75 @@ class PromptLearningHandler(StreamHandler):
                 parts.append(f"({int(percent_overall)}%)")
         elif self.mipro_completed_trials is not None:
             parts.append(f"trials={self.mipro_completed_trials}")
-        
+
         # Iteration progress
         if self.mipro_num_iterations and self.mipro_current_iteration is not None:
             parts.append(f"iter={self.mipro_current_iteration + 1}/{self.mipro_num_iterations}")
-        
+
         # Rollouts completed vs max (like GEPA) - always show if we have any rollouts
         if self.mipro_rollouts_completed > 0:
             # Always try to show max if available (from TOML, event, or estimate)
             max_rollouts_to_show = self.mipro_max_rollouts
             if max_rollouts_to_show is None and self.mipro_total_trials and self.mipro_batch_size:
                 # Estimate max rollouts from total trials if available
-                    max_rollouts_to_show = self.mipro_total_trials * self.mipro_batch_size
-            
+                max_rollouts_to_show = self.mipro_total_trials * self.mipro_batch_size
+
             if max_rollouts_to_show:
                 rollouts_pct = (self.mipro_rollouts_completed / max_rollouts_to_show) * 100
-                parts.append(f"rollouts={self.mipro_rollouts_completed}/{max_rollouts_to_show} ({int(rollouts_pct)}%)")
+                parts.append(
+                    f"rollouts={self.mipro_rollouts_completed}/{max_rollouts_to_show} ({int(rollouts_pct)}%)"
+                )
             else:
                 parts.append(f"rollouts={self.mipro_rollouts_completed}")
-        
+
         # Tokens (policy tokens only, like GEPA rollout_tokens) - always show max if available
         if self.mipro_policy_tokens > 0:
             rollout_tokens_millions = self.mipro_policy_tokens / 1_000_000.0
             if self.mipro_max_tokens:
                 # Use max_tokens as budget for rollout tokens (approximation)
                 budget_millions = self.mipro_max_tokens / 1_000_000.0
-                tokens_pct = (self.mipro_policy_tokens / self.mipro_max_tokens * 100) if self.mipro_max_tokens > 0 else 0
-                parts.append(f"tokens={rollout_tokens_millions:.2f}M/{budget_millions:.2f}M ({int(tokens_pct)}%)")
+                tokens_pct = (
+                    (self.mipro_policy_tokens / self.mipro_max_tokens * 100)
+                    if self.mipro_max_tokens > 0
+                    else 0
+                )
+                parts.append(
+                    f"tokens={rollout_tokens_millions:.2f}M/{budget_millions:.2f}M ({int(tokens_pct)}%)"
+                )
             else:
                 parts.append(f"tokens={rollout_tokens_millions:.2f}M")
-        
+
         # Timing (elapsed out of max, like GEPA)
         elapsed_seconds = int(elapsed)
         if self.mipro_max_time_seconds:
-            elapsed_pct = (elapsed / self.mipro_max_time_seconds * 100) if self.mipro_max_time_seconds > 0 else 0
+            elapsed_pct = (
+                (elapsed / self.mipro_max_time_seconds * 100)
+                if self.mipro_max_time_seconds > 0
+                else 0
+            )
             max_time_minutes = self.mipro_max_time_seconds / 60.0
             if elapsed_seconds >= 60:
-                elapsed_str = f"{elapsed_seconds / 60:.1f}min/{max_time_minutes:.1f}min ({int(elapsed_pct)}%)"
+                elapsed_str = (
+                    f"{elapsed_seconds / 60:.1f}min/{max_time_minutes:.1f}min ({int(elapsed_pct)}%)"
+                )
             else:
-                elapsed_str = f"{elapsed_seconds}s/{int(self.mipro_max_time_seconds)}s ({int(elapsed_pct)}%)"
+                elapsed_str = (
+                    f"{elapsed_seconds}s/{int(self.mipro_max_time_seconds)}s ({int(elapsed_pct)}%)"
+                )
         else:
             if elapsed_seconds >= 60:
                 elapsed_str = f"{elapsed_seconds / 60:.1f}min"
             else:
                 elapsed_str = f"{elapsed_seconds}s"
         parts.append(f"elapsed={elapsed_str}")
-        
+
         # ETA calculation (similar to GEPA) - always show if we have progress
         eta_seconds = None
-        if self.mipro_completed_trials is not None and self.mipro_completed_trials > 0 and elapsed > 0:
+        if (
+            self.mipro_completed_trials is not None
+            and self.mipro_completed_trials > 0
+            and elapsed > 0
+        ):
             rate = self.mipro_completed_trials / elapsed
             if rate > 0:
                 if self.mipro_total_trials:
@@ -1958,27 +1992,34 @@ class PromptLearningHandler(StreamHandler):
                 else:
                     # Estimate based on iterations if we don't have total trials
                     if self.mipro_num_iterations and self.mipro_current_iteration is not None:
-                        remaining_iterations = self.mipro_num_iterations - (self.mipro_current_iteration + 1)
+                        remaining_iterations = self.mipro_num_iterations - (
+                            self.mipro_current_iteration + 1
+                        )
                         if remaining_iterations > 0 and self.mipro_trials_per_iteration:
                             # Estimate: assume same rate for remaining iterations
-                            remaining_trials_estimate = remaining_iterations * self.mipro_trials_per_iteration
+                            remaining_trials_estimate = (
+                                remaining_iterations * self.mipro_trials_per_iteration
+                            )
                             eta_seconds = remaining_trials_estimate / rate
-        
+
         if eta_seconds is not None and eta_seconds > 0:
             eta_str = f"{eta_seconds / 60:.1f}min" if eta_seconds >= 60 else f"{int(eta_seconds)}s"
             parts.append(f"eta={eta_str}")
-        
+
         if parts:
             progress_msg = " ".join(parts)
             self._write_log(f"[{timestamp}] Progress: {progress_msg}")
-    
+
     def flush(self) -> None:
         """Flush buffered output and close log file."""
         if self._log_file_handle:
             try:
                 from datetime import datetime
+
                 self._log_file_handle.write("\n" + "=" * 80 + "\n")
-                self._log_file_handle.write(f"Ended: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                self._log_file_handle.write(
+                    f"Ended: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                )
                 self._log_file_handle.write("=" * 80 + "\n")
                 self._log_file_handle.flush()
                 self._log_file_handle.close()
@@ -1986,14 +2027,14 @@ class PromptLearningHandler(StreamHandler):
                 pass
             finally:
                 self._log_file_handle = None
-    
+
     def _handle_proposal_scored(self, event_data: dict[str, Any]) -> None:
         """Handle GEPA proposal scored events (transformations).
-        
+
         Displays transformation/proposal scoring events from GEPA optimization.
         Only called if show_transformations is True (default: False) to avoid
         verbose output. Shows the score assigned to each proposed transformation.
-        
+
         Args:
             event_data: Event data dictionary containing:
                 - data.score: Score assigned to the transformation/proposal
@@ -2002,7 +2043,7 @@ class PromptLearningHandler(StreamHandler):
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
-        
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         score = data.get("score")
         if score is not None:

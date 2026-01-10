@@ -1,12 +1,13 @@
 """
 Generate functional descriptions for ALL screenshots in the dataset.
 """
-import os
+
 import json
+import os
 from pathlib import Path
+
 import google.generativeai as genai
 from tqdm import tqdm
-
 
 FUNCTIONAL_DESCRIPTION_PROMPT = """You are analyzing a screenshot of a web page. Your task is to create a detailed FUNCTIONAL description of the page.
 
@@ -60,25 +61,21 @@ def generate_functional_description(image_path: str, api_key: str) -> dict:
     genai.configure(api_key=api_key)
 
     # Create model
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
     # Load image
-    with open(image_path, 'rb') as f:
+    with open(image_path, "rb") as f:
         image_data = f.read()
 
     # Create the prompt with image
-    response = model.generate_content([
-        FUNCTIONAL_DESCRIPTION_PROMPT,
-        {
-            'mime_type': 'image/png',
-            'data': image_data
-        }
-    ])
+    response = model.generate_content(
+        [FUNCTIONAL_DESCRIPTION_PROMPT, {"mime_type": "image/png", "data": image_data}]
+    )
 
     return {
         "image_path": str(image_path),
         "functional_description": response.text,
-        "model": "gemini-2.0-flash-exp"
+        "model": "gemini-2.0-flash-exp",
     }
 
 
@@ -109,7 +106,7 @@ def main():
     # Check if we already have descriptions
     output_file = Path(__file__).parent / "all_functional_descriptions.json"
     if output_file.exists():
-        with open(output_file, 'r') as f:
+        with open(output_file) as f:
             existing_results = json.load(f)
         existing_paths = {r["image_path"] for r in existing_results}
         print(f"Found {len(existing_results)} existing descriptions")
@@ -136,18 +133,15 @@ def main():
 
             # Save incrementally every 10 images
             if len(results) % 10 == 0:
-                with open(output_file, 'w') as f:
+                with open(output_file, "w") as f:
                     json.dump(results, f, indent=2)
 
         except Exception as e:
             print(f"\nError processing {img_path}: {e}")
-            failed.append({
-                "image_path": str(img_path),
-                "error": str(e)
-            })
+            failed.append({"image_path": str(img_path), "error": str(e)})
 
     # Final save
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
 
     print(f"\n✓ Generated {len(results)} functional descriptions")
@@ -159,7 +153,7 @@ def main():
             print(f"  - {f['image_path']}: {f['error']}")
 
         failed_file = Path(__file__).parent / "failed_descriptions.json"
-        with open(failed_file, 'w') as f:
+        with open(failed_file, "w") as f:
             json.dump(failed, f, indent=2)
         print(f"✓ Failed images saved to {failed_file}")
 

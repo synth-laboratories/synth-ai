@@ -23,7 +23,11 @@ if db_path_env:
     print(f"[celery_app] Database file will be: {db_path_resolved}", file=sys.stderr, flush=True)
 else:
     # Will use default path from config (~/.synth_ai/experiment_queue.db)
-    print("[celery_app] EXPERIMENT_QUEUE_DB_PATH not set, will use default path", file=sys.stderr, flush=True)
+    print(
+        "[celery_app] EXPERIMENT_QUEUE_DB_PATH not set, will use default path",
+        file=sys.stderr,
+        flush=True,
+    )
 
 from celery import Celery  # noqa: E402
 
@@ -42,13 +46,13 @@ def _create_celery_app() -> Celery:
     # Load config (will use EXPERIMENT_QUEUE_DB_PATH if set, otherwise default path)
     reset_config_cache()
     config = load_config()
-    
+
     # Log which database path is being used
     env_db_path = os.getenv("EXPERIMENT_QUEUE_DB_PATH")
     if env_db_path:
         env_db_path_resolved = Path(env_db_path).expanduser().resolve()
         config_db_path_resolved = config.sqlite_path.resolve()
-        
+
         # Verify database path matches environment variable if env var is set
         if config_db_path_resolved != env_db_path_resolved:
             error_msg = (
@@ -70,15 +74,15 @@ def _create_celery_app() -> Celery:
             file=sys.stderr,
             flush=True,
         )
-    
+
     # CRITICAL: Ensure database path is unique and enforce single instance
     # Verify no other process is using a different database path
     db_file = str(config.sqlite_path)
     Path(db_file).parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Initialize database (for our application DB only - Celery uses Redis broker)
     init_db()
-    
+
     # Log database path for debugging (especially in worker subprocess)
     # Use print to stderr to ensure it's visible even if logging isn't configured
     print(
@@ -118,29 +122,29 @@ def _create_celery_app() -> Celery:
             },
         },
     )
-    
+
     # Redis broker - no need to pre-create tables or configure WAL mode
     # Redis handles concurrency natively, no SQLite locking issues
-    
+
     return app
 
 
 def get_celery_app() -> Celery:
     """Return the shared Celery app, recreating it if config has changed.
-    
+
     This function checks if the config cache was cleared (by comparing
     current broker URL to cached one) and recreates the app if needed.
     This ensures CLI and worker use the same database when env vars change.
-    
+
     Uses EXPERIMENT_QUEUE_DB_PATH if set, otherwise defaults to ~/.synth_ai/experiment_queue.db
     """
     global _celery_app_instance, _celery_app_broker_url
-    
+
     # Check if config has changed by comparing broker URLs
     # load_config() will use EXPERIMENT_QUEUE_DB_PATH if set, otherwise default path
     current_config = load_config()
     current_broker_url = current_config.broker_url
-    
+
     if _celery_app_instance is None or _celery_app_broker_url != current_broker_url:
         # Config changed or app not initialized - recreate it
         logger.debug(
@@ -150,7 +154,7 @@ def get_celery_app() -> Celery:
         )
         _celery_app_instance = _create_celery_app()
         _celery_app_broker_url = current_broker_url
-    
+
     return _celery_app_instance
 
 
@@ -164,9 +168,10 @@ except RuntimeError as e:
     # This allows the module to be imported but will fail when celery_app is actually used
     class _LazyCeleryApp:
         """Placeholder that raises error when Celery app initialization fails."""
+
         def __init__(self, original_error: RuntimeError):
             self._original_error = original_error
-        
+
         def __getattr__(self, name):
             # Special handling for 'task' attribute used in decorators
             # This allows @celery_app.task decorators to be defined without immediate error
@@ -188,21 +193,24 @@ except RuntimeError as e:
                                     f"Original error: {self._original_error}, "
                                     f"Runtime error: {runtime_err}"
                                 ) from runtime_err
+
                         return wrapper
+
                     return decorator
+
                 return task_decorator
             raise RuntimeError(
-                f"Failed to initialize Celery app. "
-                f"Original error: {self._original_error}"
+                f"Failed to initialize Celery app. Original error: {self._original_error}"
             )
+
         def __call__(self, *args, **kwargs):
             raise RuntimeError(
-                f"Failed to initialize Celery app. "
-                f"Original error: {self._original_error}"
+                f"Failed to initialize Celery app. Original error: {self._original_error}"
             )
+
         def __getitem__(self, key):
             raise RuntimeError(
-                f"Failed to initialize Celery app. "
-                f"Original error: {self._original_error}"
+                f"Failed to initialize Celery app. Original error: {self._original_error}"
             )
+
     celery_app = _LazyCeleryApp(e)  # type: ignore[assignment]

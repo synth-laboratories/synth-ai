@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -108,7 +108,19 @@ def normalize_action_name(action: str) -> Optional[str]:
         if "iron" in tokens:
             return "make_iron_sword"
 
-    if tokens & {"interact", "collect", "gather", "mine", "chop", "attack", "fight", "harvest", "do", "pick", "grab"}:
+    if tokens & {
+        "interact",
+        "collect",
+        "gather",
+        "mine",
+        "chop",
+        "attack",
+        "fight",
+        "harvest",
+        "do",
+        "pick",
+        "grab",
+    }:
         return "do"
 
     if {"left", "west"} & tokens:
@@ -241,7 +253,9 @@ class CrafterEnvironmentWrapper:
 class CrafterVLMReActPolicy:
     """VLM ReAct policy for Crafter - image-only mode."""
 
-    def __init__(self, system_prompt: str, *, use_vision: bool = True, image_only_mode: bool = True) -> None:
+    def __init__(
+        self, system_prompt: str, *, use_vision: bool = True, image_only_mode: bool = True
+    ) -> None:
         self.system_prompt = system_prompt
         self.use_vision = use_vision
         self.image_only_mode = image_only_mode

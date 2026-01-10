@@ -66,29 +66,29 @@ from typing import Any
 
 # Re-export from cloudflare.py (no wrappers - these are the actual functions)
 from synth_ai.core.integrations.cloudflare import (
+    # Health checks (NEW)
+    HealthResult,
+    ManagedTunnelRecord,
+    check_all_tunnels_health,
+    check_all_tunnels_health_sync,
+    check_tunnel_health,
+    check_tunnel_health_sync,
     # Tunnel lifecycle
     create_tunnel,
+    # Installation
+    ensure_cloudflared_installed,
+    # Discovery
+    fetch_managed_tunnels,
+    get_cloudflared_path,
     open_managed_tunnel,
     open_quick_tunnel,
     open_quick_tunnel_with_dns_verification,
+    require_cloudflared,
     rotate_tunnel,
     stop_tunnel,
     # Verification
     verify_tunnel_dns_resolution,
     wait_for_health_check,
-    # Installation
-    ensure_cloudflared_installed,
-    get_cloudflared_path,
-    require_cloudflared,
-    # Discovery
-    fetch_managed_tunnels,
-    ManagedTunnelRecord,
-    # Health checks (NEW)
-    HealthResult,
-    check_tunnel_health,
-    check_tunnel_health_sync,
-    check_all_tunnels_health,
-    check_all_tunnels_health_sync,
 )
 
 # New: process tracking with atexit cleanup
@@ -96,16 +96,17 @@ from synth_ai.sdk.tunnels.cleanup import cleanup_all, track_process, tracked_pro
 
 # New: port management utilities (was private in in_process.py)
 from synth_ai.sdk.tunnels.ports import (
+    PortConflictBehavior,
+    PortInUseError,
+    acquire_port,
     find_available_port,
     is_port_available,
     kill_port,
-    acquire_port,
-    PortConflictBehavior,
-    PortInUseError,
 )
 
 # New: high-level tunnel abstraction
-from synth_ai.sdk.tunnels.tunneled_api import TunneledLocalAPI, TunnelBackend
+from synth_ai.sdk.tunnels.tunneled_api import TunnelBackend, TunneledLocalAPI
+
 
 # Convenience function for creating tunnels from apps
 async def create_tunneled_api(
@@ -119,13 +120,13 @@ async def create_tunneled_api(
     progress: bool = False,
 ) -> TunneledLocalAPI:
     """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
-    
+
     This is a convenience function that handles the common pattern of:
     1. Finding an available port (or using the provided one)
     2. Starting the app server
     3. Waiting for health check
     4. Creating the tunnel
-    
+
     Args:
         app: FastAPI or ASGI application to tunnel
         local_port: Port to use (defaults to auto-finding an available port from 8001)
@@ -134,10 +135,10 @@ async def create_tunneled_api(
         backend_url: Backend URL (defaults to production)
         verify_dns: Whether to verify DNS resolution
         progress: If True, print status updates
-        
+
     Returns:
         TunneledLocalAPI instance
-        
+
     Example:
         >>> from fastapi import FastAPI
         >>> app = FastAPI()
@@ -153,6 +154,7 @@ async def create_tunneled_api(
         verify_dns=verify_dns,
         progress=progress,
     )
+
 
 __all__ = [
     # High-level (RECOMMENDED)

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Evaluate baseline prompts on HotpotQA seeds with parallel execution."""
 
+import argparse
 import asyncio
 import json
-import argparse
 import re
-from openai import AsyncOpenAI
+
 from datasets import load_dataset
+from openai import AsyncOpenAI
 
 # Default seed splits
 TRAINING_SEEDS = list(range(150))
@@ -25,16 +26,16 @@ TOOL_SCHEMA = {
             "properties": {
                 "answer": {"type": "string", "description": "The answer to the question"}
             },
-            "required": ["answer"]
-        }
-    }
+            "required": ["answer"],
+        },
+    },
 }
 
 
 def format_context(context: dict) -> str:
     """Format context paragraphs for the prompt."""
     paragraphs = []
-    for title, sentences in zip(context["title"], context["sentences"]):
+    for title, sentences in zip(context["title"], context["sentences"], strict=False):
         text = " ".join(sentences)
         paragraphs.append(f"**{title}**\n{text}")
     return "\n\n".join(paragraphs)
@@ -45,11 +46,11 @@ def normalize_answer(answer: str) -> str:
     # Lowercase
     answer = answer.lower().strip()
     # Remove articles
-    answer = re.sub(r'\b(a|an|the)\b', ' ', answer)
+    answer = re.sub(r"\b(a|an|the)\b", " ", answer)
     # Remove punctuation
-    answer = re.sub(r'[^\w\s]', '', answer)
+    answer = re.sub(r"[^\w\s]", "", answer)
     # Normalize whitespace
-    answer = ' '.join(answer.split())
+    answer = " ".join(answer.split())
     return answer
 
 
@@ -63,10 +64,7 @@ def answers_match(predicted: str, expected: str) -> bool:
         return True
 
     # Check if one contains the other
-    if pred_norm in exp_norm or exp_norm in pred_norm:
-        return True
-
-    return False
+    return pred_norm in exp_norm or exp_norm in pred_norm
 
 
 async def evaluate_single(
@@ -146,10 +144,7 @@ async def evaluate_baseline(model: str, seeds: list, max_concurrency: int = 20) 
     semaphore = asyncio.Semaphore(max_concurrency)
 
     # Create all tasks
-    tasks = [
-        evaluate_single(client, model, seed, dataset[seed], semaphore)
-        for seed in valid_seeds
-    ]
+    tasks = [evaluate_single(client, model, seed, dataset[seed], semaphore) for seed in valid_seeds]
 
     print(f"Running {len(tasks)} evaluations with concurrency={max_concurrency}...")
 
@@ -175,7 +170,9 @@ async def evaluate_baseline(model: str, seeds: list, max_concurrency: int = 20) 
                 correct += 1
             if i < print_limit:
                 pred_short = predicted[:40] + "..." if len(predicted) > 40 else predicted
-                print(f"[{seed:4d}] {'✓' if is_correct else '✗'} pred={pred_short:45s} exp={expected}")
+                print(
+                    f"[{seed:4d}] {'✓' if is_correct else '✗'} pred={pred_short:45s} exp={expected}"
+                )
 
     if len(results) > print_limit:
         print(f"... ({len(results) - print_limit} more results)")
@@ -188,8 +185,12 @@ async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True, help="Model to evaluate")
     parser.add_argument("--seeds", default=None, help="Seed range (e.g., 0-149 or 0,10,20)")
-    parser.add_argument("--split", choices=["train", "val"], default=None,
-                        help="Use predefined split: train (0-149) or val (150-649)")
+    parser.add_argument(
+        "--split",
+        choices=["train", "val"],
+        default=None,
+        help="Use predefined split: train (0-149) or val (150-649)",
+    )
     parser.add_argument("--concurrency", type=int, default=20, help="Max concurrent requests")
     args = parser.parse_args()
 
@@ -213,10 +214,10 @@ async def main():
     print(f"\nEvaluating baseline for {args.model} on {len(seeds)} seeds...")
     result = await evaluate_baseline(args.model, seeds, args.concurrency)
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"BASELINE RESULT: {result['model']}")
-    print(f"Accuracy: {result['accuracy']*100:.1f}% ({result['correct']}/{result['total']})")
-    print(f"{'='*50}")
+    print(f"Accuracy: {result['accuracy'] * 100:.1f}% ({result['correct']}/{result['total']})")
+    print(f"{'=' * 50}")
 
 
 if __name__ == "__main__":

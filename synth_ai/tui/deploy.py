@@ -15,6 +15,7 @@ The process stays alive to keep the tunnel open. Kill it to tear down.
 
 import argparse
 import asyncio
+import contextlib
 import importlib.util
 import inspect
 import io
@@ -46,19 +47,26 @@ class LogAggregator:
         self._deploy_handle: TextIO | None = None
         self._runtime_handle: TextIO | None = None
         self._original_stdout = sys.__stdout__
+        self._exit_stack = contextlib.ExitStack()
 
         # Set up file persistence
         if persist_dir:
             persist_dir.mkdir(parents=True, exist_ok=True)
             timestamp = _timestamp_for_filename()
-            self._deploy_handle = open(persist_dir / f"{deployment_id}_deploy_{timestamp}.jsonl", "a", encoding="utf-8")
-            self._runtime_handle = open(persist_dir / f"{deployment_id}_serve_{timestamp}.jsonl", "a", encoding="utf-8")
+            self._deploy_handle = self._exit_stack.enter_context(
+                (persist_dir / f"{deployment_id}_deploy_{timestamp}.jsonl").open(
+                    "a", encoding="utf-8"
+                )
+            )
+            self._runtime_handle = self._exit_stack.enter_context(
+                (persist_dir / f"{deployment_id}_serve_{timestamp}.jsonl").open(
+                    "a", encoding="utf-8"
+                )
+            )
 
         # Start writer thread
         self._writer_thread = threading.Thread(
-            target=self._writer_loop,
-            daemon=True,
-            name=f"log-writer-{deployment_id}"
+            target=self._writer_loop, daemon=True, name=f"log-writer-{deployment_id}"
         )
         self._writer_thread.start()
 
@@ -98,32 +106,33 @@ class LogAggregator:
 
     def log(self, source: str, message: str, level: str = "INFO") -> None:
         """Convenience method to log a message."""
-        self.put({
-            "type": "log",
-            "source": source,
-            "message": message,
-            "level": level,
-            "timestamp": time.time(),
-        })
+        self.put(
+            {
+                "type": "log",
+                "source": source,
+                "message": message,
+                "level": level,
+                "timestamp": time.time(),
+            }
+        )
 
     def status(self, status: str, **kwargs) -> None:
         """Convenience method to output a status message."""
-        self.put({
-            "type": "status",
-            "status": status,
-            "timestamp": time.time(),
-            **kwargs,
-        })
+        self.put(
+            {
+                "type": "status",
+                "status": status,
+                "timestamp": time.time(),
+                **kwargs,
+            }
+        )
 
     def stop(self) -> None:
         """Stop the writer thread and close resources."""
         self._running = False
         self.queue.put(None)  # Wake up the writer thread
         self._writer_thread.join(timeout=2.0)
-        if self._deploy_handle:
-            self._deploy_handle.close()
-        if self._runtime_handle:
-            self._runtime_handle.close()
+        self._exit_stack.close()
 
 
 class StreamCapture(io.TextIOWrapper):
@@ -133,12 +142,7 @@ class StreamCapture(io.TextIOWrapper):
     forwarding them both to the original stream and to the log aggregator.
     """
 
-    def __init__(
-        self,
-        original_stream: TextIO,
-        aggregator: LogAggregator,
-        source: str
-    ):
+    def __init__(self, original_stream: TextIO, aggregator: LogAggregator, source: str):
         self.original = original_stream
         self.aggregator = aggregator
         self.source = source
@@ -195,13 +199,15 @@ class QueueLogHandler(logging.Handler):
         """Emit a log record to the aggregator."""
         try:
             message = self.format(record)
-            self.aggregator.put({
-                "type": "log",
-                "source": self.source,
-                "level": record.levelname,
-                "message": message,
-                "timestamp": record.created,
-            })
+            self.aggregator.put(
+                {
+                    "type": "log",
+                    "source": self.source,
+                    "level": record.levelname,
+                    "message": message,
+                    "timestamp": record.created,
+                }
+            )
         except Exception:
             # Don't crash on logging errors
             pass
@@ -299,13 +305,17 @@ def _validate_localapi(module: ModuleType, path: Path) -> str | None:
 
 def _timestamp_for_filename() -> str:
     now = datetime.now()
-    return f"{now.year}_{now.month:02d}_{now.day:02d}_{now.hour:02d}-{now.minute:02d}-{now.second:02d}"
+    return (
+        f"{now.year}_{now.month:02d}_{now.day:02d}_{now.hour:02d}-{now.minute:02d}-{now.second:02d}"
+    )
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Deploy a LocalAPI with streaming logs.")
     parser.add_argument("localapi_path", help="Path to localapi.py")
-    parser.add_argument("--deployment-id", dest="deployment_id", default=None, help="Optional deployment identifier")
+    parser.add_argument(
+        "--deployment-id", dest="deployment_id", default=None, help="Optional deployment identifier"
+    )
     return parser.parse_args()
 
 
@@ -328,30 +338,32 @@ async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) 
 
     try:
         # Check for local mode (skip Cloudflare tunnel, use localhost directly)
-        LOCAL_MODE = os.environ.get("SYNTH_LOCAL_MODE", "").lower() in ("1", "true", "yes")
+        local_mode = os.environ.get("SYNTH_LOCAL_MODE", "").lower() in ("1", "true", "yes")
 
         aggregator.status("starting", message="Initializing deployment...")
 
         # Check for API key early
         if not os.environ.get("SYNTH_API_KEY"):
-            aggregator.status("error", error="SYNTH_API_KEY not set - run 'synth auth' or export SYNTH_API_KEY")
+            aggregator.status(
+                "error", error="SYNTH_API_KEY not set - run 'synth auth' or export SYNTH_API_KEY"
+            )
             return
 
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
         from synth_ai.sdk.task import run_server_background
         from synth_ai.sdk.tunnels import (
+            PortConflictBehavior,
             TunnelBackend,
             TunneledLocalAPI,
-            wait_for_health_check,
             acquire_port,
-            PortConflictBehavior,
+            wait_for_health_check,
         )
 
         # Get environment API key
         aggregator.log("app", "Getting environment API key...")
         try:
             # In local mode, use localhost backend for auth; otherwise use env vars or production
-            backend_base = "http://localhost:8000" if LOCAL_MODE else None
+            backend_base = "http://localhost:8000" if local_mode else None
             synth_api_key = os.environ.get("SYNTH_API_KEY")
             env_api_key = ensure_localapi_auth(
                 backend_base=backend_base,
@@ -421,7 +433,7 @@ async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) 
         aggregator.log("app", "Health check passed")
 
         # Create tunnel (or use localhost in local mode)
-        if LOCAL_MODE:
+        if local_mode:
             url = f"http://localhost:{port}"
             aggregator.log("app", f"Local mode enabled, using {url}")
         else:
@@ -437,10 +449,8 @@ async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) 
                 aggregator.log("cloudflare", f"Tunnel created: {url}")
 
                 # Start background task to stream cloudflare logs
-                if hasattr(tunnel, 'process') and tunnel.process:
-                    asyncio.create_task(
-                        _stream_cloudflare_logs(tunnel.process, aggregator)
-                    )
+                if hasattr(tunnel, "process") and tunnel.process:
+                    asyncio.create_task(_stream_cloudflare_logs(tunnel.process, aggregator))
             except Exception as e:
                 aggregator.status("error", error=f"Failed to create tunnel: {e}")
                 return

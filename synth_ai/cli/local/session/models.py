@@ -86,4 +86,3 @@ class SessionUsageRecord:
     reference_id: Optional[str] = None
     user_id: Optional[UUID] = None
     metadata: dict[str, Any] = field(default_factory=dict)
-

@@ -54,13 +54,13 @@ def _parse_structured(text: str, suffix: str | None) -> dict[str, Any]:
 
 def load_rubric(source: str | dict[str, Any] | Rubric | None) -> Rubric | None:
     """Load rubric from file path, dict, or return existing Rubric.
-    
+
     Args:
         source: File path (JSON/YAML), dict, existing Rubric, or None
-        
+
     Returns:
         Parsed Rubric instance or None if source is None
-        
+
     Raises:
         ValueError: If the rubric format is incorrect (e.g., backend verifier format)
         ValidationError: If the rubric fails schema validation
@@ -69,14 +69,14 @@ def load_rubric(source: str | dict[str, Any] | Rubric | None) -> Rubric | None:
         return None
     if isinstance(source, Rubric):
         return source
-    
+
     # Load and parse the data
     if isinstance(source, dict):
         data = source
     else:
         text, suffix = _load_text(str(source))
         data = _parse_structured(text, suffix)
-    
+
     # Check if this looks like a backend verifier rubric (wrong format)
     if (
         isinstance(data, dict)
@@ -92,7 +92,7 @@ def load_rubric(source: str | dict[str, Any] | Rubric | None) -> Rubric | None:
             f"Task apps require rubrics with 'version', 'goal_text', and 'criteria' fields. "
             f"Backend verifier rubrics should be named '*_backend_verifier.json' and loaded by verifier functions."
         )
-    
+
     return Rubric.model_validate(data)
 
 
@@ -107,14 +107,14 @@ def _merge_weights(base: Criterion, override: Criterion) -> float:
 
 def blend_rubrics(base: Rubric | None, override: Rubric | None) -> Rubric | None:
     """Blend two rubrics by merging criteria and inheriting properties.
-    
+
     Override rubric takes precedence for descriptions and settings.
     Weights are merged multiplicatively when both are non-default.
-    
+
     Args:
         base: Base rubric providing defaults
         override: Override rubric with specific customizations
-        
+
     Returns:
         Blended rubric or None if both inputs are None
     """

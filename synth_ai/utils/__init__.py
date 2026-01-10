@@ -105,7 +105,10 @@ _CLI_IMPORTS = {
     "install_sqld": ("synth_ai.cli.lib.sqld", "install_sqld"),
     # From cli.lib.task_app_discovery
     "AppChoice": ("synth_ai.cli.lib.task_app_discovery", "AppChoice"),
-    "discover_eval_config_paths": ("synth_ai.cli.lib.task_app_discovery", "discover_eval_config_paths"),
+    "discover_eval_config_paths": (
+        "synth_ai.cli.lib.task_app_discovery",
+        "discover_eval_config_paths",
+    ),
     "select_app_choice": ("synth_ai.cli.lib.task_app_discovery", "select_app_choice"),
     # From cli.lib.task_app_env
     "ensure_env_credentials": ("synth_ai.cli.lib.task_app_env", "ensure_env_credentials"),
@@ -120,6 +123,7 @@ def __getattr__(name: str) -> Any:
     if name in _CLI_IMPORTS:
         module_name, attr_name = _CLI_IMPORTS[name]
         import importlib
+
         module = importlib.import_module(module_name)
         return getattr(module, attr_name)
     raise AttributeError(f"module 'synth_ai.utils' has no attribute '{name}'")

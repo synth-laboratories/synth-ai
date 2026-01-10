@@ -34,7 +34,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
@@ -106,7 +106,7 @@ class GraphGenTaskSetMetadata(BaseModel):
         default=None, description="JSON Schema for expected graph output / final_state"
     )
     # Improvement 3: Changed from Optional[Any] to Optional[Union[str, List[str]]]
-    select_output: Optional[Union[str, List[str]]] = Field(
+    select_output: Optional[str | List[str]] = Field(
         default=None,
         description=(
             "Optional selector for the public output model. "
@@ -124,9 +124,7 @@ class GraphGenTaskSetMetadata(BaseModel):
 
     @field_validator("select_output", mode="before")
     @classmethod
-    def validate_select_output(
-        cls, v: Any
-    ) -> Optional[Union[str, List[str]]]:
+    def validate_select_output(cls, v: Any) -> Optional[str | List[str]]:
         """Validate select_output is a string or list of strings."""
         if v is None:
             return None
@@ -150,9 +148,7 @@ class GraphGenTaskSetMetadata(BaseModel):
             return v
         if isinstance(v, dict):
             return OutputConfig.model_validate(v)
-        raise ValueError(
-            f"output_config must be a dict or OutputConfig, got {type(v).__name__}"
-        )
+        raise ValueError(f"output_config must be a dict or OutputConfig, got {type(v).__name__}")
 
 
 class GraphGenRubricCriterion(BaseModel):
@@ -191,9 +187,7 @@ class GraphGenTask(BaseModel):
     """
 
     id: str
-    input: Dict[str, Any] = Field(
-        ..., description="Arbitrary JSON input for the task"
-    )
+    input: Dict[str, Any] = Field(..., description="Arbitrary JSON input for the task")
     rubric: Optional[GraphGenRubric] = Field(
         default=None, description="Task-specific rubric (merged with default_rubric)"
     )
@@ -206,16 +200,12 @@ class GraphGenGoldOutput(BaseModel):
     Standalone gold outputs (no task_id) are used as reference pool for contrastive verification.
     """
 
-    output: Dict[str, Any] = Field(
-        ..., description="The gold/reference output (arbitrary JSON)"
-    )
+    output: Dict[str, Any] = Field(..., description="The gold/reference output (arbitrary JSON)")
     task_id: Optional[str] = Field(
         default=None,
         description="ID of the task this gold output belongs to (None = standalone reference)",
     )
-    note: Optional[str] = Field(
-        default=None, description="Optional note about this gold output"
-    )
+    note: Optional[str] = Field(default=None, description="Optional note about this gold output")
 
 
 # Improvement 4: Define supported providers as a Literal type
@@ -273,9 +263,7 @@ class GraphGenTaskSet(BaseModel):
 
     version: str = "1.0"
     metadata: GraphGenTaskSetMetadata
-    tasks: List[GraphGenTask] = Field(
-        ..., min_length=1, description="List of tasks to evaluate"
-    )
+    tasks: List[GraphGenTask] = Field(..., min_length=1, description="List of tasks to evaluate")
     gold_outputs: List[GraphGenGoldOutput] = Field(
         default_factory=list,
         description="Gold/reference outputs (linked to tasks or standalone)",
@@ -296,7 +284,7 @@ class GraphGenTaskSet(BaseModel):
         default=None, description="JSON Schema for expected graph output / final_state"
     )
     # Improvement 3: Changed from Optional[Any] to Optional[Union[str, List[str]]]
-    select_output: Optional[Union[str, List[str]]] = Field(
+    select_output: Optional[str | List[str]] = Field(
         default=None,
         description=(
             "Optional selector for the public output model. "
@@ -355,17 +343,13 @@ class GraphGenTaskSet(BaseModel):
 
             for gold in v:
                 if gold.task_id and gold.task_id not in valid_task_ids:
-                    raise ValueError(
-                        f"Gold output references invalid task_id: {gold.task_id}"
-                    )
+                    raise ValueError(f"Gold output references invalid task_id: {gold.task_id}")
         return v
 
     # Improvement 3: Validator for select_output type
     @field_validator("select_output", mode="before")
     @classmethod
-    def validate_select_output(
-        cls, v: Any
-    ) -> Optional[Union[str, List[str]]]:
+    def validate_select_output(cls, v: Any) -> Optional[str | List[str]]:
         """Validate select_output is a string or list of strings."""
         if v is None:
             return None
@@ -390,9 +374,7 @@ class GraphGenTaskSet(BaseModel):
             return v
         if isinstance(v, dict):
             return OutputConfig.model_validate(v)
-        raise ValueError(
-            f"output_config must be a dict or OutputConfig, got {type(v).__name__}"
-        )
+        raise ValueError(f"output_config must be a dict or OutputConfig, got {type(v).__name__}")
 
     def get_task_by_id(self, task_id: str) -> Optional[GraphGenTask]:
         """Get a task by its ID."""
@@ -483,7 +465,9 @@ class EventInput(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     event_id: int = Field(..., description="Unique integer event ID")
-    event_type: str = Field(..., description="Type of event (e.g., 'runtime', 'environment', 'llm')")
+    event_type: str = Field(
+        ..., description="Type of event (e.g., 'runtime', 'environment', 'llm')"
+    )
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Arbitrary event metadata")
 
 
@@ -496,7 +480,9 @@ class SessionTimeStepInput(BaseModel):
     step_index: int = Field(..., description="Zero-based index of the step")
     turn_number: Optional[int] = Field(default=None, description="Optional turn/round number")
     events: List[EventInput] = Field(..., description="List of events in this timestep")
-    step_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional step-level metadata")
+    step_metadata: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional step-level metadata"
+    )
 
 
 class SessionTraceInput(BaseModel):
@@ -505,7 +491,9 @@ class SessionTraceInput(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     session_id: str = Field(..., description="Unique session/trace ID")
-    session_time_steps: List[SessionTimeStepInput] = Field(..., description="List of steps in the trajectory")
+    session_time_steps: List[SessionTimeStepInput] = Field(
+        ..., description="List of steps in the trajectory"
+    )
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Global trace metadata")
 
     @model_validator(mode="before")
@@ -531,7 +519,8 @@ class GraphGenGraphVerifierRequest(BaseModel):
         ..., description="V3 session trace to evaluate (must include event_ids for reward linking)"
     )
     context: Optional[Dict[str, Any]] = Field(
-        default=None, description="Additional context for evaluation (rubric, task description, etc.)"
+        default=None,
+        description="Additional context for evaluation (rubric, task description, etc.)",
     )
     prompt_snapshot_id: Optional[str] = Field(
         default=None, description="Specific snapshot to use (default: best)"
@@ -573,7 +562,9 @@ class EventRewardResponse(BaseModel):
         description="Type of reward",
     )
     key: Optional[str] = Field(default=None, description="Optional key/label for the reward")
-    turn_number: Optional[int] = Field(default=None, description="Turn/timestep number in the trace")
+    turn_number: Optional[int] = Field(
+        default=None, description="Turn/timestep number in the trace"
+    )
     source: Optional[RewardSource] = Field(
         default=RewardSource.VERIFIER, description="Reward source"
     )
@@ -581,7 +572,9 @@ class EventRewardResponse(BaseModel):
         default=None,
         description="Canonical objectives for this event (e.g., {'reward': 0.9})",
     )
-    annotation: Optional[Dict[str, Any]] = Field(default=None, description="Additional annotations (feedback, etc.)")
+    annotation: Optional[Dict[str, Any]] = Field(
+        default=None, description="Additional annotations (feedback, etc.)"
+    )
 
     @field_validator("source", mode="before")
     @classmethod
@@ -612,8 +605,12 @@ class OutcomeRewardResponse(BaseModel):
     )
     achievements_count: int = Field(default=0, description="Number of achievements unlocked")
     total_steps: int = Field(default=0, description="Total timesteps in the trace")
-    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata (feedback, etc.)")
-    annotation: Optional[Dict[str, Any]] = Field(default=None, description="Additional annotations (free-form)")
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None, description="Additional metadata (feedback, etc.)"
+    )
+    annotation: Optional[Dict[str, Any]] = Field(
+        default=None, description="Additional annotations (free-form)"
+    )
 
 
 class GraphGenGraphVerifierResponse(BaseModel):
@@ -626,8 +623,12 @@ class GraphGenGraphVerifierResponse(BaseModel):
     snapshot_id: str = Field(..., description="Snapshot ID used for inference")
 
     # Structured reward outputs (synth-ai compatible)
-    event_rewards: List[EventRewardResponse] = Field(default_factory=list, description="Per-event rewards")
-    outcome_reward: Optional[OutcomeRewardResponse] = Field(default=None, description="Episode-level outcome reward")
+    event_rewards: List[EventRewardResponse] = Field(
+        default_factory=list, description="Per-event rewards"
+    )
+    outcome_reward: Optional[OutcomeRewardResponse] = Field(
+        default=None, description="Episode-level outcome reward"
+    )
     outcome_objectives: Optional[Dict[str, float]] = Field(
         default=None,
         description="Canonical outcome objectives (e.g., {'reward': score})",
@@ -637,11 +638,13 @@ class GraphGenGraphVerifierResponse(BaseModel):
         description="Per-event objectives aligned with event_rewards ordering",
     )
 
-    raw_output: Optional[Dict[str, Any]] = Field(default=None, description="Full raw output from the verifier graph")
+    raw_output: Optional[Dict[str, Any]] = Field(
+        default=None, description="Full raw output from the verifier graph"
+    )
 
-    usage: List[GraphGenGraphCompletionsModelUsage] = Field(default_factory=list, description="Token usage per model")
-
-
+    usage: List[GraphGenGraphCompletionsModelUsage] = Field(
+        default_factory=list, description="Token usage per model"
+    )
 
 
 class GraphGenJobConfig(BaseModel):
@@ -748,6 +751,18 @@ class GraphGenJobConfig(BaseModel):
         le=10000,
         description="Total number of rollouts for optimization",
     )
+    rollout_max_concurrent: int = Field(
+        default=25,
+        ge=1,
+        le=100,
+        description="Maximum parallel rollouts per candidate evaluation",
+    )
+    rollout_timeout_seconds: float = Field(
+        default=60.0,
+        ge=10.0,
+        le=600.0,
+        description="Timeout per graph rollout execution in seconds",
+    )
 
     # Proposer settings (controls prompt mutation quality/cost)
     proposer_effort: Literal["low", "medium", "high"] = Field(
@@ -791,6 +806,10 @@ class GraphGenJobConfig(BaseModel):
     evaluation_seeds: Optional[List[int]] = Field(
         default=None,
         description="Specific seeds to use for evaluation (auto-generated if not specified)",
+    )
+    initial_graph_id: Optional[str] = Field(
+        default=None,
+        description="Graph ID to warm-start optimization from. If provided, skips initial graph generation and starts evolution from this graph.",
     )
     problem_spec: Optional[str] = Field(
         default=None,
@@ -894,7 +913,7 @@ def load_graphgen_taskset(path: str | Path) -> GraphGenTaskSet:
     if not path.exists():
         raise FileNotFoundError(f"Dataset file not found: {path}")
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
 
     return parse_graphgen_taskset(data)

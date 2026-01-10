@@ -32,18 +32,18 @@ class LimitExceededError(SessionUsageError):
         self.current_usage = current_usage
         self.attempted_usage = attempted_usage
         self.reason = reason or "Hard limit exceeded"
-        
+
         # Format metric type for display
         metric_display = {
             "cost_usd": "cost",
             "gpu_hours": "GPU hours",
             "api_calls": "API calls",
         }.get(metric_type, metric_type)
-        
+
         # Calculate what would have been the new total
         projected_total = current_usage + attempted_usage
         remaining = limit_value - current_usage
-        
+
         message = (
             f"Session '{session_id}' {metric_display} limit exceeded. "
             f"Limit: {limit_value}, Current usage: {current_usage}, "
@@ -75,14 +75,14 @@ class SessionNotActiveError(SessionUsageError):
     def __init__(self, session_id: str, status: str):
         self.session_id = session_id
         self.status = status
-        
+
         status_messages = {
             "ended": "has been ended",
             "limit_exceeded": "has exceeded its limit",
             "expired": "has expired",
         }
         status_desc = status_messages.get(status, f"has status '{status}'")
-        
+
         message = (
             f"Session '{session_id}' is not active - it {status_desc}. "
             f"To use this session, you must create a new active session using client.create()"
@@ -102,4 +102,3 @@ class InvalidLimitError(SessionUsageError):
             f"Limit value must be positive (> 0)."
         )
         super().__init__(full_message)
-

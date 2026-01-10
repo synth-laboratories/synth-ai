@@ -35,7 +35,6 @@ class PromptLearningMethod(str, Enum):
     """Prompt optimization algorithms."""
 
     GEPA = "gepa"
-    MIPRO = "mipro"
 
 
 class RLMethod(str, Enum):

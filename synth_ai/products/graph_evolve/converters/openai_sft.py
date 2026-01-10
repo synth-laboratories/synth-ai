@@ -270,9 +270,7 @@ def validate_sft_file(path: str | Path) -> tuple[list[dict[str, Any]], list[Conv
                 if msg.get("role") == "assistant":
                     assistant_content = msg.get("content", "")
             if not assistant_content or not assistant_content.strip():
-                warnings.append(
-                    ConversionWarning(f"Empty assistant response on line {i + 1}", i)
-                )
+                warnings.append(ConversionWarning(f"Empty assistant response on line {i + 1}", i))
                 continue
 
             examples.append(ex)
@@ -377,7 +375,9 @@ def convert_openai_sft(
 
     # Detect common system prompt
     system_prompt = detect_system_prompt(examples)
-    unique_system_prompts = len(set(parse_sft_example(ex)[0] for ex in examples if parse_sft_example(ex)[0]))
+    unique_system_prompts = len(
+        {parse_sft_example(ex)[0] for ex in examples if parse_sft_example(ex)[0]}
+    )
 
     # Parse all examples
     parsed = [parse_sft_example(ex) for ex in examples]
@@ -394,7 +394,7 @@ def convert_openai_sft(
     tasks: list[dict[str, Any]] = []
     gold_outputs: list[dict[str, Any]] = []
 
-    for i, (parsed_ex, assistant) in enumerate(zip(parsed, assistant_messages)):
+    for i, (parsed_ex, assistant) in enumerate(zip(parsed, assistant_messages, strict=False)):
         _, user, _ = parsed_ex
         if not user or not assistant:
             continue

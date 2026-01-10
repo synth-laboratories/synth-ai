@@ -6,10 +6,9 @@ Run with: python demo_incremental.py
 (Requires HelixDB at localhost:6969, or use --mock for in-memory testing)
 """
 
-import sys
 import json
-from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
+import sys
+from typing import Any, Dict, List, Optional
 
 # For mock mode (no HelixDB required)
 MOCK_MODE = "--mock" in sys.argv
@@ -18,6 +17,7 @@ MOCK_MODE = "--mock" in sys.argv
 # =============================================================================
 # MOCK ONTOLOGY RECORD (in-memory, for testing without HelixDB)
 # =============================================================================
+
 
 class MockOntologyRecord:
     """In-memory mock for testing without HelixDB."""
@@ -32,43 +32,79 @@ class MockOntologyRecord:
     def set_time(self, t: int):
         self.current_time = t
 
-    def record_observation(self, node: str, predicate: str, value: Any,
-                          observation_text: str, annotation: str = "", **kwargs):
+    def record_observation(
+        self,
+        node: str,
+        predicate: str,
+        value: Any,
+        observation_text: str,
+        annotation: str = "",
+        **kwargs,
+    ):
         key = f"{node}.{predicate}"
         if key not in self.properties:
             self.nodes[node] = {"name": node, "type": "unknown"}
-            self.properties[key] = {"node": node, "predicate": predicate, "value": value,
-                                    "evidence": [], "confidence": 0.0}
+            self.properties[key] = {
+                "node": node,
+                "predicate": predicate,
+                "value": value,
+                "evidence": [],
+                "confidence": 0.0,
+            }
 
-        self.properties[key]["evidence"].append({
-            "text": observation_text, "time": self.current_time, "type": "observation"
-        })
+        self.properties[key]["evidence"].append(
+            {"text": observation_text, "time": self.current_time, "type": "observation"}
+        )
         # Update confidence: n / (n + 1)
         n = len(self.properties[key]["evidence"])
         self.properties[key]["confidence"] = n / (n + 1.0)
         return self.properties[key]
 
-    def record_edge(self, from_node: str, relation: str, to_node: str,
-                   observation_text: str, value: Any = None, **kwargs):
+    def record_edge(
+        self,
+        from_node: str,
+        relation: str,
+        to_node: str,
+        observation_text: str,
+        value: Any = None,
+        **kwargs,
+    ):
         self.nodes[from_node] = self.nodes.get(from_node, {"name": from_node})
         self.nodes[to_node] = self.nodes.get(to_node, {"name": to_node})
-        edge = {"from": from_node, "relation": relation, "to": to_node,
-                "value": value, "observation": observation_text, "time": self.current_time}
+        edge = {
+            "from": from_node,
+            "relation": relation,
+            "to": to_node,
+            "value": value,
+            "observation": observation_text,
+            "time": self.current_time,
+        }
         self.edges.append(edge)
         return edge
 
-    def record_inference(self, node: str, predicate: str, value: Any,
-                        reasoning: str, weight: float = 0.5):
+    def record_inference(
+        self, node: str, predicate: str, value: Any, reasoning: str, weight: float = 0.5
+    ):
         key = f"{node}.{predicate}"
         self.nodes[node] = self.nodes.get(node, {"name": node})
-        self.properties[key] = {"node": node, "predicate": predicate, "value": value,
-                                "evidence": [{"text": reasoning, "type": "inference"}],
-                                "confidence": weight}
+        self.properties[key] = {
+            "node": node,
+            "predicate": predicate,
+            "value": value,
+            "evidence": [{"text": reasoning, "type": "inference"}],
+            "confidence": weight,
+        }
         return self.properties[key]
 
     def record_hypothesis(self, node: str, predicate: str, value: Any, reason: str = ""):
-        hyp = {"node": node, "predicate": predicate, "value": value, "reason": reason,
-               "status": "hypothesis", "confidence": 0.1}
+        hyp = {
+            "node": node,
+            "predicate": predicate,
+            "value": value,
+            "reason": reason,
+            "status": "hypothesis",
+            "confidence": 0.1,
+        }
         self.hypotheses.append(hyp)
         return hyp
 
@@ -76,21 +112,33 @@ class MockOntologyRecord:
         if node_name not in self.nodes:
             return {"known": False, "node": node_name}
 
-        props = {k.split(".")[1]: v for k, v in self.properties.items()
-                 if k.startswith(f"{node_name}.")}
+        props = {
+            k.split(".")[1]: v for k, v in self.properties.items() if k.startswith(f"{node_name}.")
+        }
         out_edges = [e for e in self.edges if e["from"] == node_name]
         in_edges = [e for e in self.edges if e["to"] == node_name]
 
-        return {"known": True, "node": node_name, "properties": props,
-                "outgoing": out_edges, "incoming": in_edges}
+        return {
+            "known": True,
+            "node": node_name,
+            "properties": props,
+            "outgoing": out_edges,
+            "incoming": in_edges,
+        }
 
     def get_outgoing_edges(self, node_name: str, relation_type: str) -> List[Dict]:
-        return [{"target": e["to"], "value": e["value"]}
-                for e in self.edges if e["from"] == node_name and e["relation"] == relation_type]
+        return [
+            {"target": e["to"], "value": e["value"]}
+            for e in self.edges
+            if e["from"] == node_name and e["relation"] == relation_type
+        ]
 
     def get_incoming_edges(self, node_name: str, relation_type: str) -> List[Dict]:
-        return [{"source": e["from"], "value": e["value"]}
-                for e in self.edges if e["to"] == node_name and e["relation"] == relation_type]
+        return [
+            {"source": e["from"], "value": e["value"]}
+            for e in self.edges
+            if e["to"] == node_name and e["relation"] == relation_type
+        ]
 
     def get_property_value(self, node_name: str, predicate: str) -> Optional[Dict]:
         key = f"{node_name}.{predicate}"
@@ -100,12 +148,18 @@ class MockOntologyRecord:
         return None
 
     def get_nodes_with_predicate(self, predicate: str) -> List[Dict]:
-        return [{"node": v["node"], "value": v["value"], "confidence": v["confidence"]}
-                for k, v in self.properties.items() if k.endswith(f".{predicate}")]
+        return [
+            {"node": v["node"], "value": v["value"], "confidence": v["confidence"]}
+            for k, v in self.properties.items()
+            if k.endswith(f".{predicate}")
+        ]
 
     def get_uncertain_claims(self) -> List[Dict]:
-        return [{"node": v["node"], "predicate": v["predicate"], "confidence": v["confidence"]}
-                for v in self.properties.values() if v["confidence"] < 0.5]
+        return [
+            {"node": v["node"], "predicate": v["predicate"], "confidence": v["confidence"]}
+            for v in self.properties.values()
+            if v["confidence"] < 0.5
+        ]
 
     def get_hypotheses(self) -> List[Dict]:
         return self.hypotheses
@@ -115,10 +169,12 @@ class MockOntologyRecord:
 # DEMO
 # =============================================================================
 
+
 def print_section(title: str):
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {title}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
+
 
 def print_result(label: str, result: Any):
     print(f"\n{label}:")
@@ -143,14 +199,18 @@ def run_demo():
     else:
         print(f"\n[Connecting to HelixDB at localhost:6969 with org_id={org_id}]")
         try:
-            from observer_helix import OntologyRecord, NodeType, make_node_type_inferrer
+            from observer_helix import NodeType, OntologyRecord, make_node_type_inferrer
 
             # Create with Crafter type inference
             crafter_types = {
-                "zombie": NodeType.CREATURE, "skeleton": NodeType.CREATURE,
-                "cow": NodeType.CREATURE, "player": NodeType.CREATURE,
-                "wood": NodeType.RESOURCE, "stone": NodeType.RESOURCE,
-                "food": NodeType.RESOURCE, "tree": NodeType.RESOURCE,
+                "zombie": NodeType.CREATURE,
+                "skeleton": NodeType.CREATURE,
+                "cow": NodeType.CREATURE,
+                "player": NodeType.CREATURE,
+                "wood": NodeType.RESOURCE,
+                "stone": NodeType.RESOURCE,
+                "food": NodeType.RESOURCE,
+                "tree": NodeType.RESOURCE,
             }
             inferrer = make_node_type_inferrer(type_map=crafter_types)
             record = OntologyRecord(org_id=org_id, node_type_inferrer=inferrer)
@@ -212,8 +272,7 @@ def run_demo():
     print_section("STEP 4: Combat Victory (t=100)")
     record.set_time(100)
 
-    record.record_inference("zombie", "health", 5,
-                           "zombie died after 5 hits with 1-damage weapon")
+    record.record_inference("zombie", "health", 5, "zombie died after 5 hits with 1-damage weapon")
     print("  Inferred: zombie.health = 5 (from combat)")
 
     ctx = record.get_node_context("zombie")
@@ -225,10 +284,10 @@ def run_demo():
     print_section("STEP 5: Crafting Discovery (t=150)")
     record.set_time(150)
 
-    record.record_edge("place_table", "requires", "wood",
-                      "crafted table, used 2 wood", value={"amount": 2})
-    record.record_edge("place_table", "produces", "table",
-                      "crafted table successfully")
+    record.record_edge(
+        "place_table", "requires", "wood", "crafted table, used 2 wood", value={"amount": 2}
+    )
+    record.record_edge("place_table", "produces", "table", "crafted table successfully")
     print("  Recorded: place_table --requires--> wood {amount: 2}")
     print("  Recorded: place_table --produces--> table")
 
@@ -244,8 +303,7 @@ def run_demo():
     print_section("STEP 6: Hypothesis Formation (t=200)")
     record.set_time(200)
 
-    record.record_hypothesis("skeleton", "damage", 1,
-                            "skeletons look weaker, probably 1 damage")
+    record.record_hypothesis("skeleton", "damage", 1, "skeletons look weaker, probably 1 damage")
     print("  Hypothesis: skeleton.damage = 1 (untested)")
 
     # Query: what needs testing?
@@ -258,8 +316,7 @@ def run_demo():
     print_section("STEP 7: Resource Discovery (t=250)")
     record.set_time(250)
 
-    record.record_edge("cow", "yields", "food", "killed cow, got 6 food",
-                      value={"amount": 6})
+    record.record_edge("cow", "yields", "food", "killed cow, got 6 food", value={"amount": 6})
     print("  Recorded: cow --yields--> food {amount: 6}")
 
     # Query: where can I find food?
@@ -292,9 +349,9 @@ def run_demo():
         for c in uncertain:
             print(f"  - {c}")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  DEMO COMPLETE")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

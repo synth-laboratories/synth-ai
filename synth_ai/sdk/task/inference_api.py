@@ -9,7 +9,9 @@ from typing import Any, Dict, List, Optional, Sequence
 class InferenceAPIClient:
     """Async client that normalizes chat completion calls across providers."""
 
-    def __init__(self, *, provider: str, inference_url: Optional[str] = None, timeout: float = 30.0) -> None:
+    def __init__(
+        self, *, provider: str, inference_url: Optional[str] = None, timeout: float = 30.0
+    ) -> None:
         self.provider = (provider or "").lower()
         self.inference_url = inference_url.rstrip("/") if inference_url else None
         self.timeout = timeout
@@ -105,6 +107,7 @@ class InferenceAPIClient:
             if response_format:
                 # Groq response_format normalization (json_schema -> json_object for older models)
                 from .proxy import normalize_response_format_for_groq
+
                 normalized_format = dict(response_format)
                 normalize_response_format_for_groq(model, {"response_format": normalized_format})
                 groq_kwargs["response_format"] = normalized_format
@@ -151,7 +154,9 @@ class InferenceAPIClient:
             elif role in ["user", "assistant"]:
                 # Gemini uses "user" and "model" roles (not "assistant")
                 gemini_role = "user" if role == "user" else "model"
-                contents.append(types.Content(role=gemini_role, parts=[types.Part.from_text(text=str(content))]))
+                contents.append(
+                    types.Content(role=gemini_role, parts=[types.Part.from_text(text=str(content))])
+                )
 
         # Convert tools format (OpenAI -> Gemini)
         gemini_tools = None
@@ -172,7 +177,11 @@ class InferenceAPIClient:
                 gemini_tools = [types.Tool(function_declarations=function_declarations)]
 
                 # Handle tool_choice - Gemini uses tool_config
-                if tool_choice and isinstance(tool_choice, dict) and tool_choice.get("type") == "function":
+                if (
+                    tool_choice
+                    and isinstance(tool_choice, dict)
+                    and tool_choice.get("type") == "function"
+                ):
                     func_name = tool_choice.get("function", {}).get("name")
                     if func_name:
                         mode_enum = types.FunctionCallingConfigMode.ANY
@@ -234,14 +243,16 @@ class InferenceAPIClient:
         if resp.candidates and resp.candidates[0].content:
             for part in resp.candidates[0].content.parts:
                 if part.function_call:
-                    tool_calls.append({
-                        "id": f"call_{len(tool_calls) + 1}",
-                        "type": "function",
-                        "function": {
-                            "name": part.function_call.name,
-                            "arguments": json.dumps(dict(part.function_call.args)),
-                        },
-                    })
+                    tool_calls.append(
+                        {
+                            "id": f"call_{len(tool_calls) + 1}",
+                            "type": "function",
+                            "function": {
+                                "name": part.function_call.name,
+                                "arguments": json.dumps(dict(part.function_call.args)),
+                            },
+                        }
+                    )
 
         # Build OpenAI-compatible response
         message = {"role": "assistant", "content": text or ""}
@@ -259,11 +270,13 @@ class InferenceAPIClient:
             "object": "chat.completion",
             "created": int(time.time()),
             "model": model,
-            "choices": [{
-                "index": 0,
-                "message": message,
-                "finish_reason": "tool_calls" if tool_calls else "stop",
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": message,
+                    "finish_reason": "tool_calls" if tool_calls else "stop",
+                }
+            ],
             "usage": {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
@@ -296,4 +309,3 @@ class InferenceAPIClient:
 
 
 __all__ = ["InferenceAPIClient"]
-

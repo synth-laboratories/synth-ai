@@ -35,18 +35,13 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence
 
 from synth_ai.core.telemetry import log_info
 
 from .graphgen_models import (
-    GraphGenJobConfig,
-    GraphGenTaskSet,
-    load_graphgen_taskset,
-    parse_graphgen_taskset,
-    # Aliases for new names
     GraphGenJobConfig,
     GraphGenTaskSet,
     load_graphgen_taskset,
@@ -111,7 +106,7 @@ class GraphGenJob:
         >>> job.submit()
         >>> result = job.stream_until_complete(timeout=3600.0)
         >>> print(f"Best score: {result.get('best_score')}")
-        >>> 
+        >>>
         >>> # Download public graph export
         >>> export_txt = job.download_graph_txt()
         >>> print(export_txt)
@@ -165,6 +160,8 @@ class GraphGenJob:
         num_generations: Optional[int] = None,
         problem_spec: Optional[str] = None,
         target_llm_calls: Optional[int] = None,
+        graph_type: Optional[Literal["policy", "verifier", "rlm"]] = None,
+        initial_graph_id: Optional[str] = None,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         auto_start: bool = True,
@@ -186,6 +183,10 @@ class GraphGenJob:
                 Include domain-specific info like valid output labels for classification.
             target_llm_calls: Target number of LLM calls for the graph (1-10).
                 Controls how many LLM nodes the graph should use. Defaults to 5.
+            graph_type: Type of graph to train - "policy" (default), "verifier", or "rlm"
+            initial_graph_id: Optional graph ID to warm-start optimization from.
+                If provided, skips initial graph generation and starts evolution from this graph.
+                Useful for starting from a known good graph (e.g., map-reduce verifier).
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             auto_start: Whether to start the job immediately
@@ -245,11 +246,16 @@ class GraphGenJob:
             policy_models_list = [policy_models]
         else:
             policy_models_list = list(policy_models)
-        
+
         if not policy_models_list:
             raise ValueError("policy_models must contain at least one model")
-        
+
         # Build config
+        from synth_ai.data.enums import GraphType
+
+        # Convert graph_type string to GraphType enum if provided, otherwise use default
+        graph_type_enum = GraphType(graph_type) if graph_type else GraphType.POLICY
+
         config = GraphGenJobConfig(
             policy_models=policy_models_list,
             rollout_budget=rollout_budget,
@@ -260,6 +266,8 @@ class GraphGenJob:
             num_generations=num_generations,
             problem_spec=problem_spec,
             target_llm_calls=target_llm_calls,
+            graph_type=graph_type_enum,
+            initial_graph_id=initial_graph_id,
         )
 
         return cls(
@@ -307,7 +315,8 @@ class GraphGenJob:
 
         # Create minimal instance - dataset will be fetched from backend if needed
         # For now, create a placeholder dataset
-        from .graphgen_models import GraphGenTaskSetMetadata, GraphGenTask
+        from .graphgen_models import GraphGenTask, GraphGenTaskSetMetadata
+
         placeholder_dataset = GraphGenTaskSet(
             metadata=GraphGenTaskSetMetadata(name="(resumed job)"),
             tasks=[GraphGenTask(id="placeholder", input={})],
@@ -315,7 +324,9 @@ class GraphGenJob:
 
         job = cls(
             dataset=placeholder_dataset,
-            config=GraphGenJobConfig(policy_models=["(resumed)"]),  # Placeholder, will be fetched from backend
+            config=GraphGenJobConfig(
+                policy_models=["(resumed)"]
+            ),  # Placeholder, will be fetched from backend
             backend_url=backend_url,
             api_key=api_key,
             auto_start=False,
@@ -325,8 +336,7 @@ class GraphGenJob:
         valid_prefixes = ("graphgen_", "graphgen_", "graph_evolve_", "graph_evolve_", "pl_")
         if not any(job_id.startswith(p) for p in valid_prefixes):
             raise ValueError(
-                f"Unsupported job ID format: {job_id!r}. "
-                f"Expected one of: {valid_prefixes}"
+                f"Unsupported job ID format: {job_id!r}. Expected one of: {valid_prefixes}"
             )
         job._graphgen_job_id = job_id
         if job_id.startswith("pl_"):
@@ -378,13 +388,16 @@ class GraphGenJob:
         # GraphGen is graph-first and doesn't really use this, so we use a placeholder or problem_spec
         dataset_dict = self.dataset.model_dump(mode="json", exclude_none=False)
         if "initial_prompt" not in dataset_dict:
-            dataset_dict["initial_prompt"] = self.config.problem_spec or "Optimizing prompt graph..."
-        
+            dataset_dict["initial_prompt"] = (
+                self.config.problem_spec or "Optimizing prompt graph..."
+            )
+
         # Ensure verifier_config is properly included
-        if "verifier_config" not in dataset_dict or dataset_dict.get("verifier_config") is None:
+        if (
+            "verifier_config" not in dataset_dict or dataset_dict.get("verifier_config") is None
+        ) and self.dataset.verifier_config:
             # Fallback: create verifier_config from dataset's verifier_config
-            if self.dataset.verifier_config:
-                dataset_dict["verifier_config"] = self.dataset.verifier_config.model_dump(mode="json")
+            dataset_dict["verifier_config"] = self.dataset.verifier_config.model_dump(mode="json")
 
         payload: Dict[str, Any] = {
             "dataset": dataset_dict,
@@ -402,6 +415,10 @@ class GraphGenJob:
             "metadata": metadata,
             "auto_start": self.auto_start,
         }
+
+        # Add initial_graph_id if provided
+        if self.config.initial_graph_id:
+            payload["initial_graph_id"] = self.config.initial_graph_id
 
         # Strip unset optional fields so we don't send nulls to strict backends.
         if payload.get("eval_sample_size") is None:
@@ -445,18 +462,25 @@ class GraphGenJob:
 
         # Submit job - use /graphgen/jobs endpoint (legacy: /adas/jobs)
         create_url = f"{self.backend_url}/graphgen/jobs"
-        
+
         # Debug: print payload for troubleshooting
-        import json
+
         debug_payload = {k: v for k, v in payload.items() if k != "dataset"}
-        debug_payload["dataset"] = {"metadata": payload["dataset"].get("metadata", {}) if isinstance(payload["dataset"], dict) else "..."}
-        log_info(f"Submitting GraphGen job payload (excluding dataset): {json.dumps(debug_payload, indent=2)}")
+        debug_payload["dataset"] = {
+            "metadata": payload["dataset"].get("metadata", {})
+            if isinstance(payload["dataset"], dict)
+            else "..."
+        }
+        log_info(
+            f"Submitting GraphGen job payload (excluding dataset): {json.dumps(debug_payload, indent=2)}"
+        )
         headers = {
             "X-API-Key": self.api_key,
             "Content-Type": "application/json",
         }
 
         import logging
+
         logger = logging.getLogger(__name__)
         logger.debug(f"Submitting GraphGen job to: {create_url}")
 
@@ -491,7 +515,7 @@ class GraphGenJob:
             judge_mode = self.dataset.verifier_config.mode
         if not judge_mode:
             judge_mode = "rubric"  # Default fallback
-        
+
         # Extract policy_models from response (backend may return policy_model for backward compat)
         policy_models_response = js.get("policy_models")
         if not policy_models_response:
@@ -501,7 +525,7 @@ class GraphGenJob:
                 policy_models_response = [policy_model_single]
             else:
                 policy_models_response = self.config.policy_models
-        
+
         self._submit_result = GraphGenSubmitResult(
             graphgen_job_id=self._graphgen_job_id,
             status=js.get("status", "queued"),
@@ -538,9 +562,7 @@ class GraphGenJob:
         resp = http_get(url, headers=headers, timeout=30.0)
 
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Failed to get job status: {resp.status_code} - {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Failed to get job status: {resp.status_code} - {resp.text[:500]}")
 
         data = resp.json()
         gepa_id = data.get("graph_evolve_job_id")
@@ -564,9 +586,7 @@ class GraphGenJob:
 
         resp = http_post(url, headers=headers, json_body=None, timeout=60.0)
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Failed to start job: {resp.status_code} - {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Failed to start job: {resp.status_code} - {resp.text[:500]}")
         data = resp.json()
         if self._submit_result and "status" in data:
             self._submit_result.status = data.get("status", self._submit_result.status)
@@ -586,9 +606,7 @@ class GraphGenJob:
 
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Failed to get events: {resp.status_code} - {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Failed to get events: {resp.status_code} - {resp.text[:500]}")
         return resp.json()
 
     def get_metrics(
@@ -622,9 +640,7 @@ class GraphGenJob:
 
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Failed to get metrics: {resp.status_code} - {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Failed to get metrics: {resp.status_code} - {resp.text[:500]}")
         return resp.json()
 
     def stream_until_complete(
@@ -713,9 +729,7 @@ class GraphGenJob:
         resp = http_get(url, headers=headers, timeout=30.0)
 
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Failed to download prompt: {resp.status_code} - {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Failed to download prompt: {resp.status_code} - {resp.text[:500]}")
 
         data = resp.json()
         return data.get("prompt", "")
@@ -790,9 +804,7 @@ class GraphGenJob:
         resp = http_post(url, headers=headers, json_body=payload, timeout=60.0)
 
         if resp.status_code != 200:
-            raise RuntimeError(
-                f"Inference failed: {resp.status_code} - {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Inference failed: {resp.status_code} - {resp.text[:500]}")
 
         return resp.json()
 

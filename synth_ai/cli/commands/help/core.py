@@ -10,19 +10,19 @@ from . import COMMAND_HELP, get_command_help
 @click.argument("command_name", type=str, required=False)
 def help_command(command_name: str | None) -> None:
     """Display detailed help for Synth AI commands.
-    
+
     USAGE
     -----
       uvx synth-ai help [COMMAND]
-    
+
     EXAMPLES
     --------
       # List available help topics
       uvx synth-ai help
-      
+
       # Get detailed help for deploy
       uvx synth-ai help deploy
-      
+
       # Get detailed help for setup
       uvx synth-ai help setup
     """
@@ -32,10 +32,10 @@ def help_command(command_name: str | None) -> None:
         click.echo("=" * 50)
         click.echo("\nAvailable help topics:")
         click.echo("")
-        
+
         for cmd in sorted(COMMAND_HELP.keys()):
             click.echo(f"  • {cmd}")
-        
+
         click.echo("\nUsage:")
         click.echo("  uvx synth-ai help [COMMAND]")
         click.echo("")
@@ -47,7 +47,7 @@ def help_command(command_name: str | None) -> None:
         click.echo("  uvx synth-ai deploy --help")
         click.echo("  uvx synth-ai setup --help")
         return
-    
+
     # Show detailed help for specific command
     help_text = get_command_help(command_name)
     if not help_text:
@@ -55,7 +55,7 @@ def help_command(command_name: str | None) -> None:
         click.echo(f"\nTry: uvx synth-ai {command_name} --help", err=True)
         click.echo("Or: uvx synth-ai help (to see available topics)", err=True)
         raise Exit(1)
-    
+
     click.echo(help_text)
 
 

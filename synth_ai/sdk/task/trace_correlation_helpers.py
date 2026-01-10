@@ -1,8 +1,13 @@
 """Helpers for trace correlation ID extraction and inclusion in task apps.
 
 This module provides utilities for task apps to:
-1. Extract trace_correlation_id from rollout requests
+1. Extract trace_correlation_id from inference URLs (for legacy compatibility)
 2. Include trace_correlation_id in rollout responses (top-level, metadata, trace)
+
+NOTE: As of the contracts update, trace_correlation_id is now a REQUIRED field
+in RolloutRequest. For new code, simply use request.trace_correlation_id directly.
+These extraction helpers remain for backward compatibility with older trainers
+that pass the ID via inference URL query params.
 
 See monorepo/trace_creation_and_judgement.txt "Fatal Guards" section for requirements.
 """
@@ -17,25 +22,23 @@ logger = logging.getLogger(__name__)
 
 
 def extract_trace_correlation_id(
-    policy_config: dict[str, Any],
-    inference_url: str | None = None,
-    mode: Any = None
+    policy_config: dict[str, Any], inference_url: str | None = None, mode: Any = None
 ) -> str | None:
     """
     Extract trace_correlation_id from inference URL only.
-    
+
     This is the standardized method for all task apps to extract the correlation ID
     that the RL trainer generates and passes to the task app.
-    
+
     Args:
         policy_config: Policy configuration dict from RolloutRequest.policy.config
         inference_url: Inference URL (optional, used as fallback)
-        mode: RolloutMode or string ("rl" or "eval"). Controls warning behavior - 
+        mode: RolloutMode or string ("rl" or "eval"). Controls warning behavior -
               warnings only logged for RL mode, not EVAL mode.
-        
+
     Returns:
         trace_correlation_id if found, None otherwise
-        
+
     Extraction order:
         1. URL path segment (trace_*/cid_*)
         2. URL query param ?cid=...
@@ -61,38 +64,34 @@ def extract_trace_correlation_id(
             is_eval_mode = mode == "eval"
     else:
         is_eval_mode = mode == "eval" or getattr(mode, "value", None) == "eval"
-    
+
     # Require inference_url (canonical trace source)
     if not inference_url or not isinstance(inference_url, str):
         if is_eval_mode:
             logger.debug(
-                "extract_trace_correlation_id: no inference_url provided "
-                "(EVAL mode - expected)"
+                "extract_trace_correlation_id: no inference_url provided (EVAL mode - expected)"
             )
         else:
-            logger.warning(
-                "extract_trace_correlation_id: no inference_url provided"
-            )
+            logger.warning("extract_trace_correlation_id: no inference_url provided")
         return None
-    
+
     try:
         parsed = urlparse(inference_url)
 
         # 1. Try path-based extraction first (OpenAI SDK compatible format):
         #    /v1/{trial_id}/{correlation_id}/chat/completions
         path_segments = [s for s in parsed.path.split("/") if s]
-        if len(path_segments) >= 2:
-            # Check if path ends with chat/completions
-            if path_segments[-2:] == ["chat", "completions"] and len(path_segments) >= 3:
-                # correlation_id is the segment before chat/completions
-                potential_cid = path_segments[-3]
-                # Verify it looks like a correlation ID (starts with trace_, cid_, or eval_)
-                if potential_cid.startswith(("trace_", "cid_", "eval_")):
-                    logger.debug(
-                        "extract_trace_correlation_id: extracted from URL path=%s",
-                        potential_cid,
-                    )
-                    return potential_cid.strip()
+        # Check if path ends with chat/completions
+        if len(path_segments) >= 3 and path_segments[-2:] == ["chat", "completions"]:
+            # correlation_id is the segment before chat/completions
+            potential_cid = path_segments[-3]
+            # Verify it looks like a correlation ID (starts with trace_, cid_, or eval_)
+            if potential_cid.startswith(("trace_", "cid_", "eval_")):
+                logger.debug(
+                    "extract_trace_correlation_id: extracted from URL path=%s",
+                    potential_cid,
+                )
+                return potential_cid.strip()
 
         # 1b. Fallback: look for any path segment that looks like a correlation ID
         for segment in reversed(path_segments):
@@ -134,8 +133,7 @@ def extract_trace_correlation_id(
         )
     else:
         logger.warning(
-            "extract_trace_correlation_id: no trace_correlation_id found in "
-            "inference_url=%s",
+            "extract_trace_correlation_id: no trace_correlation_id found in inference_url=%s",
             inference_url,
         )
     return None
@@ -143,31 +141,40 @@ def extract_trace_correlation_id(
 
 def validate_trace_correlation_id(
     trace_correlation_id: str | None,
-    run_id: str,
-    policy_config: dict[str, Any],
-    fatal: bool = False
+    policy_config: dict[str, Any] | None = None,
+    fatal: bool = False,
+    *,
+    run_id: str | None = None,  # Deprecated, for logging only
 ) -> str | None:
     """
-    Validate that trace_correlation_id was successfully extracted.
-    
+    Validate that trace_correlation_id is present.
+
+    NOTE: With the updated contracts, trace_correlation_id is now a REQUIRED
+    field in RolloutRequest. This function is primarily for validating
+    extraction from legacy sources (inference URLs).
+
     Args:
-        trace_correlation_id: The extracted correlation ID (or None)
-        run_id: Rollout run_id for logging
-        policy_config: Policy configuration for debugging
+        trace_correlation_id: The correlation ID to validate
+        policy_config: Policy configuration for debugging (optional)
         fatal: If True, raise ValueError on missing ID. If False, log error only.
-        
+        run_id: DEPRECATED - Only used for logging. Use trace_correlation_id for identification.
+
     Returns:
         trace_correlation_id if present, None if missing (when fatal=False)
-        
+
     Raises:
         ValueError: If trace_correlation_id is missing and fatal=True
     """
     if not trace_correlation_id:
+        inference_url = (
+            policy_config.get("inference_url", "NOT_SET") if policy_config else "NOT_SET"
+        )
+        id_for_log = run_id or trace_correlation_id or "UNKNOWN"
         error_msg = (
             f"🚨 CRITICAL: Cannot extract trace_correlation_id!\n"
             "\n"
-            f"Run ID: {run_id}\n"
-            f"Inference URL: {policy_config.get('inference_url', 'NOT_SET')}\n"
+            f"ID: {id_for_log}\n"
+            f"Inference URL: {inference_url}\n"
             "\n"
             "Checked:\n"
             "1. inference_url path segments\n"
@@ -178,68 +185,54 @@ def validate_trace_correlation_id(
             "\n"
             "See monorepo/trace_creation_and_judgement.txt 'Fatal Guards' section.\n"
         )
-        
+
         if fatal:
             raise ValueError(error_msg)
         else:
             logger.error(error_msg)
-    
+
     return trace_correlation_id
 
 
 def include_trace_correlation_id_in_response(
     response_data: dict[str, Any],
     trace_correlation_id: str | None,
-    run_id: str
+    run_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Include trace_correlation_id in all required locations of rollout response.
 
-    Required locations (trace-only):
+    Required locations:
     1. Top-level response["trace_correlation_id"]
-    2. response["pipeline_metadata"]["trace_correlation_id"]
-    3. response["trace"]["metadata"]["trace_correlation_id"] (and session_trace metadata if present)
-    
+    2. response["trace"]["metadata"]["trace_correlation_id"] (and session_trace metadata if present)
+
     Args:
         response_data: RolloutResponse dict (from .model_dump())
         trace_correlation_id: The correlation ID to include
-        run_id: Rollout run_id for logging
-        
+        run_id: DEPRECATED - Only used for logging. Use trace_correlation_id for identification.
+
     Returns:
         Modified response_data with trace_correlation_id in all required places
     """
+    id_for_log = run_id or trace_correlation_id or "UNKNOWN"
     if not trace_correlation_id:
         logger.error(
             "include_trace_correlation_id_in_response: missing trace_correlation_id "
-            "for run_id=%s - cannot include in response",
-            run_id
+            "for id=%s - cannot include in response",
+            id_for_log,
         )
         return response_data
-    
+
     # 1. Add to top-level (REQUIRED)
     if "trace_correlation_id" not in response_data:
         response_data["trace_correlation_id"] = trace_correlation_id
         logger.debug(
-            "include_trace_correlation_id: added to top-level run_id=%s cid=%s",
-            run_id,
-            trace_correlation_id
+            "include_trace_correlation_id: added to top-level id=%s cid=%s",
+            id_for_log,
+            trace_correlation_id,
         )
-    
-    # 2. Add to pipeline_metadata (REQUIRED)
-    pipeline_meta = response_data.get("pipeline_metadata")
-    if not isinstance(pipeline_meta, dict):
-        pipeline_meta = {}
-        response_data["pipeline_metadata"] = pipeline_meta
-    
-    if "trace_correlation_id" not in pipeline_meta:
-        pipeline_meta["trace_correlation_id"] = trace_correlation_id
-        logger.debug(
-            "include_trace_correlation_id: added to pipeline_metadata run_id=%s cid=%s",
-            run_id,
-            trace_correlation_id
-        )
-    
-    # 3. Add to trace metadata (REQUIRED)
+
+    # 2. Add to trace metadata (REQUIRED)
     trace_block = response_data.get("trace")
     if isinstance(trace_block, dict):
         trace_meta = trace_block.get("metadata")
@@ -249,10 +242,7 @@ def include_trace_correlation_id_in_response(
         if "trace_correlation_id" not in trace_meta:
             trace_meta["trace_correlation_id"] = trace_correlation_id
         corr_ids = trace_meta.get("correlation_ids")
-        if isinstance(corr_ids, dict):
-            corr_map = dict(corr_ids)
-        else:
-            corr_map = {}
+        corr_map = dict(corr_ids) if isinstance(corr_ids, dict) else {}
         corr_map.setdefault("trace_correlation_id", trace_correlation_id)
         trace_meta["correlation_ids"] = corr_map
 
@@ -265,12 +255,12 @@ def include_trace_correlation_id_in_response(
             session_meta.setdefault("trace_correlation_id", trace_correlation_id)
 
     logger.debug(
-        "include_trace_correlation_id: completed run_id=%s cid=%s "
-        "added to top-level, metadata, and trace",
-        run_id,
+        "include_trace_correlation_id: completed id=%s cid=%s "
+        "added to top-level and trace metadata",
+        id_for_log,
         trace_correlation_id,
     )
-    
+
     return response_data
 
 
@@ -304,12 +294,20 @@ def build_trace_payload(
     if isinstance(response, dict):
         if "message" in response:
             llm_response = dict(response)
-        elif "choices" in response and isinstance(response.get("choices"), list) and response["choices"]:
-            first_choice = response["choices"][0] if isinstance(response["choices"][0], dict) else {}
+        elif (
+            "choices" in response
+            and isinstance(response.get("choices"), list)
+            and response["choices"]
+        ):
+            first_choice = (
+                response["choices"][0] if isinstance(response["choices"][0], dict) else {}
+            )
             llm_response = {
                 "message": first_choice.get("message") if isinstance(first_choice, dict) else {},
                 "usage": response.get("usage", {}),
-                "finish_reason": first_choice.get("finish_reason") if isinstance(first_choice, dict) else None,
+                "finish_reason": first_choice.get("finish_reason")
+                if isinstance(first_choice, dict)
+                else None,
             }
         else:
             llm_response = dict(response)
@@ -333,10 +331,7 @@ def build_trace_payload(
     if correlation_id:
         trace_metadata.setdefault("trace_correlation_id", correlation_id)
         corr_ids = trace_metadata.get("correlation_ids")
-        if isinstance(corr_ids, dict):
-            corr_map = dict(corr_ids)
-        else:
-            corr_map = {}
+        corr_map = dict(corr_ids) if isinstance(corr_ids, dict) else {}
         corr_map.setdefault("trace_correlation_id", correlation_id)
         trace_metadata["correlation_ids"] = corr_map
 
@@ -468,43 +463,35 @@ def include_event_history_in_trajectories(
 def verify_trace_correlation_id_in_response(
     response_data: dict[str, Any],
     expected_correlation_id: str | None,
-    run_id: str
+    run_id: str | None = None,
 ) -> bool:
     """
     Verify that trace_correlation_id is present in all required locations.
-    
+
     Args:
         response_data: RolloutResponse dict to verify
         expected_correlation_id: The correlation ID that should be present
-        run_id: Rollout run_id for logging
-        
+        run_id: DEPRECATED - Only used for logging. Use trace_correlation_id for identification.
+
     Returns:
         True if all required locations have the correlation ID, False otherwise
     """
+    id_for_log = run_id or expected_correlation_id or "UNKNOWN"
     if not expected_correlation_id:
         logger.error(
-            "verify_trace_correlation_id: no expected_correlation_id provided for run_id=%s",
-            run_id
+            "verify_trace_correlation_id: no expected_correlation_id provided for id=%s", id_for_log
         )
         return False
-    
+
     errors = []
-    
+
     # Check top-level
     if response_data.get("trace_correlation_id") != expected_correlation_id:
         errors.append(
             f"Top-level missing or mismatch: "
             f"expected={expected_correlation_id} actual={response_data.get('trace_correlation_id')}"
         )
-    
-    # Check pipeline_metadata
-    pipeline_meta = response_data.get("pipeline_metadata", {})
-    if not isinstance(pipeline_meta, dict) or pipeline_meta.get("trace_correlation_id") != expected_correlation_id:
-        errors.append(
-            f"pipeline_metadata missing or mismatch: "
-            f"expected={expected_correlation_id} actual={pipeline_meta.get('trace_correlation_id') if isinstance(pipeline_meta, dict) else 'NOT_A_DICT'}"
-        )
-    
+
     # Check trace metadata
     trace_block = response_data.get("trace")
     trace_meta_id = None
@@ -523,18 +510,12 @@ def verify_trace_correlation_id_in_response(
                 "trace.metadata missing or mismatch: "
                 f"expected={expected_correlation_id} actual={trace_meta_id}"
             )
-    
+
     if errors:
-        logger.error(
-            "verify_trace_correlation_id: FAILED run_id=%s\n%s",
-            run_id,
-            "\n".join(errors)
-        )
+        logger.error("verify_trace_correlation_id: FAILED id=%s\n%s", id_for_log, "\n".join(errors))
         return False
-    
+
     logger.debug(
-        "verify_trace_correlation_id: PASSED run_id=%s cid=%s",
-        run_id,
-        expected_correlation_id
+        "verify_trace_correlation_id: PASSED id=%s cid=%s", id_for_log, expected_correlation_id
     )
     return True

@@ -13,11 +13,11 @@ if "train" in sys.argv:
 
 try:
     from .cli import cli
-    
+
     if "train" in sys.argv:
         sys.stderr.write("[SYNTH_AI_MAIN] CLI imported successfully\n")
         sys.stderr.flush()
-    
+
     if __name__ == "__main__":
         if "train" in sys.argv:
             sys.stderr.write("[SYNTH_AI_MAIN] About to call cli()\n")

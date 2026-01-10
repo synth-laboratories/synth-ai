@@ -35,7 +35,7 @@ def scan_cloudflare_processes() -> list[dict[str, Any]]:
                 if proc.info["name"] and "cloudflared" in proc.info["name"].lower():
                     cmdline = proc.info.get("cmdline") or []
                     pid = proc.info.get("pid")
-                    
+
                     # Check for quick tunnel: cloudflared tunnel --url http://127.0.0.1:PORT
                     for i, arg in enumerate(cmdline):
                         if arg == "--url" and i + 1 < len(cmdline):
@@ -46,26 +46,30 @@ def scan_cloudflare_processes() -> list[dict[str, Any]]:
                                 port = int(port_match.group(1))
                                 # Try to get tunnel URL from process stdout/stderr or log files
                                 tunnel_url = _try_get_quick_tunnel_url(pid, port)
-                                tunnels.append({
-                                    "port": port,
-                                    "mode": "quick",
-                                    "pid": pid,
-                                    "cmdline": cmdline,
-                                    "url": tunnel_url,
-                                    "local_url": local_url,
-                                })
+                                tunnels.append(
+                                    {
+                                        "port": port,
+                                        "mode": "quick",
+                                        "pid": pid,
+                                        "cmdline": cmdline,
+                                        "url": tunnel_url,
+                                        "local_url": local_url,
+                                    }
+                                )
                             break
-                        
+
                         # Check for managed tunnel: cloudflared tunnel run --token TOKEN
                         if arg == "run" and i > 0 and cmdline[i - 1] == "tunnel":
                             # Managed tunnel - we can't get URL from process alone
-                            tunnels.append({
-                                "port": None,  # Unknown from process
-                                "mode": "managed",
-                                "pid": pid,
-                                "cmdline": cmdline,
-                                "url": None,  # Need backend API
-                            })
+                            tunnels.append(
+                                {
+                                    "port": None,  # Unknown from process
+                                    "mode": "managed",
+                                    "pid": pid,
+                                    "cmdline": cmdline,
+                                    "url": None,  # Need backend API
+                                }
+                            )
                             break
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
@@ -89,7 +93,7 @@ def scan_cloudflare_processes() -> list[dict[str, Any]]:
                         pid = int(pid_str)
                     except ValueError:
                         continue
-                    
+
                     # Check for quick tunnel
                     url_match = re.search(r"--url\s+(\S+)", rest)
                     if url_match:
@@ -98,23 +102,27 @@ def scan_cloudflare_processes() -> list[dict[str, Any]]:
                         if port_match:
                             port = int(port_match.group(1))
                             tunnel_url = _try_get_quick_tunnel_url(pid, port)
-                            tunnels.append({
-                                "port": port,
-                                "mode": "quick",
-                                "pid": pid,
-                                "cmdline": rest.split(),
-                                "url": tunnel_url,
-                                "local_url": local_url,
-                            })
+                            tunnels.append(
+                                {
+                                    "port": port,
+                                    "mode": "quick",
+                                    "pid": pid,
+                                    "cmdline": rest.split(),
+                                    "url": tunnel_url,
+                                    "local_url": local_url,
+                                }
+                            )
                     # Check for managed tunnel
                     elif "tunnel run" in rest or "tunnel run --token" in rest:
-                        tunnels.append({
-                            "port": None,
-                            "mode": "managed",
-                            "pid": pid,
-                            "cmdline": rest.split(),
-                            "url": None,
-                        })
+                        tunnels.append(
+                            {
+                                "port": None,
+                                "mode": "managed",
+                                "pid": pid,
+                                "cmdline": rest.split(),
+                                "url": None,
+                            }
+                        )
         except Exception:
             pass
 
@@ -123,24 +131,24 @@ def scan_cloudflare_processes() -> list[dict[str, Any]]:
 
 def _try_get_quick_tunnel_url(pid: int | None, port: int) -> str | None:
     """Try to get quick tunnel URL from process stdout/stderr or log files.
-    
+
     Args:
         pid: Process ID
         port: Local port being tunneled
-        
+
     Returns:
         Tunnel URL if found, None otherwise
     """
     if pid is None:
         return None
-    
+
     # Try to read from common log file locations
     log_paths = [
         Path(f"/tmp/cloudflared_{port}.log"),
         Path.home() / f".cloudflared_{port}.log",
         Path(f"/tmp/cloudflared_{pid}.log"),
     ]
-    
+
     for log_path in log_paths:
         try:
             if log_path.exists():
@@ -151,20 +159,21 @@ def _try_get_quick_tunnel_url(pid: int | None, port: int) -> str | None:
                         return match.group(0)
         except Exception:
             continue
-    
+
     # Try to read from process file descriptors (if accessible)
     try:
         import psutil  # type: ignore[import-untyped]
+
         proc = psutil.Process(pid)
         # Try to read from stdout/stderr if they're pipes/files
         for fd in [proc.stdout, proc.stderr]:
-            if fd and hasattr(fd, 'read'):
+            if fd and hasattr(fd, "read"):
                 try:
                     # Read last few KB
-                    content = fd.read(8192) if hasattr(fd, 'read') else None
+                    content = fd.read(8192) if hasattr(fd, "read") else None
                     if content:
                         if isinstance(content, bytes):
-                            content = content.decode('utf-8', errors='ignore')
+                            content = content.decode("utf-8", errors="ignore")
                         match = _QUICK_TUNNEL_URL_RE.search(content)
                         if match:
                             return match.group(0)
@@ -172,7 +181,7 @@ def _try_get_quick_tunnel_url(pid: int | None, port: int) -> str | None:
                     pass
     except Exception:
         pass
-    
+
     return None
 
 
@@ -248,17 +257,17 @@ async def scan_cloudflare_apps(
         port = tunnel_info.get("port")
         mode = tunnel_info.get("mode")
         pid = tunnel_info.get("pid")
-        
+
         if mode == "quick" and tunnel_url:
             # Quick tunnel with discovered URL
             if tunnel_url not in seen_urls:
                 seen_urls.add(tunnel_url)
                 health_status, metadata = await check_app_health(tunnel_url, env_api_key, timeout)
                 app_id, task_name, dataset_id, version = extract_app_info(metadata)
-                
+
                 tunnel_hostname = tunnel_url.replace("https://", "").split("/")[0]
                 name = app_id or task_name or tunnel_hostname or tunnel_url
-                
+
                 apps.append(
                     ScannedApp(
                         name=name,
@@ -331,10 +340,10 @@ async def scan_cloudflare_apps(
                 seen_urls.add(tunnel_url)
                 health_status, metadata = await check_app_health(tunnel_url, env_api_key, timeout)
                 app_id, task_name, dataset_id, version = extract_app_info(metadata)
-                
+
                 tunnel_hostname = tunnel_url.replace("https://", "").split("/")[0]
                 name = app_id or task_name or tunnel_hostname or tunnel_url
-                
+
                 apps.append(
                     ScannedApp(
                         name=name,
@@ -356,10 +365,10 @@ async def scan_cloudflare_apps(
     # Method 4: Check service records file (tunnels deployed via synth-ai)
     try:
         from synth_ai.cli.lib.tunnel_records import cleanup_stale_records, load_service_records
-        
+
         # Clean up stale records first
         cleanup_stale_records()
-        
+
         records = load_service_records()
         # Filter for tunnels only
         records = {k: v for k, v in records.items() if v.get("type") == "tunnel"}
@@ -368,17 +377,17 @@ async def scan_cloudflare_apps(
             port = record.get("port")
             mode = record.get("mode", "quick")
             hostname = record.get("hostname")
-            
+
             if tunnel_url and tunnel_url not in seen_urls:
                 seen_urls.add(tunnel_url)
                 health_status, metadata = await check_app_health(tunnel_url, env_api_key, timeout)
                 app_id, task_name, dataset_id, version = extract_app_info(metadata)
-                
+
                 if not hostname and tunnel_url.startswith("https://"):
                     hostname = tunnel_url.replace("https://", "").split("/")[0]
-                
+
                 name = app_id or task_name or hostname or tunnel_url
-                
+
                 apps.append(
                     ScannedApp(
                         name=name,
@@ -400,4 +409,3 @@ async def scan_cloudflare_apps(
         pass  # Fail silently if records unavailable
 
     return apps
-

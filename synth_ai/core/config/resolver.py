@@ -10,6 +10,7 @@ from synth_ai.core.telemetry import log_info
 def _get_required_value(*args, **kwargs):
     """Lazy import to avoid circular dependency."""
     from synth_ai.cli.lib.errors import get_required_value
+
     return get_required_value(*args, **kwargs)
 
 
@@ -54,7 +55,12 @@ class ConfigResolver:
         docs_url: Optional[str] = None,
     ) -> Optional[str]:
         """Resolve value with CLI > ENV > CONFIG > DEFAULT precedence."""
-        ctx = {"name": name, "required": required, "has_cli": cli_value is not None, "has_env": env_value is not None}
+        ctx = {
+            "name": name,
+            "required": required,
+            "has_cli": cli_value is not None,
+            "has_env": env_value is not None,
+        }
         log_info("ConfigResolver.resolve invoked", ctx=ctx)
 
         def _clean(value: Optional[str]) -> Optional[str]:

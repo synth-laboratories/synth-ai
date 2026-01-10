@@ -16,22 +16,22 @@ from .config import GraphOptimizationConfig
 
 class GraphOptimizationClient:
     """Client for Graph Optimization Job API.
-    
+
     This client interacts with the backend to run graph optimization jobs.
     The client is agnostic to graph internals - it just manages jobs.
-    
+
     Example:
         async with GraphOptimizationClient("http://localhost:8000", api_key) as client:
             config = GraphOptimizationConfig.from_toml("config.toml")
             job_id = await client.start_job(config)
-            
+
             async for event in client.stream_events(job_id):
                 print(event["type"], event.get("data", {}))
-            
+
             result = await client.get_result(job_id)
             print(f"Best score: {result['best_score']}")
     """
-    
+
     def __init__(
         self,
         base_url: str = "http://localhost:8000",
@@ -39,7 +39,7 @@ class GraphOptimizationClient:
         timeout: float = 300.0,
     ):
         """Initialize the client.
-        
+
         Args:
             base_url: Backend API URL
             api_key: Optional API key for authentication
@@ -49,8 +49,8 @@ class GraphOptimizationClient:
         self.api_key = api_key
         self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
-    
-    async def __aenter__(self) -> "GraphOptimizationClient":
+
+    async def __aenter__(self) -> GraphOptimizationClient:
         headers = {}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -60,19 +60,19 @@ class GraphOptimizationClient:
             timeout=self.timeout,
         )
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         if self._client:
             await self._client.aclose()
             self._client = None
-    
+
     def _ensure_client(self) -> httpx.AsyncClient:
         if self._client is None:
             raise RuntimeError(
                 "Client not initialized. Use 'async with GraphOptimizationClient(...) as client:'"
             )
         return self._client
-    
+
     def _get_api_prefix(self, algorithm: str) -> str:
         """Get the API prefix for an algorithm.
 
@@ -89,19 +89,19 @@ class GraphOptimizationClient:
             # Future algorithms can be added here
         }
         return prefixes.get(algorithm, f"/{algorithm.replace('_', '-')}")
-    
+
     async def start_job(
         self,
         config: GraphOptimizationConfig,
     ) -> str:
         """Start a graph optimization job.
-        
+
         Args:
             config: Job configuration (includes algorithm selection)
-            
+
         Returns:
             Job ID (e.g., "graph_evolve_abc123")
-            
+
         Raises:
             httpx.HTTPStatusError: If request fails
         """
@@ -114,7 +114,7 @@ class GraphOptimizationClient:
         response.raise_for_status()
         data = response.json()
         return data["job_id"]
-    
+
     async def get_status(self, job_id: str) -> Dict[str, Any]:
         """Get job status.
 
@@ -179,7 +179,7 @@ class GraphOptimizationClient:
             timeout=timeout,
         ) as response:
             response.raise_for_status()
-            
+
             async for line in response.aiter_lines():
                 line = line.strip()
                 if not line:
@@ -192,7 +192,7 @@ class GraphOptimizationClient:
                         yield json.loads(data_str)
                     except json.JSONDecodeError:
                         continue
-    
+
     async def wait_for_completion(
         self,
         job_id: str,
@@ -200,27 +200,26 @@ class GraphOptimizationClient:
         max_wait: float = 3600.0,
     ) -> Dict[str, Any]:
         """Wait for job completion by polling status.
-        
+
         Args:
             job_id: Job ID
             poll_interval: Seconds between status checks
             max_wait: Maximum wait time in seconds
-            
+
         Returns:
             Final job result
-            
+
         Raises:
             TimeoutError: If max_wait exceeded
         """
         import asyncio
         import time
-        
+
         start = time.time()
         while time.time() - start < max_wait:
             status = await self.get_status(job_id)
             if status.get("status") in ("completed", "failed", "cancelled"):
                 return await self.get_result(job_id)
             await asyncio.sleep(poll_interval)
-        
-        raise TimeoutError(f"Job {job_id} did not complete within {max_wait}s")
 
+        raise TimeoutError(f"Job {job_id} did not complete within {max_wait}s")

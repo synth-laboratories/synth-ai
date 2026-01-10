@@ -13,26 +13,6 @@ from typing import Any, Mapping, cast
 from dotenv import load_dotenv
 from fastapi import HTTPException, Request
 
-# Synth-AI SDK imports
-from synth_ai.sdk.localapi.helpers import (
-    add_metadata_endpoint,
-    call_chat_completion_api,
-    create_http_client_hooks,
-    extract_api_key,
-    preload_dataset_splits,
-)
-from synth_ai.sdk.localapi.apps import LocalAPIEntry, ModalDeploymentConfig, register_local_api
-from synth_ai.sdk.task.contracts import (
-    RolloutMetrics,
-    RolloutRequest,
-    RolloutResponse,
-    TaskInfo,
-)
-from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
-from synth_ai.sdk.task.rubrics import Rubric, load_rubric
-from synth_ai.sdk.localapi.server import LocalAPIConfig, RubricBundle, create_local_api, run_local_api
-from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-
 # Business logic imports (no synth-ai dependencies)
 from financial_ner_business_logic import (
     AVAILABLE_SPLITS,
@@ -47,7 +27,31 @@ from financial_ner_business_logic import (
     get_extract_tool_schema,
     parse_entities_from_tool_call,
 )
+from synth_ai.sdk.localapi.apps import LocalAPIEntry, ModalDeploymentConfig, register_local_api
 
+# Synth-AI SDK imports
+from synth_ai.sdk.localapi.helpers import (
+    add_metadata_endpoint,
+    call_chat_completion_api,
+    create_http_client_hooks,
+    extract_api_key,
+    preload_dataset_splits,
+)
+from synth_ai.sdk.localapi.server import (
+    LocalAPIConfig,
+    RubricBundle,
+    create_local_api,
+    run_local_api,
+)
+from synth_ai.sdk.task.contracts import (
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskInfo,
+)
+from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.sdk.task.rubrics import Rubric, load_rubric
+from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 
 # Log environment at module load time for debugging
 print(
@@ -75,7 +79,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     dataset: FinancialNERDataset = fastapi_request.app.state.financial_ner_dataset
 
     with contextlib.suppress(Exception):
-        cfg = (request.policy.config or {})
+        cfg = request.policy.config or {}
         print(
             f"[TASK_APP] INBOUND_ROLLOUT: run_id={request.run_id} seed={request.env.seed} env={request.env.env_name} "
             f"policy.model={cfg.get('model')} provider={cfg.get('provider')} api_base={cfg.get('inference_url') or cfg.get('api_base') or cfg.get('base_url')}",
@@ -125,7 +129,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         raw_upstream = json.dumps(response_json, ensure_ascii=False)
     except Exception:
         raw_upstream = str(response_json)
-    print(f"[TASK_APP] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True)
+    print(
+        f"[TASK_APP] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True
+    )
 
     if not isinstance(response_json, dict) or not response_json:
         raise RuntimeError("Proxy returned missing/empty JSON")
@@ -136,9 +142,13 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             try:
                 args = json.loads(args_str)
             except Exception as exc:
-                raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON") from exc
+                raise HTTPException(
+                    status_code=502, detail="Tool call arguments not valid JSON"
+                ) from exc
             if "entities" not in args or not isinstance(args["entities"], dict):
-                raise HTTPException(status_code=502, detail="Tool call missing valid 'entities' dict")
+                raise HTTPException(
+                    status_code=502, detail="Tool call missing valid 'entities' dict"
+                )
 
     # Extract predicted entities using business logic helper
     predicted_entities: dict[str, list[str]] = {etype: [] for etype in ENTITY_TYPES}
@@ -157,12 +167,17 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             print(f"[TASK_APP] CONTENT_FALLBACK_PARSE_ERROR: {response_text[:200]}", flush=True)
 
     if not any(predicted_entities.values()):
-        print(f"[TASK_APP] WARNING: No entities extracted from proxy response, returning 0 score", flush=True)
+        print(
+            "[TASK_APP] WARNING: No entities extracted from proxy response, returning 0 score",
+            flush=True,
+        )
 
     expected_entities = sample["entities"]
 
     # Score using business logic
-    correct_types, total_types, reward = FinancialNERScorer.score_entities(predicted_entities, expected_entities)
+    correct_types, total_types, reward = FinancialNERScorer.score_entities(
+        predicted_entities, expected_entities
+    )
     is_correct = reward == 1.0
 
     print(
@@ -182,7 +197,6 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     trace_correlation_id = extract_trace_correlation_id(
         policy_config=request.policy.config or {},
         inference_url=str(inference_url or ""),
-        mode=request.mode,
     )
 
     # Build V3 trace for verifier evaluation
@@ -249,12 +263,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             metadata_block["correlation_ids"] = corr_map
 
     metrics = RolloutMetrics(
-        episode_rewards=[reward],
-        reward_mean=reward,
-        num_steps=1,
-        num_episodes=1,
-        outcome_score=reward,
-        events_score=reward,
+        outcome_reward=reward,
         details={"correct": is_correct, "correct_types": correct_types},
     )
 
@@ -262,15 +271,10 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 
     return RolloutResponse(
         run_id=request.run_id,
-        branches={},
         metrics=metrics,
-        aborted=False,
         trace_correlation_id=trace_correlation_id,
         trace=trace_payload,
-        pipeline_metadata={
-            "inference_url": str(inference_url or ""),
-            "trace_correlation_id": trace_correlation_id,
-        },
+        inference_url=str(inference_url or ""),
     )
 
 
@@ -323,7 +327,9 @@ def describe_taskset(dataset: FinancialNERDataset) -> Mapping[str, Any]:
     }
 
 
-def provide_task_instances(dataset: FinancialNERDataset, seeds: Sequence[int]) -> Iterable[TaskInfo]:
+def provide_task_instances(
+    dataset: FinancialNERDataset, seeds: Sequence[int]
+) -> Iterable[TaskInfo]:
     """Provide task instances for the given seeds."""
     base_info = _base_task_info()
     for seed in seeds:
@@ -341,7 +347,7 @@ def provide_task_instances(dataset: FinancialNERDataset, seeds: Sequence[int]) -
                         "expected_answer": expected_entities.get(etype, []),
                     }
                     for etype in ENTITY_TYPES
-                ]
+                ],
             },
         }
 
@@ -349,10 +355,7 @@ def provide_task_instances(dataset: FinancialNERDataset, seeds: Sequence[int]) -
         if hasattr(dataset_dict, "model_dump"):
             dataset_dict = dataset_dict.model_dump()
         elif not isinstance(dataset_dict, dict):
-            if hasattr(dataset_dict, "__dict__"):
-                dataset_dict = dict(dataset_dict.__dict__)
-            else:
-                dataset_dict = {}
+            dataset_dict = dict(dataset_dict.__dict__) if hasattr(dataset_dict, "__dict__") else {}
 
         dataset_dict = {
             **dataset_dict,
@@ -364,10 +367,9 @@ def provide_task_instances(dataset: FinancialNERDataset, seeds: Sequence[int]) -
         if hasattr(task_metadata_dict, "model_dump"):
             task_metadata_dict = task_metadata_dict.model_dump()
         elif not isinstance(task_metadata_dict, dict):
-            if hasattr(task_metadata_dict, "__dict__"):
-                task_metadata_dict = dict(task_metadata_dict.__dict__)
-            else:
-                task_metadata_dict = {}
+            task_metadata_dict = (
+                dict(task_metadata_dict.__dict__) if hasattr(task_metadata_dict, "__dict__") else {}
+            )
 
         task_metadata_dict = {
             **task_metadata_dict,

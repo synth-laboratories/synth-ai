@@ -21,24 +21,23 @@ from synth_ai.core.telemetry import log_error, log_info
 def __validate_modal_app(*args, **kwargs):
     """Lazy import to avoid circular dependency."""
     from synth_ai.cli.lib.apps.modal_app import validate_modal_app
+
     return validate_modal_app(*args, **kwargs)
 
 
 def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
     """Lazy import to avoid circular dependency."""
     from synth_ai.cli.lib.env import write_env_var_to_dotenv
+
     write_env_var_to_dotenv(key, value, **kwargs)
+
 
 MODAL_URL_REGEX = re.compile(r"https?://[^\s]+modal\.run[^\s]*")
 
 
 def is_modal_setup_needed() -> bool:
-    token_id = os.environ.get("MODAL_TOKEN_ID") \
-        or config.get("token_id") \
-        or ''
-    token_secret = os.environ.get("MODAL_TOKEN_SECRET") \
-        or config.get("token_secret") \
-        or ''
+    token_id = os.environ.get("MODAL_TOKEN_ID") or config.get("token_id") or ""
+    token_secret = os.environ.get("MODAL_TOKEN_SECRET") or config.get("token_secret") or ""
     return not token_id or not token_secret
 
 
@@ -153,15 +152,14 @@ def create_modal_wrapper(cfg: ModalDeployCfg) -> tuple[Path, Path]:
     """).strip()
     dir = Path(tempfile.mkdtemp(prefix="synth_modal_app"))
     file = dir / "__modal_wrapper__.py"
-    file.write_text(src + '\n', encoding="utf-8")
+    file.write_text(src + "\n", encoding="utf-8")
     ctx["wrapper_dir"] = str(dir)
     log_info("modal wrapper created", ctx=ctx)
     return (dir, file)
 
 
 def stream_modal_cmd_output(
-    process: subprocess.Popen,
-    print_stdout: bool = True
+    process: subprocess.Popen, print_stdout: bool = True
 ) -> tuple[int, str | None]:
     stdout = process.stdout
     if stdout is None:
@@ -187,12 +185,7 @@ def run_modal_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.Popen:
     log_info("starting modal cli", ctx=ctx)
     try:
         return subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            env=env
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env
         )
     except FileNotFoundError as exc:
         ctx["error"] = str(exc)

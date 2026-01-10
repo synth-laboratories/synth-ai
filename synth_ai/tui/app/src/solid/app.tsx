@@ -15,10 +15,12 @@ import { LogsDetail } from "./ui/detail-panels/LogsDetail"
 import { useJobDetailsStream } from "./api/useJobDetailsStream"
 import type { JobDetailsStreamEvent } from "./api/job-details-stream"
 import { CreateJobModal, type JobCreatedInfo } from "./modals/CreateJobModal"
+import { CandidatesModal } from "./modals/CandidatesModal"
 import { scanMultipleDirectories, type ScannedLocalAPI } from "./utils/localapi-scanner"
 import { toDisplayPath } from "./utils/files"
 
-import { formatResultsExpanded, getFilteredEvents } from "../formatters"
+import { getFilteredEvents } from "../formatters"
+import { formatMetricsCharts } from "../formatters/metrics"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
 import { cancelSelected, fetchArtifacts, fetchMetrics, selectJob } from "../api/jobs"
 import { apiGet, apiGetV1 } from "../api/client"
@@ -30,8 +32,10 @@ import { clearLoggedOutMarker, deleteSavedApiKey, saveApiKey, setLoggedOutMarker
 import { persistSettings } from "../persistence/settings"
 import { listLogFiles, moveLogSelection } from "../ui/logs"
 import { moveEventSelection } from "../ui/events"
+import { refreshEvents } from "../api/events"
 import type { JobEvent } from "../tui_data"
 import type { SessionHealthResult, SessionRecord, Snapshot, TunnelHealthResult, TunnelRecord } from "../types"
+import { focusManager } from "../focus"
 import {
   backendConfigs,
   frontendKeys,
@@ -49,6 +53,7 @@ type ModalState =
       title: string
       raw: string
       offset: number
+      fullscreen?: boolean
     }
   | {
       type: "log"
@@ -57,6 +62,7 @@ type ModalState =
       offset: number
       tail: boolean
       path: string
+      fullscreen?: boolean
     }
 
 type ActiveModal =
@@ -74,6 +80,7 @@ type ActiveModal =
   | "profile"
   | "urls"
   | "login"
+  | "metrics"
 
 type UsageData = {
   plan_type: "free" | "pro" | "team" | "byok"
@@ -132,7 +139,9 @@ function SolidShell(props: { onExit?: () => void }) {
   const snapshot = data.ctx.state.snapshot
   const snapshotMemo = createMemo(() => {
     data.version()
-    return data.ctx.state.snapshot
+    // Important: return a new reference so downstream memos (e.g. JobsDetail)
+    // recompute when snapshot fields are mutated in-place.
+    return { ...data.ctx.state.snapshot }
   })
   const [selectedIndex, setSelectedIndex] = createSignal(0)
   const jobs = createMemo(() => {
@@ -228,6 +237,8 @@ function SolidShell(props: { onExit?: () => void }) {
       if (event.seq > lastSeenSeq()) {
         setLastSeenSeq(event.seq)
       }
+      // Keep polling cursor in sync with SSE cursor so refreshEvents() doesn't refetch from 0.
+      appState.lastSeq = Math.max(appState.lastSeq || 0, event.seq)
 
       // Convert SSE event to JobEvent format and add to snapshot
       const jobEvent: JobEvent = {
@@ -249,6 +260,41 @@ function SolidShell(props: { onExit?: () => void }) {
       // Log but don't show to user - polling will still work as fallback
       console.error("Job details SSE error:", error.message)
     },
+  })
+
+  // Poll/backfill events to avoid gaps when SSE drops or when selecting an older job.
+  // We keep this lightweight (small interval + bounded backfill loop).
+  createEffect(() => {
+    const jobId = selectedJobId()
+    const enabled = principalPane() === "jobs" && activePane() !== "logs"
+    if (!jobId || !enabled) return
+
+    let cancelled = false
+
+    async function backfillOnce(): Promise<void> {
+      // Pull up to ~10 pages (2000 events) max per selection, but stop early if no progress.
+      for (let i = 0; i < 10; i++) {
+        const beforeSeq = appState.lastSeq
+        const beforeLen = snapshot.events.length
+        const ok = await refreshEvents(data.ctx)
+        if (!ok) break
+        if (cancelled) return
+        if (snapshot.events.length === beforeLen && appState.lastSeq === beforeSeq) break
+      }
+      if (!cancelled) data.ctx.render()
+    }
+
+    void backfillOnce()
+
+    const interval = setInterval(() => {
+      void refreshEvents(data.ctx).then((ok) => {
+        if (ok && !cancelled) data.ctx.render()
+      })
+    }, 3000)
+    onCleanup(() => {
+      cancelled = true
+      clearInterval(interval)
+    })
   })
   const logFiles = createMemo(() => {
     data.version()
@@ -360,6 +406,15 @@ function SolidShell(props: { onExit?: () => void }) {
     return scannedLocalAPIs().map(api => toDisplayPath(api.filepath))
   })
   const modalLayout = createMemo(() => {
+    const state = modal()
+    if (state?.fullscreen) {
+      return {
+        width: Math.max(1, layout().totalWidth),
+        height: Math.max(1, layout().totalHeight),
+        left: 0,
+        top: 0,
+      }
+    }
     const width = Math.min(100, Math.max(40, layout().totalWidth - 4))
     const height = Math.min(26, Math.max(12, layout().totalHeight - 6))
     const left = Math.max(0, Math.floor((layout().totalWidth - width) / 2))
@@ -396,17 +451,20 @@ function SolidShell(props: { onExit?: () => void }) {
     const range = view.total > view.visibleCount
       ? `[${view.offset + 1}-${Math.min(view.offset + view.visible.length, view.total)}/${view.total}] `
       : ""
+    const fullscreenHint = "Shift+F fullscreen | "
     if (state.type === "log") {
       const tail = state.tail ? " [TAIL]" : ""
-      return `${range}j/k scroll | t tail${tail} | y copy | q close`
+      return `${range}${fullscreenHint}j/k scroll | t tail${tail} | y copy | q close`
     }
-    return `${range}j/k scroll | q close`
+    return `${range}${fullscreenHint}j/k scroll | q close`
   })
 
   function buildScrollableModal(raw: string, width: number, height: number, offset: number) {
-    const maxWidth = Math.max(10, width - 4)
+    // Account for borders (2) + padding left/right (4) = 6 chars of horizontal chrome
+    const maxWidth = Math.max(10, width - 6)
     const lines = wrapText(raw, maxWidth)
-    const bodyHeight = Math.max(1, height - 4)
+    // Account for: 2 (borders) + 2 (padding top/bottom) + 1 (title) + 1 (hint) = 6 lines of chrome
+    const bodyHeight = Math.max(1, height - 6)
     const maxOffset = Math.max(0, lines.length - bodyHeight)
     const clamped = clamp(offset, 0, maxOffset)
     const visible = lines.slice(clamped, clamped + bodyHeight)
@@ -421,6 +479,32 @@ function SolidShell(props: { onExit?: () => void }) {
     }
     if (selectedIndex() >= count) {
       setSelectedIndex(count - 1)
+    }
+  })
+
+  // Auto-select job when highlighted index changes (only in jobs pane)
+  createEffect(() => {
+    const pane = activePane()
+    if (pane !== "jobs") return
+    
+    const index = selectedIndex()
+    const jobsList = jobs()
+    const currentSnapshot = snapshotMemo()
+    const currentSelected = currentSnapshot.selectedJob
+    
+    // Only proceed if we have jobs and a valid index
+    if (jobsList.length === 0 || index < 0 || index >= jobsList.length) {
+      return
+    }
+    
+    const job = jobsList[index]
+    if (!job?.job_id) {
+      return
+    }
+    
+    // Auto-select if no job is currently selected, or if it's a different job
+    if (!currentSelected || currentSelected.job_id !== job.job_id) {
+      void data.select(job.job_id)
     }
   })
 
@@ -587,16 +671,8 @@ function SolidShell(props: { onExit?: () => void }) {
   }
 
   function openResultsModal(): void {
-    appState.resultsModalOffset = 0
+    setModal(null)
     setActiveModal("results")
-  }
-
-  async function copyResultsModal(): Promise<void> {
-    const text = formatResultsExpanded(snapshot)
-    if (!text) return
-    await copyToClipboard(text)
-    snapshot.status = "Results copied to clipboard"
-    data.ctx.render()
   }
 
   function openProfileModal(): void {
@@ -752,7 +828,11 @@ function SolidShell(props: { onExit?: () => void }) {
 
   async function selectEnvKey(): Promise<void> {
     const selected = appState.envKeyOptions[appState.envKeyCursor]
-    if (!selected) return
+    if (!selected) {
+      // Close modal when no keys available (pressing enter should dismiss)
+      closeActiveModal()
+      return
+    }
     const frontendUrlId = getFrontendUrlId(appState.currentBackend)
     frontendKeys[frontendUrlId] = selected.key
     frontendKeySources[frontendUrlId] = {
@@ -776,6 +856,11 @@ function SolidShell(props: { onExit?: () => void }) {
     setUsageData(null)
     setActiveModal("usage")
     void fetchUsageData()
+  }
+
+  function openMetricsModal(): void {
+    appState.metricsModalOffset = 0
+    setActiveModal("metrics")
   }
 
   async function fetchUsageData(): Promise<void> {
@@ -1138,6 +1223,11 @@ function SolidShell(props: { onExit?: () => void }) {
   useKeyboard((evt) => {
     const detailModal = modal()
     if (detailModal) {
+      if ((evt.name === "f" && evt.shift) || evt.name === "F") {
+        evt.preventDefault()
+        setModal({ ...detailModal, fullscreen: !detailModal.fullscreen })
+        return
+      }
       if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
         evt.preventDefault()
         setModal(null)
@@ -1174,6 +1264,10 @@ function SolidShell(props: { onExit?: () => void }) {
         })
         return
       }
+      return
+    }
+
+    if (focusManager.handleKey(evt)) {
       return
     }
 
@@ -1311,6 +1405,31 @@ function SolidShell(props: { onExit?: () => void }) {
         }
         return
       }
+      if (overlayModal === "metrics") {
+        if (evt.name === "up" || evt.name === "k") {
+          evt.preventDefault()
+          appState.metricsModalOffset = Math.max(0, (appState.metricsModalOffset || 0) - 1)
+          data.ctx.render()
+          return
+        }
+        if (evt.name === "down" || evt.name === "j") {
+          evt.preventDefault()
+          appState.metricsModalOffset = (appState.metricsModalOffset || 0) + 1
+          data.ctx.render()
+          return
+        }
+        if (evt.name === "m") {
+          evt.preventDefault()
+          void fetchMetrics(data.ctx).then(() => data.ctx.render())
+          return
+        }
+        if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
+          evt.preventDefault()
+          closeActiveModal()
+          return
+        }
+        return
+      }
       if (overlayModal === "task-apps") {
         if (evt.name === "up" || evt.name === "k") {
           evt.preventDefault()
@@ -1419,31 +1538,6 @@ function SolidShell(props: { onExit?: () => void }) {
           return
         }
         if (evt.name === "return" || evt.name === "enter" || evt.name === "i" || evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "results") {
-        if (evt.name === "up" || evt.name === "k") {
-          evt.preventDefault()
-          appState.resultsModalOffset = Math.max(0, appState.resultsModalOffset - 1)
-          data.ctx.render()
-          return
-        }
-        if (evt.name === "down" || evt.name === "j") {
-          evt.preventDefault()
-          appState.resultsModalOffset = appState.resultsModalOffset + 1
-          data.ctx.render()
-          return
-        }
-        if (evt.name === "y") {
-          evt.preventDefault()
-          void copyResultsModal()
-          return
-        }
-        if (evt.name === "return" || evt.name === "enter" || evt.name === "q" || evt.name === "escape") {
           evt.preventDefault()
           closeActiveModal()
           return
@@ -1559,7 +1653,8 @@ function SolidShell(props: { onExit?: () => void }) {
       openProfileModal()
       return
     }
-    if (evt.name === "o" && !evt.shift) {
+    // Candidates viewer: use "v" so Shift+O remains for OpenCode sessions.
+    if (evt.name === "v") {
       evt.preventDefault()
       openResultsModal()
       return
@@ -1608,12 +1703,8 @@ function SolidShell(props: { onExit?: () => void }) {
         return
       }
     }
-
-    if (evt.name === "o" && evt.shift) {
-      evt.preventDefault()
-      openSessionsModal()
-      return
-    }
+    // Sessions modal is only reachable from the Agent (OpenCode) pane via Shift+O.
+    // Avoid binding Shift+O globally in the jobs pane; it makes `o` feel unreliable.
     if (evt.name === "c") {
       evt.preventDefault()
       void cancelSelected(data.ctx).then(() => data.ctx.render())
@@ -1622,6 +1713,12 @@ function SolidShell(props: { onExit?: () => void }) {
     if (evt.name === "a") {
       evt.preventDefault()
       void fetchArtifacts(data.ctx).then(() => data.ctx.render())
+      return
+    }
+    if (evt.name === "M" || (evt.name === "m" && evt.shift)) {
+      // Shift+M = fullscreen metrics modal
+      evt.preventDefault()
+      openMetricsModal()
       return
     }
     if (evt.name === "m") {
@@ -1650,6 +1747,46 @@ function SolidShell(props: { onExit?: () => void }) {
       }
     }
     if (evt.name === "k") {
+      evt.preventDefault()
+      const pane = appState.activePane
+      if (pane === "jobs") {
+        const count = jobs().length
+        if (count === 0) return
+        setSelectedIndex((current) => (current - 1 + count) % count)
+        return
+      }
+      if (pane === "events") {
+        moveEventSelection(data.ctx, -1)
+        data.ctx.render()
+        return
+      }
+      if (pane === "logs") {
+        moveLogSelection(data.ctx, -1)
+        data.ctx.render()
+        return
+      }
+    }
+    if (evt.name === "down" || evt.name === "arrowdown") {
+      evt.preventDefault()
+      const pane = appState.activePane
+      if (pane === "jobs") {
+        const count = jobs().length
+        if (count === 0) return
+        setSelectedIndex((current) => (current + 1) % count)
+        return
+      }
+      if (pane === "events") {
+        moveEventSelection(data.ctx, 1)
+        data.ctx.render()
+        return
+      }
+      if (pane === "logs") {
+        moveLogSelection(data.ctx, 1)
+        data.ctx.render()
+        return
+      }
+    }
+    if (evt.name === "up" || evt.name === "arrowup") {
       evt.preventDefault()
       const pane = appState.activePane
       if (pane === "jobs") {
@@ -1725,6 +1862,8 @@ function SolidShell(props: { onExit?: () => void }) {
     const frameHeight = Math.min(props.height, Math.max(6, dimensions().height - 4))
     const left = Math.max(0, Math.floor((dimensions().width - frameWidth) / 2))
     const top = Math.max(1, Math.floor((dimensions().height - frameHeight) / 2))
+    // Calculate content height: frame - borders(2) - padding(2) - title(1) - hint(1) = height - 6
+    const contentHeight = Math.max(1, frameHeight - 6)
 
     return (
       <box
@@ -1747,7 +1886,7 @@ function SolidShell(props: { onExit?: () => void }) {
         <text fg={props.titleColor ?? props.borderColor}>
           <b>{props.title}</b>
         </text>
-        <box flexGrow={1}>
+        <box height={contentHeight} overflow="hidden">
           {props.children}
         </box>
         <Show when={props.hint}>
@@ -1880,7 +2019,16 @@ function SolidShell(props: { onExit?: () => void }) {
       } else if (appState.envKeyError) {
         lines.push(`Error: ${appState.envKeyError}`)
       } else if (!appState.envKeyOptions.length) {
+        const scanRoot = data.ctx.state.config.envKeyScanRoot
         lines.push("No API keys found in .env files")
+        lines.push("")
+        lines.push(`Scanned: ${scanRoot}`)
+        lines.push("")
+        lines.push("Looking for vars:")
+        lines.push("  SYNTH_API_KEY")
+        lines.push("  SYNTH_TUI_API_KEY_PROD")
+        lines.push("  SYNTH_TUI_API_KEY_DEV")
+        lines.push("  SYNTH_TUI_API_KEY_LOCAL")
       } else {
         const max = Math.max(0, appState.envKeyOptions.length - 1)
         const start = clamp(appState.envKeyWindowStart, 0, Math.max(0, max))
@@ -1929,6 +2077,36 @@ function SolidShell(props: { onExit?: () => void }) {
           borderColor="#10b981"
           titleColor="#10b981"
           hint="j/k scroll | b billing | q close"
+        >
+          <text fg="#e2e8f0">{view.visible.join("\n")}</text>
+        </ModalFrame>
+      )
+    }
+
+    if (kind === "metrics") {
+      const m: any = snapshot.metrics || {}
+      const pts = Array.isArray(m?.points) ? m.points : []
+      const job = snapshot.selectedJob
+      const isGepa = job?.training_type === "gepa" || job?.training_type === "graph_gepa"
+      
+      // Build fullscreen metrics content
+      const raw = formatMetricsCharts(snapshot.metrics, {
+        width: dimensions().width - 6,
+        height: dimensions().height - 8,
+        isGepa,
+      })
+      const view = buildScrollableModal(raw, dimensions().width - 4, dimensions().height - 6, appState.metricsModalOffset || 0)
+      const hint = view.lines.length > view.bodyHeight
+        ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] j/k scroll | m refresh | q close`
+        : "m refresh | q close"
+      return (
+        <ModalFrame
+          title={`Metrics (${pts.length} points)`}
+          width={dimensions().width - 4}
+          height={dimensions().height - 6}
+          borderColor="#8b5cf6"
+          titleColor="#8b5cf6"
+          hint={hint}
         >
           <text fg="#e2e8f0">{view.visible.join("\n")}</text>
         </ModalFrame>
@@ -1997,22 +2175,18 @@ function SolidShell(props: { onExit?: () => void }) {
     }
 
     if (kind === "results") {
-      const raw = formatResultsExpanded(snapshot) ?? "No results available"
-      const view = buildScrollableModal(raw, 100, 24, appState.resultsModalOffset)
-      const hint = view.lines.length > view.bodyHeight
-        ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] j/k scroll | y copy | q close`
-        : "y copy | q close"
       return (
-        <ModalFrame
-          title="Results - Best Snapshot"
-          width={100}
-          height={24}
-          borderColor="#22c55e"
-          titleColor="#22c55e"
-          hint={hint}
-        >
-          <text fg="#e2e8f0">{view.visible.join("\n")}</text>
-        </ModalFrame>
+        <CandidatesModal
+          visible={true}
+          snapshot={snapshot}
+          width={dimensions().width}
+          height={dimensions().height}
+          onClose={closeActiveModal}
+          onStatus={(message) => {
+            snapshot.status = message
+            data.ctx.render()
+          }}
+        />
       )
     }
 
@@ -2223,7 +2397,9 @@ function SolidShell(props: { onExit?: () => void }) {
               eventWindow={eventWindow()}
               lastError={lastError()}
               detailWidth={layout().detailWidth}
+              detailHeight={layout().contentHeight}
               eventsFocused={activePane() === "events"}
+              metricsView={data.ctx.state.appState.metricsView}
             />
           </Show>
         </Show>
@@ -2314,28 +2490,34 @@ function SolidShell(props: { onExit?: () => void }) {
         <Show 
           when={principalPane() === "opencode"}
           fallback={
-            <box flexDirection="row" gap={2}>
+            <box flexDirection="row" gap={1}>
               <KeyHint description="select" keyLabel="j/k" />
-              <text fg={COLORS.textDim}> | </text>
+              <text fg={COLORS.textDim}>|</text>
               <KeyHint description="view" keyLabel="enter" />
-              <text fg={COLORS.textDim}> | </text>
+              <text fg={COLORS.textDim}>|</text>
               <KeyHint description="refresh" keyLabel="r" />
-              <text fg={COLORS.textDim}> | </text>
-              <KeyHint description="new job" keyLabel="n" />
-              <text fg={COLORS.textDim}> | </text>
+              <text fg={COLORS.textDim}>|</text>
+              <KeyHint description="candidates" keyLabel="v" />
+              <text fg={COLORS.textDim}>|</text>
+              <KeyHint description="metrics" keyLabel="m" />
+              <text fg={COLORS.textDim}>|</text>
+              <KeyHint description="fullscreen" keyLabel="M" />
+              <text fg={COLORS.textDim}>|</text>
+              <KeyHint description="new" keyLabel="n" />
+              <text fg={COLORS.textDim}>|</text>
               <KeyHint description="switch" keyLabel="tab" />
-              <text fg={COLORS.textDim}> | </text>
+              <text fg={COLORS.textDim}>|</text>
               <KeyHint description="agent" keyLabel="shift+g" />
-              <text fg={COLORS.textDim}> | </text>
+              <text fg={COLORS.textDim}>|</text>
               <KeyHint description="quit" keyLabel="q" />
             </box>
           }
         >
-          <box flexDirection="row" gap={2}>
+          <box flexDirection="row" gap={1}>
             <KeyHint description="back" keyLabel="shift+g" />
-            <text fg={COLORS.textDim}> | </text>
+            <text fg={COLORS.textDim}>|</text>
             <KeyHint description="sessions" keyLabel="shift+o" />
-            <text fg={COLORS.textDim}> | </text>
+            <text fg={COLORS.textDim}>|</text>
             <KeyHint description="quit" keyLabel="q" />
           </box>
         </Show>

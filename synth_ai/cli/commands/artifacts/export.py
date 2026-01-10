@@ -29,7 +29,7 @@ async def _resolve_model_storage_path(
     model_type = model_data.get("type")
     base_model = model_data.get("base_model", "")
     job_id = model_data.get("job_id", "")
-    
+
     if model_type == "fine_tuned":
         # Fine-tuned model: check Wasabi availability first
         try:
@@ -41,7 +41,7 @@ async def _resolve_model_storage_path(
                     wasabi_info = model_info.get("wasabi", {})
                     merged_info = wasabi_info.get("merged", {})
                     adapter_info = wasabi_info.get("adapter", {})
-                    
+
                     if prefer_merged and merged_info.get("present"):
                         wasabi_key = merged_info.get("key", "")
                         if wasabi_key:
@@ -52,7 +52,7 @@ async def _resolve_model_storage_path(
                             return wasabi_key, "lora"
         except Exception as e:
             console.print(f"[yellow]Warning: Could not check Wasabi availability: {e}[/yellow]")
-        
+
         # Fallback: construct path using parsing utilities
         try:
             parsed = parse_model_id(model_id)
@@ -133,7 +133,7 @@ def export_command(
 ) -> None:
     """Export a fine-tuned or RL model to HuggingFace Hub."""
     config = resolve_backend_config(base_url=base_url, api_key=api_key, timeout=timeout)
-    
+
     async def _run() -> None:
         client = ArtifactsClient(config.api_base_url, config.api_key, timeout=config.timeout)
         try:
@@ -143,23 +143,23 @@ def export_command(
                     f"Invalid model ID format: {model_id}. "
                     f"Expected format: peft:BASE_MODEL:JOB_ID, ft:BASE_MODEL:JOB_ID, or rl:BASE_MODEL:JOB_ID"
                 )
-            
+
             # Validate model ID format (parsed is used for validation)
             parse_model_id(model_id)
-            
+
             # Resolve storage path
             console.print(f"[yellow]Resolving storage path for {model_id}...[/yellow]")
             wasabi_key, artifact_kind = await _resolve_model_storage_path(
                 client, model_id, prefer_merged
             )
-            
+
             # Get model details for base_model
             model_data = await client.get_model(model_id)
             base_model = model_data.get("base_model")
-            
+
             # Parse tags
             tag_list = [t.strip() for t in tags.split(",")] if tags else None
-            
+
             # Export to HuggingFace
             console.print(f"[yellow]Exporting to HuggingFace: {repo_id}...[/yellow]")
             result = await client.export_to_huggingface(
@@ -171,7 +171,7 @@ def export_command(
                 visibility="private" if private else "public",
                 tags=tag_list,
             )
-            
+
             # Show result
             repo_url = result.get("repo_url") or f"https://huggingface.co/{repo_id}"
             console.print(f"[green]✓ Successfully exported to {repo_url}[/green]")
@@ -181,6 +181,5 @@ def export_command(
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             raise click.ClickException(str(e)) from e
-    
-    asyncio.run(_run())
 
+    asyncio.run(_run())

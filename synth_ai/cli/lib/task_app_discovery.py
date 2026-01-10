@@ -25,6 +25,7 @@ try:
     TaskAppEntry = _task_apps_module.TaskAppEntry
     registry = _task_apps_module.registry
 except Exception:
+
     class _UnavailableTaskAppType:  # pragma: no cover - used when optional deps missing
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             raise RuntimeError("Task app registry is unavailable in this environment")
@@ -101,7 +102,9 @@ def _temporary_sys_path(paths: Sequence[Path]):
     return _manager()
 
 
-def _possible_module_names(path: Path, module_search_roots: Sequence[Path]) -> list[tuple[str, Path]]:
+def _possible_module_names(
+    path: Path, module_search_roots: Sequence[Path]
+) -> list[tuple[str, Path]]:
     candidates: list[tuple[str, Path]] = []
     for root in module_search_roots:
         try:
@@ -146,22 +149,7 @@ def _should_ignore_path(path: Path) -> bool:
 
 def _candidate_search_roots() -> list[Path]:
     roots: list[Path] = []
-
-    try:
-        demo_module = importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps.core")
-    except Exception:
-        demo_module = None
-    if demo_module:
-        load_demo_dir = getattr(demo_module, "load_demo_dir", None)
-        if callable(load_demo_dir):
-            try:
-                demo_dir = load_demo_dir()
-            except Exception:
-                demo_dir = None
-            if demo_dir:
-                demo_path = Path(demo_dir)
-                if demo_path.exists() and demo_path.is_dir():
-                    roots.append(demo_path.resolve())
+    # Note: Demo apps have been removed
 
     env_paths = os.environ.get("SYNTH_TASK_APP_SEARCH_PATH")
     if env_paths:
@@ -307,7 +295,9 @@ def _extract_app_id(node: ast.Call) -> str | None:
 
 def _is_register_task_app_call(node: ast.Call) -> bool:
     func = node.func
-    return (isinstance(func, ast.Name) and func.id in {"register_task_app", "register_local_api"}) or (
+    return (
+        isinstance(func, ast.Name) and func.id in {"register_task_app", "register_local_api"}
+    ) or (
         isinstance(func, ast.Attribute) and func.attr in {"register_task_app", "register_local_api"}
     )
 
@@ -316,7 +306,10 @@ def _extract_register_app_id(node: ast.Call) -> str | None:
     for kw in node.keywords:
         if kw.arg == "entry" and isinstance(kw.value, ast.Call):
             entry_call = kw.value
-            if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}:
+            if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {
+                "TaskAppEntry",
+                "LocalAPIEntry",
+            }:
                 for entry_kw in entry_call.keywords:
                     if (
                         entry_kw.arg in {"app_id", "api_id"}
@@ -333,7 +326,11 @@ def _extract_modal_app_name(node: ast.Call) -> str | None:
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
             return first.value
     for kw in node.keywords:
-        if kw.arg == "name" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+        if (
+            kw.arg == "name"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
             return kw.value.value
     return None
 
@@ -387,7 +384,11 @@ def _collect_scanned_task_configs() -> list[AppChoice]:
                     continue
                 seen.add(key)
 
-                def _loader(p: Path = path.resolve(), a: str = app_id, roots: tuple[Path, ...] = (root_resolved,)):
+                def _loader(
+                    p: Path = path.resolve(),
+                    a: str = app_id,
+                    roots: tuple[Path, ...] = (root_resolved,),
+                ):
                     return _load_entry_from_path(p, a, module_search_roots=roots)
 
                 results.append(
@@ -440,22 +441,8 @@ def _collect_modal_scripts() -> list[AppChoice]:
 
 
 def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, str, str]:
+    # Note: Demo apps have been removed, demo_rank is always 1
     demo_rank = 1
-    try:
-        demo_module = importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps.core")
-    except Exception:
-        demo_module = None
-    if demo_module:
-        load_demo_dir = getattr(demo_module, "load_demo_dir", None)
-        if callable(load_demo_dir):
-            try:
-                demo_dir = load_demo_dir()
-            except Exception:
-                demo_dir = None
-            if demo_dir:
-                demo_path = Path(demo_dir).resolve()
-                if choice.path.is_relative_to(demo_path):
-                    demo_rank = 0
 
     cwd_rank = 1
     try:
@@ -533,10 +520,10 @@ def _has_modal_support_in_file(path: Path) -> bool:
             for kw in node.keywords:
                 if kw.arg == "entry" and isinstance(kw.value, ast.Call):
                     entry_call = kw.value
-                    if (
-                        isinstance(entry_call.func, ast.Name)
-                        and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}
-                    ):
+                    if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {
+                        "TaskAppEntry",
+                        "LocalAPIEntry",
+                    }:
                         for entry_kw in entry_call.keywords:
                             if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
                                 modal_call = entry_kw.value
@@ -560,10 +547,10 @@ def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfig | None:
             for kw in node.keywords:
                 if kw.arg == "entry" and isinstance(kw.value, ast.Call):
                     entry_call = kw.value
-                    if (
-                        isinstance(entry_call.func, ast.Name)
-                        and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}
-                    ):
+                    if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {
+                        "TaskAppEntry",
+                        "LocalAPIEntry",
+                    }:
                         for entry_kw in entry_call.keywords:
                             if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
                                 modal_call = entry_kw.value
@@ -646,8 +633,7 @@ def _prompt_user_for_choice(choices: list[AppChoice]) -> AppChoice:
 def _collect_task_app_choices() -> list[AppChoice]:
     registry.clear()
     choices: list[AppChoice] = []
-    with contextlib.suppress(Exception):
-        importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps")
+    # Note: Demo apps have been removed
     choices.extend(_collect_registered_choices())
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())

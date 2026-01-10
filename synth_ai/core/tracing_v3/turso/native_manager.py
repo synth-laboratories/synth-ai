@@ -116,7 +116,9 @@ def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _C
             return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
         if driver.startswith("libsql"):
             database = parsed.render_as_string(hide_password=False)
-            return _ConnectionTarget(database=database, sync_url=database, auth_token=effective_token)
+            return _ConnectionTarget(
+                database=database, sync_url=database, auth_token=effective_token
+            )
     except Exception:  # pragma: no cover - defensive guardrail
         logger.debug("Unable to parse db_url via SQLAlchemy", exc_info=True)
 
@@ -321,7 +323,7 @@ _TABLE_DEFINITIONS: tuple[str, ...] = (
         FOREIGN KEY(session_id) REFERENCES session_traces(session_id),
         FOREIGN KEY(message_id) REFERENCES messages(id)
     )
-    """
+    """,
 )
 
 
@@ -451,18 +453,23 @@ class NativeLibsqlTraceManager(TraceStorage):
 
     async def insert_session_trace(self, trace: SessionTrace) -> str:
         await self.initialize()
-        
+
         import logging as _logging
+
         _logger = _logging.getLogger(__name__)
-        _logger.info(f"[TRACE_DEBUG] insert_session_trace START: session_id={trace.session_id}, {len(trace.markov_blanket_message_history)} messages")
+        _logger.info(
+            f"[TRACE_DEBUG] insert_session_trace START: session_id={trace.session_id}, {len(trace.markov_blanket_message_history)} messages"
+        )
 
         session_exists = await self._session_exists(trace.session_id)
         _logger.info(f"[TRACE_DEBUG] Session exists: {session_exists}")
-        
+
         step_id_map: dict[str, int] = {}
-        
+
         if session_exists:
-            _logger.warning(f"[TRACE_DEBUG] Session {trace.session_id} already exists, skipping events/timesteps, only updating messages!")
+            _logger.warning(
+                f"[TRACE_DEBUG] Session {trace.session_id} already exists, skipping events/timesteps, only updating messages!"
+            )
             # Don't return early - we need to save messages!
             # Just update metadata
             async with self._op_lock:
@@ -528,9 +535,12 @@ class NativeLibsqlTraceManager(TraceStorage):
                 )
 
         import logging as _logging
+
         _logger = _logging.getLogger(__name__)
-        _logger.info(f"[TRACE_DEBUG] insert_session_trace: saving {len(trace.markov_blanket_message_history)} messages (session_exists={session_exists})")
-        
+        _logger.info(
+            f"[TRACE_DEBUG] insert_session_trace: saving {len(trace.markov_blanket_message_history)} messages (session_exists={session_exists})"
+        )
+
         # Only insert messages if this is a new session (for idempotency)
         if not session_exists:
             for idx, msg in enumerate(trace.markov_blanket_message_history):
@@ -551,8 +561,10 @@ class NativeLibsqlTraceManager(TraceStorage):
                     except (TypeError, ValueError):
                         content_value = str(content_value)
 
-                _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: type={msg.message_type}, content_len={len(str(content_value))}")
-                
+                _logger.info(
+                    f"[TRACE_DEBUG]   Message {idx + 1}: type={msg.message_type}, content_len={len(str(content_value))}"
+                )
+
                 try:
                     await self.insert_message_row(
                         trace.session_id,
@@ -563,12 +575,16 @@ class NativeLibsqlTraceManager(TraceStorage):
                         message_time=msg.time_record.message_time,
                         metadata=metadata,
                     )
-                    _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: saved successfully")
+                    _logger.info(f"[TRACE_DEBUG]   Message {idx + 1}: saved successfully")
                 except Exception as exc:
-                    _logger.error(f"[TRACE_DEBUG]   Message {idx+1}: FAILED TO SAVE: {exc}", exc_info=True)
+                    _logger.error(
+                        f"[TRACE_DEBUG]   Message {idx + 1}: FAILED TO SAVE: {exc}", exc_info=True
+                    )
                     raise
         else:
-            _logger.info("[TRACE_DEBUG] Skipping message insertion for existing session (idempotency)")
+            _logger.info(
+                "[TRACE_DEBUG] Skipping message insertion for existing session (idempotency)"
+            )
 
         async with self._op_lock:
             conn = self._conn
@@ -613,7 +629,14 @@ class NativeLibsqlTraceManager(TraceStorage):
             if not session_row:
                 return None
 
-            session_columns = ["session_id", "created_at", "num_timesteps", "num_events", "num_messages", "metadata"]
+            session_columns = [
+                "session_id",
+                "created_at",
+                "num_timesteps",
+                "num_events",
+                "num_messages",
+                "metadata",
+            ]
             session_data = dict(zip(session_columns, session_row, strict=True))
 
             timestep_cursor = conn.execute(
@@ -678,7 +701,9 @@ class NativeLibsqlTraceManager(TraceStorage):
         return normalised
 
     @staticmethod
-    def _prepare_query_params(query: str, params: dict[str, Any] | list[Any] | tuple[Any, ...]) -> tuple[str, tuple[Any, ...]]:
+    def _prepare_query_params(
+        query: str, params: dict[str, Any] | list[Any] | tuple[Any, ...]
+    ) -> tuple[str, tuple[Any, ...]]:
         if isinstance(params, dict):
             keys: list[str] = []
 
@@ -821,9 +846,7 @@ class NativeLibsqlTraceManager(TraceStorage):
 
         columns = {str(self._col_value(row, index=1, key="name")) for row in rows}
         if "objective_key" not in columns:
-            conn.execute(
-                "ALTER TABLE event_rewards ADD COLUMN objective_key TEXT DEFAULT 'reward'"
-            )
+            conn.execute("ALTER TABLE event_rewards ADD COLUMN objective_key TEXT DEFAULT 'reward'")
         conn.execute(
             "UPDATE event_rewards SET objective_key = 'reward' WHERE objective_key IS NULL OR objective_key = ''"
         )

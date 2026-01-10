@@ -9,36 +9,6 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, cast
 
-from dotenv import load_dotenv
-from fastapi import HTTPException, Request
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from starlette.requests import Request as StarletteRequest
-
-# Synth-AI SDK imports
-from synth_ai.sdk.localapi.apps import LocalAPIEntry, register_local_api
-from synth_ai.sdk.localapi.helpers import (
-    add_health_endpoints,
-    add_metadata_endpoint,
-    call_chat_completion_api,
-    create_http_client_hooks,
-    extract_api_key,
-    preload_dataset_splits,
-)
-from synth_ai.sdk.localapi.server import LocalAPIConfig, RubricBundle, create_local_api, run_local_api
-from synth_ai.sdk.task.contracts import (
-    RolloutMetrics,
-    RolloutRequest,
-    RolloutResponse,
-    TaskInfo,
-)
-from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
-from synth_ai.sdk.task.rubrics import Rubric, load_rubric
-from synth_ai.sdk.task.trace_correlation_helpers import (
-    build_trace_payload,
-    extract_trace_correlation_id,
-)
-
 # Business logic imports (no synth-ai dependencies)
 from banking77_business_logic import (
     AVAILABLE_SPLITS,
@@ -52,7 +22,39 @@ from banking77_business_logic import (
     get_classify_tool_schema,
     get_default_messages_templates,
 )
+from dotenv import load_dotenv
+from fastapi import HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.requests import Request as StarletteRequest
 
+# Synth-AI SDK imports
+from synth_ai.sdk.localapi.apps import LocalAPIEntry, register_local_api
+from synth_ai.sdk.localapi.helpers import (
+    add_metadata_endpoint,
+    call_chat_completion_api,
+    create_http_client_hooks,
+    extract_api_key,
+    preload_dataset_splits,
+)
+from synth_ai.sdk.localapi.server import (
+    LocalAPIConfig,
+    RubricBundle,
+    create_local_api,
+    run_local_api,
+)
+from synth_ai.sdk.task.contracts import (
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskInfo,
+)
+from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.sdk.task.rubrics import Rubric, load_rubric
+from synth_ai.sdk.task.trace_correlation_helpers import (
+    build_trace_payload,
+    extract_trace_correlation_id,
+)
 
 # Log environment at module load time for debugging
 print(
@@ -73,12 +75,13 @@ BANKING77_DATASET_SPEC = TaskDatasetSpec(
     description="Banking customer query intent classification with 77 intent categories.",
 )
 
+
 async def rollout_executor(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
     """Execute a rollout for the banking77 classification task."""
     dataset: Banking77Dataset = fastapi_request.app.state.banking77_dataset
-    
+
     with contextlib.suppress(Exception):
-        cfg = (request.policy.config or {})
+        cfg = request.policy.config or {}
         print(
             f"[LOCAL_API] INBOUND_ROLLOUT: run_id={request.run_id} seed={request.env.seed} env={request.env.env_name} "
             f"policy.model={cfg.get('model')} provider={cfg.get('provider')} api_base={cfg.get('inference_url') or cfg.get('api_base') or cfg.get('base_url')}",
@@ -107,9 +110,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 
     # Extract API key
     api_key = extract_api_key(fastapi_request, request.policy.config or {})
-    
+
     http_client = getattr(fastapi_request.app.state, "http_client", None)
-    
+
     classify_tool = get_classify_tool_schema()
     response_text, response_json, tool_calls = await call_chat_completion_api(
         policy_config=request.policy.config or {},
@@ -122,14 +125,17 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         expected_tool_name=TOOL_NAME,
         log_prefix="[LOCAL_API]",
     )
-    
+
     # Validate response
     try:
         raw_upstream = json.dumps(response_json, ensure_ascii=False)
     except Exception:
         raw_upstream = str(response_json)
-    print(f"[LOCAL_API] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True)
-    
+    print(
+        f"[LOCAL_API] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}",
+        flush=True,
+    )
+
     if not isinstance(response_json, dict) or not response_json:
         raise RuntimeError("Proxy returned missing/empty JSON")
 
@@ -139,7 +145,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             try:
                 args = json.loads(args_str)
             except Exception as exc:
-                raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON") from exc
+                raise HTTPException(
+                    status_code=502, detail="Tool call arguments not valid JSON"
+                ) from exc
             if not str(args.get("intent", "")).strip():
                 raise HTTPException(status_code=502, detail="Tool call missing 'intent'")
 
@@ -190,7 +198,6 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     trace_correlation_id = extract_trace_correlation_id(
         policy_config=policy_config,
         inference_url=str(inference_url or ""),
-        mode=request.mode,
     )
 
     trace_metadata = {
@@ -277,7 +284,7 @@ def provide_task_instances(dataset: Banking77Dataset, seeds: Sequence[int]) -> I
     for seed in seeds:
         sample = dataset.sample(split=DEFAULT_SPLIT, index=seed)
         expected_intent = sample["label"]
-        
+
         instance_rubric = {
             "outcome": {
                 "name": "Intent Classification Accuracy",
@@ -288,40 +295,36 @@ def provide_task_instances(dataset: Banking77Dataset, seeds: Sequence[int]) -> I
                         "weight": 1.0,
                         "expected_answer": expected_intent,
                     }
-                ]
+                ],
             },
         }
-        
+
         dataset_dict = base_info.dataset
         if hasattr(dataset_dict, "model_dump"):
             dataset_dict = dataset_dict.model_dump()
         elif not isinstance(dataset_dict, dict):
-            if hasattr(dataset_dict, "__dict__"):
-                dataset_dict = dict(dataset_dict.__dict__)
-            else:
-                dataset_dict = {}
-        
+            dataset_dict = dict(dataset_dict.__dict__) if hasattr(dataset_dict, "__dict__") else {}
+
         dataset_dict = {
             **dataset_dict,
             "split": sample["split"],
             "index": sample["index"],
         }
-        
+
         task_metadata_dict = base_info.task_metadata
         if hasattr(task_metadata_dict, "model_dump"):
             task_metadata_dict = task_metadata_dict.model_dump()
         elif not isinstance(task_metadata_dict, dict):
-            if hasattr(task_metadata_dict, "__dict__"):
-                task_metadata_dict = dict(task_metadata_dict.__dict__)
-            else:
-                task_metadata_dict = {}
-        
+            task_metadata_dict = (
+                dict(task_metadata_dict.__dict__) if hasattr(task_metadata_dict, "__dict__") else {}
+            )
+
         task_metadata_dict = {
             **task_metadata_dict,
             "query": sample["text"],
             "expected_intent": expected_intent,
         }
-        
+
         yield TaskInfo(
             task=base_info.task,
             environment=base_info.environment,
@@ -415,11 +418,11 @@ def fastapi_app():
     """Return the FastAPI application for ASGI hosts."""
     with contextlib.suppress(Exception):
         load_dotenv(str(REPO_ROOT / ".env"), override=False)
-    
+
     app = create_local_api(build_config())
-    
+
     add_metadata_endpoint(app)
-    
+
     @app.exception_handler(RequestValidationError)
     async def _on_validation_error(request: StarletteRequest, exc: RequestValidationError):
         try:
@@ -438,7 +441,7 @@ def fastapi_app():
             status_code=422,
             content={"status": "invalid", "detail": exc.errors()[:5]},
         )
-    
+
     return app
 
 

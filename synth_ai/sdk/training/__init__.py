@@ -1,7 +1,7 @@
 """Training SDK - prompt learning, SFT, RL, and GraphGen jobs.
 
 This module provides high-level APIs for running training jobs:
-- PromptLearningJob: GEPA and MIPRO prompt optimization
+- PromptLearningJob: GEPA prompt optimization
 - SFTJob: Supervised fine-tuning
 - RLJob: Reinforcement learning (GSPO, GRPO, PPO, etc.)
 - GraphGenJob: Graph Opt (simplified workflows API)
@@ -29,8 +29,21 @@ Example:
 
 from __future__ import annotations
 
+# GraphGen (Graph Opt)
+from synth_ai.sdk.api.train.graphgen import GraphGenJob, GraphGenJobResult, GraphGenSubmitResult
+from synth_ai.sdk.api.train.graphgen_models import (
+    GraphGenGoldOutput,
+    GraphGenJobConfig,
+    GraphGenRubric,
+    GraphGenTask,
+    GraphGenTaskSet,
+    GraphGenVerifierConfig,
+    load_graphgen_taskset,
+    parse_graphgen_taskset,
+)
+
 # Pollers and utilities
-from synth_ai.sdk.api.train.pollers import JobPoller, PollOutcome, RLJobPoller, EvalJobPoller
+from synth_ai.sdk.api.train.pollers import EvalJobPoller, JobPoller, PollOutcome, RLJobPoller
 
 # Re-export from existing locations
 from synth_ai.sdk.api.train.prompt_learning import (
@@ -40,19 +53,6 @@ from synth_ai.sdk.api.train.prompt_learning import (
 )
 from synth_ai.sdk.api.train.rl import RLJob, RLJobConfig
 from synth_ai.sdk.api.train.sft import SFTJob
-
-# GraphGen (Graph Opt)
-from synth_ai.sdk.api.train.graphgen import GraphGenJob, GraphGenJobResult, GraphGenSubmitResult
-from synth_ai.sdk.api.train.graphgen_models import (
-    GraphGenJobConfig,
-    GraphGenTaskSet,
-    GraphGenTask,
-    GraphGenGoldOutput,
-    GraphGenRubric,
-    GraphGenVerifierConfig,
-    load_graphgen_taskset,
-    parse_graphgen_taskset,
-)
 
 __all__ = [
     # Prompt Learning

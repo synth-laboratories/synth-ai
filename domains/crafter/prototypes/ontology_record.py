@@ -10,47 +10,49 @@ Instead of static ontology, we have:
 The OntologyEngine compiles current best knowledge from the evidence graph.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
-from enum import Enum
-from datetime import datetime
-import uuid
 import json
-
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 # =============================================================================
 # EVIDENCE TYPES
 # =============================================================================
 
+
 class EvidenceType(Enum):
-    SOURCE_CODE = "source_code"        # Read from actual code (highest confidence)
-    DOCUMENTATION = "documentation"     # Official docs
-    GAMEPLAY_OBSERVATION = "gameplay"   # Observed during play
-    INFERENCE = "inference"             # Derived from other claims
-    HYPOTHESIS = "hypothesis"           # Untested belief
-    CONTRADICTION = "contradiction"     # Evidence against a claim
+    SOURCE_CODE = "source_code"  # Read from actual code (highest confidence)
+    DOCUMENTATION = "documentation"  # Official docs
+    GAMEPLAY_OBSERVATION = "gameplay"  # Observed during play
+    INFERENCE = "inference"  # Derived from other claims
+    HYPOTHESIS = "hypothesis"  # Untested belief
+    CONTRADICTION = "contradiction"  # Evidence against a claim
 
 
 class ClaimStatus(Enum):
-    ACTIVE = "active"           # Current best belief
-    SUPERSEDED = "superseded"   # Replaced by newer claim
-    DISPROVEN = "disproven"     # Evidence contradicts
-    UNCERTAIN = "uncertain"     # Conflicting evidence
+    ACTIVE = "active"  # Current best belief
+    SUPERSEDED = "superseded"  # Replaced by newer claim
+    DISPROVEN = "disproven"  # Evidence contradicts
+    UNCERTAIN = "uncertain"  # Conflicting evidence
 
 
 # =============================================================================
 # CORE DATA STRUCTURES
 # =============================================================================
 
+
 @dataclass
 class Evidence:
     """A piece of evidence supporting or refuting a claim."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     type: EvidenceType = EvidenceType.HYPOTHESIS
-    source: str = ""               # e.g., "crafter/objects.py:142" or "episode_1234_step_567"
-    observation: str = ""          # What was observed
+    source: str = ""  # e.g., "crafter/objects.py:142" or "episode_1234_step_567"
+    observation: str = ""  # What was observed
     timestamp: datetime = field(default_factory=datetime.now)
-    weight: float = 1.0            # How much this evidence should count
+    weight: float = 1.0  # How much this evidence should count
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self):
@@ -60,16 +62,17 @@ class Evidence:
 @dataclass
 class Claim:
     """An assertion about the world with confidence and evidence."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
 
     # The claim itself
-    subject: str = ""              # e.g., "entities.zombie"
-    predicate: str = ""            # e.g., "has_property"
-    object: str = ""               # e.g., "damage"
-    value: Any = None              # e.g., 2
+    subject: str = ""  # e.g., "entities.zombie"
+    predicate: str = ""  # e.g., "has_property"
+    object: str = ""  # e.g., "damage"
+    value: Any = None  # e.g., 2
 
     # Confidence and status
-    confidence: float = 0.0        # 0.0 to 1.0, computed from evidence
+    confidence: float = 0.0  # 0.0 to 1.0, computed from evidence
     status: ClaimStatus = ClaimStatus.UNCERTAIN
 
     # Evidence chain
@@ -79,7 +82,7 @@ class Claim:
     # Provenance
     created_at: datetime = field(default_factory=datetime.now)
     superseded_by: Optional[str] = None  # Claim ID that replaced this
-    supersedes: Optional[str] = None     # Claim ID this replaced
+    supersedes: Optional[str] = None  # Claim ID this replaced
 
     # For inference chains
     derived_from: List[str] = field(default_factory=list)  # Claim IDs used to derive this
@@ -91,6 +94,7 @@ class Claim:
 # =============================================================================
 # ONTOLOGY RECORD (the evidence graph)
 # =============================================================================
+
 
 class OntologyRecord:
     """
@@ -201,6 +205,7 @@ class OntologyRecord:
 # ONTOLOGY ENGINE (compiles current best knowledge)
 # =============================================================================
 
+
 class OntologyEngine:
     """
     Compiles the OntologyRecord into usable ontology.
@@ -227,18 +232,20 @@ class OntologyEngine:
                 "total_claims": len(self.record.claims),
                 "active_claims": len(self.record._active_claims),
                 "uncertain_claims": [],
-            }
+            },
         }
 
-        for claim_id, claim in self.record.claims.items():
+        for claim in self.record.claims.values():
             if claim.status == ClaimStatus.SUPERSEDED:
                 continue
 
             if claim.confidence < min_confidence:
-                ontology["_meta"]["uncertain_claims"].append({
-                    "claim": f"{claim.subject}.{claim.predicate}={claim.value}",
-                    "confidence": claim.confidence,
-                })
+                ontology["_meta"]["uncertain_claims"].append(
+                    {
+                        "claim": f"{claim.subject}.{claim.predicate}={claim.value}",
+                        "confidence": claim.confidence,
+                    }
+                )
                 continue
 
             # Route to appropriate section
@@ -264,29 +271,35 @@ class OntologyEngine:
 
         for ev_id in claim.supporting_evidence:
             ev = self.record.evidence[ev_id]
-            chain.append({
-                "type": "supporting",
-                "evidence_type": ev.type.value,
-                "source": ev.source,
-                "observation": ev.observation,
-                "weight": ev.weight,
-            })
+            chain.append(
+                {
+                    "type": "supporting",
+                    "evidence_type": ev.type.value,
+                    "source": ev.source,
+                    "observation": ev.observation,
+                    "weight": ev.weight,
+                }
+            )
 
         for ev_id in claim.contradicting_evidence:
             ev = self.record.evidence[ev_id]
-            chain.append({
-                "type": "contradicting",
-                "evidence_type": ev.type.value,
-                "source": ev.source,
-                "observation": ev.observation,
-                "weight": ev.weight,
-            })
+            chain.append(
+                {
+                    "type": "contradicting",
+                    "evidence_type": ev.type.value,
+                    "source": ev.source,
+                    "observation": ev.observation,
+                    "weight": ev.weight,
+                }
+            )
 
         if claim.supersedes:
-            chain.append({
-                "type": "supersedes",
-                "previous_claim": claim.supersedes,
-            })
+            chain.append(
+                {
+                    "type": "supersedes",
+                    "previous_claim": claim.supersedes,
+                }
+            )
 
         return chain
 
@@ -309,16 +322,18 @@ class OntologyEngine:
             # Check for conflicting values
             for predicate, claims in by_predicate.items():
                 if len(claims) > 1:
-                    values = set(str(c.value) for c in claims)
+                    values = {str(c.value) for c in claims}
                     if len(values) > 1:
-                        conflicts.append({
-                            "subject": subject,
-                            "predicate": predicate,
-                            "claims": [
-                                {"id": c.id, "value": c.value, "confidence": c.confidence}
-                                for c in claims
-                            ]
-                        })
+                        conflicts.append(
+                            {
+                                "subject": subject,
+                                "predicate": predicate,
+                                "claims": [
+                                    {"id": c.id, "value": c.value, "confidence": c.confidence}
+                                    for c in claims
+                                ],
+                            }
+                        )
 
         return conflicts
 
@@ -326,6 +341,7 @@ class OntologyEngine:
 # =============================================================================
 # DEMO: Building ontology from different sources
 # =============================================================================
+
 
 def demo():
     print("=" * 70)
@@ -382,8 +398,8 @@ def demo():
     for i in range(3):
         ev = Evidence(
             type=EvidenceType.GAMEPLAY_OBSERVATION,
-            source=f"episode_{2000+i}_step_{100+i*50}",
-            observation=f"Zombie dealt 2 damage in combat (observation {i+2})",
+            source=f"episode_{2000 + i}_step_{100 + i * 50}",
+            observation=f"Zombie dealt 2 damage in combat (observation {i + 2})",
             weight=1.0,
         )
         record.add_supporting_evidence(claim2.id, ev)
@@ -485,7 +501,7 @@ def demo():
     if conflicts:
         for c in conflicts:
             print(f"  CONFLICT: {c['subject']}.{c['predicate']}")
-            for claim in c['claims']:
+            for claim in c["claims"]:
                 print(f"    - {claim['value']} (confidence: {claim['confidence']:.2f})")
     else:
         print("  No conflicts found.")

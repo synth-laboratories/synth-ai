@@ -16,13 +16,9 @@ from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
     "model_name",
     type=str,
     default=None,
-    help="Model name to use (Claude Code uses Anthropic models directly)"
+    help="Model name to use (Claude Code uses Anthropic models directly)",
 )
-@click.option(
-    "--force",
-    is_flag=True,
-    help="Prompt for API keys even if cached values exist."
-)
+@click.option("--force", is_flag=True, help="Prompt for API keys even if cached values exist.")
 @click.option(
     "--url",
     "override_url",
@@ -30,12 +26,10 @@ from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
     default=None,
 )
 def claude_cmd(
-    model_name: str | None = None,
-    force: bool = False,
-    override_url: str | None = None
+    model_name: str | None = None, force: bool = False, override_url: str | None = None
 ) -> None:
     """Launch Claude Code with optional Synth backend routing.
-    
+
     Note: Claude Code uses Anthropic models directly. The --model option
     is for routing through Synth's Anthropic-compatible backend.
     """
@@ -43,10 +37,7 @@ def claude_cmd(
         bin_path = get_bin_path("claude")
         if bin_path:
             break
-        if not install_bin(
-            "Claude Code",
-            ["curl -fsSL https://claude.ai/install.sh | bash"]
-        ):
+        if not install_bin("Claude Code", ["curl -fsSL https://claude.ai/install.sh | bash"]):
             print("Failed to find your installed Claude Code")
             print("Please install from: https://claude.com/claude-code")
             return

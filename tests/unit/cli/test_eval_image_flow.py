@@ -1,8 +1,6 @@
-import json
 from unittest import mock
 
 import pytest
-
 from click.testing import CliRunner
 from synth_ai.cli.commands.eval.core import eval_command
 
@@ -14,6 +12,7 @@ def test_eval_multimodal_paths_are_built(monkeypatch, tmp_path, use_remote):
     class DummyResp:
         def __init__(self):
             self.status_code = 200
+
         def json(self):
             return {
                 "run_id": "test",
@@ -35,14 +34,9 @@ def test_eval_multimodal_paths_are_built(monkeypatch, tmp_path, use_remote):
                         "inference_url": "http://localhost",
                     }
                 ],
-                "branches": {},
                 "metrics": {
-                    "episode_rewards": [0.0],
-                    "reward_mean": 0.0,
-                    "num_steps": 1,
-                    "num_episodes": 1,
+                    "outcome_reward": 0.0,
                 },
-                "aborted": False,
                 "trace": {"session_id": "sess", "event_history": [], "metadata": {}},
             }
 
@@ -72,7 +66,9 @@ task_app_url = "http://localhost:9999"
     url = "http://localhost:9999" if use_remote else None
 
     env_file = tmp_path / ".env"
-    env_file.write_text("SYNTH_API_KEY=test-synth\nENVIRONMENT_API_KEY=test-env\n", encoding="utf-8")
+    env_file.write_text(
+        "SYNTH_API_KEY=test-synth\nENVIRONMENT_API_KEY=test-env\n", encoding="utf-8"
+    )
 
     # Run eval command via Click runner; network calls are mocked
     runner = CliRunner()

@@ -66,10 +66,7 @@ def categorize_files(v2_files: list[tuple[str, list[str]]]) -> dict:
             categories["debug_scripts"].append((file_path, imports))
         elif "example" in file_path:
             categories["examples"].append((file_path, imports))
-        elif any(
-            core in file_path
-            for core in ["synth_ai/lm/", "synth_ai/environments/"]
-        ):
+        elif any(core in file_path for core in ["synth_ai/lm/", "synth_ai/environments/"]):
             categories["core_library"].append((file_path, imports))
         else:
             categories["other"].append((file_path, imports))

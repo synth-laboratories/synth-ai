@@ -21,7 +21,7 @@ import pydantic
 
 class StrictCriterion(pydantic.BaseModel):
     """Single scoring criterion with strict validation.
-    
+
     Enforces:
     - Weight ≤ 1.0 (for proper normalization)
     - Weight > 0.0 (positive)
@@ -54,7 +54,7 @@ class StrictCriterion(pydantic.BaseModel):
 
 class StrictRubric(pydantic.BaseModel):
     """Strict rubric definition for step-wise verifiers.
-    
+
     Enforces:
     - Weights must sum to 1.0
     - Only weighted_sum aggregation
@@ -73,9 +73,7 @@ class StrictRubric(pydantic.BaseModel):
             raise ValueError("rubric must declare at least one criterion")
         total_weight = sum(criterion.weight for criterion in self.criteria)
         if not math.isclose(total_weight, 1.0, abs_tol=1e-6, rel_tol=1e-6):
-            raise ValueError(
-                f"criterion weights must sum to 1 (got {total_weight:.6f})"
-            )
+            raise ValueError(f"criterion weights must sum to 1 (got {total_weight:.6f})")
         return self
 
     @pydantic.field_validator("version")
@@ -101,13 +99,13 @@ ValidationError = pydantic.ValidationError
 
 def validate_rubric_dict(payload: dict[str, Any]) -> StrictRubric:
     """Validate an in-memory rubric payload with strict rules.
-    
+
     Args:
         payload: Dictionary representing the rubric JSON
-        
+
     Returns:
         Validated StrictRubric instance
-        
+
     Raises:
         ValidationError: If payload is invalid or doesn't meet strict constraints
     """
@@ -126,10 +124,10 @@ def _load_payload_from_file(path: Path) -> dict[str, Any]:
 
 def validate_rubric_file(path: Path) -> StrictRubric:
     """Load and validate a rubric file with strict rules.
-    
+
     Args:
         path: Path to a JSON rubric document
-        
+
     Returns:
         Validated StrictRubric instance
     """
@@ -139,7 +137,7 @@ def validate_rubric_file(path: Path) -> StrictRubric:
 
 def validate_rubric_files(paths: Iterable[Path]) -> list[StrictRubric]:
     """Validate multiple rubric files with strict rules.
-    
+
     Useful for bulk validation inside tests or CI checks.
     """
     validated: list[StrictRubric] = []

@@ -5,18 +5,29 @@ import json
 import os
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
+from crafter_logic import (
+    ACTION_STRING_TO_INT,
+    CRAFTER_ALLOWED_ACTIONS,
+    CrafterEnvironmentWrapper,
+    CrafterScorer,
+    CrafterVLMReActPolicy,
+    normalize_action_name,
+)
 from fastapi import Request
-
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningResult
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.localapi.helpers import call_chat_completion_api, create_http_client_hooks, extract_api_key
+from synth_ai.sdk.localapi.helpers import (
+    call_chat_completion_api,
+    create_http_client_hooks,
+    extract_api_key,
+)
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
@@ -26,15 +37,6 @@ from synth_ai.sdk.tunnels import (
     open_quick_tunnel_with_dns_verification,
     track_process,
     wait_for_health_check,
-)
-
-from crafter_logic import (
-    ACTION_STRING_TO_INT,
-    CRAFTER_ALLOWED_ACTIONS,
-    CrafterEnvironmentWrapper,
-    CrafterScorer,
-    CrafterVLMReActPolicy,
-    normalize_action_name,
 )
 
 SYNTH_API_BASE = os.environ.get("SYNTH_API_BASE", "https://api.usesynth.ai").rstrip("/")
@@ -69,15 +71,19 @@ EVAL_SEED_COUNT = int(os.environ.get("CRAFTER_EVAL_SEED_COUNT", "10"))
 EVAL_SEEDS = list(range(EVAL_SEED_START, EVAL_SEED_START + EVAL_SEED_COUNT))
 EVAL_MAX_CONCURRENT = int(os.environ.get("CRAFTER_EVAL_MAX_CONCURRENT", "5"))
 
-IS_DEV_MODE = SYNTH_API_BASE.startswith("http://localhost") or SYNTH_API_BASE.startswith("http://127.0.0.1")
+IS_DEV_MODE = SYNTH_API_BASE.startswith("http://localhost") or SYNTH_API_BASE.startswith(
+    "http://127.0.0.1"
+)
 USE_TUNNEL = os.environ.get("CRAFTER_USE_TUNNEL", "").lower() in ("1", "true", "yes")
 
 
-def _build_trace_event(messages: List[Dict[str, Any]], response_json: Dict[str, Any], *, turn: int) -> Dict[str, Any]:
+def _build_trace_event(
+    messages: List[Dict[str, Any]], response_json: Dict[str, Any], *, turn: int
+) -> Dict[str, Any]:
     return {
         "type": "lm_call",
         "event_type": "lm_call",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "llm_request": {"messages": messages},
         "llm_response": response_json,
         "metadata": {"turn": turn},
@@ -90,7 +96,9 @@ def create_crafter_vlm_local_api(system_prompt: str):
         log_prefix="crafter_vlm_local_api",
     )
 
-    async def rollout_executor(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
+    async def rollout_executor(
+        request: RolloutRequest, fastapi_request: Request
+    ) -> RolloutResponse:
         policy_config = request.policy.config or {}
         seed = request.env.seed or 0
         env_config = request.env.config or {}
@@ -112,7 +120,9 @@ def create_crafter_vlm_local_api(system_prompt: str):
             image_only_mode=True,
         )
 
-        api_key = extract_api_key(fastapi_request, policy_config) or os.environ.get("OPENAI_API_KEY", "")
+        api_key = extract_api_key(fastapi_request, policy_config) or os.environ.get(
+            "OPENAI_API_KEY", ""
+        )
         http_client = getattr(fastapi_request.app.state, "http_client", None)
 
         trace_events: List[Dict[str, Any]] = []
@@ -229,7 +239,6 @@ def create_crafter_vlm_local_api(system_prompt: str):
         trace_correlation_id = extract_trace_correlation_id(
             policy_config,
             policy_config.get("inference_url"),
-            request.mode,
         )
 
         trace_metadata: Dict[str, Any] = {
@@ -253,23 +262,14 @@ def create_crafter_vlm_local_api(system_prompt: str):
         metrics = RolloutMetrics(
             outcome_reward=score,
             event_rewards=episode_rewards,
-            episode_rewards=episode_rewards,
-            reward_mean=sum(episode_rewards) / len(episode_rewards) if episode_rewards else 0.0,
-            num_steps=len(episode_rewards),
-            num_episodes=1,
-            outcome_score=score,
-            events_score=score,
             details=details,
         )
 
         return RolloutResponse(
-            run_id=request.run_id,
-            branches={},
             metrics=metrics,
-            aborted=False,
             trace_correlation_id=trace_correlation_id,
             trace=trace,
-            pipeline_metadata={"inference_url": policy_config.get("inference_url", "")},
+            inference_url=policy_config.get("inference_url", ""),
         )
 
     def describe_taskset() -> Dict[str, Any]:
@@ -460,9 +460,9 @@ async def main() -> None:
     if not api_key:
         print("SYNTH_API_KEY not set; skipping GEPA job and evals.")
         return
-    
+
     # Set API key in environment for SDK to use (in case it wasn't already set)
-    os.environ['SYNTH_API_KEY'] = api_key
+    os.environ["SYNTH_API_KEY"] = api_key
 
     print(f"Backend: {SYNTH_API_BASE} (dev_mode={IS_DEV_MODE})")
     async with httpx.AsyncClient(timeout=30) as client:
@@ -527,7 +527,9 @@ async def main() -> None:
     prompt_results = await pl_client.get_prompts(job_result.job_id)
     optimized_prompt = _extract_system_prompt(prompt_results.best_prompt)
     if not optimized_prompt:
-        raise RuntimeError("Failed to extract optimized system prompt from prompt learning results.")
+        raise RuntimeError(
+            "Failed to extract optimized system prompt from prompt learning results."
+        )
 
     optimized_port = _ensure_available_port(OPTIMIZED_TASK_APP_PORT, "Optimized")
     optimized_app = create_crafter_vlm_local_api(optimized_prompt)

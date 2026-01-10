@@ -2,34 +2,35 @@
 """Test the local API TaskInfo endpoint."""
 
 import asyncio
+import importlib
+import os
+import sys
 from pathlib import Path
 
-demo_dir = Path(__file__).parent
-repo_root = demo_dir.parent.parent
-
-# Load .env
-try:
-    from dotenv import load_dotenv
-    env_file = repo_root / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-        print(f"Loaded {env_file}")
-except ImportError:
-    pass
-
-import os
-
 import httpx
+from dotenv import load_dotenv
+from synth_ai.core.env import PROD_BASE_URL
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 try:
     from synth_ai.sdk.task.server import run_server_background
 except ImportError:  # pragma: no cover
     from synth_ai.sdk.task import run_server_background
-# Import the app creation function
-from run_demo import create_web_design_local_api
-from synth_ai.core.env import PROD_BASE_URL
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
+
+demo_dir = Path(__file__).parent
+repo_root = demo_dir.parent.parent
+
+# Load .env
+env_file = repo_root / ".env"
+if env_file.exists():
+    load_dotenv(env_file)
+    print(f"Loaded {env_file}")
+
+# Import local module dynamically
+sys.path.insert(0, str(demo_dir))
+_run_demo = importlib.import_module("run_demo")
+create_web_design_local_api = _run_demo.create_web_design_local_api
 
 # Get API key
 API_KEY = os.environ.get("SYNTH_API_KEY", "")
@@ -42,8 +43,9 @@ ENVIRONMENT_API_KEY = ensure_localapi_auth(
 )
 print(f"Env key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
 
+
 async def main():
-    BASELINE_STYLE_PROMPT = """You are generating a professional startup website screenshot.
+    baseline_style_prompt = """You are generating a professional startup website screenshot.
 
 VISUAL STYLE GUIDELINES:
 - Use a clean, modern, minimalist design aesthetic
@@ -56,7 +58,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
 
     # Start local API
     print("Starting local API...")
-    app = create_web_design_local_api(BASELINE_STYLE_PROMPT)
+    app = create_web_design_local_api(baseline_style_prompt)
     port = acquire_port(8002, on_conflict=PortConflictBehavior.FIND_NEW)
 
     run_server_background(app, port)
@@ -73,8 +75,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.get(
-                url,
-                headers={"Authorization": f"Bearer {ENVIRONMENT_API_KEY}"}
+                url, headers={"Authorization": f"Bearer {ENVIRONMENT_API_KEY}"}
             )
             print(f"Status: {response.status_code}")
             if response.status_code == 200:
@@ -88,10 +89,12 @@ Create a webpage that feels polished, modern, and trustworthy."""
     except Exception as e:
         print(f"Exception: {e}")
         import traceback
+
         traceback.print_exc()
 
     print("\nKeeping server running for 60 seconds...")
     await asyncio.sleep(60)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

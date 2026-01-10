@@ -73,7 +73,7 @@ class AgentSessionQuery:
     async def execute(self) -> list[AgentSession]:
         """Execute query and return results."""
         params: dict[str, Any] = {}
-        
+
         if "org_id" in self._filters:
             # org_id is implicit from API key, so we don't need to pass it
             pass
@@ -89,12 +89,12 @@ class AgentSessionQuery:
             params["status"] = "limit_exceeded"
         if "tracing_session_id" in self._filters:
             params["tracing_session_id"] = self._filters["tracing_session_id"]
-        
+
         if self._limit:
             params["limit"] = self._limit
         if self._offset:
             params["offset"] = self._offset
-        
+
         # Use client's list method
         return await self._client.list(**params)
 
@@ -107,4 +107,3 @@ class AgentSessionQuery:
         """Get first matching session."""
         results = await self.limit(1).execute()
         return results[0] if results else None
-

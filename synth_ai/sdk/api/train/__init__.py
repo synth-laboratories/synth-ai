@@ -8,12 +8,12 @@ CLI Usage:
 
 SDK Usage:
     from synth_ai.sdk.api.train import PromptLearningJob, SFTJob
-    
+
     # Prompt Learning
     job = PromptLearningJob.from_config("my_config.toml")
     job.submit()
     result = job.poll_until_complete()
-    
+
     # SFT
     sft_job = SFTJob.from_config("my_sft_config.toml")
     sft_job.submit()
@@ -24,16 +24,6 @@ from __future__ import annotations
 
 from typing import Any
 
-# Re-export high-level SDK classes
-from .prompt_learning import (
-    PromptLearningJob,
-    PromptLearningJobConfig,
-    PromptLearningJobPoller,
-)
-from .sft import (
-    SFTJob,
-    SFTJobConfig,
-)
 from .context_learning import (
     ContextLearningJob,
     ContextLearningJobConfig,
@@ -44,6 +34,17 @@ from .graphgen import (
 from .graphgen_models import (
     GraphGenJobConfig,
     GraphGenTaskSet,
+)
+
+# Re-export high-level SDK classes
+from .prompt_learning import (
+    PromptLearningJob,
+    PromptLearningJobConfig,
+    PromptLearningJobPoller,
+)
+from .sft import (
+    SFTJob,
+    SFTJobConfig,
 )
 
 __all__ = [

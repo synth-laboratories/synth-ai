@@ -18,6 +18,18 @@ from typing import Any, Dict, List, Optional
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
+from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
+from synth_ai.sdk.task import run_server_background
+from synth_ai.sdk.tunnels import (
+    TunnelBackend,
+    TunneledLocalAPI,
+    cleanup_all,
+    find_available_port,
+    is_port_available,
+    kill_port,
+)
 
 parser = argparse.ArgumentParser(description="Run style-matching GEPA prompt optimization")
 parser.add_argument(
@@ -56,26 +68,12 @@ def _load_env_file(path: Path) -> None:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
-        value = value.strip().strip("\"").strip("' ")
+        value = value.strip().strip('"').strip("' ")
         if key:
             os.environ[key] = value
 
 
 _load_env_file(synth_root / ".env")
-
-from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
-from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.tunnels import (
-    TunneledLocalAPI,
-    TunnelBackend,
-    kill_port,
-    wait_for_health_check,
-    cleanup_all,
-    find_available_port,
-    is_port_available,
-)
 
 USE_LOCAL_BACKEND = args.local
 SYNTH_API_BASE = "http://127.0.0.1:8000" if USE_LOCAL_BACKEND else "https://api.usesynth.ai"
@@ -328,7 +326,9 @@ def _safe_format(text: str, values: Dict[str, Any]) -> str:
     return text.format_map(_DefaultDict(values))
 
 
-def _render_messages_from_sections(sections: List[Dict[str, Any]], values: Dict[str, Any]) -> List[Dict[str, str]]:
+def _render_messages_from_sections(
+    sections: List[Dict[str, Any]], values: Dict[str, Any]
+) -> List[Dict[str, str]]:
     rendered = []
     for section in sorted(sections, key=lambda s: s.get("order", 0)):
         role = section.get("role", "user")
@@ -338,7 +338,9 @@ def _render_messages_from_sections(sections: List[Dict[str, Any]], values: Dict[
     return rendered
 
 
-def _build_messages(task_input: Dict[str, Any], prompt_sections: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, str]]:
+def _build_messages(
+    task_input: Dict[str, Any], prompt_sections: Optional[List[Dict[str, Any]]] = None
+) -> List[Dict[str, str]]:
     notes_text = _format_notes(task_input.get("notes", []))
     values = {
         "title": task_input.get("title", ""),
@@ -377,7 +379,9 @@ def _extract_verifier_score(result: Dict[str, Any]) -> float:
     output = result.get("output", result)
     if isinstance(output, dict):
         outcome_review = output.get("outcome_review")
-        if isinstance(outcome_review, dict) and isinstance(outcome_review.get("total"), (int, float)):
+        if isinstance(outcome_review, dict) and isinstance(
+            outcome_review.get("total"), (int, float)
+        ):
             return float(outcome_review["total"])
         event_reviews = output.get("event_reviews")
         if isinstance(event_reviews, list) and event_reviews:
@@ -416,7 +420,9 @@ async def _call_policy_llm(messages: List[Dict[str, str]], policy_config: Dict[s
         return _extract_completion(response.json())
 
 
-async def _score_with_verifier(session_trace: Dict[str, Any], verifier_job_id: Optional[str] = None) -> float:
+async def _score_with_verifier(
+    session_trace: Dict[str, Any], verifier_job_id: Optional[str] = None
+) -> float:
     job_id = verifier_job_id or BASELINE_VERIFIER_JOB_ID
     payload = {
         "job_id": job_id,
@@ -457,7 +463,7 @@ async def rollout(request: Request, x_api_key: Optional[str] = Header(None)) -> 
     try:
         data = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        raise HTTPException(status_code=400, detail="Invalid JSON") from None
 
     run_id = data.get("run_id")
     env = data.get("env", {})
@@ -637,7 +643,11 @@ async def run_gepa_with_verifier(label: str, verifier_job_id: str) -> tuple[str,
                 },
                 "rollout": {"budget": 48, "max_concurrent": 3, "minibatch_size": 3},
                 "mutation": {"rate": 0.3},
-                "population": {"initial_size": 3, "num_generations": 3, "children_per_generation": 2},
+                "population": {
+                    "initial_size": 3,
+                    "num_generations": 3,
+                    "children_per_generation": 2,
+                },
                 "archive": {"size": 5, "pareto_set_size": 10},
                 "token": {"counting_model": "gpt-4"},
             },
@@ -711,7 +721,9 @@ async def main() -> None:
             print(f"Waiting for system DNS to resolve {tunnel.hostname}...")
             await wait_for_system_dns(tunnel.hostname)
         except Exception as exc:
-            print(f"Managed tunnel failed or DNS unresolved ({exc}). Falling back to quick tunnel...")
+            print(
+                f"Managed tunnel failed or DNS unresolved ({exc}). Falling back to quick tunnel..."
+            )
             tunnel = await TunneledLocalAPI.create(
                 local_port=LOCAL_TASK_PORT,
                 backend=TunnelBackend.CloudflareQuickTunnel,

@@ -1,8 +1,7 @@
-"""Prompt Learning configuration models for MIPRO and GEPA.
+"""Prompt Learning configuration models for GEPA.
 
 This module defines the configuration schema for prompt optimization jobs using:
 - **GEPA**: Genetic Evolution of Prompt Architectures - evolutionary optimization
-- **MIPRO**: Meta-learning with bootstrap phase and TPE optimization
 
 Example TOML configuration (GEPA):
     ```toml
@@ -32,12 +31,13 @@ Example TOML configuration (GEPA):
     ```
 
 See Also:
-    - Training reference: /training/gepa, /training/mipro
+    - Training reference: /training/gepa
     - Quickstart: /quickstart/prompt-optimization-gepa
 """
+
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional
@@ -45,6 +45,7 @@ from typing import Any, Dict, Literal, Optional
 from pydantic import Field, field_validator, model_validator
 
 from synth_ai.data.enums import RewardSource
+
 from ..utils import load_toml
 from .shared import ExtraModel
 
@@ -58,6 +59,7 @@ class SeedRange(ExtraModel):
         seeds = {start = 0, end = 10}  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         seeds = {start = 0, end = 100, step = 2}  # [0, 2, 4, ..., 98]
     """
+
     start: int
     end: int
     step: int = 1
@@ -88,7 +90,9 @@ def _parse_seeds(value: Any) -> list[int] | None:
         return seed_range.to_list()
     if isinstance(value, list):
         return list(value)
-    raise ValueError(f"Seeds must be a list or a range dict with 'start' and 'end' keys, got {type(value).__name__}")
+    raise ValueError(
+        f"Seeds must be a list or a range dict with 'start' and 'end' keys, got {type(value).__name__}"
+    )
 
 
 class InferenceMode(str, Enum):
@@ -108,13 +112,16 @@ class PromptLearningPolicyConfig(ExtraModel):
     LLM calls made by the task app during rollouts. This allows multi-stage task
     apps to use different models per stage without config mismatches.
     """
+
     provider: ProviderName
-    inference_url: str | None = None  # Optional - trainer provides it in rollout requests (ignored if present)
+    inference_url: str | None = (
+        None  # Optional - trainer provides it in rollout requests (ignored if present)
+    )
     inference_mode: InferenceMode = InferenceMode.synth_hosted
     temperature: float = 0.0
     max_completion_tokens: int = 512
     policy_name: str | None = None
-    
+
     @field_validator("inference_url", mode="before")
     @classmethod
     def _strip_inference_url(cls, v: str | None) -> str | None:
@@ -134,6 +141,7 @@ class PromptLearningPolicyConfig(ExtraModel):
 
 class MessagePatternConfig(ExtraModel):
     """Configuration for a single message pattern."""
+
     role: str
     pattern: str
     order: int = 0
@@ -141,69 +149,19 @@ class MessagePatternConfig(ExtraModel):
 
 class PromptPatternConfig(ExtraModel):
     """Initial prompt pattern configuration."""
+
     id: str | None = None
     name: str | None = None
     messages: list[MessagePatternConfig] = []
     wildcards: dict[str, str] = Field(default_factory=dict)
 
 
-class MIPROMetaConfig(ExtraModel):
-    """DEPRECATED: Meta-model config is now controlled by proposer_effort and proposer_output_tokens.
-
-    This class is kept for backwards compatibility but should not be used.
-    Use proposer_effort (LOW_CONTEXT, LOW, MEDIUM, HIGH) and proposer_output_tokens (RAPID, FAST, SLOW) instead.
-    """
-    model: str | None = None
-    provider: str | None = None
-    inference_url: str | None = None
-    temperature: float | None = None
-    max_tokens: int | None = None
-
-
-class MIPROStageConfig(ExtraModel):
-    """Configuration for a single MIPRO stage inside a module.
-
-    Each stage MUST have its own policy configuration. The policy field is required
-    and must include 'provider' field. The 'model' field is optional - if not specified,
-    the model will be detected from actual LLM calls made during rollouts.
-    """
-    stage_id: str
-    baseline_instruction: str
-    baseline_messages: list[dict[str, str]] = Field(default_factory=list)
-    max_instruction_slots: int | None = None
-    max_demo_slots: int | None = None
-    policy: PromptLearningPolicyConfig | dict[str, Any] = Field(
-        ...,
-        description="Required per-stage policy configuration. Must include 'provider' field. 'model' is optional."
-    )
-
-
-class MIPROModuleConfig(ExtraModel):
-    """Configuration for a single module in a MIPRO pipeline."""
-    module_id: str
-    stages: list[MIPROStageConfig] = Field(default_factory=list)
-
-
-class MIPROSeedConfig(ExtraModel):
-    """Seed pools used across bootstrap, optimization, and evaluation."""
-    bootstrap: list[int] = Field(default_factory=list)
-    online: list[int] = Field(default_factory=list)
-    test: list[int] = Field(default_factory=list)
-    reference: list[int] = Field(default_factory=list)
-
-    @field_validator("bootstrap", "online", "test", "reference", mode="before")
-    @classmethod
-    def _parse_seed_pools(cls, v: Any) -> list[int]:
-        """Parse seed pools that can be either a list or range dict."""
-        return _parse_seeds(v) or []
-
-
 class PromptLearningVerifierConfig(ExtraModel):
-    """Verifier configuration shared by GEPA and MIPRO.
-    
+    """Verifier configuration for GEPA.
+
     This configures LLM-based evaluation of agent trajectories during prompt optimization.
     You can use standard rubrics or registered Verifier Graphs.
-    
+
     Attributes:
         enabled: Whether to enable verifier-based scoring.
         reward_source: Source of the final reward for optimization.
@@ -221,6 +179,7 @@ class PromptLearningVerifierConfig(ExtraModel):
         weight_event: Weight for verifier event rewards in "fused" mode (default: 0.0).
         weight_outcome: Weight for verifier outcome rewards in "fused" mode (default: 0.0).
     """
+
     enabled: bool = False
     reward_source: RewardSource = RewardSource.TASK_APP
     backend_base: str = ""
@@ -252,14 +211,14 @@ class PromptLearningVerifierConfig(ExtraModel):
 
 class ProxyModelsConfig(ExtraModel):
     """Configuration for proxy usage on policy evaluations.
-    
+
     Uses a low-fidelity (LO) model for most evaluations and a high-fidelity (HI) model
     for verification, with dynamic switching based on calibration and correlation.
-    
+
     The proxy system starts by evaluating examples with both HI and LO models to build
     a calibration regression. Once calibrated (R² >= r2_thresh), it switches to using
     only the LO model for most evaluations, falling back to HI when reliability drops.
-    
+
     Attributes:
         hi_provider: Provider for high-fidelity model (e.g., "openai", "groq", "google").
             This is the expensive model used for ground-truth evaluations.
@@ -286,6 +245,7 @@ class ProxyModelsConfig(ExtraModel):
             Default: -100.0. Negative values allow some loss before stopping. Set to 0.0
             to stop immediately if proxy becomes unprofitable.
     """
+
     hi_provider: str
     hi_model: str
     lo_provider: str
@@ -301,6 +261,7 @@ class ProxyModelsConfig(ExtraModel):
 
 class AdaptiveCurriculumLevel(str, Enum):
     """Preset levels for adaptive pooling curriculum."""
+
     NONE = "NONE"
     LOW = "LOW"
     MODERATE = "MODERATE"
@@ -309,15 +270,15 @@ class AdaptiveCurriculumLevel(str, Enum):
 
 class AdaptivePoolConfig(ExtraModel):
     """Configuration for adaptive pooling (dynamically adjusting evaluation pool size).
-    
+
     Reduces evaluation costs by focusing on the most informative examples while
     maintaining optimization quality through informativeness-based selection.
-    
+
     The adaptive pool starts with a larger pool and gradually reduces to a minimum
     size, selecting examples based on informativeness (variance across prompts).
     Examples are divided into anchors (always evaluated) and exploration pool
     (selected based on informativeness).
-    
+
     Attributes:
         level: Preset level (NONE, LOW, MODERATE, HIGH). Default: LOW.
             NONE disables adaptive pooling. Higher levels use smaller pools and
@@ -377,6 +338,7 @@ class AdaptivePoolConfig(ExtraModel):
             - "once": Heat-up happens once
             - "repeat": Heat-up repeats after cooldown
     """
+
     level: AdaptiveCurriculumLevel = AdaptiveCurriculumLevel.LOW
     anchor_size: int = 30
     pool_init_size: int | None = None
@@ -391,11 +353,13 @@ class AdaptivePoolConfig(ExtraModel):
     anchor_selection_method: Literal["random", "clustering"] = "clustering"
     exploration_strategy: Literal["random", "diversity"] = "diversity"
     heatup_reserve_pool: list[int] | None = None
-    heatup_trigger: Literal["after_min_size", "immediate", "every_N_trials_after_min"] = "after_min_size"
+    heatup_trigger: Literal["after_min_size", "immediate", "every_N_trials_after_min"] = (
+        "after_min_size"
+    )
     heatup_size: int = 20
     heatup_cooldown_trials: int = 50
     heatup_schedule: Literal["repeat", "once"] = "repeat"
-    
+
     @property
     def enabled(self) -> bool:
         """Whether adaptive pooling is enabled (level != NONE)."""
@@ -404,6 +368,7 @@ class AdaptivePoolConfig(ExtraModel):
 
 class AdaptiveBatchLevel(str, Enum):
     """Preset levels for adaptive batch curriculum (GEPA only)."""
+
     NONE = "NONE"
     LOW = "LOW"
     MODERATE = "MODERATE"
@@ -412,16 +377,17 @@ class AdaptiveBatchLevel(str, Enum):
 
 class GEPAAdaptiveBatchConfig(ExtraModel):
     """Configuration for adaptive batch evaluation (GEPA only).
-    
+
     Reduces evaluation costs by using smaller minibatches and subsampling validation.
     """
+
     level: AdaptiveBatchLevel = AdaptiveBatchLevel.MODERATE
     reflection_minibatch_size: int = 3  # Train examples per reflection step
     min_local_improvement: float = 0.0  # Threshold for accepting proposals
     val_evaluation_mode: Literal["full", "subsample"] = "subsample"  # Validation mode
     val_subsample_size: int = 64  # Subsample size when mode="subsample"
     candidate_selection_strategy: Literal["coverage", "random"] = "coverage"
-    
+
     @property
     def enabled(self) -> bool:
         """Whether adaptive batch is enabled (level != NONE)."""
@@ -548,12 +514,12 @@ def resolve_adaptive_pool_config(
     dev_pool_size: int | None = None,
 ) -> AdaptivePoolConfig:
     """Resolve adaptive pool config from level preset and overrides.
-    
+
     Args:
         level: Preset level (NONE, LOW, MODERATE, HIGH). Defaults to LOW if None.
         overrides: Dict of field overrides to apply on top of level defaults.
         dev_pool_size: Optional dev pool size to cap pool_init_size if needed.
-    
+
     Returns:
         AdaptivePoolConfig with resolved values.
     """
@@ -565,34 +531,36 @@ def resolve_adaptive_pool_config(
             level = AdaptiveCurriculumLevel[level.strip().upper()]
         except KeyError:
             valid_levels = ", ".join(level_item.name for level_item in AdaptiveCurriculumLevel)
-            raise ValueError(f"Invalid adaptive pool level '{level}'. Must be one of: {valid_levels}") from None
-    
+            raise ValueError(
+                f"Invalid adaptive pool level '{level}'. Must be one of: {valid_levels}"
+            ) from None
+
     # Get defaults for level
     defaults = _ADAPTIVE_POOL_DEFAULTS[level].copy()
-    
+
     # Apply overrides
     if overrides:
         defaults.update(overrides)
-    
+
     # Handle pool_init_size and pool_min_size with dev_pool_size
     pool_init_size = defaults.get("pool_init_size")
     pool_min_size = defaults.get("pool_min_size")
-    
+
     if pool_init_size is None:
         pool_init_size = dev_pool_size
     if pool_min_size is None:
         pool_min_size = dev_pool_size
-    
+
     # Cap pool_init_size if dev_pool_size is provided
     if dev_pool_size is not None and pool_init_size is not None and pool_init_size > dev_pool_size:
         pool_init_size = dev_pool_size
-    
+
     # Handle heatup_reserve_pool (can be list, None, or single value)
     heatup_reserve = defaults.get("heatup_reserve_pool")
     if heatup_reserve is not None and not isinstance(heatup_reserve, list | tuple):
         # Convert single value or other types to list
         heatup_reserve = [heatup_reserve] if heatup_reserve else None
-    
+
     # Create config with proper types
     config = AdaptivePoolConfig(
         level=level,
@@ -606,15 +574,24 @@ def resolve_adaptive_pool_config(
         k_info_prompts=int(defaults["k_info_prompts"]),
         info_buffer_factor=float(defaults["info_buffer_factor"]),
         info_epsilon=float(defaults["info_epsilon"]),
-        anchor_selection_method=defaults["anchor_selection_method"] if defaults["anchor_selection_method"] in ("random", "clustering") else "clustering",
-        exploration_strategy=defaults["exploration_strategy"] if defaults["exploration_strategy"] in ("random", "diversity") else "diversity",
+        anchor_selection_method=defaults["anchor_selection_method"]
+        if defaults["anchor_selection_method"] in ("random", "clustering")
+        else "clustering",
+        exploration_strategy=defaults["exploration_strategy"]
+        if defaults["exploration_strategy"] in ("random", "diversity")
+        else "diversity",
         heatup_reserve_pool=list(heatup_reserve) if heatup_reserve else None,
-        heatup_trigger=defaults.get("heatup_trigger", "after_min_size") if defaults.get("heatup_trigger", "after_min_size") in ("after_min_size", "immediate", "every_N_trials_after_min") else "after_min_size",
+        heatup_trigger=defaults.get("heatup_trigger", "after_min_size")
+        if defaults.get("heatup_trigger", "after_min_size")
+        in ("after_min_size", "immediate", "every_N_trials_after_min")
+        else "after_min_size",
         heatup_size=int(defaults.get("heatup_size", 20)),
         heatup_cooldown_trials=int(defaults.get("heatup_cooldown_trials", 50)),
-        heatup_schedule=defaults.get("heatup_schedule", "repeat") if defaults.get("heatup_schedule", "repeat") in ("repeat", "once") else "repeat",
+        heatup_schedule=defaults.get("heatup_schedule", "repeat")
+        if defaults.get("heatup_schedule", "repeat") in ("repeat", "once")
+        else "repeat",
     )
-    
+
     return config
 
 
@@ -624,11 +601,11 @@ def resolve_adaptive_batch_config(
     overrides: dict[str, Any] | None = None,
 ) -> GEPAAdaptiveBatchConfig:
     """Resolve adaptive batch config from level preset and overrides.
-    
+
     Args:
         level: Preset level (NONE, LOW, MODERATE, HIGH). Defaults to MODERATE if None.
         overrides: Dict of field overrides to apply on top of level defaults.
-    
+
     Returns:
         GEPAAdaptiveBatchConfig with resolved values.
     """
@@ -640,407 +617,36 @@ def resolve_adaptive_batch_config(
             level = AdaptiveBatchLevel[level.strip().upper()]
         except KeyError:
             valid_levels = ", ".join(level_item.name for level_item in AdaptiveBatchLevel)
-            raise ValueError(f"Invalid adaptive batch level '{level}'. Must be one of: {valid_levels}") from None
-    
+            raise ValueError(
+                f"Invalid adaptive batch level '{level}'. Must be one of: {valid_levels}"
+            ) from None
+
     # Get defaults for level
     defaults = _ADAPTIVE_BATCH_DEFAULTS[level].copy()
-    
+
     # Apply overrides
     if overrides:
         defaults.update(overrides)
-    
+
     # Create config with proper types
     return GEPAAdaptiveBatchConfig(
         level=level,
         reflection_minibatch_size=int(defaults["reflection_minibatch_size"]),
         min_local_improvement=float(defaults["min_local_improvement"]),
-        val_evaluation_mode=defaults["val_evaluation_mode"] if defaults["val_evaluation_mode"] in ("full", "subsample") else "full",
+        val_evaluation_mode=defaults["val_evaluation_mode"]
+        if defaults["val_evaluation_mode"] in ("full", "subsample")
+        else "full",
         val_subsample_size=int(defaults["val_subsample_size"]),
-        candidate_selection_strategy=defaults["candidate_selection_strategy"] if defaults["candidate_selection_strategy"] in ("coverage", "random") else "coverage",
+        candidate_selection_strategy=defaults["candidate_selection_strategy"]
+        if defaults["candidate_selection_strategy"] in ("coverage", "random")
+        else "coverage",
     )
-
-
-class MIPROConfig(ExtraModel):
-    """MIPRO-specific configuration.
-
-    MIPROv2 uses meta-learning with bootstrap phase, TPE optimization, and mini-batch evaluation
-    to efficiently optimize prompts with fewer evaluations than genetic algorithms.
-
-    Attributes:
-        proposer_effort: Effort level for proposer model selection. Controls which model
-            is used for generating prompt proposals. Default: "LOW".
-            Options:
-            - "LOW_CONTEXT": Uses gpt-oss-120b (Groq) with minimal context. Fastest/cheapest.
-                Required when proposer_output_tokens="RAPID".
-            - "LOW": Uses smaller/faster models (e.g., gpt-4o-mini). Good balance.
-            - "MEDIUM": Uses medium models (e.g., gpt-4o). Higher quality proposals.
-            - "HIGH": Uses best models (e.g., gpt-5). Highest quality but expensive.
-        proposer_output_tokens: Maximum output tokens allowed for proposer model.
-            Default: "FAST". Controls proposal length and cost.
-            Options:
-            - "RAPID": 3000 tokens max. Fastest/cheapest. Requires proposer_effort="LOW_CONTEXT"
-                and gpt-oss-120b model. Use for short, focused proposals.
-            - "FAST": 10000 tokens max. Good balance. Works with any effort level.
-            - "SLOW": 25000 tokens max. Allows longer proposals. Use for complex prompts.
-        min_bootstrap_demos: Minimum number of qualified bootstrap demonstrations required.
-            Default: None (no minimum). If set, bootstrap phase will fail early if fewer than
-            this many demos pass the few_shot_score_threshold. Use with strict_bootstrap=True
-            for fail-fast behavior.
-        strict_bootstrap: If True, fail immediately when bootstrap doesn't produce enough
-            qualified demos (< min_bootstrap_demos). Default: False. When False, optimization
-            continues but may produce suboptimal results with insufficient demos.
-        use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
-            False = disable (use Synth credits), None = auto-detect based on org settings.
-            When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
-            instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
-    """
-    task_app_url: str | None = None
-    task_app_api_key: str | None = None
-    task_app_id: str | None = None
-    num_iterations: int = 20
-    num_evaluations_per_iteration: int = 5
-    batch_size: int = 32
-    max_concurrent: int = 20
-    env_name: str = "banking77"
-    env_config: dict[str, Any] | None = None
-    few_shot_score_threshold: float = 0.8
-    results_file: str | None = None
-    max_wall_clock_seconds: float | None = None
-    max_total_tokens: int | None = None
-    policy_config: dict[str, Any] | None = None
-    meta: MIPROMetaConfig | dict[str, Any] | None = None
-    modules: list[MIPROModuleConfig] | list[dict[str, Any]] | None = None
-    seeds: MIPROSeedConfig | dict[str, Any] | None = None
-
-    # Proposer configuration
-    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"
-    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"
-
-    # Token and budget configuration (mirrors GEPA pattern)
-    max_token_limit: int | None = None  # Total tokens across all rollouts (policy + proposer)
-    max_spend_usd: float | None = None  # Maximum spend in USD
-    token_counting_model: str = "gpt-4"  # Model for token estimation (tiktoken)
-    enforce_token_limit: bool = True  # Halt optimization if limit exceeded
-    
-    # TPE configuration
-    tpe: dict[str, Any] | None = None
-    
-    # Demo configuration
-    demo: dict[str, Any] | None = None
-    
-    # Grounding configuration
-    grounding: dict[str, Any] | None = None
-    
-    # Meta-update configuration
-    meta_update: dict[str, Any] | None = None
-
-    # Verifier configuration (shared with GEPA)
-    verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
-    
-    # Proxy models configuration (optional, can also be at top-level)
-    proxy_models: ProxyModelsConfig | dict[str, Any] | None = None
-    
-    # Adaptive pool configuration (optional)
-    adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None
-    
-    # System spec configuration
-    spec_path: str | None = None  # Path to system spec JSON file
-    spec_max_tokens: int = 5000
-    
-    # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
-    use_byok: bool | None = Field(
-        default=None,
-        description=(
-            "BYOK mode: True = force BYOK (fail if no key), "
-            "False = disable (use Synth credits), None = auto-detect based on org settings. "
-            "When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini) "
-            "instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint."
-        ),
-    )  # Max tokens for spec context in meta-prompt
-    spec_include_examples: bool = True  # Include examples from spec
-    spec_priority_threshold: int | None = None  # Only include rules with priority >= threshold
-    # Custom metaprompt (optional)
-    metaprompt: str | None = None  # Custom metaprompt text to include in instruction generation prompts
-    
-    # Bootstrap seeds (for few-shot examples)
-    bootstrap_train_seeds: list[int] | None = None
-
-    # Online pool (for mini-batch evaluation)
-    online_pool: list[int] | None = None
-
-    # Test pool (held-out seeds)
-    test_pool: list[int] | None = None
-
-    # Reference pool (for dataset context in meta-prompt, must not overlap with train/test)
-    reference_pool: list[int] | None = None
-
-    # Strict bootstrap mode: minimum qualified demos required
-    # If fewer demos qualify (score >= few_shot_score_threshold), job fails early with clear error
-    # Default: 0 (no minimum - current behavior for backwards compatibility)
-    min_bootstrap_demos: int = 0
-
-    @model_validator(mode="before")
-    @classmethod
-    def _forbid_meta_model_config(cls, data: dict[str, Any]) -> dict[str, Any]:
-        """Forbid deprecated meta_model configuration fields.
-
-        Meta-model selection is now controlled by proposer_effort and proposer_output_tokens.
-        The backend automatically selects the model based on these settings.
-        """
-        if not isinstance(data, dict):
-            return data
-
-        deprecated_meta_fields = {
-            "meta_model": "Meta-model selection is now controlled by 'proposer_effort' (LOW_CONTEXT, LOW, MEDIUM, HIGH). Remove 'meta_model' from your config.",
-            "meta_model_provider": "Meta-model provider is now controlled by 'proposer_effort'. Remove 'meta_model_provider' from your config.",
-            "meta_model_inference_url": "Meta-model inference URL is now controlled by 'proposer_effort'. Remove 'meta_model_inference_url' from your config.",
-            "meta_model_temperature": "Meta-model temperature is now controlled by 'proposer_effort'. Remove 'meta_model_temperature' from your config.",
-            "meta_model_max_tokens": "Meta-model max_tokens is now controlled by 'proposer_effort' and 'proposer_output_tokens'. Remove 'meta_model_max_tokens' from your config.",
-        }
-
-        for field, message in deprecated_meta_fields.items():
-            if field in data and data[field] is not None:
-                raise ValueError(f"Deprecated field '{field}': {message}")
-
-        # Also check in nested meta section
-        if "meta" in data and isinstance(data["meta"], dict):
-            meta_data = data["meta"]
-            if meta_data.get("model") is not None:
-                raise ValueError("Deprecated field 'meta.model': Meta-model selection is now controlled by 'proposer_effort'. Remove [prompt_learning.mipro.meta] section.")
-            if meta_data.get("provider") is not None:
-                raise ValueError("Deprecated field 'meta.provider': Meta-model provider is now controlled by 'proposer_effort'. Remove [prompt_learning.mipro.meta] section.")
-
-        return data
-
-    @field_validator("bootstrap_train_seeds", "online_pool", "test_pool", "reference_pool", mode="before")
-    @classmethod
-    def _parse_mipro_seed_lists(cls, v: Any) -> list[int] | None:
-        """Parse MIPRO seed lists that can be either a list or range dict."""
-        return _parse_seeds(v)
-
-    @classmethod
-    def simple(
-        cls,
-        *,
-        task_app_url: str,
-        task_app_api_key: str,
-        env_name: str,
-        rollout_budget: int,
-        initial_prompt_messages: Sequence[Mapping[str, Any]] | Sequence[Any],
-        task_app_id: str | None = None,
-        bootstrap_seeds: list[int] | None = None,
-        online_seeds: list[int] | None = None,
-        test_seeds: list[int] | None = None,
-        reference_pool: list[int] | None = None,
-        env_config: dict[str, Any] | None = None,
-        num_iterations: int | None = None,
-        num_evaluations_per_iteration: int | None = None,
-        batch_size: int | None = None,
-        max_concurrent: int | None = None,
-        meta_preset: Literal["fast", "balanced", "high_quality"] = "balanced",
-        policy_provider: str = "groq",
-        policy_temperature: float = 1.0,
-        policy_max_completion_tokens: int = 512,
-        policy_name: str | None = None,
-        meta_model: str | None = None,
-        meta_provider: str | None = None,
-        meta_inference_url: str | None = None,
-    ) -> MIPROConfig:
-        """Convenience constructor for single-stage MIPRO tasks.
-        
-        Automatically infers reasonable defaults for seeds, iterations, and module layout
-        based on the rollout budget. This keeps simple benchmarks (e.g., Iris) readable
-        while leaving the full constructor available for complex multi-stage pipelines.
-        """
-        if rollout_budget <= 0:
-            raise ValueError("rollout_budget must be positive for MIPROConfig.simple()")
-        normalized_messages = _normalize_messages(initial_prompt_messages)
-        if not normalized_messages:
-            raise ValueError("initial_prompt_messages must contain at least one message")
-        
-        bootstrap = bootstrap_seeds or _auto_calculate_bootstrap_seeds(rollout_budget)
-        online = online_seeds or _auto_calculate_online_seeds(rollout_budget)
-        tests = test_seeds or []
-        reference = reference_pool or _auto_calculate_reference_pool(rollout_budget)
-        
-        iterations = num_iterations or _auto_calculate_iterations(rollout_budget)
-        evals_per_iteration = (
-            num_evaluations_per_iteration
-            or _auto_calculate_evaluations_per_iteration(rollout_budget)
-        )
-        derived_batch_size = batch_size or max(1, min(len(online), 32))
-        derived_max_concurrent = max_concurrent or 10
-        
-        baseline_instruction = _extract_baseline_instruction(normalized_messages)
-        meta_config = _create_meta_config_from_preset(meta_preset)
-        if meta_model:
-            meta_config.model = meta_model
-        if meta_provider:
-            meta_config.provider = meta_provider
-        if meta_inference_url is not None:
-            meta_config.inference_url = meta_inference_url
-
-        # Build stage policy config (model is detected from actual LLM calls)
-        stage_policy_config: dict[str, Any] = {
-            "provider": policy_provider,
-            "temperature": policy_temperature,
-            "max_completion_tokens": policy_max_completion_tokens,
-        }
-        if policy_name:
-            stage_policy_config["policy_name"] = policy_name
-
-        stage = MIPROStageConfig(
-            stage_id="default_stage_0",
-            baseline_instruction=baseline_instruction,
-            baseline_messages=normalized_messages,
-            policy=stage_policy_config,
-        )
-        module = MIPROModuleConfig(
-            module_id="default",
-            stages=[stage],
-        )
-        seeds = MIPROSeedConfig(
-            bootstrap=bootstrap,
-            online=online,
-            test=tests,
-            reference=reference,
-        )
-        policy_config = stage_policy_config  # Reuse same config
-        
-        return cls(
-            task_app_url=task_app_url,
-            task_app_api_key=task_app_api_key,
-            task_app_id=task_app_id or env_name,
-            env_name=env_name,
-            env_config=env_config,
-            seeds=seeds,
-            num_iterations=iterations,
-            num_evaluations_per_iteration=evals_per_iteration,
-            batch_size=derived_batch_size,
-            max_concurrent=derived_max_concurrent,
-            policy_config=policy_config,
-            meta=meta_config,
-            modules=[module],
-        )
-
-
-def _auto_calculate_bootstrap_seeds(rollout_budget: int) -> list[int]:
-    """Auto-calculate bootstrap seeds from rollout budget."""
-    count = max(3, min(10, max(rollout_budget // 10, 1)))
-    return list(range(count))
-
-
-def _auto_calculate_online_seeds(rollout_budget: int) -> list[int]:
-    """Auto-calculate online pool seeds from rollout budget."""
-    count = max(5, min(50, max(rollout_budget // 3, 1)))
-    return list(range(10, 10 + count))
-
-
-def _auto_calculate_reference_pool(rollout_budget: int) -> list[int]:
-    """Auto-calculate reference pool seeds from rollout budget."""
-    count = max(5, min(30, max(rollout_budget // 5, 1)))
-    return list(range(20, 20 + count))
-
-
-def _auto_calculate_iterations(rollout_budget: int) -> int:
-    """Auto-calculate number of optimization iterations."""
-    online_pool_size = max(5, min(50, max(rollout_budget // 3, 1)))
-    evals_per_iteration = max(3, min(10, max(rollout_budget // max(online_pool_size * 2, 1), 1)))
-    iterations = max(5, min(20, max(rollout_budget // max(online_pool_size * evals_per_iteration, 1), 1)))
-    return iterations
-
-
-def _auto_calculate_evaluations_per_iteration(rollout_budget: int) -> int:
-    """Auto-calculate number of evaluations per iteration."""
-    online_pool_size = max(5, min(50, max(rollout_budget // 3, 1)))
-    iterations = max(5, min(20, max(rollout_budget // max(online_pool_size * 5, 1), 1)))
-    evals_per_iteration = max(3, min(10, max(rollout_budget // max(online_pool_size * iterations, 1), 1)))
-    return evals_per_iteration
-
-
-def _coerce_message_mapping(message: Mapping[str, Any] | Any) -> dict[str, Any]:
-    """Convert message objects or dicts into a mutable dict."""
-    if isinstance(message, Mapping):
-        return dict(message)
-    if hasattr(message, "model_dump"):
-        try:
-            data = message.model_dump()
-            if isinstance(data, dict):
-                return data
-        except Exception:  # pragma: no cover - defensive
-            pass
-    if hasattr(message, "__dict__"):
-        try:
-            return {
-                key: value
-                for key, value in vars(message).items()
-                if not key.startswith("_")
-            }
-        except Exception:  # pragma: no cover - defensive
-            return {}
-    return {}
-
-
-def _extract_baseline_instruction(messages: Sequence[Mapping[str, str]] | Sequence[Any]) -> str:
-    """Extract the baseline instruction string from message templates."""
-    for raw in messages:
-        msg = _coerce_message_mapping(raw)
-        if msg.get("role", "user") == "system":
-            text = (msg.get("content") or msg.get("pattern") or "").strip()
-            if text:
-                return text
-    for raw in messages:
-        msg = _coerce_message_mapping(raw)
-        if msg.get("role", "user") == "user":
-            text = (msg.get("content") or msg.get("pattern") or "").strip()
-            if text:
-                return text
-    return "Complete the task."
-
-
-def _normalize_messages(messages: Sequence[Mapping[str, str]] | Sequence[Any]) -> list[dict[str, str]]:
-    """Normalize message dictionaries so downstream tools can rely on `content`."""
-    normalized: list[dict[str, str]] = []
-    for raw in messages:
-        msg = _coerce_message_mapping(raw)
-        role = msg.get("role", "user") or "user"
-        content = msg.get("content") or msg.get("pattern") or ""
-        normalized.append({"role": str(role), "content": str(content)})
-    return normalized
-
-
-def _create_meta_config_from_preset(preset: str) -> MIPROMetaConfig:
-    """Create a meta config preset (fast/balanced/high_quality)."""
-    preset_key = preset.lower().strip()
-    presets: dict[str, MIPROMetaConfig] = {
-        "fast": MIPROMetaConfig(
-            model="gpt-4o-mini",
-            provider="openai",
-            temperature=0.7,
-            max_tokens=512,
-            inference_url=None,
-        ),
-        "balanced": MIPROMetaConfig(
-            model="gpt-4o-mini",
-            provider="openai",
-            temperature=0.8,
-            max_tokens=1024,
-            inference_url=None,
-        ),
-        "high_quality": MIPROMetaConfig(
-            model="gpt-4o",
-            provider="openai",
-            temperature=0.9,
-            max_tokens=2048,
-            inference_url=None,
-        ),
-    }
-    return presets.get(preset_key, presets["balanced"])
 
 
 # GEPA nested configs (mirroring RL structure)
 class GEPARolloutConfig(ExtraModel):
     """GEPA rollout configuration (mirrors RL [rollout] section)."""
+
     budget: int | None = None  # Total rollout budget
     max_concurrent: int = 20  # Maximum concurrent rollouts
     minibatch_size: int = 8  # Minibatch size for evaluation
@@ -1048,28 +654,35 @@ class GEPARolloutConfig(ExtraModel):
 
 class GEPAEvaluationConfig(ExtraModel):
     """GEPA evaluation configuration (mirrors RL [evaluation] section).
-    
+
     Defines seed pools for training, validation, and testing:
     - train_seeds: Seeds used during optimization (training set)
     - validation_seeds: Held-out seeds for validation during optimization
     - test_pool: Final test set for evaluation after optimization completes
     """
+
     train_seeds: list[int] | None = None  # Training seeds (used during optimization)
-    seeds: list[int] | None = None  # DEPRECATED: Use train_seeds instead. Kept for backwards compatibility.
-    validation_seeds: list[int] | None = None  # Validation seeds (held-out, checked during optimization)
+    seeds: list[int] | None = (
+        None  # DEPRECATED: Use train_seeds instead. Kept for backwards compatibility.
+    )
+    validation_seeds: list[int] | None = (
+        None  # Validation seeds (held-out, checked during optimization)
+    )
     val_seeds: list[int] | None = None  # Alias for validation_seeds
     test_pool: list[int] | None = None  # Test pool (final evaluation after optimization)
     validation_pool: str | None = None  # Pool name for validation (e.g., "validation")
     validation_top_k: int | None = None  # Top-K prompts to validate
 
-    @field_validator("train_seeds", "seeds", "validation_seeds", "val_seeds", "test_pool", mode="before")
+    @field_validator(
+        "train_seeds", "seeds", "validation_seeds", "val_seeds", "test_pool", mode="before"
+    )
     @classmethod
     def _parse_seed_lists(cls, v: Any) -> list[int] | None:
         """Parse seed lists that can be either a list or range dict."""
         return _parse_seeds(v)
-    
+
     @model_validator(mode="after")
-    def _resolve_seed_aliases(self) -> "GEPAEvaluationConfig":
+    def _resolve_seed_aliases(self) -> GEPAEvaluationConfig:
         """Resolve seed aliases for backwards compatibility."""
         # Resolve train_seeds from seeds (backwards compatibility)
         if self.train_seeds is None and self.seeds is not None:
@@ -1078,7 +691,7 @@ class GEPAEvaluationConfig(ExtraModel):
         if self.validation_seeds is None and self.val_seeds is not None:
             self.validation_seeds = self.val_seeds
         return self
-    
+
     @property
     def resolved_train_seeds(self) -> list[int] | None:
         """Get train_seeds, falling back to seeds for backwards compatibility."""
@@ -1091,6 +704,7 @@ class GEPAMutationConfig(ExtraModel):
     NOTE: Mutation model selection is controlled by proposer_effort, NOT llm_model.
     The llm_model/llm_provider fields are deprecated and should not be used.
     """
+
     rate: float = 0.3  # Mutation rate
     llm_model: str | None = None  # DEPRECATED: Use proposer_effort instead
     llm_provider: str | None = None  # DEPRECATED: Use proposer_effort instead
@@ -1122,6 +736,7 @@ class GEPAMutationConfig(ExtraModel):
 
 class GEPAPopulationConfig(ExtraModel):
     """GEPA population configuration (evolution parameters)."""
+
     initial_size: int = 20  # Initial population size
     num_generations: int = 10  # Number of generations
     children_per_generation: int = 5  # Children generated per generation
@@ -1132,6 +747,7 @@ class GEPAPopulationConfig(ExtraModel):
 
 class GEPAArchiveConfig(ExtraModel):
     """GEPA archive configuration (Pareto archive settings)."""
+
     size: int = 64  # Archive size
     pareto_set_size: int = 64  # Pareto set size
     pareto_eps: float = 1e-6  # Pareto epsilon
@@ -1140,6 +756,7 @@ class GEPAArchiveConfig(ExtraModel):
 
 class GEPATokenConfig(ExtraModel):
     """GEPA prompt budget configuration (prompt length/spend constraints)."""
+
     max_limit: int | None = None  # Maximum tokens allowed in proposed prompt patterns
     counting_model: str = "gpt-4"  # Model for token counting
     enforce_pattern_limit: bool = True  # Enforce token limit on patterns
@@ -1153,15 +770,16 @@ class GEPAModuleConfig(ExtraModel):
     and must include 'provider' field. The 'model' field is optional - if not specified,
     the model will be detected from actual LLM calls made during rollouts.
     """
+
     module_id: str
     max_instruction_slots: int = 3
     allowed_tools: list[str] | None = None
     max_tokens: int | None = None
     policy: PromptLearningPolicyConfig | dict[str, Any] = Field(
         ...,
-        description="Required per-module policy configuration. Must include 'provider' field. 'model' is optional."
+        description="Required per-module policy configuration. Must include 'provider' field. 'model' is optional.",
     )
-    
+
     @field_validator("module_id")
     @classmethod
     def _validate_module_id(cls, v: str) -> str:
@@ -1169,14 +787,14 @@ class GEPAModuleConfig(ExtraModel):
         if not v:
             raise ValueError("module_id cannot be empty")
         return v
-    
+
     @field_validator("max_instruction_slots")
     @classmethod
     def _validate_slots(cls, v: int) -> int:
         if v < 1:
             raise ValueError("max_instruction_slots must be >= 1")
         return v
-    
+
     @field_validator("policy", mode="before")
     @classmethod
     def _validate_policy(cls, v: Any) -> dict[str, Any]:
@@ -1194,10 +812,10 @@ class GEPAModuleConfig(ExtraModel):
 
 class GEPAConfig(ExtraModel):
     """GEPA-specific configuration with nested subsections.
-    
+
     GEPA (Genetic Evolution of Prompt Architectures) uses evolutionary algorithms
     with LLM-guided mutations to optimize prompts through population-based search.
-    
+
     Attributes:
         proposer_type: Type of proposer to use for generating mutations.
             Default: "dspy". Options: "dspy" (DSPy-style proposer) or "spec" (spec-based).
@@ -1223,6 +841,7 @@ class GEPAConfig(ExtraModel):
             When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
             instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
     """
+
     # Top-level fields (for backwards compatibility)
     env_name: str = "banking77"
     env_config: dict[str, Any] | None = None
@@ -1233,10 +852,10 @@ class GEPAConfig(ExtraModel):
     proposed_prompt_max_tokens: int = 32000
     # Custom metaprompt (optional)
     metaprompt: str | None = None
-    
+
     # Multi-stage pipeline support
     modules: list[GEPAModuleConfig] | None = None
-    
+
     # Nested subsections (preferred, mirrors RL structure)
     rollout: GEPARolloutConfig | None = None
     evaluation: GEPAEvaluationConfig | None = None
@@ -1245,8 +864,10 @@ class GEPAConfig(ExtraModel):
     archive: GEPAArchiveConfig | None = None
     token: GEPATokenConfig | None = None  # Deprecated: use proposed_prompt_max_tokens
     verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
-    proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or gepa-specific)
-    
+    proxy_models: ProxyModelsConfig | dict[str, Any] | None = (
+        None  # Proxy models config (can be at top-level or gepa-specific)
+    )
+
     # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
     use_byok: bool | None = Field(
         default=None,
@@ -1258,8 +879,10 @@ class GEPAConfig(ExtraModel):
         ),
     )
     adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None  # Adaptive pooling config
-    adaptive_batch: GEPAAdaptiveBatchConfig | dict[str, Any] | None = None  # Adaptive batch config (GEPA only)
-    
+    adaptive_batch: GEPAAdaptiveBatchConfig | dict[str, Any] | None = (
+        None  # Adaptive batch config (GEPA only)
+    )
+
     # Backwards compatibility: flat fields (DEPRECATED - DO NOT USE)
     # These are kept for backwards compatibility with _get_* methods but should not be used directly
     rollout_budget: int | None = None
@@ -1344,19 +967,19 @@ class GEPAConfig(ExtraModel):
         if self.rollout and self.rollout.budget is not None:
             return self.rollout.budget
         return self.rollout_budget
-    
+
     def _get_max_concurrent_rollouts(self) -> int:
         """Get max concurrent rollouts from nested or flat structure."""
         if self.rollout and self.rollout.max_concurrent is not None:
             return self.rollout.max_concurrent
         return self.max_concurrent_rollouts or 20
-    
+
     def _get_minibatch_size(self) -> int:
         """Get minibatch size from nested or flat structure."""
         if self.rollout and self.rollout.minibatch_size is not None:
             return self.rollout.minibatch_size
         return self.minibatch_size or 8
-    
+
     def _get_evaluation_seeds(self) -> list[int] | None:
         """Get evaluation seeds (train_seeds) from nested or flat structure."""
         if self.evaluation:
@@ -1365,7 +988,7 @@ class GEPAConfig(ExtraModel):
             if train_seeds is not None:
                 return train_seeds
         return self.evaluation_seeds
-    
+
     def _get_validation_seeds(self) -> list[int] | None:
         """Get validation seeds from nested or flat structure."""
         if self.evaluation:
@@ -1374,103 +997,103 @@ class GEPAConfig(ExtraModel):
             if val_seeds is not None:
                 return val_seeds
         return self.validation_seeds
-    
+
     def _get_test_pool(self) -> list[int] | None:
         """Get test pool from nested or flat structure."""
         if self.evaluation and self.evaluation.test_pool is not None:
             return self.evaluation.test_pool
         return self.test_pool
-    
+
     def _get_mutation_rate(self) -> float:
         """Get mutation rate from nested or flat structure."""
         if self.mutation and self.mutation.rate is not None:
             return self.mutation.rate
         return self.mutation_rate or 0.3
-    
+
     def _get_mutation_llm_model(self) -> str | None:
         """Get mutation LLM model from nested or flat structure."""
         if self.mutation and self.mutation.llm_model is not None:
             return self.mutation.llm_model
         return self.mutation_llm_model
-    
+
     def _get_mutation_llm_provider(self) -> str:
         """Get mutation LLM provider from nested or flat structure."""
         if self.mutation and self.mutation.llm_provider is not None:
             return self.mutation.llm_provider
         return self.mutation_llm_provider or "groq"
-    
+
     def _get_mutation_llm_inference_url(self) -> str | None:
         """Get mutation LLM inference URL from nested or flat structure."""
         if self.mutation and self.mutation.llm_inference_url is not None:
             return self.mutation.llm_inference_url
         return self.mutation_llm_inference_url
-    
+
     def _get_mutation_prompt(self) -> str | None:
         """Get mutation prompt from nested or flat structure."""
         if self.mutation and self.mutation.prompt is not None:
             return self.mutation.prompt
         return self.mutation_prompt
-    
+
     def _get_initial_population_size(self) -> int:
         """Get initial population size from nested or flat structure."""
         if self.population and self.population.initial_size is not None:
             return self.population.initial_size
         return self.initial_population_size or 20
-    
+
     def _get_num_generations(self) -> int:
         """Get num generations from nested or flat structure."""
         if self.population and self.population.num_generations is not None:
             return self.population.num_generations
         return self.num_generations or 10
-    
+
     def _get_children_per_generation(self) -> int:
         """Get children per generation from nested or flat structure."""
         if self.population and self.population.children_per_generation is not None:
             return self.population.children_per_generation
         return self.children_per_generation or 5
-    
+
     def _get_crossover_rate(self) -> float:
         """Get crossover rate from nested or flat structure."""
         if self.population and self.population.crossover_rate is not None:
             return self.population.crossover_rate
         return self.crossover_rate or 0.5
-    
+
     def _get_selection_pressure(self) -> float:
         """Get selection pressure from nested or flat structure."""
         if self.population and self.population.selection_pressure is not None:
             return self.population.selection_pressure
         return self.selection_pressure or 1.0
-    
+
     def _get_patience_generations(self) -> int:
         """Get patience generations from nested or flat structure."""
         if self.population and self.population.patience_generations is not None:
             return self.population.patience_generations
         return self.patience_generations or 3
-    
+
     def _get_archive_size(self) -> int:
         """Get archive size from nested or flat structure."""
         if self.archive and self.archive.size is not None:
             return self.archive.size
         return self.archive_size or 64
-    
+
     def _get_pareto_set_size(self) -> int:
         """Get pareto set size from nested or flat structure."""
         if self.archive and self.archive.pareto_set_size is not None:
             return self.archive.pareto_set_size
         return self.pareto_set_size or 64
-    
+
     def _get_pareto_eps(self) -> float:
         """Get pareto eps from nested or flat structure."""
         if self.archive and self.archive.pareto_eps is not None:
             return self.archive.pareto_eps
         return self.pareto_eps or 1e-6
-    
+
     def _get_feedback_fraction(self) -> float:
         """Get feedback fraction from nested or flat structure."""
         if self.archive and self.archive.feedback_fraction is not None:
             return self.archive.feedback_fraction
         return self.feedback_fraction or 0.5
-    
+
     def _get_max_token_limit(self) -> int | None:
         """Get max token limit from nested or flat structure."""
         if self.proposed_prompt_max_tokens is not None:
@@ -1478,19 +1101,23 @@ class GEPAConfig(ExtraModel):
         if self.token and self.token.max_limit is not None:
             return self.token.max_limit
         return self.max_token_limit
-    
+
     def _get_token_counting_model(self) -> str:
         """Get token counting model from nested or flat structure."""
         if self.token and self.token.counting_model is not None:
             return self.token.counting_model
         return self.token_counting_model or "gpt-4"
-    
+
     def _get_enforce_pattern_token_limit(self) -> bool:
         """Get enforce pattern token limit from nested or flat structure."""
         if self.token and self.token.enforce_pattern_limit is not None:
             return self.token.enforce_pattern_limit
-        return self.enforce_pattern_token_limit if self.enforce_pattern_token_limit is not None else True
-    
+        return (
+            self.enforce_pattern_token_limit
+            if self.enforce_pattern_token_limit is not None
+            else True
+        )
+
     def _get_max_spend_usd(self) -> float | None:
         """Get max spend USD from nested or flat structure."""
         if self.token and self.token.max_spend_usd is not None:
@@ -1508,7 +1135,7 @@ class GEPAConfig(ExtraModel):
                 self.token = self.token or GEPATokenConfig()
                 self.token.max_limit = self.proposed_prompt_max_tokens
         return self
-    
+
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> GEPAConfig:
         """Load GEPA config from dict/TOML, handling both nested and flat structures."""
@@ -1525,23 +1152,39 @@ class GEPAConfig(ExtraModel):
         # Check for nested structure first
         nested_data = {}
         flat_data = {}
-        
+
         for key, value in data.items():
-            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token", "modules", "proxy_models", "adaptive_pool", "adaptive_batch", "verifier"):
+            if key in (
+                "rollout",
+                "evaluation",
+                "mutation",
+                "population",
+                "archive",
+                "token",
+                "modules",
+                "proxy_models",
+                "adaptive_pool",
+                "adaptive_batch",
+                "verifier",
+            ):
                 nested_data[key] = value
             else:
                 flat_data[key] = value
-        
+
         # If we have nested data, create nested configs
         if nested_data:
             if "rollout" in nested_data:
                 nested_data["rollout"] = GEPARolloutConfig.model_validate(nested_data["rollout"])
             if "evaluation" in nested_data:
-                nested_data["evaluation"] = GEPAEvaluationConfig.model_validate(nested_data["evaluation"])
+                nested_data["evaluation"] = GEPAEvaluationConfig.model_validate(
+                    nested_data["evaluation"]
+                )
             if "mutation" in nested_data:
                 nested_data["mutation"] = GEPAMutationConfig.model_validate(nested_data["mutation"])
             if "population" in nested_data:
-                nested_data["population"] = GEPAPopulationConfig.model_validate(nested_data["population"])
+                nested_data["population"] = GEPAPopulationConfig.model_validate(
+                    nested_data["population"]
+                )
             if "archive" in nested_data:
                 nested_data["archive"] = GEPAArchiveConfig.model_validate(nested_data["archive"])
             if "token" in nested_data:
@@ -1555,9 +1198,11 @@ class GEPAConfig(ExtraModel):
                     ]
             # Handle proxy_models in gepa config (only if specified, defaults to None)
             if "proxy_models" in nested_data and isinstance(nested_data["proxy_models"], dict):
-                nested_data["proxy_models"] = ProxyModelsConfig.model_validate(nested_data["proxy_models"])
+                nested_data["proxy_models"] = ProxyModelsConfig.model_validate(
+                    nested_data["proxy_models"]
+                )
             # If proxy_models not specified, leave as None (defaults to disabled)
-            
+
             # Handle adaptive_pool in gepa config (only if specified, defaults to None)
             if "adaptive_pool" in nested_data and isinstance(nested_data["adaptive_pool"], dict):
                 # Resolve adaptive pool config with level and overrides
@@ -1596,24 +1241,21 @@ class GEPAConfig(ExtraModel):
                 except Exception as exc:
                     # Re-raise with clearer context
                     raise ValueError(f"Failed to resolve adaptive_batch config: {exc}") from exc
-        
+
         # Merge nested and flat data
         merged_data = {**flat_data, **nested_data}
         return cls.model_validate(merged_data)
 
 
 class PromptLearningConfig(ExtraModel):
-    """Root configuration for Prompt Learning jobs (GEPA and MIPRO).
+    """Root configuration for Prompt Learning jobs (GEPA).
 
     This is the top-level config loaded from a TOML file. Use `PromptLearningConfig.from_path()`
     to load from a file, or `PromptLearningConfig.from_mapping()` to load from a dict.
 
-    Prompt learning optimizes prompts for a given task app and dataset using one of
-    two algorithms:
+    Prompt learning optimizes prompts for a given task app and dataset using:
     - **GEPA**: Genetic Evolution of Prompt Architectures - evolutionary optimization
       with crossover, mutation, and selection across generations
-    - **MIPRO**: Meta-learning with bootstrap phase and Tree-structured Parzen Estimator
-      (TPE) optimization for hyperparameter tuning
 
     Example:
         ```python
@@ -1636,14 +1278,13 @@ class PromptLearningConfig(ExtraModel):
         ```
 
     Attributes:
-        algorithm: Optimization algorithm - "gepa" or "mipro".
+        algorithm: Optimization algorithm - "gepa".
         task_app_url: URL of your task app (typically a Cloudflare tunnel URL).
         task_app_api_key: API key for authenticating with the task app.
             Defaults to ENVIRONMENT_API_KEY env var.
         task_app_id: Optional identifier for the task app (for logging).
         initial_prompt: Initial prompt pattern to seed optimization.
         policy: Policy (LLM) configuration for rollouts.
-        mipro: MIPRO-specific configuration (if algorithm="mipro").
         gepa: GEPA-specific configuration (if algorithm="gepa").
         verifier: Optional verifier configuration for LLM-based reward scoring.
         proxy_models: Proxy models configuration for cost-effective evaluation.
@@ -1653,7 +1294,7 @@ class PromptLearningConfig(ExtraModel):
             False = disable (use Synth credits), None = auto-detect based on org settings.
             When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
             instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
-            Can also be set in gepa or mipro sections for algorithm-specific control.
+            Can also be set in gepa section for algorithm-specific control.
 
     Returns:
         After training completes, you receive a result dict:
@@ -1682,19 +1323,21 @@ class PromptLearningConfig(ExtraModel):
         - `prompt_learning.succeeded` / `prompt_learning.failed` - Terminal states
 
     See Also:
-        - Training reference: /training/gepa, /training/mipro
+        - Training reference: /training/gepa
         - Quickstart: /quickstart/prompt-optimization-gepa
     """
-    algorithm: str  # "mipro" or "gepa"
+
+    algorithm: str  # "gepa"
     task_app_url: str
     task_app_api_key: str | None = None
     task_app_id: str | None = None
     initial_prompt: PromptPatternConfig | None = None
     policy: PromptLearningPolicyConfig | None = None
-    mipro: MIPROConfig | None = None
     gepa: GEPAConfig | None = None
     verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
-    proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or algorithm-specific)
+    proxy_models: ProxyModelsConfig | dict[str, Any] | None = (
+        None  # Proxy models config (can be at top-level or algorithm-specific)
+    )
     env_config: dict[str, Any] | None = None
 
     # Free tier configuration
@@ -1716,7 +1359,7 @@ class PromptLearningConfig(ExtraModel):
             "False = disable (use Synth credits), None = auto-detect based on org settings. "
             "When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini) "
             "instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint. "
-            "Can also be set in gepa or mipro sections for algorithm-specific control."
+            "Can also be set in gepa section for algorithm-specific control."
         ),
     )
 
@@ -1734,15 +1377,11 @@ class PromptLearningConfig(ExtraModel):
         if not free_tier:
             return data
 
-        # Get proposer_effort from GEPA or MIPRO config
+        # Get proposer_effort from GEPA config
         proposer_effort = None
         gepa = data.get("gepa", {})
         if isinstance(gepa, dict):
             proposer_effort = gepa.get("proposer_effort")
-        if proposer_effort is None:
-            mipro = data.get("mipro", {})
-            if isinstance(mipro, dict):
-                proposer_effort = mipro.get("proposer_effort")
 
         # Default to "LOW" if not specified (which is free tier eligible)
         if proposer_effort is None:
@@ -1750,7 +1389,11 @@ class PromptLearningConfig(ExtraModel):
 
         # Validate proposer_effort is eligible for free tier
         free_tier_efforts = {"LOW_CONTEXT", "LOW", "MEDIUM"}
-        effort_upper = proposer_effort.upper() if isinstance(proposer_effort, str) else str(proposer_effort).upper()
+        effort_upper = (
+            proposer_effort.upper()
+            if isinstance(proposer_effort, str)
+            else str(proposer_effort).upper()
+        )
         if effort_upper not in free_tier_efforts:
             raise ValueError(
                 f"Free tier requires proposer_effort to be one of: {', '.join(sorted(free_tier_efforts))}. "
@@ -1796,11 +1439,8 @@ class PromptLearningConfig(ExtraModel):
         # The CLI validation module will warn about these
         deprecated_top_level = {"display", "results_folder", "env_file_path"}
 
-        # Convert to mutable dict if needed
-        if not isinstance(data, dict):
-            data = dict(data)
-        else:
-            data = dict(data)  # Create a copy to avoid modifying the original
+        # Convert to mutable dict (creates a copy to avoid modifying the original)
+        data = dict(data)
 
         for field in deprecated_top_level:
             if field in data:
@@ -1811,7 +1451,7 @@ class PromptLearningConfig(ExtraModel):
         if not pl_data:
             # If no prompt_learning section, assume top-level is prompt_learning
             pl_data = dict(data)
-        
+
         # Handle proxy_models at top-level FIRST (takes precedence over algorithm-specific)
         # This ensures top-level proxy_models is available for algorithm configs to check
         # Default: None (proxy models disabled unless explicitly configured)
@@ -1820,7 +1460,7 @@ class PromptLearningConfig(ExtraModel):
             top_level_proxy_models = ProxyModelsConfig.model_validate(pl_data["proxy_models"])
             pl_data["proxy_models"] = top_level_proxy_models
         # If proxy_models not specified, leave as None (defaults to disabled)
-        
+
         # Handle gepa config specially to support nested structure
         if "gepa" in pl_data and isinstance(pl_data["gepa"], dict):
             gepa_data = pl_data["gepa"]
@@ -1832,55 +1472,10 @@ class PromptLearningConfig(ExtraModel):
             if top_level_proxy_models is not None:
                 # Note: gepa.proxy_models will be None, but top-level proxy_models will be used by backend
                 pass
-        
-        # Handle mipro config - check for adaptive_pool
-        if "mipro" in pl_data and isinstance(pl_data["mipro"], dict):
-            mipro_data = pl_data["mipro"]
-            # If top-level proxy_models exists, remove mipro-specific proxy_models (top-level takes precedence)
-            if top_level_proxy_models is not None and "proxy_models" in mipro_data:
-                mipro_data.pop("proxy_models")
-            
-            # Extract bootstrap_train_seeds and online_pool from top-level pl_data if not in mipro_data
-            # These fields can be at top-level [prompt_learning] or nested [prompt_learning.mipro]
-            if "bootstrap_train_seeds" not in mipro_data and "bootstrap_train_seeds" in pl_data:
-                mipro_data["bootstrap_train_seeds"] = pl_data["bootstrap_train_seeds"]
-            if "online_pool" not in mipro_data and "online_pool" in pl_data:
-                mipro_data["online_pool"] = pl_data["online_pool"]
-            if "test_pool" not in mipro_data and "test_pool" in pl_data:
-                mipro_data["test_pool"] = pl_data["test_pool"]
-            if "reference_pool" not in mipro_data and "reference_pool" in pl_data:
-                mipro_data["reference_pool"] = pl_data["reference_pool"]
-            
-            # Handle adaptive_pool in mipro config (only if specified, defaults to None)
-            if "adaptive_pool" in mipro_data and isinstance(mipro_data["adaptive_pool"], dict):
-                adaptive_pool_data = mipro_data["adaptive_pool"]
-                level = adaptive_pool_data.get("level")
-                # If level not specified, default to LOW (conservative SDK default)
-                overrides = {k: v for k, v in adaptive_pool_data.items() if k != "level"}
-                # Get dev_pool_size from online_pool if available
-                dev_pool_size = None
-                online_pool = mipro_data.get("online_pool") or (mipro_data.get("seeds") or {}).get("online", [])
-                if isinstance(online_pool, list):
-                    dev_pool_size = len(online_pool)
-                try:
-                    mipro_data["adaptive_pool"] = resolve_adaptive_pool_config(
-                        level=level,  # Will default to LOW if None (via resolve_adaptive_pool_config)
-                        overrides=overrides if overrides else None,
-                        dev_pool_size=dev_pool_size,
-                    )
-                except Exception as exc:
-                    # Re-raise with clearer context
-                    raise ValueError(f"Failed to resolve mipro.adaptive_pool config: {exc}") from exc
-            # If adaptive_pool not specified, leave as None (defaults to disabled)
-            
-            # Handle proxy_models in mipro config (only if specified, defaults to None)
-            if "proxy_models" in mipro_data and isinstance(mipro_data["proxy_models"], dict):
-                mipro_data["proxy_models"] = ProxyModelsConfig.model_validate(mipro_data["proxy_models"])
-            # If proxy_models not specified, leave as None (defaults to disabled)
-        
+
         if "verifier" in pl_data and isinstance(pl_data["verifier"], dict):
             pl_data["verifier"] = PromptLearningVerifierConfig.model_validate(pl_data["verifier"])
-        
+
         return cls.model_validate(pl_data)
 
     @classmethod
@@ -1900,11 +1495,6 @@ __all__ = [
     "GEPAArchiveConfig",
     "GEPATokenConfig",
     "GEPAAdaptiveBatchConfig",
-    "MIPROConfig",
-    "MIPROMetaConfig",
-    "MIPROModuleConfig",
-    "MIPROStageConfig",
-    "MIPROSeedConfig",
     "MessagePatternConfig",
     "PromptLearningConfig",
     "PromptLearningPolicyConfig",

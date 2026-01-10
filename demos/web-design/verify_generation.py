@@ -1,13 +1,14 @@
 """
 Generate image from functional description and verify with contrastive scoring.
 """
-import os
+
 import json
+import os
 from pathlib import Path
+
 from datasets import load_from_disk
 from google import genai
 from PIL import Image
-import io
 
 
 def load_astral_example():
@@ -16,7 +17,7 @@ def load_astral_example():
     dataset = load_from_disk(str(dataset_path))
 
     # Filter for astral examples
-    astral_examples = [ex for ex in dataset if ex['site_name'] == 'astral']
+    astral_examples = [ex for ex in dataset if ex["site_name"] == "astral"]
 
     if not astral_examples:
         raise ValueError("No astral examples found in dataset")
@@ -24,7 +25,7 @@ def load_astral_example():
     # Get homepage or pricing page if available
     example = None
     for ex in astral_examples:
-        if 'homepage' in ex['page_name'] or 'pricing' in ex['page_name']:
+        if "homepage" in ex["page_name"] or "pricing" in ex["page_name"]:
             example = ex
             break
 
@@ -45,34 +46,31 @@ def generate_image_from_description(description: str, api_key: str) -> bytes:
 Create a visually appealing, well-designed webpage that implements all the functionality described above.
 The design should be modern, clean, and professional."""
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash-image',
-        contents=prompt
-    )
+    response = client.models.generate_content(model="gemini-2.5-flash-image", contents=prompt)
 
     # Extract image bytes from response
-    if hasattr(response, 'candidates') and len(response.candidates) > 0:
+    if hasattr(response, "candidates") and len(response.candidates) > 0:
         candidate = response.candidates[0]
-        if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+        if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
             for part in candidate.content.parts:
-                if hasattr(part, 'inline_data') and part.inline_data is not None:
+                if hasattr(part, "inline_data") and part.inline_data is not None:
                     # inline_data is a Blob object with data attribute
                     return part.inline_data.data
 
     # Try response.parts directly
-    if hasattr(response, 'parts'):
+    if hasattr(response, "parts"):
         for part in response.parts:
-            if hasattr(part, 'inline_data') and part.inline_data is not None:
+            if hasattr(part, "inline_data") and part.inline_data is not None:
                 return part.inline_data.data
 
-    raise ValueError(f"No image data in response")
+    raise ValueError("No image data in response")
 
 
 def verify_with_vision_model(
     original_image: Image.Image,
     generated_image: Image.Image,
     functional_description: str,
-    api_key: str
+    api_key: str,
 ) -> dict:
     """Use Gemini 2.5 Flash Image to score the generated webpage against original."""
 
@@ -141,18 +139,18 @@ IMPORTANT: List 10-15 concrete, specific visual differences. Be precise about wh
 
     # Create content with both PIL images
     response = client.models.generate_content(
-        model='gemini-2.5-flash-image',
+        model="gemini-2.5-flash-image",
         contents=[
             prompt,
             original_image,
             "ORIGINAL IMAGE ABOVE",
             generated_image,
-            "GENERATED IMAGE ABOVE - Now provide your JSON evaluation:"
-        ]
+            "GENERATED IMAGE ABOVE - Now provide your JSON evaluation:",
+        ],
     )
 
     # Parse JSON from response
-    import re
+
     text = response.text.strip()
 
     # Remove markdown code blocks if present
@@ -185,13 +183,12 @@ def main():
     print(f"Description length: {len(example['functional_description'])} chars")
 
     # Generate image from description
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Generating webpage image using Gemini 2.5 Flash Image (nano-banana)...")
-    print("="*80)
+    print("=" * 80)
 
     generated_image_bytes = generate_image_from_description(
-        example['functional_description'],
-        gemini_key
+        example["functional_description"], gemini_key
     )
 
     # Save generated image
@@ -199,43 +196,42 @@ def main():
     output_dir.mkdir(exist_ok=True)
 
     image_file = output_dir / f"{example['site_name']}_{example['page_name']}_generated.png"
-    with open(image_file, 'wb') as f:
+    with open(image_file, "wb") as f:
         f.write(generated_image_bytes)
 
     print(f"✓ Generated image saved to: {image_file}")
 
     # Get original image
-    if not isinstance(example['image'], Image.Image):
+    if not isinstance(example["image"], Image.Image):
         print("\nWarning: Unexpected image format in dataset")
         print("Skipping verification step")
         return
 
-    original_image = example['image']
+    original_image = example["image"]
 
     # Load generated image as PIL Image
     generated_image = Image.open(image_file)
 
     # Verify with vision model
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Running contrastive verification using Gemini 2.5 Flash Image...")
-    print("="*80)
+    print("=" * 80)
 
     try:
         verification_result = verify_with_vision_model(
-            original_image,
-            generated_image,
-            example['functional_description'],
-            gemini_key
+            original_image, generated_image, example["functional_description"], gemini_key
         )
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("VERIFICATION RESULTS")
-        print("="*80)
+        print("=" * 80)
         print(json.dumps(verification_result, indent=2))
 
         # Save results
-        result_file = output_dir / f"{example['site_name']}_{example['page_name']}_verification.json"
-        with open(result_file, 'w') as f:
+        result_file = (
+            output_dir / f"{example['site_name']}_{example['page_name']}_verification.json"
+        )
+        with open(result_file, "w") as f:
             json.dump(verification_result, f, indent=2)
 
         print(f"\n✓ Verification results saved to: {result_file}")
@@ -243,6 +239,7 @@ def main():
     except Exception as e:
         print(f"\nError during verification: {e}")
         import traceback
+
         traceback.print_exc()
 
 

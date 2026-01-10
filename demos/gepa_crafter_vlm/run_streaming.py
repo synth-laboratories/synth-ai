@@ -4,20 +4,16 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
-# Setup
-os.chdir(Path(__file__).parent)
-
-from dotenv import load_dotenv
-load_dotenv(Path(__file__).parent.parent.parent / '.env')
-
 import httpx
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
-
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
@@ -26,25 +22,31 @@ from synth_ai.sdk.localapi.helpers import extract_api_key
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
 from synth_ai.sdk.tunnels import wait_for_health_check
-from synth_ai.sdk.tunnels.tunneled_api import TunneledLocalAPI, TunnelBackend
+from synth_ai.sdk.tunnels.tunneled_api import TunnelBackend, TunneledLocalAPI
 
-from crafter_logic import (
-    ACTION_STRING_TO_INT,
-    CRAFTER_ALLOWED_ACTIONS,
-    CrafterEnvironmentWrapper,
-    CrafterScorer,
-    CrafterVLMReActPolicy,
-    normalize_action_name,
-)
+# Add script directory to path and load env
+_script_dir = Path(__file__).parent
+sys.path.insert(0, str(_script_dir))
+os.chdir(_script_dir)
+load_dotenv(_script_dir.parent.parent / ".env")
+
+# Import local module dynamically after path setup
+_crafter_logic = importlib.import_module("crafter_logic")
+ACTION_STRING_TO_INT = _crafter_logic.ACTION_STRING_TO_INT
+CRAFTER_ALLOWED_ACTIONS = _crafter_logic.CRAFTER_ALLOWED_ACTIONS
+CrafterEnvironmentWrapper = _crafter_logic.CrafterEnvironmentWrapper
+CrafterScorer = _crafter_logic.CrafterScorer
+CrafterVLMReActPolicy = _crafter_logic.CrafterVLMReActPolicy
+normalize_action_name = _crafter_logic.normalize_action_name
 
 # Config
-SYNTH_API_BASE = 'https://api.usesynth.ai'
-SYNTH_API_KEY = os.environ.get('SYNTH_API_KEY', '')
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+SYNTH_API_BASE = "https://api.usesynth.ai"
+SYNTH_API_KEY = os.environ.get("SYNTH_API_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 # Set API key in environment for SDK to use
 if SYNTH_API_KEY:
-    os.environ['SYNTH_API_KEY'] = SYNTH_API_KEY
+    os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
 POLICY_MODEL = "gpt-4.1-nano"
 EVAL_MODEL = "gpt-4o-mini"
 ROLLOUT_BUDGET = 6
@@ -62,16 +64,16 @@ def log(msg: str):
 
 def create_task_app(system_prompt: str):
     """Create Crafter VLM task app."""
-    APP_ID = "crafter_vlm"
-    APP_NAME = "Crafter VLM"
-    TOOL_NAME = "crafter_interact"
+    app_id = "crafter_vlm"
+    app_name = "Crafter VLM"
+    tool_name = "crafter_interact"
 
     async def run_rollout(request: RolloutRequest, fastapi_request) -> RolloutResponse:
         policy_config = request.policy.config or {}
         seed = request.env.seed or 0
         env_config = request.env.config or {}
-        max_steps = int(env_config.get('max_steps_per_episode', 200))
-        max_turns = int(env_config.get('max_turns', MAX_TURNS))
+        max_steps = int(env_config.get("max_steps_per_episode", 200))
+        max_turns = int(env_config.get("max_turns", MAX_TURNS))
 
         log(f"  Rollout seed={seed} starting (max_turns={max_turns})")
 
@@ -84,9 +86,9 @@ def create_task_app(system_prompt: str):
             image_only_mode=True,
         )
 
-        inference_url = policy_config.get('inference_url', '')
+        inference_url = policy_config.get("inference_url", "")
         if inference_url:
-            os.environ['OPENAI_BASE_URL'] = inference_url
+            os.environ["OPENAI_BASE_URL"] = inference_url
 
         # Use SDK helper to extract API key from headers or env (like banking77 demo)
         api_key = extract_api_key(fastapi_request, policy_config) or OPENAI_API_KEY
@@ -97,21 +99,27 @@ def create_task_app(system_prompt: str):
         history = []
         episode_rewards = []
 
-        for turn in range(max_turns):
+        turns_completed = 0
+        for _ in range(max_turns):
+            turns_completed += 1
             messages = policy.build_messages(observation, history)
 
             response = await client.chat.completions.create(
-                model=policy_config.get('model', POLICY_MODEL),
+                model=policy_config.get("model", POLICY_MODEL),
                 messages=messages,
                 tools=policy.tools,
-                tool_choice='required',
+                tool_choice="required",
                 max_completion_tokens=512,
             )
 
             message = response.choices[0].message
-            response_text = message.content or ''
+            response_text = message.content or ""
             tool_calls = [
-                {'id': tc.id, 'type': 'function', 'function': {'name': tc.function.name, 'arguments': tc.function.arguments}}
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
                 for tc in (message.tool_calls or [])
             ]
 
@@ -120,75 +128,85 @@ def create_task_app(system_prompt: str):
 
             if tool_calls:
                 for tc in tool_calls:
-                    tool_call_id = tc['id']
+                    tool_call_id = tc["id"]
                     actions_list = []
 
-                    if tc['function']['name'] == TOOL_NAME:
+                    if tc["function"]["name"] == tool_name:
                         try:
-                            args = json.loads(tc['function']['arguments'])
-                            raw_actions = args.get('actions_list', [])
+                            args = json.loads(tc["function"]["arguments"])
+                            raw_actions = args.get("actions_list", [])
                             actions_list = [str(a) for a in raw_actions if str(a).strip()][:5]
-                        except:
+                        except Exception:
                             pass
 
                     if not actions_list:
-                        actions_list = ['noop']
+                        actions_list = ["noop"]
 
                     action_results = []
                     for action_str in actions_list:
-                        normalized = normalize_action_name(action_str) or 'noop'
+                        normalized = normalize_action_name(action_str) or "noop"
                         action = ACTION_STRING_TO_INT.get(normalized, 0)
                         next_observation = await env.step(action)
-                        reward = next_observation.get('reward', 0.0)
+                        reward = next_observation.get("reward", 0.0)
                         episode_rewards.append(float(reward))
-                        action_results.append({'action': normalized, 'reward': reward})
-                        if next_observation.get('terminated') or next_observation.get('truncated'):
+                        action_results.append({"action": normalized, "reward": reward})
+                        if next_observation.get("terminated") or next_observation.get("truncated"):
                             break
 
-                    tool_responses.append({'tool_call_id': tool_call_id, 'results': action_results})
-                    if next_observation.get('terminated') or next_observation.get('truncated'):
+                    tool_responses.append({"tool_call_id": tool_call_id, "results": action_results})
+                    if next_observation.get("terminated") or next_observation.get("truncated"):
                         break
 
-            history.append({'role': 'assistant', 'content': response_text, 'tool_calls': tool_calls})
+            history.append(
+                {"role": "assistant", "content": response_text, "tool_calls": tool_calls}
+            )
             for resp in tool_responses:
-                history.append({'role': 'tool', 'tool_call_id': resp['tool_call_id'], 'content': json.dumps(resp['results'])})
+                history.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": resp["tool_call_id"],
+                        "content": json.dumps(resp["results"]),
+                    }
+                )
 
             observation = next_observation
-            if observation.get('terminated') or observation.get('truncated'):
+            if observation.get("terminated") or observation.get("truncated"):
                 break
 
         score, details = CrafterScorer.score_episode(observation, len(episode_rewards), max_steps)
-        log(f"  Rollout seed={seed} done: score={score:.3f}, turns={turn+1}")
+        log(f"  Rollout seed={seed} done: score={score:.3f}, turns={turns_completed}")
 
         return RolloutResponse(
-            run_id=request.run_id,
+            run_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=score, details=details),
             trace=None,
-            trace_correlation_id=policy_config.get('trace_correlation_id'),
+            trace_correlation_id=policy_config.get("trace_correlation_id"),
         )
 
     def provide_taskset_description():
-        return {'splits': ['train', 'test']}
+        return {"splits": ["train", "test"]}
 
     def provide_task_instances(seeds):
         for seed in seeds:
             yield TaskInfo(
-                task={'id': APP_ID, 'name': APP_NAME},
-                dataset={'id': APP_ID, 'split': 'train', 'index': seed},
-                inference={'tool': TOOL_NAME},
-                limits={'max_turns': MAX_TURNS},
-                task_metadata={'seed': seed},
+                task={"id": app_id, "name": app_name},
+                dataset={"id": app_id, "split": "train", "index": seed},
+                inference={"tool": tool_name},
+                limits={"max_turns": MAX_TURNS},
+                task_metadata={"seed": seed},
             )
 
-    return create_local_api(LocalAPIConfig(
-        app_id=APP_ID,
-        name=APP_NAME,
-        description=f'{APP_NAME} task app',
-        provide_taskset_description=provide_taskset_description,
-        provide_task_instances=provide_task_instances,
-        rollout=run_rollout,
-        cors_origins=['*'],
-    ))
+    return create_local_api(
+        LocalAPIConfig(
+            app_id=app_id,
+            name=app_name,
+            description=f"{app_name} task app",
+            provide_taskset_description=provide_taskset_description,
+            provide_task_instances=provide_task_instances,
+            rollout=run_rollout,
+            cors_origins=["*"],
+        )
+    )
 
 
 async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) -> dict:
@@ -206,7 +224,9 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
     history = []
     episode_rewards = []
 
-    for turn in range(max_turns):
+    turns_completed = 0
+    for _ in range(max_turns):
+        turns_completed += 1
         messages = policy.build_messages(observation, history)
 
         try:
@@ -214,7 +234,7 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
                 model=EVAL_MODEL,
                 messages=messages,
                 tools=policy.tools,
-                tool_choice='required',
+                tool_choice="required",
                 max_completion_tokens=512,
             )
         except Exception as e:
@@ -222,9 +242,13 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
             break
 
         message = response.choices[0].message
-        response_text = message.content or ''
+        response_text = message.content or ""
         tool_calls = [
-            {'id': tc.id, 'type': 'function', 'function': {'name': tc.function.name, 'arguments': tc.function.arguments}}
+            {
+                "id": tc.id,
+                "type": "function",
+                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+            }
             for tc in (message.tool_calls or [])
         ]
 
@@ -233,54 +257,62 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
 
         if tool_calls:
             for tc in tool_calls:
-                tool_call_id = tc['id']
+                tool_call_id = tc["id"]
                 actions_list = []
 
-                if tc['function']['name'] == 'crafter_interact':
+                if tc["function"]["name"] == "crafter_interact":
                     try:
-                        args = json.loads(tc['function']['arguments'])
-                        raw_actions = args.get('actions_list', [])
+                        args = json.loads(tc["function"]["arguments"])
+                        raw_actions = args.get("actions_list", [])
                         actions_list = [str(a) for a in raw_actions if str(a).strip()][:5]
-                    except:
+                    except Exception:
                         pass
 
                 if not actions_list:
-                    actions_list = ['noop']
+                    actions_list = ["noop"]
 
                 action_results = []
                 for action_str in actions_list:
-                    normalized = normalize_action_name(action_str) or 'noop'
+                    normalized = normalize_action_name(action_str) or "noop"
                     action = ACTION_STRING_TO_INT.get(normalized, 0)
                     next_observation = await env.step(action)
-                    reward = next_observation.get('reward', 0.0)
+                    reward = next_observation.get("reward", 0.0)
                     episode_rewards.append(float(reward))
-                    action_results.append({'action': normalized, 'reward': reward})
-                    if next_observation.get('terminated') or next_observation.get('truncated'):
+                    action_results.append({"action": normalized, "reward": reward})
+                    if next_observation.get("terminated") or next_observation.get("truncated"):
                         break
 
-                tool_responses.append({'tool_call_id': tool_call_id, 'results': action_results})
-                if next_observation.get('terminated') or next_observation.get('truncated'):
+                tool_responses.append({"tool_call_id": tool_call_id, "results": action_results})
+                if next_observation.get("terminated") or next_observation.get("truncated"):
                     break
 
-        history.append({'role': 'assistant', 'content': response_text, 'tool_calls': tool_calls})
+        history.append({"role": "assistant", "content": response_text, "tool_calls": tool_calls})
         for resp in tool_responses:
-            history.append({'role': 'tool', 'tool_call_id': resp['tool_call_id'], 'content': json.dumps(resp['results'])})
+            history.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": resp["tool_call_id"],
+                    "content": json.dumps(resp["results"]),
+                }
+            )
 
         observation = next_observation
-        if observation.get('terminated') or observation.get('truncated'):
+        if observation.get("terminated") or observation.get("truncated"):
             break
 
     score, details = CrafterScorer.score_episode(observation, len(episode_rewards), 200)
     return {
-        'seed': seed,
-        'score': score,
-        'details': details,
-        'achievements': details.get('achievements', {}),
-        'turns': turn + 1,
+        "seed": seed,
+        "score": score,
+        "details": details,
+        "achievements": details.get("achievements", {}),
+        "turns": turns_completed,
     }
 
 
-async def run_comparison_eval(baseline_prompt: str, optimized_prompt: str, seeds: list[int], max_turns: int = 15) -> dict:
+async def run_comparison_eval(
+    baseline_prompt: str, optimized_prompt: str, seeds: list[int], max_turns: int = 15
+) -> dict:
     """Run baseline vs optimized comparison on same seeds."""
     log("")
     log("=" * 60)
@@ -296,7 +328,7 @@ async def run_comparison_eval(baseline_prompt: str, optimized_prompt: str, seeds
     for i, seed in enumerate(seeds):
         result = await run_local_rollout(baseline_prompt, seed, max_turns)
         baseline_results.append(result)
-        log(f"  [{i+1}/{len(seeds)}] seed={seed}: score={result['score']:.3f}")
+        log(f"  [{i + 1}/{len(seeds)}] seed={seed}: score={result['score']:.3f}")
 
     # Run optimized
     log("")
@@ -304,11 +336,11 @@ async def run_comparison_eval(baseline_prompt: str, optimized_prompt: str, seeds
     for i, seed in enumerate(seeds):
         result = await run_local_rollout(optimized_prompt, seed, max_turns)
         optimized_results.append(result)
-        log(f"  [{i+1}/{len(seeds)}] seed={seed}: score={result['score']:.3f}")
+        log(f"  [{i + 1}/{len(seeds)}] seed={seed}: score={result['score']:.3f}")
 
     # Compute statistics
-    baseline_scores = [r['score'] for r in baseline_results]
-    optimized_scores = [r['score'] for r in optimized_results]
+    baseline_scores = [r["score"] for r in baseline_results]
+    optimized_scores = [r["score"] for r in optimized_results]
 
     baseline_mean = sum(baseline_scores) / len(baseline_scores)
     optimized_mean = sum(optimized_scores) / len(optimized_scores)
@@ -316,25 +348,25 @@ async def run_comparison_eval(baseline_prompt: str, optimized_prompt: str, seeds
     optimized_max = max(optimized_scores)
 
     # Per-seed comparison
-    wins = sum(1 for b, o in zip(baseline_scores, optimized_scores) if o > b)
-    ties = sum(1 for b, o in zip(baseline_scores, optimized_scores) if o == b)
-    losses = sum(1 for b, o in zip(baseline_scores, optimized_scores) if o < b)
+    wins = sum(1 for b, o in zip(baseline_scores, optimized_scores, strict=True) if o > b)
+    ties = sum(1 for b, o in zip(baseline_scores, optimized_scores, strict=True) if o == b)
+    losses = sum(1 for b, o in zip(baseline_scores, optimized_scores, strict=True) if o < b)
 
     # Achievement frequencies
     all_achievements = set()
     for r in baseline_results + optimized_results:
-        all_achievements.update(r.get('achievements', {}).keys())
+        all_achievements.update(r.get("achievements", {}).keys())
 
-    baseline_achievement_counts = {a: 0 for a in all_achievements}
-    optimized_achievement_counts = {a: 0 for a in all_achievements}
+    baseline_achievement_counts = dict.fromkeys(all_achievements, 0)
+    optimized_achievement_counts = dict.fromkeys(all_achievements, 0)
 
     for r in baseline_results:
-        for a, v in r.get('achievements', {}).items():
+        for a, v in r.get("achievements", {}).items():
             if v:
                 baseline_achievement_counts[a] += 1
 
     for r in optimized_results:
-        for a, v in r.get('achievements', {}).items():
+        for a, v in r.get("achievements", {}).items():
             if v:
                 optimized_achievement_counts[a] += 1
 
@@ -346,8 +378,12 @@ async def run_comparison_eval(baseline_prompt: str, optimized_prompt: str, seeds
     log("")
     log(f"{'Metric':<20} {'Baseline':>12} {'Optimized':>12} {'Delta':>12}")
     log("-" * 56)
-    log(f"{'Mean Score':<20} {baseline_mean:>12.3f} {optimized_mean:>12.3f} {optimized_mean - baseline_mean:>+12.3f}")
-    log(f"{'Max Score':<20} {baseline_max:>12.3f} {optimized_max:>12.3f} {optimized_max - baseline_max:>+12.3f}")
+    log(
+        f"{'Mean Score':<20} {baseline_mean:>12.3f} {optimized_mean:>12.3f} {optimized_mean - baseline_mean:>+12.3f}"
+    )
+    log(
+        f"{'Max Score':<20} {baseline_max:>12.3f} {optimized_max:>12.3f} {optimized_max - baseline_max:>+12.3f}"
+    )
     log("")
     log(f"Per-seed: Optimized wins {wins}/{len(seeds)}, ties {ties}, losses {losses}")
     log("")
@@ -362,24 +398,24 @@ async def run_comparison_eval(baseline_prompt: str, optimized_prompt: str, seeds
         log(f"{achievement:<25} {b_count:>10} {o_count:>10} {delta:>+10}")
 
     return {
-        'baseline': {
-            'mean': baseline_mean,
-            'max': baseline_max,
-            'scores': baseline_scores,
-            'achievement_counts': baseline_achievement_counts,
+        "baseline": {
+            "mean": baseline_mean,
+            "max": baseline_max,
+            "scores": baseline_scores,
+            "achievement_counts": baseline_achievement_counts,
         },
-        'optimized': {
-            'mean': optimized_mean,
-            'max': optimized_max,
-            'scores': optimized_scores,
-            'achievement_counts': optimized_achievement_counts,
+        "optimized": {
+            "mean": optimized_mean,
+            "max": optimized_max,
+            "scores": optimized_scores,
+            "achievement_counts": optimized_achievement_counts,
         },
-        'comparison': {
-            'wins': wins,
-            'ties': ties,
-            'losses': losses,
-            'mean_improvement': optimized_mean - baseline_mean,
-            'max_improvement': optimized_max - baseline_max,
+        "comparison": {
+            "wins": wins,
+            "ties": ties,
+            "losses": losses,
+            "mean_improvement": optimized_mean - baseline_mean,
+            "max_improvement": optimized_max - baseline_max,
         },
     }
 
@@ -389,33 +425,33 @@ async def stream_job_events(job_id: str):
     url = f"{SYNTH_API_BASE}/api/prompt-learning/jobs/{job_id}/events"
     headers = {"Authorization": f"Bearer {SYNTH_API_KEY}"}
 
-    async with httpx.AsyncClient(timeout=None) as client:
-        async with client.stream("GET", url, headers=headers) as response:
-            async for line in response.aiter_lines():
-                if line.startswith("data:"):
-                    try:
-                        event = json.loads(line[5:].strip())
-                        event_type = event.get("type", "unknown")
+    client = httpx.AsyncClient(timeout=None)
+    async with client, client.stream("GET", url, headers=headers) as response:
+        async for line in response.aiter_lines():
+            if line.startswith("data:"):
+                try:
+                    event = json.loads(line[5:].strip())
+                    event_type = event.get("type", "unknown")
 
-                        if event_type == "gepa.generation_started":
-                            gen = event.get("payload", {}).get("generation", 0)
-                            log(f"Generation {gen} started")
-                        elif event_type == "gepa.candidate_evaluated":
-                            payload = event.get("payload", {})
-                            score = payload.get("score", 0)
-                            log(f"  Candidate evaluated: score={score:.3f}")
-                        elif event_type == "gepa.generation_completed":
-                            payload = event.get("payload", {})
-                            best = payload.get("best_score", 0)
-                            log(f"Generation completed: best_score={best:.3f}")
-                        elif event_type == "job.completed":
-                            log("Job completed!")
-                            return
-                        elif event_type == "job.failed":
-                            log(f"Job failed: {event.get('payload', {}).get('error', 'unknown')}")
-                            return
-                    except:
-                        pass
+                    if event_type == "gepa.generation_started":
+                        gen = event.get("payload", {}).get("generation", 0)
+                        log(f"Generation {gen} started")
+                    elif event_type == "gepa.candidate_evaluated":
+                        payload = event.get("payload", {})
+                        score = payload.get("score", 0)
+                        log(f"  Candidate evaluated: score={score:.3f}")
+                    elif event_type == "gepa.generation_completed":
+                        payload = event.get("payload", {})
+                        best = payload.get("best_score", 0)
+                        log(f"Generation completed: best_score={best:.3f}")
+                    elif event_type == "job.completed":
+                        log("Job completed!")
+                        return
+                    elif event_type == "job.failed":
+                        log(f"Job failed: {event.get('payload', {}).get('error', 'unknown')}")
+                        return
+                except Exception:
+                    pass
 
 
 async def main():
@@ -435,22 +471,22 @@ async def main():
     log("Environment key configured")
 
     # Baseline prompt
-    allowed_actions = ', '.join(CRAFTER_ALLOWED_ACTIONS)
+    allowed_actions = ", ".join(CRAFTER_ALLOWED_ACTIONS)
     baseline_prompt = (
-        'You are an agent playing Crafter, a survival crafting game. '
-        'Your goal is to survive and unlock achievements. '
-        'Analyze images to understand surroundings, inventory, health, resources. '
-        'Use crafter_interact tool. '
+        "You are an agent playing Crafter, a survival crafting game. "
+        "Your goal is to survive and unlock achievements. "
+        "Analyze images to understand surroundings, inventory, health, resources. "
+        "Use crafter_interact tool. "
         "Key: 'do' only works adjacent to resources (tree, stone, cow, plant). "
-        'Craft progression: wood -> table -> wood_pickaxe -> stone -> stone_pickaxe. '
-        f'Actions: {allowed_actions}. Return 2-5 actions per decision.'
+        "Craft progression: wood -> table -> wood_pickaxe -> stone -> stone_pickaxe. "
+        f"Actions: {allowed_actions}. Return 2-5 actions per decision."
     )
 
     # Start task app
     log("Starting task app...")
     app = create_task_app(baseline_prompt)
     run_server_background(app, port=8001)
-    await wait_for_health_check('127.0.0.1', 8001, env_key, timeout=30.0)
+    await wait_for_health_check("127.0.0.1", 8001, env_key, timeout=30.0)
     log("Task app ready on port 8001")
 
     # Create tunnel
@@ -468,37 +504,41 @@ async def main():
     log("")
     log("Submitting GEPA job...")
     config_body = {
-        'prompt_learning': {
-            'algorithm': 'gepa',
-            'task_app_url': tunnel.url,
-            'env_name': 'crafter',
-            'initial_prompt': {
-                'messages': [{'role': 'system', 'order': 0, 'pattern': baseline_prompt}],
-                'wildcards': {},
+        "prompt_learning": {
+            "algorithm": "gepa",
+            "task_app_url": tunnel.url,
+            "env_name": "crafter",
+            "initial_prompt": {
+                "messages": [{"role": "system", "order": 0, "pattern": baseline_prompt}],
+                "wildcards": {},
             },
-            'policy': {
-                'inference_mode': 'synth_hosted',
-                'model': POLICY_MODEL,
-                'provider': 'openai',
-                'temperature': 0.0,
-                'max_completion_tokens': 512,
+            "policy": {
+                "inference_mode": "synth_hosted",
+                "model": POLICY_MODEL,
+                "provider": "openai",
+                "temperature": 0.0,
+                "max_completion_tokens": 512,
             },
-            'gepa': {
-                'env_name': 'crafter',
-                'evaluation': {'seeds': list(range(15)), 'validation_seeds': list(range(50, 56))},
-                'rollout': {'budget': ROLLOUT_BUDGET, 'max_concurrent': 3, 'minibatch_size': 3},
-                'mutation': {'rate': 0.3},
-                'population': {'initial_size': 3, 'num_generations': NUM_GENERATIONS, 'children_per_generation': 2},
-                'archive': {'size': 5, 'pareto_set_size': 10},
-                'token': {'max_limit': 4000, 'counting_model': 'gpt-4', 'max_spend_usd': 50.0},
+            "gepa": {
+                "env_name": "crafter",
+                "evaluation": {"seeds": list(range(15)), "validation_seeds": list(range(50, 56))},
+                "rollout": {"budget": ROLLOUT_BUDGET, "max_concurrent": 3, "minibatch_size": 3},
+                "mutation": {"rate": 0.3},
+                "population": {
+                    "initial_size": 3,
+                    "num_generations": NUM_GENERATIONS,
+                    "children_per_generation": 2,
+                },
+                "archive": {"size": 5, "pareto_set_size": 10},
+                "token": {"max_limit": 4000, "counting_model": "gpt-4", "max_spend_usd": 50.0},
             },
-            'env': {
-                'max_turns': MAX_TURNS,
-                'max_steps_per_episode': 200,
+            "env": {
+                "max_turns": MAX_TURNS,
+                "max_steps_per_episode": 200,
             },
-            'verifier': {
-                'enabled': False,
-                'reward_source': 'task_app',
+            "verifier": {
+                "enabled": False,
+                "reward_source": "task_app",
             },
         },
     }
@@ -524,9 +564,9 @@ async def main():
 
         optimized = None
         if prompt_results.best_prompt:
-            for msg in prompt_results.best_prompt.get('messages', []):
-                if msg.get('role') == 'system':
-                    optimized = msg.get('pattern') or msg.get('content')
+            for msg in prompt_results.best_prompt.get("messages", []):
+                if msg.get("role") == "system":
+                    optimized = msg.get("pattern") or msg.get("content")
                     break
 
         if optimized:
@@ -536,10 +576,10 @@ async def main():
             log("=" * 60)
             print(optimized[:500] + "..." if len(optimized) > 500 else optimized)
 
-            Path('results').mkdir(exist_ok=True)
-            with open('results/optimized_prompt.txt', 'w') as f:
+            Path("results").mkdir(exist_ok=True)
+            with open("results/optimized_prompt.txt", "w") as f:
                 f.write(optimized)
-            log(f"Saved to results/optimized_prompt.txt")
+            log("Saved to results/optimized_prompt.txt")
 
         # Run fair comparison on same seeds (only if we have optimized prompt)
         comparison_results = None
@@ -557,15 +597,15 @@ async def main():
 
         # Save all results
         results_data = {
-            'job_id': job_id,
-            'status': result.status.value,
-            'baseline_prompt': baseline_prompt,
-            'optimized_prompt': optimized,
-            'comparison': comparison_results,
+            "job_id": job_id,
+            "status": result.status.value,
+            "baseline_prompt": baseline_prompt,
+            "optimized_prompt": optimized,
+            "comparison": comparison_results,
         }
-        with open('results/gepa_results.json', 'w') as f:
+        with open("results/gepa_results.json", "w") as f:
             json.dump(results_data, f, indent=2, default=str)
-        log(f"Saved results to results/gepa_results.json")
+        log("Saved results to results/gepa_results.json")
     else:
         log(f"Job failed: {result.error}")
 
@@ -573,5 +613,5 @@ async def main():
     log("Done!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

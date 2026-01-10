@@ -3,11 +3,12 @@ Compare SQLite vs HelixDB queries for the Crafter ontology.
 Runs equivalent queries on both and measures complexity/results.
 """
 
-import sqlite3
 import json
+import sqlite3
 import time
-import requests
 from pathlib import Path
+
+import requests
 
 SQLITE_DB = Path(__file__).parent / "crafter_ontology.db"
 HELIX_URL = "http://localhost:6969"
@@ -16,6 +17,7 @@ HELIX_URL = "http://localhost:6969"
 # =============================================================================
 # SQLITE QUERIES
 # =============================================================================
+
 
 def sqlite_queries():
     """Run queries on SQLite and return results with timing."""
@@ -29,7 +31,7 @@ def sqlite_queries():
     results["Q1_all_actions"] = {
         "data": cursor.fetchall(),
         "time_ms": (time.perf_counter() - start) * 1000,
-        "sql": "SELECT name, description FROM action_types"
+        "sql": "SELECT name, description FROM action_types",
     }
 
     # Q2: Get action by name
@@ -39,7 +41,7 @@ def sqlite_queries():
     results["Q2_action_by_name"] = {
         "data": row,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "sql": "SELECT * FROM action_types WHERE name = ?"
+        "sql": "SELECT * FROM action_types WHERE name = ?",
     }
 
     # Q3: Get interfaces for Player (requires JSON parsing)
@@ -50,7 +52,7 @@ def sqlite_queries():
     results["Q3_player_interfaces"] = {
         "data": interfaces,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "sql": "SELECT implements FROM object_types WHERE name = ? (+ JSON parse)"
+        "sql": "SELECT implements FROM object_types WHERE name = ? (+ JSON parse)",
     }
 
     # Q4: Get interface inheritance (requires recursive CTE)
@@ -69,7 +71,7 @@ def sqlite_queries():
     results["Q4_interface_inheritance"] = {
         "data": cursor.fetchall(),
         "time_ms": (time.perf_counter() - start) * 1000,
-        "sql": "WITH RECURSIVE interface_tree AS (...) -- 8 lines"
+        "sql": "WITH RECURSIVE interface_tree AS (...) -- 8 lines",
     }
 
     # Q5: Find hostile creatures (JSON property search)
@@ -81,7 +83,7 @@ def sqlite_queries():
     results["Q5_hostile_creatures"] = {
         "data": [r[0] for r in cursor.fetchall()],
         "time_ms": (time.perf_counter() - start) * 1000,
-        "sql": "SELECT name FROM object_types WHERE json_extract(properties, '$.damage') IS NOT NULL"
+        "sql": "SELECT name FROM object_types WHERE json_extract(properties, '$.damage') IS NOT NULL",
     }
 
     # Q6: Find actions requiring table (string search in JSON)
@@ -93,12 +95,14 @@ def sqlite_queries():
     results["Q6_table_actions"] = {
         "data": [r[0] for r in cursor.fetchall()],
         "time_ms": (time.perf_counter() - start) * 1000,
-        "sql": "SELECT name FROM action_types WHERE preconditions LIKE '%table%'"
+        "sql": "SELECT name FROM action_types WHERE preconditions LIKE '%table%'",
     }
 
     # Q7: Get crafting costs (requires JSON parsing in Python)
     start = time.perf_counter()
-    cursor.execute("SELECT name, effects FROM action_types WHERE name LIKE 'Make%' OR name LIKE 'Place%'")
+    cursor.execute(
+        "SELECT name, effects FROM action_types WHERE name LIKE 'Make%' OR name LIKE 'Place%'"
+    )
     crafting = []
     for name, effects_json in cursor.fetchall():
         effects = json.loads(effects_json)
@@ -107,16 +111,18 @@ def sqlite_queries():
     results["Q7_crafting_costs"] = {
         "data": crafting,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "sql": "SELECT name, effects FROM action_types WHERE name LIKE 'Make%' (+ Python JSON processing)"
+        "sql": "SELECT name, effects FROM action_types WHERE name LIKE 'Make%' (+ Python JSON processing)",
     }
 
     # Q8: Get dynamics affecting Player
     start = time.perf_counter()
-    cursor.execute("SELECT name, effects FROM dynamics WHERE for_each IS NULL OR for_each = 'Player'")
+    cursor.execute(
+        "SELECT name, effects FROM dynamics WHERE for_each IS NULL OR for_each = 'Player'"
+    )
     results["Q8_player_dynamics"] = {
         "data": cursor.fetchall(),
         "time_ms": (time.perf_counter() - start) * 1000,
-        "sql": "SELECT name, effects FROM dynamics WHERE for_each IS NULL OR for_each = 'Player'"
+        "sql": "SELECT name, effects FROM dynamics WHERE for_each IS NULL OR for_each = 'Player'",
     }
 
     conn.close()
@@ -127,6 +133,7 @@ def sqlite_queries():
 # HELIX QUERIES
 # =============================================================================
 
+
 def helix_query(query_name: str, params: dict = None):
     """Execute a HelixDB query."""
     try:
@@ -134,9 +141,13 @@ def helix_query(query_name: str, params: dict = None):
             f"{HELIX_URL}/{query_name}",
             json=params or {},
             headers={"Content-Type": "application/json"},
-            timeout=10
+            timeout=10,
         )
-        return resp.json() if resp.status_code == 200 else {"error": resp.text, "status": resp.status_code}
+        return (
+            resp.json()
+            if resp.status_code == 200
+            else {"error": resp.text, "status": resp.status_code}
+        )
     except Exception as e:
         return {"error": str(e)}
 
@@ -152,9 +163,10 @@ def helix_add_data():
         ("LivingCreature", "Mortal entity", '["move", "do"]', '{"is_alive": "health > 0"}'),
     ]
     for name, desc, caps, derived in interfaces:
-        helix_query("addInterface", {
-            "name": name, "description": desc, "capabilities": caps, "derived": derived
-        })
+        helix_query(
+            "addInterface",
+            {"name": name, "description": desc, "capabilities": caps, "derived": derived},
+        )
 
     # Add object types
     object_types = [
@@ -164,27 +176,51 @@ def helix_add_data():
         ("Cow", "Passive creature", "id", '{"health": 3}', "{}"),
     ]
     for name, desc, pk, props, derived in object_types:
-        helix_query("addObjectType", {
-            "name": name, "description": desc, "pk": pk, "props": props, "derived": derived
-        })
+        helix_query(
+            "addObjectType",
+            {"name": name, "description": desc, "pk": pk, "props": props, "derived": derived},
+        )
 
     # Add action types
     actions = [
         ("Noop", "0", "Do nothing", "{}", "[]", "[]"),
-        ("Move", "[1,4]", "Move in direction", '{"direction": "Direction"}',
-         '["facing_tile.material not blocked"]', '[]'),
-        ("MakeWoodPickaxe", "11", "Craft wood pickaxe", "{}",
-         '["Player.inventory.wood >= 1", "nearby(Player.pos, 1).materials contains table"]',
-         '[{"decrement": "Player.inventory.wood", "by": 1}]'),
-        ("PlaceTable", "9", "Place crafting table", "{}",
-         '["Player.inventory.wood >= 2"]',
-         '[{"decrement": "Player.inventory.wood", "by": 2}]'),
+        (
+            "Move",
+            "[1,4]",
+            "Move in direction",
+            '{"direction": "Direction"}',
+            '["facing_tile.material not blocked"]',
+            "[]",
+        ),
+        (
+            "MakeWoodPickaxe",
+            "11",
+            "Craft wood pickaxe",
+            "{}",
+            '["Player.inventory.wood >= 1", "nearby(Player.pos, 1).materials contains table"]',
+            '[{"decrement": "Player.inventory.wood", "by": 1}]',
+        ),
+        (
+            "PlaceTable",
+            "9",
+            "Place crafting table",
+            "{}",
+            '["Player.inventory.wood >= 2"]',
+            '[{"decrement": "Player.inventory.wood", "by": 2}]',
+        ),
     ]
     for name, aid, desc, params, preconds, effects in actions:
-        helix_query("addActionType", {
-            "name": name, "action_id": aid, "description": desc,
-            "params": params, "preconditions": preconds, "effects": effects
-        })
+        helix_query(
+            "addActionType",
+            {
+                "name": name,
+                "action_id": aid,
+                "description": desc,
+                "params": params,
+                "preconditions": preconds,
+                "effects": effects,
+            },
+        )
 
     # Link interfaces (LivingCreature extends Positioned)
     helix_query("linkExtends", {"child_name": "LivingCreature", "parent_name": "Positioned"})
@@ -208,7 +244,7 @@ def helix_queries():
     results["Q1_all_actions"] = {
         "data": data,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "hql": "actions <- N<ActionType>  RETURN actions"
+        "hql": "actions <- N<ActionType>  RETURN actions",
     }
 
     # Q2: Get action by name
@@ -217,7 +253,7 @@ def helix_queries():
     results["Q2_action_by_name"] = {
         "data": data,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "hql": "action <- N<ActionType>({Name: action_name})  RETURN action"
+        "hql": "action <- N<ActionType>({Name: action_name})  RETURN action",
     }
 
     # Q3: Get interfaces for Player (graph traversal!)
@@ -226,7 +262,7 @@ def helix_queries():
     results["Q3_player_interfaces"] = {
         "data": data,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "hql": "obj <- N<ObjectType>({Name: type_name})  interfaces <- obj::Out<Implements>  RETURN interfaces"
+        "hql": "obj <- N<ObjectType>({Name: type_name})  interfaces <- obj::Out<Implements>  RETURN interfaces",
     }
 
     # Q4: Get parent interfaces (one hop - full recursion needs ShortestPath)
@@ -235,7 +271,7 @@ def helix_queries():
     results["Q4_interface_inheritance"] = {
         "data": data,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "hql": "iface <- N<Interface>({Name: interface_name})  parents <- iface::Out<Extends>  RETURN parents"
+        "hql": "iface <- N<Interface>({Name: interface_name})  parents <- iface::Out<Extends>  RETURN parents",
     }
 
     # Q5: Get hostile creatures (reverse traversal from property)
@@ -244,7 +280,7 @@ def helix_queries():
     results["Q5_hostile_creatures"] = {
         "data": data,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "hql": "damage_prop <- N<Property>({Name: 'damage'})  hostile <- damage_prop::In<HasProperty>  RETURN hostile"
+        "hql": "damage_prop <- N<Property>({Name: 'damage'})  hostile <- damage_prop::In<HasProperty>  RETURN hostile",
     }
 
     # Q6: Get all actions (filter in app layer)
@@ -253,7 +289,7 @@ def helix_queries():
     results["Q6_table_actions"] = {
         "data": data,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "hql": "actions <- N<ActionType>  RETURN actions  // + app-layer filter"
+        "hql": "actions <- N<ActionType>  RETURN actions  // + app-layer filter",
     }
 
     # Q7: Get crafting dependencies (graph traversal)
@@ -262,7 +298,7 @@ def helix_queries():
     results["Q7_crafting_costs"] = {
         "data": data,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "hql": "action <- N<ActionType>({Name: action_name})  resources <- action::Out<Consumes>  RETURN resources"
+        "hql": "action <- N<ActionType>({Name: action_name})  resources <- action::Out<Consumes>  RETURN resources",
     }
 
     # Q8: Get player dynamics (reverse traversal)
@@ -271,7 +307,7 @@ def helix_queries():
     results["Q8_player_dynamics"] = {
         "data": data,
         "time_ms": (time.perf_counter() - start) * 1000,
-        "hql": "player <- N<ObjectType>({Name: 'Player'})  dynamics <- player::In<Affects>  RETURN dynamics"
+        "hql": "player <- N<ObjectType>({Name: 'Player'})  dynamics <- player::In<Affects>  RETURN dynamics",
     }
 
     return results
@@ -280,6 +316,7 @@ def helix_queries():
 # =============================================================================
 # COMPARISON
 # =============================================================================
+
 
 def print_comparison():
     print("=" * 80)
@@ -290,7 +327,7 @@ def print_comparison():
     try:
         resp = requests.post(f"{HELIX_URL}/getAllActions", json={}, timeout=2)
         helix_available = resp.status_code == 200
-    except:
+    except Exception:
         helix_available = False
 
     print(f"\nSQLite DB: {SQLITE_DB}")
@@ -306,7 +343,7 @@ def print_comparison():
         print(f"\n[{qname}]")
         print(f"  SQL: {result['sql']}")
         print(f"  Time: {result['time_ms']:.3f}ms")
-        data = result['data']
+        data = result["data"]
         if isinstance(data, list) and len(data) > 3:
             print(f"  Results: {data[:3]} ... ({len(data)} total)")
         else:
@@ -325,7 +362,7 @@ def print_comparison():
             print(f"\n[{qname}]")
             print(f"  HQL: {result['hql']}")
             print(f"  Time: {result['time_ms']:.3f}ms")
-            data = result['data']
+            data = result["data"]
             if isinstance(data, list) and len(data) > 3:
                 print(f"  Results: {data[:3]} ... ({len(data)} total)")
             else:

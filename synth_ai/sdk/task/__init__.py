@@ -19,7 +19,6 @@ from .contracts import (
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
     RolloutSafetyConfig,
@@ -43,6 +42,14 @@ from .in_process_runner import (
 )
 from .inference_api import InferenceAPIClient
 from .json import to_jsonable
+from .llm_call_guards import (
+    install_all_guards,
+    install_anthropic_guard,
+    install_httpx_guard,
+    install_openai_guard,
+    install_requests_guard,
+    warn_if_direct_provider_call,
+)
 from .proxy import (
     extract_message_text,
     inject_system_hint,
@@ -52,14 +59,6 @@ from .proxy import (
     synthesize_tool_call_if_missing,
 )
 from .rollout_helpers import build_rollout_response
-from .llm_call_guards import (
-    install_all_guards,
-    install_httpx_guard,
-    install_requests_guard,
-    install_openai_guard,
-    install_anthropic_guard,
-    warn_if_direct_provider_call,
-)
 from .rubrics import (
     Criterion,
     Rubric,
@@ -118,7 +117,6 @@ __all__ = [
     "LocalAPIEndpoints",
     "RolloutEnvSpec",
     "RolloutPolicySpec",
-    "RolloutRecordConfig",
     "RolloutSafetyConfig",
     "RolloutRequest",
     "RolloutResponse",

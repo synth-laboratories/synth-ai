@@ -5,14 +5,14 @@ info:
   description: |
     # Task App Contract
 
-    Task Apps are HTTP services that evaluate prompts for Synth's MIPRO and
-    GEPA optimizers. Implement this contract in any language.
+    Task Apps are HTTP services that evaluate prompts for Synth's GEPA optimizer.
+    Implement this contract in any language.
 
     ## How It Works
 
     ```
     ┌─────────────────┐         ┌──────────────────┐
-    │  MIPRO/GEPA     │  HTTP   │  Your Task App   │
+    │  GEPA          │  HTTP   │  Your Task App   │
     │  Optimizer      │ ──────> │  (any language)  │
     │                 │         │                  │
     │  Proposes new   │         │  Evaluates the   │
@@ -54,7 +54,7 @@ info:
     synth prompt-learning run \
       --task-app-url https://your-tunnel.trycloudflare.com \
       --task-app-api-key your-env-key \
-      --algorithm mipro
+      --algorithm gepa
     ```
 
     **Option B - Via API (no Python needed):**
@@ -63,7 +63,7 @@ info:
       -H "Authorization: Bearer $SYNTH_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-        "algorithm": "mipro",
+        "algorithm": "gepa",
         "config_body": {
           "prompt_learning": {
             "task_app_url": "https://your-tunnel.trycloudflare.com",
@@ -116,23 +116,29 @@ components:
         8. Compare prediction to your ground truth
         9. Return RolloutResponse with reward in `metrics.reward_mean`
       required:
-        - run_id
+        - trace_correlation_id
         - env
         - policy
-        - mode
       properties:
+        trace_correlation_id:
+          type: string
+          description: |
+            REQUIRED - Unique identifier for this rollout. Used for trace correlation,
+            registry operations, seed derivation, and resource tracking.
+            Echo this back in the response.
+
         run_id:
           type: string
-          description: Unique ID for this rollout - echo it back in response
+          nullable: true
+          deprecated: true
+          description: |
+            [DEPRECATED] Use trace_correlation_id instead. Will be removed in future version.
 
         env:
           $ref: '#/components/schemas/RolloutEnvSpec'
 
         policy:
           $ref: '#/components/schemas/RolloutPolicySpec'
-
-        record:
-          $ref: '#/components/schemas/RolloutRecordConfig'
 
         on_done:
           type: string
@@ -151,17 +157,8 @@ components:
           type: string
           nullable: true
           description: Base URL for Synth API callbacks
-
-        mode:
-          type: string
-          enum:
-            - rl
-            - eval
-          description: |
-            Rollout mode. Task Apps MAY ignore this field.
-            Synth uses `"eval"` for prompt optimization.
       example:
-        run_id: "run_abc123"
+        trace_correlation_id: "trace_abc123"
         env:
           seed: 42
           config:
@@ -181,7 +178,6 @@ components:
                 - role: "user"
                   pattern: "Customer query: {query}\n\nClassify into one of: {intents}"
                   order: 1
-        mode: "eval"
 
     RolloutEnvSpec:
       type: object
@@ -489,34 +485,6 @@ components:
               default: false
               description: Enable strict mode for parameter validation
 
-    RolloutRecordConfig:
-      type: object
-      description: Recording configuration for trace payloads
-      properties:
-        logprobs:
-          type: boolean
-          default: false
-          description: Whether to record log probabilities
-
-        value:
-          type: boolean
-          default: false
-          description: Whether to record value estimates
-
-        return_trace:
-          type: boolean
-          default: false
-          description: Whether to return detailed trace
-
-        trace_format:
-          type: string
-          enum:
-            - compact
-            - full
-            - structured
-          default: compact
-          description: Format for trace output
-
     RolloutSafetyConfig:
       type: object
       description: Safety limits for rollout execution
@@ -536,35 +504,44 @@ components:
 
         ## Key Fields
 
-        - `run_id`: Echo from request (required)
+        - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
         - `metrics.outcome_reward`: THE OPTIMIZATION TARGET. Higher = better prompt.
         - `trace`: v3 trace payload (required for verifier scoring)
+        - `run_id`: DEPRECATED - Use trace_correlation_id instead
 
         ## Canonical Locations (Top-Level)
 
         These fields SHOULD be at top-level for optimal parsing:
-        - `trace_correlation_id`: Correlation ID for trace recovery
+        - `trace_correlation_id`: REQUIRED - Correlation ID for trace recovery
         - `inference_url`: Inference URL used for this rollout
 
         ## Example
 
         ```json
         {
-          "run_id": "run_abc123",
+          "trace_correlation_id": "trace_abc123",
           "metrics": {"outcome_reward": 1.0},
           "trace": {...},
-          "trace_correlation_id": "trace_abc123",
           "inference_url": "https://api.usesynth.ai/v1/trial-xyz"
         }
         ```
       required:
-        - run_id
+        - trace_correlation_id
         - metrics
         - trace
       properties:
+        trace_correlation_id:
+          type: string
+          description: |
+            REQUIRED - Correlation ID for trace recovery. Single source of truth.
+            Echo from request.trace_correlation_id.
+
         run_id:
           type: string
-          description: Echo the run_id from the request
+          nullable: true
+          deprecated: true
+          description: |
+            [DEPRECATED] Use trace_correlation_id instead. Will be removed in future version.
 
         metrics:
           $ref: '#/components/schemas/RolloutMetrics'
@@ -574,14 +551,6 @@ components:
           nullable: true
           additionalProperties: true
           description: v3 trace payload for training and evaluation
-
-        # CANONICAL LOCATIONS (Top-Level - Preferred)
-        trace_correlation_id:
-          type: string
-          nullable: true
-          description: |
-            Correlation ID for trace recovery.
-            TOP-LEVEL CANONICAL LOCATION. Required for verifier scoring.
 
         inference_url:
           type: string
@@ -611,7 +580,7 @@ components:
           default: {}
           description: "[LEGACY] Pipeline metadata. Prefer top-level fields."
       example:
-        run_id: "run_abc123"
+        trace_correlation_id: "trace_abc123"
         metrics:
           # PREFERRED - objectives-first
           outcome_objectives:
@@ -623,8 +592,6 @@ components:
             - 1.0
           reward_mean: 1.0
           num_steps: 1
-        # CANONICAL LOCATIONS (top-level)
-        trace_correlation_id: "trace_abc123"
         inference_url: "https://api.usesynth.ai/v1/trial-xyz"
         aborted: false
         trace:
@@ -674,58 +641,40 @@ components:
       description: |
         Aggregated metrics for the rollout.
 
-        ## Preferred Fields (New - Normalized)
+        ## Required Fields
 
-        - `outcome_objectives`: Canonical objectives dict (preferred).
-        - `event_objectives`: Optional per-step objectives for multi-step tasks.
-        - `outcome_reward`: Scalar reward for backward compatibility.
-        - `event_rewards`: Optional per-step rewards for multi-step tasks.
+        - `outcome_reward`: REQUIRED - The reward for this rollout
 
-        ## Legacy Fields (Backward Compatibility)
+        ## Optional Fields
 
-        - `episode_rewards`, `reward_mean`, `num_steps`: Still supported for
-          backward compatibility. For new implementations, just use `outcome_reward`.
+        - `event_rewards`: Per-step rewards for multi-step tasks
+        - `outcome_objectives`: Multi-objective outcomes (e.g., {"reward": 0.9, "latency": 0.5})
+        - `event_objectives`: Per-event objectives aligned to trace events
+        - `details`: Metadata only (not for scoring)
 
-        ## Example - Minimal (Recommended)
+        ## Example - Minimal
 
         ```json
-        {"outcome_objectives": {"reward": 1.0}}
+        {"outcome_reward": 1.0}
         ```
 
-        ## Example - Full (Backward Compatible)
+        ## Example - Multi-objective
 
         ```json
         {
-          "outcome_reward": 1.0,
-          "episode_rewards": [1.0],
-          "reward_mean": 1.0,
-          "num_steps": 1
+          "outcome_reward": 0.85,
+          "outcome_objectives": {"reward": 0.85, "latency": 0.7},
+          "event_rewards": [0.8, 0.9, 0.85]
         }
         ```
+      required:
+        - outcome_reward
       properties:
-        # PREFERRED FIELDS (New - Normalized)
-        outcome_objectives:
-          type: object
-          additionalProperties:
-            type: number
-          nullable: true
-          description: Canonical objectives dict (e.g., {"reward": 0.9}).
-
-        event_objectives:
-          type: array
-          items:
-            type: object
-            additionalProperties:
-              type: number
-          nullable: true
-          description: Optional per-event objectives aligned to trace events.
-
         outcome_reward:
           type: number
-          nullable: true
           description: |
-            THE OPTIMIZATION TARGET. PREFERRED field for scoring.
-            This is what MIPRO/GEPA maximizes:
+            REQUIRED - The reward for this rollout. Single source of truth for scoring.
+            This is what GEPA maximizes:
             - 1.0 = prompt produced correct answer
             - 0.0 = prompt produced wrong answer
 
@@ -736,44 +685,27 @@ components:
           nullable: true
           description: Optional per-step/event rewards for multi-step tasks.
 
-        # LEGACY FIELDS (Backward Compatibility)
-        episode_rewards:
+        outcome_objectives:
+          type: object
+          additionalProperties:
+            type: number
+          nullable: true
+          description: Multi-objective outcomes (e.g., {"reward": 0.9, "latency": 0.5}).
+
+        event_objectives:
           type: array
           items:
-            type: number
-          default: []
-          description: "[LEGACY] Per-episode rewards. Use outcome_reward instead."
-
-        reward_mean:
-          type: number
-          default: 0.0
-          description: "[LEGACY] Mean reward. Use outcome_reward instead."
-
-        num_steps:
-          type: integer
-          default: 1
-          description: "[LEGACY] Step count. Can be derived from event_rewards."
-
-        num_episodes:
-          type: integer
-          default: 1
-          description: "[LEGACY] Episode count. Usually 1 for GEPA tasks."
-
-        outcome_score:
-          type: number
+            type: object
+            additionalProperties:
+              type: number
           nullable: true
-          description: "[DEPRECATED] Alias for outcome_reward. Use outcome_reward."
-
-        events_score:
-          type: number
-          nullable: true
-          description: "[LEGACY] Aggregate event score. Use event_rewards instead."
+          description: Optional per-event objectives aligned to trace events.
 
         details:
           type: object
           additionalProperties: true
           default: {}
-          description: "Metadata only. Do NOT use details.correct for rewards."
+          description: "Metadata only. Do NOT use details for reward computation."
 
     # =========================================================================
     # INFO ENDPOINT SCHEMAS

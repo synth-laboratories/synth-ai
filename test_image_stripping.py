@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test that image stripping works correctly on actual trace data."""
+
 import json
 from pathlib import Path
 
@@ -114,9 +115,9 @@ if __name__ == "__main__":
         exit(1)
 
     # Load and analyze
-    print(f"\n{'='*80}")
-    print(f"LOADING TRACE")
-    print(f"{'='*80}")
+    print(f"\n{'=' * 80}")
+    print("LOADING TRACE")
+    print(f"{'=' * 80}")
 
     data = json.loads(trace_file.read_text())
     trace = data.get("trace", {})
@@ -124,25 +125,27 @@ if __name__ == "__main__":
     # Size before stripping
     trace_before = json.dumps(trace)
     size_before = len(trace_before)
-    print(f"Trace size BEFORE stripping: {size_before:,} bytes (~{size_before//4:,} tokens)")
+    print(f"Trace size BEFORE stripping: {size_before:,} bytes (~{size_before // 4:,} tokens)")
 
     # Strip images
-    print(f"\n{'='*80}")
-    print(f"STRIPPING IMAGES")
-    print(f"{'='*80}")
+    print(f"\n{'=' * 80}")
+    print("STRIPPING IMAGES")
+    print(f"{'=' * 80}")
     trace_stripped = strip_images_from_trace(trace)
 
     # Size after stripping
     trace_after = json.dumps(trace_stripped)
     size_after = len(trace_after)
-    print(f"\n{'='*80}")
-    print(f"RESULTS")
-    print(f"{'='*80}")
-    print(f"Trace size AFTER stripping:  {size_after:,} bytes (~{size_after//4:,} tokens)")
-    print(f"Reduction: {size_before - size_after:,} bytes ({(1 - size_after/size_before)*100:.1f}%)")
-    print(f"Gemini limit: 1,048,576 tokens")
+    print(f"\n{'=' * 80}")
+    print("RESULTS")
+    print(f"{'=' * 80}")
+    print(f"Trace size AFTER stripping:  {size_after:,} bytes (~{size_after // 4:,} tokens)")
+    print(
+        f"Reduction: {size_before - size_after:,} bytes ({(1 - size_after / size_before) * 100:.1f}%)"
+    )
+    print("Gemini limit: 1,048,576 tokens")
 
     if size_after // 4 > 1_048_576:
-        print(f"⚠️  STILL EXCEEDS LIMIT by {size_after//4 - 1_048_576:,} tokens")
+        print(f"⚠️  STILL EXCEEDS LIMIT by {size_after // 4 - 1_048_576:,} tokens")
     else:
-        print(f"✓ Within limit ({1_048_576 - size_after//4:,} tokens remaining)")
+        print(f"✓ Within limit ({1_048_576 - size_after // 4:,} tokens remaining)")

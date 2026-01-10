@@ -16,7 +16,7 @@ class StatusAPIClient:
         self._config = config
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "StatusAPIClient":
+    async def __aenter__(self) -> StatusAPIClient:
         if self._client is None:
             self._client = httpx.AsyncClient(
                 base_url=self._config.base_url,
@@ -88,4 +88,3 @@ class StatusAPIClient:
     async def list_job_runs(self, job_id: str) -> list[dict[str, Any]]:
         payload = await self._get(f"/jobs/{job_id}/runs")
         return payload.get("runs", [])
-

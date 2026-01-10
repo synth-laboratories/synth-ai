@@ -26,13 +26,14 @@ __all__ = [
 class RubricWeightsConfig(ExtraModel):
     """
     Reward blending weights (client-side only, not sent to backend).
-    
+
     These weights control how env rewards, event verifier scores, and outcome
     verifier scores are combined into a final reward signal for policy gradients.
-    
+
     Formula:
         total_reward = (env * env_return) + (event * sum(event_scores)) + (outcome * outcome_score)
     """
+
     env: float = Field(
         default=1.0,
         description="Weight for environment rewards (task app native rewards)",
@@ -60,9 +61,10 @@ class RubricWeightsConfig(ExtraModel):
 class RubricConfig(ExtraModel):
     """
     Top-level rubric configuration.
-    
+
     Controls whether rubric-based verification is enabled and how rewards are blended.
     """
+
     enabled: bool = Field(
         default=False,
         description="Master switch for rubric-based verification",
@@ -76,10 +78,11 @@ class RubricConfig(ExtraModel):
 class VerifierOptionsConfig(ExtraModel):
     """
     Verifier provider options (sent to backend in HTTP request).
-    
+
     These fields are sent in the "options" object of the verifier request.
     All fields here map directly to the backend verifier options schema.
     """
+
     provider: str = Field(
         ...,
         description="Verifier provider type ('openai', 'groq', 'gemini')",
@@ -130,9 +133,10 @@ class VerifierOptionsConfig(ExtraModel):
 class VerifierConfig(ExtraModel):
     """
     Top-level verifier configuration.
-    
+
     This is parsed from TOML [verifier] section and contains all verifier-related settings.
     """
+
     options: VerifierOptionsConfig = Field(
         ...,
         description="Verifier provider options (sent to backend)",
@@ -141,13 +145,15 @@ class VerifierConfig(ExtraModel):
 
 # HTTP Request Payload Structures (for documentation/type safety)
 
+
 class VerifierRequestPayload(ExtraModel):
     """
     HTTP request payload structure for POST /api/graphs/verifiers/completions.
-    
+
     This is the ACTUAL payload sent to the backend verifier service.
     Used for type safety and documentation only.
     """
+
     policy_name: str = Field(..., description="Name of the policy being evaluated")
     task_app: dict[str, Any] = Field(..., description="Task app metadata (id, base_url)")
     trace: dict[str, Any] = Field(..., description="Tracing v3 payload (event_history, metadata)")
@@ -159,6 +165,7 @@ class VerifierRequestPayload(ExtraModel):
 
 # Helper to convert to backend request format
 
+
 def build_verifier_http_options(
     options_config: VerifierOptionsConfig,
     *,
@@ -166,11 +173,11 @@ def build_verifier_http_options(
 ) -> dict[str, Any]:
     """
     Build the 'options' dict for HTTP request to backend verifier.
-    
+
     Args:
         options_config: Validated verifier options from TOML
         rubric_overrides_from_task_info: Dynamic overrides fetched from TaskInfo (takes priority)
-    
+
     Returns:
         Dict ready to send in HTTP request payload
     """
@@ -180,21 +187,21 @@ def build_verifier_http_options(
         "event": options_config.event,
         "outcome": options_config.outcome,
     }
-    
+
     # Optional fields
     if options_config.rubric_id:
         payload["rubric_id"] = options_config.rubric_id
-    
+
     if options_config.timeout_s is not None:
         payload["timeout_s"] = options_config.timeout_s
-    
+
     if options_config.metadata:
         payload["metadata"] = options_config.metadata
-    
+
     # Rubric overrides: TaskInfo takes priority over static config
     if rubric_overrides_from_task_info:
         payload["rubric_overrides"] = rubric_overrides_from_task_info
     elif options_config.rubric_overrides:
         payload["rubric_overrides"] = options_config.rubric_overrides
-    
+
     return payload

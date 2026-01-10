@@ -9,11 +9,11 @@ from __future__ import annotations
 import contextlib
 import json
 from collections.abc import Iterable, Sequence
-from pathlib import Path
 from typing import Any, Mapping, cast
 
 from dotenv import load_dotenv
 from fastapi import HTTPException, Request
+
 # Synth-AI SDK imports
 from synth_ai.sdk.localapi.apps import LocalAPIEntry, ModalDeploymentConfig, register_local_api
 from synth_ai.sdk.localapi.helpers import (
@@ -22,7 +22,12 @@ from synth_ai.sdk.localapi.helpers import (
     normalize_chat_completion_url,
     preload_dataset_splits,
 )
-from synth_ai.sdk.localapi.server import LocalAPIConfig, RubricBundle, create_local_api, run_local_api
+from synth_ai.sdk.localapi.server import (
+    LocalAPIConfig,
+    RubricBundle,
+    create_local_api,
+    run_local_api,
+)
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
@@ -52,7 +57,6 @@ from verilog_business_logic import (
     get_system_message,
 )
 
-
 print(
     f"[verilog_task_app] Module loaded: DATASET_NAME={DATASET_NAME}",
     flush=True,
@@ -67,6 +71,7 @@ VERILOG_DATASET_SPEC = TaskDatasetSpec(
     default_split=DEFAULT_SPLIT,
     description="VerilogEval v2 specification-to-RTL translation tasks.",
 )
+
 
 async def call_chat_completion_with_tools(
     policy_config: dict[str, Any],
@@ -129,6 +134,7 @@ async def call_chat_completion_with_tools(
     response_json: dict[str, Any] | None = None
     try:
         import aiohttp
+
         is_aiohttp = isinstance(http_client, aiohttp.ClientSession)
 
         for attempt in range(2):
@@ -146,27 +152,37 @@ async def call_chat_completion_with_tools(
             payload = _build_payload(message_list)
 
             if is_aiohttp:
-                async with http_client.post(inference_url, json=payload, headers=headers) as response:
+                async with http_client.post(
+                    inference_url, json=payload, headers=headers
+                ) as response:
                     status_code = response.status
                     if status_code != 200:
                         error_text = await response.text()
                         if status_code == 400 and attempt == 0 and _needs_tool_retry(error_text):
                             continue
-                        raise HTTPException(status_code=status_code, detail=f"API error: {error_text[:200]}")
+                        raise HTTPException(
+                            status_code=status_code, detail=f"API error: {error_text[:200]}"
+                        )
                     response_json = await response.json()
             else:
                 response = await http_client.post(inference_url, json=payload, headers=headers)
                 if response.status_code != 200:
                     error_text = response.text
-                    if response.status_code == 400 and attempt == 0 and _needs_tool_retry(error_text):
+                    if (
+                        response.status_code == 400
+                        and attempt == 0
+                        and _needs_tool_retry(error_text)
+                    ):
                         continue
-                    raise HTTPException(status_code=response.status_code, detail=f"API error: {error_text[:200]}")
+                    raise HTTPException(
+                        status_code=response.status_code, detail=f"API error: {error_text[:200]}"
+                    )
                 response_json = response.json()
             break
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Request failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Request failed: {e}") from e
 
     if response_json is None:
         raise HTTPException(status_code=502, detail="No response data")
@@ -180,14 +196,16 @@ async def call_chat_completion_with_tools(
 
         if "tool_calls" in message and message["tool_calls"]:
             for tc in message["tool_calls"]:
-                tool_calls.append({
-                    "id": tc.get("id", ""),
-                    "type": tc.get("type", "function"),
-                    "function": {
-                        "name": tc.get("function", {}).get("name", ""),
-                        "arguments": tc.get("function", {}).get("arguments", "{}"),
+                tool_calls.append(
+                    {
+                        "id": tc.get("id", ""),
+                        "type": tc.get("type", "function"),
+                        "function": {
+                            "name": tc.get("function", {}).get("name", ""),
+                            "arguments": tc.get("function", {}).get("arguments", "{}"),
+                        },
                     }
-                })
+                )
 
     return response_text, tool_calls, response_json
 
@@ -226,7 +244,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 
         # Build messages with STATIC system message and DYNAMIC user message
         system_message = get_system_message()
-        user_message = format_user_message(sample["problem_id"], sample["prompt"], list(workspace.files.keys()))
+        user_message = format_user_message(
+            sample["problem_id"], sample["prompt"], list(workspace.files.keys())
+        )
 
         messages = [
             {"role": "system", "content": system_message},
@@ -247,7 +267,6 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         trace_correlation_id = extract_trace_correlation_id(
             policy_config=request.policy.config or {},
             inference_url=str(inference_url or ""),
-            mode=request.mode,
         )
 
         # Agentic loop
@@ -295,8 +314,12 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                         "content": response_text or "",
                         "tool_calls": tool_calls,
                     },
-                    "usage": response_json.get("usage", {}) if isinstance(response_json, dict) else {},
-                    "model": response_json.get("model") if isinstance(response_json, dict) else None,
+                    "usage": response_json.get("usage", {})
+                    if isinstance(response_json, dict)
+                    else {},
+                    "model": response_json.get("model")
+                    if isinstance(response_json, dict)
+                    else None,
                 },
             }
             if trace_correlation_id:
@@ -350,11 +373,13 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                     step_info[f"tool_{fn_name}"] = tool_result
 
                     # Add tool result to messages
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.get("id", ""),
-                        "content": json.dumps(tool_result),
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.get("id", ""),
+                            "content": json.dumps(tool_result),
+                        }
+                    )
 
             steps.append(
                 {
@@ -406,26 +431,16 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         }
 
         metrics = RolloutMetrics(
-            episode_rewards=[final_reward],
-            reward_mean=final_reward,
-            num_steps=len(steps),
-            num_episodes=1,
-            outcome_score=final_reward,
-            events_score=final_reward,
+            outcome_reward=final_reward,
             details={"passed": workspace.passed, "steps": len(steps)},
         )
 
         return RolloutResponse(
             run_id=request.run_id,
-            branches={},
             metrics=metrics,
-            aborted=False,
             trace_correlation_id=trace_correlation_id,
             trace=trace_payload,
-            pipeline_metadata={
-                "inference_url": str(inference_url or ""),
-                "trace_correlation_id": trace_correlation_id,
-            },
+            inference_url=str(inference_url or ""),
         )
 
     finally:
@@ -493,12 +508,20 @@ def provide_task_instances(dataset: VerilogEvalDataset, seeds: Sequence[int]) ->
 
 OUTCOME_RUBRIC: Rubric = cast(
     Rubric,
-    load_rubric({
-        "version": "1",
-        "goal_text": "Implement Verilog modules that pass testbench verification.",
-        "aggregation": "weighted_sum",
-        "criteria": [{"id": "testbench_pass", "description": "Implementation passes all testbench tests.", "weight": 1.0}],
-    }),
+    load_rubric(
+        {
+            "version": "1",
+            "goal_text": "Implement Verilog modules that pass testbench verification.",
+            "aggregation": "weighted_sum",
+            "criteria": [
+                {
+                    "id": "testbench_pass",
+                    "description": "Implementation passes all testbench tests.",
+                    "weight": 1.0,
+                }
+            ],
+        }
+    ),
 )
 
 

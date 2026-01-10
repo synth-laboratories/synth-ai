@@ -14,7 +14,7 @@ This module handles loading and resolving evaluation configuration from:
     url = "http://localhost:8103"
     env_name = "banking77"
     seeds = [0, 1, 2, 3, 4]
-    
+
     [eval.policy_config]
     model = "gpt-4"
     provider = "openai"
@@ -25,10 +25,10 @@ This module handles loading and resolving evaluation configuration from:
     [prompt_learning]
     task_app_id = "banking77"
     task_app_url = "http://localhost:8103"
-    
+
     [prompt_learning.gepa]
     env_name = "banking77"
-    
+
     [prompt_learning.gepa.evaluation]
     seeds = [0, 1, 2, 3, 4]
     ```
@@ -46,8 +46,6 @@ from typing import Any, Literal
 
 from synth_ai.sdk.api.train.configs.prompt_learning import PromptLearningConfig
 from synth_ai.sdk.api.train.utils import load_toml
-from synth_ai.sdk.task.contracts import RolloutMode
-
 
 SeedSet = Literal["seeds", "validation_seeds", "test_pool"]
 
@@ -55,23 +53,23 @@ SeedSet = Literal["seeds", "validation_seeds", "test_pool"]
 @dataclass(slots=True)
 class EvalRunConfig:
     """Configuration for evaluation runs.
-    
+
     This dataclass holds all configuration needed to execute an evaluation
     against a task app. Values can come from TOML config files, CLI arguments,
     or environment variables.
-    
+
     **Required Fields:**
         app_id: Task app identifier
         task_app_url: URL of running task app (or None to spawn locally)
         seeds: List of seeds/indices to evaluate
-        
+
     **Optional Fields:**
         env_name: Environment name (usually matches app_id)
         policy_config: Model and provider configuration
         backend_url: Backend URL for trace capture (enables backend mode)
         concurrency: Number of parallel rollouts
         return_trace: Whether to include traces in responses
-        
+
     **Example:**
         ```python
         config = EvalRunConfig(
@@ -86,6 +84,7 @@ class EvalRunConfig:
         )
         ```
     """
+
     app_id: str
     task_app_url: str | None
     task_app_api_key: str | None
@@ -95,7 +94,6 @@ class EvalRunConfig:
     policy_config: dict[str, Any] = field(default_factory=dict)
     seeds: list[int] = field(default_factory=list)
     ops: list[str] = field(default_factory=list)
-    mode: RolloutMode = RolloutMode.EVAL
     return_trace: bool = False
     trace_format: str = "compact"
     concurrency: int = 1
@@ -145,7 +143,6 @@ def _from_prompt_learning(
 ) -> EvalRunConfig:
     pl_cfg = PromptLearningConfig.from_mapping(raw)
     gepa = pl_cfg.gepa
-    mipro = pl_cfg.mipro
 
     eval_cfg = gepa.evaluation if gepa else None
     seeds = _select_seed_pool(
@@ -160,9 +157,6 @@ def _from_prompt_learning(
     if gepa:
         env_name = gepa.env_name
         env_config = dict(gepa.env_config or {})
-    elif mipro:
-        env_name = mipro.env_name
-        env_config = dict(mipro.env_config or {})
 
     policy_cfg: dict[str, Any] = {}
     if pl_cfg.policy:
@@ -245,19 +239,19 @@ def resolve_eval_config(
     metadata: dict[str, str],
 ) -> EvalRunConfig:
     """Resolve evaluation configuration from multiple sources.
-    
+
     Loads configuration from TOML file (if provided) and merges with CLI arguments.
     CLI arguments take precedence over config file values.
-    
+
     **Config File Formats:**
     - Legacy eval format: `[eval]` section
     - Prompt learning format: `[prompt_learning]` section
-    
+
     **Precedence Order:**
     1. CLI arguments (highest priority)
     2. Config file values
     3. Default values
-    
+
     Args:
         config_path: Path to TOML config file (optional)
         cli_app_id: App ID from CLI (overrides config)
@@ -268,13 +262,13 @@ def resolve_eval_config(
         cli_concurrency: Concurrency from CLI (overrides config)
         seed_set: Which seed pool to use ("seeds", "validation_seeds", "test_pool")
         metadata: Metadata key-value pairs for filtering
-        
+
     Returns:
         Resolved EvalRunConfig with all values merged.
-        
+
     Raises:
         FileNotFoundError: If config file is specified but doesn't exist.
-        
+
     Example:
         ```python
         config = resolve_eval_config(
@@ -291,7 +285,7 @@ def resolve_eval_config(
     if config_path is not None:
         raw = load_eval_toml(config_path)
 
-    if raw and ("prompt_learning" in raw or raw.get("algorithm") in {"gepa", "mipro"}):
+    if raw and ("prompt_learning" in raw or raw.get("algorithm") == "gepa"):
         resolved = _from_prompt_learning(raw, seed_set=seed_set)
     else:
         resolved = _from_legacy_eval(raw)

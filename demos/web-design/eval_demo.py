@@ -18,6 +18,7 @@ except ImportError as e:
 # Load .env
 try:
     from dotenv import load_dotenv
+
     env_file = Path(__file__).parent.parent.parent / ".env"
     if env_file.exists():
         load_dotenv(env_file)
@@ -48,34 +49,33 @@ async def main():
     print("=" * 80)
     print("WEB DESIGN EVAL - BASELINE TEST")
     print("=" * 80)
-    
+
     # Import from run_demo
     import sys
+
     sys.path.insert(0, str(Path(__file__).parent))
     from run_demo import create_web_design_local_api
+
     sys.path.pop(0)
-    
+
     print("Starting local API...")
     local_api = create_web_design_local_api(BASELINE_STYLE_PROMPT)
     port = 8103
-    
+
     # Start server (returns a thread)
-    server_thread = run_server_background(local_api, port=port)
-    
+    run_server_background(local_api, port=port)
+
     # Wait for server to be ready
     local_api_url = f"http://localhost:{port}"
     auth_headers = {
         "X-API-Key": ENVIRONMENT_API_KEY,
         "Content-Type": "application/json",
     }
-    
+
     for i in range(30):
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(
-                    f"{local_api_url}/health",
-                    headers=auth_headers
-                )
+                response = await client.get(f"{local_api_url}/health", headers=auth_headers)
                 if response.status_code == 200:
                     break
         except Exception:
@@ -84,18 +84,18 @@ async def main():
         await asyncio.sleep(1)
     else:
         raise RuntimeError("Local API failed to start after 30s")
-    
+
     print(f"✓ Local API running on port {port}")
     print()
-    
+
     # Submit eval job to backend
     test_seeds = [0, 1, 2]
     total_start = time.time()
-    
+
     print(f"Submitting eval job for {len(test_seeds)} seeds...")
-    
+
     backend_url = "http://localhost:8000"
-    
+
     eval_payload = {
         "job_type": "eval",
         "task_app_url": local_api_url,
@@ -116,7 +116,7 @@ async def main():
         "verifier_weight_outcome": 1.0,
         "verifier_timeout": 240.0,
     }
-    
+
     async with httpx.AsyncClient(timeout=600.0) as client:
         # Submit job
         response = await client.post(
@@ -127,37 +127,37 @@ async def main():
                 "Content-Type": "application/json",
             },
         )
-        
+
         if response.status_code != 200:
             print(f"✗ Failed to submit job: {response.status_code}")
             print(response.text[:500])
             return
-        
+
         job_data = response.json()
         job_id = job_data.get("job_id")
         print(f"✓ Job submitted: {job_id}")
         print()
-        
+
         # Poll for completion
         print("Polling for completion...")
         for _ in range(120):  # 10 min timeout
             await asyncio.sleep(5)
-            
+
             status_response = await client.get(
                 f"{backend_url}/api/eval/jobs/{job_id}",
                 headers={"Authorization": f"Bearer {SYNTH_API_KEY}"},
             )
-            
+
             if status_response.status_code != 200:
                 print(f"✗ Failed to get status: {status_response.status_code}")
                 break
-            
+
             status_data = status_response.json()
             status = status_data.get("status", "unknown")
-            
+
             elapsed = time.time() - total_start
             mins, secs = divmod(int(elapsed), 60)
-            
+
             if status in ["succeeded", "failed", "cancelled"]:
                 print(f"\r[{mins:02d}:{secs:02d}] {status}")
                 break
@@ -165,37 +165,41 @@ async def main():
                 results_info = status_data.get("results", {})
                 completed = results_info.get("completed", 0)
                 total = results_info.get("total", len(test_seeds))
-                print(f"\r[{mins:02d}:{secs:02d}] {status} | {completed}/{total} completed", end="", flush=True)
-        
+                print(
+                    f"\r[{mins:02d}:{secs:02d}] {status} | {completed}/{total} completed",
+                    end="",
+                    flush=True,
+                )
+
         total_time = time.time() - total_start
-        
+
         # Get final results
         results_response = await client.get(
             f"{backend_url}/api/eval/jobs/{job_id}/results",
             headers={"Authorization": f"Bearer {SYNTH_API_KEY}"},
         )
-        
+
         if results_response.status_code != 200:
             print(f"\n✗ Failed to get results: {results_response.status_code}")
             return
-        
+
         results_data = results_response.json()
-    
+
     # Print results
     print()
     print("=" * 80)
     print("RESULTS")
     print("=" * 80)
-    
+
     summary = results_data.get("summary", {})
     results_list = results_data.get("results", [])
-    
+
     print(f"Status: {status_data.get('status', 'unknown')}")
     print(f"Mean Score: {summary.get('mean_score', 'N/A')}")
     print(f"Total Cost: ${summary.get('total_cost_usd', 0.0):.4f}")
     print(f"Total Time: {total_time:.1f}s")
     print()
-    
+
     if results_list:
         print("Per-Example Results:")
         for r in results_list:
@@ -203,13 +207,12 @@ async def main():
             score = r.get("score", "N/A")
             cost = r.get("cost_usd", 0.0)
             print(f"  Seed {seed}: score={score} cost=${cost:.4f}")
-    
+
     print()
     print("=" * 80)
-    
+
     # Note: Server thread will clean up automatically
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-

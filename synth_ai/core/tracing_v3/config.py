@@ -38,14 +38,14 @@ def _normalise_path(path: Path) -> Path:
 
 def _is_modal_environment() -> bool:
     """Detect if running in Modal container.
-    
+
     Modal automatically sets MODAL_IS_REMOTE=1 in all deployed containers.
     We check this first, then fall back to other Modal env vars.
     """
     # Modal sets this in all deployed containers
     if os.getenv("MODAL_IS_REMOTE") == "1":
         return True
-    
+
     # Additional Modal env vars as fallback
     return bool(
         os.getenv("MODAL_TASK_ID")
@@ -92,6 +92,7 @@ def resolve_trace_db_settings(*, ensure_dir: bool = True) -> tuple[str, str | No
       5. Local dev: sqld default
     """
     import logging
+
     logger = logging.getLogger(__name__)
 
     explicit = os.getenv("SYNTH_TRACES_DB")
@@ -129,7 +130,9 @@ def resolve_trace_db_settings(*, ensure_dir: bool = True) -> tuple[str, str | No
 
     # Modal environment: use plain SQLite file (no sqld daemon, no auth required)
     is_modal = _is_modal_environment()
-    logger.info(f"[TRACE_CONFIG] Modal detection: {is_modal} (MODAL_IS_REMOTE={os.getenv('MODAL_IS_REMOTE')})")
+    logger.info(
+        f"[TRACE_CONFIG] Modal detection: {is_modal} (MODAL_IS_REMOTE={os.getenv('MODAL_IS_REMOTE')})"
+    )
     if is_modal:
         logger.info("[TRACE_CONFIG] Using Modal SQLite: file:/tmp/synth_traces.db")
         return "file:/tmp/synth_traces.db", None

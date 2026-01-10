@@ -215,9 +215,9 @@ class GEPAProgressTracker:
             return
 
         banner = f"""
-{'=' * 60}
+{"=" * 60}
 GEPA Optimization Progress - {self.env_name}
-{'=' * 60}"""
+{"=" * 60}"""
         print(banner)
 
     def _print(self, msg: str) -> None:
@@ -277,18 +277,22 @@ GEPA Optimization Progress - {self.env_name}
             self._handle_termination(parsed)
         elif isinstance(parsed, UsageEvent):
             self._handle_usage(parsed)
-        elif parsed.category == EventCategory.VALIDATION or parsed.category == EventCategory.UNKNOWN and (
-            parsed.data.get("baseline_val_accuracy") is not None or
-            parsed.data.get("is_baseline") is True or
-            "validation" in parsed.event_type.lower()
-        ):
-            self._handle_validation(parsed)
-        # ✅ ADD: Also handle job.event type events that contain validation data
-        # (postgrest_emitter wraps events as job.event, so we need to check data for validation indicators)
-        elif parsed.category == EventCategory.UNKNOWN and (
-            parsed.data.get("baseline_val_accuracy") is not None or
-            parsed.data.get("is_baseline") is True or
-            "validation" in parsed.event_type.lower()
+        elif (
+            (
+                parsed.category == EventCategory.VALIDATION
+                or parsed.category == EventCategory.UNKNOWN
+                and (
+                    parsed.data.get("baseline_val_accuracy") is not None
+                    or parsed.data.get("is_baseline") is True
+                    or "validation" in parsed.event_type.lower()
+                )
+            )
+            or parsed.category == EventCategory.UNKNOWN
+            and (
+                parsed.data.get("baseline_val_accuracy") is not None
+                or parsed.data.get("is_baseline") is True
+                or "validation" in parsed.event_type.lower()
+            )
         ):
             self._handle_validation(parsed)
 
@@ -309,13 +313,17 @@ GEPA Optimization Progress - {self.env_name}
         """Handle candidate evaluation event."""
         # Check if this is a baseline candidate
         is_baseline = event.data.get("is_baseline", False) or event.data.get("parent_id") is None
-        
+
         # Extract baseline info from baseline candidate events
         if is_baseline and not self.baseline:
             instance_scores = event.data.get("instance_scores", [])
             seeds_evaluated = event.data.get("seeds_evaluated", [])
-            prompt = event.data.get("prompt") or event.data.get("prompt_text") or event.data.get("transformation")
-            
+            prompt = (
+                event.data.get("prompt")
+                or event.data.get("prompt_text")
+                or event.data.get("transformation")
+            )
+
             self.baseline = BaselineInfo(
                 accuracy=event.accuracy,
                 instance_scores=instance_scores if isinstance(instance_scores, list) else [],
@@ -324,11 +332,11 @@ GEPA Optimization Progress - {self.env_name}
             )
             if event.accuracy is not None:
                 self.progress.baseline_score = event.accuracy
-            
+
             if self.display_mode != DisplayMode.SILENT:
                 acc_str = f"{event.accuracy:.2%}" if event.accuracy else "N/A"
                 self._print(f"Baseline: {acc_str}")
-        
+
         # Avoid duplicates
         if event.candidate_id in self._candidate_ids:
             return
@@ -370,9 +378,7 @@ GEPA Optimization Progress - {self.env_name}
         if self.display_mode != DisplayMode.SILENT:
             lift = self.progress.lift
             lift_str = f" (lift: {lift:+.2%})" if lift is not None else ""
-            self._print(
-                f"Frontier [{event.frontier_size}]: best={event.best_score:.2%}{lift_str}"
-            )
+            self._print(f"Frontier [{event.frontier_size}]: best={event.best_score:.2%}{lift_str}")
 
     def _handle_progress(self, event: ProgressEvent) -> None:
         """Handle progress update event."""
@@ -495,7 +501,11 @@ GEPA Optimization Progress - {self.env_name}
         print()
 
         print("Scoring Summary:")
-        print(f"  Baseline:     {self.baseline_score:.2%}" if self.baseline_score else "  Baseline:     N/A")
+        print(
+            f"  Baseline:     {self.baseline_score:.2%}"
+            if self.baseline_score
+            else "  Baseline:     N/A"
+        )
         print(f"  Best:         {self.best_score:.2%}")
         if self.progress.lift is not None:
             print(f"  Lift:         {self.progress.lift:+.2%}")
@@ -509,7 +519,9 @@ GEPA Optimization Progress - {self.env_name}
         print(f"  Finish:       {self.progress.finish_reason or 'N/A'}")
         print()
 
-        print(f"Time: {self.progress.elapsed_seconds:.1f}s ({self.progress.elapsed_seconds/60:.1f} min)")
+        print(
+            f"Time: {self.progress.elapsed_seconds:.1f}s ({self.progress.elapsed_seconds / 60:.1f} min)"
+        )
 
         if self.usage_data:
             total = self.usage_data.get("total_usd", 0)
@@ -545,8 +557,7 @@ GEPA Optimization Progress - {self.env_name}
             # Add stages (first-class program structure)
             if c.stages:
                 candidate_dict["stages"] = {
-                    stage_id: stage.to_dict()
-                    for stage_id, stage in c.stages.items()
+                    stage_id: stage.to_dict() for stage_id, stage in c.stages.items()
                 }
 
             # Add seed_scores

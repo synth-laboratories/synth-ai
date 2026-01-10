@@ -30,9 +30,10 @@ class GraphType(str, Enum):
            it out of prompts and searching via tools. Auto-adds materialize_context,
            local_grep, local_search, query_lm, and codex_exec tools.
     """
-    POLICY = "policy"      # Maps inputs to outputs, solves tasks
+
+    POLICY = "policy"  # Maps inputs to outputs, solves tasks
     VERIFIER = "verifier"  # Judges/scores existing results
-    RLM = "rlm"            # Recursive LM - massive context via tool search
+    RLM = "rlm"  # Recursive LM - massive context via tool search
 
 
 class GraphPattern(str, Enum):
@@ -64,6 +65,7 @@ class GraphPattern(str, Enum):
     - DIGEST_COMBINE: Two-stage: digest in parallel, then combine.
            Good for: verifiers analyzing multiple aspects.
     """
+
     RLM = "rlm"
     MAP_REDUCE = "map_reduce"
     SINGLE_SHOT = "single_shot"
@@ -96,17 +98,17 @@ class PatternConfig(BaseModel):
         - Tools are auto-added: materialize_context, local_grep, local_search, etc.
         - Proposer receives RLM-specific guidance for tool-based search patterns
     """
+
     required: List[str] = Field(
         default_factory=list,
-        description="Patterns the graph MUST use. Proposer will incorporate all required patterns."
+        description="Patterns the graph MUST use. Proposer will incorporate all required patterns.",
     )
     optional: List[str] = Field(
         default_factory=list,
-        description="Patterns the proposer MAY consider. These are suggestions, not requirements."
+        description="Patterns the proposer MAY consider. These are suggestions, not requirements.",
     )
     prefer: List[str] = Field(
-        default_factory=list,
-        description="Patterns to prefer when multiple options are viable."
+        default_factory=list, description="Patterns to prefer when multiple options are viable."
     )
 
     def to_api_dict(self) -> Dict[str, Any]:
@@ -120,13 +122,15 @@ class PatternConfig(BaseModel):
 
 class GraphStructure(str, Enum):
     """Structural complexity of the graph."""
+
     SINGLE_PROMPT = "single_prompt"  # One LLM call, minimal structure
-    DAG = "dag"                      # Multiple nodes in sequence, no branching
-    CONDITIONAL = "conditional"      # Full graph with conditional branching
+    DAG = "dag"  # Multiple nodes in sequence, no branching
+    CONDITIONAL = "conditional"  # Full graph with conditional branching
 
 
 class ProposerConfig(BaseModel):
     """Configuration for the LLM proposer."""
+
     model: str = Field(default="gpt-4.1", description="Model for proposing patches")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=4096, gt=0)
@@ -134,41 +138,51 @@ class ProposerConfig(BaseModel):
 
 class EvolutionConfig(BaseModel):
     """Evolution algorithm parameters."""
+
     num_generations: int = Field(default=5, ge=1, description="Number of evolution generations")
     children_per_generation: int = Field(default=3, ge=1, description="Children per generation")
 
 
 class SeedsConfig(BaseModel):
     """Train and validation seed configuration."""
+
     train: List[int] = Field(default_factory=lambda: list(range(10)))
     validation: List[int] = Field(default_factory=lambda: list(range(100, 105)))
 
 
 class LimitsConfig(BaseModel):
     """Resource limits for the job."""
+
     max_spend_usd: float = Field(default=10.0, gt=0)
     timeout_seconds: int = Field(default=3600, gt=0)
 
 
 class IndifferencePointConfig(BaseModel):
     """Defines trade-off equivalences at a specific anchor point.
-    
+
     Example: At 80% accuracy, 2s latency, $0.50 cost:
       - +2% accuracy change is equivalent to -0.4s latency or -$0.10 cost
       - Differences below 0.5% accuracy are considered noise
     """
+
     # Anchor point (where trade-offs are defined)
     reward: float = Field(..., description="Anchor reward (e.g., 0.80 for 80%)")
     latency_s: float = Field(..., description="Anchor latency in seconds")
     cost_usd: float = Field(..., description="Anchor cost per seed in USD")
-    
+
     # Trade-off equivalences at this anchor
     reward_delta: float = Field(default=0.02, description="Reward change considered equivalent")
-    latency_delta: float = Field(default=0.4, description="Latency change (s) equivalent to reward_delta")
-    cost_delta: float = Field(default=0.10, description="Cost change ($) equivalent to reward_delta")
-    
+    latency_delta: float = Field(
+        default=0.4, description="Latency change (s) equivalent to reward_delta"
+    )
+    cost_delta: float = Field(
+        default=0.10, description="Cost change ($) equivalent to reward_delta"
+    )
+
     # Noise floors for each objective (differences smaller than these are ignored)
-    reward_noise: float = Field(default=0.005, description="Reward diffs below this are noise (e.g., 0.5%)")
+    reward_noise: float = Field(
+        default=0.005, description="Reward diffs below this are noise (e.g., 0.5%)"
+    )
     latency_noise: float = Field(default=0.1, description="Latency diffs below this (s) are noise")
     cost_noise: float = Field(default=0.01, description="Cost diffs below this ($) are noise")
 
@@ -181,23 +195,35 @@ class ParetoFloorsConfig(BaseModel):
     2. Soft floors below which differences are ignored (indifference regions)
     3. Hard ceilings that disqualify candidates entirely (budget constraints)
     """
+
     # Enable/disable objectives in Pareto comparison
     use_latency: bool = Field(default=True, description="Include latency in Pareto comparison")
     use_cost: bool = Field(default=True, description="Include cost in Pareto comparison")
 
     # Soft floors: below these, all values are "equally good"
-    latency_s: float = Field(default=2.0, description="Don't discriminate on latency below this (s)")
-    cost_usd: float = Field(default=0.10, description="Don't discriminate on cost below this ($/seed)")
+    latency_s: float = Field(
+        default=2.0, description="Don't discriminate on latency below this (s)"
+    )
+    cost_usd: float = Field(
+        default=0.10, description="Don't discriminate on cost below this ($/seed)"
+    )
 
     # Hard ceilings: disqualify candidates exceeding these limits
-    max_latency_s: Optional[float] = Field(default=None, description="Disqualify if mean latency > this")
-    max_cost_usd: Optional[float] = Field(default=None, description="Disqualify if mean cost/seed > this")
-    min_reward: Optional[float] = Field(default=None, description="Disqualify if mean reward < this")
+    max_latency_s: Optional[float] = Field(
+        default=None, description="Disqualify if mean latency > this"
+    )
+    max_cost_usd: Optional[float] = Field(
+        default=None, description="Disqualify if mean cost/seed > this"
+    )
+    min_reward: Optional[float] = Field(
+        default=None, description="Disqualify if mean reward < this"
+    )
 
 
 # ============================================================================
 # Graph Opt Dataset Format Models
 # ============================================================================
+
 
 class TaskInput(BaseModel):
     """A single task/example in a Graph Opt dataset.
@@ -224,6 +250,7 @@ class TaskInput(BaseModel):
             }
         }
     """
+
     task_id: Optional[str] = Field(default=None, description="Unique identifier for this task")
     id: Optional[str] = Field(default=None, description="Alternate ID field (task_id preferred)")
     input: Dict[str, Any] = Field(..., description="Input data passed to the graph")
@@ -262,6 +289,7 @@ class GoldOutput(BaseModel):
             "score": 0.75  # Human calibration score
         }
     """
+
     task_id: Optional[str] = Field(default=None, description="Must match a TaskInput.task_id")
     output: Dict[str, Any] = Field(default_factory=dict, description="Expected output fields")
     score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Gold score (0.0-1.0)")
@@ -272,10 +300,17 @@ class GraphOptDatasetMetadata(BaseModel):
 
     Provides context for graph generation and optimization.
     """
+
     name: Optional[str] = Field(default=None, description="Dataset name/identifier")
-    task_description: Optional[str] = Field(default=None, description="What task this dataset represents")
-    input_schema: Optional[Dict[str, Any]] = Field(default=None, description="Schema of task inputs")
-    output_schema: Optional[Dict[str, Any]] = Field(default=None, description="Schema of expected outputs")
+    task_description: Optional[str] = Field(
+        default=None, description="What task this dataset represents"
+    )
+    input_schema: Optional[Dict[str, Any]] = Field(
+        default=None, description="Schema of task inputs"
+    )
+    output_schema: Optional[Dict[str, Any]] = Field(
+        default=None, description="Schema of expected outputs"
+    )
     output_config: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Output validation configuration (schema/format/extraction/strictness)",
@@ -305,8 +340,11 @@ class GraphOptDataset(BaseModel):
             }
         }
     """
+
     tasks: List[TaskInput] = Field(..., min_length=1, description="List of tasks/examples")
-    gold_outputs: List[GoldOutput] = Field(..., min_length=1, description="Ground truth for each task")
+    gold_outputs: List[GoldOutput] = Field(
+        ..., min_length=1, description="Ground truth for each task"
+    )
     metadata: GraphOptDatasetMetadata = Field(default_factory=GraphOptDatasetMetadata)
 
     @field_validator("tasks", mode="before")
@@ -339,23 +377,19 @@ class GraphOptDataset(BaseModel):
         # Check for gold outputs without matching tasks
         orphan_golds = gold_task_ids - task_ids
         if orphan_golds:
-            warnings.append(
-                f"Gold outputs reference unknown task IDs: {list(orphan_golds)[:5]}"
-            )
+            warnings.append(f"Gold outputs reference unknown task IDs: {list(orphan_golds)[:5]}")
 
         # Check for tasks without gold outputs
         missing_golds = task_ids - gold_task_ids
         if missing_golds:
-            warnings.append(
-                f"Tasks without gold outputs: {list(missing_golds)[:5]}"
-            )
+            warnings.append(f"Tasks without gold outputs: {list(missing_golds)[:5]}")
 
         return warnings
 
 
 class GraphOptimizationConfig(BaseModel):
     """Complete configuration for a graph optimization job.
-    
+
     Example TOML:
         [graph_optimization]
         algorithm = "graph_gepa"
@@ -363,42 +397,44 @@ class GraphOptimizationConfig(BaseModel):
         graph_type = "policy"
         graph_structure = "dag"
         use_byok = true  # Use your own API keys for rollouts
-        
+
         [graph_optimization.evolution]
         num_generations = 5
         children_per_generation = 3
-        
+
         [graph_optimization.proposer]
         model = "gpt-4.1"
-        
+
         [graph_optimization.seeds]
         train = [0, 1, 2, 3, 4]
         validation = [100, 101, 102]
-        
+
         [graph_optimization.limits]
         max_spend_usd = 10.0
-    
+
     Attributes:
         use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
             False = disable (use Synth credits), None = auto-detect based on org settings.
             When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
             instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
     """
-    
+
     # Algorithm selection
-    algorithm: str = Field(default="graph_gepa", description="Optimization algorithm (currently: 'graph_gepa')")
-    
+    algorithm: str = Field(
+        default="graph_gepa", description="Optimization algorithm (currently: 'graph_gepa')"
+    )
+
     # Required
     dataset_name: str = Field(..., description="Dataset to optimize for (e.g., 'hotpotqa')")
-    
+
     # Graph configuration
     graph_type: GraphType = Field(default=GraphType.POLICY)
     graph_structure: GraphStructure = Field(default=GraphStructure.DAG)
-    
+
     # Custom topology guidance (adds detail to graph_structure, doesn't replace it)
     topology_guidance: Optional[str] = Field(
         default=None,
-        description="Additional guidance on what kind of graph to build within the chosen structure (e.g., 'Use a single LLM call that reasons and answers in one shot')"
+        description="Additional guidance on what kind of graph to build within the chosen structure (e.g., 'Use a single LLM call that reasons and answers in one shot')",
     )
 
     # Pattern configuration - architectural patterns orthogonal to graph_type
@@ -408,7 +444,7 @@ class GraphOptimizationConfig(BaseModel):
             "Configure which architectural patterns the proposer should use/consider. "
             "Patterns are orthogonal to graph_type - you can have an RLM-pattern verifier. "
             "Example: patterns=PatternConfig(required=['rlm']) for RLM-style verifier."
-        )
+        ),
     )
 
     # Optional warm start from a saved graph in the registry
@@ -420,25 +456,23 @@ class GraphOptimizationConfig(BaseModel):
     # Allowed policy models - which models the generated graph can use
     allowed_policy_models: List[str] = Field(
         default_factory=lambda: ["gpt-4o-mini", "gpt-4o"],
-        description="Models the graph is allowed to use in its nodes"
+        description="Models the graph is allowed to use in its nodes",
     )
-    
+
     # Nested configs
     evolution: EvolutionConfig = Field(default_factory=EvolutionConfig)
     proposer: ProposerConfig = Field(default_factory=ProposerConfig)
     seeds: SeedsConfig = Field(default_factory=SeedsConfig)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
-    
+
     # Multi-objective Pareto configuration
     indifference_points: List[IndifferencePointConfig] = Field(
-        default_factory=list,
-        description="Trade-off equivalences at anchor points"
+        default_factory=list, description="Trade-off equivalences at anchor points"
     )
     pareto_floors: Optional[ParetoFloorsConfig] = Field(
-        default=None,
-        description="Thresholds below which metric differences are ignored"
+        default=None, description="Thresholds below which metric differences are ignored"
     )
-    
+
     # Optional dataset-specific config
     dataset_config: Dict[str, Any] = Field(default_factory=dict)
 
@@ -449,18 +483,21 @@ class GraphOptimizationConfig(BaseModel):
         description="Maximum LLM calls allowed per graph execution (e.g., 1, 2, 5).",
     )
 
-    
     # Inline dataset upload (for verifier calibration, custom datasets)
     # Format: {"name": str, "task_description": str, "examples": [...]}
     dataset: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Inline dataset for upload (GraphGen format). If provided, dataset_name is used as identifier."
+        description="Inline dataset for upload (GraphGen format). If provided, dataset_name is used as identifier.",
     )
-    
+
     # Task context for initial graph generation (when dataset doesn't provide it)
     task_description: Optional[str] = Field(default=None, description="Description of the task")
-    input_schema: Optional[Dict[str, Any]] = Field(default=None, description="Expected input format")
-    output_schema: Optional[Dict[str, Any]] = Field(default=None, description="Expected output format")
+    input_schema: Optional[Dict[str, Any]] = Field(
+        default=None, description="Expected input format"
+    )
+    output_schema: Optional[Dict[str, Any]] = Field(
+        default=None, description="Expected output format"
+    )
     output_config: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Output validation configuration (schema/format/extraction/strictness)",
@@ -475,13 +512,15 @@ class GraphOptimizationConfig(BaseModel):
             "Include domain-specific information like valid output labels, constraints, "
             "and any other information needed to generate correct graphs. "
             "If provided, this is combined with task_description for the proposer context."
-        )
+        ),
     )
-    
+
     # Scoring configuration
-    verifier_mode: str = Field(default="rubric", description="Verifier mode: 'rubric', 'contrastive', 'fewshot'")
+    verifier_mode: str = Field(
+        default="rubric", description="Verifier mode: 'rubric', 'contrastive', 'fewshot'"
+    )
     verifier_model: str = Field(default="gpt-4o-mini", description="Model for LLM verifier scoring")
-    
+
     # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
     use_byok: Optional[bool] = Field(
         default=None,
@@ -492,31 +531,31 @@ class GraphOptimizationConfig(BaseModel):
             "instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint."
         ),
     )
-    
+
     @field_validator("graph_type", mode="before")
     @classmethod
     def validate_graph_type(cls, v: Any) -> GraphType:
         if isinstance(v, str):
             return GraphType(v.lower())
         return v
-    
+
     @field_validator("graph_structure", mode="before")
     @classmethod
     def validate_graph_structure(cls, v: Any) -> GraphStructure:
         if isinstance(v, str):
             return GraphStructure(v.lower())
         return v
-    
+
     @classmethod
-    def from_toml(cls, path: str | Path) -> "GraphOptimizationConfig":
+    def from_toml(cls, path: str | Path) -> GraphOptimizationConfig:
         """Load configuration from a TOML file.
-        
+
         Args:
             path: Path to the TOML configuration file
-            
+
         Returns:
             Parsed GraphOptimizationConfig
-            
+
         Raises:
             FileNotFoundError: If config file doesn't exist
             ValueError: If config is invalid
@@ -524,23 +563,23 @@ class GraphOptimizationConfig(BaseModel):
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
-        
+
         with open(path, "rb") as f:
             data = tomllib.load(f)
-        
+
         # Extract graph_optimization section
         if "graph_optimization" not in data:
             raise ValueError(
                 f"Config file must have a [graph_optimization] section. "
                 f"Found sections: {list(data.keys())}"
             )
-        
+
         config_data = data["graph_optimization"]
         return cls(**config_data)
-    
+
     def to_request_dict(self) -> Dict[str, Any]:
         """Convert config to API request format.
-        
+
         Returns:
             Dictionary suitable for POST to /graph-gepa/jobs
         """
@@ -563,7 +602,7 @@ class GraphOptimizationConfig(BaseModel):
 
         if self.max_llm_calls_per_run is not None:
             request["max_llm_calls_per_run"] = int(self.max_llm_calls_per_run)
-        
+
         # Only include topology_guidance if set
         if self.topology_guidance:
             request["topology_guidance"] = self.topology_guidance
@@ -574,7 +613,7 @@ class GraphOptimizationConfig(BaseModel):
 
         if self.initial_graph_id:
             request["initial_graph_id"] = self.initial_graph_id
-        
+
         # Inline dataset upload (for verifier calibration, custom datasets)
         if self.dataset:
             # Validate dataset structure using Pydantic model
@@ -584,6 +623,7 @@ class GraphOptimizationConfig(BaseModel):
                 warnings = validated.validate_task_ids()
                 if warnings:
                     import logging
+
                     logger = logging.getLogger(__name__)
                     for w in warnings:
                         logger.warning(f"[GraphOptDataset] {w}")
@@ -593,9 +633,9 @@ class GraphOptimizationConfig(BaseModel):
                     f"Expected format: {{'tasks': [...], 'gold_outputs': [...], 'metadata': {{...}}}}\n"
                     f"See GraphOptDataset model for full schema.\n"
                     f"Got keys: {list(self.dataset.keys())}"
-                )
+                ) from e
             request["dataset"] = self.dataset
-        
+
         # Task context for initial graph generation
         if self.task_description:
             request["task_description"] = self.task_description
@@ -610,12 +650,10 @@ class GraphOptimizationConfig(BaseModel):
 
         # Include indifference points for epsilon-Pareto dominance
         if self.indifference_points:
-            request["indifference_points"] = [
-                p.model_dump() for p in self.indifference_points
-            ]
-        
+            request["indifference_points"] = [p.model_dump() for p in self.indifference_points]
+
         # Include pareto floors for noise reduction
         if self.pareto_floors:
             request["pareto_floors"] = self.pareto_floors.model_dump()
-        
+
         return request

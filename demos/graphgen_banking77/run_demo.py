@@ -31,13 +31,25 @@ USAGE:
 # ==============================================================================
 # STEP 0: IMPORTS AND CLI CONFIGURATION
 # ==============================================================================
-# We parse CLI args early so we can configure the backend URL before other imports.
 
 import argparse
 import os
 import random
-import sys
+import time
 
+import httpx
+from datasets import load_dataset
+from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.sdk.api.train.graphgen import GraphGenJob
+from synth_ai.sdk.api.train.graphgen_models import (
+    GraphGenGoldOutput,
+    GraphGenTask,
+    GraphGenTaskSet,
+    GraphGenTaskSetMetadata,
+    GraphGenVerifierConfig,
+)
+
+# Parse CLI args to configure the backend URL
 parser = argparse.ArgumentParser(description="Run Banking77 Graph Optimization demo")
 parser.add_argument(
     "--local",
@@ -60,33 +72,13 @@ args = parser.parse_args()
 LOCAL_MODE = args.local
 LOCAL_HOST = args.local_host
 
-# Standard library imports
-import json
-import time
-from pathlib import Path
-
-# Third-party imports
-import httpx
-from datasets import load_dataset
-
-# Synth SDK imports
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
-from synth_ai.sdk.api.train.graphgen import GraphGenJob
-from synth_ai.sdk.api.train.graphgen_models import (
-    GraphGenTaskSet,
-    GraphGenTaskSetMetadata,
-    GraphGenTask,
-    GraphGenGoldOutput,
-    GraphGenVerifierConfig,
-)
-
-
 # ==============================================================================
 # STEP 1: BACKEND CONFIGURATION
 # ==============================================================================
 # GraphGen runs as a backend service. You can use either:
 # - Production: api.usesynth.ai (default, requires API key)
 # - Local: localhost:8000 (for development/testing)
+
 
 def setup_backend() -> str:
     """Configure and verify the backend connection.
@@ -110,7 +102,7 @@ def setup_backend() -> str:
     # Verify backend is healthy before proceeding
     print("\nChecking backend health...")
     try:
-        r = httpx.get(f'{backend_url}/health', timeout=30)
+        r = httpx.get(f"{backend_url}/health", timeout=30)
         if r.status_code == 200:
             print(f"  Backend healthy: {r.json()}")
         else:
@@ -129,23 +121,27 @@ def setup_backend() -> str:
 # - Set SYNTH_API_KEY environment variable for production use
 # - Or we'll mint a temporary demo key for testing
 
-def setup_api_key() -> str:
+
+def setup_api_key(backend_url: str | None = None) -> str:
     """Get or create an API key for authentication.
+
+    Args:
+        backend_url: Backend URL to use for minting demo keys (defaults to PROD_BASE_URL)
 
     Returns:
         The API key string
     """
-    api_key = os.environ.get('SYNTH_API_KEY', '')
+    api_key = os.environ.get("SYNTH_API_KEY", "")
 
     if api_key:
         print(f"\nUsing existing SYNTH_API_KEY: {api_key[:20]}...")
     else:
         print("\nNo SYNTH_API_KEY found, minting demo key...")
-        api_key = mint_demo_api_key()
+        api_key = mint_demo_api_key(backend_url=backend_url)
         print(f"  Demo API Key: {api_key[:25]}...")
 
     # Set in environment for SDK to use automatically
-    os.environ['SYNTH_API_KEY'] = api_key
+    os.environ["SYNTH_API_KEY"] = api_key
     return api_key
 
 
@@ -164,9 +160,9 @@ def setup_api_key() -> str:
 # 5. Verifier Config: How to evaluate graph outputs (rubric, exact_match, etc.)
 # 6. Problem Spec: Natural language description for the graph proposer
 
+
 def build_banking77_graphgen_dataset(
-    num_train_tasks: int = 50,
-    num_test_tasks: int = 20
+    num_train_tasks: int = 50, num_test_tasks: int = 20
 ) -> tuple[GraphGenTaskSet, list[str]]:
     """Build a GraphGenTaskSet from the Banking77 dataset.
 
@@ -192,9 +188,9 @@ def build_banking77_graphgen_dataset(
     test_ds = load_dataset("banking77", split="test", trust_remote_code=False)
 
     # Extract label names (the 77 intent categories)
-    label_names = train_ds.features["label"].names if hasattr(
-        train_ds.features.get("label"), "names"
-    ) else []
+    label_names = (
+        train_ds.features["label"].names if hasattr(train_ds.features.get("label"), "names") else []
+    )
 
     print(f"  Train size: {len(train_ds)}")
     print(f"  Test size: {len(test_ds)}")
@@ -207,12 +203,12 @@ def build_banking77_graphgen_dataset(
     # not just sequential examples which might be clustered by class.
     print("\n[3b] Sampling diverse subset...")
 
-    TOTAL_DATASET_SIZE = min(10000, len(train_ds))
-    TOTAL_TEST_SIZE = min(5000, len(test_ds))
+    total_dataset_size = min(10000, len(train_ds))
+    total_test_size = min(5000, len(test_ds))
 
     # Shuffle all indices, then take the first N
-    all_train_indices = list(range(TOTAL_DATASET_SIZE))
-    all_test_indices = list(range(TOTAL_TEST_SIZE))
+    all_train_indices = list(range(total_dataset_size))
+    all_test_indices = list(range(total_test_size))
     random.shuffle(all_train_indices)
     random.shuffle(all_test_indices)
 
@@ -230,23 +226,31 @@ def build_banking77_graphgen_dataset(
     for dataset_idx in selected_train_indices:
         row = train_ds[dataset_idx]
         label_idx = int(row.get("label", 0))
-        label_text = label_names[label_idx] if label_idx < len(label_names) else f"label_{label_idx}"
-        all_examples.append({
-            "query": str(row.get("text", "")),
-            "intent": label_text,
-            "source": "train",
-        })
+        label_text = (
+            label_names[label_idx] if label_idx < len(label_names) else f"label_{label_idx}"
+        )
+        all_examples.append(
+            {
+                "query": str(row.get("text", "")),
+                "intent": label_text,
+                "source": "train",
+            }
+        )
 
     # Process test examples
     for dataset_idx in selected_test_indices:
         row = test_ds[dataset_idx]
         label_idx = int(row.get("label", 0))
-        label_text = label_names[label_idx] if label_idx < len(label_names) else f"label_{label_idx}"
-        all_examples.append({
-            "query": str(row.get("text", "")),
-            "intent": label_text,
-            "source": "test",
-        })
+        label_text = (
+            label_names[label_idx] if label_idx < len(label_names) else f"label_{label_idx}"
+        )
+        all_examples.append(
+            {
+                "query": str(row.get("text", "")),
+                "intent": label_text,
+                "source": "test",
+            }
+        )
 
     # Shuffle to mix train/test
     random.shuffle(all_examples)
@@ -271,16 +275,20 @@ def build_banking77_graphgen_dataset(
         task_id = f"task_{task_idx}"
 
         # The task contains only the INPUT (what the graph will receive)
-        tasks.append(GraphGenTask(
-            id=task_id,
-            input={"query": example["query"]},
-        ))
+        tasks.append(
+            GraphGenTask(
+                id=task_id,
+                input={"query": example["query"]},
+            )
+        )
 
         # The gold output contains the EXPECTED OUTPUT (for evaluation)
-        gold_outputs.append(GraphGenGoldOutput(
-            task_id=task_id,
-            output={"intent": example["intent"]},
-        ))
+        gold_outputs.append(
+            GraphGenGoldOutput(
+                task_id=task_id,
+                output={"intent": example["intent"]},
+            )
+        )
 
     # -------------------------------------------------------------------------
     # 3e. Define input and output schemas
@@ -294,12 +302,9 @@ def build_banking77_graphgen_dataset(
     input_schema = {
         "type": "object",
         "properties": {
-            "query": {
-                "type": "string",
-                "description": "Customer banking query to classify"
-            }
+            "query": {"type": "string", "description": "Customer banking query to classify"}
         },
-        "required": ["query"]
+        "required": ["query"],
     }
 
     output_schema = {
@@ -308,10 +313,10 @@ def build_banking77_graphgen_dataset(
             "intent": {
                 "type": "string",
                 "description": "Predicted banking intent label",
-                "enum": label_names  # Constrain to valid labels
+                "enum": label_names,  # Constrain to valid labels
             }
         },
-        "required": ["intent"]
+        "required": ["intent"],
     }
 
     # -------------------------------------------------------------------------
@@ -326,8 +331,8 @@ def build_banking77_graphgen_dataset(
     print("\n[3f] Configuring verifier...")
 
     verifier_config = GraphGenVerifierConfig(
-        mode="rubric",           # Use LLM to judge correctness
-        model="gpt-4o-mini",     # Fast, cheap model for verification
+        mode="rubric",  # Use LLM to judge correctness
+        model="gpt-4o-mini",  # Fast, cheap model for verification
         provider="openai",
     )
 
@@ -357,7 +362,7 @@ def build_banking77_graphgen_dataset(
         select_output="intent",
     )
 
-    print(f"\n  Dataset ready!")
+    print("\n  Dataset ready!")
     print(f"  Total tasks: {len(tasks)} ({num_train_tasks} train, {num_test_tasks} test)")
     print(f"  Gold outputs: {len(gold_outputs)}")
     print(f"  Verifier mode: {verifier_config.mode}")
@@ -376,6 +381,7 @@ def build_banking77_graphgen_dataset(
 # - proposer_effort: How hard the proposer tries ("low", "medium", "high")
 # - num_generations: Number of evolution rounds
 # - problem_spec: Natural language description of the task
+
 
 def create_graphgen_job(
     dataset: GraphGenTaskSet,
@@ -447,7 +453,7 @@ def create_graphgen_job(
         auto_start=True,
     )
 
-    print(f"\n  Job configured:")
+    print("\n  Job configured:")
     print(f"    Graph type: {job.config.graph_type}")
     print(f"    Policy models: {job.config.policy_models}")
     print(f"    Rollout budget: {job.config.rollout_budget}")
@@ -466,6 +472,7 @@ def create_graphgen_job(
 # 3. Select the best performers and evolve them
 # 4. Repeat for num_generations
 # 5. Return the best-performing graph
+
 
 def submit_and_monitor(job: GraphGenJob) -> tuple[dict, float]:
     """Submit the job and stream progress until completion.
@@ -499,8 +506,8 @@ def submit_and_monitor(job: GraphGenJob) -> tuple[dict, float]:
     start_time = time.time()
 
     result = job.stream_until_complete(
-        timeout=3600.0,    # Max 1 hour
-        interval=3.0,      # Poll every 3 seconds
+        timeout=3600.0,  # Max 1 hour
+        interval=3.0,  # Poll every 3 seconds
     )
 
     duration = time.time() - start_time
@@ -515,6 +522,7 @@ def submit_and_monitor(job: GraphGenJob) -> tuple[dict, float]:
 # - View the best score achieved
 # - Download the optimized graph specification
 # - Run inference with the optimized graph
+
 
 def display_results(job: GraphGenJob, result: dict, duration: float):
     """Display optimization results and demonstrate inference.
@@ -534,15 +542,15 @@ def display_results(job: GraphGenJob, result: dict, duration: float):
         mins, secs = divmod(int(seconds), 60)
         return f"{mins}m {secs}s"
 
-    status = result.get('status', 'unknown')
+    status = result.get("status", "unknown")
 
-    if status == 'succeeded':
+    if status == "succeeded":
         # -------------------------------------------------------------------------
         # 6a. Display success metrics
         # -------------------------------------------------------------------------
-        best_score = result.get('best_score', 0.0)
-        print(f"\n[6a] Optimization succeeded!")
-        print(f"  Status: SUCCEEDED")
+        best_score = result.get("best_score", 0.0)
+        print("\n[6a] Optimization succeeded!")
+        print("  Status: SUCCEEDED")
         print(f"  Best Score: {best_score:.2%}")
         print(f"  Duration: {format_duration(duration)}")
 
@@ -552,10 +560,10 @@ def display_results(job: GraphGenJob, result: dict, duration: float):
         print("\n[6b] Downloading optimized graph...")
         try:
             graph_txt = job.download_graph_txt()
-            print(f"\n  Graph specification (first 500 chars):")
+            print("\n  Graph specification (first 500 chars):")
             print("  " + "-" * 56)
             preview = graph_txt[:500] + "..." if len(graph_txt) > 500 else graph_txt
-            for line in preview.split('\n'):
+            for line in preview.split("\n"):
                 print(f"  {line}")
             print("  " + "-" * 56)
         except Exception as e:
@@ -577,7 +585,7 @@ def display_results(job: GraphGenJob, result: dict, duration: float):
         # -------------------------------------------------------------------------
         # Handle failure
         # -------------------------------------------------------------------------
-        error = result.get('error', 'Unknown error')
+        error = result.get("error", "Unknown error")
         print(f"\n  Status: {status.upper()}")
         print(f"  Error: {error}")
         print(f"  Duration: {format_duration(duration)}")
@@ -586,6 +594,7 @@ def display_results(job: GraphGenJob, result: dict, duration: float):
 # ==============================================================================
 # MAIN: RUN THE COMPLETE DEMO
 # ==============================================================================
+
 
 def main():
     """Run the complete GraphGen demo end-to-end."""
@@ -600,13 +609,10 @@ def main():
     backend_url = setup_backend()
 
     # Step 2: Configure API key
-    api_key = setup_api_key()
+    api_key = setup_api_key(backend_url=backend_url)
 
     # Step 3: Build dataset
-    dataset, label_names = build_banking77_graphgen_dataset(
-        num_train_tasks=50,
-        num_test_tasks=20
-    )
+    dataset, label_names = build_banking77_graphgen_dataset(num_train_tasks=50, num_test_tasks=20)
 
     # Step 4: Create GraphGen job
     job = create_graphgen_job(

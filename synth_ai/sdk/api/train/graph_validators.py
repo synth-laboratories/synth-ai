@@ -27,7 +27,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast, Literal
+from typing import Any, Dict, List, Literal, Optional, cast
 
 from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet, load_graphgen_taskset
 from .graphgen_validators import GraphGenValidationError, validate_graphgen_job_config
@@ -74,7 +74,7 @@ def validate_graph_job_section(
             {
                 "field": "graph.dataset",
                 "error": "dataset (path) is required",
-                "suggestion": "Set graph.dataset = \"my_tasks.json\"",
+                "suggestion": 'Set graph.dataset = "my_tasks.json"',
             }
         )
         dataset_path = None
@@ -103,7 +103,9 @@ def validate_graph_job_section(
             dataset = None
 
     # Support both policy_models (list) and policy_model (single) for backward compatibility
-    policy_models_raw = section.get("policy_models") or section.get("policy_model") or section.get("model")
+    policy_models_raw = (
+        section.get("policy_models") or section.get("policy_model") or section.get("model")
+    )
     if policy_models_raw is None:
         errors.append({"field": "policy_models", "error": "policy_models is required"})
         policy_models_list = []
@@ -111,7 +113,7 @@ def validate_graph_job_section(
         policy_models_list = [str(m) for m in policy_models_raw]
     else:
         policy_models_list = [str(policy_models_raw)]
-    
+
     rollout_budget = section.get("rollout_budget") or section.get("budget")
     proposer_effort = section.get("proposer_effort") or section.get("effort")
 
@@ -120,7 +122,9 @@ def validate_graph_job_section(
             policy_models=policy_models_list,
             policy_provider=section.get("policy_provider"),
             rollout_budget=int(rollout_budget) if rollout_budget is not None else 100,
-            proposer_effort=cast(Literal["low", "medium", "high"], str(proposer_effort)) if proposer_effort is not None else "medium",
+            proposer_effort=cast(Literal["low", "medium", "high"], str(proposer_effort))
+            if proposer_effort is not None
+            else "medium",
             verifier_model=section.get("verifier_model"),
             verifier_provider=section.get("verifier_provider"),
             population_size=section.get("population_size", 4),
@@ -131,7 +135,9 @@ def validate_graph_job_section(
         config = GraphGenJobConfig()
 
     auto_start = bool(section.get("auto_start", True))
-    metadata = cast(Dict[str, Any], section.get("metadata") if isinstance(section.get("metadata"), dict) else {})
+    metadata = cast(
+        Dict[str, Any], section.get("metadata") if isinstance(section.get("metadata"), dict) else {}
+    )
     initial_prompt = section.get("initial_prompt")
 
     if dataset is not None:
@@ -189,7 +195,9 @@ def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
         errors.append({"field": "dataset", "error": "dataset must be a dict"})
         dataset = None
 
-    metadata = cast(Dict[str, Any], payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {})
+    metadata = cast(
+        Dict[str, Any], payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    )
 
     # Support both policy_models (list) and policy_model (single) for backward compatibility
     policy_models_raw = payload.get("policy_models") or payload.get("policy_model")
@@ -200,13 +208,15 @@ def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
         policy_models_list = [str(m) for m in policy_models_raw]
     else:
         policy_models_list = [str(policy_models_raw)]
-    
+
     try:
         config = GraphGenJobConfig(
             policy_models=policy_models_list,
             policy_provider=payload.get("policy_provider"),
             rollout_budget=int(payload.get("rollout_budget") or 100),
-            proposer_effort=cast(Literal["low", "medium", "high"], str(payload.get("proposer_effort") or "medium")),
+            proposer_effort=cast(
+                Literal["low", "medium", "high"], str(payload.get("proposer_effort") or "medium")
+            ),
             verifier_model=payload.get("verifier_model"),
             verifier_provider=payload.get("verifier_provider"),
             population_size=metadata.get("population_size", 4),

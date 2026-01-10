@@ -11,7 +11,6 @@ import warnings
 from typing import Set
 from urllib.parse import urlparse
 
-
 # Known LLM provider domains that should be accessed via interceptor
 LLM_PROVIDER_DOMAINS: Set[str] = {
     "api.openai.com",
@@ -61,7 +60,7 @@ def warn_if_direct_provider_call(url: str, stacklevel: int = 2) -> None:
             f"Use inference_url from policy_config instead.\n"
             f"See: https://docs.usesynth.ai/guides/local-api#inference-url",
             UserWarning,
-            stacklevel=stacklevel
+            stacklevel=stacklevel,
         )
 
 
@@ -77,7 +76,7 @@ def install_httpx_guard() -> None:
         import httpx
 
         # Check if already patched
-        if hasattr(httpx.AsyncClient.post, '_synth_guarded'):
+        if hasattr(httpx.AsyncClient.post, "_synth_guarded"):
             return
 
         _original_post = httpx.AsyncClient.post
@@ -106,7 +105,7 @@ def install_requests_guard() -> None:
         import requests
 
         # Check if already patched
-        if hasattr(requests.post, '_synth_guarded'):
+        if hasattr(requests.post, "_synth_guarded"):
             return
 
         _original_post = requests.post
@@ -135,7 +134,7 @@ def install_openai_guard() -> None:
         import openai
 
         # Check if already patched
-        if hasattr(openai.OpenAI.__init__, '_synth_guarded'):
+        if hasattr(openai.OpenAI.__init__, "_synth_guarded"):
             return
 
         _original_init = openai.OpenAI.__init__
@@ -146,7 +145,7 @@ def install_openai_guard() -> None:
                 "For proper trace capture, use inference_url from policy_config with httpx instead.\n"
                 "See: https://docs.usesynth.ai/guides/local-api#llm-calls",
                 UserWarning,
-                stacklevel=3
+                stacklevel=3,
             )
             return _original_init(self, *args, **kwargs)
 
@@ -170,7 +169,7 @@ def install_anthropic_guard() -> None:
         import anthropic
 
         # Check if already patched
-        if hasattr(anthropic.Anthropic.__init__, '_synth_guarded'):
+        if hasattr(anthropic.Anthropic.__init__, "_synth_guarded"):
             return
 
         _original_init = anthropic.Anthropic.__init__
@@ -181,7 +180,7 @@ def install_anthropic_guard() -> None:
                 "For proper trace capture, use inference_url from policy_config with httpx instead.\n"
                 "See: https://docs.usesynth.ai/guides/local-api#llm-calls",
                 UserWarning,
-                stacklevel=3
+                stacklevel=3,
             )
             return _original_init(self, *args, **kwargs)
 

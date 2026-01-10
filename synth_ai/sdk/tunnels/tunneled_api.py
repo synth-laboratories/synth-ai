@@ -38,7 +38,6 @@ See Also:
 
 from __future__ import annotations
 
-import asyncio
 import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
@@ -125,7 +124,7 @@ class TunneledLocalAPI:
         backend_url: Optional[str] = None,
         verify_dns: bool = True,
         progress: bool = False,
-    ) -> "TunneledLocalAPI":
+    ) -> TunneledLocalAPI:
         """Create a tunnel to expose a local API.
 
         This is the main entry point for creating tunnels. It handles:
@@ -157,13 +156,14 @@ class TunneledLocalAPI:
             RuntimeError: If tunnel creation or verification fails
         """
         import os
-        
+
         # Auto-detect API key from environment if not provided
         if api_key is None:
             api_key = os.environ.get("SYNTH_API_KEY")
-        
-        from .cleanup import track_process
+
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+
+        from .cleanup import track_process
 
         if backend == TunnelBackend.Localhost:
             url = f"http://localhost:{local_port}"
@@ -218,7 +218,7 @@ class TunneledLocalAPI:
         verify_dns: bool,
         progress: bool,
         track_process,
-    ) -> "TunneledLocalAPI":
+    ) -> TunneledLocalAPI:
         """Internal: Create a managed tunnel via Synth backend."""
         from synth_ai.core.integrations.cloudflare import (
             open_managed_tunnel_with_connection_wait,
@@ -303,7 +303,7 @@ class TunneledLocalAPI:
         env_api_key: Optional[str],
         progress: bool,
         track_process,
-    ) -> "TunneledLocalAPI":
+    ) -> TunneledLocalAPI:
         """Internal: Create a quick (anonymous) tunnel via trycloudflare.com."""
         from synth_ai.core.integrations.cloudflare import (
             open_quick_tunnel_with_dns_verification,
@@ -356,7 +356,7 @@ class TunneledLocalAPI:
                 ctx={"hostname": self.hostname, "backend": self.backend.value},
             )
 
-    def __enter__(self) -> "TunneledLocalAPI":
+    def __enter__(self) -> TunneledLocalAPI:
         """Context manager entry (for sync use after async creation)."""
         return self
 
@@ -375,16 +375,16 @@ class TunneledLocalAPI:
         backend_url: Optional[str] = None,
         verify_dns: bool = True,
         progress: bool = False,
-    ) -> "TunneledLocalAPI":
+    ) -> TunneledLocalAPI:
         """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
-        
+
         This is a convenience method that:
         1. Finds an available port (or uses the provided one)
         2. Kills any process using that port
         3. Starts the app server in the background
         4. Waits for health check
         5. Creates and returns the tunnel
-        
+
         Args:
             app: FastAPI or ASGI application to tunnel
             local_port: Port to use (defaults to finding an available port starting from 8001)
@@ -393,10 +393,10 @@ class TunneledLocalAPI:
             backend_url: Backend URL (defaults to production)
             verify_dns: Whether to verify DNS resolution
             progress: If True, print status updates
-            
+
         Returns:
             TunneledLocalAPI instance with .url, .hostname, .close(), etc.
-            
+
         Example:
             >>> from fastapi import FastAPI
             >>> app = FastAPI()
@@ -405,13 +405,13 @@ class TunneledLocalAPI:
         """
         import os
 
-        from synth_ai.sdk.tunnels.ports import find_available_port, kill_port
-        from synth_ai.sdk.task.server import run_server_background
         from synth_ai.core.integrations.cloudflare import wait_for_health_check
+        from synth_ai.sdk.task.server import run_server_background
+        from synth_ai.sdk.tunnels.ports import find_available_port, kill_port
 
         if api_key is None:
             api_key = os.environ.get("SYNTH_API_KEY") or None
-        
+
         # Find or use port
         if local_port is None:
             local_port = find_available_port(8001)
@@ -420,17 +420,17 @@ class TunneledLocalAPI:
         else:
             # Kill any process using the port
             kill_port(local_port)
-        
+
         # Start the server
         if progress:
             print(f"Starting server on port {local_port}...")
         run_server_background(app, local_port)
-        
+
         # Wait for health check
         if progress:
             print("Waiting for server health check...")
         await wait_for_health_check("localhost", local_port, timeout=30.0)
-        
+
         # Create tunnel
         return await cls.create(
             local_port=local_port,

@@ -11,24 +11,9 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, cast
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import HTTPException, Request
-import httpx
-
-from synth_ai.sdk.localapi.apps import LocalAPIEntry, register_local_api
-from synth_ai.sdk.localapi.helpers import (
-    add_metadata_endpoint,
-    call_chat_completion_api,
-    create_http_client_hooks,
-    extract_api_key,
-    preload_dataset_splits,
-)
-from synth_ai.sdk.localapi.server import LocalAPIConfig, RubricBundle, create_local_api, run_local_api
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
-from synth_ai.sdk.task.rubrics import Rubric, load_rubric
-from synth_ai.sdk.task.trace_correlation_helpers import build_trace_payload, extract_trace_correlation_id
-
 from style_matching_business_logic import (
     AVAILABLE_SPLITS,
     DATASET_NAME,
@@ -40,6 +25,27 @@ from style_matching_business_logic import (
     get_default_messages_templates,
     get_submit_tool_schema,
     parse_essay_from_tool_call,
+)
+from synth_ai.sdk.localapi.apps import LocalAPIEntry, register_local_api
+from synth_ai.sdk.localapi.helpers import (
+    add_metadata_endpoint,
+    call_chat_completion_api,
+    create_http_client_hooks,
+    extract_api_key,
+    preload_dataset_splits,
+)
+from synth_ai.sdk.localapi.server import (
+    LocalAPIConfig,
+    RubricBundle,
+    create_local_api,
+    run_local_api,
+)
+from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.sdk.task.rubrics import Rubric, load_rubric
+from synth_ai.sdk.task.trace_correlation_helpers import (
+    build_trace_payload,
+    extract_trace_correlation_id,
 )
 
 
@@ -107,7 +113,9 @@ def _format_essay_text(title: str, content: str) -> str:
     return title or content
 
 
-def _build_session_trace(*, user_content: str, assistant_content: str, session_id: str) -> dict[str, Any]:
+def _build_session_trace(
+    *, user_content: str, assistant_content: str, session_id: str
+) -> dict[str, Any]:
     return {
         "session_id": session_id,
         "session_time_steps": [
@@ -137,7 +145,9 @@ def _extract_verifier_score(result: Mapping[str, Any]) -> float:
     output = result.get("output", result)
     if isinstance(output, Mapping):
         outcome_review = output.get("outcome_review")
-        if isinstance(outcome_review, Mapping) and isinstance(outcome_review.get("total"), (int, float)):
+        if isinstance(outcome_review, Mapping) and isinstance(
+            outcome_review.get("total"), (int, float)
+        ):
             return float(outcome_review["total"])
         event_reviews = output.get("event_reviews")
         if isinstance(event_reviews, list):
@@ -177,7 +187,9 @@ async def _post_json_with_retries(
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(url, headers=headers, json=payload)
             if response.status_code >= 500:
-                last_error = RuntimeError(f"{label} HTTP {response.status_code}: {response.text[:200]}")
+                last_error = RuntimeError(
+                    f"{label} HTTP {response.status_code}: {response.text[:200]}"
+                )
             else:
                 return response
         except httpx.RequestError as exc:
@@ -236,10 +248,14 @@ def _build_gold_examples(dataset: StyleMatchingDataset) -> list[dict[str, Any]]:
     return gold_examples
 
 
-async def _score_with_verifier(*, session_trace: dict[str, Any], gold_examples: list[dict[str, Any]]) -> float:
+async def _score_with_verifier(
+    *, session_trace: dict[str, Any], gold_examples: list[dict[str, Any]]
+) -> float:
     synth_api_key = _get_synth_api_key()
     if not synth_api_key:
-        raise HTTPException(status_code=503, detail="SYNTH_API_KEY is required for verifier scoring")
+        raise HTTPException(
+            status_code=503, detail="SYNTH_API_KEY is required for verifier scoring"
+        )
 
     payload = {
         "job_id": "zero_shot_verifier_contrastive_single",
@@ -273,7 +289,9 @@ async def _score_with_verifier(*, session_trace: dict[str, Any], gold_examples: 
     try:
         return _extract_verifier_score(response.json())
     except ValueError as exc:
-        raise HTTPException(status_code=502, detail=f"Verifier response missing score: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Verifier response missing score: {exc}"
+        ) from exc
 
 
 async def rollout_executor(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
@@ -335,13 +353,15 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         raw_upstream = json.dumps(response_json, ensure_ascii=False)
     except Exception:
         raw_upstream = str(response_json)
-    print(f"[STYLE_MATCHING] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True)
+    print(
+        f"[STYLE_MATCHING] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}",
+        flush=True,
+    )
 
     inference_url = (request.policy.config or {}).get("inference_url")
     trace_correlation_id = extract_trace_correlation_id(
         policy_config=request.policy.config or {},
         inference_url=str(inference_url or ""),
-        mode=request.mode,
     )
 
     trace_metadata = {
@@ -359,23 +379,16 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     )
 
     metrics = RolloutMetrics(
-        episode_rewards=[score],
-        reward_mean=score,
-        num_steps=1,
-        num_episodes=1,
-        outcome_score=score,
-        events_score=score,
+        outcome_reward=score,
         details={"verifier_score": score},
     )
 
     return RolloutResponse(
         run_id=request.run_id,
-        branches={},
         metrics=metrics,
-        aborted=False,
         trace_correlation_id=trace_correlation_id,
         trace=trace_payload,
-        pipeline_metadata={"inference_url": str(inference_url or "")},
+        inference_url=str(inference_url or ""),
     )
 
 
@@ -419,7 +432,9 @@ def describe_taskset(dataset: StyleMatchingDataset) -> Mapping[str, Any]:
     }
 
 
-def provide_task_instances(dataset: StyleMatchingDataset, seeds: Sequence[int]) -> Iterable[TaskInfo]:
+def provide_task_instances(
+    dataset: StyleMatchingDataset, seeds: Sequence[int]
+) -> Iterable[TaskInfo]:
     base_info = _base_task_info(dataset)
     for seed in seeds:
         sample = dataset.sample(split=DEFAULT_SPLIT, index=seed)

@@ -1,11 +1,11 @@
 """
 Manual URL capture for sites that need specific URLs defined.
 """
-import asyncio
-import json
-from pathlib import Path
-from capture_screenshots import capture_all
 
+import asyncio
+from pathlib import Path
+
+from capture_screenshots import capture_all
 
 # Manually curated URLs for Kernel
 KERNEL_URLS = [
@@ -28,12 +28,10 @@ KERNEL_URLS = [
 
 
 if __name__ == "__main__":
-    import sys
-
     urls = KERNEL_URLS
     output_path = Path(__file__).parent / "data" / "kernel"
 
-    print(f"Manual screenshot capture starting...")
+    print("Manual screenshot capture starting...")
     print(f"Output directory: {output_path}")
     print(f"URLs to try: {len(urls)}\n")
 

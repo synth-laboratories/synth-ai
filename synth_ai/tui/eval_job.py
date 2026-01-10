@@ -97,13 +97,15 @@ def run_eval_job(task_app_url: str, env_name: str) -> None:
         )
 
         if result.succeeded:
-            _output({
-                "status": "completed",
-                "mean_score": result.mean_score,
-                "cost_usd": result.total_cost_usd,
-                "num_completed": result.num_completed,
-                "num_total": result.num_total,
-            })
+            _output(
+                {
+                    "status": "completed",
+                    "mean_score": result.mean_score,
+                    "cost_usd": result.total_cost_usd,
+                    "num_completed": result.num_completed,
+                    "num_total": result.num_total,
+                }
+            )
         else:
             _output({"status": "error", "error": result.error or "Job failed"})
 
@@ -113,7 +115,12 @@ def run_eval_job(task_app_url: str, env_name: str) -> None:
 
 def main() -> None:
     if len(sys.argv) != 3:
-        _output({"status": "error", "error": "Usage: python -m synth_ai.tui.eval_job <task_app_url> <env_name>"})
+        _output(
+            {
+                "status": "error",
+                "error": "Usage: python -m synth_ai.tui.eval_job <task_app_url> <env_name>",
+            }
+        )
         sys.exit(1)
 
     task_app_url = sys.argv[1]

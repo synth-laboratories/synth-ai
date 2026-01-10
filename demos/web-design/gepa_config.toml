@@ -49,9 +49,9 @@ env_name = "web_design"
 
 # Rollout configuration (how many evaluations to run)
 [prompt_learning.gepa.rollout]
-budget = 3                  # Total number of evaluations (minimal for testing)
+budget = 4                  # Total number of evaluations per candidate
 max_concurrent = 10         # Run up to 10 evaluations at a time (local speed)
-minibatch_size = 3          # Evaluate on 3 examples per candidate (minimum required)
+minibatch_size = 4          # Evaluate on 4 examples per candidate
 
 # Evaluation seeds (which examples from dataset to use)
 [prompt_learning.gepa.evaluation]
@@ -68,12 +68,12 @@ rate = 0.4  # 40% mutation rate
 
 # Population configuration (genetic algorithm settings)
 [prompt_learning.gepa.population]
-initial_size = 3                # Start with 3 random variants (small for testing)
-num_generations = 2             # Run 2 generations of evolution
-children_per_generation = 2     # Create 2 children per generation
-crossover_rate = 0.6            # 60% crossover rate
-selection_pressure = 1.2        # Moderate selection pressure
-patience_generations = 2        # Stop if no improvement for 2 generations
+initial_size = 6                # Start with 6 random variants
+num_generations = 4             # Run 4 generations of evolution
+children_per_generation = 4     # Create 4 children per generation
+crossover_rate = 0.5            # 50% crossover rate
+selection_pressure = 1.0        # Lower selection pressure for more diversity
+patience_generations = 4        # Stop if no improvement for 4 generations
 
 # Verifier configuration - use backend zero-shot verifier
 [prompt_learning.verifier]

@@ -26,11 +26,11 @@ def format_app_table(apps: list[ScannedApp]) -> str:
     status_width = 10  # Status with icon
     type_width = max(len(app.type) for app in apps) if apps else 4
     via_width = max(len(app.discovered_via) for app in apps) if apps else 13
-    
+
     # Additional metadata columns
     app_id_width = max(len(app.app_id or "") for app in apps) if apps else 0
     app_id_width = max(app_id_width, 7)  # "App ID" header
-    
+
     version_width = max(len(app.version or "") for app in apps) if apps else 0
     version_width = max(version_width, 7)  # "Version" header
 
@@ -40,7 +40,7 @@ def format_app_table(apps: list[ScannedApp]) -> str:
     via_width = max(via_width, 13)
 
     lines = [f"Found {len(apps)} active task app{'s' if len(apps) != 1 else ''}:\n"]
-    
+
     # Header row
     header_parts = [
         f"{'Name':<{name_width}}",
@@ -53,19 +53,25 @@ def format_app_table(apps: list[ScannedApp]) -> str:
     if version_width > 0:
         header_parts.append(f"{'Version':<{version_width}}")
     header_parts.append(f"{'Discovered Via':<{via_width}}")
-    
+
     lines.append(" ".join(header_parts))
-    
+
     # Separator
     total_width = sum(len(p) for p in header_parts) + len(header_parts) - 1
     lines.append("─" * total_width)
 
     for app in apps:
-        status_icon = "✅" if app.health_status == "healthy" else "⚠️ " if app.health_status == "unhealthy" else "❓"
+        status_icon = (
+            "✅"
+            if app.health_status == "healthy"
+            else "⚠️ "
+            if app.health_status == "unhealthy"
+            else "❓"
+        )
         status_display = f"{status_icon} {app.health_status}"
-        
+
         port_str = str(app.port) if app.port else "-"
-        
+
         row_parts = [
             f"{app.name:<{name_width}}",
             f"{port_str:<{port_width}}",
@@ -77,7 +83,7 @@ def format_app_table(apps: list[ScannedApp]) -> str:
         if version_width > 0:
             row_parts.append(f"{(app.version or '-'):<{version_width}}")
         row_parts.append(f"{app.discovered_via:<{via_width}}")
-        
+
         lines.append(" ".join(row_parts))
 
     return "\n".join(lines)
@@ -166,6 +172,7 @@ async def run_scan(
 
     # Scan service records (local services deployed via synth-ai)
     from synth_ai.cli.commands.scan.local_scanner import scan_service_records
+
     service_record_apps = await scan_service_records(env_api_key, timeout)
     all_apps.extend(service_record_apps)
 
@@ -176,7 +183,9 @@ async def run_scan(
     registry_apps = scan_registry()
     # Only add registry apps that weren't already discovered
     discovered_app_ids = {app.app_id for app in all_apps if app.app_id}
-    new_registry_apps = [app for app in registry_apps if app.app_id and app.app_id not in discovered_app_ids]
+    new_registry_apps = [
+        app for app in registry_apps if app.app_id and app.app_id not in discovered_app_ids
+    ]
     all_apps.extend(new_registry_apps)
 
     if verbose:
@@ -188,13 +197,13 @@ async def run_scan(
         if app.url and app.url in seen_urls:
             # Prefer apps with better discovery method and metadata
             existing = seen_urls[app.url]
-            
+
             # Priority order for discovery methods:
             # 1. service_records / tunnel_records (have metadata like app_id, task_app_path)
             # 2. cloudflared_process / backend_api (tunnels)
             # 3. port_scan (basic discovery)
             # 4. registry (no URL)
-            
+
             priority_order = {
                 "service_records": 1,
                 "tunnel_records": 1,
@@ -203,10 +212,10 @@ async def run_scan(
                 "port_scan": 3,
                 "registry": 4,
             }
-            
+
             app_priority = priority_order.get(app.discovered_via, 99)
             existing_priority = priority_order.get(existing.discovered_via, 99)
-            
+
             # Prefer higher priority discovery method
             if app_priority < existing_priority:
                 seen_urls[app.url] = app
@@ -328,7 +337,9 @@ def scan_command(
             start_port = int(port_range.strip())
             end_port = start_port
     except ValueError as e:
-        raise click.BadParameter(f"Invalid port range format: {port_range}. Use START:END (e.g., 8000:8100)") from e
+        raise click.BadParameter(
+            f"Invalid port range format: {port_range}. Use START:END (e.g., 8000:8100)"
+        ) from e
 
     if start_port < 1 or end_port > 65535 or start_port > end_port:
         raise click.BadParameter(f"Invalid port range: {start_port}-{end_port}")
@@ -341,4 +352,3 @@ def scan_command(
         click.echo(format_app_json(apps))
     else:
         click.echo(format_app_table(apps))
-

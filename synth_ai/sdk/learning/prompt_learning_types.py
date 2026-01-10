@@ -17,10 +17,11 @@ def _normalize_objectives(data: Dict[str, Any]) -> Optional[Dict[str, float]]:
         return None
     return {"reward": float(reward_val)}
 
+
 @dataclass
 class TextReplacement:
     """A text replacement in a prompt transformation."""
-    
+
     new_text: str
     apply_to_role: str = "system"
     old_text: Optional[str] = None
@@ -30,7 +31,7 @@ class TextReplacement:
 @dataclass
 class CandidateScore:
     """Scoring information for a candidate prompt."""
-    
+
     accuracy: float
     objectives: Optional[Dict[str, float]] = None
     prompt_length: int = 0
@@ -41,7 +42,7 @@ class CandidateScore:
 @dataclass
 class PromptSection:
     """A section of a prompt (e.g., system, user, assistant)."""
-    
+
     role: str
     content: str
 
@@ -49,14 +50,14 @@ class PromptSection:
 @dataclass
 class Candidate:
     """A candidate prompt from the optimization process."""
-    
+
     accuracy: float
     objectives: Optional[Dict[str, float]] = None
     prompt_length: int = 0
     tool_call_rate: float = 0.0
     instance_scores: List[float] = field(default_factory=list)
     object: Optional[Dict[str, Any]] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Candidate:
         """Create a Candidate from a dictionary."""
@@ -74,13 +75,13 @@ class Candidate:
 @dataclass
 class OptimizedCandidate:
     """An optimized candidate from the Pareto frontier."""
-    
+
     score: CandidateScore
     payload_kind: str  # "transformation" or "template"
     object: Optional[Dict[str, Any]] = None
     instance_scores: Optional[List[float]] = None
     objectives: Optional[Dict[str, float]] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> OptimizedCandidate:
         """Create an OptimizedCandidate from a dictionary."""
@@ -89,7 +90,9 @@ class OptimizedCandidate:
         reward_val = extract_outcome_reward(score_data if isinstance(score_data, dict) else data)
         if isinstance(score_data, dict):
             score = CandidateScore(
-                accuracy=float(reward_val) if reward_val is not None else score_data.get("accuracy", 0.0),
+                accuracy=float(reward_val)
+                if reward_val is not None
+                else score_data.get("accuracy", 0.0),
                 objectives=objectives,
                 prompt_length=score_data.get("prompt_length", 0),
                 tool_call_rate=score_data.get("tool_call_rate", 0.0),
@@ -100,7 +103,7 @@ class OptimizedCandidate:
                 accuracy=float(reward_val) if reward_val is not None else 0.0,
                 objectives=objectives,
             )
-        
+
         return cls(
             score=score,
             payload_kind=data.get("payload_kind", "unknown"),
@@ -113,13 +116,13 @@ class OptimizedCandidate:
 @dataclass
 class PromptLearningEvent:
     """A generic prompt learning event."""
-    
+
     type: str
     message: str
     data: Dict[str, Any]
     seq: int
     created_at: Optional[str] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> PromptLearningEvent:
         """Create a PromptLearningEvent from a dictionary."""
@@ -135,11 +138,11 @@ class PromptLearningEvent:
 @dataclass
 class BestPromptEventData:
     """Data for prompt.learning.best.prompt event."""
-    
+
     best_score: float
     best_prompt: Dict[str, Any]
     best_objectives: Optional[Dict[str, float]] = None
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> BestPromptEventData:
         """Create BestPromptEventData from a dictionary."""
@@ -154,10 +157,10 @@ class BestPromptEventData:
 @dataclass
 class FinalResultsEventData:
     """Data for prompt.learning.final.results event."""
-    
+
     attempted_candidates: List[Dict[str, Any]]
     optimized_candidates: List[Dict[str, Any]]
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> FinalResultsEventData:
         """Create FinalResultsEventData from a dictionary."""
@@ -170,12 +173,12 @@ class FinalResultsEventData:
 @dataclass
 class ValidationScoredEventData:
     """Data for prompt.learning.validation.scored event."""
-    
+
     accuracy: float
     objectives: Optional[Dict[str, float]] = None
     instance_scores: List[float] = field(default_factory=list)
     is_baseline: bool = False
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> ValidationScoredEventData:
         """Create ValidationScoredEventData from a dictionary."""
@@ -191,7 +194,7 @@ class ValidationScoredEventData:
 @dataclass
 class PromptResults:
     """Results from a completed prompt learning job."""
-    
+
     best_prompt: Optional[Dict[str, Any]] = None
     best_score: Optional[float] = None
     version_tree: Optional[Dict[str, Any]] = None
@@ -199,7 +202,7 @@ class PromptResults:
     optimized_candidates: List[Dict[str, Any]] = field(default_factory=list)
     attempted_candidates: List[Dict[str, Any]] = field(default_factory=list)
     validation_results: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> PromptResults:
         """Create PromptResults from a dictionary."""

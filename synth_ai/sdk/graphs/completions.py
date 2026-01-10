@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Literal, List, Mapping, Optional, TypedDict, Union
+from typing import Any, List, Literal, Mapping, TypedDict
 
 import httpx
 
@@ -76,7 +76,7 @@ class GraphCompletionResponse:
     """Raw response dict for accessing additional fields."""
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "GraphCompletionResponse":
+    def from_dict(cls, data: dict[str, Any]) -> GraphCompletionResponse:
         """Create from API response dict."""
         return cls(
             output=data.get("output", {}),
@@ -384,13 +384,13 @@ class GraphCompletionsAsyncClient:
 
     def _select_graph_shape(self, session_trace: Mapping[str, Any]) -> str:
         """Auto-select graph shape based on trace size.
-        
+
         Returns one of: "single", "mapreduce", "rlm"
         """
         # Estimate token count
         trace_str = json.dumps(normalize_for_json(session_trace))
         estimated_tokens = len(trace_str) // 4
-        
+
         if estimated_tokens < 50_000:
             return "single"
         elif estimated_tokens < 500_000:
@@ -406,12 +406,12 @@ class GraphCompletionsAsyncClient:
         model: str | None = None,
     ) -> dict[str, Any]:
         """Execute any graph with arbitrary input.
-        
+
         Args:
             graph_id: Built-in graph name, GraphGen job_id, or snapshot UUID
             input_data: Graph-specific input data
             model: Optional model override
-            
+
         Returns:
             Graph output dictionary
         """
@@ -433,7 +433,7 @@ class GraphCompletionsAsyncClient:
         model: str | None = None,
     ) -> dict[str, Any]:
         """Verify trace using rubric criteria.
-        
+
         Args:
             session_trace: V3 trace format
             rubric: Rubric with event/outcome criteria
@@ -442,17 +442,17 @@ class GraphCompletionsAsyncClient:
             verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
             options: Optional execution options (event, outcome, etc.)
             model: Optional model override
-            
+
         Returns:
             Verification result with event_reviews, outcome_review, etc.
         """
         # Auto-select graph shape based on trace size
         if verifier_shape is None:
             verifier_shape = self._select_graph_shape(session_trace)
-        
+
         # Use composable naming: zero_shot_verifier_{gold_output_format}_{graph_shape}
         graph_id = f"zero_shot_verifier_rubric_{verifier_shape}"
-        
+
         input_data: dict[str, Any] = {
             "trace": normalize_for_json(session_trace),
             "rubric": normalize_for_json(rubric),
@@ -462,7 +462,7 @@ class GraphCompletionsAsyncClient:
             input_data["system_prompt"] = system_prompt
         if user_prompt:
             input_data["user_prompt"] = user_prompt
-        
+
         result = await self.run(
             input_data=input_data,
             job_id=graph_id,
@@ -484,7 +484,7 @@ class GraphCompletionsAsyncClient:
         model: str | None = None,
     ) -> dict[str, Any]:
         """Verify trace using few-shot calibration examples.
-        
+
         Args:
             session_trace: V3 trace format (validated using SessionTraceInput)
             calibration_examples: List of calibration examples with:
@@ -498,10 +498,10 @@ class GraphCompletionsAsyncClient:
             verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
             options: Optional execution options
             model: Optional model override
-            
+
         Returns:
             Verification result with event_reviews, outcome_review, etc.
-            
+
         Raises:
             ValueError: If calibration_examples are invalid (validated client-side)
         """
@@ -516,12 +516,12 @@ class GraphCompletionsAsyncClient:
                     f"Each example must have session_trace (V3 format), event_rewards (list[float] 0.0-1.0), "
                     f"and outcome_reward (float 0.0-1.0). event_rewards length must match trace events."
                 ) from e
-        
+
         if verifier_shape is None:
             verifier_shape = self._select_graph_shape(session_trace)
-        
+
         graph_id = f"zero_shot_verifier_fewshot_{verifier_shape}"
-        
+
         # Convert validated examples back to dict for serialization
         input_data: dict[str, Any] = {
             "trace": normalize_for_json(session_trace),
@@ -536,7 +536,7 @@ class GraphCompletionsAsyncClient:
             input_data["system_prompt"] = system_prompt
         if user_prompt:
             input_data["user_prompt"] = user_prompt
-        
+
         result = await self.run(
             input_data=input_data,
             job_id=graph_id,
@@ -559,10 +559,10 @@ class GraphCompletionsAsyncClient:
         model: str | None = None,
     ) -> dict[str, Any]:
         """Verify verifier judgment by comparing to gold-standard examples.
-        
+
         NOTE: Contrastive mode evaluates a VERIFIER's judgment, not a trace directly.
         It asks: "Is this verifier's judgment consistent with how gold examples were scored?"
-        
+
         Args:
             session_trace: V3 trace format (the trace being evaluated)
             gold_examples: List of gold examples with:
@@ -577,10 +577,10 @@ class GraphCompletionsAsyncClient:
             verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
             options: Optional execution options
             model: Optional model override
-            
+
         Returns:
             Verification result with event_reviews, outcome_review, etc.
-            
+
         Raises:
             ValueError: If gold_examples or candidate_score/reasoning are invalid (validated client-side)
         """
@@ -595,24 +595,28 @@ class GraphCompletionsAsyncClient:
                     f"Each example must have summary (str, non-empty), gold_score (float 0.0-1.0), "
                     f"and gold_reasoning (str, non-empty)."
                 ) from e
-        
+
         # Validate candidate_score
-        if not isinstance(candidate_score, (int, float)) or candidate_score < 0.0 or candidate_score > 1.0:
+        if (
+            not isinstance(candidate_score, (int, float))
+            or candidate_score < 0.0
+            or candidate_score > 1.0
+        ):
             raise ValueError(
                 f"candidate_score must be float 0.0-1.0, got {candidate_score} (type: {type(candidate_score).__name__})"
             )
-        
+
         # Validate candidate_reasoning
         if not isinstance(candidate_reasoning, str) or not candidate_reasoning.strip():
             raise ValueError(
                 f"candidate_reasoning must be a non-empty string, got {type(candidate_reasoning).__name__}"
             )
-        
+
         if verifier_shape is None:
             verifier_shape = self._select_graph_shape(session_trace)
-        
+
         graph_id = f"zero_shot_verifier_contrastive_{verifier_shape}"
-        
+
         # Convert validated examples back to dict for serialization
         input_data: dict[str, Any] = {
             "trace": normalize_for_json(session_trace),
@@ -627,7 +631,7 @@ class GraphCompletionsAsyncClient:
             input_data["system_prompt"] = system_prompt
         if user_prompt:
             input_data["user_prompt"] = user_prompt
-        
+
         result = await self.run(
             input_data=input_data,
             job_id=graph_id,
@@ -646,7 +650,7 @@ class GraphCompletionsAsyncClient:
         model: str | None = None,
     ) -> dict[str, Any]:
         """Verify trace using custom prompts (no rubric/examples).
-        
+
         Args:
             session_trace: V3 trace format
             system_prompt: Custom system prompt (required)
@@ -654,17 +658,17 @@ class GraphCompletionsAsyncClient:
             verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
             options: Optional execution options
             model: Optional model override
-            
+
         Returns:
             Verification result
         """
         if verifier_shape is None:
             verifier_shape = self._select_graph_shape(session_trace)
-        
+
         # For custom prompts, use rubric single graph but with custom prompts
         # The graph will use the prompts instead of rubric
         graph_id = f"zero_shot_verifier_rubric_{verifier_shape}"
-        
+
         input_data: dict[str, Any] = {
             "trace": normalize_for_json(session_trace),
             "system_prompt": system_prompt,
@@ -673,7 +677,7 @@ class GraphCompletionsAsyncClient:
             # Empty rubric - prompts will be used instead
             "rubric": {"event": [], "outcome": []},
         }
-        
+
         result = await self.run(
             input_data=input_data,
             job_id=graph_id,
@@ -685,7 +689,7 @@ class GraphCompletionsAsyncClient:
         self,
         *,
         query: str,
-        context: Union[str, Mapping[str, Any]],
+        context: str | Mapping[str, Any],
         system_prompt: str | None = None,
         user_prompt: str | None = None,
         model: str = "gpt-4o-mini",
@@ -693,7 +697,7 @@ class GraphCompletionsAsyncClient:
         options: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Zero-shot RLM inference for large-context tasks.
-        
+
         Args:
             query: The query/question to answer
             context: Large context (can be string or dict, 1M+ tokens)
@@ -702,12 +706,12 @@ class GraphCompletionsAsyncClient:
             model: Model to use (must be RLM-capable, default: gpt-4o-mini)
             provider: Provider name (default: openai)
             options: Optional execution options (max_iterations, max_cost_usd, etc.)
-            
+
         Returns:
             RLM inference result with output, usage, metadata
         """
         graph_id = "zero_shot_rlm_single"
-        
+
         input_data: dict[str, Any] = {
             "query": query,
             "context": context if isinstance(context, str) else normalize_for_json(context),
@@ -721,7 +725,7 @@ class GraphCompletionsAsyncClient:
             input_data["system_prompt"] = system_prompt
         if user_prompt:
             input_data["user_prompt"] = user_prompt
-        
+
         result = await self.run(
             input_data=input_data,
             job_id=graph_id,

@@ -6,7 +6,6 @@ from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
     RolloutSafetyConfig,
@@ -15,7 +14,6 @@ from synth_ai.sdk.task.contracts import (
 __all__ = [
     "RolloutEnvSpec",
     "RolloutPolicySpec",
-    "RolloutRecordConfig",
     "RolloutSafetyConfig",
     "RolloutRequest",
     "RolloutMetrics",

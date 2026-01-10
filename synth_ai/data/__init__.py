@@ -34,6 +34,13 @@ from synth_ai.data.enums import (
     VerifierMode,
 )
 
+# Judgements
+from synth_ai.data.judgements import (
+    CriterionScoreData,
+    Judgement,
+    RubricAssignment,
+)
+
 # Objective definitions
 from synth_ai.data.objectives import (
     OBJECTIVE_REGISTRY,
@@ -44,13 +51,6 @@ from synth_ai.data.objectives import (
     RewardObservation,
 )
 
-# Judgements
-from synth_ai.data.judgements import (
-    CriterionScoreData,
-    Judgement,
-    RubricAssignment,
-)
-
 # Objective compatibility helpers
 from synth_ai.data.objectives_compat import (
     extract_instance_rewards,
@@ -59,6 +59,7 @@ from synth_ai.data.objectives_compat import (
     normalize_to_outcome_objectives,
     to_legacy_format,
 )
+
 # Reward data types
 from synth_ai.data.rewards import (
     CalibrationExample,

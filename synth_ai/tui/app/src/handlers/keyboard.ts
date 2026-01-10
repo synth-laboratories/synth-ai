@@ -99,7 +99,7 @@ export function createKeyboardHandler(
       modals.profile.open()
       return
     }
-    if (key.name === "o" && !key.shift) {
+    if (key.name === "v") {
       modals.results.open()
       return
     }

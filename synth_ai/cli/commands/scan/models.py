@@ -80,4 +80,3 @@ class ScannedApp:
     version: str | None
     discovered_via: str
     metadata: dict[str, Any] = field(default_factory=dict)
-

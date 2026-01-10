@@ -88,7 +88,9 @@ from .validation import validate_eval_options
 @click.option("--ops", required=False, default="")
 @click.option("--return-trace", is_flag=True, default=False)
 @click.option("--concurrency", required=False, default="")
-@click.option("--seed-set", type=click.Choice(["seeds", "validation_seeds", "test_pool"]), default="seeds")
+@click.option(
+    "--seed-set", type=click.Choice(["seeds", "validation_seeds", "test_pool"]), default="seeds"
+)
 @click.option("--wait", is_flag=True, default=False)
 @click.option("--poll", required=False, default="")
 @click.option("--output", "output_path", required=False, default="")
@@ -187,7 +189,7 @@ def eval_command(
 
     # Auto-enable return_trace if traces-dir is provided
     effective_return_trace = return_trace or bool(traces_dir)
-    
+
     resolved = resolve_eval_config(
         config_path=config_file,
         cli_app_id=str(normalized.get("app_id") or "") or None,
@@ -248,7 +250,7 @@ def eval_command(
             }
             resolved.output_json.write_text(json.dumps(payload, indent=2), encoding="utf-8")
             click.echo(f"Wrote JSON report: {resolved.output_json}")
-        
+
         # Save traces if traces-dir is provided
         if traces_dir:
             saved_count = save_traces(results, traces_dir)

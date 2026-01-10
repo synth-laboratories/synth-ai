@@ -51,7 +51,9 @@ HF_DATASET_SPLIT = "train"
 DEFAULT_HF_DATASET_ID = "JoshPurtell/web-design-screenshots"
 DEFAULT_SITE_FILTER = "astral"
 DEFAULT_MAX_EXAMPLES = int(os.environ.get("SYNTH_WEB_DESIGN_MAX_EXAMPLES", "8"))
-DEFAULT_MAX_IMAGE_PIXELS = int(os.environ.get("SYNTH_WEB_DESIGN_MAX_IMAGE_PIXELS", "12000000"))  # 12MP
+DEFAULT_MAX_IMAGE_PIXELS = int(
+    os.environ.get("SYNTH_WEB_DESIGN_MAX_IMAGE_PIXELS", "12000000")
+)  # 12MP
 
 
 class WebDesignDataset:
@@ -93,7 +95,9 @@ class WebDesignDataset:
         dataset_revision = os.environ.get(HF_DATASET_REVISION_ENV, "").strip() or None
 
         if dataset_id:
-            logger.info("Loading web-design dataset from Hub: %s (split=%s)", dataset_id, HF_DATASET_SPLIT)
+            logger.info(
+                "Loading web-design dataset from Hub: %s (split=%s)", dataset_id, HF_DATASET_SPLIT
+            )
             dataset = load_dataset(dataset_id, split=HF_DATASET_SPLIT, revision=dataset_revision)
         else:
             dataset_path = demo_dir / "hf_dataset"
@@ -130,14 +134,18 @@ class WebDesignDataset:
             cursor += 1
 
             site_name = (ex.get("site_name") or "site").replace("/", "_").replace(" ", "_")
-            page_name = (ex.get("page_name") or f"page_{cursor:03d}").replace("/", "_").replace(" ", "_")
+            page_name = (
+                (ex.get("page_name") or f"page_{cursor:03d}").replace("/", "_").replace(" ", "_")
+            )
 
             resized_path = self._resized_dir / f"{site_name}_{page_name}_{len(selected):03d}.png"
 
             if resized_path.exists():
                 try:
                     with Image.open(resized_path) as cached:
-                        if (cached.size[0] * cached.size[1]) > self._max_image_pixels or max(cached.size) > self._resize_size:
+                        if (cached.size[0] * cached.size[1]) > self._max_image_pixels or max(
+                            cached.size
+                        ) > self._resize_size:
                             resized_path.unlink(missing_ok=True)
                 except Exception:
                     resized_path.unlink(missing_ok=True)
@@ -264,7 +272,9 @@ def create_web_design_local_api(style_prompt: str) -> Any:
 
         env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
         if not env_api_key:
-            raise RuntimeError("ENVIRONMENT_API_KEY is required in environment for calling inference interceptor")
+            raise RuntimeError(
+                "ENVIRONMENT_API_KEY is required in environment for calling inference interceptor"
+            )
 
         model = str(policy_cfg.get("model") or "gemini-2.5-flash-image")
 
@@ -319,18 +329,17 @@ def create_web_design_local_api(style_prompt: str) -> Any:
         trace_correlation_id = extract_trace_correlation_id(
             policy_config=policy_cfg,
             inference_url=inference_url,
-            mode=request.mode,
         )
 
         trace_payload = build_trace_payload(
             messages=messages,
             response=llm_response,
             correlation_id=trace_correlation_id,
-            metadata={"run_id": request.run_id, "seed": seed},
+            metadata={"run_id": request.trace_correlation_id, "seed": seed},
         )
 
         return RolloutResponse(
-            run_id=request.run_id,
+            run_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=0.0),
             trace=trace_payload,
             trace_correlation_id=trace_correlation_id,
@@ -348,5 +357,3 @@ def create_web_design_local_api(style_prompt: str) -> Any:
             cors_origins=["*"],
         )
     )
-
-

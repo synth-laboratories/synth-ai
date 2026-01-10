@@ -13,11 +13,11 @@ if "train" in sys.argv:
 
 try:
     from . import cli
-    
+
     if "train" in sys.argv:
         sys.stderr.write("[CLI_MAIN] CLI imported successfully\n")
         sys.stderr.flush()
-    
+
     if __name__ == "__main__":
         if "train" in sys.argv:
             sys.stderr.write("[CLI_MAIN] About to call cli()\n")
@@ -34,9 +34,3 @@ except Exception as e:
     sys.stderr.flush()
     traceback.print_exc(file=sys.stderr)
     raise
-
-
-
-
-
-

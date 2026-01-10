@@ -51,9 +51,7 @@ class AsyncHttpClient:
             org_id = os.getenv("SYNTH_ORG_ID") or os.getenv("X_ORG_ID")
             if org_id:
                 headers["X-Org-ID"] = org_id
-            self._session = aiohttp.ClientSession(
-                headers=headers, timeout=self._timeout
-            )
+            self._session = aiohttp.ClientSession(headers=headers, timeout=self._timeout)
         return self
 
     async def __aexit__(
@@ -137,9 +135,7 @@ class AsyncHttpClient:
         async with self._session.delete(url, headers=headers) as resp:
             return await self._handle_response(resp, url)
 
-    async def _handle_response(
-        self, resp: aiohttp.ClientResponse, url: str
-    ) -> Any:
+    async def _handle_response(self, resp: aiohttp.ClientResponse, url: str) -> Any:
         """Handle HTTP response, raising HTTPError on failure."""
         text = await resp.text()
         body_snippet = text[:200] if text else None
@@ -227,4 +223,3 @@ __all__ = [
     "http_request",
     "sleep",
 ]
-

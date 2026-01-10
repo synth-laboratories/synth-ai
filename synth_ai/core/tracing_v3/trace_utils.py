@@ -265,7 +265,9 @@ class DeterministicMetrics:
     final_achievement_count: int
 
 
-def compute_deterministic_metrics(conn: sqlite3.Connection, session_id: str) -> DeterministicMetrics:
+def compute_deterministic_metrics(
+    conn: sqlite3.Connection, session_id: str
+) -> DeterministicMetrics:
     try:
         event_rows = conn.execute(
             """

@@ -20,12 +20,12 @@ def _score(
     criteria: Iterable[Criterion], values: dict[str, float], aggregation: str
 ) -> dict[str, Any]:
     """Compute aggregate score from criterion values.
-    
+
     Args:
         criteria: List of criteria defining scoring dimensions
         values: Map of criterion IDs to scores
         aggregation: How to aggregate ("sum", "weighted_sum", "custom")
-        
+
     Returns:
         Dict with aggregation method, total score, and per-criterion breakdown
     """
@@ -61,13 +61,13 @@ def score_events_against_rubric(
     events: list[dict[str, Any]], rubric: Rubric | None
 ) -> dict[str, Any]:
     """Score a list of evaluation events against a rubric.
-    
+
     Events should contain criterion_id/id/criterion and score fields.
-    
+
     Args:
         events: List of event dicts with scoring info
         rubric: Rubric defining criteria and aggregation
-        
+
     Returns:
         Scoring result with total and per-criterion scores
     """
@@ -86,14 +86,14 @@ def score_events_against_rubric(
 
 def score_outcome_against_rubric(outcome: dict[str, Any], rubric: Rubric | None) -> dict[str, Any]:
     """Score a rollout outcome against a rubric.
-    
+
     Outcome should be a dict mapping criterion IDs to scores, optionally
     nested under a "criteria" key.
-    
+
     Args:
         outcome: Outcome dict with criterion scores
         rubric: Rubric defining criteria and aggregation
-        
+
     Returns:
         Scoring result with total and per-criterion scores
     """
@@ -110,7 +110,3 @@ def score_outcome_against_rubric(outcome: dict[str, Any], rubric: Rubric | None)
                 if score is not None:
                     values[str(key)] = score
     return _score(rubric.criteria, values, rubric.aggregation)
-
-
-
-

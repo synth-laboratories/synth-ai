@@ -6,11 +6,7 @@ import click
 
 from synth_ai.core.paths import REPO_ROOT
 
-DemoType: TypeAlias = Literal[
-    "mipro",
-    "sft",
-    "rl"
-]
+DemoType: TypeAlias = Literal["mipro", "sft", "rl"]
 
 
 @click.command()

@@ -27,12 +27,13 @@ def tracing_env_enabled(default: bool = False) -> bool:
 
 def resolve_tracing_db_url() -> str | None:
     """Resolve tracing database URL using centralized tracing_v3 config logic.
-    
+
     This delegates to synth_ai.core.tracing_v3.config.resolve_trace_db_settings() which
     handles Modal detection, remote Turso, local sqld, and SQLite fallbacks.
     """
     try:
         from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
+
         db_url, _ = resolve_trace_db_settings(ensure_dir=True)
         return db_url
     except ImportError:
@@ -44,14 +45,14 @@ def resolve_tracing_db_url() -> str | None:
         )
         if db_url:
             return db_url
-        
+
         # Auto-provision local sqld location for callers that rely on trace directories.
         base_dir = TRACE_DB_DIR.expanduser()
         base_dir.mkdir(parents=True, exist_ok=True)
         candidate = base_dir / canonical_trace_db_name(timestamp=datetime.now())
         os.environ["TASKAPP_TRACE_DB_PATH"] = str(candidate)
         os.environ.setdefault("SQLD_DB_PATH", str(candidate))
-        
+
         default_url = os.getenv("LIBSQL_DEFAULT_URL", "http://127.0.0.1:8081")
         return default_url
 

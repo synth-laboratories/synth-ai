@@ -10,21 +10,17 @@ def setup_start() -> str:
         session: AuthSession = init_auth_session()
     except RuntimeError as err:
         return json.dumps(
-            {
-                "status": "error",
-                "message": str(err),
-                "code": "init_auth_session"
-            },
-            ensure_ascii=False
+            {"status": "error", "message": str(err), "code": "init_auth_session"},
+            ensure_ascii=False,
         )
     return json.dumps(
         {
             "status": "pending",
             "verification_uri": session.verification_uri,
             "device_code": session.device_code,
-            "expires_at": session.expires_at
+            "expires_at": session.expires_at,
         },
-        ensure_ascii=False
+        ensure_ascii=False,
     )
 
 
@@ -36,9 +32,9 @@ def setup_fetch(device_code: str) -> str:
             {
                 "status": "error",
                 "stage": stage,
-                "message": "Network error while contacting handshake token endpoint"
+                "message": "Network error while contacting handshake token endpoint",
             },
-            ensure_ascii=False
+            ensure_ascii=False,
         )
     if res.status_code == 200:
         try:
@@ -48,9 +44,9 @@ def setup_fetch(device_code: str) -> str:
                 {
                     "status": "error",
                     "stage": stage,
-                    "message": "Handshake token returned malformed JSON"
+                    "message": "Handshake token returned malformed JSON",
                 },
-                ensure_ascii=False
+                ensure_ascii=False,
             )
         raw_keys = payload.get("keys") or {}
         if not isinstance(raw_keys, dict):
@@ -63,22 +59,16 @@ def setup_fetch(device_code: str) -> str:
                 ensure_ascii=False,
             )
         credentials = {
-            "SYNTH_API_KEY": str(raw_keys.get("synth") or '').strip(),
-            "ENVIRONMENT_API_KEY": str(raw_keys.get("rl_env") or '').strip()
+            "SYNTH_API_KEY": str(raw_keys.get("synth") or "").strip(),
+            "ENVIRONMENT_API_KEY": str(raw_keys.get("rl_env") or "").strip(),
         }
         for k, v in credentials.items():
             write_env_var_to_dotenv(k, v)
             write_env_var_to_json(k, v, "~/.synth-ai/config.json")
             os.environ[k] = v
-        masked_credentials = {
-            key: mask_str(value or "") for key, value in credentials.items()
-        }
+        masked_credentials = {key: mask_str(value or "") for key, value in credentials.items()}
         return json.dumps(
-            {
-                "status": "success",
-                "credentials": masked_credentials
-            },
-            ensure_ascii=False
+            {"status": "success", "credentials": masked_credentials}, ensure_ascii=False
         )
     if res.status_code in (404, 410):
         return json.dumps(
@@ -86,15 +76,15 @@ def setup_fetch(device_code: str) -> str:
                 "status": "error",
                 "stage": stage,
                 "message": "Device code expired or was revoked. Restart setup",
-                "code": res.status_code
+                "code": res.status_code,
             },
-            ensure_ascii=False
+            ensure_ascii=False,
         )
     return json.dumps(
         {
             "status": "pending",
             "stage": stage,
-            "message": f"Authorization pending (HTTP {res.status_code})"
+            "message": f"Authorization pending (HTTP {res.status_code})",
         },
-        ensure_ascii=False
+        ensure_ascii=False,
     )

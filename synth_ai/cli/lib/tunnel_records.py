@@ -40,10 +40,10 @@ def record_service(
         mode: Tunnel mode - "quick" or "managed" (optional, for tunnels)
     """
     records_path = _get_records_path()
-    
+
     # Load existing records
     records = load_service_records()
-    
+
     # Create new record
     record: dict[str, Any] = {
         "url": url,
@@ -52,7 +52,7 @@ def record_service(
         "local_host": local_host,
         "created_at": datetime.now(UTC).isoformat(),
     }
-    
+
     if pid is not None:
         record["pid"] = pid
     if hostname is not None:
@@ -63,10 +63,10 @@ def record_service(
         record["app_id"] = app_id
     if mode is not None:
         record["mode"] = mode
-    
+
     # Use port as key (one service per port)
     records[str(port)] = record
-    
+
     # Write back
     try:
         records_path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,10 +83,10 @@ def load_service_records() -> dict[str, dict[str, Any]]:
         Dict mapping port (as string) -> record dict
     """
     records_path = _get_records_path()
-    
+
     if not records_path.exists():
         return {}
-    
+
     try:
         with records_path.open("r") as f:
             data = json.load(f)
@@ -94,7 +94,7 @@ def load_service_records() -> dict[str, dict[str, Any]]:
                 return data
     except Exception:
         pass
-    
+
     return {}
 
 
@@ -106,10 +106,10 @@ def remove_service_record(port: int) -> None:
     """
     records = load_service_records()
     port_str = str(port)
-    
+
     if port_str in records:
         del records[port_str]
-        
+
         records_path = _get_records_path()
         try:
             with records_path.open("w") as f:
@@ -120,21 +120,22 @@ def remove_service_record(port: int) -> None:
 
 def cleanup_stale_records() -> None:
     """Remove records for services that are no longer running.
-    
+
     Checks if processes are still alive and removes dead ones.
     Also checks if ports are still in use (for records without PID).
     """
     records = load_service_records()
     updated = False
-    
+
     for port_str, record in list(records.items()):
         port = record.get("port")
         pid = record.get("pid")
-        
+
         # Method 1: Check PID if available
         if pid is not None:
             try:
                 import psutil  # type: ignore[import-untyped]
+
                 proc = psutil.Process(pid)
                 if not proc.is_running():
                     # Process is dead, remove record
@@ -149,11 +150,12 @@ def cleanup_stale_records() -> None:
                 del records[port_str]
                 updated = True
                 continue
-        
+
         # Method 2: Check if port is still in use (for records without PID or as fallback)
         if port is not None:
             try:
                 import socket
+
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(0.1)
                 sock.connect_ex(("127.0.0.1", port))
@@ -163,7 +165,7 @@ def cleanup_stale_records() -> None:
                 # We'll be conservative and only remove if we're sure the process is dead
             except Exception:
                 pass
-    
+
     if updated:
         records_path = _get_records_path()
         try:
@@ -204,4 +206,3 @@ def load_tunnel_records() -> dict[str, dict[str, Any]]:
 def remove_tunnel_record(port: int) -> None:
     """Remove a tunnel record (backward compatibility)."""
     remove_service_record(port)
-

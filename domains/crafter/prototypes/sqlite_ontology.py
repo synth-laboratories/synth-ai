@@ -5,10 +5,9 @@ This demonstrates modeling the Crafter ontology in a relational database.
 We'll see where it maps naturally and where we need JSON workarounds.
 """
 
-import sqlite3
 import json
+import sqlite3
 from pathlib import Path
-from typing import Any
 
 DB_PATH = Path(__file__).parent / "crafter_ontology.db"
 
@@ -164,253 +163,419 @@ def load_crafter_data(conn: sqlite3.Connection):
     # INTERFACES
     # ==========================================================================
     interfaces = [
-        ("Positioned", "Entity with position in world", None,
-         json.dumps({"pos": {"type": "tuple[int,int]", "required": True}}),
-         None, None),
-
-        ("Inventoried", "Entity with inventory", None,
-         json.dumps({
-             "health": {"type": "int", "required": True},
-             "food": {"type": "int", "required": True},
-             "drink": {"type": "int", "required": True},
-             "energy": {"type": "int", "required": True},
-         }),
-         None, None),
-
-        ("LivingCreature", "Mortal entity with health",
-         json.dumps(["Positioned"]),
-         json.dumps({"health": {"type": "int", "min": 0, "max": 9, "required": True}}),
-         json.dumps({"is_alive": "health > 0"}),
-         json.dumps(["move", "do"])),
+        (
+            "Positioned",
+            "Entity with position in world",
+            None,
+            json.dumps({"pos": {"type": "tuple[int,int]", "required": True}}),
+            None,
+            None,
+        ),
+        (
+            "Inventoried",
+            "Entity with inventory",
+            None,
+            json.dumps(
+                {
+                    "health": {"type": "int", "required": True},
+                    "food": {"type": "int", "required": True},
+                    "drink": {"type": "int", "required": True},
+                    "energy": {"type": "int", "required": True},
+                }
+            ),
+            None,
+            None,
+        ),
+        (
+            "LivingCreature",
+            "Mortal entity with health",
+            json.dumps(["Positioned"]),
+            json.dumps({"health": {"type": "int", "min": 0, "max": 9, "required": True}}),
+            json.dumps({"is_alive": "health > 0"}),
+            json.dumps(["move", "do"]),
+        ),
     ]
 
-    cursor.executemany("""
+    cursor.executemany(
+        """
         INSERT OR REPLACE INTO interfaces (name, description, extends, properties, derived, capabilities)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, interfaces)
+    """,
+        interfaces,
+    )
 
     # ==========================================================================
     # OBJECT TYPES
     # ==========================================================================
     object_types = [
-        ("Player", "The agent-controlled entity",
-         json.dumps(["Positioned", "Inventoried", "LivingCreature"]),
-         "id",
-         json.dumps({
-             "facing": {"type": "Direction"},
-             "sleeping": {"type": "bool", "initial": False},
-             "_hunger": {"type": "int", "initial": 0, "internal": True},
-             "_thirst": {"type": "int", "initial": 0, "internal": True},
-             "_fatigue": {"type": "int", "initial": 0, "internal": True},
-             "_recover": {"type": "int", "initial": 0, "internal": True},
-         }),
-         None),
-
-        ("Zombie", "Hostile creature, melee attacks",
-         json.dumps(["Positioned", "LivingCreature"]),
-         "id",
-         json.dumps({
-             "health": {"type": "int", "initial": 5, "max": 5},
-             "damage": {"type": "int", "initial": 2},
-             "sleep_damage": {"type": "int", "initial": 7},
-         }),
-         None),
-
-        ("Skeleton", "Hostile creature, ranged attacks",
-         json.dumps(["Positioned", "LivingCreature"]),
-         "id",
-         json.dumps({
-             "health": {"type": "int", "initial": 3, "max": 3},
-             "damage": {"type": "int", "initial": 1},
-             "range": {"type": "int", "initial": 4},
-             "cooldown": {"type": "int", "initial": 2},
-         }),
-         None),
-
-        ("Cow", "Passive creature, food source",
-         json.dumps(["Positioned", "LivingCreature"]),
-         "id",
-         json.dumps({
-             "health": {"type": "int", "initial": 3, "max": 3},
-             "food_value": {"type": "int", "initial": 6},
-         }),
-         None),
-
-        ("Plant", "Grows to produce food",
-         json.dumps(["Positioned"]),
-         "id",
-         json.dumps({
-             "stage": {"type": "int", "min": 0, "max": 5, "initial": 0},
-             "growth_rate": {"type": "float", "initial": 0.02},
-         }),
-         json.dumps({"is_ripe": "stage >= 4"})),
+        (
+            "Player",
+            "The agent-controlled entity",
+            json.dumps(["Positioned", "Inventoried", "LivingCreature"]),
+            "id",
+            json.dumps(
+                {
+                    "facing": {"type": "Direction"},
+                    "sleeping": {"type": "bool", "initial": False},
+                    "_hunger": {"type": "int", "initial": 0, "internal": True},
+                    "_thirst": {"type": "int", "initial": 0, "internal": True},
+                    "_fatigue": {"type": "int", "initial": 0, "internal": True},
+                    "_recover": {"type": "int", "initial": 0, "internal": True},
+                }
+            ),
+            None,
+        ),
+        (
+            "Zombie",
+            "Hostile creature, melee attacks",
+            json.dumps(["Positioned", "LivingCreature"]),
+            "id",
+            json.dumps(
+                {
+                    "health": {"type": "int", "initial": 5, "max": 5},
+                    "damage": {"type": "int", "initial": 2},
+                    "sleep_damage": {"type": "int", "initial": 7},
+                }
+            ),
+            None,
+        ),
+        (
+            "Skeleton",
+            "Hostile creature, ranged attacks",
+            json.dumps(["Positioned", "LivingCreature"]),
+            "id",
+            json.dumps(
+                {
+                    "health": {"type": "int", "initial": 3, "max": 3},
+                    "damage": {"type": "int", "initial": 1},
+                    "range": {"type": "int", "initial": 4},
+                    "cooldown": {"type": "int", "initial": 2},
+                }
+            ),
+            None,
+        ),
+        (
+            "Cow",
+            "Passive creature, food source",
+            json.dumps(["Positioned", "LivingCreature"]),
+            "id",
+            json.dumps(
+                {
+                    "health": {"type": "int", "initial": 3, "max": 3},
+                    "food_value": {"type": "int", "initial": 6},
+                }
+            ),
+            None,
+        ),
+        (
+            "Plant",
+            "Grows to produce food",
+            json.dumps(["Positioned"]),
+            "id",
+            json.dumps(
+                {
+                    "stage": {"type": "int", "min": 0, "max": 5, "initial": 0},
+                    "growth_rate": {"type": "float", "initial": 0.02},
+                }
+            ),
+            json.dumps({"is_ripe": "stage >= 4"}),
+        ),
     ]
 
-    cursor.executemany("""
+    cursor.executemany(
+        """
         INSERT OR REPLACE INTO object_types (name, description, implements, primary_key, properties, derived)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, object_types)
+    """,
+        object_types,
+    )
 
     # ==========================================================================
     # ENUMS
     # ==========================================================================
     enums = [
         ("Direction", json.dumps(["up", "down", "left", "right"])),
-        ("Material", json.dumps(["water", "grass", "sand", "stone", "path", "tree",
-                                  "coal", "iron", "diamond", "lava", "table", "furnace"])),
-        ("Item", json.dumps(["wood", "stone", "coal", "iron", "diamond", "sapling",
-                             "wood_pickaxe", "stone_pickaxe", "iron_pickaxe",
-                             "wood_sword", "stone_sword", "iron_sword"])),
+        (
+            "Material",
+            json.dumps(
+                [
+                    "water",
+                    "grass",
+                    "sand",
+                    "stone",
+                    "path",
+                    "tree",
+                    "coal",
+                    "iron",
+                    "diamond",
+                    "lava",
+                    "table",
+                    "furnace",
+                ]
+            ),
+        ),
+        (
+            "Item",
+            json.dumps(
+                [
+                    "wood",
+                    "stone",
+                    "coal",
+                    "iron",
+                    "diamond",
+                    "sapling",
+                    "wood_pickaxe",
+                    "stone_pickaxe",
+                    "iron_pickaxe",
+                    "wood_sword",
+                    "stone_sword",
+                    "iron_sword",
+                ]
+            ),
+        ),
     ]
 
-    cursor.executemany("""
+    cursor.executemany(
+        """
         INSERT OR REPLACE INTO enums (name, enum_values) VALUES (?, ?)
-    """, enums)
+    """,
+        enums,
+    )
 
     # ==========================================================================
     # LINK TYPES
     # ==========================================================================
     link_types = [
         ("occupies", "Player", "Material", "many_to_one", 0, None, None),
-        ("threatens", json.dumps(["Zombie", "Skeleton"]), "Player", "many_to_one",
-         1, "distance(creature.pos, player.pos) <= range", None),
-        ("yields_on_collect", "Material", "Item", "one_to_one", 0, None,
-         json.dumps({"requires_tool": {"type": "Item", "nullable": True}})),
+        (
+            "threatens",
+            json.dumps(["Zombie", "Skeleton"]),
+            "Player",
+            "many_to_one",
+            1,
+            "distance(creature.pos, player.pos) <= range",
+            None,
+        ),
+        (
+            "yields_on_collect",
+            "Material",
+            "Item",
+            "one_to_one",
+            0,
+            None,
+            json.dumps({"requires_tool": {"type": "Item", "nullable": True}}),
+        ),
     ]
 
-    cursor.executemany("""
+    cursor.executemany(
+        """
         INSERT OR REPLACE INTO link_types (name, from_type, to_type, cardinality, computed, condition, properties)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, link_types)
+    """,
+        link_types,
+    )
 
     # ==========================================================================
     # ACTION TYPES
     # ==========================================================================
     action_types = [
-        ("Noop", "0", "Do nothing", None,
-         json.dumps([]),
-         json.dumps([])),
-
-        ("Move", json.dumps([1, 4]), "Move in direction",
-         json.dumps({"direction": {"type": "Direction"}}),
-         json.dumps([
-             "facing_tile.material not in [water, lava, stone, tree, coal, iron, diamond, table, furnace]",
-             "no creature on facing_tile"
-         ]),
-         json.dumps([
-             {"set": "Player.pos", "to": "facing_tile.pos"},
-             {"set": "Player.facing", "to": "direction"}
-         ])),
-
-        ("Do", "5", "Interact with facing tile",
-         None,
-         json.dumps(["facing_tile has interaction"]),
-         json.dumps([
-             {"match": "facing_tile.material",
-              "cases": [
-                  {"when": "tree", "then": [
-                      {"increment": "inventory.wood", "by": 1},
-                      {"set": "facing_tile.material", "to": "grass"}
-                  ]},
-                  {"when": "water", "then": [
-                      {"increment": "Player.drink", "by": 1},
-                      {"set": "Player._thirst", "to": 0}
-                  ]}
-              ]}
-         ])),
-
-        ("MakeWoodPickaxe", "11", "Craft wood pickaxe",
-         None,
-         json.dumps([
-             "Player.inventory.wood >= 1",
-             "nearby(Player.pos, 1).materials contains table"
-         ]),
-         json.dumps([
-             {"decrement": "Player.inventory.wood", "by": 1},
-             {"increment": "Player.inventory.wood_pickaxe", "by": 1},
-             {"trigger_achievement": "make_wood_pickaxe"}
-         ])),
-
-        ("PlaceTable", "9", "Place crafting table",
-         None,
-         json.dumps([
-             "Player.inventory.wood >= 2",
-             "facing_tile.material in [grass, sand, path]",
-             "no object on facing_tile"
-         ]),
-         json.dumps([
-             {"decrement": "Player.inventory.wood", "by": 2},
-             {"set": "facing_tile.material", "to": "table"},
-             {"trigger_achievement": "place_table"}
-         ])),
-
-        ("Sleep", "8", "Rest to recover energy",
-         None,
-         json.dumps(["Player.energy < 9"]),
-         json.dumps([
-             {"set": "Player.sleeping", "to": True}
-         ])),
+        ("Noop", "0", "Do nothing", None, json.dumps([]), json.dumps([])),
+        (
+            "Move",
+            json.dumps([1, 4]),
+            "Move in direction",
+            json.dumps({"direction": {"type": "Direction"}}),
+            json.dumps(
+                [
+                    "facing_tile.material not in [water, lava, stone, tree, coal, iron, diamond, table, furnace]",
+                    "no creature on facing_tile",
+                ]
+            ),
+            json.dumps(
+                [
+                    {"set": "Player.pos", "to": "facing_tile.pos"},
+                    {"set": "Player.facing", "to": "direction"},
+                ]
+            ),
+        ),
+        (
+            "Do",
+            "5",
+            "Interact with facing tile",
+            None,
+            json.dumps(["facing_tile has interaction"]),
+            json.dumps(
+                [
+                    {
+                        "match": "facing_tile.material",
+                        "cases": [
+                            {
+                                "when": "tree",
+                                "then": [
+                                    {"increment": "inventory.wood", "by": 1},
+                                    {"set": "facing_tile.material", "to": "grass"},
+                                ],
+                            },
+                            {
+                                "when": "water",
+                                "then": [
+                                    {"increment": "Player.drink", "by": 1},
+                                    {"set": "Player._thirst", "to": 0},
+                                ],
+                            },
+                        ],
+                    }
+                ]
+            ),
+        ),
+        (
+            "MakeWoodPickaxe",
+            "11",
+            "Craft wood pickaxe",
+            None,
+            json.dumps(
+                ["Player.inventory.wood >= 1", "nearby(Player.pos, 1).materials contains table"]
+            ),
+            json.dumps(
+                [
+                    {"decrement": "Player.inventory.wood", "by": 1},
+                    {"increment": "Player.inventory.wood_pickaxe", "by": 1},
+                    {"trigger_achievement": "make_wood_pickaxe"},
+                ]
+            ),
+        ),
+        (
+            "PlaceTable",
+            "9",
+            "Place crafting table",
+            None,
+            json.dumps(
+                [
+                    "Player.inventory.wood >= 2",
+                    "facing_tile.material in [grass, sand, path]",
+                    "no object on facing_tile",
+                ]
+            ),
+            json.dumps(
+                [
+                    {"decrement": "Player.inventory.wood", "by": 2},
+                    {"set": "facing_tile.material", "to": "table"},
+                    {"trigger_achievement": "place_table"},
+                ]
+            ),
+        ),
+        (
+            "Sleep",
+            "8",
+            "Rest to recover energy",
+            None,
+            json.dumps(["Player.energy < 9"]),
+            json.dumps([{"set": "Player.sleeping", "to": True}]),
+        ),
     ]
 
-    cursor.executemany("""
+    cursor.executemany(
+        """
         INSERT OR REPLACE INTO action_types (name, action_id, description, parameters, preconditions, effects)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, action_types)
+    """,
+        action_types,
+    )
 
     # ==========================================================================
     # DYNAMICS
     # ==========================================================================
     dynamics = [
-        ("hunger", "step", None, None,
-         json.dumps([
-             {"increment": "Player._hunger", "by": 1},
-             {"if": "Player._hunger >= 25", "then": [
-                 {"decrement": "Player.food", "by": 1},
-                 {"set": "Player._hunger", "to": 0}
-             ]}
-         ])),
-
-        ("thirst", "step", None, None,
-         json.dumps([
-             {"increment": "Player._thirst", "by": 1},
-             {"if": "Player._thirst >= 20", "then": [
-                 {"decrement": "Player.drink", "by": 1},
-                 {"set": "Player._thirst", "to": 0}
-             ]}
-         ])),
-
-        ("health_regen", "step", None, None,
-         json.dumps([
-             {"increment": "Player._recover", "by": 1},
-             {"if": "Player._recover >= 10 and all_vitals_positive(Player)", "then": [
-                 {"increment": "Player.health", "by": 1},
-                 {"set": "Player._recover", "to": 0}
-             ]},
-             {"if": "any_vital_zero(Player)", "then": [
-                 {"decrement": "Player.health", "by": 1}
-             ]}
-         ])),
-
-        ("plant_growth", "step", None, "Plant",
-         json.dumps([
-             {"if": "random() < Plant.growth_rate and Plant.stage < 5", "then": [
-                 {"increment": "Plant.stage", "by": 1}
-             ]}
-         ])),
+        (
+            "hunger",
+            "step",
+            None,
+            None,
+            json.dumps(
+                [
+                    {"increment": "Player._hunger", "by": 1},
+                    {
+                        "if": "Player._hunger >= 25",
+                        "then": [
+                            {"decrement": "Player.food", "by": 1},
+                            {"set": "Player._hunger", "to": 0},
+                        ],
+                    },
+                ]
+            ),
+        ),
+        (
+            "thirst",
+            "step",
+            None,
+            None,
+            json.dumps(
+                [
+                    {"increment": "Player._thirst", "by": 1},
+                    {
+                        "if": "Player._thirst >= 20",
+                        "then": [
+                            {"decrement": "Player.drink", "by": 1},
+                            {"set": "Player._thirst", "to": 0},
+                        ],
+                    },
+                ]
+            ),
+        ),
+        (
+            "health_regen",
+            "step",
+            None,
+            None,
+            json.dumps(
+                [
+                    {"increment": "Player._recover", "by": 1},
+                    {
+                        "if": "Player._recover >= 10 and all_vitals_positive(Player)",
+                        "then": [
+                            {"increment": "Player.health", "by": 1},
+                            {"set": "Player._recover", "to": 0},
+                        ],
+                    },
+                    {
+                        "if": "any_vital_zero(Player)",
+                        "then": [{"decrement": "Player.health", "by": 1}],
+                    },
+                ]
+            ),
+        ),
+        (
+            "plant_growth",
+            "step",
+            None,
+            "Plant",
+            json.dumps(
+                [
+                    {
+                        "if": "random() < Plant.growth_rate and Plant.stage < 5",
+                        "then": [{"increment": "Plant.stage", "by": 1}],
+                    }
+                ]
+            ),
+        ),
     ]
 
-    cursor.executemany("""
+    cursor.executemany(
+        """
         INSERT OR REPLACE INTO dynamics (name, every, condition, for_each, effects)
         VALUES (?, ?, ?, ?, ?)
-    """, dynamics)
+    """,
+        dynamics,
+    )
 
     conn.commit()
-    print(f"Loaded Crafter ontology data")
+    print("Loaded Crafter ontology data")
 
 
 # =============================================================================
 # QUERY EXAMPLES
 # =============================================================================
+
 
 def run_queries(conn: sqlite3.Connection):
     """Run example queries to demonstrate capabilities and limitations."""
@@ -535,14 +700,14 @@ def main():
         print(f"  - {p}")
 
     print("\n[Q3] Hostile creatures (have damage property):")
-    for name, props in results["hostile_creatures"]:
+    for name, _props in results["hostile_creatures"]:
         print(f"  - {name}")
 
     print("\n[Q4] Player implements interfaces:")
     print(f"  {results['player_interfaces']}")
 
     print("\n[Q5] Actions requiring table:")
-    for name, preconds in results["actions_requiring_table"]:
+    for name, _preconds in results["actions_requiring_table"]:
         print(f"  - {name}")
 
     print("\n[Q6] LivingCreature inheritance tree:")
