@@ -87,7 +87,6 @@ _CLI_IMPORTS = {
     "write_env_var_to_json": ("synth_ai.core.env_utils", "write_env_var_to_json"),
     # From core.integrations.modal_utils
     "ensure_modal_installed": ("synth_ai.core.integrations.modal_utils", "ensure_modal_installed"),
-    "ensure_task_app_ready": ("synth_ai.core.integrations.modal_utils", "ensure_task_app_ready"),
     "find_asgi_apps": ("synth_ai.core.integrations.modal_utils", "find_asgi_apps"),
     "is_local_demo_url": ("synth_ai.core.integrations.modal_utils", "is_local_demo_url"),
     "is_modal_public_url": ("synth_ai.core.integrations.modal_utils", "is_modal_public_url"),
@@ -192,7 +191,6 @@ __all__ = [
     "ensure_env_credentials",
     "ensure_modal_installed",
     "ensure_port_free",
-    "ensure_task_app_ready",
     "extract_routes_from_app",
     "find_asgi_apps",
     "find_sqld_binary",

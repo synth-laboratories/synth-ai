@@ -148,22 +148,6 @@ def _should_ignore_path(path: Path) -> bool:
 def _candidate_search_roots() -> list[Path]:
     roots: list[Path] = []
 
-    try:
-        demo_module = importlib.import_module("synth_ai.core.demo_apps.demo_task_apps.core")
-    except Exception:
-        demo_module = None
-    if demo_module:
-        load_demo_dir = getattr(demo_module, "load_demo_dir", None)
-        if callable(load_demo_dir):
-            try:
-                demo_dir = load_demo_dir()
-            except Exception:
-                demo_dir = None
-            if demo_dir:
-                demo_path = Path(demo_dir)
-                if demo_path.exists() and demo_path.is_dir():
-                    roots.append(demo_path.resolve())
-
     env_paths = os.environ.get("SYNTH_TASK_APP_SEARCH_PATH")
     if env_paths:
         for chunk in env_paths.split(os.pathsep):
@@ -453,24 +437,7 @@ def _collect_modal_scripts() -> list[AppChoice]:
     return results
 
 
-def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, str, str]:
-    demo_rank = 1
-    try:
-        demo_module = importlib.import_module("synth_ai.core.demo_apps.demo_task_apps.core")
-    except Exception:
-        demo_module = None
-    if demo_module:
-        load_demo_dir = getattr(demo_module, "load_demo_dir", None)
-        if callable(load_demo_dir):
-            try:
-                demo_dir = load_demo_dir()
-            except Exception:
-                demo_dir = None
-            if demo_dir:
-                demo_path = Path(demo_dir).resolve()
-                if choice.path.is_relative_to(demo_path):
-                    demo_rank = 0
-
+def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, str, str]:
     cwd_rank = 1
     try:
         cwd = Path.cwd().resolve()
@@ -498,7 +465,6 @@ def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, st
     directory_rank = 0 if choice.path.parent.name.lower() in {"task_app", "task_apps"} else 1
 
     return (
-        demo_rank,
         cwd_rank,
         modal_rank,
         file_rank,
@@ -660,8 +626,6 @@ def _prompt_user_for_choice(choices: list[AppChoice]) -> AppChoice:
 def _collect_task_app_choices() -> list[AppChoice]:
     registry.clear()
     choices: list[AppChoice] = []
-    with contextlib.suppress(Exception):
-        importlib.import_module("synth_ai.core.demo_apps.demo_task_apps")
     choices.extend(_collect_registered_choices())
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())
