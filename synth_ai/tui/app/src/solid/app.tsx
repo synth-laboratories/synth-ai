@@ -46,7 +46,7 @@ import {
   getKeyForBackend,
 } from "../state/app-state"
 import { pollingState, clearEventsTimer, clearJobsTimer } from "../state/polling"
-import { installSignalHandlers, registerInterval, registerRenderer, shutdown } from "../lifecycle"
+import { installSignalHandlers, registerCleanup, unregisterCleanup, registerRenderer, shutdown } from "../lifecycle"
 
 let signalHandlersInstalled = false
 
@@ -299,15 +299,17 @@ function SolidShell(props: { onExit?: () => void }) {
 
     void backfillOnce()
 
-    const interval = registerInterval(setInterval(() => {
+    const interval = setInterval(() => {
       void refreshEvents(data.ctx).then((ok) => {
         if (ok && !cancelled) data.ctx.render()
       })
     }, 3000)
-    )
+    const cleanupName = "events-refresh-interval"
+    registerCleanup(cleanupName, () => clearInterval(interval))
     onCleanup(() => {
       cancelled = true
       clearInterval(interval)
+      unregisterCleanup(cleanupName)
     })
   })
   const logFiles = createMemo(() => {
@@ -526,15 +528,19 @@ function SolidShell(props: { onExit?: () => void }) {
     const current = modal()
     if (!current || current.type !== "log") return
     const filePath = current.path
-    const timer = registerInterval(setInterval(() => {
+    const timer = setInterval(() => {
       const raw = readLogFile(filePath)
       setModal((prev) => {
         if (!prev || prev.type !== "log") return prev
         return { ...prev, raw }
       })
     }, 1000)
-    )
-    onCleanup(() => clearInterval(timer))
+    const cleanupName = "log-modal-refresh-interval"
+    registerCleanup(cleanupName, () => clearInterval(timer))
+    onCleanup(() => {
+      clearInterval(timer)
+      unregisterCleanup(cleanupName)
+    })
   })
 
   createEffect(() => {

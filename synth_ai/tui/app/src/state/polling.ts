@@ -3,6 +3,7 @@
  */
 
 import path from "node:path"
+import { registerCleanup } from "../lifecycle"
 
 // Configuration from environment
 export const config = {
@@ -50,3 +51,21 @@ export function clearEventsTimer(): void {
     pollingState.eventsTimer = null
   }
 }
+
+function clearSseReconnectTimer(): void {
+  if (pollingState.sseReconnectTimer) {
+    clearTimeout(pollingState.sseReconnectTimer)
+    pollingState.sseReconnectTimer = null
+  }
+}
+
+// Register cleanup handlers for all polling timers
+registerCleanup("polling-jobs-timer", clearJobsTimer)
+registerCleanup("polling-events-timer", clearEventsTimer)
+registerCleanup("polling-sse-reconnect", clearSseReconnectTimer)
+registerCleanup("polling-sse-disconnect", () => {
+  if (pollingState.sseDisconnect) {
+    pollingState.sseDisconnect()
+    pollingState.sseDisconnect = null
+  }
+})
