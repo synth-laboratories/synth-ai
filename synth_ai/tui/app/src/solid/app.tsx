@@ -48,14 +48,9 @@ import {
 import { pollingState, clearEventsTimer, clearJobsTimer } from "../state/polling"
 import { installSignalHandlers, registerCleanup, unregisterCleanup, registerRenderer, shutdown } from "../lifecycle"
 
-let signalHandlersInstalled = false
-
 function wireShutdown(renderer: { stop: () => void; destroy: () => void }): void {
   registerRenderer(renderer)
-  if (!signalHandlersInstalled) {
-    installSignalHandlers()
-    signalHandlersInstalled = true
-  }
+  installSignalHandlers() // Safe to call multiple times
 }
 
 type ModalState =
@@ -308,10 +303,12 @@ function SolidShell(props: { onExit?: () => void }) {
     const cleanup = () => {
       cancelled = true
       clearInterval(interval)
-      unregisterCleanup(cleanupName)
     }
     registerCleanup(cleanupName, cleanup)
-    onCleanup(cleanup)
+    onCleanup(() => {
+      cleanup()
+      unregisterCleanup(cleanupName)
+    })
   })
   const logFiles = createMemo(() => {
     data.version()
@@ -539,10 +536,12 @@ function SolidShell(props: { onExit?: () => void }) {
     const cleanupName = "log-modal-refresh-interval"
     const cleanup = () => {
       clearInterval(timer)
-      unregisterCleanup(cleanupName)
     }
     registerCleanup(cleanupName, cleanup)
-    onCleanup(cleanup)
+    onCleanup(() => {
+      cleanup()
+      unregisterCleanup(cleanupName)
+    })
   })
 
   createEffect(() => {

@@ -143,10 +143,12 @@ export function useSolidData(): SolidData {
     const cleanupName = "data-refresh-interval"
     const cleanup = () => {
       clearInterval(interval)
-      unregisterCleanup(cleanupName)
     }
     registerCleanup(cleanupName, cleanup)
-    onCleanup(cleanup)
+    onCleanup(() => {
+      cleanup()
+      unregisterCleanup(cleanupName)
+    })
   })
 
   return {

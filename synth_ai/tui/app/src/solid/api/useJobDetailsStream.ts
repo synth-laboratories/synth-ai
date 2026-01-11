@@ -26,18 +26,18 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
   let connection: JobDetailsStreamConnection | null = null
   const cleanupName = "job-details-stream"
 
-  // Single cleanup function used by both lifecycle and onCleanup
+  // Cleanup function for disconnecting the stream
   const cleanup = () => {
     if (connection) {
       connection.disconnect()
       connection = null
     }
-    unregisterCleanup(cleanupName)
   }
 
   createEffect(() => {
     // Disconnect previous stream if any
     cleanup()
+    unregisterCleanup(cleanupName)
 
     // Check if streaming is enabled
     if (options.enabled && !options.enabled()) {
@@ -62,6 +62,9 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
   })
 
   // Cleanup on component unmount
-  onCleanup(cleanup)
+  onCleanup(() => {
+    cleanup()
+    unregisterCleanup(cleanupName)
+  })
 }
 
