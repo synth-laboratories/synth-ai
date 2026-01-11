@@ -37,7 +37,6 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
   createEffect(() => {
     // Disconnect previous stream if any
     cleanup()
-    unregisterCleanup(cleanupName)
 
     // Check if streaming is enabled
     if (options.enabled && !options.enabled()) {
@@ -58,6 +57,7 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
       options.onError,
       sinceSeq,
     )
+    // Re-registering with same name overwrites previous entry (Map semantics)
     registerCleanup(cleanupName, cleanup)
   })
 
