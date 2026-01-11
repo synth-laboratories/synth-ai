@@ -346,8 +346,10 @@ export function ChatPane(props: ChatPaneProps) {
       })
       // Refetch with retries - parts may not be immediately available
       const refetchWithRetry = async (attempt: number) => {
+        if (abortController.signal.aborted) return
         try {
           const messagesRes = await client.session.messages({ sessionID: sessionId })
+          if (abortController.signal.aborted) return
           if (messagesRes.data) {
             const lastMsg = messagesRes.data.at(-1)
             const partCount = lastMsg?.parts?.length ?? 0
@@ -363,7 +365,7 @@ export function ChatPane(props: ChatPaneProps) {
             })
 
             // If still no parts and we have retries left, try again
-            if (partCount === 0 && attempt < 5) {
+            if (partCount === 0 && attempt < 5 && !abortController.signal.aborted) {
               setTimeout(() => refetchWithRetry(attempt + 1), 1000)
             }
           }
@@ -371,7 +373,9 @@ export function ChatPane(props: ChatPaneProps) {
           // Ignore refetch errors
         }
       }
-      setTimeout(() => refetchWithRetry(1), 500)
+      if (!abortController.signal.aborted) {
+        setTimeout(() => refetchWithRetry(1), 500)
+      }
     } catch (err) {
       setState((s) => ({ ...s, error: String(err) }))
     } finally {
