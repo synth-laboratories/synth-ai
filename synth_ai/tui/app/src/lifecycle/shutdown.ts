@@ -3,8 +3,7 @@
  *
  * Provides a single point of control for all cleanup operations:
  * - Aborts in-flight fetch requests via AbortController
- * - Clears all registered intervals and timeouts
- * - Runs registered cleanup functions (SSE disconnect, etc.)
+ * - Runs registered cleanup functions (intervals, SSE disconnect, etc.)
  * - Restores terminal state with explicit ANSI sequences
  * - Handles SIGINT/SIGTERM gracefully
  */
@@ -18,8 +17,6 @@ const ANSI_EXIT_ALT_SCREEN = "\x1b[?1049l" // Exit alternate screen buffer
 
 interface ShutdownState {
   abortController: AbortController
-  intervals: Set<ReturnType<typeof setInterval>>
-  timeouts: Set<ReturnType<typeof setTimeout>>
   cleanups: Map<string, CleanupFn>
   isShuttingDown: boolean
   renderer: { stop: () => void; destroy: () => void } | null
@@ -27,8 +24,6 @@ interface ShutdownState {
 
 const state: ShutdownState = {
   abortController: new AbortController(),
-  intervals: new Set(),
-  timeouts: new Set(),
   cleanups: new Map(),
   isShuttingDown: false,
   renderer: null,
@@ -54,29 +49,6 @@ export function isShuttingDown(): boolean {
  */
 export function registerRenderer(renderer: { stop: () => void; destroy: () => void }): void {
   state.renderer = renderer
-}
-
-/**
- * Register an interval for cleanup. Returns the interval ID for convenience.
- */
-export function registerInterval(id: ReturnType<typeof setInterval>): ReturnType<typeof setInterval> {
-  state.intervals.add(id)
-  return id
-}
-
-/**
- * Register a timeout for cleanup. Returns the timeout ID for convenience.
- */
-export function registerTimeout(id: ReturnType<typeof setTimeout>): ReturnType<typeof setTimeout> {
-  state.timeouts.add(id)
-  return id
-}
-
-/**
- * Unregister a timeout (e.g., when it fires or is manually cleared).
- */
-export function unregisterTimeout(id: ReturnType<typeof setTimeout>): void {
-  state.timeouts.delete(id)
 }
 
 /**
@@ -107,19 +79,7 @@ export async function shutdown(exitCode: number = 0): Promise<never> {
   // 1. Abort all in-flight fetch requests
   state.abortController.abort()
 
-  // 2. Clear all intervals
-  for (const id of state.intervals) {
-    clearInterval(id)
-  }
-  state.intervals.clear()
-
-  // 3. Clear all timeouts
-  for (const id of state.timeouts) {
-    clearTimeout(id)
-  }
-  state.timeouts.clear()
-
-  // 4. Run registered cleanup functions
+  // 2. Run registered cleanup functions
   for (const [, fn] of state.cleanups) {
     try {
       await fn()
@@ -129,7 +89,7 @@ export async function shutdown(exitCode: number = 0): Promise<never> {
   }
   state.cleanups.clear()
 
-  // 5. Stop and destroy renderer
+  // 3. Stop and destroy renderer
   if (state.renderer) {
     try {
       state.renderer.stop()
@@ -139,13 +99,13 @@ export async function shutdown(exitCode: number = 0): Promise<never> {
     }
   }
 
-  // 6. Force terminal restoration (belt and suspenders)
+  // 4. Force terminal restoration (belt and suspenders)
   process.stdout.write(ANSI_SHOW_CURSOR)
   process.stdout.write(ANSI_EXIT_ALT_SCREEN)
   process.stdout.write(ANSI_RESET)
   process.stdout.write("\n")
 
-  // 7. Exit
+  // 5. Exit
   process.exit(exitCode)
 }
 
