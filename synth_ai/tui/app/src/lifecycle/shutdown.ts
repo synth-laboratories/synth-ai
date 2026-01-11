@@ -114,7 +114,9 @@ let signalHandlersInstalled = false
 
 /**
  * Install process signal handlers. Safe to call multiple times.
- * Uses process.once to allow escape hatch if shutdown gets stuck.
+ * Uses process.once so that if shutdown hangs, a second Ctrl+C
+ * goes to the default handler (immediate termination) rather than
+ * hitting our re-entry guard which blocks forever.
  */
 export function installSignalHandlers(): void {
   if (signalHandlersInstalled) return
