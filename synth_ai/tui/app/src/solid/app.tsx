@@ -46,7 +46,17 @@ import {
   getKeyForBackend,
 } from "../state/app-state"
 import { pollingState, clearEventsTimer, clearJobsTimer } from "../state/polling"
-import { shutdown } from "../lifecycle"
+import { installSignalHandlers, registerInterval, registerRenderer, shutdown } from "../lifecycle"
+
+let signalHandlersInstalled = false
+
+function wireShutdown(renderer: { stop: () => void; destroy: () => void }): void {
+  registerRenderer(renderer)
+  if (!signalHandlersInstalled) {
+    installSignalHandlers()
+    signalHandlersInstalled = true
+  }
+}
 
 type ModalState =
   | {
@@ -119,7 +129,7 @@ export async function runSolidApp(): Promise<void> {
       () => <SolidShell onExit={resolve} />,
       {
         targetFps: 30,
-        exitOnCtrlC: true,
+        exitOnCtrlC: false,
         useKittyKeyboard: {},
       },
     )
@@ -130,6 +140,7 @@ function SolidShell(props: { onExit?: () => void }) {
   const { onExit } = props
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
+  wireShutdown(renderer)
 
   // Set global renderer for OpenCode embed to find
   ;(globalThis as any).__OPENCODE_EMBED_RENDERER__ = renderer
@@ -297,11 +308,12 @@ function SolidShell(props: { onExit?: () => void }) {
 
     void backfillOnce()
 
-    const interval = setInterval(() => {
+    const interval = registerInterval(setInterval(() => {
       void refreshEvents(data.ctx).then((ok) => {
         if (ok && !cancelled) data.ctx.render()
       })
     }, 3000)
+    )
     onCleanup(() => {
       cancelled = true
       clearInterval(interval)
@@ -523,13 +535,14 @@ function SolidShell(props: { onExit?: () => void }) {
     const current = modal()
     if (!current || current.type !== "log") return
     const filePath = current.path
-    const timer = setInterval(() => {
+    const timer = registerInterval(setInterval(() => {
       const raw = readLogFile(filePath)
       setModal((prev) => {
         if (!prev || prev.type !== "log") return prev
         return { ...prev, raw }
       })
     }, 1000)
+    )
     onCleanup(() => clearInterval(timer))
   })
 
@@ -1680,15 +1693,6 @@ function SolidShell(props: { onExit?: () => void }) {
     if (evt.name === "i" && !evt.shift) {
       evt.preventDefault()
       openConfigModal()
-      return
-    }
-    if (evt.name === "i" && evt.shift) {
-      evt.preventDefault()
-      // Install OpenCode if not available
-      const status = appState.openCodeStatus || ""
-      if (status.includes("not available") || status.includes("install")) {
-        void data.installOpenCode()
-      }
       return
     }
     if (evt.name === "p") {

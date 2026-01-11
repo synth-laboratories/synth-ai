@@ -8,6 +8,7 @@ import {
   type JobDetailsStreamConnection,
   type JobDetailsStreamEvent,
 } from "./job-details-stream"
+import { registerCleanup, unregisterCleanup } from "../../lifecycle"
 
 export interface UseJobDetailsStreamOptions {
   jobId: () => string | null | undefined
@@ -23,13 +24,19 @@ export interface UseJobDetailsStreamOptions {
  */
 export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
   let connection: JobDetailsStreamConnection | null = null
+  const cleanupName = "job-details-stream"
 
-  createEffect(() => {
-    // Disconnect previous stream if any
+  function disconnect(): void {
     if (connection) {
       connection.disconnect()
       connection = null
     }
+    unregisterCleanup(cleanupName)
+  }
+
+  createEffect(() => {
+    // Disconnect previous stream if any
+    disconnect()
 
     // Check if streaming is enabled
     if (options.enabled && !options.enabled()) {
@@ -50,15 +57,14 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
       options.onError,
       sinceSeq,
     )
+    registerCleanup(cleanupName, () => {
+      disconnect()
+    })
   })
 
   // Cleanup on component unmount
   onCleanup(() => {
-    if (connection) {
-      connection.disconnect()
-      connection = null
-    }
+    disconnect()
   })
 }
-
 

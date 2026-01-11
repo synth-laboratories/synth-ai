@@ -15,6 +15,7 @@ import { config } from "../state/polling"
 import { snapshot } from "../state/snapshot"
 import { isLoggedOutMarkerSet, loadSavedApiKey } from "../utils/logout-marker"
 import { isOpenCodeServerRunning, startOpenCodeServer } from "../utils/opencode-server"
+import { registerInterval } from "../lifecycle"
 import { createSolidContext } from "./context"
 
 export type SolidData = {
@@ -163,9 +164,10 @@ export function useSolidData(): SolidData {
   onMount(() => {
     void bootstrap()
     void ensureOpenCodeServer()
-    const interval = setInterval(() => {
+    const interval = registerInterval(setInterval(() => {
       void refresh()
     }, Math.max(1, config.refreshInterval) * 1000)
+    )
     onCleanup(() => clearInterval(interval))
   })
 
