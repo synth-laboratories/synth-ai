@@ -349,6 +349,7 @@ export function ChatPane(props: ChatPaneProps) {
         if (abortController.signal.aborted) return
         try {
           const messagesRes = await client.session.messages({ sessionID: sessionId })
+          if (abortController.signal.aborted) return
           if (messagesRes.data) {
             const lastMsg = messagesRes.data.at(-1)
             const partCount = lastMsg?.parts?.length ?? 0

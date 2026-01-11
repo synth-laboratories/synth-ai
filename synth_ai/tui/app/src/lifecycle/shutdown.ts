@@ -110,11 +110,15 @@ export async function shutdown(exitCode: number = 0): Promise<never> {
   process.exit(exitCode)
 }
 
+let signalHandlersInstalled = false
+
 /**
- * Install process signal handlers. Call once at app startup.
- * Uses process.once to prevent duplicate handlers in hot reload scenarios.
+ * Install process signal handlers. Safe to call multiple times.
+ * Uses process.once to allow escape hatch if shutdown gets stuck.
  */
 export function installSignalHandlers(): void {
+  if (signalHandlersInstalled) return
+  signalHandlersInstalled = true
   process.once("SIGINT", () => void shutdown(0))
   process.once("SIGTERM", () => void shutdown(0))
 }
