@@ -8,13 +8,6 @@
     "test": "bun test"
   },
   "workspaces": {
-    "packages": [
-      "../../../../opencode/packages/opencode",
-      "../../../../opencode/packages/plugin",
-      "../../../../opencode/packages/script",
-      "../../../../opencode/packages/sdk/js",
-      "../../../../opencode/packages/util"
-    ],
     "catalog": {
       "@types/bun": "1.3.4",
       "@octokit/rest": "22.0.0",
@@ -55,7 +48,7 @@
     }
   },
   "dependencies": {
-    "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/sdk": "^1.1.11",
     "@opentui/core": "^0.1.0",
     "@opentui/solid": "0.1.69",
     "jimp": "^1.6.0",
