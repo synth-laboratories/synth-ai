@@ -305,12 +305,13 @@ function SolidShell(props: { onExit?: () => void }) {
       })
     }, 3000)
     const cleanupName = "events-refresh-interval"
-    registerCleanup(cleanupName, () => clearInterval(interval))
-    onCleanup(() => {
+    const cleanup = () => {
       cancelled = true
       clearInterval(interval)
       unregisterCleanup(cleanupName)
-    })
+    }
+    registerCleanup(cleanupName, cleanup)
+    onCleanup(cleanup)
   })
   const logFiles = createMemo(() => {
     data.version()
@@ -536,11 +537,12 @@ function SolidShell(props: { onExit?: () => void }) {
       })
     }, 1000)
     const cleanupName = "log-modal-refresh-interval"
-    registerCleanup(cleanupName, () => clearInterval(timer))
-    onCleanup(() => {
+    const cleanup = () => {
       clearInterval(timer)
       unregisterCleanup(cleanupName)
-    })
+    }
+    registerCleanup(cleanupName, cleanup)
+    onCleanup(cleanup)
   })
 
   createEffect(() => {

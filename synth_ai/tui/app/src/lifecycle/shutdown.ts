@@ -80,11 +80,12 @@ export async function shutdown(exitCode: number = 0): Promise<never> {
   state.abortController.abort()
 
   // 2. Run registered cleanup functions
-  for (const [, fn] of state.cleanups) {
+  for (const [name, fn] of state.cleanups) {
     try {
       await fn()
-    } catch {
-      // Swallow errors during shutdown
+    } catch (error) {
+      // Log but continue shutdown
+      process.stderr.write(`Cleanup error (${name}): ${error}\n`)
     }
   }
   state.cleanups.clear()
@@ -94,8 +95,8 @@ export async function shutdown(exitCode: number = 0): Promise<never> {
     try {
       state.renderer.stop()
       state.renderer.destroy()
-    } catch {
-      // Swallow errors
+    } catch (error) {
+      process.stderr.write(`Renderer cleanup error: ${error}\n`)
     }
   }
 
@@ -111,8 +112,9 @@ export async function shutdown(exitCode: number = 0): Promise<never> {
 
 /**
  * Install process signal handlers. Call once at app startup.
+ * Uses process.once to prevent duplicate handlers in hot reload scenarios.
  */
 export function installSignalHandlers(): void {
-  process.on("SIGINT", () => void shutdown(0))
-  process.on("SIGTERM", () => void shutdown(0))
+  process.once("SIGINT", () => void shutdown(0))
+  process.once("SIGTERM", () => void shutdown(0))
 }
