@@ -129,12 +129,12 @@ def _validate_rollout_payload(payload: Any) -> None:
     data = _ensure_mapping(payload, "/rollout")
 
     # Check required top-level fields
-    required_fields = ["run_id", "trajectories", "metrics"]
+    required_fields = ["trace_correlation_id", "trajectories", "metrics"]
     for field in required_fields:
         if field not in data:
             raise ValueError(
                 f"`/rollout` response missing required field '{field}'. "
-                f"The response must include: run_id, trajectories, and metrics. "
+                f"The response must include: trace_correlation_id, trajectories, and metrics. "
                 f"This error often occurs with manual FastAPI implementations. "
                 f"Use create_task_app(build_config()) instead."
             )
@@ -215,7 +215,7 @@ def _validate_rollout_payload(payload: Any) -> None:
             f"`/rollout` trajectory 'steps' must be a list, got {type(steps).__name__}"
         )
 
-    # For prompt learning (MIPRO, etc), we need messages in step.info
+    # For prompt learning (GEPA), we need messages in step.info
     # This catches: "Could not extract messages from rollout response - ensure task app stores messages in step.info"
     if len(steps) > 0:
         first_step = steps[0]
@@ -229,7 +229,7 @@ def _validate_rollout_payload(payload: Any) -> None:
         if step_info is None:
             raise ValueError(
                 "`/rollout` step.info is missing. "
-                "For prompt learning (MIPRO), each step must include an 'info' field with 'messages'. "
+                "For prompt learning (GEPA), each step must include an 'info' field with 'messages'. "
                 "Use create_task_app(build_config()) with a proper rollout executor."
             )
 
@@ -264,36 +264,24 @@ def _validate_rollout_payload(payload: Any) -> None:
             f"`/rollout` response field 'metrics' must be an object, got {type(metrics).__name__}"
         )
 
-    # Metrics can be either:
-    # 1. New-style objectives/outcome_reward (preferred)
-    # 2. Legacy episode_rewards/reward_mean/num_steps
-    outcome_objectives = metrics.get("outcome_objectives")
+    # outcome_reward is REQUIRED
     outcome_reward = metrics.get("outcome_reward")
-    outcome_score = metrics.get("outcome_score")
-    episode_rewards = metrics.get("episode_rewards")
-    reward_mean = metrics.get("reward_mean")
-    num_steps = metrics.get("num_steps")
+    outcome_objectives = metrics.get("outcome_objectives")
     event_objectives = metrics.get("event_objectives")
+    event_rewards = metrics.get("event_rewards")
 
-    has_outcome_objectives = isinstance(outcome_objectives, Mapping)
-    has_outcome_reward = isinstance(outcome_reward, (int, float))
-    has_outcome_score = isinstance(outcome_score, (int, float))
-    has_episode_rewards = isinstance(episode_rewards, (list, int, float))
-    has_reward_mean = isinstance(reward_mean, (int, float))
-
-    if not (
-        has_outcome_objectives
-        or has_outcome_reward
-        or has_outcome_score
-        or has_episode_rewards
-        or has_reward_mean
-    ):
+    if not isinstance(outcome_reward, (int, float)):
         raise ValueError(
-            "`/rollout` metrics missing required reward fields. "
-            "Provide outcome_objectives/outcome_reward (preferred) or legacy episode_rewards/reward_mean."
+            "`/rollout` metrics missing required field 'outcome_reward'. "
+            "Provide outcome_reward (float) - this is the single source of truth for scoring."
         )
 
-    if has_outcome_objectives:
+    if outcome_objectives is not None:
+        if not isinstance(outcome_objectives, Mapping):
+            raise ValueError(
+                f"`/rollout` metrics.outcome_objectives must be an object, "
+                f"got {type(outcome_objectives).__name__}"
+            )
         for key, value in outcome_objectives.items():
             if not isinstance(value, (int, float)):
                 raise ValueError(
@@ -301,23 +289,17 @@ def _validate_rollout_payload(payload: Any) -> None:
                     f"got {type(value).__name__}"
                 )
 
-    if has_episode_rewards and isinstance(episode_rewards, list):
-        for reward_value in episode_rewards:
+    if event_rewards is not None:
+        if not isinstance(event_rewards, list):
+            raise ValueError(
+                f"`/rollout` metrics.event_rewards must be a list, got {type(event_rewards).__name__}"
+            )
+        for idx, reward_value in enumerate(event_rewards):
             if not isinstance(reward_value, (int, float)):
                 raise ValueError(
-                    "`/rollout` metrics.episode_rewards entries must be numbers, "
+                    f"`/rollout` metrics.event_rewards[{idx}] must be a number, "
                     f"got {type(reward_value).__name__}"
                 )
-
-    if reward_mean is not None and not isinstance(reward_mean, (int, float)):
-        raise ValueError(
-            f"`/rollout` metrics.reward_mean must be a number, got {type(reward_mean).__name__}"
-        )
-
-    if num_steps is not None and not isinstance(num_steps, int):
-        raise ValueError(
-            f"`/rollout` metrics.num_steps must be an integer, got {type(num_steps).__name__}"
-        )
 
     if event_objectives is not None:
         if not isinstance(event_objectives, list):
@@ -407,7 +389,7 @@ def test_route_contracts(app: ASGIApp) -> None:
                     # Send the actual RolloutRequest format used by prompt learning backend
                     # This matches the payload from evaluation.py:_execute_rollout_request()
                     json_payload = {
-                        "run_id": "validate",
+                        "trace_correlation_id": rollout_trace_id,
                         "env": {
                             "env_name": "validation",
                             "config": {"index": 0},
@@ -420,7 +402,6 @@ def test_route_contracts(app: ASGIApp) -> None:
                                 "provider": "openai",
                                 "temperature": 0.7,
                                 "inference_url": rollout_interceptor_url,
-                                "trace_correlation_id": rollout_trace_id,
                             },
                             "assert_proxy": True,  # Backend always sets this for prompt learning
                             "proxy_only": True,  # Backend always sets this for prompt learning

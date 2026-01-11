@@ -16,6 +16,7 @@ import { useJobDetailsStream } from "./api/useJobDetailsStream"
 import type { JobDetailsStreamEvent } from "./api/job-details-stream"
 import { CreateJobModal, type JobCreatedInfo } from "./modals/CreateJobModal"
 import { CandidatesModal } from "./modals/CandidatesModal"
+import { TraceViewerModal } from "./modals/TraceViewerModal"
 import { scanMultipleDirectories, type ScannedLocalAPI } from "./utils/localapi-scanner"
 import { toDisplayPath } from "./utils/files"
 
@@ -81,6 +82,7 @@ type ActiveModal =
   | "urls"
   | "login"
   | "metrics"
+  | "traces"
 
 type UsageData = {
   plan_type: "free" | "pro" | "team" | "byok"
@@ -1620,7 +1622,7 @@ function SolidShell(props: { onExit?: () => void }) {
       data.ctx.render()
       return
     }
-    if (evt.name === "g" && !evt.shift) {
+    if (evt.name === "l" && evt.shift) {
       evt.preventDefault()
       appState.activePane = "logs"
       data.ctx.render()
@@ -1642,9 +1644,18 @@ function SolidShell(props: { onExit?: () => void }) {
       openFilterModal()
       return
     }
-    if (evt.name === "i") {
+    if (evt.name === "i" && !evt.shift) {
       evt.preventDefault()
       openConfigModal()
+      return
+    }
+    if (evt.name === "i" && evt.shift) {
+      evt.preventDefault()
+      // Install OpenCode if not available
+      const status = appState.openCodeStatus || ""
+      if (status.includes("not available") || status.includes("install")) {
+        void data.installOpenCode()
+      }
       return
     }
     if (evt.name === "p") {
@@ -1677,6 +1688,13 @@ function SolidShell(props: { onExit?: () => void }) {
     if (evt.name === "t") {
       evt.preventDefault()
       openSettingsModal()
+      return
+    }
+    if (evt.name === "x") {
+      evt.preventDefault()
+      if (snapshot.selectedJob) {
+        setActiveModal("traces")
+      }
       return
     }
     if (evt.name === "d") {
@@ -2190,6 +2208,22 @@ function SolidShell(props: { onExit?: () => void }) {
       )
     }
 
+    if (kind === "traces") {
+      return (
+        <TraceViewerModal
+          visible={true}
+          snapshot={snapshot}
+          width={dimensions().width}
+          height={dimensions().height}
+          onClose={closeActiveModal}
+          onStatus={(message) => {
+            snapshot.status = message
+            data.ctx.render()
+          }}
+        />
+      )
+    }
+
     if (kind === "profile") {
       const org = snapshot.orgId || "-"
       const user = snapshot.userId || "-"
@@ -2323,7 +2357,7 @@ function SolidShell(props: { onExit?: () => void }) {
         <KeyHint description="Create New Job" keyLabel="n" />
         <KeyHint description="View Jobs" keyLabel="b" active={activePane() === "jobs"} />
         <KeyHint description="View Job's Events" keyLabel="e" active={activePane() === "events"} />
-        <KeyHint description="View Logs" keyLabel="g" active={activePane() === "logs"} />
+        <KeyHint description="View Logs" keyLabel="shift+l" active={activePane() === "logs"} />
         <KeyHint description="Agent" keyLabel="shift+g" active={principalPane() === "opencode"} />
       </box>
 
