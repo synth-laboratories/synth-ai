@@ -1,5 +1,4 @@
 import os
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,25 +26,13 @@ class KeySpec:
 def resolve_env(
     *,
     config_path: Path | None,
-    explicit_env_paths: Iterable[str],
     required_keys: list[KeySpec],
-    toml_env_file_path: str | None = None,
+    config_toml_path: str | None = None,
 ) -> tuple[Path, dict[str, str]]:
     """Resolve environment values from process env or user config."""
-    if list(explicit_env_paths):
-        raise click.ClickException(
-            "Env files are no longer supported. Set environment variables directly "
-            "or run `synth-ai setup` to store credentials in ~/.synth-ai."
-        )
-    if toml_env_file_path:
-        raise click.ClickException(
-            "env_file_path is no longer supported. Set environment variables directly "
-            "or run `synth-ai setup` to store credentials in ~/.synth-ai."
-        )
     ctx: dict[str, Any] = {
         "config_path": str(config_path) if config_path else None,
-        "has_explicit_env_paths": False,
-        "has_toml_env_file_path": False,
+        "config_toml_path": config_toml_path,
         "required_key_count": len(required_keys),
     }
     log_info("resolve_env invoked", ctx=ctx)
