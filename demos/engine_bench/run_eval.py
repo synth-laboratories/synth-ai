@@ -178,12 +178,16 @@ async def main():
         if result.seed_results:
             print(f"\nSeed results ({len(result.seed_results)}):")
             for sr in result.seed_results:
-                instance_id = sr.get("metadata", {}).get("instance_id", "?")
-                compile_pass = sr.get("metadata", {}).get("compile_pass", False)
-                tests = f"{sr.get('metadata', {}).get('tests_passed', 0)}/{sr.get('metadata', {}).get('tests_total', 0)}"
+                # Try multiple possible locations for metadata
+                metadata = sr.get("metadata", {}) or sr.get("rollout_metadata", {}) or {}
+                details = sr.get("details", {}) or {}
+                instance_id = metadata.get("instance_id") or details.get("instance_id") or "?"
+                compile_pass = metadata.get("compile_pass") or details.get("compile_pass") or False
+                tests_passed = metadata.get("tests_passed") or details.get("tests_passed") or 0
+                tests_total = metadata.get("tests_total") or details.get("tests_total") or 0
                 score = sr.get("outcome_reward", 0)
                 print(
-                    f"  - {instance_id}: compile={'PASS' if compile_pass else 'FAIL'}, tests={tests}, score={score:.2f}"
+                    f"  - {instance_id}: compile={'PASS' if compile_pass else 'FAIL'}, tests={tests_passed}/{tests_total}, score={score:.2f}"
                 )
 
     except Exception as e:
