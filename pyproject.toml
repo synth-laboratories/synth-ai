@@ -238,4 +238,5 @@ dev = [
     "crafter>=1.8.3",
     "papermill>=2.6.0",
     "nest_asyncio>=1.6.0",
+    "nbstripout>=0.8.2",
 ]
