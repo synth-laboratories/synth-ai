@@ -24,19 +24,29 @@ export async function refreshJobs(ctx: AppContext): Promise<boolean> {
 
   try {
     snapshot.status = "Refreshing jobs..."
-    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config.jobLimit}&offset=0`)
-    const promptJobs = extractJobs(promptPayload, "prompt-learning")
-
-    let learningJobs: JobSummary[] = []
+    // Prefer unified jobs endpoint (includes prompt-learning + learning/eval).
+    // Fallback to legacy split fetch if unavailable.
+    let jobs: JobSummary[] = []
     let learningError: string | null = null
     try {
-      const learningPayload = await apiGet(`/learning/jobs?limit=${config.jobLimit}`)
-      learningJobs = extractJobs(learningPayload, "learning")
+      const unifiedPayload = await apiGet(`/jobs?limit=${config.jobLimit}`)
+      jobs = extractJobs(unifiedPayload)
     } catch (err: any) {
-      learningError = err?.message || "Failed to load learning jobs"
+      // Legacy behavior
+      const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config.jobLimit}&offset=0`)
+      const promptJobs = extractJobs(promptPayload, "prompt-learning")
+
+      let learningJobs: JobSummary[] = []
+      try {
+        const learningPayload = await apiGet(`/learning/jobs?limit=${config.jobLimit}`)
+        learningJobs = extractJobs(learningPayload, "learning")
+      } catch (err2: any) {
+        learningError = err2?.message || "Failed to load learning jobs"
+      }
+
+      jobs = mergeJobs(promptJobs, learningJobs)
     }
 
-    const jobs = mergeJobs(promptJobs, learningJobs)
     snapshot.jobs = jobs
     snapshot.lastRefresh = Date.now()
     snapshot.lastError = learningError
@@ -57,12 +67,7 @@ export async function refreshJobs(ctx: AppContext): Promise<boolean> {
     if (jobs.length === 0) {
       snapshot.status = "No jobs found"
     } else {
-      const promptCount = promptJobs.length
-      const learningCount = learningJobs.length
-      snapshot.status =
-        learningCount > 0
-          ? `Loaded ${promptCount} prompt-learning, ${learningCount} learning job(s)`
-          : `Loaded ${promptCount} prompt-learning job(s)`
+      snapshot.status = `Loaded ${jobs.length} job(s)`
     }
     return true
   } catch (err: any) {

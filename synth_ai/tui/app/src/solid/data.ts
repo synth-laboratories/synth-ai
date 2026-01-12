@@ -40,11 +40,17 @@ export function useSolidData(): SolidData {
     })
 
     const currentConfig = backendConfigs[appState.currentBackend]
-    // Prefer explicit launcher-provided backend URL/key.
-    // Persisted settings are useful for standalone use, but the Python launcher is the source of truth.
-    if (!process.env.SYNTH_BACKEND_URL || !process.env.SYNTH_BACKEND_URL.trim()) {
-      process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "")
-    }
+    // Ensure the JS app uses the backend selected in persisted settings / UI.
+    //
+    // Previously we only set SYNTH_BACKEND_URL if it was missing, which meant the Python launcher
+    // could pin the TUI to a different backend (often prod) even when SYNTH_TUI_BACKEND="local".
+    // That leads to confusing symptoms like:
+    // - job IDs visible in the TUI that don't exist on the local backend
+    // - "missing recent jobs" when you're actually looking at a different org/backend
+    //
+    // The launcher can still control the chosen backend by setting SYNTH_TUI_BACKEND and/or
+    // SYNTH_TUI_*_API_BASE env vars; but we should never silently disagree with appState.currentBackend.
+    process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "")
     if (!process.env.SYNTH_API_KEY || !process.env.SYNTH_API_KEY.trim()) {
       process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || ""
     }
