@@ -110,6 +110,11 @@ class RolloutRequest(BaseModel):
 
     - `trace_correlation_id`: REQUIRED - Single source of truth for rollout identification.
       Used for trace correlation, registry operations, seed derivation, and resource tracking.
+
+    ## Context Override Fields (for unified prompt + context optimization)
+
+    - `context_overrides`: Optional structured overrides (AGENTS.md, skills, workspace files)
+    - `override_bundle_id`: Optional stable ID for the override bundle
     """
 
     trace_correlation_id: str = Field(
@@ -123,6 +128,18 @@ class RolloutRequest(BaseModel):
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     training_session_id: str | None = None
     synth_base_url: str | None = None
+
+    # Context override fields (for unified optimization)
+    context_overrides: list[Any] | None = (
+        Field(  # Will be list[ContextOverride] to avoid circular import
+            default=None,
+            description="Optional context overrides to apply before agent execution (AGENTS.md, skills, etc.)",
+        )
+    )
+    override_bundle_id: str | None = Field(
+        default=None,
+        description="Optional stable ID for the override bundle (for tracking/debugging)",
+    )
 
 
 class RolloutMetrics(BaseModel):
@@ -190,14 +207,34 @@ class RolloutResponse(BaseModel):
     - `metrics`: Rollout metrics with `outcome_reward` (required)
     - `trace`: v3 trace payload (required for verifier scoring)
     - `inference_url`: Inference URL used for this rollout
+    - `artifact`: Optional list of artifacts produced by the workflow
+    - `success_status`: Infrastructure/runtime success status (orthogonal to reward)
+    - `status_detail`: Optional debug string for failure details
+    - `override_application`: Optional result of applying context overrides
 
-    ## Example
+    ## Example - Basic
 
         response = RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
             metrics=RolloutMetrics(outcome_reward=1.0),
             trace=trace_payload,
             inference_url="https://api.usesynth.ai/v1/trial-xyz",
+        )
+
+    ## Example - With Artifacts and Status
+
+        from synth_ai.data import Artifact, SuccessStatus
+
+        response = RolloutResponse(
+            trace_correlation_id=request.trace_correlation_id,
+            metrics=RolloutMetrics(outcome_reward=0.95),
+            trace=trace_payload,
+            artifact=[Artifact(
+                content=rust_code,
+                content_type="rust_code",
+                metadata={"file_path": "pokemon.rs"},
+            )],
+            success_status=SuccessStatus.SUCCESS,
         )
     """
 
@@ -211,6 +248,28 @@ class RolloutResponse(BaseModel):
     inference_url: str | None = Field(
         default=None,
         description="Inference URL used for this rollout.",
+    )
+
+    # Artifact and status fields (Phase 1 additions)
+    artifact: list[Any] | None = Field(  # Will be list[Artifact] to avoid circular import
+        default=None,
+        description="Optional artifacts produced by the workflow (code, JSON, files). "
+        "Stored separately and linked via trace_correlation_id.",
+    )
+    success_status: str | None = Field(  # Will be SuccessStatus to avoid circular import
+        default=None,
+        description="Infrastructure/runtime success status (orthogonal to reward). "
+        "Never computed from reward - only from infra/runtime outcome.",
+    )
+    status_detail: str | None = Field(
+        default=None,
+        description="Optional freeform debug string for failure details (e.g., stderr excerpt).",
+    )
+    override_application: Any | None = (
+        Field(  # Will be OverrideApplication to avoid circular import
+            default=None,
+            description="Optional result of applying context overrides (applied? errors? warnings?).",
+        )
     )
 
 

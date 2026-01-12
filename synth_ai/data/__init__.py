@@ -12,6 +12,13 @@ Dependency rule: data/ imports nothing from synth_ai except typing helpers.
 
 from __future__ import annotations
 
+# Artifacts - workflow outputs
+from synth_ai.data.artifacts import (
+    Artifact,
+    ContextOverride,
+    OverrideApplication,
+)
+
 # Enums - pure types
 from synth_ai.data.enums import (
     AdaptiveBatchLevel,
@@ -30,6 +37,7 @@ from synth_ai.data.enums import (
     RewardType,
     RLMethod,
     SFTMethod,
+    SuccessStatus,
     TrainingType,
     VerifierMode,
 )
@@ -102,6 +110,7 @@ __all__ = [
     "TrainingType",
     "AdaptiveCurriculumLevel",
     "AdaptiveBatchLevel",
+    "SuccessStatus",
     "ObjectiveSpec",
     "OBJECTIVE_REGISTRY",
     "RewardObservation",
@@ -116,6 +125,10 @@ __all__ = [
     "normalize_to_outcome_objectives",
     "normalize_to_event_objectives",
     "to_legacy_format",
+    # Artifacts
+    "Artifact",
+    "ContextOverride",
+    "OverrideApplication",
     # Reward data
     "OutcomeRewardRecord",
     "EventRewardRecord",
