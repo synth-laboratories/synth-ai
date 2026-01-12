@@ -44,6 +44,19 @@ uv add
 uv run synth-ai tui
 ```
 
+## OpenCode Skills (Synth API)
+
+The Synth-AI TUI integrates with OpenCode and ships a **`synth-api`** skill.
+
+```bash
+# List packaged skills shipped with synth-ai
+uvx synth-ai skill list
+```
+
+```bash
+uvx synth-ai skill install synth-api --dir ~/custom/opencode/skill
+```
+
 ## Testing
 
 Run the TUI integration tests:
