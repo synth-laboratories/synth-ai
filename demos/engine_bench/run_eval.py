@@ -172,7 +172,7 @@ async def main():
         print("EVAL RESULT")
         print("=" * 60)
         print(f"Status: {result.status}")
-        print(f"Mean score: {result.mean_score}")
+        print(f"Mean reward: {result.mean_reward}")
         print(f"Error: {result.error}")
 
         if result.seed_results:
