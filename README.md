@@ -51,9 +51,11 @@ Synth-AI ships a **`synth-api`** skill that works across multiple agents (Codex,
 ```bash
 # List packaged skills shipped with synth-ai
 uvx synth-ai skill list
-```
 
-```bash
+# Install skill into default location (~/.config/opencode/skill)
+uvx synth-ai skill install synth-api
+
+# Install skill into custom directory
 uvx synth-ai skill install synth-api --dir ~/custom/opencode/skill
 ```
 
