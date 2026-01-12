@@ -12,62 +12,58 @@
 
 pre-commit:
   parallel: true
-  jobs:
-    # Python: Ruff linting with auto-fix (only on staged Python files)
-    - name: python-ruff
+  files: git diff --cached --name-only --diff-filter=ACMR
+  commands:
+    # Python: Verify imports work (catch broken imports before commit)
+    python-import-check:
       tags:
         - python
         - lint
-      glob: "**/*.py"
-      run: uv run ruff check --fix {staged_files}
+      glob:
+        - "synth_ai/*.py"
+        - "synth_ai/**/*.py"
+      run: python3 .lefthook/pre-commit/import_check.py {files}
+
+    # Python: Ruff linting with auto-fix (only on staged Python files that exist)
+    python-ruff:
+      tags:
+        - python
+        - lint
+      glob:
+        - "*.py"
+        - "**/*.py"
+      run: uv run ruff check --fix {files}
       stage_fixed: true
 
-    # Python: Ruff format with auto-fix (only on staged Python files)
-    - name: python-ruff-format
+    # Python: Ruff format with auto-fix (only on staged Python files that exist)
+    python-ruff-format:
       tags:
         - python
         - format
-      glob: "**/*.py"
-      run: uv run ruff format {staged_files}
+      glob:
+        - "*.py"
+        - "**/*.py"
+      run: uv run ruff format {files}
       stage_fixed: true
 
     # Jupyter: Strip notebook outputs before commit
-    - name: notebook-strip
+    notebook-strip:
       tags:
         - jupyter
         - clean
-      glob: "**/*.ipynb"
-      run: |
-        files=""
-        for f in {staged_files}; do
-          [ -f "$f" ] && files="$files $f"
-        done
-        if [ -n "$files" ]; then
-          uv run nbstripout $files
-        fi
-      stage_fixed: true
-
-    # Jupyter: Strip notebook outputs before commit
-    - name: notebook-strip
-      tags:
-        - jupyter
-        - clean
-      glob: "**/*.ipynb"
-      run: |
-        files=""
-        for f in {staged_files}; do
-          [ -f "$f" ] && files="$files $f"
-        done
-        if [ -n "$files" ]; then
-          uv run nbstripout $files
-        fi
+      glob:
+        - "*.ipynb"
+        - "**/*.ipynb"
+      run: uv run nbstripout {files}
       stage_fixed: true
 
     # TUI: TypeScript build check
-    - name: tui-build
+    tui-build:
       tags:
         - typescript
         - build
-      glob: "synth_ai/tui/app/**/*.ts"
+      glob:
+        - "synth_ai/tui/app/*.ts"
+        - "synth_ai/tui/app/**/*.ts"
       root: synth_ai/tui/app
       run: bun run build
