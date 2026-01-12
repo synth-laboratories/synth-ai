@@ -29,7 +29,10 @@ const previousStatuses = new Map<string, string>()
 /**
  * Fetch jobs from all endpoints and return those updated since a given time.
  */
-export async function fetchRecentJobs(since: Date): Promise<JobStatusChange[]> {
+export async function fetchRecentJobs(
+  since: Date,
+  options: { signal?: AbortSignal } = {}
+): Promise<JobStatusChange[]> {
   const results: JobStatusChange[] = []
 
   // Define endpoints to query
@@ -42,7 +45,7 @@ export async function fetchRecentJobs(since: Date): Promise<JobStatusChange[]> {
   // Fetch from all endpoints in parallel
   const fetchPromises = endpoints.map(async (endpoint) => {
     try {
-      const jobs = await apiGetV1(endpoint.path)
+      const jobs = await apiGetV1(endpoint.path, options)
       if (!Array.isArray(jobs)) return []
 
       return jobs
@@ -105,8 +108,9 @@ export function clearJobStatusCache(): void {
  */
 export async function getRecentJobChanges(
   since: Date,
-  limit: number = 3
+  limit: number = 3,
+  options: { signal?: AbortSignal } = {}
 ): Promise<JobStatusChange[]> {
-  const changes = await fetchRecentJobs(since)
+  const changes = await fetchRecentJobs(since, options)
   return changes.slice(0, limit)
 }

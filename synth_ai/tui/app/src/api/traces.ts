@@ -26,17 +26,18 @@ export type TraceListResponse = {
  */
 export async function fetchTracesList(
   jobId: string,
-  options?: { candidateId?: string; seed?: number; limit?: number }
+  filters?: { candidateId?: string; seed?: number; limit?: number },
+  options: { signal?: AbortSignal } = {}
 ): Promise<TraceMetadata[]> {
   const params = new URLSearchParams()
-  if (options?.candidateId) params.set("candidate_id", options.candidateId)
-  if (options?.seed !== undefined) params.set("seed", String(options.seed))
-  if (options?.limit) params.set("limit", String(options.limit))
+  if (filters?.candidateId) params.set("candidate_id", filters.candidateId)
+  if (filters?.seed !== undefined) params.set("seed", String(filters.seed))
+  if (filters?.limit) params.set("limit", String(filters.limit))
 
   const queryString = params.toString()
   const path = `/prompt-learning/online/jobs/${jobId}/traces/list${queryString ? `?${queryString}` : ""}`
 
-  const response = await apiGet(path)
+  const response = await apiGet(path, options)
   // API returns array directly, not wrapped in { traces: [...] }
   return Array.isArray(response) ? response : (response.traces ?? [])
 }
