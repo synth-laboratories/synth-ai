@@ -5,35 +5,36 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-DEFAULT_TASK_APP_SECRET_NAME = "synth-demo-task-app-secret"
+from synth_ai.core.paths import SYNTH_LOCALAPI_CONFIG_PATH
+from synth_ai.core.secure_files import write_private_json
+
+DEFAULT_LOCALAPI_SECRET_NAME = "synth-demo-task-app-secret"
 
 __all__ = [
-    "DEFAULT_TASK_APP_SECRET_NAME",
-    "current_task_app_id",
-    "load_demo_dir",
+    "DEFAULT_LOCALAPI_SECRET_NAME",
+    "current_localapi_id",
     "load_template_id",
     "now_iso",
     "persist_api_key",
-    "persist_demo_dir",
     "persist_env_api_key",
-    "persist_task_url",
+    "persist_localapi_url",
     "persist_template_id",
-    "read_task_app_config",
-    "record_task_app",
-    "resolve_task_app_entry",
-    "task_app_config_path",
-    "task_app_id_from_path",
-    "update_task_app_entry",
-    "write_task_app_config",
+    "read_localapi_config",
+    "record_localapi",
+    "resolve_localapi_entry",
+    "localapi_config_path",
+    "localapi_id_from_path",
+    "update_localapi_entry",
+    "write_localapi_config",
 ]
 
 
-def task_app_config_path() -> str:
-    return os.path.expanduser("~/.synth-ai/task_app_config.json")
+def localapi_config_path() -> str:
+    return str(SYNTH_LOCALAPI_CONFIG_PATH)
 
 
-def read_task_app_config() -> dict[str, Any]:
-    path = task_app_config_path()
+def read_localapi_config() -> dict[str, Any]:
+    path = str(SYNTH_LOCALAPI_CONFIG_PATH)
     try:
         if os.path.isfile(path):
             with open(path, encoding="utf-8") as handle:
@@ -47,13 +48,11 @@ def read_task_app_config() -> dict[str, Any]:
     return {}
 
 
-def write_task_app_config(apps: dict[str, Any]) -> None:
+def write_localapi_config(apps: dict[str, Any]) -> None:
     payload = {"apps": apps}
     try:
-        path = task_app_config_path()
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True)
+        path = SYNTH_LOCALAPI_CONFIG_PATH
+        write_private_json(path, payload, indent=2, sort_keys=True)
     except Exception:
         pass
 
@@ -62,7 +61,7 @@ def now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def task_app_id_from_path(path: str | Path | None) -> str | None:
+def localapi_id_from_path(path: str | Path | None) -> str | None:
     if not path:
         return None
     try:
@@ -71,50 +70,50 @@ def task_app_id_from_path(path: str | Path | None) -> str | None:
         return None
 
 
-def current_task_app_id() -> str | None:
+def current_localapi_id() -> str | None:
     try:
         return str(Path.cwd().resolve())
     except Exception:
         return None
 
 
-def update_task_app_entry(
+def update_localapi_entry(
     path: str | Path | None,
     *,
     template_id: str | None = None,
     mutate: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
-    task_id = task_app_id_from_path(path)
-    if task_id is None:
-        task_id = current_task_app_id()
-    if task_id is None:
+    localapi_id = localapi_id_from_path(path)
+    if localapi_id is None:
+        localapi_id = current_localapi_id()
+    if localapi_id is None:
         return {}
 
-    apps = read_task_app_config()
+    apps = read_localapi_config()
     now = now_iso()
-    entry = apps.get(task_id)
+    entry = apps.get(localapi_id)
     if entry is None:
         entry = {
-            "task_app_path": task_id,
+            "localapi_path": localapi_id,
             "template_id": template_id,
             "created_at": now,
             "last_used": now,
             "modal": {
                 "app_name": None,
                 "base_url": None,
-                "secret_name": DEFAULT_TASK_APP_SECRET_NAME,
+                "secret_name": DEFAULT_LOCALAPI_SECRET_NAME,
                 "created_at": None,
                 "last_used": None,
             },
         }
-        apps[task_id] = entry
+        apps[localapi_id] = entry
     else:
         entry.setdefault(
             "modal",
             {
                 "app_name": None,
                 "base_url": None,
-                "secret_name": DEFAULT_TASK_APP_SECRET_NAME,
+                "secret_name": DEFAULT_LOCALAPI_SECRET_NAME,
                 "created_at": None,
                 "last_used": None,
             },
@@ -126,11 +125,11 @@ def update_task_app_entry(
         mutate(entry)
 
     entry["last_used"] = now
-    write_task_app_config(apps)
+    write_localapi_config(apps)
     return entry
 
 
-def record_task_app(
+def record_localapi(
     path: str,
     *,
     template_id: str | None = None,
@@ -143,14 +142,14 @@ def record_task_app(
                 {
                     "app_name": None,
                     "base_url": None,
-                    "secret_name": DEFAULT_TASK_APP_SECRET_NAME,
+                    "secret_name": DEFAULT_LOCALAPI_SECRET_NAME,
                     "created_at": None,
                     "last_used": None,
                 },
             )
             modal_block["secret_name"] = secret_name
 
-    update_task_app_entry(path, template_id=template_id, mutate=_mutate if secret_name else None)
+    update_localapi_entry(path, template_id=template_id, mutate=_mutate if secret_name else None)
 
 
 def _select_entry(
@@ -158,7 +157,7 @@ def _select_entry(
     preferred_path: str | None = None,
     predicate: Callable[[dict[str, Any]], bool] | None = None,
 ) -> tuple[str | None, dict[str, Any]]:
-    entries = read_task_app_config()
+    entries = read_localapi_config()
     if not entries:
         return None, {}
 
@@ -192,7 +191,7 @@ def _select_entry(
     return best_path, best_entry
 
 
-def resolve_task_app_entry(
+def resolve_localapi_entry(
     preferred_path: str | None = None,
     *,
     predicate: Callable[[dict[str, Any]], bool] | None = None,
@@ -201,25 +200,11 @@ def resolve_task_app_entry(
     return path, entry if isinstance(entry, dict) else {}
 
 
-def persist_demo_dir(demo_dir: str) -> None:
-    def _mutate(entry: dict[str, Any]) -> None:
-        entry["is_demo"] = True
-
-    update_task_app_entry(demo_dir, mutate=_mutate)
-
-
-def load_demo_dir() -> str | None:
-    path, _ = _select_entry(
-        predicate=lambda entry: entry.get("is_demo") or entry.get("template_id")
-    )
-    return path
-
-
 def persist_template_id(template_id: str | None) -> None:
-    demo_dir = load_demo_dir() or current_task_app_id()
-    if demo_dir is None:
+    target = current_localapi_id()
+    if target is None:
         return
-    update_task_app_entry(demo_dir, template_id=template_id)
+    update_localapi_entry(target, template_id=template_id)
 
 
 def load_template_id() -> str | None:
@@ -229,23 +214,23 @@ def load_template_id() -> str | None:
 
 
 def persist_api_key(key: str) -> None:
-    target = load_demo_dir() or current_task_app_id()
+    target = current_localapi_id()
 
     def _mutate(entry: dict[str, Any]) -> None:
         secrets = entry.setdefault("secrets", {})
         secrets["synth_api_key"] = key
 
-    update_task_app_entry(target, mutate=_mutate)
+    update_localapi_entry(target, mutate=_mutate)
 
 
 def persist_env_api_key(key: str, path: str | Path | None = None) -> None:
-    target = path or load_demo_dir()
+    target = path or current_localapi_id()
 
     def _mutate(entry: dict[str, Any]) -> None:
         secrets = entry.setdefault("secrets", {})
         secrets["environment_api_key"] = key
 
-    update_task_app_entry(target, mutate=_mutate)
+    update_localapi_entry(target, mutate=_mutate)
 
 
 def _derive_modal_app_name(url: str | None) -> str | None:
@@ -266,13 +251,13 @@ def _derive_modal_app_name(url: str | None) -> str | None:
         return None
 
 
-def persist_task_url(url: str, *, name: str | None = None, path: str | None = None) -> None:
+def persist_localapi_url(url: str, *, name: str | None = None, path: str | None = None) -> None:
     normalized_url = (url or "").rstrip("/")
-    task_id = task_app_id_from_path(path) or current_task_app_id()
-    if task_id is None:
+    localapi_id = localapi_id_from_path(path) or current_localapi_id()
+    if localapi_id is None:
         return
 
-    existing = read_task_app_config().get(task_id, {})
+    existing = read_localapi_config().get(localapi_id, {})
     previous_modal = dict(existing.get("modal", {})) if isinstance(existing, dict) else {}
 
     derived_name = name or _derive_modal_app_name(normalized_url)
@@ -283,7 +268,7 @@ def persist_task_url(url: str, *, name: str | None = None, path: str | None = No
             {
                 "app_name": None,
                 "base_url": None,
-                "secret_name": DEFAULT_TASK_APP_SECRET_NAME,
+                "secret_name": DEFAULT_LOCALAPI_SECRET_NAME,
                 "created_at": None,
                 "last_used": None,
             },
@@ -295,9 +280,9 @@ def persist_task_url(url: str, *, name: str | None = None, path: str | None = No
         modal_block["base_url"] = normalized_url
         if derived_name:
             modal_block["app_name"] = derived_name
-        modal_block["secret_name"] = DEFAULT_TASK_APP_SECRET_NAME
+        modal_block["secret_name"] = DEFAULT_LOCALAPI_SECRET_NAME
 
-    entry = update_task_app_entry(path or task_id, mutate=_mutate)
+    entry = update_localapi_entry(path or localapi_id, mutate=_mutate)
 
     modal_after = entry.get("modal", {}) if isinstance(entry, dict) else {}
     changed: list[str] = []
@@ -309,6 +294,6 @@ def persist_task_url(url: str, *, name: str | None = None, path: str | None = No
         changed.append("TASK_APP_SECRET_NAME")
 
     if changed:
-        print(f"Saved {', '.join(changed)} to {task_app_config_path()}")
+        print(f"Saved {', '.join(changed)} to {localapi_config_path()}")
         if "TASK_APP_SECRET_NAME" in changed:
-            print(f"TASK_APP_SECRET_NAME={DEFAULT_TASK_APP_SECRET_NAME}")
+            print(f"TASK_APP_SECRET_NAME={DEFAULT_LOCALAPI_SECRET_NAME}")

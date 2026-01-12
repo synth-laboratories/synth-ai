@@ -33,7 +33,7 @@ from synth_ai.core.urls import BACKEND_URL_BASE
 
 def __resolve_env_var(key: str) -> str:
     """Lazy import to avoid circular dependency."""
-    from synth_ai.core.env_utils import resolve_env_var
+    from synth_ai.core.env import resolve_env_var
 
     return resolve_env_var(key)
 
@@ -239,8 +239,9 @@ def _extract_credential(payload: dict[str, Any], key: str) -> Optional[str]:
 
 def get_cloudflared_path(prefer_system: bool = True) -> Optional[Path]:
     """Locate the cloudflared binary (managed bin dir, PATH, or common dirs)."""
-    bin_dir = Path.home() / ".synth-ai" / "bin"
-    candidate = bin_dir / CLOUDFLARED_BIN_NAME
+    from synth_ai.core.paths import SYNTH_BIN_DIR
+
+    candidate = SYNTH_BIN_DIR / CLOUDFLARED_BIN_NAME
     if candidate.exists() and os.access(candidate, os.X_OK):
         return candidate
 
@@ -266,20 +267,21 @@ def ensure_cloudflared_installed(force: bool = False) -> Path:
     if existing and not force:
         return existing
 
-    target_dir = Path.home() / ".synth-ai" / "bin"
-    target_dir.mkdir(parents=True, exist_ok=True)
+    from synth_ai.core.paths import SYNTH_BIN_DIR
+
+    SYNTH_BIN_DIR.mkdir(parents=True, exist_ok=True)
 
     url = _resolve_cloudflared_download_url()
     tmp_file = _download_file(url)
 
     if tmp_file.suffixes[-2:] == [".tar", ".gz"]:
-        _extract_tarball(tmp_file, target_dir)
+        _extract_tarball(tmp_file, SYNTH_BIN_DIR)
     elif tmp_file.suffix == ".gz":
-        _extract_gzip(tmp_file, target_dir / CLOUDFLARED_BIN_NAME)
+        _extract_gzip(tmp_file, SYNTH_BIN_DIR / CLOUDFLARED_BIN_NAME)
     else:
-        shutil.move(str(tmp_file), str(target_dir / CLOUDFLARED_BIN_NAME))
+        shutil.move(str(tmp_file), str(SYNTH_BIN_DIR / CLOUDFLARED_BIN_NAME))
 
-    bin_path = target_dir / CLOUDFLARED_BIN_NAME
+    bin_path = SYNTH_BIN_DIR / CLOUDFLARED_BIN_NAME
     bin_path.chmod(0o755)
     log_event("info", "cloudflared installed", ctx={"path": str(bin_path)})
     return bin_path

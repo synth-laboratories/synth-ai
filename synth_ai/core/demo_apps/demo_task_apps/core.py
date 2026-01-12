@@ -1,10 +1,10 @@
-import json
 import os
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
 
+from synth_ai.core import localapi_state
 from synth_ai.core.urls import BACKEND_URL_API
+from synth_ai.core.user_config import load_user_env
 
 DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"
 
@@ -23,123 +23,6 @@ def _mask(value: str, keep: int = 4) -> str:
     if not value:
         return ""
     return value[:keep] + "…" if len(value) > keep else value
-
-
-def _state_path() -> str:
-    return os.path.expanduser("~/.synth-ai/demo.json")
-
-
-def _read_state() -> dict[str, Any]:
-    try:
-        path = _state_path()
-        if os.path.isfile(path):
-            with open(path) as fh:
-                data = json.load(fh) or {}
-                return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-    return {}
-
-
-def _write_state(data: dict[str, Any]) -> None:
-    try:
-        path = _state_path()
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as fh:
-            json.dump(data, fh)
-    except Exception:
-        pass
-
-
-def load_dotenv_file(path: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    try:
-        with open(path) as fh:
-            for raw in fh:
-                line = raw.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                out[k.strip()] = v.strip().strip('"').strip("'")
-    except Exception:
-        pass
-    return out
-
-
-def _persist_dotenv_values(path: str, values: dict[str, str]) -> None:
-    """Ensure ``values`` are present in ``path`` (.env style)."""
-
-    try:
-        existing_lines: list[str] = []
-        if os.path.isfile(path):
-            with open(path) as fh:
-                existing_lines = fh.read().splitlines()
-        else:
-            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        mapping: dict[str, str] = {}
-        order: list[str] = []
-        for line in existing_lines:
-            if not line or line.startswith("#") or "=" not in line:
-                order.append(line)
-                continue
-            key, val = line.split("=", 1)
-            key = key.strip()
-            mapping[key] = val
-            order.append(key)
-        for key, value in values.items():
-            if key not in mapping:
-                order.append(key)
-            mapping[key] = value
-        with open(path, "w") as fh:
-            for item in order:
-                if item in mapping:
-                    fh.write(f"{item}={mapping[item]}\n")
-                else:
-                    fh.write(item + "\n")
-            for key, value in values.items():
-                if key not in order:
-                    fh.write(f"{key}={value}\n")
-    except Exception:
-        # Best-effort; failure to persist shouldn't crash CLI usage.
-        pass
-
-
-def persist_dotenv_values(values: dict[str, str], *, cwd: str | None = None) -> str:
-    path = os.path.join(cwd or os.getcwd(), ".env")
-    _persist_dotenv_values(path, values)
-    return path
-
-
-def persist_env_api_key(key: str) -> None:
-    data = _read_state()
-    data["ENVIRONMENT_API_KEY"] = key
-    _write_state(data)
-
-
-def persist_demo_dir(demo_dir: str) -> None:
-    """Store the demo directory path for subsequent commands."""
-    data = _read_state()
-    data["DEMO_DIR"] = demo_dir
-    _write_state(data)
-
-
-def load_demo_dir() -> str | None:
-    """Load the stored demo directory path, if any."""
-    data = _read_state()
-    return data.get("DEMO_DIR")
-
-
-def persist_env_file_path(env_path: str) -> None:
-    """Store the .env file path for subsequent commands."""
-    data = _read_state()
-    data["ENV_FILE_PATH"] = env_path
-    _write_state(data)
-
-
-def load_env_file_path() -> str | None:
-    """Load the stored .env file path, if any."""
-    data = _read_state()
-    return data.get("ENV_FILE_PATH")
 
 
 def modal_auth_status() -> tuple[bool, str]:
@@ -197,14 +80,14 @@ def load_env() -> DemoEnv:
     """
     env = DemoEnv()
 
-    state = _read_state()
+    load_user_env(override=False)
 
-    synth_api_key = os.getenv("SYNTH_API_KEY") or str(state.get("SYNTH_API_KEY") or "")
-    env_api_key = os.getenv("ENVIRONMENT_API_KEY") or str(state.get("ENVIRONMENT_API_KEY") or "")
+    synth_api_key = os.getenv("SYNTH_API_KEY") or ""
+    env_api_key = os.getenv("ENVIRONMENT_API_KEY") or ""
 
-    task_url = os.getenv("TASK_APP_BASE_URL") or str(state.get("TASK_APP_BASE_URL") or "")
-    task_app_name = str(state.get("TASK_APP_NAME") or "")
-    task_app_secret_name = str(state.get("TASK_APP_SECRET_NAME") or DEFAULT_TASK_APP_SECRET_NAME)
+    task_url = os.getenv("TASK_APP_BASE_URL") or ""
+    task_app_name = str(os.getenv("TASK_APP_NAME") or "")
+    task_app_secret_name = str(os.getenv("TASK_APP_SECRET_NAME") or DEFAULT_TASK_APP_SECRET_NAME)
 
     env.dev_backend_url = BACKEND_URL_API
     env.synth_api_key = synth_api_key
@@ -245,33 +128,8 @@ def assert_http_ok(
         return False
 
 
-def persist_task_url(url: str, *, name: str | None = None) -> None:
-    data = _read_state()
-    changed: list[str] = []
-    if data.get("TASK_APP_BASE_URL") != url:
-        data["TASK_APP_BASE_URL"] = url
-        changed.append("TASK_APP_BASE_URL")
-    if name:
-        if data.get("TASK_APP_NAME") != name:
-            data["TASK_APP_NAME"] = name
-            changed.append("TASK_APP_NAME")
-        if data.get("TASK_APP_SECRET_NAME") != DEFAULT_TASK_APP_SECRET_NAME:
-            data["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
-            changed.append("TASK_APP_SECRET_NAME")
-    elif data.get("TASK_APP_SECRET_NAME") != DEFAULT_TASK_APP_SECRET_NAME:
-        data["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
-        changed.append("TASK_APP_SECRET_NAME")
-    _write_state(data)
-    if changed:
-        print(f"Saved {', '.join(changed)} to {_state_path()}")
-        if "TASK_APP_SECRET_NAME" in changed:
-            print(f"TASK_APP_SECRET_NAME={DEFAULT_TASK_APP_SECRET_NAME}")
-
-
-def persist_api_key(key: str) -> None:
-    data = _read_state()
-    data["SYNTH_API_KEY"] = key
-    _write_state(data)
+def persist_localapi_url(url: str, *, name: str | None = None) -> None:
+    localapi_state.persist_localapi_url(url, name=name)
 
 
 def run_job(

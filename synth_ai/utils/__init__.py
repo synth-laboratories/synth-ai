@@ -11,9 +11,26 @@ This module provides lazy imports to avoid circular import issues.
 from typing import Any
 
 # Direct imports from core (no circular dependency risk)
-from synth_ai.core import task_app_state
+from synth_ai.core import localapi_state
 from synth_ai.core.http import AsyncHttpClient, HTTPError, http_request
 from synth_ai.core.json import create_and_write_json, load_json_to_dict, strip_json_comments
+from synth_ai.core.localapi_state import (
+    DEFAULT_LOCALAPI_SECRET_NAME,
+    current_localapi_id,
+    load_template_id,
+    localapi_config_path,
+    localapi_id_from_path,
+    now_iso,
+    persist_api_key,
+    persist_env_api_key,
+    persist_localapi_url,
+    persist_template_id,
+    read_localapi_config,
+    record_localapi,
+    resolve_localapi_entry,
+    update_localapi_entry,
+    write_localapi_config,
+)
 from synth_ai.core.paths import (
     REPO_ROOT,
     cleanup_paths,
@@ -29,25 +46,6 @@ from synth_ai.core.process import (
     popen_stream,
     popen_stream_capture,
 )
-from synth_ai.core.task_app_state import (
-    DEFAULT_TASK_APP_SECRET_NAME,
-    current_task_app_id,
-    load_demo_dir,
-    load_template_id,
-    now_iso,
-    persist_api_key,
-    persist_demo_dir,
-    persist_env_api_key,
-    persist_task_url,
-    persist_template_id,
-    read_task_app_config,
-    record_task_app,
-    resolve_task_app_entry,
-    task_app_config_path,
-    task_app_id_from_path,
-    update_task_app_entry,
-    write_task_app_config,
-)
 from synth_ai.core.telemetry import (
     flush_logger,
     log_batch,
@@ -58,7 +56,6 @@ from synth_ai.core.telemetry import (
 )
 from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.core.user_config import (
-    USER_CONFIG_PATH,
     load_user_config,
     load_user_env,
     save_user_config,
@@ -76,10 +73,10 @@ _CLI_IMPORTS = {
     # From core.bin
     "install_bin": ("synth_ai.core.bin", "install_bin"),
     "verify_bin": ("synth_ai.core.bin", "verify_bin"),
-    # From core.env_utils
-    "mask_str": ("synth_ai.core.env_utils", "mask_str"),
-    "resolve_env_var": ("synth_ai.core.env_utils", "resolve_env_var"),
-    "write_env_var_to_json": ("synth_ai.core.env_utils", "write_env_var_to_json"),
+    # From core.env
+    "mask_str": ("synth_ai.core.env", "mask_str"),
+    "resolve_env_var": ("synth_ai.core.env", "resolve_env_var"),
+    "write_env_var_to_json": ("synth_ai.core.env", "write_env_var_to_json"),
     # From core.integrations.modal_utils
     "ensure_modal_installed": ("synth_ai.core.integrations.modal_utils", "ensure_modal_installed"),
     "find_asgi_apps": ("synth_ai.core.integrations.modal_utils", "find_asgi_apps"),
@@ -104,10 +101,13 @@ _CLI_IMPORTS = {
         "discover_eval_config_paths",
     ),
     "select_app_choice": ("synth_ai.cli.lib.task_app_discovery", "select_app_choice"),
-    # From cli.lib.task_app_env
-    "ensure_env_credentials": ("synth_ai.cli.lib.task_app_env", "ensure_env_credentials"),
-    "ensure_port_free": ("synth_ai.cli.lib.task_app_env", "ensure_port_free"),
-    "preflight_env_key": ("synth_ai.cli.lib.task_app_env", "preflight_env_key"),
+    # From cli.lib.localapi_env
+    "ensure_localapi_credentials": (
+        "synth_ai.cli.lib.localapi_env",
+        "ensure_localapi_credentials",
+    ),
+    "ensure_port_free": ("synth_ai.cli.lib.localapi_env", "ensure_port_free"),
+    "preflight_localapi_key": ("synth_ai.cli.lib.localapi_env", "preflight_localapi_key"),
     # From core.integrations.mcp.claude
     "ClaudeConfig": ("synth_ai.core.integrations.mcp.claude", "ClaudeConfig"),
 }
@@ -127,15 +127,14 @@ __all__ = [
     # Core
     "AsyncHttpClient",
     "ClaudeConfig",
-    "DEFAULT_TASK_APP_SECRET_NAME",
+    "DEFAULT_LOCALAPI_SECRET_NAME",
     "HTTPError",
     "BACKEND_URL_BASE",
     "REPO_ROOT",
-    "USER_CONFIG_PATH",
     "cleanup_paths",
     "configure_import_paths",
     "create_and_write_json",
-    "current_task_app_id",
+    "current_localapi_id",
     "ensure_local_port_available",
     "find_config_path",
     "flush_logger",
@@ -143,7 +142,6 @@ __all__ = [
     "get_home_config_file_paths",
     "http_request",
     "is_hidden_path",
-    "load_demo_dir",
     "load_json_to_dict",
     "load_template_id",
     "load_user_config",
@@ -155,24 +153,23 @@ __all__ = [
     "log_warning",
     "now_iso",
     "persist_api_key",
-    "persist_demo_dir",
     "persist_env_api_key",
-    "persist_task_url",
+    "persist_localapi_url",
     "persist_template_id",
     "popen_capture",
     "popen_stream",
     "popen_stream_capture",
-    "read_task_app_config",
-    "record_task_app",
-    "resolve_task_app_entry",
+    "read_localapi_config",
+    "record_localapi",
+    "resolve_localapi_entry",
     "save_user_config",
     "strip_json_comments",
-    "task_app_config_path",
-    "task_app_id_from_path",
-    "task_app_state",
-    "update_task_app_entry",
+    "localapi_config_path",
+    "localapi_id_from_path",
+    "localapi_state",
+    "update_localapi_entry",
     "update_user_config",
-    "write_task_app_config",
+    "write_localapi_config",
     # CLI (lazy)
     "AppChoice",
     "PromptedChoiceOption",
@@ -181,7 +178,7 @@ __all__ = [
     "SQLD_VERSION",
     "ctx_print",
     "discover_eval_config_paths",
-    "ensure_env_credentials",
+    "ensure_localapi_credentials",
     "ensure_modal_installed",
     "ensure_port_free",
     "extract_routes_from_app",
@@ -195,7 +192,7 @@ __all__ = [
     "load_module",
     "mask_str",
     "normalize_endpoint_url",
-    "preflight_env_key",
+    "preflight_localapi_key",
     "prompt_choice",
     "prompt_for_path",
     "resolve_env_var",
