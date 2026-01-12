@@ -2,7 +2,7 @@ import os
 import urllib.request
 from dataclasses import dataclass
 
-from synth_ai.core.task_app_state import persist_task_url as persist_localapi_task_url
+from synth_ai.core import localapi_state
 from synth_ai.core.urls import BACKEND_URL_API
 from synth_ai.core.user_config import load_user_env
 
@@ -128,8 +128,8 @@ def assert_http_ok(
         return False
 
 
-def persist_task_url(url: str, *, name: str | None = None) -> None:
-    persist_localapi_task_url(url, name=name)
+def persist_localapi_url(url: str, *, name: str | None = None) -> None:
+    localapi_state.persist_localapi_url(url, name=name)
 
 
 def run_job(

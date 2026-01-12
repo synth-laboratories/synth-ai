@@ -3,19 +3,19 @@ import os
 import click
 
 from synth_ai.core.env import mask_str, resolve_env_var
+from synth_ai.core.localapi_state import persist_env_api_key
 from synth_ai.core.process import ensure_local_port_available
-from synth_ai.core.task_app_state import persist_env_api_key
 from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.core.user_config import load_user_env, update_user_config
 
 __all__ = [
-    "ensure_env_credentials",
+    "ensure_localapi_credentials",
     "ensure_port_free",
-    "preflight_env_key",
+    "preflight_localapi_key",
 ]
 
 
-def ensure_env_credentials(*, require_synth: bool = False, prompt: bool = True) -> None:
+def ensure_localapi_credentials(*, require_synth: bool = False, prompt: bool = True) -> None:
     """Ensure required API keys are present in the process environment."""
 
     load_user_env(override=False)
@@ -61,10 +61,10 @@ def ensure_port_free(port: int, host: str, *, force: bool) -> None:
     )
 
 
-def preflight_env_key(*, crash_on_failure: bool = False) -> None:
+def preflight_localapi_key(*, crash_on_failure: bool = False) -> None:
     """Ensure ENVIRONMENT_API_KEY exists and attempt a backend registration."""
 
-    ensure_env_credentials(require_synth=False, prompt=not crash_on_failure)
+    ensure_localapi_credentials(require_synth=False, prompt=not crash_on_failure)
     load_user_env(override=False)
 
     raw_backend = (
