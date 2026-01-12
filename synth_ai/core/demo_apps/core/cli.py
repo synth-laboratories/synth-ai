@@ -18,6 +18,8 @@ from synth_ai.core.demo_apps.demo_registry import (
 from synth_ai.core.demo_apps.demo_task_apps import core as demo_core
 from synth_ai.core.demo_apps.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
 from synth_ai.core.process import get_subprocess_env, should_filter_log_line
+from synth_ai.core.task_app_state import persist_env_api_key
+from synth_ai.core.user_config import update_user_config
 
 try:
     from synth_ai.handshake import HandshakeError, run_handshake  # type: ignore[import-untyped]
@@ -52,12 +54,6 @@ def _is_modal_public_url(u: str) -> bool:
 
 
 def setup() -> int:
-    # Change to demo directory if stored
-    demo_dir = demo_core.load_demo_dir()
-    if demo_dir and os.path.isdir(demo_dir):
-        os.chdir(demo_dir)
-        print(f"Using demo directory: {demo_dir}")
-
     # 1) Try to fetch keys from frontend; fall back to manual input if fetch fails
     synth_key = ""
     rl_env_key = ""
@@ -105,31 +101,22 @@ def setup() -> int:
             print("RL Environment API key is required.")
             return 1
 
-    # Persist both keys to .env
-    dotenv_path = demo_core.persist_dotenv_values(
-        {
-            "SYNTH_API_KEY": synth_key,
-            "ENVIRONMENT_API_KEY": rl_env_key,
-        }
-    )
+    update_user_config({"SYNTH_API_KEY": synth_key})
+    persist_env_api_key(rl_env_key)
+    os.environ["SYNTH_API_KEY"] = synth_key
+    os.environ["ENVIRONMENT_API_KEY"] = rl_env_key
 
-    # Store .env path for subsequent commands
-    demo_core.persist_env_file_path(dotenv_path)
-
-    # 2) Reload env after handshake to pick up values from .env (suppress env prints)
+    # 2) Reload env after handshake to pick up values from state (suppress env prints)
     import contextlib
     import io
 
     _buf = io.StringIO()
     with contextlib.redirect_stdout(_buf):
         env = demo_core.load_env()
-    cwd_env_path = os.path.join(os.getcwd(), ".env")
-    local_env = demo_core.load_dotenv_file(cwd_env_path)
 
     def _refresh_env() -> None:
-        nonlocal env, local_env
+        nonlocal env
         env = demo_core.load_env()
-        local_env = demo_core.load_dotenv_file(cwd_env_path)
 
     def _maybe_fix_task_url() -> None:
         if not env.task_app_name:
@@ -162,19 +149,11 @@ def setup() -> int:
         if new_url and new_url != current:
             print(f"Updating TASK_APP_BASE_URL from Modal CLI → {new_url}")
             demo_core.persist_task_url(new_url, name=env.task_app_name)
-            dotenv_values = {
-                "TASK_APP_BASE_URL": new_url,
-                "TASK_APP_NAME": env.task_app_name,
-            }
-            demo_core.persist_dotenv_values(dotenv_values)
             os.environ["TASK_APP_BASE_URL"] = new_url
             _refresh_env()
 
     # Keys have been written already via handshake; avoid any interactive prompts
     synth_key = env.synth_api_key.strip()
-    if not local_env.get("SYNTH_API_KEY") and synth_key:  # type: ignore[misc]
-        demo_core.persist_dotenv_values({"SYNTH_API_KEY": synth_key})
-        _refresh_env()
 
     # Check Modal auth silently to avoid noisy output
     modal_ok, modal_msg = demo_core.modal_auth_status()
@@ -198,7 +177,7 @@ def setup() -> int:
     # Omit uv version print to keep output concise
 
     # Keep exit code neutral; not all checks are critical for pairing
-    print(f"\nKeys saved to: {dotenv_path}")
+    print("\nKeys saved to user and localapi config")
     return 0
 
 
@@ -620,9 +599,6 @@ def _select_or_create_config(explicit: str | None, env: DemoEnv) -> str:
         )
     )
     extras.append(packaged)
-    home_cfg = Path(os.path.expanduser("~/.synth-ai/demo_config.toml"))
-    extras.append(home_cfg)
-
     all_paths: list[Path] = []
     seen: set[str] = set()
     for candidate in discovered + extras:
@@ -659,9 +635,6 @@ def _select_or_create_config(explicit: str | None, env: DemoEnv) -> str:
 
 
 def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEnv:
-    cwd_env_path = os.path.join(os.getcwd(), ".env")
-    local_env = demo_core.load_dotenv_file(cwd_env_path)
-
     env_key = (env.env_api_key or "").strip()
     if not env_key:
         raise RuntimeError(
@@ -721,18 +694,11 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         demo_core.persist_task_url(task_url, name=app_name)
 
     demo_core.persist_task_url(task_url, name=app_name)
-    demo_core.persist_dotenv_values(
-        {
-            "TASK_APP_BASE_URL": task_url,
-            "TASK_APP_NAME": app_name,
-            "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME,
-        }
-    )
 
     if synth_key:
         os.environ["SYNTH_API_KEY"] = synth_key
 
-    openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()  # type: ignore[misc]
+    openai_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
     if openai_key:
         os.environ["OPENAI_API_KEY"] = openai_key
 
@@ -778,16 +744,8 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
 
 
 def deploy(app: str | None = None, name: str | None = None) -> int:
-    # Change to demo directory if stored
-    demo_dir = demo_core.load_demo_dir()
-    if demo_dir and os.path.isdir(demo_dir):
-        os.chdir(demo_dir)
-        print(f"Using demo directory: {demo_dir}")
-
     env = demo_core.load_env()
     os.environ["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
-    cwd_env_path = os.path.join(os.getcwd(), ".env")
-    local_env = demo_core.load_dotenv_file(cwd_env_path)
     url = ""
     app_name = env.task_app_name or ""
     try:
@@ -848,7 +806,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
         if existing_env_key:
             try:
                 reuse_choice = (
-                    input("Use existing ENVIRONMENT_API_KEY from state/.env? [Y/n]: ")
+                    input("Use existing ENVIRONMENT_API_KEY from state/environment? [Y/n]: ")
                     .strip()
                     .lower()
                     or "y"
@@ -862,11 +820,9 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
             from synth_ai.sdk.learning.rl.secrets import mint_environment_api_key
 
             env_key = mint_environment_api_key()
-            demo_core.persist_env_api_key(env_key)
-            demo_core.persist_dotenv_values({"ENVIRONMENT_API_KEY": env_key})
+            persist_env_api_key(env_key)
             os.environ["ENVIRONMENT_API_KEY"] = env_key
             env.env_api_key = env_key
-            local_env["ENVIRONMENT_API_KEY"] = env_key
             print("[deploy] Minted new ENVIRONMENT_API_KEY")
         elif env_key:
             os.environ["ENVIRONMENT_API_KEY"] = env_key
@@ -876,7 +832,6 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
         synth_key = (
             env.synth_api_key
             or os.environ.get("SYNTH_API_KEY")  # type: ignore[misc]
-            or local_env.get("SYNTH_API_KEY")  # type: ignore[misc]
             or ""
         ).strip()
         if backend_base and synth_key:
@@ -909,7 +864,6 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
         synth_key = (
             env.synth_api_key
             or os.environ.get("SYNTH_API_KEY")  # type: ignore[misc]
-            or local_env.get("SYNTH_API_KEY")  # type: ignore[misc]
             or ""
         ).strip()
         if not synth_key:
@@ -917,14 +871,11 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
             if not synth_key:
                 print("SYNTH_API_KEY is required for deployment.")
                 return 1
-            demo_core.persist_api_key(synth_key)
-            demo_core.persist_dotenv_values({"SYNTH_API_KEY": synth_key})
+            update_user_config({"SYNTH_API_KEY": synth_key})
             env.synth_api_key = synth_key
         os.environ["SYNTH_API_KEY"] = synth_key
 
-        openai_key = (
-            os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or ""
-        ).strip()
+        openai_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
         if not openai_key:
             openai_key = input(
                 "Enter your OpenAI API key, found at https://platform.openai.com/api-keys\n> "
@@ -932,8 +883,6 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
             if not openai_key:
                 print("OPENAI_API_KEY is required for deployment.")
                 return 1
-            demo_core.persist_dotenv_values({"OPENAI_API_KEY": openai_key})
-            local_env["OPENAI_API_KEY"] = openai_key
         os.environ["OPENAI_API_KEY"] = openai_key
 
         deploy_cmd = [
@@ -991,11 +940,6 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
         if not url:
             raise RuntimeError("Failed to resolve public URL from modal CLI output")
         demo_core.persist_task_url(url, name=app_name or None)
-        dotenv_values = {"TASK_APP_BASE_URL": url}
-        if app_name:
-            dotenv_values["TASK_APP_NAME"] = app_name
-        dotenv_values["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
-        dotenv_path = demo_core.persist_dotenv_values(dotenv_values)
         print(f"TASK_APP_BASE_URL={url}")
         if app_name:
             print(f"TASK_APP_NAME={app_name}")
@@ -1003,7 +947,6 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
         print(f"  export TASK_APP_BASE_URL={url}")
         if app_name:
             print(f"  export TASK_APP_NAME={app_name}")
-        print(f"Persisted to {dotenv_path}")
         print("\nNext step:\n$ uvx synth-ai run")
         return 0
     except Exception as e:
@@ -1021,8 +964,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
             print("SYNTH_API_KEY is required.")
             return 1
         os.environ["SYNTH_API_KEY"] = entered
-        demo_core.persist_api_key(entered)
-        demo_core.persist_dotenv_values({"SYNTH_API_KEY": entered})
+        update_user_config({"SYNTH_API_KEY": entered})
     env = demo_core.load_env()
     synth_key = (env.synth_api_key or "").strip()
     if not env.dev_backend_url:
@@ -1195,7 +1137,7 @@ def init(template: str | None = None, dest: str | None = None, force: bool = Fal
             # User agreed to overwrite - clear the entire directory including hidden files
             print(f"Clearing {destination}...")
             try:
-                # Remove all contents including hidden files (.env, .git, etc.)
+                # Remove all contents including hidden files.
                 shutil.rmtree(destination)
             except Exception as e:
                 print(f"Error clearing directory: {e}")
@@ -1272,24 +1214,6 @@ def init(template: str | None = None, dest: str | None = None, force: bool = Fal
                     except Exception:
                         pass
 
-        if selected.env_lines:
-            env_path = destination / ".env"
-            should_write = True
-            if env_path.exists() and not directory_cleared:
-                if force:
-                    response = "y"
-                else:
-                    try:
-                        response = input("File .env exists. Overwrite? [y/N]: ").strip().lower()
-                    except (EOFError, KeyboardInterrupt):
-                        print("\nCancelled.")
-                        return 1
-                should_write = response in ("y", "yes")
-            if should_write:
-                _write_text(str(env_path), "\n".join(selected.env_lines) + "\n")
-            elif not directory_cleared:
-                print("Skipping .env")
-
         config_src = selected.config_source_path()
         if config_src and config_src.exists():
             cfg_dst = (destination / selected.config_destination).resolve()
@@ -1319,24 +1243,15 @@ def init(template: str | None = None, dest: str | None = None, force: bool = Fal
                 print(f"Post-processing failed: {post_exc}")
                 return 1
 
-        # Store demo directory for subsequent commands
-        demo_core.persist_demo_dir(str(destination))
-
-        # Store .env path if it was created
-        env_file = destination / ".env"
-        if env_file.exists():
-            demo_core.persist_env_file_path(str(env_file))
-
         print(f"Demo template '{selected.name}' materialised at {destination}.")
         print("Files created:")
         for spec in selected.iter_copy_specs():
             print(f"  - {spec.destination}")
-        if selected.env_lines:
-            print("  - .env")
         if selected.config_source_path():
             print(f"  - {selected.config_destination}")
-        print("\nDemo directory stored. Subsequent commands will use this directory automatically.")
-        print("Review the files, edit .env, and run `synth-ai demo deploy` when ready.")
+        print(
+            "\nReview the files, export required environment variables, and run `synth-ai demo deploy`."
+        )
         return 0
     except KeyboardInterrupt:
         print("Aborted")
@@ -1381,12 +1296,6 @@ def _http(
         return 0, str(e)
 
 
-def _write_text(path: str, content: str) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as fh:
-        fh.write(content)
-
-
 # Note: `prepare` command has been removed; configuration now prepares TOML
 
 
@@ -1398,15 +1307,7 @@ def run(
     timeout: int = 600,
     dry_run: bool = False,
 ) -> int:
-    # Change to demo directory if stored
-    demo_dir = demo_core.load_demo_dir()
-    if demo_dir and os.path.isdir(demo_dir):
-        os.chdir(demo_dir)
-        print(f"Using demo directory: {demo_dir}")
-
     env = demo_core.load_env()
-    cwd_env_path = os.path.join(os.getcwd(), ".env")
-    demo_core.load_dotenv_file(cwd_env_path)
 
     synth_key = (env.synth_api_key or "").strip()
     if not synth_key:
@@ -1415,8 +1316,7 @@ def run(
             print("SYNTH_API_KEY is required.")
             return 1
         os.environ["SYNTH_API_KEY"] = entered
-        demo_core.persist_api_key(entered)
-        demo_core.persist_dotenv_values({"SYNTH_API_KEY": entered})
+        update_user_config({"SYNTH_API_KEY": entered})
     env = demo_core.load_env()
     synth_key = (env.synth_api_key or "").strip()
     if not synth_key:
