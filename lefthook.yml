@@ -57,13 +57,13 @@ pre-commit:
       run: uv run nbstripout {files}
       stage_fixed: true
 
-    # TUI: TypeScript build check
-    tui-build:
+    # TUI: TypeScript typecheck
+    tui-typecheck:
       tags:
         - typescript
-        - build
+        - typecheck
       glob:
         - "synth_ai/tui/app/*.ts"
         - "synth_ai/tui/app/**/*.ts"
       root: synth_ai/tui/app
-      run: bun run build
+      run: bun run typecheck
