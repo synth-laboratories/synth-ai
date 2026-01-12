@@ -31,6 +31,22 @@ pre-commit:
       run: uv run ruff format {staged_files}
       stage_fixed: true
 
+    # Jupyter: Strip notebook outputs before commit
+    - name: notebook-strip
+      tags:
+        - jupyter
+        - clean
+      glob: "**/*.ipynb"
+      run: |
+        files=""
+        for f in {staged_files}; do
+          [ -f "$f" ] && files="$files $f"
+        done
+        if [ -n "$files" ]; then
+          uv run nbstripout $files
+        fi
+      stage_fixed: true
+
     # TUI: TypeScript build check
     - name: tui-build
       tags:
