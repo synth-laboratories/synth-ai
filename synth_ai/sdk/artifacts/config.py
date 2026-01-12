@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import click
 
-from synth_ai.core.env import get_backend_from_env
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 DEFAULT_TIMEOUT = 30.0
 
@@ -35,10 +35,7 @@ def resolve_backend_config(
 ) -> ArtifactsConfig:
     """Resolve backend configuration from environment or explicit values."""
     if base_url is None:
-        base, key = get_backend_from_env()
-        base_url = base
-        if api_key is None:
-            api_key = key
+        base_url = BACKEND_URL_BASE
 
     if api_key is None:
         api_key = os.getenv("SYNTH_API_KEY", "")

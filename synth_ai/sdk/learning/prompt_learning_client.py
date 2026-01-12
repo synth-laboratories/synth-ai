@@ -53,25 +53,16 @@ class PromptLearningClient:
         """Initialize the prompt learning client.
 
         Args:
-            base_url: Base URL of the backend API (defaults to PROD_BASE_URL or BACKEND_BASE_URL env var)
+            base_url: Base URL of the backend API (defaults to BACKEND_URL_BASE from urls.py)
             api_key: API key for authentication (defaults to SYNTH_API_KEY env var)
             timeout: Request timeout in seconds
         """
         import os
 
-        from synth_ai.core.env import PROD_BASE_URL
+        from synth_ai.core.urls import BACKEND_URL_BASE
 
-        # Resolve base_url from environment or use production default
         if not base_url:
-            base_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not base_url:
-                base_url = PROD_BASE_URL
-
-        base_url = base_url.rstrip("/")
-        # Validate base_url format - warn if it already ends with /api (will be handled by AsyncHttpClient)
-        if base_url.endswith("/api"):
-            # This is OK - AsyncHttpClient._abs() will handle double /api/api paths
-            pass
+            base_url = BACKEND_URL_BASE
         self._base_url = base_url
 
         # Resolve API key from environment if not provided

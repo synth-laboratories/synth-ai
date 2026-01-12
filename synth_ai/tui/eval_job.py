@@ -14,7 +14,7 @@ import json
 import os
 import sys
 
-from synth_ai.core.env import get_backend_url
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 # Default eval configuration
 DEFAULT_SEEDS = list(range(20))  # 20 seeds for quick eval
@@ -35,9 +35,6 @@ def run_eval_job(task_app_url: str, env_name: str) -> None:
     from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
-    # Get backend URL from env vars (SYNTH_BACKEND_URL or SYNTH_BACKEND_MODE)
-    backend_base = get_backend_url()
-
     # Get config from environment
     api_key = os.environ.get("SYNTH_API_KEY")
     if not api_key:
@@ -47,7 +44,7 @@ def run_eval_job(task_app_url: str, env_name: str) -> None:
     # Get task app API key for authentication
     try:
         task_app_api_key = ensure_localapi_auth(
-            backend_base=backend_base,
+            backend_base=BACKEND_URL_BASE,
             synth_api_key=api_key,
         )
     except Exception as e:
@@ -58,7 +55,7 @@ def run_eval_job(task_app_url: str, env_name: str) -> None:
     config = EvalJobConfig(
         task_app_url=task_app_url,
         task_app_api_key=task_app_api_key,
-        backend_url=backend_base,
+        backend_url=BACKEND_URL_BASE,
         api_key=api_key,
         env_name=env_name,
         seeds=DEFAULT_SEEDS,

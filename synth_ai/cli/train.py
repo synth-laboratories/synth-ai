@@ -1,27 +1,20 @@
 import asyncio
 import contextlib
-import importlib
 import json
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, NoReturn, Optional, cast
+from typing import Any, NoReturn, Optional
 
 import click
 
 from synth_ai.cli.lib.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
+from synth_ai.core.config.errors import format_error_message, get_required_value
 from synth_ai.core.env_utils import get_synth_and_env_keys, mask_str
 from synth_ai.core.paths import print_paths_formatted
-from synth_ai.data import extract_outcome_reward
-
-try:
-    _config_module = cast(Any, importlib.import_module("synth_ai.core.env"))
-    get_backend_from_env = cast(Callable[[], str], _config_module.get_backend_from_env)
-except Exception as exc:  # pragma: no cover - critical dependency
-    raise RuntimeError("Unable to load backend configuration helpers") from exc
-
-from synth_ai.core.config.errors import format_error_message, get_required_value
 from synth_ai.core.telemetry import flush_logger, log_error, log_info
+from synth_ai.core.urls import BACKEND_URL_API
+from synth_ai.data import extract_outcome_reward
 from synth_ai.sdk.api.train.builders import (
     build_prompt_learning_payload,
     build_rl_payload,
@@ -127,30 +120,8 @@ def _extract_reward_value(
 
 
 def _default_backend() -> str:
-    """Resolve backend URL with proper production default.
-
-    Priority order:
-    1. BACKEND_BASE_URL env var (highest priority)
-    2. BACKEND_OVERRIDE env var
-    3. get_backend_from_env() standard resolution
-
-    CRITICAL: This function MUST check BACKEND_BASE_URL directly from os.getenv().
-    """
-    # Check explicit override first (BACKEND_BASE_URL takes absolute precedence)
-    # Read directly from os.environ to avoid unexpected overrides
-    explicit = os.environ.get("BACKEND_BASE_URL", "").strip()
-    if explicit:
-        # Return as-is, ensure_api_base() will normalize it
-        return explicit
-
-    # Fallback to BACKEND_OVERRIDE (also read directly from environ)
-    override = os.environ.get("BACKEND_OVERRIDE", "").strip()
-    if override:
-        return override
-
-    # Use standard resolution logic
-    base, _ = get_backend_from_env()
-    return f"{base}/api" if not base.endswith("/api") else base
+    """Return the default backend URL from centralized urls module."""
+    return BACKEND_URL_API
 
 
 _DEFAULT_SFT_HIDDEN_EVENTS = {
