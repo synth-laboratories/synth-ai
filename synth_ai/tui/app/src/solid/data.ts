@@ -20,8 +20,9 @@ import { createSolidContext } from "./context"
 
 export type SolidData = {
   version: Accessor<number>
-  refresh: () => Promise<void>
-  select: (jobId: string) => Promise<void>
+  refresh: (options?: { signal?: AbortSignal }) => Promise<void>
+  select: (jobId: string, options?: { signal?: AbortSignal }) => Promise<void>
+  ensureOpenCodeServer: (options?: { signal?: AbortSignal }) => Promise<void>
   ctx: ReturnType<typeof createSolidContext>
 }
 
@@ -69,17 +70,19 @@ export function useSolidData(): SolidData {
     bump()
   }
 
-  async function refresh(): Promise<void> {
+  async function refresh(options: { signal?: AbortSignal } = {}): Promise<void> {
     if (isLoggedOutMarkerSet() || !process.env.SYNTH_API_KEY) {
       return
     }
-    await refreshJobs(ctx)
-    await refreshHealth(ctx)
+    await refreshJobs(ctx, options)
+    await refreshHealth(ctx, options)
+    if (options.signal?.aborted) return
     bump()
   }
 
-  async function select(jobId: string): Promise<void> {
-    await selectJob(ctx, jobId)
+  async function select(jobId: string, options: { signal?: AbortSignal } = {}): Promise<void> {
+    await selectJob(ctx, jobId, options)
+    if (options.signal?.aborted) return
     bump()
   }
 
@@ -98,7 +101,10 @@ export function useSolidData(): SolidData {
     return null
   }
 
-  async function ensureOpenCodeServer(): Promise<void> {
+  async function ensureOpenCodeServer(options: { signal?: AbortSignal } = {}): Promise<void> {
+    if (options.signal?.aborted) {
+      return
+    }
     if (appState.openCodeUrl) {
       setOpenCodeStatus(`ready at ${appState.openCodeUrl}`)
       bump()
@@ -113,6 +119,9 @@ export function useSolidData(): SolidData {
     setOpenCodeStatus("starting... (first run may take a minute)")
     bump()
     const openCodeUrl = await startOpenCodeServer()
+    if (options.signal?.aborted) {
+      return
+    }
     if (openCodeUrl) {
       setOpenCodeStatus(`ready at ${openCodeUrl}`)
       bump()
@@ -121,6 +130,9 @@ export function useSolidData(): SolidData {
 
     if (isOpenCodeServerRunning()) {
       const delayedUrl = await waitForOpenCodeUrl(60000)
+      if (options.signal?.aborted) {
+        return
+      }
       if (delayedUrl) {
         setOpenCodeStatus(`ready at ${delayedUrl}`)
         bump()
@@ -136,7 +148,6 @@ export function useSolidData(): SolidData {
 
   onMount(() => {
     void bootstrap()
-    void ensureOpenCodeServer()
     const interval = setInterval(() => {
       void refresh()
     }, Math.max(1, config.refreshInterval) * 1000)
@@ -155,6 +166,7 @@ export function useSolidData(): SolidData {
     version,
     refresh,
     select,
+    ensureOpenCodeServer,
     ctx,
   }
 }

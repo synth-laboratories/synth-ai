@@ -5,6 +5,7 @@ import type { AppContext } from "../context"
 import { extractEvents, isEvalJob, num, type JobEvent } from "../tui_data"
 import type { PromptCandidate } from "../types"
 import { apiGet } from "./client"
+import { isAbortError } from "../utils/abort"
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -231,7 +232,10 @@ function updateCandidatesFromEvents(ctx: AppContext, events: JobEvent[]): void {
   }
 }
 
-export async function refreshEvents(ctx: AppContext): Promise<boolean> {
+export async function refreshEvents(
+  ctx: AppContext,
+  options: { signal?: AbortSignal } = {},
+): Promise<boolean> {
   const { snapshot, appState, config } = ctx.state
   const job = snapshot.selectedJob
   if (!job) return true
@@ -260,10 +264,12 @@ export async function refreshEvents(ctx: AppContext): Promise<boolean> {
     let lastErr: any = null
     for (const path of paths) {
       try {
-        payload = await apiGet(path)
+        if (options.signal?.aborted) return true
+        payload = await apiGet(path, options)
         lastErr = null
         break
       } catch (err: any) {
+        if (isAbortError(err)) return true
         lastErr = err
       }
     }
@@ -335,7 +341,8 @@ export async function refreshEvents(ctx: AppContext): Promise<boolean> {
     }
 
     return true
-  } catch {
+  } catch (err: any) {
+    if (isAbortError(err)) return true
     return false
   }
 }

@@ -36,12 +36,17 @@ async function parseJsonOrThrow(res: Response, label: string): Promise<any> {
   }
 }
 
-export async function apiGet(path: string): Promise<any> {
+type RequestOptions = {
+  signal?: AbortSignal
+}
+
+export async function apiGet(path: string, options: RequestOptions = {}): Promise<any> {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key")
   }
   const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path}`, {
     headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` },
+    signal: options.signal,
   })
   if (!res.ok) {
     const body = await res.text().catch(() => "")
@@ -52,12 +57,13 @@ export async function apiGet(path: string): Promise<any> {
   return await parseJsonOrThrow(res, `GET ${path}`)
 }
 
-export async function apiGetV1(path: string): Promise<any> {
+export async function apiGetV1(path: string, options: RequestOptions = {}): Promise<any> {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key")
   }
   const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path}`, {
     headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` },
+    signal: options.signal,
   })
   if (!res.ok) {
     const body = await res.text().catch(() => "")
@@ -68,7 +74,7 @@ export async function apiGetV1(path: string): Promise<any> {
   return await parseJsonOrThrow(res, `GET /api/v1${path}`)
 }
 
-export async function apiPost(path: string, body: any): Promise<any> {
+export async function apiPost(path: string, body: any, options: RequestOptions = {}): Promise<any> {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key")
   }
@@ -79,6 +85,7 @@ export async function apiPost(path: string, body: any): Promise<any> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+    signal: options.signal,
   })
   if (!res.ok) {
     const text = await res.text().catch(() => "")
