@@ -32,11 +32,9 @@ from synth_ai.core.process import (
 from synth_ai.core.task_app_state import (
     DEFAULT_TASK_APP_SECRET_NAME,
     current_task_app_id,
-    load_demo_dir,
     load_template_id,
     now_iso,
     persist_api_key,
-    persist_demo_dir,
     persist_env_api_key,
     persist_task_url,
     persist_template_id,
@@ -58,7 +56,6 @@ from synth_ai.core.telemetry import (
 )
 from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.core.user_config import (
-    USER_CONFIG_PATH,
     load_user_config,
     load_user_env,
     save_user_config,
@@ -76,10 +73,10 @@ _CLI_IMPORTS = {
     # From core.bin
     "install_bin": ("synth_ai.core.bin", "install_bin"),
     "verify_bin": ("synth_ai.core.bin", "verify_bin"),
-    # From core.env_utils
-    "mask_str": ("synth_ai.core.env_utils", "mask_str"),
-    "resolve_env_var": ("synth_ai.core.env_utils", "resolve_env_var"),
-    "write_env_var_to_json": ("synth_ai.core.env_utils", "write_env_var_to_json"),
+    # From core.env
+    "mask_str": ("synth_ai.core.env", "mask_str"),
+    "resolve_env_var": ("synth_ai.core.env", "resolve_env_var"),
+    "write_env_var_to_json": ("synth_ai.core.env", "write_env_var_to_json"),
     # From core.integrations.modal_utils
     "ensure_modal_installed": ("synth_ai.core.integrations.modal_utils", "ensure_modal_installed"),
     "find_asgi_apps": ("synth_ai.core.integrations.modal_utils", "find_asgi_apps"),
@@ -131,7 +128,6 @@ __all__ = [
     "HTTPError",
     "BACKEND_URL_BASE",
     "REPO_ROOT",
-    "USER_CONFIG_PATH",
     "cleanup_paths",
     "configure_import_paths",
     "create_and_write_json",
@@ -143,7 +139,6 @@ __all__ = [
     "get_home_config_file_paths",
     "http_request",
     "is_hidden_path",
-    "load_demo_dir",
     "load_json_to_dict",
     "load_template_id",
     "load_user_config",
@@ -155,7 +150,6 @@ __all__ = [
     "log_warning",
     "now_iso",
     "persist_api_key",
-    "persist_demo_dir",
     "persist_env_api_key",
     "persist_task_url",
     "persist_template_id",
