@@ -22,6 +22,7 @@ export type SolidData = {
   refresh: () => Promise<void>
   select: (jobId: string) => Promise<void>
   ctx: ReturnType<typeof createSolidContext>
+  installOpenCode: () => Promise<void>
 }
 
 export function useSolidData(): SolidData {
@@ -167,5 +168,7 @@ export function useSolidData(): SolidData {
     refresh,
     select,
     ctx,
+    // For now "install" just re-runs the OpenCode startup flow; actual installation is out of scope.
+    installOpenCode: ensureOpenCodeServer,
   }
 }

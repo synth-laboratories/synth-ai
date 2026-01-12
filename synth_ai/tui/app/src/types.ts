@@ -92,6 +92,29 @@ export type TunnelRecord = {
   health_check_error?: string
 }
 
+export type HealthStatus = "healthy" | "unhealthy" | "unknown"
+
+/** Local task app discovered via `synth-ai scan --json` (best-effort schema). */
+export type ScannedApp = {
+  name?: string
+  task_name?: string
+  url: string
+  port?: number
+  health_status: HealthStatus
+  discovered_via?: string
+}
+
+/** Unified task app record (tunnels + local apps), used by the TUI. */
+export type TaskApp = {
+  id: string
+  name: string
+  url: string
+  type: "tunnel" | "local"
+  port?: number
+  health_status: HealthStatus
+  discovered_via?: string
+}
+
 
 /** Client-side health check result */
 export type TunnelHealthResult = {
