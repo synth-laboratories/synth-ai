@@ -120,7 +120,6 @@ def resolve_env_var(key: str, override_process_env: bool = False) -> str:
         )
 
     os.environ[key] = value
-    ensure_env_var(key, value)
     click.echo(f"Loaded {key}={mask_str(value)} from {source}")
     return value
 
