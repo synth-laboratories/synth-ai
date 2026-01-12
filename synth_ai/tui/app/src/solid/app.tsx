@@ -22,9 +22,10 @@ import { getFilteredEvents } from "../formatters"
 import { formatMetricsCharts } from "../formatters/metrics"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
 import { cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
-import { apiGet, apiGetV1 } from "../api/client"
+import { apiGet } from "../api/client"
 import { fetchSessions, disconnectSession, checkSessionHealth } from "../api/sessions"
 import { refreshTunnels, refreshTunnelHealth } from "../api/tunnels"
+import { connectLocalOpenCodeSession } from "../api/opencode"
 import { openBrowser, runDeviceCodeAuth, type AuthStatus } from "../auth"
 import { copyToClipboard } from "../utils/clipboard"
 import { clearLoggedOutMarker, deleteSavedApiKey, saveApiKey, setLoggedOutMarker } from "../utils/logout-marker"
@@ -46,6 +47,7 @@ import {
 import { pollingState, clearEventsTimer, clearJobsTimer } from "../state/polling"
 import { installSignalHandlers, registerCleanup, unregisterCleanup, registerRenderer, shutdown } from "../lifecycle"
 import { createAbortControllerRegistry, isAbortError } from "../utils/abort"
+import { isAborted } from "../utils/request"
 
 function wireShutdown(renderer: { stop: () => void; destroy: () => void }): void {
   registerRenderer(renderer)
@@ -546,8 +548,8 @@ function SolidShell(props: { onExit?: () => void }) {
     return `${range}${fullscreenHint}j/k scroll | q close`
   })
 
-  function runAction(key: string, task: (signal: AbortSignal) => Promise<void>): void {
-    void actions.run(key, task).catch((err) => {
+  function runAction(key: string, task: () => Promise<void>): void {
+    void actions.run(key, () => task()).catch((err) => {
       if (isAbortError(err)) return
       snapshot.lastError = err?.message || "Action failed"
       data.ctx.render()
@@ -599,7 +601,7 @@ function SolidShell(props: { onExit?: () => void }) {
     
     // Auto-select if no job is currently selected, or if it's a different job
     if (!currentSelected || currentSelected.job_id !== job.job_id) {
-      runAction("select-job", (signal) => data.select(job.job_id, { signal }))
+      runAction("select-job", () => data.select(job.job_id))
     }
   })
 
@@ -723,7 +725,7 @@ function SolidShell(props: { onExit?: () => void }) {
     setActiveModal("snapshot")
   }
 
-  async function applySnapshotModal(signal?: AbortSignal): Promise<void> {
+  async function applySnapshotModal(): Promise<void> {
     const trimmed = modalInputValue().trim()
     if (!trimmed) {
       closeActiveModal()
@@ -736,7 +738,7 @@ function SolidShell(props: { onExit?: () => void }) {
     }
     closeActiveModal()
     try {
-      await apiGet(`/prompt-learning/online/jobs/${job.job_id}/snapshots/${trimmed}`, { signal })
+      await apiGet(`/prompt-learning/online/jobs/${job.job_id}/snapshots/${trimmed}`)
       snapshot.status = `Snapshot ${trimmed} fetched`
     } catch (err: any) {
       if (isAbortError(err)) return
@@ -852,8 +854,8 @@ function SolidShell(props: { onExit?: () => void }) {
       return
     }
     if (!snapshot.selectedJob || !filteredJobs.some((job) => job.job_id === snapshot.selectedJob?.job_id)) {
-      runAction("select-job", async (signal) => {
-        await data.select(filteredJobs[0].job_id, { signal })
+      runAction("select-job", async () => {
+        await data.select(filteredJobs[0].job_id)
         data.ctx.render()
       })
       return
@@ -918,7 +920,7 @@ function SolidShell(props: { onExit?: () => void }) {
     appState.usageModalOffset = 0
     setUsageData(null)
     setActiveModal("usage")
-    runAction("usage", (signal) => fetchUsageData(signal))
+    runAction("usage", () => fetchUsageData())
   }
 
   function openMetricsModal(): void {
@@ -926,9 +928,9 @@ function SolidShell(props: { onExit?: () => void }) {
     setActiveModal("metrics")
   }
 
-  async function fetchUsageData(signal?: AbortSignal): Promise<void> {
+  async function fetchUsageData(): Promise<void> {
     try {
-      const response = await apiGetV1("/usage-plan", { signal })
+      const response = await apiGet("/usage-plan", { version: "v1" })
       const data: UsageData = {
         plan_type: response.plan_type as UsageData["plan_type"],
         status: response.status as UsageData["status"],
@@ -990,17 +992,17 @@ function SolidShell(props: { onExit?: () => void }) {
     appState.taskAppsModalOffset = 0
     appState.taskAppsModalSelectedIndex = 0
     setActiveModal("task-apps")
-    runAction("task-apps-refresh", (signal) => refreshTaskApps(signal))
+    runAction("task-apps-refresh", () => refreshTaskApps())
   }
 
-  async function refreshTaskApps(signal?: AbortSignal): Promise<void> {
+  async function refreshTaskApps(): Promise<void> {
     snapshot.status = "Loading task apps..."
     data.ctx.render()
-    const ok = await refreshTunnels(data.ctx, { signal })
-    if (!ok || signal?.aborted) return
+    const ok = await refreshTunnels(data.ctx)
+    if (!ok || isAborted()) return
     data.ctx.render()
-    await refreshTunnelHealth(data.ctx, { signal })
-    if (!signal?.aborted) {
+    await refreshTunnelHealth(data.ctx)
+    if (!isAborted()) {
       snapshot.status = "Task apps updated"
       data.ctx.render()
     }
@@ -1032,7 +1034,7 @@ function SolidShell(props: { onExit?: () => void }) {
     setSessionsSelectedIndex(0)
     setSessionsScrollOffset(0)
     setActiveModal("sessions")
-    runAction("sessions-refresh", (signal) => refreshSessionsModal(signal))
+    runAction("sessions-refresh", () => refreshSessionsModal())
   }
 
   function moveSessionsSelection(delta: number): void {
@@ -1044,15 +1046,15 @@ function SolidShell(props: { onExit?: () => void }) {
     setSessionsSelectedIndex((current) => clamp(current + delta, 0, maxIndex))
   }
 
-  async function refreshSessionsModal(signal?: AbortSignal): Promise<void> {
+  async function refreshSessionsModal(): Promise<void> {
     snapshot.status = "Loading sessions..."
     data.ctx.render()
     try {
-      const sessions = await fetchSessions(undefined, { signal })
-      if (signal?.aborted) return
+      const sessions = await fetchSessions()
+      if (isAborted()) return
       snapshot.sessions = sessions
       setSessionsCache(sessions)
-      await refreshSessionHealth(sessions, signal)
+      await refreshSessionHealth(sessions)
     } catch (err: any) {
       if (isAbortError(err)) return
       snapshot.lastError = err?.message || "Failed to load sessions"
@@ -1060,14 +1062,14 @@ function SolidShell(props: { onExit?: () => void }) {
     }
   }
 
-  async function refreshSessionHealth(sessions: SessionRecord[], signal?: AbortSignal): Promise<void> {
+  async function refreshSessionHealth(sessions: SessionRecord[]): Promise<void> {
     const next = new Map(sessionsHealthCache())
     const activeSessions = sessions.filter(
       (s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting",
     )
     for (const session of activeSessions) {
-      if (signal?.aborted) return
-      const result = await checkSessionHealth(session, 5000, { signal })
+      if (isAborted()) return
+      const result = await checkSessionHealth(session, 5000)
       next.set(session.session_id, result)
       snapshot.sessionHealthResults.set(session.session_id, result)
       setSessionsHealthCache(new Map(next))
@@ -1075,7 +1077,7 @@ function SolidShell(props: { onExit?: () => void }) {
     data.ctx.render()
   }
 
-  async function connectLocalSession(signal?: AbortSignal): Promise<void> {
+  async function connectLocalSession(): Promise<void> {
     const opencodeUrl = appState.openCodeUrl
     if (!opencodeUrl) {
       snapshot.lastError = "OpenCode server not started"
@@ -1087,82 +1089,24 @@ function SolidShell(props: { onExit?: () => void }) {
     snapshot.status = `Connecting to OpenCode at ${opencodeUrl}...`
     data.ctx.render()
 
-    const healthCheck = await checkSessionHealth({
-      session_id: "local",
-      container_id: "",
-      state: "connecting",
-      mode: "interactive",
-      model: "gpt-4o-mini",
-      access_url: opencodeUrl,
-      tunnel_url: null,
-      opencode_url: opencodeUrl,
-      health_url: `${opencodeUrl}/health`,
-      created_at: new Date().toISOString(),
-      connected_at: null,
-      last_activity: null,
-      error_message: null,
-      metadata: {},
-      is_local: true,
-    }, 5000, { signal })
-
-    if (signal?.aborted) {
-      return
-    }
-    if (!healthCheck.healthy) {
-      snapshot.lastError = healthCheck.error || "OpenCode server not reachable"
-      snapshot.status = `Connection failed - is OpenCode running at ${opencodeUrl}?`
+    const result = await connectLocalOpenCodeSession(opencodeUrl, 5000)
+    if (result.aborted) return
+    if (!result.ok) {
+      snapshot.lastError = result.error
+      snapshot.status = result.health?.healthy
+        ? "Session creation failed"
+        : `Connection failed - is OpenCode running at ${opencodeUrl}?`
       data.ctx.render()
       return
     }
 
-    snapshot.status = "Creating session on OpenCode..."
-    data.ctx.render()
-
-    const createResponse = await fetch(`${opencodeUrl}/session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-      signal,
-    })
-
-    if (signal?.aborted) {
-      return
-    }
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text().catch(() => "")
-      snapshot.lastError = `Failed to create session: ${createResponse.status} ${errorText}`
-      snapshot.status = "Session creation failed"
-      data.ctx.render()
-      return
-    }
-
-    const sessionData = await createResponse.json() as { id: string; title?: string }
-    const sessionId = sessionData.id
-
-    const localSession: SessionRecord = {
-      session_id: sessionId,
-      container_id: "",
-      state: "connected",
-      mode: "interactive",
-      model: "gpt-4o-mini",
-      access_url: opencodeUrl,
-      tunnel_url: null,
-      opencode_url: opencodeUrl,
-      health_url: `${opencodeUrl}/health`,
-      created_at: new Date().toISOString(),
-      connected_at: new Date().toISOString(),
-      last_activity: new Date().toISOString(),
-      error_message: null,
-      metadata: {},
-      is_local: true,
-    }
-
-    const nextSessions = [localSession, ...sessionsCache().filter((s) => s.session_id !== sessionId)]
+    const sessionId = result.session.session_id
+    const nextSessions = [result.session, ...sessionsCache().filter((s) => s.session_id !== sessionId)]
     setSessionsCache(nextSessions)
     snapshot.sessions = nextSessions
     const nextHealth = new Map(sessionsHealthCache())
-    nextHealth.set(sessionId, healthCheck)
-    snapshot.sessionHealthResults.set(sessionId, healthCheck)
+    nextHealth.set(sessionId, result.health)
+    snapshot.sessionHealthResults.set(sessionId, result.health)
     setSessionsHealthCache(nextHealth)
 
     appState.openCodeSessionId = sessionId
@@ -1180,10 +1124,10 @@ function SolidShell(props: { onExit?: () => void }) {
     if (appState.openCodeSessionId) return
     if (appState.openCodeAutoConnectAttempted) return
     appState.openCodeAutoConnectAttempted = true
-    runAction("opencode-connect", (signal) => connectLocalSession(signal))
+    runAction("opencode-connect", () => connectLocalSession())
   })
 
-  async function disconnectSelectedSession(signal?: AbortSignal): Promise<void> {
+  async function disconnectSelectedSession(): Promise<void> {
     const sessions = sessionsCache()
     const active = sessions.filter(
       (s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting",
@@ -1195,13 +1139,13 @@ function SolidShell(props: { onExit?: () => void }) {
     data.ctx.render()
 
     try {
-      const result = await disconnectSession(session.session_id, { signal })
+      const result = await disconnectSession(session.session_id)
       if (result.disconnected) {
         snapshot.status = `Disconnected from ${session.session_id}`
         if (appState.openCodeSessionId === session.session_id) {
           appState.openCodeSessionId = null
         }
-        await refreshSessionsModal(signal)
+        await refreshSessionsModal()
       } else {
         snapshot.status = "Disconnect failed"
       }
@@ -1378,7 +1322,7 @@ function SolidShell(props: { onExit?: () => void }) {
       if (overlayModal === "snapshot") {
         if (evt.name === "return" || evt.name === "enter") {
           evt.preventDefault()
-          runAction("snapshot", (signal) => applySnapshotModal(signal))
+          runAction("snapshot", () => applySnapshotModal())
           return
         }
         if (evt.name === "q" || evt.name === "escape") {
@@ -1475,8 +1419,8 @@ function SolidShell(props: { onExit?: () => void }) {
         }
         if (evt.name === "m") {
           evt.preventDefault()
-          runAction("metrics", async (signal) => {
-            await fetchMetrics(data.ctx, { signal })
+          runAction("metrics", async () => {
+            await fetchMetrics(data.ctx)
             data.ctx.render()
           })
           return
@@ -1529,17 +1473,17 @@ function SolidShell(props: { onExit?: () => void }) {
         }
         if (evt.name === "c" && !evt.shift) {
           evt.preventDefault()
-          runAction("sessions-connect", (signal) => connectLocalSession(signal))
+          runAction("sessions-connect", () => connectLocalSession())
           return
         }
         if (evt.name === "d") {
           evt.preventDefault()
-          runAction("sessions-disconnect", (signal) => disconnectSelectedSession(signal))
+          runAction("sessions-disconnect", () => disconnectSelectedSession())
           return
         }
         if (evt.name === "r") {
           evt.preventDefault()
-          runAction("sessions-refresh", (signal) => refreshSessionsModal(signal))
+          runAction("sessions-refresh", () => refreshSessionsModal())
           return
         }
         if (evt.name === "return" || evt.name === "enter") {
@@ -1663,7 +1607,7 @@ function SolidShell(props: { onExit?: () => void }) {
     }
     if (evt.name === "r") {
       evt.preventDefault()
-      runAction("refresh", (signal) => data.refresh({ signal }))
+      runAction("refresh", () => data.refresh())
       return
     }
     if (evt.name === "b") {
@@ -1689,7 +1633,7 @@ function SolidShell(props: { onExit?: () => void }) {
       const nextPane = appState.principalPane === "jobs" ? "opencode" : "jobs"
       appState.principalPane = nextPane
       if (nextPane === "opencode") {
-        runAction("opencode-ensure", (signal) => data.ensureOpenCodeServer({ signal }))
+        runAction("opencode-ensure", () => data.ensureOpenCodeServer())
       }
       data.ctx.render()
       return
@@ -1779,16 +1723,16 @@ function SolidShell(props: { onExit?: () => void }) {
     // Avoid binding Shift+O globally in the jobs pane; it makes `o` feel unreliable.
     if (evt.name === "c") {
       evt.preventDefault()
-      runAction("cancel-job", async (signal) => {
-        await cancelSelected(data.ctx, { signal })
+      runAction("cancel-job", async () => {
+        await cancelSelected(data.ctx)
         data.ctx.render()
       })
       return
     }
     if (evt.name === "a") {
       evt.preventDefault()
-      runAction("artifacts", async (signal) => {
-        await fetchArtifacts(data.ctx, { signal })
+      runAction("artifacts", async () => {
+        await fetchArtifacts(data.ctx)
         data.ctx.render()
       })
       return
@@ -1801,8 +1745,8 @@ function SolidShell(props: { onExit?: () => void }) {
     }
     if (evt.name === "m") {
       evt.preventDefault()
-      runAction("metrics", async (signal) => {
-        await fetchMetrics(data.ctx, { signal })
+      runAction("metrics", async () => {
+        await fetchMetrics(data.ctx)
         data.ctx.render()
       })
       return
@@ -1893,7 +1837,7 @@ function SolidShell(props: { onExit?: () => void }) {
       if (pane === "jobs") {
         const job = jobs()[selectedIndex()]
         if (job?.job_id) {
-          runAction("select-job", (signal) => data.select(job.job_id, { signal }))
+          runAction("select-job", () => data.select(job.job_id))
         }
         return
       }
@@ -2555,7 +2499,7 @@ function SolidShell(props: { onExit?: () => void }) {
             snapshot.lastError = null
             data.ctx.render()
             // Refresh jobs list to show new job
-            runAction("refresh", (signal) => data.refresh({ signal }))
+            runAction("refresh", () => data.refresh())
           }}
           onStatusUpdate={(status: string) => {
             snapshot.status = status

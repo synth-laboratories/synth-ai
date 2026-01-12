@@ -4,7 +4,7 @@
  * Fetches jobs from multiple endpoints and combines them for status tracking.
  */
 
-import { apiGetV1 } from "./client"
+import { apiGet } from "./client"
 
 export interface JobRecord {
   id: string
@@ -31,7 +31,6 @@ const previousStatuses = new Map<string, string>()
  */
 export async function fetchRecentJobs(
   since: Date,
-  options: { signal?: AbortSignal } = {}
 ): Promise<JobStatusChange[]> {
   const results: JobStatusChange[] = []
 
@@ -45,7 +44,7 @@ export async function fetchRecentJobs(
   // Fetch from all endpoints in parallel
   const fetchPromises = endpoints.map(async (endpoint) => {
     try {
-      const jobs = await apiGetV1(endpoint.path, options)
+      const jobs = await apiGet(endpoint.path, { version: "v1" })
       if (!Array.isArray(jobs)) return []
 
       return jobs
@@ -109,8 +108,7 @@ export function clearJobStatusCache(): void {
 export async function getRecentJobChanges(
   since: Date,
   limit: number = 3,
-  options: { signal?: AbortSignal } = {}
 ): Promise<JobStatusChange[]> {
-  const changes = await fetchRecentJobs(since, options)
+  const changes = await fetchRecentJobs(since)
   return changes.slice(0, limit)
 }

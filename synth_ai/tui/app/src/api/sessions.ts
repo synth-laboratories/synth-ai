@@ -7,6 +7,7 @@
 
 import { apiGet, apiPost } from "./client"
 import { isAbortError } from "../utils/abort"
+import { fetchWithTimeout } from "../utils/request"
 import type { SessionRecord, ConnectLocalResponse, SessionHealthResult } from "../types"
 import type { AppContext } from "../context"
 
@@ -15,11 +16,10 @@ import type { AppContext } from "../context"
  */
 export async function fetchSessions(
   stateFilter?: string,
-  options: { signal?: AbortSignal } = {},
 ): Promise<SessionRecord[]> {
   try {
     const query = stateFilter ? `?state=${stateFilter}` : ""
-    const sessions = await apiGet(`/interactive/sessions${query}`, options)
+    const sessions = await apiGet(`/interactive/sessions${query}`)
     return sessions || []
   } catch (err: any) {
     if (isAbortError(err)) return []
@@ -33,10 +33,9 @@ export async function fetchSessions(
  */
 export async function getSession(
   sessionId: string,
-  options: { signal?: AbortSignal } = {},
 ): Promise<SessionRecord | null> {
   try {
-    const session = await apiGet(`/interactive/sessions/${sessionId}`, options)
+    const session = await apiGet(`/interactive/sessions/${sessionId}`)
     return session || null
   } catch (err: any) {
     if (isAbortError(err)) return null
@@ -58,7 +57,6 @@ export async function connectLocal(
   opencode_url: string = "http://localhost:3000",
   model: string = "gpt-4o-mini",
   sessionId?: string,
-  options: { signal?: AbortSignal } = {},
 ): Promise<ConnectLocalResponse> {
   const body: Record<string, any> = {
     opencode_url,
@@ -67,7 +65,7 @@ export async function connectLocal(
   if (sessionId) {
     body.session_id = sessionId
   }
-  return await apiPost("/interactive/connect-local", body, options)
+  return await apiPost("/interactive/connect-local", body)
 }
 
 /**
@@ -75,9 +73,8 @@ export async function connectLocal(
  */
 export async function disconnectSession(
   sessionId: string,
-  options: { signal?: AbortSignal } = {},
 ): Promise<{ session_id: string; disconnected: boolean }> {
-  return await apiPost("/interactive/disconnect", { session_id: sessionId }, options)
+  return await apiPost("/interactive/disconnect", { session_id: sessionId })
 }
 
 /**
@@ -86,7 +83,6 @@ export async function disconnectSession(
 export async function checkSessionHealth(
   session: SessionRecord,
   timeout: number = 5000,
-  options: { signal?: AbortSignal } = {},
 ): Promise<SessionHealthResult> {
   const url = session.opencode_url || session.access_url
   if (!url) {
@@ -96,23 +92,10 @@ export async function checkSessionHealth(
   const healthUrl = `${url}/health`
   const startTime = Date.now()
 
-  let timeoutId: ReturnType<typeof setTimeout> | null = null
-  const controller = new AbortController()
-  const abortExternal = () => controller.abort()
-
   try {
-    timeoutId = setTimeout(() => controller.abort(), timeout)
-    if (options.signal) {
-      if (options.signal.aborted) {
-        controller.abort()
-      } else {
-        options.signal.addEventListener("abort", abortExternal, { once: true })
-      }
-    }
-
-    const response = await fetch(healthUrl, {
-      signal: controller.signal,
+    const response = await fetchWithTimeout(healthUrl, {
       method: "GET",
+      timeoutMs: timeout,
     })
 
     const elapsed = Date.now() - startTime
@@ -129,17 +112,13 @@ export async function checkSessionHealth(
     if (isAbortError(err)) {
       return { healthy: false, error: "Cancelled", checked_at: new Date() }
     }
+    if (err?.name === "TimeoutError") {
+      return { healthy: false, response_time_ms: timeout, error: `Timeout after ${timeout}ms`, checked_at: new Date() }
+    }
     const elapsed = Date.now() - startTime
-    const errorMessage = err?.name === "AbortError"
-      ? `Timeout after ${timeout}ms`
-      : err?.message || "Unknown error"
+    const errorMessage = err?.message || "Unknown error"
 
     return { healthy: false, error: errorMessage, response_time_ms: elapsed, checked_at: new Date() }
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-    }
-    options.signal?.removeEventListener("abort", abortExternal)
   }
 }
 
@@ -148,7 +127,6 @@ export async function checkSessionHealth(
  */
 export async function refreshSessions(
   ctx: AppContext,
-  options: { signal?: AbortSignal } = {},
 ): Promise<boolean> {
   const { snapshot } = ctx.state
 
@@ -156,7 +134,7 @@ export async function refreshSessions(
     snapshot.sessionsLoading = true
     ctx.render()
 
-    const sessions = await fetchSessions(undefined, options)
+    const sessions = await fetchSessions()
     snapshot.sessions = sessions
     snapshot.sessionsLoading = false
     return true

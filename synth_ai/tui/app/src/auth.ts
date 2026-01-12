@@ -8,6 +8,7 @@
 
 import { spawn } from "node:child_process"
 import { appState, getFrontendUrl } from "./state/app-state"
+import { getRequestSignal, sleep } from "./utils/request"
 
 export type AuthSession = {
   deviceCode: string
@@ -46,6 +47,7 @@ export async function initAuthSession(): Promise<AuthSession> {
   const res = await fetch(initUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: getRequestSignal(),
   })
 
   if (!res.ok) {
@@ -83,6 +85,7 @@ export async function pollForToken(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_code: deviceCode }),
+      signal: getRequestSignal(),
     })
 
     if (res.status === 428) {
@@ -183,8 +186,4 @@ export async function runDeviceCodeAuth(
     updateStatus({ state: "error", message })
     return { success: false, apiKey: null, error: message }
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
