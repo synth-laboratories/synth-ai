@@ -31,8 +31,17 @@ export function mergeAbortSignals(
 
   // Polyfill: manually wire up abort propagation with proper cleanup
   const controller = new AbortController()
-  let disposed = false
 
+  // First pass: check if any signal is already aborted (avoids adding listeners unnecessarily)
+  for (const signal of filtered) {
+    if (signal.aborted) {
+      controller.abort()
+      return { signal: controller.signal, dispose: noopDispose }
+    }
+  }
+
+  // Second pass: no signal was aborted, safe to add all listeners
+  let disposed = false
   const dispose = () => {
     if (disposed) return
     disposed = true
@@ -43,15 +52,10 @@ export function mergeAbortSignals(
 
   const onAbort = () => {
     controller.abort()
-    dispose() // Clean up all listeners when any signal aborts
+    dispose()
   }
 
   for (const signal of filtered) {
-    if (signal.aborted) {
-      controller.abort()
-      dispose() // Clean up any listeners added so far
-      return { signal: controller.signal, dispose: noopDispose }
-    }
     signal.addEventListener("abort", onAbort)
   }
 
