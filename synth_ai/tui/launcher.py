@@ -5,8 +5,25 @@ import subprocess
 from pathlib import Path
 from shutil import which
 
+from dotenv import load_dotenv
+
 from synth_ai.core.env import get_api_key
+
+# Load .env file to get SYNTH_API_KEY and other keys before accessing them
+load_dotenv(override=False)
 from synth_ai.core.urls import BACKEND_URL_BASE, FRONTEND_URL_BASE
+
+
+def _nearest_git_root(start: str) -> str | None:
+    """Return nearest parent dir (including start) containing a .git directory."""
+    try:
+        cur = Path(start).resolve()
+    except Exception:
+        return None
+    for parent in [cur, *cur.parents]:
+        if (parent / ".git").exists():
+            return str(parent)
+    return None
 
 
 def run_prompt_learning_tui(
@@ -20,6 +37,10 @@ def run_prompt_learning_tui(
 ) -> None:
     """Launch the prompt learning monitoring TUI."""
     synth_key = api_key or get_api_key(required=False) or ""
+    # NOTE: Some runners (e.g. `uv run`) may change `os.getcwd()` to the package root.
+    # Prefer the shell's $PWD if present to preserve the user's launch directory.
+    pwd_env = (os.environ.get("PWD") or "").strip()
+    launch_cwd = pwd_env if pwd_env and os.path.isdir(pwd_env) else os.getcwd()
 
     tui_root = Path(__file__).resolve().parent / "app"
     entry = tui_root / "src" / "index.ts"
@@ -50,6 +71,31 @@ def run_prompt_learning_tui(
     env["SYNTH_TUI_REFRESH_INTERVAL"] = str(refresh_interval)
     env["SYNTH_TUI_EVENT_INTERVAL"] = str(event_interval)
     env["SYNTH_TUI_LIMIT"] = str(limit)
+    # Preserve the directory where `synth-ai` was launched from (the Bun app runs in tui/app).
+    # Always set launch CWD explicitly; other env layers may carry stale values.
+    # If we somehow resolved to the TUI app directory itself, promote to repo root.
+    # This prevents OpenCode tool execution from defaulting to `synth_ai/tui/app`.
+    try:
+        if Path(launch_cwd).resolve().is_relative_to(tui_root.resolve()):
+            git_root = _nearest_git_root(launch_cwd)
+            if git_root:
+                launch_cwd = git_root
+    except Exception:
+        # Python <3.9 lacks is_relative_to; best-effort string fallback.
+        if str(tui_root.resolve()) in str(Path(launch_cwd).resolve()):
+            git_root = _nearest_git_root(launch_cwd)
+            if git_root:
+                launch_cwd = git_root
+
+    env["SYNTH_TUI_LAUNCH_CWD"] = launch_cwd
+    # Default OpenCode working directory to launch CWD unless user explicitly overrides.
+    env.setdefault("OPENCODE_WORKING_DIR", launch_cwd)
+
+    # Point OpenCode to synth-ai's bundled config (skills, AGENTS.md, etc.)
+    # This provides Synth-specific knowledge to the OpenCode agent by default.
+    opencode_config_dir = Path(__file__).resolve().parent / "opencode_config"
+    if opencode_config_dir.exists():
+        env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
 
     result = subprocess.run([runtime, str(entry)], env=env, cwd=tui_root)
     # Exit silently regardless of how the TUI process ended

@@ -3,7 +3,7 @@
  *
  * Displays static Synth docs and user-editable synth.md instructions.
  */
-import { createSignal, createMemo, Show } from "solid-js"
+import { createMemo, Show } from "solid-js"
 import { COLORS } from "../theme"
 
 // Import static docs as raw text
@@ -28,7 +28,7 @@ export interface ContextPanelProps {
  * 2. User's synth.md content (editable)
  */
 export function ContextPanel(props: ContextPanelProps) {
-  const [localScrollOffset, setLocalScrollOffset] = createSignal(props.scrollOffset || 0)
+  const localScrollOffset = createMemo(() => props.scrollOffset || 0)
 
   // Split heights: 60% for static docs, 40% for synth.md
   const staticDocsHeight = createMemo(() => Math.floor((props.height - 4) * 0.6))
@@ -63,7 +63,9 @@ export function ContextPanel(props: ContextPanelProps) {
     >
       {/* Header */}
       <box backgroundColor={COLORS.bgHeader} paddingLeft={1} paddingRight={1}>
-        <text fg={COLORS.text} bold>Context</text>
+        <text fg={COLORS.text}>
+          <span style={{ bold: true }}>Context</span>
+        </text>
       </box>
 
       {/* Static Docs Section */}

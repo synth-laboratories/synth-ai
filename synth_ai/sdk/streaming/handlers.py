@@ -1140,8 +1140,8 @@ class PromptLearningHandler(StreamHandler):
         """Handle GEPA trial results events and track optimization curve.
 
         Processes trial completion events from GEPA optimization, tracking:
-        - Mean score for the trial
-        - Best score achieved so far
+        - Mean reward for the trial
+        - Best reward achieved so far
         - Number of rollouts completed (N)
         - Optimization curve data points
 
@@ -1150,7 +1150,7 @@ class PromptLearningHandler(StreamHandler):
 
         Args:
             event_data: Event data dictionary containing:
-                - data.mean: Mean score for this trial
+                - data.mean: Mean reward for this trial
                 - data.completed: Number of rollouts completed
                 - data.total: Total rollouts planned
         """
@@ -1158,10 +1158,10 @@ class PromptLearningHandler(StreamHandler):
         if not isinstance(data, dict):
             return
 
-        mean_score = data.get("mean")
-        if mean_score is not None:
+        mean_reward = data.get("mean")
+        if mean_reward is not None:
             self.trial_counter += 1
-            self.best_score_so_far = max(self.best_score_so_far, float(mean_score))
+            self.best_score_so_far = max(self.best_score_so_far, float(mean_reward))
             self.optimization_curve.append((self.trial_counter, self.best_score_so_far))
 
             if self.show_trial_results:
@@ -1178,7 +1178,7 @@ class PromptLearningHandler(StreamHandler):
                 )
 
                 self._write_log(
-                    f"[{timestamp}] [Trial {self.trial_counter}] Score: {mean_score:.4f} (Best: {self.best_score_so_far:.4f}){n_str}"
+                    f"[{timestamp}] [Trial {self.trial_counter}] Reward: {mean_reward:.4f} (Best: {self.best_score_so_far:.4f}){n_str}"
                 )
 
     def _handle_validation_summary(self, event_data: dict[str, Any]) -> None:

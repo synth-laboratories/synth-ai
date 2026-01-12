@@ -4,6 +4,7 @@
 import type { AppContext } from "../context"
 import { extractJobs, mergeJobs, coerceJob, isEvalJob, type JobSummary } from "../tui_data"
 import { apiGet } from "./client"
+import { fetchCandidatesForJob, candidatesToLegacyFormat } from "./candidates"
 
 function extractBestSnapshotId(payload: any): string | null {
   if (!payload) return null
@@ -84,6 +85,8 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   snapshot.evalSummary = null
   snapshot.evalResultRows = []
   snapshot.allCandidates = []
+  snapshot.apiCandidates = []
+  snapshot.apiCandidatesLoaded = false
   appState.selectedEventIndex = 0
   appState.eventWindowStart = 0
 
@@ -160,6 +163,14 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
         await fetchMetrics(ctx)
       }
     }
+  }
+
+  // Fetch candidates from the unified candidates API (non-blocking)
+  // This supplements event-based candidate tracking with persisted data
+  if (token === appState.jobSelectToken && snapshot.selectedJob?.job_id === jobId) {
+    fetchApiCandidates(ctx, token).catch(() => {
+      // Silently ignore - API candidates are supplementary
+    })
   }
 }
 
@@ -292,5 +303,48 @@ export async function fetchArtifacts(ctx: AppContext): Promise<void> {
     snapshot.status = "Artifacts fetched"
   } catch (err: any) {
     snapshot.lastError = err?.message || "Artifacts fetch failed"
+  }
+}
+
+/**
+ * Fetch candidates from the unified candidates API.
+ * This supplements the event-based candidate tracking with persisted candidates.
+ */
+export async function fetchApiCandidates(ctx: AppContext, token?: number): Promise<void> {
+  const { snapshot, appState } = ctx.state
+  const job = snapshot.selectedJob
+  if (!job) return
+
+  const jobId = job.job_id
+
+  try {
+    const response = await fetchCandidatesForJob(jobId, { limit: 500 })
+
+    // Check if job selection changed while fetching
+    if ((token != null && token !== appState.jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
+      return
+    }
+
+    if (response.candidates.length > 0) {
+      // Store raw API candidates
+      snapshot.apiCandidates = response.candidates as any[]
+      snapshot.apiCandidatesLoaded = true
+
+      // Also merge into allCandidates for compatibility with existing code
+      const legacyCandidates = candidatesToLegacyFormat(response.candidates)
+      for (const candidate of legacyCandidates) {
+        const existing = snapshot.allCandidates.find((c: any) => c.candidate_id === candidate.candidate_id)
+        if (!existing) {
+          snapshot.allCandidates.push(candidate as any)
+        }
+      }
+    } else {
+      snapshot.apiCandidatesLoaded = true
+    }
+  } catch (err: any) {
+    // Non-fatal: API candidates are supplementary
+    // The TUI will still work with event-based candidates
+    console.error("Failed to fetch API candidates:", err?.message)
+    snapshot.apiCandidatesLoaded = true // Mark as loaded even on error
   }
 }

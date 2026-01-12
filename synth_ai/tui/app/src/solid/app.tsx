@@ -1036,7 +1036,12 @@ function SolidShell(props: { onExit?: () => void }) {
     snapshot.status = "Creating session on OpenCode..."
     data.ctx.render()
 
-    const createResponse = await fetch(`${opencodeUrl}/session`, {
+    // Include directory param so OpenCode uses the user's launch directory, not tui/app
+    const workingDir = appState.opencodeWorkingDir
+    const sessionCreateUrl = workingDir
+      ? `${opencodeUrl}/session?directory=${encodeURIComponent(workingDir)}`
+      : `${opencodeUrl}/session`
+    const createResponse = await fetch(sessionCreateUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -2406,6 +2411,7 @@ function SolidShell(props: { onExit?: () => void }) {
                   sessionId={opencodeSessionId()}
                   width={opencodeDimensions().width}
                   height={opencodeDimensions().height}
+                  workingDir={appState.opencodeWorkingDir}
                   onExit={() => {
                     data.ctx.state.appState.principalPane = "jobs"
                     data.ctx.render()

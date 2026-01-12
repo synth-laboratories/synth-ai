@@ -33,6 +33,8 @@ export type SnapshotState = {
   status: string
   lastRefresh: number | null
   allCandidates: any[]
+  apiCandidates: any[]
+  apiCandidatesLoaded: boolean
 }
 
 /**
@@ -218,6 +220,8 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
     snapshot.balanceDollars = null
     snapshot.lastRefresh = null
     snapshot.allCandidates = []
+    snapshot.apiCandidates = []
+    snapshot.apiCandidatesLoaded = false
     snapshot.lastError = "Logged out"
     snapshot.status = "Sign in required"
     renderSnapshot()

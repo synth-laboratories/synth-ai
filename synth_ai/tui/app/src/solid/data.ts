@@ -1,7 +1,7 @@
 import { createSignal, onCleanup, onMount, type Accessor } from "solid-js"
 
 import { refreshHealth, refreshIdentity } from "../api/identity"
-import { refreshJobs, selectJob } from "../api/jobs"
+import { refreshJobs, selectJob, fetchApiCandidates } from "../api/jobs"
 import { loadPersistedSettings } from "../persistence/settings"
 import {
   appState,
@@ -39,8 +39,14 @@ export function useSolidData(): SolidData {
     })
 
     const currentConfig = backendConfigs[appState.currentBackend]
-    process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "")
-    process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || ""
+    // Prefer explicit launcher-provided backend URL/key.
+    // Persisted settings are useful for standalone use, but the Python launcher is the source of truth.
+    if (!process.env.SYNTH_BACKEND_URL || !process.env.SYNTH_BACKEND_URL.trim()) {
+      process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "")
+    }
+    if (!process.env.SYNTH_API_KEY || !process.env.SYNTH_API_KEY.trim()) {
+      process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || ""
+    }
     bump()
 
     if (isLoggedOutMarkerSet()) {
@@ -74,7 +80,21 @@ export function useSolidData(): SolidData {
     }
     await refreshJobs(ctx)
     await refreshHealth(ctx)
+
+    // Poll candidates for active jobs to show live optimization progress
+    const job = snapshot.selectedJob
+    if (job && isJobActive(job)) {
+      fetchApiCandidates(ctx, appState.jobSelectToken).catch(() => {
+        // Silently ignore - candidates are supplementary
+      })
+    }
+
     bump()
+  }
+
+  function isJobActive(job: { status?: string | null }): boolean {
+    const status = job.status?.toLowerCase()
+    return status === "pending" || status === "running" || status === "in_progress"
   }
 
   async function select(jobId: string): Promise<void> {

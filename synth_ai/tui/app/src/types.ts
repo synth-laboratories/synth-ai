@@ -164,6 +164,28 @@ export type BackendKeySource = {
   varName: string | null
 }
 
+/** Candidate from the unified candidates API */
+export type ApiCandidate = {
+  candidate_id: string
+  job_id: string
+  org_id: string
+  task_id: string | null
+  candidate_type: string
+  content: Record<string, any>
+  generation: number | null
+  parent_id: string | null
+  mutation_type: string | null
+  status: string | null
+  is_pareto: boolean
+  reward: number | null
+  seed_rewards: Array<{ seed: number; reward: number }> | null
+  token_usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null
+  cost_usd: number | null
+  graph_text_export: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
 export type Snapshot = {
   jobs: JobSummary[]
   selectedJob: JobSummary | null
@@ -180,8 +202,12 @@ export type Snapshot = {
   status: string
   lastError: string | null
   lastRefresh: number | null
-  /** All prompt candidates (baseline + optimized) */
+  /** All prompt candidates (baseline + optimized) - from events */
   allCandidates: PromptCandidate[]
+  /** Candidates fetched from the unified candidates API */
+  apiCandidates: ApiCandidate[]
+  /** Whether API candidates have been fetched for the current job */
+  apiCandidatesLoaded: boolean
   /** Active tunnels (task apps) */
   tunnels: TunnelRecord[]
   /** Client-side health results keyed by tunnel ID */

@@ -279,7 +279,11 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
       snapshot.status = `Creating session on OpenCode...`
       ctx.render()
 
-      const createResponse = await fetch(`${opencode_url}/session`, {
+      const dir = ctx.state.appState.opencodeWorkingDir
+      const sessionCreateUrl = dir
+        ? `${opencode_url}/session?directory=${encodeURIComponent(dir)}`
+        : `${opencode_url}/session`
+      const createResponse = await fetch(sessionCreateUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
