@@ -897,8 +897,13 @@ function SolidShell(props: { onExit?: () => void }) {
     const selected = appState.settingsOptions[settingsCursor()]
     if (!selected) return
     appState.currentBackend = selected.id
-    const baseUrl = selected.baseUrl.replace(/\/api$/, "")
-    process.env.SYNTH_BACKEND_URL = baseUrl
+    if (!selected.backendUrl || !selected.frontendUrl) {
+      snapshot.status = `Missing URLs for ${selected.label}.`
+      data.ctx.render()
+      return
+    }
+    process.env.SYNTH_BACKEND_URL = selected.backendUrl
+    process.env.SYNTH_FRONTEND_URL = selected.frontendUrl
     process.env.SYNTH_API_KEY = getKeyForBackend(selected.id) || ""
 
     closeActiveModal()
@@ -2070,10 +2075,9 @@ function SolidShell(props: { onExit?: () => void }) {
         if (selected) {
           const key = getKeyForBackend(selected.id)
           const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)"
-          const frontendUrl = getFrontendUrl(selected.id)
           lines.push("")
-          lines.push(`Backend: ${selected.baseUrl}`)
-          lines.push(`Frontend: ${frontendUrl}`)
+          lines.push(`Backend: ${selected.backendUrl || "(unset)"}`)
+          lines.push(`Frontend: ${selected.frontendUrl || "(unset)"}`)
           lines.push(`Key: ${keyPreview}`)
         }
         return lines.join("\n")

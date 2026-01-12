@@ -1,9 +1,7 @@
 /**
  * Device code authentication flow for TUI.
  *
- * Frontend URL is determined by the current backend mode:
- * - prod: https://usesynth.ai
- * - dev/local: http://localhost:3000
+ * Frontend URL is determined by the current backend mode and env overrides.
  */
 
 import { spawn } from "node:child_process"

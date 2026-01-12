@@ -41,7 +41,12 @@ export function useSolidData(): SolidData {
     })
 
     const currentConfig = backendConfigs[appState.currentBackend]
-    process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "")
+    if (currentConfig.backendUrl) {
+      process.env.SYNTH_BACKEND_URL = currentConfig.backendUrl
+    }
+    if (currentConfig.frontendUrl) {
+      process.env.SYNTH_FRONTEND_URL = currentConfig.frontendUrl
+    }
     process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || ""
     bump()
 

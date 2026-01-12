@@ -12,7 +12,6 @@ import {
   frontendKeys,
   frontendKeySources,
   getKeyForBackend,
-  getFrontendUrl,
 } from "../state/app-state"
 
 // Type declaration for Node.js process (available at runtime)
@@ -70,11 +69,9 @@ export function createSettingsModal(
       // Show actual key for this frontend URL - no fallback to avoid confusion
       const key = getKeyForBackend(selected.id)
       const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)"
-      const frontendUrl = getFrontendUrl(selected.id)
-
       lines.push("")
-      lines.push(`Backend: ${selected.baseUrl}`)
-      lines.push(`Frontend: ${frontendUrl}`)
+      lines.push(`Backend: ${selected.backendUrl || "(unset)"}`)
+      lines.push(`Frontend: ${selected.frontendUrl || "(unset)"}`)
       lines.push(`Key: ${keyPreview}`)
     }
 
@@ -115,8 +112,13 @@ export function createSettingsModal(
 
     // Update process.env so nightly's URL resolution picks it up
     // Remove /api suffix for the env var (it gets added by the API client)
-    const baseUrl = selected.baseUrl.replace(/\/api$/, "")
-    process.env.SYNTH_BACKEND_URL = baseUrl
+    if (!selected.backendUrl || !selected.frontendUrl) {
+      ctx.state.snapshot.status = `Missing URLs for ${selected.label}.`
+      ctx.render()
+      return
+    }
+    process.env.SYNTH_BACKEND_URL = selected.backendUrl
+    process.env.SYNTH_FRONTEND_URL = selected.frontendUrl
     process.env.SYNTH_API_KEY = getKeyForBackend(selected.id) || ""
 
     toggle(false)

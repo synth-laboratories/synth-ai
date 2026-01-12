@@ -4,10 +4,10 @@ This module provides base exception classes used throughout the SDK.
 CLI-specific errors remain in cli/ modules; these are for SDK/core use.
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+from synth_ai.core.urls import FRONTEND_URL_BASE, join_url
 
 
 class SynthError(Exception):
@@ -101,7 +101,7 @@ class UsageLimitError(SynthError):
     limit: int | float
     tier: str = "free"
     retry_after_seconds: int | None = None
-    upgrade_url: str = "https://usesynth.ai/pricing"
+    upgrade_url: str = field(default_factory=lambda: join_url(FRONTEND_URL_BASE, "/pricing"))
 
     def __str__(self) -> str:
         return (

@@ -1,13 +1,13 @@
 """Research Agent SDK models and job helpers."""
 
-from __future__ import annotations
-
+import os
+import tomllib
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-import os
-import tomllib
 from typing import Any
+
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 
 class OptimizationTool(str, Enum):
@@ -153,7 +153,7 @@ class ResearchAgentJobConfig:
         if not self.api_key and not self.allow_missing_api_key:
             raise ValueError("api_key is required")
         if not self.backend_url:
-            self.backend_url = "https://api.usesynth.ai"
+            self.backend_url = BACKEND_URL_BASE
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "ResearchAgentJobConfig":
