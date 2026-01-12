@@ -27,6 +27,7 @@ def write_private_text(path: Path, content: str, *, mode: int = PRIVATE_FILE_MOD
         with contextlib.suppress(OSError):
             os.chmod(tmp_path, mode)
         os.replace(tmp_path, path)
+        tmp_path = None
         with contextlib.suppress(OSError):
             os.chmod(path, mode)
     finally:
