@@ -182,12 +182,13 @@ export async function connectLocalOpenCodeSession(
     }
   }
 
+  const managed = getRequestSignal()
   try {
     const response = await fetch(`${opencodeUrl}/session`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
-      signal: getRequestSignal(),
+      signal: managed.signal,
     })
 
     if (!response.ok) {
@@ -214,6 +215,8 @@ export async function connectLocalOpenCodeSession(
       error: err?.message || "Failed to connect",
       health: healthCheck,
     }
+  } finally {
+    managed.dispose()
   }
 }
 
@@ -231,6 +234,7 @@ export async function sendPrompt(
   sessionId: string,
   prompt: string
 ): Promise<{ success: boolean; error?: string }> {
+  const managed = getRequestSignal()
   try {
     const response = await fetch(`${baseUrl}/session/${sessionId}/message`, {
       method: "POST",
@@ -242,7 +246,7 @@ export async function sendPrompt(
           { type: "text", text: prompt }
         ]
       }),
-      signal: getRequestSignal(),
+      signal: managed.signal,
     })
 
     if (!response.ok) {
@@ -253,6 +257,8 @@ export async function sendPrompt(
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err?.message || "Unknown error" }
+  } finally {
+    managed.dispose()
   }
 }
 

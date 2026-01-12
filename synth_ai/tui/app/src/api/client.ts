@@ -82,25 +82,33 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
   }
 
   const hasBody = body !== undefined
-  if (hasBody && !requestHeaders["Content-Type"]) {
+  const contentType = requestHeaders["Content-Type"]
+  const shouldSerializeJson = hasBody && (!contentType || contentType.includes("application/json"))
+
+  if (shouldSerializeJson && !contentType) {
     requestHeaders["Content-Type"] = "application/json"
   }
 
-  const res = await fetch(buildApiUrl(path, version), {
-    method,
-    headers: requestHeaders,
-    body: hasBody ? JSON.stringify(body) : undefined,
-    signal: getRequestSignal({ signal }),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => "")
-    const snippet = sanitizeErrorBody(text, 200)
-    const suffix = snippet ? ` - ${snippet}` : ""
+  const managed = getRequestSignal({ signal })
+  try {
+    const res = await fetch(buildApiUrl(path, version), {
+      method,
+      headers: requestHeaders,
+      body: shouldSerializeJson ? JSON.stringify(body) : (body as BodyInit | undefined),
+      signal: managed.signal,
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => "")
+      const snippet = sanitizeErrorBody(text, 200)
+      const suffix = snippet ? ` - ${snippet}` : ""
+      const label = version === "v1" ? `${method} /api/v1${path}` : `${method} ${path}`
+      throw new Error(`${label}: HTTP ${res.status} ${res.statusText}${suffix}`)
+    }
     const label = version === "v1" ? `${method} /api/v1${path}` : `${method} ${path}`
-    throw new Error(`${label}: HTTP ${res.status} ${res.statusText}${suffix}`)
+    return await parseJsonOrThrow(res, label)
+  } finally {
+    managed.dispose()
   }
-  const label = version === "v1" ? `${method} /api/v1${path}` : `${method} ${path}`
-  return await parseJsonOrThrow(res, label)
 }
 
 export async function apiGet(path: string, options: ApiRequestOptions = {}): Promise<any> {
@@ -113,12 +121,15 @@ export async function apiPost(path: string, body: unknown, options: ApiRequestOp
 
 export async function checkBackendHealth(options: { signal?: AbortSignal } = {}): Promise<string> {
   const { signal } = options
+  const managed = getRequestSignal({ signal, includeScope: false })
   try {
     const res = await fetch(`${getBackendBaseUrl()}/health`, {
-      signal: getRequestSignal({ signal, includeScope: false }),
+      signal: managed.signal,
     })
     return res.ok ? "ok" : `bad(${res.status})`
   } catch (err: any) {
     return `err(${err?.message || "unknown"})`
+  } finally {
+    managed.dispose()
   }
 }

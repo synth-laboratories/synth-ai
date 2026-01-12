@@ -22,18 +22,20 @@ export function connectSse(
   },
 ): SseConnection {
   let aborted = false
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
   const controller = new AbortController()
-  const baseSignal = getRequestSignal({
+
+  const baseManaged = getRequestSignal({
     signal: options.signal,
     includeScope: options.includeScope ?? false,
   })
-  const signal = mergeAbortSignals([baseSignal, controller.signal]) ?? baseSignal
+  const mergedManaged = mergeAbortSignals([baseManaged.signal, controller.signal]) ?? baseManaged
 
   void (async () => {
     try {
       const res = await fetch(url, {
         headers: options.headers,
-        signal,
+        signal: mergedManaged.signal,
       })
 
       if (!res.ok) {
@@ -47,7 +49,7 @@ export function connectSse(
 
       options.onOpen?.()
 
-      const reader = res.body.getReader()
+      reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ""
       let currentEvent: SseMessage = {}
@@ -96,6 +98,13 @@ export function connectSse(
     } catch (err) {
       if (aborted || (err as { name?: string })?.name === "AbortError") return
       options.onError?.(err instanceof Error ? err : new Error(String(err)))
+    } finally {
+      // Clean up resources
+      if (reader) {
+        await reader.cancel().catch(() => {})
+      }
+      mergedManaged.dispose()
+      baseManaged.dispose()
     }
   })()
 

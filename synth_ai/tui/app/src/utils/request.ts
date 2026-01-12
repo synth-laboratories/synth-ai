@@ -12,26 +12,49 @@ type RequestScope = {
 
 const requestScope = new AsyncLocalStorage<RequestScope>()
 
+export type ManagedSignal = {
+  signal: AbortSignal
+  dispose: () => void
+}
+
+const noopDispose = () => {}
+
 export function mergeAbortSignals(
   signals: Array<AbortSignal | null | undefined>,
-): AbortSignal | undefined {
+): ManagedSignal | undefined {
   const filtered = signals.filter(Boolean) as AbortSignal[]
   if (filtered.length === 0) return undefined
-  if (filtered.length === 1) return filtered[0]
+  if (filtered.length === 1) return { signal: filtered[0], dispose: noopDispose }
 
   const any = (AbortSignal as { any?: (signals: AbortSignal[]) => AbortSignal }).any
-  if (any) return any(filtered)
+  if (any) return { signal: any(filtered), dispose: noopDispose }
 
+  // Polyfill: manually wire up abort propagation with proper cleanup
   const controller = new AbortController()
-  const onAbort = () => controller.abort()
+  let disposed = false
+
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    for (const signal of filtered) {
+      signal.removeEventListener("abort", onAbort)
+    }
+  }
+
+  const onAbort = () => {
+    controller.abort()
+    dispose() // Clean up all listeners when any signal aborts
+  }
+
   for (const signal of filtered) {
     if (signal.aborted) {
       controller.abort()
-      break
+      return { signal: controller.signal, dispose: noopDispose }
     }
-    signal.addEventListener("abort", onAbort, { once: true })
+    signal.addEventListener("abort", onAbort)
   }
-  return controller.signal
+
+  return { signal: controller.signal, dispose }
 }
 
 export function withAbortScope<T>(
@@ -41,17 +64,22 @@ export function withAbortScope<T>(
   return requestScope.run({ signal }, task)
 }
 
-export function getRequestSignal(options: RequestSignalOptions = {}): AbortSignal {
+export function getRequestSignal(options: RequestSignalOptions = {}): ManagedSignal {
   const includeScope = options.includeScope !== false
   const scopeSignal = includeScope ? requestScope.getStore()?.signal ?? null : null
   return (
-    mergeAbortSignals([getShutdownSignal(), scopeSignal, options.signal]) ??
-    getShutdownSignal()
+    mergeAbortSignals([getShutdownSignal(), scopeSignal, options.signal]) ?? {
+      signal: getShutdownSignal(),
+      dispose: noopDispose,
+    }
   )
 }
 
 export function isAborted(signal?: AbortSignal): boolean {
-  return getRequestSignal({ signal }).aborted
+  const managed = getRequestSignal({ signal })
+  const result = managed.signal.aborted
+  managed.dispose()
+  return result
 }
 
 function createAbortError(message: string = "Aborted"): Error {
@@ -61,24 +89,31 @@ function createAbortError(message: string = "Aborted"): Error {
 }
 
 export async function sleep(ms: number, options: RequestSignalOptions = {}): Promise<void> {
-  const signal = getRequestSignal(options)
+  const managed = getRequestSignal(options)
+  const signal = managed.signal
+
   if (signal.aborted) {
+    managed.dispose()
     throw createAbortError()
   }
 
-  return await new Promise<void>((resolve, reject) => {
-    const onAbort = () => {
-      clearTimeout(timeoutId)
-      signal.removeEventListener("abort", onAbort)
-      reject(createAbortError())
-    }
-    const timeoutId = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort)
-      resolve()
-    }, ms)
+  try {
+    return await new Promise<void>((resolve, reject) => {
+      const onAbort = () => {
+        clearTimeout(timeoutId)
+        signal.removeEventListener("abort", onAbort)
+        reject(createAbortError())
+      }
+      const timeoutId = setTimeout(() => {
+        signal.removeEventListener("abort", onAbort)
+        resolve()
+      }, ms)
 
-    signal.addEventListener("abort", onAbort, { once: true })
-  })
+      signal.addEventListener("abort", onAbort, { once: true })
+    })
+  } finally {
+    managed.dispose()
+  }
 }
 
 export async function fetchWithTimeout(
@@ -90,27 +125,36 @@ export async function fetchWithTimeout(
   } = {},
 ): Promise<Response> {
   const { timeoutMs, signal, includeScope, ...rest } = init
+
+  // Fast path: no timeout needed
   if (!timeoutMs || timeoutMs <= 0) {
-    return await fetch(url, {
-      ...rest,
-      signal: getRequestSignal({ signal, includeScope }),
-    })
+    const managed = getRequestSignal({ signal, includeScope })
+    try {
+      return await fetch(url, {
+        ...rest,
+        signal: managed.signal,
+      })
+    } finally {
+      managed.dispose()
+    }
   }
 
+  // Timeout path: merge base signal with timeout controller
+  const baseManaged = getRequestSignal({ signal, includeScope })
   const controller = new AbortController()
   let timedOut = false
+
   const timeoutId = setTimeout(() => {
     timedOut = true
     controller.abort()
   }, timeoutMs)
 
-  const baseSignal = getRequestSignal({ signal, includeScope })
-  const mergedSignal = mergeAbortSignals([baseSignal, controller.signal]) ?? baseSignal
+  const mergedManaged = mergeAbortSignals([baseManaged.signal, controller.signal]) ?? baseManaged
 
   try {
     return await fetch(url, {
       ...rest,
-      signal: mergedSignal,
+      signal: mergedManaged.signal,
     })
   } catch (err) {
     if (timedOut && (err as { name?: string })?.name === "AbortError") {
@@ -121,5 +165,7 @@ export async function fetchWithTimeout(
     throw err
   } finally {
     clearTimeout(timeoutId)
+    mergedManaged.dispose()
+    baseManaged.dispose()
   }
 }
