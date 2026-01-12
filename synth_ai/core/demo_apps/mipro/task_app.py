@@ -14,7 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.requests import Request as StarletteRequest
-from synth_ai.core.paths import REPO_ROOT
+
 from synth_ai.sdk.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
@@ -951,23 +951,11 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8102)
     parser.add_argument("--reload", action="store_true", help="Enable uvicorn autoreload")
-    parser.add_argument(
-        "--env-file",
-        action="append",
-        default=[],
-        help="Additional .env files to load before startup",
-    )
     args = parser.parse_args()
-
-    # Look for .env at repo root
-    default_env = REPO_ROOT / ".env"
-    env_files = [str(default_env)] if default_env.exists() else []
-    env_files.extend(args.env_file or [])
 
     run_task_app(
         build_config,
         host=args.host,
         port=args.port,
         reload=args.reload,
-        env_files=env_files,
     )

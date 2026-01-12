@@ -1,7 +1,5 @@
 """In-process task app support for local development and demos."""
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import os
@@ -33,7 +31,7 @@ from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
 logger = logging.getLogger(__name__)
 
 # Global registry for signal handlers
-_registered_instances: set[InProcessTaskApp] = set()
+_registered_instances: set["InProcessTaskApp"] = set()
 
 
 def _find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
@@ -498,8 +496,8 @@ class InProcessTaskApp:
         auto_find_port: bool = True,
         skip_tunnel_verification: bool = True,  # Default True - verification is unreliable
         force_new_tunnel: bool = False,
-        on_start: Optional[Callable[[InProcessTaskApp], None]] = None,
-        on_stop: Optional[Callable[[InProcessTaskApp], None]] = None,
+        on_start: Optional[Callable[["InProcessTaskApp"], None]] = None,
+        on_stop: Optional[Callable[["InProcessTaskApp"], None]] = None,
     ):
         """Initialize in-process Local API.
 
@@ -589,7 +587,7 @@ class InProcessTaskApp:
         self._is_preconfigured = False  # Track if using preconfigured URL
         self._dns_verified_by_backend = False  # Track if backend verified DNS propagation
 
-    async def __aenter__(self) -> InProcessTaskApp:
+    async def __aenter__(self) -> "InProcessTaskApp":
         """Start task app and tunnel."""
 
         # For named tunnels, pre-fetch tunnel config to get the correct port
@@ -1128,12 +1126,11 @@ class InProcessTaskApp:
         """Get API key from environment or default."""
         import os
 
-        # Try to load .env file if available
         try:
-            from dotenv import load_dotenv
+            from synth_ai.core.user_config import load_user_env
 
-            load_dotenv(override=False)
-        except ImportError:
+            load_user_env(override=False)
+        except Exception:
             pass
 
         return os.getenv("ENVIRONMENT_API_KEY", "test")
@@ -1150,9 +1147,9 @@ class InProcessTaskApp:
             - local_port: The local port the tunnel routes to
             - local_host: The local host the tunnel routes to
         """
-        from synth_ai.core.env import get_backend_url
+        from synth_ai.core.urls import BACKEND_URL_BASE
 
-        backend_url = get_backend_url()
+        backend_url = BACKEND_URL_BASE
         url = f"{backend_url}/api/v1/tunnels/"
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:

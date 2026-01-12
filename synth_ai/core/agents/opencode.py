@@ -5,11 +5,10 @@ from pathlib import Path
 
 from synth_ai.core.agents.utils import write_agents_md
 from synth_ai.core.bin import install_bin, verify_bin
-from synth_ai.core.env import get_backend_from_env
 from synth_ai.core.env_utils import resolve_env_var
 from synth_ai.core.json import create_and_write_json, load_json_to_dict
 from synth_ai.core.paths import get_bin_path
-from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
+from synth_ai.core.urls import BACKEND_URL_BASE, BACKEND_URL_SYNTH_RESEARCH_BASE
 from synth_ai.data.enums import SYNTH_MODEL_NAMES
 
 CONFIG_PATH = Path.home() / ".config" / "opencode" / "opencode.json"
@@ -159,7 +158,7 @@ def run_opencode(model_name=None, force=False, override_url=None, config_path=No
         if base_url.endswith("/api"):
             base_url = base_url[:-4]
     else:
-        base_url, _ = get_backend_from_env()
+        base_url = BACKEND_URL_BASE
 
     session_id = None
     if session_limit_tokens or session_limit_cost or session_limit_gpu_hours:

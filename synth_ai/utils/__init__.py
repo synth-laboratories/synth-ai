@@ -8,13 +8,10 @@ All utilities have been reorganized:
 This module provides lazy imports to avoid circular import issues.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 # Direct imports from core (no circular dependency risk)
 from synth_ai.core import task_app_state
-from synth_ai.core.env import PROD_BASE_URL_DEFAULT, get_backend_from_env
 from synth_ai.core.http import AsyncHttpClient, HTTPError, http_request
 from synth_ai.core.json import create_and_write_json, load_json_to_dict, strip_json_comments
 from synth_ai.core.paths import (
@@ -23,7 +20,6 @@ from synth_ai.core.paths import (
     configure_import_paths,
     find_config_path,
     get_bin_path,
-    get_env_file_paths,
     get_home_config_file_paths,
     is_hidden_path,
 )
@@ -60,6 +56,7 @@ from synth_ai.core.telemetry import (
     log_info,
     log_warning,
 )
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.core.user_config import (
     USER_CONFIG_PATH,
     load_user_config,
@@ -81,9 +78,7 @@ _CLI_IMPORTS = {
     "verify_bin": ("synth_ai.core.bin", "verify_bin"),
     # From core.env_utils
     "mask_str": ("synth_ai.core.env_utils", "mask_str"),
-    "read_env_var_from_file": ("synth_ai.core.env_utils", "read_env_var_from_file"),
     "resolve_env_var": ("synth_ai.core.env_utils", "resolve_env_var"),
-    "write_env_var_to_dotenv": ("synth_ai.core.env_utils", "write_env_var_to_dotenv"),
     "write_env_var_to_json": ("synth_ai.core.env_utils", "write_env_var_to_json"),
     # From core.integrations.modal_utils
     "ensure_modal_installed": ("synth_ai.core.integrations.modal_utils", "ensure_modal_installed"),
@@ -134,7 +129,7 @@ __all__ = [
     "ClaudeConfig",
     "DEFAULT_TASK_APP_SECRET_NAME",
     "HTTPError",
-    "PROD_BASE_URL_DEFAULT",
+    "BACKEND_URL_BASE",
     "REPO_ROOT",
     "USER_CONFIG_PATH",
     "cleanup_paths",
@@ -144,9 +139,7 @@ __all__ = [
     "ensure_local_port_available",
     "find_config_path",
     "flush_logger",
-    "get_backend_from_env",
     "get_bin_path",
-    "get_env_file_paths",
     "get_home_config_file_paths",
     "http_request",
     "is_hidden_path",
@@ -205,11 +198,9 @@ __all__ = [
     "preflight_env_key",
     "prompt_choice",
     "prompt_for_path",
-    "read_env_var_from_file",
     "resolve_env_var",
     "select_app_choice",
     "verify_bin",
     "write_agents_md",
-    "write_env_var_to_dotenv",
     "write_env_var_to_json",
 ]

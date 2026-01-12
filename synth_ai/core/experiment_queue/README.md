@@ -327,29 +327,11 @@ pytest tests/unit/experiment_queue/ tests/integration/experiment_queue/ -v
 }
 ```
 
-### With Environment File Override
-
-```json
-{
-  "name": "Experiment with Env",
-  "jobs": [
-    {
-      "job_type": "gepa",
-      "config_path": "config.toml",
-      "config_overrides": {
-        "prompt_learning.env_file_path": "/path/to/.env"
-      }
-    }
-  ]
-}
-```
-
 ## Related Documentation
 
 - [CLI Queue Documentation](https://docs.usesynth.ai/cli/queue)
 - [CLI Experiment Documentation](https://docs.usesynth.ai/cli/experiment)
 - [GEPA Algorithm Guide](https://docs.usesynth.ai/po/algorithms)
-
 
 
 

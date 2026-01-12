@@ -11,7 +11,6 @@ import threading
 from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -498,44 +497,24 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     return app
 
 
-def _load_env_files(env_files: Sequence[str]) -> list[str]:
-    loaded: list[str] = []
-    if not env_files:
-        return loaded
-    try:
-        import dotenv
-    except Exception:  # pragma: no cover - optional dep
-        return loaded
-    for path_str in env_files:
-        path = Path(path_str)
-        if not path.is_file():
-            continue
-        dotenv.load_dotenv(path, override=False)
-        loaded.append(str(path))
-    return loaded
-
-
 def run_task_app(
     config_factory: Callable[[], TaskAppConfig],
     *,
     host: str = "0.0.0.0",
     port: int = 8001,
     reload: bool = False,
-    env_files: Sequence[str] = (),
+    **_kwargs: Any,
 ) -> None:
     """Run a task app locally with uvicorn.
 
     This is a convenience function that creates a task app from a config factory
-    and runs it with uvicorn. It handles environment file loading and service
-    registration for tunnel management.
+    and runs it with uvicorn. It handles service registration for tunnel management.
 
     Args:
         config_factory: Function that returns a TaskAppConfig
         host: Host to bind to (default: "0.0.0.0")
         port: Port to listen on (default: 8001)
         reload: Enable auto-reload on file changes (default: False)
-        env_files: Paths to .env files to load (default: empty)
-
     Example:
         >>> from synth_ai.sdk.task.server import run_task_app
         >>> from my_task_app import build_config
@@ -545,7 +524,6 @@ def run_task_app(
         ...     host="127.0.0.1",
         ...     port=8114,
         ...     reload=True,
-        ...     env_files=[".env.local"],
         ... )
 
     Raises:
@@ -554,10 +532,6 @@ def run_task_app(
     """
     ctx: dict[str, Any] = {"host": host, "port": port, "reload": reload}
     log_info("run_task_app invoked", ctx=ctx)
-
-    loaded_files = _load_env_files(env_files)
-    if loaded_files:
-        print(f"[task:server] Loaded environment from: {', '.join(loaded_files)}", flush=True)
 
     config = config_factory()
     # Defensive: ensure the factory produced a valid TaskAppConfig to avoid

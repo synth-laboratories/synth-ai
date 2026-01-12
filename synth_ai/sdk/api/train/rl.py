@@ -22,16 +22,14 @@ Example SDK usage:
         print(f"Final reward: {result.get('final_reward', 'N/A')}")
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 from .builders import RLBuildResult, build_rl_payload
@@ -167,7 +165,7 @@ class RLJob:
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
         idempotency_key: Optional[str] = None,
-    ) -> RLJob:
+    ) -> "RLJob":
         """Create an RL job from a config file.
 
         Args:
@@ -193,11 +191,8 @@ class RLJob:
         """
         config_path_obj = Path(config_path)
 
-        # Resolve backend URL - default to production API
         if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                backend_url = PROD_BASE_URL
+            backend_url = BACKEND_URL_BASE
 
         # Resolve API key
         if not api_key:
@@ -237,7 +232,7 @@ class RLJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> RLJob:
+    ) -> "RLJob":
         """Resume an existing RL job by ID.
 
         Args:
@@ -255,13 +250,9 @@ class RLJob:
             ...     api_key=os.environ["SYNTH_API_KEY"],
             ... )
         """
-        # Resolve backend URL - default to production API
         if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                backend_url = PROD_BASE_URL
+            backend_url = BACKEND_URL_BASE
 
-        # Resolve API key
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
             if not api_key:

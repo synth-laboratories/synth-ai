@@ -3,6 +3,9 @@ import os
 # Base URL for all backends
 BACKEND_URL_BASE = os.getenv("SYNTH_BACKEND_URL") or "https://api.usesynth.ai"
 
+# API URL (base + /api suffix) for endpoints that expect this format
+BACKEND_URL_API = BACKEND_URL_BASE + "/api"
+
 # Synth Research API base (supports OpenAI, Anthropic, and custom formats)
 # Real routes: /api/synth-research/chat/completions, /api/synth-research/messages
 # V1 routes: /api/synth-research/v1/chat/completions, /api/synth-research/v1/messages

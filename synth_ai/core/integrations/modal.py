@@ -19,13 +19,6 @@ def __validate_modal_app(*args, **kwargs):
     return validate_modal_app(*args, **kwargs)
 
 
-def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
-    """Lazy import to avoid circular dependency."""
-    from synth_ai.core.env_utils import write_env_var_to_dotenv
-
-    write_env_var_to_dotenv(key, value, **kwargs)
-
-
 MODAL_URL_REGEX = re.compile(r"https?://[^\s]+modal\.run[^\s]*")
 
 
@@ -64,7 +57,13 @@ def stream_modal_cmd_output(
             url = match.group(0).rstrip(".,")
             if not url:
                 continue
-            __write_env_var_to_dotenv("TASK_APP_URL", url, print_msg=False)
+            os.environ["TASK_APP_URL"] = url
+            try:
+                from synth_ai.core.user_config import update_user_config
+
+                update_user_config({"TASK_APP_URL": url})
+            except Exception:
+                pass
             log_info("modal deploy URL detected", ctx={"task_app_url": url})
     return process.wait(), url
 
@@ -147,7 +146,7 @@ def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
             print(f"[deploy_modal] Starting modal {cfg.cmd_arg} in background (PID: {process.pid})")
             print("[deploy_modal] Process will continue running. Check logs for URL when ready.")
             # Don't wait for process - let it run in background
-            # The URL will be written to .env when detected by the background process
+            # The URL will be persisted to ~/.synth-ai when detected by the background process
             log_info("modal deploy started in background", ctx=ctx)
             return f"[deploy_modal] modal {cfg.cmd_arg} started in background (PID: {process.pid})"
     except subprocess.CalledProcessError as err:

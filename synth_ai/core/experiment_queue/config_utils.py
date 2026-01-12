@@ -99,18 +99,6 @@ def resolve_results_folder(config: dict[str, Any], config_path: Path) -> Path:
     return results_path
 
 
-def normalize_env_file_path(config: dict[str, Any], config_path: Path) -> None:
-    """Ensure env_file_path fields are absolute so subprocesses inherit the right file."""
-    config_dir = config_path.parent.resolve()
-    prompt_section = _ensure_prompt_learning_section(config)
-    raw = prompt_section.get("env_file_path") or config.get("env_file_path")
-    if not raw:
-        return
-    env_path = _resolve_path(str(raw), relative_to=config_dir)
-    prompt_section["env_file_path"] = str(env_path)
-    config["env_file_path"] = str(env_path)
-
-
 @dataclass(slots=True)
 class PreparedConfig:
     """Container for a temporary config file plus metadata."""
@@ -205,7 +193,6 @@ def prepare_config_file(
                     f"This indicates the base config value ({current!r}) was not overridden by the specified value ({override_value!r})."
                 )
 
-    normalize_env_file_path(data, source_path)
     results_folder = resolve_results_folder(data, source_path)
     assert results_folder.exists(), f"results_folder must exist after creation: {results_folder}"
 

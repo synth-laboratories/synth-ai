@@ -23,13 +23,6 @@ RuntimeType: TypeAlias = Literal["local", "modal", "tunnel"]
 )
 @click.argument("task_app_path", type=click.Path(path_type=Path), required=False)
 # --- Universal option(s) ---
-@click.option(
-    "--env",
-    "env_file",
-    type=click.Path(exists=True, dir_okay=False, file_okay=True, path_type=Path),
-    required=True,
-    help="Path to .env file to use (required)",
-)
 @click.option("--force", is_flag=True, default=False, help="Skip task app validation")
 # --- Local runtime-only options ---
 @click.option("--trace/--no-trace", default=True, help="Enable or disable trace output")
@@ -76,7 +69,6 @@ RuntimeType: TypeAlias = Literal["local", "modal", "tunnel"]
 def deploy(
     runtime: RuntimeType,
     task_app_path: Path | None,
-    env_file: Path,
     force: bool,
     trace: bool,
     host: str,
@@ -94,7 +86,6 @@ def deploy(
     ctx: dict[str, Any] = {
         "runtime": runtime,
         "task_app_path": str(task_app_path),
-        "env_file": str(env_file),
         "force": force,
         "trace": trace,
         "host": host,
@@ -127,7 +118,7 @@ def deploy(
                 print("Usage: synth-ai deploy [RUNTIME] [TASK_APP_PATH]")
                 return None
 
-        synth_api_key, env_api_key = get_synth_and_env_keys(env_file)
+        synth_api_key, env_api_key = get_synth_and_env_keys()
         if keep_alive:
             wait = True
 
@@ -165,7 +156,7 @@ def deploy(
                 if tunnel_mode == "managed" and not synth_api_key:
                     raise RuntimeError(
                         "SYNTH_API_KEY required for managed tunnel mode. "
-                        "Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env"
+                        "Either run synth-ai setup to load automatically or manually set it in your shell."
                     )
                 asyncio.run(
                     deploy_app_tunnel(
@@ -178,7 +169,6 @@ def deploy(
                             subdomain=tunnel_subdomain,
                             trace=trace,
                         ),
-                        env_file,
                         keep_alive=keep_alive,
                         wait=wait,
                     )

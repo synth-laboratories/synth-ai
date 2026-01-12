@@ -1,7 +1,6 @@
 """Scan command."""
 
 import asyncio
-from pathlib import Path
 
 import click
 
@@ -29,20 +28,12 @@ import click
 )
 @click.option("--json", "output_json", is_flag=True, help="Output results as JSON")
 @click.option("--verbose", is_flag=True, help="Show detailed scanning progress")
-@click.option(
-    "--env-file",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    default=None,
-    help="(Deprecated) Not used - tunnels are discovered from running processes",
-    hidden=True,
-)
 def scan(
     port_range: str,
     timeout: float,
     api_key: str | None,
     output_json: bool,
     verbose: bool,
-    env_file: Path | None,
 ) -> None:
     """Scan for active Cloudflare and local task apps."""
     from synth_ai.core.scanning import format_app_json, format_app_table, run_scan
@@ -70,9 +61,7 @@ def scan(
         def verbose_callback(msg: str) -> None:
             click.echo(msg, err=True)
 
-    apps = asyncio.run(
-        run_scan((start_port, end_port), timeout, api_key, env_file, verbose_callback)
-    )
+    apps = asyncio.run(run_scan((start_port, end_port), timeout, api_key, verbose_callback))
 
     if output_json:
         click.echo(format_app_json(apps))

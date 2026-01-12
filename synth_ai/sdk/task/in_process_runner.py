@@ -26,8 +26,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 
 from synth_ai.core.dict_utils import deep_update as _deep_update
-from synth_ai.core.env import get_backend_from_env
 from synth_ai.core.telemetry import log_info
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.api.train.rl import RLJob
@@ -66,7 +66,7 @@ def resolve_backend_api_base(override: str | None = None) -> str:
     4. SYNTH_BACKEND_URL
     5. BACKEND_BASE_URL
     6. NEXT_PUBLIC_API_URL
-    7. Fallback to core get_backend_from_env()
+    7. Fallback to BACKEND_URL_BASE
     """
 
     env_order = [
@@ -87,8 +87,7 @@ def resolve_backend_api_base(override: str | None = None) -> str:
                 candidate = value
                 break
         if not candidate:
-            base, _ = get_backend_from_env()
-            candidate = base
+            candidate = BACKEND_URL_BASE
 
     normalized = _normalize_base_url(candidate)
     return ensure_api_base(normalized)

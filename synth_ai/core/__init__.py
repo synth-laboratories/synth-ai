@@ -14,20 +14,11 @@ Dependency rules:
 - core/ should NOT import click (leave that to cli/)
 """
 
-from __future__ import annotations
-
 # Config base classes
 from synth_ai.core.config import BaseJobConfig, ConfigValidator
 
 # Environment utilities
-from synth_ai.core.env import (
-    PROD_BASE_URL,
-    get_api_key,
-    get_backend_url,
-    load_env_file,
-    mask_value,
-    resolve_env_file,
-)
+from synth_ai.core.env import get_api_key, mask_value
 
 # Error types
 from synth_ai.core.errors import (
@@ -60,6 +51,7 @@ from synth_ai.core.pricing import (
     estimate_cost,
     get_token_rates,
 )
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 __all__ = [
     # Errors
@@ -74,11 +66,8 @@ __all__ = [
     "ModelNotSupportedError",
     # Environment
     "get_api_key",
-    "get_backend_url",
-    "resolve_env_file",
-    "load_env_file",
     "mask_value",
-    "PROD_BASE_URL",
+    "BACKEND_URL_BASE",
     # HTTP
     "AsyncHttpClient",
     "sleep",

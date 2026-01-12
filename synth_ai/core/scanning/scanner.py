@@ -2,7 +2,6 @@
 
 import json
 import os
-from pathlib import Path
 from typing import Callable
 
 from synth_ai.core.scanning.cloudflare_scanner import scan_cloudflare_apps
@@ -120,7 +119,6 @@ async def run_scan(
     port_range: tuple[int, int],
     timeout: float,
     api_key: str | None,
-    env_file: Path | None,
     verbose_callback: Callable[[str], None] | None = None,
 ) -> list[ScannedApp]:
     """Run the scan operation.
@@ -129,7 +127,6 @@ async def run_scan(
         port_range: Tuple of (start_port, end_port)
         timeout: Health check timeout
         api_key: API key for health checks
-        env_file: Specific .env file to check
         verbose_callback: Optional callback for verbose output
 
     Returns:
@@ -157,7 +154,7 @@ async def run_scan(
         verbose_callback(f"Found {len(local_apps)} local app(s)")
 
     synth_api_key = os.getenv("SYNTH_API_KEY")
-    cloudflare_apps = await scan_cloudflare_apps(synth_api_key, env_api_key, env_file, timeout)
+    cloudflare_apps = await scan_cloudflare_apps(synth_api_key, env_api_key, timeout)
     all_apps.extend(cloudflare_apps)
 
     if verbose_callback:
