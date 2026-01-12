@@ -99,19 +99,21 @@ def fetch_credentials_from_web_browser() -> dict:
     }
 
 
-def store_credentials(credentials, config_path="~/.synth-ai/config.json"):
+def store_credentials(credentials, config_path=None):
     """Store credentials to config file and environment."""
     import os
 
-    from synth_ai.core.env_utils import mask_str, write_env_var_to_json
+    from synth_ai.core.env import mask_str, write_env_var_to_json
+    from synth_ai.core.paths import SYNTH_USER_CONFIG_PATH
 
     required = {"SYNTH_API_KEY", "ENVIRONMENT_API_KEY"}
     missing = [k for k in required if not credentials.get(k)]
     if missing:
         raise ValueError(f"Missing credential values: {', '.join(missing)}")
 
+    resolved_path = config_path or str(SYNTH_USER_CONFIG_PATH)
     for k, v in credentials.items():
-        write_env_var_to_json(k, v, config_path)
+        write_env_var_to_json(k, v, resolved_path)
         os.environ[k] = v
         print(f"Loaded {k}={mask_str(v)} to process environment")
 
@@ -124,7 +126,7 @@ def run_setup(source="web", skip_confirm=False, confirm_callback=None):
         skip_confirm: Skip confirmation prompt for web auth
         confirm_callback: Optional callable for confirmation, returns bool
     """
-    from synth_ai.core.env_utils import resolve_env_var
+    from synth_ai.core.env import resolve_env_var
 
     credentials = {}
     if source == "local":
