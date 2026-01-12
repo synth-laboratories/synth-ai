@@ -184,19 +184,9 @@ export const appState = {
   openCodeUrl: null as string | null,
   openCodeStatus: null as string | null,
   openCodeAutoConnectAttempted: false,
+  openCodeAbort: null as null | (() => void),
   /** Working directory for OpenCode agent execution (should be synth-ai launch CWD, not tui/app). */
   opencodeWorkingDir: resolveLaunchCwd(),
-  openCodeMessages: [] as Array<{
-    id: string
-    role: "user" | "assistant" | "tool"
-    content: string
-    timestamp: Date
-    toolName?: string
-    toolStatus?: "pending" | "running" | "completed" | "failed"
-  }>,
-  openCodeScrollOffset: 0,
-  openCodeInputValue: "",
-  openCodeIsProcessing: false,
 
   // Metrics panel view state
   metricsView: "latest" as "latest" | "charts",

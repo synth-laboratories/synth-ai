@@ -158,9 +158,18 @@ function SolidShell(props: { onExit?: () => void }) {
     data.version()
     return data.ctx.state.appState.principalPane
   })
+  const activeOpenCodeSession = createMemo(() => {
+    data.version()
+    const sessionId = data.ctx.state.appState.openCodeSessionId
+    if (!sessionId) return null
+    return data.ctx.state.snapshot.sessions.find((s) => s.session_id === sessionId) || null
+  })
   const opencodeUrl = createMemo(() => {
     data.version()
+    const session = activeOpenCodeSession()
     return (
+      session?.opencode_url ||
+      session?.access_url ||
       data.ctx.state.appState.openCodeUrl ||
       process.env.OPENCODE_URL ||
       "http://localhost:3000"
@@ -1274,7 +1283,7 @@ function SolidShell(props: { onExit?: () => void }) {
       return
     }
 
-    if (focusManager.handleKey(evt)) {
+    if (appState.principalPane !== "opencode" && focusManager.handleKey(evt)) {
       return
     }
 
@@ -1583,6 +1592,18 @@ function SolidShell(props: { onExit?: () => void }) {
     }
 
     if (appState.principalPane === "opencode") {
+      if (evt.ctrl && evt.name === "x" && appState.openCodeAbort) {
+        evt.preventDefault()
+        appState.openCodeAbort()
+        data.ctx.render()
+        return
+      }
+      if (evt.name === "escape" && appState.openCodeAbort) {
+        evt.preventDefault()
+        appState.openCodeAbort()
+        data.ctx.render()
+        return
+      }
       if (evt.name === "g" && evt.shift) {
         evt.preventDefault()
         appState.principalPane = "jobs"
