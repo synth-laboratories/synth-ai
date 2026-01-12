@@ -642,6 +642,101 @@ export function ChatPane(props: ChatPaneProps) {
     return Math.max(32, Math.min(hardMax, target))
   })
 
+  function _countWrappedLines(text: string, maxWidth: number): number {
+    if (!text) return 0
+    let lines = 0
+    for (const para of String(text).split("\n")) {
+      if (!para) {
+        lines += 1
+        continue
+      }
+      if (para.length <= maxWidth) {
+        lines += 1
+        continue
+      }
+      const words = para.split(" ")
+      let current = ""
+      for (const word of words) {
+        if (!current) {
+          if (word.length <= maxWidth) {
+            current = word
+          } else {
+            lines += Math.ceil(word.length / maxWidth)
+            current = ""
+          }
+          continue
+        }
+        if (current.length + 1 + word.length <= maxWidth) {
+          current += " " + word
+        } else {
+          lines += 1
+          if (word.length <= maxWidth) {
+            current = word
+          } else {
+            lines += Math.ceil(word.length / maxWidth)
+            current = ""
+          }
+        }
+      }
+      if (current) lines += 1
+    }
+    return lines
+  }
+
+  const headerHeight = createMemo(() => (state().session?.directory ? 2 : 1))
+  const inputHeight = 3 // top border + 2 lines of content
+  const innerHeight = createMemo(() => Math.max(0, props.height - 2)) // outer border consumes 2 rows
+  const messageAreaHeight = createMemo(() => Math.max(0, innerHeight() - headerHeight() - inputHeight))
+
+  const visibleMessages = createMemo(() => {
+    // Window messages so we never emit more terminal rows than fit. This prevents terminal scroll
+    // (which can visually “obscure” the fixed input bar after long sessions).
+    const maxBubbleContentWidth = Math.max(10, bubbleWidth() - 4)
+    const maxHeight = messageAreaHeight()
+    const msgs = state().messages
+
+    type Visible = { wrapper: MessageWrapper; maxLines?: number }
+    const result: Visible[] = []
+    let used = 0
+
+    // Always reserve 1 line for the "Thinking..." indicator if present.
+    const loadingReserve = state().isLoading ? 1 : 0
+    const budget = Math.max(0, maxHeight - loadingReserve)
+
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const wrapper = msgs[i]
+      const parts = partsStore[wrapper.info.id] || wrapper.parts || []
+      let contentLines = 0
+      for (const p of parts as any[]) {
+        const text = (p?.text ?? p?.content ?? "").toString()
+        if (!text) continue
+        contentLines += _countWrappedLines(text.trim(), maxBubbleContentWidth)
+      }
+      // Bubble border adds 2 rows, and we also render a 1-row meta header above the bubble.
+      // Wrapper has marginBottom={1} which effectively consumes one blank row.
+      const bubbleHeight = Math.max(3, contentLines + 2) // minimum to show border/body
+      const blockHeight = 1 + bubbleHeight + 1
+
+      if (used + blockHeight <= budget) {
+        result.push({ wrapper })
+        used += blockHeight
+        continue
+      }
+
+      // If we have no messages yet, include the last one but clamp its rendered lines to fit.
+      if (result.length === 0 && budget > 0) {
+        // Remaining for bubble content lines:
+        // budget = 1(meta) + (content+2 border) + 1(margin)
+        const remainingForBubble = Math.max(0, budget - 2) // strip meta + margin
+        const remainingContent = Math.max(0, remainingForBubble - 2) // strip bubble borders
+        result.push({ wrapper, maxLines: Math.max(1, remainingContent) })
+      }
+      break
+    }
+
+    return result.reverse()
+  })
+
   return (
     <box
       flexDirection="column"
@@ -736,8 +831,9 @@ export function ChatPane(props: ChatPaneProps) {
           </box>
         </Show>
 
-        <For each={state().messages}>
-          {(wrapper) => {
+        <For each={visibleMessages()}>
+          {(item) => {
+            const wrapper = item.wrapper
             // Look up parts from the separate store for fine-grained reactivity
             // With SolidJS store, access is direct and automatically reactive
             const parts = () => partsStore[wrapper.info.id] || wrapper.parts || []
@@ -762,7 +858,7 @@ export function ChatPane(props: ChatPaneProps) {
                       </text>
                     </Show>
                   </box>
-                  <MessageBubble msg={wrapper.info} parts={parts} maxWidth={bubbleWidth()} />
+                  <MessageBubble msg={wrapper.info} parts={parts} maxWidth={bubbleWidth()} maxLines={item.maxLines} />
                 </box>
               </box>
             )

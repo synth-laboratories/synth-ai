@@ -8,6 +8,11 @@ export interface MessageBubbleProps {
   parts: Accessor<Part[]>
   /** Max bubble width in terminal columns */
   maxWidth: number
+  /**
+   * Optional hard cap on the number of rendered lines.
+   * This prevents terminal scroll / layout corruption when messages are extremely long.
+   */
+  maxLines?: number
 }
 
 function wrapText(text: string, maxWidth: number): string[] {
@@ -133,6 +138,21 @@ export function MessageBubble(props: MessageBubbleProps) {
       .filter((r): r is { text: string; color: string } => r !== null)
   })
 
+  const renderableLines = createMemo(() => {
+    const maxLines = props.maxLines
+    const lines: Array<{ text: string; color: string }> = []
+    for (const part of renderableParts()) {
+      const partLines = String(part.text).split("\n")
+      for (const line of partLines) {
+        lines.push({ text: line, color: part.color })
+      }
+    }
+    if (typeof maxLines === "number" && maxLines > 0 && lines.length > maxLines) {
+      return lines.slice(lines.length - maxLines)
+    }
+    return lines
+  })
+
   return (
     <box
       flexDirection="column"
@@ -143,9 +163,9 @@ export function MessageBubble(props: MessageBubbleProps) {
     >
       {/* Body */}
       <box flexDirection="column" paddingLeft={1} paddingRight={1} paddingTop={0} paddingBottom={0}>
-        <Show when={renderableParts().length > 0} fallback={<text fg={COLORS.textDim}>(loading...)</text>}>
-          <For each={renderableParts()}>
-            {(item) => <text fg={item.color}>{item.text}</text>}
+        <Show when={renderableLines().length > 0} fallback={<text fg={COLORS.textDim}>(loading...)</text>}>
+          <For each={renderableLines()}>
+            {(line) => <text fg={line.color}>{line.text}</text>}
           </For>
         </Show>
       </box>
