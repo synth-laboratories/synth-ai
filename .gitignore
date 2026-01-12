@@ -151,6 +151,7 @@ examples/agora_ex/
 !docs/*.md
 !docs/**/*.md
 !synth_ai/tui/opencode_config/**/*.md
+!synth_ai/skills/**/*.md
 
 # Re-ignore Python caches and bytecode even under bandit force-include
 synth_ai/environments/examples/bandit/**/__pycache__/

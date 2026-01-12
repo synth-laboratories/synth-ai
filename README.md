@@ -44,6 +44,21 @@ uv add
 uv run synth-ai tui
 ```
 
+## Agent Skills (Synth API)
+
+Synth-AI ships a **`synth-api`** skill that works across multiple agents (Codex, Claude Code, OpenCode, etc.). The TUI integrates with OpenCode (day-zero agent support).
+
+```bash
+# List packaged skills shipped with synth-ai
+uvx synth-ai skill list
+
+# Install skill into default location (~/.config/opencode/skill)
+uvx synth-ai skill install synth-api
+
+# Install skill into custom directory
+uvx synth-ai skill install synth-api --dir ~/custom/opencode/skill
+```
+
 ## Testing
 
 Run the TUI integration tests:
