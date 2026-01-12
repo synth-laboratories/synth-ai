@@ -165,7 +165,14 @@ export async function selectJob(
     const isGepa = snapshot.selectedJob.training_type === "gepa" || snapshot.selectedJob.training_type === "graph_gepa"
     if (isGepa) {
       // Small delay to ensure job data is fully loaded
-      await new Promise(resolve => setTimeout(resolve, 100))
+      if (options.signal?.aborted) return
+      await new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(resolve, 100)
+        options.signal?.addEventListener('abort', () => {
+          clearTimeout(timeoutId)
+          reject(new Error('Aborted'))
+        }, { once: true })
+      }).catch(() => { return })
       if (token === appState.jobSelectToken && snapshot.selectedJob?.job_id === jobId) {
         await fetchMetrics(ctx, options)
       }
@@ -271,9 +278,7 @@ export async function fetchMetrics(ctx: AppContext, options: { signal?: AbortSig
     // Debug: log metrics structure for troubleshooting
     if (points.length === 0) {
       // Always log when no points - helps diagnose the issue
-      const gepaMetrics = points.filter((pt: any) => pt?.name?.startsWith("gepa."))
-      const allMetricNames = [...new Set(points.map((pt: any) => pt?.name).filter(Boolean))]
-      snapshot.status = `No GEPA metrics found (${points.length} total points, ${gepaMetrics.length} gepa metrics, names: ${allMetricNames.slice(0, 5).join(", ") || "none"})`
+      snapshot.status = `No GEPA metrics found (0 total points)`
     } else {
       const gepaMetrics = points.filter((pt: any) => pt?.name?.startsWith("gepa."))
       snapshot.status = `Loaded ${points.length} metric points (${gepaMetrics.length} GEPA metrics) for ${job.job_id}`
