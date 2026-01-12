@@ -88,15 +88,24 @@ def generate_functional_description(image_path: str, api_key: str) -> dict:
     }
 
 
+def _to_demo_relative(path: Path, demo_dir: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(demo_dir))
+    except ValueError:
+        return str(path)
+
+
 def process_sample_images(image_paths: list, api_key: str, output_file: str = None):
     """Process a sample of images and generate descriptions."""
     results = []
+    demo_dir = Path(__file__).parent.resolve()
 
     for i, image_path in enumerate(image_paths, 1):
         print(f"\n[{i}/{len(image_paths)}] Processing: {image_path}")
 
         try:
             result = generate_functional_description(image_path, api_key)
+            result["image_path"] = _to_demo_relative(Path(image_path), demo_dir)
             results.append(result)
 
             print("\nFunctional Description:")
@@ -106,7 +115,9 @@ def process_sample_images(image_paths: list, api_key: str, output_file: str = No
 
         except Exception as e:
             print(f"Error processing {image_path}: {e}")
-            results.append({"image_path": str(image_path), "error": str(e)})
+            results.append(
+                {"image_path": _to_demo_relative(Path(image_path), demo_dir), "error": str(e)}
+            )
 
     # Save results if output file specified
     if output_file:

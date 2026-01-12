@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Run GEPA demo with streaming progress events."""
 
-from __future__ import annotations
-
 import asyncio
 import importlib
 import json
@@ -12,9 +10,10 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
-from dotenv import load_dotenv
 from openai import AsyncOpenAI
+from synth_ai.core.urls import BACKEND_URL_BASE, join_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
@@ -24,11 +23,10 @@ from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutR
 from synth_ai.sdk.tunnels import wait_for_health_check
 from synth_ai.sdk.tunnels.tunneled_api import TunnelBackend, TunneledLocalAPI
 
-# Add script directory to path and load env
+# Add script directory to path and set working directory for local imports
 _script_dir = Path(__file__).parent
 sys.path.insert(0, str(_script_dir))
 os.chdir(_script_dir)
-load_dotenv(_script_dir.parent.parent / ".env")
 
 # Import local module dynamically after path setup
 _crafter_logic = importlib.import_module("crafter_logic")
@@ -40,13 +38,12 @@ CrafterVLMReActPolicy = _crafter_logic.CrafterVLMReActPolicy
 normalize_action_name = _crafter_logic.normalize_action_name
 
 # Config
-SYNTH_API_BASE = "https://api.usesynth.ai"
-SYNTH_API_KEY = os.environ.get("SYNTH_API_KEY", "")
+SYNTH_API_BASE = BACKEND_URL_BASE
+SYNTH_API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE)
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 # Set API key in environment for SDK to use
-if SYNTH_API_KEY:
-    os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
+os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
 POLICY_MODEL = "gpt-4.1-nano"
 EVAL_MODEL = "gpt-4o-mini"
 ROLLOUT_BUDGET = 6
@@ -422,7 +419,7 @@ async def run_comparison_eval(
 
 async def stream_job_events(job_id: str):
     """Stream events from GEPA job."""
-    url = f"{SYNTH_API_BASE}/api/prompt-learning/jobs/{job_id}/events"
+    url = join_url(SYNTH_API_BASE, f"/api/prompt-learning/jobs/{job_id}/events")
     headers = {"Authorization": f"Bearer {SYNTH_API_KEY}"}
 
     client = httpx.AsyncClient(timeout=None)

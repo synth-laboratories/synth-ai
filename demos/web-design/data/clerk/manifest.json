@@ -4,147 +4,147 @@
   "screenshots": [
     {
       "url": "https://clerk.com",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/homepage_20260106_233404.png"
+      "file": "data/clerk/homepage_20260106_233404.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/integrations/databases/convex",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_integrations_databases_convex_20260106_233410.png"
+      "file": "data/clerk/docs_guides_development_integrations_databases_convex_20260106_233410.png"
     },
     {
       "url": "https://clerk.com/brand-assets",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/brand-assets_20260106_233415.png"
+      "file": "data/clerk/brand-assets_20260106_233415.png"
     },
     {
       "url": "https://clerk.com/legal/terms",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/legal_terms_20260106_233451.png"
+      "file": "data/clerk/legal_terms_20260106_233451.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/integrations/databases/grafbase",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_integrations_databases_grafbase_20260106_233455.png"
+      "file": "data/clerk/docs_guides_development_integrations_databases_grafbase_20260106_233455.png"
     },
     {
       "url": "https://clerk.com/glossary",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/glossary_20260106_233459.png"
+      "file": "data/clerk/glossary_20260106_233459.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/making-requests",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_making-requests_20260106_233538.png"
+      "file": "data/clerk/docs_guides_development_making-requests_20260106_233538.png"
     },
     {
       "url": "https://clerk.com/glossary/credential-stuffing",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/glossary_credential-stuffing_20260106_233542.png"
+      "file": "data/clerk/glossary_credential-stuffing_20260106_233542.png"
     },
     {
       "url": "https://clerk.com/glossary/openid-connect",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/glossary_openid-connect_20260106_233546.png"
+      "file": "data/clerk/glossary_openid-connect_20260106_233546.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/verifying-api-keys",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_verifying-api-keys_20260106_233622.png"
+      "file": "data/clerk/docs_guides_development_verifying-api-keys_20260106_233622.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/image-optimization",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_image-optimization_20260106_233626.png"
+      "file": "data/clerk/docs_guides_development_image-optimization_20260106_233626.png"
     },
     {
       "url": "https://clerk.com/glossary/captcha",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/glossary_captcha_20260106_233629.png"
+      "file": "data/clerk/glossary_captcha_20260106_233629.png"
     },
     {
       "url": "https://clerk.com/",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/homepage_20260106_233633.png"
+      "file": "data/clerk/homepage_20260106_233633.png"
     },
     {
       "url": "https://clerk.com/company",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/company_20260106_233638.png"
+      "file": "data/clerk/company_20260106_233638.png"
     },
     {
       "url": "https://clerk.com/docs/authentication/social-connections/custom-provider",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_authentication_social-connections_custom-provider_20260106_233715.png"
+      "file": "data/clerk/docs_authentication_social-connections_custom-provider_20260106_233715.png"
     },
     {
       "url": "https://clerk.com/docs/guides/configure/auth-strategies/sign-in-with-google",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_configure_auth-strategies_sign-in-with-google_20260106_233719.png"
+      "file": "data/clerk/docs_guides_configure_auth-strategies_sign-in-with-google_20260106_233719.png"
     },
     {
       "url": "https://clerk.com/docs/expo/getting-started/quickstart",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_expo_getting-started_quickstart_20260106_233723.png"
+      "file": "data/clerk/docs_expo_getting-started_quickstart_20260106_233723.png"
     },
     {
       "url": "https://clerk.com/blog/oauth2-react-user-authorization",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/blog_oauth2-react-user-authorization_20260106_233728.png"
+      "file": "data/clerk/blog_oauth2-react-user-authorization_20260106_233728.png"
     },
     {
       "url": "https://clerk.com/billing",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/billing_20260106_233733.png"
+      "file": "data/clerk/billing_20260106_233733.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/custom-flows/authentication/oauth-connections",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_custom-flows_authentication_oauth-connections_20260106_233737.png"
+      "file": "data/clerk/docs_guides_development_custom-flows_authentication_oauth-connections_20260106_233737.png"
     },
     {
       "url": "https://clerk.com/docs/components/overview",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_components_overview_20260106_233741.png"
+      "file": "data/clerk/docs_components_overview_20260106_233741.png"
     },
     {
       "url": "https://clerk.com/docs/reference/components/billing/checkout-button",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_reference_components_billing_checkout-button_20260106_233745.png"
+      "file": "data/clerk/docs_reference_components_billing_checkout-button_20260106_233745.png"
     },
     {
       "url": "https://clerk.com/docs/getting-started/quickstart/setup-clerk",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_getting-started_quickstart_setup-clerk_20260106_233748.png"
+      "file": "data/clerk/docs_getting-started_quickstart_setup-clerk_20260106_233748.png"
     },
     {
       "url": "https://clerk.com/glossary/single-sign-on-sso",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/glossary_single-sign-on-sso_20260106_233751.png"
+      "file": "data/clerk/glossary_single-sign-on-sso_20260106_233751.png"
     },
     {
       "url": "https://clerk.com/docs/nextjs/guides/development/verifying-oauth-access-tokens",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_nextjs_guides_development_verifying-oauth-access-tokens_20260106_233754.png"
+      "file": "data/clerk/docs_nextjs_guides_development_verifying-oauth-access-tokens_20260106_233754.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/trpc",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_trpc_20260106_233758.png"
+      "file": "data/clerk/docs_guides_development_trpc_20260106_233758.png"
     },
     {
       "url": "https://clerk.com/legal/subprocessors",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/legal_subprocessors_20260106_233801.png"
+      "file": "data/clerk/legal_subprocessors_20260106_233801.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/custom-flows/authentication/multi-session-applications",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_custom-flows_authentication_multi-session-applications_20260106_233805.png"
+      "file": "data/clerk/docs_guides_development_custom-flows_authentication_multi-session-applications_20260106_233805.png"
     },
     {
       "url": "https://clerk.com/docs/backend-requests/making/jwt-templates",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_backend-requests_making_jwt-templates_20260106_233809.png"
+      "file": "data/clerk/docs_backend-requests_making_jwt-templates_20260106_233809.png"
     },
     {
       "url": "https://clerk.com/components/theme-editor",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/components_theme-editor_20260106_233813.png"
+      "file": "data/clerk/components_theme-editor_20260106_233813.png"
     },
     {
       "url": "https://clerk.com/docs/guides/customizing-clerk/clerk-theme",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_customizing-clerk_clerk-theme_20260106_233816.png"
+      "file": "data/clerk/docs_guides_customizing-clerk_clerk-theme_20260106_233816.png"
     },
     {
       "url": "https://clerk.com/docs/guides/sessions/force-token-refresh",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_sessions_force-token-refresh_20260106_233820.png"
+      "file": "data/clerk/docs_guides_sessions_force-token-refresh_20260106_233820.png"
     },
     {
       "url": "https://clerk.com/docs/guides/development/custom-flows/error-handling",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_development_custom-flows_error-handling_20260106_233823.png"
+      "file": "data/clerk/docs_guides_development_custom-flows_error-handling_20260106_233823.png"
     },
     {
       "url": "https://clerk.com/docs",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_20260106_233827.png"
+      "file": "data/clerk/docs_20260106_233827.png"
     },
     {
       "url": "https://clerk.com/docs/js-backend/getting-started/quickstart",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_js-backend_getting-started_quickstart_20260106_233831.png"
+      "file": "data/clerk/docs_js-backend_getting-started_quickstart_20260106_233831.png"
     },
     {
       "url": "https://clerk.com/docs/guides/configure/auth-strategies/social-connections/custom-provider",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/clerk/docs_guides_configure_auth-strategies_social-connections_custom-provider_20260106_233834.png"
+      "file": "data/clerk/docs_guides_configure_auth-strategies_social-connections_custom-provider_20260106_233834.png"
     }
   ]
 }

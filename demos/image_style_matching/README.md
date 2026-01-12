@@ -7,9 +7,9 @@ This demo uses GraphGen to optimize a workflow for generating Pokemon-style imag
 ### Option 1: Run via Script
 
 ```bash
-cd /Users/joshpurtell/Documents/GitHub/synth-ai
+cd /path/to/synth-ai
 export SYNTH_API_KEY=your_api_key_here  # Optional - will auto-generate demo key if not set
-export LOCAL_BACKEND=true  # Optional - use local backend at http://127.0.0.1:8000
+export SYNTH_BACKEND_URL=http://127.0.0.1:8000  # Optional - override backend base URL
 
 uv run python demos/image_style_matching/run_notebook.py
 ```
@@ -21,7 +21,7 @@ This executes `graphgen_image_style_matching.ipynb` using papermill and saves:
 ### Option 2: Run Interactively in Jupyter
 
 ```bash
-cd /Users/joshpurtell/Documents/GitHub/synth-ai
+cd /path/to/synth-ai
 jupyter notebook demos/image_style_matching/graphgen_image_style_matching.ipynb
 ```
 
@@ -50,7 +50,7 @@ results/
 | Variable | Description |
 |----------|-------------|
 | `SYNTH_API_KEY` | Your Synth API key (optional - will auto-generate demo key) |
-| `LOCAL_BACKEND` | Set to `true` to use local backend at `http://127.0.0.1:8000/api` |
+| `SYNTH_BACKEND_URL` | Override backend base URL (e.g. `http://127.0.0.1:8000`) |
 | `BACKEND_BASE_URL` | Custom backend URL (default: `https://api.usesynth.ai`) |
 
 ## Model Configuration

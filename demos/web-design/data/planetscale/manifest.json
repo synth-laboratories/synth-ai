@@ -4,163 +4,163 @@
   "screenshots": [
     {
       "url": "https://planetscale.com",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/homepage_20260106_233359.png"
+      "file": "data/planetscale/homepage_20260106_233359.png"
     },
     {
       "url": "https://planetscale.com/legal/privacy",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/legal_privacy_20260106_233403.png"
+      "file": "data/planetscale/legal_privacy_20260106_233403.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/monitoring/query-insights",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_monitoring_query-insights_20260106_233408.png"
+      "file": "data/planetscale/docs_vitess_monitoring_query-insights_20260106_233408.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/sharding/sharding-quickstart",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_sharding_sharding-quickstart_20260106_233412.png"
+      "file": "data/planetscale/docs_vitess_sharding_sharding-quickstart_20260106_233412.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/schema-changes/deploy-requests",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_schema-changes_deploy-requests_20260106_233417.png"
+      "file": "data/planetscale/docs_vitess_schema-changes_deploy-requests_20260106_233417.png"
     },
     {
       "url": "https://planetscale.com/docs/plans/cluster-sizing",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_plans_cluster-sizing_20260106_233421.png"
+      "file": "data/planetscale/docs_plans_cluster-sizing_20260106_233421.png"
     },
     {
       "url": "https://planetscale.com/docs/plans/deployment-options",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_plans_deployment-options_20260106_233425.png"
+      "file": "data/planetscale/docs_plans_deployment-options_20260106_233425.png"
     },
     {
       "url": "https://planetscale.com/blog/introducing-planetscale-insights-advanced-query-monitoring",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/blog_introducing-planetscale-insights-advanced-query-monitoring_20260106_233429.png"
+      "file": "data/planetscale/blog_introducing-planetscale-insights-advanced-query-monitoring_20260106_233429.png"
     },
     {
       "url": "https://planetscale.com/about",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/about_20260106_233432.png"
+      "file": "data/planetscale/about_20260106_233432.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/monitoring/schema-recommendations",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_monitoring_schema-recommendations_20260106_233436.png"
+      "file": "data/planetscale/docs_vitess_monitoring_schema-recommendations_20260106_233436.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/etl",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_etl_20260106_233440.png"
+      "file": "data/planetscale/docs_vitess_etl_20260106_233440.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/sharding/sharding-a-sharded-keyspace",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_sharding_sharding-a-sharded-keyspace_20260106_233443.png"
+      "file": "data/planetscale/docs_vitess_sharding_sharding-a-sharded-keyspace_20260106_233443.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/sharding/sharding-new-tables",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_sharding_sharding-new-tables_20260106_233447.png"
+      "file": "data/planetscale/docs_vitess_sharding_sharding-new-tables_20260106_233447.png"
     },
     {
       "url": "https://planetscale.com/changelog",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/changelog_20260106_233451.png"
+      "file": "data/planetscale/changelog_20260106_233451.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/web-console",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_web-console_20260106_233454.png"
+      "file": "data/planetscale/docs_vitess_web-console_20260106_233454.png"
     },
     {
       "url": "https://planetscale.com/docs/what-is-planetscale",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_what-is-planetscale_20260106_233458.png"
+      "file": "data/planetscale/docs_what-is-planetscale_20260106_233458.png"
     },
     {
       "url": "https://planetscale.com/changelog/dedicated-replica-pgbouncers-with-az-affinity",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/changelog_dedicated-replica-pgbouncers-with-az-affinity_20260106_233501.png"
+      "file": "data/planetscale/changelog_dedicated-replica-pgbouncers-with-az-affinity_20260106_233501.png"
     },
     {
       "url": "https://planetscale.com/changelog/postgres-metrics-access-label",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/changelog_postgres-metrics-access-label_20260106_233505.png"
+      "file": "data/planetscale/changelog_postgres-metrics-access-label_20260106_233505.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/best-practices",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_best-practices_20260106_233508.png"
+      "file": "data/planetscale/docs_vitess_best-practices_20260106_233508.png"
     },
     {
       "url": "https://planetscale.com/blog",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/blog_20260106_233511.png"
+      "file": "data/planetscale/blog_20260106_233511.png"
     },
     {
       "url": "https://planetscale.com/changelog/sla_single_node",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/changelog_sla_single_node_20260106_233515.png"
+      "file": "data/planetscale/changelog_sla_single_node_20260106_233515.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/sharding",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_sharding_20260106_233518.png"
+      "file": "data/planetscale/docs_vitess_sharding_20260106_233518.png"
     },
     {
       "url": "https://planetscale.com/blog/feed.atom",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/blog_feed.atom_20260106_233521.png"
+      "file": "data/planetscale/blog_feed.atom_20260106_233521.png"
     },
     {
       "url": "https://planetscale.com/pricing",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/pricing_20260106_233546.png"
+      "file": "data/planetscale/pricing_20260106_233546.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/vectors",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_vectors_20260106_233549.png"
+      "file": "data/planetscale/docs_vitess_vectors_20260106_233549.png"
     },
     {
       "url": "https://planetscale.com/docs/postgres/connecting/pgbouncer",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_postgres_connecting_pgbouncer_20260106_233553.png"
+      "file": "data/planetscale/docs_postgres_connecting_pgbouncer_20260106_233553.png"
     },
     {
       "url": "https://planetscale.com/blog/using-motherduck-with-planetscale",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/blog_using-motherduck-with-planetscale_20260106_233557.png"
+      "file": "data/planetscale/blog_using-motherduck-with-planetscale_20260106_233557.png"
     },
     {
       "url": "https://planetscale.com/blog/processes-and-threads",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/blog_processes-and-threads_20260106_233600.png"
+      "file": "data/planetscale/blog_processes-and-threads_20260106_233600.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/schema-changes/how-online-schema-change-tools-work",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_schema-changes_how-online-schema-change-tools-work_20260106_233607.png"
+      "file": "data/planetscale/docs_vitess_schema-changes_how-online-schema-change-tools-work_20260106_233607.png"
     },
     {
       "url": "https://planetscale.com/docs/postgres/tutorials/planetscale-postgres-drizzle",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_postgres_tutorials_planetscale-postgres-drizzle_20260106_233611.png"
+      "file": "data/planetscale/docs_postgres_tutorials_planetscale-postgres-drizzle_20260106_233611.png"
     },
     {
       "url": "https://planetscale.com/blog/one-million-connections",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/blog_one-million-connections_20260106_233614.png"
+      "file": "data/planetscale/blog_one-million-connections_20260106_233614.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/schema-changes/artifact-tables",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_schema-changes_artifact-tables_20260106_233618.png"
+      "file": "data/planetscale/docs_vitess_schema-changes_artifact-tables_20260106_233618.png"
     },
     {
       "url": "https://planetscale.com/docs/postgres/connecting/roles",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_postgres_connecting_roles_20260106_233621.png"
+      "file": "data/planetscale/docs_postgres_connecting_roles_20260106_233621.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/vectors/terminology-and-concepts",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_vectors_terminology-and-concepts_20260106_233625.png"
+      "file": "data/planetscale/docs_vitess_vectors_terminology-and-concepts_20260106_233625.png"
     },
     {
       "url": "https://planetscale.com/events",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/events_20260106_233629.png"
+      "file": "data/planetscale/events_20260106_233629.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/schema-changes",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_schema-changes_20260106_233632.png"
+      "file": "data/planetscale/docs_vitess_schema-changes_20260106_233632.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/integrations/prometheus",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_integrations_prometheus_20260106_233636.png"
+      "file": "data/planetscale/docs_vitess_integrations_prometheus_20260106_233636.png"
     },
     {
       "url": "https://planetscale.com/changelog/postgres-role-management-enhancements",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/changelog_postgres-role-management-enhancements_20260106_233639.png"
+      "file": "data/planetscale/changelog_postgres-role-management-enhancements_20260106_233639.png"
     },
     {
       "url": "https://planetscale.com/blog/faster-interpreters-in-go-catching-up-with-cpp",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/blog_faster-interpreters-in-go-catching-up-with-cpp_20260106_233643.png"
+      "file": "data/planetscale/blog_faster-interpreters-in-go-catching-up-with-cpp_20260106_233643.png"
     },
     {
       "url": "https://planetscale.com/docs/vitess/sharding/pre-sharding-checklist",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/planetscale/docs_vitess_sharding_pre-sharding-checklist_20260106_233646.png"
+      "file": "data/planetscale/docs_vitess_sharding_pre-sharding-checklist_20260106_233646.png"
     }
   ]
 }

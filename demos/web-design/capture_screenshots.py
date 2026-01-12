@@ -37,7 +37,11 @@ async def capture_screenshot(page, url: str, output_dir: Path, name: str = None)
         await page.screenshot(path=str(filepath), full_page=True)
 
         print(f"  ✓ Saved: {filename}")
-        return str(filepath)
+        demo_dir = Path(__file__).parent.resolve()
+        try:
+            return str(filepath.resolve().relative_to(demo_dir))
+        except ValueError:
+            return str(filepath)
 
     except Exception as e:
         print(f"  ✗ Error capturing {url}: {e}")

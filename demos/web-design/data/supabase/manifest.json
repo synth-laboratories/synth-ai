@@ -4,163 +4,163 @@
   "screenshots": [
     {
       "url": "https://supabase.com",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/homepage_20260106_233044.png"
+      "file": "data/supabase/homepage_20260106_233044.png"
     },
     {
       "url": "https://supabase.com/customers",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/customers_20260106_233048.png"
+      "file": "data/supabase/customers_20260106_233048.png"
     },
     {
       "url": "https://supabase.com/customers/maergo",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/customers_maergo_20260106_233051.png"
+      "file": "data/supabase/customers_maergo_20260106_233051.png"
     },
     {
       "url": "https://supabase.com/customers/koodos",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/customers_koodos_20260106_233054.png"
+      "file": "data/supabase/customers_koodos_20260106_233054.png"
     },
     {
       "url": "https://supabase.com/docs/guides/getting-started/quickstarts/redwoodjs",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_getting-started_quickstarts_redwoodjs_20260106_233058.png"
+      "file": "data/supabase/docs_guides_getting-started_quickstarts_redwoodjs_20260106_233058.png"
     },
     {
       "url": "https://supabase.com/legal/dpa",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/legal_dpa_20260106_233102.png"
+      "file": "data/supabase/legal_dpa_20260106_233102.png"
     },
     {
       "url": "https://supabase.com/customers/happyteams",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/customers_happyteams_20260106_233106.png"
+      "file": "data/supabase/customers_happyteams_20260106_233106.png"
     },
     {
       "url": "https://supabase.com/dashboard/org/_/documents",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/dashboard_org___documents_20260106_233109.png"
+      "file": "data/supabase/dashboard_org___documents_20260106_233109.png"
     },
     {
       "url": "https://supabase.com/customers/epsilon3",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/customers_epsilon3_20260106_233113.png"
+      "file": "data/supabase/customers_epsilon3_20260106_233113.png"
     },
     {
       "url": "https://supabase.com/aup",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/aup_20260106_233116.png"
+      "file": "data/supabase/aup_20260106_233116.png"
     },
     {
       "url": "https://supabase.com/",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/homepage_20260106_233120.png"
+      "file": "data/supabase/homepage_20260106_233120.png"
     },
     {
       "url": "https://supabase.com/solutions/startups",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/solutions_startups_20260106_233123.png"
+      "file": "data/supabase/solutions_startups_20260106_233123.png"
     },
     {
       "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-solidjs",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_getting-started_tutorials_with-solidjs_20260106_233127.png"
+      "file": "data/supabase/docs_guides_getting-started_tutorials_with-solidjs_20260106_233127.png"
     },
     {
       "url": "https://supabase.com/support-policy",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/support-policy_20260106_233131.png"
+      "file": "data/supabase/support-policy_20260106_233131.png"
     },
     {
       "url": "https://supabase.com/auth",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/auth_20260106_233135.png"
+      "file": "data/supabase/auth_20260106_233135.png"
     },
     {
       "url": "https://supabase.com/docs/guides/api/api-keys",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_api_api-keys_20260106_233139.png"
+      "file": "data/supabase/docs_guides_api_api-keys_20260106_233139.png"
     },
     {
       "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-ionic-vue",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_getting-started_tutorials_with-ionic-vue_20260106_233144.png"
+      "file": "data/supabase/docs_guides_getting-started_tutorials_with-ionic-vue_20260106_233144.png"
     },
     {
       "url": "https://supabase.com/launch-week",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/launch-week_20260106_233149.png"
+      "file": "data/supabase/launch-week_20260106_233149.png"
     },
     {
       "url": "https://supabase.com/customers/asap-work",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/customers_asap-work_20260106_233152.png"
+      "file": "data/supabase/customers_asap-work_20260106_233152.png"
     },
     {
       "url": "https://supabase.com/docs/guides/functions/examples/stripe-webhooks",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_functions_examples_stripe-webhooks_20260106_233156.png"
+      "file": "data/supabase/docs_guides_functions_examples_stripe-webhooks_20260106_233156.png"
     },
     {
       "url": "https://supabase.com/docs/guides/api/quickstart",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_api_quickstart_20260106_233200.png"
+      "file": "data/supabase/docs_guides_api_quickstart_20260106_233200.png"
     },
     {
       "url": "https://supabase.com/docs/guides/getting-started/quickstarts/flask",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_getting-started_quickstarts_flask_20260106_233204.png"
+      "file": "data/supabase/docs_guides_getting-started_quickstarts_flask_20260106_233204.png"
     },
     {
       "url": "https://supabase.com/docs/guides/functions/examples/image-manipulation",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_functions_examples_image-manipulation_20260106_233208.png"
+      "file": "data/supabase/docs_guides_functions_examples_image-manipulation_20260106_233208.png"
     },
     {
       "url": "https://supabase.com/customers/bree",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/customers_bree_20260106_233212.png"
+      "file": "data/supabase/customers_bree_20260106_233212.png"
     },
     {
       "url": "https://supabase.com/docs/guides/getting-started/quickstarts/solidjs",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_getting-started_quickstarts_solidjs_20260106_233216.png"
+      "file": "data/supabase/docs_guides_getting-started_quickstarts_solidjs_20260106_233216.png"
     },
     {
       "url": "https://supabase.com/docs/guides/getting-started/tutorials/with-nuxt-3",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_getting-started_tutorials_with-nuxt-3_20260106_233220.png"
+      "file": "data/supabase/docs_guides_getting-started_tutorials_with-nuxt-3_20260106_233220.png"
     },
     {
       "url": "https://supabase.com/blog/persistent-storage-for-faster-edge-functions",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/blog_persistent-storage-for-faster-edge-functions_20260106_233224.png"
+      "file": "data/supabase/blog_persistent-storage-for-faster-edge-functions_20260106_233224.png"
     },
     {
       "url": "https://supabase.com/docs/guides/functions/regional-invocation",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_functions_regional-invocation_20260106_233227.png"
+      "file": "data/supabase/docs_guides_functions_regional-invocation_20260106_233227.png"
     },
     {
       "url": "https://supabase.com/docs/guides/database/partitions",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_database_partitions_20260106_233230.png"
+      "file": "data/supabase/docs_guides_database_partitions_20260106_233230.png"
     },
     {
       "url": "https://supabase.com/blog/improved-security-controls",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/blog_improved-security-controls_20260106_233234.png"
+      "file": "data/supabase/blog_improved-security-controls_20260106_233234.png"
     },
     {
       "url": "https://supabase.com/dashboard/project/_/sql",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/dashboard_project___sql_20260106_233238.png"
+      "file": "data/supabase/dashboard_project___sql_20260106_233238.png"
     },
     {
       "url": "https://supabase.com/docs/guides/functions/schedule-functions",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_functions_schedule-functions_20260106_233242.png"
+      "file": "data/supabase/docs_guides_functions_schedule-functions_20260106_233242.png"
     },
     {
       "url": "https://supabase.com/dashboard/project/_",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/dashboard_project___20260106_233245.png"
+      "file": "data/supabase/dashboard_project___20260106_233245.png"
     },
     {
       "url": "https://supabase.com/docs/guides/getting-started/byo-mcp",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_getting-started_byo-mcp_20260106_233248.png"
+      "file": "data/supabase/docs_guides_getting-started_byo-mcp_20260106_233248.png"
     },
     {
       "url": "https://supabase.com/docs/guides/database/extensions/wrappers/airtable",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_database_extensions_wrappers_airtable_20260106_233252.png"
+      "file": "data/supabase/docs_guides_database_extensions_wrappers_airtable_20260106_233252.png"
     },
     {
       "url": "https://supabase.com/docs/guides/storage/serving/image-transformations",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_storage_serving_image-transformations_20260106_233258.png"
+      "file": "data/supabase/docs_guides_storage_serving_image-transformations_20260106_233258.png"
     },
     {
       "url": "https://supabase.com/docs/guides/functions/routing",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_functions_routing_20260106_233303.png"
+      "file": "data/supabase/docs_guides_functions_routing_20260106_233303.png"
     },
     {
       "url": "https://supabase.com/docs/guides/storage/vector/working-with-indexes",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_storage_vector_working-with-indexes_20260106_233307.png"
+      "file": "data/supabase/docs_guides_storage_vector_working-with-indexes_20260106_233307.png"
     },
     {
       "url": "https://supabase.com/docs/guides/functions/quickstart",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_functions_quickstart_20260106_233312.png"
+      "file": "data/supabase/docs_guides_functions_quickstart_20260106_233312.png"
     },
     {
       "url": "https://supabase.com/docs/guides/getting-started/architecture",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/supabase/docs_guides_getting-started_architecture_20260106_233316.png"
+      "file": "data/supabase/docs_guides_getting-started_architecture_20260106_233316.png"
     }
   ]
 }

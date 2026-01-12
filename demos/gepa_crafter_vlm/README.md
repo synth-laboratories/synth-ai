@@ -54,7 +54,7 @@ Return your chosen actions as a JSON object with the key "actions_list" listing
 ### Option 1: Run via Script
 
 ```bash
-cd /Users/joshpurtell/Documents/GitHub/synth-ai
+cd /path/to/synth-ai
 export SYNTH_API_KEY=your_api_key_here
 
 uv run python demos/gepa_crafter_vlm/run_notebook.py
@@ -68,14 +68,14 @@ This executes `gepa_crafter_vlm_verifier_optimization.ipynb` using papermill and
 ### Option 2: Run Interactively in Jupyter
 
 ```bash
-cd /Users/joshpurtell/Documents/GitHub/synth-ai
+cd /path/to/synth-ai
 jupyter notebook demos/gepa_crafter_vlm/gepa_crafter_vlm_verifier_optimization.ipynb
 ```
 
 ### Option 3: Run Legacy Script Directly
 
 ```bash
-cd /Users/joshpurtell/Documents/GitHub/synth-ai/demos/gepa_crafter_vlm
+cd /path/to/synth-ai/demos/gepa_crafter_vlm
 python demo_crafter_react.py
 ```
 
@@ -119,7 +119,6 @@ uv run python demos/gepa_crafter_vlm/run_notebook.py --help
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--backend-url` | `https://api.usesynth.ai` | Backend URL |
 | `--api-key` | `SYNTH_API_KEY` env var | Your Synth API key |
 | `--policy-model` | `gpt-4.1-nano` | VLM model for the agent |
 | `--verifier-model` | `gpt-4.1-nano` | Model for verification |
@@ -132,7 +131,7 @@ uv run python demos/gepa_crafter_vlm/run_notebook.py --help
 | Variable | Description |
 |----------|-------------|
 | `SYNTH_API_KEY` | Your Synth API key (required) |
-| `LOCAL_BACKEND` | Set to `true` to use local backend at `http://127.0.0.1:8000` |
+| `SYNTH_BACKEND_URL` | Override backend base URL (e.g. `http://127.0.0.1:8000`) |
 
 ## Prerequisites
 

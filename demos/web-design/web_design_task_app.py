@@ -9,8 +9,6 @@ It exists so scripts (demo, eval jobs, tests) can reuse the dataset + Local API 
 accidentally hitting production.
 """
 
-from __future__ import annotations
-
 import base64
 import io
 import logging
@@ -22,6 +20,7 @@ import httpx
 from datasets import Image as HFImage
 from datasets import load_dataset, load_from_disk
 from PIL import Image
+from synth_ai.core.urls import join_url
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
@@ -291,7 +290,7 @@ def create_web_design_local_api(style_prompt: str) -> Any:
         llm_response: dict[str, Any] = {}
         async with httpx.AsyncClient(timeout=180.0) as client:
             resp = await client.post(
-                f"{inference_url.rstrip('/')}/chat/completions",
+                join_url(inference_url, "/chat/completions"),
                 json={
                     "model": model,
                     "messages": messages,

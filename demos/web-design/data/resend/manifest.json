@@ -4,19 +4,19 @@
   "screenshots": [
     {
       "url": "https://resend.com/security",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/resend/security_20260107_003204.png"
+      "file": "data/resend/security_20260107_003204.png"
     },
     {
       "url": "https://resend.com/docs/sdks",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/resend/docs_sdks_20260107_004939.png"
+      "file": "data/resend/docs_sdks_20260107_004939.png"
     },
     {
       "url": "https://resend.com/docs/dashboard/webhooks/retries-and-replays",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/resend/docs_dashboard_webhooks_retries-and-replays_20260107_005010.png"
+      "file": "data/resend/docs_dashboard_webhooks_retries-and-replays_20260107_005010.png"
     },
     {
       "url": "https://resend.com/handbook",
-      "file": "/Users/joshpurtell/Documents/GitHub/synth-ai/demos/web-design/data/resend/handbook_20260107_010700.png"
+      "file": "data/resend/handbook_20260107_010700.png"
     }
   ]
 }

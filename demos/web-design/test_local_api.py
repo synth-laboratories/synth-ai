@@ -3,13 +3,12 @@
 
 import asyncio
 import importlib
-import os
 import sys
 from pathlib import Path
 
 import httpx
-from dotenv import load_dotenv
-from synth_ai.core.env import PROD_BASE_URL
+from synth_ai.core.urls import BACKEND_URL_BASE, join_url
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
@@ -19,13 +18,6 @@ except ImportError:  # pragma: no cover
     from synth_ai.sdk.task import run_server_background
 
 demo_dir = Path(__file__).parent
-repo_root = demo_dir.parent.parent
-
-# Load .env
-env_file = repo_root / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
-    print(f"Loaded {env_file}")
 
 # Import local module dynamically
 sys.path.insert(0, str(demo_dir))
@@ -33,8 +25,8 @@ _run_demo = importlib.import_module("run_demo")
 create_web_design_local_api = _run_demo.create_web_design_local_api
 
 # Get API key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-SYNTH_API_BASE = PROD_BASE_URL
+API_KEY = get_or_mint_synth_api_key(backend_url=BACKEND_URL_BASE)
+SYNTH_API_BASE = BACKEND_URL_BASE
 
 # Get environment key
 ENVIRONMENT_API_KEY = ensure_localapi_auth(
@@ -69,7 +61,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
 
     # Test TaskInfo endpoint
     print("\nTesting TaskInfo endpoint...")
-    url = f"http://localhost:{port}/task_info?seed=0"
+    url = join_url(f"http://localhost:{port}", "/task_info?seed=0")
     print(f"GET {url}")
 
     try:

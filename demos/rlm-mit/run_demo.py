@@ -2,51 +2,29 @@
 """Run the MIT RLM OOLONG GEPA demo end-to-end.
 
 Usage:
-    uv run python demos/rlm-mit/run_demo.py           # Production mode (Cloudflare tunnels)
-    uv run python demos/rlm-mit/run_demo.py --local   # Local mode (localhost, no tunnels)
-    uv run python demos/rlm-mit/run_demo.py --local --local-host 127.0.0.1
+    uv run python demos/rlm-mit/run_demo.py
 """
 
-import argparse
 import asyncio
-import os
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List
 
 import httpx
 from datasets import load_dataset
-from dotenv import load_dotenv
 from rlm import RLM
 from rlm.core import rlm as rlm_core
 from rlm.core import types as rlm_types
 from rlm.utils import prompts as rlm_prompts
 from rlm.utils.prompts import USER_PROMPT
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE, backend_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, kill_port
-
-# Parse args to configure backend
-parser = argparse.ArgumentParser(description="Run MIT RLM OOLONG GEPA demo")
-parser.add_argument(
-    "--local",
-    action="store_true",
-    help="Run in local mode: use localhost:8000 backend and skip Cloudflare tunnels",
-)
-parser.add_argument(
-    "--local-host",
-    type=str,
-    default="localhost",
-    help="Hostname for local API URLs (use 'host.docker.internal' if backend runs in Docker)",
-)
-args = parser.parse_args()
-
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
 
 
 # Work around rlm QueryMetadata typing bug under Python 3.11
@@ -87,27 +65,21 @@ def patched_build_rlm_system_prompt(system_prompt, query_metadata=None, **_kwarg
 rlm_prompts.build_rlm_system_prompt = patched_build_rlm_system_prompt
 rlm_core.build_rlm_system_prompt = patched_build_rlm_system_prompt
 
-load_dotenv()
-
 # Backend configuration
-if LOCAL_MODE:
-    SYNTH_API_BASE = "http://localhost:8000"
-    TUNNEL_BACKEND = TunnelBackend.Localhost
-    LOCAL_API_PORT = 8115
-    print("=" * 60)
-    print("RUNNING IN LOCAL MODE")
-    print("=" * 60)
-else:
-    SYNTH_API_BASE = PROD_BASE_URL
-    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
-    LOCAL_API_PORT = 8115
+SYNTH_API_BASE = BACKEND_URL_BASE
+LOCAL_MODE = SYNTH_API_BASE.startswith("http://localhost") or SYNTH_API_BASE.startswith(
+    "http://127.0.0.1"
+)
+LOCAL_HOST = "127.0.0.1"
+TUNNEL_BACKEND = TunnelBackend.Localhost if LOCAL_MODE else TunnelBackend.CloudflareManagedTunnel
+LOCAL_API_PORT = 8115
 
 print(f"Backend: {SYNTH_API_BASE}")
 print(f"Tunnel backend: {TUNNEL_BACKEND.value}")
 print(f"Local API Port: {LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+r = httpx.get(backend_health_url(SYNTH_API_BASE), timeout=30)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
 else:
@@ -115,23 +87,13 @@ else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 # Get API Key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-if not API_KEY:
-    print("No SYNTH_API_KEY found, minting demo key...")
-    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
-    print(f"Demo API Key: {API_KEY[:25]}...")
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
-
-# Set API key in environment for SDK to use
-os.environ["SYNTH_API_KEY"] = API_KEY
+API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE)
+print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
 
 ENVIRONMENT_API_KEY = ensure_localapi_auth(
     backend_base=SYNTH_API_BASE,
     synth_api_key=API_KEY,
 )
-
-USE_TUNNEL = not LOCAL_MODE
 
 print("Config loaded")
 
@@ -558,7 +520,7 @@ async def main():
     wait_for_health_check_sync("localhost", LOCAL_API_PORT, ENVIRONMENT_API_KEY, timeout=60.0)
     print("Local API ready!")
 
-    if USE_TUNNEL:
+    if not LOCAL_MODE:
         print("\nProvisioning Cloudflare tunnel...")
         tunnel_start = time.time()
         tunnel = await TunneledLocalAPI.create(
