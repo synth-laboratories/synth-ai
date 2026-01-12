@@ -46,7 +46,7 @@ export async function refreshJobs(ctx: AppContext, options: { signal?: AbortSign
 
     if (!snapshot.selectedJob && jobs.length > 0 && !appState.autoSelected) {
       appState.autoSelected = true
-      await selectJob(ctx, jobs[0].job_id)
+      await selectJob(ctx, jobs[0].job_id, options)
       return true
     }
 
