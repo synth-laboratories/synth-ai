@@ -6,7 +6,7 @@ from pathlib import Path
 
 from synth_ai.core.agents.utils import write_agents_md
 from synth_ai.core.bin import install_bin, verify_bin
-from synth_ai.core.env_utils import resolve_env_var
+from synth_ai.core.env import resolve_env_var
 from synth_ai.core.paths import get_bin_path
 from synth_ai.core.urls import BACKEND_URL_BASE, BACKEND_URL_SYNTH_RESEARCH_OPENAI
 from synth_ai.data.enums import SYNTH_MODEL_NAMES

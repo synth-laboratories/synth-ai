@@ -10,7 +10,7 @@ Usage:
     uv run python run_mipro_in_process.py
 
 Requirements:
-    - Run `synth-ai setup` first to configure credentials in ~/.synth-ai/
+    - Run `synth-ai setup` first to configure credentials
     - GROQ_API_KEY or OPENAI_API_KEY in environment (for policy model)
     - cloudflared binary (will auto-install if missing)
 """
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import toml
 
-from synth_ai.core.env_utils import get_synth_and_env_keys
+from synth_ai.core.env import get_synth_and_env_keys
 from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.task import InProcessTaskApp
