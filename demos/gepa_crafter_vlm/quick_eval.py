@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Quick eval comparison: baseline vs optimized prompt (skips GEPA)."""
 
-from __future__ import annotations
-
 import asyncio
 import importlib
 import json
@@ -10,9 +8,10 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from openai import AsyncOpenAI
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task import TaskInfo, run_server_background
@@ -34,11 +33,9 @@ CrafterScorer = _crafter_logic.CrafterScorer
 CrafterVLMReActPolicy = _crafter_logic.CrafterVLMReActPolicy
 normalize_action_name = _crafter_logic.normalize_action_name
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
-
 # Config
-SYNTH_API_BASE = "https://api.usesynth.ai"
-SYNTH_API_KEY = os.environ.get("SYNTH_API_KEY", "")
+SYNTH_API_BASE = BACKEND_URL_BASE
+SYNTH_API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE)
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 EVAL_MODEL = "gpt-4o-mini"
 EVAL_SEEDS = [100, 101, 102]  # Just 3 seeds for speed

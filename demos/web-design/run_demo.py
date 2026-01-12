@@ -6,11 +6,9 @@ This demo optimizes a style system prompt that guides Gemini 2.5 Flash Image
 to generate visually accurate webpage screenshots from functional descriptions.
 
 Usage:
-    uv run python demos/web-design/run_demo.py --local   # Local mode (fast iteration)
-    uv run python demos/web-design/run_demo.py           # Production mode (with tunnels)
+    uv run python demos/web-design/run_demo.py
 """
 
-import argparse
 import asyncio
 import base64
 import io
@@ -29,8 +27,14 @@ from datasets import load_dataset, load_from_disk
 from PIL import Image
 
 try:
-    from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+    from synth_ai.core.paths import REPO_ROOT
+    from synth_ai.core.urls import (
+        BACKEND_URL_BASE,
+        backend_health_url,
+        join_url,
+    )
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
+    from synth_ai.sdk.auth import get_or_mint_synth_api_key
     from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 except ImportError as e:  # pragma: no cover
@@ -75,18 +79,11 @@ logging.getLogger("google").setLevel(logging.WARNING)
 logging.getLogger("google.auth").setLevel(logging.WARNING)
 logging.getLogger("google_genai").setLevel(logging.WARNING)
 
-# Parse args early
-parser = argparse.ArgumentParser(description="Run Web Design GEPA demo")
-parser.add_argument("--local", action="store_true", help="Local mode (localhost, no tunnels)")
-parser.add_argument("--local-host", type=str, default="127.0.0.1", help="Local host for APIs")
-args = parser.parse_args()
-
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
+LOCAL_HOST = "127.0.0.1"
 
 # Setup paths
 demo_dir = Path(__file__).parent
-repo_root = demo_dir.parent.parent
+repo_root = REPO_ROOT
 
 
 # Print a quick diagnostic if we're accidentally importing synth_ai from elsewhere.
@@ -118,52 +115,27 @@ def _maybe_warn_on_synth_ai_mismatch() -> None:
 
 _maybe_warn_on_synth_ai_mismatch()
 
-# Load .env (optional)
-try:
-    from dotenv import load_dotenv
-
-    env_file = repo_root / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-        logger.debug(f"Loaded {env_file}")
-except ImportError:
-    print("python-dotenv not installed, using existing environment variables")
-
-
 # Backend config
-if LOCAL_MODE:
-    SYNTH_API_BASE = "http://127.0.0.1:8000"
-    TUNNEL_BACKEND = TunnelBackend.Localhost
-    LOCAL_API_PORT = 8103
-    print("=" * 80)
-    print("RUNNING IN LOCAL MODE")
-    print("=" * 80)
-else:
-    SYNTH_API_BASE = PROD_BASE_URL
-    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
-    LOCAL_API_PORT = 8001
+SYNTH_API_BASE = BACKEND_URL_BASE
+LOCAL_MODE = SYNTH_API_BASE.startswith("http://localhost") or SYNTH_API_BASE.startswith(
+    "http://127.0.0.1"
+)
+TUNNEL_BACKEND = TunnelBackend.Localhost if LOCAL_MODE else TunnelBackend.CloudflareManagedTunnel
+LOCAL_API_PORT = 8103 if LOCAL_MODE else 8001
 
 print(f"Backend: {SYNTH_API_BASE}")
 print(f"Local API Port: {LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=60)
+r = httpx.get(backend_health_url(SYNTH_API_BASE), timeout=60)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
 else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 # Get API key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-
-if not API_KEY:
-    print("No SYNTH_API_KEY, minting demo key...")
-    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
-    print(f"Demo API Key: {API_KEY[:25]}...")
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
-
-os.environ["SYNTH_API_KEY"] = API_KEY
+API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE)
+print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
 
 # Ensure environment key
 ENVIRONMENT_API_KEY = ensure_localapi_auth(
@@ -453,7 +425,7 @@ Apply the visual style guidelines to match the original design."""
 
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
-                    f"{inference_url.rstrip('/')}/chat/completions",
+                    join_url(inference_url, "/chat/completions"),
                     json={
                         "model": model,
                         "messages": messages,
@@ -741,7 +713,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
     def _event_poller() -> None:
         # The backend uses `seq > since_seq` (strict gt), so we keep `since_seq` as the last seen seq.
         last_seq = 0
-        url = f"{SYNTH_API_BASE}/api/prompt-learning/online/jobs/{job_id}/events"
+        url = join_url(SYNTH_API_BASE, f"/api/prompt-learning/online/jobs/{job_id}/events")
         headers = {"Authorization": f"Bearer {API_KEY}"}
         while not stop_events.is_set():
             try:

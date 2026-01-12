@@ -1,25 +1,10 @@
 import argparse
 import json
 import os
-from pathlib import Path
 from typing import Any, Dict, List
 
 import httpx
-
-
-def load_env_file(path: Path) -> Dict[str, str]:
-    env: Dict[str, str] = {}
-    if not path.exists():
-        return env
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        env[key.strip()] = value.strip().strip('"')
-    return env
+from synth_ai.core.urls import BACKEND_URL_BASE, join_url
 
 
 def extract_verifier_score(result: Dict[str, Any]) -> float:
@@ -84,10 +69,7 @@ def make_gold_examples(session_trace: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Debug verifier scoring against localhost backend."
-    )
-    parser.add_argument("--backend", default="http://localhost:8000", help="Backend base URL")
+    parser = argparse.ArgumentParser(description="Debug verifier scoring against backend.")
     parser.add_argument(
         "--verifier-job-id",
         default="zero_shot_verifier_contrastive_single",
@@ -96,13 +78,9 @@ def main() -> None:
     parser.add_argument("--model", default="gpt-4.1-nano", help="Verifier model override")
     args = parser.parse_args()
 
-    repo_root = Path(__file__).resolve().parents[2]
-    env_path = repo_root / ".env"
-    env = load_env_file(env_path)
-
-    api_key = env.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY")
+    api_key = os.environ.get("SYNTH_API_KEY")
     if not api_key:
-        raise SystemExit("SYNTH_API_KEY not found in synth-ai/.env or environment")
+        raise SystemExit("SYNTH_API_KEY not found in environment")
 
     session_trace = make_session_trace()
     gold_examples = make_gold_examples(session_trace)
@@ -123,7 +101,7 @@ def main() -> None:
         "Content-Type": "application/json",
     }
 
-    url = f"{args.backend.rstrip('/')}/api/graphs/completions"
+    url = join_url(BACKEND_URL_BASE, "/api/graphs/completions")
     print(f"POST {url}")
     print(f"job_id: {args.verifier_job_id}")
 

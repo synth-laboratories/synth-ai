@@ -3,7 +3,7 @@
 Run the image style matching notebook end-to-end using papermill.
 
 Usage:
-    cd /Users/joshpurtell/Documents/GitHub/synth-ai
+    cd /path/to/synth-ai
     uv run python demos/image_style_matching/run_notebook.py
 """
 
@@ -29,10 +29,6 @@ def main():
 
     # Parameters to pass to the notebook
     parameters = {}
-
-    # Use local backend if LOCAL_BACKEND is set
-    if os.environ.get("LOCAL_BACKEND", "").lower() in ("1", "true", "yes"):
-        parameters["BACKEND_URL"] = "http://127.0.0.1:8000/api"
 
     # Pass API key if set
     if os.environ.get("SYNTH_API_KEY"):

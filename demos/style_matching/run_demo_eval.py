@@ -2,8 +2,8 @@
 """Run style-matching heldout eval (4 combinations) using saved artifacts.
 
 Usage:
-    uv run python demos/style_matching/run_demo_eval.py --local
-    uv run python demos/style_matching/run_demo_eval.py --local \
+    uv run python demos/style_matching/run_demo_eval.py
+    uv run python demos/style_matching/run_demo_eval.py \
       --prompt-path demos/style_matching/artifacts/prompt_opt.json \
       --verifier-path demos/style_matching/artifacts/verifier_opt.json
 """
@@ -20,7 +20,14 @@ from typing import Any, Dict, List, Optional
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from synth_ai.core.urls import (
+    BACKEND_URL_BASE,
+    backend_health_url,
+    backend_me_url,
+    join_url,
+)
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.tunnels import (
@@ -33,11 +40,6 @@ from synth_ai.sdk.tunnels import (
 )
 
 parser = argparse.ArgumentParser(description="Run style-matching heldout eval")
-parser.add_argument(
-    "--local",
-    action="store_true",
-    help="Run in local mode: use localhost:8000 backend",
-)
 parser.add_argument(
     "--local-host",
     type=str,
@@ -64,27 +66,11 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-synth_root = Path(__file__).resolve().parents[2]
-
-
-def _load_env_file(path: Path) -> None:
-    if not path.exists():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line or line.lstrip().startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("' ")
-        if key:
-            os.environ[key] = value
-
-
-_load_env_file(synth_root / ".env")
-
-USE_LOCAL_BACKEND = args.local
-SYNTH_API_BASE = "http://127.0.0.1:8000" if USE_LOCAL_BACKEND else "https://api.usesynth.ai"
+SYNTH_API_BASE = BACKEND_URL_BASE
 os.environ["BACKEND_BASE_URL"] = SYNTH_API_BASE
+LOCAL_MODE = SYNTH_API_BASE.startswith("http://localhost") or SYNTH_API_BASE.startswith(
+    "http://127.0.0.1"
+)
 
 LOCAL_TASK_PORT = 8132
 LOCAL_TASK_HOST = args.local_host
@@ -95,7 +81,7 @@ def _validate_api_key(api_key: str) -> bool:
         return False
     headers = {"Authorization": f"Bearer {api_key}"}
     try:
-        resp = httpx.get(f"{SYNTH_API_BASE}/api/v1/me", headers=headers, timeout=10)
+        resp = httpx.get(backend_me_url(SYNTH_API_BASE), headers=headers, timeout=10)
     except Exception:
         return False
     return resp.status_code == 200
@@ -103,22 +89,13 @@ def _validate_api_key(api_key: str) -> bool:
 
 print(f"Backend: {SYNTH_API_BASE}")
 
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+r = httpx.get(backend_health_url(SYNTH_API_BASE), timeout=30)
 if r.status_code != 200:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 print(f"Backend health: {r.json()}")
 
-API_KEY = os.environ.get("SYNTH_API_KEY", "").strip()
-if not API_KEY or not _validate_api_key(API_KEY):
-    print("SYNTH_API_KEY missing or invalid for this backend; minting demo key...")
-    resp = httpx.post(f"{SYNTH_API_BASE}/api/demo/keys", json={"ttl_hours": 4}, timeout=30)
-    resp.raise_for_status()
-    API_KEY = resp.json()["api_key"]
-    print(f"Demo API Key: {API_KEY[:25]}...")
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
-
-os.environ["SYNTH_API_KEY"] = API_KEY
+API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE, validator=_validate_api_key)
+print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
 
 ENVIRONMENT_API_KEY = mint_environment_api_key()
 print(f"Minted env key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
@@ -390,8 +367,8 @@ def _build_messages(
 def _build_inference_url(inference_url: str) -> str:
     if "?" in inference_url:
         base, query = inference_url.split("?", 1)
-        return f"{base.rstrip('/')}/chat/completions?{query}"
-    return f"{inference_url.rstrip('/')}/chat/completions"
+        return f"{join_url(base, '/chat/completions')}?{query}"
+    return join_url(inference_url, "/chat/completions")
 
 
 def _extract_completion(data: Dict[str, Any]) -> str:
@@ -468,7 +445,7 @@ async def _score_with_verifier(
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
-            f"{SYNTH_API_BASE.rstrip('/')}/api/graphs/completions",
+            join_url(SYNTH_API_BASE, "/api/graphs/completions"),
             headers=headers,
             json=payload,
         )
@@ -691,7 +668,8 @@ async def main() -> None:
     print("Task app ready!")
     _start_task_app_monitor()
 
-    if USE_LOCAL_BACKEND:
+    if LOCAL_MODE:
+        print("Using localhost task app URL (no tunnel)")
         task_app_url = f"http://{LOCAL_TASK_HOST}:{LOCAL_TASK_PORT}"
         tunnel = None
     else:
@@ -763,13 +741,13 @@ async def main() -> None:
     for key, value in results.items():
         print(f"- {key}: {value:.3f}")
 
-    artifacts_dir = synth_root / "demos" / "style_matching" / "artifacts"
+    artifacts_dir = Path(__file__).parent / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     output_path = artifacts_dir / "eval_results.json"
     output_path.write_text(json.dumps({"results": results}, indent=2), encoding="utf-8")
     print(f"Saved eval results: {output_path}")
 
-    if not USE_LOCAL_BACKEND:
+    if not LOCAL_MODE:
         cleanup_all()
 
 

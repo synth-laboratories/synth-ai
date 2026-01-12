@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Run fair comparison between baseline and optimized prompt (no GEPA)."""
 
-from __future__ import annotations
-
 import asyncio
 import importlib
 import json
@@ -11,7 +9,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 # Setup - add directory to path and change to it for local imports
@@ -27,8 +24,6 @@ CrafterEnvironmentWrapper = _crafter_logic.CrafterEnvironmentWrapper
 CrafterScorer = _crafter_logic.CrafterScorer
 CrafterVLMReActPolicy = _crafter_logic.CrafterVLMReActPolicy
 normalize_action_name = _crafter_logic.normalize_action_name
-
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 # Config
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
