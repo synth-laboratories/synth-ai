@@ -6,7 +6,6 @@ import type { ActivePane, PrincipalPane } from "../types"
 import { focusManager } from "../focus"
 import { moveLogSelection, pageLogSelection, getSelectedLogFile } from "./logs"
 import { moveEventSelection, toggleSelectedEventExpanded } from "./events"
-import { scrollOpenCode, handleOpenCodeInput, handleOpenCodeBackspace, sendOpenCodeMessage } from "./opencode"
 
 /** Create a focusable handler for the logs pane */
 function createLogsPaneFocusable(ctx: AppContext, openLogFileModal: (filePath: string) => void) {
@@ -74,65 +73,13 @@ function createEventsPaneFocusable(ctx: AppContext, openEventModal: () => void) 
   }
 }
 
-/** Create a focusable handler for the OpenCode pane */
-function createOpenCodePaneFocusable(ctx: AppContext) {
-  return {
-    id: "opencode-pane",
-    handleKey: (key: any): boolean => {
-      if (key.name === "up" || key.name === "k") {
-        scrollOpenCode(ctx, -1)
-        ctx.render()
-        return true
-      }
-      if (key.name === "down" || key.name === "j") {
-        scrollOpenCode(ctx, 1)
-        ctx.render()
-        return true
-      }
-      if (key.name === "pageup") {
-        scrollOpenCode(ctx, -10)
-        ctx.render()
-        return true
-      }
-      if (key.name === "pagedown") {
-        scrollOpenCode(ctx, 10)
-        ctx.render()
-        return true
-      }
-      if (key.name === "return" || key.name === "enter") {
-        void sendOpenCodeMessage(ctx)
-        return true
-      }
-      if (key.name === "backspace") {
-        handleOpenCodeBackspace(ctx)
-        return true
-      }
-      // Let global shortcuts through (Shift+O for sessions, Shift+G for toggle, q for quit)
-      if (key.shift && (key.name === "o" || key.name === "g")) {
-        return false
-      }
-      if (key.name === "q" || key.name === "escape") {
-        return false
-      }
-      // Handle character input
-      if (key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta) {
-        handleOpenCodeInput(ctx, key.sequence)
-        return true
-      }
-      return false
-    },
-  }
-}
-
 let logsFocusable: ReturnType<typeof createLogsPaneFocusable> | null = null
 let eventsFocusable: ReturnType<typeof createEventsPaneFocusable> | null = null
-let openCodeFocusable: ReturnType<typeof createOpenCodePaneFocusable> | null = null
 
 /** Initialize pane focusables (call once after modals are set up) */
 export function initPaneFocusables(ctx: AppContext, openEventModal: () => void, openLogFileModal: (filePath: string) => void): void {
   logsFocusable = createLogsPaneFocusable(ctx, openLogFileModal)
   eventsFocusable = createEventsPaneFocusable(ctx, openEventModal)
-  openCodeFocusable = createOpenCodePaneFocusable(ctx)
 }
 
 export function setActivePane(ctx: AppContext, pane: ActivePane): void {
@@ -224,10 +171,6 @@ export function blurForModal(ctx: AppContext): void {
   if (appState.activePane === "events" && eventsFocusable) {
     focusManager.pop("events-pane")
   }
-  // Pop opencode pane if in opencode mode
-  if (appState.principalPane === "opencode" && openCodeFocusable) {
-    focusManager.pop("opencode-pane")
-  }
 }
 
 /** Restore focus after closing a modal */
@@ -240,9 +183,6 @@ export function restoreFocusFromModal(ctx: AppContext): void {
 
   // If in OpenCode mode, focus the OpenCode pane
   if (appState.principalPane === "opencode") {
-    if (openCodeFocusable) {
-      focusManager.push(openCodeFocusable)
-    }
     return
   }
 
@@ -263,9 +203,6 @@ export function setPrincipalPane(ctx: AppContext, pane: PrincipalPane): void {
   if (appState.principalPane === pane) return
 
   // Pop current focusables
-  if (appState.principalPane === "opencode" && openCodeFocusable) {
-    focusManager.pop("opencode-pane")
-  }
   if (appState.activePane === "logs" && logsFocusable) {
     focusManager.pop("logs-pane")
   }
@@ -276,20 +213,9 @@ export function setPrincipalPane(ctx: AppContext, pane: PrincipalPane): void {
 
   appState.principalPane = pane
 
-  // Update visibility
   if (pane === "jobs") {
-    ui.detailColumn.visible = true
-    ui.openCodeBox.visible = false
     ui.jobsSelect.focus()
-  } else {
-    ui.detailColumn.visible = false
-    ui.openCodeBox.visible = true
-    if (openCodeFocusable) {
-      focusManager.push(openCodeFocusable)
-    }
   }
-
-  updatePrincipalIndicators(ctx)
   ctx.requestRender()
 }
 
@@ -301,10 +227,3 @@ export function togglePrincipalPane(ctx: AppContext): void {
 }
 
 /** Update visual indicators for principal pane */
-export function updatePrincipalIndicators(ctx: AppContext): void {
-  const { ui } = ctx
-  const { appState } = ctx.state
-
-  // Update OpenCode box border to show when active
-  ui.openCodeBox.borderColor = appState.principalPane === "opencode" ? "#60a5fa" : "#334155"
-}

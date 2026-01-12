@@ -5,9 +5,6 @@
  * event streams via Server-Sent Events (SSE).
  */
 
-import type { AppContext } from "../context"
-import type { OpenCodeMessage } from "../types"
-
 /** OpenCode event types */
 export type OpenCodeEventType =
   | "message.part.updated"
@@ -26,24 +23,6 @@ export type OpenCodeEventType =
   | "pty.updated"
   | "pty.exited"
   | "pty.deleted"
-
-/** Message part from OpenCode */
-export type OpenCodeMessagePart = {
-  id: string
-  messageID: string
-  sessionID: string
-  type: "tool" | "text" | "step-start" | "step-finish" | "subtask"
-  state: {
-    status: "pending" | "running" | "completed"
-    title?: string
-    input?: Record<string, any>
-    output?: string
-  }
-  time?: {
-    start?: number
-    end?: number
-  }
-}
 
 /** OpenCode SSE event */
 export type OpenCodeEvent = {
@@ -167,123 +146,3 @@ export function subscribeToOpenCodeEvents(
  * @param sessionId - Session ID to send to
  * @param prompt - The prompt text
  */
-export async function sendPrompt(
-  baseUrl: string,
-  sessionId: string,
-  prompt: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const response = await fetch(`${baseUrl}/session/${sessionId}/message`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        parts: [
-          { type: "text", text: prompt }
-        ]
-      }),
-    })
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => "")
-      return { success: false, error: `HTTP ${response.status}: ${text}` }
-    }
-
-    return { success: true }
-  } catch (err: any) {
-    return { success: false, error: err?.message || "Unknown error" }
-  }
-}
-
-/**
- * Process OpenCode event and update app state.
- */
-export function processOpenCodeEvent(ctx: AppContext, event: OpenCodeEvent): void {
-  const { appState } = ctx.state
-
-  switch (event.type) {
-    case "message.part.updated": {
-      const part = event.properties.part as OpenCodeMessagePart
-      if (!part) return
-
-      // Find existing message or create new one
-      const existingIdx = appState.openCodeMessages.findIndex(
-        (m) => m.id === part.messageID
-      )
-
-      if (existingIdx >= 0) {
-        // Update existing message
-        const existing = appState.openCodeMessages[existingIdx]
-        if (part.type === "text" && event.properties.delta) {
-          existing.content += event.properties.delta
-        } else if (part.type === "tool") {
-          existing.toolStatus = part.state.status as any
-          if (part.state.output) {
-            existing.content = part.state.output
-          }
-        }
-      } else {
-        // Add new message
-        const newMessage: OpenCodeMessage = {
-          id: part.messageID,
-          role: part.type === "tool" ? "tool" : "assistant",
-          content: event.properties.delta || part.state.output || "",
-          timestamp: new Date(),
-          toolName: part.type === "tool" ? part.state.title : undefined,
-          toolStatus: part.type === "tool" ? (part.state.status as any) : undefined,
-        }
-        appState.openCodeMessages.push(newMessage)
-      }
-      break
-    }
-
-    case "session.idle": {
-      appState.openCodeIsProcessing = false
-      break
-    }
-
-    case "session.error": {
-      appState.openCodeIsProcessing = false
-      const errorMsg = event.properties.error || "Unknown error"
-      appState.openCodeMessages.push({
-        id: `error-${Date.now()}`,
-        role: "assistant",
-        content: `Error: ${errorMsg}`,
-        timestamp: new Date(),
-      })
-      break
-    }
-
-    case "server.heartbeat": {
-      // No action needed - just keep-alive
-      break
-    }
-  }
-
-  ctx.render()
-}
-
-/**
- * Add a user message to the conversation.
- */
-export function addUserMessage(ctx: AppContext, content: string): void {
-  const { appState } = ctx.state
-
-  appState.openCodeMessages.push({
-    id: `user-${Date.now()}`,
-    role: "user",
-    content,
-    timestamp: new Date(),
-  })
-
-  ctx.render()
-}
-
-/**
- * Clear all OpenCode messages.
- */
-export function clearOpenCodeMessages(ctx: AppContext): void {
-  ctx.state.appState.openCodeMessages = []
-  ctx.render()
-}

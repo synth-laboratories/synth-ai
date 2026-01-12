@@ -10,6 +10,7 @@ import { getClient, type Message, type Part, type Event, type Session, type Assi
 import { COLORS } from "../theme"
 import { MessageBubble } from "./MessageBubble"
 import { subscribeToOpenCodeEvents } from "../../api/opencode"
+import { appState } from "../../state/app-state"
 
 export type ChatPaneProps = {
   url: string
@@ -49,11 +50,7 @@ type ProviderListResponse = {
   connected: string[]
 }
 
-type SessionListItem = {
-  id: string
-  title: string | undefined
-  time: { updated: number }
-}
+type SessionStatus = { type: "idle" } | { type: "busy" } | { type: "retry"; delay: number }
 
 type SessionState = {
   id: string
@@ -62,7 +59,7 @@ type SessionState = {
   providers: Provider[]
   isLoading: boolean
   error: string | null
-  sessionList: SessionListItem[]
+  sessionStatus: SessionStatus
 }
 
 export function ChatPane(props: ChatPaneProps) {
@@ -73,7 +70,7 @@ export function ChatPane(props: ChatPaneProps) {
     providers: [],
     isLoading: false,
     error: null,
-    sessionList: [],
+    sessionStatus: { type: "idle" },
   })
   // Use SolidJS store for parts - proper fine-grained reactivity like OpenCode's TUI
   const [partsStore, setPartsStore] = createStore<Record<string, Part[]>>({})
@@ -82,16 +79,21 @@ export function ChatPane(props: ChatPaneProps) {
   const log = (msg: string) => setDebugLog(logs => [...logs.slice(-5), msg])
   const [inputText, setInputText] = createSignal("")
   const [showModelSelector, setShowModelSelector] = createSignal(false)
-  const [showSessionSelector, setShowSessionSelector] = createSignal(false)
   const [selectedModel, setSelectedModel] = createSignal<SelectedModel | null>(null)
   const [modelSelectorIndex, setModelSelectorIndex] = createSignal(0)
-  const [sessionSelectorIndex, setSessionSelectorIndex] = createSignal(0)
+  // Interrupt UX.
+  const [showAbortedBanner, setShowAbortedBanner] = createSignal(false)
   // Get renderer for explicit re-renders (opentui requires this for terminal updates)
   const renderer = useRenderer()
   // Buffer for parts that arrive before their message (mutable to avoid signal race conditions)
   const pendingParts = new Map<string, Part[]>()
 
-  const client = getClient(props.url)
+  let client = getClient(props.url)
+  let cancelPolling = () => {}
+
+  createEffect(() => {
+    client = getClient(props.url)
+  })
 
   // Flatten models from connected providers (only show synth models)
   const availableModels = createMemo(() => {
@@ -152,76 +154,93 @@ export function ChatPane(props: ChatPaneProps) {
     }
   })
 
-  // Initialize session and fetch providers
+  const setDefaultModel = (providers: Provider[]) => {
+    if (selectedModel()) return
+
+    const synthProvider = providers.find((p) => p.id === "synth")
+    if (!synthProvider) {
+      setSelectedModel({ providerID: "synth", modelID: "synth-large-instant" })
+      return
+    }
+
+    const preferredModels = ["synth-large-instant", "synth-large-thinking", "synth-medium", "synth-small"]
+    for (const modelId of preferredModels) {
+      if (synthProvider.models[modelId]) {
+        setSelectedModel({ providerID: "synth", modelID: modelId })
+        return
+      }
+    }
+
+    const firstModelId = Object.keys(synthProvider.models)[0]
+    if (firstModelId) {
+      setSelectedModel({ providerID: "synth", modelID: firstModelId })
+    }
+  }
+
   createEffect(async () => {
     try {
-      // Fetch providers for context limit info
       const providersRes = await client.provider.list({})
       const providerData = providersRes.data as ProviderListResponse | undefined
       const providers = providerData?.all || []
+      setState((s) => ({ ...s, providers }))
+      setDefaultModel(providers)
+    } catch (err) {
+      setState((s) => ({ ...s, error: String(err) }))
+    }
+  })
 
-      // Set default model - use synth provider (routed through Synth backend)
-      const setDefaultModel = () => {
-        if (selectedModel()) return // Already have a model selected
+  createEffect(async () => {
+    const sessionId = props.sessionId
+    cancelPolling()
+    if (!sessionId) {
+      pendingParts.clear()
+      setPartsStore(reconcile({}))
+      setState((s) => ({
+        ...s,
+        id: "",
+        session: null,
+        messages: [],
+        isLoading: false,
+        error: null,
+        sessionStatus: { type: "idle" },
+      }))
+      return
+    }
 
-        // Only use models from synth provider
-        const synthProvider = providers.find((p) => p.id === "synth")
-        if (!synthProvider) return
+    pendingParts.clear()
+    setPartsStore(reconcile({}))
 
-        // Preferred models in order of preference - synth-large-instant works best
-        const preferredModels = ["synth-large-instant", "synth-large-thinking", "synth-medium", "synth-small"]
+    try {
+      const [sessionRes, messagesRes, statusRes] = await Promise.all([
+        client.session.get({ sessionID: sessionId }),
+        client.session.messages({ sessionID: sessionId }),
+        client.session.status().catch(() => ({ data: {} })),
+      ])
+      const initialStatus = (statusRes.data as Record<string, SessionStatus>)?.[sessionId] || { type: "idle" }
 
-        // Try to find a preferred model
-        for (const modelId of preferredModels) {
-          if (synthProvider.models[modelId]) {
-            setSelectedModel({ providerID: "synth", modelID: modelId })
-            return
-          }
+      if (messagesRes.data) {
+        const partsData: Record<string, Part[]> = {}
+        for (const msg of messagesRes.data) {
+          partsData[msg.info.id] = msg.parts
         }
-
-        // Fall back to first available model from synth
-        const firstModelId = Object.keys(synthProvider.models)[0]
-        if (firstModelId) {
-          setSelectedModel({ providerID: "synth", modelID: firstModelId })
-        }
+        setPartsStore(reconcile(partsData))
       }
+      setState((s) => ({
+        ...s,
+        id: sessionId,
+        session: sessionRes.data || null,
+        messages: messagesRes.data || [],
+        error: null,
+        sessionStatus: initialStatus,
+        isLoading: initialStatus.type !== "idle",
+      }))
 
-      if (props.sessionId) {
-        // Load existing session
-        const [sessionRes, messagesRes] = await Promise.all([
-          client.session.get({ sessionID: props.sessionId }),
-          client.session.messages({ sessionID: props.sessionId }),
-        ])
-        // Populate parts store from messages
-        if (messagesRes.data) {
-          const partsData: Record<string, Part[]> = {}
-          for (const msg of messagesRes.data) {
-            partsData[msg.info.id] = msg.parts
-          }
-          setPartsStore(reconcile(partsData))
-        }
-        setState((s) => ({
-          ...s,
-          id: props.sessionId!,
-          session: sessionRes.data || null,
-          messages: messagesRes.data || [],
-          providers,
-        }))
-        // Set model from last assistant message if available
-        const lastAssistant = (messagesRes.data || []).findLast((m) => m.info.role === "assistant")
-        if (lastAssistant && lastAssistant.info.role === "assistant") {
-          const assistantInfo = lastAssistant.info as AssistantMessage
-          setSelectedModel({ providerID: assistantInfo.providerID, modelID: assistantInfo.modelID })
-        } else {
-          setDefaultModel()
-        }
+      const lastAssistant = (messagesRes.data || []).findLast((m) => m.info.role === "assistant")
+      if (lastAssistant && lastAssistant.info.role === "assistant") {
+        const assistantInfo = lastAssistant.info as AssistantMessage
+        setSelectedModel({ providerID: assistantInfo.providerID, modelID: assistantInfo.modelID })
       } else {
-        // Create new session
-        const sessionRes = await client.session.create(props.workingDir ? { directory: props.workingDir } : {})
-        if (sessionRes.data) {
-          setState((s) => ({ ...s, id: sessionRes.data!.id, session: sessionRes.data!, providers }))
-        }
-        setDefaultModel()
+        setDefaultModel(state().providers)
       }
     } catch (err) {
       setState((s) => ({ ...s, error: String(err) }))
@@ -233,7 +252,6 @@ export function ChatPane(props: ChatPaneProps) {
   createEffect(() => {
     log("Starting event subscription...")
     const sub = subscribeToOpenCodeEvents(props.url, {
-      directory: props.workingDir,
       onConnect: () => log("SSE connected"),
       onError: (err) => log(`SSE error: ${String(err)}`),
       onEvent: (evt) => handleEvent(evt as unknown as Event),
@@ -343,15 +361,67 @@ export function ChatPane(props: ChatPaneProps) {
       const updatedSession = event.properties.info
       if (updatedSession.id !== sessionId) return
       setState((s) => ({ ...s, session: updatedSession }))
+    } else if (event.type === "session.status") {
+      if (event.properties.sessionID !== sessionId) return
+      const status = event.properties.status as SessionStatus
+      setState((s) => ({
+        ...s,
+        sessionStatus: status,
+        isLoading: status.type !== "idle",
+      }))
+      renderer.requestRender()
+    } else if (event.type === "session.error") {
+      if (event.properties.sessionID !== sessionId) return
+      setState((s) => ({
+        ...s,
+        isLoading: false,
+        error: event.properties.error || "OpenCode session error",
+      }))
+      renderer.requestRender()
+    } else if (event.type === "session.idle") {
+      const idleSessionId = event.properties?.sessionID
+      if (idleSessionId && idleSessionId !== sessionId) return
+      setState((s) => ({
+        ...s,
+        isLoading: false,
+        sessionStatus: { type: "idle" },
+      }))
+      renderer.requestRender()
+    } else if (event.type === "permission.asked") {
+      const request = event.properties
+      if (request?.sessionID !== sessionId) return
+      void fetch(`${props.url}/permission/${request.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reply: "once" }),
+      }).catch((err) => {
+        setState((s) => ({ ...s, error: String(err) }))
+        renderer.requestRender()
+      })
     }
   }
 
   const sendMessage = async () => {
     const text = inputText().trim()
-    if (!text || state().isLoading) return
+    if (!text) return
+
+    if (text === "/abort" || text === "/stop" || text === "/interrupt") {
+      setInputText("")
+      abortSession("command")
+      return
+    }
+
+    if (state().isLoading) return
 
     const sessionId = state().id
-    if (!sessionId) return
+    if (!sessionId) {
+      setState((s) => ({
+        ...s,
+        error: "No active session. Press Shift+O to connect to OpenCode.",
+      }))
+      renderer.requestRender()
+      return
+    }
 
     // Clear input immediately
     setInputText("")
@@ -395,6 +465,10 @@ export function ChatPane(props: ChatPaneProps) {
     // Rationale: OpenCode persists message parts as they stream; polling guarantees UI updates even if SSE delivery
     // or terminal redraws are unreliable in some environments.
     let stopPolling = false
+    const promptStartedAt = Date.now()
+    cancelPolling = () => {
+      stopPolling = true
+    }
 
     const poll = async () => {
       while (!stopPolling) {
@@ -408,113 +482,106 @@ export function ChatPane(props: ChatPaneProps) {
             setPartsStore(produce((store) => Object.assign(store, partsData)))
             setState((s) => ({ ...s, messages: messagesRes.data! }))
             renderer.requestRender()
+            const hasAssistant = messagesRes.data.some((msg) =>
+              msg.info.role === "assistant" &&
+              (msg.info.time?.created ?? 0) >= promptStartedAt
+            )
+            if (state().sessionStatus.type === "idle" && hasAssistant) {
+              stopPolling = true
+              setState((s) => ({ ...s, isLoading: false }))
+              renderer.requestRender()
+              break
+            }
           }
         } catch {
           // ignore polling errors
         }
+        if (Date.now() - promptStartedAt > 120000) {
+          stopPolling = true
+          setState((s) => ({ ...s, isLoading: false, error: "Timed out waiting for a response." }))
+          renderer.requestRender()
+          break
+        }
         await new Promise((r) => setTimeout(r, 200))
       }
+      cancelPolling = () => {}
     }
 
     void poll()
 
-    client.session
-      .prompt({
-        sessionID: sessionId,
-        parts: [{ type: "text", text }],
-        ...(model && { model }),
-        ...(directory && { directory }),
-      })
-      .catch((err) => {
-        setState((s) => ({ ...s, error: String(err) }))
-      })
-      .finally(async () => {
-        stopPolling = true
-        // One final refresh at the end for correctness
-        try {
-          const messagesRes = await client.session.messages({ sessionID: sessionId })
-          if (messagesRes.data) {
-            const partsData: Record<string, Part[]> = {}
-            for (const msg of messagesRes.data) {
-              partsData[msg.info.id] = msg.parts
-            }
-            setPartsStore(produce((store) => Object.assign(store, partsData)))
-            setState((s) => ({ ...s, messages: messagesRes.data! }))
-          }
-        } catch {
-          // ignore
-        } finally {
-          setState((s) => ({ ...s, isLoading: false }))
-          renderer.requestRender()
-        }
-      })
-  }
-
-  // Create a new session
-  const createNewSession = async () => {
     try {
-      const sessionRes = await client.session.create(props.workingDir ? { directory: props.workingDir } : {})
-      if (sessionRes.data) {
-        // Clear pending parts and parts store for old session
-        pendingParts.clear()
-        setPartsStore(reconcile({}))
+      const response = await fetch(`${props.url}/session/${sessionId}/prompt_async`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parts: [{ type: "text", text }],
+          ...(model && { model }),
+          ...(directory && { directory }),
+        }),
+      })
+      if (!response.ok && response.status !== 204) {
+        const body = await response.text().catch(() => "")
+        stopPolling = true
         setState((s) => ({
           ...s,
-          id: sessionRes.data!.id,
-          session: sessionRes.data!,
-          messages: [],
-          error: null,
+          isLoading: false,
+          error: `Send failed (${response.status}): ${body || response.statusText}`,
         }))
+        renderer.requestRender()
+        return
       }
     } catch (err) {
-      setState((s) => ({ ...s, error: String(err) }))
+      stopPolling = true
+      setState((s) => ({ ...s, isLoading: false, error: String(err) }))
+      renderer.requestRender()
+      return
     }
   }
 
-  // Load the list of sessions
-  const loadSessionList = async () => {
-    try {
-      const sessionsRes = await client.session.list({ limit: 20 })
-      if (sessionsRes.data) {
-        const sessions = sessionsRes.data.map((s: any) => ({
-          id: s.id,
-          title: s.title,
-          time: s.time,
-        }))
-        setState((s) => ({ ...s, sessionList: sessions }))
-      }
-    } catch (err) {
-      console.error("Failed to load sessions:", err)
-    }
+  const abortSession = (reason: string) => {
+    const sessionId = state().id
+    if (!sessionId) return
+
+    cancelPolling()
+    setShowAbortedBanner(true)
+    setState((s) => ({ ...s, isLoading: false }))
+    setTimeout(() => {
+      setShowAbortedBanner(false)
+      renderer.requestRender()
+    }, 3000)
+    renderer.requestRender()
+
+    void fetch(`${props.url}/session/${sessionId}/abort`, { method: "POST" })
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.text().catch(() => "")
+          setState((s) => ({
+            ...s,
+            error: `Abort failed (${res.status}): ${body || res.statusText}`,
+          }))
+        }
+      })
+      .catch((err) => {
+        log(`Abort error (${reason}): ${err}`)
+        setState((s) => ({ ...s, error: String(err) }))
+      })
+      .finally(() => {
+        renderer.requestRender()
+      })
   }
 
-  // Switch to a different session
-  const switchToSession = async (sessionId: string) => {
-    try {
-      const [sessionRes, messagesRes] = await Promise.all([
-        client.session.get({ sessionID: sessionId }),
-        client.session.messages({ sessionID: sessionId }),
-      ])
-      // Clear pending parts for old session
-      pendingParts.clear()
-      setState((s) => ({
-        ...s,
-        id: sessionId,
-        session: sessionRes.data || null,
-        messages: messagesRes.data || [],
-        error: null,
-      }))
-      // Update model from last assistant message if available
-      const lastAssistant = (messagesRes.data || []).findLast((m) => m.info.role === "assistant")
-      if (lastAssistant && lastAssistant.info.role === "assistant") {
-        const assistantInfo = lastAssistant.info as AssistantMessage
-        setSelectedModel({ providerID: assistantInfo.providerID, modelID: assistantInfo.modelID })
-      }
-      setShowSessionSelector(false)
-    } catch (err) {
-      setState((s) => ({ ...s, error: String(err) }))
+  createEffect(() => {
+    const isBusy = state().isLoading || state().sessionStatus.type !== "idle"
+    if (state().id && isBusy) {
+      appState.openCodeAbort = () => abortSession("global")
+    } else if (appState.openCodeAbort) {
+      appState.openCodeAbort = null
     }
-  }
+  })
+
+  onCleanup(() => {
+    if (appState.openCodeAbort) appState.openCodeAbort = null
+  })
 
   // Handle keyboard input
   useKeyboard((evt) => {
@@ -537,50 +604,24 @@ export function ChatPane(props: ChatPaneProps) {
       return
     }
 
-    // Session selector mode
-    if (showSessionSelector()) {
-      if (evt.name === "escape") {
-        setShowSessionSelector(false)
-      } else if (evt.name === "return" || evt.name === "enter") {
-        const sessions = state().sessionList
-        const idx = sessionSelectorIndex()
-        if (sessions[idx]) {
-          switchToSession(sessions[idx].id)
-        }
-      } else if (evt.name === "up" || (evt.ctrl && evt.name === "p")) {
-        setSessionSelectorIndex((i) => Math.max(0, i - 1))
-      } else if (evt.name === "down" || (evt.ctrl && evt.name === "n")) {
-        setSessionSelectorIndex((i) => Math.min(state().sessionList.length - 1, i + 1))
-      }
+    const isBusy = state().isLoading || state().sessionStatus.type !== "idle"
+
+    // Ctrl+G: fallback interrupt (not always delivered by terminals)
+    if (evt.ctrl && evt.name === "g" && state().id) {
+      abortSession("Ctrl+G")
       return
     }
 
-    // Normal mode
-    
-    // Shift+Escape: Abort/interrupt current request
-    if (evt.shift && evt.name === "escape") {
-      if (state().isLoading && state().id) {
-        log("Aborting current request...")
-        client.session.abort({ sessionID: state().id! }).catch((err) => {
-          log(`Abort error: ${err}`)
-        })
-        setState((s) => ({ ...s, isLoading: false }))
-      }
+    // Esc: immediate abort when busy (Shift+Esc is not distinguishable in most terminals).
+    if (evt.name === "escape" && isBusy && state().id) {
+      abortSession("Esc")
       return
     }
-    
+
     // Ctrl+K to open model selector (Ctrl+M is same as Enter in terminals)
     if (evt.ctrl && evt.name === "k") {
       setModelSelectorIndex(0)
       setShowModelSelector(true)
-    } else if (evt.ctrl && evt.name === "n") {
-      // Ctrl+N: New session
-      createNewSession()
-    } else if (evt.ctrl && evt.name === "l") {
-      // Ctrl+L: List/switch sessions
-      setSessionSelectorIndex(0)
-      loadSessionList()
-      setShowSessionSelector(true)
     } else if (evt.name === "return" || evt.name === "enter") {
       sendMessage()
     } else if (evt.name === "escape") {
@@ -612,7 +653,21 @@ export function ChatPane(props: ChatPaneProps) {
       {/* Header */}
       <box flexDirection="column" backgroundColor={COLORS.bgHeader} paddingLeft={1} paddingRight={1}>
         <box flexDirection="row" justifyContent="space-between">
-          <Show when={state().session} fallback={<text fg="#e2e8f0">OpenCode Chat</text>}>
+          <Show
+            when={state().session}
+            fallback={
+              <text fg="#e2e8f0">
+                OpenCode Chat
+                <span style={{ fg: COLORS.textDim }}>{"  (Shift+O sessions)"}</span>
+                <Show when={showAbortedBanner()}>
+                  <span style={{ fg: "#ef4444", bold: true }}>{"  ·  ABORTED"}</span>
+                </Show>
+                <Show when={state().sessionStatus.type !== "idle" && !showAbortedBanner()}>
+                  <span style={{ fg: "#64748b" }}>{"  ·  Ctrl+X abort"}</span>
+                </Show>
+              </text>
+            }
+          >
             {(() => {
               const session = state().session!
               // Check if title is a timestamp (OpenCode uses timestamp as default title)
@@ -625,6 +680,12 @@ export function ChatPane(props: ChatPaneProps) {
                 <text fg={COLORS.text}>
                   <span style={{ fg: COLORS.textDim }}># </span>
                   <span style={{ bold: true }}>{displayTitle}</span>
+                  <Show when={showAbortedBanner()}>
+                    <span style={{ fg: "#ef4444", bold: true }}>{"  ·  ABORTED"}</span>
+                  </Show>
+                  <Show when={state().sessionStatus.type !== "idle" && !showAbortedBanner()}>
+                    <span style={{ fg: "#64748b" }}>{"  ·  Ctrl+X abort"}</span>
+                  </Show>
                   <Show when={timestamp}>
                     <span style={{ fg: "#64748b" }}>{" — " + timestamp}</span>
                   </Show>
@@ -642,9 +703,21 @@ export function ChatPane(props: ChatPaneProps) {
             </text>
           </Show>
         </box>
-        <Show when={state().session?.directory}>
-          <text fg="#64748b">{state().session!.directory}</text>
-        </Show>
+        <box flexDirection="row" gap={2}>
+          <Show when={state().session?.directory}>
+            <text fg="#64748b">{state().session!.directory}</text>
+          </Show>
+          <Show when={state().sessionStatus.type !== "idle"}>
+            <text>
+              <span style={{ fg: "#fbbf24" }}>
+                {"● " + state().sessionStatus.type}
+              </span>
+              <span style={{ fg: "#64748b" }}>
+                {" (Esc abort, Ctrl+X abort)"}
+              </span>
+            </text>
+          </Show>
+        </box>
       </box>
 
       {/* Messages area */}
@@ -655,7 +728,13 @@ export function ChatPane(props: ChatPaneProps) {
           </box>
         </Show>
 
-        {/* Debug log - hidden in production */}
+        <Show when={!state().id && state().messages.length === 0}>
+          <box paddingLeft={1} paddingRight={1} paddingTop={1}>
+            <text fg="#94a3b8">
+              No OpenCode session selected. Press Shift+O to connect.
+            </text>
+          </box>
+        </Show>
 
         <For each={state().messages}>
           {(wrapper) => {
@@ -737,50 +816,6 @@ export function ChatPane(props: ChatPaneProps) {
         </box>
       </Show>
 
-      {/* Session Selector Overlay */}
-      <Show when={showSessionSelector()}>
-        <box
-          position="absolute"
-          top={3}
-          left={2}
-          width={Math.min(props.width - 4, 60)}
-          height={Math.min(props.height - 6, 15)}
-          backgroundColor="#1e293b"
-          border
-          borderColor="#10b981"
-          flexDirection="column"
-        >
-          <box paddingLeft={1} paddingRight={1} backgroundColor="#334155">
-            <text fg="#e2e8f0">
-              <span style={{ bold: true }}>Switch Session</span>
-              <span style={{ fg: "#64748b" }}> (Esc to close, Ctrl+N for new)</span>
-            </text>
-          </box>
-          <box flexDirection="column" flexGrow={1} overflow="hidden" paddingLeft={1} paddingRight={1}>
-            <Show when={state().sessionList.length === 0}>
-              <text fg="#64748b">Loading sessions...</text>
-            </Show>
-            <For each={state().sessionList}>
-              {(session, index) => {
-                const isSelected = () => index() === sessionSelectorIndex()
-                const isCurrent = () => session.id === state().id
-                const title = session.title || "New session"
-                const timeStr = new Date(session.time.updated).toLocaleDateString()
-                return (
-                  <box backgroundColor={isSelected() ? "#10b981" : undefined}>
-                    <text fg={isSelected() ? "#e2e8f0" : "#94a3b8"}>
-                      {isCurrent() ? "* " : "  "}
-                      {title}
-                      <span style={{ fg: isSelected() ? "#a7f3d0" : "#64748b" }}> ({timeStr})</span>
-                    </text>
-                  </box>
-                )
-              }}
-            </For>
-          </box>
-        </box>
-      </Show>
-
       {/* Input area */}
       <box
         flexDirection="column"
@@ -801,7 +836,7 @@ export function ChatPane(props: ChatPaneProps) {
               <span style={{ fg: "#475569" }}> ({currentModelDisplay()!.providerName})</span>
             </text>
           </Show>
-          <text fg="#475569">Ctrl+N new | Ctrl+L sessions | Ctrl+K model</text>
+          <text fg="#475569">Shift+O sessions | Ctrl+K model | Ctrl+X abort | /abort</text>
         </box>
       </box>
     </box>

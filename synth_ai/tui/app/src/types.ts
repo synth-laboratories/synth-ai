@@ -158,16 +158,6 @@ export type SessionHealthResult = {
   checked_at: Date
 }
 
-/** OpenCode message in the chat pane */
-export type OpenCodeMessage = {
-  id: string
-  role: "user" | "assistant" | "tool"
-  content: string
-  timestamp: Date
-  toolName?: string
-  toolStatus?: "pending" | "running" | "completed" | "failed"
-}
-
 /** Backend ID for multi-backend support */
 export type BackendId = "prod" | "dev" | "local"
 
