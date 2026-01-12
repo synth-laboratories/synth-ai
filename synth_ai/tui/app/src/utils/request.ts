@@ -49,6 +49,7 @@ export function mergeAbortSignals(
   for (const signal of filtered) {
     if (signal.aborted) {
       controller.abort()
+      dispose() // Clean up any listeners added so far
       return { signal: controller.signal, dispose: noopDispose }
     }
     signal.addEventListener("abort", onAbort)
@@ -101,11 +102,9 @@ export async function sleep(ms: number, options: RequestSignalOptions = {}): Pro
     return await new Promise<void>((resolve, reject) => {
       const onAbort = () => {
         clearTimeout(timeoutId)
-        signal.removeEventListener("abort", onAbort)
         reject(createAbortError())
       }
       const timeoutId = setTimeout(() => {
-        signal.removeEventListener("abort", onAbort)
         resolve()
       }, ms)
 
