@@ -3,17 +3,22 @@
  */
 
 import { apiGetV1 } from "./client"
+import { isAbortError } from "../utils/abort"
 import type { TunnelRecord, TunnelHealthResult } from "../types"
 import type { AppContext } from "../context"
 
 /**
  * Fetch active tunnels from backend.
  */
-export async function fetchTunnels(statusFilter: string = "active"): Promise<TunnelRecord[]> {
+export async function fetchTunnels(
+  statusFilter: string = "active",
+  options: { signal?: AbortSignal } = {},
+): Promise<TunnelRecord[]> {
   try {
-    const tunnels = await apiGetV1(`/tunnels/?status_filter=${statusFilter}`)
+    const tunnels = await apiGetV1(`/tunnels/?status_filter=${statusFilter}`, options)
     return tunnels || []
   } catch (err: any) {
+    if (isAbortError(err)) return []
     console.error("Failed to fetch tunnels:", err?.message || err)
     return []
   }
@@ -22,16 +27,20 @@ export async function fetchTunnels(statusFilter: string = "active"): Promise<Tun
 /**
  * Refresh tunnels in app context and update snapshot.
  */
-export async function refreshTunnels(ctx: AppContext): Promise<boolean> {
+export async function refreshTunnels(
+  ctx: AppContext,
+  options: { signal?: AbortSignal } = {},
+): Promise<boolean> {
   const { snapshot } = ctx.state
 
   try {
     snapshot.tunnelsLoading = true
-    const tunnels = await fetchTunnels("active")
+    const tunnels = await fetchTunnels("active", options)
     snapshot.tunnels = tunnels
     snapshot.tunnelsLoading = false
     return true
   } catch (err: any) {
+    if (isAbortError(err)) return false
     snapshot.tunnelsLoading = false
     return false
   }
@@ -41,12 +50,15 @@ export async function refreshTunnels(ctx: AppContext): Promise<boolean> {
  * Refresh tunnel health checks for all tunnels in app context.
  * Performs client-side health checks (direct HTTP to tunnel endpoints).
  */
-export async function refreshTunnelHealth(ctx: AppContext): Promise<void> {
+export async function refreshTunnelHealth(
+  ctx: AppContext,
+  options: { signal?: AbortSignal } = {},
+): Promise<void> {
   const { snapshot } = ctx.state
 
   if (snapshot.tunnels.length === 0) return
 
-  const results = await checkAllTunnelsHealth(snapshot.tunnels)
+  const results = await checkAllTunnelsHealth(snapshot.tunnels, 5000, 15, options)
   snapshot.tunnelHealthResults = results
 }
 
@@ -55,7 +67,8 @@ export async function refreshTunnelHealth(ctx: AppContext): Promise<void> {
  */
 export async function checkTunnelHealth(
   tunnel: TunnelRecord,
-  timeout: number = 5000
+  timeout: number = 5000,
+  options: { signal?: AbortSignal } = {},
 ): Promise<TunnelHealthResult> {
   const url = tunnel.hostname.startsWith("http")
     ? tunnel.hostname
@@ -63,16 +76,25 @@ export async function checkTunnelHealth(
   const healthUrl = `${url}/health`
   const startTime = Date.now()
 
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+  const controller = new AbortController()
+  const abortExternal = () => controller.abort()
+
   try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), timeout)
+    timeoutId = setTimeout(() => controller.abort(), timeout)
+    if (options.signal) {
+      if (options.signal.aborted) {
+        controller.abort()
+      } else {
+        options.signal.addEventListener("abort", abortExternal, { once: true })
+      }
+    }
 
     const response = await fetch(healthUrl, {
       signal: controller.signal,
       method: "GET",
     })
 
-    clearTimeout(timeoutId)
     const elapsed = Date.now() - startTime
 
     // Health status logic:
@@ -115,6 +137,14 @@ export async function checkTunnelHealth(
       }
     }
   } catch (err: any) {
+    if (isAbortError(err)) {
+      return {
+        healthy: false,
+        error: "Cancelled",
+        response_time_ms: 0,
+        checked_at: new Date(),
+      }
+    }
     const elapsed = Date.now() - startTime
     const errorMessage = err?.name === "AbortError"
       ? `Timeout after ${timeout}ms`
@@ -126,6 +156,11 @@ export async function checkTunnelHealth(
       response_time_ms: elapsed,
       checked_at: new Date(),
     }
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+    options.signal?.removeEventListener("abort", abortExternal)
   }
 }
 
@@ -135,7 +170,8 @@ export async function checkTunnelHealth(
 export async function checkAllTunnelsHealth(
   tunnels: TunnelRecord[],
   timeout: number = 5000,
-  maxConcurrent: number = 15
+  maxConcurrent: number = 15,
+  options: { signal?: AbortSignal } = {},
 ): Promise<Map<string, TunnelHealthResult>> {
   const results = new Map<string, TunnelHealthResult>()
 
@@ -144,7 +180,10 @@ export async function checkAllTunnelsHealth(
     const batch = tunnels.slice(i, i + maxConcurrent)
     const batchResults = await Promise.all(
       batch.map(async (tunnel) => {
-        const result = await checkTunnelHealth(tunnel, timeout)
+        if (options.signal?.aborted) {
+          return { id: tunnel.id, result: { healthy: false, error: "Cancelled", checked_at: new Date() } }
+        }
+        const result = await checkTunnelHealth(tunnel, timeout, options)
         return { id: tunnel.id, result }
       })
     )
