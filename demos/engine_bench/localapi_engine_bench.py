@@ -283,8 +283,19 @@ async def run_opencode_agent(
     sandbox_dir: Path,
     model: str = "gpt-4.1-mini",
     timeout: int = 300,
+    inference_url: str | None = None,
+    api_key: str | None = None,
 ) -> dict[str, Any]:
-    """Run OpenCode agent on the sandbox."""
+    """Run OpenCode agent on the sandbox.
+
+    Args:
+        prompt: The task prompt for the agent
+        sandbox_dir: Directory to run the agent in
+        model: Model to use (e.g. "gpt-4.1-mini")
+        timeout: Timeout in seconds
+        inference_url: Synth interceptor URL to route LLM calls through
+        api_key: API key for the interceptor
+    """
     cmd = [
         "opencode",
         "run",
@@ -297,12 +308,21 @@ async def run_opencode_agent(
         prompt,
     ]
 
+    # Build environment for subprocess
+    env = os.environ.copy()
+    if inference_url:
+        # Route opencode's LLM calls through the Synth interceptor
+        env["OPENAI_BASE_URL"] = inference_url
+    if api_key:
+        env["OPENAI_API_KEY"] = api_key
+
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             cwd=str(sandbox_dir),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         return {
@@ -439,11 +459,14 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
     model = policy_config.get("model", "gpt-4.1-mini")
     timeout = int(policy_config.get("timeout", 300))
+    inference_url = policy_config.get("inference_url")
+    api_key = policy_config.get("api_key")
 
     print(f"\n{'=' * 60}")
     print(f"[engine_bench] Running rollout for {instance_id}")
     print(f"  Model: {model}")
     print(f"  Timeout: {timeout}s")
+    print(f"  Interceptor: {inference_url or 'none (direct)'}")
     print(f"{'=' * 60}\n")
 
     # Create temp directory for sandbox
@@ -455,7 +478,14 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
         # Build prompt and run agent
         prompt = build_prompt(instance)
-        await run_opencode_agent(prompt, sandbox_dir, model, timeout)
+        await run_opencode_agent(
+            prompt,
+            sandbox_dir,
+            model=model,
+            timeout=timeout,
+            inference_url=inference_url,
+            api_key=api_key,
+        )
 
         # Evaluate
         compile_pass, compile_error = await run_cargo_check(sandbox_dir)
