@@ -3,6 +3,10 @@ import importlib
 import sys
 from pathlib import Path
 
+# Ensure cwd is in path for imports (script runs from .lefthook/pre-commit/)
+if "" not in sys.path and "." not in sys.path:
+    sys.path.insert(0, "")
+
 
 def module_name_from_path(path: Path) -> str:
     rel_path = path.with_suffix("")

@@ -8,16 +8,13 @@ in-process - no separate terminals or manual process management needed!
 
 Usage:
     uv run python run_mipro_in_process.py
-    uv run python run_mipro_in_process.py --env /path/to/.env
 
 Requirements:
-    - GROQ_API_KEY in .env (for policy model)
-    - OPENAI_API_KEY in .env (for meta-model)
+    - Run `synth-ai setup` first to configure credentials in ~/.synth-ai/
+    - GROQ_API_KEY or OPENAI_API_KEY in environment (for policy model)
     - cloudflared binary (will auto-install if missing)
-    - Dev backend running (default: https://synth-backend-dev-docker.onrender.com)
 """
 
-import argparse
 import asyncio
 import os
 import sys
@@ -26,7 +23,8 @@ import time
 from pathlib import Path
 
 import toml
-from dotenv import load_dotenv
+
+from synth_ai.core.env_utils import get_synth_and_env_keys
 from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.task import InProcessTaskApp
@@ -36,47 +34,19 @@ TASK_APP = CURRENT_DIR / "task_app.py"
 TRAIN_CFG = CURRENT_DIR / "train_cfg.toml"
 
 
-def _load_dotenv(args) -> None:
-    is_env_loaded = False
-    dotenv_path = None
-    if args.env:
-        if not Path(args.env).exists():
-            print(f"❌ Error: .env file not found: {args.env}")
-            sys.exit(1)
-        dotenv_path = Path(args.env)
-        is_env_loaded = load_dotenv(dotenv_path)
-    if not is_env_loaded:
-        default_path = Path.cwd() / ".env"
-        if default_path.exists():
-            dotenv_path = default_path
-            is_env_loaded = load_dotenv(dotenv_path)
-        else:
-            fallback_path = Path(".env")
-            if fallback_path.exists():
-                dotenv_path = fallback_path
-                is_env_loaded = load_dotenv(dotenv_path)
-    if is_env_loaded and dotenv_path:
-        print(f"Loaded .env from {dotenv_path.absolute()}")
-    elif is_env_loaded:
-        print("Loaded .env")
-
-
-def _validate_env() -> None:
-    first_party_msg = "Run `uvx synth-ai setup` to fetch from your browser, load to your process environment, and save to .env in CWD"
-    third_party_msg = "Pass the path to your .env via `uv run demo_mipro/main.py --env [PATH]` or load to process envrionment"
-    if not os.getenv("SYNTH_API_KEY"):
-        raise RuntimeError(f"SYNTH_API_KEY required. {first_party_msg}")
-    if not os.getenv("ENVIRONMENT_API_KEY"):
-        raise RuntimeError(f"ENVIRONMENT_API_KEY required. {first_party_msg}")
+def _validate_vendor_keys() -> None:
+    """Check that at least one LLM vendor key is available."""
     if not os.getenv("GROQ_API_KEY") and not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError(f"Either GROQ_API_KEY or OPENAI_API_KEY required. {third_party_msg}")
+        raise RuntimeError(
+            "Either GROQ_API_KEY or OPENAI_API_KEY required. Set one in your environment."
+        )
 
 
 async def main():
     """Run MIPRO optimization with in-process task app."""
+    synth_key, env_key = get_synth_and_env_keys()
+    _validate_vendor_keys()
 
-    synth_key = os.getenv("SYNTH_API_KEY")
-    env_key = os.getenv("ENVIRONMENT_API_KEY")
     # Run MIPRO with in-process task app
     try:
         async with InProcessTaskApp(
@@ -262,18 +232,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run MIPRO optimization in-process")
-    parser.add_argument(
-        "--env",
-        type=str,
-        help="Path to .env file (default: .env in current directory)",
-        default=None,
-    )
-    args = parser.parse_args()
-    _load_dotenv(args)
-    try:
-        _validate_env()
-    except Exception:
-        sys.exit(1)
     asyncio.run(main())
-    sys.exit(0)
