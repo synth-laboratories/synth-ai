@@ -16,13 +16,6 @@ export type ActivePane = "jobs" | "events" | "logs"
 /** Principal pane - top-level view mode */
 export type PrincipalPane = "jobs" | "opencode"
 
-/** Environment key option discovered from .env files */
-export type EnvKeyOption = {
-  key: string
-  sources: string[]
-  varNames: string[]
-}
-
 /** Source of a deployment log entry */
 export type LogSource = "uvicorn" | "cloudflare" | "app"
 
@@ -115,6 +108,27 @@ export type TaskApp = {
   discovered_via?: string
 }
 
+
+/** Scanned local task app from synth-ai scan */
+export type ScannedApp = {
+  url: string
+  port?: number
+  name?: string
+  task_name?: string
+  health_status?: string
+  discovered_via?: string
+}
+
+/** Unified task app (tunnel or local) */
+export type TaskApp = {
+  id: string
+  name: string
+  url: string
+  type: "tunnel" | "local"
+  health_status?: string
+  port?: number
+  discovered_via?: string
+}
 
 /** Client-side health check result */
 export type TunnelHealthResult = {

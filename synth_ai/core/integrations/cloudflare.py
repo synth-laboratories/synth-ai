@@ -38,13 +38,6 @@ def __resolve_env_var(key: str) -> str:
     return resolve_env_var(key)
 
 
-def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
-    """Lazy import to avoid circular dependency."""
-    from synth_ai.core.env_utils import write_env_var_to_dotenv
-
-    write_env_var_to_dotenv(key, value, **kwargs)
-
-
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -897,13 +890,6 @@ async def verify_tunnel_dns_resolution(
 
                 # Include API key if provided (or from env var)
                 if api_key is None:
-                    # Try to load .env file if available
-                    try:
-                        from dotenv import load_dotenv
-
-                        load_dotenv(override=False)
-                    except ImportError:
-                        pass
                     api_key = os.getenv("ENVIRONMENT_API_KEY")
                 if api_key:
                     curl_cmd.extend(["-H", f"X-API-Key: {api_key}"])
@@ -1019,13 +1005,6 @@ async def open_quick_tunnel_with_dns_verification(
 
     # Get API key from parameter or env var
     if api_key is None:
-        # Try to load .env file if available
-        try:
-            from dotenv import load_dotenv
-
-            load_dotenv(override=False)
-        except ImportError:
-            pass
         api_key = os.getenv("ENVIRONMENT_API_KEY")
 
     last_err: Optional[Exception] = None
@@ -1370,10 +1349,9 @@ def store_tunnel_credentials(
     tunnel_url: str,
     access_client_id: Optional[str] = None,
     access_client_secret: Optional[str] = None,
-    env_file: Optional[Path] = None,
 ) -> None:
     """
-    Store tunnel credentials in .env file for optimizer to use.
+    Store tunnel credentials in the process environment and user config.
 
     Writes:
     - TASK_APP_URL=<tunnel_url>
@@ -1384,33 +1362,23 @@ def store_tunnel_credentials(
         tunnel_url: Public tunnel URL (e.g., "https://cust-abc123.usesynth.ai")
         access_client_id: Cloudflare Access client ID (optional)
         access_client_secret: Cloudflare Access client secret (optional)
-        env_file: Path to .env file (defaults to .env in current directory)
     """
-    __write_env_var_to_dotenv(
-        "TASK_APP_URL",
-        tunnel_url,
-        output_file_path=env_file,
-        print_msg=True,
-        mask_msg=False,
-    )
+    os.environ["TASK_APP_URL"] = tunnel_url
 
+    updates: dict[str, str] = {"TASK_APP_URL": tunnel_url}
     if access_client_id:
-        __write_env_var_to_dotenv(
-            "CF_ACCESS_CLIENT_ID",
-            access_client_id,
-            output_file_path=env_file,
-            print_msg=True,
-            mask_msg=True,
-        )
-
+        os.environ["CF_ACCESS_CLIENT_ID"] = access_client_id
+        updates["CF_ACCESS_CLIENT_ID"] = access_client_id
     if access_client_secret:
-        __write_env_var_to_dotenv(
-            "CF_ACCESS_CLIENT_SECRET",
-            access_client_secret,
-            output_file_path=env_file,
-            print_msg=True,
-            mask_msg=True,
-        )
+        os.environ["CF_ACCESS_CLIENT_SECRET"] = access_client_secret
+        updates["CF_ACCESS_CLIENT_SECRET"] = access_client_secret
+
+    try:
+        from synth_ai.core.user_config import update_user_config
+
+        update_user_config(updates)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -1434,7 +1402,7 @@ async def rotate_tunnel(
     Args:
         synth_api_key: Synth API key for authentication
         port: Local port the new tunnel will forward to
-        backend_url: Optional backend URL (defaults to get_backend_url())
+        backend_url: Optional backend URL (defaults to BACKEND_URL_BASE)
 
     Returns:
         Dict containing:
@@ -1448,9 +1416,9 @@ async def rotate_tunnel(
     Raises:
         RuntimeError: If API request fails
     """
-    from synth_ai.core.env import get_backend_url
+    from synth_ai.core.urls import BACKEND_URL_BASE
 
-    base_url = backend_url or get_backend_url()
+    base_url = backend_url or BACKEND_URL_BASE
     url = f"{base_url}/api/v1/tunnels/rotate"
 
     def mask_key(key: str) -> str:
@@ -1692,7 +1660,6 @@ def _start_uvicorn_background(
 
 async def deploy_app_tunnel(
     cfg: CFDeployCfg,
-    env_file: Optional[Path] = None,
     keep_alive: bool = False,
     wait: bool = False,
     health_check_timeout: float = 30.0,
@@ -1704,7 +1671,7 @@ async def deploy_app_tunnel(
     1. Starting the local task app (uvicorn) in background
     2. Optionally waiting for health check (only if wait=True)
     3. Opening tunnel (quick or managed)
-    4. Writing tunnel URL and Access credentials to .env
+    4. Persisting tunnel URL and Access credentials to user config
     5. Optionally keeping processes alive (blocking vs non-blocking mode)
 
     By default (wait=False), this function is non-blocking and returns immediately
@@ -1717,7 +1684,6 @@ async def deploy_app_tunnel(
 
     Args:
         cfg: Tunnel deployment configuration
-        env_file: Optional path to .env file (defaults to .env in current directory)
         keep_alive: (Deprecated) If True, block and keep tunnel alive until interrupted.
                    Use `wait` instead.
         wait: If True, wait for health check and block until interrupted.
@@ -1762,43 +1728,6 @@ async def deploy_app_tunnel(
         else:
             print("ℹ️  No managed tunnels found; provisioning a new managed tunnel.")
 
-    # Load environment variables from env_file before starting uvicorn
-    # This ensures all env vars (HF cache paths, dataset names, etc.) are available to the task app
-    if env_file and env_file.exists():
-        try:
-            from dotenv import load_dotenv
-
-            load_dotenv(str(env_file), override=True)
-            # Also explicitly set critical env vars to ensure they're available
-            # Read the file directly to set vars even if dotenv fails
-            try:
-                with open(env_file) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#") and "=" in line:
-                            key, value = line.split("=", 1)
-                            # Remove quotes if present
-                            value = value.strip().strip('"').strip("'")
-                            os.environ[key.strip()] = value
-            except Exception as file_exc:
-                logger.debug(f"Could not read env_file directly: {file_exc}")
-            logger.debug(f"Loaded environment from {env_file}")
-        except ImportError:
-            logger.warning("python-dotenv not available, skipping env_file load")
-            # Fallback: read file directly
-            try:
-                with open(env_file) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#") and "=" in line:
-                            key, value = line.split("=", 1)
-                            value = value.strip().strip('"').strip("'")
-                            os.environ[key.strip()] = value
-            except Exception as file_exc:
-                logger.warning(f"Failed to read env_file directly: {file_exc}")
-        except Exception as exc:
-            logger.warning(f"Failed to load env_file {env_file}: {exc}")
-
     os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
     if cfg.trace:
         os.environ["TASKAPP_TRACING_ENABLED"] = "1"
@@ -1830,7 +1759,7 @@ async def deploy_app_tunnel(
             # Quick tunnel: ephemeral, no backend API call
             url, tunnel_proc = open_quick_tunnel(cfg.port)
             _TUNNEL_PROCESSES[cfg.port] = tunnel_proc
-            store_tunnel_credentials(url, None, None, env_file)
+            store_tunnel_credentials(url, None, None)
             # Record tunnel for scan command
             try:
                 from synth_ai.core.service_records import record_tunnel
@@ -1873,7 +1802,7 @@ async def deploy_app_tunnel(
             _TUNNEL_PROCESSES[cfg.port] = tunnel_proc
 
             url = hostname if hostname.startswith("http") else f"https://{hostname}"
-            store_tunnel_credentials(url, access_client_id, access_client_secret, env_file)
+            store_tunnel_credentials(url, access_client_id, access_client_secret)
             # Record tunnel for scan command
             try:
                 from synth_ai.core.service_records import record_tunnel

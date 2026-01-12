@@ -203,7 +203,6 @@ def get_tunnel_processes() -> dict[int, Any]:
 async def scan_cloudflare_apps(
     api_key: str | None,
     env_api_key: str | None,
-    env_file: Path | None = None,
     timeout: float = 2.0,
 ) -> list[ScannedApp]:
     """Scan for Cloudflare tunnel apps using process-based discovery.
@@ -211,7 +210,6 @@ async def scan_cloudflare_apps(
     Args:
         api_key: SYNTH_API_KEY for backend API
         env_api_key: ENVIRONMENT_API_KEY for health checks
-        env_file: Not used (kept for API compatibility)
         timeout: Health check timeout
 
     Returns:

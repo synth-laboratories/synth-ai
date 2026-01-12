@@ -7,8 +7,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Mapping, Sequence
 
-from synth_ai.core.env import get_backend_from_env
 from synth_ai.core.http import http_request
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 
 def _get_sdk_version() -> str:
@@ -126,9 +126,8 @@ def _post_with_retry(entries: list[dict[str, Any]]) -> bool:
     Returns False if no API key available (batch should be held for later).
     """
     try:
-        base_url, api_key = get_backend_from_env()
-        base = (base_url or "").rstrip("/")
-        key = (api_key or "").strip()
+        base = BACKEND_URL_BASE
+        key = (os.environ.get("SYNTH_API_KEY") or "").strip()
 
         # If no API key, signal to hold batch for next cycle
         if not base or not key:

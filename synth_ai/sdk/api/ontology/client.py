@@ -18,14 +18,13 @@ Example:
         context = await client.get_node_context("Entity")
 """
 
-from __future__ import annotations
-
 import asyncio
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from synth_ai.core.env import get_backend_from_env
 from synth_ai.core.http import AsyncHttpClient
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 # =============================================================================
 # Data Models
@@ -44,7 +43,7 @@ class OntologyNode:
     created_at: int
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> OntologyNode:
+    def from_dict(cls, data: Dict[str, Any]) -> "OntologyNode":
         """Create from API response dict."""
         return cls(
             id=str(data.get("id", "")),
@@ -67,7 +66,7 @@ class PropertyClaim:
     status: str
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> PropertyClaim:
+    def from_dict(cls, data: Dict[str, Any]) -> "PropertyClaim":
         """Create from API response dict."""
         return cls(
             id=str(data.get("id", "")),
@@ -90,7 +89,7 @@ class Relationship:
     confidence: float
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Relationship:
+    def from_dict(cls, data: Dict[str, Any]) -> "Relationship":
         """Create from API response dict."""
         return cls(
             id=str(data.get("id", "")),
@@ -112,7 +111,7 @@ class NodeContext:
     relationships_to: List[Relationship] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> NodeContext:
+    def from_dict(cls, data: Dict[str, Any]) -> "NodeContext":
         """Create from API response dict."""
         node_data = data.get("node")
         node = OntologyNode.from_dict(node_data) if node_data else None
@@ -149,7 +148,7 @@ class Neighborhood:
     incoming: List[Relationship] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> Neighborhood:
+    def from_dict(cls, data: Dict[str, Any]) -> "Neighborhood":
         """Create from API response dict."""
         outgoing = [
             Relationship.from_dict(r) for r in (data.get("outgoing") or []) if isinstance(r, dict)
@@ -190,17 +189,17 @@ class OntologyClient:
             api_key: Synth API key (defaults to env-based resolution)
             timeout: Request timeout in seconds
         """
-        if base_url is None or api_key is None:
-            env_url, env_key = get_backend_from_env()
-            base_url = base_url or env_url
-            api_key = api_key or env_key
+        if base_url is None:
+            base_url = BACKEND_URL_BASE
+        if api_key is None:
+            api_key = os.environ.get("SYNTH_API_KEY", "")
 
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout
         self._http: Optional[AsyncHttpClient] = None
 
-    async def __aenter__(self) -> OntologyClient:
+    async def __aenter__(self) -> "OntologyClient":
         self._http = AsyncHttpClient(
             self._base_url,
             self._api_key,

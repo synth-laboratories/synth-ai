@@ -3,9 +3,6 @@
  *
  * This is the thin entrypoint for the TUI application.
  * All logic is in app.ts and its dependencies.
- *
- * IMPORTANT: We load .env files synchronously BEFORE importing any other modules
- * so that process.env is populated with SYNTH_API_KEY for local/dev backends.
  */
 import { shutdown } from "./lifecycle"
 import { runSolidApp } from "./solid/app"

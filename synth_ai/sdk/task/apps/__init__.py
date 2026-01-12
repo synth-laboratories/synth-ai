@@ -4,8 +4,6 @@ Prefer synth_ai.sdk.localapi.apps moving forward. This module remains for
 backward compatibility during the naming transition.
 """
 
-from __future__ import annotations
-
 import importlib
 import sys
 from collections.abc import Callable, Iterable, Sequence
@@ -43,7 +41,6 @@ class TaskAppEntry:
     description: str
     config_factory: Callable[[], TaskAppConfig]
     aliases: Sequence[str] = field(default_factory=tuple)
-    env_files: Sequence[str] = field(default_factory=tuple)
     modal: ModalDeploymentConfig | None = None
 
 
@@ -55,7 +52,6 @@ class LocalAPIEntry:
     description: str
     config_factory: Callable[[], TaskAppConfig]
     aliases: Sequence[str] = field(default_factory=tuple)
-    env_files: Sequence[str] = field(default_factory=tuple)
     modal: ModalDeploymentConfig | None = None
 
     @property
@@ -114,7 +110,6 @@ def register_local_api(*, entry: LocalAPIEntry | TaskAppEntry) -> None:
                 description=entry.description,
                 config_factory=entry.config_factory,
                 aliases=entry.aliases,
-                env_files=entry.env_files,
                 modal=entry.modal,
             )
         )

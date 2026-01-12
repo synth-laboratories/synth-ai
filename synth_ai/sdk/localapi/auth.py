@@ -1,25 +1,20 @@
 """Local API authentication helpers."""
 
-from __future__ import annotations
-
 import base64
 import binascii
 import json
 import logging
 import os
 import secrets
-from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
-from synth_ai.core.env import PROD_BASE_URL_DEFAULT, get_backend_from_env
-from synth_ai.core.paths import REPO_ROOT, get_env_file_paths
-from synth_ai.core.user_config import update_user_config
+from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.user_config import load_user_env, update_user_config
 
 ENVIRONMENT_API_KEY_NAME = "ENVIRONMENT_API_KEY"
 DEV_ENVIRONMENT_API_KEY_NAME = "DEV_ENVIRONMENT_API_KEY"
 MAX_ENVIRONMENT_API_KEY_BYTES = 8 * 1024
 _ALGORITHM = "libsodium.sealedbox.v1"
-_ENV_SYNTH_PATH = Path.home() / ".env.synth"
 
 __all__ = [
     "ENVIRONMENT_API_KEY_NAME",
@@ -38,151 +33,8 @@ def mint_environment_api_key() -> str:
     return secrets.token_hex(32)
 
 
-def _strip_inline_comment(value: str) -> str:
-    in_single = False
-    in_double = False
-    escaped = False
-    for idx, char in enumerate(value):
-        if escaped:
-            escaped = False
-            continue
-        if char == "\\":
-            escaped = True
-            continue
-        if char == "'" and not in_double:
-            in_single = not in_single
-            continue
-        if char == '"' and not in_single:
-            in_double = not in_double
-            continue
-        if char == "#" and not in_single and not in_double:
-            return value[:idx].rstrip()
-    return value.rstrip()
-
-
-def _parse_env_assignment(line: str) -> tuple[str, str] | None:
-    stripped = line.strip()
-    if not stripped or stripped.startswith("#"):
-        return None
-    if stripped.lower().startswith("export "):
-        stripped = stripped[7:].lstrip()
-    if "=" not in stripped:
-        return None
-    key_part, value_part = stripped.split("=", 1)
-    key = key_part.strip()
-    if not key:
-        return None
-    value_candidate = _strip_inline_comment(value_part.strip())
-    if not value_candidate:
-        return key, ""
-    if (
-        len(value_candidate) >= 2
-        and value_candidate[0] in {'"', "'"}
-        and value_candidate[-1] == value_candidate[0]
-    ):
-        value = value_candidate[1:-1]
-    else:
-        value = value_candidate
-    return key, value
-
-
-def _read_env_var_from_file(key: str, path: Path) -> str | None:
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                parsed = _parse_env_assignment(line)
-                if parsed is None:
-                    continue
-                parsed_key, value = parsed
-                if parsed_key == key:
-                    return value
-    except (OSError, UnicodeDecodeError):
-        return None
-    return None
-
-
-def _merge_env_content(original: str, updates: dict[str, str]) -> str:
-    lines = original.splitlines(keepends=True)
-    seen: set[str] = set()
-    newline_default = "\n"
-    if lines and lines[-1].endswith("\r\n"):
-        newline_default = "\r\n"
-
-    merged: list[str] = []
-    for line in lines:
-        stripped = line.rstrip("\r\n")
-        parsed = _parse_env_assignment(stripped)
-        key = parsed[0] if parsed else None
-        if key and key in updates and key not in seen:
-            end = "\r\n" if line.endswith("\r\n") else "\n"
-            merged.append(f"{key}={updates[key]}{end}")
-            seen.add(key)
-        else:
-            merged.append(line)
-
-    for key, val in updates.items():
-        if key not in seen:
-            merged.append(f"{key}={val}{newline_default}")
-
-    if merged and not merged[-1].endswith(("\n", "\r\n")):
-        merged[-1] = merged[-1] + newline_default
-
-    return "".join(merged)
-
-
-def _write_env_var_to_file(path: Path, key: str, value: str) -> None:
-    existing = path.read_text(encoding="utf-8", errors="ignore") if path.exists() else ""
-    merged = _merge_env_content(existing, {key: value})
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(merged, encoding="utf-8")
-
-
-def _iter_env_files() -> Iterable[Path]:
-    cwd = Path.cwd()
-    repo_root = REPO_ROOT
-    seen: set[Path] = set()
-
-    for base in (cwd, repo_root):
-        root_env = base / ".env"
-        if root_env.is_file():
-            resolved = root_env.resolve()
-            if resolved not in seen:
-                seen.add(resolved)
-                yield resolved
-
-    for base in (cwd, repo_root):
-        for path in get_env_file_paths(base):
-            resolved = path.resolve()
-            if resolved in seen:
-                continue
-            seen.add(resolved)
-            yield resolved
-
-
-def _resolve_env_api_key_from_files() -> str | None:
-    for path in _iter_env_files():
-        value = _read_env_var_from_file(ENVIRONMENT_API_KEY_NAME, path)
-        if value:
-            return value.strip()
-    return None
-
-
 def _resolve_backend_base(backend_base: str | None) -> str:
-    if backend_base:
-        backend = backend_base.rstrip("/")
-    else:
-        env_value = (
-            os.environ.get("SYNTH_API_BASE")
-            or os.environ.get("SYNTH_BASE_URL")
-            or os.environ.get("BACKEND_BASE_URL")
-        )
-        if env_value:
-            backend = env_value.rstrip("/")
-        else:
-            base, _ = get_backend_from_env()
-            backend = base.rstrip("/")
-            if not backend:
-                backend = PROD_BASE_URL_DEFAULT.rstrip("/")
+    backend = backend_base.rstrip("/") if backend_base else BACKEND_URL_BASE
     if not backend.endswith("/api"):
         backend = f"{backend}/api"
     return backend
@@ -197,19 +49,11 @@ def ensure_localapi_auth(
 ) -> str:
     """Ensure ENVIRONMENT_API_KEY is present and optionally registered."""
 
+    load_user_env(override=False)
+
     key = (os.environ.get(ENVIRONMENT_API_KEY_NAME) or "").strip()
     if not key:
         key = (os.environ.get(DEV_ENVIRONMENT_API_KEY_NAME) or "").strip()
-        if key:
-            os.environ[ENVIRONMENT_API_KEY_NAME] = key
-
-    if not key:
-        key = _resolve_env_api_key_from_files() or ""
-        if key:
-            os.environ[ENVIRONMENT_API_KEY_NAME] = key
-
-    if not key:
-        key = _read_env_var_from_file(ENVIRONMENT_API_KEY_NAME, _ENV_SYNTH_PATH) or ""
         if key:
             os.environ[ENVIRONMENT_API_KEY_NAME] = key
 
@@ -227,7 +71,6 @@ def ensure_localapi_auth(
         persist = os.environ.get("SYNTH_LOCALAPI_AUTH_PERSIST", "1") != "0"
 
     if minted and persist:
-        _write_env_var_to_file(_ENV_SYNTH_PATH, ENVIRONMENT_API_KEY_NAME, key)
         update_user_config(
             {
                 ENVIRONMENT_API_KEY_NAME: key,

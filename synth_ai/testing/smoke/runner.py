@@ -163,9 +163,7 @@ def _kill_process_on_port(port: int) -> None:
         click.echo(f"[smoke] Warning: Could not check/kill port {port}: {exc}", err=True)
 
 
-def _start_task_app_server(
-    task_app_name: str, port: int, env_file: str | None, force: bool
-) -> tuple[Any, str]:
+def _start_task_app_server(task_app_name: str, port: int, force: bool) -> tuple[Any, str]:
     """Start a task app server in the background using task-app serve.
 
     Returns (process, url) tuple.
@@ -184,9 +182,6 @@ def _start_task_app_server(
         "--port",
         str(port),
     ]
-
-    if env_file:
-        cmd.extend(["--env-file", env_file])
 
     if force:
         cmd.append("--force")
@@ -287,14 +282,12 @@ def _start_task_app_server(
                 "--port",
                 str(port),
             ]
-            if env_file:
-                manual_cmd_parts.extend(["--env-file", env_file])
             if force:
                 manual_cmd_parts.append("--force")
 
             raise click.ClickException(
                 f"Task app '{task_app_name}' process exited unexpectedly (code={proc.returncode}). "
-                f"Check that the task app name is correct and .env has required keys. "
+                f"Check that the task app name is correct and required env vars are set. "
                 f"Try running manually: {' '.join(manual_cmd_parts)}"
             )
 
@@ -1267,12 +1260,6 @@ async def _run_train_step(
     help="RL TOML config to derive URL/env/model.",
 )
 @click.option(
-    "--env-file",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    default=None,
-    help="Path to .env to load before running.",
-)
-@click.option(
     "--rollouts", type=int, default=1, show_default=True, help="Number of rollouts (seeds 0..N-1)."
 )
 @click.option(
@@ -1309,7 +1296,6 @@ def smoke(
     mock_backend: str,
     mock_port: int,
     config: Path | None,
-    env_file: Path | None,
     rollouts: int,
     group_size: int,
     batch_size: int | None,
@@ -1352,13 +1338,11 @@ def smoke(
         if smoke_config.get("task_app_name"):
             task_app_name = smoke_config["task_app_name"]
             task_app_port = smoke_config.get("task_app_port", 8765)
-            task_app_env_file = smoke_config.get("task_app_env_file")
             task_app_force = smoke_config.get("task_app_force", True)
 
             task_app_proc, task_app_url = _start_task_app_server(
                 task_app_name=task_app_name,
                 port=task_app_port,
-                env_file=task_app_env_file,
                 force=task_app_force,
             )
             background_procs.append(("task_app", task_app_proc))
@@ -1458,27 +1442,10 @@ def smoke(
     except Exception:
         pass
 
-    # Load env file(s) before resolving API key
     try:
-        # Explicit --env-file takes precedence
-        if env_file is not None:
-            try:
-                from dotenv import load_dotenv as _ld
+        from synth_ai.core.user_config import load_user_env
 
-                _ld(env_file, override=False)
-            except Exception:
-                pass
-        else:
-            # Best-effort auto-discovery from CWD
-            try:
-                from dotenv import find_dotenv as _fd
-                from dotenv import load_dotenv as _ld
-
-                _ld(_fd(usecwd=True), override=False)
-            except Exception:
-                pass
-
-        # If api_key not passed, try to read from env now
+        load_user_env(override=False)
         if not api_key:
             api_key = os.getenv("ENVIRONMENT_API_KEY", "")
     except Exception:

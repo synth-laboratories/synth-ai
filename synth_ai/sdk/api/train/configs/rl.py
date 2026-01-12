@@ -38,8 +38,6 @@ See Also:
     - Job events: /sdk/jobs/rl
 """
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -85,7 +83,7 @@ class ModelConfig(ExtraModel):
     label: str
 
     @model_validator(mode="after")
-    def _ensure_exactly_one_source_or_base(self) -> ModelConfig:
+    def _ensure_exactly_one_source_or_base(self) -> "ModelConfig":
         if bool(self.source) == bool(self.base):
             raise ValueError("Config must set exactly one of [model].source or [model].base")
         return self
@@ -294,7 +292,6 @@ class SmokeConfig(ExtraModel):
         use_mock: Use mock policy.
         task_app_name: Task app to auto-serve (e.g., "grpo-crafter").
         task_app_port: Port for auto-served task app. Default: 8765.
-        task_app_env_file: Path to .env file for task app.
         task_app_force: Use --force flag when serving.
         sqld_auto_start: Auto-start sqld server.
         sqld_db_path: Database path. Default: ./traces/local.db.
@@ -317,7 +314,6 @@ class SmokeConfig(ExtraModel):
     # Task app auto-start configuration
     task_app_name: str | None = None  # Task app to serve (e.g., "grpo-crafter")
     task_app_port: int | None = None  # Port for task app (default: 8765)
-    task_app_env_file: str | None = None  # Path to .env file for task app
     task_app_force: bool | None = None  # Use --force flag when serving
 
     # sqld auto-start configuration
@@ -416,7 +412,7 @@ class RLConfig(ExtraModel):
         return self.model_dump(mode="python", exclude_none=True)
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any]) -> RLConfig:
+    def from_mapping(cls, data: Mapping[str, Any]) -> "RLConfig":
         """Load RL config from dict/TOML mapping.
 
         Args:
@@ -428,7 +424,7 @@ class RLConfig(ExtraModel):
         return cls.model_validate(data)
 
     @classmethod
-    def from_path(cls, path: Path) -> RLConfig:
+    def from_path(cls, path: Path) -> "RLConfig":
         """Load RL config from a TOML file.
 
         Args:

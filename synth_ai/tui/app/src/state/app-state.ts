@@ -2,7 +2,7 @@
  * Global application state.
  */
 
-import type { ActivePane, BackendConfig, BackendId, BackendKeySource, EnvKeyOption, FrontendUrlId, LogSource } from "../types"
+import type { ActivePane, BackendConfig, BackendId, BackendKeySource, FrontendUrlId, LogSource } from "../types"
 
 /** Ensure URL ends with /api */
 function ensureApiBase(url: string): string {
@@ -136,13 +136,6 @@ export const appState = {
   // Settings modal state
   settingsCursor: 0,
   settingsOptions: [] as BackendConfig[],
-
-  // Env key modal state
-  envKeyOptions: [] as EnvKeyOption[],
-  envKeyCursor: 0,
-  envKeyWindowStart: 0,
-  envKeyScanInProgress: false,
-  envKeyError: null as string | null,
 
   // Usage modal state
   usageModalOffset: 0,

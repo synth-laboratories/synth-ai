@@ -7,7 +7,7 @@ import inspect
 import os
 import sys
 import types
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -879,14 +879,11 @@ def _load_entry_from_path(
     if modal_cfg is None:
         modal_cfg = _extract_modal_config_from_file(resolved)
 
-    env_files: Iterable[str] = getattr(module, "ENV_FILES", ())  # type: ignore[arg-type]
-
     return TaskAppEntry(
         app_id=app_id,
         description=inspect.getdoc(module) or f"Discovered task app in {resolved.name}",
         config_factory=factory_callable,
         aliases=(),
-        env_files=tuple(str(Path(p)) for p in env_files if p),
         modal=modal_cfg,
     )
 

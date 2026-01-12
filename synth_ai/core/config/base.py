@@ -4,13 +4,12 @@ This module defines the base config class that all job configs inherit from,
 ensuring consistent handling of common fields like API keys and backend URLs.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any
 
-from synth_ai.core.env import get_api_key, get_backend_url
+from synth_ai.core.env import get_api_key
 from synth_ai.core.errors import ConfigError
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 
 @dataclass
@@ -69,7 +68,7 @@ class BaseJobConfig:
             ConfigError: If required credentials cannot be resolved
         """
         api_key = self.api_key or get_api_key(required=True)
-        backend_url = self.backend_url or get_backend_url()
+        backend_url = self.backend_url or BACKEND_URL_BASE
 
         if not api_key:
             raise ConfigError("API key is required")
