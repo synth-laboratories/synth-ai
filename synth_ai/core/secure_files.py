@@ -1,0 +1,46 @@
+import contextlib
+import json
+import os
+import tempfile
+from pathlib import Path
+from typing import Any, Mapping
+
+PRIVATE_DIR_MODE = 0o700
+PRIVATE_FILE_MODE = 0o600
+
+
+def ensure_private_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    with contextlib.suppress(OSError):
+        os.chmod(path, PRIVATE_DIR_MODE)
+
+
+def write_private_text(path: Path, content: str, *, mode: int = PRIVATE_FILE_MODE) -> None:
+    ensure_private_dir(path.parent)
+    tmp_path = ""
+    try:
+        fd, tmp_path = tempfile.mkstemp(prefix=f"{path.name}.", dir=str(path.parent))
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        with contextlib.suppress(OSError):
+            os.chmod(tmp_path, mode)
+        os.replace(tmp_path, path)
+        with contextlib.suppress(OSError):
+            os.chmod(path, mode)
+    finally:
+        if tmp_path:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
+
+
+def write_private_json(
+    path: Path,
+    data: Mapping[str, Any],
+    *,
+    indent: int = 2,
+    sort_keys: bool = True,
+) -> None:
+    payload = json.dumps(dict(data), indent=indent, sort_keys=sort_keys) + "\n"
+    write_private_text(path, payload)

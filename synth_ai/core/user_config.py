@@ -5,21 +5,21 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-CONFIG_DIR = Path(os.path.expanduser("~/.synth-ai"))
-USER_CONFIG_PATH = CONFIG_DIR / "user_config.json"
+from synth_ai.core.paths import SYNTH_LOCALAPI_CONFIG_PATH, SYNTH_USER_CONFIG_PATH
+from synth_ai.core.secure_files import write_private_json
 
 
 def _ensure_config_dir() -> None:
     with contextlib.suppress(Exception):
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        SYNTH_USER_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def load_user_config() -> dict[str, Any]:
     """Return the persisted user config as a dict (empty if missing or invalid)."""
 
     try:
-        if USER_CONFIG_PATH.is_file():
-            with USER_CONFIG_PATH.open("r", encoding="utf-8") as fh:
+        if SYNTH_USER_CONFIG_PATH.is_file():
+            with SYNTH_USER_CONFIG_PATH.open("r", encoding="utf-8") as fh:
                 data = json.load(fh)
                 return data if isinstance(data, dict) else {}
     except Exception:
@@ -31,11 +31,8 @@ def save_user_config(config: Mapping[str, Any]) -> None:
     """Persist a new user config dictionary (overwrites previous contents)."""
 
     _ensure_config_dir()
-    try:
-        with USER_CONFIG_PATH.open("w", encoding="utf-8") as fh:
-            json.dump(dict(config), fh, indent=2, sort_keys=True)
-    except Exception:
-        pass
+    with contextlib.suppress(Exception):
+        write_private_json(SYNTH_USER_CONFIG_PATH, dict(config), indent=2, sort_keys=True)
 
 
 def update_user_config(updates: Mapping[str, Any]) -> dict[str, Any]:
@@ -59,7 +56,7 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 
 def _load_task_app_entries() -> dict[str, Any]:
-    data = _load_json(Path(os.path.expanduser("~/.synth-ai/task_app_config.json")))
+    data = _load_json(SYNTH_LOCALAPI_CONFIG_PATH)
     if "apps" in data and isinstance(data["apps"], dict):
         return data["apps"]
     return {}
@@ -68,10 +65,6 @@ def _load_task_app_entries() -> dict[str, Any]:
 def _select_task_app_entry(entries: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
     if not entries:
         return None, {}
-
-    demo_dir = os.environ.get("SYNTH_DEMO_DIR")
-    if demo_dir and demo_dir in entries:
-        return demo_dir, entries[demo_dir]
 
     try:
         cwd = str(Path.cwd().resolve())
@@ -122,14 +115,18 @@ def load_user_env(*, override: bool = True) -> dict[str, str]:
                     "TASK_APP_SECRET_NAME": modal_block.get("secret_name"),
                 }
             )
-        if entry_key:
-            _apply({"SYNTH_DEMO_DIR": entry_key})
-
+        secrets = entry.get("secrets") if isinstance(entry.get("secrets"), dict) else {}
+        if secrets:
+            _apply(
+                {
+                    "ENVIRONMENT_API_KEY": secrets.get("environment_api_key"),
+                    "DEV_ENVIRONMENT_API_KEY": secrets.get("environment_api_key"),
+                }
+            )
     return applied
 
 
 __all__ = [
-    "USER_CONFIG_PATH",
     "load_user_config",
     "save_user_config",
     "update_user_config",
