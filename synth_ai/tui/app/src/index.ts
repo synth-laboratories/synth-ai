@@ -7,12 +7,12 @@
 import { shutdown } from "./lifecycle"
 import { runSolidApp } from "./solid/app"
 
-// Swallow unhandled errors - TUI should survive backend issues
-process.on("unhandledRejection", () => {
-  // Ignore - don't crash or exit
+// Log but don't crash - TUI should survive backend issues
+process.on("unhandledRejection", (err) => {
+  process.stderr.write(`Unhandled rejection: ${err}\n`)
 })
-process.on("uncaughtException", () => {
-  // Ignore - don't crash or exit
+process.on("uncaughtException", (err) => {
+  process.stderr.write(`Uncaught exception: ${err}\n`)
 })
 
 runSolidApp().catch(() => {
