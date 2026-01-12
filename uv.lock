@@ -2483,6 +2483,18 @@ wheels = [
 ]
 
 [[package]]
+name = "nbstripout"
+version = "0.8.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "nbformat" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/09/cea5360a0788f94337d1b65c313ff0a448fb6a444b65cab89378eb8f7d5c/nbstripout-0.8.2.tar.gz", hash = "sha256:2876530eb684bf93a5b48fe6d92b2163f78d040721c76b37d5b9e1514d38fc69", size = 27747, upload-time = "2025-11-16T17:38:55.6Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/e5/838eb1004fb9b6f0383c47c0d902eb698fda052e8e64ca48c70a2144a48c/nbstripout-0.8.2-py2.py3-none-any.whl", hash = "sha256:5f06f9138cb64daed3e91c5359ff0fff85bab4d0db7d72723be1da6f51b890ae", size = 17122, upload-time = "2025-11-16T17:38:54.164Z" },
+]
+
+[[package]]
 name = "nest-asyncio"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4489,6 +4501,7 @@ swe = [
 dev = [
     { name = "crafter" },
     { name = "httpx" },
+    { name = "nbstripout" },
     { name = "nest-asyncio" },
     { name = "papermill" },
     { name = "pyright" },
@@ -4574,6 +4587,7 @@ provides-extras = ["dev", "research", "swe", "all", "analytics"]
 dev = [
     { name = "crafter", specifier = ">=1.8.3" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "nbstripout", specifier = ">=0.8.2" },
     { name = "nest-asyncio", specifier = ">=1.6.0" },
     { name = "papermill", specifier = ">=2.6.0" },
     { name = "pyright", specifier = ">=1.1.350" },
