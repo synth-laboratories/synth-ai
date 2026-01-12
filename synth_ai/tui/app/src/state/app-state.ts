@@ -3,16 +3,7 @@
  */
 
 import type { ActivePane, BackendConfig, BackendId, BackendKeySource, FrontendUrlId, LogSource } from "../types"
-
-function normalizeFrontendId(url: string): FrontendUrlId {
-  const trimmed = url.trim()
-  if (!trimmed) return "unknown"
-  try {
-    return new URL(trimmed).host || trimmed
-  } catch {
-    return trimmed.replace(/^https?:\/\//, "").replace(/\/+$/, "")
-  }
-}
+import { normalizeFrontendId } from "../utils/frontend-id"
 
 /** Normalize backend ID from env string */
 export function normalizeBackendId(value: string): BackendId {

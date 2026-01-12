@@ -7,21 +7,12 @@ import path from "node:path"
 import { promises as fs } from "node:fs"
 
 import { formatEnvLine, parseEnvFile } from "../utils/env"
+import { normalizeFrontendId } from "../utils/frontend-id"
 import type { BackendId, BackendKeySource, FrontendUrlId } from "../types"
 
 // Type declaration for Node.js process (available at runtime)
 declare const process: {
   env: Record<string, string | undefined>
-}
-
-function normalizeFrontendId(url: string): string {
-  const trimmed = url.trim()
-  if (!trimmed) return ""
-  try {
-    return new URL(trimmed).host
-  } catch {
-    return trimmed.replace(/^https?:\/\//, "").replace(/\/+$/, "")
-  }
 }
 
 export type LoadSettingsDeps = {
