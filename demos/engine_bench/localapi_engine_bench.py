@@ -224,7 +224,10 @@ async def run_cargo_test(repo_dir: Path, instance_id: str) -> tuple[int, int, st
     """Run cargo test and return (passed, total, output)."""
     import re
 
-    test_filter = instance_id.replace("-", "_")
+    # Tests are in module eval_tests inside the card file
+    # e.g., df::cards::df_001_ampharos::eval_tests::*
+    card_module = instance_id.replace("-", "_")
+    test_filter = f"{card_module}::eval"
     proc = await asyncio.create_subprocess_exec(
         "cargo",
         "test",
