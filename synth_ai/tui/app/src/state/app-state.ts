@@ -2,7 +2,7 @@
  * Global application state.
  */
 
-import type { ActivePane, BackendConfig, BackendId, BackendKeySource, FrontendUrlId, LogSource } from "../types"
+import type { ActivePane, BackendConfig, BackendId, BackendKeySource, EnvKeyOption, FrontendUrlId, LogSource } from "../types"
 
 /** Ensure URL ends with /api */
 function ensureApiBase(url: string): string {
@@ -137,6 +137,13 @@ export const appState = {
   settingsCursor: 0,
   settingsOptions: [] as BackendConfig[],
 
+  // Env key modal state
+  envKeyOptions: [] as EnvKeyOption[],
+  envKeyCursor: 0,
+  envKeyWindowStart: 0,
+  envKeyScanInProgress: false,
+  envKeyError: null as string | null,
+
   // Usage modal state
   usageModalOffset: 0,
 
@@ -177,9 +184,19 @@ export const appState = {
   openCodeUrl: null as string | null,
   openCodeStatus: null as string | null,
   openCodeAutoConnectAttempted: false,
-  openCodeAbort: null as null | (() => void),
   /** Working directory for OpenCode agent execution (should be synth-ai launch CWD, not tui/app). */
   opencodeWorkingDir: resolveLaunchCwd(),
+  openCodeMessages: [] as Array<{
+    id: string
+    role: "user" | "assistant" | "tool"
+    content: string
+    timestamp: Date
+    toolName?: string
+    toolStatus?: "pending" | "running" | "completed" | "failed"
+  }>,
+  openCodeScrollOffset: 0,
+  openCodeInputValue: "",
+  openCodeIsProcessing: false,
 
   // Metrics panel view state
   metricsView: "latest" as "latest" | "charts",
