@@ -138,7 +138,7 @@ async def run_scan(
     env_api_key = api_key
     if not env_api_key:
         try:
-            from synth_ai.core.env_utils import resolve_env_var
+            from synth_ai.core.env import resolve_env_var
 
             env_api_key = resolve_env_var("ENVIRONMENT_API_KEY")
         except Exception:
