@@ -29,11 +29,11 @@ def write_private_text(path: Path, content: str, *, mode: int = PRIVATE_FILE_MOD
     tmp_path: str | None = None
     try:
         fd, tmp_path = tempfile.mkstemp(prefix=f"{path.name}.", dir=str(path.parent))
+        _safe_chmod(tmp_path, mode)  # Set permissions BEFORE writing sensitive data
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        _safe_chmod(tmp_path, mode)
         os.replace(tmp_path, path)
         tmp_path = None
         _safe_chmod(path, mode)
