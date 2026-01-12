@@ -105,10 +105,11 @@ export async function sleep(ms: number, options: RequestSignalOptions = {}): Pro
         reject(createAbortError())
       }
       const timeoutId = setTimeout(() => {
+        signal.removeEventListener("abort", onAbort)
         resolve()
       }, ms)
 
-      signal.addEventListener("abort", onAbort, { once: true })
+      signal.addEventListener("abort", onAbort)
     })
   } finally {
     managed.dispose()
