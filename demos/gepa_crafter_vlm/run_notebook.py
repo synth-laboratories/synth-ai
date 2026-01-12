@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Execute the Crafter VLM GEPA demo notebook using papermill."""
 
-from __future__ import annotations
-
 import argparse
 import os
 from pathlib import Path
+
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 
 def main():
@@ -13,11 +13,6 @@ def main():
     import papermill as pm
 
     parser = argparse.ArgumentParser(description="Run Crafter VLM GEPA demo notebook")
-    parser.add_argument(
-        "--backend-url",
-        default=os.environ.get("BACKEND_BASE_URL", "https://api.usesynth.ai"),
-        help="Backend URL (default: https://api.usesynth.ai)",
-    )
     parser.add_argument(
         "--api-key",
         default=os.environ.get("SYNTH_API_KEY"),
@@ -64,7 +59,7 @@ def main():
 
     use_tunnel = args.use_tunnel and not args.no_tunnel
     parameters = {
-        "BACKEND_URL": args.backend_url,
+        "BACKEND_URL": BACKEND_URL_BASE,
         "POLICY_MODEL": args.policy_model,
         "VERIFIER_MODEL": args.verifier_model,
         "ROLLOUT_BUDGET": args.rollout_budget,
@@ -75,7 +70,7 @@ def main():
         parameters["API_KEY"] = args.api_key
 
     print(f"Running notebook: {input_notebook}")
-    print(f"Backend: {args.backend_url}")
+    print(f"Backend: {BACKEND_URL_BASE}")
     print(f"Policy model: {args.policy_model}")
     print(f"Rollout budget: {args.rollout_budget}")
     print(f"Generations: {args.num_generations}")

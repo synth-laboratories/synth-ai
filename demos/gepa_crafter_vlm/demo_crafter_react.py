@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import json
 import os
@@ -18,6 +16,7 @@ from crafter_logic import (
     normalize_action_name,
 )
 from fastapi import Request
+from synth_ai.core.urls import BACKEND_URL_BASE, backend_health_url
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningResult
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
@@ -39,7 +38,7 @@ from synth_ai.sdk.tunnels import (
     wait_for_health_check,
 )
 
-SYNTH_API_BASE = os.environ.get("SYNTH_API_BASE", "https://api.usesynth.ai").rstrip("/")
+SYNTH_API_BASE = BACKEND_URL_BASE
 TASK_APP_PORT = int(os.environ.get("CRAFTER_TASK_APP_PORT", "8001"))
 OPTIMIZED_TASK_APP_PORT = int(os.environ.get("CRAFTER_OPT_TASK_APP_PORT", "8002"))
 POLICY_MODEL = os.environ.get("CRAFTER_POLICY_MODEL", "gpt-4.1-nano")
@@ -466,7 +465,7 @@ async def main() -> None:
 
     print(f"Backend: {SYNTH_API_BASE} (dev_mode={IS_DEV_MODE})")
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(f"{SYNTH_API_BASE}/health")
+        resp = await client.get(backend_health_url(SYNTH_API_BASE))
         resp.raise_for_status()
         print(f"Backend health: {resp.json()}")
 

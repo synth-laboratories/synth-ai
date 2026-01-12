@@ -2,7 +2,7 @@
 """Minimal eval job runner for debugging inference_url issues.
 
 Usage:
-    uv run python demos/gepa_banking77/run_eval.py --local
+    uv run python demos/gepa_banking77/run_eval.py
 """
 
 import argparse
@@ -11,61 +11,18 @@ import json
 import os
 import time
 
-# Parse args early
-parser = argparse.ArgumentParser(description="Run Banking77 eval job")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
-parser.add_argument("--local-host", type=str, default="localhost")
-parser.add_argument("--port", type=int, default=8016, help="Port for task app")
-parser.add_argument("--seeds", type=int, default=3, help="Number of seeds to eval")
-args = parser.parse_args()
-
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
-PORT = args.port
-NUM_SEEDS = args.seeds
-
 import httpx
 from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE, backend_health_url
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
-
-# Backend config
-if LOCAL_MODE:
-    SYNTH_API_BASE = "http://localhost:8000"
-    print("=" * 60)
-    print("LOCAL MODE - using localhost:8000 backend")
-    print("=" * 60)
-else:
-    SYNTH_API_BASE = PROD_BASE_URL
-    print(f"PROD MODE - using {SYNTH_API_BASE}")
-
-os.environ["SYNTH_API_BASE"] = SYNTH_API_BASE
-
-# Check backend health
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
-print(f"Backend health: {r.status_code}")
-
-# API Key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-if not API_KEY:
-    print("No SYNTH_API_KEY, minting demo key...")
-    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
-os.environ["SYNTH_API_KEY"] = API_KEY
-print(f"API Key: {API_KEY[:20]}...")
-
-# Environment Key
-ENVIRONMENT_API_KEY = ensure_localapi_auth(
-    backend_base=SYNTH_API_BASE,
-    synth_api_key=API_KEY,
-)
-print(f"Env key: {ENVIRONMENT_API_KEY[:12]}...")
 
 # Tool schema
 TOOL_NAME = "banking77_classify"
@@ -127,7 +84,7 @@ class Banking77Dataset:
 
 
 def format_available_intents(label_names: list) -> str:
-    return "\n".join(f"{i + 1}. {l}" for i, l in enumerate(label_names))
+    return "\n".join(f"{i + 1}. {label}" for i, label in enumerate(label_names))
 
 
 async def classify_banking77_query(
@@ -202,7 +159,7 @@ async def classify_banking77_query(
     return args["intent"]
 
 
-def create_banking77_local_api(system_prompt: str):
+def create_banking77_local_api(system_prompt: str, environment_api_key: str):
     dataset = Banking77Dataset()
     dataset.ensure_ready(["train", "test"])
 
@@ -306,38 +263,68 @@ def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: floa
 
 
 async def main():
+    # Parse args
+    parser = argparse.ArgumentParser(description="Run Banking77 eval job")
+    parser.add_argument("--port", type=int, default=8016, help="Port for task app")
+    parser.add_argument("--seeds", type=int, default=3, help="Number of seeds to eval")
+    args = parser.parse_args()
+
+    port_requested = args.port
+    num_seeds = args.seeds
+
+    # Backend config
+    synth_api_base = BACKEND_URL_BASE
+    print(f"Backend: {synth_api_base}")
+
+    os.environ["SYNTH_API_BASE"] = synth_api_base
+
+    # Check backend health
+    r = httpx.get(backend_health_url(synth_api_base), timeout=30)
+    print(f"Backend health: {r.status_code}")
+
+    # API Key
+    api_key = get_or_mint_synth_api_key(backend_url=synth_api_base)
+    print(f"API Key: {api_key[:20]}...")
+
+    # Environment Key
+    environment_api_key = ensure_localapi_auth(
+        backend_base=synth_api_base,
+        synth_api_key=api_key,
+    )
+    print(f"Env key: {environment_api_key[:12]}...")
+
     print("\n" + "=" * 60)
     print("STARTING EVAL DEBUG")
     print("=" * 60)
 
     # Start task app
-    app = create_banking77_local_api(BASELINE_SYSTEM_PROMPT)
-    port = acquire_port(PORT, on_conflict=PortConflictBehavior.FIND_NEW)
-    if port != PORT:
-        print(f"Port {PORT} in use, using {port} instead")
+    app = create_banking77_local_api(BASELINE_SYSTEM_PROMPT, environment_api_key)
+    port = acquire_port(port_requested, on_conflict=PortConflictBehavior.FIND_NEW)
+    if port != port_requested:
+        print(f"Port {port_requested} in use, using {port} instead")
 
     run_server_background(app, port)
-    wait_for_health_check_sync("localhost", port, ENVIRONMENT_API_KEY, timeout=30.0)
+    wait_for_health_check_sync("localhost", port, environment_api_key, timeout=30.0)
     print(f"Task app ready on port {port}")
 
-    task_app_url = f"http://{LOCAL_HOST}:{port}"
+    task_app_url = f"http://localhost:{port}"
     print(f"Task app URL: {task_app_url}")
 
     # Create eval job
-    seeds = list(range(100, 100 + NUM_SEEDS))
+    seeds = list(range(100, 100 + num_seeds))
     print(f"\nSubmitting eval job with seeds: {seeds}")
 
     config = EvalJobConfig(
         local_api_url=task_app_url,
-        backend_url=SYNTH_API_BASE,
-        api_key=API_KEY,
+        backend_url=synth_api_base,
+        api_key=api_key,
         env_name="banking77",
         seeds=seeds,
         policy_config={
             "model": "gpt-4.1-nano",
             "provider": "openai",
             "inference_mode": "synth_hosted",
-            "api_key": API_KEY,
+            "api_key": api_key,
         },
         env_config={"split": "test"},
         concurrency=5,

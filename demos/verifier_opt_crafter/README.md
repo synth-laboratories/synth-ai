@@ -21,8 +21,9 @@ The demo:
 The demo expects a Crafter trace dataset in one of these formats:
 
 1. **ADAS format** (preferred): JSON file with `tasks` and `gold_outputs` arrays
-   - Location: `../monorepo/traces/judge_demo/crafter_judge_adas_dataset.json`
-   - Or: `../monorepo/traces/verifier_demo/crafter_verifier_graph_opt_dataset.json`
+   - Location: `demos/verifier_opt_crafter/crafter_judge_adas_dataset.json`
+   - Or: `demos/verifier_opt_crafter/crafter_verifier_graph_opt_dataset.json`
+   - Or: `demos/verifier_opt_crafter/data/crafter_verifier_graph_opt_dataset.json`
 
 2. **JSONL format**: One trace per line with `trace_id`, `trace`, and `gold_score` fields
 
@@ -107,7 +108,6 @@ Duration: 2m 30s
 For more advanced usage (in-process optimization, custom scoring strategies), see:
 - `research/graph_opt_verifiers/crafter/run_graph_gepa_crafter_verifier_benchmark.py`
 - `cookbooks/code/training/graph_learning/crafter_verifier_graphgen/run_crafter_verifier_graphgen.py`
-
 
 
 

@@ -4,14 +4,12 @@
 This demo optimizes a verifier graph that scores fixed Crafter traces using GraphGen.
 
 Usage:
-    uv run python demos/verifier_opt_crafter/run_demo.py           # Production mode
-    uv run python demos/verifier_opt_crafter/run_demo.py --local   # Local mode (localhost:8000)
+    uv run python demos/verifier_opt_crafter/run_demo.py
 """
 
 import argparse
 import asyncio
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -19,8 +17,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 import nest_asyncio
-from dotenv import load_dotenv
-from synth_ai.core.env import PROD_BASE_URL
+from synth_ai.core.paths import REPO_ROOT
+from synth_ai.core.urls import BACKEND_URL_BASE, backend_health_url
 from synth_ai.sdk.api.train.graphgen import GraphGenJob
 from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenGoldOutput,
@@ -29,20 +27,9 @@ from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenTaskSetMetadata,
     GraphGenVerifierConfig,
 )
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 
-# Parse args to configure backend
 parser = argparse.ArgumentParser(description="Run Crafter Verifier Optimization demo")
-parser.add_argument(
-    "--local",
-    action="store_true",
-    help="Run in local mode: use localhost:8000 backend",
-)
-parser.add_argument(
-    "--local-host",
-    type=str,
-    default="localhost",
-    help="Hostname for local API URLs (use 'host.docker.internal' if backend runs in Docker)",
-)
 parser.add_argument(
     "--dataset-path",
     type=str,
@@ -75,36 +62,19 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
-
 # Repo root (demos/verifier_opt_crafter/run_demo.py -> demos -> repo)
-repo_root = Path(__file__).resolve().parents[2]
-
-# Load .env file from repo root
-env_path = repo_root / ".env"
-if env_path.exists():
-    load_dotenv(env_path, override=True)
-    print(f"Loaded environment variables from {env_path}")
-else:
-    print(f"No .env file found at {env_path}, using system environment variables")
+repo_root = REPO_ROOT
 
 nest_asyncio.apply()
 
 # Backend configuration
-if LOCAL_MODE:
-    SYNTH_API_BASE = "http://localhost:8000"
-    print("=" * 60)
-    print("RUNNING IN LOCAL MODE")
-    print("=" * 60)
-else:
-    SYNTH_API_BASE = PROD_BASE_URL
+SYNTH_API_BASE = BACKEND_URL_BASE
 
 print(f"Backend: {SYNTH_API_BASE}")
 
 # Check backend health
 try:
-    r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+    r = httpx.get(backend_health_url(SYNTH_API_BASE), timeout=30)
     if r.status_code == 200:
         print(f"Backend health: {r.json()}")
     else:
@@ -113,40 +83,29 @@ except Exception as e:
     print(f"WARNING: Could not check backend health: {e}")
 
 # Get API Key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-if not API_KEY:
-    print("ERROR: SYNTH_API_KEY not found in environment")
-    sys.exit(1)
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
-
-os.environ["SYNTH_API_KEY"] = API_KEY
+API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE)
+print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
 
 
 def _find_default_dataset() -> Optional[Path]:
     """Find default Crafter trace dataset locations."""
     # Common locations relative to repo root
     candidates = [
+        Path(repo_root) / "demos" / "verifier_opt_crafter" / "crafter_judge_adas_dataset.json",
         Path(repo_root)
-        / ".."
-        / "monorepo"
-        / "traces"
-        / "judge_demo"
+        / "demos"
+        / "verifier_opt_crafter"
+        / "crafter_verifier_graph_opt_dataset.json",
+        Path(repo_root)
+        / "demos"
+        / "verifier_opt_crafter"
+        / "data"
         / "crafter_judge_adas_dataset.json",
         Path(repo_root)
-        / ".."
-        / "monorepo"
-        / "traces"
-        / "verifier_demo"
+        / "demos"
+        / "verifier_opt_crafter"
+        / "data"
         / "crafter_verifier_graph_opt_dataset.json",
-        Path(repo_root)
-        / ".."
-        / "monorepo"
-        / "backend"
-        / "traces"
-        / "verifier_demo"
-        / "crafter_verifier_graph_opt_dataset.json",
-        Path(repo_root) / "traces" / "crafter_traces.json",
     ]
 
     for candidate in candidates:
@@ -357,8 +316,9 @@ async def main():
         if not dataset_path:
             print("ERROR: Could not find default dataset. Please provide --dataset-path")
             print("\nExpected locations:")
-            print("  - ../monorepo/traces/judge_demo/crafter_judge_adas_dataset.json")
-            print("  - ../monorepo/traces/verifier_demo/crafter_verifier_graph_opt_dataset.json")
+            print("  - demos/verifier_opt_crafter/crafter_judge_adas_dataset.json")
+            print("  - demos/verifier_opt_crafter/crafter_verifier_graph_opt_dataset.json")
+            print("  - demos/verifier_opt_crafter/data/crafter_verifier_graph_opt_dataset.json")
             sys.exit(1)
 
     print(f"Loading dataset from: {dataset_path}")

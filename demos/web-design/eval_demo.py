@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import httpx
+from synth_ai.core.urls import BACKEND_URL_BASE, join_url
 
 try:
     from synth_ai.sdk.task.server import run_server_background
@@ -14,16 +15,6 @@ except ImportError as e:
     raise ImportError(
         "Failed to import synth_ai. Run `uv sync` or `pip install -e .` first."
     ) from e
-
-# Load .env
-try:
-    from dotenv import load_dotenv
-
-    env_file = Path(__file__).parent.parent.parent / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-except ImportError:
-    pass
 
 SYNTH_API_KEY = os.getenv("SYNTH_API_KEY")
 ENVIRONMENT_API_KEY = os.getenv("ENVIRONMENT_API_KEY")
@@ -75,7 +66,9 @@ async def main():
     for i in range(30):
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{local_api_url}/health", headers=auth_headers)
+                response = await client.get(
+                    join_url(local_api_url, "/health"), headers=auth_headers
+                )
                 if response.status_code == 200:
                     break
         except Exception:
@@ -94,7 +87,7 @@ async def main():
 
     print(f"Submitting eval job for {len(test_seeds)} seeds...")
 
-    backend_url = "http://localhost:8000"
+    backend_url = BACKEND_URL_BASE
 
     eval_payload = {
         "job_type": "eval",
@@ -120,7 +113,7 @@ async def main():
     async with httpx.AsyncClient(timeout=600.0) as client:
         # Submit job
         response = await client.post(
-            f"{backend_url}/api/eval/jobs",
+            join_url(backend_url, "/api/eval/jobs"),
             json=eval_payload,
             headers={
                 "Authorization": f"Bearer {SYNTH_API_KEY}",
@@ -144,7 +137,7 @@ async def main():
             await asyncio.sleep(5)
 
             status_response = await client.get(
-                f"{backend_url}/api/eval/jobs/{job_id}",
+                join_url(backend_url, f"/api/eval/jobs/{job_id}"),
                 headers={"Authorization": f"Bearer {SYNTH_API_KEY}"},
             )
 
@@ -175,7 +168,7 @@ async def main():
 
         # Get final results
         results_response = await client.get(
-            f"{backend_url}/api/eval/jobs/{job_id}/results",
+            join_url(backend_url, f"/api/eval/jobs/{job_id}/results"),
             headers={"Authorization": f"Bearer {SYNTH_API_KEY}"},
         )
 

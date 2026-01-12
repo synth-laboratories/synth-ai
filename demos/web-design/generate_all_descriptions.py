@@ -90,6 +90,20 @@ def find_all_screenshots(data_dir: Path) -> list:
     return screenshots
 
 
+def _resolve_image_path(path_str: str, demo_dir: Path) -> Path:
+    path = Path(path_str)
+    if path.is_absolute():
+        return path.resolve()
+    return (demo_dir / path).resolve()
+
+
+def _to_demo_relative(path: Path, demo_dir: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(demo_dir))
+    except ValueError:
+        return str(path)
+
+
 def main():
     # Get API key
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
@@ -98,7 +112,8 @@ def main():
         exit(1)
 
     # Find all screenshots
-    data_dir = Path(__file__).parent / "data"
+    demo_dir = Path(__file__).parent.resolve()
+    data_dir = demo_dir / "data"
     screenshots = find_all_screenshots(data_dir)
 
     print(f"Found {len(screenshots)} screenshots")
@@ -108,14 +123,25 @@ def main():
     if output_file.exists():
         with open(output_file) as f:
             existing_results = json.load(f)
-        existing_paths = {r["image_path"] for r in existing_results}
+        existing_paths = set()
+        for row in existing_results:
+            image_path = row.get("image_path")
+            if not image_path:
+                continue
+            try:
+                existing_paths.add(_resolve_image_path(image_path, demo_dir))
+                row["image_path"] = _to_demo_relative(
+                    _resolve_image_path(image_path, demo_dir), demo_dir
+                )
+            except Exception:
+                continue
         print(f"Found {len(existing_results)} existing descriptions")
     else:
         existing_results = []
         existing_paths = set()
 
     # Filter out already processed
-    screenshots_to_process = [s for s in screenshots if str(s) not in existing_paths]
+    screenshots_to_process = [s for s in screenshots if s.resolve() not in existing_paths]
     print(f"Need to process {len(screenshots_to_process)} new screenshots")
 
     if not screenshots_to_process:
@@ -129,6 +155,7 @@ def main():
     for img_path in tqdm(screenshots_to_process, desc="Generating descriptions"):
         try:
             result = generate_functional_description(str(img_path), api_key)
+            result["image_path"] = _to_demo_relative(img_path, demo_dir)
             results.append(result)
 
             # Save incrementally every 10 images
@@ -138,7 +165,7 @@ def main():
 
         except Exception as e:
             print(f"\nError processing {img_path}: {e}")
-            failed.append({"image_path": str(img_path), "error": str(e)})
+            failed.append({"image_path": _to_demo_relative(img_path, demo_dir), "error": str(e)})
 
     # Final save
     with open(output_file, "w") as f:
