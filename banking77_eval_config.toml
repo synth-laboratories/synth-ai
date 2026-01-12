@@ -1,0 +1,7 @@
+[task]
+name = "banking77"
+app_url = "http://localhost:8010"
+
+[eval]
+num_samples = 10
+dataset = "banking77"
