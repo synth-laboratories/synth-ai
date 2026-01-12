@@ -5,6 +5,10 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SYNTH_HOME_DIR = Path.home() / ".synth-ai"
+SYNTH_USER_CONFIG_PATH = SYNTH_HOME_DIR / "user_config.json"
+SYNTH_LOCALAPI_CONFIG_PATH = SYNTH_HOME_DIR / "localapi_config.json"
+SYNTH_BIN_DIR = SYNTH_HOME_DIR / "bin"
 
 
 def is_file_type(path: Path, type: str) -> bool:
