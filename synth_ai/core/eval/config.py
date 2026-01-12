@@ -6,8 +6,6 @@ This module handles loading and resolving evaluation configuration from:
 - Environment variables (for API keys, etc.)
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -190,7 +188,6 @@ def resolve_eval_config(
     cli_model: str | None,
     cli_seeds: list[int] | None,
     cli_url: str | None,
-    cli_env_file: str | None,
     cli_ops: list[str] | None,
     cli_return_trace: bool | None,
     cli_concurrency: int | None,
@@ -242,9 +239,6 @@ def resolve_eval_config(
         resolved.policy_config["model"] = cli_model
     if metadata:
         resolved.metadata = metadata
-
-    if cli_env_file:
-        resolved.metadata.setdefault("env_file", cli_env_file)
 
     resolved.config_path = config_path
 

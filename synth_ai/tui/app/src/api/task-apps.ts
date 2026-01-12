@@ -5,7 +5,6 @@
  */
 
 import { spawn } from "child_process"
-import { appState } from "../state/app-state"
 import type { TunnelRecord, TunnelHealthResult, ScannedApp, TaskApp } from "../types"
 
 // Cache scan results to avoid excessive CLI calls
@@ -22,7 +21,7 @@ export async function scanLocalApps(): Promise<ScannedApp[]> {
     return scanCache.apps
   }
 
-  const cwd = appState.opencodeWorkingDir || process.cwd()
+  const cwd = process.cwd()
   const portRange = process.env.SYNTH_SCAN_PORT_RANGE || "8000-8100"
 
   return new Promise((resolve) => {

@@ -38,7 +38,7 @@ function getHealthColor(status: "healthy" | "unhealthy" | "unknown"): string {
 }
 
 function formatAppCard(app: TaskApp) {
-  const healthIcon = getHealthIcon(app.health_status)
+  const healthIcon = getHealthIcon((app.health_status as "unknown" | "healthy" | "unhealthy") || "unknown")
   const locationLabel = app.type === "tunnel"
     ? "tunnel"
     : app.port
@@ -117,7 +117,7 @@ export function TaskAppsList(props: TaskAppsListProps) {
                 {/* Line 2: health icon + status | location */}
                 <box flexDirection="row" backgroundColor={bg} width="100%">
                   <text>
-                    <span style={{ fg: getHealthColor(item.healthStatus) }}>  {item.healthIcon}</span>
+                    <span style={{ fg: getHealthColor((item.healthStatus as "unknown" | "healthy" | "unhealthy") || "unknown") }}>  {item.healthIcon}</span>
                     <span style={{ fg: detailFg }}> {item.healthStatus} | {item.locationLabel}</span>
                   </text>
                 </box>

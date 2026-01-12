@@ -24,8 +24,6 @@ For domain-specific verification, you can use **Verifier Graphs**. See `PromptLe
 in `synth_ai.sdk.api.train.configs.prompt_learning` for configuration details.
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 import time
@@ -34,8 +32,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 from .builders import (
@@ -59,7 +57,7 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
     @classmethod
-    def from_string(cls, status: str) -> JobStatus:
+    def from_string(cls, status: str) -> "JobStatus":
         """Convert string to JobStatus, defaulting to PENDING for unknown values."""
         try:
             return cls(status.lower())
@@ -100,7 +98,7 @@ class PromptLearningResult:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_response(cls, job_id: str, data: Dict[str, Any]) -> PromptLearningResult:
+    def from_response(cls, job_id: str, data: Dict[str, Any]) -> "PromptLearningResult":
         """Create result from API response dict."""
         status_str = data.get("status", "pending")
         status = JobStatus.from_string(status_str)
@@ -292,7 +290,7 @@ class PromptLearningJob:
         task_app_api_key: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
-    ) -> PromptLearningJob:
+    ) -> "PromptLearningJob":
         """Create a job from a TOML config file.
 
         Args:
@@ -313,13 +311,9 @@ class PromptLearningJob:
 
         config_path_obj = Path(config_path)
 
-        # Resolve backend URL - default to production API
         if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                backend_url = PROD_BASE_URL
+            backend_url = BACKEND_URL_BASE
 
-        # Resolve API key
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
             if not api_key:
@@ -348,7 +342,7 @@ class PromptLearningJob:
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
         skip_health_check: bool = False,
-    ) -> PromptLearningJob:
+    ) -> "PromptLearningJob":
         """Create a job from a configuration dictionary (programmatic use).
 
         This allows creating prompt learning jobs without a TOML file, enabling
@@ -400,13 +394,9 @@ class PromptLearningJob:
             >>> job_id = job.submit()
         """
 
-        # Resolve backend URL - default to production API
         if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                backend_url = PROD_BASE_URL
+            backend_url = BACKEND_URL_BASE
 
-        # Resolve API key
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
             if not api_key:
@@ -441,7 +431,7 @@ class PromptLearningJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> PromptLearningJob:
+    ) -> "PromptLearningJob":
         """Resume an existing job by ID.
 
         Args:
@@ -453,13 +443,9 @@ class PromptLearningJob:
             PromptLearningJob instance for the existing job
         """
 
-        # Resolve backend URL - default to production API
         if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                backend_url = PROD_BASE_URL
+            backend_url = BACKEND_URL_BASE
 
-        # Resolve API key
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
             if not api_key:

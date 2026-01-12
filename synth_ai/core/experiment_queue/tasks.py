@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from celery.utils.log import get_task_logger
-from dotenv import load_dotenv
+
+from synth_ai.core.user_config import load_user_env
 
 from .api_schemas import BackendEventsResponse
 from .celery_app import celery_app
@@ -40,38 +41,14 @@ TRAIN_COMMAND_ENV = "EXPERIMENT_QUEUE_TRAIN_CMD"
 
 
 def _load_synth_api_key() -> str:
-    """Load SYNTH_API_KEY from .env file and fail loudly if not found.
-
-    Never falls back to other sources - must be explicitly set in .env file.
-
-    Returns:
-        The API key as a string.
-
-    Raises:
-        RuntimeError: If SYNTH_API_KEY is not found in .env file.
-    """
-    # Find .env file - check synth-ai root first, then current directory
-    repo_root = (
-        Path(__file__).resolve().parents[3]
-    )  # synth_ai/experiment_queue/tasks.py -> synth-ai/
-    env_file = repo_root / ".env"
-
-    if not env_file.exists():
-        # Try current directory as fallback
-        env_file = Path(".env")
-
-    if env_file.exists():
-        load_dotenv(env_file, override=False)  # Don't override existing env vars
-
+    """Load SYNTH_API_KEY from the process environment or user config."""
+    load_user_env(override=False)
     api_key = os.getenv("SYNTH_API_KEY")
-
     if not api_key:
         raise RuntimeError(
-            f"❌ SYNTH_API_KEY not found! "
-            f"Please set it in {env_file.resolve() if env_file.exists() else 'synth-ai/.env'}. "
-            f"No fallback - API key must be explicitly set."
+            "❌ SYNTH_API_KEY not found. "
+            "Set it in your shell environment or run synth-ai setup to store it."
         )
-
     return api_key
 
 
@@ -976,7 +953,7 @@ def _finalize_job(
                     # Fetch backend job metadata
                     config = load_config()
                     backend_url = config.backend_url
-                    # Load API key from .env - fail loudly if not found
+                    # Load API key from environment/user config - fail loudly if not found
                     try:
                         api_key = _load_synth_api_key()
                     except RuntimeError as e:
@@ -1343,7 +1320,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
             f"backend_url must start with http:// or https://, got {backend_url}"
         )
 
-        # Get API key from .env file - fail loudly if not found
+        # Get API key from environment/user config - fail loudly if not found
         # This is needed for the poller thread, which runs in the worker process
         try:
             api_key = _load_synth_api_key()

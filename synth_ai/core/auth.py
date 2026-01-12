@@ -100,10 +100,10 @@ def fetch_credentials_from_web_browser() -> dict:
 
 
 def store_credentials(credentials, config_path="~/.synth-ai/config.json"):
-    """Store credentials to config file, dotenv, and environment."""
+    """Store credentials to config file and environment."""
     import os
 
-    from synth_ai.core.env_utils import mask_str, write_env_var_to_dotenv, write_env_var_to_json
+    from synth_ai.core.env_utils import mask_str, write_env_var_to_json
 
     required = {"SYNTH_API_KEY", "ENVIRONMENT_API_KEY"}
     missing = [k for k in required if not credentials.get(k)]
@@ -112,7 +112,6 @@ def store_credentials(credentials, config_path="~/.synth-ai/config.json"):
 
     for k, v in credentials.items():
         write_env_var_to_json(k, v, config_path)
-        write_env_var_to_dotenv(k, v)
         os.environ[k] = v
         print(f"Loaded {k}={mask_str(v)} to process environment")
 

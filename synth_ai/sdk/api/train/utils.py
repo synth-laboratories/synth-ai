@@ -1,9 +1,6 @@
-from __future__ import annotations
-
 import importlib
 import json
 import os
-import re
 import subprocess
 import tempfile
 import time
@@ -51,42 +48,6 @@ def mask_value(value: str | None) -> str:
     if len(value) <= 6:
         return "****"
     return f"{value[:4]}…{value[-2:]}"
-
-
-_ENV_LINE = re.compile(r"^\s*(?:export\s+)?(?P<key>[A-Za-z0-9_]+)\s*=\s*(?P<value>.*)$")
-
-
-def read_env_file(path: Path) -> dict[str, str]:
-    if not path.exists():
-        return {}
-    data: dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        m = _ENV_LINE.match(line)
-        if not m:
-            continue
-        raw = m.group("value").strip()
-        if raw and raw[0] == raw[-1] and raw[0] in {'"', "'"} and len(raw) >= 2:
-            raw = raw[1:-1]
-        data[m.group("key")] = raw
-    return data
-
-
-def write_env_value(path: Path, key: str, value: str) -> None:
-    existing = []
-    if path.exists():
-        existing = path.read_text(encoding="utf-8", errors="ignore").splitlines()
-    updated = False
-    new_lines: list[str] = []
-    for line in existing:
-        m = _ENV_LINE.match(line)
-        if m and m.group("key") == key:
-            new_lines.append(f"{key}={value}")
-            updated = True
-        else:
-            new_lines.append(line)
-    if not updated:
-        new_lines.append(f"{key}={value}")
-    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 @dataclass(slots=True)
@@ -271,10 +232,8 @@ __all__ = [
     "mask_value",
     "post_multipart",
     "preview_json",
-    "read_env_file",
     "run_cli",
     "sleep",
     "limit_jsonl_examples",
     "validate_sft_jsonl",
-    "write_env_value",
 ]

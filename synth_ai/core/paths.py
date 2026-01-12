@@ -32,11 +32,6 @@ def get_bin_path(name: str) -> Path | None:
     return Path(path) if path else None
 
 
-def get_env_file_paths(base_dir: str | Path = ".") -> list[Path]:
-    base = Path(base_dir).resolve()
-    return [path for path in base.rglob(".env*") if path.is_file()]
-
-
 def get_home_config_file_paths(dir_name: str, file_extension: str = "json") -> list[Path]:
     dir = Path.home() / dir_name
     if not dir.exists():

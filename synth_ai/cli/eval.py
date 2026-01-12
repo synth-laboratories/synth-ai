@@ -6,7 +6,6 @@ from dataclasses import asdict
 from pathlib import Path
 
 import click
-from dotenv import load_dotenv
 
 
 @click.command()
@@ -18,7 +17,6 @@ from dotenv import load_dotenv
 @click.option("--seeds", required=False, default="")
 @click.option("--url", required=False, default="")
 @click.option("--backend", required=False, default="")
-@click.option("--env-file", required=False, default="")
 @click.option("--ops", required=False, default="")
 @click.option("--return-trace", is_flag=True, default=False)
 @click.option("--concurrency", required=False, default="")
@@ -40,7 +38,6 @@ def eval(
     seeds: str,
     url: str,
     backend: str,
-    env_file: str,
     ops: str,
     return_trace: bool,
     concurrency: str,
@@ -75,7 +72,6 @@ def eval(
         "seeds": seeds,
         "url": url,
         "backend": backend,
-        "env_file": env_file,
         "ops": ops,
         "return_trace": return_trace,
         "concurrency": concurrency,
@@ -86,9 +82,6 @@ def eval(
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
 
-    if env_file:
-        load_dotenv(env_file, override=False)
-
     output_json_path = output_path or output_json
     effective_return_trace = return_trace or bool(traces_dir)
 
@@ -98,7 +91,6 @@ def eval(
         cli_model=str(normalized.get("model") or "") or None,
         cli_seeds=normalized.get("seeds") or None,
         cli_url=str(normalized.get("url") or "") or None,
-        cli_env_file=str(normalized.get("env_file") or "") or None,
         cli_ops=normalized.get("ops") or None,
         cli_return_trace=effective_return_trace,
         cli_concurrency=normalized.get("concurrency") or None,

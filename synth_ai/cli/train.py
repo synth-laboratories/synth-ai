@@ -21,7 +21,6 @@ except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load backend configuration helpers") from exc
 
 from synth_ai.core.config.errors import format_error_message, get_required_value
-from synth_ai.core.env_utils import load_env_file
 from synth_ai.core.telemetry import flush_logger, log_error, log_info
 from synth_ai.sdk.api.train.builders import (
     build_prompt_learning_payload,
@@ -131,15 +130,14 @@ def _default_backend() -> str:
     """Resolve backend URL with proper production default.
 
     Priority order:
-    1. BACKEND_BASE_URL env var (highest priority) - checked FIRST before any .env loading
+    1. BACKEND_BASE_URL env var (highest priority)
     2. BACKEND_OVERRIDE env var
-    3. get_backend_from_env() standard resolution (which may use SYNTH_BASE_URL from .env)
+    3. get_backend_from_env() standard resolution
 
-    CRITICAL: This function MUST check BACKEND_BASE_URL directly from os.getenv()
-    to ensure it's not overridden by .env file loading.
+    CRITICAL: This function MUST check BACKEND_BASE_URL directly from os.getenv().
     """
     # Check explicit override first (BACKEND_BASE_URL takes absolute precedence)
-    # Read directly from os.environ to avoid any dotenv interference
+    # Read directly from os.environ to avoid unexpected overrides
     explicit = os.environ.get("BACKEND_BASE_URL", "").strip()
     if explicit:
         # Return as-is, ensure_api_base() will normalize it
@@ -150,7 +148,7 @@ def _default_backend() -> str:
     if override:
         return override
 
-    # Use standard resolution logic (may use SYNTH_BASE_URL from .env)
+    # Use standard resolution logic
     base, _ = get_backend_from_env()
     return f"{base}/api" if not base.endswith("/api") else base
 
@@ -209,28 +207,6 @@ def _load_toml_config(config_path: Path) -> dict[str, Any]:
             return tomli.load(f)
     except Exception:
         return {}
-
-
-def parse_env_file_path_from_config(config_path: Path) -> str | None:
-    """Parse env_file_path from TOML config.
-
-    Checks both [prompt_learning] and top-level sections.
-    """
-    config = _load_toml_config(config_path)
-
-    # Check prompt_learning section first
-    pl_section = config.get("prompt_learning", {})
-    if isinstance(pl_section, dict):
-        env_file_path = pl_section.get("env_file_path")
-        if env_file_path:
-            return str(env_file_path)
-
-    # Check top-level
-    env_file_path = config.get("env_file_path")
-    if env_file_path:
-        return str(env_file_path)
-
-    return None
 
 
 def parse_results_folder(config_path: Path) -> Path:
@@ -387,7 +363,7 @@ def _validate_openai_key_if_provider_is_openai(cfg_path: Path) -> None:
         if not openai_key:
             raise click.ClickException(
                 "OPENAI_API_KEY is required when using provider='openai'.\n"
-                "Please set OPENAI_API_KEY in your .env file or environment."
+                "Please set OPENAI_API_KEY in your shell environment."
             )
 
 
@@ -401,12 +377,6 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.cli.train imported")
 
 @click.command()
 @click.argument("cfg_path", required=False, type=click.Path(exists=True, path_type=Path))
-@click.option(
-    "--env",
-    "env_file",
-    type=click.Path(exists=True, path_type=Path),
-    help=".env file(s) to preload (skips selection prompt)",
-)
 @click.option("--task-url", default=None, help="Override task app base URL (RL only)")
 @click.option(
     "--dataset",
@@ -505,7 +475,6 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.cli.train imported")
 )
 def train(
     cfg_path: Path | None,
-    env_file: Path | None,
     task_url: str | None,
     dataset_path: str | None,
     model: str | None,
@@ -548,22 +517,6 @@ def train(
         click.echo(f"[TRAIN_CMD] Python executable: {sys.executable}", err=True)
         click.echo(f"[TRAIN_CMD] Working directory: {os.getcwd()}", err=True)
 
-        try:
-            load_env_file()
-            click.echo("[TRAIN_CMD] Environment file loaded", err=True)
-        except Exception as e:
-            click.echo(f"[TRAIN_CMD] ERROR loading env file: {e}", err=True)
-            traceback.print_exc(file=sys.stderr)
-            raise
-
-        # CRITICAL: Load explicit .env file BEFORE config validation to ensure BACKEND_BASE_URL is available
-        if env_file and Path(env_file).exists():
-            from dotenv import load_dotenv
-
-            # Load with override=True to ensure BACKEND_BASE_URL from .env takes precedence
-            load_dotenv(Path(env_file), override=True)
-            click.echo(f"[TRAIN_CMD] Loaded explicit .env: {env_file}", err=True)
-
         # Handle GraphGen specially - it uses JSON datasets, not TOML configs
         if train_type_override == "graphgen":
             # For GraphGen, dataset_path is required and cfg_path is ignored
@@ -594,7 +547,7 @@ def train(
 
             train_type = train_type_override or validate_train_cfg(cfg_path)
 
-        synth_api_key, _ = get_synth_and_env_keys(env_file)
+        synth_api_key, _ = get_synth_and_env_keys()
 
         # Resolve backend URL with priority: --backend flag > BACKEND_BASE_URL env > default
         if backend_override:
@@ -602,7 +555,7 @@ def train(
             backend_base = ensure_api_base(backend_override.strip())
             click.echo(f"Backend base: {backend_base} (from --backend flag)")
         else:
-            # Check BACKEND_BASE_URL AFTER loading env file
+            # Check BACKEND_BASE_URL after evaluating overrides
             backend_base_url_env = os.environ.get("BACKEND_BASE_URL", "").strip()
             backend_override_env = os.environ.get("BACKEND_OVERRIDE", "").strip()
 
@@ -628,7 +581,7 @@ def train(
                         f"BACKEND_BASE_URL={backend_base_url_env} but resolved to {backend_base}. "
                         f"This indicates BACKEND_BASE_URL is not being respected.\n"
                         f"💡 Solutions:\n"
-                        f"   1. Add BACKEND_BASE_URL=http://localhost:8000 to your .env file\n"
+                        f"   1. Set BACKEND_BASE_URL=http://localhost:8000 in your shell\n"
                         f"   2. Use --backend http://localhost:8000 flag (requires package rebuild)\n"
                         f"   3. Set BACKEND_OVERRIDE=http://localhost:8000 in your shell\n"
                         f"   4. Set SYNTH_BACKEND_URL_OVERRIDE=local and LOCAL_BACKEND_URL=http://localhost:8000"

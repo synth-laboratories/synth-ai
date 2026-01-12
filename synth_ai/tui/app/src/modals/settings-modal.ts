@@ -25,14 +25,12 @@ export type SettingsModalController = ModalController & {
   move: (delta: number) => void
   select: () => Promise<void>
   openKeyModal: () => void
-  openEnvKeyModal: () => void
 }
 
 export function createSettingsModal(
   ctx: AppContext,
   deps?: {
     onOpenKeyModal?: () => void
-    onOpenEnvKeyModal?: () => void
     onBackendSwitch?: () => Promise<void>
   },
 ): SettingsModalController {
@@ -51,7 +49,7 @@ export function createSettingsModal(
 
   // Set initial content
   modal.setTitle("Settings - Backend")
-  modal.setHint("j/k navigate  Enter select  Shift+E env keys  q close")
+  modal.setHint("j/k navigate  Enter select  Shift+K keys  q close")
 
   function buildSettingsOptions(): BackendConfig[] {
     return [backendConfigs.prod, backendConfigs.dev, backendConfigs.local]
@@ -149,11 +147,6 @@ export function createSettingsModal(
     deps?.onOpenKeyModal?.()
   }
 
-  function openEnvKeyModal(): void {
-    toggle(false)
-    deps?.onOpenEnvKeyModal?.()
-  }
-
   function handleKey(key: any): boolean {
     if (!modal.visible) return false
 
@@ -173,10 +166,6 @@ export function createSettingsModal(
       openKeyModal()
       return true
     }
-    if (key.name === "e" && key.shift) {
-      openEnvKeyModal()
-      return true
-    }
     if (key.name === "q" || key.name === "escape") {
       toggle(false)
       return true
@@ -193,7 +182,6 @@ export function createSettingsModal(
     move,
     select,
     openKeyModal,
-    openEnvKeyModal,
     handleKey,
   }
 }

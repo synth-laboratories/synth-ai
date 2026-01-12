@@ -50,14 +50,14 @@ export function JobStatusPanel(props: JobStatusPanelProps) {
     <Show when={props.visible && props.jobs.length > 0}>
       <box
         flexDirection="column"
-        borderStyle="round"
+        borderStyle="rounded"
         borderColor={COLORS.border}
         paddingLeft={1}
         paddingRight={1}
         marginBottom={1}
       >
         <box flexDirection="row" justifyContent="space-between">
-          <text fg={COLORS.text} bold>Recent Job Updates</text>
+          <text fg={COLORS.text}>Recent Job Updates</text>
           <Show when={props.onDismiss}>
             <text fg={COLORS.textDim}>(auto-hide in 10s)</text>
           </Show>

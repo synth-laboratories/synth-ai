@@ -35,7 +35,6 @@ KNOWN_PROMPT_LEARNING_FIELDS = {
     "free_tier",  # Enable free tier mode with OSS models
     # Deprecated fields (still recognized for warnings)
     "results_folder",
-    "env_file_path",
     # Seed pools (can be at top-level or nested)
     "bootstrap_train_seeds",
     "online_pool",
@@ -291,7 +290,6 @@ DEPRECATED_FIELDS = {
     # Truly deprecated (backend ignores)
     "display": "The [display] section is deprecated and ignored by the backend. Remove it from your config.",
     "results_folder": "'results_folder' is deprecated and ignored by the backend. Remove it from your config.",
-    "env_file_path": "'env_file_path' is deprecated. Use environment variables instead.",
     # Deprecated flat GEPA fields (prefer nested)
     "rollout_budget": "Use [prompt_learning.gepa.rollout].budget instead of flat rollout_budget.",
     "max_concurrent_rollouts": "Use [prompt_learning.gepa.rollout].max_concurrent instead.",

@@ -54,7 +54,7 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
     silently fail or cause confusion (e.g., limits not being applied).
 
     Raises:
-        FileNotFoundError: If config file or referenced env file doesn't exist
+        FileNotFoundError: If config file doesn't exist
         ValueError: If config file is invalid or config_overrides cannot be applied
     """
     from pathlib import Path
@@ -87,40 +87,11 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
             # Other errors (file not found, etc.) should propagate
             raise
 
-    # Check if config references an env file
-    try:
-        from .config_utils import _load_toml
-
-        config_data = _load_toml(config_path)
-        env_file_path = config_data.get("prompt_learning", {}).get(
-            "env_file_path"
-        ) or config_data.get("env_file_path")
-
-        if env_file_path:
-            env_path = Path(env_file_path)
-            if not env_path.is_absolute():
-                # Resolve relative to config file directory
-                env_path = (config_path.parent / env_path).resolve()
-            else:
-                env_path = env_path.expanduser().resolve()
-
-            if not env_path.exists():
-                raise FileNotFoundError(
-                    f"Env file referenced in config not found: {env_path}\n"
-                    f"  Config: {config_path}\n"
-                    f"  Referenced as: {env_file_path}"
-                )
-    except Exception as e:
-        if isinstance(e, FileNotFoundError | ValueError):
-            raise
-        # If we can't parse the config, that's okay - it will fail later during execution
-        pass
-
 
 def create_experiment(request: ExperimentSubmitRequest) -> Experiment:
     """Persist a new experiment and enqueue initial jobs.
 
-    Validates that all job specs have required files (config TOML and env files).
+    Validates that all job specs have required files (config TOML).
     """
     init_db()
 

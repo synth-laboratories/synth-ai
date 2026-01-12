@@ -28,7 +28,6 @@ import { apiGet, apiGetV1 } from "../api/client"
 import { fetchSessions, disconnectSession, checkSessionHealth } from "../api/sessions"
 import { openBrowser, runDeviceCodeAuth, type AuthStatus } from "../auth"
 import { copyToClipboard } from "../utils/clipboard"
-import { scanEnvKeys } from "../utils/env"
 import { clearLoggedOutMarker, deleteSavedApiKey, saveApiKey, setLoggedOutMarker } from "../utils/logout-marker"
 import { persistSettings } from "../persistence/settings"
 import { listLogFiles, moveLogSelection } from "../ui/logs"
@@ -72,7 +71,6 @@ type ActiveModal =
   | "snapshot"
   | "key"
   | "settings"
-  | "env-key"
   | "usage"
   | "task-apps"
   | "sessions"
@@ -796,63 +794,6 @@ function SolidShell(props: { onExit?: () => void }) {
     await data.refresh()
   }
 
-  async function rescanEnvKeys(): Promise<void> {
-    appState.envKeyScanInProgress = true
-    appState.envKeyError = null
-    data.ctx.render()
-    try {
-      appState.envKeyOptions = await scanEnvKeys(data.ctx.state.config.envKeyScanRoot)
-      appState.envKeyCursor = 0
-      appState.envKeyWindowStart = 0
-    } catch (err: any) {
-      appState.envKeyError = err?.message || "Scan failed"
-    } finally {
-      appState.envKeyScanInProgress = false
-      data.ctx.render()
-    }
-  }
-
-  function openEnvKeyModal(): void {
-    setActiveModal("env-key")
-    void rescanEnvKeys()
-  }
-
-  function moveEnvKeyCursor(delta: number): void {
-    const max = Math.max(0, appState.envKeyOptions.length - 1)
-    appState.envKeyCursor = clamp(appState.envKeyCursor + delta, 0, max)
-    if (appState.envKeyCursor < appState.envKeyWindowStart) {
-      appState.envKeyWindowStart = appState.envKeyCursor
-    } else if (appState.envKeyCursor >= appState.envKeyWindowStart + data.ctx.state.config.envKeyVisibleCount) {
-      appState.envKeyWindowStart = appState.envKeyCursor - data.ctx.state.config.envKeyVisibleCount + 1
-    }
-    data.ctx.render()
-  }
-
-  async function selectEnvKey(): Promise<void> {
-    const selected = appState.envKeyOptions[appState.envKeyCursor]
-    if (!selected) {
-      // Close modal when no keys available (pressing enter should dismiss)
-      closeActiveModal()
-      return
-    }
-    const frontendUrlId = getFrontendUrlId(appState.currentBackend)
-    frontendKeys[frontendUrlId] = selected.key
-    frontendKeySources[frontendUrlId] = {
-      sourcePath: selected.sources[0] || null,
-      varName: selected.varNames[0] || null,
-    }
-    process.env.SYNTH_API_KEY = selected.key
-    closeActiveModal()
-    await persistSettings({
-      settingsFilePath: data.ctx.state.config.settingsFilePath,
-      getCurrentBackend: () => appState.currentBackend,
-      getFrontendKey: (id) => frontendKeys[id],
-      getFrontendKeySource: (id) => frontendKeySources[id],
-    })
-    snapshot.status = "API key loaded from env file"
-    data.ctx.render()
-  }
-
   function openUsageModal(): void {
     appState.usageModalOffset = 0
     setUsageData(null)
@@ -1341,40 +1282,6 @@ function SolidShell(props: { onExit?: () => void }) {
           openKeyModal()
           return
         }
-        if (evt.name === "e" && evt.shift) {
-          evt.preventDefault()
-          closeActiveModal()
-          openEnvKeyModal()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "env-key") {
-        if (evt.name === "up" || evt.name === "k") {
-          evt.preventDefault()
-          moveEnvKeyCursor(-1)
-          return
-        }
-        if (evt.name === "down" || evt.name === "j") {
-          evt.preventDefault()
-          moveEnvKeyCursor(1)
-          return
-        }
-        if (evt.name === "r") {
-          evt.preventDefault()
-          void rescanEnvKeys()
-          return
-        }
-        if (evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          void selectEnvKey()
-          return
-        }
         if (evt.name === "q" || evt.name === "escape") {
           evt.preventDefault()
           closeActiveModal()
@@ -1647,15 +1554,6 @@ function SolidShell(props: { onExit?: () => void }) {
     if (evt.name === "i" && !evt.shift) {
       evt.preventDefault()
       openConfigModal()
-      return
-    }
-    if (evt.name === "i" && evt.shift) {
-      evt.preventDefault()
-      // Install OpenCode if not available
-      const status = appState.openCodeStatus || ""
-      if (status.includes("not available") || status.includes("install")) {
-        void data.installOpenCode()
-      }
       return
     }
     if (evt.name === "p") {
@@ -2023,60 +1921,9 @@ function SolidShell(props: { onExit?: () => void }) {
           height={14}
           borderColor="#38bdf8"
           titleColor="#38bdf8"
-          hint="j/k navigate | enter select | shift+e env keys | shift+k key | q close"
+          hint="j/k navigate | enter select | shift+k key | q close"
         >
           <text fg="#e2e8f0">{settingsContent()}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "env-key") {
-      const lines: string[] = []
-      if (appState.envKeyScanInProgress) {
-        lines.push("Scanning...")
-      } else if (appState.envKeyError) {
-        lines.push(`Error: ${appState.envKeyError}`)
-      } else if (!appState.envKeyOptions.length) {
-        const scanRoot = data.ctx.state.config.envKeyScanRoot
-        lines.push("No API keys found in .env files")
-        lines.push("")
-        lines.push(`Scanned: ${scanRoot}`)
-        lines.push("")
-        lines.push("Looking for vars:")
-        lines.push("  SYNTH_API_KEY")
-        lines.push("  SYNTH_TUI_API_KEY_PROD")
-        lines.push("  SYNTH_TUI_API_KEY_DEV")
-        lines.push("  SYNTH_TUI_API_KEY_LOCAL")
-      } else {
-        const max = Math.max(0, appState.envKeyOptions.length - 1)
-        const start = clamp(appState.envKeyWindowStart, 0, Math.max(0, max))
-        const end = Math.min(appState.envKeyOptions.length, start + data.ctx.state.config.envKeyVisibleCount)
-        for (let idx = start; idx < end; idx++) {
-          const option = appState.envKeyOptions[idx]
-          const cursor = idx === appState.envKeyCursor ? ">" : " "
-          const preview = option.key ? `${option.key.slice(0, 8)}...` : "(empty)"
-          lines.push(`${cursor} ${preview}`)
-        }
-        const selected = appState.envKeyOptions[appState.envKeyCursor]
-        if (selected) {
-          const sources = selected.sources.slice(0, 2).join(", ")
-          const suffix = selected.sources.length > 2 ? ` +${selected.sources.length - 2}` : ""
-          lines.push("")
-          lines.push(`Source: ${sources}${suffix}`)
-          lines.push(`Vars: ${selected.varNames.join(", ")}`)
-        }
-      }
-
-      return (
-        <ModalFrame
-          title="Scan .env Files for API Keys"
-          width={64}
-          height={16}
-          borderColor="#a78bfa"
-          titleColor="#a78bfa"
-          hint="j/k navigate | enter select | r rescan | q close"
-        >
-          <text fg="#e2e8f0">{lines.join("\n")}</text>
         </ModalFrame>
       )
     }

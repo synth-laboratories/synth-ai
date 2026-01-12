@@ -17,16 +17,14 @@ Example SDK usage:
     print(f"Fine-tuned model: {result['fine_tuned_model']}")
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from synth_ai.core.env import PROD_BASE_URL
 from synth_ai.core.telemetry import log_info
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 from .builders import SFTBuildResult, build_sft_payload
 from .pollers import SFTJobPoller
@@ -107,7 +105,7 @@ class SFTJob:
         dataset_override: Optional[str | Path] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
-    ) -> SFTJob:
+    ) -> "SFTJob":
         """Create a job from a TOML config file.
 
         Args:
@@ -127,11 +125,8 @@ class SFTJob:
         """
         config_path_obj = Path(config_path)
 
-        # Resolve backend URL - default to production API
         if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                backend_url = PROD_BASE_URL
+            backend_url = BACKEND_URL_BASE
 
         # Resolve API key
         if not api_key:
@@ -158,7 +153,7 @@ class SFTJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> SFTJob:
+    ) -> "SFTJob":
         """Resume an existing job by ID.
 
         Args:
@@ -169,11 +164,8 @@ class SFTJob:
         Returns:
             SFTJob instance for the existing job
         """
-        # Resolve backend URL - default to production API
         if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                backend_url = PROD_BASE_URL
+            backend_url = BACKEND_URL_BASE
 
         # Resolve API key
         if not api_key:

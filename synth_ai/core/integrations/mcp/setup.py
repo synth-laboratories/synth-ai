@@ -2,7 +2,7 @@ import json
 import os
 
 from synth_ai.core.auth import AuthSession, fetch_data, init_auth_session
-from synth_ai.core.env_utils import mask_str, write_env_var_to_dotenv, write_env_var_to_json
+from synth_ai.core.env_utils import mask_str, write_env_var_to_json
 
 
 def setup_start() -> str:
@@ -63,7 +63,6 @@ def setup_fetch(device_code: str) -> str:
             "ENVIRONMENT_API_KEY": str(raw_keys.get("rl_env") or "").strip(),
         }
         for k, v in credentials.items():
-            write_env_var_to_dotenv(k, v)
             write_env_var_to_json(k, v, "~/.synth-ai/config.json")
             os.environ[k] = v
         masked_credentials = {key: mask_str(value or "") for key, value in credentials.items()}
