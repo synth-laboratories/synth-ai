@@ -10,7 +10,7 @@ import click
 
 from synth_ai.cli.lib.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
 from synth_ai.core.config.errors import format_error_message, get_required_value
-from synth_ai.core.env_utils import get_synth_and_env_keys, mask_str
+from synth_ai.core.env import get_synth_and_env_keys, mask_str
 from synth_ai.core.paths import print_paths_formatted
 from synth_ai.core.telemetry import flush_logger, log_error, log_info
 from synth_ai.core.urls import BACKEND_URL_API

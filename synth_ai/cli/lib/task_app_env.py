@@ -2,7 +2,7 @@ import os
 
 import click
 
-from synth_ai.core.env_utils import mask_str, resolve_env_var
+from synth_ai.core.env import mask_str, resolve_env_var
 from synth_ai.core.process import ensure_local_port_available
 from synth_ai.core.task_app_state import persist_env_api_key
 from synth_ai.core.urls import BACKEND_URL_BASE
