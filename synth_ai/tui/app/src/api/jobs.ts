@@ -167,11 +167,15 @@ export async function selectJob(
       // Small delay to ensure job data is fully loaded
       if (options.signal?.aborted) return
       await new Promise((resolve, reject) => {
-        const timeoutId = setTimeout(resolve, 100)
-        options.signal?.addEventListener('abort', () => {
+        const abortHandler = () => {
           clearTimeout(timeoutId)
           reject(new Error('Aborted'))
-        }, { once: true })
+        }
+        const timeoutId = setTimeout(() => {
+          options.signal?.removeEventListener('abort', abortHandler)
+          resolve(undefined)
+        }, 100)
+        options.signal?.addEventListener('abort', abortHandler, { once: true })
       }).catch(() => { return })
       if (token === appState.jobSelectToken && snapshot.selectedJob?.job_id === jobId) {
         await fetchMetrics(ctx, options)
