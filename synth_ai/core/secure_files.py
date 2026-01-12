@@ -17,7 +17,7 @@ def ensure_private_dir(path: Path) -> None:
 
 def write_private_text(path: Path, content: str, *, mode: int = PRIVATE_FILE_MODE) -> None:
     ensure_private_dir(path.parent)
-    tmp_path = ""
+    tmp_path: str | None = None
     try:
         fd, tmp_path = tempfile.mkstemp(prefix=f"{path.name}.", dir=str(path.parent))
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
