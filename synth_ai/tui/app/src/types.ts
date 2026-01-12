@@ -159,24 +159,13 @@ export type OpenCodeMessage = {
   toolStatus?: "pending" | "running" | "completed" | "failed"
 }
 
-/** Backend ID for multi-backend support */
-export type BackendId = "prod" | "dev" | "local"
+/** Mode for environment switching */
+export type Mode = "prod" | "dev" | "local"
 
-/** Frontend URL identifier for key storage (keys are shared by frontend URL) */
-export type FrontendUrlId = string
-
-/** Backend configuration */
-export type BackendConfig = {
-  id: BackendId
-  label: string
+/** URLs for a mode */
+export type ModeUrls = {
   backendUrl: string
   frontendUrl: string
-}
-
-/** Source information for an API key */
-export type BackendKeySource = {
-  sourcePath: string | null
-  varName: string | null
 }
 
 export type Snapshot = {

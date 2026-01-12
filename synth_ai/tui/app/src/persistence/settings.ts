@@ -1,58 +1,35 @@
 /**
- * Persisted settings for the TUI (backend selection + API keys).
- *
- * API keys are stored for the active frontend URL only.
+ * Persisted settings for the TUI (mode selection + API keys per mode).
  */
 import path from "node:path"
 import { promises as fs } from "node:fs"
 
 import { formatEnvLine, parseEnvFile } from "../utils/env"
-import { normalizeFrontendId } from "../utils/frontend-id"
-import type { BackendId, BackendKeySource, FrontendUrlId } from "../types"
-
-// Type declaration for Node.js process (available at runtime)
-declare const process: {
-  env: Record<string, string | undefined>
-}
+import type { Mode } from "../types"
 
 export type LoadSettingsDeps = {
   settingsFilePath: string
-  normalizeBackendId: (value: string) => BackendId
-  setCurrentBackend: (id: BackendId) => void
-  setFrontendKey: (id: FrontendUrlId, key: string) => void
-  setFrontendKeySource: (id: FrontendUrlId, source: BackendKeySource) => void
+  normalizeMode: (value: string) => Mode
+  setCurrentMode: (mode: Mode) => void
+  setModeKey: (mode: Mode, key: string) => void
 }
 
 export async function loadPersistedSettings(deps: LoadSettingsDeps): Promise<void> {
-  const {
-    settingsFilePath,
-    normalizeBackendId,
-    setCurrentBackend,
-    setFrontendKey,
-    setFrontendKeySource,
-  } = deps
+  const { settingsFilePath, normalizeMode, setCurrentMode, setModeKey } = deps
 
   try {
     const content = await fs.readFile(settingsFilePath, "utf8")
     const values = parseEnvFile(content)
 
-    const backend = values.SYNTH_TUI_MODE
-    if (backend) {
-      setCurrentBackend(normalizeBackendId(backend))
+    const mode = values.SYNTH_TUI_MODE
+    if (mode) {
+      setCurrentMode(normalizeMode(mode))
     }
 
-    const frontendId = normalizeFrontendId(process.env.SYNTH_FRONTEND_URL || "")
-
-    const apiKey = typeof values.SYNTH_TUI_API_KEY === "string"
-      ? values.SYNTH_TUI_API_KEY.trim()
-      : ""
-    if (apiKey && frontendId) {
-      setFrontendKey(frontendId, apiKey)
-      setFrontendKeySource(frontendId, {
-        sourcePath: values.SYNTH_TUI_API_KEY_SOURCE || null,
-        varName: values.SYNTH_TUI_API_KEY_VAR || null,
-      })
-    }
+    // Load keys per mode
+    if (values.SYNTH_TUI_KEY_PROD) setModeKey("prod", values.SYNTH_TUI_KEY_PROD.trim())
+    if (values.SYNTH_TUI_KEY_DEV) setModeKey("dev", values.SYNTH_TUI_KEY_DEV.trim())
+    if (values.SYNTH_TUI_KEY_LOCAL) setModeKey("local", values.SYNTH_TUI_KEY_LOCAL.trim())
   } catch (err: any) {
     if (err?.code !== "ENOENT") {
       // Ignore missing file, keep other errors silent for now.
@@ -62,35 +39,25 @@ export async function loadPersistedSettings(deps: LoadSettingsDeps): Promise<voi
 
 export type PersistSettingsDeps = {
   settingsFilePath: string
-  getCurrentBackend: () => BackendId
-  getFrontendKey: (id: FrontendUrlId) => string
-  getFrontendKeySource: (id: FrontendUrlId) => BackendKeySource
+  getCurrentMode: () => Mode
+  getModeKeys: () => Record<Mode, string>
   onError?: (message: string) => void
 }
 
 export async function persistSettings(deps: PersistSettingsDeps): Promise<void> {
-  const {
-    settingsFilePath,
-    getCurrentBackend,
-    getFrontendKey,
-    getFrontendKeySource,
-    onError,
-  } = deps
+  const { settingsFilePath, getCurrentMode, getModeKeys, onError } = deps
 
   try {
     await fs.mkdir(path.dirname(settingsFilePath), { recursive: true })
-    const backend = getCurrentBackend()
-
-    const frontendId = normalizeFrontendId(process.env.SYNTH_FRONTEND_URL || "")
-    const source = frontendId ? getFrontendKeySource(frontendId) : { sourcePath: null, varName: null }
-    const apiKey = frontendId ? getFrontendKey(frontendId) : ""
+    const mode = getCurrentMode()
+    const keys = getModeKeys()
 
     const lines = [
       "# synth-ai tui settings",
-      formatEnvLine("SYNTH_TUI_MODE", backend),
-      formatEnvLine("SYNTH_TUI_API_KEY", apiKey),
-      formatEnvLine("SYNTH_TUI_API_KEY_SOURCE", source.sourcePath || ""),
-      formatEnvLine("SYNTH_TUI_API_KEY_VAR", source.varName || ""),
+      formatEnvLine("SYNTH_TUI_MODE", mode),
+      formatEnvLine("SYNTH_TUI_KEY_PROD", keys.prod),
+      formatEnvLine("SYNTH_TUI_KEY_DEV", keys.dev),
+      formatEnvLine("SYNTH_TUI_KEY_LOCAL", keys.local),
     ]
     await fs.writeFile(settingsFilePath, `${lines.join("\n")}\n`, "utf8")
   } catch (err: any) {
