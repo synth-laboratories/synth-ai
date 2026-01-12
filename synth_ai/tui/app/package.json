@@ -3,7 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run typecheck",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "test": "bun test"
   },

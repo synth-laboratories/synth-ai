@@ -4,6 +4,7 @@
 import type { AppContext } from "../context"
 import { extractJobs, mergeJobs, coerceJob, isEvalJob, type JobSummary } from "../tui_data"
 import { apiGet } from "./client"
+import { isAbortError } from "../utils/abort"
 
 function extractBestSnapshotId(payload: any): string | null {
   if (!payload) return null
@@ -18,20 +19,23 @@ function extractBestSnapshotId(payload: any): string | null {
   )
 }
 
-export async function refreshJobs(ctx: AppContext): Promise<boolean> {
+export async function refreshJobs(ctx: AppContext, options: { signal?: AbortSignal } = {}): Promise<boolean> {
   const { snapshot, appState, config } = ctx.state
 
   try {
+    if (options.signal?.aborted) return false
     snapshot.status = "Refreshing jobs..."
-    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config.jobLimit}&offset=0`)
+    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config.jobLimit}&offset=0`, options)
     const promptJobs = extractJobs(promptPayload, "prompt-learning")
 
     let learningJobs: JobSummary[] = []
     let learningError: string | null = null
     try {
-      const learningPayload = await apiGet(`/learning/jobs?limit=${config.jobLimit}`)
+      if (options.signal?.aborted) return false
+      const learningPayload = await apiGet(`/learning/jobs?limit=${config.jobLimit}`, options)
       learningJobs = extractJobs(learningPayload, "learning")
     } catch (err: any) {
+      if (isAbortError(err)) return false
       learningError = err?.message || "Failed to load learning jobs"
     }
 
@@ -42,7 +46,7 @@ export async function refreshJobs(ctx: AppContext): Promise<boolean> {
 
     if (!snapshot.selectedJob && jobs.length > 0 && !appState.autoSelected) {
       appState.autoSelected = true
-      await selectJob(ctx, jobs[0].job_id)
+      await selectJob(ctx, jobs[0].job_id, options)
       return true
     }
 
@@ -65,13 +69,18 @@ export async function refreshJobs(ctx: AppContext): Promise<boolean> {
     }
     return true
   } catch (err: any) {
+    if (isAbortError(err)) return false
     snapshot.lastError = err?.message || "Failed to load jobs"
     snapshot.status = "Failed to load jobs"
     return false
   }
 }
 
-export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
+export async function selectJob(
+  ctx: AppContext,
+  jobId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<void> {
   const { snapshot, appState } = ctx.state
 
   const token = ++appState.jobSelectToken
@@ -114,7 +123,7 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
         : jobSource === "learning"
           ? `/learning/jobs/${jobId}?include_metadata=true`
           : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`
-    const job = await apiGet(path)
+    const job = await apiGet(path, options)
     if (token !== appState.jobSelectToken || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
@@ -135,6 +144,7 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
     snapshot.selectedJob = coerced
     snapshot.status = `Selected job ${jobId}`
   } catch (err: any) {
+    if (isAbortError(err)) return
     if (token !== appState.jobSelectToken || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
@@ -144,10 +154,10 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   }
 
   if (jobSource !== "learning" && jobSource !== "eval" && !isEvalJob(snapshot.selectedJob)) {
-    await fetchBestSnapshot(ctx, token)
+    await fetchBestSnapshot(ctx, token, options)
   }
   if (jobSource === "eval" || isEvalJob(snapshot.selectedJob)) {
-    await fetchEvalResults(ctx, token)
+    await fetchEvalResults(ctx, token, options)
   }
   
   // Auto-fetch metrics for GEPA jobs
@@ -157,13 +167,17 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
       // Small delay to ensure job data is fully loaded
       await new Promise(resolve => setTimeout(resolve, 100))
       if (token === appState.jobSelectToken && snapshot.selectedJob?.job_id === jobId) {
-        await fetchMetrics(ctx)
+        await fetchMetrics(ctx, options)
       }
     }
   }
 }
 
-export async function fetchBestSnapshot(ctx: AppContext, token?: number): Promise<void> {
+export async function fetchBestSnapshot(
+  ctx: AppContext,
+  token?: number,
+  options: { signal?: AbortSignal } = {},
+): Promise<void> {
   const { snapshot, appState } = ctx.state
   const job = snapshot.selectedJob
   if (!job) return
@@ -175,11 +189,11 @@ export async function fetchBestSnapshot(ctx: AppContext, token?: number): Promis
     let payload: any
     // If we have a snapshot ID, use the specific snapshot endpoint
     if (snapshotId) {
-      payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/snapshots/${snapshotId}`)
+      payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/snapshots/${snapshotId}`, options)
       payload = payload?.payload || payload
     } else {
       // Otherwise, use the best-snapshot endpoint which can find it even without an explicit ID
-      payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/best-snapshot`)
+      payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/best-snapshot`, options)
       // Update bestSnapshotId from the response if it wasn't set
       if (payload?.best_snapshot_id && !snapshot.bestSnapshotId) {
         snapshot.bestSnapshotId = payload.best_snapshot_id
@@ -193,6 +207,7 @@ export async function fetchBestSnapshot(ctx: AppContext, token?: number): Promis
     snapshot.bestSnapshot = payload
     snapshot.status = `Loaded best snapshot`
   } catch (err: any) {
+    if (isAbortError(err)) return
     if ((token != null && token !== appState.jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
@@ -200,7 +215,11 @@ export async function fetchBestSnapshot(ctx: AppContext, token?: number): Promis
   }
 }
 
-export async function fetchEvalResults(ctx: AppContext, token?: number): Promise<void> {
+export async function fetchEvalResults(
+  ctx: AppContext,
+  token?: number,
+  options: { signal?: AbortSignal } = {},
+): Promise<void> {
   const { snapshot, appState } = ctx.state
   const job = snapshot.selectedJob
   if (!job || !isEvalJob(job)) return
@@ -208,7 +227,7 @@ export async function fetchEvalResults(ctx: AppContext, token?: number): Promise
   const jobId = job.job_id
   try {
     snapshot.status = "Loading eval results..."
-    const payload = await apiGet(`/eval/jobs/${job.job_id}/results`)
+    const payload = await apiGet(`/eval/jobs/${job.job_id}/results`, options)
     if ((token != null && token !== appState.jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
@@ -216,6 +235,7 @@ export async function fetchEvalResults(ctx: AppContext, token?: number): Promise
     snapshot.evalResultRows = Array.isArray(payload?.results) ? payload.results : []
     snapshot.status = `Loaded eval results for ${job.job_id}`
   } catch (err: any) {
+    if (isAbortError(err)) return
     if ((token != null && token !== appState.jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
@@ -224,7 +244,7 @@ export async function fetchEvalResults(ctx: AppContext, token?: number): Promise
   }
 }
 
-export async function fetchMetrics(ctx: AppContext): Promise<void> {
+export async function fetchMetrics(ctx: AppContext, options: { signal?: AbortSignal } = {}): Promise<void> {
   const { snapshot } = ctx.state
   const job = snapshot.selectedJob
   if (!job) return
@@ -232,7 +252,7 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
   const jobId = job.job_id
   try {
     if (isEvalJob(job)) {
-      await fetchEvalResults(ctx)
+      await fetchEvalResults(ctx, undefined, options)
       return
     }
     snapshot.status = "Loading metrics..."
@@ -240,7 +260,7 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
       job.job_source === "learning"
         ? `/learning/jobs/${job.job_id}/metrics`
         : `/prompt-learning/online/jobs/${job.job_id}/metrics`
-    const payload = await apiGet(path)
+    const payload = await apiGet(path, options)
     if (snapshot.selectedJob?.job_id !== jobId) {
       return
     }
@@ -259,6 +279,7 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
       snapshot.status = `Loaded ${points.length} metric points (${gepaMetrics.length} GEPA metrics) for ${job.job_id}`
     }
   } catch (err: any) {
+    if (isAbortError(err)) return
     if (snapshot.selectedJob?.job_id !== jobId) {
       return
     }
@@ -267,30 +288,32 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
   }
 }
 
-export async function cancelSelected(ctx: AppContext): Promise<void> {
+export async function cancelSelected(ctx: AppContext, options: { signal?: AbortSignal } = {}): Promise<void> {
   const { snapshot } = ctx.state
   const job = snapshot.selectedJob
   if (!job) return
 
   try {
     const { apiPost } = await import("./client")
-    await apiPost(`/prompt-learning/online/jobs/${job.job_id}/cancel`, {})
+    await apiPost(`/prompt-learning/online/jobs/${job.job_id}/cancel`, {}, options)
     snapshot.status = "Cancel requested"
   } catch (err: any) {
+    if (isAbortError(err)) return
     snapshot.lastError = err?.message || "Cancel failed"
   }
 }
 
-export async function fetchArtifacts(ctx: AppContext): Promise<void> {
+export async function fetchArtifacts(ctx: AppContext, options: { signal?: AbortSignal } = {}): Promise<void> {
   const { snapshot } = ctx.state
   const job = snapshot.selectedJob
   if (!job) return
 
   try {
-    const payload = await apiGet(`/prompt-learning/online/jobs/${job.job_id}/artifacts`)
+    const payload = await apiGet(`/prompt-learning/online/jobs/${job.job_id}/artifacts`, options)
     snapshot.artifacts = Array.isArray(payload) ? payload : payload?.artifacts || []
     snapshot.status = "Artifacts fetched"
   } catch (err: any) {
+    if (isAbortError(err)) return
     snapshot.lastError = err?.message || "Artifacts fetch failed"
   }
 }

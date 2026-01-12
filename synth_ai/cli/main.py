@@ -35,6 +35,6 @@ def _get_version():
 def cli(ctx):
     """Synth AI CLI."""
     if ctx.invoked_subcommand is None:
-        from synth_ai.tui import run_prompt_learning_tui
+        from synth_ai.cli.tui import tui
 
-        run_prompt_learning_tui()
+        ctx.invoke(tui)
