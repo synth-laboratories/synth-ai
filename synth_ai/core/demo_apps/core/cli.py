@@ -17,8 +17,8 @@ from synth_ai.core.demo_apps.demo_registry import (
 )
 from synth_ai.core.demo_apps.demo_task_apps import core as demo_core
 from synth_ai.core.demo_apps.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
+from synth_ai.core.localapi_state import persist_env_api_key
 from synth_ai.core.process import get_subprocess_env, should_filter_log_line
-from synth_ai.core.task_app_state import persist_env_api_key
 from synth_ai.core.user_config import update_user_config
 
 try:
@@ -148,7 +148,7 @@ def setup() -> int:
                 break
         if new_url and new_url != current:
             print(f"Updating TASK_APP_BASE_URL from Modal CLI → {new_url}")
-            demo_core.persist_task_url(new_url, name=env.task_app_name)
+            demo_core.persist_localapi_url(new_url, name=env.task_app_name)
             os.environ["TASK_APP_BASE_URL"] = new_url
             _refresh_env()
 
@@ -683,7 +683,7 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
             task_url = entered.rstrip("/")
         else:
             task_url = resolved
-        demo_core.persist_task_url(task_url, name=(env.task_app_name or None))
+        demo_core.persist_localapi_url(task_url, name=(env.task_app_name or None))
 
     app_name = env.task_app_name.strip()
     if not app_name:
@@ -691,9 +691,9 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         if not fallback:
             raise RuntimeError(f"[{label}] Task app name is required.")
         app_name = fallback
-        demo_core.persist_task_url(task_url, name=app_name)
+        demo_core.persist_localapi_url(task_url, name=app_name)
 
-    demo_core.persist_task_url(task_url, name=app_name)
+    demo_core.persist_localapi_url(task_url, name=app_name)
 
     if synth_key:
         os.environ["SYNTH_API_KEY"] = synth_key
@@ -939,7 +939,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
                 url = entered.rstrip("/")
         if not url:
             raise RuntimeError("Failed to resolve public URL from modal CLI output")
-        demo_core.persist_task_url(url, name=app_name or None)
+        demo_core.persist_localapi_url(url, name=app_name or None)
         print(f"TASK_APP_BASE_URL={url}")
         if app_name:
             print(f"TASK_APP_NAME={app_name}")
