@@ -1591,6 +1591,7 @@ function SolidShell(props: { onExit?: () => void }) {
       return
     }
 
+    // In OpenCode mode, handle global shortcuts
     if (appState.principalPane === "opencode") {
       if (evt.ctrl && evt.name === "x" && appState.openCodeAbort) {
         evt.preventDefault()
@@ -1608,14 +1609,20 @@ function SolidShell(props: { onExit?: () => void }) {
         evt.preventDefault()
         appState.principalPane = "jobs"
         data.ctx.render()
+        return
       }
       if (evt.name === "o" && evt.shift) {
         evt.preventDefault()
         openSessionsModal()
+        return
       }
+      // Block all keys from falling through to jobs-mode shortcuts
+      // EXCEPT: don't block here - let the focusManager handle keys
+      // The openCodeFocusable in panes.ts will handle input and let escape through
       return
     }
 
+    // q/escape to quit only applies to jobs mode
     if (evt.name === "q" || evt.name === "escape") {
       evt.preventDefault()
       onExit?.()

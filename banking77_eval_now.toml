@@ -1,0 +1,6 @@
+[eval]
+env_name = "banking77"
+task_app_url = "http://localhost:8010"
+seeds = [0]
+model = "gpt-4o-mini"
+provider = "openai"
