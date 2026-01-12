@@ -8,6 +8,7 @@
 import { Jimp } from "jimp"
 import type { OptimizedBuffer } from "@opentui/core"
 import { RGBA } from "@opentui/core"
+import { getRequestSignal } from "./request"
 
 export type ImageData = {
   pixels: Uint8Array // RGBA format, 4 bytes per pixel
@@ -23,12 +24,14 @@ const SPACE = " " // both pixels are background color
  * Load an image from a URL (presigned S3 URL or data URL).
  */
 export async function loadImageFromUrl(url: string): Promise<ImageData | null> {
-  try {
-    if (url.startsWith("data:")) {
-      return loadImageFromBase64(url)
-    }
+  // Data URLs don't need network fetch
+  if (url.startsWith("data:")) {
+    return loadImageFromBase64(url)
+  }
 
-    const response = await fetch(url)
+  const managed = getRequestSignal({ includeScope: false })
+  try {
+    const response = await fetch(url, { signal: managed.signal })
     if (!response.ok) {
       console.error(`Failed to fetch image: HTTP ${response.status}`)
       return null
@@ -43,8 +46,11 @@ export async function loadImageFromUrl(url: string): Promise<ImageData | null> {
       height: image.bitmap.height,
     }
   } catch (error) {
+    if ((error as { name?: string })?.name === "AbortError") return null
     console.error("Error loading image from URL:", error)
     return null
+  } finally {
+    managed.dispose()
   }
 }
 

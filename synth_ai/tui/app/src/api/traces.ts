@@ -3,6 +3,7 @@
  */
 
 import { apiGet } from "./client"
+import { getRequestSignal } from "../utils/request"
 
 export type TraceMetadata = {
   seed: number
@@ -46,8 +47,9 @@ export async function fetchTracesList(
  * Returns null if the fetch fails (e.g., URL expired).
  */
 export async function fetchTraceJson(presignedUrl: string): Promise<Record<string, any> | null> {
+  const managed = getRequestSignal({ includeScope: false })
   try {
-    const response = await fetch(presignedUrl)
+    const response = await fetch(presignedUrl, { signal: managed.signal })
     if (!response.ok) {
       if (response.status === 403) {
         // Presigned URL likely expired
@@ -57,8 +59,11 @@ export async function fetchTraceJson(presignedUrl: string): Promise<Record<strin
     }
     return await response.json()
   } catch (error) {
+    if ((error as { name?: string })?.name === "AbortError") return null
     console.error("Error fetching trace:", error)
     return null
+  } finally {
+    managed.dispose()
   }
 }
 
