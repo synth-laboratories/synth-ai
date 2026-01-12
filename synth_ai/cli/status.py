@@ -11,7 +11,7 @@ from typing import Any
 import click
 import httpx
 
-from synth_ai.core.env import get_backend_from_env
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.artifacts.config import resolve_backend_config
 from synth_ai.sdk.session.client import AgentSessionClient
 from synth_ai.sdk.session.exceptions import SessionNotFoundError
@@ -47,12 +47,10 @@ def resolve_status_config(
     api_key: str | None = None,
     timeout: float | None = None,
 ) -> BackendConfig:
-    if base_url is None or api_key is None:
-        resolved_base, resolved_key = get_backend_from_env()
-        if base_url is None:
-            base_url = resolved_base
-        if api_key is None:
-            api_key = resolved_key or None
+    if base_url is None:
+        base_url = BACKEND_URL_BASE
+    if api_key is None:
+        api_key = os.getenv("SYNTH_API_KEY") or None
     return BackendConfig(
         base_url=base_url or "",
         api_key=api_key,

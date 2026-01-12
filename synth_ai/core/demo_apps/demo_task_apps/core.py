@@ -4,7 +4,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
-from synth_ai.core.env import PROD_BASE_URL_DEFAULT
+from synth_ai.core.urls import BACKEND_URL_API
 
 DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"
 
@@ -189,128 +189,33 @@ def modal_auth_status() -> tuple[bool, str]:
 
 
 def load_env() -> DemoEnv:
-    """Resolve environment with sane defaults and auto-detection.
+    """Resolve environment with sane defaults.
 
-    Backend URL:
-      - Use BACKEND_OVERRIDE (any) from CWD .env if set
-      - Else use DEV_BACKEND_URL from CWD .env ONLY if it's localhost/127.0.0.1 or :8000
-      - Else default to production backend (PROD_BASE_URL_DEFAULT)
-
-    API keys:
-      - SYNTH_API_KEY from OS -> CWD .env -> repo .env -> state
-      - If still missing, auto-pick DEV/PROD key based on backend and persist
-
-    TASK_APP_BASE_URL:
-      - OS -> CWD .env -> repo .env -> state
+    Backend URL: Uses centralized BACKEND_URL_API from urls.py
+    API keys: SYNTH_API_KEY from environment
+    TASK_APP_BASE_URL: From environment or state
     """
     env = DemoEnv()
 
-    os_env: dict[str, str] = dict(os.environ)
-
-    # CWD .env
-    cwd_env_path = os.path.join(os.getcwd(), ".env")
-    cwd_env = load_dotenv_file(cwd_env_path)
-
-    # Repo .env fallback
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-    repo_env = load_dotenv_file(os.path.join(repo_root, ".env"))
-
     state = _read_state()
 
-    default_root = PROD_BASE_URL_DEFAULT.rstrip("/")
-    prod_default = f"{default_root}/api"
+    synth_api_key = os.getenv("SYNTH_API_KEY") or str(state.get("SYNTH_API_KEY") or "")
+    env_api_key = os.getenv("ENVIRONMENT_API_KEY") or str(state.get("ENVIRONMENT_API_KEY") or "")
 
-    # Backend URL resolution
-    backend_override = (
-        os_env.get("BACKEND_OVERRIDE")
-        or cwd_env.get("BACKEND_OVERRIDE")
-        or repo_env.get("BACKEND_OVERRIDE")
-        or ""
-    ).strip()
-    dev_env = (
-        os_env.get("DEV_BACKEND_URL")
-        or cwd_env.get("DEV_BACKEND_URL")
-        or repo_env.get("DEV_BACKEND_URL")
-        or ""
-    ).strip()
-    if backend_override:
-        dev_url = backend_override
-    elif dev_env:
-        lower = dev_env.lower()
-        if "localhost" in lower or "127.0.0.1" in lower or lower.endswith(":8000"):
-            dev_url = dev_env
-        else:
-            dev_url = prod_default
-    else:
-        dev_url = prod_default
-    if not dev_url.endswith("/api"):
-        dev_url = dev_url.rstrip("/") + "/api"
-
-    # API key selection
-    synth_api_key = (
-        os_env.get("SYNTH_API_KEY")
-        or cwd_env.get("SYNTH_API_KEY")
-        or repo_env.get("SYNTH_API_KEY")
-        or str(state.get("SYNTH_API_KEY") or "")
-    )
-    if not synth_api_key:
-        mode = (
-            "prod"
-            if default_root in dev_url
-            else ("local" if ("localhost" in dev_url or "127.0.0.1" in dev_url) else "dev")
-        )
-        if mode == "prod":
-            synth_api_key = (
-                os_env.get("PROD_SYNTH_API_KEY")
-                or cwd_env.get("PROD_SYNTH_API_KEY")
-                or repo_env.get("PROD_SYNTH_API_KEY")
-                or ""
-            )
-        else:
-            synth_api_key = (
-                os_env.get("DEV_SYNTH_API_KEY")
-                or cwd_env.get("DEV_SYNTH_API_KEY")
-                or repo_env.get("DEV_SYNTH_API_KEY")
-                or os_env.get("TESTING_LOCAL_SYNTH_API_KEY")
-                or cwd_env.get("TESTING_LOCAL_SYNTH_API_KEY")
-                or repo_env.get("TESTING_LOCAL_SYNTH_API_KEY")
-                or ""
-            )
-        if synth_api_key:
-            st = dict(state)
-            st["SYNTH_API_KEY"] = synth_api_key
-            _write_state(st)
-
-    env_api_key = (
-        os_env.get("ENVIRONMENT_API_KEY")
-        or cwd_env.get("ENVIRONMENT_API_KEY")
-        or repo_env.get("ENVIRONMENT_API_KEY")
-        or str(state.get("ENVIRONMENT_API_KEY") or "")
-    )
-
-    # Task app URL
-    task_url = (
-        os_env.get("TASK_APP_BASE_URL")
-        or cwd_env.get("TASK_APP_BASE_URL")
-        or repo_env.get("TASK_APP_BASE_URL")
-        or str(state.get("TASK_APP_BASE_URL") or "")
-    )
-
+    task_url = os.getenv("TASK_APP_BASE_URL") or str(state.get("TASK_APP_BASE_URL") or "")
     task_app_name = str(state.get("TASK_APP_NAME") or "")
     task_app_secret_name = str(state.get("TASK_APP_SECRET_NAME") or DEFAULT_TASK_APP_SECRET_NAME)
 
-    env.dev_backend_url = dev_url.rstrip("/")
+    env.dev_backend_url = BACKEND_URL_API
     env.synth_api_key = synth_api_key
     env.env_api_key = env_api_key
-    env.task_app_base_url = task_url.rstrip("/")
+    env.task_app_base_url = task_url.rstrip("/") if task_url else ""
     env.task_app_name = task_app_name
     env.task_app_secret_name = task_app_secret_name
 
-    # Suppress environment echo by default for cleaner CLI output.
-    # If needed for debugging, set SYNTH_CLI_VERBOSE=1 to print resolved values.
     if os.getenv("SYNTH_CLI_VERBOSE", "0") == "1":
         print("ENV:")
-        print(f"  DEV_BACKEND_URL={env.dev_backend_url}")
+        print(f"  BACKEND_URL={env.dev_backend_url}")
         print(f"  SYNTH_API_KEY={_mask(env.synth_api_key)}")
         print(f"  ENVIRONMENT_API_KEY={_mask(env.env_api_key)}")
         print(f"  TASK_APP_BASE_URL={env.task_app_base_url}")
@@ -378,11 +283,9 @@ def run_job(
     model: str | None = None,
 ) -> None:
     """Create and stream a short RL job using the backend API (placeholder: prints cURL to execute)."""
-    backend = env.dev_backend_url.rstrip("/")
-    api_base = backend if backend.endswith("/api") else backend + "/api"
     print("\nTo create an RL job, run:")
     print(
-        'curl -s -X POST "' + api_base + '/rl/jobs" '
+        'curl -s -X POST "' + env.dev_backend_url + '/rl/jobs" '
         "-H 'Content-Type: application/json' "
         f"-H 'Authorization: Bearer {env.synth_api_key}' "
         "-d '{"  # intentionally not fully formed here for brevity in this scaffold

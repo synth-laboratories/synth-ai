@@ -3,8 +3,8 @@
 import os
 from collections.abc import Callable
 
-from synth_ai.core.env import get_backend_url, mint_demo_api_key
-from synth_ai.core.urls import normalize_base_url
+from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE, normalize_base_url
 
 Validator = Callable[[str], bool]
 
@@ -28,7 +28,7 @@ def get_or_mint_synth_api_key(
     if not allow_mint:
         raise RuntimeError(f"{env_key} is required but missing.")
 
-    resolved_backend = normalize_base_url(backend_url or get_backend_url())
+    resolved_backend = normalize_base_url(backend_url or BACKEND_URL_BASE)
     api_key = mint_demo_api_key(backend_url=resolved_backend, ttl_hours=ttl_hours)
     if set_env:
         os.environ[env_key] = api_key
