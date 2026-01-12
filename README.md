@@ -44,9 +44,9 @@ uv add
 uv run synth-ai tui
 ```
 
-## OpenCode Skills (Synth API)
+## Agent Skills (Synth API)
 
-The Synth-AI TUI integrates with OpenCode and ships a **`synth-api`** skill.
+Synth-AI ships a **`synth-api`** skill that works across multiple agents (Codex, Claude Code, OpenCode, etc.). The TUI integrates with OpenCode (day-zero agent support).
 
 ```bash
 # List packaged skills shipped with synth-ai
