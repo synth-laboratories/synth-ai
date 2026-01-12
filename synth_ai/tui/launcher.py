@@ -8,10 +8,10 @@ from shutil import which
 from dotenv import load_dotenv
 
 from synth_ai.core.env import get_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE, FRONTEND_URL_BASE
 
 # Load .env file to get SYNTH_API_KEY and other keys before accessing them
 load_dotenv(override=False)
-from synth_ai.core.urls import BACKEND_URL_BASE, FRONTEND_URL_BASE
 
 
 def _nearest_git_root(start: str) -> str | None:
@@ -91,11 +91,20 @@ def run_prompt_learning_tui(
     # Default OpenCode working directory to launch CWD unless user explicitly overrides.
     env.setdefault("OPENCODE_WORKING_DIR", launch_cwd)
 
-    # Point OpenCode to synth-ai's bundled config (skills, AGENTS.md, etc.)
-    # This provides Synth-specific knowledge to the OpenCode agent by default.
-    opencode_config_dir = Path(__file__).resolve().parent / "opencode_config"
-    if opencode_config_dir.exists():
-        env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
+    # Point OpenCode to a writable, materialized config directory (skills, AGENTS.md, etc.)
+    # We avoid pointing directly at site-packages to keep things robust across install methods.
+    try:
+        from synth_ai.sdk.opencode_skills import materialize_tui_opencode_config_dir
+
+        tui_opencode_config_dir = materialize_tui_opencode_config_dir(
+            include_packaged_skills=["synth-api"]
+        )
+        env.setdefault("OPENCODE_CONFIG_DIR", str(tui_opencode_config_dir))
+    except Exception:
+        # Fallback to the in-package config directory (best-effort)
+        opencode_config_dir = Path(__file__).resolve().parent / "opencode_config"
+        if opencode_config_dir.exists():
+            env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
 
     result = subprocess.run([runtime, str(entry)], env=env, cwd=tui_root)
     # Exit silently regardless of how the TUI process ended
