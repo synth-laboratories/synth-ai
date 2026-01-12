@@ -1,18 +1,27 @@
 import contextlib
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
+logger = logging.getLogger(__name__)
+
 PRIVATE_DIR_MODE = 0o700
 PRIVATE_FILE_MODE = 0o600
 
 
+def _safe_chmod(path: str | Path, mode: int) -> None:
+    try:
+        os.chmod(path, mode)
+    except OSError as e:
+        logger.warning("Failed to set permissions %o on %s: %s", mode, path, e)
+
+
 def ensure_private_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
-    with contextlib.suppress(OSError):
-        os.chmod(path, PRIVATE_DIR_MODE)
+    _safe_chmod(path, PRIVATE_DIR_MODE)
 
 
 def write_private_text(path: Path, content: str, *, mode: int = PRIVATE_FILE_MODE) -> None:
@@ -24,12 +33,10 @@ def write_private_text(path: Path, content: str, *, mode: int = PRIVATE_FILE_MOD
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        with contextlib.suppress(OSError):
-            os.chmod(tmp_path, mode)
+        _safe_chmod(tmp_path, mode)
         os.replace(tmp_path, path)
         tmp_path = None
-        with contextlib.suppress(OSError):
-            os.chmod(path, mode)
+        _safe_chmod(path, mode)
     finally:
         if tmp_path:
             with contextlib.suppress(OSError):
