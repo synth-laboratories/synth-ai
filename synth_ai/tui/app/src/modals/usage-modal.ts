@@ -9,6 +9,7 @@ import { focusManager } from "../focus"
 import { apiGetV1 } from "../api/client"
 import { openBrowser } from "../auth"
 import { appState, getFrontendUrl } from "../state/app-state"
+import { getAbortSignal } from "../lifecycle/shutdown"
 
 export interface UsageData {
   plan_type: "free" | "pro" | "team" | "byok"
@@ -187,7 +188,7 @@ export function createUsageModal(ctx: AppContext): UsageModalController {
 
   async function fetchUsageData(): Promise<void> {
     try {
-      const response = await apiGetV1("/usage-plan")
+      const response = await apiGetV1("/usage-plan", { signal: getAbortSignal() })
 
       const data: UsageData = {
         plan_type: response.plan_type as UsageData["plan_type"],

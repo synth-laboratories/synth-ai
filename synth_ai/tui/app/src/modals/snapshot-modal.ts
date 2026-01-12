@@ -5,6 +5,7 @@ import { InputRenderableEvents } from "@opentui/core"
 import type { AppContext } from "../context"
 import { createModalUI, type ModalController } from "./base"
 import { focusManager } from "../focus"
+import { getAbortSignal } from "../lifecycle/shutdown"
 
 export function createSnapshotModal(ctx: AppContext): ModalController & {
   open: () => void
@@ -64,7 +65,7 @@ export function createSnapshotModal(ctx: AppContext): ModalController & {
     toggle(false)
     try {
       const { apiGet } = await import("../api/client")
-      await apiGet(`/prompt-learning/online/jobs/${job.job_id}/snapshots/${trimmed}`)
+      await apiGet(`/prompt-learning/online/jobs/${job.job_id}/snapshots/${trimmed}`, { signal: getAbortSignal() })
       snapshot.status = `Snapshot ${trimmed} fetched`
     } catch (err: any) {
       snapshot.lastError = err?.message || "Snapshot fetch failed"
