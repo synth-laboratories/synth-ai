@@ -11,9 +11,26 @@ This module provides lazy imports to avoid circular import issues.
 from typing import Any
 
 # Direct imports from core (no circular dependency risk)
-from synth_ai.core import task_app_state
+from synth_ai.core import localapi_state
 from synth_ai.core.http import AsyncHttpClient, HTTPError, http_request
 from synth_ai.core.json import create_and_write_json, load_json_to_dict, strip_json_comments
+from synth_ai.core.localapi_state import (
+    DEFAULT_LOCALAPI_SECRET_NAME,
+    current_localapi_id,
+    load_template_id,
+    localapi_config_path,
+    localapi_id_from_path,
+    now_iso,
+    persist_api_key,
+    persist_env_api_key,
+    persist_localapi_url,
+    persist_template_id,
+    read_localapi_config,
+    record_localapi,
+    resolve_localapi_entry,
+    update_localapi_entry,
+    write_localapi_config,
+)
 from synth_ai.core.paths import (
     REPO_ROOT,
     cleanup_paths,
@@ -28,23 +45,6 @@ from synth_ai.core.process import (
     popen_capture,
     popen_stream,
     popen_stream_capture,
-)
-from synth_ai.core.task_app_state import (
-    DEFAULT_TASK_APP_SECRET_NAME,
-    current_task_app_id,
-    load_template_id,
-    now_iso,
-    persist_api_key,
-    persist_env_api_key,
-    persist_task_url,
-    persist_template_id,
-    read_task_app_config,
-    record_task_app,
-    resolve_task_app_entry,
-    task_app_config_path,
-    task_app_id_from_path,
-    update_task_app_entry,
-    write_task_app_config,
 )
 from synth_ai.core.telemetry import (
     flush_logger,
@@ -101,10 +101,13 @@ _CLI_IMPORTS = {
         "discover_eval_config_paths",
     ),
     "select_app_choice": ("synth_ai.cli.lib.task_app_discovery", "select_app_choice"),
-    # From cli.lib.task_app_env
-    "ensure_env_credentials": ("synth_ai.cli.lib.task_app_env", "ensure_env_credentials"),
-    "ensure_port_free": ("synth_ai.cli.lib.task_app_env", "ensure_port_free"),
-    "preflight_env_key": ("synth_ai.cli.lib.task_app_env", "preflight_env_key"),
+    # From cli.lib.localapi_env
+    "ensure_localapi_credentials": (
+        "synth_ai.cli.lib.localapi_env",
+        "ensure_localapi_credentials",
+    ),
+    "ensure_port_free": ("synth_ai.cli.lib.localapi_env", "ensure_port_free"),
+    "preflight_localapi_key": ("synth_ai.cli.lib.localapi_env", "preflight_localapi_key"),
     # From core.integrations.mcp.claude
     "ClaudeConfig": ("synth_ai.core.integrations.mcp.claude", "ClaudeConfig"),
 }
@@ -124,14 +127,14 @@ __all__ = [
     # Core
     "AsyncHttpClient",
     "ClaudeConfig",
-    "DEFAULT_TASK_APP_SECRET_NAME",
+    "DEFAULT_LOCALAPI_SECRET_NAME",
     "HTTPError",
     "BACKEND_URL_BASE",
     "REPO_ROOT",
     "cleanup_paths",
     "configure_import_paths",
     "create_and_write_json",
-    "current_task_app_id",
+    "current_localapi_id",
     "ensure_local_port_available",
     "find_config_path",
     "flush_logger",
@@ -151,22 +154,22 @@ __all__ = [
     "now_iso",
     "persist_api_key",
     "persist_env_api_key",
-    "persist_task_url",
+    "persist_localapi_url",
     "persist_template_id",
     "popen_capture",
     "popen_stream",
     "popen_stream_capture",
-    "read_task_app_config",
-    "record_task_app",
-    "resolve_task_app_entry",
+    "read_localapi_config",
+    "record_localapi",
+    "resolve_localapi_entry",
     "save_user_config",
     "strip_json_comments",
-    "task_app_config_path",
-    "task_app_id_from_path",
-    "task_app_state",
-    "update_task_app_entry",
+    "localapi_config_path",
+    "localapi_id_from_path",
+    "localapi_state",
+    "update_localapi_entry",
     "update_user_config",
-    "write_task_app_config",
+    "write_localapi_config",
     # CLI (lazy)
     "AppChoice",
     "PromptedChoiceOption",
@@ -175,7 +178,7 @@ __all__ = [
     "SQLD_VERSION",
     "ctx_print",
     "discover_eval_config_paths",
-    "ensure_env_credentials",
+    "ensure_localapi_credentials",
     "ensure_modal_installed",
     "ensure_port_free",
     "extract_routes_from_app",
@@ -189,7 +192,7 @@ __all__ = [
     "load_module",
     "mask_str",
     "normalize_endpoint_url",
-    "preflight_env_key",
+    "preflight_localapi_key",
     "prompt_choice",
     "prompt_for_path",
     "resolve_env_var",
