@@ -152,9 +152,9 @@ async def _eval_seed(
             response = await client.rollout(request)
             latency_ms = (time.perf_counter() - start) * 1000.0
 
-            metrics = response.metrics
-            outcome_reward = metrics.outcome_reward
-            outcome_objectives = metrics.outcome_objectives
+            reward_info = response.reward_info
+            outcome_reward = reward_info.outcome_reward
+            outcome_objectives = reward_info.outcome_objectives
 
             score = float(outcome_reward) if outcome_reward is not None else None
 
@@ -162,10 +162,10 @@ async def _eval_seed(
             tokens = None
             cost_usd = None
 
-            if isinstance(metrics.details, dict):
-                verifier_score = metrics.details.get("verifier_score")
-                tokens = metrics.details.get("tokens")
-                cost_usd = metrics.details.get("cost_usd")
+            if isinstance(reward_info.details, dict):
+                verifier_score = reward_info.details.get("verifier_score")
+                tokens = reward_info.details.get("tokens")
+                cost_usd = reward_info.details.get("cost_usd")
 
             trace = response.trace if config.return_trace else None
 

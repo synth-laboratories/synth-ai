@@ -29,7 +29,7 @@ def build_template_config(
         """Stub rollout that returns empty metrics."""
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=0.0),
+            reward_info=RolloutMetrics(outcome_reward=0.0),
             trace={"event_history": [], "metadata": {}},
         )
 

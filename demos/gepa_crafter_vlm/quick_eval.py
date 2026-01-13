@@ -168,7 +168,7 @@ def create_task_app(system_prompt: str):
         score, details = CrafterScorer.score_episode(observation, len(episode_rewards), max_steps)
         return RolloutResponse(
             run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=score, details=details),
+            reward_info=RolloutMetrics(outcome_reward=score, details=details),
             trace=None,
             trace_correlation_id=policy_config.get("trace_correlation_id"),
         )

@@ -473,7 +473,7 @@ def create_oolong_rlm_local_api():
 
         return RolloutResponse(
             run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=reward,
                 details={"messages": messages_for_validation, "predicted": predicted, "gold": gold},
             ),

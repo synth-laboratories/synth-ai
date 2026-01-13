@@ -9,9 +9,11 @@ Win rate against AI v4 is the reward signal.
 """
 
 import contextlib
+import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -80,6 +82,30 @@ SAMPLE_DECK_2 = (
 
 # System prompt for the Pokemon TCG agent
 DEFAULT_SYSTEM_PROMPT = """You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.
+
+IMPORTANT RULES:
+- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full!
+- You can only attach ONE energy per turn.
+- After your actions, you MUST use EndTurn.
+- Check available_actions to see what you can do!
+- You MUST choose an action that is currently allowed (from available_actions). If you output an illegal action, you lose immediately.
+
+You must respond with ONLY a JSON action:
+- {"action": "PlayBasic", "card_id": <id>} - Play basic to bench
+- {"action": "AttachEnergy", "energy_id": <id>, "target_id": <id>} - Attach energy
+- {"action": "DeclareAttack", "attack": "<name>"} - Attack with active Pokemon
+- {"action": "EndTurn"} - End your turn
+- {"action": "ChooseActive", "card_id": <id>} - Setup: choose active
+- {"action": "ChooseBench", "card_ids": [<id>, ...]} - Setup: choose bench
+
+Respond with ONLY the JSON action, no explanation.
+"""
+
+# ReAct-style prompt variant: encourages deliberate reasoning while still emitting JSON-only actions.
+PTCG_REACT_SYSTEM_PROMPT = """You are a competitive Pokemon TCG player. Your goal is to win by taking all prize cards.
+
+Think through the board state, available actions, and near-term prize plan before acting. Use a tight, turn-by-turn
+game plan: develop the bench, attach energy with intent, and attack whenever it advances prizes or tempo.
 
 IMPORTANT RULES:
 - You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full!
@@ -277,6 +303,7 @@ async def run_game(
     api_key: str,
     model: str = "gpt-4.1-mini",
     max_steps: int = 500,
+    collect_trace: bool = False,
 ) -> dict:
     """Run a single game and return the result."""
     import tcg_py
@@ -294,6 +321,19 @@ async def run_game(
     # Keep a separate counter here for "decision steps" (i.e., how many times we asked the LLM).
     decision_steps = 0
     errors = 0
+    trace_steps: list[dict[str, Any]] = []
+
+    def _record_step(step: dict[str, Any]) -> None:
+        if collect_trace:
+            trace_steps.append(step)
+
+    def _parse_action(action_json: str) -> tuple[dict[str, Any] | None, str | None, str | None]:
+        try:
+            parsed = json.loads(action_json)
+        except Exception as exc:
+            return None, None, f"json_parse_error: {exc}"
+        action_type = parsed.get("action") if isinstance(parsed, dict) else None
+        return parsed if isinstance(parsed, dict) else None, action_type, None
 
     while not game.is_game_over():
         # Get observation - handles AI turns automatically
@@ -309,6 +349,7 @@ async def run_game(
 
         # Log current state
         bench = getattr(obs, "my_bench_count", "?")
+        game_state = str(obs.game_state)
         # Pull internal game steps for debugging "winner=None" cases (often MaxSteps vs genuine loss).
         game_steps = getattr(game.get_result(), "steps", "?")
         print(
@@ -320,6 +361,19 @@ async def run_game(
         # Skip if no actions and no prompt
         if not obs.available_actions and not obs.has_prompt:
             print("[ptcg] No actions, stepping...")
+            _record_step(
+                {
+                    "decision_step": decision_steps,
+                    "phase": str(obs.phase),
+                    "current_player": obs.current_player,
+                    "available_actions": list(obs.available_actions or []),
+                    "action_type": "AutoStep",
+                    "action": None,
+                    "action_valid": True,
+                    "auto_action": True,
+                    "game_state": game_state,
+                }
+            )
             game.step()
             decision_steps += 1
             continue
@@ -327,6 +381,19 @@ async def run_game(
         # Auto-end turn if only EndTurn available
         if obs.available_actions == ["EndTurn"]:
             print("[ptcg] Only EndTurn, auto-ending")
+            _record_step(
+                {
+                    "decision_step": decision_steps,
+                    "phase": str(obs.phase),
+                    "current_player": obs.current_player,
+                    "available_actions": list(obs.available_actions or []),
+                    "action_type": "EndTurn",
+                    "action": {"action": "EndTurn"},
+                    "action_valid": True,
+                    "auto_action": True,
+                    "game_state": game_state,
+                }
+            )
             with contextlib.suppress(Exception):
                 game.submit_action('{"action": "EndTurn"}')
             game.step()
@@ -348,16 +415,59 @@ async def run_game(
 
             # Submit action
             try:
+                parsed_action, action_type, parse_error = _parse_action(action_json)
                 game.submit_action(action_json)
                 print("[ptcg] Action OK")
+                _record_step(
+                    {
+                        "decision_step": decision_steps,
+                        "phase": str(obs.phase),
+                        "current_player": obs.current_player,
+                        "available_actions": list(obs.available_actions or []),
+                        "action_type": action_type,
+                        "action": parsed_action or {"raw": action_json},
+                        "action_valid": True,
+                        "auto_action": False,
+                        "parse_error": parse_error,
+                        "game_state": game_state,
+                    }
+                )
             except Exception as e:
                 print(f"[ptcg] Action FAILED: {e}")
                 errors += 1
+                _record_step(
+                    {
+                        "decision_step": decision_steps,
+                        "phase": str(obs.phase),
+                        "current_player": obs.current_player,
+                        "available_actions": list(obs.available_actions or []),
+                        "action_type": "InvalidAction",
+                        "action": {"raw": action_json},
+                        "action_valid": False,
+                        "auto_action": False,
+                        "error": str(e),
+                        "game_state": game_state,
+                    }
+                )
                 break
 
         except Exception as e:
             print(f"[ptcg] LLM error: {e}")
             errors += 1
+            _record_step(
+                {
+                    "decision_step": decision_steps,
+                    "phase": str(obs.phase),
+                    "current_player": obs.current_player,
+                    "available_actions": list(obs.available_actions or []),
+                    "action_type": "LLMError",
+                    "action": None,
+                    "action_valid": False,
+                    "auto_action": False,
+                    "error": str(e),
+                    "game_state": game_state,
+                }
+            )
             break
 
         # Step the game
@@ -368,7 +478,7 @@ async def run_game(
     result = game.get_result()
     # If we bailed due to errors, treat as a loss for P1.
     if errors:
-        return {
+        result_payload = {
             "winner": "P2",
             "turns": result.turns,
             "steps": result.steps,
@@ -377,7 +487,11 @@ async def run_game(
             "end_reason": f"llm_error_or_invalid_action (errors={errors})",
             "errors": errors,
         }
-    return {
+        if collect_trace:
+            result_payload["trace_steps"] = trace_steps
+            result_payload["decision_steps"] = decision_steps
+        return result_payload
+    result_payload = {
         "winner": result.winner,
         "turns": result.turns,
         "steps": result.steps,
@@ -386,6 +500,25 @@ async def run_game(
         "end_reason": result.end_reason,
         "errors": errors,
     }
+    if collect_trace:
+        result_payload["trace_steps"] = trace_steps
+        result_payload["decision_steps"] = decision_steps
+    return result_payload
+
+
+def compute_outcome_reward(result: dict[str, Any]) -> float:
+    """Score the rollout outcome for P1: win=1.0, loss=0.0, draws use prize differential."""
+    if result.get("winner") == "P1":
+        return 1.0
+    if result.get("winner") == "P2":
+        return 0.0
+    p1_prizes = result.get("p1_prizes", 0)
+    p2_prizes = result.get("p2_prizes", 0)
+    if p1_prizes < p2_prizes:
+        return 0.6
+    if p1_prizes > p2_prizes:
+        return 0.4
+    return 0.5
 
 
 # ============================================================================
@@ -405,7 +538,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
     if not instance:
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=0.0,
                 details={"error": f"Instance not found: {instance_id}"},
             ),
@@ -421,7 +554,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
     if not inference_url:
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=0.0,
                 details={"error": "No inference_url provided"},
             ),
@@ -434,6 +567,9 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
     print(f"{'=' * 60}\n")
 
     try:
+        trace_dir_value = os.getenv("PTCG_TRACE_DIR", "").strip()
+        trace_dir = Path(trace_dir_value).expanduser() if trace_dir_value else None
+        collect_trace = trace_dir is not None
         result = await run_game(
             instance=instance,
             system_prompt=system_prompt,
@@ -441,23 +577,11 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
             api_key=api_key,
             model=model,
             max_steps=max_steps,
+            collect_trace=collect_trace,
         )
 
         # Calculate reward: 1.0 for win, 0.0 for loss, 0.5 for draw/max_steps
-        if result["winner"] == "P1":
-            reward = 1.0
-        elif result["winner"] == "P2":
-            reward = 0.0
-        else:
-            # Draw or timeout - partial reward based on prize differential
-            p1_prizes = result["p1_prizes"]
-            p2_prizes = result["p2_prizes"]
-            if p1_prizes < p2_prizes:
-                reward = 0.6  # P1 was winning
-            elif p1_prizes > p2_prizes:
-                reward = 0.4  # P1 was losing
-            else:
-                reward = 0.5  # Even
+        reward = compute_outcome_reward(result)
 
         print(f"\n{'=' * 60}")
         print(f"[ptcg] Game {instance_id} completed")
@@ -467,9 +591,30 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
         print(f"  Reward: {reward}")
         print(f"{'=' * 60}\n")
 
+        if trace_dir:
+            trace_dir.mkdir(parents=True, exist_ok=True)
+            trace_id = (
+                getattr(request, "run_id", None)
+                or request.trace_correlation_id
+                or f"{instance_id}-{int(time.time() * 1000)}"
+            )
+            record = {
+                "trace_id": trace_id,
+                "instance_id": instance_id,
+                "model": model,
+                "system_prompt": system_prompt,
+                "result": result,
+                "outcome_reward": reward,
+                "trace_steps": result.get("trace_steps", []),
+                "captured_at": time.time(),
+            }
+            trace_path = trace_dir / "ptcg_rollouts.jsonl"
+            with trace_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record) + "\n")
+
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=reward,
                 details={
                     "instance_id": instance_id,
@@ -495,7 +640,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
         traceback.print_exc()
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=0.0,
                 details={"error": str(e)},
             ),

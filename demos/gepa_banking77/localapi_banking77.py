@@ -360,7 +360,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     )
 
     return RolloutResponse(
-        metrics=RolloutMetrics(
+        reward_info=RolloutMetrics(
             outcome_reward=score,
             outcome_objectives={"reward": score, "latency_ms": latency_ms},
             instance_objectives=[{"reward": score, "latency_ms": latency_ms}],

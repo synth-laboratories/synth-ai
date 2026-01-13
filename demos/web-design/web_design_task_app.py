@@ -342,7 +342,7 @@ def create_web_design_local_api(style_prompt: str) -> Any:
 
         return RolloutResponse(
             run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=0.0),
+            reward_info=RolloutMetrics(outcome_reward=0.0),
             trace=trace_payload,
             trace_correlation_id=trace_correlation_id,
             inference_url=inference_url,

@@ -950,7 +950,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
     if not instance:
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=0.0, details={"error": f"Unknown instance: {instance_id}"}
             ),
         )
@@ -964,7 +964,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
     if not inference_url:
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=0.0, details={"error": "No inference_url provided"}
             ),
         )
@@ -1072,7 +1072,7 @@ Build the deck now. Output ONLY the JSON with the deck array."""
             print(f"[deckbuilder] Parse failed: {parse_error}")
             return RolloutResponse(
                 trace_correlation_id=trace_correlation_id,
-                metrics=RolloutMetrics(
+                reward_info=RolloutMetrics(
                     outcome_reward=0.0,
                     details={"error": parse_error, "response_preview": response[:500]},
                 ),
@@ -1083,7 +1083,7 @@ Build the deck now. Output ONLY the JSON with the deck array."""
         if non_strings:
             return RolloutResponse(
                 trace_correlation_id=trace_correlation_id,
-                metrics=RolloutMetrics(
+                reward_info=RolloutMetrics(
                     outcome_reward=0.0,
                     details={
                         "error": "Invalid deck format (non-string card IDs)",
@@ -1097,7 +1097,7 @@ Build the deck now. Output ONLY the JSON with the deck array."""
         if empty_ids:
             return RolloutResponse(
                 trace_correlation_id=trace_correlation_id,
-                metrics=RolloutMetrics(
+                reward_info=RolloutMetrics(
                     outcome_reward=0.0,
                     details={
                         "error": "Invalid deck format (empty card ID)",
@@ -1112,7 +1112,7 @@ Build the deck now. Output ONLY the JSON with the deck array."""
             print(f"[deckbuilder] Invalid cards: {invalid_cards[:5]}")
             return RolloutResponse(
                 trace_correlation_id=trace_correlation_id,
-                metrics=RolloutMetrics(
+                reward_info=RolloutMetrics(
                     outcome_reward=0.0,
                     details={
                         "error": "Invalid card IDs",
@@ -1134,7 +1134,7 @@ Build the deck now. Output ONLY the JSON with the deck array."""
             # per-task requirements (no-ex, required evo lines, ratios, etc.).
             return RolloutResponse(
                 trace_correlation_id=trace_correlation_id,
-                metrics=RolloutMetrics(
+                reward_info=RolloutMetrics(
                     outcome_reward=0.0,
                     details={
                         "error": "Invalid deck (failed task requirements)",
@@ -1175,7 +1175,7 @@ Build the deck now. Output ONLY the JSON with the deck array."""
 
         return RolloutResponse(
             trace_correlation_id=trace_correlation_id,
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=final_reward,
                 details={
                     "instance_id": instance_id,
@@ -1209,7 +1209,7 @@ Build the deck now. Output ONLY the JSON with the deck array."""
 
         return RolloutResponse(
             trace_correlation_id=_trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=0.0, details={"error": str(e)}),
+            reward_info=RolloutMetrics(outcome_reward=0.0, details={"error": str(e)}),
         )
 
 

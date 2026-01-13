@@ -343,6 +343,118 @@ async def run_opencode_agent(
         return {"success": False, "stdout": "", "stderr": str(e)}
 
 
+async def run_codex_agent(
+    prompt: str,
+    sandbox_dir: Path,
+    model: str = "gpt-4.1-mini",
+    timeout: int = 300,
+    inference_url: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Run Codex CLI agent on the sandbox.
+
+    Args:
+        prompt: The task prompt for the agent
+        sandbox_dir: Directory to run the agent in
+        model: Model to use (e.g. "gpt-4.1-mini")
+        timeout: Timeout in seconds
+        inference_url: Synth interceptor URL to route LLM calls through
+        api_key: API key for the interceptor
+    """
+    # Setup codex config for pure API mode
+    config_dir = Path.home() / ".codex"
+    config_dir.mkdir(exist_ok=True)
+    config_file = config_dir / "config.toml"
+    auth_file = config_dir / "auth.json"
+
+    # CRITICAL: Remove auth.json to prevent ChatGPT account from overriding API config
+    if auth_file.exists():
+        backup_file = config_dir / "auth.json.bak"
+        if not backup_file.exists():
+            auth_file.rename(backup_file)
+        else:
+            auth_file.unlink()
+
+    # Determine wire_api based on model
+    # Responses API models: gpt-5*, o3*, o1*, codex-*
+    # Chat completions: everything else
+    if any(model.startswith(prefix) for prefix in ["gpt-5", "o3", "o1", "codex-"]):
+        wire_api = "responses"
+    else:
+        wire_api = "chat"
+
+    base_url = "https://api.openai.com/v1"
+    if inference_url:
+        # Extract base URL from inference_url (remove /openai/v1 or /v1/chat/completions)
+        base_url = inference_url
+        if base_url.endswith("/openai/v1"):
+            base_url = base_url[:-10]
+        elif "/v1/chat/completions" in base_url:
+            base_url = base_url.split("/v1/chat/completions")[0]
+        elif "/chat/completions" in base_url:
+            base_url = base_url.split("/chat/completions")[0]
+
+    config_content = f'''# Auto-generated config for engine_bench
+# Pure API mode (no Codex Cloud login required)
+
+model = "{model}"
+model_provider = "openai"
+
+[model_providers.openai]
+name = "OpenAI"
+base_url = "{base_url}"
+wire_api = "{wire_api}"
+env_key = "OPENAI_API_KEY"
+requires_openai_auth = false
+request_max_retries = 4
+stream_max_retries = 5
+stream_idle_timeout_ms = 300000
+
+[mcp]
+enabled = false
+'''
+    config_file.write_text(config_content)
+
+    # Build command
+    cmd = [
+        "codex",
+        "exec",
+        "--yolo",  # Zero prompts, fully autonomous
+        "--skip-git-repo-check",
+        "-m",
+        model,
+        prompt,
+    ]
+
+    # Build environment for subprocess
+    env = os.environ.copy()
+    env["OPENAI_API_KEY"] = api_key or os.environ.get("OPENAI_API_KEY", "")
+    env["OPENAI_MODEL"] = model
+    if inference_url:
+        # Route codex's LLM calls through the Synth interceptor
+        env["OPENAI_BASE_URL"] = inference_url
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=str(sandbox_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return {
+            "success": proc.returncode == 0,
+            "stdout": stdout.decode("utf-8", errors="replace"),
+            "stderr": stderr.decode("utf-8", errors="replace"),
+        }
+    except TimeoutError:
+        proc.kill()
+        return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
+    except Exception as e:
+        return {"success": False, "stdout": "", "stderr": str(e)}
+
+
 def build_prompt(instance: dict[str, Any]) -> str:
     """Build the prompt for the coding agent."""
     cards = instance.get("cards", [])
@@ -450,10 +562,14 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
     This runs the full pipeline:
     1. Setup sandbox with stub files
-    2. Run OpenCode agent to implement the card
+    2. Run agent (OpenCode or Codex CLI) to implement the card
     3. Inject eval tests
     4. Run cargo test
     5. Return score
+
+    Agent selection:
+    - Set policy_config["agent"] = "codex" to use Codex CLI
+    - Defaults to "opencode" for backward compatibility
     """
     seed = request.env.seed or 0
     env_config = request.env.config or {}
@@ -469,8 +585,12 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     inference_url = policy_config.get("inference_url")
     api_key = policy_config.get("api_key")
 
+    # Get agent type (default to "opencode" for backward compatibility)
+    agent_type = policy_config.get("agent", "opencode")
+
     print(f"\n{'=' * 60}")
     print(f"[engine_bench] Running rollout for {instance_id}")
+    print(f"  Agent: {agent_type}")
     print(f"  Model: {model}")
     print(f"  Timeout: {timeout}s")
     print(f"  Interceptor: {inference_url or 'none (direct)'}")
@@ -485,14 +605,24 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
         # Build prompt and run agent
         prompt = build_prompt(instance)
-        await run_opencode_agent(
-            prompt,
-            sandbox_dir,
-            model=model,
-            timeout=timeout,
-            inference_url=inference_url,
-            api_key=api_key,
-        )
+        if agent_type == "codex":
+            await run_codex_agent(
+                prompt,
+                sandbox_dir,
+                model=model,
+                timeout=timeout,
+                inference_url=inference_url,
+                api_key=api_key,
+            )
+        else:  # Default to "opencode"
+            await run_opencode_agent(
+                prompt,
+                sandbox_dir,
+                model=model,
+                timeout=timeout,
+                inference_url=inference_url,
+                api_key=api_key,
+            )
 
         card_file_path = None
         card_file_rel = instance.get("card_file", "")
@@ -544,7 +674,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
     return RolloutResponse(
         trace_correlation_id=trace_correlation_id,
-        metrics=RolloutMetrics(
+        reward_info=RolloutMetrics(
             outcome_reward=score,
             details={
                 "instance_id": instance_id,
