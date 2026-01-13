@@ -6,10 +6,9 @@
 import type { AppContext } from "../context"
 import { createModalUI, wrapModalText, clamp, type ModalController, type ModalUI } from "./base"
 import { focusManager } from "../focus"
-import { apiGetV1 } from "../api/client"
+import { apiGet } from "../api/client"
 import { openBrowser } from "../auth"
 import { appState } from "../state/app-state"
-import { getAbortSignal } from "../lifecycle/shutdown"
 
 export interface UsageData {
   plan_type: "free" | "pro" | "team" | "byok"
@@ -188,7 +187,7 @@ export function createUsageModal(ctx: AppContext): UsageModalController {
 
   async function fetchUsageData(): Promise<void> {
     try {
-      const response = await apiGetV1("/usage-plan", { signal: getAbortSignal() })
+      const response = await apiGet("/usage-plan", { version: "v1" })
 
       const data: UsageData = {
         plan_type: response.plan_type as UsageData["plan_type"],

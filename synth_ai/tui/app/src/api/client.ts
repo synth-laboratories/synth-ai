@@ -5,6 +5,8 @@
  * API key comes from process.env.SYNTH_API_KEY.
  */
 
+import { getRequestSignal } from "../utils/request"
+
 function sanitizeErrorBody(text: string, maxLen: number): string {
   const raw = (text ?? "").toString()
   if (!raw) return ""
@@ -36,71 +38,98 @@ async function parseJsonOrThrow(res: Response, label: string): Promise<any> {
   }
 }
 
-type RequestOptions = {
+export type ApiVersion = "v0" | "v1"
+
+export type ApiRequestOptions = {
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+  body?: unknown
+  headers?: Record<string, string>
   signal?: AbortSignal
+  version?: ApiVersion
 }
 
-export async function apiGet(path: string, options: RequestOptions = {}): Promise<any> {
+function getBackendBaseUrl(): string {
+  return process.env.SYNTH_BACKEND_URL || ""
+}
+
+export function buildApiUrl(path: string, version: ApiVersion = "v0"): string {
+  const prefix = version === "v1" ? "/api/v1" : "/api"
+  return `${getBackendBaseUrl()}${prefix}${path}`
+}
+
+function getApiKey(): string {
   if (!process.env.SYNTH_API_KEY) {
     throw new Error("Missing API key")
   }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path}`, {
-    headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` },
-    signal: options.signal,
-  })
-  if (!res.ok) {
-    const body = await res.text().catch(() => "")
-    const snippet = sanitizeErrorBody(body, 200)
-    const suffix = snippet ? ` - ${snippet}` : ""
-    throw new Error(`GET ${path}: HTTP ${res.status} ${res.statusText}${suffix}`)
-  }
-  return await parseJsonOrThrow(res, `GET ${path}`)
+  return process.env.SYNTH_API_KEY
 }
 
-export async function apiGetV1(path: string, options: RequestOptions = {}): Promise<any> {
-  if (!process.env.SYNTH_API_KEY) {
-    throw new Error("Missing API key")
-  }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api/v1${path}`, {
-    headers: { Authorization: `Bearer ${process.env.SYNTH_API_KEY}` },
-    signal: options.signal,
-  })
-  if (!res.ok) {
-    const body = await res.text().catch(() => "")
-    const snippet = sanitizeErrorBody(body, 200)
-    const suffix = snippet ? ` - ${snippet}` : ""
-    throw new Error(`GET /api/v1${path}: HTTP ${res.status} ${res.statusText}${suffix}`)
-  }
-  return await parseJsonOrThrow(res, `GET /api/v1${path}`)
+export function getAuthHeaders(): Record<string, string> {
+  return { Authorization: `Bearer ${getApiKey()}` }
 }
 
-export async function apiPost(path: string, body: any, options: RequestOptions = {}): Promise<any> {
-  if (!process.env.SYNTH_API_KEY) {
-    throw new Error("Missing API key")
+export async function apiRequest(path: string, options: ApiRequestOptions = {}): Promise<any> {
+  const {
+    method = "GET",
+    body,
+    headers,
+    signal,
+    version = "v0",
+  } = options
+  const requestHeaders: Record<string, string> = {
+    ...getAuthHeaders(),
+    ...(headers ?? {}),
   }
-  const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/api${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.SYNTH_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    signal: options.signal,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => "")
-    const snippet = sanitizeErrorBody(text, 200)
-    const suffix = snippet ? ` - ${snippet}` : ""
-    throw new Error(`POST ${path}: HTTP ${res.status} ${res.statusText}${suffix}`)
-  }
-  return await parseJsonOrThrow(res, `POST ${path}`)
-}
 
-export async function checkBackendHealth(): Promise<string> {
+  const hasBody = body !== undefined
+  const contentType = requestHeaders["Content-Type"]
+  const shouldSerializeJson = hasBody && (!contentType || contentType.includes("application/json"))
+
+  if (shouldSerializeJson && !contentType) {
+    requestHeaders["Content-Type"] = "application/json"
+  }
+
+  const managed = getRequestSignal({ signal })
   try {
-    const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`)
+    const res = await fetch(buildApiUrl(path, version), {
+      method,
+      headers: requestHeaders,
+      body: shouldSerializeJson ? JSON.stringify(body) : (body as BodyInit | undefined),
+      signal: managed.signal,
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => "")
+      const snippet = sanitizeErrorBody(text, 200)
+      const suffix = snippet ? ` - ${snippet}` : ""
+      const label = version === "v1" ? `${method} /api/v1${path}` : `${method} ${path}`
+      throw new Error(`${label}: HTTP ${res.status} ${res.statusText}${suffix}`)
+    }
+    const label = version === "v1" ? `${method} /api/v1${path}` : `${method} ${path}`
+    return await parseJsonOrThrow(res, label)
+  } finally {
+    managed.dispose()
+  }
+}
+
+export async function apiGet(path: string, options: ApiRequestOptions = {}): Promise<any> {
+  return await apiRequest(path, { ...options, method: "GET" })
+}
+
+export async function apiPost(path: string, body: unknown, options: ApiRequestOptions = {}): Promise<any> {
+  return await apiRequest(path, { ...options, method: "POST", body })
+}
+
+export async function checkBackendHealth(options: { signal?: AbortSignal } = {}): Promise<string> {
+  const { signal } = options
+  const managed = getRequestSignal({ signal, includeScope: false })
+  try {
+    const res = await fetch(`${getBackendBaseUrl()}/health`, {
+      signal: managed.signal,
+    })
     return res.ok ? "ok" : `bad(${res.status})`
   } catch (err: any) {
     return `err(${err?.message || "unknown"})`
+  } finally {
+    managed.dispose()
   }
 }

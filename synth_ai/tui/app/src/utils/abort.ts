@@ -1,3 +1,5 @@
+import { withAbortScope } from "./request"
+
 type AbortableTask<T> = (signal: AbortSignal) => Promise<T> | T
 
 export function isAbortError(err: unknown): boolean {
@@ -27,7 +29,7 @@ export function createAbortControllerRegistry() {
     const controller = new AbortController()
     controllers.set(key, controller)
     try {
-      return await task(controller.signal)
+      return await withAbortScope(controller.signal, () => task(controller.signal))
     } finally {
       if (controllers.get(key) === controller) {
         controllers.delete(key)

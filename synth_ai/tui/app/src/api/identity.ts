@@ -2,17 +2,17 @@
  * Identity (user/org) + balance fetching.
  */
 import type { AppContext } from "../context"
-import { apiGetV1 } from "./client"
+import { apiGet, checkBackendHealth } from "./client"
 import { isAbortError } from "../utils/abort"
+import { isAborted } from "../utils/request"
 
 export async function refreshIdentity(
   ctx: AppContext,
-  options: { signal?: AbortSignal } = {},
 ): Promise<void> {
   const { snapshot } = ctx.state
 
   try {
-    const me = await apiGetV1("/me", options)
+    const me = await apiGet("/me", { version: "v1" })
     snapshot.orgId = typeof me?.org_id === "string" ? me.org_id : null
     snapshot.userId = typeof me?.user_id === "string" ? me.user_id : null
   } catch (err: any) {
@@ -25,8 +25,8 @@ export async function refreshIdentity(
   // Backend returns raw Autumn customer response with entitlements array
   // We need the "usage" entitlement with interval="lifetime" for the actual balance
   try {
-    if (options.signal?.aborted) return
-    const autumnBalance = await apiGetV1("/balance/autumn-current", options)
+    if (isAborted()) return
+    const autumnBalance = await apiGet("/balance/autumn-current", { version: "v1" })
     const raw = autumnBalance?.raw
     const entitlements = raw?.entitlements
     let balance: number | null = null
@@ -48,15 +48,11 @@ export async function refreshIdentity(
 
 export async function refreshHealth(
   ctx: AppContext,
-  options: { signal?: AbortSignal } = {},
 ): Promise<void> {
   const { appState } = ctx.state
 
   try {
-    const res = await fetch(`${process.env.SYNTH_BACKEND_URL}/health`, {
-      signal: options.signal,
-    })
-    appState.healthStatus = res.ok ? "ok" : `bad(${res.status})`
+    appState.healthStatus = await checkBackendHealth()
   } catch (err: any) {
     if (isAbortError(err)) return
     appState.healthStatus = `err(${err?.message || "unknown"})`

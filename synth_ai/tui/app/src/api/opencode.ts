@@ -6,7 +6,11 @@
  */
 
 import type { AppContext } from "../context"
-import type { OpenCodeMessage } from "../types"
+import type { OpenCodeMessage, SessionHealthResult, SessionRecord } from "../types"
+import { connectSse } from "../utils/sse"
+import { getRequestSignal, isAborted } from "../utils/request"
+import { isAbortError } from "../utils/abort"
+import { checkSessionHealth } from "./sessions"
 
 /** OpenCode event types */
 export type OpenCodeEventType =
@@ -59,6 +63,10 @@ export type EventSubscription = {
   isActive: boolean
 }
 
+export type LocalOpenCodeConnectResult =
+  | { ok: true; session: SessionRecord; health: SessionHealthResult; aborted?: boolean }
+  | { ok: false; error: string; health?: SessionHealthResult; aborted?: boolean }
+
 /**
  * Create an SSE connection to OpenCode event stream.
  * Uses fetch() streaming since Bun doesn't have native EventSource.
@@ -87,74 +95,128 @@ export function subscribeToOpenCodeEvents(
   }
 
   let isActive = true
-  let abortController: AbortController | null = new AbortController()
-
-  // Start the SSE connection using fetch streaming
-  ;(async () => {
-    try {
-      const response = await fetch(url.toString(), {
-        headers: {
-          Accept: "text/event-stream",
-        },
-        signal: abortController?.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`SSE connection failed: ${response.status}`)
+  const connection = connectSse(url.toString(), {
+    headers: {
+      Accept: "text/event-stream",
+    },
+    includeScope: false,
+    onOpen: onConnect,
+    onMessage: (message) => {
+      if (!isActive || !message.data) return
+      try {
+        const event = JSON.parse(message.data) as OpenCodeEvent
+        onEvent(event)
+      } catch {
+        // Ignore parse errors for heartbeats etc
       }
-
-      if (!response.body) {
-        throw new Error("No response body for SSE stream")
-      }
-
-      if (onConnect) onConnect()
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ""
-
-      while (isActive) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-
-        // Process complete SSE messages (each ends with \n\n)
-        const lines = buffer.split("\n")
-        buffer = lines.pop() || "" // Keep incomplete line in buffer
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6)
-            try {
-              const event = JSON.parse(data) as OpenCodeEvent
-              onEvent(event)
-            } catch {
-              // Ignore parse errors for heartbeats etc
-            }
-          }
-        }
-      }
-    } catch (err: any) {
-      if (!isActive) return // Ignore errors after unsubscribe
-      if (err.name === "AbortError") return // Expected on unsubscribe
-      if (onError) {
-        onError(err)
-      }
-    }
-  })()
+    },
+    onError: (error) => {
+      if (!isActive) return
+      onError?.(error)
+    },
+  })
 
   return {
     unsubscribe: () => {
       isActive = false
-      if (abortController) {
-        abortController.abort()
-        abortController = null
-      }
+      connection.disconnect()
     },
     get isActive() {
       return isActive
     },
+  }
+}
+
+function buildLocalSessionRecord(sessionId: string, opencodeUrl: string): SessionRecord {
+  const now = new Date().toISOString()
+  return {
+    session_id: sessionId,
+    container_id: "",
+    state: "connected",
+    mode: "interactive",
+    model: "gpt-4o-mini",
+    access_url: opencodeUrl,
+    tunnel_url: null,
+    opencode_url: opencodeUrl,
+    health_url: `${opencodeUrl}/health`,
+    created_at: now,
+    connected_at: now,
+    last_activity: now,
+    error_message: null,
+    metadata: {},
+    is_local: true,
+  }
+}
+
+export async function connectLocalOpenCodeSession(
+  opencodeUrl: string,
+  timeoutMs: number = 5000,
+): Promise<LocalOpenCodeConnectResult> {
+  const healthCheck = await checkSessionHealth({
+    session_id: "local",
+    container_id: "",
+    state: "connecting",
+    mode: "interactive",
+    model: "gpt-4o-mini",
+    access_url: opencodeUrl,
+    tunnel_url: null,
+    opencode_url: opencodeUrl,
+    health_url: `${opencodeUrl}/health`,
+    created_at: new Date().toISOString(),
+    connected_at: null,
+    last_activity: null,
+    error_message: null,
+    metadata: {},
+    is_local: true,
+  }, timeoutMs)
+
+  if (isAborted()) {
+    return { ok: false, error: "Cancelled", health: healthCheck, aborted: true }
+  }
+
+  if (!healthCheck.healthy) {
+    return {
+      ok: false,
+      error: healthCheck.error || "OpenCode server not reachable",
+      health: healthCheck,
+    }
+  }
+
+  const managed = getRequestSignal()
+  try {
+    const response = await fetch(`${opencodeUrl}/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      signal: managed.signal,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "")
+      return {
+        ok: false,
+        error: `Failed to create session: ${response.status} ${errorText}`.trim(),
+        health: healthCheck,
+      }
+    }
+
+    const sessionData = await response.json() as { id: string; title?: string }
+    return {
+      ok: true,
+      session: buildLocalSessionRecord(sessionData.id, opencodeUrl),
+      health: healthCheck,
+    }
+  } catch (err: any) {
+    if (isAbortError(err)) {
+      return { ok: false, error: "Cancelled", health: healthCheck, aborted: true }
+    }
+    return {
+      ok: false,
+      error: err?.message || "Failed to connect",
+      health: healthCheck,
+    }
+  } finally {
+    managed.dispose()
   }
 }
 
@@ -172,6 +234,7 @@ export async function sendPrompt(
   sessionId: string,
   prompt: string
 ): Promise<{ success: boolean; error?: string }> {
+  const managed = getRequestSignal()
   try {
     const response = await fetch(`${baseUrl}/session/${sessionId}/message`, {
       method: "POST",
@@ -183,6 +246,7 @@ export async function sendPrompt(
           { type: "text", text: prompt }
         ]
       }),
+      signal: managed.signal,
     })
 
     if (!response.ok) {
@@ -193,6 +257,8 @@ export async function sendPrompt(
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err?.message || "Unknown error" }
+  } finally {
+    managed.dispose()
   }
 }
 

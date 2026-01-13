@@ -14,13 +14,14 @@ import { snapshot } from "../state/snapshot"
 import { isLoggedOutMarkerSet, loadSavedApiKey } from "../utils/logout-marker"
 import { isOpenCodeServerRunning, startOpenCodeServer } from "../utils/opencode-server"
 import { registerCleanup, unregisterCleanup } from "../lifecycle"
+import { isAborted } from "../utils/request"
 import { createSolidContext } from "./context"
 
 export type SolidData = {
   version: Accessor<number>
-  refresh: (options?: { signal?: AbortSignal }) => Promise<void>
-  select: (jobId: string, options?: { signal?: AbortSignal }) => Promise<void>
-  ensureOpenCodeServer: (options?: { signal?: AbortSignal }) => Promise<void>
+  refresh: () => Promise<void>
+  select: (jobId: string) => Promise<void>
+  ensureOpenCodeServer: () => Promise<void>
   ctx: ReturnType<typeof createSolidContext>
 }
 
@@ -69,19 +70,19 @@ export function useSolidData(): SolidData {
     bump()
   }
 
-  async function refresh(options: { signal?: AbortSignal } = {}): Promise<void> {
+  async function refresh(): Promise<void> {
     if (isLoggedOutMarkerSet() || !process.env.SYNTH_API_KEY) {
       return
     }
-    await refreshJobs(ctx, options)
-    await refreshHealth(ctx, options)
-    if (options.signal?.aborted) return
+    await refreshJobs(ctx)
+    await refreshHealth(ctx)
+    if (isAborted()) return
     bump()
   }
 
-  async function select(jobId: string, options: { signal?: AbortSignal } = {}): Promise<void> {
-    await selectJob(ctx, jobId, options)
-    if (options.signal?.aborted) return
+  async function select(jobId: string): Promise<void> {
+    await selectJob(ctx, jobId)
+    if (isAborted()) return
     bump()
   }
 
@@ -100,8 +101,8 @@ export function useSolidData(): SolidData {
     return null
   }
 
-  async function ensureOpenCodeServer(options: { signal?: AbortSignal } = {}): Promise<void> {
-    if (options.signal?.aborted) {
+  async function ensureOpenCodeServer(): Promise<void> {
+    if (isAborted()) {
       return
     }
     if (appState.openCodeUrl) {
@@ -118,7 +119,7 @@ export function useSolidData(): SolidData {
     setOpenCodeStatus("starting... (first run may take a minute)")
     bump()
     const openCodeUrl = await startOpenCodeServer()
-    if (options.signal?.aborted) {
+    if (isAborted()) {
       return
     }
     if (openCodeUrl) {
@@ -129,7 +130,7 @@ export function useSolidData(): SolidData {
 
     if (isOpenCodeServerRunning()) {
       const delayedUrl = await waitForOpenCodeUrl(60000)
-      if (options.signal?.aborted) {
+      if (isAborted()) {
         return
       }
       if (delayedUrl) {

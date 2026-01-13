@@ -5,6 +5,7 @@
  */
 
 import { spawn } from "node:child_process"
+import { getRequestSignal, sleep } from "./utils/request"
 
 export type AuthSession = {
   deviceCode: string
@@ -40,29 +41,35 @@ export async function initAuthSession(): Promise<AuthSession> {
   const frontendUrl = getAuthFrontendUrl()
   const initUrl = `${frontendUrl}/api/sdk/handshake/init`
 
-  const res = await fetch(initUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  })
+  const managed = getRequestSignal()
+  try {
+    const res = await fetch(initUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: managed.signal,
+    })
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => "")
-    throw new Error(`Handshake init failed (${res.status}): ${body || "no response"}`)
-  }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "")
+      throw new Error(`Handshake init failed (${res.status}): ${body || "no response"}`)
+    }
 
-  const data = await res.json()
-  const deviceCode = String(data.device_code || "").trim()
-  const verificationUri = String(data.verification_uri || "").trim()
-  const expiresIn = Number(data.expires_in) || 600
+    const data = await res.json()
+    const deviceCode = String(data.device_code || "").trim()
+    const verificationUri = String(data.verification_uri || "").trim()
+    const expiresIn = Number(data.expires_in) || 600
 
-  if (!deviceCode || !verificationUri) {
-    throw new Error("Handshake init response missing device_code or verification_uri")
-  }
+    if (!deviceCode || !verificationUri) {
+      throw new Error("Handshake init response missing device_code or verification_uri")
+    }
 
-  return {
-    deviceCode,
-    verificationUri,
-    expiresAt: Date.now() + expiresIn * 1000,
+    return {
+      deviceCode,
+      verificationUri,
+      expiresAt: Date.now() + expiresIn * 1000,
+    }
+  } finally {
+    managed.dispose()
   }
 }
 
@@ -75,11 +82,13 @@ export async function pollForToken(
   const frontendUrl = getAuthFrontendUrl()
   const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`
 
+  const managed = getRequestSignal()
   try {
     const res = await fetch(tokenUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_code: deviceCode }),
+      signal: managed.signal,
     })
 
     if (res.status === 428) {
@@ -106,6 +115,8 @@ export async function pollForToken(
     return { apiKey: synthKey, expired: false, error: null }
   } catch (err: any) {
     return { apiKey: null, expired: false, error: err?.message || "Network error" }
+  } finally {
+    managed.dispose()
   }
 }
 
@@ -180,8 +191,4 @@ export async function runDeviceCodeAuth(
     updateStatus({ state: "error", message })
     return { success: false, apiKey: null, error: message }
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

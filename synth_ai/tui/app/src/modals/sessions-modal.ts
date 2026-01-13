@@ -9,7 +9,12 @@ import { copyToClipboard } from "../utils/clipboard"
 import { clamp, wrapModalText, type ModalController } from "./base"
 import { fetchSessions, disconnectSession, checkSessionHealth } from "../api/sessions"
 import { renderOpenCodePane } from "../ui/opencode"
-import { subscribeToOpenCodeEvents, processOpenCodeEvent, type EventSubscription } from "../api/opencode"
+import {
+  connectLocalOpenCodeSession,
+  subscribeToOpenCodeEvents,
+  processOpenCodeEvent,
+  type EventSubscription,
+} from "../api/opencode"
 
 // Track active SSE subscription
 let activeSubscription: EventSubscription | null = null
@@ -249,76 +254,24 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
     ctx.render()
 
     try {
-      // First check if OpenCode server is reachable
-      const healthCheck = await checkSessionHealth({
-        session_id: "local",
-        container_id: "",
-        state: "connecting",
-        mode: "interactive",
-        model: "gpt-4o-mini",
-        access_url: opencode_url,
-        tunnel_url: null,
-        opencode_url: opencode_url,
-        health_url: `${opencode_url}/health`,
-        created_at: new Date().toISOString(),
-        connected_at: null,
-        last_activity: null,
-        error_message: null,
-        metadata: {},
-        is_local: true,
-      })
-
-      if (!healthCheck.healthy) {
-        snapshot.lastError = healthCheck.error || "OpenCode server not reachable"
-        snapshot.status = `Connection failed - is OpenCode running at ${opencode_url}?`
+      const result = await connectLocalOpenCodeSession(opencode_url, 5000)
+      if (result.aborted) return
+      if (!result.ok) {
+        snapshot.lastError = result.error
+        snapshot.status = result.health?.healthy
+          ? "Session creation failed"
+          : `Connection failed - is OpenCode running at ${opencode_url}?`
         ctx.render()
         return
       }
 
-      // Create a REAL session on the OpenCode server
-      snapshot.status = `Creating session on OpenCode...`
-      ctx.render()
-
-      const createResponse = await fetch(`${opencode_url}/session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-
-      if (!createResponse.ok) {
-        const errorText = await createResponse.text().catch(() => "")
-        snapshot.lastError = `Failed to create session: ${createResponse.status} ${errorText}`
-        snapshot.status = "Session creation failed"
-        ctx.render()
-        return
-      }
-
-      const sessionData = await createResponse.json() as { id: string; title?: string }
-      const sessionId = sessionData.id
-
-      const localSession: SessionRecord = {
-        session_id: sessionId,
-        container_id: "",
-        state: "connected",
-        mode: "interactive",
-        model: "gpt-4o-mini",
-        access_url: opencode_url,
-        tunnel_url: null,
-        opencode_url: opencode_url,
-        health_url: `${opencode_url}/health`,
-        created_at: new Date().toISOString(),
-        connected_at: new Date().toISOString(),
-        last_activity: new Date().toISOString(),
-        error_message: null,
-        metadata: {},
-        is_local: true,
-      }
+      const sessionId = result.session.session_id
 
       // Add to sessions list
-      sessions = [localSession, ...sessions.filter(s => s.session_id !== sessionId)]
+      sessions = [result.session, ...sessions.filter(s => s.session_id !== sessionId)]
       snapshot.sessions = sessions
-      healthResults.set(sessionId, healthCheck)
-      snapshot.sessionHealthResults.set(sessionId, healthCheck)
+      healthResults.set(sessionId, result.health)
+      snapshot.sessionHealthResults.set(sessionId, result.health)
 
       // Set as active session
       appState.openCodeSessionId = sessionId
