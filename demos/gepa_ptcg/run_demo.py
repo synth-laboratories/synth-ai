@@ -186,14 +186,13 @@ async def main():
                 details = sr.get("details", {}) or {}
                 instance_id = metadata.get("instance_id") or details.get("instance_id") or "?"
                 winner = metadata.get("winner") or details.get("winner") or "?"
-                local_api_reward = sr.get("outcome_reward", 0.0)
-                # Backend responses may still contain legacy keys; we normalize to verifier_reward.
-                verifier_reward = (
-                    sr.get("verifier_reward")
-                    if sr.get("verifier_reward") is not None
-                    else sr.get("verifier_score")
+                local_api_reward = (
+                    sr.get("local_api_reward")
+                    if sr.get("local_api_reward") is not None
+                    else sr.get("outcome_reward", 0.0)
                 )
-                fused_reward = sr.get("reward_mean") if sr.get("reward_mean") is not None else sr.get("score")
+                verifier_reward = sr.get("verifier_reward")
+                fused_reward = sr.get("reward")
                 if ENABLE_VERIFIER:
                     print(
                         f"  - {instance_id}: winner={winner}, local_api_reward={local_api_reward:.2f}, "
