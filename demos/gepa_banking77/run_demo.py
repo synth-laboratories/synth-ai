@@ -19,6 +19,7 @@ from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
 from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
@@ -344,6 +345,7 @@ def create_banking77_local_api(system_prompt: str):
         os.environ["OPENAI_BASE_URL"] = inference_url
         api_key = policy_config.get("api_key")
 
+        start = time.perf_counter()
         predicted_intent = await classify_banking77_query(
             query=sample["text"],
             system_prompt=system_prompt,
@@ -352,6 +354,7 @@ def create_banking77_local_api(system_prompt: str):
             api_key=api_key,
             inference_url=inference_url,
         )
+        latency_ms = (time.perf_counter() - start) * 1000.0
 
         expected_intent = sample["label"]
         is_correct = (
@@ -371,11 +374,16 @@ def create_banking77_local_api(system_prompt: str):
         )
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=reward),
+            metrics=RolloutMetrics(
+                outcome_reward=reward,
+                outcome_objectives={"reward": reward, "latency_ms": latency_ms},
+                instance_objectives=[{"reward": reward, "latency_ms": latency_ms}],
+                details={"latency_ms": latency_ms},
+            ),
             trace=None,
             trace_correlation_id=trace_correlation_id,
             inference_url=str(inference_url or ""),
+            success_status=SuccessStatus.SUCCESS,
         )
 
     def provide_taskset_description():
@@ -608,6 +616,16 @@ async def main():
                             print(
                                 f"  {status} Candidate {version_id}: mean reward = {accuracy:.2f}"
                             )
+                        program_candidate = (
+                            data.get("program_candidate", {}) if isinstance(data, dict) else {}
+                        )
+                        if isinstance(program_candidate, dict):
+                            prompt_summary = program_candidate.get("prompt_summary")
+                            if isinstance(prompt_summary, str) and prompt_summary.strip():
+                                print(f"    prompt_summary: {prompt_summary.strip()[:200]}")
+                            objectives = program_candidate.get("objectives")
+                            if isinstance(objectives, dict):
+                                print(f"    objectives: {objectives}")
 
                 elif event_type == "prompt.learning.gepa.proposal.completed":
                     # Message format: "Proposal generated in 11.23s (evaluation will start next)"
@@ -998,8 +1016,10 @@ async def main():
         timings["baseline_eval"] = time.time() - eval_start
 
         if baseline_result.succeeded:
-            # Try mean_score first, then mean_reward from summary, then calculate from seed_results
-            score = baseline_result.mean_score
+            # Try mean_reward/mean_score from result, then summary, then seed_results
+            score = getattr(baseline_result, "mean_reward", None)
+            if score is None:
+                score = getattr(baseline_result, "mean_score", None)
             if score is None:
                 summary = baseline_result.raw.get("summary", {})
                 score = summary.get("mean_reward") or summary.get("mean_score")
@@ -1034,8 +1054,10 @@ async def main():
         timings["optimized_eval"] = time.time() - eval_start
 
         if optimized_result.succeeded:
-            # Try mean_score first, then mean_reward from summary, then calculate from seed_results
-            score = optimized_result.mean_score
+            # Try mean_reward/mean_score, then summary, then seed_results
+            score = getattr(optimized_result, "mean_reward", None)
+            if score is None:
+                score = getattr(optimized_result, "mean_score", None)
             if score is None:
                 summary = optimized_result.raw.get("summary", {})
                 score = summary.get("mean_reward") or summary.get("mean_score")
@@ -1065,7 +1087,9 @@ async def main():
         if baseline_result.succeeded and optimized_result.succeeded:
             # Extract scores with fallback logic
             def extract_score(result: EvalResult) -> float | None:
-                score = result.mean_score
+                score = getattr(result, "mean_reward", None)
+                if score is None:
+                    score = getattr(result, "mean_score", None)
                 if score is None:
                     summary = result.raw.get("summary", {})
                     score = summary.get("mean_reward") or summary.get("mean_score")

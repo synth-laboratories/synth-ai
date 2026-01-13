@@ -11,6 +11,19 @@ import json
 import os
 import time
 
+import httpx
+from datasets import load_dataset
+from fastapi import Request
+from openai import AsyncOpenAI
+from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.data.enums import SuccessStatus
+from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.task import run_server_background
+from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
+
 # Parse args early
 parser = argparse.ArgumentParser(description="Run Banking77 eval job")
 parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
@@ -23,18 +36,6 @@ LOCAL_MODE = args.local
 LOCAL_HOST = args.local_host
 PORT = args.port
 NUM_SEEDS = args.seeds
-
-import httpx
-from datasets import load_dataset
-from fastapi import Request
-from openai import AsyncOpenAI
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
-from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 # Backend config
 if LOCAL_MODE:
@@ -127,7 +128,7 @@ class Banking77Dataset:
 
 
 def format_available_intents(label_names: list) -> str:
-    return "\n".join(f"{i + 1}. {l}" for i, l in enumerate(label_names))
+    return "\n".join(f"{i + 1}. {label}" for i, label in enumerate(label_names))
 
 
 async def classify_banking77_query(
@@ -227,6 +228,7 @@ def create_banking77_local_api(system_prompt: str):
         inference_url = policy_config.get("inference_url")
         api_key = policy_config.get("api_key")
 
+        start = time.perf_counter()
         predicted_intent = await classify_banking77_query(
             query=sample["text"],
             system_prompt=system_prompt,
@@ -235,6 +237,7 @@ def create_banking77_local_api(system_prompt: str):
             api_key=api_key,
             inference_url=inference_url,
         )
+        latency_ms = (time.perf_counter() - start) * 1000.0
 
         expected_intent = sample["label"]
         is_correct = (
@@ -243,21 +246,30 @@ def create_banking77_local_api(system_prompt: str):
         )
 
         # Extract trace_correlation_id from policy_config (required for response)
-        trace_correlation_id = policy_config.get("trace_correlation_id", "")
+        trace_correlation_id = (
+            policy_config.get("trace_correlation_id") or request.trace_correlation_id
+        )
 
+        reward = 1.0 if is_correct else 0.0
         return RolloutResponse(
-            metrics=RolloutMetrics(outcome_reward=1.0 if is_correct else 0.0),
-            trajectory=[],
+            metrics=RolloutMetrics(
+                outcome_reward=reward,
+                outcome_objectives={"reward": reward, "latency_ms": latency_ms},
+                instance_objectives=[{"reward": reward, "latency_ms": latency_ms}],
+                details={
+                    "seed": seed,
+                    "split": split,
+                    "query": sample["text"],
+                    "expected": expected_intent,
+                    "predicted": predicted_intent,
+                    "is_correct": is_correct,
+                    "latency_ms": latency_ms,
+                },
+            ),
+            trace=None,
             trace_correlation_id=trace_correlation_id,
             inference_url=inference_url or "",
-            metadata={
-                "seed": seed,
-                "split": split,
-                "query": sample["text"],
-                "expected": expected_intent,
-                "predicted": predicted_intent,
-                "is_correct": is_correct,
-            },
+            success_status=SuccessStatus.SUCCESS,
         )
 
     def provide_taskset_description():

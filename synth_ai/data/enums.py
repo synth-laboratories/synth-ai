@@ -32,7 +32,11 @@ class JobStatus(str, Enum):
 
 
 class SuccessStatus(str, Enum):
-    """Infrastructure/runtime success status (orthogonal to reward)."""
+    """Infrastructure/runtime success status (orthogonal to reward).
+
+    This is never computed from reward. It describes whether the rollout
+    completed without infra/runtime failures.
+    """
 
     SUCCESS = "success"
     TIMEOUT = "timeout"

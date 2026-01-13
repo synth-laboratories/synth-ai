@@ -20,10 +20,13 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
 from fastapi import Request
+from synth_ai.data.artifacts import Artifact
+from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
@@ -455,6 +458,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     seed = request.env.seed or 0
     env_config = request.env.config or {}
     policy_config = request.policy.config or {}
+    start = time.perf_counter()
 
     # Get instance - either from config or by seed
     instance_id = env_config.get("instance_id") or get_instance_by_seed(seed)
@@ -490,6 +494,31 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
             api_key=api_key,
         )
 
+        card_file_path = None
+        card_file_rel = instance.get("card_file", "")
+        if card_file_rel:
+            relative_path = card_file_rel.replace("tcg_expansions/", "")
+            card_file_path = sandbox_dir / relative_path
+        else:
+            expansion = instance_id.split("-")[0]
+            card_file_path = (
+                sandbox_dir / "src" / expansion / "cards" / f"{instance_id.replace('-', '_')}.rs"
+            )
+
+        artifact_list = []
+        if card_file_path and card_file_path.exists():
+            content = card_file_path.read_text()
+            artifact = Artifact(
+                content=content,
+                content_type="rust_code",
+                metadata={
+                    "file_path": str(card_file_path.relative_to(sandbox_dir)),
+                    "instance_id": instance_id,
+                },
+            )
+            artifact.validate_size(max_size_bytes=64 * 1024)
+            artifact_list.append(artifact)
+
         # Evaluate
         compile_pass, compile_error = await run_cargo_check(sandbox_dir)
 
@@ -510,6 +539,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     print(f"  Score: {score:.2f}")
     print(f"{'=' * 60}\n")
 
+    latency_ms = (time.perf_counter() - start) * 1000.0
     trace_correlation_id = policy_config.get("trace_correlation_id", request.trace_correlation_id)
 
     return RolloutResponse(
@@ -521,15 +551,13 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 "compile_pass": compile_pass,
                 "tests_passed": tests_passed,
                 "tests_total": tests_total,
+                "latency_ms": latency_ms,
             },
+            outcome_objectives={"reward": score, "latency_ms": latency_ms},
+            instance_objectives=[{"reward": score, "latency_ms": latency_ms}],
         ),
-        metadata={
-            "instance_id": instance_id,
-            "model": model,
-            "compile_pass": compile_pass,
-            "tests_passed": tests_passed,
-            "tests_total": tests_total,
-        },
+        artifact=artifact_list or None,
+        success_status=SuccessStatus.SUCCESS,
     )
 
 

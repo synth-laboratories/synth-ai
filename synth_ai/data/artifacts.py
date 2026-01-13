@@ -13,6 +13,17 @@ class Artifact(BaseModel):
 
     Artifacts are the concrete outputs of AI workflows (code, JSON, text, files).
     They are stored separately from traces and linked via trace_correlation_id.
+
+    Fields:
+        content: Inline artifact payload (string or JSON-like dict).
+        content_type: Free-form content type identifier (e.g., "rust_code").
+        metadata: Artifact-specific metadata (file_path, line_count, schema_version).
+        artifact_id: Backend-assigned identifier after storage.
+        trace_correlation_id: Trace correlation ID for linkage.
+        size_bytes: Size in bytes (when known).
+        sha256: Hash of the content (when known).
+        storage: Storage metadata for non-inline artifacts (bucket/key/url).
+        created_at: ISO timestamp when stored.
     """
 
     content: str | Dict[str, Any]
@@ -27,7 +38,11 @@ class Artifact(BaseModel):
     created_at: Optional[str] = None
 
     def validate_size(self, max_size_bytes: int = 10 * 1024 * 1024) -> None:
-        """Validate artifact size (client-side constraint)."""
+        """Validate artifact size (client-side constraint).
+
+        Args:
+            max_size_bytes: Maximum allowed size for inline artifact content.
+        """
         if isinstance(self.content, str):
             size = len(self.content.encode("utf-8"))
         else:
