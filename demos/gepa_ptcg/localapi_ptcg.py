@@ -137,7 +137,7 @@ def ensure_tcg_py_built() -> None:
     # Build with maturin (via uv so this works even if maturin isn't globally installed).
     print("[ptcg] Building tcg_py extension...")
     subprocess.run(
-        ["uv", "run", "--python", "3.12", "--with", "maturin", "maturin", "develop"],
+        ["uv", "run", "--active", "--python", "3.12", "--with", "maturin", "maturin", "develop"],
         cwd=str(tcg_py_dir),
         check=True,
     )
