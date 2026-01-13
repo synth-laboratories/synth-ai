@@ -149,6 +149,16 @@ def ensure_tcg_py_built() -> None:
         # If maturin install fails, the next command will raise with a clear error.
         pass
 
+    # Remove any prior editable install that can shadow the compiled extension with a namespace package.
+    try:
+        subprocess.run(
+            ["uv", "pip", "uninstall", "--python", sys.executable, "-y", "tcg_py"],
+            check=False,
+            capture_output=True,
+        )
+    except Exception:
+        pass
+
     # Build a wheel and install it. `maturin develop` can produce an editable install that
     # doesn't reliably expose the compiled extension module for in-process imports.
     subprocess.run(
