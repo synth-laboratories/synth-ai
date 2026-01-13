@@ -144,6 +144,9 @@ include-package-data = true
     "tui/app/tsconfig.typecheck.json",
     "tui/app/src/**/*.ts",
     "tui/app/src/**/*.tsx",
+    # OpenCode: ship bundled config + packaged skills so users can install them via CLI
+    "tui/opencode_config/**/*",
+    "skills/**/*",
 ]
 
 [tool.pytest.ini_options]
@@ -190,6 +193,7 @@ src = ["synth_ai"]
 extend-exclude = [
     ".venv",
     ".tmp",
+    "**/*.ipynb",
     "dev",
     "docs",
     "scripts",

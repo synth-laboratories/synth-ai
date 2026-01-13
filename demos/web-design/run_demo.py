@@ -31,7 +31,7 @@ from PIL import Image
 try:
     from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
-    from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+    from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 except ImportError as e:  # pragma: no cover
     raise ImportError(
@@ -49,12 +49,7 @@ except ImportError:  # pragma: no cover
     from synth_ai.sdk.task import run_server_background
 
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-
-try:
-    from synth_ai.sdk.task.contracts import RubricCriterion, RubricInfo, RubricSection
-except ImportError:  # pragma: no cover
-    # Back-compat with older versions that exposed these at synth_ai.sdk.task.*
-    from synth_ai.sdk.task import RubricCriterion, RubricInfo, RubricSection
+from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import (
     PortConflictBehavior,
@@ -84,6 +79,25 @@ args = parser.parse_args()
 LOCAL_MODE = args.local
 LOCAL_HOST = args.local_host
 
+WEB_DESIGN_RUBRICS = RubricBundle(
+    outcome=Rubric(
+        version="1.0",
+        goal_text="Evaluate how well the generated webpage matches the original visually",
+        criteria=[
+            Criterion(
+                id="visual_fidelity",
+                description=(
+                    "How well does the generated webpage match the original webpage visually? "
+                    "Evaluate color scheme, typography, layout, spacing, and overall visual fidelity."
+                ),
+                weight=1.0,
+                required=True,
+            )
+        ],
+        aggregation="weighted_sum",
+    )
+)
+
 # Setup paths
 demo_dir = Path(__file__).parent
 repo_root = demo_dir.parent.parent
@@ -92,7 +106,7 @@ repo_root = demo_dir.parent.parent
 # Print a quick diagnostic if we're accidentally importing synth_ai from elsewhere.
 def _maybe_warn_on_synth_ai_mismatch() -> None:
     try:
-        import synth_ai as _synth_ai  # noqa: WPS433
+        import synth_ai as _synth_ai
     except Exception:
         return
 
@@ -100,7 +114,7 @@ def _maybe_warn_on_synth_ai_mismatch() -> None:
     if synth_path and repo_root not in synth_path.parents:
         version_str = "unknown"
         try:
-            from importlib import metadata  # noqa: WPS433
+            from importlib import metadata
 
             version_str = metadata.version("synth-ai")
         except Exception:
@@ -564,18 +578,6 @@ Apply the visual style guidelines to match the original design."""
                 environment="web_design",  # Must match gepa_config.toml prompt_learning.gepa.env_name
                 inference={},
                 limits={"max_turns": 1},
-                rubric=RubricInfo(
-                    outcome=RubricSection(
-                        name="Visual Fidelity",
-                        criteria=[
-                            RubricCriterion(
-                                id="visual_fidelity",
-                                description="How well does the generated webpage match the original webpage visually? Evaluate color scheme, typography, layout, spacing, and overall visual fidelity.",
-                                weight=1.0,
-                            )
-                        ],
-                    )
-                ),
                 task_metadata={
                     "page": f"{sample['site_name']}/{sample['page_name']}",
                     "description_length": len(sample["functional_description"]),
@@ -591,6 +593,7 @@ Apply the visual style guidelines to match the original design."""
             provide_taskset_description=provide_taskset_description,
             provide_task_instances=provide_task_instances,
             rollout=run_rollout,
+            rubrics=WEB_DESIGN_RUBRICS,
             cors_origins=["*"],
         )
     )

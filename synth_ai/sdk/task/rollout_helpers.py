@@ -11,6 +11,9 @@ def build_rollout_response(
     inference_url: str | None = None,
     trace: dict[str, Any] | None = None,
     policy_config: dict[str, Any] | None = None,
+    artifact: list[Any] | None = None,
+    success_status: Any | None = None,
+    status_detail: str | None = None,
     **kwargs,
 ) -> RolloutResponse:
     """Build a RolloutResponse from a RolloutRequest.
@@ -20,7 +23,7 @@ def build_rollout_response(
 
     Args:
         request: The original rollout request (contains trace_correlation_id)
-        outcome_reward: The reward/score for this rollout
+        outcome_reward: The reward for this rollout
         inference_url: The inference URL used (optional, extracted from policy_config if not provided)
         trace: Optional trace payload
         policy_config: Optional - only needed if inference_url not provided
@@ -45,4 +48,7 @@ def build_rollout_response(
         metrics=RolloutMetrics(outcome_reward=outcome_reward, **kwargs),
         trace=trace,
         inference_url=str(inference_url or ""),
+        artifact=artifact,
+        success_status=success_status,
+        status_detail=status_detail,
     )

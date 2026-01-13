@@ -198,6 +198,7 @@ SYNTH_MODEL_NAMES: list[str] = [m.value for m in SynthModelName]
 __all__ = [
     "JobType",
     "JobStatus",
+    "SuccessStatus",
     "PromptLearningMethod",
     "RLMethod",
     "SFTMethod",

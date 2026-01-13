@@ -1,20 +1,19 @@
-"""Rubric schema, loading, and scoring helpers for Task Apps.
+"""Rubric schema, loading, and evaluation helpers for Task Apps.
 
 This module provides:
 - Flexible rubric models (Criterion, Rubric) for general task app use
 - Strict validators (StrictCriterion, StrictRubric) for step-wise verifiers
 - Loading utilities supporting JSON, YAML, and HTTP sources
 - Blending utilities for composing rubrics
-- Scoring utilities for events and outcomes
+- Evaluation utilities for events and outcomes
 """
 
 # Core models (flexible validation)
 # Loading and blending
+# Evaluation
+from .evaluation import evaluate_events_against_rubric, evaluate_outcome_against_rubric
 from .loaders import blend_rubrics, load_rubric
 from .models import Criterion, Rubric
-
-# Scoring
-from .scoring import score_events_against_rubric, score_outcome_against_rubric
 
 # Strict validators (for verifier configs)
 from .strict import (
@@ -33,9 +32,9 @@ __all__ = [
     # Loaders
     "load_rubric",
     "blend_rubrics",
-    # Scoring
-    "score_events_against_rubric",
-    "score_outcome_against_rubric",
+    # Evaluation
+    "evaluate_events_against_rubric",
+    "evaluate_outcome_against_rubric",
     # Strict validators
     "StrictCriterion",
     "StrictRubric",
@@ -45,7 +44,4 @@ __all__ = [
     "validate_rubric_files",
 ]
 
-# Maintain backwards compatibility
-# Old code may import these names expecting the flexible variants
-RubricCriterion = StrictCriterion
-RubricSpec = StrictRubric
+# Breaking change: legacy rubric aliases removed. Use Criterion/Rubric directly.

@@ -19,6 +19,7 @@ from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
 from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
@@ -344,6 +345,7 @@ def create_banking77_local_api(system_prompt: str):
         os.environ["OPENAI_BASE_URL"] = inference_url
         api_key = policy_config.get("api_key")
 
+        start = time.perf_counter()
         predicted_intent = await classify_banking77_query(
             query=sample["text"],
             system_prompt=system_prompt,
@@ -352,6 +354,7 @@ def create_banking77_local_api(system_prompt: str):
             api_key=api_key,
             inference_url=inference_url,
         )
+        latency_ms = (time.perf_counter() - start) * 1000.0
 
         expected_intent = sample["label"]
         is_correct = (
@@ -371,11 +374,16 @@ def create_banking77_local_api(system_prompt: str):
         )
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=reward),
+            metrics=RolloutMetrics(
+                outcome_reward=reward,
+                outcome_objectives={"reward": reward, "latency_ms": latency_ms},
+                instance_objectives=[{"reward": reward, "latency_ms": latency_ms}],
+                details={"latency_ms": latency_ms},
+            ),
             trace=None,
             trace_correlation_id=trace_correlation_id,
             inference_url=str(inference_url or ""),
+            success_status=SuccessStatus.SUCCESS,
         )
 
     def provide_taskset_description():
@@ -608,6 +616,16 @@ async def main():
                             print(
                                 f"  {status} Candidate {version_id}: mean reward = {accuracy:.2f}"
                             )
+                        program_candidate = (
+                            data.get("program_candidate", {}) if isinstance(data, dict) else {}
+                        )
+                        if isinstance(program_candidate, dict):
+                            prompt_summary = program_candidate.get("prompt_summary")
+                            if isinstance(prompt_summary, str) and prompt_summary.strip():
+                                print(f"    prompt_summary: {prompt_summary.strip()[:200]}")
+                            objectives = program_candidate.get("objectives")
+                            if isinstance(objectives, dict):
+                                print(f"    objectives: {objectives}")
 
                 elif event_type == "prompt.learning.gepa.proposal.completed":
                     # Message format: "Proposal generated in 11.23s (evaluation will start next)"
@@ -706,18 +724,6 @@ async def main():
                     if rollouts > 0:
                         print(f"\n  Progress: {rollouts}/{total} rollouts completed")
 
-                elif event_type == "prompt.learning.proposal.scored":
-                    version_id = data.get("version_id", "")
-                    accuracy = data.get("accuracy")
-                    if accuracy is not None:
-                        print(f"  Proposal {version_id}: mean reward = {accuracy:.2f}")
-
-                elif event_type == "prompt.learning.optimized.scored":
-                    version_id = data.get("version_id", "")
-                    accuracy = data.get("accuracy")
-                    if accuracy is not None:
-                        print(f"  Optimized {version_id}: mean reward = {accuracy:.2f}")
-
         except Exception:
             # Silently ignore event fetching errors to avoid polluting output
             pass
@@ -734,7 +740,17 @@ async def main():
     print(f"\nFINAL: {gepa_result.status.value} ({format_duration(timings['optimization'])})")
 
     if gepa_result.succeeded:
-        print(f"BEST REWARD: {gepa_result.best_score:.1%}")
+        best_reward = None
+        if isinstance(gepa_result.raw, dict):
+            best_reward = (
+                gepa_result.raw.get("best_reward")
+                or gepa_result.raw.get("best_avg_reward")
+                or gepa_result.raw.get("best_train_reward")
+            )
+        if isinstance(best_reward, (int, float)):
+            print(f"BEST REWARD: {float(best_reward):.1%}")
+        else:
+            print("BEST REWARD: N/A")
     elif gepa_result.failed:
         print(f"ERROR: {gepa_result.error}")
         # Print full raw response for debugging
@@ -927,7 +943,13 @@ async def main():
                     )
                     optimized_system = baseline_system_prompt
 
-            best_train_reward = prompt_results.best_score or gepa_result.best_score or 0.0
+            best_train_reward = 0.0
+            if isinstance(gepa_result.raw, dict):
+                raw_best = gepa_result.raw.get("best_reward") or gepa_result.raw.get(
+                    "best_avg_reward"
+                )
+                if isinstance(raw_best, (int, float)):
+                    best_train_reward = float(raw_best)
 
         except Exception as e:
             print(f"\nERROR extracting prompts: {e}", flush=True)
@@ -935,7 +957,13 @@ async def main():
 
             traceback.print_exc()
             optimized_system = baseline_system_prompt
-            best_train_reward = gepa_result.best_score or 0.0
+            best_train_reward = 0.0
+            if isinstance(gepa_result.raw, dict):
+                raw_best = gepa_result.raw.get("best_reward") or gepa_result.raw.get(
+                    "best_avg_reward"
+                )
+                if isinstance(raw_best, (int, float)):
+                    best_train_reward = float(raw_best)
 
         print("=" * 60)
         print("BASELINE SYSTEM PROMPT")
@@ -998,26 +1026,27 @@ async def main():
         timings["baseline_eval"] = time.time() - eval_start
 
         if baseline_result.succeeded:
-            # Try mean_score first, then mean_reward from summary, then calculate from seed_results
-            score = baseline_result.mean_score
-            if score is None:
+            # Prefer typed mean_reward; otherwise fall back to summary/seed results.
+            mean_reward = getattr(baseline_result, "mean_reward", None)
+            if mean_reward is None:
+                mean_reward = getattr(baseline_result, "mean_score", None)
+            if mean_reward is None:
                 summary = baseline_result.raw.get("summary", {})
-                score = summary.get("mean_reward") or summary.get("mean_score")
-            if score is None and baseline_result.seed_results:
-                # Calculate from seed results
+                mean_reward = summary.get("mean_reward")
+            if mean_reward is None and baseline_result.seed_results:
                 rewards = [
-                    r.get("outcome_reward") or r.get("reward_mean") or r.get("score")
+                    r.get("outcome_reward") or r.get("reward_mean") or r.get("reward")
                     for r in baseline_result.seed_results
                     if isinstance(r, dict)
-                    and (r.get("outcome_reward") or r.get("reward_mean") or r.get("score"))
+                    and (r.get("outcome_reward") or r.get("reward_mean") or r.get("reward"))
                     is not None
                 ]
                 if rewards:
-                    score = sum(rewards) / len(rewards)
+                    mean_reward = sum(rewards) / len(rewards)
 
-            if score is not None:
+            if mean_reward is not None:
                 print(
-                    f"  Baseline eval reward: {score:.1%} ({format_duration(timings['baseline_eval'])})"
+                    f"  Baseline eval reward: {mean_reward:.1%} ({format_duration(timings['baseline_eval'])})"
                 )
             else:
                 print(
@@ -1034,26 +1063,27 @@ async def main():
         timings["optimized_eval"] = time.time() - eval_start
 
         if optimized_result.succeeded:
-            # Try mean_score first, then mean_reward from summary, then calculate from seed_results
-            score = optimized_result.mean_score
-            if score is None:
+            # Prefer typed mean_reward; otherwise fall back to summary/seed results.
+            mean_reward = getattr(optimized_result, "mean_reward", None)
+            if mean_reward is None:
+                mean_reward = getattr(optimized_result, "mean_score", None)
+            if mean_reward is None:
                 summary = optimized_result.raw.get("summary", {})
-                score = summary.get("mean_reward") or summary.get("mean_score")
-            if score is None and optimized_result.seed_results:
-                # Calculate from seed results
+                mean_reward = summary.get("mean_reward")
+            if mean_reward is None and optimized_result.seed_results:
                 rewards = [
-                    r.get("outcome_reward") or r.get("reward_mean") or r.get("score")
+                    r.get("outcome_reward") or r.get("reward_mean") or r.get("reward")
                     for r in optimized_result.seed_results
                     if isinstance(r, dict)
-                    and (r.get("outcome_reward") or r.get("reward_mean") or r.get("score"))
+                    and (r.get("outcome_reward") or r.get("reward_mean") or r.get("reward"))
                     is not None
                 ]
                 if rewards:
-                    score = sum(rewards) / len(rewards)
+                    mean_reward = sum(rewards) / len(rewards)
 
-            if score is not None:
+            if mean_reward is not None:
                 print(
-                    f"  Optimized eval reward: {score:.1%} ({format_duration(timings['optimized_eval'])})"
+                    f"  Optimized eval reward: {mean_reward:.1%} ({format_duration(timings['optimized_eval'])})"
                 )
             else:
                 print(
@@ -1063,28 +1093,30 @@ async def main():
             print(f"  Optimized eval failed: {optimized_result.error}")
 
         if baseline_result.succeeded and optimized_result.succeeded:
-            # Extract scores with fallback logic
-            def extract_score(result: EvalResult) -> float | None:
-                score = result.mean_score
-                if score is None:
+
+            def extract_mean_reward(result: EvalResult) -> float | None:
+                mean_reward = getattr(result, "mean_reward", None)
+                if mean_reward is None:
+                    mean_reward = getattr(result, "mean_score", None)
+                if mean_reward is None:
                     summary = result.raw.get("summary", {})
-                    score = summary.get("mean_reward") or summary.get("mean_score")
-                if score is None and result.seed_results:
+                    mean_reward = summary.get("mean_reward")
+                if mean_reward is None and result.seed_results:
                     rewards = [
-                        r.get("outcome_reward") or r.get("reward_mean") or r.get("score")
+                        r.get("outcome_reward") or r.get("reward_mean") or r.get("reward")
                         for r in result.seed_results
                         if isinstance(r, dict)
-                        and (r.get("outcome_reward") or r.get("reward_mean") or r.get("score"))
+                        and (r.get("outcome_reward") or r.get("reward_mean") or r.get("reward"))
                         is not None
                     ]
                     if rewards:
-                        score = sum(rewards) / len(rewards)
-                return score
+                        mean_reward = sum(rewards) / len(rewards)
+                return mean_reward
 
-            baseline_score = extract_score(baseline_result)
-            optimized_score = extract_score(optimized_result)
+            baseline_reward = extract_mean_reward(baseline_result)
+            optimized_reward = extract_mean_reward(optimized_result)
 
-            if baseline_score is not None and optimized_score is not None:
+            if baseline_reward is not None and optimized_reward is not None:
                 print("\n" + "=" * 60)
                 print("FINAL COMPARISON")
                 print("=" * 60)
@@ -1092,10 +1124,10 @@ async def main():
                 print(f"  Best Train Reward: {best_train_reward:.1%}")
 
                 print(f"\nEval (seeds {eval_seeds[0]}-{eval_seeds[-1]}, held-out):")
-                print(f"  Baseline Reward:  {baseline_score:.1%}")
-                print(f"  Optimized Reward: {optimized_score:.1%}")
+                print(f"  Baseline Reward:  {baseline_reward:.1%}")
+                print(f"  Optimized Reward: {optimized_reward:.1%}")
 
-                eval_lift = optimized_score - baseline_score
+                eval_lift = optimized_reward - baseline_reward
                 print(f"  Lift:             {eval_lift:+.1%}")
 
                 if eval_lift > 0:
@@ -1109,9 +1141,9 @@ async def main():
                 print("FINAL COMPARISON")
                 print("=" * 60)
                 print("Eval jobs completed but rewards not available for comparison")
-                if baseline_score is None:
+                if baseline_reward is None:
                     print("  Baseline: reward not available")
-                if optimized_score is None:
+                if optimized_reward is None:
                     print("  Optimized: reward not available")
     else:
         print(f"Job did not succeed: {gepa_result.status.value}")
