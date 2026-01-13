@@ -12,6 +12,9 @@ Dependency rule: data/ imports nothing from synth_ai except typing helpers.
 
 from __future__ import annotations
 
+# Artifact data types
+from synth_ai.data.artifacts import Artifact
+
 # Enums - pure types
 from synth_ai.data.enums import (
     AdaptiveBatchLevel,
@@ -30,6 +33,7 @@ from synth_ai.data.enums import (
     RewardType,
     RLMethod,
     SFTMethod,
+    SuccessStatus,
     TrainingType,
     VerifierMode,
 )
@@ -86,6 +90,7 @@ __all__ = [
     # Enums
     "JobType",
     "JobStatus",
+    "SuccessStatus",
     "PromptLearningMethod",
     "RLMethod",
     "SFTMethod",
@@ -122,6 +127,7 @@ __all__ = [
     "RewardAggregates",
     "CalibrationExample",
     "GoldExample",
+    "Artifact",
     # Trace data
     "SessionTrace",
     "SessionTimeStep",

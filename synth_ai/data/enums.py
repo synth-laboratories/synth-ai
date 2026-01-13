@@ -31,6 +31,17 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class SuccessStatus(str, Enum):
+    """Infrastructure/runtime success status (orthogonal to reward)."""
+
+    SUCCESS = "success"
+    TIMEOUT = "timeout"
+    NETWORK_ERROR = "network_error"
+    APPLY_FAILED = "apply_failed"
+    RUNTIME_ERROR = "runtime_error"
+    FAILURE = "failure"
+
+
 class PromptLearningMethod(str, Enum):
     """Prompt optimization algorithms."""
 
@@ -178,6 +189,7 @@ SYNTH_MODEL_NAMES: list[str] = [m.value for m in SynthModelName]
 __all__ = [
     "JobType",
     "JobStatus",
+    "SuccessStatus",
     "PromptLearningMethod",
     "RLMethod",
     "SFTMethod",

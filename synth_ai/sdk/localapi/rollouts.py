@@ -33,8 +33,14 @@ class RolloutResponseBuilder:
         reward: float,
         trace: dict[str, Any] | None,
         event_rewards: list[float] | None = None,
+        outcome_objectives: dict[str, float] | None = None,
+        event_objectives: list[dict[str, float]] | None = None,
+        instance_objectives: list[dict[str, float]] | None = None,
         inference_url: str | None = None,
         details: dict[str, Any] | None = None,
+        artifact: list[Any] | None = None,
+        success_status: Any | None = None,
+        status_detail: str | None = None,
     ) -> RolloutResponse:
         """Build a RolloutResponse with standardized metrics.
 
@@ -49,6 +55,9 @@ class RolloutResponseBuilder:
         metrics = RolloutMetrics(
             outcome_reward=float(reward),
             event_rewards=event_rewards,
+            outcome_objectives=outcome_objectives,
+            event_objectives=event_objectives,
+            instance_objectives=instance_objectives,
             details=details or {},
         )
 
@@ -57,6 +66,9 @@ class RolloutResponseBuilder:
             metrics=metrics,
             trace=_with_trace_metadata(trace, trace_correlation_id),
             inference_url=inference_url,
+            artifact=artifact,
+            success_status=success_status,
+            status_detail=status_detail,
         )
 
 

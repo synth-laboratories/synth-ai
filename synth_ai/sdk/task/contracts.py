@@ -12,6 +12,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from synth_ai.data.artifacts import Artifact
+from synth_ai.data.enums import SuccessStatus
+
 
 class OutputMode(str, Enum):
     """Controls how the policy expects model outputs.
@@ -137,6 +140,7 @@ class RolloutMetrics(BaseModel):
     - `event_rewards`: Per-step rewards for multi-step tasks
     - `outcome_objectives`: Multi-objective outcomes (e.g., {'reward': 0.9, 'latency': 0.5})
     - `event_objectives`: Per-event objectives aligned to trace events
+    - `instance_objectives`: Per-seed objectives aligned to responses
     - `details`: Metadata only (not for scoring)
 
     ## Example - Minimal
@@ -175,6 +179,10 @@ class RolloutMetrics(BaseModel):
         default=None,
         description="Optional per-event objectives aligned to trace events.",
     )
+    instance_objectives: Optional[List[Dict[str, float]]] = Field(
+        default=None,
+        description="Optional per-seed objectives aligned to response order.",
+    )
     details: dict[str, Any] = Field(
         default_factory=dict,
         description="Metadata only. Do NOT use details for reward computation.",
@@ -190,6 +198,9 @@ class RolloutResponse(BaseModel):
     - `metrics`: Rollout metrics with `outcome_reward` (required)
     - `trace`: v3 trace payload (required for verifier scoring)
     - `inference_url`: Inference URL used for this rollout
+    - `artifact`: Optional list of artifacts produced by the rollout
+    - `success_status`: Optional infrastructure status (orthogonal to reward)
+    - `status_detail`: Optional freeform detail for status
 
     ## Example
 
@@ -211,6 +222,18 @@ class RolloutResponse(BaseModel):
     inference_url: str | None = Field(
         default=None,
         description="Inference URL used for this rollout.",
+    )
+    artifact: Optional[List[Artifact]] = Field(
+        default=None,
+        description="Optional list of artifacts produced by the rollout.",
+    )
+    success_status: Optional[SuccessStatus] = Field(
+        default=None,
+        description="Infrastructure/runtime success status (orthogonal to reward).",
+    )
+    status_detail: Optional[str] = Field(
+        default=None,
+        description="Optional debug detail for success_status.",
     )
 
 
