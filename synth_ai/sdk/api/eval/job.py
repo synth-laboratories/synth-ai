@@ -20,7 +20,7 @@ Example:
         print(f"Mean score: {result.mean_score}")
         print(f"Total cost: ${result.total_cost_usd:.4f}")
         for seed_result in result.seed_results:
-            print(f"  Seed {seed_result['seed']}: {seed_result['score']}")
+            print(f"  Seed {seed_result['seed']}: {seed_result['reward']}")
     elif result.failed:
         print(f"Error: {result.error}")
 
@@ -657,7 +657,7 @@ class EvalJob:
     def get_results(self) -> Dict[str, Any]:
         """Get detailed job results.
 
-        Fetches the full results including per-seed scores, tokens, and costs.
+        Fetches the full results including per-seed rewards, tokens, and costs.
 
         Returns:
             Results dictionary with:
@@ -672,7 +672,7 @@ class EvalJob:
                 - num_failed: Seeds that failed
             - results: List of per-seed results
                 - seed: Seed number
-                - score: Evaluation score
+                - reward: Final reward for the seed (fused if verifier is enabled)
                 - tokens: Token count
                 - cost_usd: Cost for this seed
                 - latency_ms: Execution time
@@ -684,7 +684,7 @@ class EvalJob:
         Example:
             >>> results = job.get_results()
             >>> for r in results["results"]:
-            ...     print(f"Seed {r['seed']}: score={r['score']}, tokens={r['tokens']}")
+            ...     print(f"Seed {r['seed']}: reward={r['reward']}, tokens={r['tokens']}")
         """
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
