@@ -280,6 +280,229 @@ def calculate_score(compile_pass: bool, tests_passed: int, tests_total: int) -> 
 
 
 # =============================================================================
+# DEFAULT CONTEXT ARTIFACTS (for unified optimization)
+# =============================================================================
+
+DEFAULT_SYSTEM_PROMPT = """You are an expert Rust developer implementing Pokemon TCG cards.
+
+Your task: Implement card effects by editing Rust files with stub functions marked with TODO comments.
+
+Key patterns:
+- Use `def_id_matches(&card.def_id, "DF", NUMBER)` or `def_id_matches(&card.def_id, "HP", NUMBER)` to identify cards
+- Implement attack modifiers in the `attack_override` function
+- Implement Poke-Powers/Bodies in the `power_effect` function
+- Use `game.queue_prompt()` for user choices
+- Return `AttackOverrides::default()` if card doesn't apply
+
+Output requirements:
+1. ACTUALLY EDIT files - replace TODO stubs with working code
+2. Make sure code compiles (`cargo check`)
+3. Make sure tests pass (`cargo test`)"""
+
+DEFAULT_ARCHITECTURE_GUIDE = """# Pokemon TCG Engine Architecture
+
+## Core Concepts
+
+The engine uses a **hook-based** architecture where card implementations register themselves for specific game events.
+
+### Hook System
+
+Card effects are implemented by registering hooks for game events:
+- `attack_override`: Modify attack damage/effects before resolution
+- `power_effect`: Implement Poke-Powers and Poke-Bodies
+- `between_turns`: Handle effects that persist between turns
+- `on_damage`: React to damage events
+
+### Pattern Matching
+
+Cards identify themselves using the expansion prefix and card number:
+```rust
+if def_id_matches(&card.def_id, "DF", 10) {
+    // This is Dragon Frontiers card #10 (Snorlax)
+    // Implement its effects here
+}
+```
+
+### State Management
+
+- Use `game.queue_prompt()` for player choices (e.g., discarding cards, choosing Pokemon)
+- Access game state through the `game` parameter
+- Modify attack properties through `AttackOverrides` struct
+
+## Common Patterns
+
+**Attack Damage Modification:**
+```rust
+if def_id_matches(&attacker.def_id, "DF", 8) && attack.name == "Volunteer" {
+    return AttackOverrides {
+        damage_multiplier: 0.0,  // No damage
+        ..Default::default()
+    };
+}
+```
+
+**Poke-Power/Body:**
+```rust
+if def_id_matches(&card.def_id, "DF", 8) && power_name == "Volunteer" {
+    // Implement power logic
+    return true;  // Power executed successfully
+}
+```
+
+## Anti-Patterns
+
+- ❌ Don't hardcode card IDs - use `def_id_matches`
+- ❌ Don't forget to handle edge cases (no valid targets, etc.)
+- ❌ Don't modify state without checking game rules first"""
+
+DEFAULT_REFERENCE_SNIPPETS = """# Reference Implementation Examples
+
+## Example 1: Attack Damage Modifier (Jynx - Selfish)
+
+```rust
+// DF-017 Jynx - "Stages of Evolution" Poke-Body
+// Damage done to Jynx by attacks from Stage 1 or Stage 2 Evolved Pokemon is reduced by 30
+if def_id_matches(&defender.def_id, "DF", 17) {
+    let attacker_is_evolved = matches!(attacker_stage, Stage::Stage1 | Stage::Stage2);
+    if attacker_is_evolved {
+        return AttackOverrides {
+            damage_bonus: -30,
+            ..Default::default()
+        };
+    }
+}
+```
+
+## Example 2: Poke-Power with Player Choice (Ninetales - Volunteer)
+
+```rust
+// DF-008 Ninetales - "Volunteer" Poke-Power
+// Search your deck for a Basic Pokemon and put it onto your Bench
+if def_id_matches(&card.def_id, "DF", 8) && power_name == "Volunteer" {
+    // Queue prompt for player to choose a Basic Pokemon from deck
+    game.queue_prompt(Prompt::ChooseCardFromDeck {
+        filter: |c| matches!(c.stage, Stage::Basic),
+        destination: Destination::Bench,
+    });
+    return true;
+}
+```
+
+## Example 3: Zero-Damage Attack (Search/Draw effects)
+
+```rust
+// Many utility attacks do no damage
+if def_id_matches(&attacker.def_id, "DF", 8) && attack.name == "Volunteer" {
+    return AttackOverrides {
+        damage_multiplier: 0.0,
+        // Effect is handled elsewhere (e.g., in power_effect)
+        ..Default::default()
+    };
+}
+```
+
+## Example 4: Conditional Damage Bonus
+
+```rust
+// Example: Extra damage if opponent is a certain type
+if def_id_matches(&attacker.def_id, "DF", 9) && attack.name == "Armor Fang" {
+    if defender.types.contains(&Type::Metal) {
+        return AttackOverrides {
+            damage_bonus: 30,
+            ..Default::default()
+        };
+    }
+}
+```"""
+
+DEFAULT_HOOKS_DOCUMENTATION = """# Runtime Hooks Reference
+
+## attack_override
+
+```rust
+pub fn attack_override(
+    game: &Game,
+    attack: &Attack,
+    attacker_id: CardId,
+    defender_id: CardId
+) -> AttackOverrides
+```
+
+**Purpose:** Modify attack damage or effects before resolution.
+
+**When to use:**
+- Reduce/increase attack damage based on card effects
+- Change attack properties (e.g., disable effects, change targeting)
+- Implement Poke-Bodies that affect damage calculation
+
+**Return:** `AttackOverrides` struct with modifications, or `AttackOverrides::default()` if no modifications.
+
+**Example use cases:**
+- "Reduce damage by 30 if attacker is Stage 2"
+- "This attack does no damage"
+- "Double damage against Fire types"
+
+---
+
+## power_effect
+
+```rust
+pub fn power_effect(
+    game: &mut Game,
+    power_name: &str,
+    source_id: CardId
+) -> bool
+```
+
+**Purpose:** Implement Poke-Powers and Poke-Bodies that have active effects.
+
+**When to use:**
+- Player-activated Poke-Powers (e.g., search deck, heal, draw cards)
+- Poke-Bodies with ongoing effects that need explicit handling
+
+**Return:** `true` if power executed successfully, `false` otherwise.
+
+**Example use cases:**
+- "Search your deck for a Basic Pokemon"
+- "Heal 20 damage between turns"
+- "Draw a card when this Pokemon is played"
+
+---
+
+## Common Patterns
+
+### Using game.queue_prompt()
+
+For player choices:
+```rust
+game.queue_prompt(Prompt::ChooseCardFromDeck {
+    filter: |c| matches!(c.stage, Stage::Basic),
+    destination: Destination::Bench,
+});
+```
+
+### Accessing game state
+
+```rust
+let attacker = game.get_card(attacker_id);
+let defender = game.get_card(defender_id);
+let attacker_stage = attacker.stage;
+```
+
+### Checking card properties
+
+```rust
+if def_id_matches(&card.def_id, "DF", 10) {
+    // This card is DF-010 (Snorlax)
+}
+
+if attacker.types.contains(&Type::Fire) {
+    // Attacker is Fire type
+}
+```"""
+
+
+# =============================================================================
 # AGENT RUNNER (simplified - uses OpenCode via subprocess)
 # =============================================================================
 
@@ -344,9 +567,29 @@ async def run_opencode_agent(
 
 
 def build_prompt(instance: dict[str, Any]) -> str:
-    """Build the prompt for the coding agent."""
+    """Build the prompt for the coding agent (LEGACY - for backwards compat)."""
+    return build_prompt_with_context(
+        instance,
+        system_prompt=DEFAULT_SYSTEM_PROMPT,
+        architecture_guide=DEFAULT_ARCHITECTURE_GUIDE,
+        reference_snippets=DEFAULT_REFERENCE_SNIPPETS,
+        hooks_documentation=DEFAULT_HOOKS_DOCUMENTATION,
+    )
+
+
+def build_prompt_with_context(
+    instance: dict[str, Any],
+    system_prompt: str,
+    architecture_guide: str,
+    reference_snippets: str,
+    hooks_documentation: str,
+) -> str:
+    """Build the prompt for the coding agent with context artifacts.
+
+    This is the UNIFIED approach - combines system prompt with context artifacts
+    that can be optimized by GEPA.
+    """
     cards = instance.get("cards", [])
-    # Card file path is relative to tcg_expansions in the instance, strip the prefix
     card_file = instance.get("card_file", "").replace("tcg_expansions/", "")
     instance_id = instance.get("id", "")
 
@@ -369,13 +612,12 @@ def build_prompt(instance: dict[str, Any]) -> str:
         "\n".join([format_test(t) for t in tests]) if tests else "- See card specification"
     )
 
-    return f"""You are implementing Pokemon TCG cards for the {expansion_name} expansion.
+    # Build unified prompt from context artifacts
+    return f"""{system_prompt}
 
-## Task
-EDIT the file `{card_file}` to implement the card below. You MUST:
-1. Actually WRITE code to the file - replace the TODO stubs with working implementations
-2. Make sure it compiles without errors
-3. Make sure all tests pass
+---
+
+# EXPANSION: {expansion_name}
 
 ## Cards to Implement
 {card_specs}
@@ -386,9 +628,23 @@ EDIT the file `{card_file}` to implement the card below. You MUST:
 ## Tests to Pass
 {test_descriptions}
 
-## Instructions
+---
+
+{architecture_guide}
+
+---
+
+{reference_snippets}
+
+---
+
+{hooks_documentation}
+
+---
+
+## Final Instructions
 1. READ the stub file at `{card_file}`
-2. Look at Crystal Guardians (src/cg/) for reference implementations
+2. Use the architecture guide and reference snippets above as patterns
 3. EDIT `{card_file}` to replace the TODO stubs with working implementations
 4. Run `cargo check` to verify compilation
 5. Run `cargo test -- {instance_id.replace("-", "_")}` to run tests
@@ -454,10 +710,16 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     3. Inject eval tests
     4. Run cargo test
     5. Return score
+
+    Supports UNIFIED CONTEXT ENGINEERING:
+    - Extracts context artifacts from request.context_override
+    - Falls back to defaults if not provided
+    - GEPA can optimize all artifacts together
     """
     seed = request.env.seed or 0
     env_config = request.env.config or {}
     policy_config = request.policy.config or {}
+    context_override = request.context_override or {}
     start = time.perf_counter()
 
     # Get instance - either from config or by seed
@@ -469,11 +731,23 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     inference_url = policy_config.get("inference_url")
     api_key = policy_config.get("api_key")
 
+    # UNIFIED CONTEXT ENGINEERING: Extract context artifacts (or use defaults)
+    system_prompt = context_override.get("system_prompt", DEFAULT_SYSTEM_PROMPT)
+    architecture_guide = context_override.get("architecture_guide", DEFAULT_ARCHITECTURE_GUIDE)
+    reference_snippets = context_override.get("reference_snippets", DEFAULT_REFERENCE_SNIPPETS)
+    hooks_documentation = context_override.get("hooks_documentation", DEFAULT_HOOKS_DOCUMENTATION)
+
     print(f"\n{'=' * 60}")
     print(f"[engine_bench] Running rollout for {instance_id}")
     print(f"  Model: {model}")
     print(f"  Timeout: {timeout}s")
     print(f"  Interceptor: {inference_url or 'none (direct)'}")
+    print(
+        f"  Context artifacts: system_prompt={len(system_prompt)} chars, "
+        f"arch_guide={len(architecture_guide)} chars, "
+        f"ref_snippets={len(reference_snippets)} chars, "
+        f"hooks_doc={len(hooks_documentation)} chars"
+    )
     print(f"{'=' * 60}\n")
 
     # Create temp directory for sandbox
@@ -483,8 +757,15 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         # Setup sandbox
         sandbox_dir = await setup_sandbox(instance_id, work_path)
 
-        # Build prompt and run agent
-        prompt = build_prompt(instance)
+        # Build prompt with context artifacts (UNIFIED APPROACH)
+        prompt = build_prompt_with_context(
+            instance,
+            system_prompt=system_prompt,
+            architecture_guide=architecture_guide,
+            reference_snippets=reference_snippets,
+            hooks_documentation=hooks_documentation,
+        )
+
         await run_opencode_agent(
             prompt,
             sandbox_dir,
