@@ -16,7 +16,8 @@ class Artifact(BaseModel):
 
     Fields:
         content: Inline artifact payload (string or JSON-like dict).
-        content_type: Free-form content type identifier (e.g., "rust_code").
+        content_type: Optional free-form content type identifier (e.g., "rust_code").
+            Can be inferred from content type (dict vs str) and metadata.file_path.
         metadata: Artifact-specific metadata (file_path, line_count, schema_version).
         artifact_id: Backend-assigned identifier after storage.
         trace_correlation_id: Trace correlation ID for linkage.
@@ -27,7 +28,11 @@ class Artifact(BaseModel):
     """
 
     content: str | Dict[str, Any]
-    content_type: str
+    content_type: Optional[str] = Field(
+        default=None,
+        description="Optional content type identifier. Can be inferred from content type "
+        "(dict = structured data, str = text/code) and metadata.file_path extension.",
+    )
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     artifact_id: Optional[str] = None

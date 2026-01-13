@@ -374,7 +374,7 @@ def create_banking77_local_api(system_prompt: str):
         )
 
         return RolloutResponse(
-            metrics=RolloutMetrics(
+            reward_info=RolloutMetrics(
                 outcome_reward=reward,
                 outcome_objectives={"reward": reward, "latency_ms": latency_ms},
                 instance_objectives=[{"reward": reward, "latency_ms": latency_ms}],

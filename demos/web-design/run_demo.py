@@ -539,7 +539,7 @@ Apply the visual style guidelines to match the original design."""
 
         return RolloutResponse(
             run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=reward),
+            reward_info=RolloutMetrics(outcome_reward=reward),
             trace=None,
             trace_correlation_id=trace_correlation_id,
             inference_url=str(inference_url or ""),
