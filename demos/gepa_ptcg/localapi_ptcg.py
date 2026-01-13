@@ -134,10 +134,10 @@ def ensure_tcg_py_built() -> None:
     except ImportError:
         pass
 
-    # Build with maturin
+    # Build with maturin (via uv so this works even if maturin isn't globally installed).
     print("[ptcg] Building tcg_py extension...")
     subprocess.run(
-        ["maturin", "develop"],
+        ["uv", "run", "--python", "3.12", "--with", "maturin", "maturin", "develop"],
         cwd=str(tcg_py_dir),
         check=True,
     )
@@ -175,6 +175,7 @@ def get_instance(instance_id: str) -> dict | None:
 
 # Initialize
 ensure_engine_bench_repo()
+ensure_tcg_py_built()
 
 INSTANCE_IDS = load_instance_ids()
 print(f"[ptcg] Loaded {len(INSTANCE_IDS)} game instances")
