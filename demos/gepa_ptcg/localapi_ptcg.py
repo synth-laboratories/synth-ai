@@ -496,13 +496,40 @@ def provide_task_instances(seeds: list[int]) -> list[TaskInfo]:
 PTCG_GAMEPLAY_RUBRICS = RubricBundle(
     outcome=Rubric(
         version="1.0",
-        goal_text="Evaluate Pokemon TCG gameplay quality at the end of the rollout",
+        goal_text="Evaluate Pokemon TCG gameplay quality and strategic play at the end of the rollout",
         criteria=[
             Criterion(
                 id="win_or_strong_advantage",
                 description=(
                     "Did the agent win? If not, did it create a clear advantage (e.g., prize lead, board control) "
                     "by the end of the rollout?"
+                ),
+                weight=1.0,
+                required=False,
+            ),
+            Criterion(
+                id="prize_plan_and_tempo",
+                description=(
+                    "Demonstrates a coherent prize plan and tempo: prioritizes taking prizes, avoids low-impact lines "
+                    "when meaningful progress (damage/prizes/board improvement) is available."
+                ),
+                weight=1.0,
+                required=False,
+            ),
+            Criterion(
+                id="resource_management",
+                description=(
+                    "Manages resources well: attaches energy with intent, avoids wasting limited resources, and makes "
+                    "reasonable retreat/switch choices relative to board state."
+                ),
+                weight=1.0,
+                required=False,
+            ),
+            Criterion(
+                id="board_development",
+                description=(
+                    "Develops the board: benches basics when appropriate, evolves when possible, and maintains an "
+                    "attacker pipeline rather than stalling with an empty/fragile board."
                 ),
                 weight=1.0,
                 required=False,
@@ -521,13 +548,28 @@ PTCG_GAMEPLAY_RUBRICS = RubricBundle(
     ),
     events=Rubric(
         version="1.0",
-        goal_text="Evaluate action quality during the rollout",
+        goal_text="Evaluate action quality during the rollout (basic best practices)",
         criteria=[
             Criterion(
                 id="legality_and_prompt_following",
                 description="Actions are legal and follow the current available_actions requirements.",
                 weight=2.0,
                 required=True,
+            ),
+            Criterion(
+                id="energy_attachment_discipline",
+                description=(
+                    "Attaches energy most turns when it enables near-term attacks or improves future tempo; avoids "
+                    "obviously wasted attachments."
+                ),
+                weight=1.0,
+                required=False,
+            ),
+            Criterion(
+                id="evolution_when_available",
+                description="Evolves Pokémon when it improves survivability/damage output and is available.",
+                weight=1.0,
+                required=False,
             ),
             Criterion(
                 id="progress_turn_economy",
@@ -538,6 +580,15 @@ PTCG_GAMEPLAY_RUBRICS = RubricBundle(
             Criterion(
                 id="attack_when_good",
                 description="Attacks when a reasonable attack is available instead of passing unnecessarily.",
+                weight=1.0,
+                required=False,
+            ),
+            Criterion(
+                id="target_selection",
+                description=(
+                    "Selects reasonable targets: prefers taking prizes or threatening KOs over low-value attacks when "
+                    "choices exist."
+                ),
                 weight=1.0,
                 required=False,
             ),
