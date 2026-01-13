@@ -1,0 +1,99 @@
+# GEPA Configuration for Pokemon TCG Deckbuilder
+#
+# This config optimizes prompts for building Pokemon TCG decks that satisfy
+# constraints and win battles.
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8018"
+task_app_id = "ptcg_deckbuilder"
+
+# Policy: Model for generating deck-building responses
+[prompt_learning.policy]
+model = "gpt-4.1-mini"
+provider = "openai"
+temperature = 0.7
+max_completion_tokens = 4096
+inference_mode = "synth_hosted"
+
+# Initial prompt template
+[prompt_learning.initial_prompt]
+id = "baseline_deckbuilder"
+name = "Baseline Deckbuilder Prompt"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = """You are an expert Pokemon TCG deck builder. Build decks that satisfy the given constraints AND win battles.
+
+RULES:
+- A deck must have exactly 60 cards
+- Maximum 4 copies of any non-energy card (basic energy has no limit)
+- Include enough Basic Pokemon (8-12 minimum)
+- Evolution lines must be complete (Basic -> Stage 1 -> Stage 2)
+
+STRATEGY TIPS:
+- Include draw support trainers (TV Reporter)
+- Match energy types to your Pokemon's attack costs
+- Include multiple copies of key Pokemon for consistency
+- Balance attackers with support Pokemon
+
+OUTPUT FORMAT:
+Respond with ONLY a JSON object:
+{"deck": ["card-id-1", "card-id-2", ...]}
+
+The deck array must contain exactly 60 card IDs from the available pool.
+Use the exact card IDs provided (e.g., "df-061-ralts", "ENERGY-PSYCHIC")."""
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "{user_prompt}"
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+user_prompt = "REQUIRED"
+
+# Environment config (optional: can specify instance_id to target specific challenge)
+[prompt_learning.env_config]
+# instance_id = "gardevoir-deck"  # Uncomment to target specific challenge
+
+# GEPA Algorithm Configuration
+[prompt_learning.gepa]
+env_name = "deckbuilder"
+proposer_type = "synth"
+proposer_effort = "LOW"
+proposer_output_tokens = "FAST"
+
+# Rollout budget
+[prompt_learning.gepa.rollout]
+budget = 50
+max_concurrent = 5
+minibatch_size = 10
+
+# Evaluation seeds
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]  # Seeds for optimization (13 seeds: 10 for pareto + 3 for feedback)
+validation_seeds = [13, 14, 15, 16, 17]  # Optional validation set
+validation_top_k = 3
+
+# Mutation settings
+[prompt_learning.gepa.mutation]
+rate = 0.3
+
+# Population settings
+[prompt_learning.gepa.population]
+initial_size = 10
+num_generations = 3
+children_per_generation = 8
+crossover_rate = 0.5
+patience_generations = 2
+
+# Archive settings
+[prompt_learning.gepa.archive]
+size = 20
+pareto_set_size = 10
+
+# Token/budget limits (optional)
+[prompt_learning.gepa.token]
+max_spend_usd = 5.0
+counting_model = "gpt-4"

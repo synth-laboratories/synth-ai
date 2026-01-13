@@ -26,18 +26,31 @@ PORT = args.port
 MODEL = args.model
 NUM_GAMES = args.num_games
 
+import time
+
 import httpx  # noqa: E402
 from localapi_ptcg import DEFAULT_SYSTEM_PROMPT, INSTANCE_IDS, app  # noqa: E402
-from synth_ai.core.env import (  # noqa: E402
-    ENVIRONMENT_API_KEY,  # noqa: E402
-    PROD_BASE_URL,
-    mint_demo_api_key,
-)
+from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key  # noqa: E402
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig  # noqa: E402
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
 from synth_ai.sdk.task import run_server_background  # noqa: E402
-from synth_ai.sdk.task.health import wait_for_health_check_sync  # noqa: E402
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port  # noqa: E402
+
+
+def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
+    """Wait for task app to be ready."""
+    health_url = f"http://{host}:{port}/health"
+    headers = {"X-API-Key": api_key} if api_key else {}
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            response = httpx.get(health_url, headers=headers, timeout=5.0)
+            if response.status_code in (200, 400):
+                return
+        except (httpx.RequestError, httpx.TimeoutException):
+            pass
+        time.sleep(0.5)
+    raise RuntimeError(f"Health check failed: {health_url}")
 
 
 async def main():
@@ -66,10 +79,10 @@ async def main():
     api_key = os.getenv("SYNTH_API_KEY")
     if not api_key:
         print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key()
+        api_key = mint_demo_api_key(backend_url=synth_api_base)
         print(f"API Key: {api_key[:20]}...")
 
-    env_key = ensure_localapi_auth(api_key)
+    env_key = ensure_localapi_auth(backend_base=synth_api_base, synth_api_key=api_key)
     print(f"Env key: {env_key[:15]}...")
 
     # Acquire port and start task app
@@ -78,7 +91,7 @@ async def main():
         print(f"Port {PORT} in use, using {port} instead")
 
     run_server_background(app, port)
-    wait_for_health_check_sync(LOCAL_HOST, port, ENVIRONMENT_API_KEY, timeout=30.0)
+    wait_for_health_check_sync(LOCAL_HOST, port, env_key, timeout=30.0)
     print(f"Task app ready on port {port}")
 
     task_app_url = f"http://{LOCAL_HOST}:{port}"
@@ -126,7 +139,10 @@ async def main():
         print("EVAL RESULT")
         print("=" * 60)
         print(f"Status: {result.status}")
-        print(f"Mean reward (win rate): {result.mean_reward:.2%}")
+        if result.mean_reward is None:
+            print("Mean reward (win rate): n/a")
+        else:
+            print(f"Mean reward (win rate): {result.mean_reward:.2%}")
         print(f"Error: {result.error}")
 
         if result.seed_results:

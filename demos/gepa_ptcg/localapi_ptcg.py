@@ -19,72 +19,80 @@ from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
+    RubricCriterion,
+    RubricInfo,
+    RubricSection,
     TaskInfo,
 )
+from synth_ai.sdk.task.validators import normalize_inference_url
 
 # ============================================================================
 # Configuration
 # ============================================================================
 
 ENGINE_BENCH_REPO_URL = "https://github.com/JoshuaPurtell/engine-bench.git"
-ENGINE_BENCH_DIR = Path(os.getenv("ENGINE_BENCH_DIR", str(Path.home() / ".cache" / "engine-bench")))
+_LOCAL_ENGINE_BENCH = Path.home() / "Documents" / "GitHub" / "engine-bench"
+ENGINE_BENCH_DIR = Path(
+    os.getenv(
+        "ENGINE_BENCH_DIR",
+        str(_LOCAL_ENGINE_BENCH if _LOCAL_ENGINE_BENCH.exists() else (Path.home() / ".cache" / "engine-bench")),
+    )
+)
 
-# Sample decks for testing
-# These are Crystal Guardians cards that are fully implemented
+# Sample decks for testing - Dragon Frontiers cards
 SAMPLE_DECK_1 = (
-    [
-        "CG-001-Blaziken",
-        "CG-002-Charizard",
-    ]
-    * 4
-    + [
-        "ENERGY-FIRE",
-    ]
-    * 20
-    + [
-        "CG-003-Combusken",
-    ]
-    * 32
+    # Pokemon (18)
+    ["df-061-ralts"] * 4  # Basic for Gardevoir line
+    + ["df-033-kirlia"] * 3  # Stage 1
+    + ["df-093-gardevoir-ex"] * 2  # Main attacker
+    + ["df-017-jynx"] * 2  # Stages of Evolution body
+    + ["df-070-vulpix"] * 3  # Basic for Ninetales
+    + ["df-008-ninetales"] * 2  # Volunteer power
+    + ["df-010-snorlax"] * 2  # Dozing heal
+    # Trainers (10)
+    + ["df-082-tv-reporter"] * 4  # Draw support
+    + ["df-079-prof-elms-training"] * 4  # Evolution search
+    + ["df-072-buffer-piece"] * 2  # Damage reduction
+    # Energy (32)
+    + ["ENERGY-PSYCHIC"] * 16
+    + ["ENERGY-FIRE"] * 16
 )
 
 SAMPLE_DECK_2 = (
-    [
-        "CG-004-Venusaur",
-        "CG-005-Sceptile",
-    ]
-    * 4
-    + [
-        "ENERGY-GRASS",
-    ]
-    * 20
-    + [
-        "CG-006-Ivysaur",
-    ]
-    * 32
+    # Pokemon (14)
+    ["df-068-trapinch"] * 4  # Basic for Flygon line
+    + ["df-024-vibrava"] * 3  # Stage 1
+    + ["df-092-flygon-ex"] * 2  # Main attacker
+    + ["df-009-pinsir"] * 3  # Armor body tank
+    + ["df-003-heracross"] * 2  # Shining Horn body
+    # Trainers (9)
+    + ["df-082-tv-reporter"] * 4  # Draw support
+    + ["df-079-prof-elms-training"] * 3  # Evolution search
+    + ["df-072-buffer-piece"] * 2  # Damage reduction
+    # Energy (37)
+    + ["ENERGY-PSYCHIC"] * 20
+    + ["ENERGY-GRASS"] * 17
 )
 
 # System prompt for the Pokemon TCG agent
-DEFAULT_SYSTEM_PROMPT = """You are an expert Pokemon TCG player. Your goal is to win the game by:
-1. Taking all 6 of your opponent's prize cards by knocking out their Pokemon
-2. Knocking out all of your opponent's Pokemon in play
-3. Making your opponent unable to draw a card at the start of their turn
+DEFAULT_SYSTEM_PROMPT = """You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.
 
-Strategy guidelines:
-- Play Basic Pokemon to your bench early to have options
-- Attach energy to power up attacks
-- Evolve your Pokemon when possible for stronger attacks
-- Attack when you can deal significant damage
-- Consider type matchups (weaknesses deal double damage)
+IMPORTANT RULES:
+- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full!
+- You can only attach ONE energy per turn.
+- After your actions, you MUST use EndTurn.
+- Check available_actions to see what you can do!
+- You MUST choose an action that is currently allowed (from available_actions). If you output an illegal action, you lose immediately.
 
-You must respond with a JSON action. Valid actions include:
-- {"action": "PlayBasic", "card_id": <id>} - Play a basic Pokemon from hand
-- {"action": "AttachEnergy", "energy_id": <id>, "target_id": <id>} - Attach energy to a Pokemon
-- {"action": "EvolveFromHand", "card_id": <id>, "target_id": <id>} - Evolve a Pokemon
-- {"action": "DeclareAttack", "attack": "<name>"} - Use an attack
+You must respond with ONLY a JSON action:
+- {"action": "PlayBasic", "card_id": <id>} - Play basic to bench
+- {"action": "AttachEnergy", "energy_id": <id>, "target_id": <id>} - Attach energy
+- {"action": "DeclareAttack", "attack": "<name>"} - Attack with active Pokemon
 - {"action": "EndTurn"} - End your turn
-- {"action": "Retreat", "card_id": <id>} - Retreat active Pokemon
+- {"action": "ChooseActive", "card_id": <id>} - Setup: choose active
+- {"action": "ChooseBench", "card_ids": [<id>, ...]} - Setup: choose bench
 
-Always analyze the game state carefully before deciding on an action.
+Respond with ONLY the JSON action, no explanation.
 """
 
 # ============================================================================
@@ -178,19 +186,22 @@ async def call_llm(
     system_prompt: str,
     user_prompt: str,
     inference_url: str,
-    api_key: str,
+    api_key: str | None,
     model: str = "gpt-4.1-mini",
     temperature: float = 0.3,
     max_tokens: int = 512,
 ) -> str:
     """Call the LLM through the Synth interceptor."""
+    inference_url = normalize_inference_url(inference_url)
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        # Interceptor primarily uses X-API-Key; keep Authorization for compatibility.
+        headers["X-API-Key"] = api_key
+        headers["Authorization"] = f"Bearer {api_key}"
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
             inference_url,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             json={
                 "model": model,
                 "temperature": temperature,
@@ -231,51 +242,93 @@ async def run_game(
         max_steps=max_steps,
     )
 
-    steps = 0
+    # NOTE: tcg_py advances its own internal step counter inside run_until_agent_turn().
+    # Keep a separate counter here for "decision steps" (i.e., how many times we asked the LLM).
+    decision_steps = 0
     errors = 0
-    max_errors = 10
 
-    while not game.is_game_over() and steps < max_steps:
-        # Get observation
+    while not game.is_game_over():
+        # Get observation - handles AI turns automatically
         obs = game.run_until_agent_turn()
 
         if game.is_game_over():
+            final = game.get_result()
+            print(
+                f"[ptcg] Game over (decision_steps={decision_steps}, game_steps={final.steps}, "
+                f"end_reason={final.end_reason}, winner={final.winner})"
+            )
             break
 
-        # Call LLM
+        # Log current state
+        bench = getattr(obs, 'my_bench_count', '?')
+        # Pull internal game steps for debugging "winner=None" cases (often MaxSteps vs genuine loss).
+        game_steps = getattr(game.get_result(), "steps", "?")
+        print(
+            f"[ptcg] Decision {decision_steps}: player={obs.current_player}, phase={obs.phase}, "
+            f"bench={bench}, prizes=({obs.my_prizes},{obs.opp_prizes}), actions={obs.available_actions}, "
+            f"game_steps={game_steps}"
+        )
+
+        # Skip if no actions and no prompt
+        if not obs.available_actions and not obs.has_prompt:
+            print("[ptcg] No actions, stepping...")
+            game.step()
+            decision_steps += 1
+            continue
+
+        # Auto-end turn if only EndTurn available
+        if obs.available_actions == ["EndTurn"]:
+            print("[ptcg] Only EndTurn, auto-ending")
+            with contextlib.suppress(Exception):
+                game.submit_action('{"action": "EndTurn"}')
+            game.step()
+            decision_steps += 1
+            continue
+
+        # Call LLM (fail-fast: invalid/unparseable action => immediate loss)
         try:
+            allowed = ", ".join(obs.available_actions or [])
+            user_prompt = f"{obs.game_state}\n\navailable_actions: [{allowed}]\n"
             action_json = await call_llm(
                 system_prompt=system_prompt,
-                user_prompt=obs.game_state,
+                user_prompt=user_prompt,
                 inference_url=inference_url,
                 api_key=api_key,
                 model=model,
             )
+            print(f"[ptcg] LLM: {action_json[:100]}...")
 
             # Submit action
             try:
                 game.submit_action(action_json)
-            except Exception:
+                print("[ptcg] Action OK")
+            except Exception as e:
+                print(f"[ptcg] Action FAILED: {e}")
                 errors += 1
-                if errors >= max_errors:
-                    break
-                # Fallback to EndTurn
-                game.submit_action('{"action": "EndTurn"}')
-
-        except Exception:
-            errors += 1
-            if errors >= max_errors:
                 break
-            # On LLM error, try EndTurn
-            with contextlib.suppress(Exception):
-                game.submit_action('{"action": "EndTurn"}')
+
+        except Exception as e:
+            print(f"[ptcg] LLM error: {e}")
+            errors += 1
+            break
 
         # Step the game
         game.step()
-        steps += 1
+        decision_steps += 1
 
     # Get result
     result = game.get_result()
+    # If we bailed due to errors, treat as a loss for P1.
+    if errors:
+        return {
+            "winner": "P2",
+            "turns": result.turns,
+            "steps": result.steps,
+            "p1_prizes": result.p1_prizes_remaining,
+            "p2_prizes": result.p2_prizes_remaining,
+            "end_reason": f"llm_error_or_invalid_action (errors={errors})",
+            "errors": errors,
+        }
     return {
         "winner": result.winner,
         "turns": result.turns,
@@ -292,12 +345,13 @@ async def run_game(
 # ============================================================================
 
 
-async def run_rollout(request: RolloutRequest) -> RolloutResponse:
+async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutResponse:
     """Execute a single rollout (game) for GEPA evaluation."""
     env_config = request.env.config or {}
     policy_config = request.policy.config or {}
 
-    instance_id = env_config.get("instance_id", INSTANCE_IDS[0])
+    seed = request.env.seed or 0
+    instance_id = env_config.get("instance_id") or INSTANCE_IDS[seed % len(INSTANCE_IDS)]
     instance = get_instance(instance_id)
 
     if not instance:
@@ -422,12 +476,60 @@ def provide_task_instances(seeds: list[int]) -> list[TaskInfo]:
         idx = seed % len(INSTANCE_IDS)
         instance_id = INSTANCE_IDS[idx]
 
+        # A general gameplay-quality rubric for zero-shot verifier scoring.
+        # This is intentionally generic (works across many games) but still actionable.
+        rubric = RubricInfo(
+            outcome=RubricSection(
+                name="Gameplay quality (outcome)",
+                criteria=[
+                    RubricCriterion(
+                        id="win_or_strong_advantage",
+                        description=(
+                            "Did the agent win? If not, did it create a clear advantage (e.g., prize lead, board control) "
+                            "by the end of the rollout?"
+                        ),
+                        weight=1.0,
+                    ),
+                    RubricCriterion(
+                        id="avoid_blunders",
+                        description=(
+                            "Avoid obvious blunders and self-sabotage (illegal actions, wasting attacks/turns, repeatedly "
+                            "missing attacks when available)."
+                        ),
+                        weight=1.0,
+                    ),
+                ],
+            ),
+            # Note: backend expects 'event' key; RubricInfo uses 'events'. We attach 'event' as an extra field.
+            event={
+                "name": "Gameplay quality (events)",
+                "criteria": [
+                    {
+                        "id": "legality_and_prompt_following",
+                        "description": "Actions are legal and follow the current available_actions/prompt requirements.",
+                        "weight": 2.0,
+                    },
+                    {
+                        "id": "progress_turn_economy",
+                        "description": "Makes progress each turn (attach energy, evolve, attack) and avoids stalling.",
+                        "weight": 1.0,
+                    },
+                    {
+                        "id": "attack_when_good",
+                        "description": "Attacks when a reasonable attack is available instead of passing unnecessarily.",
+                        "weight": 1.0,
+                    },
+                ],
+            },
+        )
+
         instances.append(
             TaskInfo(
                 task={"id": "ptcg", "name": "Pokemon TCG"},
                 dataset={"id": "ptcg-games", "split": "train", "index": idx},
                 inference={"tool": "ptcg_action"},
                 limits={"max_turns": 500},
+                rubric=rubric,
                 task_metadata={"instance_id": instance_id},
             )
         )
