@@ -9,6 +9,8 @@ It exists so scripts (demo, eval jobs, tests) can reuse the dataset + Local API 
 accidentally hitting production.
 """
 
+from __future__ import annotations
+
 import base64
 import io
 import logging
@@ -20,17 +22,14 @@ import httpx
 from datasets import Image as HFImage
 from datasets import load_dataset, load_from_disk
 from PIL import Image
-from synth_ai.core.urls import join_url
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
-    RubricCriterion,
-    RubricInfo,
-    RubricSection,
     TaskInfo,
 )
+from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.trace_correlation_helpers import (
     build_trace_payload,
     extract_trace_correlation_id,
@@ -53,6 +52,25 @@ DEFAULT_MAX_EXAMPLES = int(os.environ.get("SYNTH_WEB_DESIGN_MAX_EXAMPLES", "8"))
 DEFAULT_MAX_IMAGE_PIXELS = int(
     os.environ.get("SYNTH_WEB_DESIGN_MAX_IMAGE_PIXELS", "12000000")
 )  # 12MP
+
+WEB_DESIGN_RUBRICS = RubricBundle(
+    outcome=Rubric(
+        version="1.0",
+        goal_text="Evaluate how well the generated webpage matches the original visually",
+        criteria=[
+            Criterion(
+                id="visual_fidelity",
+                description=(
+                    "How well does the generated webpage match the original webpage visually? "
+                    "Evaluate color scheme, typography, layout, spacing, and overall visual fidelity."
+                ),
+                weight=1.0,
+                required=True,
+            )
+        ],
+        aggregation="weighted_sum",
+    )
+)
 
 
 class WebDesignDataset:
@@ -235,21 +253,6 @@ def create_web_design_local_api(style_prompt: str) -> Any:
                 environment="web_design",
                 inference={},
                 limits={"max_turns": 1},
-                rubric=RubricInfo(
-                    outcome=RubricSection(
-                        name="Visual Fidelity",
-                        criteria=[
-                            RubricCriterion(
-                                id="visual_fidelity",
-                                description=(
-                                    "How well does the generated webpage match the original webpage visually? "
-                                    "Evaluate color scheme, typography, layout, spacing, and overall visual fidelity."
-                                ),
-                                weight=1.0,
-                            )
-                        ],
-                    )
-                ),
                 task_metadata={
                     "page": f"{sample['site_name']}/{sample['page_name']}",
                     "description_length": len(sample["functional_description"]),
@@ -290,7 +293,7 @@ def create_web_design_local_api(style_prompt: str) -> Any:
         llm_response: dict[str, Any] = {}
         async with httpx.AsyncClient(timeout=180.0) as client:
             resp = await client.post(
-                join_url(inference_url, "/chat/completions"),
+                f"{inference_url.rstrip('/')}/chat/completions",
                 json={
                     "model": model,
                     "messages": messages,
@@ -353,6 +356,7 @@ def create_web_design_local_api(style_prompt: str) -> Any:
             provide_taskset_description=provide_taskset_description,
             provide_task_instances=provide_task_instances,
             rollout=run_rollout,
+            rubrics=WEB_DESIGN_RUBRICS,
             cors_origins=["*"],
         )
     )

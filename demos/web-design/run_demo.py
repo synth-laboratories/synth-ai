@@ -6,9 +6,11 @@ This demo optimizes a style system prompt that guides Gemini 2.5 Flash Image
 to generate visually accurate webpage screenshots from functional descriptions.
 
 Usage:
-    uv run python demos/web-design/run_demo.py
+    uv run python demos/web-design/run_demo.py --local   # Local mode (fast iteration)
+    uv run python demos/web-design/run_demo.py           # Production mode (with tunnels)
 """
 
+import argparse
 import asyncio
 import base64
 import io
@@ -27,15 +29,9 @@ from datasets import load_dataset, load_from_disk
 from PIL import Image
 
 try:
-    from synth_ai.core.paths import REPO_ROOT
-    from synth_ai.core.urls import (
-        BACKEND_URL_BASE,
-        backend_health_url,
-        join_url,
-    )
+    from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
-    from synth_ai.sdk.auth import get_or_mint_synth_api_key
-    from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+    from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 except ImportError as e:  # pragma: no cover
     raise ImportError(
@@ -53,12 +49,7 @@ except ImportError:  # pragma: no cover
     from synth_ai.sdk.task import run_server_background
 
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-
-try:
-    from synth_ai.sdk.task.contracts import RubricCriterion, RubricInfo, RubricSection
-except ImportError:  # pragma: no cover
-    # Back-compat with older versions that exposed these at synth_ai.sdk.task.*
-    from synth_ai.sdk.task import RubricCriterion, RubricInfo, RubricSection
+from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import (
     PortConflictBehavior,
@@ -79,17 +70,43 @@ logging.getLogger("google").setLevel(logging.WARNING)
 logging.getLogger("google.auth").setLevel(logging.WARNING)
 logging.getLogger("google_genai").setLevel(logging.WARNING)
 
-LOCAL_HOST = "127.0.0.1"
+# Parse args early
+parser = argparse.ArgumentParser(description="Run Web Design GEPA demo")
+parser.add_argument("--local", action="store_true", help="Local mode (localhost, no tunnels)")
+parser.add_argument("--local-host", type=str, default="127.0.0.1", help="Local host for APIs")
+args = parser.parse_args()
+
+LOCAL_MODE = args.local
+LOCAL_HOST = args.local_host
+
+WEB_DESIGN_RUBRICS = RubricBundle(
+    outcome=Rubric(
+        version="1.0",
+        goal_text="Evaluate how well the generated webpage matches the original visually",
+        criteria=[
+            Criterion(
+                id="visual_fidelity",
+                description=(
+                    "How well does the generated webpage match the original webpage visually? "
+                    "Evaluate color scheme, typography, layout, spacing, and overall visual fidelity."
+                ),
+                weight=1.0,
+                required=True,
+            )
+        ],
+        aggregation="weighted_sum",
+    )
+)
 
 # Setup paths
 demo_dir = Path(__file__).parent
-repo_root = REPO_ROOT
+repo_root = demo_dir.parent.parent
 
 
 # Print a quick diagnostic if we're accidentally importing synth_ai from elsewhere.
 def _maybe_warn_on_synth_ai_mismatch() -> None:
     try:
-        import synth_ai as _synth_ai  # noqa: WPS433
+        import synth_ai as _synth_ai
     except Exception:
         return
 
@@ -97,7 +114,7 @@ def _maybe_warn_on_synth_ai_mismatch() -> None:
     if synth_path and repo_root not in synth_path.parents:
         version_str = "unknown"
         try:
-            from importlib import metadata  # noqa: WPS433
+            from importlib import metadata
 
             version_str = metadata.version("synth-ai")
         except Exception:
@@ -115,27 +132,52 @@ def _maybe_warn_on_synth_ai_mismatch() -> None:
 
 _maybe_warn_on_synth_ai_mismatch()
 
+# Load .env (optional)
+try:
+    from dotenv import load_dotenv
+
+    env_file = repo_root / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+        logger.debug(f"Loaded {env_file}")
+except ImportError:
+    print("python-dotenv not installed, using existing environment variables")
+
+
 # Backend config
-SYNTH_API_BASE = BACKEND_URL_BASE
-LOCAL_MODE = SYNTH_API_BASE.startswith("http://localhost") or SYNTH_API_BASE.startswith(
-    "http://127.0.0.1"
-)
-TUNNEL_BACKEND = TunnelBackend.Localhost if LOCAL_MODE else TunnelBackend.CloudflareManagedTunnel
-LOCAL_API_PORT = 8103 if LOCAL_MODE else 8001
+if LOCAL_MODE:
+    SYNTH_API_BASE = "http://127.0.0.1:8000"
+    TUNNEL_BACKEND = TunnelBackend.Localhost
+    LOCAL_API_PORT = 8103
+    print("=" * 80)
+    print("RUNNING IN LOCAL MODE")
+    print("=" * 80)
+else:
+    SYNTH_API_BASE = PROD_BASE_URL
+    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
+    LOCAL_API_PORT = 8001
 
 print(f"Backend: {SYNTH_API_BASE}")
 print(f"Local API Port: {LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(backend_health_url(SYNTH_API_BASE), timeout=60)
+r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=60)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
 else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 # Get API key
-API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE)
-print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+API_KEY = os.environ.get("SYNTH_API_KEY", "")
+
+if not API_KEY:
+    print("No SYNTH_API_KEY, minting demo key...")
+    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
+    print(f"Demo API Key: {API_KEY[:25]}...")
+else:
+    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+
+os.environ["SYNTH_API_KEY"] = API_KEY
 
 # Ensure environment key
 ENVIRONMENT_API_KEY = ensure_localapi_auth(
@@ -425,7 +467,7 @@ Apply the visual style guidelines to match the original design."""
 
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
-                    join_url(inference_url, "/chat/completions"),
+                    f"{inference_url.rstrip('/')}/chat/completions",
                     json={
                         "model": model,
                         "messages": messages,
@@ -536,18 +578,6 @@ Apply the visual style guidelines to match the original design."""
                 environment="web_design",  # Must match gepa_config.toml prompt_learning.gepa.env_name
                 inference={},
                 limits={"max_turns": 1},
-                rubric=RubricInfo(
-                    outcome=RubricSection(
-                        name="Visual Fidelity",
-                        criteria=[
-                            RubricCriterion(
-                                id="visual_fidelity",
-                                description="How well does the generated webpage match the original webpage visually? Evaluate color scheme, typography, layout, spacing, and overall visual fidelity.",
-                                weight=1.0,
-                            )
-                        ],
-                    )
-                ),
                 task_metadata={
                     "page": f"{sample['site_name']}/{sample['page_name']}",
                     "description_length": len(sample["functional_description"]),
@@ -563,6 +593,7 @@ Apply the visual style guidelines to match the original design."""
             provide_taskset_description=provide_taskset_description,
             provide_task_instances=provide_task_instances,
             rollout=run_rollout,
+            rubrics=WEB_DESIGN_RUBRICS,
             cors_origins=["*"],
         )
     )
@@ -713,7 +744,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
     def _event_poller() -> None:
         # The backend uses `seq > since_seq` (strict gt), so we keep `since_seq` as the last seen seq.
         last_seq = 0
-        url = join_url(SYNTH_API_BASE, f"/api/prompt-learning/online/jobs/{job_id}/events")
+        url = f"{SYNTH_API_BASE}/api/prompt-learning/online/jobs/{job_id}/events"
         headers = {"Authorization": f"Bearer {API_KEY}"}
         while not stop_events.is_set():
             try:

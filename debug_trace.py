@@ -38,7 +38,6 @@ async def capturing_post(self, url, **kwargs):
                 for j, msg in enumerate(messages):
                     if isinstance(msg, dict):
                         content = msg.get("content")
-                        content_type = type(content).__name__
                         if isinstance(content, str):
                             print(
                                 f"    msg[{j}]: role={msg.get('role')}, content type=str, len={len(content)}"

@@ -12,9 +12,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synth_ai.data.artifacts import Artifact
-from synth_ai.data.enums import SuccessStatus
-
 
 class OutputMode(str, Enum):
     """Controls how the policy expects model outputs.
@@ -39,8 +36,12 @@ class StructuredOutputConfig(BaseModel):
     - Gemini: generationConfig.responseSchema
     """
 
-    schema: dict[str, Any] = Field(
-        ..., description="JSON Schema for the expected response structure"
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_: dict[str, Any] = Field(
+        ...,
+        alias="schema",
+        description="JSON Schema for the expected response structure",
     )
     schema_name: str = Field(
         default="response", description="Name for the schema (required by some providers)"
@@ -140,8 +141,7 @@ class RolloutMetrics(BaseModel):
     - `event_rewards`: Per-step rewards for multi-step tasks
     - `outcome_objectives`: Multi-objective outcomes (e.g., {'reward': 0.9, 'latency': 0.5})
     - `event_objectives`: Per-event objectives aligned to trace events
-    - `instance_objectives`: Per-seed objectives aligned to responses
-    - `details`: Metadata only (not for scoring)
+    - `details`: Metadata only (not for reward computation)
 
     ## Example - Minimal
 
@@ -161,7 +161,7 @@ class RolloutMetrics(BaseModel):
     # =========================================================================
     outcome_reward: float = Field(
         ...,
-        description="REQUIRED - The reward for this rollout. Single source of truth for scoring.",
+        description="REQUIRED - The reward for this rollout. Single source of truth for reward computation.",
     )
 
     # =========================================================================
@@ -179,10 +179,6 @@ class RolloutMetrics(BaseModel):
         default=None,
         description="Optional per-event objectives aligned to trace events.",
     )
-    instance_objectives: Optional[List[Dict[str, float]]] = Field(
-        default=None,
-        description="Optional per-seed objectives aligned to response order.",
-    )
     details: dict[str, Any] = Field(
         default_factory=dict,
         description="Metadata only. Do NOT use details for reward computation.",
@@ -196,11 +192,8 @@ class RolloutResponse(BaseModel):
 
     - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
     - `metrics`: Rollout metrics with `outcome_reward` (required)
-    - `trace`: v3 trace payload (required for verifier scoring)
+    - `trace`: v3 trace payload (required for verifier evaluation)
     - `inference_url`: Inference URL used for this rollout
-    - `artifact`: Optional list of artifacts produced by the rollout
-    - `success_status`: Optional infrastructure status (orthogonal to reward)
-    - `status_detail`: Optional freeform detail for status
 
     ## Example
 
@@ -222,18 +215,6 @@ class RolloutResponse(BaseModel):
     inference_url: str | None = Field(
         default=None,
         description="Inference URL used for this rollout.",
-    )
-    artifact: Optional[List[Artifact]] = Field(
-        default=None,
-        description="Optional list of artifacts produced by the rollout.",
-    )
-    success_status: Optional[SuccessStatus] = Field(
-        default=None,
-        description="Infrastructure/runtime success status (orthogonal to reward).",
-    )
-    status_detail: Optional[str] = Field(
-        default=None,
-        description="Optional debug detail for success_status.",
     )
 
 
@@ -263,24 +244,6 @@ class DatasetInfo(_ExtraAllowModel):
     description: str | None = None
 
 
-class RubricCriterion(_ExtraAllowModel):
-    id: str
-    description: str
-    weight: float | None = None
-
-
-class RubricSection(_ExtraAllowModel):
-    name: str
-    criteria: list[RubricCriterion] = Field(default_factory=list)
-
-
-class RubricInfo(_ExtraAllowModel):
-    """Outcome and event scoring definitions used by verifiers."""
-
-    outcome: RubricSection | None = None
-    events: RubricSection | None = None
-
-
 class InferenceInfo(_ExtraAllowModel):
     """Recommended defaults for policy model routing."""
 
@@ -306,10 +269,6 @@ class TaskInfo(_ExtraAllowModel):
     environment: str | None = Field(
         default=None,
         description="[DEPRECATED] Legacy field not read by server. Will be removed in future version.",
-    )
-    rubric: RubricInfo | None = Field(
-        default=None,
-        description="[DEPRECATED] Use LocalAPIConfig.rubrics (RubricBundle) instead. Server ignores this field.",
     )
     task_metadata: dict[str, Any] = Field(
         default_factory=dict,

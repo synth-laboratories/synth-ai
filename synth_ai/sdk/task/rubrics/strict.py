@@ -20,7 +20,7 @@ import pydantic
 
 
 class StrictCriterion(pydantic.BaseModel):
-    """Single scoring criterion with strict validation.
+    """Single evaluation criterion with strict validation.
 
     Enforces:
     - Weight ≤ 1.0 (for proper normalization)
