@@ -11,6 +11,7 @@ Win rate against AI v4 is the reward signal.
 import contextlib
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -134,13 +135,21 @@ def ensure_tcg_py_built() -> None:
     except ImportError:
         pass
 
-    # Build with maturin (via uv so this works even if maturin isn't globally installed).
+    # Build with maturin into the *current* interpreter environment.
+    # (This task app runs in-process, so tcg_py must be importable from sys.executable.)
     print("[ptcg] Building tcg_py extension...")
-    subprocess.run(
-        ["uv", "run", "--active", "--python", "3.12", "--with", "maturin", "maturin", "develop"],
-        cwd=str(tcg_py_dir),
-        check=True,
-    )
+    try:
+        # Ensure maturin is installed for this interpreter.
+        subprocess.run(
+            ["uv", "pip", "install", "--python", sys.executable, "maturin"],
+            check=True,
+            capture_output=True,
+        )
+    except Exception:
+        # If maturin install fails, the next command will raise with a clear error.
+        pass
+
+    subprocess.run([sys.executable, "-m", "maturin", "develop"], cwd=str(tcg_py_dir), check=True)
 
 
 # ============================================================================
