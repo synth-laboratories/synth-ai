@@ -24,6 +24,13 @@ parser.add_argument("--seeds", type=int, default=3, help="Number of seeds to eva
 parser.add_argument(
     "--model", type=str, default="gpt-4.1-mini", help="Model to use for coding agent"
 )
+parser.add_argument(
+    "--agent",
+    type=str,
+    default="opencode",
+    choices=["opencode", "codex"],
+    help="Agent runner to use (opencode or codex)",
+)
 parser.add_argument("--timeout", type=int, default=300, help="Agent timeout in seconds")
 parser.add_argument(
     "--split",
@@ -39,6 +46,7 @@ LOCAL_HOST = args.local_host
 PORT = args.port
 NUM_SEEDS = args.seeds
 MODEL = args.model
+AGENT = args.agent
 TIMEOUT = args.timeout
 SPLIT = args.split
 
@@ -105,6 +113,7 @@ async def main():
     print("STARTING ENGINEBENCH EVAL")
     print("=" * 60)
     print(f"Model: {MODEL}")
+    print(f"Agent: {AGENT}")
     print(f"Split: {SPLIT}")
     print(f"Seeds: {NUM_SEEDS}")
     print(f"Timeout: {TIMEOUT}s")
@@ -148,6 +157,7 @@ async def main():
         policy_config={
             "model": MODEL,
             "timeout": TIMEOUT,
+            "agent": AGENT,
         },
         env_config={
             "split": SPLIT,
@@ -185,10 +195,38 @@ async def main():
                 compile_pass = metadata.get("compile_pass") or details.get("compile_pass") or False
                 tests_passed = metadata.get("tests_passed") or details.get("tests_passed") or 0
                 tests_total = metadata.get("tests_total") or details.get("tests_total") or 0
+                agent = metadata.get("agent") or details.get("agent") or "?"
+                agent_success = metadata.get("agent_success") or details.get("agent_success")
+                agent_stderr_tail = (
+                    metadata.get("agent_stderr_tail") or details.get("agent_stderr_tail") or ""
+                )
                 score = sr.get("outcome_reward", 0)
                 print(
                     f"  - {instance_id}: compile={'PASS' if compile_pass else 'FAIL'}, tests={tests_passed}/{tests_total}, score={score:.2f}"
                 )
+                if agent_stderr_tail:
+                    print(
+                        f"    agent={agent} success={agent_success} stderr_tail={agent_stderr_tail[-400:]}"
+                    )
+
+        if result.failed:
+            try:
+                failed_results = job.get_results()
+                results_items = failed_results.get("results", [])
+                if isinstance(results_items, dict):
+                    results_items = results_items.get("items", [])
+                if results_items:
+                    print("\nFailed result details:")
+                    for item in results_items:
+                        seed = item.get("seed")
+                        error = item.get("error")
+                        details = item.get("details", {}) if isinstance(item, dict) else {}
+                        agent_stderr_tail = details.get("agent_stderr_tail", "")
+                        print(f"  - seed={seed} error={error}")
+                        if agent_stderr_tail:
+                            print(f"    stderr_tail={agent_stderr_tail[-400:]}")
+            except Exception as e:
+                print(f"Failed to fetch results for failed job: {e}")
 
     except Exception as e:
         print(f"\nEval job failed: {e}")

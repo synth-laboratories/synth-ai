@@ -23,6 +23,7 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import Request
 from synth_ai.data.artifacts import Artifact
@@ -93,6 +94,13 @@ def load_instance(instance_id: str) -> dict[str, Any]:
 # Cache instance IDs at module load
 INSTANCE_IDS = load_instance_ids()
 print(f"[engine_bench] Loaded {len(INSTANCE_IDS)} instances")
+
+# Check if OPENAI_API_KEY is available
+openai_key = os.environ.get("OPENAI_API_KEY")
+if openai_key:
+    print(f"[engine_bench] OPENAI_API_KEY available: {openai_key[:20]}...")
+else:
+    print("[engine_bench] WARNING: OPENAI_API_KEY not found in environment!")
 
 
 def get_instance_by_seed(seed: int) -> str:
@@ -277,6 +285,25 @@ def calculate_score(compile_pass: bool, tests_passed: int, tests_total: int) -> 
     test_score = test_weight * (tests_passed / tests_total if tests_total > 0 else 0.0)
 
     return compile_score + test_score
+
+
+# =============================================================================
+# INTERCEPTOR URL HELPERS
+# =============================================================================
+
+
+def normalize_interceptor_base(inference_url: str) -> tuple[str, str | None]:
+    """Normalize interceptor base URL and extract correlation ID if present."""
+    parsed = urlparse(inference_url)
+    base_path = parsed.path or ""
+    for suffix in ["/v1/chat/completions", "/chat/completions", "/responses", "/v1/responses"]:
+        if base_path.endswith(suffix):
+            base_path = base_path[: -len(suffix)]
+            break
+    base = f"{parsed.scheme}://{parsed.netloc}{base_path}".rstrip("/")
+    cid_values = parse_qs(parsed.query).get("cid", [])
+    correlation_id = cid_values[0] if cid_values else None
+    return base, correlation_id
 
 
 # =============================================================================
@@ -503,14 +530,14 @@ if attacker.types.contains(&Type::Fire) {
 
 
 # =============================================================================
-# AGENT RUNNER (simplified - uses OpenCode via subprocess)
+# AGENT RUNNER (OpenCode + Codex CLI via subprocess)
 # =============================================================================
 
 
 async def run_opencode_agent(
     prompt: str,
     sandbox_dir: Path,
-    model: str = "gpt-4.1-mini",
+    model: str = "gpt-4o-mini",
     timeout: int = 300,
     inference_url: str | None = None,
     api_key: str | None = None,
@@ -525,25 +552,178 @@ async def run_opencode_agent(
         inference_url: Synth interceptor URL to route LLM calls through
         api_key: API key for the interceptor
     """
+    opencode_bin = os.environ.get("OPENCODE_BIN")
+    if not opencode_bin:
+        preferred = Path.home() / ".opencode" / "bin" / "opencode"
+        opencode_bin = str(preferred) if preferred.exists() else shutil.which("opencode")
+
+    if not opencode_bin:
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": "opencode binary not found in PATH",
+        }
+
+    # OpenCode reads opencode.json from the working directory or parent tree.
+    # Write a scoped config in the sandbox to force interceptor routing.
+    base_url = ""
+    model_id = model.split("/", 1)[1] if "/" in model else model
+    model_with_provider = f"openai/{model_id}"
+    actual_api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+    if not actual_api_key:
+        print("  [OpenCode] WARNING: No API key available!")
+        actual_api_key = "placeholder"
+
+    if inference_url:
+        base_url, correlation_id = normalize_interceptor_base(inference_url)
+        if correlation_id:
+            base_url = f"{base_url}/{correlation_id}"
+
+    opencode_config = {
+        "$schema": "https://opencode.ai/config.json",
+        "model": model_with_provider,
+        "provider": {
+            "openai": {
+                "options": {
+                    "apiKey": actual_api_key,
+                    "baseURL": base_url or "https://api.openai.com/v1",
+                }
+            }
+        },
+        "permission": {
+            "read": "allow",
+            "list": "allow",
+            "glob": "allow",
+            "grep": "allow",
+            "edit": "allow",
+            "write": "allow",
+            "bash": "allow",
+        },
+    }
+
+    config_path = sandbox_dir / "opencode.json"
+    config_path.write_text(json.dumps(opencode_config, indent=2))
+
+    print(f"  [OpenCode] Config written to: {config_path}")
+    print(f"  [OpenCode] Model: {model_with_provider}")
+    print(f"  [OpenCode] BaseURL: {base_url}")
+    print(
+        f"  [OpenCode] API key: {actual_api_key[:15]}..."
+        if len(actual_api_key) > 15
+        else "  [OpenCode] API key: (short)"
+    )
+    print(f"  [OpenCode] Working directory: {sandbox_dir}")
+
     cmd = [
-        "opencode",
+        opencode_bin,
         "run",
-        "--model",
-        model,
-        "--agent",
-        "build",
         "--format",
         "json",
+        "--model",
+        model_with_provider,
         prompt,
     ]
+    if os.environ.get("OPENCODE_DEBUG") == "1":
+        cmd.extend(["--print-logs", "--log-level", "DEBUG"])
 
     # Build environment for subprocess
     env = os.environ.copy()
+    if actual_api_key and actual_api_key != "placeholder":
+        env["OPENAI_API_KEY"] = actual_api_key
+        print("  [OpenCode] OPENAI_API_KEY set in subprocess environment")
+    print(f"  [OpenCode] Using binary: {opencode_bin}")
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=str(sandbox_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        return {
+            "success": proc.returncode == 0,
+            "stdout": stdout.decode("utf-8", errors="replace"),
+            "stderr": stderr.decode("utf-8", errors="replace"),
+        }
+    except TimeoutError:
+        proc.kill()
+        return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
+    except Exception as e:
+        return {"success": False, "stdout": "", "stderr": str(e)}
+
+
+async def run_codex_agent(
+    prompt: str,
+    sandbox_dir: Path,
+    model: str = "gpt-4o-mini",
+    timeout: int = 300,
+    inference_url: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Run Codex CLI agent on the sandbox.
+
+    Args:
+        prompt: The task prompt for the agent
+        sandbox_dir: Directory to run the agent in
+        model: Model to use (e.g. "gpt-4o-mini")
+        timeout: Timeout in seconds
+        inference_url: Synth interceptor URL to route LLM calls through
+        api_key: API key for the interceptor
+    """
+    if not shutil.which("codex"):
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": "codex binary not found in PATH",
+        }
+
+    config_dir = Path.home() / ".codex"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_file = config_dir / "config.toml"
+
+    base_url = "https://api.openai.com/v1"
     if inference_url:
-        # Route opencode's LLM calls through the Synth interceptor
-        env["OPENAI_BASE_URL"] = inference_url
-    if api_key:
-        env["OPENAI_API_KEY"] = api_key
+        base_url, correlation_id = normalize_interceptor_base(inference_url)
+        if correlation_id:
+            base_url = f"{base_url}/{correlation_id}"
+
+    config_content = f"""# Auto-generated for EngineBench local runs
+
+model = "{model}"
+model_provider = "openai"
+
+[model_providers.openai]
+name = "OpenAI"
+base_url = "{base_url}"
+wire_api = "responses"
+env_key = "OPENAI_API_KEY"
+requires_openai_auth = false
+request_max_retries = 4
+stream_max_retries = 5
+stream_idle_timeout_ms = 300000
+
+[mcp]
+enabled = false
+"""
+    config_file.write_text(config_content)
+
+    cmd = [
+        "codex",
+        "exec",
+        "--yolo",
+        "--skip-git-repo-check",
+        "-m",
+        model,
+        prompt,
+    ]
+
+    env = os.environ.copy()
+    env["OPENAI_API_KEY"] = api_key or os.environ.get("OPENAI_API_KEY", "")
+    env["OPENAI_MODEL"] = model
+    if inference_url:
+        env["OPENAI_BASE_URL"] = base_url
 
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -706,7 +886,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
     This runs the full pipeline:
     1. Setup sandbox with stub files
-    2. Run OpenCode agent to implement the card
+    2. Run OpenCode or Codex CLI agent to implement the card
     3. Inject eval tests
     4. Run cargo test
     5. Return score
@@ -719,17 +899,19 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     seed = request.env.seed or 0
     env_config = request.env.config or {}
     policy_config = request.policy.config or {}
-    context_override = request.context_override or {}
+    context_override = getattr(request, "context_override", None) or {}
     start = time.perf_counter()
 
     # Get instance - either from config or by seed
     instance_id = env_config.get("instance_id") or get_instance_by_seed(seed)
     instance = load_instance(instance_id)
 
-    model = policy_config.get("model", "gpt-4.1-mini")
+    model = policy_config.get("model", "gpt-4o-mini")
     timeout = int(policy_config.get("timeout", 300))
     inference_url = policy_config.get("inference_url")
-    api_key = policy_config.get("api_key")
+    # Use Synth API key for interceptor auth
+    api_key = os.environ.get("SYNTH_API_KEY")
+    agent_type = policy_config.get("agent", "opencode")
 
     # UNIFIED CONTEXT ENGINEERING: Extract context artifacts (or use defaults)
     system_prompt = context_override.get("system_prompt", DEFAULT_SYSTEM_PROMPT)
@@ -739,9 +921,12 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
     print(f"\n{'=' * 60}")
     print(f"[engine_bench] Running rollout for {instance_id}")
+    print(f"  Agent: {agent_type}")
     print(f"  Model: {model}")
     print(f"  Timeout: {timeout}s")
     print(f"  Interceptor: {inference_url or 'none (direct)'}")
+    api_key_status = f"✓ present ({api_key[:20]}...)" if api_key else "✗ missing"
+    print(f"  API Key: {api_key_status}")
     print(
         f"  Context artifacts: system_prompt={len(system_prompt)} chars, "
         f"arch_guide={len(architecture_guide)} chars, "
@@ -751,6 +936,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     print(f"{'=' * 60}\n")
 
     # Create temp directory for sandbox
+    agent_result: dict[str, Any] = {}
     with tempfile.TemporaryDirectory() as work_dir:
         work_path = Path(work_dir)
 
@@ -766,14 +952,47 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
             hooks_documentation=hooks_documentation,
         )
 
-        await run_opencode_agent(
-            prompt,
-            sandbox_dir,
-            model=model,
-            timeout=timeout,
-            inference_url=inference_url,
-            api_key=api_key,
-        )
+        if agent_type == "codex":
+            agent_result = await run_codex_agent(
+                prompt,
+                sandbox_dir,
+                model=model,
+                timeout=timeout,
+                inference_url=inference_url,
+                api_key=api_key,
+            )
+            if not agent_result["success"]:
+                print("  [Codex] FAILED")
+                print(f"  [Codex] stdout: {agent_result.get('stdout', '')[:500]}")
+                print(f"  [Codex] stderr: {agent_result.get('stderr', '')[:1000]}")
+            else:
+                print("  [Codex] Completed successfully")
+                if agent_result.get("stderr"):
+                    stderr_full = agent_result["stderr"]
+                    if stderr_full.strip():
+                        print(f"  [Codex] stderr (full):\n{stderr_full}")
+        else:
+            agent_result = await run_opencode_agent(
+                prompt,
+                sandbox_dir,
+                model=model,
+                timeout=timeout,
+                inference_url=inference_url,
+                api_key=api_key,
+            )
+
+            # Log OpenCode output for debugging
+            if not agent_result["success"]:
+                print("  [OpenCode] FAILED")
+                print(f"  [OpenCode] stdout: {agent_result.get('stdout', '')[:500]}")
+                print(f"  [OpenCode] stderr: {agent_result.get('stderr', '')[:1000]}")
+            else:
+                print("  [OpenCode] Completed successfully")
+                if agent_result.get("stderr"):
+                    # Log stderr - may contain important warnings/errors
+                    stderr_full = agent_result["stderr"]
+                    if stderr_full.strip():
+                        print(f"  [OpenCode] stderr (full):\n{stderr_full}")
 
         card_file_path = None
         card_file_rel = instance.get("card_file", "")
@@ -823,6 +1042,9 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     latency_ms = (time.perf_counter() - start) * 1000.0
     trace_correlation_id = policy_config.get("trace_correlation_id", request.trace_correlation_id)
 
+    # Return RolloutResponse - let validation hydrate traces from interceptor
+    # OpenCode's LLM calls go through interceptor (via OPENAI_BASE_URL env var)
+    # so traces should be captured in Redis for validation
     return RolloutResponse(
         trace_correlation_id=trace_correlation_id,
         metrics=RolloutMetrics(
@@ -833,10 +1055,15 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 "tests_passed": tests_passed,
                 "tests_total": tests_total,
                 "latency_ms": latency_ms,
+                "agent": agent_type,
+                "agent_success": agent_result.get("success"),
+                "agent_stdout_tail": agent_result.get("stdout", "")[-1500:],
+                "agent_stderr_tail": agent_result.get("stderr", "")[-2000:],
             },
             outcome_objectives={"reward": score, "latency_ms": latency_ms},
             instance_objectives=[{"reward": score, "latency_ms": latency_ms}],
         ),
+        trace=None,  # Let validation hydrate from interceptor
         artifact=artifact_list or None,
         success_status=SuccessStatus.SUCCESS,
     )
