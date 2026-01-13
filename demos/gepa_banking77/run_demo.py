@@ -734,7 +734,11 @@ async def main():
     print(f"\nFINAL: {gepa_result.status.value} ({format_duration(timings['optimization'])})")
 
     if gepa_result.succeeded:
-        print(f"BEST REWARD: {gepa_result.best_score:.1%}")
+        print(
+            f"BEST REWARD: {gepa_result.best_score:.1%}"
+            if gepa_result.best_score
+            else "BEST REWARD: N/A"
+        )
     elif gepa_result.failed:
         print(f"ERROR: {gepa_result.error}")
         # Print full raw response for debugging
