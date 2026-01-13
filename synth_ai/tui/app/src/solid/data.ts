@@ -6,8 +6,9 @@ import { loadPersistedSettings } from "../persistence/settings"
 import {
   appState,
   modeKeys,
-  normalizeMode,
   switchMode,
+  setCurrentMode,
+  setModeKey,
 } from "../state/app-state"
 import { config } from "../state/polling"
 import { snapshot } from "../state/snapshot"
@@ -31,16 +32,20 @@ export function useSolidData(): SolidData {
   const ctx = createSolidContext(bump)
 
   async function bootstrap(): Promise<void> {
-    // Load persisted mode and keys
-    await loadPersistedSettings({
-      settingsFilePath: config.settingsFilePath,
-      normalizeMode,
-      setCurrentMode: (mode) => { appState.currentMode = mode },
-      setModeKey: (mode, key) => { modeKeys[mode] = key },
-    })
-
-    // Apply current mode's URLs to env
-    switchMode(appState.currentMode)
+    // If mode is explicitly set via env, use it directly.
+    // Otherwise fall back to persisted settings.
+    if (!process.env.SYNTH_TUI_MODE) {
+      await loadPersistedSettings({
+        settingsFilePath: config.settingsFilePath,
+        setCurrentMode: (mode) => {
+          setCurrentMode(mode)
+          appState.currentMode = mode
+        },
+        setModeKey,
+      })
+      // Apply loaded mode's URLs
+      switchMode(appState.currentMode)
+    }
     bump()
 
     if (isLoggedOutMarkerSet()) {

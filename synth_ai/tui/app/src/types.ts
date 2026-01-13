@@ -10,8 +10,11 @@ export enum JobType {
   Eval = "eval",
 }
 
-/** Active pane in the TUI (jobs list, events, or logs) */
-export type ActivePane = "jobs" | "events" | "logs"
+/** Active list pane in the TUI (jobs or logs) */
+export type ActivePane = "jobs" | "logs"
+
+/** Focusable target in the main layout */
+export type FocusTarget = "list" | "metrics" | "events" | "agent"
 
 /** Principal pane - top-level view mode */
 export type PrincipalPane = "jobs" | "opencode"
@@ -162,10 +165,48 @@ export type OpenCodeMessage = {
 /** Mode for environment switching */
 export type Mode = "prod" | "dev" | "local"
 
+/** Valid mode values */
+export const MODES: Mode[] = ["prod", "dev", "local"]
+
+/** Check if a string is a valid Mode, defaults to "prod" */
+export function parseMode(value: string | undefined): Mode {
+  if (value && MODES.includes(value as Mode)) return value as Mode
+  return "prod"
+}
+
 /** URLs for a mode */
 export type ModeUrls = {
   backendUrl: string
   frontendUrl: string
+}
+
+export type UsageData = {
+  plan_type: "free" | "pro" | "team" | "byok"
+  status: "active" | "cancelled" | "past_due" | "trialing" | "inactive"
+  access_tier?: string | null
+  rollout_credits_balance_usd?: number | null
+  rollout_credits_used_this_period_usd?: number | null
+  byok_providers?: string[]
+  limits: {
+    monthly_rollout_credits_usd: number
+    max_overdraft_usd: number
+    unlimited_non_rollout: boolean
+    team_features_enabled: boolean
+    byok_enabled: boolean
+  }
+  usage_summary?: {
+    total_cost_usd: number
+    total_charged_usd: number
+    total_uncharged_usd: number
+    by_type: Array<{
+      usage_type: string
+      total_cost_usd: number
+      charged_cost_usd: number
+      uncharged_cost_usd: number
+      event_count: number
+      byok_event_count: number
+    }>
+  }
 }
 
 export type Snapshot = {

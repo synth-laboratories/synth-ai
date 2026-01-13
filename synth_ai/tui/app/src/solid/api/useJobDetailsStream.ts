@@ -7,7 +7,7 @@ import {
   connectJobDetailsStream,
   type JobDetailsStreamConnection,
   type JobDetailsStreamEvent,
-} from "./job-details-stream"
+} from "../../api/job-details-stream"
 import { registerCleanup, unregisterCleanup } from "../../lifecycle"
 
 export interface UseJobDetailsStreamOptions {
@@ -67,4 +67,3 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
     unregisterCleanup(cleanupName)
   })
 }
-

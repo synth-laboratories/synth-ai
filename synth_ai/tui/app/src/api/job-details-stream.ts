@@ -5,8 +5,8 @@
  * Ported from feat/job-details branch.
  */
 
-import { buildApiUrl, getAuthHeaders } from "../../api/client"
-import { connectSse } from "../../utils/sse"
+import { buildApiUrl, getAuthHeaders } from "./client"
+import { connectSse } from "../utils/sse"
 
 export interface JobDetailsStreamEvent {
   job_id: string
@@ -76,4 +76,3 @@ export function connectJobDetailsStream(
     jobId,
   }
 }
-

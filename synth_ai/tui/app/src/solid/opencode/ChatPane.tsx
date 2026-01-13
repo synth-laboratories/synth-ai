@@ -5,6 +5,7 @@
  */
 import { createSignal, createEffect, createMemo, onCleanup, For, Show } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
+import { formatActionKeys, getTextInput, matchAction } from "../../input/keymap"
 import { getClient, type Message, type Part, type Event, type Session, type AssistantMessage } from "./client"
 
 export type ChatPaneProps = {
@@ -448,22 +449,37 @@ export function ChatPane(props: ChatPaneProps) {
     }
   }
 
+  const handleBack = () => {
+    if (showModelSelector()) {
+      setShowModelSelector(false)
+      return true
+    }
+    if (showSessionSelector()) {
+      setShowSessionSelector(false)
+      return true
+    }
+    return false
+  }
+
+  ;(ChatPane as any).handleBack = handleBack
+
   // Handle keyboard input
   useKeyboard((evt) => {
     // Model selector mode
     if (showModelSelector()) {
-      if (evt.name === "escape") {
-        setShowModelSelector(false)
-      } else if (evt.name === "return" || evt.name === "enter") {
+      const action = matchAction(evt, "chat.selector")
+      if (!action) return
+      evt.preventDefault?.()
+      if (action === "modal.confirm") {
         const models = availableModels()
         const idx = modelSelectorIndex()
         if (models[idx]) {
           setSelectedModel({ providerID: models[idx].providerID, modelID: models[idx].modelID })
           setShowModelSelector(false)
         }
-      } else if (evt.name === "up" || (evt.ctrl && evt.name === "p")) {
+      } else if (action === "selector.up") {
         setModelSelectorIndex((i) => Math.max(0, i - 1))
-      } else if (evt.name === "down" || (evt.ctrl && evt.name === "n")) {
+      } else if (action === "selector.down") {
         setModelSelectorIndex((i) => Math.min(availableModels().length - 1, i + 1))
       }
       return
@@ -471,44 +487,46 @@ export function ChatPane(props: ChatPaneProps) {
 
     // Session selector mode
     if (showSessionSelector()) {
-      if (evt.name === "escape") {
-        setShowSessionSelector(false)
-      } else if (evt.name === "return" || evt.name === "enter") {
+      const action = matchAction(evt, "chat.selector")
+      if (!action) return
+      evt.preventDefault?.()
+      if (action === "modal.confirm") {
         const sessions = state().sessionList
         const idx = sessionSelectorIndex()
         if (sessions[idx]) {
           switchToSession(sessions[idx].id)
         }
-      } else if (evt.name === "up" || (evt.ctrl && evt.name === "p")) {
+      } else if (action === "selector.up") {
         setSessionSelectorIndex((i) => Math.max(0, i - 1))
-      } else if (evt.name === "down" || (evt.ctrl && evt.name === "n")) {
+      } else if (action === "selector.down") {
         setSessionSelectorIndex((i) => Math.min(state().sessionList.length - 1, i + 1))
       }
       return
     }
 
     // Normal mode
-    // Ctrl+K to open model selector (Ctrl+M is same as Enter in terminals)
-    if (evt.ctrl && evt.name === "k") {
+    const action = matchAction(evt, "chat.normal")
+    if (!action) {
+      const text = getTextInput(evt)
+      if (text) {
+        setInputText((t) => t + text)
+      }
+      return
+    }
+    evt.preventDefault?.()
+    if (action === "chat.modelSelector") {
       setModelSelectorIndex(0)
       setShowModelSelector(true)
-    } else if (evt.ctrl && evt.name === "n") {
-      // Ctrl+N: New session
+    } else if (action === "chat.newSession") {
       createNewSession()
-    } else if (evt.ctrl && evt.name === "l") {
-      // Ctrl+L: List/switch sessions
+    } else if (action === "chat.sessionList") {
       setSessionSelectorIndex(0)
       loadSessionList()
       setShowSessionSelector(true)
-    } else if (evt.name === "return" || evt.name === "enter") {
+    } else if (action === "chat.send") {
       sendMessage()
-    } else if (evt.name === "escape") {
-      props.onExit?.()
-    } else if (evt.name === "backspace") {
+    } else if (action === "chat.backspace") {
       setInputText((t) => t.slice(0, -1))
-    } else if (evt.sequence && evt.sequence.length === 1 && !evt.ctrl && !evt.meta) {
-      // Single character input
-      setInputText((t) => t + evt.sequence)
     }
   })
 
@@ -657,7 +675,11 @@ export function ChatPane(props: ChatPaneProps) {
           <box paddingLeft={1} paddingRight={1} backgroundColor="#334155">
             <text fg="#e2e8f0">
               <span style={{ bold: true }}>Select Model</span>
-              <span style={{ fg: "#64748b" }}> (Esc to close)</span>
+              <span style={{ fg: "#64748b" }}>
+                {" "}
+                ({formatActionKeys("app.back", { primaryOnly: true })} to close,{" "}
+                {formatActionKeys("modal.confirm", { primaryOnly: true })} to select)
+              </span>
             </text>
           </box>
           <box flexDirection="column" flexGrow={1} overflow="hidden" paddingLeft={1} paddingRight={1}>
@@ -699,7 +721,11 @@ export function ChatPane(props: ChatPaneProps) {
           <box paddingLeft={1} paddingRight={1} backgroundColor="#334155">
             <text fg="#e2e8f0">
               <span style={{ bold: true }}>Switch Session</span>
-              <span style={{ fg: "#64748b" }}> (Esc to close, Ctrl+N for new)</span>
+              <span style={{ fg: "#64748b" }}>
+                {" "}
+                ({formatActionKeys("app.back", { primaryOnly: true })} to close,{" "}
+                {formatActionKeys("modal.confirm", { primaryOnly: true })} to select)
+              </span>
             </text>
           </box>
           <box flexDirection="column" flexGrow={1} overflow="hidden" paddingLeft={1} paddingRight={1}>
@@ -747,7 +773,11 @@ export function ChatPane(props: ChatPaneProps) {
               <span style={{ fg: "#475569" }}> ({currentModelDisplay()!.providerName})</span>
             </text>
           </Show>
-          <text fg="#475569">Ctrl+N new | Ctrl+L sessions | Ctrl+K model</text>
+          <text fg="#475569">
+            {formatActionKeys("chat.newSession", { primaryOnly: true })} new |{" "}
+            {formatActionKeys("chat.sessionList", { primaryOnly: true })} sessions |{" "}
+            {formatActionKeys("chat.modelSelector", { primaryOnly: true })} model
+          </text>
         </box>
       </box>
     </box>

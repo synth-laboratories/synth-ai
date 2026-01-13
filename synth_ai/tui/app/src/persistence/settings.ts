@@ -5,17 +5,17 @@ import path from "node:path"
 import { promises as fs } from "node:fs"
 
 import { formatEnvLine, parseEnvFile } from "../utils/env"
+import { parseMode } from "../types"
 import type { Mode } from "../types"
 
 export type LoadSettingsDeps = {
   settingsFilePath: string
-  normalizeMode: (value: string) => Mode
   setCurrentMode: (mode: Mode) => void
   setModeKey: (mode: Mode, key: string) => void
 }
 
 export async function loadPersistedSettings(deps: LoadSettingsDeps): Promise<void> {
-  const { settingsFilePath, normalizeMode, setCurrentMode, setModeKey } = deps
+  const { settingsFilePath, setCurrentMode, setModeKey } = deps
 
   try {
     const content = await fs.readFile(settingsFilePath, "utf8")
@@ -23,7 +23,7 @@ export async function loadPersistedSettings(deps: LoadSettingsDeps): Promise<voi
 
     const mode = values.SYNTH_TUI_MODE
     if (mode) {
-      setCurrentMode(normalizeMode(mode))
+      setCurrentMode(parseMode(mode))
     }
 
     // Load keys per mode

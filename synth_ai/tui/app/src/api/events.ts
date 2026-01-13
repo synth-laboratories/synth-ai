@@ -311,7 +311,7 @@ export async function refreshEvents(
           ? newEvents.length
           : newEvents.filter((event) => eventMatchesFilter(event, filter)).length
 
-      if (appState.activePane === "events" && newMatchCount > 0) {
+      if (appState.focusTarget === "events" && newMatchCount > 0) {
         if (appState.selectedEventIndex > 0) {
           appState.selectedEventIndex += newMatchCount
         }

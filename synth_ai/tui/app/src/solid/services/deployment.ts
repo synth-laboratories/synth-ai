@@ -39,12 +39,10 @@ export function deployLocalApi(
   onLog?: DeploymentLogHandler,
 ): Promise<DeployResult> {
   return new Promise((resolve) => {
-    // Generate deployment ID
     const fileName = path.basename(filePath, ".py")
     const timestamp = formatTimestampForFilename(new Date())
     const deploymentId = `${fileName}_${timestamp}`
 
-    // Initialize deployment state
     const deployment: Deployment = {
       id: deploymentId,
       localApiPath: filePath,
@@ -55,10 +53,11 @@ export function deployLocalApi(
       startedAt: new Date(),
     }
 
-    // Spawn the deploy process
-    const proc = spawn("python", ["-m", "synth_ai.tui.deploy", filePath, "--deployment-id", deploymentId], {
-      stdio: ["ignore", "pipe", "pipe"],
-    })
+    const proc = spawn(
+      "python",
+      ["-m", "synth_ai.tui.deploy", filePath, "--deployment-id", deploymentId],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    )
     deployment.proc = proc
     onStatus?.(deployment)
 
@@ -69,20 +68,17 @@ export function deployLocalApi(
       resolve({ deploymentId, ...result })
     }
 
-    // Read NDJSON stream line by line from stdout
     const rl = readline.createInterface({ input: proc.stdout })
 
     rl.on("line", (line: string) => {
       if (resolved) return
-      
-      // Log all lines
+
       deployment.logs.push(line)
       onLog?.(line)
 
       try {
         const result = JSON.parse(line)
-        
-        // Handle status updates
+
         if (result.type === "status") {
           if (result.status === "ready") {
             deployment.status = "ready"
@@ -95,14 +91,12 @@ export function deployLocalApi(
             onStatus?.(deployment)
             finalize({ success: false, error: result.error || "Deployment failed" })
           }
-          // Ignore "starting" status - keep waiting
         }
       } catch {
-        // Ignore non-JSON lines (regular log output)
+        // Ignore non-JSON lines
       }
     })
 
-    // Capture stderr for error messages
     let stderrBuffer = ""
     proc.stderr.on("data", (data: Buffer) => {
       const text = data.toString()
@@ -120,20 +114,17 @@ export function deployLocalApi(
 
     proc.on("close", (code) => {
       if (resolved) return
-      
+
       if (code !== 0) {
         const errorMsg = stderrBuffer.trim() || `Process exited with code ${code}`
         deployment.status = "error"
         deployment.error = errorMsg
         onStatus?.(deployment)
         finalize({ success: false, error: errorMsg })
+      } else if (deployment.status !== "ready") {
+        finalize({ success: false, error: "Deployment completed but no URL received" })
       } else {
-        // If we get here without a ready status, something went wrong
-        if (deployment.status !== "ready") {
-          finalize({ success: false, error: "Deployment completed but no URL received" })
-        } else {
-          finalize({ success: true, url: deployment.url ?? undefined, proc })
-        }
+        finalize({ success: true, url: deployment.url ?? undefined, proc })
       }
     })
   })
@@ -147,16 +138,13 @@ export function submitEvalJob(
   split: string = "default",
 ): { success: boolean; error?: string } {
   try {
-    // Fire-and-forget: spawn eval job process
     const proc = spawn("python", ["-m", "synth_ai.tui.eval_job", deployedUrl, split], {
       stdio: "ignore",
       detached: true,
     })
-    proc.on("error", () => {
-      // Ignore errors - fire and forget
-    })
+    proc.on("error", () => undefined)
     proc.unref()
-    
+
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
@@ -171,23 +159,19 @@ export function submitLearningJob(
   jobType: "prompt_learning" | "learning" = "prompt_learning",
 ): { success: boolean; error?: string } {
   try {
-    // Fire-and-forget: spawn learning job process
-    const module = jobType === "prompt_learning" 
+    const module = jobType === "prompt_learning"
       ? "synth_ai.tui.prompt_learning_job"
       : "synth_ai.tui.learning_job"
-    
+
     const proc = spawn("python", ["-m", module, deployedUrl], {
       stdio: "ignore",
       detached: true,
     })
-    proc.on("error", () => {
-      // Ignore errors - fire and forget
-    })
+    proc.on("error", () => undefined)
     proc.unref()
-    
+
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
-

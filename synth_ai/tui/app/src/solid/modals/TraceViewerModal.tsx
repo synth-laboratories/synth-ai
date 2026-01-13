@@ -1,5 +1,6 @@
 import { Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import { useKeyboard, useRenderer } from "@opentui/solid"
+import { formatActionKeys, matchAction } from "../../input/keymap"
 
 import type { Snapshot } from "../../types"
 import {
@@ -277,74 +278,59 @@ export function TraceViewerModal(props: TraceViewerModalProps) {
   // Keyboard handling
   const handleKey = (evt: any) => {
     if (!props.visible) return
-    const name = typeof evt?.name === "string" ? evt.name : ""
-    const key = name.toLowerCase()
+    const action = matchAction(evt, "modal.trace")
+    if (!action) return
+    evt.preventDefault?.()
 
     const total = traces().length
     const { maxOffset } = displayContent()
     const clampOffset = (value: number) => Math.max(0, Math.min(value, maxOffset))
 
-    if (key === "q" || name === "escape") {
-      evt.preventDefault?.()
-      props.onClose()
-      return
-    }
-
-    if (name === "left" || key === "h") {
-      evt.preventDefault?.()
+    if (action === "trace.prev") {
       if (total > 0) {
         setSelectedIndex((current) => clampIndex(current - 1))
       }
       return
     }
 
-    if (name === "right" || key === "l") {
-      evt.preventDefault?.()
+    if (action === "trace.next") {
       if (total > 0) {
         setSelectedIndex((current) => clampIndex(current + 1))
       }
       return
     }
 
-    if (name === "up" || key === "k") {
-      evt.preventDefault?.()
+    if (action === "nav.up") {
       setScrollOffset((current) => clampOffset(current - 1))
       return
     }
 
-    if (name === "down" || key === "j") {
-      evt.preventDefault?.()
+    if (action === "nav.down") {
       setScrollOffset((current) => clampOffset(current + 1))
       return
     }
 
-    if (name === "pageup") {
-      evt.preventDefault?.()
+    if (action === "nav.pageUp") {
       setScrollOffset((current) => clampOffset(current - contentHeight() + 1))
       return
     }
 
-    if (name === "pagedown") {
-      evt.preventDefault?.()
+    if (action === "nav.pageDown") {
       setScrollOffset((current) => clampOffset(current + contentHeight() - 1))
       return
     }
 
-    if (name === "home") {
-      evt.preventDefault?.()
+    if (action === "nav.home") {
       setScrollOffset(0)
       return
     }
 
-    if (name === "end") {
-      evt.preventDefault?.()
+    if (action === "nav.end") {
       setScrollOffset(maxOffset)
       return
     }
 
-    // Refresh trace list
-    if (key === "r") {
-      evt.preventDefault?.()
+    if (action === "trace.refresh") {
       const jobId = props.snapshot.selectedJob?.job_id
       if (jobId) {
         setLoadingState("loading-list")
@@ -363,9 +349,7 @@ export function TraceViewerModal(props: TraceViewerModalProps) {
       return
     }
 
-    // Toggle image display
-    if (key === "i") {
-      evt.preventDefault?.()
+    if (action === "trace.toggleImage") {
       setShowImage((prev) => !prev)
       return
     }
@@ -378,8 +362,12 @@ export function TraceViewerModal(props: TraceViewerModalProps) {
     const idx = selectedIndex()
     const { maxOffset } = displayContent()
     const scrollInfo = maxOffset > 0 ? ` [${scrollOffset() + 1}/${maxOffset + 1}]` : ""
-    const imageHint = loadedImage() ? ` | i ${showImage() ? "hide" : "show"} image` : ""
-    return `←/→ trace (${idx + 1}/${total}) | ↑/↓ scroll${scrollInfo}${imageHint} | r refresh | q close`
+    const navHint = `${formatActionKeys("trace.prev", { primaryOnly: true })}/${formatActionKeys("trace.next", { primaryOnly: true })} trace (${idx + 1}/${total})`
+    const scrollHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} scroll${scrollInfo}`
+    const imageHint = loadedImage()
+      ? ` | ${formatActionKeys("trace.toggleImage", { primaryOnly: true })} ${showImage() ? "hide" : "show"} image`
+      : ""
+    return `${navHint} | ${scrollHint}${imageHint} | ${formatActionKeys("trace.refresh")} refresh | ${formatActionKeys("app.back")} close`
   })
 
   const title = createMemo(() => {

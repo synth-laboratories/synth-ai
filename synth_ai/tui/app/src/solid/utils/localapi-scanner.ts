@@ -1,7 +1,3 @@
-/**
- * Scanner for LocalAPI files in a directory.
- * Ported from feat/job-details branch.
- */
 import * as fs from "fs"
 import * as path from "path"
 
@@ -10,34 +6,66 @@ export interface ScannedLocalAPI {
   filepath: string
 }
 
+export type LocalApiScanCache = Map<string, { mtimeMs: number; isLocalApi: boolean }>
+
 /**
  * Scan a directory for LocalAPI files.
  * Detection: file contains `from synth_ai.sdk.localapi import` or `create_local_api(`
  */
-export function scanForLocalAPIs(directory: string): ScannedLocalAPI[] {
+export async function scanForLocalAPIs(
+  directory: string,
+  cache: LocalApiScanCache,
+): Promise<ScannedLocalAPI[]> {
   const results: ScannedLocalAPI[] = []
+  const seen = new Set<string>()
 
+  let entries: fs.Dirent[] = []
   try {
-    const entries = fs.readdirSync(directory, { withFileTypes: true })
-
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith(".py")) continue
-
-      const filepath = path.join(directory, entry.name)
-      try {
-        const content = fs.readFileSync(filepath, "utf-8")
-        if (isLocalAPIFile(content)) {
-          results.push({
-            filename: entry.name,
-            filepath,
-          })
-        }
-      } catch {
-        // Skip files we can't read
-      }
-    }
+    entries = await fs.promises.readdir(directory, { withFileTypes: true })
   } catch {
-    // Directory doesn't exist or can't be read
+    return results
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".py")) continue
+
+    const filepath = path.join(directory, entry.name)
+    seen.add(filepath)
+
+    let stat: fs.Stats | null = null
+    try {
+      stat = await fs.promises.stat(filepath)
+    } catch {
+      continue
+    }
+
+    const cached = cache.get(filepath)
+    if (cached && cached.mtimeMs === stat.mtimeMs) {
+      if (cached.isLocalApi) {
+        results.push({ filename: entry.name, filepath })
+      }
+      continue
+    }
+
+    let content = ""
+    try {
+      content = await fs.promises.readFile(filepath, "utf-8")
+    } catch {
+      cache.set(filepath, { mtimeMs: stat.mtimeMs, isLocalApi: false })
+      continue
+    }
+
+    const isLocal = isLocalAPIFile(content)
+    cache.set(filepath, { mtimeMs: stat.mtimeMs, isLocalApi: isLocal })
+    if (isLocal) {
+      results.push({ filename: entry.name, filepath })
+    }
+  }
+
+  for (const key of cache.keys()) {
+    if (path.dirname(key) === directory && !seen.has(key)) {
+      cache.delete(key)
+    }
   }
 
   return results
@@ -46,20 +74,24 @@ export function scanForLocalAPIs(directory: string): ScannedLocalAPI[] {
 /**
  * Scan multiple directories for LocalAPI files.
  */
-export function scanMultipleDirectories(directories: string[]): ScannedLocalAPI[] {
-  const results: ScannedLocalAPI[] = []
+export async function scanMultipleDirectories(
+  directories: string[],
+  cache: LocalApiScanCache,
+): Promise<ScannedLocalAPI[]> {
+  const results = await Promise.all(
+    directories.map((dir) => scanForLocalAPIs(dir, cache)),
+  )
   const seen = new Set<string>()
-
-  for (const dir of directories) {
-    for (const api of scanForLocalAPIs(dir)) {
+  const combined: ScannedLocalAPI[] = []
+  for (const list of results) {
+    for (const api of list) {
       if (!seen.has(api.filepath)) {
         seen.add(api.filepath)
-        results.push(api)
+        combined.push(api)
       }
     }
   }
-
-  return results
+  return combined
 }
 
 /**
@@ -71,4 +103,3 @@ function isLocalAPIFile(content: string): boolean {
     content.includes("create_local_api(")
   )
 }
-

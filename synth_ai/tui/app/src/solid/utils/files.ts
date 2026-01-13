@@ -1,6 +1,5 @@
 /**
  * File path utilities.
- * Ported from feat/job-details branch.
  */
 import * as fs from "fs"
 import * as path from "path"
@@ -43,7 +42,6 @@ export function getUniqueFilename(dir: string, baseName: string, ext: string): s
     return baseFilePath
   }
 
-  // File exists, add timestamp suffix
   const now = new Date()
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, "0")
@@ -58,7 +56,8 @@ export function getUniqueFilename(dir: string, baseName: string, ext: string): s
 }
 
 /**
- * Format a timestamp for filenames: YYYY_MM_DD_HH-MM-SS
+ * Format a timestamp for filenames: YYYY_MM_DD_HH:MM:SS
+ * Pads month/day/hour/minute/second to 2 digits.
  */
 export function formatTimestampForFilename(date: Date = new Date()): string {
   const year = date.getFullYear()
@@ -69,4 +68,3 @@ export function formatTimestampForFilename(date: Date = new Date()): string {
   const seconds = String(date.getSeconds()).padStart(2, "0")
   return `${year}_${month}_${day}_${hours}-${minutes}-${seconds}`
 }
-

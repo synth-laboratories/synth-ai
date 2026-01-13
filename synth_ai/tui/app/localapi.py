@@ -1,27 +1,20 @@
-/**
- * Template for new LocalAPI files.
- * Ported from feat/job-details branch.
- */
-
-export const LOCALAPI_TEMPLATE = `"""
+"""
 This file creates a Local API that Synth AI uses to evaluate prompts.
 The backend calls your /rollout endpoint with different seeds (test cases)
 and aggregates the scores.
 """
 
-from fastapi import Request
 import httpx
-
+from fastapi import Request
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url
 from synth_ai.sdk.task.contracts import (
+    RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
-    RolloutMetrics,
     TaskInfo,
 )
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-
 
 # =============================================================================
 # APP CONFIGURATION
@@ -57,9 +50,7 @@ APP_NAME = "My Task"
 
 def get_dataset_size() -> int:
     """Return the total number of samples in your dataset."""
-    raise NotImplementedError(
-        "Implement get_dataset_size() to return len(DATASET)"
-    )
+    raise NotImplementedError("Implement get_dataset_size() to return len(DATASET)")
 
 
 def get_sample(seed: int) -> dict:
@@ -73,7 +64,7 @@ def get_sample(seed: int) -> dict:
         Dict with your test case fields (e.g. {"input": ..., "expected": ...})
     """
     raise NotImplementedError(
-        "Implement get_sample() to return a test case for the given seed.\\n"
+        "Implement get_sample() to return a test case for the given seed.\n"
         "Example: return DATASET[seed % len(DATASET)]"
     )
 
@@ -95,7 +86,7 @@ def score_response(response: str, sample: dict) -> float:
         Score between 0.0 (wrong) and 1.0 (correct)
     """
     raise NotImplementedError(
-        "Implement score_response() to score the model output.\\n"
+        "Implement score_response() to score the model output.\n"
         "Example: return 1.0 if sample['expected'] in response else 0.0"
     )
 
@@ -130,6 +121,7 @@ def provide_task_instances(seeds: list[int]):
 # LLM CALL HELPER
 # =============================================================================
 
+
 async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) -> str:
     """Call the LLM via the inference URL provided by Synth."""
     headers = {"Content-Type": "application/json"}
@@ -155,6 +147,7 @@ async def call_llm(prompt: str, inference_url: str, api_key: str | None = None) 
 # =============================================================================
 # ROLLOUT HANDLER
 # =============================================================================
+
 
 async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
     """
@@ -194,7 +187,8 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         for key, value in policy_config.items()
         if key not in {"trace_correlation_id", "trace"}
     }
-    trace_correlation_id = extract_trace_correlation_id(
+    # Extract trace correlation ID (result used implicitly via request.trace_correlation_id)
+    _ = extract_trace_correlation_id(
         policy_config=policy_cfg_for_trace,
         inference_url=str(inference_url or ""),
     )
@@ -211,15 +205,17 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 # CREATE THE APP
 # =============================================================================
 
-app = create_local_api(LocalAPIConfig(
-    app_id=APP_ID,
-    name=APP_NAME,
-    description="",
-    provide_taskset_description=provide_taskset_description,
-    provide_task_instances=provide_task_instances,
-    rollout=run_rollout,
-    cors_origins=["*"],
-))
+app = create_local_api(
+    LocalAPIConfig(
+        app_id=APP_ID,
+        name=APP_NAME,
+        description="",
+        provide_taskset_description=provide_taskset_description,
+        provide_task_instances=provide_task_instances,
+        rollout=run_rollout,
+        cors_origins=["*"],
+    )
+)
 
 
 # =============================================================================
@@ -228,6 +224,5 @@ app = create_local_api(LocalAPIConfig(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
-`
 
+    uvicorn.run(app, host="0.0.0.0", port=8001)
