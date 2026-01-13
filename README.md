@@ -31,7 +31,7 @@ Serverless Posttraining APIs for Developers
 ## Highlights
 
 - 🎯 **GEPA Prompt Optimization** - Automatically improve prompts with evolutionary search. See 70%→95% accuracy gains on Banking77, +62% on critical game achievements
-- 🔍 **Zero-Shot Verifiers** - Fast, accurate rubric-based evaluation with configurable scoring criteria
+- 🔍 **Zero-Shot Verifiers** - Fast, accurate rubric-based evaluation with configurable criteria
 - 🧬 **GraphGen** - Train custom verifier graphs optimized for your specific workflows. Train custom pipelines for other tasks
 - 🚀 **No Code Changes** - Wrap existing code in a FastAPI app and optimize via HTTP. Works with any language or framework
 - ⚡️ **Local Development** - Run experiments locally with tunneled task apps. No cloud setup required
@@ -103,7 +103,7 @@ pl_job = PromptLearningJob.from_dict({
 
 pl_job.submit()
 result = pl_job.stream_until_complete(timeout=3600.0)
-print(f"Best score: {result.best_score}")
+print(result)
 ```
 
 See the [Banking77 demo notebook](demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb) for a complete example with local task apps.
@@ -173,5 +173,5 @@ verification = verifier_job.run_verifier(
     trace=my_trace,
     context={"rubric": my_rubric},
 )
-print(f"Score: {verification.score}, Reasoning: {verification.reasoning}")
+print(verification)
 ```

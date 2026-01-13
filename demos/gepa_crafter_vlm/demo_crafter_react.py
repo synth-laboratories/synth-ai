@@ -21,7 +21,7 @@ from fastapi import Request
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningResult
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi.helpers import (
     call_chat_completion_api,
@@ -30,6 +30,7 @@ from synth_ai.sdk.localapi.helpers import (
 )
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
+from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import (
     cleanup_all,
@@ -75,6 +76,22 @@ IS_DEV_MODE = SYNTH_API_BASE.startswith("http://localhost") or SYNTH_API_BASE.st
     "http://127.0.0.1"
 )
 USE_TUNNEL = os.environ.get("CRAFTER_USE_TUNNEL", "").lower() in ("1", "true", "yes")
+
+CRAFTER_RUBRICS = RubricBundle(
+    outcome=Rubric(
+        version="1.0",
+        goal_text="Evaluate gameplay quality at the end of the rollout",
+        criteria=[
+            Criterion(
+                id="task_progress",
+                description="Agent makes progress toward in-game objectives and avoids stalling.",
+                weight=1.0,
+                required=False,
+            )
+        ],
+        aggregation="weighted_sum",
+    )
+)
 
 
 def _build_trace_event(
@@ -230,7 +247,7 @@ def create_crafter_vlm_local_api(system_prompt: str):
             if observation.get("terminated") or observation.get("truncated"):
                 break
 
-        score, details = CrafterScorer.score_episode(
+        outcome_reward, details = CrafterScorer.score_episode(
             observation,
             len(episode_rewards),
             max_steps,
@@ -260,7 +277,7 @@ def create_crafter_vlm_local_api(system_prompt: str):
         }
 
         metrics = RolloutMetrics(
-            outcome_reward=score,
+            outcome_reward=outcome_reward,
             event_rewards=episode_rewards,
             details=details,
         )
@@ -286,7 +303,6 @@ def create_crafter_vlm_local_api(system_prompt: str):
                 task={"id": "crafter_vlm", "name": "Crafter VLM", "version": "1.0.0"},
                 environment="crafter",
                 dataset={"id": "crafter_vlm", "split": "train", "index": seed},
-                rubric={"version": "1", "criteria_count": 1},
                 inference={"supports_proxy": True, "tool": "crafter_interact"},
                 limits={"max_turns": 50, "max_steps_per_episode": 200},
                 task_metadata={"seed": seed, "format": "vlm_image_only"},
@@ -300,7 +316,6 @@ def create_crafter_vlm_local_api(system_prompt: str):
             task={"id": "crafter_vlm", "name": "Crafter VLM", "version": "1.0.0"},
             environment="crafter",
             dataset={"id": "crafter_vlm", "splits": ["train", "test"]},
-            rubric={"version": "1", "criteria_count": 1},
             inference={"supports_proxy": True, "tool": "crafter_interact"},
             limits={"max_turns": 50, "max_steps_per_episode": 200},
             task_metadata={"format": "vlm_image_only"},
@@ -308,6 +323,7 @@ def create_crafter_vlm_local_api(system_prompt: str):
         provide_taskset_description=describe_taskset,
         provide_task_instances=provide_task_instances,
         rollout=rollout_executor,
+        rubrics=CRAFTER_RUBRICS,
         app_state={},
         cors_origins=["*"],
         startup_hooks=[startup_http_client],

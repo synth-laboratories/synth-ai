@@ -12,18 +12,17 @@ import contextlib
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import httpx
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
-    RubricCriterion,
-    RubricInfo,
-    RubricSection,
     TaskInfo,
 )
+from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.validators import normalize_inference_url
 
 # ============================================================================
@@ -35,7 +34,11 @@ _LOCAL_ENGINE_BENCH = Path.home() / "Documents" / "GitHub" / "engine-bench"
 ENGINE_BENCH_DIR = Path(
     os.getenv(
         "ENGINE_BENCH_DIR",
-        str(_LOCAL_ENGINE_BENCH if _LOCAL_ENGINE_BENCH.exists() else (Path.home() / ".cache" / "engine-bench")),
+        str(
+            _LOCAL_ENGINE_BENCH
+            if _LOCAL_ENGINE_BENCH.exists()
+            else (Path.home() / ".cache" / "engine-bench")
+        ),
     )
 )
 
@@ -260,7 +263,7 @@ async def run_game(
             break
 
         # Log current state
-        bench = getattr(obs, 'my_bench_count', '?')
+        bench = getattr(obs, "my_bench_count", "?")
         # Pull internal game steps for debugging "winner=None" cases (often MaxSteps vs genuine loss).
         game_steps = getattr(game.get_result(), "steps", "?")
         print(
@@ -476,65 +479,72 @@ def provide_task_instances(seeds: list[int]) -> list[TaskInfo]:
         idx = seed % len(INSTANCE_IDS)
         instance_id = INSTANCE_IDS[idx]
 
-        # A general gameplay-quality rubric for zero-shot verifier scoring.
-        # This is intentionally generic (works across many games) but still actionable.
-        rubric = RubricInfo(
-            outcome=RubricSection(
-                name="Gameplay quality (outcome)",
-                criteria=[
-                    RubricCriterion(
-                        id="win_or_strong_advantage",
-                        description=(
-                            "Did the agent win? If not, did it create a clear advantage (e.g., prize lead, board control) "
-                            "by the end of the rollout?"
-                        ),
-                        weight=1.0,
-                    ),
-                    RubricCriterion(
-                        id="avoid_blunders",
-                        description=(
-                            "Avoid obvious blunders and self-sabotage (illegal actions, wasting attacks/turns, repeatedly "
-                            "missing attacks when available)."
-                        ),
-                        weight=1.0,
-                    ),
-                ],
-            ),
-            # Note: backend expects 'event' key; RubricInfo uses 'events'. We attach 'event' as an extra field.
-            event={
-                "name": "Gameplay quality (events)",
-                "criteria": [
-                    {
-                        "id": "legality_and_prompt_following",
-                        "description": "Actions are legal and follow the current available_actions/prompt requirements.",
-                        "weight": 2.0,
-                    },
-                    {
-                        "id": "progress_turn_economy",
-                        "description": "Makes progress each turn (attach energy, evolve, attack) and avoids stalling.",
-                        "weight": 1.0,
-                    },
-                    {
-                        "id": "attack_when_good",
-                        "description": "Attacks when a reasonable attack is available instead of passing unnecessarily.",
-                        "weight": 1.0,
-                    },
-                ],
-            },
-        )
-
         instances.append(
             TaskInfo(
                 task={"id": "ptcg", "name": "Pokemon TCG"},
                 dataset={"id": "ptcg-games", "split": "train", "index": idx},
                 inference={"tool": "ptcg_action"},
                 limits={"max_turns": 500},
-                rubric=rubric,
                 task_metadata={"instance_id": instance_id},
             )
         )
 
     return instances
+
+
+# A general gameplay-quality rubric bundle for zero-shot verifier evaluation.
+PTCG_GAMEPLAY_RUBRICS = RubricBundle(
+    outcome=Rubric(
+        version="1.0",
+        goal_text="Evaluate Pokemon TCG gameplay quality at the end of the rollout",
+        criteria=[
+            Criterion(
+                id="win_or_strong_advantage",
+                description=(
+                    "Did the agent win? If not, did it create a clear advantage (e.g., prize lead, board control) "
+                    "by the end of the rollout?"
+                ),
+                weight=1.0,
+                required=False,
+            ),
+            Criterion(
+                id="avoid_blunders",
+                description=(
+                    "Avoid obvious blunders and self-sabotage (illegal actions, wasting turns, repeatedly missing "
+                    "attacks when available)."
+                ),
+                weight=1.0,
+                required=True,
+            ),
+        ],
+        aggregation="weighted_sum",
+    ),
+    events=Rubric(
+        version="1.0",
+        goal_text="Evaluate action quality during the rollout",
+        criteria=[
+            Criterion(
+                id="legality_and_prompt_following",
+                description="Actions are legal and follow the current available_actions requirements.",
+                weight=2.0,
+                required=True,
+            ),
+            Criterion(
+                id="progress_turn_economy",
+                description="Makes progress (attach energy, evolve, attack) and avoids stalling.",
+                weight=1.0,
+                required=False,
+            ),
+            Criterion(
+                id="attack_when_good",
+                description="Attacks when a reasonable attack is available instead of passing unnecessarily.",
+                weight=1.0,
+                required=False,
+            ),
+        ],
+        aggregation="weighted_sum",
+    ),
+)
 
 
 # Create the LocalAPI app
@@ -546,6 +556,7 @@ app = create_local_api(
         provide_taskset_description=provide_taskset_description,
         provide_task_instances=provide_task_instances,
         rollout=run_rollout,
+        rubrics=PTCG_GAMEPLAY_RUBRICS,
         cors_origins=["*"],
     )
 )

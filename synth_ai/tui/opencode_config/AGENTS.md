@@ -96,3 +96,13 @@ method = "gepa"
 - `SYNTH_BACKEND_URL`: Backend URL (usually auto-configured)
 - `OPENCODE_WORKING_DIR`: Override working directory for file operations
 
+## Reward Terminology (CRITICAL)
+
+- **NEVER EVER USE THE TERM 'SCORE'. EVER.** Use reward-based language for everything.
+- Use: `reward`, `verifier_reward`, `local_api_reward`, `fused_reward`, `outcome_reward`, etc.
+- Never use: `score`, `verifier_score`, `scoring`, `scored`, `scores`, etc.
+- This applies to variable names, function names, comments, documentation, API responses, and all code.
+- Examples:
+  - ✅ `verifier_reward`, `compute_reward()`, `reward_trajectory()`, `reward semantics`
+  - ❌ `verifier_score`, `compute_score()`, `score_trajectory()`, `scoring semantics`
+

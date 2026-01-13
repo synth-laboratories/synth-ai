@@ -6,10 +6,10 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class Criterion(BaseModel):
-    """Single scoring criterion within a rubric.
+    """Single evaluation criterion within a rubric.
 
     Flexible variant allowing weights > 1.0 and no normalization requirement.
-    Used by task apps for general rubric scoring.
+    Used by task apps for general reward computation.
     """
 
     id: str
@@ -26,7 +26,7 @@ class Criterion(BaseModel):
 
 
 class Rubric(BaseModel):
-    """Rubric definition for scoring task app outcomes.
+    """Rubric definition for evaluating task app outcomes.
 
     Supports flexible aggregation and blending. Criteria weights do not need
     to sum to 1.0, making this suitable for general task app usage.

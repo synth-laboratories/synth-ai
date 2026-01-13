@@ -2,7 +2,7 @@
 
 This document covers **two related refactors**:
 
-1. **Part 1**: Verifier fusion for PTCG gameplay evals (task reward + zero-shot verifier + fused score)
+1. **Part 1**: Verifier fusion for PTCG gameplay evals (task reward + zero-shot verifier + fused reward)
 2. **Part 2**: Rubrics consolidation (delete `TaskInfo.rubric`, single source via `/info`)
 
 Both changes tie together because they clean up how rubrics flow from task apps to the backend verifier.
@@ -16,8 +16,8 @@ Both changes tie together because they clean up how rubrics flow from task apps 
 Run **headless gameplay evals** for `demos/gepa_ptcg` where:
 
 - The **task app** computes the canonical task reward (win/loss or outcome reward).
-- The Synth backend runs a **zero-shot verifier** that scores **gameplay quality** from the hydrated trace against a rubric.
-- The backend **fuses** task reward + verifier score into a single per-seed `score`.
+- The Synth backend runs a **zero-shot verifier** that evaluates **gameplay quality** from the hydrated trace against a rubric.
+- The backend **fuses** task reward + verifier reward into a single per-seed `reward`.
 
 This is intended to work with the existing **eval job** flow (not prompt-learning/GEPA optimization yet).
 
@@ -27,8 +27,8 @@ This is intended to work with the existing **eval job** flow (not prompt-learnin
 
 - **Goal**: In eval jobs, record *both*:
   - `outcome_reward` (task app, who won)
-  - `verifier_score` (zero-shot rubric, gameplay quality)
-  - `score` (fused)
+  - `verifier_reward` (zero-shot rubric, gameplay quality)
+  - `reward` (fused)
 - **Goal**: Reuse **interceptor hydration** for traces (avoid building v3 traces in task app).
 - **Non-goal**: Modify `monorepo/specs` (explicitly forbidden).
 - **Non-goal**: Embed LLM calls into Rust servers / UI harness. This is headless LocalAPI.
@@ -37,10 +37,10 @@ This is intended to work with the existing **eval job** flow (not prompt-learnin
 
 ### Current state (what already exists)
 
-#### 1) Eval job pipeline supports verifier scoring
+#### 1) Eval job pipeline supports verifier evaluation
 
 The backend eval job service supports an optional `verifier_config` in the eval request.
-If present and enabled, it computes a per-seed `verifier_score` and then fuses it into the final `score`.
+If present and enabled, it computes a per-seed `verifier_reward` and then fuses it into the final `reward`.
 
 #### 2) Verifier endpoint exists and is zero-shot capable
 
@@ -52,24 +52,24 @@ It supports built-in zero-shot verifier graph IDs:
 
 #### 3) Trace hydration exists for eval jobs
 
-Eval jobs already hydrate v3 traces from the interceptor store and normalize rollouts to v3 traces for scoring.
+Eval jobs already hydrate v3 traces from the interceptor store and normalize rollouts to v3 traces for verifier evaluation.
 This means task apps do **not** need to build tracing-v3 `event_history` manually, as long as:
 - LLM calls go through the interceptor (which we already do in `gepa_ptcg`).
 
 ---
 
-### Proposed scoring semantics
+### Proposed reward semantics
 
 We want:
 
-- **Task reward** (from task app): \( r_{env} \in [0, 1] \)
+- **Task reward** (from task app / LocalAPI): \( r_{local} \in [0, 1] \)
   - Example: win=1, loss=0, draw=0.5, etc.
-- **Verifier reward** (from verifier): \( r_{verifier} \in [0, 1] \)
-  - A rubric-based "gameplay quality" score independent of win/loss
-- **Fused score**:
+- **Verifier reward** (from backend verifier): \( r_{verifier} \in [0, 1] \)
+  - A rubric-based "gameplay quality" reward independent of win/loss
+- **Fused reward**:
 
 \[
-r_{final} = w_{env}\cdot r_{env} + w_{verifier}\cdot r_{verifier}
+r_{final} = w_{local}\cdot r_{local} + w_{verifier}\cdot r_{verifier}
 \]
 
 Example weights:
@@ -77,53 +77,53 @@ Example weights:
 
 ---
 
-### Scoring semantics: double-counting risk (CRITICAL)
+### Reward semantics: double-counting risk (CRITICAL)
 
 #### The problem
 
-The verifier pipeline can optionally accept `env_reward` as input:
+The verifier pipeline can optionally accept the task app reward as input (we will call it `local_api_reward`):
 
 ```python
 # backend/app/routes/eval/scoring.py (current)
-verifier_result = await verifier.score_trajectory(
+verifier_result = await verifier.reward_trajectory(
     ...,
-    env_reward=env_rewards.get(seed),  # task app reward passed in
+    local_api_reward=local_api_rewards.get(seed),  # task app reward passed in
 )
 ```
 
 Depending on the verifier graph implementation, the verifier may:
-- **Ignore** `env_reward` and score purely on trace + rubric (desired for independent fusion)
-- **Incorporate** `env_reward` into its output (causes double-counting when fused again)
+- **Ignore** `local_api_reward` and evaluate purely on trace + rubric (desired for independent fusion)
+- **Incorporate** `local_api_reward` into its output (causes double-counting when fused again)
 
 If the verifier incorporates `env_reward`, and then the eval job service fuses:
 
 ```
-score = w_env * env_reward + w_verifier * verifier_score
+reward = w_local * local_api_reward + w_verifier * verifier_reward
 ```
 
-…the task reward gets counted **twice**: once inside `verifier_score`, once in the outer fusion.
+…the task reward gets counted **twice**: once inside `verifier_reward`, once in the outer fusion.
 
 #### The fix (required monorepo change)
 
-To guarantee no double-counting, we change the eval verifier scoring call to:
+To guarantee no double-counting, we change the eval verifier evaluation call to:
 
 ```python
 # backend/app/routes/eval/scoring.py (proposed)
-verifier_result = await verifier.score_trajectory(
+verifier_result = await verifier.reward_trajectory(
     ...,
-    env_reward=None,  # <-- do NOT pass task reward into verifier
+    local_api_reward=None,  # <-- do NOT pass task reward into verifier
 )
 ```
 
-This ensures the verifier scores only the trace + rubric, and fusion happens exactly once in the eval job service.
+This ensures the verifier evaluates only the trace + rubric, and fusion happens exactly once in the eval job service.
 
 #### Code change
 
 Single line change in `backend/app/routes/eval/scoring.py`:
 
 ```diff
-- env_reward=env_rewards.get(seed),
-+ env_reward=None,
+- local_api_reward=local_api_rewards.get(seed),
++ local_api_reward=None,
 ```
 
 ---
@@ -172,8 +172,8 @@ Example:
 ```
 
 Notes:
-- We fuse only outcome-level verifier score into final reward initially (keep it simple).
-- If event-level scoring returns per-event totals, we can later add `weight_event > 0`.
+- We fuse only outcome-level verifier reward into final reward initially (keep it simple).
+- If event-level evaluation returns per-event totals, we can later add `weight_event > 0`.
 
 ---
 
@@ -201,16 +201,21 @@ Notes:
 
 For a small local run (e.g. 5 seeds) we should see:
 - Per seed result row contains:
-  - `outcome_reward` (task app)
-  - `verifier_score` (non-null for most seeds)
-  - `score` differs from both and matches the configured fusion weights
+  - `local_api_reward` (task app)
+  - `verifier_reward` (non-null for most seeds)
+  - `reward` differs from both and matches the configured fusion weights
 - Backend logs show:
   - trace hydration succeeded
   - verifier endpoint calls succeeded (200)
 
 Failure modes and what they mean:
-- **verifier_score is null**: rubric missing/unparseable, verifier_graph_id wrong, trace hydration missing, or verifier endpoint errors.
-- **verifier_score correlates too strongly with win**: likely env_reward leaked into verifier scoring or rubric is too outcome-focused.
+- **verifier_reward is null**: rubric missing/unparseable, verifier_graph_id wrong, trace hydration missing, or verifier endpoint errors.
+- **verifier_reward correlates too strongly with win**: likely env_reward leaked into verifier evaluation or rubric is too outcome-focused.
+
+Note: this doc uses `local_api_reward` / `verifier_reward` naming. Existing persisted fields in the backend may still be
+named `outcome_reward` / `verifier_reward` until the backend refactor lands; the intent is:
+- `outcome_reward` == `local_api_reward`
+- `verifier_reward` == `verifier_reward` (canonical naming)
 
 ---
 
@@ -262,23 +267,22 @@ The rubric data model lives in `synth_ai.sdk.task.rubrics`:
 ```python
 # synth_ai/sdk/task/rubrics/models.py
 
-@dataclass
-class Criterion:
+class Criterion(BaseModel):
     id: str                    # unique criterion identifier
     description: str           # what this criterion evaluates
-    weight: float = 1.0        # relative importance
+    weight: float = 1.0        # relative importance (must be > 0)
     required: bool = False     # if True, failing this criterion fails the rubric
 
 class Rubric(BaseModel):
     version: str = "1.0"
-    goal_text: str             # high-level goal description
-    criteria: list[Criterion]  # list of evaluation criteria
-    aggregation: str = "weighted_mean"  # how to combine criterion scores
+    goal_text: str | None = None  # high-level goal description (optional)
+    criteria: list[Criterion] = []  # list of evaluation criteria
+    aggregation: str = "weighted_sum"  # how to combine criterion rewards (options: "sum", "weighted_sum", "custom", "inherit")
 
 # synth_ai/sdk/task/server.py
 
-@dataclass
-class RubricBundle:
+class RubricBundle(BaseModel):  # MUST be BaseModel (not @dataclass) for OpenAPI compatibility
+    """Rubric bundle exposed via /info endpoint. Must be Pydantic BaseModel for OpenAPI schema generation."""
     outcome: Rubric | None = None   # outcome-level rubric (end of rollout)
     events: Rubric | None = None    # event-level rubric (per action/step)
 ```
@@ -294,34 +298,152 @@ Task apps expose rubrics via `LocalAPIConfig(rubrics=RubricBundle(...))`, which 
 }
 ```
 
+#### How to assemble a rubric (complete example)
+
+```python
+from synth_ai.sdk.task.rubrics import Criterion, Rubric
+from synth_ai.sdk.task.server import LocalAPIConfig, RubricBundle
+
+# Step 1: Define criteria
+legal_action_criterion = Criterion(
+    id="legal_actions",
+    description="Agent only chooses legal actions from available_actions",
+    weight=1.0,
+    required=True,  # Fail fast on illegal actions
+)
+
+strategic_play_criterion = Criterion(
+    id="strategic_play",
+    description="Agent makes strategic decisions (attacks when beneficial, manages energy)",
+    weight=0.8,
+    required=False,
+)
+
+avoid_stalling_criterion = Criterion(
+    id="avoid_stalling",
+    description="Agent progresses the game state and avoids infinite loops",
+    weight=0.6,
+    required=False,
+)
+
+# Step 2: Create a Rubric with criteria
+gameplay_rubric = Rubric(
+    version="1.0",
+    goal_text="Evaluate Pokemon TCG gameplay quality",
+    criteria=[
+        legal_action_criterion,
+        strategic_play_criterion,
+        avoid_stalling_criterion,
+    ],
+    aggregation="weighted_sum",  # Options: "sum", "weighted_sum", "custom", "inherit"
+)
+
+# Step 3: Create a RubricBundle (can include both outcome and events rubrics)
+rubric_bundle = RubricBundle(
+    outcome=gameplay_rubric,  # Evaluated at end of rollout
+    events=None,  # Optional: per-action rubric for step-wise evaluation
+)
+
+# Step 4: Pass to LocalAPIConfig
+def build_config() -> LocalAPIConfig:
+    return LocalAPIConfig(
+        app_id="gepa_ptcg",
+        name="Pokemon TCG Gameplay",
+        description="Headless Pokemon TCG gameplay evaluation",
+        provide_taskset_description=lambda: {"splits": ["train"]},
+        provide_task_instances=lambda seeds: [...],
+        rollout=run_rollout,
+        rubrics=rubric_bundle,  # <-- Rubrics go here
+    )
+```
+
+**Notes:**
+- **`Criterion`**: Each criterion has an `id` (unique), `description` (what it evaluates), `weight` (relative importance, must be > 0), and `required` (if True, failing this fails the entire rubric).
+- **`Rubric`**: Contains a list of criteria, optional `goal_text` (high-level description), and `aggregation` method (how to combine criterion rewards).
+- **`RubricBundle`**: Contains `outcome` (evaluated at end of rollout) and/or `events` (evaluated per action/step). At least one must be provided.
+- **Weights**: Don't need to sum to 1.0 (flexible model). The verifier will normalize as needed.
+- **Required criteria**: If `required=True`, failing that criterion causes the entire rubric to fail (useful for "must be legal" checks).
+
+**OpenAPI compatibility (REQUIRED for Rust/non-Python clients):**
+
+All contract/boundary data classes must be OpenAPI-compatible so users can generate clients in Rust, TypeScript, etc.
+
+- ✅ **`Criterion` and `Rubric`**: Already Pydantic `BaseModel` → OpenAPI-compatible
+- ❌ **`RubricBundle`**: Currently a `@dataclass` → **MUST be converted to Pydantic `BaseModel`**
+- ❌ **`/info` endpoint**: Currently returns `Mapping[str, Any]` → **MUST have typed response model**
+
+**Required changes:**
+1. Convert `RubricBundle` from `@dataclass` to Pydantic `BaseModel` (enables automatic OpenAPI schema generation)
+2. Create `InfoResponse` Pydantic model for `/info` endpoint with typed `rubrics` field
+3. Update `/info` endpoint to use `response_model=InfoResponse`
+
+This ensures FastAPI generates complete OpenAPI schema that Rust/TypeScript clients can consume.
+
 ---
 
 ### Scope of changes
+
+#### Inventory (audit of current references)
+
+This is an explicit audit so we don’t miss any callers during the refactor. As of 2026-01-13:
+
+**synth-ai** (task-app side)
+- `demos/gepa_ptcg/localapi_ptcg.py`: currently constructs `RubricInfo` and attaches it to `TaskInfo(rubric=...)`.
+- `demos/gepa_crafter_vlm/demo_crafter_react.py`: sets `TaskInfo(..., rubric={...})` (legacy pattern).
+- `demos/web-design/web_design_task_app.py`: uses `RubricInfo` in `TaskInfo(rubric=RubricInfo(...))` (line 239).
+- `demos/web-design/run_demo.py`: imports and uses `RubricInfo`, `RubricCriterion`, `RubricSection` (lines 54, 57, 567).
+- `synth_ai/sdk/task/contracts.py`: defines `RubricInfo` and `TaskInfo.rubric` (deprecated).
+- `synth_ai/sdk/task/__init__.py`: re-exports `RubricInfo` (and related legacy symbols like `RubricCriterion`, `RubricSection`).
+- `synth_ai/sdk/task/localapi_template.py`: template yields `TaskInfo(...)` (ensure no rubric fields).
+- `synth_ai/cli/lib/apps/task_app.py`: validates `/info` and `/task_info` and already understands `/info.rubrics`.
+
+**monorepo** (backend side)
+- `backend/app/routes/eval/job_service.py`: captures task app reward, stores `outcome_reward`, calls verifier, then fuses into `reward`.
+- `backend/app/routes/eval/scoring.py`: currently passes task reward into verifier (`env_reward=...`) (double-counting risk).
+- `backend/app/routes/eval/models.py` and `backend/app/routes/eval/routes.py`: expose `outcome_reward` and `verifier_reward`.
+- `backend/app/routes/prompt_learning/core/verifying.py`: passes `env_reward` into `RubricPipeline.reward(...)`.
+- `backend/app/routes/prompt_learning/core/rubric_pipeline.py`: consumes `task_info["rubric"]` and has fallback merge-from-`/info`; also explicitly computes an env component in the verifier reward.
+- `backend/app/routes/prompt_learning/routes_online.py`: builds rubric payload from TaskInfo (`_build_rubric_payload(...)`).
+- Prompt-learning optimizers rely on outcome keys:
+  - `backend/app/routes/prompt_learning/algorithm/mipro/optimizer/optimizer.py`: prefers `outcome_reward`.
+  - `backend/app/routes/prompt_learning/algorithm/gepa/optimizer.py`: reads/writes `verifier_reward` and `outcome_reward`.
+- GEPA/GraphGen integration has separate “rubric” concepts (not LocalAPI rubrics):
+  - `backend/graphs/gepa_integration/graph_evolve_job.py`: `task_metadata.get("rubric")`, `task.get("rubric")` (GraphGen tasks).
+  - `backend/app/routes/graphgen/*`: uses `task.rubric` (GraphGen rubric).
+
+Note: GraphGen’s `task.rubric` is *not* the same contract as LocalAPI `/info.rubrics`. This plan does not unify those
+schemas, but we list them so reviewers know what is and isn’t being changed.
 
 #### synth-ai SDK (breaking)
 
 | File | Change |
 |------|--------|
-| `synth_ai/sdk/task/contracts.py` | **Delete** `TaskInfo.rubric` field (lines 287-290) |
-| `synth_ai/sdk/task/server.py` | Already correct — `LocalAPIConfig.rubrics` served from `/info` |
-| All demo task apps | Audit and remove any `rubric=...` in `TaskInfo` returns; ensure rubrics are in `LocalAPIConfig.rubrics` |
+| `synth_ai/sdk/task/contracts.py` | **Delete** `RubricInfo` and **delete** `TaskInfo.rubric` entirely (breaking) |
+| `synth_ai/sdk/task/__init__.py` | **Remove** legacy exports (`RubricInfo`, anything only supporting `TaskInfo.rubric`) |
+| `synth_ai/sdk/task/server.py` | **REQUIRED for OpenAPI**: Convert `RubricBundle` from `@dataclass` to Pydantic `BaseModel`. Create `InfoResponse` Pydantic model for `/info` endpoint with typed `rubrics: RubricBundle | None` field. Update `/info` endpoint to use `response_model=InfoResponse`. This enables OpenAPI schema generation for Rust/TypeScript clients. |
+| `synth_ai/sdk/task/localapi_template.py` | Ensure template does **not** set or mention `TaskInfo.rubric` |
+| `synth_ai/cli/lib/apps/task_app.py` | Confirm validators treat `/info.rubrics` as canonical and do not require `/task_info` to contain rubric |
+| `synth_ai/sdk/graphs/completions.py` | No change required (this is *verifier API input* rubrics, separate from LocalAPI advertising) |
+| All `synth-ai/demos/*` task apps | Remove any `TaskInfo(rubric=...)` usage; move to `LocalAPIConfig(rubrics=RubricBundle(...))` |
 
 #### monorepo backend (breaking)
 
 | File | Change |
 |------|--------|
-| `backend/app/routes/prompt_learning/core/rubric_pipeline.py` | **Delete** `_build_rubric_payload()` that reads `task_info["rubric"]`. Replace with direct fetch from `/info` rubrics. Remove fallback merge logic in `_TaskInfoFetcher.fetch()` (lines 131-169). |
-| `backend/app/routes/clustered_training/core/algorithms/gspo/pipeline_rl/task_info.py` | **Delete** `build_rubric_payload()` (entire function, lines 142-167). |
-| `backend/app/routes/prompt_learning/routes_online.py` | Update validation logic (line 623) to check `/info` rubrics, not `TaskInfo.rubric`. |
-| `backend/graphs/gepa_integration/graph_evolve_job.py` | Update `task_rubric` extraction to use `/info` rubrics (lines 4628-4653). |
-| `backend/app/routes/graphgen/dataset.py` | Update `task_rubric = task.rubric` (line 476) to source from `/info`. |
-| `backend/app/routes/graphgen/routes.py` | Update `task.rubric.model_dump()` (line 3325) to source from `/info`. |
-| `backend/app/routes/blog/demos/synth_ai_environments/examples/*.py` | Update all `"rubric": self.intent.rubric` usages to use `/info` pattern. |
-| `backend/app/routes/eval/scoring.py` | Change `env_reward=env_rewards.get(seed)` to `env_reward=None` (Part 1 fix). |
-| `backend/tests/unit/prompt_learning/test_rubric_pipeline_task_info.py` | **Delete or rewrite** tests that assume `TaskInfo.rubric` exists. |
-| `backend/tests/unit/test_rubric_pipeline.py` | Update tests to use `/info` rubrics. |
-| `backend/tests/unit/test_clustered_trainer_rubric.py` | Update tests. |
-| `merge_review/stash_files/backend/routes_online.py` | Delete or update stash file (or ignore if not used). |
+| `backend/app/routes/prompt_learning/core/rubric_pipeline.py` | **Delete** all reads of `task_info["rubric"]` and **delete** the fallback merge-from-`/info` logic (because `/info` is now the only source). Also remove/adjust env-component logic so verifier reward can be independent when desired. |
+| `backend/app/routes/prompt_learning/core/verifying.py` | Rename `env_reward` plumbing to `local_api_reward` (task app reward) and align internal naming to `verifier_reward`. |
+| `backend/app/routes/prompt_learning/routes_online.py` | Remove `_build_rubric_payload(task_info)` path; fetch rubrics from `/info` only. |
+| `backend/app/routes/eval/scoring.py` | **Fix double counting**: pass `local_api_reward=None` into verifier evaluation for eval jobs. |
+| `backend/app/routes/eval/job_service.py` | Rename internal variables to `local_api_reward` / `verifier_reward` and ensure persisted results store both separately. |
+| `backend/app/routes/eval/models.py` | Add canonical fields (or aliases) so API exposes `local_api_reward` and `verifier_reward` clearly. |
+| `backend/app/routes/eval/routes.py` | Expose new canonical names in responses; keep legacy aliases if needed (decision below). |
+| `backend/app/routes/prompt_learning/algorithm/mipro/optimizer/optimizer.py` | Keep reading task app reward (rename references internally); keep legacy fallback behavior as needed for older task apps. |
+| `backend/app/routes/prompt_learning/algorithm/gepa/optimizer.py` | Align field naming for rewards (`verifier_reward`, `local_api_reward` vs `outcome_reward`). |
+| `backend/app/routes/clustered_training/core/algorithms/gspo/pipeline_rl/task_info.py` | Remove TaskInfo rubric payload builders (now `/info` only). |
+| Backend unit/integration tests | Rewrite tests that assume `TaskInfo.rubric` exists; update fixtures/mocks to serve `/info.rubrics`. |
+
+**Out of scope (but audited):** GraphGen rubric fields in `backend/app/routes/graphgen/*` and `backend/graphs/gepa_integration/*`
+are not LocalAPI rubrics and are handled separately.
 
 #### Integration tests / demo task apps
 
@@ -392,36 +514,51 @@ Since this is a **breaking change**, external task apps that still use `TaskInfo
 
 ---
 
-### Implementation order
+### Implementation order (single PR/branch)
 
-1. **synth-ai SDK** (PR 1):
-   - Delete `TaskInfo.rubric` field from `contracts.py`.
-   - Audit all demo task apps; move rubrics to `LocalAPIConfig.rubrics`.
-   - Bump SDK version to indicate breaking change.
+All changes will be done in **one coordinated PR** across both repos:
 
-2. **monorepo backend** (PR 2, depends on PR 1 merged):
-   - Add `rubric_fetcher.py` helper.
-   - Replace all `task_info["rubric"]` reads with `fetch_rubric_bundle()`.
-   - Delete dead code: `_build_rubric_payload()`, `build_rubric_payload()`, fallback merge logic.
-   - Change `env_reward=None` in eval scoring (Part 1 fix).
-   - Update tests.
+**synth-ai SDK + demos** (breaking changes):
+- Delete `RubricInfo` and delete `TaskInfo.rubric` from `synth_ai/sdk/task/contracts.py`.
+- Remove exports in `synth_ai/sdk/task/__init__.py` (`RubricInfo`, `RubricCriterion`, `RubricSection`).
+- Update all affected demos (`demos/gepa_ptcg`, `demos/gepa_crafter_vlm`, `demos/web-design`) to advertise rubrics via
+  `LocalAPIConfig(rubrics=RubricBundle(...))` only.
+- Update any SDK templates/docs that mention `TaskInfo.rubric`.
+- Bump SDK major version.
 
-3. **Integration test pass** (PR 3):
-   - Run full pipeline RL / GEPA / eval test suite.
-   - Fix any remaining `TaskInfo.rubric` assumptions.
+**monorepo backend** (breaking changes):
+- Add `rubric_fetcher.py` helper.
+- Replace all `task_info["rubric"]` reads with `fetch_rubric_bundle()` (and remove any TaskInfo-rubric fallback).
+- Update eval verifier evaluation to **not** pass task reward into verifier evaluation:
+  - In `backend/app/routes/eval/scoring.py` line 50: Change `env_reward=env_rewards.get(seed)` to `env_reward=None` (prevents double counting).
+  - **Note**: The parameter name may still be `env_reward` in the verifier API signature; the key is passing `None` for eval jobs.
+- **Naming clarification**: The plan uses `local_api_reward` / `verifier_reward` as canonical names, but existing code uses `env_reward` / `outcome_reward` / `verifier_reward`. We can:
+  - Keep existing field names in persisted data (`outcome_reward`, `verifier_reward`) for backward compatibility.
+  - Optionally add API aliases (`local_api_reward` → `outcome_reward`, `verifier_reward` → `verifier_reward`) if desired.
+  - Rename internal variables for clarity where it doesn't break compatibility.
+- Update tests and fixtures to use `/info.rubrics`.
+
+**Integration test pass** (same PR):
+- Run full pipeline RL / GEPA / eval test suite.
+- Fix any remaining `TaskInfo.rubric` assumptions.
+- Validate that `local_api_reward` and `verifier_reward` are both present in outputs and fusion is correct.
 
 ---
 
 ### Validation / acceptance criteria (Part 2)
 
-- [ ] `TaskInfo` no longer has a `rubric` field in SDK.
+- [ ] `RubricInfo` does not exist in `synth-ai` SDK; `TaskInfo` has no `rubric` field.
+- [ ] No `TaskInfo.rubric` usage exists anywhere in `synth-ai` demos (verified: `gepa_ptcg`, `gepa_crafter_vlm`, `web-design` all migrated).
 - [ ] Backend does not read `task_info["rubric"]` anywhere.
-- [ ] All demo task apps serve rubrics from `/info`.
-- [ ] `GET /info` returns `{"rubrics": {"outcome": {...}, "events": {...}}}` for rubric-enabled task apps.
-- [ ] Verifier scoring works end-to-end with rubrics sourced from `/info`.
-- [ ] No double rubric fetch (backend calls `/info` once, caches result).
+- [ ] All rubric-enabled task apps expose rubrics via `GET /info` as `rubrics.outcome` and/or `rubrics.events`.
+- [ ] `RubricBundle` is a Pydantic `BaseModel` (not `@dataclass`) for OpenAPI compatibility.
+- [ ] `/info` endpoint has typed response model (`InfoResponse`) for OpenAPI schema generation.
+- [ ] FastAPI generates complete OpenAPI schema for `/info` endpoint (verifiable via `/docs` or `/openapi.json`).
+- [ ] Eval results contain **two distinct values**:
+  - `outcome_reward` (task app reward, also known as `local_api_reward` in plan terminology)
+  - `verifier_reward` (verifier reward, canonical naming)
+- [ ] Fusion uses them exactly once (no double counting): verifier evaluation receives `env_reward=None` for eval jobs.
 - [ ] All existing tests pass (with updates).
-- [ ] Eval verifier scoring passes `env_reward=None` (no double-counting).
 
 ---
 
@@ -439,9 +576,7 @@ Since this is a **breaking change**, external task apps that still use `TaskInfo
 
 | Step | Effort |
 |------|--------|
-| SDK PR (delete field, update demos) | 1-2 days |
-| Backend PR (refactor fetching, delete dead code, env_reward=None) | 2-3 days |
-| Test pass / fix regressions | 1-2 days |
+| Single PR (SDK + backend + tests) | 3-5 days |
 | **Total** | ~1 week |
 
 ---
@@ -450,8 +585,52 @@ Since this is a **breaking change**, external task apps that still use `TaskInfo
 
 This plan covers:
 
-1. **Verifier fusion** for PTCG evals — task app computes win/loss, verifier scores gameplay quality, backend fuses.
-2. **Scoring semantics fix** — pass `env_reward=None` to verifier to prevent double-counting.
+1. **Verifier fusion** for PTCG evals — task app computes win/loss, verifier evaluates gameplay quality, backend fuses.
+2. **Reward semantics fix** — pass `local_api_reward=None` to verifier evaluation for eval jobs to prevent double-counting.
 3. **Rubrics consolidation** — delete `TaskInfo.rubric`, single source via `GET /info` rubrics.
 
 All three changes are related and should be done together as a coordinated SDK + monorepo refactor.
+
+---
+
+## Finalization notes (what is “done” when this plan is approved)
+
+This plan is considered finalized when:
+- The above inventory items are either updated or explicitly marked out-of-scope in code review.
+- Single PR lands with:
+  - SDK: `TaskInfo.rubric` fully removed and demos migrated
+  - Backend: verifier evaluation independent of task reward in eval jobs
+  - Backend: explicit result separation (`local_api_reward`, `verifier_reward`)
+  - Backend: rubrics sourced from `/info` only
+  - Tests: end-to-end validation passes
+
+---
+
+## Verification checklist (comprehensive sweep)
+
+**✅ synth-ai SDK changes:**
+- [x] `RubricInfo` deletion scoped (`contracts.py`)
+- [x] `TaskInfo.rubric` deletion scoped (`contracts.py`)
+- [x] Legacy exports removal scoped (`__init__.py`: `RubricInfo`, `RubricCriterion`, `RubricSection`)
+- [x] All demos identified: `gepa_ptcg`, `gepa_crafter_vlm`, `web-design`
+
+**✅ monorepo backend changes:**
+- [x] Double-counting fix scoped (`eval/scoring.py` line 50: `env_reward=None`)
+- [x] Rubric fetching refactor scoped (`rubric_pipeline.py`, `routes_online.py`, `task_info.py`)
+- [x] All `task_info["rubric"]` reads identified and scoped for removal
+- [x] GraphGen rubrics explicitly marked out-of-scope (with TODOs added)
+
+**✅ Naming clarity:**
+- [x] Plan terminology (`local_api_reward`, `verifier_reward`) documented
+- [x] Existing field names (`outcome_reward`, `verifier_reward`) acknowledged
+- [x] Migration path clarified (keep existing names for compatibility, add aliases if desired)
+
+**✅ 0→1 approach confirmed:**
+- [x] No partial deprecation — `TaskInfo.rubric` fully removed
+- [x] No grace period — breaking change with migration guide
+- [x] Single source of truth — `/info` rubrics only
+
+**✅ Implementation order:**
+- [x] Single PR/branch: All changes coordinated together (SDK + backend + tests)
+
+**Plan status: ✅ COMPREHENSIVE AND FINAL**

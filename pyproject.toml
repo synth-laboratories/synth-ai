@@ -193,6 +193,7 @@ src = ["synth_ai"]
 extend-exclude = [
     ".venv",
     ".tmp",
+    "**/*.ipynb",
     "dev",
     "docs",
     "scripts",

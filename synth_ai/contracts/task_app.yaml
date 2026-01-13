@@ -714,26 +714,18 @@ components:
       type: object
       additionalProperties: true
       description: |
-        Task metadata returned by `/info` endpoint.
         Matches Python SDK's `TaskInfo` model structure.
       required:
         - task
-        - environment
         - dataset
         - inference
+        - limits
       properties:
         task:
           $ref: '#/components/schemas/TaskDescriptor'
 
-        environment:
-          type: string
-          description: Environment identifier (e.g., "banking77", "crafter")
-
         dataset:
           $ref: '#/components/schemas/DatasetInfo'
-
-        rubric:
-          $ref: '#/components/schemas/RubricInfo'
 
         inference:
           $ref: '#/components/schemas/InferenceInfo'
@@ -809,34 +801,13 @@ components:
           nullable: true
           description: Dataset description
 
-    RubricInfo:
+    # =========================================================================
+    # RUBRICS (advertised via /info.rubrics)
+    # =========================================================================
+    Criterion:
       type: object
       additionalProperties: true
-      description: Outcome and event scoring definitions used by verifiers
-      properties:
-        outcome:
-          $ref: '#/components/schemas/RubricSection'
-
-        events:
-          $ref: '#/components/schemas/RubricSection'
-
-    RubricSection:
-      type: object
-      additionalProperties: true
-      properties:
-        name:
-          type: string
-          description: Section name
-
-        criteria:
-          type: array
-          items:
-            $ref: '#/components/schemas/RubricCriterion'
-          default: []
-
-    RubricCriterion:
-      type: object
-      additionalProperties: true
+      description: Single evaluation criterion used in a rubric.
       required:
         - id
         - description
@@ -852,7 +823,78 @@ components:
         weight:
           type: number
           nullable: true
-          description: Weight for scoring
+          description: Relative weight for reward computation (must be > 0).
+
+        required:
+          type: boolean
+          nullable: true
+          description: If true, failing this criterion fails the rubric.
+
+    Rubric:
+      type: object
+      additionalProperties: true
+      description: Rubric definition (goal + criteria + aggregation).
+      required:
+        - version
+        - criteria
+      properties:
+        version:
+          type: string
+          description: Rubric version.
+        goal_text:
+          type: string
+          nullable: true
+          description: High-level goal description (optional).
+        criteria:
+          type: array
+          items:
+            $ref: '#/components/schemas/Criterion'
+          default: []
+        aggregation:
+          type: string
+          nullable: true
+          description: How to aggregate criterion rewards (e.g., weighted_sum).
+
+    RubricBundle:
+      type: object
+      additionalProperties: true
+      description: Rubrics advertised by a task app for verifier evaluation.
+      properties:
+        outcome:
+          $ref: '#/components/schemas/Rubric'
+        events:
+          $ref: '#/components/schemas/Rubric'
+
+    InfoResponse:
+      type: object
+      additionalProperties: true
+      description: Typed `/info` response (OpenAPI-friendly).
+      required:
+        - service
+        - dataset
+        - inference
+        - limits
+      properties:
+        service:
+          type: object
+          additionalProperties: true
+          required:
+            - task
+          properties:
+            task:
+              $ref: '#/components/schemas/TaskDescriptor'
+            version:
+              type: string
+              nullable: true
+              description: Task app version.
+        dataset:
+          $ref: '#/components/schemas/DatasetInfo'
+        rubrics:
+          $ref: '#/components/schemas/RubricBundle'
+        inference:
+          $ref: '#/components/schemas/InferenceInfo'
+        limits:
+          $ref: '#/components/schemas/LimitsInfo'
 
     InferenceInfo:
       type: object
@@ -978,14 +1020,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TaskInfo'
+                $ref: '#/components/schemas/InfoResponse'
               example:
-                task:
-                  id: "banking77"
-                  name: "Banking77 Intent Classification"
-                  description: "Classify banking customer queries into 77 intent categories"
-                  version: "1.0.0"
-                environment: "banking77"
                 dataset:
                   id: "banking77"
                   name: "Banking77"
@@ -993,21 +1029,27 @@ paths:
                     - "train"
                     - "test"
                   default_split: "train"
-                rubric:
+                service:
+                  task:
+                    id: "banking77"
+                    name: "Banking77 Intent Classification"
+                    description: "Classify banking customer queries into 77 intent categories"
+                    version: "1.0.0"
+                rubrics:
                   outcome:
-                    name: "intent_accuracy"
+                    version: "1.0"
+                    goal_text: "Evaluate intent classification quality"
+                    aggregation: "weighted_sum"
                     criteria:
                       - id: "correct_intent"
                         description: "Correctly classify the customer query"
                         weight: 1.0
+                        required: true
                 inference:
                   model: "gpt-4o-mini"
                 limits:
                   max_turns: 1
                   timeout_seconds: 30
-                task_metadata:
-                  format: "tool_call"
-                  tool_name: "banking77_classify"
         '401':
           description: Unauthorized
           content:
