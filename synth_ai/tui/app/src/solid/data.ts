@@ -5,11 +5,9 @@ import { refreshJobs, selectJob } from "../api/jobs"
 import { loadPersistedSettings } from "../persistence/settings"
 import {
   appState,
-  backendConfigs,
-  frontendKeys,
-  frontendKeySources,
-  getKeyForBackend,
-  normalizeBackendId,
+  modeKeys,
+  normalizeMode,
+  switchMode,
 } from "../state/app-state"
 import { config } from "../state/polling"
 import { snapshot } from "../state/snapshot"
@@ -32,17 +30,16 @@ export function useSolidData(): SolidData {
   const ctx = createSolidContext(bump)
 
   async function bootstrap(): Promise<void> {
+    // Load persisted mode and keys
     await loadPersistedSettings({
       settingsFilePath: config.settingsFilePath,
-      normalizeBackendId,
-      setCurrentBackend: (id) => { appState.currentBackend = id },
-      setFrontendKey: (id, key) => { frontendKeys[id] = key },
-      setFrontendKeySource: (id, source) => { frontendKeySources[id] = source },
+      normalizeMode,
+      setCurrentMode: (mode) => { appState.currentMode = mode },
+      setModeKey: (mode, key) => { modeKeys[mode] = key },
     })
 
-    const currentConfig = backendConfigs[appState.currentBackend]
-    process.env.SYNTH_BACKEND_URL = currentConfig.baseUrl.replace(/\/api$/, "")
-    process.env.SYNTH_API_KEY = getKeyForBackend(appState.currentBackend) || process.env.SYNTH_API_KEY || ""
+    // Apply current mode's URLs to env
+    switchMode(appState.currentMode)
     bump()
 
     if (isLoggedOutMarkerSet()) {
@@ -51,10 +48,12 @@ export function useSolidData(): SolidData {
       return
     }
 
+    // Try loading saved key if not set
     if (!process.env.SYNTH_API_KEY) {
       const savedKey = loadSavedApiKey()
       if (savedKey) {
         process.env.SYNTH_API_KEY = savedKey
+        modeKeys[appState.currentMode] = savedKey
       }
     }
 

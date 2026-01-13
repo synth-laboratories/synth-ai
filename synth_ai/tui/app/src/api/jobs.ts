@@ -25,7 +25,7 @@ export async function refreshJobs(ctx: AppContext, options: { signal?: AbortSign
   try {
     if (options.signal?.aborted) return false
     snapshot.status = "Refreshing jobs..."
-    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config.jobLimit}&offset=0`, options)
+    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${config.jobLimit}`, options)
     const promptJobs = extractJobs(promptPayload, "prompt-learning")
 
     let learningJobs: JobSummary[] = []

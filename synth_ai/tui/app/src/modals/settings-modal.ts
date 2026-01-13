@@ -1,24 +1,20 @@
 /**
- * Settings (backend selection) modal controller.
+ * Settings (mode selection) modal controller.
  * Adapted for nightly's focusManager and createModalUI patterns.
  */
 import type { AppContext } from "../context"
-import type { BackendConfig } from "../types"
+import type { Mode } from "../types"
 import { createModalUI, clamp, type ModalController, type ModalUI } from "./base"
 import { focusManager } from "../focus"
-import {
-  appState,
-  backendConfigs,
-  frontendKeys,
-  frontendKeySources,
-  getKeyForBackend,
-  getFrontendUrl,
-} from "../state/app-state"
+import { appState, modeKeys, modeUrls, switchMode } from "../state/app-state"
 
-// Type declaration for Node.js process (available at runtime)
-declare const process: {
-  env: Record<string, string | undefined>
+const MODE_LABELS: Record<Mode, string> = {
+  prod: "Prod",
+  dev: "Dev",
+  local: "Local",
 }
+
+const MODES: Mode[] = ["prod", "dev", "local"]
 
 export type SettingsModalController = ModalController & {
   open: () => void
@@ -31,7 +27,7 @@ export function createSettingsModal(
   ctx: AppContext,
   deps?: {
     onOpenKeyModal?: () => void
-    onBackendSwitch?: () => Promise<void>
+    onModeSwitch?: () => Promise<void>
   },
 ): SettingsModalController {
   const { renderer } = ctx
@@ -48,33 +44,26 @@ export function createSettingsModal(
   })
 
   // Set initial content
-  modal.setTitle("Settings - Backend")
+  modal.setTitle("Settings - Mode")
   modal.setHint("j/k navigate  Enter select  Shift+K keys  q close")
-
-  function buildSettingsOptions(): BackendConfig[] {
-    return [backendConfigs.prod, backendConfigs.dev, backendConfigs.local]
-  }
 
   function renderList(): void {
     const lines: string[] = []
-    for (let idx = 0; idx < appState.settingsOptions.length; idx++) {
-      const opt = appState.settingsOptions[idx]
-      const active = appState.currentBackend === opt.id
+    for (let idx = 0; idx < MODES.length; idx++) {
+      const mode = MODES[idx]
+      const active = appState.currentMode === mode
       const cursor = idx === appState.settingsCursor ? ">" : " "
-      lines.push(`${cursor} [${active ? "x" : " "}] ${opt.label} (${opt.id})`)
+      lines.push(`${cursor} [${active ? "x" : " "}] ${MODE_LABELS[mode]} (${mode})`)
     }
 
-    const selected = appState.settingsOptions[appState.settingsCursor]
-    if (selected) {
-      // Keys are stored by frontend URL, so dev and local share the same key
-      // Show actual key for this frontend URL - no fallback to avoid confusion
-      const key = getKeyForBackend(selected.id)
+    const selectedMode = MODES[appState.settingsCursor]
+    if (selectedMode) {
+      const urls = modeUrls[selectedMode]
+      const key = modeKeys[selectedMode]
       const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)"
-      const frontendUrl = getFrontendUrl(selected.id)
-
       lines.push("")
-      lines.push(`Backend: ${selected.baseUrl}`)
-      lines.push(`Frontend: ${frontendUrl}`)
+      lines.push(`Backend: ${urls.backendUrl || "(unset)"}`)
+      lines.push(`Frontend: ${urls.frontendUrl || "(unset)"}`)
       lines.push(`Key: ${keyPreview}`)
     }
 
@@ -89,11 +78,8 @@ export function createSettingsModal(
         handleKey,
       })
       modal.center()
-      appState.settingsOptions = buildSettingsOptions()
-      appState.settingsCursor = Math.max(
-        0,
-        appState.settingsOptions.findIndex((opt) => opt.id === appState.currentBackend),
-      )
+      appState.settingsOptions = [...MODES]
+      appState.settingsCursor = Math.max(0, MODES.indexOf(appState.currentMode))
       renderList()
     } else {
       focusManager.pop("settings-modal")
@@ -102,39 +88,40 @@ export function createSettingsModal(
   }
 
   function move(delta: number): void {
-    const max = Math.max(0, appState.settingsOptions.length - 1)
+    const max = Math.max(0, MODES.length - 1)
     appState.settingsCursor = clamp(appState.settingsCursor + delta, 0, max)
     renderList()
   }
 
   async function select(): Promise<void> {
-    const selected = appState.settingsOptions[appState.settingsCursor]
-    if (!selected) return
+    const selectedMode = MODES[appState.settingsCursor]
+    if (!selectedMode) return
 
-    appState.currentBackend = selected.id
+    const urls = modeUrls[selectedMode]
+    if (!urls.backendUrl || !urls.frontendUrl) {
+      ctx.state.snapshot.status = `Missing URLs for ${MODE_LABELS[selectedMode]}.`
+      ctx.render()
+      return
+    }
 
-    // Update process.env so nightly's URL resolution picks it up
-    // Remove /api suffix for the env var (it gets added by the API client)
-    const baseUrl = selected.baseUrl.replace(/\/api$/, "")
-    process.env.SYNTH_BACKEND_URL = baseUrl
-    process.env.SYNTH_API_KEY = getKeyForBackend(selected.id) || ""
+    // Switch mode (updates env vars and state)
+    switchMode(selectedMode)
 
     toggle(false)
-    ctx.state.snapshot.status = `Switching to ${selected.label}...`
+    ctx.state.snapshot.status = `Switching to ${MODE_LABELS[selectedMode]}...`
     ctx.render()
 
     // Persist settings
     const { persistSettings } = await import("../persistence/settings")
     await persistSettings({
       settingsFilePath: config.settingsFilePath,
-      getCurrentBackend: () => appState.currentBackend,
-      getFrontendKey: (id) => frontendKeys[id],
-      getFrontendKeySource: (id) => frontendKeySources[id],
+      getCurrentMode: () => appState.currentMode,
+      getModeKeys: () => modeKeys,
     })
 
-    // Trigger refresh after backend switch
-    if (deps?.onBackendSwitch) {
-      await deps.onBackendSwitch()
+    // Trigger refresh after mode switch
+    if (deps?.onModeSwitch) {
+      await deps.onModeSwitch()
     }
   }
 

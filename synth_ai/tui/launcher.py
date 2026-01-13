@@ -1,11 +1,12 @@
 """TUI launcher - spawns the OpenTUI JS app via bun."""
 
+import json
 import os
 import subprocess
 from pathlib import Path
 from shutil import which
 
-from synth_ai.core.urls import BACKEND_URL_BASE, FRONTEND_URL_BASE
+from synth_ai.tui.urls import TUI_URL_PROFILES, resolve_tui_profile
 
 BUNTIME = which("bun")
 TUI_ROOT_PATH = Path(__file__).resolve().parent / "app"
@@ -89,8 +90,20 @@ def run_tui() -> None:
     _ensure_dependencies_installed(BUNTIME)
 
     env = dict(os.environ)
-    env["SYNTH_BACKEND_URL"] = BACKEND_URL_BASE
-    env["SYNTH_FRONTEND_URL"] = FRONTEND_URL_BASE
+    mode = env.get("SYNTH_TUI_MODE", "prod")
+    profile = resolve_tui_profile(mode)
+    env["SYNTH_TUI_MODE"] = mode
+    env["SYNTH_BACKEND_URL"] = profile.backend_url
+    env["SYNTH_FRONTEND_URL"] = profile.frontend_url
+    env["SYNTH_TUI_URL_PROFILES"] = json.dumps(
+        {
+            name: {
+                "backendUrl": prof.backend_url,
+                "frontendUrl": prof.frontend_url,
+            }
+            for name, prof in TUI_URL_PROFILES.items()
+        }
+    )
     # API key (prefer login/config flow; only pass through env if already set)
     if "SYNTH_API_KEY" not in env:
         env["SYNTH_API_KEY"] = ""

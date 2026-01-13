@@ -1,13 +1,10 @@
 /**
  * Device code authentication flow for TUI.
  *
- * Frontend URL is determined by the current backend mode:
- * - prod: https://usesynth.ai
- * - dev/local: http://localhost:3000
+ * Frontend URL is determined by the current backend mode and env overrides.
  */
 
 import { spawn } from "node:child_process"
-import { appState, getFrontendUrl } from "./state/app-state"
 
 export type AuthSession = {
   deviceCode: string
@@ -31,9 +28,9 @@ export type AuthStatus =
 
 const POLL_INTERVAL_MS = 3000
 
-/** Get the current frontend URL based on backend mode */
+/** Get the current frontend URL from env */
 function getAuthFrontendUrl(): string {
-  return getFrontendUrl(appState.currentBackend)
+  return process.env.SYNTH_FRONTEND_URL || ""
 }
 
 /**
