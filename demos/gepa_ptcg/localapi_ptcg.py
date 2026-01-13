@@ -127,11 +127,18 @@ def ensure_tcg_py_built() -> None:
     if not tcg_py_dir.exists():
         raise RuntimeError(f"tcg_py directory not found at {tcg_py_dir}")
 
-    # Check if already importable
+    # If engine-bench is on sys.path (common after editable installs), it can shadow the compiled
+    # extension with a namespace package. Remove it before checking/importing.
+    engine_bench_path = str(ENGINE_BENCH_DIR)
+    if engine_bench_path in sys.path:
+        sys.path.remove(engine_bench_path)
+
+    # Check if already importable and exposes the API we need.
     try:
         import tcg_py  # noqa: F401
 
-        return
+        if hasattr(tcg_py, "PtcgGame"):
+            return
     except ImportError:
         pass
 
