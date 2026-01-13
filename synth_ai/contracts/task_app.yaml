@@ -559,6 +559,21 @@ components:
             Inference URL used for this rollout.
             TOP-LEVEL CANONICAL LOCATION.
 
+        artifact:
+          type: array
+          items:
+            $ref: '#/components/schemas/Artifact'
+          nullable: true
+          description: Optional list of artifacts produced by the rollout.
+
+        success_status:
+          $ref: '#/components/schemas/SuccessStatus'
+
+        status_detail:
+          type: string
+          nullable: true
+          description: Optional debug detail for success_status.
+
         # LEGACY FIELDS (Backward Compatibility)
         branches:
           type: object
@@ -650,6 +665,7 @@ components:
         - `event_rewards`: Per-step rewards for multi-step tasks
         - `outcome_objectives`: Multi-objective outcomes (e.g., {"reward": 0.9, "latency": 0.5})
         - `event_objectives`: Per-event objectives aligned to trace events
+        - `instance_objectives`: Per-seed objectives aligned to responses
         - `details`: Metadata only (not for scoring)
 
         ## Example - Minimal
@@ -701,11 +717,71 @@ components:
           nullable: true
           description: Optional per-event objectives aligned to trace events.
 
+        instance_objectives:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: number
+          nullable: true
+          description: Optional per-seed objectives aligned to response order.
+
         details:
           type: object
           additionalProperties: true
           default: {}
           description: "Metadata only. Do NOT use details for reward computation."
+
+    SuccessStatus:
+      type: string
+      description: Infrastructure/runtime success status (orthogonal to reward).
+      enum:
+        - success
+        - timeout
+        - network_error
+        - apply_failed
+        - runtime_error
+        - failure
+
+    Artifact:
+      type: object
+      description: Artifact produced by a rollout.
+      required:
+        - content
+        - content_type
+      properties:
+        content:
+          description: Inline artifact content (string or object).
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+        content_type:
+          type: string
+          description: Free-form type identifier (e.g., "rust_code").
+        metadata:
+          type: object
+          additionalProperties: true
+          default: {}
+        artifact_id:
+          type: string
+          nullable: true
+        trace_correlation_id:
+          type: string
+          nullable: true
+        size_bytes:
+          type: integer
+          nullable: true
+        sha256:
+          type: string
+          nullable: true
+        storage:
+          type: object
+          nullable: true
+          additionalProperties: true
+        created_at:
+          type: string
+          nullable: true
 
     # =========================================================================
     # INFO ENDPOINT SCHEMAS
