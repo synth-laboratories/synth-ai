@@ -1,6 +1,7 @@
 /**
  * Event formatting and filtering helpers.
  */
+import { formatActionKeys } from "../input/keymap"
 import type { JobEvent } from "../tui_data"
 
 export function formatEventData(data: unknown): string {
@@ -72,11 +73,20 @@ export function formatEventCardText(
     const clipped = detail.length > 900 ? `${detail.slice(0, 897)}...` : detail
     return `${header}\n${clipped}`
   }
-  const trimmed =
-    detail.length > 120
-      ? `${detail.slice(0, 117)}...${opts?.isLong ? " (enter to view)" : ""}`
-      : detail
+  const viewHint = opts?.isLong
+    ? ` (${formatActionKeys("pane.select", { primaryOnly: true })} to view)`
+    : ""
+  const trimmed = detail.length > 120 ? `${detail.slice(0, 117)}...${viewHint}` : detail
   return `${header}\n${trimmed}`
 }
 
-
+export function formatEventDetail(data: JobEvent["data"]): string {
+  if (data == null) return ""
+  if (typeof data === "string") return data
+  if (typeof data === "number" || typeof data === "boolean") return String(data)
+  try {
+    return JSON.stringify(data, null, 2)
+  } catch {
+    return String(data)
+  }
+}

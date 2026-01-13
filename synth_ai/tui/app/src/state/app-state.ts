@@ -2,77 +2,37 @@
  * Global application state.
  */
 
-import type { ActivePane, LogSource, Mode, ModeUrls } from "../types"
+import type { ActivePane, FocusTarget, LogSource, Mode } from "../types"
+import {
+  modeUrls,
+  modeKeys,
+  switchMode as coreSwitchMode,
+  getCurrentMode,
+  setModeKey,
+  setCurrentMode,
+  initModeState,
+} from "./mode"
 
-/** Normalize mode from env string */
-export function normalizeMode(value: string): Mode {
-  const lower = value.toLowerCase().trim()
-  if (lower === "dev" || lower === "development") return "dev"
-  if (lower === "local" || lower === "localhost") return "local"
-  return "prod"
-}
+// Re-export mode-related items
+export { modeUrls, modeKeys, setModeKey, setCurrentMode, initModeState }
 
-/** Load URL profiles from launcher env var */
-function loadModeUrls(): Record<Mode, ModeUrls> {
-  const raw = process.env.SYNTH_TUI_URL_PROFILES || ""
-  if (!raw) {
-    return {
-      prod: { backendUrl: "", frontendUrl: "" },
-      dev: { backendUrl: "", frontendUrl: "" },
-      local: { backendUrl: "", frontendUrl: "" },
-    }
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Record<string, Partial<ModeUrls>>
-    const read = (key: string): ModeUrls => ({
-      backendUrl: String(parsed?.[key]?.backendUrl || ""),
-      frontendUrl: String(parsed?.[key]?.frontendUrl || ""),
-    })
-    return { prod: read("prod"), dev: read("dev"), local: read("local") }
-  } catch {
-    return {
-      prod: { backendUrl: "", frontendUrl: "" },
-      dev: { backendUrl: "", frontendUrl: "" },
-      local: { backendUrl: "", frontendUrl: "" },
-    }
-  }
-}
-
-/** URLs for each mode (loaded from SYNTH_TUI_URL_PROFILES) */
-export const modeUrls = loadModeUrls()
-
-/** API keys per mode */
-export const modeKeys: Record<Mode, string> = {
-  prod: "",
-  dev: "",
-  local: "",
-}
-
-// Initialize current mode's key from env
-const initialMode = normalizeMode(process.env.SYNTH_TUI_MODE || "prod")
-if (process.env.SYNTH_API_KEY) {
-  modeKeys[initialMode] = process.env.SYNTH_API_KEY
-}
-
-/** Switch to a different mode - updates env vars and state */
+/** Switch to a different mode - updates env vars and app state */
 export function switchMode(mode: Mode): void {
-  const urls = modeUrls[mode]
-  process.env.SYNTH_TUI_MODE = mode
-  process.env.SYNTH_BACKEND_URL = urls.backendUrl
-  process.env.SYNTH_FRONTEND_URL = urls.frontendUrl
-  process.env.SYNTH_API_KEY = modeKeys[mode] || ""
+  coreSwitchMode(mode)
   appState.currentMode = mode
 }
 
 // Mutable app state
 export const appState = {
-  // Mode state
-  currentMode: initialMode,
+  // Mode state (initialized later via initModeState)
+  currentMode: getCurrentMode(),
 
   activePane: "jobs" as ActivePane,
+  focusTarget: "list" as FocusTarget,
   healthStatus: "unknown",
   autoSelected: false,
+
+  loginPromptDismissed: false,
 
   // Event state
   lastSeq: 0,
@@ -149,8 +109,4 @@ export const appState = {
 
   // Metrics panel view state
   metricsView: "latest" as "latest" | "charts",
-}
-
-export function setActivePane(pane: ActivePane): void {
-  appState.activePane = pane
 }

@@ -1,25 +1,28 @@
-import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
+import { render, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { ErrorBoundary, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type Component } from "solid-js"
 import { Dynamic } from "solid-js/web"
-import fs from "node:fs"
 import path from "node:path"
 
 import { computeLayoutMetrics, defaultLayoutSpec } from "./layout"
 import { useSolidData } from "./data"
 import { COLORS } from "./theme"
 import { KeyHint } from "./components/KeyHint"
+import { ModalFrame } from "./components/ModalFrame"
 import { JobsList } from "./ui/list-panels/JobsList"
 import { LogsList } from "./ui/list-panels/LogsList"
 import { JobsDetail } from "./ui/detail-panels/JobsDetail"
 import { LogsDetail } from "./ui/detail-panels/LogsDetail"
-import { useJobDetailsStream } from "./api/useJobDetailsStream"
-import type { JobDetailsStreamEvent } from "./api/job-details-stream"
+import { ActiveModalRenderer } from "./modals/ActiveModalRenderer"
+import type { ActiveModal, ModalState, UsageData } from "./modals/types"
 import type { JobCreatedInfo } from "./modals/CreateJobModal"
-import { scanMultipleDirectories, type ScannedLocalAPI } from "./utils/localapi-scanner"
 import { toDisplayPath } from "./utils/files"
+import { useLocalApiScanner } from "./utils/localapi-watch"
+import { useLiveLogs } from "./utils/live-logs"
+import { useJobEvents } from "./hooks/useJobEvents"
+import { useJobSelection } from "./hooks/useJobSelection"
+import { useAppKeybindings } from "./hooks/useAppKeybindings"
 
-import { getFilteredEvents } from "../formatters"
-import { formatMetricsCharts } from "../formatters/metrics"
+import { formatEventDetail, getFilteredEvents } from "../formatters"
 import { buildJobStatusOptions, getFilteredJobs } from "../selectors/jobs"
 import { cancelSelected, fetchArtifacts, fetchMetrics } from "../api/jobs"
 import { apiGet } from "../api/client"
@@ -30,85 +33,22 @@ import { openBrowser, runDeviceCodeAuth, type AuthStatus } from "../auth"
 import { copyToClipboard } from "../utils/clipboard"
 import { clearLoggedOutMarker, deleteSavedApiKey, saveApiKey, setLoggedOutMarker } from "../utils/logout-marker"
 import { persistSettings } from "../persistence/settings"
-import { listLogFiles, moveLogSelection } from "../ui/logs"
-import { moveEventSelection } from "../ui/events"
-import { refreshEvents } from "../api/events"
+import { moveEventSelection } from "./utils/events"
+import { readLogFile } from "./utils/logs"
 import type { JobEvent } from "../tui_data"
-import type { SessionHealthResult, SessionRecord, Snapshot, TunnelHealthResult, TunnelRecord } from "../types"
+import type { SessionHealthResult, SessionRecord } from "../types"
 import { focusManager } from "../focus"
 import { modeKeys, modeUrls, switchMode } from "../state/app-state"
 import { pollingState, clearEventsTimer, clearJobsTimer } from "../state/polling"
 import { installSignalHandlers, registerCleanup, unregisterCleanup, registerRenderer, shutdown } from "../lifecycle"
 import { createAbortControllerRegistry, isAbortError } from "../utils/abort"
 import { isAborted } from "../utils/request"
+import { clamp, wrapModalText } from "../utils/truncate"
+import { formatActionKeys } from "../input/keymap"
 
 function wireShutdown(renderer: { stop: () => void; destroy: () => void }): void {
   registerRenderer(renderer)
   installSignalHandlers() // Safe to call multiple times
-}
-
-type ModalState =
-  | {
-      type: "event"
-      title: string
-      raw: string
-      offset: number
-      fullscreen?: boolean
-    }
-  | {
-      type: "log"
-      title: string
-      raw: string
-      offset: number
-      tail: boolean
-      path: string
-      fullscreen?: boolean
-    }
-
-type ActiveModal =
-  | "filter"
-  | "job-filter"
-  | "snapshot"
-  | "key"
-  | "settings"
-  | "usage"
-  | "task-apps"
-  | "sessions"
-  | "config"
-  | "results"
-  | "profile"
-  | "urls"
-  | "login"
-  | "metrics"
-  | "traces"
-
-type UsageData = {
-  plan_type: "free" | "pro" | "team" | "byok"
-  status: "active" | "cancelled" | "past_due" | "trialing" | "inactive"
-  access_tier?: string | null
-  rollout_credits_balance_usd?: number | null
-  rollout_credits_used_this_period_usd?: number | null
-  byok_providers?: string[]
-  limits: {
-    monthly_rollout_credits_usd: number
-    max_overdraft_usd: number
-    unlimited_non_rollout: boolean
-    team_features_enabled: boolean
-    byok_enabled: boolean
-  }
-  usage_summary?: {
-    total_cost_usd: number
-    total_charged_usd: number
-    total_uncharged_usd: number
-    by_type: Array<{
-      usage_type: string
-      total_cost_usd: number
-      charged_cost_usd: number
-      uncharged_cost_usd: number
-      event_count: number
-      byok_event_count: number
-    }>
-  }
 }
 
 export async function runSolidApp(): Promise<void> {
@@ -216,6 +156,10 @@ function SolidShell(props: { onExit?: () => void }) {
     data.version()
     return data.ctx.state.appState.activePane
   })
+  const focusTarget = createMemo(() => {
+    data.version()
+    return data.ctx.state.appState.focusTarget
+  })
   const principalPane = createMemo(() => {
     data.version()
     return data.ctx.state.appState.principalPane
@@ -293,149 +237,49 @@ function SolidShell(props: { onExit?: () => void }) {
     return data.ctx.state.snapshot.selectedJob?.job_id ?? null
   })
 
-  // Track highest seen event seq for incremental SSE updates
-  const [lastSeenSeq, setLastSeenSeq] = createSignal(0)
-
-  // Subscribe to real-time job details updates via SSE
-  useJobDetailsStream({
-    jobId: selectedJobId,
-    sinceSeq: lastSeenSeq,
-    enabled: () => principalPane() === "jobs" && activePane() !== "logs",
-    onEvent: (event: JobDetailsStreamEvent) => {
-      // Update highest seen seq
-      if (event.seq > lastSeenSeq()) {
-        setLastSeenSeq(event.seq)
-      }
-      // Keep polling cursor in sync with SSE cursor so refreshEvents() doesn't refetch from 0.
-      appState.lastSeq = Math.max(appState.lastSeq || 0, event.seq)
-
-      // Convert SSE event to JobEvent format and add to snapshot
-      const jobEvent: JobEvent = {
-        seq: event.seq,
-        type: event.type,
-        message: event.message,
-        data: event.data as JobEvent["data"],
-        timestamp: new Date(event.ts).toISOString(),
-      }
-
-      // Add event to snapshot (avoiding duplicates by seq)
-      const existingSeqs = new Set(snapshot.events.map(e => e.seq))
-      if (!existingSeqs.has(jobEvent.seq)) {
-        snapshot.events = [...snapshot.events, jobEvent].sort((a, b) => a.seq - b.seq)
-        data.ctx.render()
-      }
-    },
-    onError: (error) => {
-      // Log but don't show to user - polling will still work as fallback
-      console.error("Job details SSE error:", error.message)
-    },
+  useJobEvents({
+    ctx: data.ctx,
+    selectedJobId,
+    activePane,
+    principalPane,
+  })
+  const liveLogs = useLiveLogs({
+    listActive: () => activePane() === "logs",
+    detailActive: () => activePane() === "logs" && principalPane() === "jobs",
+    onSelectionAdjusted: () => data.ctx.render(),
   })
 
-  // Poll/backfill events to avoid gaps when SSE drops or when selecting an older job.
-  // We keep this lightweight (small interval + bounded backfill loop).
-  createEffect(() => {
-    const jobId = selectedJobId()
-    const enabled = principalPane() === "jobs" && activePane() !== "logs"
-    if (!jobId || !enabled) return
-
-    let cancelled = false
-
-    async function backfillOnce(): Promise<void> {
-      // Pull up to ~10 pages (2000 events) max per selection, but stop early if no progress.
-      for (let i = 0; i < 10; i++) {
-        const beforeSeq = appState.lastSeq
-        const beforeLen = snapshot.events.length
-        const ok = await refreshEvents(data.ctx)
-        if (!ok) break
-        if (cancelled) return
-        if (snapshot.events.length === beforeLen && appState.lastSeq === beforeSeq) break
-      }
-      if (!cancelled) data.ctx.render()
-    }
-
-    void backfillOnce()
-
-    const interval = setInterval(() => {
-      void refreshEvents(data.ctx).then((ok) => {
-        if (ok && !cancelled) data.ctx.render()
-      })
-    }, 3000)
-    const cleanupName = "events-refresh-interval"
-    const cleanup = () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-    registerCleanup(cleanupName, cleanup)
-    onCleanup(() => {
-      cleanup()
-      unregisterCleanup(cleanupName)
-    })
-  })
-  const logFiles = createMemo(() => {
-    data.version()
-    if (activePane() === "jobs") {
-      return []
-    }
-    return listLogFiles()
-  })
-  const logsWindow = createMemo(() => {
-    data.version()
+  const logFiles = createMemo(() => (
+    activePane() === "logs" ? liveLogs.files() : []
+  ))
+  const logsTitle = createMemo(() => {
     const files = logFiles()
     const total = files.length
-    const visible = Math.max(1, layout().contentHeight - 4)
-    const selected = clamp(
-      data.ctx.state.appState.logsSelectedIndex,
-      0,
-      Math.max(0, total - 1),
-    )
-    let windowStart = clamp(
-      data.ctx.state.appState.logsWindowStart,
-      0,
-      Math.max(0, total - visible),
-    )
+    const visible = Math.max(1, layout().contentHeight - 2)
+    const selected = clamp(liveLogs.selectedIndex(), 0, Math.max(0, total - 1))
+    let windowStart = clamp(0, 0, Math.max(0, total - visible))
     if (selected < windowStart) {
       windowStart = selected
     } else if (selected >= windowStart + visible) {
       windowStart = selected - visible + 1
     }
-    return {
-      total,
-      visible,
-      selected,
-      windowStart,
-      slice: files.slice(windowStart, windowStart + visible),
-    }
-  })
-  const logsTitle = createMemo(() => {
-    const window = logsWindow()
-    if (window.total > window.visible) {
-      const end = Math.min(window.windowStart + window.visible, window.total)
-      return `Logs (files) [${window.windowStart + 1}-${end}/${window.total}]`
+    if (total > visible) {
+      const end = Math.min(windowStart + visible, total)
+      return `Logs (files) [${windowStart + 1}-${end}/${total}]`
     }
     return "Logs (files)"
   })
   const logsView = createMemo(() => {
-    data.version()
     if (activePane() !== "logs" || principalPane() !== "jobs") {
       return { lines: [], visible: [] }
     }
-    const files = logFiles()
-    const selected = appState.logsSelectedIndex
-    if (selected < 0 || selected >= files.length) {
+    const lines = liveLogs.lines()
+    if (lines.length === 0) {
       return { lines: [], visible: [] }
     }
-    const file = files[selected]
-    let content = ""
-    try {
-      content = fs.readFileSync(file.path, "utf8")
-    } catch (err: any) {
-      content = `Failed to read ${file.path}: ${err?.message || String(err)}`
-    }
-    const lines = content.split("\n")
     const visibleHeight = Math.max(1, layout().contentHeight - 4)
-    const offset = appState.logsWindowStart ?? 0
-    const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, lines.length - visibleHeight)))
-    const visible = lines.slice(clampedOffset, clampedOffset + visibleHeight)
+    const offset = Math.max(0, lines.length - visibleHeight)
+    const visible = lines.slice(offset, offset + visibleHeight)
     return { lines, visible }
   })
   const openCodeStatus = createMemo(() => {
@@ -468,25 +312,13 @@ function SolidShell(props: { onExit?: () => void }) {
   const [loginInProgress, setLoginInProgress] = createSignal(false)
   const [settingsCursor, setSettingsCursor] = createSignal(0)
   const [showCreateJobModal, setShowCreateJobModal] = createSignal(false)
-  const [scannedLocalAPIs, setScannedLocalAPIs] = createSignal<ScannedLocalAPI[]>([])
-  
-  // Scan for LocalAPI files when modal opens
-  createEffect(() => {
-    if (showCreateJobModal()) {
-      void ensureCreateJobModal()
-      // Scan CWD and common locations
-      const dirsToScan = [
-        process.cwd(),
-        // Add more directories as needed
-      ]
-      const found = scanMultipleDirectories(dirsToScan)
-      setScannedLocalAPIs(found)
-    }
+  const localApiScanner = useLocalApiScanner({
+    enabled: showCreateJobModal,
+    directories: () => [process.cwd()],
   })
-  
-  const localApiFiles = createMemo(() => {
-    return scannedLocalAPIs().map(api => toDisplayPath(api.filepath))
-  })
+  const localApiFiles = createMemo(() => (
+    localApiScanner.files().map((api) => toDisplayPath(api.filepath))
+  ))
   const modalLayout = createMemo(() => {
     const state = modal()
     if (state?.fullscreen) {
@@ -508,7 +340,7 @@ function SolidShell(props: { onExit?: () => void }) {
     const state = modal()
     if (!state) return []
     const maxWidth = Math.max(10, modalLayout().width - 4)
-    return wrapText(state.raw, maxWidth)
+    return wrapModalText(state.raw, maxWidth)
   })
   const modalView = createMemo(() => {
     const state = modal()
@@ -533,12 +365,13 @@ function SolidShell(props: { onExit?: () => void }) {
     const range = view.total > view.visibleCount
       ? `[${view.offset + 1}-${Math.min(view.offset + view.visible.length, view.total)}/${view.total}] `
       : ""
-    const fullscreenHint = "Shift+F fullscreen | "
+    const fullscreenHint = `${formatActionKeys("detail.toggleFullscreen", { primaryOnly: true })} fullscreen | `
+    const scrollHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} scroll`
     if (state.type === "log") {
       const tail = state.tail ? " [TAIL]" : ""
-      return `${range}${fullscreenHint}j/k scroll | t tail${tail} | y copy | q close`
+      return `${range}${fullscreenHint}${scrollHint} | ${formatActionKeys("detail.tail", { primaryOnly: true })} tail${tail} | ${formatActionKeys("modal.copy", { primaryOnly: true })} copy | ${formatActionKeys("app.back")} close`
     }
-    return `${range}${fullscreenHint}j/k scroll | q close`
+    return `${range}${fullscreenHint}${scrollHint} | ${formatActionKeys("app.back")} close`
   })
 
   function runAction(key: string, task: () => Promise<void>): void {
@@ -549,64 +382,27 @@ function SolidShell(props: { onExit?: () => void }) {
     })
   }
 
-  function buildScrollableModal(raw: string, width: number, height: number, offset: number) {
-    // Account for borders (2) + padding left/right (4) = 6 chars of horizontal chrome
-    const maxWidth = Math.max(10, width - 6)
-    const lines = wrapText(raw, maxWidth)
-    // Account for: 2 (borders) + 2 (padding top/bottom) + 1 (title) + 1 (hint) = 6 lines of chrome
-    const bodyHeight = Math.max(1, height - 6)
-    const maxOffset = Math.max(0, lines.length - bodyHeight)
-    const clamped = clamp(offset, 0, maxOffset)
-    const visible = lines.slice(clamped, clamped + bodyHeight)
-    return { lines, visible, offset: clamped, maxOffset, bodyHeight }
-  }
-
-  createEffect(() => {
-    const count = jobs().length
-    if (count === 0) {
-      setSelectedIndex(0)
-      return
-    }
-    if (selectedIndex() >= count) {
-      setSelectedIndex(count - 1)
-    }
-  })
-
-  // Auto-select job when highlighted index changes (only in jobs pane)
-  createEffect(() => {
-    const pane = activePane()
-    if (pane !== "jobs") return
-    
-    const index = selectedIndex()
-    const jobsList = jobs()
-    const currentSnapshot = snapshotMemo()
-    const currentSelected = currentSnapshot.selectedJob
-    
-    // Only proceed if we have jobs and a valid index
-    if (jobsList.length === 0 || index < 0 || index >= jobsList.length) {
-      return
-    }
-    
-    const job = jobsList[index]
-    if (!job?.job_id) {
-      return
-    }
-    
-    // Auto-select if no job is currently selected, or if it's a different job
-    if (!currentSelected || currentSelected.job_id !== job.job_id) {
-      runAction("select-job", () => data.select(job.job_id))
-    }
+  useJobSelection({
+    jobs,
+    selectedIndex,
+    setSelectedIndex,
+    activePane,
+    snapshot: snapshotMemo,
+    onSelectJob: (jobId) => runAction("select-job", () => data.select(jobId)),
   })
 
   createEffect(() => {
     const current = modal()
     if (!current || current.type !== "log") return
     const filePath = current.path
+    let disposed = false
     const timer = setInterval(() => {
-      const raw = readLogFile(filePath)
-      setModal((prev) => {
-        if (!prev || prev.type !== "log") return prev
-        return { ...prev, raw }
+      void readLogFile(filePath).then((raw) => {
+        if (disposed) return
+        setModal((prev) => {
+          if (!prev || prev.type !== "log") return prev
+          return { ...prev, raw }
+        })
       })
     }, 1000)
     const cleanupName = "log-modal-refresh-interval"
@@ -615,6 +411,7 @@ function SolidShell(props: { onExit?: () => void }) {
     }
     registerCleanup(cleanupName, cleanup)
     onCleanup(() => {
+      disposed = true
       cleanup()
       unregisterCleanup(cleanupName)
     })
@@ -656,16 +453,8 @@ function SolidShell(props: { onExit?: () => void }) {
     })
   }
 
-  function readLogFile(filePath: string): string {
-    try {
-      return fs.readFileSync(filePath, "utf8")
-    } catch (err: any) {
-      return `Failed to read ${filePath}: ${err?.message || String(err)}`
-    }
-  }
-
-  function openLogModal(filePath: string): void {
-    const raw = readLogFile(filePath)
+  async function openLogModal(filePath: string): Promise<void> {
+    const raw = await readLogFile(filePath)
     setModal({
       type: "log",
       title: `Log: ${path.basename(filePath)}`,
@@ -675,6 +464,93 @@ function SolidShell(props: { onExit?: () => void }) {
       path: filePath,
     })
   }
+
+  function openMetricsAndFetch(): void {
+    openMetricsModal()
+    runAction("metrics", async () => {
+      await fetchMetrics(data.ctx)
+      data.ctx.render()
+    })
+  }
+
+  focusManager.register({
+    id: "list",
+    order: 0,
+    enabled: () => true,
+    handleAction: (action) => {
+      if (action === "nav.down" || action === "nav.up") {
+        const delta = action === "nav.down" ? 1 : -1
+        if (appState.activePane === "jobs") {
+          const count = jobs().length
+          if (count > 0) {
+            setSelectedIndex((current) => (current + delta + count) % count)
+          }
+        } else if (appState.activePane === "logs") {
+          if (liveLogs.moveSelection(delta)) {
+            data.ctx.render()
+          }
+        }
+        return true
+      }
+      if (action === "pane.select") {
+        if (appState.activePane === "jobs") {
+          const job = jobs()[selectedIndex()]
+          if (job?.job_id) {
+            runAction("select-job", () => data.select(job.job_id))
+          }
+        } else if (appState.activePane === "logs") {
+          const selected = liveLogs.selectedIndex()
+          const file = logFiles()[selected]
+          if (file) {
+            void openLogModal(file.path)
+          }
+        }
+        return true
+      }
+      return false
+    },
+  })
+
+  focusManager.register({
+    id: "metrics",
+    order: 1,
+    enabled: () => appState.principalPane === "jobs" && appState.activePane === "jobs",
+    handleAction: (action) => {
+      if (action === "pane.select") {
+        openMetricsAndFetch()
+        return true
+      }
+      return false
+    },
+  })
+
+  focusManager.register({
+    id: "events",
+    order: 2,
+    enabled: () => appState.principalPane === "jobs" && appState.activePane === "jobs",
+    handleAction: (action) => {
+      if (action === "nav.down" || action === "nav.up") {
+        const delta = action === "nav.down" ? 1 : -1
+        moveEventSelection(data.ctx, delta)
+        data.ctx.render()
+        return true
+      }
+      if (action === "pane.select") {
+        const event = events()[eventWindow().selected]
+        if (event) {
+          openEventModal(event)
+        }
+        return true
+      }
+      return false
+    },
+  })
+
+  focusManager.register({
+    id: "agent",
+    order: 3,
+    enabled: () => appState.principalPane === "opencode",
+  })
 
   function closeActiveModal(): void {
     const kind = activeModal()
@@ -745,27 +621,42 @@ function SolidShell(props: { onExit?: () => void }) {
     setActiveModal("key")
   }
 
-  function applyKeyModal(): void {
+  async function applyKeyModal(): Promise<void> {
     const trimmed = modalInputValue().trim()
     if (!trimmed) {
       closeActiveModal()
       return
     }
     process.env.SYNTH_API_KEY = trimmed
-    snapshot.status = "API key updated"
+    modeKeys[appState.currentMode] = trimmed
     closeActiveModal()
+    snapshot.lastError = null
+    snapshot.status = "API key updated"
     data.ctx.render()
+    await saveApiKey(trimmed)
+    await clearLoggedOutMarker()
+    await persistSettings({
+      settingsFilePath: data.ctx.state.config.settingsFilePath,
+      getCurrentMode: () => appState.currentMode,
+      getModeKeys: () => modeKeys,
+    })
+    await data.refresh()
   }
 
-  function pasteKeyModal(): void {
+  async function pasteKeyModal(): Promise<void> {
     try {
       if (process.platform !== "darwin") return
-      const result = require("child_process").spawnSync("pbpaste", [], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
+      const { spawn } = require("child_process")
+      const proc = spawn("pbpaste", [], { stdio: ["ignore", "pipe", "ignore"] })
+      let output = ""
+      proc.stdout?.on("data", (data: Buffer) => {
+        output += data.toString("utf8")
       })
-      if (result.status !== 0) return
-      const text = result.stdout ? String(result.stdout).replace(/\s+/g, "") : ""
+      await new Promise<void>((resolve, reject) => {
+        proc.on("error", reject)
+        proc.on("close", () => resolve())
+      })
+      const text = output.replace(/\s+/g, "")
       if (!text) return
       setModalInputValue((current) => `${current}${text}`)
       if (modalInputRef) {
@@ -871,16 +762,6 @@ function SolidShell(props: { onExit?: () => void }) {
       appState.settingsOptions.indexOf(appState.currentMode),
     ))
     setActiveModal("settings")
-  }
-
-  function isUpKey(evt: any): boolean {
-    const name = typeof evt?.name === "string" ? evt.name : ""
-    return name === "up" || name === "arrowup" || name === "k"
-  }
-
-  function isDownKey(evt: any): boolean {
-    const name = typeof evt?.name === "string" ? evt.name : ""
-    return name === "down" || name === "arrowdown" || name === "j"
   }
 
   function moveSettingsCursor(delta: number): void {
@@ -1236,6 +1117,8 @@ function SolidShell(props: { onExit?: () => void }) {
     snapshot.artifacts = []
     snapshot.orgId = null
     snapshot.userId = null
+    snapshot.orgName = null
+    snapshot.userEmail = null
     snapshot.balanceDollars = null
     snapshot.lastRefresh = null
     snapshot.allCandidates = []
@@ -1248,610 +1131,69 @@ function SolidShell(props: { onExit?: () => void }) {
     setActiveModal("login")
   }
 
-  useKeyboard((evt) => {
-    const detailModal = modal()
-    if (detailModal) {
-      if ((evt.name === "f" && evt.shift) || evt.name === "F") {
-        evt.preventDefault()
-        setModal({ ...detailModal, fullscreen: !detailModal.fullscreen })
-        return
-      }
-      if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
-        evt.preventDefault()
-        setModal(null)
-        return
-      }
-      if (evt.name === "j" || evt.name === "down") {
-        evt.preventDefault()
-        if (detailModal.type === "log") {
-          setModal({ ...detailModal, offset: detailModal.offset + 1, tail: false })
-        } else {
-          setModal({ ...detailModal, offset: detailModal.offset + 1 })
-        }
-        return
-      }
-      if (evt.name === "k" || evt.name === "up") {
-        evt.preventDefault()
-        if (detailModal.type === "log") {
-          setModal({ ...detailModal, offset: detailModal.offset - 1, tail: false })
-        } else {
-          setModal({ ...detailModal, offset: detailModal.offset - 1 })
-        }
-        return
-      }
-      if (evt.name === "t" && detailModal.type === "log") {
-        evt.preventDefault()
-        setModal({ ...detailModal, tail: true })
-        return
-      }
-      if (evt.name === "y" && detailModal.type === "log") {
-        evt.preventDefault()
-        void copyToClipboard(readLogFile(detailModal.path)).then(() => {
-          snapshot.status = `Copied: ${path.basename(detailModal.path)}`
-          data.ctx.render()
-        })
-        return
-      }
-      return
-    }
-
-    if (focusManager.handleKey(evt)) {
-      return
-    }
-
-    const overlayModal = activeModal()
-    if (overlayModal) {
-      if (overlayModal === "filter") {
-        if (evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          applyFilterModal()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "snapshot") {
-        if (evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          runAction("snapshot", () => applySnapshotModal())
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "key") {
-        if (evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          applyKeyModal()
-          return
-        }
-        if (evt.name === "v" && (evt.ctrl || evt.meta)) {
-          evt.preventDefault()
-          pasteKeyModal()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "settings") {
-        if (isUpKey(evt)) {
-          evt.preventDefault()
-          moveSettingsCursor(-1)
-          return
-        }
-        if (isDownKey(evt)) {
-          evt.preventDefault()
-          moveSettingsCursor(1)
-          return
-        }
-        if (evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          void selectSettingsBackend()
-          return
-        }
-        if (evt.name === "k" && evt.shift) {
-          evt.preventDefault()
-          closeActiveModal()
-          openKeyModal()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "usage") {
-        if (evt.name === "b") {
-          evt.preventDefault()
-          openUsageBilling()
-          return
-        }
-        if (evt.name === "up" || evt.name === "k") {
-          evt.preventDefault()
-          appState.usageModalOffset = Math.max(0, (appState.usageModalOffset || 0) - 1)
-          data.ctx.render()
-          return
-        }
-        if (evt.name === "down" || evt.name === "j") {
-          evt.preventDefault()
-          appState.usageModalOffset = (appState.usageModalOffset || 0) + 1
-          data.ctx.render()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "metrics") {
-        if (evt.name === "up" || evt.name === "k") {
-          evt.preventDefault()
-          appState.metricsModalOffset = Math.max(0, (appState.metricsModalOffset || 0) - 1)
-          data.ctx.render()
-          return
-        }
-        if (evt.name === "down" || evt.name === "j") {
-          evt.preventDefault()
-          appState.metricsModalOffset = (appState.metricsModalOffset || 0) + 1
-          data.ctx.render()
-          return
-        }
-        if (evt.name === "m") {
-          evt.preventDefault()
-          runAction("metrics", async () => {
-            await fetchMetrics(data.ctx)
-            data.ctx.render()
-          })
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "task-apps") {
-        if (evt.name === "up" || evt.name === "k") {
-          evt.preventDefault()
-          moveTaskAppsSelection(-1)
-          return
-        }
-        if (evt.name === "down" || evt.name === "j") {
-          evt.preventDefault()
-          moveTaskAppsSelection(1)
-          return
-        }
-        if (evt.name === "y") {
-          evt.preventDefault()
-          void copySelectedTunnelUrl()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape" || evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "sessions") {
-        if (evt.name === "up" || evt.name === "k") {
-          evt.preventDefault()
-          moveSessionsSelection(-1)
-          return
-        }
-        if (evt.name === "down" || evt.name === "j") {
-          evt.preventDefault()
-          moveSessionsSelection(1)
-          return
-        }
-        if (evt.name === "y") {
-          evt.preventDefault()
-          void copySelectedSessionUrl()
-          return
-        }
-        if (evt.name === "c" && !evt.shift) {
-          evt.preventDefault()
-          runAction("sessions-connect", () => connectLocalSession())
-          return
-        }
-        if (evt.name === "d") {
-          evt.preventDefault()
-          runAction("sessions-disconnect", () => disconnectSelectedSession())
-          return
-        }
-        if (evt.name === "r") {
-          evt.preventDefault()
-          runAction("sessions-refresh", () => refreshSessionsModal())
-          return
-        }
-        if (evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          selectSession()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "job-filter") {
-        if (evt.name === "up" || evt.name === "k") {
-          evt.preventDefault()
-          moveJobFilter(-1)
-          return
-        }
-        if (evt.name === "down" || evt.name === "j") {
-          evt.preventDefault()
-          moveJobFilter(1)
-          return
-        }
-        if (evt.name === "space" || evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          toggleJobFilterSelection()
-          return
-        }
-        if (evt.name === "c") {
-          evt.preventDefault()
-          clearJobFilterSelection()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "config") {
-        if (evt.name === "up" || evt.name === "k") {
-          evt.preventDefault()
-          appState.configModalOffset = Math.max(0, appState.configModalOffset - 1)
-          data.ctx.render()
-          return
-        }
-        if (evt.name === "down" || evt.name === "j") {
-          evt.preventDefault()
-          appState.configModalOffset = appState.configModalOffset + 1
-          data.ctx.render()
-          return
-        }
-        if (evt.name === "return" || evt.name === "enter" || evt.name === "i" || evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "profile" || overlayModal === "urls") {
-        if (evt.name === "return" || evt.name === "enter" || evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      if (overlayModal === "login") {
-        if (evt.name === "return" || evt.name === "enter") {
-          evt.preventDefault()
-          void startLoginAuth()
-          return
-        }
-        if (evt.name === "q" || evt.name === "escape") {
-          evt.preventDefault()
-          closeActiveModal()
-          return
-        }
-        return
-      }
-      return
-    }
-
-    if (evt.ctrl && evt.name === "c") {
-      evt.preventDefault()
-      onExit?.()
-      void shutdown(0)
-      return
-    }
-
-    if (appState.principalPane === "opencode") {
-      if (evt.name === "g" && evt.shift) {
-        evt.preventDefault()
-        appState.principalPane = "jobs"
-        data.ctx.render()
-      }
-      if (evt.name === "o" && evt.shift) {
-        evt.preventDefault()
-        openSessionsModal()
-      }
-      return
-    }
-
-    if (evt.name === "q" || evt.name === "escape") {
-      evt.preventDefault()
-      onExit?.()
-      void shutdown(0)
-      return
-    }
-    if (evt.name === "tab") {
-      evt.preventDefault()
-      const order = ["jobs", "events", "logs"] as const
-      const current = appState.activePane
-      const idx = Math.max(0, order.indexOf(current))
-      appState.activePane = order[(idx + 1) % order.length]
+  useAppKeybindings({
+    onExit,
+    render: data.ctx.render,
+    snapshot,
+    modal,
+    setModal,
+    activeModal,
+    setActiveModal,
+    showCreateJobModal,
+    setShowCreateJobModal,
+    createJobModalComponent,
+    chatPaneComponent,
+    closeActiveModal,
+    applyFilterModal,
+    applySnapshotModal,
+    applyKeyModal,
+    pasteKeyModal,
+    moveSettingsCursor,
+    selectSettingsBackend,
+    openKeyModal,
+    openUsageBilling,
+    moveTaskAppsSelection,
+    copySelectedTunnelUrl,
+    moveSessionsSelection,
+    copySelectedSessionUrl,
+    connectLocalSession,
+    disconnectSelectedSession,
+    refreshSessionsModal,
+    selectSession,
+    moveJobFilter,
+    toggleJobFilterSelection,
+    clearJobFilterSelection,
+    startLoginAuth,
+    openFilterModal,
+    openConfigModal,
+    openProfileModal,
+    openResultsModal,
+    openJobFilterModal,
+    openSnapshotModal,
+    openUrlsModal,
+    openSettingsModal,
+    openUsageModal,
+    openTaskAppsModal,
+    openSessionsModal,
+    openMetricsAndFetch,
+    ensureCreateJobModal,
+    ensureTraceViewerModal,
+    logout,
+    runAction,
+    refreshData: data.refresh,
+    ensureOpenCodeServer: data.ensureOpenCodeServer,
+    cancelSelectedJob: async () => {
+      await cancelSelected(data.ctx)
       data.ctx.render()
-      return
-    }
-    if (evt.name === "r") {
-      evt.preventDefault()
-      runAction("refresh", () => data.refresh())
-      return
-    }
-    if (evt.name === "b") {
-      evt.preventDefault()
-      appState.activePane = "jobs"
+    },
+    fetchArtifacts: async () => {
+      await fetchArtifacts(data.ctx)
       data.ctx.render()
-      return
-    }
-    if (evt.name === "e") {
-      evt.preventDefault()
-      appState.activePane = "events"
+    },
+    refreshMetrics: async () => {
+      await fetchMetrics(data.ctx)
       data.ctx.render()
-      return
-    }
-    if (evt.name === "l" && evt.shift) {
-      evt.preventDefault()
-      appState.activePane = "logs"
-      data.ctx.render()
-      return
-    }
-    if (evt.name === "g" && evt.shift) {
-      evt.preventDefault()
-      const nextPane = appState.principalPane === "jobs" ? "opencode" : "jobs"
-      appState.principalPane = nextPane
-      if (nextPane === "opencode") {
-        runAction("opencode-ensure", () => data.ensureOpenCodeServer())
-      }
-      data.ctx.render()
-      return
-    }
-    if (evt.name === "l") {
-      evt.preventDefault()
-      void logout()
-      return
-    }
-    if (evt.name === "f") {
-      evt.preventDefault()
-      openFilterModal()
-      return
-    }
-    if (evt.name === "i" && !evt.shift) {
-      evt.preventDefault()
-      openConfigModal()
-      return
-    }
-    if (evt.name === "p") {
-      evt.preventDefault()
-      if (!process.env.SYNTH_API_KEY) return
-      openProfileModal()
-      return
-    }
-    // Candidates viewer: use "v" so Shift+O remains for OpenCode sessions.
-    if (evt.name === "v") {
-      evt.preventDefault()
-      openResultsModal()
-      return
-    }
-    if (evt.name === "j" && evt.shift) {
-      evt.preventDefault()
-      openJobFilterModal()
-      return
-    }
-    if (evt.name === "s" && !evt.shift) {
-      evt.preventDefault()
-      openSnapshotModal()
-      return
-    }
-    if (evt.name === "s" && evt.shift) {
-      evt.preventDefault()
-      openUrlsModal()
-      return
-    }
-    if (evt.name === "t") {
-      evt.preventDefault()
-      openSettingsModal()
-      return
-    }
-    if (evt.name === "x") {
-      evt.preventDefault()
-      if (snapshot.selectedJob) {
-        setActiveModal("traces")
-        void ensureTraceViewerModal()
-      }
-      return
-    }
-    if (evt.name === "d") {
-      evt.preventDefault()
-      openUsageModal()
-      return
-    }
-    if (evt.name === "u") {
-      evt.preventDefault()
-      openTaskAppsModal()
-      return
-    }
-    if (evt.name === "n") {
-      evt.preventDefault()
-      setShowCreateJobModal(true)
-      void ensureCreateJobModal()
-      return
-    }
-
-    // Handle create job modal keys when open
-    if (showCreateJobModal()) {
-      const handler = (createJobModalComponent() as any)?.handleKeyPress
-      const handled = handler ? handler(evt) : true
-      if (handled) {
-        data.ctx.render()
-        return
-      }
-    }
-    // Sessions modal is only reachable from the Agent (OpenCode) pane via Shift+O.
-    // Avoid binding Shift+O globally in the jobs pane; it makes `o` feel unreliable.
-    if (evt.name === "c") {
-      evt.preventDefault()
-      runAction("cancel-job", async () => {
-        await cancelSelected(data.ctx)
-        data.ctx.render()
-      })
-      return
-    }
-    if (evt.name === "a") {
-      evt.preventDefault()
-      runAction("artifacts", async () => {
-        await fetchArtifacts(data.ctx)
-        data.ctx.render()
-      })
-      return
-    }
-    if (evt.name === "M" || (evt.name === "m" && evt.shift)) {
-      // Shift+M = fullscreen metrics modal
-      evt.preventDefault()
-      openMetricsModal()
-      return
-    }
-    if (evt.name === "m") {
-      evt.preventDefault()
-      runAction("metrics", async () => {
-        await fetchMetrics(data.ctx)
-        data.ctx.render()
-      })
-      return
-    }
-    if (evt.name === "j") {
-      evt.preventDefault()
-      const pane = appState.activePane
-      if (pane === "jobs") {
-        const count = jobs().length
-        if (count === 0) return
-        setSelectedIndex((current) => (current + 1) % count)
-        return
-      }
-      if (pane === "events") {
-        moveEventSelection(data.ctx, 1)
-        data.ctx.render()
-        return
-      }
-      if (pane === "logs") {
-        moveLogSelection(data.ctx, 1)
-        data.ctx.render()
-        return
-      }
-    }
-    if (evt.name === "k") {
-      evt.preventDefault()
-      const pane = appState.activePane
-      if (pane === "jobs") {
-        const count = jobs().length
-        if (count === 0) return
-        setSelectedIndex((current) => (current - 1 + count) % count)
-        return
-      }
-      if (pane === "events") {
-        moveEventSelection(data.ctx, -1)
-        data.ctx.render()
-        return
-      }
-      if (pane === "logs") {
-        moveLogSelection(data.ctx, -1)
-        data.ctx.render()
-        return
-      }
-    }
-    if (evt.name === "down" || evt.name === "arrowdown") {
-      evt.preventDefault()
-      const pane = appState.activePane
-      if (pane === "jobs") {
-        const count = jobs().length
-        if (count === 0) return
-        setSelectedIndex((current) => (current + 1) % count)
-        return
-      }
-      if (pane === "events") {
-        moveEventSelection(data.ctx, 1)
-        data.ctx.render()
-        return
-      }
-      if (pane === "logs") {
-        moveLogSelection(data.ctx, 1)
-        data.ctx.render()
-        return
-      }
-    }
-    if (evt.name === "up" || evt.name === "arrowup") {
-      evt.preventDefault()
-      const pane = appState.activePane
-      if (pane === "jobs") {
-        const count = jobs().length
-        if (count === 0) return
-        setSelectedIndex((current) => (current - 1 + count) % count)
-        return
-      }
-      if (pane === "events") {
-        moveEventSelection(data.ctx, -1)
-        data.ctx.render()
-        return
-      }
-      if (pane === "logs") {
-        moveLogSelection(data.ctx, -1)
-        data.ctx.render()
-        return
-      }
-    }
-    if (evt.name === "return" || evt.name === "enter") {
-      evt.preventDefault()
-      const pane = appState.activePane
-      if (pane === "jobs") {
-        const job = jobs()[selectedIndex()]
-        if (job?.job_id) {
-          runAction("select-job", () => data.select(job.job_id))
-        }
-        return
-      }
-      if (pane === "events") {
-        const event = events()[eventWindow().selected]
-        if (event) {
-          openEventModal(event)
-        }
-        return
-      }
-      if (pane === "logs") {
-        const selected = appState.logsSelectedIndex
-        const file = logFiles()[selected]
-        if (file) {
-          openLogModal(file.path)
-        }
-        return
-      }
-    }
+    },
   })
 
   let modalInputRef: any
@@ -1868,445 +1210,6 @@ function SolidShell(props: { onExit?: () => void }) {
       }
     }
   })
-
-  function ModalFrame(props: {
-    title: string
-    width: number
-    height: number
-    borderColor: string
-    titleColor?: string
-    hint?: string
-    children: any
-  }) {
-    const frameWidth = Math.min(props.width, Math.max(20, dimensions().width - 4))
-    const frameHeight = Math.min(props.height, Math.max(6, dimensions().height - 4))
-    const left = Math.max(0, Math.floor((dimensions().width - frameWidth) / 2))
-    const top = Math.max(1, Math.floor((dimensions().height - frameHeight) / 2))
-    // Calculate content height: frame - borders(2) - padding(2) - title(1) - hint(1) = height - 6
-    const contentHeight = Math.max(1, frameHeight - 6)
-
-    return (
-      <box
-        position="absolute"
-        left={left}
-        top={top}
-        width={frameWidth}
-        height={frameHeight}
-        backgroundColor="#0b1220"
-        border
-        borderStyle="single"
-        borderColor={props.borderColor}
-        zIndex={30}
-        flexDirection="column"
-        paddingLeft={2}
-        paddingRight={2}
-        paddingTop={1}
-        paddingBottom={1}
-      >
-        <text fg={props.titleColor ?? props.borderColor}>
-          <b>{props.title}</b>
-        </text>
-        <box height={contentHeight} overflow="hidden">
-          {props.children}
-        </box>
-        <Show when={props.hint}>
-          <text fg="#94a3b8">{props.hint}</text>
-        </Show>
-      </box>
-    )
-  }
-
-  function renderActiveModal(kind: ActiveModal) {
-    // Modal content is mostly derived from non-reactive state objects (appState/snapshot).
-    // Make modal rendering depend on the reactive version signal so calls to
-    // `data.ctx.render()` (which bumps version) repaint the modal (e.g. settings cursor).
-    data.version()
-
-    if (kind === "filter") {
-      return (
-        <ModalFrame
-          title="Event Filter"
-          width={52}
-          height={7}
-          borderColor="#60a5fa"
-          titleColor="#60a5fa"
-          hint="Enter apply | q close"
-        >
-          <box flexDirection="column" gap={1}>
-            <text fg="#e2e8f0">Event filter:</text>
-            <input
-              placeholder="Type to filter events"
-              onInput={(value) => setModalInputValue(value)}
-              ref={(ref) => {
-                modalInputRef = ref
-              }}
-            />
-          </box>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "snapshot") {
-      return (
-        <ModalFrame
-          title="Snapshot ID"
-          width={50}
-          height={7}
-          borderColor="#60a5fa"
-          titleColor="#60a5fa"
-          hint="Enter apply | q close"
-        >
-          <box flexDirection="column" gap={1}>
-            <text fg="#e2e8f0">Snapshot ID:</text>
-            <input
-              placeholder="Enter snapshot id"
-              onInput={(value) => setModalInputValue(value)}
-              ref={(ref) => {
-                modalInputRef = ref
-              }}
-            />
-          </box>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "key") {
-      return (
-        <ModalFrame
-          title="API Key"
-          width={70}
-          height={7}
-          borderColor="#7dd3fc"
-          titleColor="#7dd3fc"
-          hint="Paste or type key | Enter to apply | q close"
-        >
-          <box flexDirection="column" gap={1}>
-            <text fg="#e2e8f0">API Key:</text>
-            <input
-              placeholder=""
-              onInput={(value) => setModalInputValue(value)}
-              ref={(ref) => {
-                modalInputRef = ref
-              }}
-            />
-          </box>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "settings") {
-      const modeLabels: Record<string, string> = { prod: "Prod", dev: "Dev", local: "Local" }
-      // Use a function for the text content to ensure reactivity to settingsCursor() changes
-      const settingsContent = () => {
-        const cursorIdx = settingsCursor()
-        const lines: string[] = []
-        for (let idx = 0; idx < appState.settingsOptions.length; idx++) {
-          const mode = appState.settingsOptions[idx]
-          const active = appState.currentMode === mode
-          const cursor = idx === cursorIdx ? ">" : " "
-          lines.push(`${cursor} [${active ? "x" : " "}] ${modeLabels[mode] || mode} (${mode})`)
-        }
-        const selectedMode = appState.settingsOptions[cursorIdx]
-        if (selectedMode) {
-          const urls = modeUrls[selectedMode]
-          const key = modeKeys[selectedMode]
-          const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)"
-          lines.push("")
-          lines.push(`Backend: ${urls?.backendUrl || "(unset)"}`)
-          lines.push(`Frontend: ${urls?.frontendUrl || "(unset)"}`)
-          lines.push(`Key: ${keyPreview}`)
-        }
-        return lines.join("\n")
-      }
-
-      return (
-        <ModalFrame
-          title="Settings - Mode"
-          width={64}
-          height={14}
-          borderColor="#38bdf8"
-          titleColor="#38bdf8"
-          hint="j/k navigate | enter select | shift+k key | q close"
-        >
-          <text fg="#e2e8f0">{settingsContent()}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "usage") {
-      const raw = formatUsageDetails(usageData())
-      const view = buildScrollableModal(raw, 72, 28, appState.usageModalOffset || 0)
-      const range = view.lines.length > view.bodyHeight
-        ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] `
-        : ""
-      return (
-        <ModalFrame
-          title={`Usage & Plan - ${formatPlanName(usageData()?.plan_type || "free")} ${range}`.trim()}
-          width={72}
-          height={28}
-          borderColor="#10b981"
-          titleColor="#10b981"
-          hint="j/k scroll | b billing | q close"
-        >
-          <text fg="#e2e8f0">{view.visible.join("\n")}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "metrics") {
-      const m: any = snapshot.metrics || {}
-      const pts = Array.isArray(m?.points) ? m.points : []
-      const job = snapshot.selectedJob
-      const isGepa = job?.training_type === "gepa" || job?.training_type === "graph_gepa"
-      
-      // Build fullscreen metrics content
-      const raw = formatMetricsCharts(snapshot.metrics, {
-        width: dimensions().width - 6,
-        height: dimensions().height - 8,
-        isGepa,
-      })
-      const view = buildScrollableModal(raw, dimensions().width - 4, dimensions().height - 6, appState.metricsModalOffset || 0)
-      const hint = view.lines.length > view.bodyHeight
-        ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] j/k scroll | m refresh | q close`
-        : "m refresh | q close"
-      return (
-        <ModalFrame
-          title={`Metrics (${pts.length} points)`}
-          width={dimensions().width - 4}
-          height={dimensions().height - 6}
-          borderColor="#8b5cf6"
-          titleColor="#8b5cf6"
-          hint={hint}
-        >
-          <text fg="#e2e8f0">{view.visible.join("\n")}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "task-apps") {
-      const raw = formatTunnelDetails(snapshot.tunnels, snapshot.tunnelHealthResults, appState.taskAppsModalSelectedIndex || 0)
-      const view = buildScrollableModal(raw, 90, 20, appState.taskAppsModalOffset || 0)
-      const hint = view.lines.length > view.bodyHeight
-        ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] j/k select | y copy hostname | q close`
-        : "j/k select | y copy hostname | q close"
-      return (
-        <ModalFrame
-          title={`Task Apps (${snapshot.tunnels.length} tunnel${snapshot.tunnels.length !== 1 ? "s" : ""})`}
-          width={90}
-          height={20}
-          borderColor="#06b6d4"
-          titleColor="#06b6d4"
-          hint={hint}
-        >
-          <text fg="#e2e8f0">{view.visible.join("\n")}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "sessions") {
-      const sessions = sessionsCache()
-      const raw = formatSessionDetails(sessions, sessionsHealthCache(), sessionsSelectedIndex(), appState.openCodeUrl)
-      const view = buildScrollableModal(raw, 70, 20, sessionsScrollOffset())
-      const hint = view.lines.length > view.bodyHeight
-        ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] j/k select | c connect local | d disconnect | y copy URL | enter select | q close`
-        : "j/k select | c connect local | d disconnect | y copy URL | enter select | q close"
-      return (
-        <ModalFrame
-          title={`OpenCode Sessions (${sessions.filter((s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting").length} active)`}
-          width={70}
-          height={20}
-          borderColor="#60a5fa"
-          titleColor="#60a5fa"
-          hint={hint}
-        >
-          <text fg="#e2e8f0">{view.visible.join("\n")}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "config") {
-      const raw = formatConfigMetadata(snapshot)
-      const view = buildScrollableModal(raw, 100, 24, appState.configModalOffset)
-      const hint = view.lines.length > view.bodyHeight
-        ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] j/k scroll | q close`
-        : "q close"
-      return (
-        <ModalFrame
-          title="Job Configuration"
-          width={100}
-          height={24}
-          borderColor="#f59e0b"
-          titleColor="#f59e0b"
-          hint={hint}
-        >
-          <text fg="#e2e8f0">{view.visible.join("\n")}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "results") {
-      const Loaded = candidatesModalComponent()
-      if (!Loaded) {
-        return (
-          <ModalFrame
-            title="Candidates"
-            width={60}
-            height={8}
-            borderColor="#60a5fa"
-            titleColor="#60a5fa"
-            hint="Loading..."
-          >
-            <text fg="#e2e8f0">Loading candidates...</text>
-          </ModalFrame>
-        )
-      }
-      return (
-        <Loaded
-          visible={true}
-          snapshot={snapshot}
-          width={dimensions().width}
-          height={dimensions().height}
-          onClose={closeActiveModal}
-          onStatus={(message: string) => {
-            snapshot.status = message
-            data.ctx.render()
-          }}
-        />
-      )
-    }
-
-    if (kind === "traces") {
-      const Loaded = traceViewerModalComponent()
-      if (!Loaded) {
-        return (
-          <ModalFrame
-            title="Traces"
-            width={60}
-            height={8}
-            borderColor="#60a5fa"
-            titleColor="#60a5fa"
-            hint="Loading..."
-          >
-            <text fg="#e2e8f0">Loading traces...</text>
-          </ModalFrame>
-        )
-      }
-      return (
-        <Loaded
-          visible={true}
-          snapshot={snapshot}
-          width={dimensions().width}
-          height={dimensions().height}
-          onClose={closeActiveModal}
-          onStatus={(message: string) => {
-            snapshot.status = message
-            data.ctx.render()
-          }}
-        />
-      )
-    }
-
-    if (kind === "profile") {
-      const org = snapshot.orgId || "-"
-      const user = snapshot.userId || "-"
-      const apiKey = process.env.SYNTH_API_KEY || "-"
-      return (
-        <ModalFrame
-          title="Profile"
-          width={72}
-          height={15}
-          borderColor="#818cf8"
-          titleColor="#818cf8"
-          hint="q close"
-        >
-          <text fg="#e2e8f0">{`Organization:\n${org}\n\nUser:\n${user}\n\nAPI Key:\n${apiKey}`}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "urls") {
-      const backend = process.env.SYNTH_BACKEND_URL || "-"
-      const frontend = process.env.SYNTH_FRONTEND_URL || "-"
-      return (
-        <ModalFrame
-          title="URLs"
-          width={60}
-          height={10}
-          borderColor="#f59e0b"
-          titleColor="#f59e0b"
-          hint="q close"
-        >
-          <text fg="#e2e8f0">{`Backend:\n${backend}\n\nFrontend:\n${frontend}`}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "job-filter") {
-      const max = Math.max(0, appState.jobFilterOptions.length - 1)
-      const start = clamp(appState.jobFilterWindowStart, 0, Math.max(0, max))
-      const end = Math.min(appState.jobFilterOptions.length, start + data.ctx.state.config.jobFilterVisibleCount)
-      const lines: string[] = []
-      for (let idx = start; idx < end; idx++) {
-        const option = appState.jobFilterOptions[idx]
-        const active = appState.jobStatusFilter.has(option.status)
-        const cursor = idx === appState.jobFilterCursor ? ">" : " "
-        lines.push(`${cursor} [${active ? "x" : " "}] ${option.status} (${option.count})`)
-      }
-      if (!lines.length) {
-        lines.push("  (no statuses available)")
-      }
-      return (
-        <ModalFrame
-          title="Job filter (status)"
-          width={52}
-          height={11}
-          borderColor="#60a5fa"
-          titleColor="#60a5fa"
-          hint="j/k move | space select | c clear | q close"
-        >
-          <text fg="#e2e8f0">{lines.join("\n")}</text>
-        </ModalFrame>
-      )
-    }
-
-    if (kind === "login") {
-      const status = loginStatus()
-      let content = ""
-      let hint = "Enter start | q cancel"
-      if (status.state === "idle") {
-        content = "Press Enter to open browser and sign in..."
-      } else if (status.state === "initializing") {
-        content = "Initializing..."
-        hint = "Please wait..."
-      } else if (status.state === "waiting") {
-        content = `Browser opened. Complete sign-in there.\n\nURL: ${status.verificationUri}`
-        hint = "Waiting for browser auth... | q cancel"
-      } else if (status.state === "polling") {
-        content = "Browser opened. Complete sign-in there.\n\nChecking for completion..."
-        hint = "Waiting for browser auth... | q cancel"
-      } else if (status.state === "success") {
-        content = "Authentication successful!"
-        hint = "Loading..."
-      } else if (status.state === "error") {
-        content = `Error: ${status.message}`
-        hint = "Enter retry | q close"
-      }
-      return (
-        <ModalFrame
-          title="Sign In / Sign Up"
-          width={60}
-          height={10}
-          borderColor="#22c55e"
-          titleColor="#22c55e"
-          hint={hint}
-        >
-          <text fg="#e2e8f0">{content}</text>
-        </ModalFrame>
-      )
-    }
-
-    return null
-  }
 
   return (
     <box
@@ -2336,11 +1239,10 @@ function SolidShell(props: { onExit?: () => void }) {
         flexDirection="row"
         gap={2}
       >
-        <KeyHint description="Create New Job" keyLabel="n" />
-        <KeyHint description="View Jobs" keyLabel="b" active={activePane() === "jobs"} />
-        <KeyHint description="View Job's Events" keyLabel="e" active={activePane() === "events"} />
-        <KeyHint description="View Logs" keyLabel="shift+l" active={activePane() === "logs"} />
-        <KeyHint description="Agent" keyLabel="shift+g" active={principalPane() === "opencode"} />
+        <KeyHint description="Create New Job" keyLabel={formatActionKeys("modal.open.createJob", { primaryOnly: true })} />
+        <KeyHint description="View Jobs" keyLabel={formatActionKeys("pane.jobs", { primaryOnly: true })} active={activePane() === "jobs"} />
+        <KeyHint description="View Logs" keyLabel={formatActionKeys("pane.logs", { primaryOnly: true })} active={activePane() === "logs"} />
+        <KeyHint description="Agent" keyLabel={formatActionKeys("pane.togglePrincipal", { primaryOnly: true })} active={principalPane() === "opencode"} />
       </box>
 
       <box
@@ -2354,8 +1256,8 @@ function SolidShell(props: { onExit?: () => void }) {
           fallback={
             <LogsList
               logs={logFiles()}
-              selectedIndex={appState.logsSelectedIndex}
-              focused={activePane() === "logs"}
+              selectedIndex={liveLogs.selectedIndex()}
+              focused={focusTarget() === "list"}
               width={layout().jobsWidth}
               height={layout().contentHeight}
             />
@@ -2364,7 +1266,7 @@ function SolidShell(props: { onExit?: () => void }) {
           <JobsList
             jobs={jobs()}
             selectedIndex={selectedIndex()}
-            focused={activePane() === "jobs"}
+            focused={focusTarget() === "list"}
             width={layout().jobsWidth}
             height={layout().contentHeight}
           />
@@ -2424,7 +1326,8 @@ function SolidShell(props: { onExit?: () => void }) {
               lastError={lastError()}
               detailWidth={layout().detailWidth}
               detailHeight={layout().contentHeight}
-              eventsFocused={activePane() === "events"}
+              eventsFocused={focusTarget() === "events"}
+              metricsFocused={focusTarget() === "metrics"}
               metricsView={data.ctx.state.appState.metricsView}
             />
           </Show>
@@ -2460,7 +1363,32 @@ function SolidShell(props: { onExit?: () => void }) {
       </Show>
 
       <Show when={activeModal()}>
-        {(kind) => renderActiveModal(kind())}
+        {(kind) => (
+          <ActiveModalRenderer
+            kind={kind()}
+            dataVersion={data.version}
+            dimensions={dimensions}
+            setModalInputValue={setModalInputValue}
+            setModalInputRef={(ref) => {
+              modalInputRef = ref
+            }}
+            settingsCursor={settingsCursor}
+            usageData={usageData}
+            sessionsCache={sessionsCache}
+            sessionsHealthCache={sessionsHealthCache}
+            sessionsSelectedIndex={sessionsSelectedIndex}
+            sessionsScrollOffset={sessionsScrollOffset}
+            loginStatus={loginStatus}
+            candidatesModalComponent={candidatesModalComponent}
+            traceViewerModalComponent={traceViewerModalComponent}
+            closeActiveModal={closeActiveModal}
+            onStatusUpdate={(message: string) => {
+              snapshot.status = message
+              data.ctx.render()
+            }}
+            snapshot={snapshot}
+          />
+        )}
       </Show>
 
       <Show
@@ -2474,6 +1402,7 @@ function SolidShell(props: { onExit?: () => void }) {
               borderColor="#60a5fa"
               titleColor="#60a5fa"
               hint="Loading..."
+              dimensions={dimensions}
             >
               <text fg="#e2e8f0">Loading create job flow...</text>
             </ModalFrame>
@@ -2536,387 +1465,39 @@ function SolidShell(props: { onExit?: () => void }) {
           when={principalPane() === "opencode"}
           fallback={
             <box flexDirection="row" gap={1}>
-              <KeyHint description="select" keyLabel="j/k" />
+              <KeyHint
+                description="select"
+                keyLabel={`${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })}`}
+              />
               <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="view" keyLabel="enter" />
+              <KeyHint description="view" keyLabel={formatActionKeys("pane.select")} />
               <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="refresh" keyLabel="r" />
+              <KeyHint description="refresh" keyLabel={formatActionKeys("app.refresh")} />
               <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="candidates" keyLabel="v" />
+              <KeyHint description="candidates" keyLabel={formatActionKeys("modal.open.results", { primaryOnly: true })} />
               <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="metrics" keyLabel="m" />
+              <KeyHint description="metrics" keyLabel={formatActionKeys("modal.open.metrics", { primaryOnly: true })} />
               <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="fullscreen" keyLabel="M" />
+              <KeyHint description="new" keyLabel={formatActionKeys("modal.open.createJob", { primaryOnly: true })} />
               <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="new" keyLabel="n" />
+              <KeyHint
+                description="focus"
+                keyLabel={`${formatActionKeys("focus.next", { primaryOnly: true })}/${formatActionKeys("focus.prev", { primaryOnly: true })}`}
+              />
               <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="switch" keyLabel="tab" />
+              <KeyHint description="agent" keyLabel={formatActionKeys("pane.togglePrincipal", { primaryOnly: true })} />
               <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="agent" keyLabel="shift+g" />
-              <text fg={COLORS.textDim}>|</text>
-              <KeyHint description="quit" keyLabel="q" />
+              <KeyHint description="quit" keyLabel={formatActionKeys("app.quit", { primaryOnly: true })} />
             </box>
           }
         >
           <box flexDirection="row" gap={1}>
-            <KeyHint description="back" keyLabel="shift+g" />
+            <KeyHint description="back" keyLabel={formatActionKeys("app.back", { primaryOnly: true })} />
             <text fg={COLORS.textDim}>|</text>
-            <KeyHint description="sessions" keyLabel="shift+o" />
-            <text fg={COLORS.textDim}>|</text>
-            <KeyHint description="quit" keyLabel="q" />
+            <KeyHint description="sessions" keyLabel={formatActionKeys("pane.openSessions", { primaryOnly: true })} />
           </box>
         </Show>
       </box>
     </box>
   )
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
-
-function formatEventDetail(data: JobEvent["data"]): string {
-  if (data == null) return ""
-  if (typeof data === "string") return data
-  if (typeof data === "number" || typeof data === "boolean") return String(data)
-  try {
-    return JSON.stringify(data, null, 2)
-  } catch {
-    return String(data)
-  }
-}
-
-function formatPlanName(planType: string): string {
-  switch (planType) {
-    case "pro": return "Pro"
-    case "team": return "Team"
-    case "byok": return "BYOK"
-    case "free":
-    default: return "Free"
-  }
-}
-
-function formatStatus(status: string): string {
-  switch (status) {
-    case "active": return "Active"
-    case "trialing": return "Trial"
-    case "past_due": return "Past Due"
-    case "cancelled": return "Cancelled"
-    default: return status
-  }
-}
-
-function formatUSD(amount: number | null | undefined): string {
-  if (amount == null) return "-"
-  return `$${amount.toFixed(2)}`
-}
-
-function formatUsageDetails(data: UsageData | null): string {
-  if (!data) {
-    return "Loading usage data..."
-  }
-
-  const lines: string[] = []
-  lines.push("=== PLAN INFO ===")
-  lines.push("")
-  lines.push(`Plan:     ${formatPlanName(data.plan_type)}`)
-  lines.push(`Status:   ${formatStatus(data.status)}`)
-
-  const accessTier = data.access_tier || "alpha"
-  lines.push(`Access:   ${accessTier.charAt(0).toUpperCase() + accessTier.slice(1)}`)
-
-  if (data.byok_providers && data.byok_providers.length > 0) {
-    const providers = data.byok_providers.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(", ")
-    lines.push(`BYOK:     ${providers}`)
-  }
-  lines.push("")
-
-  lines.push("Features:")
-  if (data.limits.unlimited_non_rollout) {
-    lines.push("  [*] Unlimited non-rollout usage")
-  }
-  if (data.limits.byok_enabled) {
-    lines.push("  [*] BYOK enabled")
-  }
-  if (data.limits.team_features_enabled) {
-    lines.push("  [*] Team features")
-  }
-  lines.push("")
-
-  if (data.plan_type === "pro" || data.plan_type === "team") {
-    lines.push("=== ROLLOUT CREDITS ===")
-    lines.push("")
-    lines.push(`Monthly:   ${formatUSD(data.limits.monthly_rollout_credits_usd)}`)
-    lines.push(`Remaining: ${formatUSD(data.rollout_credits_balance_usd)}`)
-    lines.push(`Used:      ${formatUSD(data.rollout_credits_used_this_period_usd)}`)
-    lines.push("")
-  }
-
-  lines.push("=== USAGE (30 DAYS) ===")
-  lines.push("")
-
-  if (data.usage_summary) {
-    const summary = data.usage_summary
-    lines.push(`Total:   ${formatUSD(summary.total_cost_usd)}`)
-    lines.push(`Charged: ${formatUSD(summary.total_charged_usd)}`)
-    if (summary.total_uncharged_usd > 0) {
-      lines.push(`Savings: ${formatUSD(summary.total_uncharged_usd)}`)
-    }
-    lines.push("")
-
-    if (summary.by_type && summary.by_type.length > 0) {
-      lines.push("By type:")
-      for (const item of summary.by_type) {
-        const byok = item.byok_event_count > 0 ? ` (${item.byok_event_count} BYOK)` : ""
-        lines.push(
-          `  ${item.usage_type.padEnd(12)} ${formatUSD(item.total_cost_usd).padStart(10)} (${item.event_count} events${byok})`,
-        )
-      }
-    } else {
-      lines.push("No usage in last 30 days.")
-    }
-  } else {
-    lines.push("No usage data available.")
-  }
-
-  return lines.join("\n")
-}
-
-function formatTunnelDetails(
-  tunnels: TunnelRecord[],
-  healthResults: Map<string, TunnelHealthResult>,
-  selectedIndex: number,
-): string {
-  const activeTunnels = tunnels.filter((t) => t.status === "active" && !t.deleted_at)
-  if (activeTunnels.length === 0) {
-    return "No active task apps (tunnels).\n\nTask apps are Cloudflare managed tunnels that expose\nlocal APIs to the internet for remote execution.\n\nPress 'q' to close."
-  }
-
-  const lines: string[] = []
-  activeTunnels.forEach((tunnel, idx) => {
-    const health = healthResults.get(tunnel.id)
-    const isSelected = idx === selectedIndex
-
-    let healthIcon = "?"
-    let healthText = "checking..."
-    if (health) {
-      if (health.healthy) {
-        healthIcon = "\u2713"
-        healthText = health.response_time_ms != null
-          ? `Healthy (${health.response_time_ms}ms)`
-          : "Healthy"
-      } else {
-        healthIcon = "\u2717"
-        healthText = health.error?.slice(0, 40) || "Unhealthy"
-      }
-    }
-
-    const portMatch = tunnel.hostname.match(/task-(\d+)-\d+/)
-    const displayPort = portMatch ? portMatch[1] : tunnel.local_port?.toString() || "?"
-
-    const prefix = isSelected ? "> " : "  "
-    const hostname = tunnel.hostname.replace(/^https?:\/\//, "")
-    const shortHost = hostname.length > 50 ? hostname.slice(0, 47) + "..." : hostname
-
-    lines.push(`${prefix}[${healthIcon}] ${shortHost}`)
-    lines.push(`    Port: ${displayPort} | Status: ${healthText}`)
-    lines.push(`    Local: ${tunnel.local_host}:${tunnel.local_port}`)
-    if (tunnel.created_at) {
-      const created = new Date(tunnel.created_at)
-      lines.push(`    Created: ${created.toLocaleString()}`)
-    }
-    if (tunnel.org_name) {
-      lines.push(`    Org: ${tunnel.org_name}`)
-    }
-    lines.push("")
-  })
-
-  return lines.join("\n")
-}
-
-function formatSessionDetails(
-  sessions: SessionRecord[],
-  healthResults: Map<string, SessionHealthResult>,
-  selectedIndex: number,
-  openCodeUrl: string | null,
-): string {
-  const activeSessions = sessions.filter(
-    (s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting",
-  )
-
-  const serverUrl = openCodeUrl || "(not started)"
-
-  if (activeSessions.length === 0) {
-    return `No active OpenCode sessions.
-
-Interactive sessions connect to local or remote OpenCode servers
-for real-time agent interaction.
-
-OpenCode server: ${serverUrl}
-
-Quick connect:
-  Press 'c' to connect to the local OpenCode server
-  Press 'C' to connect with custom URL
-
-Press 'q' to close.`
-  }
-
-  const lines: string[] = []
-
-  activeSessions.forEach((session, idx) => {
-    const health = healthResults.get(session.session_id)
-    const isSelected = idx === selectedIndex
-
-    let stateIcon = "?"
-    let stateText: string = session.state
-    if (session.state === "connected") {
-      if (health) {
-        if (health.healthy) {
-          stateIcon = "\u2713"
-          stateText = health.response_time_ms != null
-            ? `Connected (${health.response_time_ms}ms)`
-            : "Connected"
-        } else {
-          stateIcon = "\u2717"
-          stateText = health.error?.slice(0, 30) || "Unhealthy"
-        }
-      } else {
-        stateIcon = "\u2713"
-        stateText = "Connected"
-      }
-    } else if (session.state === "connecting" || session.state === "reconnecting") {
-      stateIcon = "\u21BB"
-      stateText = session.state
-    } else if (session.state === "error") {
-      stateIcon = "\u2717"
-      stateText = session.error_message?.slice(0, 30) || "Error"
-    }
-
-    const prefix = isSelected ? "> " : "  "
-    const localTag = session.is_local ? " [local]" : ""
-
-    lines.push(`${prefix}[${stateIcon}] ${session.session_id}${localTag}`)
-    lines.push(`    State: ${stateText}`)
-    lines.push(`    Mode: ${session.mode} | Model: ${session.model || "default"}`)
-
-    if (session.opencode_url) {
-      const shortUrl = session.opencode_url.length > 50
-        ? session.opencode_url.slice(0, 47) + "..."
-        : session.opencode_url
-      lines.push(`    URL: ${shortUrl}`)
-    }
-    if (session.tunnel_url && session.tunnel_url !== session.opencode_url) {
-      lines.push(`    Tunnel: ${session.tunnel_url}`)
-    }
-
-    if (session.connected_at) {
-      const connectedAt = new Date(session.connected_at)
-      lines.push(`    Connected: ${connectedAt.toLocaleString()}`)
-    }
-    if (session.last_activity) {
-      const lastActivity = new Date(session.last_activity)
-      lines.push(`    Last activity: ${lastActivity.toLocaleString()}`)
-    }
-
-    lines.push("")
-  })
-
-  return lines.join("\n")
-}
-
-function formatConfigMetadata(snapshot: Snapshot): string {
-  const job = snapshot.selectedJob
-  if (!job) return "(no metadata)"
-
-  const lines: string[] = []
-  lines.push(`Job: ${job.job_id}`)
-  lines.push(`Status: ${job.status}`)
-  lines.push(`Type: ${job.training_type || "-"}`)
-  lines.push(`Source: ${job.job_source || "unknown"}`)
-  lines.push("")
-
-  if (snapshot.lastError && snapshot.status?.includes("Error")) {
-    lines.push("═══ Error Loading Metadata ═══")
-    lines.push(snapshot.lastError)
-    lines.push("")
-    lines.push("The job details could not be loaded.")
-    return lines.join("\n")
-  }
-
-  const meta: any = job.metadata
-  if (!meta || Object.keys(meta).length === 0) {
-    if (snapshot.status?.includes("Loading")) {
-      lines.push("Loading job configuration...")
-      lines.push("")
-      lines.push("Modal will auto-update when loaded.")
-    } else if (!job.training_type) {
-      lines.push("Loading job configuration...")
-      lines.push("")
-      lines.push("Press 'i' again after job details finish loading.")
-    } else {
-      lines.push("No metadata available for this job.")
-      lines.push("")
-      lines.push(`(job_source: ${job.job_source}, training_type: ${job.training_type})`)
-    }
-    return lines.join("\n")
-  }
-
-  const desc = meta.request_metadata?.description || meta.description
-  if (desc) {
-    lines.push(`Description: ${desc}`)
-    lines.push("")
-  }
-
-  const rawConfig =
-    meta.prompt_initial_snapshot?.raw_config?.prompt_learning
-    || meta.config?.prompt_learning
-    || meta.job_config?.prompt_learning
-    || meta.prompt_learning
-    || meta.config
-    || meta.job_config
-    || null
-
-  const optimizerConfig = meta.prompt_initial_snapshot?.optimizer_config || meta.optimizer_config || null
-
-  const policy = rawConfig?.policy || optimizerConfig?.policy_config
-  if (policy) {
-    lines.push("═══ Model Configuration ═══")
-    if (policy.model) lines.push(`  Model: ${policy.model}`)
-    if (policy.provider) lines.push(`  Provider: ${policy.provider}`)
-    if (policy.temperature != null) lines.push(`  Temperature: ${policy.temperature}`)
-    if (policy.max_completion_tokens) lines.push(`  Max Tokens: ${policy.max_completion_tokens}`)
-    lines.push("")
-  }
-
-  try {
-    const metaJson = JSON.stringify(meta, null, 2)
-    if (metaJson.length < 2000) {
-      lines.push("═══ Raw Metadata ═══")
-      lines.push(metaJson)
-    }
-  } catch {
-    // ignore
-  }
-
-  return lines.join("\n")
-}
-
-function wrapText(text: string, width: number): string[] {
-  const lines: string[] = []
-  for (const raw of text.split("\n")) {
-    if (raw.length <= width) {
-      lines.push(raw)
-      continue
-    }
-    if (raw.trim() === "") {
-      lines.push("")
-      continue
-    }
-    let start = 0
-    while (start < raw.length) {
-      lines.push(raw.slice(start, start + width))
-      start += width
-    }
-  }
-  return lines
 }

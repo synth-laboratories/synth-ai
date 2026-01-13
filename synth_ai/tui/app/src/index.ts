@@ -4,8 +4,17 @@
  * This is the thin entrypoint for the TUI application.
  * All logic is in app.ts and its dependencies.
  */
-import { shutdown } from "./lifecycle"
+import { shutdown, registerCleanup } from "./lifecycle"
 import { runSolidApp } from "./solid/app"
+import { initLogger, cleanupLogger } from "./services"
+import { initModeState, getCurrentMode } from "./state/mode"
+
+// Initialize mode state first (determines URLs based on env)
+initModeState()
+
+// Initialize logger early (before any output)
+initLogger(getCurrentMode())
+registerCleanup("tui-logger", cleanupLogger)
 
 // Log but don't crash - TUI should survive backend issues
 process.on("unhandledRejection", (err) => {

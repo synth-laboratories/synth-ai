@@ -1,92 +1,104 @@
-/**
- * Unified Focus Manager
- *
- * Single source of truth for focus state across the entire TUI.
- * Uses a stack-based approach: when a modal opens, it pushes onto the stack
- * and auto-blurs the previous focused item. When it closes, it pops and
- * auto-restores the previous focus.
- */
+import type { KeyAction } from "./input/keymap"
+import type { ActivePane, FocusTarget } from "./types"
+import { appState } from "./state/app-state"
 
-/** Any focusable component (modal, pane, widget) */
-export type Focusable = {
-	id: string
-	/** Called when this item receives focus */
-	onFocus?: () => void
-	/** Called when this item loses focus */
-	onBlur?: () => void
-	/** Handle keypress. Return true if consumed. */
-	handleKey?: (key: any) => boolean
+type FocusTargetConfig = {
+  id: FocusTarget
+  order: number
+  enabled?: () => boolean
+  onFocus?: () => void
+  onBlur?: () => void
+  handleAction?: (action: KeyAction) => boolean
 }
 
 class FocusManager {
-	private stack: Focusable[] = []
-	private defaultFocusable: Focusable | null = null
+  private targets = new Map<FocusTarget, FocusTargetConfig>()
+  private order: FocusTarget[] = []
 
-	/** Set the default focusable (e.g., jobs pane). Called on startup. */
-	setDefault(focusable: Focusable): void {
-		this.defaultFocusable = focusable
-		if (this.stack.length === 0) {
-			focusable.onFocus?.()
-		}
-	}
+  register(config: FocusTargetConfig): void {
+    const exists = this.targets.has(config.id)
+    this.targets.set(config.id, config)
+    if (!exists) {
+      this.order.push(config.id)
+    }
+    this.order.sort((a, b) => (this.targets.get(a)?.order ?? 0) - (this.targets.get(b)?.order ?? 0))
+  }
 
-	/** Push a new focusable onto the stack (auto-blurs current) */
-	push(focusable: Focusable): void {
-		// Blur current top of stack or default
-		const current = this.current() ?? this.defaultFocusable
-		current?.onBlur?.()
+  current(): FocusTarget {
+    return appState.focusTarget
+  }
 
-		this.stack.push(focusable)
-		focusable.onFocus?.()
-	}
+  isFocused(id: FocusTarget): boolean {
+    return appState.focusTarget === id
+  }
 
-	/** Pop focusable from stack (auto-restores previous or default) */
-	pop(id?: string): void {
-		if (id) {
-			// Remove specific item by id
-			const idx = this.stack.findIndex((f) => f.id === id)
-			if (idx >= 0) {
-				const removed = this.stack.splice(idx, 1)[0]
-				removed?.onBlur?.()
-			}
-		} else {
-			// Pop top of stack
-			const removed = this.stack.pop()
-			removed?.onBlur?.()
-		}
+  isEnabled(id: FocusTarget): boolean {
+    const target = this.targets.get(id)
+    if (!target) return false
+    return target.enabled ? target.enabled() : true
+  }
 
-		// Restore focus to new top or default
-		const next = this.current() ?? this.defaultFocusable
-		next?.onFocus?.()
-	}
+  setFocus(id: FocusTarget): boolean {
+    if (!this.isEnabled(id)) return false
+    if (appState.focusTarget === id) return false
+    const current = this.targets.get(appState.focusTarget)
+    current?.onBlur?.()
+    appState.focusTarget = id
+    this.targets.get(id)?.onFocus?.()
+    return true
+  }
 
-	/** Get current focused item (top of stack, or null if empty) */
-	current(): Focusable | null {
-		return this.stack[this.stack.length - 1] ?? null
-	}
+  ensureValid(): boolean {
+    if (this.isEnabled(appState.focusTarget)) return false
+    const next = this.firstEnabled()
+    if (!next) return false
+    return this.setFocus(next)
+  }
 
-	/** Route keypress to current focused item. Returns true if consumed. */
-	handleKey(key: any): boolean {
-		const active = this.current()
-		if (active?.handleKey) {
-			return active.handleKey(key)
-		}
-		return false
-	}
+  focusNext(): boolean {
+    return this.shift(1)
+  }
 
-	/** Check if any overlay (modal) is on the stack */
-	hasOverlay(): boolean {
-		return this.stack.length > 0
-	}
+  focusPrev(): boolean {
+    return this.shift(-1)
+  }
 
-	/** Clear all items from the stack (useful for reset) */
-	clear(): void {
-		while (this.stack.length > 0) {
-			const removed = this.stack.pop()
-			removed?.onBlur?.()
-		}
-		this.defaultFocusable?.onFocus?.()
-	}
+  route(action: KeyAction): boolean {
+    if (action === "focus.next") return this.focusNext()
+    if (action === "focus.prev") return this.focusPrev()
+    const current = this.targets.get(appState.focusTarget)
+    if (!current?.handleAction) return false
+    return current.handleAction(action)
+  }
+
+  private firstEnabled(): FocusTarget | null {
+    for (const id of this.order) {
+      if (this.isEnabled(id)) return id
+    }
+    return null
+  }
+
+  private shift(delta: number): boolean {
+    if (!this.order.length) return false
+    this.ensureValid()
+    const current = appState.focusTarget
+    const startIdx = Math.max(0, this.order.indexOf(current))
+    for (let step = 1; step <= this.order.length; step += 1) {
+      const idx = (startIdx + delta * step + this.order.length) % this.order.length
+      const candidate = this.order[idx]
+      if (this.isEnabled(candidate)) {
+        return this.setFocus(candidate)
+      }
+    }
+    return false
+  }
 }
 
 export const focusManager = new FocusManager()
+
+export function setListPane(pane: ActivePane): boolean {
+  if (appState.activePane === pane) return false
+  appState.activePane = pane
+  focusManager.ensureValid()
+  return true
+}

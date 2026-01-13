@@ -8,8 +8,8 @@ from requests import RequestException
 
 from synth_ai.core.urls import FRONTEND_URL_BASE
 
-INIT_URL = FRONTEND_URL_BASE + "/api/sdk/handshake/init"
-TOKEN_URL = FRONTEND_URL_BASE + "/api/sdk/handshake/token"
+INIT_URL = FRONTEND_URL_BASE + "/api/auth/device/init"
+TOKEN_URL = FRONTEND_URL_BASE + "/api/auth/device/token"
 POLL_INTERVAL = 3
 
 
@@ -18,6 +18,45 @@ class AuthSession:
     device_code: str
     verification_uri: str
     expires_at: float
+
+
+def _coerce_str(value) -> str:
+    return str(value or "").strip()
+
+
+def extract_synth_api_key(payload: dict) -> str:
+    direct_candidates = (
+        "synth_api_key",
+        "synthApiKey",
+        "api_key",
+        "apiKey",
+        "key",
+    )
+    for key in direct_candidates:
+        value = _coerce_str(payload.get(key))
+        if value:
+            return value
+    keys = payload.get("keys")
+    if isinstance(keys, dict):
+        nested_candidates = (
+            "synth",
+            "synth_api_key",
+            "api_key",
+            "apiKey",
+            "key",
+        )
+        for key in nested_candidates:
+            value = _coerce_str(keys.get(key))
+            if value:
+                return value
+    return ""
+
+
+def extract_environment_api_key(payload: dict) -> str:
+    keys = payload.get("keys")
+    if not isinstance(keys, dict):
+        return ""
+    return _coerce_str(keys.get("rl_env") or keys.get("environment_api_key"))
 
 
 def init_auth_session() -> AuthSession:
@@ -36,8 +75,8 @@ def init_auth_session() -> AuthSession:
     except ValueError as err:
         raise RuntimeError("Handshake init returned malformed JSON.") from err
 
-    device_code = str(data.get("device_code") or "").strip()
-    verification_uri = str(data.get("verification_uri") or "").strip()
+    device_code = _coerce_str(data.get("device_code"))
+    verification_uri = _coerce_str(data.get("verification_uri"))
     expires_in = int(data.get("expires_in") or 600)
     if not device_code or not verification_uri or not expires_in:
         raise RuntimeError(
@@ -89,13 +128,9 @@ def fetch_credentials_from_web_browser() -> dict:
         raise TimeoutError("Handshake timed out before credentials were returned.")
 
     print(f"Connected to {FRONTEND_URL_BASE}")
-    credentials = data.get("keys")
-    if not isinstance(credentials, dict):
-        credentials = {}
-
     return {
-        "SYNTH_API_KEY": str(credentials.get("synth") or "").strip(),
-        "ENVIRONMENT_API_KEY": str(credentials.get("rl_env") or "").strip(),
+        "SYNTH_API_KEY": extract_synth_api_key(data),
+        "ENVIRONMENT_API_KEY": extract_environment_api_key(data),
     }
 
 
@@ -106,13 +141,15 @@ def store_credentials(credentials, config_path=None):
     from synth_ai.core.env import mask_str, write_env_var_to_json
     from synth_ai.core.paths import SYNTH_USER_CONFIG_PATH
 
-    required = {"SYNTH_API_KEY", "ENVIRONMENT_API_KEY"}
+    required = {"SYNTH_API_KEY"}
     missing = [k for k in required if not credentials.get(k)]
     if missing:
         raise ValueError(f"Missing credential values: {', '.join(missing)}")
 
     resolved_path = config_path or str(SYNTH_USER_CONFIG_PATH)
     for k, v in credentials.items():
+        if not v:
+            continue
         write_env_var_to_json(k, v, resolved_path)
         os.environ[k] = v
         print(f"Loaded {k}={mask_str(v)} to process environment")

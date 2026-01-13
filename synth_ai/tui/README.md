@@ -33,8 +33,14 @@ run_prompt_learning_tui()
 
 ## Keyboard shortcuts
 
-- `r` refresh
-- `c` cancel
-- `a` artifacts
-- `s` snapshot (opens modal)
+- `Ctrl+C` force quit
+- `Esc` back
 - `q` quit
+- `r` refresh
+- `Tab` / `Shift+Tab` focus cycle (list/metrics/events)
+- `1` jobs, `2` logs, `3` agent
+- `Enter` view/select, `↑/↓` or `k/j` navigate
+- `/` event filter, `f` job filter
+- `n` new job, `c` cancel job, `d` artifacts
+- `g` snapshot, `i` config, `m` metrics, `t` traces, `v` candidates
+- `o` URLs, `s` settings, `u` usage, `a` task apps, `p` profile

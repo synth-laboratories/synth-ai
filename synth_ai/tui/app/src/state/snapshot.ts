@@ -16,6 +16,8 @@ export const snapshot: Snapshot = {
   artifacts: [],
   orgId: null,
   userId: null,
+  orgName: null,
+  userEmail: null,
   balanceDollars: null,
   status: "Loading jobs...",
   lastError: null,

@@ -19,6 +19,7 @@ interface JobsDetailProps {
   detailWidth: number
   detailHeight: number
   eventsFocused?: boolean
+  metricsFocused?: boolean
   metricsView: "latest" | "charts"
 }
 
@@ -183,7 +184,7 @@ export function JobsDetail(props: JobsDetailProps) {
       <box
         border
         borderStyle="single"
-        borderColor={COLORS.border}
+        borderColor={props.metricsFocused ? COLORS.textAccent : COLORS.border}
         title="Metrics"
         titleAlignment="left"
         paddingLeft={1}

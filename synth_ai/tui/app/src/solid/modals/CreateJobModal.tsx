@@ -12,6 +12,7 @@ import { COLORS } from "../theme"
 import { toDisplayPath, expandPath, getUniqueFilename } from "../utils/files"
 import { createLocalApiFile, openInEditor } from "../services/file-creation"
 import { deployLocalApi, submitEvalJob, submitLearningJob } from "../services/deployment"
+import { formatActionKeys, matchAction, type KeyEvent } from "../../input/keymap"
 
 export interface CreateJobModalProps {
   visible: boolean
@@ -38,6 +39,7 @@ type Step =
   | "selectType" 
   | "deploying"
   | "confirm"
+type ModalKeyEvent = KeyEvent & { preventDefault?: () => void }
 
 const CREATE_NEW_OPTION = "+ Create new LocalAPI file"
 const CWD_OPTION_PREFIX = "CWD: "
@@ -196,14 +198,18 @@ export function CreateJobModal(props: CreateJobModalProps) {
     props.onClose()
   }
 
-  function handleKeyPress(evt: { name: string; shift?: boolean; ctrl?: boolean }): boolean {
+  function handleKeyPress(evt: ModalKeyEvent): boolean {
     if (!props.visible) return false
     if (isDeploying()) return true // Block input while deploying
 
+    const action = matchAction(evt, "modal.createJob")
+    if (!action) return false
+
+    evt.preventDefault?.()
     const currentStep = step()
 
     // Navigation
-    if (evt.name === "j" || evt.name === "down") {
+    if (action === "nav.down") {
       if (currentStep === "selectFile") {
         setSelectedFileIndex(i => Math.min(i + 1, fileOptions().length - 1))
       } else if (currentStep === "selectDirectory") {
@@ -215,7 +221,7 @@ export function CreateJobModal(props: CreateJobModalProps) {
       }
       return true
     }
-    if (evt.name === "k" || evt.name === "up") {
+    if (action === "nav.up") {
       if (currentStep === "selectFile") {
         setSelectedFileIndex(i => Math.max(i - 1, 0))
       } else if (currentStep === "selectDirectory") {
@@ -229,7 +235,7 @@ export function CreateJobModal(props: CreateJobModalProps) {
     }
 
     // Selection
-    if (evt.name === "return" || evt.name === "enter") {
+    if (action === "modal.confirm") {
       if (currentStep === "selectFile") {
         const option = fileOptions()[selectedFileIndex()]
         if (option === CREATE_NEW_OPTION) {
@@ -277,7 +283,7 @@ export function CreateJobModal(props: CreateJobModalProps) {
     }
 
     // Go back
-    if (evt.name === "escape" || evt.name === "q") {
+    if (action === "app.back") {
       if (currentStep === "selectFile") {
         props.onClose()
       } else if (currentStep === "selectDirectory") {
@@ -316,12 +322,15 @@ export function CreateJobModal(props: CreateJobModalProps) {
 
   const stepHint = createMemo(() => {
     const currentStep = step()
+    const navHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} navigate`
+    const confirmHint = `${formatActionKeys("modal.confirm")} confirm`
+    const backHint = `${formatActionKeys("app.back")} back`
     if (isDeploying()) return "Deploying..."
-    if (currentStep === "selectFile") return "j/k navigate | Enter select | q cancel"
-    if (currentStep === "selectDirectory") return "j/k navigate | Enter select | Esc back"
-    if (currentStep === "confirmCreate") return "Enter to create | Esc back"
-    if (currentStep === "selectType") return "j/k navigate | Enter deploy | Esc back"
-    return "j/k navigate | Enter confirm | Esc back"
+    if (currentStep === "selectFile") return `${navHint} | ${formatActionKeys("modal.confirm")} select | ${formatActionKeys("app.back")} cancel`
+    if (currentStep === "selectDirectory") return `${navHint} | ${formatActionKeys("modal.confirm")} select | ${backHint}`
+    if (currentStep === "confirmCreate") return `${formatActionKeys("modal.confirm")} create | ${backHint}`
+    if (currentStep === "selectType") return `${navHint} | ${formatActionKeys("modal.confirm")} deploy | ${backHint}`
+    return `${navHint} | ${confirmHint} | ${backHint}`
   })
 
   const stepNumber = createMemo(() => {

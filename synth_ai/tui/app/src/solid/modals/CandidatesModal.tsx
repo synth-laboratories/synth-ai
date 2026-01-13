@@ -1,5 +1,6 @@
 import { Show, createEffect, createMemo, createSignal } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
+import { formatActionKeys, matchAction } from "../../input/keymap"
 
 import type { Snapshot } from "../../types"
 import { copyToClipboard } from "../../utils/clipboard"
@@ -292,8 +293,9 @@ export function CandidatesModal(props: CandidatesModalProps) {
 
   const handleKey = (evt: any) => {
     if (!props.visible) return
-    const name = typeof evt?.name === "string" ? evt.name : ""
-    const key = name.toLowerCase()
+    const action = matchAction(evt, "modal.candidates")
+    if (!action) return
+    evt.preventDefault?.()
 
     const total = candidates().length
     const detailHeight = layout().detailHeight
@@ -311,54 +313,40 @@ export function CandidatesModal(props: CandidatesModalProps) {
     const scrollUp = (amount: number) => setDetailOffset((current) => clampOffset(current - amount))
     const scrollDown = (amount: number) => setDetailOffset((current) => clampOffset(current + amount))
 
-    if (key === "q" || name === "escape") {
-      evt.preventDefault?.()
-      props.onClose()
-      return
-    }
-    if (key === "y") {
-      evt.preventDefault?.()
+    if (action === "modal.copy") {
       const text = buildCandidateDetail(layout().selected)
       void copyToClipboard(text).then(() => props.onStatus("Candidate copied to clipboard"))
       return
     }
-    if (name === "left" || name === "a") {
-      evt.preventDefault?.()
+    if (action === "candidates.prev") {
       if (total > 0) prev()
       return
     }
-    if (name === "right" || name === "d") {
-      evt.preventDefault?.()
+    if (action === "candidates.next") {
       if (total > 0) next()
       return
     }
-    if (name === "up" || name === "w") {
-      evt.preventDefault?.()
+    if (action === "candidates.scrollUp") {
       scrollUp(1)
       return
     }
-    if (name === "down" || name === "s") {
-      evt.preventDefault?.()
+    if (action === "candidates.scrollDown") {
       scrollDown(1)
       return
     }
-    if (name === "pageup") {
-      evt.preventDefault?.()
+    if (action === "nav.pageUp") {
       scrollUp(Math.max(1, detailHeight - 1))
       return
     }
-    if (name === "pagedown") {
-      evt.preventDefault?.()
+    if (action === "nav.pageDown") {
       scrollDown(Math.max(1, detailHeight - 1))
       return
     }
-    if (name === "home") {
-      evt.preventDefault?.()
+    if (action === "nav.home") {
       setDetailOffset(0)
       return
     }
-    if (name === "end") {
-      evt.preventDefault?.()
+    if (action === "nav.end") {
       setDetailOffset(maxOffset)
       return
     }
@@ -373,7 +361,11 @@ export function CandidatesModal(props: CandidatesModalProps) {
     const range = total > detailHeight
       ? `[${offset + 1}-${Math.min(offset + detailHeight, total)}/${total}] `
       : ""
-    return `${range}←/→ candidate | ↑/↓ scroll | y copy | q close`
+    const navHint = `${formatActionKeys("candidates.prev", { primaryOnly: true })}/${formatActionKeys("candidates.next", { primaryOnly: true })} candidate`
+    const scrollHint = `${formatActionKeys("candidates.scrollUp", { primaryOnly: true })}/${formatActionKeys("candidates.scrollDown", { primaryOnly: true })} scroll`
+    const copyHint = `${formatActionKeys("modal.copy", { primaryOnly: true })} copy`
+    const closeHint = `${formatActionKeys("app.back")} close`
+    return `${range}${navHint} | ${scrollHint} | ${copyHint} | ${closeHint}`
   })
 
   return (

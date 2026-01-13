@@ -29,6 +29,38 @@ export type AuthStatus =
 
 const POLL_INTERVAL_MS = 3000
 
+function extractApiKeyFromTokenResponse(data: any): string | null {
+  if (!data || typeof data !== "object") return null
+  const directCandidates = [
+    data.api_key,
+    data.apiKey,
+    data.synth_api_key,
+    data.synthApiKey,
+    data.key,
+  ]
+  for (const candidate of directCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate.trim()
+  }
+  const keys = data.keys
+  if (keys && typeof keys === "object") {
+    const nestedCandidates = [
+      (keys as any).synth,
+      (keys as any).synth_api_key,
+      (keys as any).api_key,
+      (keys as any).apiKey,
+      (keys as any).key,
+    ]
+    for (const candidate of nestedCandidates) {
+      if (typeof candidate === "string" && candidate.trim()) return candidate.trim()
+      if (candidate && typeof candidate === "object") {
+        const inner = (candidate as any).api_key || (candidate as any).apiKey || (candidate as any).key
+        if (typeof inner === "string" && inner.trim()) return inner.trim()
+      }
+    }
+  }
+  return null
+}
+
 /** Get the current frontend URL from env */
 function getAuthFrontendUrl(): string {
   return process.env.SYNTH_FRONTEND_URL || ""
@@ -39,7 +71,7 @@ function getAuthFrontendUrl(): string {
  */
 export async function initAuthSession(): Promise<AuthSession> {
   const frontendUrl = getAuthFrontendUrl()
-  const initUrl = `${frontendUrl}/api/sdk/handshake/init`
+  const initUrl = `${frontendUrl}/api/auth/device/init`
 
   const managed = getRequestSignal()
   try {
@@ -80,7 +112,7 @@ export async function pollForToken(
   deviceCode: string,
 ): Promise<{ apiKey: string | null; expired: boolean; error: string | null }> {
   const frontendUrl = getAuthFrontendUrl()
-  const tokenUrl = `${frontendUrl}/api/sdk/handshake/token`
+  const tokenUrl = `${frontendUrl}/api/auth/device/token`
 
   const managed = getRequestSignal()
   try {
@@ -105,8 +137,7 @@ export async function pollForToken(
     }
 
     const data = await res.json()
-    const keys = data.keys || {}
-    const synthKey = String(keys.synth || "").trim()
+    const synthKey = extractApiKeyFromTokenResponse(data)
 
     if (!synthKey) {
       return { apiKey: null, expired: false, error: "No API key in response" }
