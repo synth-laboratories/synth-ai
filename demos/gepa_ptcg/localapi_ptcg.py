@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
+from synth_ai.sdk.localapi.server import LocalAPIConfig, RubricBundle, create_local_api
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,

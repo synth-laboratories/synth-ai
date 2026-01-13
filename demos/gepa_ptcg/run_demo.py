@@ -18,6 +18,11 @@ parser.add_argument("--local-host", type=str, default="localhost")
 parser.add_argument("--port", type=int, default=8017, help="Port for task app")
 parser.add_argument("--model", type=str, default="gpt-4.1-mini", help="Model to use")
 parser.add_argument("--num-games", type=int, default=3, help="Number of games to run")
+parser.add_argument(
+    "--enable-verifier",
+    action="store_true",
+    help="Enable backend verifier evaluation and fuse verifier_reward with local_api_reward",
+)
 args = parser.parse_args()
 
 LOCAL_MODE = args.local
@@ -25,6 +30,7 @@ LOCAL_HOST = args.local_host
 PORT = args.port
 MODEL = args.model
 NUM_GAMES = args.num_games
+ENABLE_VERIFIER = bool(args.enable_verifier)
 
 import time
 
@@ -119,6 +125,31 @@ async def main():
             "system_prompt": DEFAULT_SYSTEM_PROMPT,
         },
         env_config={},
+        verifier_config=(
+            {
+                # Use backend verifier to evaluate "intangible" gameplay quality, then fuse it with the
+                # task app's local_api_reward (outcome_reward).
+                "enabled": True,
+                "reward_source": "fused",
+                "backend_base": synth_api_base,
+                "backend_provider": "openai",
+                "backend_model": MODEL,
+                # Zero-shot rubric verifier graph.
+                "verifier_graph_id": "zero_shot_verifier_rubric_single",
+                # Use both event-level and outcome-level rubric components when available.
+                "backend_outcome_enabled": True,
+                "backend_event_enabled": True,
+                # Verifier execution controls
+                "concurrency": 1,
+                "timeout": 240.0,
+                # Fusion weights
+                "weight_env": 0.7,
+                "weight_event": 0.15,
+                "weight_outcome": 0.15,
+            }
+            if ENABLE_VERIFIER
+            else None
+        ),
         concurrency=1,  # Run one at a time for now
     )
 
@@ -140,9 +171,12 @@ async def main():
         print("=" * 60)
         print(f"Status: {result.status}")
         if result.mean_reward is None:
-            print("Mean reward (win rate): n/a")
+            print("Mean reward: n/a")
         else:
-            print(f"Mean reward (win rate): {result.mean_reward:.2%}")
+            if ENABLE_VERIFIER:
+                print(f"Mean reward (fused): {result.mean_reward:.3f}")
+            else:
+                print(f"Mean reward (win rate): {result.mean_reward:.2%}")
         print(f"Error: {result.error}")
 
         if result.seed_results:
@@ -152,8 +186,21 @@ async def main():
                 details = sr.get("details", {}) or {}
                 instance_id = metadata.get("instance_id") or details.get("instance_id") or "?"
                 winner = metadata.get("winner") or details.get("winner") or "?"
-                reward = sr.get("outcome_reward", 0)
-                print(f"  - {instance_id}: winner={winner}, reward={reward:.2f}")
+                local_api_reward = sr.get("outcome_reward", 0.0)
+                # Backend responses may still contain legacy keys; we normalize to verifier_reward.
+                verifier_reward = (
+                    sr.get("verifier_reward")
+                    if sr.get("verifier_reward") is not None
+                    else sr.get("verifier_score")
+                )
+                fused_reward = sr.get("reward_mean") if sr.get("reward_mean") is not None else sr.get("score")
+                if ENABLE_VERIFIER:
+                    print(
+                        f"  - {instance_id}: winner={winner}, local_api_reward={local_api_reward:.2f}, "
+                        f"verifier_reward={verifier_reward}, fused_reward={fused_reward}"
+                    )
+                else:
+                    print(f"  - {instance_id}: winner={winner}, reward={local_api_reward:.2f}")
 
     except Exception as e:
         print(f"\nEval job failed: {e}")
