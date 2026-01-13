@@ -1,6 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
-import os from "node:os"
+import { tuiLogsDir } from "../../paths"
 
 export type LogFileInfo = {
   path: string
@@ -16,7 +16,7 @@ export type LogChunk = {
 }
 
 export function getLogsDirectory(): string {
-  return path.join(os.homedir(), ".synth-ai", "tui", "logs")
+  return tuiLogsDir
 }
 
 export async function listLogFiles(): Promise<LogFileInfo[]> {

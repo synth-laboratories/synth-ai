@@ -1,4 +1,4 @@
-import { type Accessor, type Component } from "solid-js"
+import { createMemo, type Accessor, type Component } from "solid-js"
 
 import { formatActionKeys } from "../../input/keymap"
 import { formatMetricsCharts } from "../../formatters/metrics"
@@ -364,8 +364,8 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
   }
 
   if (props.kind === "profile") {
-    const org = props.snapshot.orgId || "-"
-    const user = props.snapshot.userId || "-"
+    const org = props.snapshot.orgName || "-"
+    const user = props.snapshot.userEmail || "-"
     const apiKey = process.env.SYNTH_API_KEY || "-"
     return (
       <ModalFrame
@@ -377,7 +377,7 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
         hint={`${formatActionKeys("app.back")} close`}
         dimensions={props.dimensions}
       >
-        <text fg="#e2e8f0">{`Organization:\n${org}\n\nUser:\n${user}\n\nAPI Key:\n${apiKey}`}</text>
+        <text fg="#e2e8f0">{`Organization:\n${org}\n\nEmail:\n${user}\n\nAPI Key:\n${apiKey}`}</text>
       </ModalFrame>
     )
   }
@@ -430,29 +430,38 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
   }
 
   if (props.kind === "login") {
-    const status = props.loginStatus()
-    let content = ""
-    const confirmKey = formatActionKeys("login.confirm")
-    const closeKey = formatActionKeys("app.back")
-    let hint = `${confirmKey} start | ${closeKey} cancel`
-    if (status.state === "idle") {
-      content = "Press Enter to open browser and sign in..."
-    } else if (status.state === "initializing") {
-      content = "Initializing..."
-      hint = "Please wait..."
-    } else if (status.state === "waiting") {
-      content = `Browser opened. Complete sign-in there.\n\nURL: ${status.verificationUri}`
-      hint = `Waiting for browser auth... | ${closeKey} cancel`
-    } else if (status.state === "polling") {
-      content = "Browser opened. Complete sign-in there.\n\nChecking for completion..."
-      hint = `Waiting for browser auth... | ${closeKey} cancel`
-    } else if (status.state === "success") {
-      content = "Authentication successful!"
-      hint = "Loading..."
-    } else if (status.state === "error") {
-      content = `Error: ${status.message}`
-      hint = `${confirmKey} retry | ${closeKey} close`
-    }
+    const loginCopy = createMemo(() => {
+      const status = props.loginStatus()
+      const confirmKey = formatActionKeys("login.confirm")
+      const closeKey = formatActionKeys("app.back")
+      let content = "Press Enter to open browser and sign in..."
+      let hint = `${confirmKey} start | ${closeKey} cancel`
+      switch (status.state) {
+        case "initializing":
+          content = "Initializing..."
+          hint = "Please wait..."
+          break
+        case "waiting":
+          content = `Browser opened. Complete sign-in there.\n\nURL: ${status.verificationUri}`
+          hint = `Waiting for browser auth... | ${closeKey} cancel`
+          break
+        case "polling":
+          content = "Browser opened. Complete sign-in there.\n\nChecking for completion..."
+          hint = `Waiting for browser auth... | ${closeKey} cancel`
+          break
+        case "success":
+          content = "Authentication successful!"
+          hint = "Loading..."
+          break
+        case "error":
+          content = `Error: ${status.message}`
+          hint = `${confirmKey} retry | ${closeKey} close`
+          break
+        default:
+          break
+      }
+      return { content, hint }
+    })
     return (
       <ModalFrame
         title="Sign In / Sign Up"
@@ -460,10 +469,10 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
         height={10}
         borderColor="#22c55e"
         titleColor="#22c55e"
-        hint={hint}
+        hint={loginCopy().hint}
         dimensions={props.dimensions}
       >
-        <text fg="#e2e8f0">{content}</text>
+        <text fg="#e2e8f0">{loginCopy().content}</text>
       </ModalFrame>
     )
   }

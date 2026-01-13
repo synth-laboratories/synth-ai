@@ -2,8 +2,8 @@
  * Polling state and timers.
  */
 
-import path from "node:path"
 import { registerCleanup } from "../lifecycle"
+import { tuiSettingsPath } from "../paths"
 
 // Configuration from environment
 export const config = {
@@ -16,7 +16,7 @@ export const config = {
   eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
   eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
   jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
-  settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path.join(process.env.HOME || process.cwd(), ".synth-ai", "tui-settings"),
+  settingsFilePath: tuiSettingsPath,
   jobFilterVisibleCount: 6,
 }
 

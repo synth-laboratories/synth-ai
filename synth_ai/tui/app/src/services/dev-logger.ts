@@ -7,8 +7,8 @@
 
 import * as fs from "fs"
 import * as path from "path"
-import * as os from "os"
 import type { Mode } from "../types"
+import { tuiLogsDir } from "../paths"
 
 interface LoggerState {
   initialized: boolean
@@ -40,7 +40,7 @@ const state: LoggerState = {
  * Get the logs directory path.
  */
 function getLogsDir(): string {
-  return path.join(os.homedir(), ".synth-ai", "tui", "logs")
+  return tuiLogsDir
 }
 
 /**

@@ -28,7 +28,7 @@ type UseAppKeybindingsOptions = {
   closeActiveModal: () => void
   applyFilterModal: () => void
   applySnapshotModal: () => Promise<void>
-  applyKeyModal: () => void
+  applyKeyModal: () => Promise<void>
   pasteKeyModal: () => Promise<void>
   moveSettingsCursor: (delta: number) => void
   selectSettingsBackend: () => Promise<void>
@@ -231,7 +231,7 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         case "key":
           switch (action) {
             case "modal.confirm":
-              options.applyKeyModal()
+              void options.applyKeyModal()
               return
             case "modal.paste":
               void options.pasteKeyModal()

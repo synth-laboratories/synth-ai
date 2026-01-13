@@ -15,10 +15,14 @@ export async function refreshIdentity(
     const me = await apiGet("/me", { version: "v1" })
     snapshot.orgId = typeof me?.org_id === "string" ? me.org_id : null
     snapshot.userId = typeof me?.user_id === "string" ? me.user_id : null
+    snapshot.orgName = typeof me?.org_name === "string" ? me.org_name : null
+    snapshot.userEmail = typeof me?.user_email === "string" ? me.user_email : null
   } catch (err: any) {
     if (isAbortError(err)) return
     snapshot.orgId = snapshot.orgId || null
     snapshot.userId = snapshot.userId || null
+    snapshot.orgName = snapshot.orgName || null
+    snapshot.userEmail = snapshot.userEmail || null
   }
 
   // Get balance from Autumn via backend proxy

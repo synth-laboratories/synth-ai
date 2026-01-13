@@ -1,7 +1,13 @@
 import json
 import os
 
-from synth_ai.core.auth import AuthSession, fetch_data, init_auth_session
+from synth_ai.core.auth import (
+    AuthSession,
+    extract_environment_api_key,
+    extract_synth_api_key,
+    fetch_data,
+    init_auth_session,
+)
 from synth_ai.core.env import mask_str, write_env_var_to_json
 from synth_ai.core.paths import SYNTH_USER_CONFIG_PATH
 
@@ -49,20 +55,20 @@ def setup_fetch(device_code: str) -> str:
                 },
                 ensure_ascii=False,
             )
-        raw_keys = payload.get("keys") or {}
-        if not isinstance(raw_keys, dict):
+        synth_key = extract_synth_api_key(payload)
+        if not synth_key:
             return json.dumps(
                 {
                     "status": "error",
                     "stage": stage,
-                    "message": "Handshake token response missing keys dictionary",
+                    "message": "Handshake token response missing Synth API key",
                 },
                 ensure_ascii=False,
             )
-        credentials = {
-            "SYNTH_API_KEY": str(raw_keys.get("synth") or "").strip(),
-            "ENVIRONMENT_API_KEY": str(raw_keys.get("rl_env") or "").strip(),
-        }
+        credentials = {"SYNTH_API_KEY": synth_key}
+        env_key = extract_environment_api_key(payload)
+        if env_key:
+            credentials["ENVIRONMENT_API_KEY"] = env_key
         for k, v in credentials.items():
             write_env_var_to_json(k, v, str(SYNTH_USER_CONFIG_PATH))
             os.environ[k] = v

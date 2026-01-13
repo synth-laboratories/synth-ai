@@ -621,16 +621,26 @@ function SolidShell(props: { onExit?: () => void }) {
     setActiveModal("key")
   }
 
-  function applyKeyModal(): void {
+  async function applyKeyModal(): Promise<void> {
     const trimmed = modalInputValue().trim()
     if (!trimmed) {
       closeActiveModal()
       return
     }
     process.env.SYNTH_API_KEY = trimmed
-    snapshot.status = "API key updated"
+    modeKeys[appState.currentMode] = trimmed
     closeActiveModal()
+    snapshot.lastError = null
+    snapshot.status = "API key updated"
     data.ctx.render()
+    await saveApiKey(trimmed)
+    await clearLoggedOutMarker()
+    await persistSettings({
+      settingsFilePath: data.ctx.state.config.settingsFilePath,
+      getCurrentMode: () => appState.currentMode,
+      getModeKeys: () => modeKeys,
+    })
+    await data.refresh()
   }
 
   async function pasteKeyModal(): Promise<void> {
@@ -1107,6 +1117,8 @@ function SolidShell(props: { onExit?: () => void }) {
     snapshot.artifacts = []
     snapshot.orgId = null
     snapshot.userId = null
+    snapshot.orgName = null
+    snapshot.userEmail = null
     snapshot.balanceDollars = null
     snapshot.lastRefresh = null
     snapshot.allCandidates = []

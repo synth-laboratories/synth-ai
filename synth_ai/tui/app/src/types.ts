@@ -221,6 +221,8 @@ export type Snapshot = {
   artifacts: Array<Record<string, unknown>>
   orgId: string | null
   userId: string | null
+  orgName: string | null
+  userEmail: string | null
   balanceDollars: number | null
   status: string
   lastError: string | null

@@ -3,19 +3,14 @@
  * Handles logout marker and API key storage across TUI restarts.
  */
 import fs from "node:fs"
-import path from "node:path"
-import os from "node:os"
-
-const STATE_DIR = path.join(os.homedir(), ".synth-ai", ".tui")
-const MARKER_PATH = path.join(STATE_DIR, "logged-out")
-const API_KEY_PATH = path.join(STATE_DIR, "api-key")
+import { tuiApiKeyPath, tuiConfigDir, tuiLoggedOutMarkerPath } from "../paths"
 
 /**
  * Check if the logout marker file exists (sync for startup).
  */
 export function isLoggedOutMarkerSet(): boolean {
 	try {
-		fs.accessSync(MARKER_PATH, fs.constants.F_OK)
+    fs.accessSync(tuiLoggedOutMarkerPath, fs.constants.F_OK)
 		return true
 	} catch {
 		return false
@@ -27,8 +22,8 @@ export function isLoggedOutMarkerSet(): boolean {
  */
 export async function setLoggedOutMarker(): Promise<void> {
 	try {
-		await fs.promises.mkdir(STATE_DIR, { recursive: true })
-		await fs.promises.writeFile(MARKER_PATH, "", "utf8")
+    await fs.promises.mkdir(tuiConfigDir, { recursive: true })
+    await fs.promises.writeFile(tuiLoggedOutMarkerPath, "", "utf8")
 	} catch {
 		// Silent fail - not critical
 	}
@@ -39,7 +34,7 @@ export async function setLoggedOutMarker(): Promise<void> {
  */
 export async function clearLoggedOutMarker(): Promise<void> {
 	try {
-		await fs.promises.unlink(MARKER_PATH)
+    await fs.promises.unlink(tuiLoggedOutMarkerPath)
 	} catch {
 		// Silent fail - file may not exist
 	}
@@ -50,7 +45,7 @@ export async function clearLoggedOutMarker(): Promise<void> {
  */
 export function loadSavedApiKey(): string | null {
 	try {
-		const key = fs.readFileSync(API_KEY_PATH, "utf8").trim()
+    const key = fs.readFileSync(tuiApiKeyPath, "utf8").trim()
 		return key || null
 	} catch {
 		return null
@@ -62,8 +57,8 @@ export function loadSavedApiKey(): string | null {
  */
 export async function saveApiKey(key: string): Promise<void> {
 	try {
-		await fs.promises.mkdir(STATE_DIR, { recursive: true })
-		await fs.promises.writeFile(API_KEY_PATH, key, { encoding: "utf8", mode: 0o600 })
+    await fs.promises.mkdir(tuiConfigDir, { recursive: true })
+    await fs.promises.writeFile(tuiApiKeyPath, key, { encoding: "utf8", mode: 0o600 })
 	} catch {
 		// Silent fail - not critical
 	}
@@ -74,7 +69,7 @@ export async function saveApiKey(key: string): Promise<void> {
  */
 export async function deleteSavedApiKey(): Promise<void> {
 	try {
-		await fs.promises.unlink(API_KEY_PATH)
+    await fs.promises.unlink(tuiApiKeyPath)
 	} catch {
 		// Silent fail - file may not exist
 	}
