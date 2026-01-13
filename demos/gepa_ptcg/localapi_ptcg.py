@@ -137,7 +137,7 @@ def ensure_tcg_py_built() -> None:
 
     # Build with maturin into the *current* interpreter environment.
     # (This task app runs in-process, so tcg_py must be importable from sys.executable.)
-    print("[ptcg] Building tcg_py extension...")
+    print("[ptcg] Building tcg_py extension (this can take a few minutes the first time)...")
     try:
         # Ensure maturin is installed for this interpreter.
         subprocess.run(
@@ -149,7 +149,25 @@ def ensure_tcg_py_built() -> None:
         # If maturin install fails, the next command will raise with a clear error.
         pass
 
-    subprocess.run([sys.executable, "-m", "maturin", "develop"], cwd=str(tcg_py_dir), check=True)
+    # Build a wheel and install it. `maturin develop` can produce an editable install that
+    # doesn't reliably expose the compiled extension module for in-process imports.
+    subprocess.run(
+        [sys.executable, "-m", "maturin", "build", "--release", "-i", sys.executable],
+        cwd=str(tcg_py_dir),
+        check=True,
+    )
+
+    wheels_dir = tcg_py_dir / "target" / "wheels"
+    wheels = sorted(wheels_dir.glob("tcg_py-*.whl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not wheels:
+        raise RuntimeError(f"No wheels found under {wheels_dir} after build")
+    wheel = wheels[0]
+
+    subprocess.run(
+        ["uv", "pip", "install", "--python", sys.executable, "--force-reinstall", str(wheel)],
+        check=True,
+        capture_output=True,
+    )
 
 
 # ============================================================================
