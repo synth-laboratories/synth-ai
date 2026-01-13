@@ -104,6 +104,11 @@ def _load_service():
     _reset_queue_config_cache_if_needed()
     from synth_ai.core.experiment_queue import service
 
+    if service is None:
+        raise click.ClickException(
+            "Experiment queue service unavailable. "
+            "Install required dependencies: pip install 'synth-ai[queue]'"
+        )
     return service
 
 

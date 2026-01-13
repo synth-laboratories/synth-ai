@@ -16,6 +16,7 @@ import httpx
 
 from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
 from synth_ai.core.tracing_v3.turso.daemon import start_sqld
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.client import LocalAPIClient
 from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
@@ -825,7 +826,7 @@ async def _run_smoke_async(
 
         # Inference URL: user override > preset > local mock > Synth API default
         synth_base = (
-            os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL") or "https://api.synth.run"
+            os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL") or BACKEND_URL_BASE
         ).rstrip("/")
         # Avoid double '/api' if base already includes it
         if synth_base.endswith("/api"):

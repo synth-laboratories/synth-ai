@@ -8,7 +8,7 @@ import { createModalUI, wrapModalText, clamp, type ModalController, type ModalUI
 import { focusManager } from "../focus"
 import { apiGet } from "../api/client"
 import { openBrowser } from "../auth"
-import { appState, getFrontendUrl } from "../state/app-state"
+import { appState } from "../state/app-state"
 
 export interface UsageData {
   plan_type: "free" | "pro" | "team" | "byok"
@@ -238,7 +238,7 @@ export function createUsageModal(ctx: AppContext): UsageModalController {
 
   function openBillingPage(): void {
     try {
-      const frontendUrl = getFrontendUrl(appState.currentBackend)
+      const frontendUrl = process.env.SYNTH_FRONTEND_URL || ""
       const usageUrl = `${frontendUrl}/usage`
       openBrowser(usageUrl)
       ctx.state.snapshot.status = `Opened: ${usageUrl}`

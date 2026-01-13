@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+from synth_ai.core.urls import BACKEND_URL_API, join_url, local_backend_url
+
 # Default database path in user's home directory
 # Can be overridden via EXPERIMENT_QUEUE_DB_PATH environment variable
 DEFAULT_DB_PATH = Path.home() / ".synth_ai" / "experiment_queue.db"
@@ -102,13 +104,16 @@ def load_config() -> ExperimentQueueConfig:
     # Override with EXPERIMENT_QUEUE_BACKEND_URL or EXPERIMENT_QUEUE_LOCAL=true for localhost:8000
     if os.getenv("EXPERIMENT_QUEUE_LOCAL", "").lower() in ("true", "1", "yes"):
         # Local mode: use localhost:8000
-        backend_url = os.getenv("EXPERIMENT_QUEUE_BACKEND_URL", "http://localhost:8000/api")
+        backend_url = os.getenv(
+            "EXPERIMENT_QUEUE_BACKEND_URL",
+            join_url(local_backend_url(), "/api"),
+        )
     else:
         # Production mode (default): use api.usesynth.ai
         backend_url = (
             os.getenv("EXPERIMENT_QUEUE_BACKEND_URL")
             or os.getenv("DEV_BACKEND_URL")
-            or "https://api.usesynth.ai/api"
+            or BACKEND_URL_API
         )
 
     return ExperimentQueueConfig(

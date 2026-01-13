@@ -2,105 +2,73 @@
  * Global application state.
  */
 
-import type { ActivePane, BackendConfig, BackendId, BackendKeySource, FrontendUrlId, LogSource } from "../types"
+import type { ActivePane, LogSource, Mode, ModeUrls } from "../types"
 
-/** Ensure URL ends with /api */
-function ensureApiBase(url: string): string {
-  let base = url.trim().replace(/\/+$/, "")
-  if (!base.endsWith("/api")) {
-    base = base + "/api"
-  }
-  return base
-}
-
-/** Normalize backend ID from env string */
-export function normalizeBackendId(value: string): BackendId {
+/** Normalize mode from env string */
+export function normalizeMode(value: string): Mode {
   const lower = value.toLowerCase().trim()
   if (lower === "dev" || lower === "development") return "dev"
   if (lower === "local" || lower === "localhost") return "local"
   return "prod"
 }
 
-/** Get frontend URL identifier for a backend (keys are shared by frontend URL) */
-export function getFrontendUrlId(backendId: BackendId): FrontendUrlId {
-  switch (backendId) {
-    case "prod": return "usesynth.ai"
-    case "dev":
-    case "local": return "localhost:3000"
+/** Load URL profiles from launcher env var */
+function loadModeUrls(): Record<Mode, ModeUrls> {
+  const raw = process.env.SYNTH_TUI_URL_PROFILES || ""
+  if (!raw) {
+    return {
+      prod: { backendUrl: "", frontendUrl: "" },
+      dev: { backendUrl: "", frontendUrl: "" },
+      local: { backendUrl: "", frontendUrl: "" },
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, Partial<ModeUrls>>
+    const read = (key: string): ModeUrls => ({
+      backendUrl: String(parsed?.[key]?.backendUrl || ""),
+      frontendUrl: String(parsed?.[key]?.frontendUrl || ""),
+    })
+    return { prod: read("prod"), dev: read("dev"), local: read("local") }
+  } catch {
+    return {
+      prod: { backendUrl: "", frontendUrl: "" },
+      dev: { backendUrl: "", frontendUrl: "" },
+      local: { backendUrl: "", frontendUrl: "" },
+    }
   }
 }
 
-/** Get frontend URL for a backend (used for auth and billing pages) */
-export function getFrontendUrl(backendId: BackendId): string {
-  switch (backendId) {
-    case "prod": return "https://usesynth.ai"
-    case "dev":
-    case "local": return "http://localhost:3000"
-  }
+/** URLs for each mode (loaded from SYNTH_TUI_URL_PROFILES) */
+export const modeUrls = loadModeUrls()
+
+/** API keys per mode */
+export const modeKeys: Record<Mode, string> = {
+  prod: "",
+  dev: "",
+  local: "",
 }
 
-// Backend configurations
-export const backendConfigs: Record<BackendId, BackendConfig> = {
-  prod: {
-    id: "prod",
-    label: "Prod",
-    baseUrl: ensureApiBase(
-      process.env.SYNTH_TUI_PROD_API_BASE || "https://api.usesynth.ai/api",
-    ),
-  },
-  dev: {
-    id: "dev",
-    label: "Dev",
-    baseUrl: ensureApiBase(
-      process.env.SYNTH_TUI_DEV_API_BASE || "https://synth-backend-dev-docker.onrender.com/api",
-    ),
-  },
-  local: {
-    id: "local",
-    label: "Local",
-    baseUrl: ensureApiBase(
-      process.env.SYNTH_TUI_LOCAL_API_BASE || "http://localhost:8000/api",
-    ),
-  },
+// Initialize current mode's key from env
+const initialMode = normalizeMode(process.env.SYNTH_TUI_MODE || "prod")
+if (process.env.SYNTH_API_KEY) {
+  modeKeys[initialMode] = process.env.SYNTH_API_KEY
 }
 
-// API keys per frontend URL (keys are shared by frontend URL, not backend mode)
-// dev and local both use localhost:3000, so they share the same key
-export const frontendKeys: Record<FrontendUrlId, string> = {
-  "usesynth.ai": process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
-  "localhost:3000": process.env.SYNTH_TUI_API_KEY_LOCAL || process.env.SYNTH_API_KEY || "",
-}
-
-// Key source tracking (for display purposes)
-export const frontendKeySources: Record<FrontendUrlId, BackendKeySource> = {
-  "usesynth.ai": { sourcePath: null, varName: null },
-  "localhost:3000": { sourcePath: null, varName: null },
-}
-
-/** Get API key for a backend (looks up by frontend URL) */
-export function getKeyForBackend(backendId: BackendId): string {
-  return frontendKeys[getFrontendUrlId(backendId)]
-}
-
-/** Set API key for a backend (stores by frontend URL) */
-export function setKeyForBackend(backendId: BackendId, key: string): void {
-  frontendKeys[getFrontendUrlId(backendId)] = key
-}
-
-/** Get key source for a backend (looks up by frontend URL) */
-export function getKeySourceForBackend(backendId: BackendId): BackendKeySource {
-  return frontendKeySources[getFrontendUrlId(backendId)]
-}
-
-/** Set key source for a backend (stores by frontend URL) */
-export function setKeySourceForBackend(backendId: BackendId, source: BackendKeySource): void {
-  frontendKeySources[getFrontendUrlId(backendId)] = source
+/** Switch to a different mode - updates env vars and state */
+export function switchMode(mode: Mode): void {
+  const urls = modeUrls[mode]
+  process.env.SYNTH_TUI_MODE = mode
+  process.env.SYNTH_BACKEND_URL = urls.backendUrl
+  process.env.SYNTH_FRONTEND_URL = urls.frontendUrl
+  process.env.SYNTH_API_KEY = modeKeys[mode] || ""
+  appState.currentMode = mode
 }
 
 // Mutable app state
 export const appState = {
-  // Backend state
-  currentBackend: normalizeBackendId(process.env.SYNTH_TUI_BACKEND || "prod") as BackendId,
+  // Mode state
+  currentMode: initialMode,
 
   activePane: "jobs" as ActivePane,
   healthStatus: "unknown",
@@ -119,13 +87,13 @@ export const appState = {
   jobFilterWindowStart: 0,
 
   // Key modal state
-  keyModalBackend: "prod" as BackendId,
+  keyModalMode: "prod" as Mode,
   keyPasteActive: false,
   keyPasteBuffer: "",
 
   // Settings modal state
   settingsCursor: 0,
-  settingsOptions: [] as BackendConfig[],
+  settingsOptions: [] as Mode[],
 
   // Usage modal state
   usageModalOffset: 0,

@@ -36,14 +36,7 @@ import { refreshEvents } from "../api/events"
 import type { JobEvent } from "../tui_data"
 import type { SessionHealthResult, SessionRecord, Snapshot, TunnelHealthResult, TunnelRecord } from "../types"
 import { focusManager } from "../focus"
-import {
-  backendConfigs,
-  frontendKeys,
-  frontendKeySources,
-  getFrontendUrl,
-  getFrontendUrlId,
-  getKeyForBackend,
-} from "../state/app-state"
+import { modeKeys, modeUrls, switchMode } from "../state/app-state"
 import { pollingState, clearEventsTimer, clearJobsTimer } from "../state/polling"
 import { installSignalHandlers, registerCleanup, unregisterCleanup, registerRenderer, shutdown } from "../lifecycle"
 import { createAbortControllerRegistry, isAbortError } from "../utils/abort"
@@ -872,10 +865,10 @@ function SolidShell(props: { onExit?: () => void }) {
     } catch {
       // Best-effort blur only.
     }
-    appState.settingsOptions = [backendConfigs.prod, backendConfigs.dev, backendConfigs.local]
+    appState.settingsOptions = ["prod", "dev", "local"]
     setSettingsCursor(Math.max(
       0,
-      appState.settingsOptions.findIndex((opt) => opt.id === appState.currentBackend),
+      appState.settingsOptions.indexOf(appState.currentMode),
     ))
     setActiveModal("settings")
   }
@@ -896,22 +889,26 @@ function SolidShell(props: { onExit?: () => void }) {
   }
 
   async function selectSettingsBackend(): Promise<void> {
-    const selected = appState.settingsOptions[settingsCursor()]
-    if (!selected) return
-    appState.currentBackend = selected.id
-    const baseUrl = selected.baseUrl.replace(/\/api$/, "")
-    process.env.SYNTH_BACKEND_URL = baseUrl
-    process.env.SYNTH_API_KEY = getKeyForBackend(selected.id) || ""
+    const selectedMode = appState.settingsOptions[settingsCursor()]
+    if (!selectedMode) return
+    const urls = modeUrls[selectedMode]
+    if (!urls.backendUrl || !urls.frontendUrl) {
+      snapshot.status = `Missing URLs for ${selectedMode}.`
+      data.ctx.render()
+      return
+    }
+
+    // Switch mode (updates env vars and state)
+    switchMode(selectedMode)
 
     closeActiveModal()
-    snapshot.status = `Switching to ${selected.label}...`
+    snapshot.status = `Switching to ${selectedMode}...`
     data.ctx.render()
 
     await persistSettings({
       settingsFilePath: data.ctx.state.config.settingsFilePath,
-      getCurrentBackend: () => appState.currentBackend,
-      getFrontendKey: (id) => frontendKeys[id],
-      getFrontendKeySource: (id) => frontendKeySources[id],
+      getCurrentMode: () => appState.currentMode,
+      getModeKeys: () => modeKeys,
     })
     await data.refresh()
   }
@@ -978,7 +975,7 @@ function SolidShell(props: { onExit?: () => void }) {
 
   function openUsageBilling(): void {
     try {
-      const frontendUrl = getFrontendUrl(appState.currentBackend)
+      const frontendUrl = process.env.SYNTH_FRONTEND_URL || ""
       const usageUrl = `${frontendUrl}/usage`
       openBrowser(usageUrl)
       snapshot.status = `Opened: ${usageUrl}`
@@ -1196,17 +1193,15 @@ function SolidShell(props: { onExit?: () => void }) {
     setLoginInProgress(false)
 
     if (result.success && result.apiKey) {
-      const frontendUrlId = getFrontendUrlId(appState.currentBackend)
-      frontendKeys[frontendUrlId] = result.apiKey
-      frontendKeySources[frontendUrlId] = { sourcePath: null, varName: "device_code_auth" }
+      // Store key for current mode
+      modeKeys[appState.currentMode] = result.apiKey
       process.env.SYNTH_API_KEY = result.apiKey
       await saveApiKey(result.apiKey)
       await clearLoggedOutMarker()
       await persistSettings({
         settingsFilePath: data.ctx.state.config.settingsFilePath,
-        getCurrentBackend: () => appState.currentBackend,
-        getFrontendKey: (id) => frontendKeys[id],
-        getFrontendKeySource: (id) => frontendKeySources[id],
+        getCurrentMode: () => appState.currentMode,
+        getModeKeys: () => modeKeys,
       })
       closeActiveModal()
       snapshot.lastError = null
@@ -2000,24 +1995,25 @@ function SolidShell(props: { onExit?: () => void }) {
     }
 
     if (kind === "settings") {
+      const modeLabels: Record<string, string> = { prod: "Prod", dev: "Dev", local: "Local" }
       // Use a function for the text content to ensure reactivity to settingsCursor() changes
       const settingsContent = () => {
         const cursorIdx = settingsCursor()
         const lines: string[] = []
         for (let idx = 0; idx < appState.settingsOptions.length; idx++) {
-          const opt = appState.settingsOptions[idx]
-          const active = appState.currentBackend === opt.id
+          const mode = appState.settingsOptions[idx]
+          const active = appState.currentMode === mode
           const cursor = idx === cursorIdx ? ">" : " "
-          lines.push(`${cursor} [${active ? "x" : " "}] ${opt.label} (${opt.id})`)
+          lines.push(`${cursor} [${active ? "x" : " "}] ${modeLabels[mode] || mode} (${mode})`)
         }
-        const selected = appState.settingsOptions[cursorIdx]
-        if (selected) {
-          const key = getKeyForBackend(selected.id)
+        const selectedMode = appState.settingsOptions[cursorIdx]
+        if (selectedMode) {
+          const urls = modeUrls[selectedMode]
+          const key = modeKeys[selectedMode]
           const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)"
-          const frontendUrl = getFrontendUrl(selected.id)
           lines.push("")
-          lines.push(`Backend: ${selected.baseUrl}`)
-          lines.push(`Frontend: ${frontendUrl}`)
+          lines.push(`Backend: ${urls?.backendUrl || "(unset)"}`)
+          lines.push(`Frontend: ${urls?.frontendUrl || "(unset)"}`)
           lines.push(`Key: ${keyPreview}`)
         }
         return lines.join("\n")
@@ -2025,7 +2021,7 @@ function SolidShell(props: { onExit?: () => void }) {
 
       return (
         <ModalFrame
-          title="Settings - Backend"
+          title="Settings - Mode"
           width={64}
           height={14}
           borderColor="#38bdf8"

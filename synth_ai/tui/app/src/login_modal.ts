@@ -11,7 +11,7 @@ import { createModalUI, type ModalUI } from "./modals/base"
 import { pollingState, clearJobsTimer, clearEventsTimer } from "./state/polling"
 import { setLoggedOutMarker, clearLoggedOutMarker, saveApiKey, deleteSavedApiKey } from "./utils/logout-marker"
 import { focusManager } from "./focus"
-import { appState, frontendKeys, frontendKeySources, getFrontendUrlId } from "./state/app-state"
+import { appState, modeKeys } from "./state/app-state"
 
 /**
  * Snapshot state for updating status messages.
@@ -150,12 +150,8 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
     loginAuthInProgress = false
 
     if (result.success && result.apiKey) {
-      // Store the key by frontend URL (dev and local share localhost:3000)
-      const frontendUrlId = getFrontendUrlId(appState.currentBackend)
-      frontendKeys[frontendUrlId] = result.apiKey
-      frontendKeySources[frontendUrlId] = { sourcePath: null, varName: "device_code_auth" }
-
-      // Store the key in memory and persist to file
+      // Store the key for current mode
+      modeKeys[appState.currentMode] = result.apiKey
       process.env.SYNTH_API_KEY = result.apiKey
       await saveApiKey(result.apiKey)
 
@@ -164,9 +160,8 @@ export function createLoginModal(deps: LoginModalDeps): LoginModalController {
       const { config } = await import("./state/polling")
       await persistSettings({
         settingsFilePath: config.settingsFilePath,
-        getCurrentBackend: () => appState.currentBackend,
-        getFrontendKey: (id) => frontendKeys[id],
-        getFrontendKeySource: (id) => frontendKeySources[id],
+        getCurrentMode: () => appState.currentMode,
+        getModeKeys: () => modeKeys,
       })
 
       // Clear logout marker so auto-login works next time
