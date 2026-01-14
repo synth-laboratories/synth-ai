@@ -540,7 +540,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
     return RolloutResponse(
         trace_correlation_id=trace_correlation_id,
-        metrics=RolloutMetrics(
+        reward_info=RolloutMetrics(
             outcome_reward=outcome_reward_value,
             details=details,
             outcome_objectives={"reward": outcome_reward_value, "latency_ms": latency_ms},
