@@ -27,7 +27,9 @@ from openai import OpenAI
 def _build_prompt(*, challenge_id: str) -> tuple[str, str]:
     inst = get_instance(challenge_id)
     if not inst:
-        raise SystemExit(f"Unknown challenge_id '{challenge_id}'. Options: {sorted(set(get_instance_ids()))}")
+        raise SystemExit(
+            f"Unknown challenge_id '{challenge_id}'. Options: {sorted(set(get_instance_ids()))}"
+        )
 
     # Keep prompt short-ish but unambiguous.
     constraints = inst.get("constraints", [])
@@ -76,7 +78,9 @@ def _parse_json_deck(text: str) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Generate and score Pokemon TCG decks (no interceptor).")
+    parser = argparse.ArgumentParser(
+        description="Generate and score Pokemon TCG decks (no interceptor)."
+    )
     parser.add_argument("--challenge", default="basic-deck", help="Challenge ID (e.g. basic-deck).")
     parser.add_argument("--model", default="gpt-4.1-mini", help="OpenAI model name.")
     parser.add_argument("--n", type=int, default=1, help="How many decks to generate.")
@@ -91,8 +95,12 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="If set, only score against the challenge's opponent_decks (default is ALL 6 comparison decks).",
     )
-    parser.add_argument("--seed", type=int, default=123, help="Base seed for deterministic scoring.")
-    parser.add_argument("--max-workers", type=int, default=0, help="Thread count for Rust batch scorer (0=auto).")
+    parser.add_argument(
+        "--seed", type=int, default=123, help="Base seed for deterministic scoring."
+    )
+    parser.add_argument(
+        "--max-workers", type=int, default=0, help="Thread count for Rust batch scorer (0=auto)."
+    )
     args = parser.parse_args(argv)
 
     # Load synth-ai/.env if present (for OPENAI_API_KEY, etc.)
@@ -148,9 +156,11 @@ def main(argv: list[str] | None = None) -> None:
         print(f"\n=== DECK {i} ===")
         print(f"constraint_score: {constraint_score:.3f}")
         print(f"battle_win_rate: {win_rate:.3f}")
-        print("per_opponent:", [(d["opponent"], round(d["win_rate"], 3), d["wins"], d["games"]) for d in per_opp])
+        print(
+            "per_opponent:",
+            [(d["opponent"], round(d["win_rate"], 3), d["wins"], d["games"]) for d in per_opp],
+        )
 
 
 if __name__ == "__main__":
     main()
-

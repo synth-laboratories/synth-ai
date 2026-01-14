@@ -68,7 +68,9 @@ def main():
 
     if rollout_response:
         print("\nRollout Response Structure:")
-        print(f"  Keys: {list(rollout_response.keys()) if isinstance(rollout_response, dict) else 'not a dict'}")
+        print(
+            f"  Keys: {list(rollout_response.keys()) if isinstance(rollout_response, dict) else 'not a dict'}"
+        )
 
         metrics = rollout_response.get("metrics", {}) if isinstance(rollout_response, dict) else {}
         if metrics:
@@ -113,11 +115,15 @@ def main():
                     print(f"\n  Deck (first 20 cards): {deck[:20]}")
         else:
             print("\nNo metrics found in rollout response")
-            print(f"Full response (first 2000 chars):\n{json.dumps(rollout_response, indent=2, default=str)[:2000]}")
+            print(
+                f"Full response (first 2000 chars):\n{json.dumps(rollout_response, indent=2, default=str)[:2000]}"
+            )
     else:
         print("\nNo rollout response found in trace")
         print(f"Trace keys: {list(trace.keys()) if isinstance(trace, dict) else 'not a dict'}")
-        print(f"Trace sample (first 2000 chars):\n{json.dumps(trace, indent=2, default=str)[:2000]}")
+        print(
+            f"Trace sample (first 2000 chars):\n{json.dumps(trace, indent=2, default=str)[:2000]}"
+        )
 
     print("\nDone!")
 

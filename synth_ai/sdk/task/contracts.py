@@ -12,7 +12,11 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synth_ai.data.artifacts import Artifact
+from synth_ai.data.artifacts import (
+    Artifact,
+    ContextOverride,
+    ContextOverrideStatus,
+)
 from synth_ai.data.enums import SuccessStatus
 
 
@@ -117,6 +121,12 @@ class RolloutRequest(BaseModel):
 
     - `trace_correlation_id`: REQUIRED - Single source of truth for rollout identification.
       Used for trace correlation, registry operations, seed derivation, and resource tracking.
+
+    ## Context Overrides (Unified Optimization)
+
+    - `context_overrides`: Optional list of context overrides (AGENTS.md, skills, scripts, env vars)
+      to apply before running the agent. Task app is responsible for applying these.
+    - `override_bundle_id`: Stable identifier for the override bundle (for traceability).
     """
 
     trace_correlation_id: str = Field(
@@ -130,6 +140,17 @@ class RolloutRequest(BaseModel):
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     training_session_id: str | None = None
     synth_base_url: str | None = None
+
+    # Context overrides for unified optimization
+    context_overrides: list[ContextOverride] | None = Field(
+        default=None,
+        description="Optional context overrides (AGENTS.md, skills, preflight scripts, env vars) "
+        "for unified optimization. Task app applies these before running the agent.",
+    )
+    override_bundle_id: str | None = Field(
+        default=None,
+        description="Stable identifier for the override bundle (for traceability and deduplication).",
+    )
 
 
 class RolloutMetrics(BaseModel):
@@ -216,6 +237,11 @@ class RolloutResponse(BaseModel):
     Both `trace` and `artifact` are optional, but at least one should be provided
     for verifier evaluation.
 
+    ## Context Override Results (Unified Optimization)
+
+    - `override_application_results`: Structured results of applying context overrides.
+      Reports per-target status so GEPA can learn from failures.
+
     ## Example
 
         response = RolloutResponse(
@@ -254,6 +280,13 @@ class RolloutResponse(BaseModel):
     status_detail: Optional[str] = Field(
         default=None,
         description="Optional debug detail for success_status.",
+    )
+
+    # Context override application results (unified optimization)
+    override_application_results: list[ContextOverrideStatus] | None = Field(
+        default=None,
+        description="Structured results of context override application. "
+        "Reports per-target status (applied/failed/skipped) so GEPA can learn from failures.",
     )
 
 

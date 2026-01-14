@@ -70,7 +70,9 @@ def main():
     results = results_data.get("results", [])
     for row in results:
         seed = row.get("seed", "?")
-        outcome_reward = row.get("outcome_reward") or row.get("outcome_score") or row.get("reward_mean")
+        outcome_reward = (
+            row.get("outcome_reward") or row.get("outcome_score") or row.get("reward_mean")
+        )
         error = row.get("error")
         tokens = row.get("tokens")
         cost = row.get("cost_usd")
@@ -97,10 +99,10 @@ def main():
             print(f"\nSeed {seed} trajectory:")
             metrics = trajectory.get("metrics", {})
             details = metrics.get("details", {})
-            
+
             outcome_reward = metrics.get("outcome_reward")
             print(f"  Metrics outcome_reward: {outcome_reward}")
-            
+
             if details:
                 print(f"  Details keys: {list(details.keys())}")
                 instance_id = details.get("instance_id")
@@ -109,7 +111,7 @@ def main():
                 failed_constraints = details.get("failed_constraints", [])
                 deck = details.get("deck", [])
                 error = details.get("error")
-                
+
                 print(f"  Instance ID: {instance_id}")
                 print(f"  Deck size: {deck_size}")
                 if error:
@@ -136,7 +138,9 @@ def main():
             else:
                 print("  No details found in trajectory")
                 print(f"  Trajectory keys: {list(trajectory.keys())}")
-                print(f"  Metrics keys: {list(metrics.keys()) if isinstance(metrics, dict) else 'not a dict'}")
+                print(
+                    f"  Metrics keys: {list(metrics.keys()) if isinstance(metrics, dict) else 'not a dict'}"
+                )
 
     print("\nDone!")
 

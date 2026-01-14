@@ -39,7 +39,7 @@ def main():
 
     print(f"\nStatus: {job_data.get('status')}")
     print(f"Error: {job_data.get('error')}")
-    
+
     # Get events
     print("\nFetching events...")
     with httpx.Client(timeout=30.0) as client:
@@ -53,23 +53,23 @@ def main():
             # Events might be a list or a dict with 'events' key
             if isinstance(events_data, list):
                 events = events_data
-            elif isinstance(events_data, dict) and 'events' in events_data:
-                events = events_data['events']
+            elif isinstance(events_data, dict) and "events" in events_data:
+                events = events_data["events"]
             else:
                 events = []
-            
+
             print(f"\nFound {len(events)} events:")
             for event in events[-10:] if len(events) > 0 else []:  # Show last 10 events
                 print(f"\n  [{event.get('seq', '?')}] {event.get('type', '?')}")
                 print(f"     Message: {event.get('message', '')}")
-                if event.get('data'):
-                    data = event.get('data', {})
+                if event.get("data"):
+                    data = event.get("data", {})
                     if isinstance(data, dict):
-                        error = data.get('error')
+                        error = data.get("error")
                         if error:
                             print(f"     Error: {error}")
                         # Show other important fields
-                        for key in ['candidate_id', 'score', 'generation', 'version_id']:
+                        for key in ["candidate_id", "score", "generation", "version_id"]:
                             if key in data:
                                 print(f"     {key}: {data[key]}")
         else:

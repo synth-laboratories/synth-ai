@@ -467,7 +467,9 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
             typed_rubrics = rubric_bundle
 
         response = InfoResponse(
-            service=_ServiceInfo(task=cfg.base_task_info.task, version=cfg.base_task_info.task.version),
+            service=_ServiceInfo(
+                task=cfg.base_task_info.task, version=cfg.base_task_info.task.version
+            ),
             dataset=cfg.base_task_info.dataset,
             rubrics=typed_rubrics,
             inference=cfg.base_task_info.inference,

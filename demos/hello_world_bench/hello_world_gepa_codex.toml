@@ -1,0 +1,97 @@
+# GEPA config for hello_world_bench with Codex CLI
+#
+# Codex CLI uses OpenAI Responses API format:
+# - `instructions` field: Contains Codex's built-in system prompt (TOP-LEVEL, not a message!)
+# - `input` array: Multiple user messages (3 messages)
+#   1. AGENTS.md instructions (dynamic, based on ~/.codex/skills)
+#   2. Environment context (cwd, sandbox mode, etc.)
+#   3. The actual task prompt we pass to `codex exec`
+#
+# IMPORTANT: The `instructions` field is NOT a message - it's a top-level field in the
+# Responses API request. Pattern matching only sees the 3 user messages in `input[]`.
+#
+# The task prompt from `codex exec` is passed verbatim as the third user message.
+# We use <SYSTEM>/<TASK> tags in the prompt so GEPA can optimize the system portion.
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8030"
+task_app_id = "hello_world_bench"
+
+[prompt_learning.policy]
+model = "gpt-4o-mini"
+provider = "openai"
+inference_mode = "synth_hosted"
+agent = "codex"
+
+[prompt_learning.initial_prompt]
+id = "hello_world_codex"
+name = "Hello World (Codex CLI) Task"
+
+# First user message: AGENTS.md instructions (dynamic based on skills)
+# Starts with "# AGENTS.md instructions for ..." and contains <INSTRUCTIONS> block
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = """{agents_md_context}"""
+order = 0
+
+# Second user message: Environment context
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = """<environment_context>
+{environment_context}
+</environment_context>"""
+order = 1
+
+# Third user message: The actual task prompt (our tagged format)
+# This is where GEPA can optimize the system_prompt content.
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = """<SYSTEM>
+{system_prompt}
+</SYSTEM>
+
+<TASK>
+{task_description}
+</TASK>
+"""
+order = 2
+
+[prompt_learning.initial_prompt.wildcards]
+agents_md_context = "REQUIRED"
+environment_context = "REQUIRED"
+system_prompt = "REQUIRED"
+task_description = "REQUIRED"
+
+[prompt_learning.gepa]
+env_name = "hello_world_bench"
+proposer_type = "synth"
+proposer_effort = "LOW"
+proposer_output_tokens = "FAST"
+
+[prompt_learning.gepa.rollout]
+budget = 20
+max_concurrent = 4
+minibatch_size = 4
+
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+validation_seeds = [13, 14, 15]
+validation_top_k = 1
+
+[prompt_learning.gepa.mutation]
+rate = 0.5
+
+[prompt_learning.gepa.population]
+initial_size = 4
+num_generations = 2
+children_per_generation = 4
+crossover_rate = 0.5
+
+[prompt_learning.gepa.archive]
+size = 20
+pareto_set_size = 10
+
+[prompt_learning.gepa.token]
+max_spend_usd = 2.0
+counting_model = "gpt-4"

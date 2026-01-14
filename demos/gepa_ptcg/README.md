@@ -79,3 +79,51 @@ Notes:
 - `--num-games` controls how many rollouts to run (seeds `0..N-1`).
 - The task app currently runs with `concurrency=1` in `run_demo.py`.
 
+---
+
+### Verifier Optimization (Graph Evolve)
+
+This flow trains a verifier graph to score gameplay quality using captured traces.
+
+#### 1) Capture rollouts (writes JSONL traces)
+
+Set a trace directory and run an eval:
+
+```bash
+export PTCG_TRACE_DIR=./demos/gepa_ptcg/artifacts
+../../.venv/bin/python run_demo.py --local --model gpt-4.1-mini --num-games 10
+```
+
+This writes `ptcg_rollouts.jsonl` under `PTCG_TRACE_DIR`.
+
+#### 2) Build a verifier dataset
+
+```bash
+../../.venv/bin/python build_verifier_dataset.py \
+  --rollouts demos/gepa_ptcg/artifacts/ptcg_rollouts.jsonl \
+  --out demos/gepa_ptcg/artifacts/ptcg_verifier_dataset.json
+```
+
+#### 3) Optimize the verifier graph
+
+```bash
+../../.venv/bin/python run_verifier_opt.py --local \
+  --dataset demos/gepa_ptcg/artifacts/ptcg_verifier_dataset.json
+```
+
+The optimized verifier artifact is saved to `demos/gepa_ptcg/artifacts/verifier_opt.json`.
+
+---
+
+### Prompt Optimization (PTCG ReAct Agent + Optimized Verifier)
+
+Use the optimized verifier to guide GEPA prompt learning:
+
+```bash
+../../.venv/bin/python run_prompt_opt.py --local \
+  --verifier-path demos/gepa_ptcg/artifacts/verifier_opt.json \
+  --budget 30 --generations 3
+```
+
+Artifacts are saved to `demos/gepa_ptcg/artifacts/prompt_opt.json`, and the best prompt
+is written to `demos/gepa_ptcg/artifacts/optimized_prompt.txt` if available.

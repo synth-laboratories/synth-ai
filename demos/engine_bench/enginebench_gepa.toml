@@ -1,0 +1,91 @@
+# GEPA Configuration for EngineBench Unified Context Engineering Demo
+# This demonstrates optimizing BOTH system prompt AND context artifacts together
+
+[task_app]
+inference_url = "http://localhost:8020/rollout"  # EngineBench task app
+
+[optimization]
+algorithm = "gepa"
+num_generations = 5
+children_per_generation = 8
+
+# UNIFIED OPTIMIZATION FLAGS - this is the key differentiator!
+optimize_system_prompt = true
+optimize_context_artifacts = true
+
+[optimization.context_artifacts]
+# Define which artifacts can be evolved by GEPA
+# Each artifact is a separate "gene" that can mutate/crossover
+artifacts = [
+    "system_prompt",           # Core instruction to the coding agent
+    "architecture_guide",      # Engine patterns and anti-patterns doc
+    "reference_snippets",      # Code examples to follow
+    "hooks_documentation",     # API reference for the runtime system
+]
+
+[evaluation]
+# Diverse card selection covering different mechanics
+# Total: 15 cards selected for evaluation balance
+seeds = [
+    0,   # df-001-ampharos - Stage 2, Poke-Body
+    2,   # df-003-heracross - Basic, Poke-Body (damage reduction)
+    7,   # df-008-ninetales - Poke-Power (search deck)
+    8,   # df-009-pinsir - Poke-Body (armor effect)
+    9,   # df-010-snorlax - Dual Poke-Power + Poke-Body
+    16,  # df-017-jynx - Poke-Body (retreat cost modification)
+    22,  # df-023-tropius - Simple attacks
+    29,  # df-030-flaaffy - Stage 1, mixed effects
+    35,  # Basic with simple mechanics
+    42,  # Stage 2 evolved Pokemon
+    51,  # Attack modifier mechanics
+    68,  # Complex Poke-Power
+    77,  # Damage calculation modifier
+    88,  # Multi-type Pokemon
+    99,  # Evolution chain card
+]
+
+# Multi-objective optimization
+objectives = ["pass_rate", "compile_success"]
+
+[proposer]
+model = "claude-opus-4"  # Use Opus for high-quality mutations
+effort = "MEDIUM"
+
+[proposer.output_tokens]
+# Context artifacts can be long - allocate sufficient tokens
+max = 8000
+rapid = 2000
+low_context = 4000
+medium = 6000
+high_context = 8000
+
+[verifier]
+# No verifier needed - cargo tests are deterministic ground truth
+use_task_app_reward = true
+
+[policy]
+# Policy config passed to task app
+[policy.config]
+model = "gpt-4.1-mini"
+timeout = 300  # 5 minutes per card implementation
+
+# Initial baseline context artifacts (will be optimized)
+[policy.context_override]
+system_prompt = """You are an expert Rust developer implementing Pokemon TCG cards.
+
+Your task: Implement card effects by editing Rust files with stub functions marked with TODO comments.
+
+Key patterns:
+- Use `def_id_matches(&card.def_id, "DF", NUMBER)` or `def_id_matches(&card.def_id, "HP", NUMBER)` to identify cards
+- Implement attack modifiers in the `attack_override` function
+- Implement Poke-Powers/Bodies in the `power_effect` function
+- Use `game.queue_prompt()` for user choices
+- Return `AttackOverrides::default()` if card doesn't apply
+
+Output requirements:
+1. ACTUALLY EDIT files - replace TODO stubs with working code
+2. Make sure code compiles (`cargo check`)
+3. Make sure tests pass (`cargo test`)"""
+
+# Note: Other context artifacts (architecture_guide, reference_snippets, hooks_documentation)
+# will use defaults from task app, which GEPA will then optimize
