@@ -486,7 +486,7 @@ class EvalJob:
         # Submit synchronously using httpx
         url = f"{self._base_url()}/eval/jobs"
 
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
+        with httpx.Client(timeout=httpx.Timeout(120.0)) as client:
             resp = client.post(url, json=job_request, headers=self._headers())
 
             if resp.status_code not in (200, 201):

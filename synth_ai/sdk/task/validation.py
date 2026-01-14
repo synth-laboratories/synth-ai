@@ -83,6 +83,11 @@ def validate_artifacts_list(artifacts: list[Artifact]) -> None:
 def validate_context_overrides(overrides: list[ContextOverride]) -> None:
     """Validate context overrides list.
 
+    Validates:
+    - Total count of overrides
+    - Total size across all override content (file_artifacts, preflight_script, env_vars)
+    - Individual file artifact count and sizes
+
     Args:
         overrides: List of context overrides to validate
 
@@ -94,24 +99,25 @@ def validate_context_overrides(overrides: list[ContextOverride]) -> None:
             f"Too many context overrides: {len(overrides)} > {MAX_CONTEXT_OVERRIDES_PER_ROLLOUT}"
         )
 
-    # Validate total size
+    # Validate total size using the new ContextOverride.size_bytes() method
     total_size = 0
+    total_files = 0
     for override in overrides:
-        # Calculate size
-        if isinstance(override.content, str):
-            size = len(override.content.encode("utf-8"))
-        elif isinstance(override.content, dict):
-            size = len(json.dumps(override.content).encode("utf-8"))
-        else:
-            import sys
+        # Use the size_bytes() helper on the new model
+        total_size += override.size_bytes()
+        total_files += len(override.file_artifacts)
 
-            size = sys.getsizeof(override.content)
-
-        total_size += size
-
+    # Check total size
     if total_size > MAX_CONTEXT_SNAPSHOT_BYTES:
         raise ValueError(
             f"Total context override size {total_size} exceeds {MAX_CONTEXT_SNAPSHOT_BYTES} bytes"
+        )
+
+    # Check total file count (reasonable limit)
+    max_files = 50
+    if total_files > max_files:
+        raise ValueError(
+            f"Too many file artifacts across overrides: {total_files} > {max_files}"
         )
 
 

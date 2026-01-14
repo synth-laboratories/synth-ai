@@ -33,6 +33,9 @@ OPENAI_SUPPORTED_MODELS = {
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",
+    "gpt-5.1-codex-mini",
+    "gpt-5.1-codex-max",
+    "gpt-5.2",
     # OpenAI Image Generation Models
     "gpt-image-1.5",
     "gpt-image-1",
@@ -343,6 +346,8 @@ def _validate_model_for_provider(
                 f"    - gpt-4o-mini\n"
                 f"    - gpt-4.1, gpt-4.1-mini, gpt-4.1-nano\n"
                 f"    - gpt-5, gpt-5-mini, gpt-5-nano\n"
+                f"    - gpt-5.1-codex-mini, gpt-5.1-codex-max\n"
+                f"    - gpt-5.2\n"
                 f"    - Image generation: gpt-image-1.5, gpt-image-1, gpt-image-1-mini, chatgpt-image-latest\n"
                 f"  Note: gpt-5-pro is excluded (too expensive)\n"
                 f"  Got: '{model}'"

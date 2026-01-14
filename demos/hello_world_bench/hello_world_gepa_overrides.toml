@@ -1,0 +1,135 @@
+# GEPA config for hello_world_bench with CONTEXT OVERRIDES
+# Tests: AGENTS.md override passed to task app via context_override
+#
+# Note: The context_override is passed to the task app's rollout endpoint
+# and the task app applies it (writes AGENTS.md, runs preflight script, etc.)
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8030"
+task_app_id = "hello_world_bench"
+
+[prompt_learning.policy]
+model = "gpt-5.1-codex-mini"
+provider = "openai"
+inference_mode = "synth_hosted"
+agent = "codex"
+
+# BASELINE CONTEXT OVERRIDES - passed to task app
+[prompt_learning.policy.context_override]
+system_prompt = """You are a precise coding agent. Follow task instructions exactly."""
+
+task_description = """TASK:
+1) READ output.txt first (required before editing).
+2) Use write tool to modify output.txt.
+3) After your change, output.txt MUST contain EXACTLY: Hello, world!
+4) No extra whitespace. Stop after writing.
+5) After writing, respond: DONE"""
+
+# Custom AGENTS.md to pass to task app
+agents_md = """# Agent Instructions
+
+## Primary Objective
+Edit output.txt to contain exactly: Hello, world!
+
+## Rules
+1. Read output.txt first
+2. Write the exact content requested  
+3. No extra whitespace or newlines
+4. Stop immediately after writing
+
+## Common Mistakes
+- Adding trailing newlines
+- Not reading before writing"""
+
+# Skills file
+[prompt_learning.policy.context_override.file_artifacts]
+"skills/file_editing.md" = """# File Editing Skill
+
+## Reading
+Use read tool before editing.
+
+## Writing
+Use write tool for file replacement.
+Ensure exact content - no extra whitespace."""
+
+# Preflight script
+preflight_script = """#!/bin/bash
+echo "Preflight: Environment ready"
+ls -la
+"""
+
+# Environment variables
+[prompt_learning.policy.context_override.env_vars]
+STRATEGY = "read_then_write"
+
+# Pattern matching for Codex CLI format
+[prompt_learning.initial_prompt]
+id = "hello_world_codex_overrides"
+name = "Hello World with Context Overrides"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = """{agents_md_context}"""
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = """<environment_context>
+{environment_context}
+</environment_context>"""
+order = 1
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = """<SYSTEM>
+{system_prompt}
+</SYSTEM>
+
+<TASK>
+{task_description}
+</TASK>
+"""
+order = 2
+
+[prompt_learning.initial_prompt.wildcards]
+agents_md_context = "REQUIRED"
+environment_context = "REQUIRED"
+system_prompt = "REQUIRED"
+task_description = "REQUIRED"
+
+# GEPA configuration
+[prompt_learning.gepa]
+env_name = "hello_world_bench"
+proposer_type = "synth"
+proposer_effort = "LOW"
+proposer_output_tokens = "FAST"
+
+[prompt_learning.gepa.rollout]
+budget = 30
+max_concurrent = 4
+minibatch_size = 4
+
+[prompt_learning.gepa.evaluation]
+# Need enough seeds: pareto_set_size + feedback_count >= seeds
+# With pareto_set_size=10 and 15 seeds, we have 5 feedback seeds
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+validation_seeds = [15, 16, 17, 18, 19]
+validation_top_k = 1
+
+[prompt_learning.gepa.mutation]
+rate = 0.5
+
+[prompt_learning.gepa.population]
+initial_size = 2
+num_generations = 1
+children_per_generation = 2
+crossover_rate = 0.5
+
+[prompt_learning.gepa.archive]
+size = 20
+pareto_set_size = 10
+
+[prompt_learning.gepa.token]
+max_spend_usd = 2.0
+counting_model = "gpt-4"

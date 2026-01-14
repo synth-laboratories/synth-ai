@@ -150,6 +150,10 @@ class PromptLearningPolicyConfig(ExtraModel):
     temperature: float = 0.0
     max_completion_tokens: int = 512
     policy_name: str | None = None
+    # Arbitrary task-app specific policy config (agent selection, timeouts, etc.)
+    config: dict[str, Any] = Field(default_factory=dict)
+    # Optional baseline context override (unified optimization bootstrap)
+    context_override: dict[str, Any] | None = None
 
     @field_validator("inference_url", mode="before")
     @classmethod
@@ -912,6 +916,18 @@ class GEPAConfig(ExtraModel):
         None  # Adaptive batch config (GEPA only)
     )
 
+    # Unified optimization config (context engineering + prompts)
+    unified_optimization: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Unified optimization config for prompt + context engineering. "
+            "Controls which override channels are enabled (AGENTS.md, skills, preflight scripts, env vars). "
+            "See monorepo GEPAUnifiedOptimizationConfig for full schema. "
+            "Example: {enable_task_app_context_overrides: true, optimization_target: 'unified', "
+            "mutable_files: ['AGENTS.md', '.codex/skills.yaml'], allow_preflight_script: true}"
+        ),
+    )
+
     # Backwards compatibility: flat fields (DEPRECATED - DO NOT USE)
     # These are kept for backwards compatibility with _get_* methods but should not be used directly
     rollout_budget: int | None = None
@@ -1195,6 +1211,7 @@ class GEPAConfig(ExtraModel):
                 "adaptive_pool",
                 "adaptive_batch",
                 "verifier",
+                "unified_optimization",  # Context engineering config
             ):
                 nested_data[key] = value
             else:

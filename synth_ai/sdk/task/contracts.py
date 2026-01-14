@@ -12,7 +12,11 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from synth_ai.data.artifacts import Artifact
+from synth_ai.data.artifacts import (
+    Artifact,
+    ContextOverride,
+    ContextOverrideStatus,
+)
 from synth_ai.data.enums import SuccessStatus
 
 
@@ -117,6 +121,12 @@ class RolloutRequest(BaseModel):
 
     - `trace_correlation_id`: REQUIRED - Single source of truth for rollout identification.
       Used for trace correlation, registry operations, seed derivation, and resource tracking.
+
+    ## Context Overrides (Unified Optimization)
+
+    - `context_overrides`: Optional list of context overrides (AGENTS.md, skills, scripts, env vars)
+      to apply before running the agent. Task app is responsible for applying these.
+    - `override_bundle_id`: Stable identifier for the override bundle (for traceability).
     """
 
     trace_correlation_id: str = Field(
@@ -130,6 +140,17 @@ class RolloutRequest(BaseModel):
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     training_session_id: str | None = None
     synth_base_url: str | None = None
+
+    # Context overrides for unified optimization
+    context_overrides: list[ContextOverride] | None = Field(
+        default=None,
+        description="Optional context overrides (AGENTS.md, skills, preflight scripts, env vars) "
+        "for unified optimization. Task app applies these before running the agent.",
+    )
+    override_bundle_id: str | None = Field(
+        default=None,
+        description="Stable identifier for the override bundle (for traceability and deduplication).",
+    )
 
 
 class RolloutMetrics(BaseModel):
@@ -199,28 +220,23 @@ class RolloutResponse(BaseModel):
     ## Key Fields
 
     - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
-    - `reward_info`: Rollout metrics with `outcome_reward` (required)
-    - `trace`: v3 SessionTrace payload (optional for artifact-only evaluation)
+    - `metrics`: Rollout metrics with `outcome_reward` (required)
+    - `trace`: v3 trace payload (required for verifier evaluation)
     - `inference_url`: Inference URL used for this rollout
     - `artifact`: Optional list of artifacts produced by the rollout
     - `success_status`: Optional infrastructure status (orthogonal to reward)
     - `status_detail`: Optional freeform detail for status
 
-    ## Flexible Evaluation Modes
+    ## Context Override Results (Unified Optimization)
 
-    Verifiers support three evaluation modes:
-    - trace + artifact: Full evaluation with execution trace AND outputs
-    - trace only: Evaluate based on execution trace alone
-    - artifact only: Evaluate based on outputs alone
-
-    Both `trace` and `artifact` are optional, but at least one should be provided
-    for verifier evaluation.
+    - `override_application_results`: Structured results of applying context overrides.
+      Reports per-target status so GEPA can learn from failures.
 
     ## Example
 
         response = RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            reward_info=RolloutMetrics(outcome_reward=1.0),
+            metrics=RolloutMetrics(outcome_reward=1.0),
             trace=trace_payload,
             inference_url="https://api.usesynth.ai/v1/trial-xyz",
         )
@@ -231,21 +247,15 @@ class RolloutResponse(BaseModel):
         description="REQUIRED - Correlation ID for trace recovery. Single source of truth. "
         "Echo from request.trace_correlation_id.",
     )
-    reward_info: RolloutMetrics = Field(
-        ...,
-        description="Reward and scoring information for this rollout.",
-    )
-    trace: dict[str, Any] | None = Field(
-        default=None,
-        description="V3 SessionTrace payload. Optional for artifact-only evaluation.",
-    )
+    metrics: RolloutMetrics
+    trace: dict[str, Any] | None = None
     inference_url: str | None = Field(
         default=None,
         description="Inference URL used for this rollout.",
     )
     artifact: Optional[List[Artifact]] = Field(
         default=None,
-        description="Artifacts produced by the rollout. Primary output field.",
+        description="Optional list of artifacts produced by the rollout.",
     )
     success_status: Optional[SuccessStatus] = Field(
         default=None,
@@ -254,6 +264,13 @@ class RolloutResponse(BaseModel):
     status_detail: Optional[str] = Field(
         default=None,
         description="Optional debug detail for success_status.",
+    )
+
+    # Context override application results (unified optimization)
+    override_application_results: list[ContextOverrideStatus] | None = Field(
+        default=None,
+        description="Structured results of context override application. "
+        "Reports per-target status (applied/failed/skipped) so GEPA can learn from failures.",
     )
 
 
