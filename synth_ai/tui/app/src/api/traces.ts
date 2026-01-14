@@ -3,7 +3,9 @@
  */
 
 import { apiGet } from "./client"
-import { getRequestSignal } from "../utils/request"
+import { fetchWithTimeout, getRequestSignal } from "../utils/request"
+import { log } from "../utils/log"
+import { DEFAULT_TRACE_TIMEOUT_MS } from "../network"
 
 export type TraceMetadata = {
   seed: number
@@ -48,8 +50,15 @@ export async function fetchTracesList(
  */
 export async function fetchTraceJson(presignedUrl: string): Promise<Record<string, any> | null> {
   const managed = getRequestSignal({ includeScope: false })
+  const start = Date.now()
+  log("http", `→ GET ${presignedUrl}`)
   try {
-    const response = await fetch(presignedUrl, { signal: managed.signal })
+    const response = await fetchWithTimeout(presignedUrl, {
+      signal: managed.signal,
+      includeScope: false,
+      timeoutMs: DEFAULT_TRACE_TIMEOUT_MS,
+    })
+    log("http", `← ${response.status} GET ${presignedUrl} (${Date.now() - start}ms)`)
     if (!response.ok) {
       if (response.status === 403) {
         // Presigned URL likely expired
@@ -60,6 +69,7 @@ export async function fetchTraceJson(presignedUrl: string): Promise<Record<strin
     return await response.json()
   } catch (error) {
     if ((error as { name?: string })?.name === "AbortError") return null
+    log("http", `✗ GET ${presignedUrl} - ${(error as Error)?.message}`)
     console.error("Error fetching trace:", error)
     return null
   } finally {

@@ -5,7 +5,19 @@
  * API key comes from process.env.SYNTH_API_KEY.
  */
 
-import { getRequestSignal } from "../utils/request"
+import { fetchWithTimeout } from "../utils/request"
+import { DEFAULT_API_TIMEOUT_MS, DEFAULT_HEALTH_TIMEOUT_MS } from "../network"
+
+/**
+ * Thrown when API returns 401 (invalid/expired/revoked API key).
+ * Used to trigger re-authentication flow.
+ */
+export class AuthenticationError extends Error {
+  constructor(message: string, public status: number) {
+    super(message)
+    this.name = "AuthenticationError"
+  }
+}
 
 function sanitizeErrorBody(text: string, maxLen: number): string {
   const raw = (text ?? "").toString()
@@ -46,6 +58,7 @@ export type ApiRequestOptions = {
   headers?: Record<string, string>
   signal?: AbortSignal
   version?: ApiVersion
+  timeoutMs?: number
 }
 
 function getBackendBaseUrl(): string {
@@ -75,6 +88,7 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
     headers,
     signal,
     version = "v0",
+    timeoutMs,
   } = options
   const requestHeaders: Record<string, string> = {
     ...getAuthHeaders(),
@@ -89,25 +103,33 @@ export async function apiRequest(path: string, options: ApiRequestOptions = {}):
     requestHeaders["Content-Type"] = "application/json"
   }
 
-  const managed = getRequestSignal({ signal })
+  const url = buildApiUrl(path, version)
   try {
-    const res = await fetch(buildApiUrl(path, version), {
+    const res = await fetchWithTimeout(url, {
       method,
       headers: requestHeaders,
       body: shouldSerializeJson ? JSON.stringify(body) : (body as BodyInit | undefined),
-      signal: managed.signal,
+      signal,
+      timeoutMs: timeoutMs ?? DEFAULT_API_TIMEOUT_MS,
     })
     if (!res.ok) {
       const text = await res.text().catch(() => "")
       const snippet = sanitizeErrorBody(text, 200)
       const suffix = snippet ? ` - ${snippet}` : ""
       const label = version === "v1" ? `${method} /api/v1${path}` : `${method} ${path}`
+      // 401 means the API key is invalid/expired/revoked - trigger re-auth
+      if (res.status === 401) {
+        throw new AuthenticationError(
+          `${label}: HTTP ${res.status} ${res.statusText}${suffix}`,
+          res.status
+        )
+      }
       throw new Error(`${label}: HTTP ${res.status} ${res.statusText}${suffix}`)
     }
     const label = version === "v1" ? `${method} /api/v1${path}` : `${method} ${path}`
     return await parseJsonOrThrow(res, label)
-  } finally {
-    managed.dispose()
+  } catch (err: any) {
+    throw err
   }
 }
 
@@ -121,15 +143,15 @@ export async function apiPost(path: string, body: unknown, options: ApiRequestOp
 
 export async function checkBackendHealth(options: { signal?: AbortSignal } = {}): Promise<string> {
   const { signal } = options
-  const managed = getRequestSignal({ signal, includeScope: false })
+  const url = `${getBackendBaseUrl()}/api/health`
   try {
-    const res = await fetch(`${getBackendBaseUrl()}/health`, {
-      signal: managed.signal,
+    const res = await fetchWithTimeout(url, {
+      signal,
+      includeScope: false,
+      timeoutMs: DEFAULT_HEALTH_TIMEOUT_MS,
     })
     return res.ok ? "ok" : `bad(${res.status})`
   } catch (err: any) {
     return `err(${err?.message || "unknown"})`
-  } finally {
-    managed.dispose()
   }
 }

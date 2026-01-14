@@ -4,4 +4,4 @@ export {
   getLogPath,
   isLoggingActive,
   tuiLog,
-} from "./dev-logger"
+} from "../utils/log"

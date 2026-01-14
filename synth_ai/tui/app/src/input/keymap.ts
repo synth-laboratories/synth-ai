@@ -40,6 +40,7 @@ const KEY = {
   j: "j",
   k: "k",
   l: "l",
+  shiftL: "shift+l",
   m: "m",
   n: "n",
   o: "o",
@@ -65,6 +66,7 @@ const ACTION_KEYS = {
   "app.back": [KEY.esc],
   "app.quit": [KEY.q],
   "app.refresh": [KEY.r],
+  "jobs.loadMore": [KEY.shiftL],
   "app.logout": [KEY.l],
   "focus.next": [KEY.tab],
   "focus.prev": [KEY.shiftTab],
@@ -77,7 +79,7 @@ const ACTION_KEYS = {
   "modal.open.config": [KEY.i],
   "modal.open.profile": [KEY.p],
   "modal.open.results": [KEY.v],
-  "modal.open.jobFilter": [KEY.f],
+  "modal.open.listFilter": [KEY.f],
   "modal.open.snapshot": [KEY.g],
   "modal.open.urls": [KEY.o],
   "modal.open.settings": [KEY.s],
@@ -95,11 +97,10 @@ const ACTION_KEYS = {
   "nav.home": [KEY.home],
   "nav.end": [KEY.end],
   "modal.confirm": [KEY.enter],
-  "modal.paste": [KEY.ctrlV, KEY.metaV],
   "modal.copy": [KEY.y],
-  "jobFilter.toggle": [KEY.space, KEY.enter],
-  "jobFilter.clear": [KEY.c],
-  "settings.openKey": [KEY.e],
+  "listFilter.toggle": [KEY.space, KEY.enter],
+  "listFilter.all": [KEY.a],
+  "listFilter.clear": [KEY.c],
   "usage.openBilling": [KEY.b],
   "metrics.refresh": [KEY.r],
   "detail.toggleFullscreen": [KEY.f],
@@ -120,6 +121,8 @@ const ACTION_KEYS = {
   "candidates.next": [KEY.right, KEY.l],
   "candidates.scrollUp": [KEY.up, KEY.k],
   "candidates.scrollDown": [KEY.down, KEY.j],
+  "generation.prev": [KEY.shiftTab],
+  "generation.next": [KEY.tab],
   "trace.prev": [KEY.left, KEY.h],
   "trace.next": [KEY.right, KEY.l],
   "trace.refresh": [KEY.r],
@@ -136,6 +139,7 @@ const CONTEXT_ACTIONS = {
     "focus.next",
     "focus.prev",
     "app.refresh",
+    "jobs.loadMore",
     "pane.jobs",
     "pane.logs",
     "pane.togglePrincipal",
@@ -144,7 +148,7 @@ const CONTEXT_ACTIONS = {
     "modal.open.config",
     "modal.open.profile",
     "modal.open.results",
-    "modal.open.jobFilter",
+    "modal.open.listFilter",
     "modal.open.snapshot",
     "modal.open.urls",
     "modal.open.settings",
@@ -170,8 +174,7 @@ const CONTEXT_ACTIONS = {
   ],
   "modal.filter": ["modal.confirm"],
   "modal.snapshot": ["modal.confirm"],
-  "modal.key": ["modal.confirm", "modal.paste"],
-  "modal.settings": ["nav.up", "nav.down", "modal.confirm", "settings.openKey"],
+  "modal.settings": ["nav.up", "nav.down", "modal.confirm"],
   "modal.usage": ["usage.openBilling", "nav.up", "nav.down", "modal.confirm"],
   "modal.metrics": ["nav.up", "nav.down", "metrics.refresh", "modal.confirm"],
   "modal.taskApps": ["nav.up", "nav.down", "modal.copy", "modal.confirm"],
@@ -184,11 +187,11 @@ const CONTEXT_ACTIONS = {
     "sessions.refresh",
     "modal.confirm",
   ],
-  "modal.jobFilter": ["nav.up", "nav.down", "jobFilter.toggle", "jobFilter.clear"],
+  "modal.listFilter": ["nav.up", "nav.down", "listFilter.toggle", "listFilter.all", "listFilter.clear"],
   "modal.config": ["nav.up", "nav.down", "modal.confirm"],
   "modal.profile": ["modal.confirm"],
   "modal.urls": ["modal.confirm"],
-  "modal.login": ["login.confirm"],
+  "modal.login": ["login.confirm", "app.back"],
   "modal.createJob": ["nav.up", "nav.down", "modal.confirm", "app.back"],
   "modal.candidates": [
     "modal.copy",
@@ -200,6 +203,17 @@ const CONTEXT_ACTIONS = {
     "nav.pageDown",
     "nav.home",
     "nav.end",
+  ],
+  "modal.generations": [
+    "generation.prev",
+    "generation.next",
+    "nav.up",
+    "nav.down",
+    "nav.pageUp",
+    "nav.pageDown",
+    "nav.home",
+    "nav.end",
+    "modal.confirm",
   ],
   "modal.trace": [
     "trace.prev",
@@ -278,6 +292,20 @@ const DISPLAY_ALIASES: Record<string, string> = {
   meta: "cmd",
 }
 
+const SEQUENCE_ALIASES: Record<string, string> = {
+  "\u001b": KEY.esc,
+  "\u001b[A": KEY.up,
+  "\u001b[B": KEY.down,
+  "\u001b[C": KEY.right,
+  "\u001b[D": KEY.left,
+  "\u001b[5~": KEY.pageUp,
+  "\u001b[6~": KEY.pageDown,
+  "\u001b[H": KEY.home,
+  "\u001b[F": KEY.end,
+  "\u001bOH": KEY.home,
+  "\u001bOF": KEY.end,
+}
+
 export function getActionKeys(action: KeyAction): KeyCombo[] {
   return [...ACTION_KEYS[action]]
 }
@@ -323,7 +351,8 @@ export function getTextInput(event: KeyEvent): string | null {
 }
 
 function normalizeKeyEvent(event: KeyEvent): KeyCombo | null {
-  const raw = event.name
+  const rawSequence = event.sequence && SEQUENCE_ALIASES[event.sequence]
+  const raw = rawSequence ?? event.name ?? (event.sequence && event.sequence.length === 1 ? event.sequence : undefined)
   if (!raw) return null
   let name = raw
   let shift = !!event.shift

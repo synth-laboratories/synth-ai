@@ -5,7 +5,9 @@
  */
 
 import { spawn } from "node:child_process"
-import { getRequestSignal, sleep } from "./utils/request"
+import { fetchWithTimeout, getRequestSignal, sleep } from "./utils/request"
+import { DEFAULT_AUTH_TIMEOUT_MS } from "./network"
+import { log } from "./utils/log"
 
 export type AuthSession = {
   deviceCode: string
@@ -74,12 +76,16 @@ export async function initAuthSession(): Promise<AuthSession> {
   const initUrl = `${frontendUrl}/api/auth/device/init`
 
   const managed = getRequestSignal()
+  const start = Date.now()
+  log("http", `→ POST ${initUrl}`)
   try {
-    const res = await fetch(initUrl, {
+    const res = await fetchWithTimeout(initUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: managed.signal,
+      timeoutMs: DEFAULT_AUTH_TIMEOUT_MS,
     })
+    log("http", `← ${res.status} POST ${initUrl} (${Date.now() - start}ms)`)
 
     if (!res.ok) {
       const body = await res.text().catch(() => "")
@@ -100,6 +106,9 @@ export async function initAuthSession(): Promise<AuthSession> {
       verificationUri,
       expiresAt: Date.now() + expiresIn * 1000,
     }
+  } catch (err: any) {
+    log("http", `✗ POST ${initUrl} - ${err?.message}`)
+    throw err
   } finally {
     managed.dispose()
   }
@@ -115,13 +124,17 @@ export async function pollForToken(
   const tokenUrl = `${frontendUrl}/api/auth/device/token`
 
   const managed = getRequestSignal()
+  const start = Date.now()
+  log("http", `→ POST ${tokenUrl}`)
   try {
-    const res = await fetch(tokenUrl, {
+    const res = await fetchWithTimeout(tokenUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device_code: deviceCode }),
       signal: managed.signal,
+      timeoutMs: DEFAULT_AUTH_TIMEOUT_MS,
     })
+    log("http", `← ${res.status} POST ${tokenUrl} (${Date.now() - start}ms)`)
 
     if (res.status === 428) {
       return { apiKey: null, expired: false, error: null }
@@ -145,6 +158,7 @@ export async function pollForToken(
 
     return { apiKey: synthKey, expired: false, error: null }
   } catch (err: any) {
+    log("http", `✗ POST ${tokenUrl} - ${err?.message}`)
     return { apiKey: null, expired: false, error: err?.message || "Network error" }
   } finally {
     managed.dispose()

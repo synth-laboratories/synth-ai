@@ -5,8 +5,7 @@
  * Ported from feat/job-details branch.
  */
 
-import { buildApiUrl, getAuthHeaders } from "./client"
-import { connectSse } from "../utils/sse"
+import { connectApiJsonStream } from "./stream"
 
 export interface JobDetailsStreamEvent {
   job_id: string
@@ -36,36 +35,15 @@ export function connectJobDetailsStream(
   jobId: string,
   onEvent: JobDetailsStreamHandler,
   onError?: JobDetailsStreamErrorHandler,
-  sinceSeq: number = 0,
+  sinceSeq: number | (() => number) = 0,
 ): JobDetailsStreamConnection {
-  // Use prompt-learning SSE endpoint (works for all jobs in learning_jobs table)
-  const url = buildApiUrl(`/prompt-learning/online/jobs/${jobId}/events/stream?since_seq=${sinceSeq}`)
-  let headers: HeadersInit
-  try {
-    headers = {
-      ...getAuthHeaders(),
-      Accept: "text/event-stream",
-    }
-  } catch (err) {
-    onError?.(err instanceof Error ? err : new Error(String(err)))
-    return {
-      disconnect: () => {},
-      jobId,
-    }
-  }
-
-  const connection = connectSse(url, {
-    headers,
+  const getSinceSeq = typeof sinceSeq === "function" ? sinceSeq : () => sinceSeq
+  const getPath = () =>
+    `/prompt-learning/online/jobs/${jobId}/events/stream?since_seq=${getSinceSeq()}`
+  const connection = connectApiJsonStream<JobDetailsStreamEvent>({
+    path: getPath,
     includeScope: false,
-    onMessage: (message) => {
-      if (!message.data) return
-      try {
-        const data = JSON.parse(message.data) as JobDetailsStreamEvent
-        onEvent(data)
-      } catch {
-        // Ignore parse errors
-      }
-    },
+    onEvent,
     onError,
   })
 

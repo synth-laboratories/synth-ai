@@ -1,7 +1,7 @@
 /**
  * Job card formatting for the SolidJS jobs list.
  */
-import type { JobSummary } from "../../tui_data"
+import { normalizeJobType, type JobSummary } from "../../tui_data"
 import { formatTimestamp } from "./time"
 
 export type JobCardOption = {
@@ -19,7 +19,7 @@ function getRelevantDate(job: JobSummary): string {
  * Formats a job for the ListPanel component.
  */
 export function formatJobCard(job: JobSummary): JobCardOption {
-  const jobType = job.training_type || job.job_source || "job"
+  const jobType = normalizeJobType(job)
   const status = job.status || "-"
   const dateStr = getRelevantDate(job)
   const shortId = job.job_id.slice(-8)

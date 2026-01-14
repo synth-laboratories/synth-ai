@@ -48,14 +48,12 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
       return
     }
 
-    const sinceSeq = options.sinceSeq?.() ?? 0
-
     // Connect to the stream
     connection = connectJobDetailsStream(
       jobId,
       options.onEvent,
       options.onError,
-      sinceSeq,
+      () => options.sinceSeq?.() ?? 0,
     )
     // Re-registering with same name overwrites previous entry (Map semantics)
     registerCleanup(cleanupName, cleanup)

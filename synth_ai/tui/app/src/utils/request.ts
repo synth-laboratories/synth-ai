@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 import { getAbortSignal as getShutdownSignal } from "../lifecycle/shutdown"
+import { log } from "./log"
 
 export type RequestSignalOptions = {
   signal?: AbortSignal
@@ -129,15 +130,23 @@ export async function fetchWithTimeout(
   } = {},
 ): Promise<Response> {
   const { timeoutMs, signal, includeScope, ...rest } = init
+  const method = (rest.method || "GET").toUpperCase()
 
   // Fast path: no timeout needed
   if (!timeoutMs || timeoutMs <= 0) {
     const managed = getRequestSignal({ signal, includeScope })
+    const start = Date.now()
+    log("http", `→ ${method} ${url}`)
     try {
-      return await fetch(url, {
+      const res = await fetch(url, {
         ...rest,
         signal: managed.signal,
       })
+      log("http", `← ${res.status} ${method} ${url} (${Date.now() - start}ms)`)
+      return res
+    } catch (err: any) {
+      log("http", `✗ ${method} ${url} - ${err?.message}`)
+      throw err
     } finally {
       managed.dispose()
     }
@@ -154,18 +163,24 @@ export async function fetchWithTimeout(
   }, timeoutMs)
 
   const mergedManaged = mergeAbortSignals([baseManaged.signal, controller.signal]) ?? baseManaged
+  const start = Date.now()
+  log("http", `→ ${method} ${url}`)
 
   try {
-    return await fetch(url, {
+    const res = await fetch(url, {
       ...rest,
       signal: mergedManaged.signal,
     })
-  } catch (err) {
+    log("http", `← ${res.status} ${method} ${url} (${Date.now() - start}ms)`)
+    return res
+  } catch (err: any) {
     if (timedOut && (err as { name?: string })?.name === "AbortError") {
       const timeoutError = new Error(`Timeout after ${timeoutMs}ms`)
       ;(timeoutError as { name: string }).name = "TimeoutError"
+      log("http", `✗ ${method} ${url} - Timeout after ${timeoutMs}ms`)
       throw timeoutError
     }
+    log("http", `✗ ${method} ${url} - ${err?.message}`)
     throw err
   } finally {
     clearTimeout(timeoutId)

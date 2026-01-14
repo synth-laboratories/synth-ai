@@ -1,14 +1,16 @@
 import { For, Show, createMemo } from "solid-js"
 import { COLORS } from "../../theme"
-import type { Snapshot } from "../../../types"
+import type { AppData } from "../../../types"
 import type { JobEvent } from "../../../tui_data"
+import { isEvalJob } from "../../../tui_data"
 import { formatDetails } from "../../formatters/job-details"
 import { formatResults } from "../../formatters/results"
+import { GraphEvolveResultsPanel } from "./GraphEvolveResultsPanel"
 import { formatMetrics, formatMetricsCharts } from "../../formatters/metrics"
-import { formatEventData } from "../../../formatters"
+import { ListCard, getIndicator } from "../../components/ListCard"
 
 interface JobsDetailProps {
-  snapshot: Snapshot
+  data: AppData
   events: JobEvent[]
   eventWindow: {
     slice: JobEvent[]
@@ -18,54 +20,20 @@ interface JobsDetailProps {
   lastError: string | null
   detailWidth: number
   detailHeight: number
+  resultsFocused?: boolean
   eventsFocused?: boolean
   metricsFocused?: boolean
   metricsView: "latest" | "charts"
-}
-
-/**
- * Truncate text to max width
- */
-function truncate(text: string, maxWidth: number): string {
-  if (text.length <= maxWidth) return text
-  return text.slice(0, maxWidth - 3) + "..."
-}
-
-/**
- * Wrap text to maxWidth (simple whitespace wrapping).
- * Kept local so the Events cards don't depend on SolidShell internals.
- */
-function wrapText(text: string, maxWidth: number): string[] {
-  const raw = (text ?? "").toString()
-  if (!raw) return []
-  const words = raw.replace(/\s+/g, " ").trim().split(" ")
-  const lines: string[] = []
-  let current = ""
-  for (const w of words) {
-    if (!current) {
-      current = w
-      continue
-    }
-    if ((current + " " + w).length <= maxWidth) {
-      current = current + " " + w
-      continue
-    }
-    // If a single word is longer than maxWidth, hard-split it.
-    if (current.length === 0 && w.length > maxWidth) {
-      lines.push(w.slice(0, maxWidth))
-      current = w.slice(maxWidth)
-      continue
-    }
-    lines.push(current)
-    current = w
-  }
-  if (current) lines.push(current)
-  // Hard truncate overly long lines (e.g. long unbroken strings)
-  return lines.map((l) => (l.length > maxWidth ? truncate(l, maxWidth) : l))
+  verifierEvolveGenerationIndex: number
 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
+}
+
+function padLine(text: string, width: number): string {
+  if (text.length >= width) return text
+  return text.padEnd(width, " ")
 }
 
 function formatEventHeader(event: JobEvent): string {
@@ -73,10 +41,6 @@ function formatEventHeader(event: JobEvent): string {
   const typeRaw = event.type || ""
   const type = typeRaw.replace(/^prompt\.learning\./, "")
   return `${seq} ${type}`.trimEnd()
-}
-
-function formatEventBody(event: JobEvent): string {
-  return event.message || formatEventData(event.data) || ""
 }
 
 function formatEventTimestamp(event: JobEvent): string {
@@ -88,45 +52,41 @@ function formatEventTimestamp(event: JobEvent): string {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 }
 
-function buildEventCardLines(event: JobEvent, width: number, isSelected: boolean): string[] {
-  // NOTE: The box-drawing version was causing terminal rendering glitches for some fonts/terminals.
-  // Use a plain-text "card" made of separators and indentation.
-  const prefix = isSelected ? "> " : "  "
-  const ts = formatEventTimestamp(event)
-  const header = ts ? `${formatEventHeader(event)}  ${ts}` : formatEventHeader(event)
-
-  const body = formatEventBody(event)
-  const bodyLines = wrapText(body, Math.max(10, width - 4)).slice(0, 4)
-  const content =
-    bodyLines.length > 0
-      ? bodyLines.map((l) => `${prefix}  ${l}`)
-      : [`${prefix}  (no content)`]
-
-  const needsEllipsis = wrapText(body, Math.max(10, width - 4)).length > bodyLines.length
-  const ellipsis = needsEllipsis ? [`${prefix}  …`] : []
-
-  return [`${prefix}${header}`, ...content, ...ellipsis]
-}
 
 /**
  * Jobs detail panels (right side).
  */
 export function JobsDetail(props: JobsDetailProps) {
-  const detailsText = createMemo(() => formatDetails(props.snapshot))
-  const resultsText = createMemo(() => formatResults(props.snapshot))
-  const isGepa = createMemo(() => {
-    const job = props.snapshot.selectedJob
-    return job?.training_type === "gepa" || job?.training_type === "graph_gepa"
+  const detailsText = createMemo(() => formatDetails(props.data))
+  const resultsText = createMemo(() => formatResults(props.data))
+  const isGraphEvolveVerifier = createMemo(() => {
+    const job = props.data.selectedJob
+    const meta = job?.metadata as Record<string, any> | null
+    return job?.training_type === "graph_evolve" && meta?.graph_type === "verifier"
   })
   const metricPointsCount = createMemo(() => {
-    const m: any = props.snapshot.metrics || {}
+    const m: any = props.data.metrics || {}
     const pts = Array.isArray(m?.points) ? m.points : []
     return pts.length
   })
+  const detailsHeight = createMemo(() => {
+    const lines = detailsText().split("\n").length
+    return clamp(lines + 2, 6, 9)
+  })
+  const resultsHeight = createMemo(() => {
+    if (isGraphEvolveVerifier()) return 9
+    const lines = resultsText().split("\n").length
+    return clamp(lines + 2, 6, 10)
+  })
+  const resultsTitle = createMemo(() => {
+    const job = props.data.selectedJob
+    return job && isEvalJob(job) ? "Results" : "Summary"
+  })
+  const resultsInnerHeight = createMemo(() => Math.max(4, resultsHeight() - 2))
   const metricsPanelHeight = createMemo(() => {
     // Reserve fixed space for Details/Results and ensure Events always has room.
-    const detailsH = 6
-    const resultsH = 4
+    const detailsH = detailsHeight()
+    const resultsH = resultsHeight()
     const minEventsH = 12
     const maxH = Math.max(4, props.detailHeight - (detailsH + resultsH + minEventsH))
 
@@ -143,13 +103,12 @@ export function JobsDetail(props: JobsDetailProps) {
       const innerWidth = Math.max(30, props.detailWidth - 6)
       const panelHeight = metricsPanelHeight()
       // In charts mode we use the full panel height for larger charts.
-      return formatMetricsCharts(props.snapshot.metrics, {
+      return formatMetricsCharts(props.data.metrics, {
         width: innerWidth,
         height: panelHeight,
-        isGepa: isGepa(),
       })
     }
-    return formatMetrics(props.snapshot.metrics)
+    return formatMetrics(props.data.metrics)
   })
 
   return (
@@ -162,7 +121,7 @@ export function JobsDetail(props: JobsDetailProps) {
         title="Details"
         titleAlignment="left"
         paddingLeft={1}
-        height={6}
+        height={detailsHeight()}
       >
         <text fg={COLORS.text}>{detailsText()}</text>
       </box>
@@ -171,13 +130,24 @@ export function JobsDetail(props: JobsDetailProps) {
       <box
         border
         borderStyle="single"
-        borderColor={COLORS.border}
-        title="Results"
+        borderColor={props.resultsFocused && isGraphEvolveVerifier() ? COLORS.textAccent : COLORS.border}
+        title={resultsTitle()}
         titleAlignment="left"
         paddingLeft={1}
-        height={4}
+        height={resultsHeight()}
       >
-        <text fg={COLORS.text}>{resultsText()}</text>
+        <Show
+          when={isGraphEvolveVerifier()}
+          fallback={<text fg={COLORS.text}>{resultsText()}</text>}
+        >
+          <GraphEvolveResultsPanel
+            data={props.data}
+            width={Math.max(30, props.detailWidth - 6)}
+            height={resultsInnerHeight()}
+            focused={!!props.resultsFocused && isGraphEvolveVerifier()}
+            selectedGenerationIndex={props.verifierEvolveGenerationIndex}
+          />
+        </Show>
       </box>
 
       {/* Metrics Box */}
@@ -211,25 +181,32 @@ export function JobsDetail(props: JobsDetailProps) {
           {(() => {
             const selected = props.eventWindow.selected
             const windowStart = props.eventWindow.windowStart
-            const width = Math.max(40, props.detailWidth - 6)
-
+            const lineWidth = Math.max(20, props.detailWidth - 6)
             return (
               <box flexDirection="column">
                 <For each={props.eventWindow.slice}>
                   {(event, idx) => {
                     const globalIdx = windowStart + idx()
                     const isSel = globalIdx === selected
-                    const lines = buildEventCardLines(event, width, isSel)
+                    const title = formatEventHeader(event)
+                    const timestamp = formatEventTimestamp(event) || "-"
                     return (
-                      <box flexDirection="column" paddingBottom={1}>
-                        <For each={lines}>
-                          {(line) => (
-                            <text fg={isSel ? COLORS.textBright : COLORS.textDim}>
-                              {line}
-                            </text>
-                          )}
-                        </For>
-                      </box>
+                      <ListCard isSelected={isSel}>
+                        {(ctx) => (
+                          <box flexDirection="column">
+                            <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
+                              <text fg={ctx.fg}>
+                                {padLine(`${getIndicator(ctx.isSelected)}${title}`, lineWidth)}
+                              </text>
+                            </box>
+                            <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
+                              <text fg={ctx.fgDim}>
+                                {padLine(`  ${timestamp}`, lineWidth)}
+                              </text>
+                            </box>
+                          </box>
+                        )}
+                      </ListCard>
                     )
                   }}
                 </For>

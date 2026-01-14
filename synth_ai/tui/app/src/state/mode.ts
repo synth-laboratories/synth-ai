@@ -11,28 +11,21 @@ import type { Mode, ModeUrls } from "../types"
 /** Hardcoded default URLs for each mode */
 const DEFAULT_URLS: Record<Mode, ModeUrls> = {
   prod: {
-    backendUrl: "https://api.usesynth.ai/api",
+    backendUrl: "https://api.usesynth.ai",
     frontendUrl: "https://usesynth.ai",
   },
   dev: {
-    backendUrl: "https://synth-backend-dev-docker.onrender.com/api",
+    backendUrl: "https://synth-backend-dev-docker.onrender.com",
     frontendUrl: "http://localhost:3000",
   },
   local: {
-    backendUrl: "http://localhost:8000/api",
+    backendUrl: "http://localhost:8000",
     frontendUrl: "http://localhost:3000",
   },
 }
 
 /** URLs for each mode */
 export const modeUrls: Record<Mode, ModeUrls> = { ...DEFAULT_URLS }
-
-/** API keys per mode */
-export const modeKeys: Record<Mode, string> = {
-  prod: "",
-  dev: "",
-  local: "",
-}
 
 /** Whether URLs were set via process.env at startup */
 let envUrlsAtStartup = false
@@ -59,11 +52,6 @@ export function initModeState(): void {
     currentMode = parseMode(envMode)
   }
 
-  // Initialize API key for current mode from env
-  if (process.env.SYNTH_API_KEY) {
-    modeKeys[currentMode] = process.env.SYNTH_API_KEY
-  }
-
   // If no env URLs were set, apply the default URLs for the current mode
   if (!envUrlsAtStartup) {
     const urls = modeUrls[currentMode]
@@ -88,7 +76,7 @@ export function hasEnvUrlsAtStartup(): boolean {
 
 /**
  * Switch to a different mode.
- * Updates process.env URLs and API key.
+ * Updates process.env URLs.
  */
 export function switchMode(mode: Mode): void {
   currentMode = mode
@@ -98,14 +86,6 @@ export function switchMode(mode: Mode): void {
   const urls = modeUrls[mode]
   process.env.SYNTH_BACKEND_URL = urls.backendUrl
   process.env.SYNTH_FRONTEND_URL = urls.frontendUrl
-  process.env.SYNTH_API_KEY = modeKeys[mode] || ""
-}
-
-/**
- * Set the API key for a specific mode.
- */
-export function setModeKey(mode: Mode, key: string): void {
-  modeKeys[mode] = key
 }
 
 /**

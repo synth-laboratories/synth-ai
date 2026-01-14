@@ -3,10 +3,12 @@ import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js"
 import { refreshEvents } from "../../api/events"
 import type { JobDetailsStreamEvent } from "../../api/job-details-stream"
 import type { ActivePane, PrincipalPane } from "../../types"
+import { ListPane } from "../../types"
 import type { AppContext } from "../../context"
 import { registerCleanup, unregisterCleanup } from "../../lifecycle"
 import { useJobDetailsStream } from "../api/useJobDetailsStream"
 import type { JobEvent } from "../../tui_data"
+import { config } from "../../state/polling"
 
 type UseJobEventsOptions = {
   ctx: AppContext
@@ -16,20 +18,32 @@ type UseJobEventsOptions = {
 }
 
 export function useJobEvents(options: UseJobEventsOptions): void {
-  const { snapshot, appState } = options.ctx.state
+  const { data, ui } = options.ctx.state
+  const { setData, setUi } = options.ctx
   const [lastSeenSeq, setLastSeenSeq] = createSignal(0)
+  let lastJobId: string | null = null
+
+  createEffect(() => {
+    const jobId = options.selectedJobId() ?? null
+    if (jobId === lastJobId) return
+    lastJobId = jobId
+    setLastSeenSeq(0)
+  })
 
   // Subscribe to real-time job details updates via SSE.
   useJobDetailsStream({
     jobId: options.selectedJobId,
     sinceSeq: lastSeenSeq,
-    enabled: () => options.principalPane() === "jobs" && options.activePane() !== "logs",
+    enabled: () => options.principalPane() === "jobs" && options.activePane() !== ListPane.Logs,
     onEvent: (event: JobDetailsStreamEvent) => {
       if (event.seq > lastSeenSeq()) {
         setLastSeenSeq(event.seq)
       }
       // Keep polling cursor in sync with SSE cursor so refreshEvents() doesn't refetch from 0.
-      appState.lastSeq = Math.max(appState.lastSeq || 0, event.seq)
+      const nextLastSeq = Math.max(ui.lastSeq || 0, event.seq)
+      if (nextLastSeq !== ui.lastSeq) {
+        setUi("lastSeq", nextLastSeq)
+      }
 
       const jobEvent: JobEvent = {
         seq: event.seq,
@@ -39,10 +53,10 @@ export function useJobEvents(options: UseJobEventsOptions): void {
         timestamp: new Date(event.ts).toISOString(),
       }
 
-      const existingSeqs = new Set(snapshot.events.map((e) => e.seq))
+      const existingSeqs = new Set(data.events.map((e) => e.seq))
       if (!existingSeqs.has(jobEvent.seq)) {
-        snapshot.events = [...snapshot.events, jobEvent].sort((a, b) => a.seq - b.seq)
-        options.ctx.render()
+        const nextEvents = [...data.events, jobEvent].sort((a, b) => a.seq - b.seq)
+        setData("events", nextEvents)
       }
     },
     onError: (error) => {
@@ -54,35 +68,78 @@ export function useJobEvents(options: UseJobEventsOptions): void {
   // Poll/backfill events to avoid gaps when SSE drops or when selecting an older job.
   createEffect(() => {
     const jobId = options.selectedJobId()
-    const enabled = options.principalPane() === "jobs" && options.activePane() !== "logs"
+    const enabled = options.principalPane() === "jobs" && options.activePane() !== ListPane.Logs
     if (!jobId || !enabled) return
 
     let cancelled = false
+    let inFlight = false
+
+    const refreshOnce = async (): Promise<boolean | null> => {
+      if (cancelled) return null
+      if (inFlight) return null
+      inFlight = true
+      try {
+        return await refreshEvents(options.ctx)
+      } catch {
+        return false
+      } finally {
+        inFlight = false
+      }
+    }
 
     async function backfillOnce(): Promise<void> {
       // Pull up to ~10 pages (2000 events) max per selection, but stop early if no progress.
       for (let i = 0; i < 10; i++) {
-        const beforeSeq = appState.lastSeq
-        const beforeLen = snapshot.events.length
-        const ok = await refreshEvents(options.ctx)
-        if (!ok) break
+        const beforeSeq = options.ctx.state.ui.lastSeq
+        const beforeLen = options.ctx.state.data.events.length
+        const ok = await refreshOnce()
+        if (ok !== true) break
         if (cancelled) return
-        if (snapshot.events.length === beforeLen && appState.lastSeq === beforeSeq) break
+        if (
+          options.ctx.state.data.events.length === beforeLen &&
+          options.ctx.state.ui.lastSeq === beforeSeq
+        ) {
+          break
+        }
       }
-      if (!cancelled) options.ctx.render()
     }
 
-    void backfillOnce()
+    let delayMs = Math.max(0.5, config.eventInterval) * 1000
+    const minDelayMs = delayMs
+    const maxDelayMs = Math.max(delayMs, Math.max(1, config.maxEventInterval) * 1000)
+    let timer: ReturnType<typeof setTimeout> | null = null
 
-    const interval = setInterval(() => {
-      void refreshEvents(options.ctx).then((ok) => {
-        if (ok && !cancelled) options.ctx.render()
-      })
-    }, 3000)
+    const schedule = (nextDelay: number) => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        void run()
+      }, nextDelay)
+    }
+
+    const run = async () => {
+      if (cancelled) return
+      const ok = await refreshOnce()
+      if (ok == null) {
+        schedule(delayMs)
+        return
+      }
+      if (ok) {
+        delayMs = minDelayMs
+      } else {
+        delayMs = Math.min(maxDelayMs, Math.floor(delayMs * 1.7))
+      }
+      schedule(delayMs)
+    }
+
+    void (async () => {
+      await backfillOnce()
+      if (cancelled) return
+      schedule(delayMs)
+    })()
     const cleanupName = "events-refresh-interval"
     const cleanup = () => {
       cancelled = true
-      clearInterval(interval)
+      if (timer) clearTimeout(timer)
     }
     registerCleanup(cleanupName, cleanup)
     onCleanup(() => {

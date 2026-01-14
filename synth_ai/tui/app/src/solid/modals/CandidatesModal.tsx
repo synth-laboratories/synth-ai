@@ -2,8 +2,9 @@ import { Show, createEffect, createMemo, createSignal } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { formatActionKeys, matchAction } from "../../input/keymap"
 
-import type { Snapshot } from "../../types"
+import type { AppData } from "../../types"
 import { copyToClipboard } from "../../utils/clipboard"
+import { clampIndex, moveSelectionIndex, resolveSelectionWindow } from "../utils/list"
 
 type CandidateView = {
   id: string
@@ -18,9 +19,10 @@ type CandidateView = {
 
 type CandidatesModalProps = {
   visible: boolean
-  snapshot: Snapshot
+  data: AppData
   width: number
   height: number
+  generationFilter?: number | null
   onClose: () => void
   onStatus: (message: string) => void
 }
@@ -81,10 +83,14 @@ function formatReward(value: number | null): string {
   return Number.isFinite(value) ? value.toFixed(3).replace(/\.?0+$/, "") : "-"
 }
 
-function buildCandidateViews(snapshot: Snapshot): CandidateView[] {
+function buildCandidateViews(data: AppData, generationFilter?: number | null): CandidateView[] {
   const byId = new Map<string, CandidateView>()
-  for (const candidate of snapshot.allCandidates) {
+  for (const candidate of data.allCandidates) {
     const payload = isRecord(candidate.payload) ? candidate.payload : {}
+    if (generationFilter != null) {
+      const generation = toNumber(payload.generation)
+      if (generation == null || generation !== generationFilter) continue
+    }
     const reward = candidate.reward ?? extractReward(payload)
     const meanReward = extractMeanReward(payload)
     const isPareto = payload.is_pareto === true || payload.pareto === true
@@ -192,13 +198,7 @@ export function CandidatesModal(props: CandidatesModalProps) {
   const modalWidth = createMemo(() => Math.max(60, Math.min(props.width - 2, 120)))
   const modalHeight = createMemo(() => Math.max(18, Math.min(props.height - 2, 34)))
 
-  const candidates = createMemo(() => buildCandidateViews(props.snapshot))
-
-  const clampIndex = (index: number) => {
-    const total = candidates().length
-    if (total === 0) return 0
-    return Math.max(0, Math.min(index, total - 1))
-  }
+  const candidates = createMemo(() => buildCandidateViews(props.data, props.generationFilter))
 
   createEffect(() => {
     if (!props.visible) return
@@ -213,7 +213,7 @@ export function CandidatesModal(props: CandidatesModalProps) {
       setDetailOffset(0)
       return
     }
-    const clamped = clampIndex(selectedIndex())
+    const clamped = clampIndex(selectedIndex(), total)
     if (clamped !== selectedIndex()) {
       setSelectedIndex(clamped)
     }
@@ -221,14 +221,16 @@ export function CandidatesModal(props: CandidatesModalProps) {
 
   const layout = createMemo(() => {
     const total = candidates().length
-    const selected = total > 0 ? candidates()[clampIndex(selectedIndex())] : null
+    const selectedIdx = clampIndex(selectedIndex(), total)
+    const selected = total > 0 ? candidates()[selectedIdx] : null
     const contentWidth = Math.max(10, modalWidth() - 6)
     const contentHeight = Math.max(6, modalHeight() - 6)
     const listWidth = Math.max(24, Math.min(40, Math.floor(contentWidth * 0.35)))
     const detailWidth = Math.max(10, contentWidth - listWidth - 2)
     const maxListHeight = Math.max(1, contentHeight - 2)
-    const listWindowStart = Math.max(0, Math.min(clampIndex(selectedIndex()) - Math.floor(maxListHeight / 2), Math.max(0, total - maxListHeight)))
-    const listWindowEnd = Math.min(total, listWindowStart + maxListHeight)
+    const listWindow = resolveSelectionWindow(total, selectedIdx, 0, maxListHeight, "center")
+    const listWindowStart = listWindow.windowStart
+    const listWindowEnd = listWindow.windowEnd
     const list: string[] = []
 
     list.push("")
@@ -241,7 +243,7 @@ export function CandidatesModal(props: CandidatesModalProps) {
       }
       for (let i = listWindowStart; i < listWindowEnd; i += 1) {
         const candidate = candidates()[i]
-        const cursor = i === clampIndex(selectedIndex()) ? ">" : " "
+        const cursor = i === selectedIdx ? ">" : " "
         const meanReward = candidate.meanReward != null ? `mean=${formatReward(candidate.meanReward)}` : null
         const reward = candidate.reward != null ? `reward=${formatReward(candidate.reward)}` : null
         const tags = [
@@ -269,6 +271,7 @@ export function CandidatesModal(props: CandidatesModalProps) {
 
     return {
       total,
+      selectedIndex: selectedIdx,
       paretoCount: paretoCandidates.length,
       paretoMean,
       listLines: list,
@@ -303,11 +306,11 @@ export function CandidatesModal(props: CandidatesModalProps) {
     const clampOffset = (value: number) => Math.max(0, Math.min(value, maxOffset))
 
     const prev = () => {
-      setSelectedIndex((current) => clampIndex(current - 1))
+      setSelectedIndex((current) => moveSelectionIndex(current, -1, total))
       setDetailOffset(0)
     }
     const next = () => {
-      setSelectedIndex((current) => clampIndex(current + 1))
+      setSelectedIndex((current) => moveSelectionIndex(current, 1, total))
       setDetailOffset(0)
     }
     const scrollUp = (amount: number) => setDetailOffset((current) => clampOffset(current - amount))
@@ -389,7 +392,9 @@ export function CandidatesModal(props: CandidatesModalProps) {
       >
         <text fg="#22c55e">
           {clampLine(
-            `Results - Candidates${layout().total ? ` (${clampIndex(selectedIndex()) + 1}/${layout().total})` : ""}`,
+            `Results - Candidates${
+              props.generationFilter != null ? ` (Gen ${props.generationFilter})` : ""
+            }${layout().total ? ` (${layout().selectedIndex + 1}/${layout().total})` : ""}`,
             Math.max(10, modalWidth() - 6),
           )}
         </text>

@@ -6,6 +6,7 @@ export type LogFileInfo = {
   path: string
   name: string
   mtimeMs: number
+  birthtimeMs: number
   size: number
 }
 
@@ -35,6 +36,7 @@ export async function listLogFiles(): Promise<LogFileInfo[]> {
               path: fullPath,
               name: entry.name,
               mtimeMs: stat.mtimeMs,
+              birthtimeMs: stat.birthtimeMs,
               size: stat.size,
             } satisfies LogFileInfo
           } catch {
@@ -44,7 +46,26 @@ export async function listLogFiles(): Promise<LogFileInfo[]> {
     )
     return files
       .filter((file): file is LogFileInfo => Boolean(file))
-      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+      .sort((a, b) => {
+        // Filenames are {timestamp}_{type}.log
+        // Sort by timestamp descending, then type ascending (A-Z)
+        const aBase = a.name.replace(/\.log$/, "")
+        const bBase = b.name.replace(/\.log$/, "")
+        const aLastUnderscore = aBase.lastIndexOf("_")
+        const bLastUnderscore = bBase.lastIndexOf("_")
+
+        const aTimestamp = aLastUnderscore > 0 ? aBase.slice(0, aLastUnderscore) : aBase
+        const bTimestamp = bLastUnderscore > 0 ? bBase.slice(0, bLastUnderscore) : bBase
+        const aType = aLastUnderscore > 0 ? aBase.slice(aLastUnderscore + 1) : ""
+        const bType = bLastUnderscore > 0 ? bBase.slice(bLastUnderscore + 1) : ""
+
+        // Timestamp descending (newer first)
+        const timestampCmp = bTimestamp.localeCompare(aTimestamp)
+        if (timestampCmp !== 0) return timestampCmp
+
+        // Type ascending (A-Z)
+        return aType.localeCompare(bType)
+      })
   } catch {
     return []
   }

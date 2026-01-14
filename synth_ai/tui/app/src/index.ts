@@ -4,7 +4,7 @@
  * This is the thin entrypoint for the TUI application.
  * All logic is in app.ts and its dependencies.
  */
-import { shutdown, registerCleanup } from "./lifecycle"
+import { installSignalHandlers, isShuttingDown, registerCleanup, shutdown } from "./lifecycle"
 import { runSolidApp } from "./solid/app"
 import { initLogger, cleanupLogger } from "./services"
 import { initModeState, getCurrentMode } from "./state/mode"
@@ -16,15 +16,29 @@ initModeState()
 initLogger(getCurrentMode())
 registerCleanup("tui-logger", cleanupLogger)
 
-// Log but don't crash - TUI should survive backend issues
+installSignalHandlers()
+
+function formatError(err: unknown): string {
+  if (err instanceof Error) {
+    return err.stack || err.message
+  }
+  return String(err)
+}
+
+function handleFatalError(label: string, err: unknown): void {
+  process.stderr.write(`${label}: ${formatError(err)}\n`)
+  if (!isShuttingDown()) {
+    void shutdown(1)
+  }
+}
+
 process.on("unhandledRejection", (err) => {
-  process.stderr.write(`Unhandled rejection: ${err}\n`)
+  handleFatalError("Unhandled rejection", err)
 })
 process.on("uncaughtException", (err) => {
-  process.stderr.write(`Uncaught exception: ${err}\n`)
+  handleFatalError("Uncaught exception", err)
 })
 
-runSolidApp().catch(() => {
-  // Fatal startup error - clean exit
-  void shutdown(1)
+runSolidApp().catch((err) => {
+  handleFatalError("Fatal startup error", err)
 })

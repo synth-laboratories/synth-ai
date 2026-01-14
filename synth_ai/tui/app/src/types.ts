@@ -11,10 +11,15 @@ export enum JobType {
 }
 
 /** Active list pane in the TUI (jobs or logs) */
-export type ActivePane = "jobs" | "logs"
+export enum ListPane {
+  Jobs = "jobs",
+  Logs = "logs",
+}
+
+export type ActivePane = ListPane
 
 /** Focusable target in the main layout */
-export type FocusTarget = "list" | "metrics" | "events" | "agent"
+export type FocusTarget = "list" | "results" | "metrics" | "events" | "agent" | "logs-detail"
 
 /** Principal pane - top-level view mode */
 export type PrincipalPane = "jobs" | "opencode"
@@ -209,8 +214,11 @@ export type UsageData = {
   }
 }
 
-export type Snapshot = {
+export type AppData = {
   jobs: JobSummary[]
+  jobsCache: JobSummary[]
+  jobsCacheAppended: JobSummary[]
+  jobsCacheKey: string | null
   selectedJob: JobSummary | null
   events: JobEvent[]
   metrics: Record<string, unknown>

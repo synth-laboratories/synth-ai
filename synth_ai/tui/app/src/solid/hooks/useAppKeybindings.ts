@@ -1,26 +1,30 @@
 import { useKeyboard } from "@opentui/solid"
 import path from "node:path"
 import type { Accessor, Component, Setter } from "solid-js"
+import type { SetStoreFunction } from "solid-js/store"
 
 import { getTextInput, matchAction, type KeyEvent } from "../../input/keymap"
+import { log, logKey } from "../../utils/log"
 import { focusManager, setListPane } from "../../focus"
-import { appState } from "../../state/app-state"
+import { ListPane } from "../../types"
+import type { AppState } from "../../state/app-state"
 import { shutdown } from "../../lifecycle"
 import { readLogFile } from "../utils/logs"
 import { copyToClipboard } from "../../utils/clipboard"
-import type { Snapshot } from "../../types"
+import type { AppData } from "../../types"
 import type { ActiveModal, ModalState } from "../modals/types"
 
 type KeyEventWithPrevent = KeyEvent & { preventDefault?: () => void }
 
 type UseAppKeybindingsOptions = {
   onExit?: () => void
-  render: () => void
-  snapshot: Snapshot
+  data: AppData
+  ui: AppState
+  setUi: SetStoreFunction<AppState>
+  setData: SetStoreFunction<AppData>
   modal: Accessor<ModalState | null>
   setModal: Setter<ModalState | null>
   activeModal: Accessor<ActiveModal | null>
-  setActiveModal: Setter<ActiveModal | null>
   showCreateJobModal: Accessor<boolean>
   setShowCreateJobModal: Setter<boolean>
   createJobModalComponent: Accessor<Component<any> | null>
@@ -28,11 +32,8 @@ type UseAppKeybindingsOptions = {
   closeActiveModal: () => void
   applyFilterModal: () => void
   applySnapshotModal: () => Promise<void>
-  applyKeyModal: () => Promise<void>
-  pasteKeyModal: () => Promise<void>
   moveSettingsCursor: (delta: number) => void
   selectSettingsBackend: () => Promise<void>
-  openKeyModal: () => void
   openUsageBilling: () => void
   moveTaskAppsSelection: (delta: number) => void
   copySelectedTunnelUrl: () => Promise<void> | void
@@ -42,15 +43,16 @@ type UseAppKeybindingsOptions = {
   disconnectSelectedSession: () => Promise<void> | void
   refreshSessionsModal: () => Promise<void> | void
   selectSession: () => void
-  moveJobFilter: (delta: number) => void
-  toggleJobFilterSelection: () => void
-  clearJobFilterSelection: () => void
+  moveListFilter: (delta: number) => void
+  toggleListFilterSelection: () => void
+  selectAllListFilterSelection: () => void
+  clearListFilterSelection: () => void
   startLoginAuth: () => Promise<void>
   openFilterModal: () => void
   openConfigModal: () => void
   openProfileModal: () => void
   openResultsModal: () => void
-  openJobFilterModal: () => void
+  openListFilterModal: () => void
   openSnapshotModal: () => void
   openUrlsModal: () => void
   openSettingsModal: () => void
@@ -58,15 +60,16 @@ type UseAppKeybindingsOptions = {
   openTaskAppsModal: () => void
   openSessionsModal: () => void
   openMetricsAndFetch: () => void
+  openTracesModal: () => void
   ensureCreateJobModal: () => void
-  ensureTraceViewerModal: () => void
   logout: () => Promise<void>
   runAction: (key: string, task: () => Promise<void>) => void
-  refreshData: () => Promise<void>
+  refreshData: () => Promise<boolean>
   ensureOpenCodeServer: () => Promise<void>
   cancelSelectedJob: () => Promise<void>
   fetchArtifacts: () => Promise<void>
   refreshMetrics: () => Promise<void>
+  loadMoreJobs: () => Promise<void>
 }
 
 export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
@@ -76,10 +79,7 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
     if (options.showCreateJobModal()) {
       const handler = (options.createJobModalComponent() as any)?.handleKeyPress
       const handled = handler ? handler(evt) : false
-      if (handled) {
-        options.render()
-        return
-      }
+      if (handled) return
       options.setShowCreateJobModal(false)
       return
     }
@@ -94,19 +94,32 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
       return
     }
 
-    if (appState.principalPane === "opencode") {
+    if (options.ui.principalPane === "opencode") {
       const chatBack = (options.chatPaneComponent() as any)?.handleBack
       if (typeof chatBack === "function" && chatBack()) {
         return
       }
-      appState.principalPane = "jobs"
-      options.render()
+      options.setUi("principalPane", "jobs")
       return
     }
   }
 
   useKeyboard((evt: KeyEventWithPrevent) => {
+    const currentContext = options.activeModal()
+      ? `modal:${options.activeModal()}`
+      : options.modal()
+        ? `detail:${options.modal()?.type}`
+        : options.showCreateJobModal()
+          ? "createJob"
+          : options.ui.principalPane === "opencode"
+            ? "opencode"
+            : options.ui.activePane // "jobs" or "logs"
+    logKey(evt, currentContext)
+
     const globalAction = matchAction(evt, "app.global")
+    if (globalAction) {
+      log("action",globalAction, "app.global")
+    }
     switch (globalAction) {
       case "app.forceQuit":
         evt.preventDefault?.()
@@ -125,52 +138,6 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         break
     }
 
-    const detailModal = options.modal()
-    if (detailModal) {
-      const action = matchAction(evt, "modal.detail")
-      if (!action) return
-      evt.preventDefault?.()
-      switch (action) {
-        case "detail.toggleFullscreen":
-          options.setModal({ ...detailModal, fullscreen: !detailModal.fullscreen })
-          return
-        case "modal.confirm":
-          options.setModal(null)
-          return
-        case "nav.down":
-          if (detailModal.type === "log") {
-            options.setModal({ ...detailModal, offset: detailModal.offset + 1, tail: false })
-          } else {
-            options.setModal({ ...detailModal, offset: detailModal.offset + 1 })
-          }
-          return
-        case "nav.up":
-          if (detailModal.type === "log") {
-            options.setModal({ ...detailModal, offset: detailModal.offset - 1, tail: false })
-          } else {
-            options.setModal({ ...detailModal, offset: detailModal.offset - 1 })
-          }
-          return
-        case "detail.tail":
-          if (detailModal.type === "log") {
-            options.setModal({ ...detailModal, tail: true })
-          }
-          return
-        case "modal.copy":
-          if (detailModal.type === "log") {
-            void readLogFile(detailModal.path)
-              .then((raw) => copyToClipboard(raw))
-              .then(() => {
-                options.snapshot.status = `Copied: ${path.basename(detailModal.path)}`
-                options.render()
-              })
-          }
-          return
-        default:
-          return
-      }
-    }
-
     const overlayModal = options.activeModal()
     if (overlayModal) {
       const context = (() => {
@@ -179,8 +146,6 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
             return "modal.filter"
           case "snapshot":
             return "modal.snapshot"
-          case "key":
-            return "modal.key"
           case "settings":
             return "modal.settings"
           case "usage":
@@ -191,8 +156,8 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
             return "modal.taskApps"
           case "sessions":
             return "modal.sessions"
-          case "job-filter":
-            return "modal.jobFilter"
+          case "list-filter":
+            return "modal.listFilter"
           case "config":
             return "modal.config"
           case "profile":
@@ -206,209 +171,238 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         }
       })()
 
-      if (!context) return
-      const action = matchAction(evt, context)
-      if (!action) return
-      evt.preventDefault?.()
+      if (context) {
+        const action = matchAction(evt, context)
+        if (action) {
+          log("action",action, context)
+          evt.preventDefault?.()
+          switch (overlayModal) {
+            case "filter":
+              switch (action) {
+                case "modal.confirm":
+                  options.applyFilterModal()
+                  return
+                default:
+                  return
+              }
+            case "snapshot":
+              switch (action) {
+                case "modal.confirm":
+                  options.runAction("snapshot", () => options.applySnapshotModal())
+                  return
+                default:
+                  return
+              }
+            case "settings":
+              switch (action) {
+                case "nav.up":
+                  options.moveSettingsCursor(-1)
+                  return
+                case "nav.down":
+                  options.moveSettingsCursor(1)
+                  return
+                case "modal.confirm":
+                  void options.selectSettingsBackend()
+                  return
+                default:
+                  return
+              }
+            case "usage":
+              switch (action) {
+                case "usage.openBilling":
+                  options.openUsageBilling()
+                  return
+                case "nav.up":
+                  options.setUi("usageModalOffset", Math.max(0, (options.ui.usageModalOffset || 0) - 1))
+                  return
+                case "nav.down":
+                  options.setUi("usageModalOffset", (options.ui.usageModalOffset || 0) + 1)
+                  return
+                case "modal.confirm":
+                  options.closeActiveModal()
+                  return
+                default:
+                  return
+              }
+            case "metrics":
+              switch (action) {
+                case "nav.up":
+                  options.setUi("metricsModalOffset", Math.max(0, (options.ui.metricsModalOffset || 0) - 1))
+                  return
+                case "nav.down":
+                  options.setUi("metricsModalOffset", (options.ui.metricsModalOffset || 0) + 1)
+                  return
+                case "metrics.refresh":
+                  options.runAction("metrics", () => options.refreshMetrics())
+                  return
+                case "modal.confirm":
+                  options.closeActiveModal()
+                  return
+                default:
+                  return
+              }
+            case "task-apps":
+              switch (action) {
+                case "nav.up":
+                  options.moveTaskAppsSelection(-1)
+                  return
+                case "nav.down":
+                  options.moveTaskAppsSelection(1)
+                  return
+                case "modal.copy":
+                  void options.copySelectedTunnelUrl()
+                  return
+                case "modal.confirm":
+                  options.closeActiveModal()
+                  return
+                default:
+                  return
+              }
+            case "sessions":
+              switch (action) {
+                case "nav.up":
+                  options.moveSessionsSelection(-1)
+                  return
+                case "nav.down":
+                  options.moveSessionsSelection(1)
+                  return
+                case "sessions.copy":
+                  void options.copySelectedSessionUrl()
+                  return
+                case "sessions.connect":
+                  options.runAction("sessions-connect", async () => {
+                    await options.connectLocalSession()
+                  })
+                  return
+                case "sessions.disconnect":
+                  options.runAction("sessions-disconnect", async () => {
+                    await options.disconnectSelectedSession()
+                  })
+                  return
+                case "sessions.refresh":
+                  options.runAction("sessions-refresh", async () => {
+                    await options.refreshSessionsModal()
+                  })
+                  return
+                case "modal.confirm":
+                  options.selectSession()
+                  return
+                default:
+                  return
+              }
+            case "list-filter":
+              switch (action) {
+                case "nav.up":
+                  options.moveListFilter(-1)
+                  return
+                case "nav.down":
+                  options.moveListFilter(1)
+                  return
+                case "listFilter.toggle":
+                  options.toggleListFilterSelection()
+                  return
+                case "listFilter.all":
+                  options.selectAllListFilterSelection()
+                  return
+                case "listFilter.clear":
+                  options.clearListFilterSelection()
+                  return
+                default:
+                  return
+              }
+            case "config":
+              switch (action) {
+                case "nav.up":
+                  options.setUi("configModalOffset", Math.max(0, options.ui.configModalOffset - 1))
+                  return
+                case "nav.down":
+                  options.setUi("configModalOffset", options.ui.configModalOffset + 1)
+                  return
+                case "modal.confirm":
+                  options.closeActiveModal()
+                  return
+                default:
+                  return
+              }
+            case "profile":
+            case "urls":
+              switch (action) {
+                case "modal.confirm":
+                  options.closeActiveModal()
+                  return
+                default:
+                  return
+              }
+            case "login":
+              switch (action) {
+                case "login.confirm":
+                  void options.startLoginAuth()
+                  return
+                default:
+                  return
+              }
+            default:
+              return
+          }
+        }
+      }
+    }
 
-      switch (overlayModal) {
-        case "filter":
+    if (!overlayModal) {
+      const detailModal = options.modal()
+      if (detailModal) {
+        const action = matchAction(evt, "modal.detail")
+        if (action) {
+          evt.preventDefault?.()
           switch (action) {
+            case "detail.toggleFullscreen":
+              options.setModal({ ...detailModal, fullscreen: !detailModal.fullscreen })
+              return
             case "modal.confirm":
-              options.applyFilterModal()
-              return
-            default:
-              return
-          }
-        case "snapshot":
-          switch (action) {
-            case "modal.confirm":
-              options.runAction("snapshot", () => options.applySnapshotModal())
-              return
-            default:
-              return
-          }
-        case "key":
-          switch (action) {
-            case "modal.confirm":
-              void options.applyKeyModal()
-              return
-            case "modal.paste":
-              void options.pasteKeyModal()
-              return
-            default:
-              return
-          }
-        case "settings":
-          switch (action) {
-            case "nav.up":
-              options.moveSettingsCursor(-1)
+              options.setModal(null)
               return
             case "nav.down":
-              options.moveSettingsCursor(1)
-              return
-            case "modal.confirm":
-              void options.selectSettingsBackend()
-              return
-            case "settings.openKey":
-              options.closeActiveModal()
-              options.openKeyModal()
-              return
-            default:
-              return
-          }
-        case "usage":
-          switch (action) {
-            case "usage.openBilling":
-              options.openUsageBilling()
+              if (detailModal.type === "log") {
+                options.setModal({ ...detailModal, offset: detailModal.offset + 1, tail: false })
+              } else {
+                options.setModal({ ...detailModal, offset: detailModal.offset + 1 })
+              }
               return
             case "nav.up":
-              appState.usageModalOffset = Math.max(0, (appState.usageModalOffset || 0) - 1)
-              options.render()
+              if (detailModal.type === "log") {
+                options.setModal({ ...detailModal, offset: detailModal.offset - 1, tail: false })
+              } else {
+                options.setModal({ ...detailModal, offset: detailModal.offset - 1 })
+              }
               return
-            case "nav.down":
-              appState.usageModalOffset = (appState.usageModalOffset || 0) + 1
-              options.render()
-              return
-            case "modal.confirm":
-              options.closeActiveModal()
-              return
-            default:
-              return
-          }
-        case "metrics":
-          switch (action) {
-            case "nav.up":
-              appState.metricsModalOffset = Math.max(0, (appState.metricsModalOffset || 0) - 1)
-              options.render()
-              return
-            case "nav.down":
-              appState.metricsModalOffset = (appState.metricsModalOffset || 0) + 1
-              options.render()
-              return
-            case "metrics.refresh":
-              options.runAction("metrics", () => options.refreshMetrics())
-              return
-            case "modal.confirm":
-              options.closeActiveModal()
-              return
-            default:
-              return
-          }
-        case "task-apps":
-          switch (action) {
-            case "nav.up":
-              options.moveTaskAppsSelection(-1)
-              return
-            case "nav.down":
-              options.moveTaskAppsSelection(1)
+            case "detail.tail":
+              if (detailModal.type === "log") {
+                options.setModal({ ...detailModal, tail: true })
+              }
               return
             case "modal.copy":
-              void options.copySelectedTunnelUrl()
-              return
-            case "modal.confirm":
-              options.closeActiveModal()
-              return
-            default:
-              return
-          }
-        case "sessions":
-          switch (action) {
-            case "nav.up":
-              options.moveSessionsSelection(-1)
-              return
-            case "nav.down":
-              options.moveSessionsSelection(1)
-              return
-            case "sessions.copy":
-              void options.copySelectedSessionUrl()
-              return
-            case "sessions.connect":
-              options.runAction("sessions-connect", async () => {
-                await options.connectLocalSession()
-              })
-              return
-            case "sessions.disconnect":
-              options.runAction("sessions-disconnect", async () => {
-                await options.disconnectSelectedSession()
-              })
-              return
-            case "sessions.refresh":
-              options.runAction("sessions-refresh", async () => {
-                await options.refreshSessionsModal()
-              })
-              return
-            case "modal.confirm":
-              options.selectSession()
+              if (detailModal.type === "log") {
+                void readLogFile(detailModal.path)
+                  .then((raw) => copyToClipboard(raw))
+                  .then(() => {
+                    options.setData("status", `Copied: ${path.basename(detailModal.path)}`)
+                  })
+              }
               return
             default:
               return
           }
-        case "job-filter":
-          switch (action) {
-            case "nav.up":
-              options.moveJobFilter(-1)
-              return
-            case "nav.down":
-              options.moveJobFilter(1)
-              return
-            case "jobFilter.toggle":
-              options.toggleJobFilterSelection()
-              return
-            case "jobFilter.clear":
-              options.clearJobFilterSelection()
-              return
-            default:
-              return
-          }
-        case "config":
-          switch (action) {
-            case "nav.up":
-              appState.configModalOffset = Math.max(0, appState.configModalOffset - 1)
-              options.render()
-              return
-            case "nav.down":
-              appState.configModalOffset = appState.configModalOffset + 1
-              options.render()
-              return
-            case "modal.confirm":
-              options.closeActiveModal()
-              return
-            default:
-              return
-          }
-        case "profile":
-        case "urls":
-          switch (action) {
-            case "modal.confirm":
-              options.closeActiveModal()
-              return
-            default:
-              return
-          }
-        case "login":
-          switch (action) {
-            case "login.confirm":
-              void options.startLoginAuth()
-              return
-            default:
-              return
-          }
-        default:
-          return
+        }
       }
     }
 
     if (options.showCreateJobModal()) {
       const handler = (options.createJobModalComponent() as any)?.handleKeyPress
       const handled = handler ? handler(evt) : true
-      if (handled) {
-        options.render()
-        return
-      }
+      if (handled) return
     }
 
-    if (appState.principalPane === "opencode") {
+    if (options.ui.principalPane === "opencode") {
       const action = matchAction(evt, "app.opencode")
       if (action) {
         evt.preventDefault?.()
@@ -420,7 +414,7 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
             return
         }
       }
-      if (appState.focusTarget === "agent") {
+      if (options.ui.focusTarget === "agent") {
         return
       }
     }
@@ -428,7 +422,11 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
     const action = matchAction(evt, "app.global")
     if (!action) return
 
-    const agentFocused = appState.principalPane === "opencode" && appState.focusTarget === "agent"
+    if ((options.activeModal() || options.modal()) && !action.startsWith("modal.open.")) {
+      return
+    }
+
+    const agentFocused = options.ui.principalPane === "opencode" && options.ui.focusTarget === "agent"
     const isNavAction = action === "nav.down" || action === "nav.up" || action === "pane.select"
     if (agentFocused && (isNavAction || getTextInput(evt))) {
       return
@@ -439,10 +437,7 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
     switch (action) {
       case "focus.next":
       case "focus.prev": {
-        const moved = focusManager.route(action)
-        if (moved) {
-          options.render()
-        }
+        focusManager.route(action)
         return
       }
       default:
@@ -455,28 +450,29 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
 
     switch (action) {
       case "app.refresh":
-        options.runAction("refresh", () => options.refreshData())
+        options.runAction("refresh", async () => { await options.refreshData() })
+        return
+      case "jobs.loadMore":
+        if (options.ui.activePane !== ListPane.Jobs || options.ui.focusTarget !== "list") {
+          return
+        }
+        options.runAction("jobs-load-more", () => options.loadMoreJobs())
         return
       case "pane.jobs":
-        if (setListPane("jobs")) {
-          options.render()
-        }
+        setListPane(ListPane.Jobs)
         return
       case "pane.logs":
-        if (setListPane("logs")) {
-          options.render()
-        }
+        setListPane(ListPane.Logs)
         return
       case "pane.togglePrincipal": {
-        const nextPane = appState.principalPane === "jobs" ? "opencode" : "jobs"
-        appState.principalPane = nextPane
+        const nextPane = options.ui.principalPane === "jobs" ? "opencode" : "jobs"
+        options.setUi("principalPane", nextPane)
         if (nextPane === "opencode") {
           options.runAction("opencode-ensure", () => options.ensureOpenCodeServer())
           focusManager.setFocus("agent")
         } else {
           focusManager.ensureValid()
         }
-        options.render()
         return
       }
       case "app.logout":
@@ -495,8 +491,8 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
       case "modal.open.results":
         options.openResultsModal()
         return
-      case "modal.open.jobFilter":
-        options.openJobFilterModal()
+      case "modal.open.listFilter":
+        options.openListFilterModal()
         return
       case "modal.open.snapshot":
         options.openSnapshotModal()
@@ -521,9 +517,8 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         options.openMetricsAndFetch()
         return
       case "modal.open.traces":
-        if (options.snapshot.selectedJob) {
-          options.setActiveModal("traces")
-          void options.ensureTraceViewerModal()
+        if (options.data.selectedJob) {
+          options.openTracesModal()
         }
         return
       case "job.cancel":
