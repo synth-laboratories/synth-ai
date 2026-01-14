@@ -15,17 +15,22 @@ EngineBench evaluates an agent's ability to:
 from __future__ import annotations
 
 import asyncio
+import difflib
 import json
+import logging
 import os
 import shutil
 import subprocess
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from fastapi import Request
+
+logger = logging.getLogger(__name__)
 from synth_ai.data.artifacts import Artifact
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
@@ -35,6 +40,8 @@ from synth_ai.sdk.task.contracts import (
     RolloutResponse,
     TaskInfo,
 )
+from synth_ai.sdk.task.rubrics.models import Criterion, Rubric
+from synth_ai.sdk.task.server import RubricBundle
 
 # =============================================================================
 # APP CONFIGURATION
@@ -115,8 +122,20 @@ def get_instance_by_seed(seed: int) -> str:
 # =============================================================================
 
 
-async def setup_sandbox(instance_id: str, work_dir: Path) -> Path:
-    """Set up a sandbox for the coding agent using the scaffold from engine-bench."""
+@dataclass
+class SandboxSetupResult:
+    """Result from sandbox setup, includes paths and original content for diffing."""
+    sandbox_dir: Path
+    card_file_path: Path | None
+    original_stub_content: str  # The stub with todo!() that agent starts with
+    gold_implementation: str    # The reference/gold implementation for comparison
+
+
+async def setup_sandbox(instance_id: str, work_dir: Path) -> SandboxSetupResult:
+    """Set up a sandbox for the coding agent using the scaffold from engine-bench.
+    
+    Returns SandboxSetupResult with original stub content for later diffing.
+    """
     sandbox_dir = work_dir / "tcg_expansions"
 
     if not SCAFFOLD_DIR.exists():
@@ -134,54 +153,75 @@ async def setup_sandbox(instance_id: str, work_dir: Path) -> Path:
     # Load instance to get card_file path
     instance = load_instance(instance_id)
     card_file = instance.get("card_file", "")
+    
+    card_file_path: Path | None = None
+    original_stub_content = ""
+    gold_implementation = ""
 
     if card_file:
-        # Use canonical stub from gold/stubs/
-        stub_file = GOLD_DIR / "stubs" / f"{instance_id.replace('-', '_')}.rs"
-        # Card file path is relative to tcg_expansions, e.g., "tcg_expansions/src/df/cards/df_010_snorlax.rs"
-        # In the scaffold, the root IS tcg_expansions, so strip the prefix
+        # Copy gold stub but convert implementations to todo!() so agent has work to do
+        gold_stub_file = GOLD_DIR / "stubs" / f"{instance_id.replace('-', '_')}.rs"
         relative_card_file = card_file.replace("tcg_expansions/", "")
         stub_path = sandbox_dir / relative_card_file
+        card_file_path = stub_path
 
-        if stub_file.exists():
-            stub_path.parent.mkdir(parents=True, exist_ok=True)
-            stub_path.write_text(stub_file.read_text())
+        stub_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Setup expansion module structure if needed (e.g., for HP cards)
-            expansion = instance_id.split("-")[0]
-            expansion_dir = sandbox_dir / "src" / expansion
+        if gold_stub_file.exists():
+            # Read gold stub (this is the reference implementation)
+            gold_implementation = gold_stub_file.read_text()
+            
+            # Replace function bodies with todo!() - look for pattern like:
+            # pub fn foo(...) -> Type { ... actual code ... }
+            # and replace with: pub fn foo(...) -> Type { todo!() }
+            import re
+            original_stub_content = re.sub(
+                r'(pub fn \w+\([^)]*\)\s*->\s*\w+\s*\{)[^}]+\}',
+                r'\1 todo!() }',
+                gold_implementation
+            )
+            stub_path.write_text(original_stub_content)
 
-            if expansion not in ["df", "cg"]:  # DF and CG already have full structure
-                card_module = instance_id.replace("-", "_")
+        # Setup expansion module structure if needed (e.g., for HP cards)
+        expansion = instance_id.split("-")[0]
+        expansion_dir = sandbox_dir / "src" / expansion
 
-                # Create/update cards/mod.rs
-                cards_mod_path = expansion_dir / "cards" / "mod.rs"
-                if cards_mod_path.exists():
-                    content = cards_mod_path.read_text()
-                    if f"pub mod {card_module};" not in content:
-                        cards_mod_path.write_text(content + f"\npub mod {card_module};")
-                else:
-                    cards_mod_path.parent.mkdir(parents=True, exist_ok=True)
-                    cards_mod_path.write_text(f"pub mod {card_module};\n")
+        if expansion not in ["df", "cg"]:  # DF and CG already have full structure
+            card_module = instance_id.replace("-", "_")
 
-                # Create expansion/mod.rs if needed
-                mod_path = expansion_dir / "mod.rs"
-                if not mod_path.exists():
-                    expansion_dir.mkdir(parents=True, exist_ok=True)
-                    mod_path.write_text(
-                        "pub mod cards;\npub mod runtime;\nmod import_specs;\npub use import_specs::{attack_effect_ast, power_effect_ast, trainer_effect_ast};\n"
-                    )
-                elif "pub mod cards;" not in mod_path.read_text():
-                    mod_path.write_text(mod_path.read_text() + "\npub mod cards;")
+            # Create/update cards/mod.rs
+            cards_mod_path = expansion_dir / "cards" / "mod.rs"
+            if cards_mod_path.exists():
+                content = cards_mod_path.read_text()
+                if f"pub mod {card_module};" not in content:
+                    cards_mod_path.write_text(content + f"\npub mod {card_module};")
+            else:
+                cards_mod_path.parent.mkdir(parents=True, exist_ok=True)
+                cards_mod_path.write_text(f"pub mod {card_module};\n")
 
-                # Update lib.rs if needed
-                lib_path = sandbox_dir / "src" / "lib.rs"
-                if lib_path.exists():
-                    lib_content = lib_path.read_text()
-                    if f"pub mod {expansion};" not in lib_content:
-                        lib_path.write_text(lib_content + f"\npub mod {expansion};\n")
+            # Create expansion/mod.rs if needed
+            mod_path = expansion_dir / "mod.rs"
+            if not mod_path.exists():
+                expansion_dir.mkdir(parents=True, exist_ok=True)
+                mod_path.write_text(
+                    "pub mod cards;\npub mod runtime;\nmod import_specs;\npub use import_specs::{attack_effect_ast, power_effect_ast, trainer_effect_ast};\n"
+                )
+            elif "pub mod cards;" not in mod_path.read_text():
+                mod_path.write_text(mod_path.read_text() + "\npub mod cards;")
 
-    return sandbox_dir
+            # Update lib.rs if needed
+            lib_path = sandbox_dir / "src" / "lib.rs"
+            if lib_path.exists():
+                lib_content = lib_path.read_text()
+                if f"pub mod {expansion};" not in lib_content:
+                    lib_path.write_text(lib_content + f"\npub mod {expansion};\n")
+
+    return SandboxSetupResult(
+        sandbox_dir=sandbox_dir,
+        card_file_path=card_file_path,
+        original_stub_content=original_stub_content,
+        gold_implementation=gold_implementation,
+    )
 
 
 # =============================================================================
@@ -207,18 +247,28 @@ async def run_cargo_check(repo_dir: Path) -> tuple[bool, str]:
 async def inject_eval_tests(sandbox_dir: Path, instance_id: str) -> bool:
     """Inject evaluation tests into the sandbox."""
     eval_test_file = GOLD_DIR / "tests" / f"{instance_id.replace('-', '_')}_eval.rs"
+    print(f"[inject_eval_tests] Looking for: {eval_test_file}", flush=True)
+    print(f"[inject_eval_tests] Exists: {eval_test_file.exists()}", flush=True)
     if not eval_test_file.exists():
+        print(f"[inject_eval_tests] ❌ Test file does not exist!", flush=True)
         return False
 
     eval_tests = eval_test_file.read_text()
+    print(f"[inject_eval_tests] Read {len(eval_tests)} bytes of eval tests", flush=True)
+    
     expansion = instance_id.split("-")[0]
     # sandbox_dir IS tcg_expansions, so path is src/{expansion}/cards/{card}.rs
     card_file = sandbox_dir / "src" / expansion / "cards" / f"{instance_id.replace('-', '_')}.rs"
+    print(f"[inject_eval_tests] Card file: {card_file}", flush=True)
+    print(f"[inject_eval_tests] Card file exists: {card_file.exists()}", flush=True)
 
     if not card_file.exists():
+        print(f"[inject_eval_tests] ❌ Card file does not exist!", flush=True)
         return False
 
     current_content = card_file.read_text()
+    print(f"[inject_eval_tests] Current card content: {len(current_content)} bytes", flush=True)
+    
     eval_module = f"""
 
 // ============================================================================
@@ -228,6 +278,7 @@ async def inject_eval_tests(sandbox_dir: Path, instance_id: str) -> bool:
 {eval_tests}
 """
     card_file.write_text(current_content + eval_module)
+    print(f"[inject_eval_tests] ✅ Injected eval tests, new size: {len(current_content + eval_module)} bytes", flush=True)
     return True
 
 
@@ -239,6 +290,9 @@ async def run_cargo_test(repo_dir: Path, instance_id: str) -> tuple[int, int, st
     # e.g., df::cards::df_001_ampharos::eval_tests::*
     card_module = instance_id.replace("-", "_")
     test_filter = f"{card_module}::eval"
+    print(f"[run_cargo_test] Running: cargo test -- --test-threads=1 {test_filter}", flush=True)
+    print(f"[run_cargo_test] CWD: {repo_dir}", flush=True)
+    
     proc = await asyncio.create_subprocess_exec(
         "cargo",
         "test",
@@ -254,9 +308,20 @@ async def run_cargo_test(repo_dir: Path, instance_id: str) -> tuple[int, int, st
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180)
     except TimeoutError:
         proc.kill()
+        print(f"[run_cargo_test] ❌ Test timeout!", flush=True)
         return 0, 0, "Test timeout"
 
     output = stdout.decode("utf-8", errors="replace") + stderr.decode("utf-8", errors="replace")
+    print(f"[run_cargo_test] Exit code: {proc.returncode}", flush=True)
+    print(f"[run_cargo_test] Output length: {len(output)} chars", flush=True)
+    
+    # Log relevant lines
+    for line in output.split("\n"):
+        if "test result:" in line or "running" in line.lower() or "error" in line.lower():
+            print(f"[run_cargo_test] {line}", flush=True)
+    
+    # SUM all test results (unit tests + doc tests)
+    # Cargo outputs multiple "test result:" lines for different test types
     passed = 0
     failed = 0
 
@@ -265,26 +330,27 @@ async def run_cargo_test(repo_dir: Path, instance_id: str) -> tuple[int, int, st
             match_passed = re.search(r"(\d+) passed", line)
             match_failed = re.search(r"(\d+) failed", line)
             if match_passed:
-                passed = int(match_passed.group(1))
+                passed += int(match_passed.group(1))  # SUM instead of overwrite
             if match_failed:
-                failed = int(match_failed.group(1))
+                failed += int(match_failed.group(1))  # SUM instead of overwrite
 
     total = passed + failed
+    print(f"[run_cargo_test] Result: {passed}/{total}", flush=True)
     return passed, total, output
 
 
-def calculate_score(compile_pass: bool, tests_passed: int, tests_total: int) -> float:
-    """Calculate final score (0.0-1.0)."""
+def calculate_outcome_reward(compile_pass: bool, tests_passed: int, tests_total: int) -> float:
+    """Calculate final outcome reward (0.0-1.0)."""
     if not compile_pass:
         return 0.0
 
     compile_weight = 0.30
     test_weight = 0.70
 
-    compile_score = compile_weight
-    test_score = test_weight * (tests_passed / tests_total if tests_total > 0 else 0.0)
+    compile_reward = compile_weight
+    test_reward = test_weight * (tests_passed / tests_total if tests_total > 0 else 0.0)
 
-    return compile_score + test_score
+    return compile_reward + test_reward
 
 
 # =============================================================================
@@ -312,19 +378,27 @@ def normalize_interceptor_base(inference_url: str) -> tuple[str, str | None]:
 
 DEFAULT_SYSTEM_PROMPT = """You are an expert Rust developer implementing Pokemon TCG cards.
 
-Your task: Implement card effects by editing Rust files with stub functions marked with TODO comments.
+CRITICAL: The stub file contains `todo!()` macros that YOU MUST REPLACE with working code.
 
-Key patterns:
-- Use `def_id_matches(&card.def_id, "DF", NUMBER)` or `def_id_matches(&card.def_id, "HP", NUMBER)` to identify cards
-- Implement attack modifiers in the `attack_override` function
-- Implement Poke-Powers/Bodies in the `power_effect` function
-- Use `game.queue_prompt()` for user choices
-- Return `AttackOverrides::default()` if card doesn't apply
+Example - if you see:
+```rust
+pub fn grind_damage(attached_energy: u32) -> i32 { todo!() }
+// ATTACK_1_TEXT: "Does 10 damage times the amount of Energy attached"
+```
 
-Output requirements:
-1. ACTUALLY EDIT files - replace TODO stubs with working code
-2. Make sure code compiles (`cargo check`)
-3. Make sure tests pass (`cargo test`)"""
+You MUST use the edit tool to change it to:
+```rust
+pub fn grind_damage(attached_energy: u32) -> i32 { (10 * attached_energy) as i32 }
+```
+
+REQUIRED WORKFLOW:
+1. Read the stub file ONCE to find the todo!() functions
+2. IMMEDIATELY use the edit tool to replace todo!() with working code
+3. Run `cargo check` to verify compilation
+4. Run `cargo test` to verify tests pass
+
+DO NOT read the file multiple times. After ONE read, you must EDIT.
+"""
 
 DEFAULT_ARCHITECTURE_GUIDE = """# Pokemon TCG Engine Architecture
 
@@ -576,34 +650,63 @@ async def run_opencode_agent(
 
     if inference_url:
         base_url, correlation_id = normalize_interceptor_base(inference_url)
+        original_base = base_url
         if correlation_id:
             base_url = f"{base_url}/{correlation_id}"
+        logger.info(
+            "[OpenCode] URL construction: inference_url=%s base_url=%s correlation_id=%s final_base=%s",
+            inference_url,
+            original_base,
+            correlation_id,
+            base_url,
+        )
+    else:
+        logger.info("[OpenCode] No inference_url provided, using direct provider")
 
     opencode_config = {
         "$schema": "https://opencode.ai/config.json",
         "model": model_with_provider,
         "provider": {
             "openai": {
+                # CRITICAL: Must include full provider definition for OpenCode to merge options correctly
+                "name": "OpenAI",
+                "npm": "@ai-sdk/openai",
                 "options": {
                     "apiKey": actual_api_key,
                     "baseURL": base_url or "https://api.openai.com/v1",
+                },
+                "models": {
+                    "gpt-5-nano": {},
+                    "gpt-5.2": {},
+                    "gpt-4o": {},
+                    "gpt-4o-mini": {},
                 }
             }
         },
+        # OpenCode permissions - allow everything for non-interactive eval
+        # CRITICAL: Must explicitly allow external_directory for paths outside sandbox
         "permission": {
+            "*": "allow",
+            "external_directory": "allow",
+            "bash": "allow",
             "read": "allow",
+            "write": "allow",
+            "edit": "allow",
             "list": "allow",
             "glob": "allow",
             "grep": "allow",
-            "edit": "allow",
-            "write": "allow",
-            "bash": "allow",
         },
     }
 
     config_path = sandbox_dir / "opencode.json"
     config_path.write_text(json.dumps(opencode_config, indent=2))
 
+    logger.info(
+        "[OpenCode] Config written: path=%s model=%s baseURL=%s",
+        config_path,
+        model_with_provider,
+        opencode_config["provider"]["openai"]["options"]["baseURL"],
+    )
     print(f"  [OpenCode] Config written to: {config_path}")
     print(f"  [OpenCode] Model: {model_with_provider}")
     print(f"  [OpenCode] BaseURL: {base_url}")
@@ -633,7 +736,15 @@ async def run_opencode_agent(
         print("  [OpenCode] OPENAI_API_KEY set in subprocess environment")
     print(f"  [OpenCode] Using binary: {opencode_bin}")
 
+    logger.info(
+        "[OpenCode] Starting subprocess: cmd=%s cwd=%s timeout=%ds",
+        " ".join(cmd),
+        sandbox_dir,
+        timeout,
+    )
+
     try:
+        print(f"[OpenCode] ⚡⚡⚡ STARTING SUBPROCESS: cmd={cmd[:3]}... cwd={sandbox_dir}", flush=True)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             cwd=str(sandbox_dir),
@@ -641,16 +752,62 @@ async def run_opencode_agent(
             stderr=asyncio.subprocess.PIPE,
             env=env,
         )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        print(f"[OpenCode] ⚡⚡⚡ SUBPROCESS STARTED: pid={proc.pid}", flush=True)
+        
+        # Stream output in real-time
+        stdout_chunks = []
+        stderr_chunks = []
+        
+        async def read_stream(stream, chunks, prefix):
+            try:
+                while True:
+                    chunk = await stream.read(1024)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    text = chunk.decode("utf-8", errors="replace")
+                    # Print each line as it comes
+                    for line in text.splitlines():
+                        if line.strip():
+                            print(f"[OpenCode] {prefix}: {line}", flush=True)
+            except Exception as e:
+                print(f"[OpenCode] ⚡⚡⚡ Error reading {prefix}: {e}", flush=True)
+        
+        # Start reading streams
+        stdout_task = asyncio.create_task(read_stream(proc.stdout, stdout_chunks, "STDOUT"))
+        stderr_task = asyncio.create_task(read_stream(proc.stderr, stderr_chunks, "STDERR"))
+        
+        try:
+            # Wait for process to finish (with timeout)
+            returncode = await asyncio.wait_for(proc.wait(), timeout=timeout)
+            # Wait for streams to finish reading
+            await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+        except asyncio.TimeoutError:
+            print(f"[OpenCode] ⚡⚡⚡ TIMEOUT after {timeout}s - killing process", flush=True)
+            proc.kill()
+            await proc.wait()
+            stdout_task.cancel()
+            stderr_task.cancel()
+            return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
+        
+        stdout = b"".join(stdout_chunks)
+        stderr = b"".join(stderr_chunks)
+        
+        print(f"[OpenCode] ⚡⚡⚡ SUBPROCESS COMPLETED: returncode={returncode} stdout_len={len(stdout)} stderr_len={len(stderr)}", flush=True)
+        
         return {
-            "success": proc.returncode == 0,
+            "success": returncode == 0,
             "stdout": stdout.decode("utf-8", errors="replace"),
             "stderr": stderr.decode("utf-8", errors="replace"),
         }
-    except TimeoutError:
+    except asyncio.TimeoutError:
+        print(f"[OpenCode] ⚡⚡⚡ TIMEOUT after {timeout}s", flush=True)
         proc.kill()
         return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
     except Exception as e:
+        print(f"[OpenCode] ⚡⚡⚡ EXCEPTION: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         return {"success": False, "stdout": "", "stderr": str(e)}
 
 
@@ -823,13 +980,13 @@ def build_prompt_with_context(
 ---
 
 ## Final Instructions
-1. READ the stub file at `{card_file}`
+1. READ the stub file at `{card_file}` using the `read` tool
 2. Use the architecture guide and reference snippets above as patterns
-3. EDIT `{card_file}` to replace the TODO stubs with working implementations
-4. Run `cargo check` to verify compilation
-5. Run `cargo test -- {instance_id.replace("-", "_")}` to run tests
+3. USE THE `edit` OR `write` TOOL to modify `{card_file}` and replace the TODO stubs with working implementations
+4. Run `cargo check` using the `bash` tool to verify compilation
+5. Run `cargo test -- {instance_id.replace("-", "_")}` using the `bash` tool to run tests
 
-You MUST edit the file and write actual code. Do not just describe what to do!
+CRITICAL: You MUST use the `edit` or `write` tool to actually modify the file. Reading the file is not enough - you must write code!
 """
 
 
@@ -889,7 +1046,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     2. Run OpenCode or Codex CLI agent to implement the card
     3. Inject eval tests
     4. Run cargo test
-    5. Return score
+    5. Return outcome reward
 
     Supports UNIFIED CONTEXT ENGINEERING:
     - Extracts context artifacts from request.context_override
@@ -912,6 +1069,14 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     # Use Synth API key for interceptor auth
     api_key = os.environ.get("SYNTH_API_KEY")
     agent_type = policy_config.get("agent", "opencode")
+    
+    logger.info(
+        "[engine_bench] Agent config: type=%s model=%s inference_url=%s timeout=%ds",
+        agent_type,
+        model,
+        inference_url or "none (direct)",
+        timeout,
+    )
 
     # UNIFIED CONTEXT ENGINEERING: Extract context artifacts (or use defaults)
     system_prompt = context_override.get("system_prompt", DEFAULT_SYSTEM_PROMPT)
@@ -919,29 +1084,36 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     reference_snippets = context_override.get("reference_snippets", DEFAULT_REFERENCE_SNIPPETS)
     hooks_documentation = context_override.get("hooks_documentation", DEFAULT_HOOKS_DOCUMENTATION)
 
-    print(f"\n{'=' * 60}")
-    print(f"[engine_bench] Running rollout for {instance_id}")
-    print(f"  Agent: {agent_type}")
-    print(f"  Model: {model}")
-    print(f"  Timeout: {timeout}s")
-    print(f"  Interceptor: {inference_url or 'none (direct)'}")
+    print(f"\n{'=' * 60}", flush=True)
+    print(f"[engine_bench] ⚡⚡⚡ Running rollout for {instance_id}", flush=True)
+    print(f"  Agent: {agent_type}", flush=True)
+    print(f"  Model: {model}", flush=True)
+    print(f"  Timeout: {timeout}s", flush=True)
+    print(f"  Interceptor: {inference_url or 'none (direct)'}", flush=True)
     api_key_status = f"✓ present ({api_key[:20]}...)" if api_key else "✗ missing"
-    print(f"  API Key: {api_key_status}")
+    print(f"  API Key: {api_key_status}", flush=True)
     print(
         f"  Context artifacts: system_prompt={len(system_prompt)} chars, "
         f"arch_guide={len(architecture_guide)} chars, "
         f"ref_snippets={len(reference_snippets)} chars, "
-        f"hooks_doc={len(hooks_documentation)} chars"
+        f"hooks_doc={len(hooks_documentation)} chars", flush=True
     )
-    print(f"{'=' * 60}\n")
+    print(f"{'=' * 60}\n", flush=True)
 
     # Create temp directory for sandbox
     agent_result: dict[str, Any] = {}
     with tempfile.TemporaryDirectory() as work_dir:
         work_path = Path(work_dir)
 
-        # Setup sandbox
-        sandbox_dir = await setup_sandbox(instance_id, work_path)
+        # Setup sandbox - returns original stub content for diffing
+        setup_result = await setup_sandbox(instance_id, work_path)
+        sandbox_dir = setup_result.sandbox_dir
+
+        # HACK: Create empty AGENTS.md to stop OpenCode from searching for it in an infinite loop
+        # OpenCode seems to have default behavior to search for this file
+        agents_md_path = sandbox_dir / "AGENTS.md"
+        agents_md_path.write_text("# Agent Instructions\n\nSee the task prompt for instructions.\n")
+        print(f"[engine_bench] ⚡⚡⚡ Created AGENTS.md hack file: {agents_md_path}", flush=True)
 
         # Build prompt with context artifacts (UNIFIED APPROACH)
         prompt = build_prompt_with_context(
@@ -972,6 +1144,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                     if stderr_full.strip():
                         print(f"  [Codex] stderr (full):\n{stderr_full}")
         else:
+            print(f"[engine_bench] ⚡⚡⚡ CALLING run_opencode_agent: model={model} timeout={timeout} inference_url={inference_url}", flush=True)
             agent_result = await run_opencode_agent(
                 prompt,
                 sandbox_dir,
@@ -980,63 +1153,119 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 inference_url=inference_url,
                 api_key=api_key,
             )
+            print(f"[engine_bench] ⚡⚡⚡ run_opencode_agent RETURNED: success={agent_result.get('success')}", flush=True)
 
             # Log OpenCode output for debugging
             if not agent_result["success"]:
-                print("  [OpenCode] FAILED")
-                print(f"  [OpenCode] stdout: {agent_result.get('stdout', '')[:500]}")
-                print(f"  [OpenCode] stderr: {agent_result.get('stderr', '')[:1000]}")
+                print("  [OpenCode] ⚡⚡⚡ FAILED", flush=True)
+                print(f"  [OpenCode] ⚡⚡⚡ stdout: {agent_result.get('stdout', '')[:500]}", flush=True)
+                print(f"  [OpenCode] ⚡⚡⚡ stderr: {agent_result.get('stderr', '')[:1000]}", flush=True)
             else:
-                print("  [OpenCode] Completed successfully")
+                print("  [OpenCode] ⚡⚡⚡ Completed successfully", flush=True)
                 if agent_result.get("stderr"):
-                    # Log stderr - may contain important warnings/errors
                     stderr_full = agent_result["stderr"]
                     if stderr_full.strip():
-                        print(f"  [OpenCode] stderr (full):\n{stderr_full}")
+                        print(f"  [OpenCode] ⚡⚡⚡ stderr (full):\n{stderr_full}", flush=True)
 
-        card_file_path = None
-        card_file_rel = instance.get("card_file", "")
-        if card_file_rel:
-            relative_path = card_file_rel.replace("tcg_expansions/", "")
-            card_file_path = sandbox_dir / relative_path
-        else:
-            expansion = instance_id.split("-")[0]
-            card_file_path = (
-                sandbox_dir / "src" / expansion / "cards" / f"{instance_id.replace('-', '_')}.rs"
-            )
+        # Use card_file_path from setup_result if available, otherwise derive it
+        card_file_path = setup_result.card_file_path
+        if not card_file_path:
+            card_file_rel = instance.get("card_file", "")
+            if card_file_rel:
+                relative_path = card_file_rel.replace("tcg_expansions/", "")
+                card_file_path = sandbox_dir / relative_path
+            else:
+                expansion = instance_id.split("-")[0]
+                card_file_path = (
+                    sandbox_dir / "src" / expansion / "cards" / f"{instance_id.replace('-', '_')}.rs"
+                )
 
         artifact_list = []
+        final_code = ""
         if card_file_path and card_file_path.exists():
-            content = card_file_path.read_text()
+            final_code = card_file_path.read_text()
+            
+            # Artifact 1: The final code the agent produced
             artifact = Artifact(
-                content=content,
+                content=final_code,
                 content_type="rust_code",
                 metadata={
                     "file_path": str(card_file_path.relative_to(sandbox_dir)),
                     "instance_id": instance_id,
+                    "artifact_type": "final_code",
                 },
             )
             artifact.validate_size(max_size_bytes=64 * 1024)
             artifact_list.append(artifact)
+            
+            # Artifact 2: Unified diff showing what the agent changed
+            if setup_result.original_stub_content:
+                diff_lines = list(difflib.unified_diff(
+                    setup_result.original_stub_content.splitlines(keepends=True),
+                    final_code.splitlines(keepends=True),
+                    fromfile="original_stub.rs",
+                    tofile="agent_output.rs",
+                    lineterm="",
+                ))
+                if diff_lines:
+                    diff_content = "".join(diff_lines)
+                    diff_artifact = Artifact(
+                        content=diff_content,
+                        content_type="unified_diff",
+                        metadata={
+                            "instance_id": instance_id,
+                            "artifact_type": "agent_diff",
+                            "description": "Changes made by the agent (original stub -> final code)",
+                        },
+                    )
+                    diff_artifact.validate_size(max_size_bytes=64 * 1024)
+                    artifact_list.append(diff_artifact)
+                    print(f"[engine_bench] Created diff artifact: {len(diff_content)} chars", flush=True)
+            
+            # Artifact 3: Gold reference implementation for verifier comparison
+            if setup_result.gold_implementation:
+                gold_artifact = Artifact(
+                    content=setup_result.gold_implementation,
+                    content_type="rust_code_gold",
+                    metadata={
+                        "instance_id": instance_id,
+                        "artifact_type": "gold_reference",
+                        "description": "Reference implementation for comparison",
+                    },
+                )
+                gold_artifact.validate_size(max_size_bytes=64 * 1024)
+                artifact_list.append(gold_artifact)
+                print(f"[engine_bench] Created gold reference artifact: {len(setup_result.gold_implementation)} chars", flush=True)
 
         # Evaluate
+        print(f"[engine_bench] Running cargo check in {sandbox_dir}...", flush=True)
         compile_pass, compile_error = await run_cargo_check(sandbox_dir)
+        print(f"[engine_bench] Cargo check: {'PASS' if compile_pass else 'FAIL'}", flush=True)
+        if compile_error:
+            print(f"[engine_bench] Compile error: {compile_error[:500]}", flush=True)
 
         tests_passed = 0
         tests_total = 0
         test_output = ""
 
         if compile_pass:
-            await inject_eval_tests(sandbox_dir, instance_id)
+            print(f"[engine_bench] Injecting eval tests...", flush=True)
+            inject_success = await inject_eval_tests(sandbox_dir, instance_id)
+            print(f"[engine_bench] Inject result: {inject_success}", flush=True)
+            
+            print(f"[engine_bench] Running cargo tests...", flush=True)
             tests_passed, tests_total, test_output = await run_cargo_test(sandbox_dir, instance_id)
+            print(f"[engine_bench] Test result: {tests_passed}/{tests_total}", flush=True)
+        else:
+            print(f"[engine_bench] Skipping tests (compile failed)", flush=True)
 
-        score = calculate_score(compile_pass, tests_passed, tests_total)
+        outcome_reward_value = calculate_outcome_reward(compile_pass, tests_passed, tests_total)
 
     print(f"\n{'=' * 60}")
     print(f"[engine_bench] Result for {instance_id}")
     print(f"  Compile: {'PASS' if compile_pass else 'FAIL'}")
     print(f"  Tests: {tests_passed}/{tests_total}")
-    print(f"  Score: {score:.2f}")
+    print(f"  Reward: {outcome_reward_value:.2f}")
     print(f"{'=' * 60}\n")
 
     latency_ms = (time.perf_counter() - start) * 1000.0
@@ -1048,7 +1277,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     return RolloutResponse(
         trace_correlation_id=trace_correlation_id,
         metrics=RolloutMetrics(
-            outcome_reward=score,
+            outcome_reward=outcome_reward_value,
             details={
                 "instance_id": instance_id,
                 "compile_pass": compile_pass,
@@ -1060,13 +1289,117 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 "agent_stdout_tail": agent_result.get("stdout", "")[-1500:],
                 "agent_stderr_tail": agent_result.get("stderr", "")[-2000:],
             },
-            outcome_objectives={"reward": score, "latency_ms": latency_ms},
-            instance_objectives=[{"reward": score, "latency_ms": latency_ms}],
+            outcome_objectives={"reward": outcome_reward_value, "latency_ms": latency_ms},
+            instance_objectives=[{"reward": outcome_reward_value, "latency_ms": latency_ms}],
         ),
         trace=None,  # Let validation hydrate from interceptor
         artifact=artifact_list or None,
         success_status=SuccessStatus.SUCCESS,
     )
+
+
+# =============================================================================
+# RUBRIC DEFINITION
+# =============================================================================
+# This rubric is exposed via GET /info for verifier graphs to use.
+# The verifier graph ID is configured in the eval job, not here.
+
+ENGINE_BENCH_OUTCOME_RUBRIC = Rubric(
+    version="1.0",
+    goal_text="""Evaluate Pokemon TCG card implementation quality in Rust.
+
+ARTIFACTS PROVIDED:
+1. 'rust_code' (final_code) - Agent's final implementation
+2. 'unified_diff' (agent_diff) - What changed from todo!() stub to final
+3. 'rust_code_gold' (gold_reference) - Correct reference implementation
+
+SCORING: Each criterion scored 0.0-1.0. Compare agent output to gold reference.""",
+    criteria=[
+        Criterion(
+            id="compilation",
+            description="""Does the code compile?
+- 1.0: Compiles with no errors (cargo check passes)
+- 0.5: Minor warnings but compiles
+- 0.0: Compilation errors""",
+            weight=2.0,
+            required=True,
+        ),
+        Criterion(
+            id="correctness_vs_gold",
+            description="""Does the implementation match the gold reference logic?
+Compare 'rust_code' (agent) to 'rust_code_gold' (reference):
+- 1.0: Logic is equivalent to gold reference (exact match or correct alternative)
+- 0.7: Mostly correct with minor logic differences
+- 0.4: Partially correct, some abilities work
+- 0.0: Logic is wrong or missing""",
+            weight=3.0,
+            required=False,
+        ),
+        Criterion(
+            id="completeness",
+            description="""Are all todo!() stubs replaced with implementations?
+Check the 'unified_diff' artifact:
+- 1.0: All todo!() replaced with working code
+- 0.5: Some todo!() remain or partial implementations
+- 0.0: Most/all todo!() still present""",
+            weight=2.5,
+            required=False,
+        ),
+        Criterion(
+            id="pattern_adherence",
+            description="""Does code follow game engine patterns?
+Compare to gold reference for pattern usage:
+- 1.0: Uses correct hooks, effect handlers, card registration
+- 0.5: Patterns partially correct
+- 0.0: Ignores established patterns""",
+            weight=1.5,
+            required=False,
+        ),
+        Criterion(
+            id="code_quality",
+            description="""Is the code clean and idiomatic Rust?
+- 1.0: Clean, idiomatic, good naming, proper error handling
+- 0.5: Functional but messy or non-idiomatic
+- 0.0: Poor quality, hard to read""",
+            weight=1.0,
+            required=False,
+        ),
+    ],
+    aggregation="weighted_sum",
+)
+
+ENGINE_BENCH_EVENT_RUBRIC = Rubric(
+    version="1.0",
+    goal_text="Evaluate intermediate agent actions during implementation.",
+    criteria=[
+        Criterion(
+            id="file_reading",
+            description="Agent reads relevant files before making changes. Shows understanding of existing code structure.",
+            weight=1.0,
+        ),
+        Criterion(
+            id="incremental_progress",
+            description="Agent makes incremental progress toward solution. Avoids going in circles or repeating actions.",
+            weight=1.0,
+        ),
+        Criterion(
+            id="tool_usage",
+            description="Agent uses appropriate tools (read, edit, write, bash). Efficiently navigates codebase and makes changes.",
+            weight=1.0,
+        ),
+        Criterion(
+            id="verification",
+            description="Agent verifies work with cargo check/test. Doesn't assume code is correct without testing.",
+            weight=1.5,
+        ),
+    ],
+    aggregation="weighted_sum",
+)
+
+ENGINE_BENCH_RUBRICS = RubricBundle(
+    outcome=ENGINE_BENCH_OUTCOME_RUBRIC,
+    events=ENGINE_BENCH_EVENT_RUBRIC,
+)
 
 
 # =============================================================================
@@ -1081,6 +1414,7 @@ app = create_local_api(
         provide_taskset_description=provide_taskset_description,
         provide_task_instances=provide_task_instances,
         rollout=run_rollout,
+        rubrics=ENGINE_BENCH_RUBRICS,
         cors_origins=["*"],
     )
 )

@@ -9,13 +9,16 @@ Win rate against AI v4 is the reward signal.
 """
 
 import contextlib
+import json
 import os
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import httpx
-from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.task.server import RubricBundle
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
@@ -41,6 +44,8 @@ ENGINE_BENCH_DIR = Path(
         ),
     )
 )
+
+PTCG_TRACE_DIR_ENV = "PTCG_TRACE_DIR"
 
 # Sample decks for testing - Dragon Frontiers cards
 SAMPLE_DECK_1 = (
@@ -96,6 +101,32 @@ You must respond with ONLY a JSON action:
 - {"action": "ChooseBench", "card_ids": [<id>, ...]} - Setup: choose bench
 
 Respond with ONLY the JSON action, no explanation.
+"""
+
+# ReAct-style variant used by prompt optimization demos. The environment still requires the
+# final response to be ONLY a JSON action; any intermediate reasoning must remain internal.
+PTCG_REACT_SYSTEM_PROMPT = """You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.
+
+You MUST select only legal actions based on the current available_actions list.
+
+Guidance (internal):
+- Consider the phase, available attacks, energy attachment limits, and bench capacity.
+- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.
+- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.
+
+Hard rules:
+- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.
+- You can only attach ONE energy per turn.
+- After your actions, you MUST use EndTurn.
+- You MUST choose an action that is currently allowed (from available_actions). If you output an illegal action, you lose immediately.
+
+You must respond with ONLY a JSON action (no extra text):
+- {"action": "PlayBasic", "card_id": <id>} - Play basic to bench
+- {"action": "AttachEnergy", "energy_id": <id>, "target_id": <id>} - Attach energy
+- {"action": "DeclareAttack", "attack": "<name>"} - Attack with active Pokemon
+- {"action": "EndTurn"} - End your turn
+- {"action": "ChooseActive", "card_id": <id>} - Setup: choose active
+- {"action": "ChooseBench", "card_ids": [<id>, ...]} - Setup: choose bench
 """
 
 # ============================================================================
@@ -250,6 +281,25 @@ async def run_game(
     decision_steps = 0
     errors = 0
 
+    trace_steps: list[dict[str, Any]] = []
+
+    def _truncate(text: str | None, limit: int = 20_000) -> str | None:
+        if text is None:
+            return None
+        if len(text) <= limit:
+            return text
+        return text[:limit] + f"\n... [truncated {len(text) - limit} chars]"
+
+    def _parse_action_type(action_json: str) -> str | None:
+        try:
+            parsed = json.loads(action_json)
+        except Exception:
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        action_val = parsed.get("action")
+        return str(action_val) if isinstance(action_val, str) else None
+
     while not game.is_game_over():
         # Get observation - handles AI turns automatically
         obs = game.run_until_agent_turn()
@@ -275,6 +325,17 @@ async def run_game(
         # Skip if no actions and no prompt
         if not obs.available_actions and not obs.has_prompt:
             print("[ptcg] No actions, stepping...")
+            trace_steps.append(
+                {
+                    "decision_step": decision_steps,
+                    "available_actions": list(obs.available_actions or []),
+                    "action_type": None,
+                    "action_raw": None,
+                    "action_valid": True,
+                    "note": "no_actions_step",
+                    "game_state": _truncate(getattr(obs, "game_state", None)),
+                }
+            )
             game.step()
             decision_steps += 1
             continue
@@ -282,6 +343,17 @@ async def run_game(
         # Auto-end turn if only EndTurn available
         if obs.available_actions == ["EndTurn"]:
             print("[ptcg] Only EndTurn, auto-ending")
+            trace_steps.append(
+                {
+                    "decision_step": decision_steps,
+                    "available_actions": ["EndTurn"],
+                    "action_type": "EndTurn",
+                    "action_raw": '{"action": "EndTurn"}',
+                    "action_valid": True,
+                    "note": "auto_end_turn",
+                    "game_state": _truncate(getattr(obs, "game_state", None)),
+                }
+            )
             with contextlib.suppress(Exception):
                 game.submit_action('{"action": "EndTurn"}')
             game.step()
@@ -305,13 +377,48 @@ async def run_game(
             try:
                 game.submit_action(action_json)
                 print("[ptcg] Action OK")
+                trace_steps.append(
+                    {
+                        "decision_step": decision_steps,
+                        "available_actions": list(obs.available_actions or []),
+                        "action_type": _parse_action_type(action_json),
+                        "action_raw": action_json,
+                        "action_valid": True,
+                        "note": "llm_action",
+                        "game_state": _truncate(getattr(obs, "game_state", None)),
+                    }
+                )
             except Exception as e:
                 print(f"[ptcg] Action FAILED: {e}")
+                trace_steps.append(
+                    {
+                        "decision_step": decision_steps,
+                        "available_actions": list(obs.available_actions or []),
+                        "action_type": _parse_action_type(action_json),
+                        "action_raw": action_json,
+                        "action_valid": False,
+                        "error": str(e),
+                        "note": "invalid_action",
+                        "game_state": _truncate(getattr(obs, "game_state", None)),
+                    }
+                )
                 errors += 1
                 break
 
         except Exception as e:
             print(f"[ptcg] LLM error: {e}")
+            trace_steps.append(
+                {
+                    "decision_step": decision_steps,
+                    "available_actions": list(obs.available_actions or []),
+                    "action_type": None,
+                    "action_raw": None,
+                    "action_valid": False,
+                    "error": str(e),
+                    "note": "llm_error",
+                    "game_state": _truncate(getattr(obs, "game_state", None)),
+                }
+            )
             errors += 1
             break
 
@@ -327,19 +434,23 @@ async def run_game(
             "winner": "P2",
             "turns": result.turns,
             "steps": result.steps,
+            "decision_steps": decision_steps,
             "p1_prizes": result.p1_prizes_remaining,
             "p2_prizes": result.p2_prizes_remaining,
             "end_reason": f"llm_error_or_invalid_action (errors={errors})",
             "errors": errors,
+            "trace_steps": trace_steps,
         }
     return {
         "winner": result.winner,
         "turns": result.turns,
         "steps": result.steps,
+        "decision_steps": decision_steps,
         "p1_prizes": result.p1_prizes_remaining,
         "p2_prizes": result.p2_prizes_remaining,
         "end_reason": result.end_reason,
         "errors": errors,
+        "trace_steps": trace_steps,
     }
 
 
@@ -398,6 +509,8 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
             max_steps=max_steps,
         )
 
+        trace_steps = result.get("trace_steps", []) or []
+
         # Calculate reward: 1.0 for win, 0.0 for loss, 0.5 for draw/max_steps
         if result["winner"] == "P1":
             reward = 1.0
@@ -422,6 +535,24 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
         print(f"  Reward: {reward}")
         print(f"{'=' * 60}\n")
 
+        trace_dir_raw = os.getenv(PTCG_TRACE_DIR_ENV, "").strip()
+        if trace_dir_raw:
+            out_dir = Path(trace_dir_raw).expanduser()
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / "ptcg_rollouts.jsonl"
+            record = {
+                "trace_id": request.trace_correlation_id,
+                "seed": seed,
+                "instance_id": instance_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "outcome_reward": reward,
+                "result": {k: v for k, v in result.items() if k != "trace_steps"},
+                "trace_steps": trace_steps,
+                "policy": {"model": model},
+            }
+            with out_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, default=str) + "\n")
+
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
             metrics=RolloutMetrics(
@@ -435,6 +566,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
                     "p2_prizes": result["p2_prizes"],
                     "end_reason": result["end_reason"],
                     "errors": result["errors"],
+                    "trace_steps": trace_steps,
                 },
             ),
             metadata={
