@@ -1,7 +1,6 @@
 import type { KeyAction } from "./input/keymap"
 import type { ActivePane, FocusTarget } from "./types"
-import { appState } from "./state/app-state"
-
+import { ListPane } from "./types"
 type FocusTargetConfig = {
   id: FocusTarget
   order: number
@@ -9,6 +8,26 @@ type FocusTargetConfig = {
   onFocus?: () => void
   onBlur?: () => void
   handleAction?: (action: KeyAction) => boolean
+}
+
+type FocusStateAccess = {
+  getFocusTarget: () => FocusTarget
+  setFocusTarget: (target: FocusTarget) => void
+  getActivePane: () => ActivePane
+  setActivePane: (pane: ActivePane) => void
+}
+
+let focusState: FocusStateAccess | null = null
+
+function requireFocusState(): FocusStateAccess {
+  if (!focusState) {
+    throw new Error("Focus state not bound")
+  }
+  return focusState
+}
+
+export function bindFocusState(access: FocusStateAccess): void {
+  focusState = access
 }
 
 class FocusManager {
@@ -25,11 +44,11 @@ class FocusManager {
   }
 
   current(): FocusTarget {
-    return appState.focusTarget
+    return requireFocusState().getFocusTarget()
   }
 
   isFocused(id: FocusTarget): boolean {
-    return appState.focusTarget === id
+    return requireFocusState().getFocusTarget() === id
   }
 
   isEnabled(id: FocusTarget): boolean {
@@ -40,16 +59,17 @@ class FocusManager {
 
   setFocus(id: FocusTarget): boolean {
     if (!this.isEnabled(id)) return false
-    if (appState.focusTarget === id) return false
-    const current = this.targets.get(appState.focusTarget)
+    const state = requireFocusState()
+    if (state.getFocusTarget() === id) return false
+    const current = this.targets.get(state.getFocusTarget())
     current?.onBlur?.()
-    appState.focusTarget = id
+    state.setFocusTarget(id)
     this.targets.get(id)?.onFocus?.()
     return true
   }
 
   ensureValid(): boolean {
-    if (this.isEnabled(appState.focusTarget)) return false
+    if (this.isEnabled(requireFocusState().getFocusTarget())) return false
     const next = this.firstEnabled()
     if (!next) return false
     return this.setFocus(next)
@@ -66,7 +86,7 @@ class FocusManager {
   route(action: KeyAction): boolean {
     if (action === "focus.next") return this.focusNext()
     if (action === "focus.prev") return this.focusPrev()
-    const current = this.targets.get(appState.focusTarget)
+    const current = this.targets.get(requireFocusState().getFocusTarget())
     if (!current?.handleAction) return false
     return current.handleAction(action)
   }
@@ -81,7 +101,7 @@ class FocusManager {
   private shift(delta: number): boolean {
     if (!this.order.length) return false
     this.ensureValid()
-    const current = appState.focusTarget
+    const current = requireFocusState().getFocusTarget()
     const startIdx = Math.max(0, this.order.indexOf(current))
     for (let step = 1; step <= this.order.length; step += 1) {
       const idx = (startIdx + delta * step + this.order.length) % this.order.length
@@ -97,8 +117,12 @@ class FocusManager {
 export const focusManager = new FocusManager()
 
 export function setListPane(pane: ActivePane): boolean {
-  if (appState.activePane === pane) return false
-  appState.activePane = pane
+  const state = requireFocusState()
+  if (state.getActivePane() === pane) return false
+  state.setActivePane(pane)
+  if (pane === ListPane.Logs && state.getFocusTarget() !== "list") {
+    state.setFocusTarget("list")
+  }
   focusManager.ensureValid()
   return true
 }

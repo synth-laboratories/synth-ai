@@ -12,12 +12,9 @@ function safePoints(metricsValue: Record<string, any> | unknown): MetricPoint[] 
 
 export function formatMetricsCharts(
   metricsValue: Record<string, any> | unknown,
-  opts: { width: number; height: number; isGepa?: boolean },
+  opts: { width: number; height: number },
 ): string {
   const points = safePoints(metricsValue)
-  if (!opts.isGepa) {
-    return "Charts: (only available for GEPA jobs)"
-  }
   if (!points.length) {
     // Show helpful message about fetching metrics
     const metrics: any = metricsValue || {}
@@ -34,11 +31,10 @@ export function formatMetricsCharts(
     return "Charts: (no metric points yet)"
   }
   
-  // Check if we have GEPA metrics specifically
-  const gepaPoints = points.filter((pt: any) => pt?.name?.startsWith("gepa."))
-  if (gepaPoints.length === 0) {
+  const chartPoints = points.filter((pt: any) => pt?.name?.startsWith("gepa."))
+  if (chartPoints.length === 0) {
     const allNames = [...new Set(points.map((pt: any) => pt?.name).filter(Boolean))].slice(0, 3)
-    return `Charts: (found ${points.length} metric points, but none are GEPA metrics. Available: ${allNames.join(", ") || "none"})`
+    return `Charts: (found ${points.length} metric points, but none are chartable. Available: ${allNames.join(", ") || "none"})`
   }
 
   // Allocate vertical space for two stacked charts.
@@ -104,5 +100,4 @@ export function formatMetrics(metricsValue: Record<string, any> | unknown): stri
   if (keys.length === 0) return "Metrics: -"
   return ["Metrics:", ...keys.map((k) => `- ${k}: ${formatValue(metrics[k])}`)].join("\n")
 }
-
 

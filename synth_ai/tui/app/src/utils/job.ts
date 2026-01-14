@@ -16,4 +16,18 @@ export function extractEnvName(job: JobSummary | null): string | null {
   )
 }
 
+const TERMINAL_STATUSES = new Set([
+  "completed",
+  "succeeded",
+  "failed",
+  "error",
+  "canceled",
+  "cancelled",
+  "aborted",
+])
+
+export function isTerminalJobStatus(status: string | null | undefined): boolean {
+  if (!status) return false
+  return TERMINAL_STATUSES.has(status.toLowerCase())
+}
 

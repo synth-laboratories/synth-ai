@@ -1,10 +1,17 @@
 /**
  * Results panel formatting (best snapshot + eval results + expanded view).
  */
-import type { Snapshot } from "../types"
+import type { AppData } from "../types"
 import { num } from "../tui_data"
 import { truncate } from "../utils/truncate"
-import { formatValue } from "./time"
+import { formatTimestamp, formatValue } from "./time"
+import { calculateTotalTokensFromEvents } from "./job-details"
+import {
+  GOLD_TARGET,
+  extractGraphEvolveCandidates,
+  formatRacePreview,
+  groupCandidatesByGeneration,
+} from "./graph-evolve"
 
 function isRecord(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -28,6 +35,44 @@ function formatReward(value: number | null): string {
   return value.toFixed(3)
 }
 
+function formatGraphEvolveVerifierResults(data: AppData, job: any): string {
+  const lines: string[] = []
+  const candidates = extractGraphEvolveCandidates(data)
+  const generations = groupCandidatesByGeneration(candidates)
+  const latest = generations[0]
+  const bestRewardValue =
+    num(job.best_reward ?? job.best_score) ??
+    (candidates.length ? Math.max(...candidates.map((candidate) => candidate.reward)) : null)
+  const bestReward = bestRewardValue != null ? formatReward(bestRewardValue) : "-"
+  const bestDelta =
+    bestRewardValue != null ? Math.abs(GOLD_TARGET - bestRewardValue) : null
+
+  lines.push(`Status: ${job.status}`)
+  lines.push(
+    `Gold: ${GOLD_TARGET.toFixed(2)} | Best: ${bestReward}${
+      bestDelta != null ? ` (d=${bestDelta.toFixed(2)})` : ""
+    }`,
+  )
+
+  if (!latest || latest.candidates.length === 0) {
+    lines.push("No candidates yet.")
+    return lines.join("\n")
+  }
+
+  lines.push(`Gen ${latest.generation} (top 3)`)
+  const preview = formatRacePreview({
+    candidates: latest.candidates,
+    maxCandidates: 3,
+    trackWidth: 14,
+    labelWidth: 12,
+    scorePrecision: 2,
+  })
+  lines.push(...preview.lines)
+  lines.push("Press v for generations")
+
+  return lines.join("\n")
+}
+
 type CandidateView = {
   id: string
   label: string
@@ -38,16 +83,16 @@ type CandidateView = {
   payload: Record<string, any>
 }
 
-function extractCandidateGroups(snapshot: Snapshot): {
+function extractCandidateGroups(data: AppData): {
   attempted: Array<Record<string, any>>
   optimized: Array<Record<string, any>>
 } {
-  const job: any = snapshot.selectedJob
+  const job: any = data.selectedJob
   const metadata = isRecord(job?.metadata) ? job.metadata : {}
   const attemptedPrimary = asArray(metadata?.attempted_candidates)
-  const attemptedFallback = asArray((snapshot.bestSnapshot as any)?.attempted_candidates)
+  const attemptedFallback = asArray((data.bestSnapshot as any)?.attempted_candidates)
   const optimizedPrimary = asArray(metadata?.optimized_candidates)
-  const optimizedFallback = asArray((snapshot.bestSnapshot as any)?.optimized_candidates)
+  const optimizedFallback = asArray((data.bestSnapshot as any)?.optimized_candidates)
   return {
     attempted: attemptedPrimary.length > 0 ? attemptedPrimary : attemptedFallback,
     optimized: optimizedPrimary.length > 0 ? optimizedPrimary : optimizedFallback,
@@ -121,8 +166,8 @@ function extractPayloadMeanReward(payload: Record<string, any>): number | null {
   )
 }
 
-function collectCandidateViews(snapshot: Snapshot): CandidateView[] {
-  const { attempted, optimized } = extractCandidateGroups(snapshot)
+function collectCandidateViews(data: AppData): CandidateView[] {
+  const { attempted, optimized } = extractCandidateGroups(data)
   const byId = new Map<string, CandidateView>()
   const ordered: CandidateView[] = []
   const seen = new Set<string>()
@@ -170,7 +215,7 @@ function collectCandidateViews(snapshot: Snapshot): CandidateView[] {
     upsert(candidate, `cand_${idx + 1}`, "attempted", false)
   })
 
-  for (const live of snapshot.allCandidates ?? []) {
+  for (const live of data.allCandidates ?? []) {
     const payload = isRecord(live.payload) ? live.payload : {}
     const id = String(live.id)
     const label =
@@ -333,50 +378,65 @@ export function extractCandidateStages(bestCandidate: Record<string, any>): Arra
   return []
 }
 
-export function formatResults(snapshot: Snapshot): string {
-  const job: any = snapshot.selectedJob
+export function formatResults(data: AppData): string {
+  const job: any = data.selectedJob
   if (!job) return "Results: -"
   if (job.job_source === "eval" || job.training_type === "eval") {
-    return formatEvalResults(snapshot)
+    return formatEvalResults(data, job)
+  }
+  if (job.training_type === "graph_evolve" && job.metadata?.graph_type === "verifier") {
+    return formatGraphEvolveVerifierResults(data, job)
   }
 
   const lines: string[] = []
-  const { attempted, optimized } = extractCandidateGroups(snapshot)
+  const { attempted, optimized } = extractCandidateGroups(data)
   const paretoMean =
     optimized.length > 0
       ? mean(optimized.map((cand) => extractCandidateMeanReward(cand)))
       : null
-  const bestId = snapshot.bestSnapshotId || "-"
-  if (bestId === "-") {
-    lines.push("Best snapshot: -")
-  } else if (snapshot.bestSnapshot) {
-    lines.push(`Best snapshot: ${bestId}`)
-  } else {
-    lines.push(`Best snapshot: ${bestId} (press p to load)`)
-  }
+  const bestReward =
+    job.best_reward != null
+      ? formatReward(job.best_reward)
+      : job.best_score != null
+        ? formatReward(job.best_score)
+        : "-"
+  const bestTrain =
+    job.best_train_reward != null
+      ? formatReward(job.best_train_reward)
+      : job.best_train_score != null
+        ? formatReward(job.best_train_score)
+        : null
+  const bestValidation =
+    job.best_validation_reward != null
+      ? formatReward(job.best_validation_reward)
+      : job.best_validation_score != null
+        ? formatReward(job.best_validation_score)
+        : null
+  const bestId = data.bestSnapshotId || job.best_snapshot_id || "-"
+  const totalTokens = job.total_tokens ?? calculateTotalTokensFromEvents(data.events)
+  const tokensDisplay = totalTokens > 0 ? totalTokens.toLocaleString() : "-"
+  const costDisplay = job.total_cost_usd != null ? `$${job.total_cost_usd.toFixed(4)}` : "-"
 
-  if (snapshot.bestSnapshot) {
-    const bestCandidate = extractBestCandidate(snapshot.bestSnapshot as any)
-    const bestCandidateText = extractBestCandidateText(snapshot.bestSnapshot as any)
-    if (bestCandidate) {
-      const candidateId = bestCandidate.id || bestCandidate.template_id
-      const candidateName = bestCandidate.name
-      const candidateLabel = [candidateName, candidateId].filter(Boolean).join(" ")
-      if (candidateLabel) lines.push(`Best candidate: ${candidateLabel}`)
-      const stages = extractCandidateStages(bestCandidate)
-      if (stages.length > 0) {
-        const summary = stages.slice(0, 3).map((stage) => {
-          const role = stage.role || "stage"
-          const name = stage.name || stage.id || ""
-          return name ? `${role}:${name}` : role
-        })
-        const suffix = stages.length > 3 ? " …" : ""
-        lines.push(`Stages: ${summary.join(", ")}${suffix}`)
-      }
-    }
-    if (bestCandidateText) {
-      lines.push(`Best candidate text: ${truncate(bestCandidateText, 90)}`)
-    }
+  lines.push(`Status: ${job.status}`)
+  const created = formatTimestamp(job.created_at)
+  if (created !== "-") {
+    lines.push(`Created: ${created}`)
+  }
+  const started = formatTimestamp(job.started_at)
+  const finished = formatTimestamp(job.finished_at)
+  if (started !== "-" || finished !== "-") {
+    lines.push(`Run: ${started} -> ${finished}`)
+  }
+  lines.push(`Best Reward: ${bestReward}`)
+  if (bestTrain != null || bestValidation != null) {
+    lines.push(`Train/Val: ${bestTrain ?? "-"} / ${bestValidation ?? "-"}`)
+  }
+  if (bestId === "-") {
+    lines.push("Best Snapshot: -")
+  } else if (data.bestSnapshot) {
+    lines.push(`Best Snapshot: ${bestId}`)
+  } else {
+    lines.push(`Best Snapshot: ${bestId} (press p)`)
   }
 
   if (attempted.length > 0 || optimized.length > 0) {
@@ -385,13 +445,52 @@ export function formatResults(snapshot: Snapshot): string {
     lines.push(`${counts}${paretoSuffix}`)
   }
 
-  return ["Results:", ...lines].join("\n")
+  lines.push(`Events: ${data.events.length} | Tokens: ${tokensDisplay} | Cost: ${costDisplay}`)
+  if (data.artifacts.length) {
+    lines.push(`Artifacts: ${data.artifacts.length}`)
+  }
+
+  if (data.bestSnapshot) {
+    const bestCandidate = extractBestCandidate(data.bestSnapshot as any)
+    const bestCandidateText = extractBestCandidateText(data.bestSnapshot as any)
+    if (bestCandidate) {
+      const candidateId = bestCandidate.id || bestCandidate.template_id
+      const candidateName = bestCandidate.name
+      const candidateLabel = [candidateName, candidateId].filter(Boolean).join(" ")
+      if (candidateLabel) lines.push(`Best Candidate: ${candidateLabel}`)
+      const stages = extractCandidateStages(bestCandidate)
+      if (stages.length > 0) {
+        const summary = stages.slice(0, 2).map((stage) => {
+          const role = stage.role || "stage"
+          const name = stage.name || stage.id || ""
+          return name ? `${role}:${name}` : role
+        })
+        const suffix = stages.length > 2 ? " …" : ""
+        lines.push(`Stages: ${summary.join(", ")}${suffix}`)
+      }
+    }
+    if (bestCandidateText) {
+      lines.push(`Best Candidate Text: ${truncate(bestCandidateText, 80)}`)
+    }
+  }
+
+  return lines.join("\n")
 }
 
-export function formatEvalResults(snapshot: Snapshot): string {
-  const summary: any = snapshot.evalSummary ?? {}
-  const rows: any[] = snapshot.evalResultRows ?? []
+export function formatEvalResults(data: AppData, job: any): string {
+  const summary: any = data.evalSummary ?? {}
+  const rows: any[] = data.evalResultRows ?? []
   const lines: string[] = []
+
+  lines.push(`Status: ${job?.status || "-"}`)
+  const started = formatTimestamp(job?.started_at)
+  const finished = formatTimestamp(job?.finished_at)
+  if (started !== "-" || finished !== "-") {
+    lines.push(`Run: ${started} -> ${finished}`)
+  }
+  if (lines.length > 0) {
+    lines.push("")
+  }
 
   // Show overall summary if available
   if (Object.keys(summary).length > 0) {
@@ -477,16 +576,16 @@ export function formatEvalResults(snapshot: Snapshot): string {
   return lines.length > 0 ? lines.join("\n") : "Results: -"
 }
 
-export function formatResultsExpanded(snapshot: Snapshot): string | null {
-  const job: any = snapshot.selectedJob
+export function formatResultsExpanded(data: AppData): string | null {
+  const job: any = data.selectedJob
   if (!job) return null
   const lines: string[] = []
   lines.push(`Job: ${job.job_id}`)
   lines.push(`Status: ${job.status}`)
   lines.push(`Best Reward: ${job.best_reward ?? "-"}`)
-  lines.push(`Best Snapshot ID: ${snapshot.bestSnapshotId || "-"}`)
+  lines.push(`Best Snapshot ID: ${data.bestSnapshotId || "-"}`)
 
-  const { attempted, optimized } = extractCandidateGroups(snapshot)
+  const { attempted, optimized } = extractCandidateGroups(data)
   const paretoMean =
     optimized.length > 0
       ? mean(optimized.map((cand) => extractCandidateMeanReward(cand)))
@@ -539,12 +638,12 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
     lines.push("")
   }
 
-  if (snapshot.bestSnapshot) {
+  if (data.bestSnapshot) {
     // GEPA stores best_candidate and best_candidate_messages directly in the snapshot
-    const bestCandidate = extractBestCandidate(snapshot.bestSnapshot as any)
+    const bestCandidate = extractBestCandidate(data.bestSnapshot as any)
     const bestCandidateMessages =
-      (snapshot.bestSnapshot as any).best_candidate_messages ??
-      (snapshot.bestSnapshot as any).best_prompt_messages
+      (data.bestSnapshot as any).best_candidate_messages ??
+      (data.bestSnapshot as any).best_prompt_messages
 
     if (bestCandidate && typeof bestCandidate === "object") {
       const candidateId = (bestCandidate as any).id || (bestCandidate as any).template_id
@@ -601,8 +700,8 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
 
     // Fallback: check for legacy extractors if nothing found
     if (!bestCandidate && !bestCandidateMessages) {
-      const legacyCandidate = extractBestCandidate(snapshot.bestSnapshot as any)
-      const legacyText = extractBestCandidateText(snapshot.bestSnapshot as any)
+      const legacyCandidate = extractBestCandidate(data.bestSnapshot as any)
+      const legacyText = extractBestCandidateText(data.bestSnapshot as any)
 
       if (legacyCandidate) {
         const stages = extractCandidateStages(legacyCandidate)
@@ -639,9 +738,9 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
         lines.push("=== RAW SNAPSHOT DATA ===")
         lines.push("")
         try {
-          lines.push(JSON.stringify(snapshot.bestSnapshot, null, 2))
+          lines.push(JSON.stringify(data.bestSnapshot, null, 2))
         } catch {
-          lines.push(String(snapshot.bestSnapshot))
+          lines.push(String(data.bestSnapshot))
         }
       }
     }
@@ -653,13 +752,13 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
 }
 
 export function formatCandidatesModal(
-  snapshot: Snapshot,
+  data: AppData,
   selectedIndex: number,
 ): { raw: string; selectedIndex: number; total: number } | null {
-  const job: any = snapshot.selectedJob
+  const job: any = data.selectedJob
   if (!job) return null
 
-  const candidates = collectCandidateViews(snapshot)
+  const candidates = collectCandidateViews(data)
   if (candidates.length === 0) {
     return { raw: "No candidates available yet.", selectedIndex: 0, total: 0 }
   }

@@ -7,6 +7,7 @@ import { createSignal, createEffect, createMemo, onCleanup, For, Show } from "so
 import { useKeyboard } from "@opentui/solid"
 import { formatActionKeys, getTextInput, matchAction } from "../../input/keymap"
 import { getClient, type Message, type Part, type Event, type Session, type AssistantMessage } from "./client"
+import { moveSelectionIndex } from "../utils/list"
 
 export type ChatPaneProps = {
   url: string
@@ -478,9 +479,9 @@ export function ChatPane(props: ChatPaneProps) {
           setShowModelSelector(false)
         }
       } else if (action === "selector.up") {
-        setModelSelectorIndex((i) => Math.max(0, i - 1))
+        setModelSelectorIndex((i) => moveSelectionIndex(i, -1, availableModels().length))
       } else if (action === "selector.down") {
-        setModelSelectorIndex((i) => Math.min(availableModels().length - 1, i + 1))
+        setModelSelectorIndex((i) => moveSelectionIndex(i, 1, availableModels().length))
       }
       return
     }
@@ -497,9 +498,9 @@ export function ChatPane(props: ChatPaneProps) {
           switchToSession(sessions[idx].id)
         }
       } else if (action === "selector.up") {
-        setSessionSelectorIndex((i) => Math.max(0, i - 1))
+        setSessionSelectorIndex((i) => moveSelectionIndex(i, -1, state().sessionList.length))
       } else if (action === "selector.down") {
-        setSessionSelectorIndex((i) => Math.min(state().sessionList.length - 1, i + 1))
+        setSessionSelectorIndex((i) => moveSelectionIndex(i, 1, state().sessionList.length))
       }
       return
     }

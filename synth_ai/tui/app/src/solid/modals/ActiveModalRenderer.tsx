@@ -10,17 +10,18 @@ import {
   formatUsageDetails,
 } from "../../formatters/modals"
 import type { AuthStatus } from "../../auth"
-import type { SessionHealthResult, SessionRecord, Snapshot } from "../../types"
-import { modeKeys, modeUrls, appState } from "../../state/app-state"
-import { config } from "../../state/polling"
+import type { AppData, SessionHealthResult, SessionRecord } from "../../types"
+import { modeUrls } from "../../state/app-state"
+import type { AppState } from "../../state/app-state"
 import { ModalFrame } from "../components/ModalFrame"
+import { resolveSelectionWindow } from "../utils/list"
 import { buildScrollableModal } from "../utils/modal"
 import type { ActiveModal, UsageData } from "./types"
 
 type ActiveModalRendererProps = {
   kind: ActiveModal
-  dataVersion: Accessor<number>
   dimensions: Accessor<{ width: number; height: number }>
+  ui: AppState
   setModalInputValue: (value: string) => void
   setModalInputRef: (ref: any) => void
   settingsCursor: Accessor<number>
@@ -31,17 +32,71 @@ type ActiveModalRendererProps = {
   sessionsScrollOffset: Accessor<number>
   loginStatus: Accessor<AuthStatus>
   candidatesModalComponent: Accessor<Component<any> | null>
+  graphEvolveGenerationsModalComponent: Accessor<Component<any> | null>
   traceViewerModalComponent: Accessor<Component<any> | null>
   closeActiveModal: () => void
   onStatusUpdate: (message: string) => void
-  snapshot: Snapshot
+  openCandidatesForGeneration: (generation: number) => void
+  data: AppData
 }
 
 export function ActiveModalRenderer(props: ActiveModalRendererProps) {
-  // Modal content is mostly derived from non-reactive state objects (appState/snapshot).
-  // Make modal rendering depend on the reactive version signal so calls to
-  // `data.ctx.render()` repaint the modal (e.g. settings cursor).
-  props.dataVersion()
+  const ui = props.ui
+  const listFilterHint = "up/down move | space select | a all | c none | esc close"
+  const listFilterView = createMemo(() => {
+    const totalOptions = ui.listFilterOptions.length
+    if (!totalOptions) {
+      return ["  (no filters available)"]
+    }
+    const total = totalOptions + 2
+    const window = resolveSelectionWindow(
+      total,
+      ui.listFilterCursor,
+      ui.listFilterWindowStart,
+      ui.listFilterVisibleCount,
+    )
+    const selections = ui.listFilterSelections[ui.listFilterPane]
+    const lines: string[] = []
+    const totalItems = ui.listFilterOptions.reduce((sum, option) => sum + option.count, 0)
+    const selectedCount = selections?.size ?? 0
+    const allSelected = totalOptions > 0 && selectedCount >= totalOptions
+    const noneSelected = selectedCount === 0
+    for (let idx = window.windowStart; idx < window.windowEnd; idx++) {
+      const cursor = idx === window.selectedIndex ? ">" : " "
+      if (idx === 0) {
+        lines.push(`${cursor} [${allSelected ? "x" : " "}] All (${totalItems})`)
+        continue
+      }
+      if (idx === 1) {
+        lines.push(`${cursor} [${noneSelected ? "x" : " "}] None (0)`)
+        continue
+      }
+      const option = ui.listFilterOptions[idx - 2]
+      if (!option) continue
+      const active = selections?.has(option.id)
+      lines.push(`${cursor} [${active ? "x" : " "}] ${option.label} (${option.count})`)
+    }
+    return lines
+  })
+  const listFilterFrameWidth = createMemo(() => {
+    const lines = listFilterView()
+    const maxLine = Math.max(
+      ...lines.map((line) => line.length),
+      listFilterHint.length,
+      "List filter".length,
+    )
+    return Math.min(
+      Math.max(48, maxLine + 6),
+      Math.max(48, props.dimensions().width - 4),
+    )
+  })
+  const listFilterFrameHeight = createMemo(() => {
+    const lines = listFilterView()
+    return Math.min(
+      Math.max(8, props.dimensions().height - 4),
+      Math.max(8, lines.length + 6),
+    )
+  })
 
   if (props.kind === "filter") {
     return (
@@ -93,46 +148,21 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
     )
   }
 
-  if (props.kind === "key") {
-    return (
-      <ModalFrame
-        title="API Key"
-        width={70}
-        height={7}
-        borderColor="#7dd3fc"
-        titleColor="#7dd3fc"
-        hint={`Paste or type key | ${formatActionKeys("modal.confirm")} apply | ${formatActionKeys("app.back")} close`}
-        dimensions={props.dimensions}
-      >
-        <box flexDirection="column" gap={1}>
-          <text fg="#e2e8f0">API Key:</text>
-          <input
-            placeholder=""
-            onInput={(value) => props.setModalInputValue(value)}
-            ref={(ref) => {
-              props.setModalInputRef(ref)
-            }}
-          />
-        </box>
-      </ModalFrame>
-    )
-  }
-
   if (props.kind === "settings") {
     const modeLabels: Record<string, string> = { prod: "Prod", dev: "Dev", local: "Local" }
     const settingsContent = () => {
       const cursorIdx = props.settingsCursor()
       const lines: string[] = []
-      for (let idx = 0; idx < appState.settingsOptions.length; idx++) {
-        const mode = appState.settingsOptions[idx]
-        const active = appState.currentMode === mode
+      for (let idx = 0; idx < ui.settingsOptions.length; idx++) {
+        const mode = ui.settingsOptions[idx]
+        const active = ui.currentMode === mode
         const cursor = idx === cursorIdx ? ">" : " "
         lines.push(`${cursor} [${active ? "x" : " "}] ${modeLabels[mode] || mode} (${mode})`)
       }
-      const selectedMode = appState.settingsOptions[cursorIdx]
+      const selectedMode = ui.settingsOptions[cursorIdx]
       if (selectedMode) {
         const urls = modeUrls[selectedMode]
-        const key = modeKeys[selectedMode]
+        const key = ui.settingsKeys[selectedMode] || ""
         const keyPreview = key.trim() ? `...${key.slice(-8)}` : "(no key)"
         lines.push("")
         lines.push(`Backend: ${urls?.backendUrl || "(unset)"}`)
@@ -149,7 +179,7 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
         height={14}
         borderColor="#38bdf8"
         titleColor="#38bdf8"
-        hint={`${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} navigate | ${formatActionKeys("modal.confirm")} select | ${formatActionKeys("settings.openKey")} key | ${formatActionKeys("app.back")} close`}
+        hint={`${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} navigate | ${formatActionKeys("modal.confirm")} select | ${formatActionKeys("app.back")} close`}
         dimensions={props.dimensions}
       >
         <text fg="#e2e8f0">{settingsContent()}</text>
@@ -159,7 +189,7 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
 
   if (props.kind === "usage") {
     const raw = formatUsageDetails(props.usageData())
-    const view = buildScrollableModal(raw, 72, 28, appState.usageModalOffset || 0)
+    const view = buildScrollableModal(raw, 72, 28, ui.usageModalOffset || 0)
     const range = view.lines.length > view.bodyHeight
       ? `[${view.offset + 1}-${view.offset + view.visible.length}/${view.lines.length}] `
       : ""
@@ -180,21 +210,17 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
   }
 
   if (props.kind === "metrics") {
-    const m: any = props.snapshot.metrics || {}
+    const m: any = props.data.metrics || {}
     const pts = Array.isArray(m?.points) ? m.points : []
-    const job = props.snapshot.selectedJob
-    const isGepa = job?.training_type === "gepa" || job?.training_type === "graph_gepa"
-
-    const raw = formatMetricsCharts(props.snapshot.metrics, {
+    const raw = formatMetricsCharts(props.data.metrics, {
       width: props.dimensions().width - 6,
       height: props.dimensions().height - 8,
-      isGepa,
     })
     const view = buildScrollableModal(
       raw,
       props.dimensions().width - 4,
       props.dimensions().height - 6,
-      appState.metricsModalOffset || 0,
+      ui.metricsModalOffset || 0,
     )
     const scrollHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} scroll`
     const refreshHint = `${formatActionKeys("metrics.refresh")} refresh`
@@ -219,11 +245,11 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
 
   if (props.kind === "task-apps") {
     const raw = formatTunnelDetails(
-      props.snapshot.tunnels,
-      props.snapshot.tunnelHealthResults,
-      appState.taskAppsModalSelectedIndex || 0,
+      props.data.tunnels,
+      props.data.tunnelHealthResults,
+      ui.taskAppsModalSelectedIndex || 0,
     )
-    const view = buildScrollableModal(raw, 90, 20, appState.taskAppsModalOffset || 0)
+    const view = buildScrollableModal(raw, 90, 20, ui.taskAppsModalOffset || 0)
     const selectHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} select`
     const copyHint = `${formatActionKeys("modal.copy", { primaryOnly: true })} copy hostname`
     const closeHint = `${formatActionKeys("app.back")} close`
@@ -232,7 +258,7 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
       : `${selectHint} | ${copyHint} | ${closeHint}`
     return (
       <ModalFrame
-        title={`Task Apps (${props.snapshot.tunnels.length} tunnel${props.snapshot.tunnels.length !== 1 ? "s" : ""})`}
+        title={`Task Apps (${props.data.tunnels.length} tunnel${props.data.tunnels.length !== 1 ? "s" : ""})`}
         width={90}
         height={20}
         borderColor="#06b6d4"
@@ -251,7 +277,7 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
       sessions,
       props.sessionsHealthCache(),
       props.sessionsSelectedIndex(),
-      appState.openCodeUrl,
+      ui.openCodeUrl,
     )
     const view = buildScrollableModal(raw, 70, 20, props.sessionsScrollOffset())
     const selectHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} select`
@@ -279,8 +305,8 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
   }
 
   if (props.kind === "config") {
-    const raw = formatConfigMetadata(props.snapshot)
-    const view = buildScrollableModal(raw, 100, 24, appState.configModalOffset)
+    const raw = formatConfigMetadata(props.data)
+    const view = buildScrollableModal(raw, 100, 24, ui.configModalOffset)
     const scrollHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} scroll`
     const closeHint = `${formatActionKeys("app.back")} close`
     const hint = view.lines.length > view.bodyHeight
@@ -321,13 +347,46 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
     return (
       <Loaded
         visible={true}
-        snapshot={props.snapshot}
+        data={props.data}
+        generationFilter={props.ui.candidatesGenerationFilter}
         width={props.dimensions().width}
         height={props.dimensions().height}
         onClose={props.closeActiveModal}
         onStatus={(message: string) => {
           props.onStatusUpdate(message)
         }}
+      />
+    )
+  }
+
+  if (props.kind === "generations") {
+    const Loaded = props.graphEvolveGenerationsModalComponent()
+    if (!Loaded) {
+      return (
+        <ModalFrame
+          title="Generations"
+          width={60}
+          height={8}
+          borderColor="#60a5fa"
+          titleColor="#60a5fa"
+          hint="Loading..."
+          dimensions={props.dimensions}
+        >
+          <text fg="#e2e8f0">Loading generations...</text>
+        </ModalFrame>
+      )
+    }
+    return (
+      <Loaded
+        visible={true}
+        data={props.data}
+        width={props.dimensions().width}
+        height={props.dimensions().height}
+        onClose={props.closeActiveModal}
+        onStatus={(message: string) => {
+          props.onStatusUpdate(message)
+        }}
+        onOpenCandidates={props.openCandidatesForGeneration}
       />
     )
   }
@@ -352,7 +411,7 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
     return (
       <Loaded
         visible={true}
-        snapshot={props.snapshot}
+        data={props.data}
         width={props.dimensions().width}
         height={props.dimensions().height}
         onClose={props.closeActiveModal}
@@ -364,8 +423,8 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
   }
 
   if (props.kind === "profile") {
-    const org = props.snapshot.orgName || "-"
-    const user = props.snapshot.userEmail || "-"
+    const org = props.data.orgName || "-"
+    const user = props.data.userEmail || "-"
     const apiKey = process.env.SYNTH_API_KEY || "-"
     return (
       <ModalFrame
@@ -383,8 +442,6 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
   }
 
   if (props.kind === "urls") {
-    const backend = process.env.SYNTH_BACKEND_URL || "-"
-    const frontend = process.env.SYNTH_FRONTEND_URL || "-"
     return (
       <ModalFrame
         title="URLs"
@@ -395,36 +452,23 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
         hint={`${formatActionKeys("app.back")} close`}
         dimensions={props.dimensions}
       >
-        <text fg="#e2e8f0">{`Backend:\n${backend}\n\nFrontend:\n${frontend}`}</text>
+        <text fg="#e2e8f0">{`Backend:\n${process.env.SYNTH_BACKEND_URL || "-"}\n\nFrontend:\n${process.env.SYNTH_FRONTEND_URL || "-"}`}</text>
       </ModalFrame>
     )
   }
 
-  if (props.kind === "job-filter") {
-    const max = Math.max(0, appState.jobFilterOptions.length - 1)
-    const start = clamp(appState.jobFilterWindowStart, 0, Math.max(0, max))
-    const end = Math.min(appState.jobFilterOptions.length, start + config.jobFilterVisibleCount)
-    const lines: string[] = []
-    for (let idx = start; idx < end; idx++) {
-      const option = appState.jobFilterOptions[idx]
-      const active = appState.jobStatusFilter.has(option.status)
-      const cursor = idx === appState.jobFilterCursor ? ">" : " "
-      lines.push(`${cursor} [${active ? "x" : " "}] ${option.status} (${option.count})`)
-    }
-    if (!lines.length) {
-      lines.push("  (no statuses available)")
-    }
+  if (props.kind === "list-filter") {
     return (
       <ModalFrame
-        title="Job filter (status)"
-        width={52}
-        height={11}
+        title="List filter"
+        width={listFilterFrameWidth()}
+        height={listFilterFrameHeight()}
         borderColor="#60a5fa"
         titleColor="#60a5fa"
-        hint={`${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} move | ${formatActionKeys("jobFilter.toggle", { primaryOnly: true })} select | ${formatActionKeys("jobFilter.clear", { primaryOnly: true })} clear | ${formatActionKeys("app.back")} close`}
+        hint={listFilterHint}
         dimensions={props.dimensions}
       >
-        <text fg="#e2e8f0">{lines.join("\n")}</text>
+        <text fg="#e2e8f0">{listFilterView().join("\n")}</text>
       </ModalFrame>
     )
   }
@@ -478,8 +522,4 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
   }
 
   return null
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
 }

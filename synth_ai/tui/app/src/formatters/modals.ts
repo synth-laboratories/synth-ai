@@ -1,11 +1,12 @@
 import type {
+  AppData,
   SessionHealthResult,
   SessionRecord,
-  Snapshot,
   TunnelHealthResult,
   TunnelRecord,
   UsageData,
 } from "../types"
+import { normalizeJobType } from "../tui_data"
 
 export function formatPlanName(planType: string): string {
   switch (planType) {
@@ -254,21 +255,21 @@ Press 'q' to close.`
   return lines.join("\n")
 }
 
-export function formatConfigMetadata(snapshot: Snapshot): string {
-  const job = snapshot.selectedJob
+export function formatConfigMetadata(data: AppData): string {
+  const job = data.selectedJob
   if (!job) return "(no metadata)"
 
   const separator = "\u2550\u2550\u2550"
   const lines: string[] = []
   lines.push(`Job: ${job.job_id}`)
   lines.push(`Status: ${job.status}`)
-  lines.push(`Type: ${job.training_type || "-"}`)
+  lines.push(`Type: ${normalizeJobType(job)}`)
   lines.push(`Source: ${job.job_source || "unknown"}`)
   lines.push("")
 
-  if (snapshot.lastError && snapshot.status?.includes("Error")) {
+  if (data.lastError && data.status?.includes("Error")) {
     lines.push(`${separator} Error Loading Metadata ${separator}`)
-    lines.push(snapshot.lastError)
+    lines.push(data.lastError)
     lines.push("")
     lines.push("The job details could not be loaded.")
     return lines.join("\n")
@@ -276,7 +277,7 @@ export function formatConfigMetadata(snapshot: Snapshot): string {
 
   const meta: any = job.metadata
   if (!meta || Object.keys(meta).length === 0) {
-    if (snapshot.status?.includes("Loading")) {
+    if (data.status?.includes("Loading")) {
       lines.push("Loading job configuration...")
       lines.push("")
       lines.push("Modal will auto-update when loaded.")

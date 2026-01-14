@@ -2,13 +2,14 @@ import { Show, createEffect, createMemo, createSignal, onCleanup } from "solid-j
 import { useKeyboard, useRenderer } from "@opentui/solid"
 import { formatActionKeys, matchAction } from "../../input/keymap"
 
-import type { Snapshot } from "../../types"
+import type { AppData } from "../../types"
 import {
   fetchTracesList,
   fetchTraceJson,
   extractImagesFromTrace,
   type TraceMetadata,
 } from "../../api/traces"
+import { clampIndex, moveSelectionIndex } from "../utils/list"
 import {
   loadImageFromBase64,
   loadImageFromUrl,
@@ -20,7 +21,7 @@ import {
 
 type TraceViewerModalProps = {
   visible: boolean
-  snapshot: Snapshot
+  data: AppData
   width: number
   height: number
   onClose: () => void
@@ -64,20 +65,14 @@ export function TraceViewerModal(props: TraceViewerModalProps) {
   const selectedTrace = createMemo(() => {
     const all = traces()
     if (all.length === 0) return null
-    const idx = Math.max(0, Math.min(selectedIndex(), all.length - 1))
+    const idx = clampIndex(selectedIndex(), all.length)
     return all[idx]
   })
-
-  const clampIndex = (index: number) => {
-    const total = traces().length
-    if (total === 0) return 0
-    return Math.max(0, Math.min(index, total - 1))
-  }
 
   // Load traces when modal opens
   createEffect(() => {
     if (!props.visible) return
-    const jobId = props.snapshot.selectedJob?.job_id
+    const jobId = props.data.selectedJob?.job_id
     if (!jobId) {
       setError("No job selected")
       setLoadingState("error")
@@ -288,14 +283,14 @@ export function TraceViewerModal(props: TraceViewerModalProps) {
 
     if (action === "trace.prev") {
       if (total > 0) {
-        setSelectedIndex((current) => clampIndex(current - 1))
+        setSelectedIndex((current) => moveSelectionIndex(current, -1, total))
       }
       return
     }
 
     if (action === "trace.next") {
       if (total > 0) {
-        setSelectedIndex((current) => clampIndex(current + 1))
+        setSelectedIndex((current) => moveSelectionIndex(current, 1, total))
       }
       return
     }
@@ -331,7 +326,7 @@ export function TraceViewerModal(props: TraceViewerModalProps) {
     }
 
     if (action === "trace.refresh") {
-      const jobId = props.snapshot.selectedJob?.job_id
+      const jobId = props.data.selectedJob?.job_id
       if (jobId) {
         setLoadingState("loading-list")
         props.onStatus("Refreshing traces...")

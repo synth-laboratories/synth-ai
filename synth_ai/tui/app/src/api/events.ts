@@ -12,30 +12,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
-function eventMatchesFilter(event: JobEvent, filter: string): boolean {
-  const haystack = [
-    event.type,
-    event.message,
-    event.timestamp,
-    event.data ? safeEventDataText(event.data) : "",
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-  return haystack.includes(filter)
-}
-
-function safeEventDataText(data: unknown): string {
-  if (data == null) return ""
-  if (typeof data === "string") return data
-  if (typeof data === "number" || typeof data === "boolean") return String(data)
-  try {
-    return JSON.stringify(data)
-  } catch {
-    return ""
-  }
-}
-
 function isRecord(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
@@ -86,15 +62,16 @@ function extractCandidateFromEvent(event: JobEvent): PromptCandidate | null {
 }
 
 function extractGEPAMetricsFromEvents(ctx: AppContext, events: JobEvent[]): void {
-  const { snapshot } = ctx.state
-  const job = snapshot.selectedJob
+  const { data } = ctx.state
+  const { setData } = ctx
+  const job = data.selectedJob
   if (!job) return
   
   const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa"
   if (!isGepa) return
   
   // Only extract if metrics endpoint returned empty
-  const metrics: any = snapshot.metrics || {}
+  const metrics: any = data.metrics || {}
   const existingPoints = Array.isArray(metrics?.points) ? metrics.points : []
   if (existingPoints.length > 0) return // Metrics endpoint has data, don't override
   
@@ -171,13 +148,11 @@ function extractGEPAMetricsFromEvents(ctx: AppContext, events: JobEvent[]): void
     }
   }
   
-  // If we found metrics in events, add them to snapshot.metrics
+  // If we found metrics in events, add them to the data store.
   if (metricPoints.length > 0) {
-    if (!snapshot.metrics || typeof snapshot.metrics !== "object") {
-      snapshot.metrics = { points: [] }
-    }
-    const currentPoints = Array.isArray((snapshot.metrics as any).points) 
-      ? (snapshot.metrics as any).points 
+    const currentMetrics = isRecord(data.metrics) ? data.metrics : {}
+    const currentPoints = Array.isArray((currentMetrics as any).points)
+      ? (currentMetrics as any).points
       : []
     // Merge, keeping latest by step for each metric name
     const byNameAndStep = new Map<string, any>()
@@ -188,30 +163,46 @@ function extractGEPAMetricsFromEvents(ctx: AppContext, events: JobEvent[]): void
         byNameAndStep.set(key, pt)
       }
     }
-    ;(snapshot.metrics as any).points = Array.from(byNameAndStep.values())
-      .sort((a, b) => (a.step ?? 0) - (b.step ?? 0))
+    const nextMetrics = {
+      ...currentMetrics,
+      points: Array.from(byNameAndStep.values()).sort((a, b) => (a.step ?? 0) - (b.step ?? 0)),
+    }
+    setData("metrics", nextMetrics)
   }
 }
 
 function updateCandidatesFromEvents(ctx: AppContext, events: JobEvent[]): void {
-  const { snapshot } = ctx.state
+  const { data } = ctx.state
+  const { setData } = ctx
   if (events.length === 0) return
 
-  const byId = new Map<string, PromptCandidate>()
-  for (const candidate of snapshot.allCandidates) {
-    byId.set(candidate.id, candidate)
+  const nextCandidates = (data.allCandidates ?? []).map((candidate) => ({
+    ...candidate,
+    payload: isRecord(candidate.payload) ? { ...candidate.payload } : candidate.payload,
+  }))
+  const byId = new Map<string, number>()
+  for (let idx = 0; idx < nextCandidates.length; idx++) {
+    byId.set(nextCandidates[idx].id, idx)
   }
 
   for (const event of events) {
     if (event.type === "prompt.learning.gepa.frontier_updated") {
-      const data = isRecord(event.data) ? event.data : null
-      const frontier = Array.isArray(data?.frontier) ? data?.frontier : []
-      const frontierScores = isRecord(data?.frontier_scores) ? data?.frontier_scores : null
+      const eventData = isRecord(event.data) ? event.data : null
+      const frontier = Array.isArray(eventData?.frontier) ? eventData?.frontier : []
+      const frontierScores = isRecord(eventData?.frontier_scores) ? eventData?.frontier_scores : null
       const frontierSet = new Set(frontier.map((id) => String(id)))
-      for (const candidate of snapshot.allCandidates) {
-        candidate.payload = { ...candidate.payload, is_pareto: frontierSet.has(candidate.id) }
-        if (frontierScores && frontierScores[candidate.id] != null) {
-          candidate.reward = num(frontierScores[candidate.id]) ?? candidate.reward
+      for (let idx = 0; idx < nextCandidates.length; idx++) {
+        const candidate = nextCandidates[idx]
+        const payload = isRecord(candidate.payload) ? candidate.payload : {}
+        const nextPayload = { ...payload, is_pareto: frontierSet.has(candidate.id) }
+        const nextReward =
+          frontierScores && frontierScores[candidate.id] != null
+            ? num(frontierScores[candidate.id]) ?? candidate.reward
+            : candidate.reward
+        nextCandidates[idx] = {
+          ...candidate,
+          reward: nextReward,
+          payload: nextPayload,
         }
       }
       continue
@@ -219,46 +210,61 @@ function updateCandidatesFromEvents(ctx: AppContext, events: JobEvent[]): void {
 
     const candidate = extractCandidateFromEvent(event)
     if (!candidate) continue
-    const existing = byId.get(candidate.id)
-    if (existing) {
-      if (candidate.reward != null) existing.reward = candidate.reward
-      existing.payload = { ...existing.payload, ...candidate.payload }
-      existing.tag = candidate.tag
-      existing.createdAt = existing.createdAt || candidate.createdAt
-      existing.isBaseline = existing.isBaseline || candidate.isBaseline
+    const existingIdx = byId.get(candidate.id)
+    if (existingIdx != null) {
+      const existing = nextCandidates[existingIdx]
+      const existingPayload = isRecord(existing.payload) ? existing.payload : {}
+      const nextPayload = {
+        ...existingPayload,
+        ...(isRecord(candidate.payload) ? candidate.payload : {}),
+      }
+      nextCandidates[existingIdx] = {
+        ...existing,
+        reward: candidate.reward ?? existing.reward,
+        payload: nextPayload,
+        tag: candidate.tag,
+        createdAt: existing.createdAt || candidate.createdAt,
+        isBaseline: existing.isBaseline || candidate.isBaseline,
+      }
     } else {
-      byId.set(candidate.id, candidate)
-      snapshot.allCandidates.push(candidate)
+      byId.set(candidate.id, nextCandidates.length)
+      nextCandidates.push(candidate)
     }
   }
+
+  setData("allCandidates", nextCandidates)
 }
 
 export async function refreshEvents(
   ctx: AppContext,
 ): Promise<boolean> {
-  const { snapshot, appState, config } = ctx.state
-  const job = snapshot.selectedJob
+  const { data, ui, config } = ctx.state
+  const { setData, setUi } = ctx
+  const job = data.selectedJob
   if (!job) return true
 
   const jobId = job.job_id
-  const token = appState.eventsToken
+  const token = ui.eventsToken
+  let nextLastSeq = ui.lastSeq
+  let nextSelectedEventIndex = ui.selectedEventIndex
+  let nextEventWindowStart = ui.eventWindowStart
 
   try {
     const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa"
     const paths =
       isEvalJob(job)
         ? [
-            `/eval/jobs/${job.job_id}/events?since_seq=${appState.lastSeq}&limit=200`,
-            `/learning/jobs/${job.job_id}/events?since_seq=${appState.lastSeq}&limit=200`,
+            `/eval/jobs/${job.job_id}/events?since_seq=${ui.lastSeq}&limit=200`,
+            `/learning/jobs/${job.job_id}/events?since_seq=${ui.lastSeq}&limit=200`,
           ]
         : job.job_source === "learning"
-          ? [`/learning/jobs/${job.job_id}/events?since_seq=${appState.lastSeq}&limit=200`]
+          ? [`/learning/jobs/${job.job_id}/events?since_seq=${ui.lastSeq}&limit=200`]
           : isGepa
             ? [
-                `/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${appState.lastSeq}&limit=200`,
-                `/learning/jobs/${job.job_id}/events?since_seq=${appState.lastSeq}&limit=200`,
+                `/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${ui.lastSeq}&limit=200`,
+                `/learning/jobs/${job.job_id}/events?since_seq=${ui.lastSeq}&limit=200`,
               ]
-            : [`/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${appState.lastSeq}&limit=200`]
+            : [`/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${ui.lastSeq}&limit=200`]
 
     let payload: any = null
     let lastErr: any = null
@@ -275,69 +281,72 @@ export async function refreshEvents(
     }
 
     if (lastErr) {
-      if (token !== appState.eventsToken || snapshot.selectedJob?.job_id !== jobId) {
+      if (token !== ctx.state.ui.eventsToken || ctx.state.data.selectedJob?.job_id !== jobId) {
         return true
       }
-      snapshot.lastError = lastErr?.message || "Failed to load events"
+      setData("lastError", lastErr?.message || "Failed to load events")
       return false
     }
 
-    if (token !== appState.eventsToken || snapshot.selectedJob?.job_id !== jobId) {
+    if (token !== ctx.state.ui.eventsToken || ctx.state.data.selectedJob?.job_id !== jobId) {
       return true
     }
 
     const { events, nextSeq } = extractEvents(payload)
     if (events.length > 0) {
       // Deduplicate by seq to be resilient to overlapping polling/SSE/backfills.
-      const existingSeqs = new Set(snapshot.events.map((e) => e.seq))
+      const existingEvents = data.events
+      const existingSeqs = new Set(existingEvents.map((e) => e.seq))
       const newEvents = events.filter((e) => !existingSeqs.has(e.seq))
       if (newEvents.length === 0) {
         // Still advance lastSeq if the server tells us to.
         if (typeof nextSeq === "number" && Number.isFinite(nextSeq)) {
-          appState.lastSeq = Math.max(appState.lastSeq, nextSeq)
+          nextLastSeq = Math.max(nextLastSeq, nextSeq)
+        }
+        if (nextLastSeq !== ui.lastSeq) {
+          setUi("lastSeq", nextLastSeq)
         }
         return true
       }
 
-      snapshot.events.push(...newEvents)
+      let mergedEvents = [...existingEvents, ...newEvents]
       updateCandidatesFromEvents(ctx, newEvents)
       
       // Extract GEPA metrics from events as fallback if metrics endpoint is empty
       extractGEPAMetricsFromEvents(ctx, newEvents)
       
-      const filter = appState.eventFilter.trim().toLowerCase()
-      const newMatchCount =
-        filter.length === 0
-          ? newEvents.length
-          : newEvents.filter((event) => eventMatchesFilter(event, filter)).length
-
-      if (appState.focusTarget === "events" && newMatchCount > 0) {
-        if (appState.selectedEventIndex > 0) {
-          appState.selectedEventIndex += newMatchCount
-        }
-        if (appState.eventWindowStart > 0) {
-          appState.eventWindowStart += newMatchCount
-        }
-      }
-
-      if (config.eventHistoryLimit > 0 && snapshot.events.length > config.eventHistoryLimit) {
-        snapshot.events = snapshot.events.slice(-config.eventHistoryLimit)
-        appState.selectedEventIndex = clamp(
-          appState.selectedEventIndex,
+      if (config.eventHistoryLimit > 0 && mergedEvents.length > config.eventHistoryLimit) {
+        mergedEvents = mergedEvents.slice(-config.eventHistoryLimit)
+        nextSelectedEventIndex = clamp(
+          nextSelectedEventIndex,
           0,
-          Math.max(0, snapshot.events.length - 1),
+          Math.max(0, mergedEvents.length - 1),
         )
-        appState.eventWindowStart = clamp(
-          appState.eventWindowStart,
+        nextEventWindowStart = clamp(
+          nextEventWindowStart,
           0,
-          Math.max(0, snapshot.events.length - Math.max(1, config.eventVisibleCount)),
+          Math.max(
+            0,
+            mergedEvents.length - Math.max(1, ui.eventVisibleCount || config.eventVisibleCount),
+          ),
         )
       }
-      appState.lastSeq = Math.max(appState.lastSeq, ...newEvents.map((e) => e.seq))
+      setData("events", mergedEvents)
+      nextLastSeq = Math.max(nextLastSeq, ...newEvents.map((e) => e.seq))
     }
 
     if (typeof nextSeq === "number" && Number.isFinite(nextSeq)) {
-      appState.lastSeq = Math.max(appState.lastSeq, nextSeq)
+      nextLastSeq = Math.max(nextLastSeq, nextSeq)
+    }
+
+    if (nextLastSeq !== ui.lastSeq) {
+      setUi("lastSeq", nextLastSeq)
+    }
+    if (nextSelectedEventIndex !== ui.selectedEventIndex) {
+      setUi("selectedEventIndex", nextSelectedEventIndex)
+    }
+    if (nextEventWindowStart !== ui.eventWindowStart) {
+      setUi("eventWindowStart", nextEventWindowStart)
     }
 
     return true

@@ -8,7 +8,9 @@
 import { Jimp } from "jimp"
 import type { OptimizedBuffer } from "@opentui/core"
 import { RGBA } from "@opentui/core"
-import { getRequestSignal } from "./request"
+import { fetchWithTimeout, getRequestSignal } from "./request"
+import { log } from "./log"
+import { DEFAULT_IMAGE_TIMEOUT_MS } from "../network"
 
 export type ImageData = {
   pixels: Uint8Array // RGBA format, 4 bytes per pixel
@@ -30,8 +32,15 @@ export async function loadImageFromUrl(url: string): Promise<ImageData | null> {
   }
 
   const managed = getRequestSignal({ includeScope: false })
+  const start = Date.now()
+  log("http", `→ GET ${url}`)
   try {
-    const response = await fetch(url, { signal: managed.signal })
+    const response = await fetchWithTimeout(url, {
+      signal: managed.signal,
+      includeScope: false,
+      timeoutMs: DEFAULT_IMAGE_TIMEOUT_MS,
+    })
+    log("http", `← ${response.status} GET ${url} (${Date.now() - start}ms)`)
     if (!response.ok) {
       console.error(`Failed to fetch image: HTTP ${response.status}`)
       return null
@@ -47,6 +56,7 @@ export async function loadImageFromUrl(url: string): Promise<ImageData | null> {
     }
   } catch (error) {
     if ((error as { name?: string })?.name === "AbortError") return null
+    log("http", `✗ GET ${url} - ${(error as Error)?.message}`)
     console.error("Error loading image from URL:", error)
     return null
   } finally {

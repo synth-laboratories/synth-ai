@@ -2,8 +2,7 @@
  * SSE client for real-time job updates from /api/jobs/stream
  */
 
-import { buildApiUrl, getAuthHeaders } from "./client"
-import { connectSse } from "../utils/sse"
+import { connectApiJsonStream } from "./stream"
 
 export interface JobStreamEvent {
 	org_id: string
@@ -37,31 +36,16 @@ export interface JobStreamConnection {
 export function connectJobsStream(
 	onEvent: JobStreamHandler,
 	onError?: JobStreamErrorHandler,
-	sinceSeq: number = 0,
+	sinceSeq: number | (() => number) = 0,
+	options: { signal?: AbortSignal } = {},
 ): JobStreamConnection {
-	const url = buildApiUrl(`/jobs/stream?since_seq=${sinceSeq}`)
-	let headers: HeadersInit
-	try {
-		headers = {
-			...getAuthHeaders(),
-			Accept: "text/event-stream",
-		}
-	} catch (err) {
-		onError?.(err instanceof Error ? err : new Error(String(err)))
-		return { disconnect: () => {} }
-	}
-
-	const connection = connectSse(url, {
-		headers,
+	const getSinceSeq = typeof sinceSeq === "function" ? sinceSeq : () => sinceSeq
+	const getPath = () => `/jobs/stream?since_seq=${getSinceSeq()}`
+	const connection = connectApiJsonStream<JobStreamEvent>({
+		path: getPath,
+		signal: options.signal,
 		includeScope: false,
-		onMessage: (message) => {
-			if (!message.data) return
-			try {
-				onEvent(JSON.parse(message.data) as JobStreamEvent)
-			} catch {
-				// Ignore parse errors
-			}
-		},
+		onEvent,
 		onError,
 	})
 

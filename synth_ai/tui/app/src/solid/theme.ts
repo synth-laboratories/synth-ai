@@ -16,7 +16,7 @@ export const COLORS = {
   bgSelection: "#2563eb",
   bgSelectionFocused: "#1e293b",
   
-  border: "#334155",
+  border: "#94a3b8",
   borderDim: "#1f2937",
   borderAccent: "#60a5fa",
   
@@ -33,4 +33,5 @@ export const BOX = {
   textColor: COLORS.text,
   backgroundColor: COLORS.bg,
 }
+
 

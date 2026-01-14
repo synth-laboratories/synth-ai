@@ -13,6 +13,7 @@ import { toDisplayPath, expandPath, getUniqueFilename } from "../utils/files"
 import { createLocalApiFile, openInEditor } from "../services/file-creation"
 import { deployLocalApi, submitEvalJob, submitLearningJob } from "../services/deployment"
 import { formatActionKeys, matchAction, type KeyEvent } from "../../input/keymap"
+import { moveSelectionIndex } from "../utils/list"
 
 export interface CreateJobModalProps {
   visible: boolean
@@ -211,25 +212,25 @@ export function CreateJobModal(props: CreateJobModalProps) {
     // Navigation
     if (action === "nav.down") {
       if (currentStep === "selectFile") {
-        setSelectedFileIndex(i => Math.min(i + 1, fileOptions().length - 1))
+        setSelectedFileIndex((i) => moveSelectionIndex(i, 1, fileOptions().length))
       } else if (currentStep === "selectDirectory") {
-        setSelectedDirIndex(i => Math.min(i + 1, directoryOptions().length - 1))
+        setSelectedDirIndex((i) => moveSelectionIndex(i, 1, directoryOptions().length))
       } else if (currentStep === "selectType") {
-        setSelectedTypeIndex(i => Math.min(i + 1, TRAINING_TYPES.length - 1))
+        setSelectedTypeIndex((i) => moveSelectionIndex(i, 1, TRAINING_TYPES.length))
       } else if (currentStep === "confirm") {
-        setConfirmIndex(i => Math.min(i + 1, 1))
+        setConfirmIndex((i) => moveSelectionIndex(i, 1, 2))
       }
       return true
     }
     if (action === "nav.up") {
       if (currentStep === "selectFile") {
-        setSelectedFileIndex(i => Math.max(i - 1, 0))
+        setSelectedFileIndex((i) => moveSelectionIndex(i, -1, fileOptions().length))
       } else if (currentStep === "selectDirectory") {
-        setSelectedDirIndex(i => Math.max(i - 1, 0))
+        setSelectedDirIndex((i) => moveSelectionIndex(i, -1, directoryOptions().length))
       } else if (currentStep === "selectType") {
-        setSelectedTypeIndex(i => Math.max(i - 1, 0))
+        setSelectedTypeIndex((i) => moveSelectionIndex(i, -1, TRAINING_TYPES.length))
       } else if (currentStep === "confirm") {
-        setConfirmIndex(i => Math.max(i - 1, 0))
+        setConfirmIndex((i) => moveSelectionIndex(i, -1, 2))
       }
       return true
     }

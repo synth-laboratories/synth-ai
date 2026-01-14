@@ -128,19 +128,18 @@ export async function checkSessionHealth(
 export async function refreshSessions(
   ctx: AppContext,
 ): Promise<boolean> {
-  const { snapshot } = ctx.state
+  const { setData } = ctx
 
   try {
-    snapshot.sessionsLoading = true
-    ctx.render()
+    setData("sessionsLoading", true)
 
     const sessions = await fetchSessions()
-    snapshot.sessions = sessions
-    snapshot.sessionsLoading = false
+    setData("sessions", sessions)
+    setData("sessionsLoading", false)
     return true
   } catch (err: any) {
     if (isAbortError(err)) return false
-    snapshot.sessionsLoading = false
+    setData("sessionsLoading", false)
     return false
   }
 }

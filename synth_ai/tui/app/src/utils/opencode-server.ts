@@ -5,7 +5,6 @@ import { spawn, type ChildProcess } from "child_process"
 import fs from "fs"
 import path from "path"
 import { registerCleanup } from "../lifecycle"
-import { appState } from "../state/app-state"
 
 let openCodeProcess: ChildProcess | null = null
 let serverUrl: string | null = null
@@ -15,6 +14,10 @@ type OpenCodeLaunch = {
   command: string
   args: string[]
   cwd?: string
+}
+
+type OpenCodeCallbacks = {
+  onUrl?: (url: string | null) => void
 }
 
 function resolveBunCommand(): string {
@@ -97,7 +100,7 @@ function resolveOpenCodeCommand(): string | null {
  * Start the OpenCode server in the background.
  * Returns the server URL once it's ready.
  */
-export async function startOpenCodeServer(): Promise<string | null> {
+export async function startOpenCodeServer(options: OpenCodeCallbacks = {}): Promise<string | null> {
   // Don't start if already running
   if (openCodeProcess && !openCodeProcess.killed) {
     return serverUrl
@@ -134,7 +137,7 @@ export async function startOpenCodeServer(): Promise<string | null> {
         if (match) {
           if (!hasUrl) {
             serverUrl = match[1]
-            appState.openCodeUrl = serverUrl
+            options.onUrl?.(serverUrl)
             hasUrl = true
           }
           if (!resolved) {
@@ -151,7 +154,7 @@ export async function startOpenCodeServer(): Promise<string | null> {
         if (match) {
           if (!hasUrl) {
             serverUrl = match[1]
-            appState.openCodeUrl = serverUrl
+            options.onUrl?.(serverUrl)
             hasUrl = true
           }
           if (!resolved) {
@@ -172,7 +175,7 @@ export async function startOpenCodeServer(): Promise<string | null> {
       openCodeProcess.on("exit", () => {
         openCodeProcess = null
         serverUrl = null
-        appState.openCodeUrl = null
+        options.onUrl?.(null)
         if (!resolved) {
           resolved = true
           resolve(null)
@@ -181,7 +184,7 @@ export async function startOpenCodeServer(): Promise<string | null> {
 
       // Register cleanup to kill process on shutdown
       registerCleanup("opencode-server", () => {
-        stopOpenCodeServer()
+        stopOpenCodeServer(options)
       })
 
       // Timeout after a longer window for first-run installs.
@@ -202,12 +205,12 @@ export async function startOpenCodeServer(): Promise<string | null> {
 /**
  * Stop the OpenCode server.
  */
-export function stopOpenCodeServer(): void {
+export function stopOpenCodeServer(options: OpenCodeCallbacks = {}): void {
   if (openCodeProcess && !openCodeProcess.killed) {
     openCodeProcess.kill("SIGTERM")
     openCodeProcess = null
     serverUrl = null
-    appState.openCodeUrl = null
+    options.onUrl?.(null)
   }
 }
 

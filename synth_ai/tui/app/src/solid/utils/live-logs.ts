@@ -1,6 +1,7 @@
-import { type Accessor, createEffect, createSignal, onCleanup } from "solid-js"
+import { type Accessor, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import fs from "node:fs"
 import { getLogsDirectory, listLogFiles, readLogChunk, type LogFileInfo } from "./logs"
+import { clampIndex, moveSelectionById, resolveSelectionIndexById } from "./list"
 
 type LiveLogsOptions = {
   listActive: Accessor<boolean>
@@ -12,13 +13,11 @@ type LiveLogsState = {
   files: Accessor<LogFileInfo[]>
   lines: Accessor<string[]>
   selectedIndex: Accessor<number>
+  selectedId: Accessor<string | null>
   setSelectedIndex: (next: number) => void
   moveSelection: (delta: number) => boolean
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
 
 function filesEqual(a: LogFileInfo[], b: LogFileInfo[]): boolean {
   if (a.length !== b.length) return false
@@ -33,27 +32,29 @@ function filesEqual(a: LogFileInfo[], b: LogFileInfo[]): boolean {
 export function useLiveLogs(options: LiveLogsOptions): LiveLogsState {
   const [files, setFiles] = createSignal<LogFileInfo[]>([])
   const [lines, setLines] = createSignal<string[]>([])
-  const [selectedIndex, setSelectedIndexState] = createSignal(0)
+  const [selectedId, setSelectedId] = createSignal<string | null>(null)
+  const selectedIndex = createMemo(() =>
+    resolveSelectionIndexById(files(), selectedId(), (file) => file.path, 0),
+  )
 
-  const clampSelection = (next: number, list: LogFileInfo[]) => {
-    if (!list.length) return 0
-    return clamp(next, 0, list.length - 1)
-  }
+  const clampSelection = (next: number, list: LogFileInfo[]) =>
+    clampIndex(next, list.length)
 
   const setSelectedIndex = (next: number) => {
     const list = files()
     const clamped = clampSelection(next, list)
-    if (clamped !== selectedIndex()) {
-      setSelectedIndexState(clamped)
+    const nextId = list[clamped]?.path ?? null
+    if (nextId !== selectedId()) {
+      setSelectedId(nextId)
     }
   }
 
   const moveSelection = (delta: number): boolean => {
     const list = files()
     if (!list.length) return false
-    const next = clampSelection(selectedIndex() + delta, list)
-    if (next === selectedIndex()) return false
-    setSelectedIndexState(next)
+    const nextId = moveSelectionById(list, selectedId(), delta, (file) => file.path)
+    if (!nextId || nextId === selectedId()) return false
+    setSelectedId(nextId)
     return true
   }
 
@@ -83,7 +84,7 @@ export function useLiveLogs(options: LiveLogsOptions): LiveLogsState {
       refreshInFlight = true
 
       const previous = files()
-      const selectedPath = previous[selectedIndex()]?.path ?? null
+      const selectedPath = selectedId()
       const nextFiles = await listLogFiles()
       if (disposed) return
 
@@ -91,18 +92,16 @@ export function useLiveLogs(options: LiveLogsOptions): LiveLogsState {
         setFiles(nextFiles)
       }
 
-      let nextIndex = selectedIndex()
-      if (!nextFiles.length) {
-        nextIndex = 0
-      } else if (selectedPath) {
-        const idx = nextFiles.findIndex((file) => file.path === selectedPath)
-        nextIndex = idx >= 0 ? idx : clampSelection(nextIndex, nextFiles)
-      } else {
-        nextIndex = clampSelection(nextIndex, nextFiles)
-      }
+      const nextIndex = resolveSelectionIndexById(
+        nextFiles,
+        selectedPath,
+        (file) => file.path,
+        selectedIndex(),
+      )
+      const nextId = nextFiles[nextIndex]?.path ?? null
 
-      if (nextIndex !== selectedIndex()) {
-        setSelectedIndexState(nextIndex)
+      if (nextId !== selectedId()) {
+        setSelectedId(nextId)
         options.onSelectionAdjusted?.()
       }
 
@@ -234,6 +233,7 @@ export function useLiveLogs(options: LiveLogsOptions): LiveLogsState {
     files,
     lines,
     selectedIndex,
+    selectedId,
     setSelectedIndex,
     moveSelection,
   }

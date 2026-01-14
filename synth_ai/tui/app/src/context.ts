@@ -1,24 +1,22 @@
 /**
- * Central app context: shared state + render hook.
+ * Central app context: shared state + store setters.
  *
  * Keeping this in one place prevents circular imports and keeps the Solid
  * app wiring minimal.
  */
-import { appState } from "./state/app-state"
-import { config, pollingState } from "./state/polling"
-import { snapshot } from "./state/snapshot"
+import type { SetStoreFunction } from "solid-js/store"
 
-export type RenderFn = () => void
+import type { AppData } from "./types"
+import type { AppState } from "./state/app-state"
+import { config, pollingState } from "./state/polling"
 
 export type AppContext = {
   state: {
-    snapshot: typeof snapshot
-    appState: typeof appState
+    data: AppData
+    ui: AppState
     pollingState: typeof pollingState
     config: typeof config
   }
-
-  /** Triggers a full UI sync from state. */
-  render: RenderFn
+  setData: SetStoreFunction<AppData>
+  setUi: SetStoreFunction<AppState>
 }
-

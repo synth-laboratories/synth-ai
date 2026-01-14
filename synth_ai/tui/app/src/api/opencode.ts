@@ -7,10 +7,12 @@
 
 import type { AppContext } from "../context"
 import type { OpenCodeMessage, SessionHealthResult, SessionRecord } from "../types"
-import { connectSse } from "../utils/sse"
-import { getRequestSignal, isAborted } from "../utils/request"
+import { fetchWithTimeout, getRequestSignal, isAborted } from "../utils/request"
 import { isAbortError } from "../utils/abort"
 import { checkSessionHealth } from "./sessions"
+import { log } from "../utils/log"
+import { DEFAULT_OPENCODE_TIMEOUT_MS } from "../network"
+import { connectJsonStream } from "./stream"
 
 /** OpenCode event types */
 export type OpenCodeEventType =
@@ -95,20 +97,13 @@ export function subscribeToOpenCodeEvents(
   }
 
   let isActive = true
-  const connection = connectSse(url.toString(), {
-    headers: {
-      Accept: "text/event-stream",
-    },
+  const connection = connectJsonStream<OpenCodeEvent>({
+    url: url.toString(),
     includeScope: false,
     onOpen: onConnect,
-    onMessage: (message) => {
-      if (!isActive || !message.data) return
-      try {
-        const event = JSON.parse(message.data) as OpenCodeEvent
-        onEvent(event)
-      } catch {
-        // Ignore parse errors for heartbeats etc
-      }
+    onEvent: (event) => {
+      if (!isActive) return
+      onEvent(event)
     },
     onError: (error) => {
       if (!isActive) return
@@ -183,13 +178,18 @@ export async function connectLocalOpenCodeSession(
   }
 
   const managed = getRequestSignal()
+  const url = `${opencodeUrl}/session`
+  const start = Date.now()
+  log("http", `→ POST ${url}`)
   try {
-    const response = await fetch(`${opencodeUrl}/session`, {
+    const response = await fetchWithTimeout(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
       signal: managed.signal,
+      timeoutMs: DEFAULT_OPENCODE_TIMEOUT_MS,
     })
+    log("http", `← ${response.status} POST ${url} (${Date.now() - start}ms)`)
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "")
@@ -210,6 +210,7 @@ export async function connectLocalOpenCodeSession(
     if (isAbortError(err)) {
       return { ok: false, error: "Cancelled", health: healthCheck, aborted: true }
     }
+    log("http", `✗ POST ${url} - ${err?.message}`)
     return {
       ok: false,
       error: err?.message || "Failed to connect",
@@ -235,8 +236,11 @@ export async function sendPrompt(
   prompt: string
 ): Promise<{ success: boolean; error?: string }> {
   const managed = getRequestSignal()
+  const url = `${baseUrl}/session/${sessionId}/message`
+  const start = Date.now()
+  log("http", `→ POST ${url}`)
   try {
-    const response = await fetch(`${baseUrl}/session/${sessionId}/message`, {
+    const response = await fetchWithTimeout(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -247,7 +251,9 @@ export async function sendPrompt(
         ]
       }),
       signal: managed.signal,
+      timeoutMs: DEFAULT_OPENCODE_TIMEOUT_MS,
     })
+    log("http", `← ${response.status} POST ${url} (${Date.now() - start}ms)`)
 
     if (!response.ok) {
       const text = await response.text().catch(() => "")
@@ -256,6 +262,7 @@ export async function sendPrompt(
 
     return { success: true }
   } catch (err: any) {
+    log("http", `✗ POST ${url} - ${err?.message}`)
     return { success: false, error: err?.message || "Unknown error" }
   } finally {
     managed.dispose()
@@ -266,7 +273,8 @@ export async function sendPrompt(
  * Process OpenCode event and update app state.
  */
 export function processOpenCodeEvent(ctx: AppContext, event: OpenCodeEvent): void {
-  const { appState } = ctx.state
+  const { ui } = ctx.state
+  const { setUi } = ctx
 
   switch (event.type) {
     case "message.part.updated": {
@@ -274,19 +282,19 @@ export function processOpenCodeEvent(ctx: AppContext, event: OpenCodeEvent): voi
       if (!part) return
 
       // Find existing message or create new one
-      const existingIdx = appState.openCodeMessages.findIndex(
+      const existingIdx = ui.openCodeMessages.findIndex(
         (m) => m.id === part.messageID
       )
 
       if (existingIdx >= 0) {
         // Update existing message
-        const existing = appState.openCodeMessages[existingIdx]
+        const existing = ui.openCodeMessages[existingIdx]
         if (part.type === "text" && event.properties.delta) {
-          existing.content += event.properties.delta
+          setUi("openCodeMessages", existingIdx, "content", `${existing.content}${event.properties.delta}`)
         } else if (part.type === "tool") {
-          existing.toolStatus = part.state.status as any
+          setUi("openCodeMessages", existingIdx, "toolStatus", part.state.status as any)
           if (part.state.output) {
-            existing.content = part.state.output
+            setUi("openCodeMessages", existingIdx, "content", part.state.output)
           }
         }
       } else {
@@ -299,25 +307,26 @@ export function processOpenCodeEvent(ctx: AppContext, event: OpenCodeEvent): voi
           toolName: part.type === "tool" ? part.state.title : undefined,
           toolStatus: part.type === "tool" ? (part.state.status as any) : undefined,
         }
-        appState.openCodeMessages.push(newMessage)
+        setUi("openCodeMessages", (messages) => [...messages, newMessage])
       }
       break
     }
 
     case "session.idle": {
-      appState.openCodeIsProcessing = false
+      setUi("openCodeIsProcessing", false)
       break
     }
 
     case "session.error": {
-      appState.openCodeIsProcessing = false
+      setUi("openCodeIsProcessing", false)
       const errorMsg = event.properties.error || "Unknown error"
-      appState.openCodeMessages.push({
+      const errorMessage: OpenCodeMessage = {
         id: `error-${Date.now()}`,
         role: "assistant",
         content: `Error: ${errorMsg}`,
         timestamp: new Date(),
-      })
+      }
+      setUi("openCodeMessages", (messages) => [...messages, errorMessage])
       break
     }
 
@@ -326,30 +335,26 @@ export function processOpenCodeEvent(ctx: AppContext, event: OpenCodeEvent): voi
       break
     }
   }
-
-  ctx.render()
 }
 
 /**
  * Add a user message to the conversation.
  */
 export function addUserMessage(ctx: AppContext, content: string): void {
-  const { appState } = ctx.state
-
-  appState.openCodeMessages.push({
+  const { setUi } = ctx
+  const message: OpenCodeMessage = {
     id: `user-${Date.now()}`,
     role: "user",
     content,
     timestamp: new Date(),
-  })
-
-  ctx.render()
+  }
+  setUi("openCodeMessages", (messages) => [...messages, message])
 }
 
 /**
  * Clear all OpenCode messages.
  */
 export function clearOpenCodeMessages(ctx: AppContext): void {
-  ctx.state.appState.openCodeMessages = []
-  ctx.render()
+  const { setUi } = ctx
+  setUi("openCodeMessages", [])
 }

@@ -25,22 +25,22 @@ export async function fetchTunnels(
 }
 
 /**
- * Refresh tunnels in app context and update snapshot.
+ * Refresh tunnels in app context and update data store.
  */
 export async function refreshTunnels(
   ctx: AppContext,
 ): Promise<boolean> {
-  const { snapshot } = ctx.state
+  const { setData } = ctx
 
   try {
-    snapshot.tunnelsLoading = true
+    setData("tunnelsLoading", true)
     const tunnels = await fetchTunnels("active")
-    snapshot.tunnels = tunnels
-    snapshot.tunnelsLoading = false
+    setData("tunnels", tunnels)
+    setData("tunnelsLoading", false)
     return true
   } catch (err: any) {
     if (isAbortError(err)) return false
-    snapshot.tunnelsLoading = false
+    setData("tunnelsLoading", false)
     return false
   }
 }
@@ -52,12 +52,13 @@ export async function refreshTunnels(
 export async function refreshTunnelHealth(
   ctx: AppContext,
 ): Promise<void> {
-  const { snapshot } = ctx.state
+  const { data } = ctx.state
+  const { setData } = ctx
 
-  if (snapshot.tunnels.length === 0) return
+  if (data.tunnels.length === 0) return
 
-  const results = await checkAllTunnelsHealth(snapshot.tunnels, 5000, 15)
-  snapshot.tunnelHealthResults = results
+  const results = await checkAllTunnelsHealth(data.tunnels, 5000, 15)
+  setData("tunnelHealthResults", new Map(results))
 }
 
 /**

@@ -3,8 +3,6 @@
  */
 
 import { registerCleanup } from "../lifecycle"
-import { tuiSettingsPath } from "../paths"
-
 // Configuration from environment
 export const config = {
   initialJobId: process.env.SYNTH_TUI_JOB_ID || "",
@@ -16,8 +14,7 @@ export const config = {
   eventCollapseLimit: parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10),
   eventVisibleCount: parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10),
   jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
-  settingsFilePath: tuiSettingsPath,
-  jobFilterVisibleCount: 6,
+  listFilterVisibleCount: 6,
 }
 
 // Polling state
