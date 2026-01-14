@@ -34,6 +34,11 @@ from .prompt_learning_client import (
     get_prompts,
     get_scoring_summary,
 )
+from .pattern_discovery import (
+    PatternDiscoveryClient,
+    PatternDiscoveryRequest,
+    get_eval_patterns,
+)
 from .rl import (
     MAX_ENVIRONMENT_API_KEY_BYTES,
     RlClient,
@@ -66,6 +71,9 @@ __all__ = [
     "get_prompts",
     "get_prompt_text",
     "get_scoring_summary",
+    "PatternDiscoveryClient",
+    "PatternDiscoveryRequest",
+    "get_eval_patterns",
     # Context Learning
     "ContextLearningClient",
     "ContextLearningJobConfig",
