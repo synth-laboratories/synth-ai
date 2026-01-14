@@ -11,7 +11,7 @@ Key features:
 - Size limits and script timeouts
 - Structured application results for GEPA feedback
 
-Usage:
+Example:
     from synth_ai.sdk.task.override_helpers import apply_context_overrides
 
     # In your task app rollout handler:
@@ -20,12 +20,17 @@ Usage:
         workspace_dir=sandbox_dir,
         agent="codex",  # or "opencode"
     )
-    # Include results in response for GEPA feedback
+
+Note:
+    This helper applies file artifacts and preflight scripts in the workspace,
+    but it only validates env vars. Task apps must inject validated env vars
+    into the agent process environment themselves.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from enum import Enum
@@ -89,7 +94,14 @@ def get_agent_skills_path(agent: str | AgentType, global_: bool = False) -> str:
         global_: If True, return the global path; otherwise workspace-local
 
     Returns:
-        Relative path for workspace-local, or absolute path for global
+        Relative path for workspace-local, or absolute path for global.
+
+    Example:
+        path = get_agent_skills_path("codex")
+        # ".codex/skills.yaml"
+
+    Note:
+        Workspace-local paths are relative to the task app sandbox root.
     """
     agent_str = agent.value if isinstance(agent, AgentType) else agent.lower()
 
@@ -116,7 +128,15 @@ def is_path_safe(path: str, workspace_dir: Path, allow_global: bool = False) -> 
         allow_global: If True, allow writing to global paths (~/...)
 
     Returns:
-        Tuple of (is_safe, error_message)
+        Tuple of (is_safe, error_message). If is_safe is True, error_message is empty.
+
+    Example:
+        ok, error_message = is_path_safe("AGENTS.md", Path("/tmp/sandbox"))
+        # ok == True
+
+    Note:
+        Absolute paths are only allowed if they resolve within workspace_dir,
+        unless allow_global is True and the path is under the home directory.
     """
     # Normalize path
     path = path.strip()
@@ -176,7 +196,10 @@ def _apply_file_artifact(
         allow_global: If True, allow writing to global paths
 
     Returns:
-        Dict with status, bytes_written, error (if any)
+        Dict with status, bytes_written, error (if any), and error_type when failed.
+
+    Note:
+        File writes are size-checked and path-validated before writing.
     """
     result: dict[str, Any] = {"path": path}
 
@@ -247,7 +270,11 @@ async def _run_preflight_script(
         env_vars: Additional environment variables to set
 
     Returns:
-        Dict with status, exit_code, stdout, stderr, duration_ms
+        Dict with status, exit_code, stdout, stderr, and duration_ms.
+
+    Note:
+        Stdout/stderr are truncated to 10,000 characters. A timeout results in
+        a failed status and a TIMEOUT error_type.
     """
     import time
 
@@ -298,7 +325,9 @@ async def _run_preflight_script(
         duration_ms = (time.perf_counter() - start_time) * 1000
 
         result["status"] = (
-            ApplicationStatus.APPLIED.value if proc.returncode == 0 else ApplicationStatus.FAILED.value
+            ApplicationStatus.APPLIED.value
+            if proc.returncode == 0
+            else ApplicationStatus.FAILED.value
         )
         result["exit_code"] = proc.returncode
         result["stdout"] = stdout.decode("utf-8", errors="replace")[:10000]  # Cap output
@@ -309,17 +338,15 @@ async def _run_preflight_script(
             result["error"] = f"Script exited with code {proc.returncode}"
             result["error_type"] = ApplicationErrorType.RUNTIME.value
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         duration_ms = (time.perf_counter() - start_time) * 1000
         result["status"] = ApplicationStatus.FAILED.value
         result["error"] = f"Script timed out after {timeout}s"
         result["error_type"] = ApplicationErrorType.TIMEOUT.value
         result["duration_ms"] = round(duration_ms, 2)
         # Kill the process
-        try:
+        with contextlib.suppress(Exception):
             proc.kill()  # type: ignore
-        except Exception:
-            pass
 
     except Exception as e:
         result["status"] = ApplicationStatus.FAILED.value
@@ -328,10 +355,8 @@ async def _run_preflight_script(
 
     finally:
         # Clean up script file
-        try:
+        with contextlib.suppress(Exception):
             script_path.unlink(missing_ok=True)
-        except Exception:
-            pass
 
     return result
 
@@ -341,14 +366,20 @@ async def _run_preflight_script(
 # =============================================================================
 
 
-def _validate_env_vars(env_vars: dict[str, str]) -> tuple[dict[str, dict[str, Any]], list[OverrideApplicationError]]:
+def _validate_env_vars(
+    env_vars: dict[str, str],
+) -> tuple[dict[str, dict[str, Any]], list[OverrideApplicationError]]:
     """Validate environment variables.
 
     Args:
         env_vars: Dict of env var name -> value
 
     Returns:
-        Tuple of (results dict, list of errors)
+        Tuple of (results dict, list of errors).
+
+    Note:
+        This function validates names and sizes only. Task apps must still inject
+        validated env vars into the agent process environment.
     """
     results: dict[str, dict[str, Any]] = {}
     errors: list[OverrideApplicationError] = []
@@ -400,14 +431,15 @@ async def apply_context_overrides(
     This is the main entry point for task apps to apply GEPA-generated overrides.
 
     Args:
-        overrides: List of context overrides to apply
-        workspace_dir: Workspace directory (sandbox root)
-        agent: Agent type for path resolution ("codex" or "opencode")
-        allow_global: If True, allow writing to global paths (~/...)
-        override_bundle_id: Optional bundle ID for traceability
+        overrides: List of context overrides to apply. If None or empty, returns
+            an empty list.
+        workspace_dir: Workspace directory (sandbox root). Created if missing.
+        agent: Agent type for path resolution ("codex" or "opencode").
+        allow_global: If True, allow writing to global paths (~/...).
+        override_bundle_id: Optional bundle ID for traceability.
 
     Returns:
-        List of ContextOverrideStatus with per-target results
+        List of ContextOverrideStatus with per-target results.
 
     Example:
         results = await apply_context_overrides(
@@ -415,6 +447,13 @@ async def apply_context_overrides(
             workspace_dir=sandbox_dir,
             agent="codex",
         )
+
+    Raises:
+        OSError: If the workspace directory cannot be created or accessed.
+
+    Note:
+        Env vars are validated and included in the returned status, but they are
+        not injected into the agent environment by this helper.
     """
     if not overrides:
         return []
@@ -497,12 +536,15 @@ def get_applied_env_vars(overrides: list[ContextOverride] | None) -> dict[str, s
         overrides: List of context overrides
 
     Returns:
-        Merged dict of env vars (later overrides win)
+        Merged dict of env vars (later overrides win).
 
     Example:
         env = os.environ.copy()
         env.update(get_applied_env_vars(request.context_overrides))
         subprocess.run(agent_cmd, env=env)
+
+    Note:
+        Later overrides take precedence when keys overlap.
     """
     if not overrides:
         return {}

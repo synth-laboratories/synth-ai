@@ -1,4 +1,8 @@
-"""Artifact data model for rollout outputs."""
+"""Artifact data model for rollout outputs.
+
+These models define the structured payloads used by task apps and the backend
+for unified optimization, artifacts, and application status reporting.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +12,6 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
-
 
 # =============================================================================
 # Context Override Enums
@@ -81,39 +84,76 @@ class ContextOverride(BaseModel):
             env_vars={"STRATEGY": "test_first"},
             mutation_type="multi"
         )
+
+    Note:
+        File artifact paths are relative to the task app workspace. Agent-specific
+        paths such as `.codex/skills.yaml` or `.opencode/skills.yaml` are resolved
+        by the task app based on the agent type.
+
+    Warning:
+        Task apps enforce size limits on files, scripts, and env vars. Large
+        overrides may be rejected at application time.
     """
 
     # File artifacts (e.g., AGENTS.md, .codex/skills.yaml, .opencode/skills.yaml)
     # Keys are relative paths, values are file contents
-    file_artifacts: Dict[str, str] = Field(default_factory=dict)
+    file_artifacts: Dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Files to write to the workspace. Keys are relative paths (e.g., "
+            "'AGENTS.md', 'skills/test.sh', '.codex/skills.yaml'), values are file contents."
+        ),
+    )
 
     # Bash script to run before agent execution
     # Must start with #!/bin/bash shebang (validated by task app)
-    preflight_script: Optional[str] = None
+    preflight_script: Optional[str] = Field(
+        default=None,
+        description=(
+            "Bash script to run before agent execution. Must start with a #!/bin/bash "
+            "shebang and will run with task app timeouts."
+        ),
+    )
 
     # Environment variables to set for agent
-    env_vars: Dict[str, str] = Field(default_factory=dict)
+    env_vars: Dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Environment variables to set for the agent process. Keys must start with "
+            "a letter or underscore and values are size-limited."
+        ),
+    )
 
     # Metadata
     mutation_type: Optional[str] = Field(
         default=None,
         description="Type of mutation: 'prompt', 'file_artifacts', 'preflight_script', 'multi', 'crossover'",
     )
-    created_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(
+        default=None,
+        description="Timestamp when the override was created.",
+    )
     override_id: Optional[str] = Field(
         default=None, description="Unique identifier for this override bundle"
     )
 
     def is_empty(self) -> bool:
-        """Check if this override has no actual content."""
-        return (
-            not self.file_artifacts
-            and not self.preflight_script
-            and not self.env_vars
-        )
+        """Check if this override has no actual content.
+
+        Returns:
+            True if file_artifacts, preflight_script, and env_vars are all empty.
+
+        Example:
+            empty = ContextOverride().is_empty()
+        """
+        return not self.file_artifacts and not self.preflight_script and not self.env_vars
 
     def size_bytes(self) -> int:
-        """Calculate total size of override content in bytes."""
+        """Calculate total size of override content in bytes.
+
+        Returns:
+            Total UTF-8 encoded size of files, script, and env vars.
+        """
         total = 0
         for content in self.file_artifacts.values():
             total += len(content.encode("utf-8"))
@@ -124,7 +164,11 @@ class ContextOverride(BaseModel):
         return total
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dict for serialization."""
+        """Convert to dict for serialization.
+
+        Returns:
+            Dict with only populated fields for compact payloads.
+        """
         result: Dict[str, Any] = {}
         if self.file_artifacts:
             result["file_artifacts"] = self.file_artifacts
@@ -142,14 +186,26 @@ class ContextOverride(BaseModel):
 
 
 class OverrideApplicationError(BaseModel):
-    """Error details for a failed override application."""
+    """Error details for a failed override application.
 
-    error_type: ApplicationErrorType
-    message: str
-    target: Optional[str] = Field(
-        default=None, description="Target path/key that failed"
+    Example:
+        error = OverrideApplicationError(
+            error_type=ApplicationErrorType.PERMISSION,
+            message="Permission denied writing AGENTS.md",
+            target="AGENTS.md",
+        )
+    """
+
+    error_type: ApplicationErrorType = Field(
+        ...,
+        description="Classification of the error (validation, permission, size_limit, etc.).",
     )
-    details: Dict[str, Any] = Field(default_factory=dict)
+    message: str = Field(..., description="Human-readable error message.")
+    target: Optional[str] = Field(default=None, description="Target path/key that failed")
+    details: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Structured details about the error (optional).",
+    )
 
 
 class ContextOverrideStatus(BaseModel):
@@ -168,6 +224,11 @@ class ContextOverrideStatus(BaseModel):
             preflight_script={"status": "applied", "exit_code": 0, "stdout": "Setup complete"},
             env_vars={"STRATEGY": {"status": "applied"}},
         )
+
+    Note:
+        overall_status reflects aggregate status across file_artifacts, preflight_script,
+        and env_vars. Partial indicates at least one target failed and at least one
+        target succeeded.
     """
 
     override_id: Optional[str] = Field(
@@ -191,7 +252,11 @@ class ContextOverrideStatus(BaseModel):
     )
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dict for serialization."""
+        """Convert to dict for serialization.
+
+        Returns:
+            Dict with only populated fields for compact payloads.
+        """
         result: Dict[str, Any] = {
             "overall_status": self.overall_status.value,
         }
