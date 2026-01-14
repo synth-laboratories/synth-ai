@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Push the Web Design demo dataset to the Hugging Face Hub.
+"""
+Push the Web Design demo dataset to the Hugging Face Hub.
 
 This is intentionally "local-only" automation:
-- It reads your token from environment variables
+- It reads the token from the HF_TOKEN environment variable
 - It does NOT print the token
 - It builds the dataset using `create_hf_dataset.py` logic and pushes it public
 """
@@ -16,22 +17,6 @@ from create_hf_dataset import create_dataset, push_to_hub
 from huggingface_hub import HfApi
 
 DEFAULT_REPO_ID: Final[str] = "synth-laboratories/web-design-screenshots"
-
-TOKEN_KEYS: Final[tuple[str, ...]] = (
-    "HF_TOKEN",
-    "HUGGINGFACE_TOKEN",
-    "HUGGINGFACE_API_TOKEN",
-    "HUGGING_FACE_HUB_TOKEN",
-    "HUGGINGFACEHUB_API_TOKEN",
-)
-
-
-def _load_hf_token_from_env() -> str | None:
-    for key in TOKEN_KEYS:
-        token = (os.environ.get(key) or "").strip()
-        if token:
-            return token
-    return None
 
 
 def main() -> int:
@@ -85,11 +70,12 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    hf_token = _load_hf_token_from_env()
-
+    hf_token = (os.environ.get("HF_TOKEN") or "").strip()
     if not hf_token:
-        keys = ", ".join(TOKEN_KEYS)
-        raise RuntimeError(f"No Hugging Face token found.\n- Tried keys: {keys}\n")
+        raise RuntimeError(
+            "No Hugging Face token found.\n"
+            "Set HF_TOKEN in your environment before running this script.\n"
+        )
 
     if args.whoami:
         info = HfApi().whoami(token=hf_token)
