@@ -204,7 +204,7 @@ proposer_output_tokens = "FAST"
 
 [prompt_learning.gepa.rollout]
 budget = 20
-max_concurrent = 4
+max_concurrent = 10
 minibatch_size = 4
 
 [prompt_learning.gepa.evaluation]
