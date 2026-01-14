@@ -13,7 +13,18 @@ Dependency rule: data/ imports nothing from synth_ai except typing helpers.
 from __future__ import annotations
 
 # Artifact data types
-from synth_ai.data.artifacts import Artifact
+from synth_ai.data.artifacts import (
+    Artifact,
+    # Context override types
+    ApplicationErrorType,
+    ApplicationStatus,
+    ContextOverride,
+    ContextOverrideStatus,
+    FolderMode,
+    OverrideApplicationError,
+    OverrideOperation,
+    OverrideType,
+)
 
 # Enums - pure types
 from synth_ai.data.enums import (
@@ -128,6 +139,15 @@ __all__ = [
     "CalibrationExample",
     "GoldExample",
     "Artifact",
+    # Context override types
+    "ContextOverride",
+    "ContextOverrideStatus",
+    "OverrideApplicationError",
+    "OverrideType",
+    "OverrideOperation",
+    "FolderMode",
+    "ApplicationStatus",
+    "ApplicationErrorType",
     # Trace data
     "SessionTrace",
     "SessionTimeStep",

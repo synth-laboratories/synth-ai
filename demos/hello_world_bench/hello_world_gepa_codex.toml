@@ -1,14 +1,17 @@
 # GEPA config for hello_world_bench with Codex CLI
 #
 # Codex CLI uses OpenAI Responses API format:
-# - `instructions` field: Contains Codex's built-in system prompt
-# - `input` array: Multiple user messages
+# - `instructions` field: Contains Codex's built-in system prompt (TOP-LEVEL, not a message!)
+# - `input` array: Multiple user messages (3 messages)
 #   1. AGENTS.md instructions (dynamic, based on ~/.codex/skills)
 #   2. Environment context (cwd, sandbox mode, etc.)
 #   3. The actual task prompt we pass to `codex exec`
 #
-# For hello_world_bench, we wrap the task in <SYSTEM>/<TASK> tags.
-# GEPA can optimize the system prompt portion within <SYSTEM> tags.
+# IMPORTANT: The `instructions` field is NOT a message - it's a top-level field in the
+# Responses API request. Pattern matching only sees the 3 user messages in `input[]`.
+#
+# The task prompt from `codex exec` is passed verbatim as the third user message.
+# We use <SYSTEM>/<TASK> tags in the prompt so GEPA can optimize the system portion.
 
 [prompt_learning]
 algorithm = "gepa"
@@ -25,18 +28,12 @@ agent = "codex"
 id = "hello_world_codex"
 name = "Hello World (Codex CLI) Task"
 
-# Codex uses `instructions` field for system-level prompt.
-# This is Codex's built-in system prompt - very long, use wildcard.
-[[prompt_learning.initial_prompt.messages]]
-role = "instructions"
-pattern = """{codex_instructions}"""
-order = 0
-
 # First user message: AGENTS.md instructions (dynamic based on skills)
+# Starts with "# AGENTS.md instructions for ..." and contains <INSTRUCTIONS> block
 [[prompt_learning.initial_prompt.messages]]
 role = "user"
 pattern = """{agents_md_context}"""
-order = 1
+order = 0
 
 # Second user message: Environment context
 [[prompt_learning.initial_prompt.messages]]
@@ -44,7 +41,7 @@ role = "user"
 pattern = """<environment_context>
 {environment_context}
 </environment_context>"""
-order = 2
+order = 1
 
 # Third user message: The actual task prompt (our tagged format)
 # This is where GEPA can optimize the system_prompt content.
@@ -58,10 +55,9 @@ pattern = """<SYSTEM>
 {task_description}
 </TASK>
 """
-order = 3
+order = 2
 
 [prompt_learning.initial_prompt.wildcards]
-codex_instructions = "REQUIRED"
 agents_md_context = "REQUIRED"
 environment_context = "REQUIRED"
 system_prompt = "REQUIRED"

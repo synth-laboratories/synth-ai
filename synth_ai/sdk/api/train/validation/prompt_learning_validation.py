@@ -53,6 +53,10 @@ KNOWN_POLICY_FIELDS = {
     "temperature",
     "max_completion_tokens",
     "policy_name",
+    # Pass-through config for task apps (agent selection, timeouts, etc.)
+    "config",
+    # Context override baseline in config (legacy + unified optimization bootstrap)
+    "context_override",
 }
 
 # Known fields in [prompt_learning.termination_config] section
@@ -90,6 +94,8 @@ KNOWN_GEPA_FIELDS = {
     "proxy_models",
     "adaptive_pool",
     "adaptive_batch",
+    # Unified optimization (prompt + context engineering)
+    "unified_optimization",
     # Backwards-compat flat fields (deprecated but recognized)
     "rollout_budget",
     "max_concurrent_rollouts",

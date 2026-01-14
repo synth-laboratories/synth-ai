@@ -31,12 +31,20 @@ parser.add_argument("--timeout", type=int, default=120, help="Agent timeout per 
 parser.add_argument(
     "--config",
     type=str,
-    default="hello_world_gepa_minimal.toml",
-    help="Path to GEPA config file (relative to this directory)",
+    default=None,
+    help="Path to GEPA config file (relative to this directory). Auto-selected based on --agent if not specified.",
 )
 parser.add_argument("--budget", type=int, help="Override rollout budget")
 parser.add_argument("--generations", type=int, help="Override number of generations")
+parser.add_argument("--agent", type=str, default="opencode", choices=["opencode", "codex"], help="Agent to use")
 args = parser.parse_args()
+
+# Auto-select config based on agent if not specified
+if args.config is None:
+    if args.agent == "codex":
+        args.config = "hello_world_gepa_codex.toml"
+    else:
+        args.config = "hello_world_gepa_minimal.toml"
 
 
 def _wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -98,7 +106,7 @@ async def main() -> None:
     config_dict.setdefault("prompt_learning", {}).setdefault("policy", {})
     config_dict["prompt_learning"]["policy"].setdefault("config", {})
     config_dict["prompt_learning"]["policy"]["config"]["timeout"] = args.timeout
-    config_dict["prompt_learning"]["policy"]["config"]["agent"] = "opencode"
+    config_dict["prompt_learning"]["policy"]["config"]["agent"] = args.agent
 
     if args.budget is not None:
         config_dict.setdefault("prompt_learning", {}).setdefault("gepa", {}).setdefault("rollout", {})
