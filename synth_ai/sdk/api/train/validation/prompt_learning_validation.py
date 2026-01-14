@@ -24,6 +24,7 @@ KNOWN_PROMPT_LEARNING_FIELDS = {
     "task_app_api_key",
     "task_app_id",
     "initial_prompt",
+    "auto_discover_patterns",
     "policy",
     "mipro",
     "gepa",
@@ -423,6 +424,13 @@ def validate_prompt_learning_config(
 
     if not pl_config.get("task_app_url"):
         result.add_error(f"{path_prefix}Missing required 'task_app_url' in [prompt_learning]")
+
+    auto_discover = pl_config.get("auto_discover_patterns", False)
+    if not pl_config.get("initial_prompt") and not auto_discover:
+        result.add_warning(
+            f"{path_prefix}Missing 'initial_prompt' and auto_discover_patterns is disabled. "
+            "Provide an initial prompt pattern or enable auto-discovery."
+        )
 
     # Validate [prompt_learning.policy] if present
     policy = pl_config.get("policy")

@@ -1375,6 +1375,13 @@ class PromptLearningConfig(ExtraModel):
     task_app_url: str
     task_app_id: str | None = None
     initial_prompt: PromptPatternConfig | None = None
+    auto_discover_patterns: bool = Field(
+        default=False,
+        description=(
+            "Enable experimental pattern auto-discovery when initial_prompt is omitted. "
+            "This runs a validation rollout to infer prompt patterns from traces."
+        ),
+    )
     policy: PromptLearningPolicyConfig | None = None
     gepa: GEPAConfig | None = None
     verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
