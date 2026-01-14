@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 import httpx
-from dotenv import load_dotenv
-from synth_ai.core.env import PROD_BASE_URL
+from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
@@ -21,12 +21,6 @@ except ImportError:  # pragma: no cover
 demo_dir = Path(__file__).parent
 repo_root = demo_dir.parent.parent
 
-# Load .env
-env_file = repo_root / ".env"
-if env_file.exists():
-    load_dotenv(env_file)
-    print(f"Loaded {env_file}")
-
 # Import local module dynamically
 sys.path.insert(0, str(demo_dir))
 _run_demo = importlib.import_module("run_demo")
@@ -34,11 +28,14 @@ create_web_design_local_api = _run_demo.create_web_design_local_api
 
 # Get API key
 API_KEY = os.environ.get("SYNTH_API_KEY", "")
-SYNTH_API_BASE = PROD_BASE_URL
+if not API_KEY:
+    print("No SYNTH_API_KEY, minting demo key...")
+    API_KEY = mint_demo_api_key(backend_url=BACKEND_URL_BASE)
+    os.environ["SYNTH_API_KEY"] = API_KEY
 
 # Get environment key
 ENVIRONMENT_API_KEY = ensure_localapi_auth(
-    backend_base=SYNTH_API_BASE,
+    backend_base=BACKEND_URL_BASE,
     synth_api_key=API_KEY,
 )
 print(f"Env key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")

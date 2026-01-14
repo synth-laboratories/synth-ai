@@ -12,8 +12,6 @@ EngineBench evaluates an agent's ability to:
 4. Produce code that passes deterministic cargo tests
 """
 
-from __future__ import annotations
-
 import asyncio
 import difflib
 import json
@@ -29,8 +27,6 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from fastapi import Request
-
-logger = logging.getLogger(__name__)
 from synth_ai.data.artifacts import Artifact
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
@@ -42,6 +38,8 @@ from synth_ai.sdk.task.contracts import (
 )
 from synth_ai.sdk.task.rubrics.models import Criterion, Rubric
 from synth_ai.sdk.task.server import RubricBundle
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # APP CONFIGURATION
@@ -125,15 +123,16 @@ def get_instance_by_seed(seed: int) -> str:
 @dataclass
 class SandboxSetupResult:
     """Result from sandbox setup, includes paths and original content for diffing."""
+
     sandbox_dir: Path
     card_file_path: Path | None
     original_stub_content: str  # The stub with todo!() that agent starts with
-    gold_implementation: str    # The reference/gold implementation for comparison
+    gold_implementation: str  # The reference/gold implementation for comparison
 
 
 async def setup_sandbox(instance_id: str, work_dir: Path) -> SandboxSetupResult:
     """Set up a sandbox for the coding agent using the scaffold from engine-bench.
-    
+
     Returns SandboxSetupResult with original stub content for later diffing.
     """
     sandbox_dir = work_dir / "tcg_expansions"
@@ -153,7 +152,7 @@ async def setup_sandbox(instance_id: str, work_dir: Path) -> SandboxSetupResult:
     # Load instance to get card_file path
     instance = load_instance(instance_id)
     card_file = instance.get("card_file", "")
-    
+
     card_file_path: Path | None = None
     original_stub_content = ""
     gold_implementation = ""
@@ -170,15 +169,16 @@ async def setup_sandbox(instance_id: str, work_dir: Path) -> SandboxSetupResult:
         if gold_stub_file.exists():
             # Read gold stub (this is the reference implementation)
             gold_implementation = gold_stub_file.read_text()
-            
+
             # Replace function bodies with todo!() - look for pattern like:
             # pub fn foo(...) -> Type { ... actual code ... }
             # and replace with: pub fn foo(...) -> Type { todo!() }
             import re
+
             original_stub_content = re.sub(
-                r'(pub fn \w+\([^)]*\)\s*->\s*\w+\s*\{)[^}]+\}',
-                r'\1 todo!() }',
-                gold_implementation
+                r"(pub fn \w+\([^)]*\)\s*->\s*\w+\s*\{)[^}]+\}",
+                r"\1 todo!() }",
+                gold_implementation,
             )
             stub_path.write_text(original_stub_content)
 
@@ -250,12 +250,12 @@ async def inject_eval_tests(sandbox_dir: Path, instance_id: str) -> bool:
     print(f"[inject_eval_tests] Looking for: {eval_test_file}", flush=True)
     print(f"[inject_eval_tests] Exists: {eval_test_file.exists()}", flush=True)
     if not eval_test_file.exists():
-        print(f"[inject_eval_tests] ❌ Test file does not exist!", flush=True)
+        print("[inject_eval_tests] ❌ Test file does not exist!", flush=True)
         return False
 
     eval_tests = eval_test_file.read_text()
     print(f"[inject_eval_tests] Read {len(eval_tests)} bytes of eval tests", flush=True)
-    
+
     expansion = instance_id.split("-")[0]
     # sandbox_dir IS tcg_expansions, so path is src/{expansion}/cards/{card}.rs
     card_file = sandbox_dir / "src" / expansion / "cards" / f"{instance_id.replace('-', '_')}.rs"
@@ -263,12 +263,12 @@ async def inject_eval_tests(sandbox_dir: Path, instance_id: str) -> bool:
     print(f"[inject_eval_tests] Card file exists: {card_file.exists()}", flush=True)
 
     if not card_file.exists():
-        print(f"[inject_eval_tests] ❌ Card file does not exist!", flush=True)
+        print("[inject_eval_tests] ❌ Card file does not exist!", flush=True)
         return False
 
     current_content = card_file.read_text()
     print(f"[inject_eval_tests] Current card content: {len(current_content)} bytes", flush=True)
-    
+
     eval_module = f"""
 
 // ============================================================================
@@ -278,7 +278,10 @@ async def inject_eval_tests(sandbox_dir: Path, instance_id: str) -> bool:
 {eval_tests}
 """
     card_file.write_text(current_content + eval_module)
-    print(f"[inject_eval_tests] ✅ Injected eval tests, new size: {len(current_content + eval_module)} bytes", flush=True)
+    print(
+        f"[inject_eval_tests] ✅ Injected eval tests, new size: {len(current_content + eval_module)} bytes",
+        flush=True,
+    )
     return True
 
 
@@ -292,7 +295,7 @@ async def run_cargo_test(repo_dir: Path, instance_id: str) -> tuple[int, int, st
     test_filter = f"{card_module}::eval"
     print(f"[run_cargo_test] Running: cargo test -- --test-threads=1 {test_filter}", flush=True)
     print(f"[run_cargo_test] CWD: {repo_dir}", flush=True)
-    
+
     proc = await asyncio.create_subprocess_exec(
         "cargo",
         "test",
@@ -308,18 +311,18 @@ async def run_cargo_test(repo_dir: Path, instance_id: str) -> tuple[int, int, st
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180)
     except TimeoutError:
         proc.kill()
-        print(f"[run_cargo_test] ❌ Test timeout!", flush=True)
+        print("[run_cargo_test] ❌ Test timeout!", flush=True)
         return 0, 0, "Test timeout"
 
     output = stdout.decode("utf-8", errors="replace") + stderr.decode("utf-8", errors="replace")
     print(f"[run_cargo_test] Exit code: {proc.returncode}", flush=True)
     print(f"[run_cargo_test] Output length: {len(output)} chars", flush=True)
-    
+
     # Log relevant lines
     for line in output.split("\n"):
         if "test result:" in line or "running" in line.lower() or "error" in line.lower():
             print(f"[run_cargo_test] {line}", flush=True)
-    
+
     # SUM all test results (unit tests + doc tests)
     # Cargo outputs multiple "test result:" lines for different test types
     passed = 0
@@ -651,14 +654,14 @@ async def run_opencode_agent(
     if inference_url:
         base_url, correlation_id = normalize_interceptor_base(inference_url)
         original_base = base_url
-        if correlation_id:
-            base_url = f"{base_url}/{correlation_id}"
+        # NOTE: Don't append correlation_id to path - OpenAI SDK will add /chat/completions
+        # and the interceptor expects cid as query param, not path segment.
+        # The interceptor should work without cid for basic routing.
         logger.info(
-            "[OpenCode] URL construction: inference_url=%s base_url=%s correlation_id=%s final_base=%s",
+            "[OpenCode] URL construction: inference_url=%s base_url=%s correlation_id=%s (not appended)",
             inference_url,
             original_base,
             correlation_id,
-            base_url,
         )
     else:
         logger.info("[OpenCode] No inference_url provided, using direct provider")
@@ -680,7 +683,7 @@ async def run_opencode_agent(
                     "gpt-5.2": {},
                     "gpt-4o": {},
                     "gpt-4o-mini": {},
-                }
+                },
             }
         },
         # OpenCode permissions - allow everything for non-interactive eval
@@ -744,7 +747,9 @@ async def run_opencode_agent(
     )
 
     try:
-        print(f"[OpenCode] ⚡⚡⚡ STARTING SUBPROCESS: cmd={cmd[:3]}... cwd={sandbox_dir}", flush=True)
+        print(
+            f"[OpenCode] ⚡⚡⚡ STARTING SUBPROCESS: cmd={cmd[:3]}... cwd={sandbox_dir}", flush=True
+        )
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             cwd=str(sandbox_dir),
@@ -753,11 +758,11 @@ async def run_opencode_agent(
             env=env,
         )
         print(f"[OpenCode] ⚡⚡⚡ SUBPROCESS STARTED: pid={proc.pid}", flush=True)
-        
+
         # Stream output in real-time
         stdout_chunks = []
         stderr_chunks = []
-        
+
         async def read_stream(stream, chunks, prefix):
             try:
                 while True:
@@ -772,134 +777,46 @@ async def run_opencode_agent(
                             print(f"[OpenCode] {prefix}: {line}", flush=True)
             except Exception as e:
                 print(f"[OpenCode] ⚡⚡⚡ Error reading {prefix}: {e}", flush=True)
-        
+
         # Start reading streams
         stdout_task = asyncio.create_task(read_stream(proc.stdout, stdout_chunks, "STDOUT"))
         stderr_task = asyncio.create_task(read_stream(proc.stderr, stderr_chunks, "STDERR"))
-        
+
         try:
             # Wait for process to finish (with timeout)
             returncode = await asyncio.wait_for(proc.wait(), timeout=timeout)
             # Wait for streams to finish reading
             await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             print(f"[OpenCode] ⚡⚡⚡ TIMEOUT after {timeout}s - killing process", flush=True)
             proc.kill()
             await proc.wait()
             stdout_task.cancel()
             stderr_task.cancel()
             return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
-        
+
         stdout = b"".join(stdout_chunks)
         stderr = b"".join(stderr_chunks)
-        
-        print(f"[OpenCode] ⚡⚡⚡ SUBPROCESS COMPLETED: returncode={returncode} stdout_len={len(stdout)} stderr_len={len(stderr)}", flush=True)
-        
+
+        print(
+            f"[OpenCode] ⚡⚡⚡ SUBPROCESS COMPLETED: returncode={returncode} stdout_len={len(stdout)} stderr_len={len(stderr)}",
+            flush=True,
+        )
+
         return {
             "success": returncode == 0,
             "stdout": stdout.decode("utf-8", errors="replace"),
             "stderr": stderr.decode("utf-8", errors="replace"),
         }
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print(f"[OpenCode] ⚡⚡⚡ TIMEOUT after {timeout}s", flush=True)
         proc.kill()
         return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
     except Exception as e:
         print(f"[OpenCode] ⚡⚡⚡ EXCEPTION: {e}", flush=True)
         import traceback
+
         traceback.print_exc()
-        return {"success": False, "stdout": "", "stderr": str(e)}
-
-
-async def run_codex_agent(
-    prompt: str,
-    sandbox_dir: Path,
-    model: str = "gpt-4o-mini",
-    timeout: int = 300,
-    inference_url: str | None = None,
-    api_key: str | None = None,
-) -> dict[str, Any]:
-    """Run Codex CLI agent on the sandbox.
-
-    Args:
-        prompt: The task prompt for the agent
-        sandbox_dir: Directory to run the agent in
-        model: Model to use (e.g. "gpt-4o-mini")
-        timeout: Timeout in seconds
-        inference_url: Synth interceptor URL to route LLM calls through
-        api_key: API key for the interceptor
-    """
-    if not shutil.which("codex"):
-        return {
-            "success": False,
-            "stdout": "",
-            "stderr": "codex binary not found in PATH",
-        }
-
-    config_dir = Path.home() / ".codex"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    config_file = config_dir / "config.toml"
-
-    base_url = "https://api.openai.com/v1"
-    if inference_url:
-        base_url, correlation_id = normalize_interceptor_base(inference_url)
-        if correlation_id:
-            base_url = f"{base_url}/{correlation_id}"
-
-    config_content = f"""# Auto-generated for EngineBench local runs
-
-model = "{model}"
-model_provider = "openai"
-
-[model_providers.openai]
-name = "OpenAI"
-base_url = "{base_url}"
-wire_api = "responses"
-env_key = "OPENAI_API_KEY"
-requires_openai_auth = false
-request_max_retries = 4
-stream_max_retries = 5
-stream_idle_timeout_ms = 300000
-
-[mcp]
-enabled = false
-"""
-    config_file.write_text(config_content)
-
-    cmd = [
-        "codex",
-        "exec",
-        "--yolo",
-        "--skip-git-repo-check",
-        "-m",
-        model,
-        prompt,
-    ]
-
-    env = os.environ.copy()
-    env["OPENAI_API_KEY"] = api_key or os.environ.get("OPENAI_API_KEY", "")
-    env["OPENAI_MODEL"] = model
-    if inference_url:
-        env["OPENAI_BASE_URL"] = base_url
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            cwd=str(sandbox_dir),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        return {
-            "success": proc.returncode == 0,
-            "stdout": stdout.decode("utf-8", errors="replace"),
-            "stderr": stderr.decode("utf-8", errors="replace"),
-        }
-    except TimeoutError:
-        proc.kill()
-        return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
-    except Exception as e:
         return {"success": False, "stdout": "", "stderr": str(e)}
 
 
@@ -1185,7 +1102,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     # Use Synth API key for interceptor auth
     api_key = os.environ.get("SYNTH_API_KEY")
     agent_type = policy_config.get("agent", "opencode")
-    
+
     logger.info(
         "[engine_bench] Agent config: type=%s model=%s inference_url=%s timeout=%ds",
         agent_type,
@@ -1212,7 +1129,8 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         f"  Context artifacts: system_prompt={len(system_prompt)} chars, "
         f"arch_guide={len(architecture_guide)} chars, "
         f"ref_snippets={len(reference_snippets)} chars, "
-        f"hooks_doc={len(hooks_documentation)} chars", flush=True
+        f"hooks_doc={len(hooks_documentation)} chars",
+        flush=True,
     )
     print(f"{'=' * 60}\n", flush=True)
 
@@ -1260,7 +1178,10 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                     if stderr_full.strip():
                         print(f"  [Codex] stderr (full):\n{stderr_full}")
         else:
-            print(f"[engine_bench] ⚡⚡⚡ CALLING run_opencode_agent: model={model} timeout={timeout} inference_url={inference_url}", flush=True)
+            print(
+                f"[engine_bench] ⚡⚡⚡ CALLING run_opencode_agent: model={model} timeout={timeout} inference_url={inference_url}",
+                flush=True,
+            )
             agent_result = await run_opencode_agent(
                 prompt,
                 sandbox_dir,
@@ -1269,13 +1190,22 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 inference_url=inference_url,
                 api_key=api_key,
             )
-            print(f"[engine_bench] ⚡⚡⚡ run_opencode_agent RETURNED: success={agent_result.get('success')}", flush=True)
+            print(
+                f"[engine_bench] ⚡⚡⚡ run_opencode_agent RETURNED: success={agent_result.get('success')}",
+                flush=True,
+            )
 
             # Log OpenCode output for debugging
             if not agent_result["success"]:
                 print("  [OpenCode] ⚡⚡⚡ FAILED", flush=True)
-                print(f"  [OpenCode] ⚡⚡⚡ stdout: {agent_result.get('stdout', '')[:500]}", flush=True)
-                print(f"  [OpenCode] ⚡⚡⚡ stderr: {agent_result.get('stderr', '')[:1000]}", flush=True)
+                print(
+                    f"  [OpenCode] ⚡⚡⚡ stdout: {agent_result.get('stdout', '')[:500]}",
+                    flush=True,
+                )
+                print(
+                    f"  [OpenCode] ⚡⚡⚡ stderr: {agent_result.get('stderr', '')[:1000]}",
+                    flush=True,
+                )
             else:
                 print("  [OpenCode] ⚡⚡⚡ Completed successfully", flush=True)
                 if agent_result.get("stderr"):
@@ -1293,14 +1223,18 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
             else:
                 expansion = instance_id.split("-")[0]
                 card_file_path = (
-                    sandbox_dir / "src" / expansion / "cards" / f"{instance_id.replace('-', '_')}.rs"
+                    sandbox_dir
+                    / "src"
+                    / expansion
+                    / "cards"
+                    / f"{instance_id.replace('-', '_')}.rs"
                 )
 
         artifact_list = []
         final_code = ""
         if card_file_path and card_file_path.exists():
             final_code = card_file_path.read_text()
-            
+
             # Artifact 1: The final code the agent produced
             artifact = Artifact(
                 content=final_code,
@@ -1313,16 +1247,18 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
             )
             artifact.validate_size(max_size_bytes=64 * 1024)
             artifact_list.append(artifact)
-            
+
             # Artifact 2: Unified diff showing what the agent changed
             if setup_result.original_stub_content:
-                diff_lines = list(difflib.unified_diff(
-                    setup_result.original_stub_content.splitlines(keepends=True),
-                    final_code.splitlines(keepends=True),
-                    fromfile="original_stub.rs",
-                    tofile="agent_output.rs",
-                    lineterm="",
-                ))
+                diff_lines = list(
+                    difflib.unified_diff(
+                        setup_result.original_stub_content.splitlines(keepends=True),
+                        final_code.splitlines(keepends=True),
+                        fromfile="original_stub.rs",
+                        tofile="agent_output.rs",
+                        lineterm="",
+                    )
+                )
                 if diff_lines:
                     diff_content = "".join(diff_lines)
                     diff_artifact = Artifact(
@@ -1336,8 +1272,11 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                     )
                     diff_artifact.validate_size(max_size_bytes=64 * 1024)
                     artifact_list.append(diff_artifact)
-                    print(f"[engine_bench] Created diff artifact: {len(diff_content)} chars", flush=True)
-            
+                    print(
+                        f"[engine_bench] Created diff artifact: {len(diff_content)} chars",
+                        flush=True,
+                    )
+
             # Artifact 3: Gold reference implementation for verifier comparison
             if setup_result.gold_implementation:
                 gold_artifact = Artifact(
@@ -1351,7 +1290,10 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 )
                 gold_artifact.validate_size(max_size_bytes=64 * 1024)
                 artifact_list.append(gold_artifact)
-                print(f"[engine_bench] Created gold reference artifact: {len(setup_result.gold_implementation)} chars", flush=True)
+                print(
+                    f"[engine_bench] Created gold reference artifact: {len(setup_result.gold_implementation)} chars",
+                    flush=True,
+                )
 
         # Evaluate
         print(f"[engine_bench] Running cargo check in {sandbox_dir}...", flush=True)
@@ -1365,15 +1307,15 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         test_output = ""
 
         if compile_pass:
-            print(f"[engine_bench] Injecting eval tests...", flush=True)
+            print("[engine_bench] Injecting eval tests...", flush=True)
             inject_success = await inject_eval_tests(sandbox_dir, instance_id)
             print(f"[engine_bench] Inject result: {inject_success}", flush=True)
-            
-            print(f"[engine_bench] Running cargo tests...", flush=True)
+
+            print("[engine_bench] Running cargo tests...", flush=True)
             tests_passed, tests_total, test_output = await run_cargo_test(sandbox_dir, instance_id)
             print(f"[engine_bench] Test result: {tests_passed}/{tests_total}", flush=True)
         else:
-            print(f"[engine_bench] Skipping tests (compile failed)", flush=True)
+            print("[engine_bench] Skipping tests (compile failed)", flush=True)
 
         outcome_reward_value = calculate_outcome_reward(compile_pass, tests_passed, tests_total)
 

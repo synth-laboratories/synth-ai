@@ -9,8 +9,6 @@ It exists so scripts (demo, eval jobs, tests) can reuse the dataset + Local API 
 accidentally hitting production.
 """
 
-from __future__ import annotations
-
 import base64
 import io
 import logging
@@ -22,7 +20,7 @@ import httpx
 from datasets import Image as HFImage
 from datasets import load_dataset, load_from_disk
 from PIL import Image
-from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
@@ -30,6 +28,7 @@ from synth_ai.sdk.task.contracts import (
     TaskInfo,
 )
 from synth_ai.sdk.task.rubrics import Criterion, Rubric
+from synth_ai.sdk.task.server import RubricBundle
 from synth_ai.sdk.task.trace_correlation_helpers import (
     build_trace_payload,
     extract_trace_correlation_id,

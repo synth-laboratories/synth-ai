@@ -1,171 +1,139 @@
 #!/usr/bin/env python3
 """
-Run GEPA with unified context optimization for EngineBench.
+Run the larger EngineBench GEPA config via the public synth_ai SDK.
 
-This script demonstrates the full unified optimization pipeline:
-1. UnifiedProposer generates context mutations
-2. Task app receives and applies context overrides
-3. GEPA evolves both prompts AND context together
-4. Multi-objective selection balances accuracy vs complexity
+This uses the same SDK flow as run_gepa_direct, but defaults to the
+full (slower) config in enginebench_gepa.toml.
 """
 
+import argparse
 import asyncio
-import logging
 import os
-import sys
+import time
 from pathlib import Path
 
-# Add backend to path
-backend_path = Path(__file__).parent.parent.parent.parent / "monorepo-context-eng-unified" / "backend"
-sys.path.insert(0, str(backend_path))
+import httpx
 
-from app.routes.prompt_learning.core.config import (
-    load_toml,
-    parse_prompt_learning_config,
-)
-from app.routes.prompt_learning.core.optimizer_factory import get_optimizer_factory
-from app.routes.prompt_learning.core.runtime import LocalRuntime
+try:
+    import tomllib
+except ImportError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-logger = logging.getLogger(__name__)
+from localapi_engine_bench import INSTANCE_IDS, app
+from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
+
+try:
+    from synth_ai.sdk.task.server import run_server_background
+except ImportError:  # pragma: no cover
+    from synth_ai.sdk.task import run_server_background
 
 
-async def run_gepa_unified():
-    """Run GEPA with unified context optimization."""
+def _wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
+    url = f"http://{host}:{port}/health"
+    headers = {"X-API-Key": api_key} if api_key else {}
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            r = httpx.get(url, headers=headers, timeout=5.0)
+            if r.status_code in (200, 400):
+                return
+        except (httpx.RequestError, httpx.TimeoutException):
+            pass
+        time.sleep(0.5)
+    raise RuntimeError(f"Health check failed: {url}")
 
-    # Load config
-    config_path = Path(__file__).parent / "enginebench_gepa.toml"
-    logger.info(f"Loading config from: {config_path}")
 
-    raw_config = load_toml(config_path)
+def _load_config(config_path: Path) -> dict[str, object]:
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    with config_path.open("rb") as f:
+        return tomllib.load(f)
 
-    # Parse config
-    logger.info("Parsing config...")
-    parsed_config, initial_prompt, optimizer_config = await parse_prompt_learning_config(
-        raw_config
+
+async def main() -> int:
+    parser = argparse.ArgumentParser(description="Run EngineBench GEPA (full config)")
+    parser.add_argument("--local", action="store_true", help="Use localhost backend")
+    parser.add_argument("--local-host", type=str, default="localhost")
+    parser.add_argument("--port", type=int, default=8020, help="Task app port")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="enginebench_gepa.toml",
+        help="Path to GEPA config file",
     )
+    parser.add_argument("--budget", type=int, help="Override rollout budget")
+    parser.add_argument("--generations", type=int, help="Override number of generations")
+    args = parser.parse_args()
 
-    # Create local runtime
-    runtime = LocalRuntime()
+    backend_url = f"http://{args.local_host}:8000" if args.local else BACKEND_URL_BASE
+    print(f"Backend: {backend_url}")
+    print(f"Instances available: {len(INSTANCE_IDS)}")
 
-    # Adjust task app URL
-    task_app_url = runtime.get_task_app_base_url(
-        optimizer_config.task_app_url
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{backend_url}/health", timeout=10)
+        if r.status_code != 200:
+            raise RuntimeError(f"Backend not healthy: {r.status_code}")
+
+    api_key = os.environ.get("SYNTH_API_KEY", "")
+    if not api_key:
+        print("No SYNTH_API_KEY, minting demo key...")
+        api_key = mint_demo_api_key(backend_url=backend_url)
+        os.environ["SYNTH_API_KEY"] = api_key
+    print(f"API Key: {api_key[:20]}...")
+
+    env_key = ensure_localapi_auth(
+        backend_base=backend_url,
+        synth_api_key=api_key,
     )
-    logger.info(f"Task app URL: {task_app_url}")
-    optimizer_config.task_app_url = task_app_url
+    print(f"Environment key: {env_key[:12]}...")
 
-    # Create optimizer factory
-    factory = get_optimizer_factory()
+    port = acquire_port(args.port, on_conflict=PortConflictBehavior.FIND_NEW)
+    run_server_background(app, port)
+    _wait_for_health(args.local_host, port, env_key)
+    task_url = f"http://{args.local_host}:{port}"
+    print(f"Task app ready: {task_url}")
 
-    # Create GEPA optimizer
-    logger.info("Creating GEPA optimizer...")
-    job_id = f"enginebench_unified_{int(asyncio.get_event_loop().time())}"
+    config_path = Path(__file__).parent / args.config
+    config_dict = _load_config(config_path)
+    prompt_cfg = config_dict.get("prompt_learning")
+    if not isinstance(prompt_cfg, dict):
+        raise RuntimeError(f"Config {config_path} must contain a [prompt_learning] section")
+    prompt_cfg["task_app_url"] = task_url
 
-    optimizer_kwargs = {}
-    if hasattr(initial_prompt, "to_dict"):
-        optimizer_kwargs["initial_template"] = initial_prompt.to_dict()
-    else:
-        optimizer_kwargs["initial_template"] = initial_prompt
-
-    optimizer = factory.create_optimizer(
-        algorithm="gepa",
-        optimizer_config=optimizer_config,
-        job_id=job_id,
-        **optimizer_kwargs
-    )
-
-    # Run optimization
-    logger.info("=" * 80)
-    logger.info("Starting GEPA Unified Context Optimization")
-    logger.info("=" * 80)
-    logger.info(f"Job ID: {job_id}")
-    logger.info("Task: EngineBench Rust Code Generation")
-    logger.info(f"Generations: {getattr(optimizer_config, 'num_generations', 5)}")
-    logger.info(f"Population size: {getattr(optimizer_config, 'initial_population_size', 8)}")
-    logger.info(f"Evaluation seeds: {len(optimizer_config.pareto_set_size)} cards")
-    logger.info("=" * 80)
-
-    # Check if unified optimization is enabled
-    if hasattr(optimizer_config, 'optimize_context_artifacts'):
-        logger.info("✓ UNIFIED OPTIMIZATION ENABLED")
-        logger.info("  - System prompt optimization: ON")
-        logger.info("  - Context artifact optimization: ON")
-        logger.info("  - Multi-objective selection: ON (accuracy + complexity)")
-    else:
-        logger.info("✗ Running baseline GEPA (prompt-only)")
-
-    logger.info("=" * 80)
-
-    try:
-        # Run optimization
-        result = await optimizer.optimize(
-            initial_template=optimizer_kwargs.get("initial_template"),
+    if args.budget is not None:
+        prompt_cfg.setdefault("gepa", {}).setdefault("rollout", {})["budget"] = args.budget
+    if args.generations is not None:
+        prompt_cfg.setdefault("gepa", {}).setdefault("population", {})["num_generations"] = (
+            args.generations
         )
 
-        logger.info("=" * 80)
-        logger.info("OPTIMIZATION COMPLETE")
-        logger.info("=" * 80)
+    print("\nSubmitting GEPA job...")
+    job = PromptLearningJob.from_dict(
+        config_dict=config_dict,
+        backend_url=backend_url,
+        api_key=api_key,
+        task_app_api_key=env_key,
+        skip_health_check=True,
+    )
+    job_id = job.submit()
+    print(f"Job ID: {job_id}")
 
-        # Display results
-        if hasattr(result, "best_candidate"):
-            best = result.best_candidate
-            logger.info(f"Best accuracy: {best.accuracy:.3f}")
-
-            # Check if context override was used
-            if hasattr(best, "context_override") and best.context_override:
-                logger.info("✓ Context override applied:")
-                logger.info(f"  - Artifacts: {best.context_override.artifact_count()}")
-                logger.info(f"  - Total size: {best.context_override.size_bytes()} bytes")
-
-                if best.context_override.file_artifacts:
-                    logger.info(f"  - Files: {list(best.context_override.file_artifacts.keys())}")
-                if best.context_override.preflight_script:
-                    logger.info(f"  - Preflight script: {len(best.context_override.preflight_script)} chars")
-                if best.context_override.env_vars:
-                    logger.info(f"  - Env vars: {list(best.context_override.env_vars.keys())}")
-
-        logger.info("=" * 80)
-        logger.info(f"Results saved to: {runtime.get_results_dir() / job_id}")
-        logger.info("=" * 80)
-
-        return result
-
-    except Exception as e:
-        logger.error(f"Optimization failed: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
-
-
-def main():
-    """Main entry point."""
-
-    # Check environment
-    if not os.getenv("REDIS_URL"):
-        logger.warning("REDIS_URL not set - using default: redis://localhost:6379/0")
-        os.environ["REDIS_URL"] = "redis://localhost:6379/0"
-
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        logger.error("ANTHROPIC_API_KEY not set!")
-        sys.exit(1)
-
-    # Run optimization
-    try:
-        result = asyncio.run(run_gepa_unified())
-        logger.info("✓ Optimization completed successfully")
-        return 0
-    except KeyboardInterrupt:
-        logger.info("Interrupted by user")
-        return 130
-    except Exception as e:
-        logger.error(f"Failed: {e}")
+    print("Polling for results...")
+    result = job.poll_until_complete(timeout=7200.0, interval=15.0, progress=True)
+    print(f"Status: {result.status}")
+    if result.failed:
+        print(f"Job failed: {result.error}")
         return 1
+
+    if result.best_score is not None:
+        print(f"Best score: {result.best_score:.4f}")
+    print("Done!")
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(asyncio.run(main()))

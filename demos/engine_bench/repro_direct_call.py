@@ -6,6 +6,7 @@ Bypasses OpenCode entirely to isolate the issue.
 
 import json
 import os
+
 from openai import OpenAI
 
 # Use the same model
@@ -20,12 +21,10 @@ TOOLS = [
             "description": "Read a file",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "filePath": {"type": "string", "description": "Path to file"}
-                },
-                "required": ["filePath"]
-            }
-        }
+                "properties": {"filePath": {"type": "string", "description": "Path to file"}},
+                "required": ["filePath"],
+            },
+        },
     },
     {
         "type": "function",
@@ -37,12 +36,12 @@ TOOLS = [
                 "properties": {
                     "filePath": {"type": "string", "description": "Path to file"},
                     "old_string": {"type": "string", "description": "Text to replace"},
-                    "new_string": {"type": "string", "description": "Replacement text"}
+                    "new_string": {"type": "string", "description": "Replacement text"},
                 },
-                "required": ["filePath", "old_string", "new_string"]
-            }
-        }
-    }
+                "required": ["filePath", "old_string", "new_string"],
+            },
+        },
+    },
 ]
 
 # Simulated file content (what the model sees after "reading")
@@ -112,7 +111,7 @@ def main():
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": USER_PROMPT}
+        {"role": "user", "content": USER_PROMPT},
     ]
 
     print("=" * 60)
@@ -124,10 +123,7 @@ def main():
         print(f"\n--- Turn {turn + 1} ---")
 
         response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto"
+            model=MODEL, messages=messages, tools=TOOLS, tool_choice="auto"
         )
 
         assistant_message = response.choices[0].message
@@ -152,11 +148,7 @@ def main():
 
                 # Simulate tool result
                 result = simulate_tool_result(tool_name, tool_args)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": result
-                })
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
         else:
             print("No tool calls - model finished")
             break

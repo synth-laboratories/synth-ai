@@ -5,7 +5,7 @@ Run minimal GEPA job for EngineBench.
 Uses minimum viable seeds (13) and 2 generations to verify GEPA works.
 
 Usage:
-    cd /Users/joshpurtell/Documents/GitHub/synth-ai
+    cd /path/to/synth-ai
     LOG_LEVEL=DEBUG uv run python demos/engine_bench/run_gepa_minimal.py --local
 """
 
@@ -14,6 +14,15 @@ import asyncio
 import os
 import time
 from pathlib import Path
+
+import httpx
+from localapi_engine_bench import INSTANCE_IDS, app
+from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.task import run_server_background
+from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 parser = argparse.ArgumentParser(description="Run minimal GEPA for EngineBench")
 parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
@@ -29,14 +38,6 @@ parser.add_argument("--budget", type=int, help="Override rollout budget")
 parser.add_argument("--generations", type=int, help="Override number of generations")
 parser.add_argument("--timeout", type=int, default=400, help="Agent timeout per rollout")
 args = parser.parse_args()
-
-import httpx
-from localapi_engine_bench import DEFAULT_SYSTEM_PROMPT, INSTANCE_IDS, app
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
-from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 
 def wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -59,15 +60,14 @@ async def main():
     print("=" * 60)
     print("ENGINEBENCH - MINIMAL GEPA JOB")
     print("=" * 60)
-    print(f"Config: 13 seeds (10 pareto + 3 feedback), 2 generations")
+    print("Config: 13 seeds (10 pareto + 3 feedback), 2 generations")
     print(f"Instances available: {len(INSTANCE_IDS)}")
 
     # Backend setup
+    backend_url = f"http://{args.local_host}:8000" if args.local else BACKEND_URL_BASE
     if args.local:
-        backend_url = f"http://{args.local_host}:8000"
         print(f"LOCAL MODE - {backend_url}")
     else:
-        backend_url = PROD_BASE_URL
         print(f"PROD MODE - {backend_url}")
 
     # Check backend
@@ -108,6 +108,7 @@ async def main():
 
     # Load TOML config
     import tomllib
+
     with open(config_path, "rb") as f:
         config_dict = tomllib.load(f)
 
@@ -159,7 +160,7 @@ async def main():
             if result.raw.get("error"):
                 print(f"Error details: {result.raw['error']}")
             if result.raw.get("recent_events"):
-                print(f"\nRecent events:")
+                print("\nRecent events:")
                 for event in result.raw.get("recent_events", [])[-5:]:
                     print(f"  - {event}")
     else:
@@ -169,10 +170,7 @@ async def main():
         if result.best_prompt:
             if isinstance(result.best_prompt, str):
                 print("\nBest prompt (first 500 chars):")
-                print(
-                    result.best_prompt[:500]
-                    + ("..." if len(result.best_prompt) > 500 else "")
-                )
+                print(result.best_prompt[:500] + ("..." if len(result.best_prompt) > 500 else ""))
             elif isinstance(result.best_prompt, dict):
                 print("\nBest prompt:")
                 messages = result.best_prompt.get("messages", [])

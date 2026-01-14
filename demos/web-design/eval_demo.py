@@ -9,28 +9,28 @@ from pathlib import Path
 import httpx
 
 try:
+    from synth_ai.core.env import mint_demo_api_key
+    from synth_ai.core.urls import BACKEND_URL_BASE
+    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
     from synth_ai.sdk.task.server import run_server_background
 except ImportError as e:
     raise ImportError(
         "Failed to import synth_ai. Run `uv sync` or `pip install -e .` first."
     ) from e
 
-# Load .env
-try:
-    from dotenv import load_dotenv
-
-    env_file = Path(__file__).parent.parent.parent / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-except ImportError:
-    pass
-
-SYNTH_API_KEY = os.getenv("SYNTH_API_KEY")
-ENVIRONMENT_API_KEY = os.getenv("ENVIRONMENT_API_KEY")
+SYNTH_API_KEY = os.getenv("SYNTH_API_KEY", "")
 if not SYNTH_API_KEY:
-    raise RuntimeError("SYNTH_API_KEY not set")
+    print("No SYNTH_API_KEY, minting demo key...")
+    SYNTH_API_KEY = mint_demo_api_key(backend_url=BACKEND_URL_BASE)
+    os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
+
+ENVIRONMENT_API_KEY = os.getenv("ENVIRONMENT_API_KEY", "")
 if not ENVIRONMENT_API_KEY:
-    raise RuntimeError("ENVIRONMENT_API_KEY not set")
+    ENVIRONMENT_API_KEY = ensure_localapi_auth(
+        backend_base=BACKEND_URL_BASE,
+        synth_api_key=SYNTH_API_KEY,
+    )
+    os.environ["ENVIRONMENT_API_KEY"] = ENVIRONMENT_API_KEY
 
 # Baseline prompt to test
 BASELINE_STYLE_PROMPT = """You are generating a professional startup website screenshot.
@@ -98,23 +98,28 @@ async def main():
 
     eval_payload = {
         "job_type": "eval",
+        "env_name": "web_design_generator",
         "task_app_url": local_api_url,
         "task_app_api_key": ENVIRONMENT_API_KEY,
         "seeds": test_seeds,
-        "policy_model": "gemini-2.5-flash-image",
-        "policy_provider": "google",
-        "inference_mode": "synth_hosted",
-        "verifier_enabled": True,
-        "verifier_backend_base": backend_url,
-        "verifier_backend_provider": "google",
-        "verifier_backend_model": "gemini-2.5-flash",
-        "verifier_graph_id": "zero_shot_verifier_rubric_single",
-        "verifier_backend_outcome_enabled": True,
-        "verifier_backend_event_enabled": False,
-        "verifier_weight_env": 0.0,
-        "verifier_weight_event": 0.0,
-        "verifier_weight_outcome": 1.0,
-        "verifier_timeout": 240.0,
+        "policy": {
+            "model": "gemini-2.5-flash-image",
+            "provider": "google",
+            "inference_mode": "synth_hosted",
+        },
+        "verifier": {
+            "enabled": True,
+            "backend_base": backend_url,
+            "backend_provider": "google",
+            "backend_model": "gemini-2.5-flash",
+            "graph_id": "zero_shot_verifier_rubric_single",
+            "backend_outcome_enabled": True,
+            "backend_event_enabled": False,
+            "weight_env": 0.0,
+            "weight_event": 0.0,
+            "weight_outcome": 1.0,
+            "timeout": 240.0,
+        },
     }
 
     async with httpx.AsyncClient(timeout=600.0) as client:
@@ -162,7 +167,7 @@ async def main():
                 print(f"\r[{mins:02d}:{secs:02d}] {status}")
                 break
             else:
-                results_info = status_data.get("results", {})
+                results_info = status_data.get("results") or {}
                 completed = results_info.get("completed", 0)
                 total = results_info.get("total", len(test_seeds))
                 print(
@@ -205,7 +210,7 @@ async def main():
         for r in results_list:
             seed = r.get("seed", "?")
             score = r.get("score", "N/A")
-            cost = r.get("cost_usd", 0.0)
+            cost = r.get("cost_usd") or 0.0
             print(f"  Seed {seed}: score={score} cost=${cost:.4f}")
 
     print()

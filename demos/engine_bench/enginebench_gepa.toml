@@ -1,31 +1,26 @@
-# GEPA Configuration for EngineBench Unified Context Engineering Demo
-# This demonstrates optimizing BOTH system prompt AND context artifacts together
+# GEPA Configuration for EngineBench (SDK prompt_learning format)
 
-[task_app]
-inference_url = "http://localhost:8020/rollout"  # EngineBench task app
-
-[optimization]
+[prompt_learning]
+task_app_url = "http://localhost:8020"
+env_name = "engine_bench"
 algorithm = "gepa"
-num_generations = 5
-children_per_generation = 8
 
-# UNIFIED OPTIMIZATION FLAGS - this is the key differentiator!
-optimize_system_prompt = true
-optimize_context_artifacts = true
+[prompt_learning.initial_prompt]
+id = "enginebench_coding"
+name = "EngineBench Coding Task"
 
-[optimization.context_artifacts]
-# Define which artifacts can be evolved by GEPA
-# Each artifact is a separate "gene" that can mutate/crossover
-artifacts = [
-    "system_prompt",           # Core instruction to the coding agent
-    "architecture_guide",      # Engine patterns and anti-patterns doc
-    "reference_snippets",      # Code examples to follow
-    "hooks_documentation",     # API reference for the runtime system
-]
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "{task_description}"
+order = 0
 
-[evaluation]
-# Diverse card selection covering different mechanics
-# Total: 15 cards selected for evaluation balance
+[prompt_learning.initial_prompt.wildcards]
+task_description = "REQUIRED"
+
+[prompt_learning.gepa]
+env_name = "engine_bench"
+
+[prompt_learning.gepa.evaluation]
 seeds = [
     0,   # df-001-ampharos - Stage 2, Poke-Body
     2,   # df-003-heracross - Basic, Poke-Body (damage reduction)
@@ -43,34 +38,37 @@ seeds = [
     88,  # Multi-type Pokemon
     99,  # Evolution chain card
 ]
+validation_seeds = [0, 9, 22, 42, 77]
+validation_pool = "train"
+validation_top_k = 5
 
-# Multi-objective optimization
-objectives = ["pass_rate", "compile_success"]
+[prompt_learning.gepa.mutation]
+rate = 0.5
 
-[proposer]
-model = "claude-opus-4"  # Use Opus for high-quality mutations
-effort = "MEDIUM"
+[prompt_learning.gepa.population]
+initial_size = 8
+num_generations = 5
+children_per_generation = 8
+crossover_rate = 0.5
+selection_pressure = 1.0
 
-[proposer.output_tokens]
-# Context artifacts can be long - allocate sufficient tokens
-max = 8000
-rapid = 2000
-low_context = 4000
-medium = 6000
-high_context = 8000
+[prompt_learning.gepa.archive]
+pareto_set_size = 5
 
-[verifier]
-# No verifier needed - cargo tests are deterministic ground truth
-use_task_app_reward = true
+[prompt_learning.gepa.rollout]
+budget = 200
+max_concurrent = 6
+minibatch_size = 6
 
-[policy]
-# Policy config passed to task app
-[policy.config]
+[prompt_learning.gepa.proposer]
+model = "claude-opus-4"
+
+[prompt_learning.policy]
 model = "gpt-4.1-mini"
-timeout = 300  # 5 minutes per card implementation
+provider = "openai"
+inference_mode = "synth_hosted"
 
-# Initial baseline context artifacts (will be optimized)
-[policy.context_override]
+[prompt_learning.policy.context_override]
 system_prompt = """You are an expert Rust developer implementing Pokemon TCG cards.
 
 Your task: Implement card effects by editing Rust files with stub functions marked with TODO comments.
@@ -86,6 +84,3 @@ Output requirements:
 1. ACTUALLY EDIT files - replace TODO stubs with working code
 2. Make sure code compiles (`cargo check`)
 3. Make sure tests pass (`cargo test`)"""
-
-# Note: Other context artifacts (architecture_guide, reference_snippets, hooks_documentation)
-# will use defaults from task app, which GEPA will then optimize

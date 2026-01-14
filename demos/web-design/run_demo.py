@@ -29,10 +29,12 @@ from datasets import load_dataset, load_from_disk
 from PIL import Image
 
 try:
-    from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+    from synth_ai.core.env import get_backend_url, mint_demo_api_key
+    from synth_ai.core.urls import BACKEND_URL_BASE
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
-    from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
+    from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+    from synth_ai.sdk.task.server import RubricBundle
 except ImportError as e:  # pragma: no cover
     raise ImportError(
         "Failed to import `synth_ai`.\n"
@@ -132,28 +134,15 @@ def _maybe_warn_on_synth_ai_mismatch() -> None:
 
 _maybe_warn_on_synth_ai_mismatch()
 
-# Load .env (optional)
-try:
-    from dotenv import load_dotenv
-
-    env_file = repo_root / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-        logger.debug(f"Loaded {env_file}")
-except ImportError:
-    print("python-dotenv not installed, using existing environment variables")
-
-
-# Backend config
+# Backend config - respect SYNTH_BACKEND_URL env var, fall back to --local flag behavior
+SYNTH_API_BASE = get_backend_url() if os.environ.get("SYNTH_BACKEND_URL") else ("http://127.0.0.1:8000" if LOCAL_MODE else BACKEND_URL_BASE)
 if LOCAL_MODE:
-    SYNTH_API_BASE = "http://127.0.0.1:8000"
     TUNNEL_BACKEND = TunnelBackend.Localhost
     LOCAL_API_PORT = 8103
     print("=" * 80)
     print("RUNNING IN LOCAL MODE")
     print("=" * 80)
 else:
-    SYNTH_API_BASE = PROD_BASE_URL
     TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
     LOCAL_API_PORT = 8001
 
@@ -465,9 +454,14 @@ Apply the visual style guidelines to match the original design."""
             # The interceptor will handle image generation models automatically
             messages = [{"role": "user", "content": full_prompt}]
 
+            # Build URL - inference_url may already include /chat/completions
+            url = inference_url.rstrip('/')
+            if '/chat/completions' not in url:
+                url = f"{url}/chat/completions"
+
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
-                    f"{inference_url.rstrip('/')}/chat/completions",
+                    url,
                     json={
                         "model": model,
                         "messages": messages,
@@ -538,10 +532,10 @@ Apply the visual style guidelines to match the original design."""
                 trace_correlation_id = None
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id,
+            run_id=request.trace_correlation_id or "unknown",
             reward_info=RolloutMetrics(outcome_reward=reward),
             trace=None,
-            trace_correlation_id=trace_correlation_id,
+            trace_correlation_id=trace_correlation_id or request.trace_correlation_id or "unknown",
             inference_url=str(inference_url or ""),
         )
 
