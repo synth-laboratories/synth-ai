@@ -52,6 +52,7 @@ dependencies = [
     "gepa>=0.0.17",
     # Dataset loading - used by many task apps (banking77, math, hotpotqa, etc.)
     "datasets>=4.0.0",
+    "daytona-sdk>=0.130.0",
 ]
 
 [project.scripts]

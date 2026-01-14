@@ -12,6 +12,8 @@ EngineBench evaluates an agent's ability to:
 4. Produce code that passes deterministic cargo tests
 """
 
+from __future__ import annotations
+
 import asyncio
 import difflib
 import json
@@ -27,6 +29,8 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from fastapi import Request
+
+logger = logging.getLogger(__name__)
 from synth_ai.data.artifacts import Artifact
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
@@ -39,14 +43,20 @@ from synth_ai.sdk.task.contracts import (
 from synth_ai.sdk.task.rubrics.models import Criterion, Rubric
 from synth_ai.sdk.task.server import RubricBundle
 
-logger = logging.getLogger(__name__)
-
 # =============================================================================
 # APP CONFIGURATION
 # =============================================================================
 
 APP_ID = "engine_bench"
 APP_NAME = "EngineBench - Pokemon TCG Card Implementation"
+
+# Daytona sandbox mode: when True, each rollout gets its own Daytona sandbox
+# This enables true parallelism for concurrent rollouts
+USE_DAYTONA_SANDBOXES = os.environ.get("USE_DAYTONA_SANDBOXES", "").lower() in ("1", "true", "yes")
+DAYTONA_SNAPSHOT_NAME = os.environ.get("DAYTONA_SNAPSHOT_NAME", "synth-engine-bench-codex-v1")
+
+if USE_DAYTONA_SANDBOXES:
+    print(f"[engine_bench] Daytona sandbox mode ENABLED (snapshot: {DAYTONA_SNAPSHOT_NAME})")
 
 # GitHub repo URL for engine-bench
 ENGINE_BENCH_REPO_URL = "https://github.com/JoshuaPurtell/engine-bench.git"
@@ -654,14 +664,14 @@ async def run_opencode_agent(
     if inference_url:
         base_url, correlation_id = normalize_interceptor_base(inference_url)
         original_base = base_url
-        # NOTE: Don't append correlation_id to path - OpenAI SDK will add /chat/completions
-        # and the interceptor expects cid as query param, not path segment.
-        # The interceptor should work without cid for basic routing.
+        if correlation_id:
+            base_url = f"{base_url}/{correlation_id}"
         logger.info(
-            "[OpenCode] URL construction: inference_url=%s base_url=%s correlation_id=%s (not appended)",
+            "[OpenCode] URL construction: inference_url=%s base_url=%s correlation_id=%s final_base=%s",
             inference_url,
             original_base,
             correlation_id,
+            base_url,
         )
     else:
         logger.info("[OpenCode] No inference_url provided, using direct provider")
@@ -823,7 +833,7 @@ async def run_opencode_agent(
 async def run_codex_agent(
     prompt: str,
     sandbox_dir: Path,
-    model: str = "gpt-4.1-mini",
+    model: str = "gpt-4o-mini",
     timeout: int = 300,
     inference_url: str | None = None,
     api_key: str | None = None,
@@ -833,46 +843,29 @@ async def run_codex_agent(
     Args:
         prompt: The task prompt for the agent
         sandbox_dir: Directory to run the agent in
-        model: Model to use (e.g. "gpt-4.1-mini")
+        model: Model to use (e.g. "gpt-4o-mini")
         timeout: Timeout in seconds
         inference_url: Synth interceptor URL to route LLM calls through
         api_key: API key for the interceptor
     """
-    # Setup codex config for pure API mode
+    if not shutil.which("codex"):
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": "codex binary not found in PATH",
+        }
+
     config_dir = Path.home() / ".codex"
-    config_dir.mkdir(exist_ok=True)
+    config_dir.mkdir(parents=True, exist_ok=True)
     config_file = config_dir / "config.toml"
-    auth_file = config_dir / "auth.json"
-
-    # CRITICAL: Remove auth.json to prevent ChatGPT account from overriding API config
-    if auth_file.exists():
-        backup_file = config_dir / "auth.json.bak"
-        if not backup_file.exists():
-            auth_file.rename(backup_file)
-        else:
-            auth_file.unlink()
-
-    # Determine wire_api based on model
-    # Responses API models: gpt-5*, o3*, o1*, codex-*
-    # Chat completions: everything else
-    if any(model.startswith(prefix) for prefix in ["gpt-5", "o3", "o1", "codex-"]):
-        wire_api = "responses"
-    else:
-        wire_api = "chat"
 
     base_url = "https://api.openai.com/v1"
     if inference_url:
-        # Extract base URL from inference_url (remove /openai/v1 or /v1/chat/completions)
-        base_url = inference_url
-        if base_url.endswith("/openai/v1"):
-            base_url = base_url[:-10]
-        elif "/v1/chat/completions" in base_url:
-            base_url = base_url.split("/v1/chat/completions")[0]
-        elif "/chat/completions" in base_url:
-            base_url = base_url.split("/chat/completions")[0]
+        base_url, correlation_id = normalize_interceptor_base(inference_url)
+        if correlation_id:
+            base_url = f"{base_url}/{correlation_id}"
 
-    config_content = f'''# Auto-generated config for engine_bench
-# Pure API mode (no Codex Cloud login required)
+    config_content = f"""# Auto-generated for EngineBench local runs
 
 model = "{model}"
 model_provider = "openai"
@@ -880,7 +873,7 @@ model_provider = "openai"
 [model_providers.openai]
 name = "OpenAI"
 base_url = "{base_url}"
-wire_api = "{wire_api}"
+wire_api = "responses"
 env_key = "OPENAI_API_KEY"
 requires_openai_auth = false
 request_max_retries = 4
@@ -889,27 +882,24 @@ stream_idle_timeout_ms = 300000
 
 [mcp]
 enabled = false
-'''
+"""
     config_file.write_text(config_content)
 
-    # Build command
     cmd = [
         "codex",
         "exec",
-        "--yolo",  # Zero prompts, fully autonomous
+        "--yolo",
         "--skip-git-repo-check",
         "-m",
         model,
         prompt,
     ]
 
-    # Build environment for subprocess
     env = os.environ.copy()
     env["OPENAI_API_KEY"] = api_key or os.environ.get("OPENAI_API_KEY", "")
     env["OPENAI_MODEL"] = model
     if inference_url:
-        # Route codex's LLM calls through the Synth interceptor
-        env["OPENAI_BASE_URL"] = inference_url
+        env["OPENAI_BASE_URL"] = base_url
 
     try:
         proc = await asyncio.create_subprocess_exec(
@@ -1099,6 +1089,32 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     model = policy_config.get("model", "gpt-4o-mini")
     timeout = int(policy_config.get("timeout", 300))
     inference_url = policy_config.get("inference_url")
+
+    # Allow overriding the interceptor base URL for tunneled access (e.g., from Daytona sandboxes)
+    interceptor_tunnel_url = os.environ.get("INTERCEPTOR_TUNNEL_URL")
+    if interceptor_tunnel_url and inference_url:
+        # Replace localhost:8000 (or similar) with tunnel URL
+        # Example: http://localhost:8000/api/interceptor/... -> https://xxx.trycloudflare.com/api/interceptor/...
+        from urllib.parse import urlparse, urlunparse
+
+        parsed = urlparse(inference_url)
+        tunnel_parsed = urlparse(interceptor_tunnel_url)
+        # Replace scheme and netloc with tunnel's
+        new_url = urlunparse(
+            (
+                tunnel_parsed.scheme,
+                tunnel_parsed.netloc,
+                parsed.path,
+                parsed.params,
+                parsed.query,
+                parsed.fragment,
+            )
+        )
+        print(
+            f"[engine_bench] Rewriting inference_url for tunnel: {inference_url[:50]}... -> {new_url[:50]}..."
+        )
+        inference_url = new_url
+
     # Use Synth API key for interceptor auth
     api_key = os.environ.get("SYNTH_API_KEY")
     agent_type = policy_config.get("agent", "opencode")
@@ -1134,6 +1150,89 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     )
     print(f"{'=' * 60}\n", flush=True)
 
+    # =========================================================================
+    # DAYTONA SANDBOX MODE: Each rollout gets its own isolated sandbox
+    # =========================================================================
+    if USE_DAYTONA_SANDBOXES:
+        print(f"[engine_bench] Using DAYTONA sandbox mode for {instance_id}", flush=True)
+        from daytona_helper import run_rollout_in_daytona
+
+        # Build prompt with context artifacts
+        prompt = build_prompt_with_context(
+            instance,
+            system_prompt=system_prompt,
+            architecture_guide=architecture_guide,
+            reference_snippets=reference_snippets,
+            hooks_documentation=hooks_documentation,
+        )
+
+        # Get OpenAI API key (could be from env or interceptor setup)
+        openai_api_key = os.environ.get("OPENAI_API_KEY", api_key or "")
+
+        # Get trace correlation ID from request
+        trace_correlation_id = (
+            getattr(request, "trace_correlation_id", "")
+            or f"daytona-{instance_id}-{int(time.time())}"
+        )
+
+        try:
+            daytona_result = await run_rollout_in_daytona(
+                instance_id=instance_id,
+                instance_data=instance,
+                prompt=prompt,
+                model=model,
+                timeout=timeout,
+                openai_api_key=openai_api_key,
+                inference_url=inference_url,
+                snapshot_name=DAYTONA_SNAPSHOT_NAME,
+                agent_type=agent_type,  # "codex" or "opencode"
+            )
+
+            passed = daytona_result.get("passed", 0)
+            total = daytona_result.get("total", 1)
+            outcome_reward = passed / total if total > 0 else 0.0
+
+            elapsed = time.perf_counter() - start
+
+            return RolloutResponse(
+                trace_correlation_id=trace_correlation_id,
+                reward_info=RolloutMetrics(
+                    outcome_reward=outcome_reward,
+                    details={
+                        "instance_id": instance_id,
+                        "passed": passed,
+                        "total": total,
+                        "latency_ms": int(elapsed * 1000),
+                        "daytona_mode": True,
+                    },
+                ),
+                success_status=SuccessStatus.SUCCESS
+                if daytona_result.get("success")
+                else SuccessStatus.FAILURE,
+                status_detail=f"Tests: {passed}/{total}",
+                artifact=[
+                    Artifact(
+                        content=daytona_result.get("output", "")[:5000],
+                        content_type="cargo_test_output",
+                        metadata={"instance_id": instance_id},
+                    ),
+                ],
+            )
+        except Exception as e:
+            elapsed = time.perf_counter() - start
+            return RolloutResponse(
+                trace_correlation_id=trace_correlation_id,
+                reward_info=RolloutMetrics(
+                    outcome_reward=0.0,
+                    details={"error": str(e), "latency_ms": int(elapsed * 1000)},
+                ),
+                success_status=SuccessStatus.FAILURE,
+                status_detail=f"Daytona error: {str(e)[:200]}",
+            )
+
+    # =========================================================================
+    # LOCAL MODE: Run agent in local temp directory
+    # =========================================================================
     # Create temp directory for sandbox
     agent_result: dict[str, Any] = {}
     with tempfile.TemporaryDirectory() as work_dir:

@@ -42,7 +42,7 @@ pareto_set_size = 10  # Minimum required for reliable optimization
 
 [prompt_learning.gepa.rollout]
 budget = 100  # Maximum number of rollouts per generation
-max_concurrent = 4  # Run up to 4 rollouts concurrently
+max_concurrent = 10  # Run up to 10 rollouts concurrently
 minibatch_size = 4  # Process rollouts in batches of 4
 
 [prompt_learning.gepa.token]
