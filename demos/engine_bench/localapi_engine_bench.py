@@ -1392,7 +1392,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     # so traces should be captured in Redis for validation
     return RolloutResponse(
         trace_correlation_id=trace_correlation_id,
-        metrics=RolloutMetrics(
+        reward_info=RolloutMetrics(
             outcome_reward=outcome_reward_value,
             details={
                 "instance_id": instance_id,
