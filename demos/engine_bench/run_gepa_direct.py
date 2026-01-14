@@ -1,254 +1,142 @@
 #!/usr/bin/env python3
 """
-Direct GEPA run using backend modules.
-Now that Redis and all infrastructure is properly running, this should work!
+Run a GEPA job for EngineBench using the public synth_ai SDK.
+
+This script:
+- starts the EngineBench task app locally
+- submits a GEPA prompt-learning job to the backend
+- polls until completion
 """
 
+import argparse
 import asyncio
-import logging
 import os
-import sys
+import time
 from pathlib import Path
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-logger = logging.getLogger(__name__)
+import httpx
 
-# Add backend to path
-backend_path = Path(__file__).parent.parent.parent.parent / "monorepo-context-eng-unified" / "backend"
-sys.path.insert(0, str(backend_path))
+try:
+    import tomllib
+except ImportError:  # pragma: no cover
+    import tomli as tomllib  # type: ignore
 
-# Load environment from backend .env.dev file
-env_file = Path(__file__).parent.parent.parent.parent / "monorepo-context-eng-unified" / "backend" / ".env.dev"
-if env_file.exists():
-    print(f"Loading environment from: {env_file}")
-    with open(env_file) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                # Don't override already-set variables
-                if key not in os.environ:
-                    os.environ[key] = value
+from localapi_engine_bench import INSTANCE_IDS, app
+from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
-# Setup environment variables BEFORE any backend imports
-os.environ["REDIS_URL"] = "redis://localhost:6379/0"
-os.environ["DEV_SESSION_SUPABASE_DB_URL"] = "postgresql://postgres.mivawyjmuwggrynczaef:coXzyf-kotcuz-jowxa2@aws-0-us-east-2.pooler.supabase.com:5432/postgres"
-# Will be set by setup_auth(), just declaring intent
-os.environ.setdefault("ENVIRONMENT_API_KEY", "")
-
-# Check for OPENAI_API_KEY (required for GEPA proposer)
-if not os.environ.get("OPENAI_API_KEY"):
-    print("=" * 80)
-    print("ERROR: OPENAI_API_KEY environment variable not set")
-    print("=" * 80)
-    print()
-    print("GEPA needs an OpenAI API key to:")
-    print("  1. Generate new prompt candidates (proposer)")
-    print("  2. Run the interceptor for trace capture")
-    print()
-    print("The .env.dev file should contain OPENAI_API_KEY")
-    print(f"Checked: {env_file}")
-    print()
-    print("=" * 80)
-    sys.exit(1)
-else:
-    print(f"✓ OPENAI_API_KEY loaded: {os.environ['OPENAI_API_KEY'][:20]}...")
+try:
+    from synth_ai.sdk.task.server import run_server_background
+except ImportError:  # pragma: no cover
+    from synth_ai.sdk.task import run_server_background
 
 
-def setup_auth():
-    """Set up authentication before running GEPA."""
-    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+def _wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
+    url = f"http://{host}:{port}/health"
+    headers = {"X-API-Key": api_key} if api_key else {}
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            r = httpx.get(url, headers=headers, timeout=5.0)
+            if r.status_code in (200, 400):
+                return
+        except (httpx.RequestError, httpx.TimeoutException):
+            pass
+        time.sleep(0.5)
+    raise RuntimeError(f"Health check failed: {url}")
 
-    # Get or create SYNTH_API_KEY
-    API_KEY = os.environ.get("SYNTH_API_KEY", "")
-    if not API_KEY:
-        from synth_ai.core.env import mint_demo_api_key
-        print("No SYNTH_API_KEY found, minting demo key...")
-        API_KEY = mint_demo_api_key(backend_url="http://localhost:8000")
-        print(f"Demo API Key: {API_KEY[:25]}...")
-        os.environ["SYNTH_API_KEY"] = API_KEY
 
-    # Ensure ENVIRONMENT_API_KEY is registered in backend
-    ENVIRONMENT_API_KEY = ensure_localapi_auth(
-        backend_base="http://localhost:8000",
-        synth_api_key=API_KEY,
+def _load_config(config_path: Path) -> dict[str, object]:
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    with config_path.open("rb") as f:
+        return tomllib.load(f)
+
+
+async def main() -> int:
+    parser = argparse.ArgumentParser(description="Run EngineBench GEPA job (SDK)")
+    parser.add_argument("--local", action="store_true", help="Use localhost backend")
+    parser.add_argument("--local-host", type=str, default="localhost")
+    parser.add_argument("--port", type=int, default=8020, help="Task app port")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="enginebench_gepa_quick.toml",
+        help="Path to GEPA config file",
     )
-    print(f"Environment key ready: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
-    os.environ["ENVIRONMENT_API_KEY"] = ENVIRONMENT_API_KEY
+    parser.add_argument("--budget", type=int, help="Override rollout budget")
+    parser.add_argument("--generations", type=int, help="Override number of generations")
+    args = parser.parse_args()
 
-    return API_KEY, ENVIRONMENT_API_KEY
+    backend_url = f"http://{args.local_host}:8000" if args.local else BACKEND_URL_BASE
+    print(f"Backend: {backend_url}")
+    print(f"Instances available: {len(INSTANCE_IDS)}")
 
+    # Check backend
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{backend_url}/health", timeout=10)
+        if r.status_code != 200:
+            raise RuntimeError(f"Backend not healthy: {r.status_code}")
 
-async def main(api_key: str, env_key: str):
-    """Run GEPA unified optimization."""
+    api_key = os.environ.get("SYNTH_API_KEY", "")
+    if not api_key:
+        print("No SYNTH_API_KEY, minting demo key...")
+        api_key = mint_demo_api_key(backend_url=backend_url)
+        os.environ["SYNTH_API_KEY"] = api_key
+    print(f"API Key: {api_key[:20]}...")
 
-    # Import after path setup
-    from app.routes.prompt_learning.core.config import (
-        load_toml,
-        parse_prompt_learning_config,
+    env_key = ensure_localapi_auth(
+        backend_base=backend_url,
+        synth_api_key=api_key,
     )
-    from app.routes.prompt_learning.core.optimizer_factory import get_optimizer_factory
+    print(f"Environment key: {env_key[:12]}...")
 
-    config_path = Path(__file__).parent / "enginebench_gepa_quick.toml"
+    port = acquire_port(args.port, on_conflict=PortConflictBehavior.FIND_NEW)
+    run_server_background(app, port)
+    _wait_for_health(args.local_host, port, env_key)
+    task_url = f"http://{args.local_host}:{port}"
+    print(f"Task app ready: {task_url}")
 
-    logger.info("=" * 80)
-    logger.info("GEPA UNIFIED OPTIMIZATION - LIVE RUN")
-    logger.info("=" * 80)
-    logger.info(f"Config: {config_path}")
-    logger.info("Backend: http://localhost:8000 (HEALTHY ✓)")
-    logger.info("Redis: redis://localhost:6379/0 (RUNNING ✓)")
-    logger.info("Task app: http://localhost:8020 (RUNNING ✓)")
-    logger.info(f"Auth: API key = {api_key[:20]}...")
-    logger.info(f"Auth: ENV key = {env_key[:12]}...{env_key[-4:]}")
-    logger.info("=" * 80)
+    config_path = Path(__file__).parent / args.config
+    config_dict = _load_config(config_path)
+    prompt_cfg = config_dict.get("prompt_learning")
+    if not isinstance(prompt_cfg, dict):
+        raise RuntimeError(f"Config {config_path} must contain a [prompt_learning] section")
+    prompt_cfg["task_app_url"] = task_url
 
-    # Load config
-    logger.info("Loading configuration...")
-    raw_config = load_toml(config_path)
-
-    # Parse configuration - will fail on missing credentials, but we'll catch it
-    logger.info("Parsing configuration...")
-    try:
-        parsed_config, initial_prompt, optimizer_config = await parse_prompt_learning_config(raw_config)
-    except Exception as e:
-        if "ENVIRONMENT_API_KEY" in str(e):
-            # Expected for local dev without DB - create config manually
-            logger.info("DB credentials not available, creating config manually for local dev...")
-            from app.routes.prompt_learning.algorithm.gepa import GEPAConfig
-
-            # Extract seeds from config
-            eval_seeds = raw_config.get("prompt_learning", {}).get("evaluation_seeds", {})
-            pareto_seeds = eval_seeds.get("pareto", [0, 2, 7])
-
-            # Extract GEPA params
-            gepa_config = raw_config.get("prompt_learning", {}).get("gepa", {})
-
-            # Use pareto seeds as train seeds if train not specified
-            train_seeds = eval_seeds.get("train", pareto_seeds)
-
-            # Create env_config with seeds
-            env_config = {
-                "seeds": {
-                    "train": train_seeds,
-                    "test": eval_seeds.get("test", []),
-                    "pareto": pareto_seeds,
-                },
-            }
-
-            # Extract policy config from raw config
-            policy_dict = raw_config.get("prompt_learning", {}).get("policy", {})
-
-            # Task app uses a specific hardcoded key
-            task_app_key = "sk_env_30c78a787bac223c716918181209f263"
-
-            # Create optimizer config manually
-            # With 6 train seeds and pareto_set_size=3, we have 3 feedback seeds (meets minimum)
-            optimizer_config = GEPAConfig(
-                task_app_url="http://localhost:8020",  # No /rollout suffix - validation code adds it
-                task_app_api_key=task_app_key,
-                task_app_api_keys=[task_app_key],
-                env_name="engine_bench",
-                env_config=env_config,
-                policy_config=policy_dict,  # Include policy config with model/provider
-                pareto_set_size=len(pareto_seeds),  # 3 pareto seeds
-                num_generations=gepa_config.get("num_generations", 2),
-                initial_population_size=gepa_config.get("initial_population_size", 4),
-                mutation_rate=gepa_config.get("mutation_rate", 0.5),
-                crossover_rate=gepa_config.get("crossover_rate", 0.5),
-                minibatch_size=3,  # Use 3 seeds per minibatch
-            )
-
-            # Extract initial prompt from config
-            from app.routes.prompt_learning.core.patterns import MessagePattern, PromptPattern
-            policy_config = raw_config.get("prompt_learning", {}).get("policy", {})
-            context_override = policy_config.get("context_override", {})
-            system_prompt = context_override.get("system_prompt", "You are a helpful assistant")
-
-            initial_prompt = PromptPattern(
-                messages=[MessagePattern(role="system", pattern=system_prompt)]
-            )
-            parsed_config = raw_config
-        else:
-            raise
-
-    logger.info(f"Task app URL: {optimizer_config.task_app_url}")
-    logger.info(f"Task app API key set: {optimizer_config.task_app_api_key[:12]}...")
-
-    # Create optimizer
-    logger.info("Creating GEPA optimizer...")
-    factory = get_optimizer_factory()
-
-    optimizer = factory.create_optimizer(
-        algorithm="gepa",
-        config=optimizer_config,
-    )
-
-    logger.info("=" * 80)
-    logger.info("Starting optimization...")
-    logger.info("Generations: 2")
-    logger.info("Children per gen: 4")
-    logger.info("Evaluation seeds: [0, 2, 7] (3 cards)")
-    logger.info("=" * 80)
-
-    # Run!
-    try:
-        # Extract seeds from env_config
-        env_cfg = optimizer_config.env_config or {}
-        seeds_cfg = env_cfg.get("seeds", {})
-        train_seeds = seeds_cfg.get("train", [0, 2, 7])
-        test_seeds = seeds_cfg.get("test", [])
-
-        logger.info(f"Train seeds: {train_seeds}")
-        logger.info(f"Test seeds: {test_seeds}")
-
-        result = await optimizer.optimize(
-            initial_pattern=initial_prompt,
-            train_seeds=train_seeds,
-            test_pool=test_seeds if test_seeds else None,
+    if args.budget is not None:
+        prompt_cfg.setdefault("gepa", {}).setdefault("rollout", {})["budget"] = args.budget
+    if args.generations is not None:
+        prompt_cfg.setdefault("gepa", {}).setdefault("population", {})["num_generations"] = (
+            args.generations
         )
 
-        logger.info("=" * 80)
-        logger.info("✓ OPTIMIZATION COMPLETE!")
-        logger.info("=" * 80)
+    print("\nSubmitting GEPA job...")
+    job = PromptLearningJob.from_dict(
+        config_dict=config_dict,
+        backend_url=backend_url,
+        api_key=api_key,
+        task_app_api_key=env_key,
+        skip_health_check=True,
+    )
+    job_id = job.submit()
+    print(f"Job ID: {job_id}")
 
-        if hasattr(result, "best_candidate"):
-            best = result.best_candidate
-            logger.info(f"Best accuracy: {best.accuracy:.3f}")
+    print("Polling for results...")
+    result = job.poll_until_complete(timeout=7200.0, interval=15.0, progress=True)
+    print(f"Status: {result.status}")
+    if result.failed:
+        print(f"Job failed: {result.error}")
+        return 1
 
-            if hasattr(best, "context_override") and best.context_override:
-                logger.info("Context override applied:")
-                logger.info(f"  - Artifacts: {best.context_override.artifact_count()}")
-                logger.info(f"  - Size: {best.context_override.size_bytes()} bytes")
+    if result.best_score is not None:
+        print(f"Best score: {result.best_score:.4f}")
+    print("Done!")
+    return 0
 
-        logger.info("=" * 80)
-        return result
-
-    except Exception as e:
-        logger.error(f"✗ Optimization failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
 
 if __name__ == "__main__":
-    # Setup authentication FIRST
-    api_key, env_key = setup_auth()
-
-    try:
-        result = asyncio.run(main(api_key, env_key))
-        if result:
-            print("\n" + "=" * 80)
-            print("✓ SUCCESS: Unified optimization completed!")
-            print("=" * 80)
-            sys.exit(0)
-        else:
-            print("\n" + "=" * 80)
-            print("✗ FAILED: See logs above")
-            print("=" * 80)
-            sys.exit(1)
-    except KeyboardInterrupt:
-        print("\nInterrupted by user")
-        sys.exit(130)
+    raise SystemExit(asyncio.run(main()))

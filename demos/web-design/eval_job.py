@@ -7,8 +7,6 @@ This:
 - prints wall time, mean_score (reward), total_cost_usd, and per-seed breakdown
 """
 
-from __future__ import annotations
-
 import argparse
 import os
 import socket
@@ -16,7 +14,9 @@ import time
 from pathlib import Path
 
 import httpx
+from synth_ai.core.env import mint_demo_api_key
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task.server import run_server_background
 
 
@@ -43,17 +43,6 @@ VISUAL STYLE GUIDELINES:
 - Branding: Professional, tech-forward visual identity
 
 Create a webpage that feels polished, modern, and trustworthy."""
-
-
-def _load_dotenv() -> None:
-    try:
-        from dotenv import load_dotenv
-
-        env_file = Path(__file__).resolve().parents[2] / ".env"
-        if env_file.exists():
-            load_dotenv(env_file)
-    except Exception:
-        return
 
 
 def _parse_seeds(arg: str) -> list[int]:
@@ -95,8 +84,6 @@ def _task_app_healthy(url: str, env_api_key: str) -> bool:
 
 
 def main() -> int:
-    _load_dotenv()
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--backend",
@@ -125,14 +112,21 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    synth_api_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
-    env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
-    if not synth_api_key:
-        raise RuntimeError("SYNTH_API_KEY is required (set in environment or .env)")
-    if not env_api_key:
-        raise RuntimeError("ENVIRONMENT_API_KEY is required (set in environment or .env)")
-
     backend = str(args.backend).rstrip("/")
+
+    synth_api_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
+    if not synth_api_key:
+        print("No SYNTH_API_KEY, minting demo key...")
+        synth_api_key = mint_demo_api_key(backend_url=backend)
+        os.environ["SYNTH_API_KEY"] = synth_api_key
+
+    env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+    if not env_api_key:
+        env_api_key = ensure_localapi_auth(
+            backend_base=backend,
+            synth_api_key=synth_api_key,
+        )
+        os.environ["ENVIRONMENT_API_KEY"] = env_api_key
 
     requested_port = int(args.task_port)
     requested_port = 8103 if requested_port == 0 else requested_port

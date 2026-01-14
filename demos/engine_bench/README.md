@@ -251,6 +251,5 @@ After optimization completes:
 
 ## Related Documentation
 
-- [Unified Prompt + Context Engineering Plan](/Users/joshpurtell/Documents/GitHub/monorepo/unified_prompt_opt_context_engineering.txt)
 - [EngineBench Repository](https://github.com/JoshuaPurtell/engine-bench)
 - [GEPA Algorithm Documentation](https://docs.usesynth.ai/algorithms/gepa)

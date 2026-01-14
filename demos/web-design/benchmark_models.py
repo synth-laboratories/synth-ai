@@ -9,24 +9,13 @@ and similar models can generate images.
 import asyncio
 import os
 import time
-from pathlib import Path
 
 from datasets import load_dataset
-
-# Load .env file
-try:
-    from dotenv import load_dotenv
-
-    env_file = Path(__file__).parent.parent.parent / ".env"
-    if env_file.exists():
-        load_dotenv(env_file)
-except ImportError:
-    pass
 
 try:
     import google.generativeai as genai
 
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     if GOOGLE_API_KEY:
         genai.configure(api_key=GOOGLE_API_KEY)
 except ImportError:

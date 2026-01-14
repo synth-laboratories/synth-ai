@@ -6,6 +6,7 @@ This helps isolate if the interceptor is causing issues.
 
 import json
 import os
+
 import httpx
 
 INTERCEPTOR_URL = "http://localhost:8000/api/interceptor/v1/test-trial/chat/completions"
@@ -19,12 +20,10 @@ TOOLS = [
             "description": "Read a file",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "filePath": {"type": "string", "description": "Path to file"}
-                },
-                "required": ["filePath"]
-            }
-        }
+                "properties": {"filePath": {"type": "string", "description": "Path to file"}},
+                "required": ["filePath"],
+            },
+        },
     },
     {
         "type": "function",
@@ -36,12 +35,12 @@ TOOLS = [
                 "properties": {
                     "filePath": {"type": "string", "description": "Path to file"},
                     "old_string": {"type": "string", "description": "Text to replace"},
-                    "new_string": {"type": "string", "description": "Replacement text"}
+                    "new_string": {"type": "string", "description": "Replacement text"},
                 },
-                "required": ["filePath", "old_string", "new_string"]
-            }
-        }
-    }
+                "required": ["filePath", "old_string", "new_string"],
+            },
+        },
+    },
 ]
 
 FILE_CONTENT = """pub fn grind_damage(attached_energy: u32) -> i32 { todo!() }
@@ -71,7 +70,7 @@ def main():
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"Edit this file:\n{FILE_CONTENT}"}
+        {"role": "user", "content": f"Edit this file:\n{FILE_CONTENT}"},
     ]
 
     print("=" * 60)
@@ -88,18 +87,15 @@ def main():
             "messages": messages,
             "tools": TOOLS,
             "tool_choice": "auto",
-            "stream": False
+            "stream": False,
         }
 
         try:
             resp = httpx.post(
                 INTERCEPTOR_URL,
                 json=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                timeout=60
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                timeout=60,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -128,11 +124,13 @@ def main():
 
                 # Add tool result
                 messages.append(message)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.get("id"),
-                    "content": f"File content:\n{FILE_CONTENT}" if name == "read" else "OK"
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.get("id"),
+                        "content": f"File content:\n{FILE_CONTENT}" if name == "read" else "OK",
+                    }
+                )
         else:
             messages.append(message)
 

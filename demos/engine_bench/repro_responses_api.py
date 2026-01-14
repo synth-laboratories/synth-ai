@@ -6,6 +6,7 @@ This is different from Chat Completions API.
 
 import json
 import os
+
 import httpx
 
 # OpenCode uses /responses endpoint
@@ -20,11 +21,9 @@ TOOLS = [
         "description": "Read a file",
         "parameters": {
             "type": "object",
-            "properties": {
-                "filePath": {"type": "string", "description": "Path to file"}
-            },
-            "required": ["filePath"]
-        }
+            "properties": {"filePath": {"type": "string", "description": "Path to file"}},
+            "required": ["filePath"],
+        },
     },
     {
         "type": "function",
@@ -35,11 +34,11 @@ TOOLS = [
             "properties": {
                 "filePath": {"type": "string", "description": "Path to file"},
                 "old_string": {"type": "string", "description": "Text to replace"},
-                "new_string": {"type": "string", "description": "Replacement text"}
+                "new_string": {"type": "string", "description": "Replacement text"},
             },
-            "required": ["filePath", "old_string", "new_string"]
-        }
-    }
+            "required": ["filePath", "old_string", "new_string"],
+        },
+    },
 ]
 
 FILE_CONTENT = """pub fn grind_damage(attached_energy: u32) -> i32 { todo!() }
@@ -72,7 +71,7 @@ def main():
     # Responses API uses "input" array with different role names
     input_messages = [
         {"role": "developer", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"Edit this file to implement grind_damage:\n{FILE_CONTENT}"}
+        {"role": "user", "content": f"Edit this file to implement grind_damage:\n{FILE_CONTENT}"},
     ]
 
     print("=" * 60)
@@ -84,12 +83,7 @@ def main():
     for turn in range(3):
         print(f"\n--- Turn {turn + 1} ---")
 
-        payload = {
-            "model": MODEL,
-            "input": input_messages,
-            "tools": TOOLS,
-            "tool_choice": "auto"
-        }
+        payload = {"model": MODEL, "input": input_messages, "tools": TOOLS, "tool_choice": "auto"}
 
         print(f"Sending {len(input_messages)} messages...")
 
@@ -97,11 +91,8 @@ def main():
             resp = httpx.post(
                 DIRECT_URL,
                 json=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                timeout=60
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                timeout=60,
             )
             if resp.status_code != 200:
                 print(f"Error {resp.status_code}: {resp.text[:500]}")
@@ -144,11 +135,7 @@ def main():
 
                 # Simulate tool result
                 result = FILE_CONTENT if name == "read" else "OK"
-                input_messages.append({
-                    "role": "tool",
-                    "tool_call_id": call_id,
-                    "content": result
-                })
+                input_messages.append({"role": "tool", "tool_call_id": call_id, "content": result})
 
     print("\nFAILURE: No edit call after 3 turns via Responses API")
     return False

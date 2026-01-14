@@ -22,10 +22,10 @@ task_description = "REQUIRED"
 env_name = "engine_bench"
 
 [prompt_learning.gepa.evaluation]
-seeds = [0]  # Train seeds
-validation_seeds = [0]  # Pareto validation seeds
+seeds = [0, 2, 7, 8, 9, 16, 22, 29, 35, 42, 51, 68, 77]  # Train seeds (13 total for pareto + feedback)
+validation_seeds = [0, 9, 22]  # Pareto validation seeds
 validation_pool = "train"
-validation_top_k = 1
+validation_top_k = 3
 
 [prompt_learning.gepa.mutation]
 rate = 0.5
@@ -38,7 +38,7 @@ crossover_rate = 0.5
 selection_pressure = 1.0
 
 [prompt_learning.gepa.archive]
-pareto_set_size = 3  # 3 pareto seeds as defined in evaluation_seeds
+pareto_set_size = 10  # Minimum required for reliable optimization
 
 [prompt_learning.gepa.rollout]
 budget = 100  # Maximum number of rollouts per generation
@@ -55,7 +55,7 @@ model = "claude-sonnet-4"
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
-timeout = 180
+inference_mode = "synth_hosted"
 
 [prompt_learning.policy.context_override]
 system_prompt = """You are an expert Rust developer implementing Pokemon TCG cards.
