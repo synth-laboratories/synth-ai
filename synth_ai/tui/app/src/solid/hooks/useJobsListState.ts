@@ -5,7 +5,7 @@ import type { AppState } from "../../state/app-state"
 import type { ActivePane } from "../../types"
 import type { JobSummary } from "../../tui_data"
 import { ListPane } from "../../types"
-import { buildJobTypeOptions, getFilteredJobsByType, getJobTypeLabel } from "../../selectors/jobs"
+import { getFilteredJobsByType, getJobTypeLabel } from "../../selectors/jobs"
 import { formatTimestamp } from "../formatters/time"
 import { deriveSelectedIndex, moveSelectionById } from "../utils/list"
 import { formatListFilterTitle, getListFilterCount } from "../utils/listFilter"
@@ -90,13 +90,13 @@ export function useJobsListState(options: UseJobsListStateOptions): JobsListStat
   const filteredJobs = createMemo(() => {
     const list = jobs()
     const filters = options.ui.listFilterSelections[ListPane.Jobs]
-    return getFilteredJobsByType(list, filters)
+    const mode = options.ui.listFilterMode[ListPane.Jobs]
+    return getFilteredJobsByType(list, filters, mode)
   })
   const selectedIndex = createMemo(() =>
     deriveSelectedIndex(filteredJobs(), selectedJobId(), (job) => job.job_id),
   )
   const listItems = createMemo(() => filteredJobs().map(formatJobRow))
-  const totalFilterOptions = createMemo(() => buildJobTypeOptions(jobs()).length)
   const listWindow = useListWindow({
     items: listItems,
     selectedIndex,
@@ -129,7 +129,8 @@ export function useJobsListState(options: UseJobsListStateOptions): JobsListStat
   })
   const title = createMemo(() => {
     const count = getListFilterCount(options.ui, ListPane.Jobs)
-    const base = formatListFilterTitle("Jobs", count, totalFilterOptions())
+    const mode = options.ui.listFilterMode[ListPane.Jobs]
+    const base = formatListFilterTitle("Jobs", mode, count)
     const hint = loadMoreHint()
     return hint ? `${base} | ${hint}` : base
   })

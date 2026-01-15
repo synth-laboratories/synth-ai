@@ -2,7 +2,7 @@
  * Global application state.
  */
 
-import type { ActivePane, FocusTarget, LogSource, Mode } from "../types"
+import type { ActivePane, FocusTarget, ListFilterMode, LogSource, Mode } from "../types"
 import { ListPane } from "../types"
 import { config } from "./polling"
 import {
@@ -44,6 +44,7 @@ export type AppState = {
   listFilterWindowStart: number
   listFilterVisibleCount: number
   listFilterSelections: Record<ActivePane, Set<string>>
+  listFilterMode: Record<ActivePane, ListFilterMode>
   jobsListLimit: number
   jobsListLoadingMore: boolean
   jobsListHasMore: boolean
@@ -126,6 +127,10 @@ export function createInitialAppState(): AppState {
       [ListPane.Jobs]: new Set<string>(),
       [ListPane.Logs]: new Set<string>(),
     } as Record<ActivePane, Set<string>>,
+    listFilterMode: {
+      [ListPane.Jobs]: "all",
+      [ListPane.Logs]: "all",
+    } as Record<ActivePane, ListFilterMode>,
     jobsListLimit: config.jobLimit,
     jobsListLoadingMore: false,
     jobsListHasMore: false,

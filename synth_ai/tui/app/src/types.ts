@@ -18,6 +18,9 @@ export enum ListPane {
 
 export type ActivePane = ListPane
 
+/** List filter mode */
+export type ListFilterMode = "all" | "none" | "subset"
+
 /** Focusable target in the main layout */
 export type FocusTarget = "list" | "results" | "metrics" | "events" | "agent" | "logs-detail"
 

@@ -46,7 +46,6 @@ type UseAppKeybindingsOptions = {
   moveListFilter: (delta: number) => void
   toggleListFilterSelection: () => void
   selectAllListFilterSelection: () => void
-  clearListFilterSelection: () => void
   startLoginAuth: () => Promise<void>
   openFilterModal: () => void
   openConfigModal: () => void
@@ -303,9 +302,6 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
                   return
                 case "listFilter.all":
                   options.selectAllListFilterSelection()
-                  return
-                case "listFilter.clear":
-                  options.clearListFilterSelection()
                   return
                 default:
                   return
