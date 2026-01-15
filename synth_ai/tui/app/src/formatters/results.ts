@@ -7,10 +7,10 @@ import { truncate } from "../utils/truncate"
 import { formatTimestamp, formatValue } from "./time"
 import { calculateTotalTokensFromEvents } from "./job-details"
 import {
-  GOLD_TARGET,
   extractGraphEvolveCandidates,
   formatRacePreview,
   groupCandidatesByGeneration,
+  REWARD_MAX,
 } from "./graph-evolve"
 
 function isRecord(value: unknown): value is Record<string, any> {
@@ -44,15 +44,8 @@ function formatGraphEvolveVerifierResults(data: AppData, job: any): string {
     num(job.best_reward ?? job.best_score) ??
     (candidates.length ? Math.max(...candidates.map((candidate) => candidate.reward)) : null)
   const bestReward = bestRewardValue != null ? formatReward(bestRewardValue) : "-"
-  const bestDelta =
-    bestRewardValue != null ? Math.abs(GOLD_TARGET - bestRewardValue) : null
-
   lines.push(`Status: ${job.status}`)
-  lines.push(
-    `Gold: ${GOLD_TARGET.toFixed(2)} | Best: ${bestReward}${
-      bestDelta != null ? ` (d=${bestDelta.toFixed(2)})` : ""
-    }`,
-  )
+  lines.push(`Reward 0.00-${REWARD_MAX.toFixed(2)} | Best: ${bestReward}`)
 
   if (!latest || latest.candidates.length === 0) {
     lines.push("No candidates yet.")
@@ -64,7 +57,7 @@ function formatGraphEvolveVerifierResults(data: AppData, job: any): string {
     candidates: latest.candidates,
     maxCandidates: 3,
     trackWidth: 14,
-    labelWidth: 12,
+    labelWidth: 4,
     scorePrecision: 2,
   })
   lines.push(...preview.lines)

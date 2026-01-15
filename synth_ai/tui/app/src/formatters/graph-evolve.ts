@@ -1,17 +1,13 @@
 import type { AppData } from "../types"
 import { num } from "../tui_data"
 
-export const GOLD_TARGET = 1.0
+export const REWARD_MAX = 1.0
 
 export type GraphEvolveCandidate = {
   id: string
   reward: number
   generation: number
   payload: Record<string, any>
-}
-
-export type CandidateWithDelta = GraphEvolveCandidate & {
-  delta: number
 }
 
 export type GenerationGroup = {
@@ -22,7 +18,6 @@ export type GenerationGroup = {
 export type GenerationSummary = {
   generation: number
   reward: number
-  delta: number
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -62,73 +57,63 @@ export function groupCandidatesByGeneration(
   }))
 }
 
-export function withDistance(
-  candidates: GraphEvolveCandidate[],
-  goldTarget: number = GOLD_TARGET,
-): CandidateWithDelta[] {
-  return candidates
-    .map((candidate) => ({
-      ...candidate,
-      delta: Math.abs(goldTarget - candidate.reward),
-    }))
-    .sort((a, b) => {
-      if (a.delta !== b.delta) return a.delta - b.delta
-      return b.reward - a.reward
-    })
-}
-
 export function summarizeBestCandidatesByGeneration(
   candidates: GraphEvolveCandidate[],
-  goldTarget: number = GOLD_TARGET,
 ): GenerationSummary[] {
   const groups = groupCandidatesByGeneration(candidates)
   const summaries: GenerationSummary[] = []
   for (const group of groups) {
-    const ranked = withDistance(group.candidates, goldTarget)
-    if (!ranked.length) continue
-    const best = ranked[0]
+    if (!group.candidates.length) continue
+    const best = group.candidates.reduce((current, candidate) =>
+      candidate.reward > current.reward ? candidate : current,
+    )
     summaries.push({
       generation: group.generation,
       reward: best.reward,
-      delta: best.delta,
     })
   }
   return summaries
 }
 
-function buildGapFill(gapLen: number, label: string): string {
-  if (gapLen <= 0) return ""
-  if (gapLen <= label.length) return label.slice(0, gapLen)
-  const padding = gapLen - label.length
-  return `${"-".repeat(padding)}${label}`
+function formatRewardTrack(
+  reward: number,
+  trackWidth: number,
+  precision: number,
+  rewardMax: number,
+): string {
+  if (trackWidth <= 0) return ""
+  const maxValue = rewardMax > 0 ? rewardMax : 1
+  const normalized = maxValue > 0 ? reward / maxValue : 0
+  const clamped = clamp(normalized, 0, 1)
+  let label = reward.toFixed(precision)
+  if (trackWidth >= label.length + 2) {
+    label = `[${label}]`
+  }
+  if (trackWidth <= label.length) {
+    return label.slice(0, Math.max(1, trackWidth))
+  }
+  const maxPosition = trackWidth - label.length
+  const position = Math.round(clamped * maxPosition)
+  const left = "-".repeat(position)
+  const right = "-".repeat(trackWidth - label.length - position)
+  return `${left}${label}${right}`
 }
 
 export function formatRaceLine(options: {
   label: string
   reward: number
-  delta: number
-  maxDelta: number
   trackWidth?: number
   labelWidth?: number
   scorePrecision?: number
-  deltaPrecision?: number
+  rewardMax?: number
 }): string {
   const trackWidth = options.trackWidth ?? 18
-  const labelWidth = options.labelWidth ?? 12
+  const labelWidth = options.labelWidth ?? 4
   const scorePrecision = options.scorePrecision ?? 2
-  const deltaPrecision = options.deltaPrecision ?? 2
+  const rewardMax = options.rewardMax ?? REWARD_MAX
   const label = options.label.padEnd(labelWidth)
-  const scoreLabel = options.reward.toFixed(scorePrecision)
-  const box = `[${scoreLabel}]`
-  const deltaLabel = options.delta.toFixed(deltaPrecision)
-  const minGap = clamp(deltaLabel.length + 2, 3, trackWidth)
-  const scaled = options.maxDelta > 0
-    ? Math.round((options.delta / options.maxDelta) * trackWidth)
-    : minGap
-  const gapLen = clamp(scaled, minGap, trackWidth)
-  const gap = `|${buildGapFill(gapLen, deltaLabel)}|`
-  const gapField = gap.padStart(trackWidth + 2, " ")
-  return `${label} ${gapField}${box}`
+  const track = formatRewardTrack(options.reward, trackWidth, scorePrecision, rewardMax)
+  return `${label} ${track}`
 }
 
 export function formatRacePreview(options: {
@@ -137,25 +122,22 @@ export function formatRacePreview(options: {
   trackWidth?: number
   labelWidth?: number
   scorePrecision?: number
-  goldTarget?: number
-}): { lines: string[]; bestDelta: number | null } {
-  const goldTarget = options.goldTarget ?? GOLD_TARGET
-  const ranked = withDistance(options.candidates, goldTarget)
-  if (!ranked.length) {
-    return { lines: ["No candidates yet."], bestDelta: null }
+  rewardMax?: number
+}): { lines: string[]; bestReward: number | null } {
+  const ranked = [...options.candidates].sort((a, b) => b.reward - a.reward)
+  if (ranked.length === 0) {
+    return { lines: ["No candidates yet."], bestReward: null }
   }
-  const maxDelta = Math.max(...ranked.map((candidate) => candidate.delta), 0.0001)
   const top = ranked.slice(0, options.maxCandidates)
   const lines = top.map((candidate, idx) =>
     formatRaceLine({
-      label: `Candidate ${idx + 1}`,
+      label: `#${idx + 1}`,
       reward: candidate.reward,
-      delta: candidate.delta,
-      maxDelta,
       trackWidth: options.trackWidth,
       labelWidth: options.labelWidth,
       scorePrecision: options.scorePrecision,
+      rewardMax: options.rewardMax,
     }),
   )
-  return { lines, bestDelta: ranked[0]?.delta ?? null }
+  return { lines, bestReward: ranked[0]?.reward ?? null }
 }

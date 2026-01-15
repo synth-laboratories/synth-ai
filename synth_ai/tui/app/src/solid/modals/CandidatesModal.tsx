@@ -5,6 +5,7 @@ import { formatActionKeys, matchAction } from "../../input/keymap"
 import type { AppData } from "../../types"
 import { copyToClipboard } from "../../utils/clipboard"
 import { clampIndex, moveSelectionIndex, resolveSelectionWindow } from "../utils/list"
+import { extractGraphEvolveCandidates, groupCandidatesByGeneration } from "../../formatters/graph-evolve"
 
 type CandidateView = {
   id: string
@@ -25,6 +26,7 @@ type CandidatesModalProps = {
   generationFilter?: number | null
   onClose: () => void
   onStatus: (message: string) => void
+  onGenerationChange?: (generation: number) => void
 }
 
 function isRecord(value: unknown): value is Record<string, any> {
@@ -199,9 +201,31 @@ export function CandidatesModal(props: CandidatesModalProps) {
   const modalHeight = createMemo(() => Math.max(18, Math.min(props.height - 2, 34)))
 
   const candidates = createMemo(() => buildCandidateViews(props.data, props.generationFilter))
+  const generationGroups = createMemo(() => {
+    const extracted = extractGraphEvolveCandidates(props.data)
+    return groupCandidatesByGeneration(extracted)
+  })
+  const generationOrder = createMemo(() => generationGroups().map((group) => group.generation))
+  const generationIndex = createMemo(() => {
+    if (props.generationFilter == null) return null
+    const list = generationOrder()
+    if (!list.length) return null
+    const idx = list.indexOf(props.generationFilter)
+    return idx >= 0 ? idx : 0
+  })
+  const canNavigateGenerations = createMemo(
+    () => props.generationFilter != null && generationOrder().length > 0,
+  )
 
   createEffect(() => {
     if (!props.visible) return
+    setSelectedIndex(0)
+    setDetailOffset(0)
+  })
+
+  createEffect(() => {
+    if (!props.visible) return
+    if (props.generationFilter == null) return
     setSelectedIndex(0)
     setDetailOffset(0)
   })
@@ -315,6 +339,17 @@ export function CandidatesModal(props: CandidatesModalProps) {
     }
     const scrollUp = (amount: number) => setDetailOffset((current) => clampOffset(current - amount))
     const scrollDown = (amount: number) => setDetailOffset((current) => clampOffset(current + amount))
+    const changeGeneration = (delta: number) => {
+      if (!canNavigateGenerations()) return
+      const list = generationOrder()
+      const current = generationIndex() ?? 0
+      const nextIndex = moveSelectionIndex(current, delta, list.length)
+      const nextGeneration = list[nextIndex]
+      if (nextGeneration == null || nextGeneration === props.generationFilter) return
+      setSelectedIndex(0)
+      setDetailOffset(0)
+      props.onGenerationChange?.(nextGeneration)
+    }
 
     if (action === "modal.copy") {
       const text = buildCandidateDetail(layout().selected)
@@ -322,19 +357,35 @@ export function CandidatesModal(props: CandidatesModalProps) {
       return
     }
     if (action === "candidates.prev") {
-      if (total > 0) prev()
+      if (canNavigateGenerations()) {
+        changeGeneration(-1)
+      } else if (total > 0) {
+        prev()
+      }
       return
     }
     if (action === "candidates.next") {
-      if (total > 0) next()
+      if (canNavigateGenerations()) {
+        changeGeneration(1)
+      } else if (total > 0) {
+        next()
+      }
       return
     }
     if (action === "candidates.scrollUp") {
-      scrollUp(1)
+      if (canNavigateGenerations()) {
+        if (total > 0) prev()
+      } else {
+        scrollUp(1)
+      }
       return
     }
     if (action === "candidates.scrollDown") {
-      scrollDown(1)
+      if (canNavigateGenerations()) {
+        if (total > 0) next()
+      } else {
+        scrollDown(1)
+      }
       return
     }
     if (action === "nav.pageUp") {
@@ -364,11 +415,19 @@ export function CandidatesModal(props: CandidatesModalProps) {
     const range = total > detailHeight
       ? `[${offset + 1}-${Math.min(offset + detailHeight, total)}/${total}] `
       : ""
-    const navHint = `${formatActionKeys("candidates.prev", { primaryOnly: true })}/${formatActionKeys("candidates.next", { primaryOnly: true })} candidate`
-    const scrollHint = `${formatActionKeys("candidates.scrollUp", { primaryOnly: true })}/${formatActionKeys("candidates.scrollDown", { primaryOnly: true })} scroll`
+    const navHint = canNavigateGenerations()
+      ? `${formatActionKeys("candidates.scrollUp", { primaryOnly: true })}/${formatActionKeys("candidates.scrollDown", { primaryOnly: true })} candidate`
+      : `${formatActionKeys("candidates.prev", { primaryOnly: true })}/${formatActionKeys("candidates.next", { primaryOnly: true })} candidate`
+    const generationHint = canNavigateGenerations()
+      ? `${formatActionKeys("candidates.prev", { primaryOnly: true })}/${formatActionKeys("candidates.next", { primaryOnly: true })} gen`
+      : null
+    const scrollHint = canNavigateGenerations()
+      ? `${formatActionKeys("nav.pageUp", { primaryOnly: true })}/${formatActionKeys("nav.pageDown", { primaryOnly: true })} scroll`
+      : `${formatActionKeys("candidates.scrollUp", { primaryOnly: true })}/${formatActionKeys("candidates.scrollDown", { primaryOnly: true })} scroll`
     const copyHint = `${formatActionKeys("modal.copy", { primaryOnly: true })} copy`
     const closeHint = `${formatActionKeys("app.back")} close`
-    return `${range}${navHint} | ${scrollHint} | ${copyHint} | ${closeHint}`
+    const parts = [navHint, generationHint, scrollHint, copyHint, closeHint].filter(Boolean)
+    return `${range}${parts.join(" | ")}`
   })
 
   return (
