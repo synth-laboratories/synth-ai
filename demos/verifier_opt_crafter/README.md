@@ -27,7 +27,7 @@ The demo expects a Crafter trace dataset in one of these formats:
 2. **JSONL format**: One trace per line with `trace_id`, `trace`, and `gold_score` fields
 
 Each trace should contain:
-- `trace`: V3 trace object with session timesteps, events, rewards
+- `trace`: V3/V4 trace object with event_history or session timesteps, events, rewards
 - `trace_id`: Unique identifier
 - `gold_score`: Float in [0, 1] (achievement-based label)
 
@@ -107,7 +107,6 @@ Duration: 2m 30s
 For more advanced usage (in-process optimization, custom scoring strategies), see:
 - `research/graph_opt_verifiers/crafter/run_graph_gepa_crafter_verifier_benchmark.py`
 - `cookbooks/code/training/graph_learning/crafter_verifier_graphgen/run_crafter_verifier_graphgen.py`
-
 
 
 

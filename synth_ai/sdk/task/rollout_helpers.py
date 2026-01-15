@@ -21,7 +21,7 @@ def build_rollout_response(
     This helper ensures that trace_correlation_id is properly echoed from
     the request, which is required for trace hydration to work.
 
-    Supports flexible evaluation modes for verifiers:
+    Supports flexible evaluation modes for verifiers (v3/v4 traces):
     - trace + artifact: Full evaluation with execution trace AND outputs
     - trace only: Evaluate based on execution trace alone
     - artifact only: Evaluate based on outputs alone
@@ -30,7 +30,7 @@ def build_rollout_response(
         request: The original rollout request (contains trace_correlation_id)
         outcome_reward: The reward for this rollout
         inference_url: The inference URL used (optional, extracted from policy_config if not provided)
-        trace: Optional v3 SessionTrace payload
+        trace: Optional v3/v4 SessionTrace payload
         artifact: Optional list of artifacts (code files, outputs, etc.)
         policy_config: Optional - only needed if inference_url not provided
         **kwargs: Additional reward_info kwargs (event_rewards, etc.)

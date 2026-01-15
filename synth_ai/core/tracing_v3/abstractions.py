@@ -246,6 +246,7 @@ class LMCAISEvent(BaseEvent):
     Attributes:
         model_name: The specific model used (e.g., 'gpt-4', 'claude-3-opus')
         provider: LLM provider (e.g., 'openai', 'anthropic', 'local')
+        api_format: Native API format (e.g., 'responses', 'chat', 'anthropic')
         input_tokens: Number of tokens in the prompt/input
         output_tokens: Number of tokens in the completion/output
         total_tokens: Total tokens used (input + output)
@@ -261,6 +262,7 @@ class LMCAISEvent(BaseEvent):
 
     model_name: str = ""
     provider: str | None = None
+    api_format: str | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
     total_tokens: int | None = None

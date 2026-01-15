@@ -126,6 +126,21 @@ class VerifierTracePayload(BaseModel):
         default_factory=list, description="Optional message history for context"
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Trace metadata")
+    api_format: Optional[str] = Field(
+        default=None, description="Optional API format hint for V4 traces"
+    )
+    raw_request: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional raw request payload (V4 traces)"
+    )
+    raw_response: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional raw response payload (V4 traces)"
+    )
+    canonical_request: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional canonical request payload (V4 traces)"
+    )
+    canonical_response: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional canonical response payload (V4 traces)"
+    )
 
 
 class VerifierScoreRequest(BaseModel):
@@ -134,6 +149,10 @@ class VerifierScoreRequest(BaseModel):
     policy_name: str = Field(..., description="Name of the policy being evaluated")
     task_app: VerifierTaskApp = Field(..., description="Task application metadata")
     trace: VerifierTracePayload = Field(..., description="Trajectory trace to evaluate")
+    artifact: Optional[list[dict[str, Any]]] = Field(
+        default=None,
+        description="Optional list of rollout artifacts for artifact-aware verifiers",
+    )
     options: VerifierOptions = Field(
         default_factory=lambda: VerifierOptions(), description="Verifier options"
     )
@@ -151,7 +170,7 @@ class CalibrationExampleInput(BaseModel):
     """
 
     session_trace: dict[str, Any] = Field(
-        ..., description="V3 SessionTrace format (validated separately)"
+        ..., description="V3/V4 SessionTrace format (validated separately)"
     )
     event_rewards: Optional[list[Annotated[float, Field(ge=0.0, le=1.0)]]] = Field(
         default=None,
@@ -196,7 +215,7 @@ class CalibrationExampleInput(BaseModel):
     def _count_trace_events(self) -> int:
         """Count total events in session_trace."""
         count = 0
-        # Try event_history first (V3 format)
+        # Try event_history first (V3/V4 format)
         if isinstance(self.session_trace, dict):
             event_history = self.session_trace.get("event_history", [])
             if isinstance(event_history, list):

@@ -18,7 +18,7 @@ def validate_rollout_response_for_rl(
     """Validate that a task app rollout response has required fields for RL training.
 
     The backend RL trainer requires:
-    1. A v3 trace with event_history (preferred), OR
+    1. A v3/v4 trace with event_history (preferred), OR
     2. Top-level inference_url with ?cid= for trace hydration fallback
 
     Args:
@@ -57,7 +57,7 @@ def validate_rollout_response_for_rl(
     if not has_event_history:
         issues.append(
             "trace.event_history is missing or empty. "
-            "Return a v3 trace or provide inference_url for hydration."
+            "Return a v3/v4 trace or provide inference_url for hydration."
         )
 
     # Check top-level inference_url only when trace is missing/empty

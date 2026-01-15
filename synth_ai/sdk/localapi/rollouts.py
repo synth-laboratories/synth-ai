@@ -47,7 +47,7 @@ class RolloutResponseBuilder:
         Args:
             trace_correlation_id: REQUIRED - Correlation ID (echo from request)
             reward: Outcome reward for this rollout
-            trace: v3 trace payload
+            trace: v3/v4 trace payload
             event_rewards: Optional per-step rewards for multi-step tasks
             inference_url: Inference URL used for this rollout
             details: Metadata dict (debugging info, not rewards)

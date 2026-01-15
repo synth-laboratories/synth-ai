@@ -416,6 +416,81 @@ async def main():
             except Exception as e:
                 print(f"Failed to fetch results for failed job: {e}")
 
+        # Download traces and artifacts to local data directory
+        print("\n" + "=" * 60)
+        print("DOWNLOADING TRACES AND ARTIFACTS")
+        print("=" * 60)
+        try:
+            # Save to a local data directory for later use
+            # Structure: data/engine_bench/{agent}/{timestamp}_{job_id}/
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Use a data directory at the synth-ai root level
+            synth_ai_root = Path(__file__).parent.parent.parent
+            data_dir = synth_ai_root / "data" / "engine_bench" / AGENT / f"{timestamp}_{job_id}"
+            data_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Download traces
+            traces_dir = job.download_traces(data_dir / "traces")
+            print(f"Traces downloaded to: {traces_dir}")
+            
+            # Save eval results with full details
+            results_file = data_dir / "eval_results.json"
+            with open(results_file, "w") as f:
+                import json
+                json.dump({
+                    "job_id": job_id,
+                    "agent": AGENT,
+                    "model": MODEL,
+                    "split": SPLIT,
+                    "seeds": seeds,
+                    "instance_ids": [INSTANCE_IDS[s % len(INSTANCE_IDS)] for s in seeds],
+                    "timestamp": timestamp,
+                    "status": result.status.value if hasattr(result.status, 'value') else str(result.status),
+                    "mean_reward": result.mean_reward,
+                    "error": result.error,
+                    "seed_results": result.seed_results,
+                    "config": {
+                        "timeout": TIMEOUT,
+                        "verifier": VERIFIER_GRAPH_ID,
+                        "verifier_model": VERIFIER_MODEL if VERIFIER_GRAPH_ID else None,
+                        "weight_env": WEIGHT_ENV if VERIFIER_GRAPH_ID else None,
+                        "weight_outcome": WEIGHT_OUTCOME if VERIFIER_GRAPH_ID else None,
+                    }
+                }, f, indent=2)
+            print(f"Eval results saved to: {results_file}")
+            
+            # Save summary for easy reference
+            summary_file = data_dir / "summary.txt"
+            with open(summary_file, "w") as f:
+                f.write(f"EngineBench Eval Job Summary\n")
+                f.write(f"{'='*60}\n\n")
+                f.write(f"Job ID: {job_id}\n")
+                f.write(f"Agent: {AGENT}\n")
+                f.write(f"Model: {MODEL}\n")
+                f.write(f"Split: {SPLIT}\n")
+                f.write(f"Seeds: {seeds}\n")
+                f.write(f"Status: {result.status}\n")
+                f.write(f"Mean Reward: {result.mean_reward:.4f}\n")
+                f.write(f"\nSeed Results:\n")
+                for sr in result.seed_results:
+                    seed = sr.get("seed", "?")
+                    reward = sr.get("reward") or sr.get("score") or sr.get("local_api_reward") or 0
+                    latency_ms = sr.get("latency_ms")
+                    latency_sec = latency_ms / 1000.0 if latency_ms else None
+                    f.write(f"  Seed {seed}: reward={reward:.4f}, latency={latency_sec:.1f}s\n")
+                f.write(f"\nTraces location: {traces_dir}\n")
+                f.write(f"Results location: {results_file}\n")
+            print(f"Summary saved to: {summary_file}")
+            
+            print(f"\nAll data saved to: {data_dir}")
+            
+        except Exception as e:
+            print(f"Warning: Failed to download traces/artifacts: {e}")
+            import traceback
+            traceback.print_exc()
+
     except Exception as e:
         print(f"\nEval job failed: {e}")
         import traceback

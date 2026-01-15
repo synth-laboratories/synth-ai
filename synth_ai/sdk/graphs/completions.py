@@ -435,7 +435,7 @@ class GraphCompletionsAsyncClient:
         """Verify trace using rubric criteria.
 
         Args:
-            session_trace: V3 trace format
+            session_trace: V3/V4 trace format
             rubric: Rubric with event/outcome criteria
             system_prompt: Optional custom system prompt
             user_prompt: Optional custom user prompt
@@ -486,9 +486,9 @@ class GraphCompletionsAsyncClient:
         """Verify trace using few-shot calibration examples.
 
         Args:
-            session_trace: V3 trace format (validated using SessionTraceInput)
+            session_trace: V3/V4 trace format (validated using SessionTraceInput)
             calibration_examples: List of calibration examples with:
-                - session_trace: V3 trace format
+                - session_trace: V3/V4 trace format
                 - event_rewards: List[float] (0.0-1.0), one per event
                 - outcome_reward: float (0.0-1.0)
             expected_score: Optional expected score for the trace being evaluated
@@ -513,7 +513,7 @@ class GraphCompletionsAsyncClient:
             except Exception as e:
                 raise ValueError(
                     f"Invalid calibration_example at index {idx}: {e}. "
-                    f"Each example must have session_trace (V3 format), event_rewards (list[float] 0.0-1.0), "
+                    f"Each example must have session_trace (V3/V4 format), event_rewards (list[float] 0.0-1.0), "
                     f"and outcome_reward (float 0.0-1.0). event_rewards length must match trace events."
                 ) from e
 
@@ -564,7 +564,7 @@ class GraphCompletionsAsyncClient:
         It asks: "Is this verifier's judgment consistent with how gold examples were scored?"
 
         Args:
-            session_trace: V3 trace format (the trace being evaluated)
+            session_trace: V3/V4 trace format (the trace being evaluated)
             gold_examples: List of gold examples with:
                 - summary: str (required, non-empty)
                 - gold_score: float (0.0-1.0, required)
@@ -652,7 +652,7 @@ class GraphCompletionsAsyncClient:
         """Verify trace using custom prompts (no rubric/examples).
 
         Args:
-            session_trace: V3 trace format
+            session_trace: V3/V4 trace format
             system_prompt: Custom system prompt (required)
             user_prompt: Custom user prompt (required)
             verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
@@ -742,6 +742,7 @@ class VerifierAsyncClient(GraphCompletionsAsyncClient):
         session_trace: Mapping[str, Any],
         rubric: Mapping[str, Any] | None = None,
         options: Mapping[str, Any] | None = None,
+        artifact: list[dict[str, Any]] | None = None,
         policy_name: str = "policy",
         task_app_id: str = "task",
         task_app_base_url: str | None = None,
@@ -761,6 +762,8 @@ class VerifierAsyncClient(GraphCompletionsAsyncClient):
             "trace": trace_payload,
             "options": dict(options or {}),
         }
+        if artifact is not None:
+            input_data["artifact"] = normalize_for_json(artifact)
         if rubric is not None:
             input_data["rubric"] = normalize_for_json(rubric)
 

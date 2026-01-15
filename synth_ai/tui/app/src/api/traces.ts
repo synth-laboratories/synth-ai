@@ -63,12 +63,48 @@ export async function fetchTraceJson(presignedUrl: string): Promise<Record<strin
 }
 
 /**
- * Extract images from a v3 trace.
+ * Fetch trace JSON content from backend API with image URLs resolved.
+ */
+export async function fetchTraceFromApi(
+  jobId: string,
+  seed: number,
+  candidateId?: string | null
+): Promise<Record<string, any> | null> {
+  const params = new URLSearchParams()
+  params.set("format", "json")
+  params.set("mode", "urls")
+  if (candidateId) params.set("candidate_id", candidateId)
+  const path = `/prompt-learning/online/jobs/${jobId}/traces/${seed}?${params.toString()}`
+  try {
+    const response = await apiGet(path)
+    if (response && typeof response === "object" && "trace" in response) {
+      return response.trace as Record<string, any>
+    }
+    return response as Record<string, any>
+  } catch (error) {
+    console.error("Error fetching trace from API:", error)
+    return null
+  }
+}
+
+/**
+ * Extract images from a v3/v4 trace.
  * Images may be in various locations depending on the task type.
  * Returns array of image data URLs (base64) or presigned URLs.
  */
 export function extractImagesFromTrace(trace: Record<string, any>): string[] {
   const images: string[] = []
+  const imageUrls = typeof trace.image_urls === "object" && trace.image_urls ? trace.image_urls : {}
+  const resolveImageRef = (ref: string): string => {
+    const filename = ref.split("/").pop() ?? ref
+    return imageUrls[filename] ?? imageUrls[ref] ?? ref
+  }
+
+  for (const url of Object.values(imageUrls)) {
+    if (typeof url === "string") {
+      images.push(url)
+    }
+  }
 
   // Check artifacts array
   if (Array.isArray(trace.artifacts)) {
@@ -95,10 +131,14 @@ export function extractImagesFromTrace(trace: Record<string, any>): string[] {
                 images.push(part.uri)
               }
               if (part.type === "image_url" && part.image_url?.url) {
-                images.push(part.image_url.url)
+                const url = part.image_url.url
+                images.push(url.startsWith("images/") ? resolveImageRef(url) : url)
               }
               if (part.image) {
                 images.push(part.image)
+              }
+              if (part.image_ref) {
+                images.push(resolveImageRef(part.image_ref))
               }
             }
           }
@@ -122,7 +162,11 @@ export function extractImagesFromTrace(trace: Record<string, any>): string[] {
       if (llmMessage && Array.isArray(llmMessage.content)) {
         for (const part of llmMessage.content) {
           if (part.type === "image_url" && part.image_url?.url) {
-            images.push(part.image_url.url)
+            const url = part.image_url.url
+            images.push(url.startsWith("images/") ? resolveImageRef(url) : url)
+          }
+          if (part.image_ref) {
+            images.push(resolveImageRef(part.image_ref))
           }
         }
       }
@@ -136,6 +180,25 @@ export function extractImagesFromTrace(trace: Record<string, any>): string[] {
   if (trace.output_image) {
     images.push(trace.output_image)
   }
+
+  const collectImageRefs = (obj: any) => {
+    if (obj && typeof obj === "object") {
+      if (Array.isArray(obj)) {
+        for (const item of obj) {
+          collectImageRefs(item)
+        }
+        return
+      }
+      if (typeof obj.image_ref === "string") {
+        images.push(resolveImageRef(obj.image_ref))
+      }
+      for (const value of Object.values(obj)) {
+        collectImageRefs(value)
+      }
+    }
+  }
+
+  collectImageRefs(trace)
 
   return images
 }

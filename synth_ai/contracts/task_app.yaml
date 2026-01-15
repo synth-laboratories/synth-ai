@@ -506,7 +506,7 @@ components:
 
         - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
         - `metrics.outcome_reward`: THE OPTIMIZATION TARGET. Higher = better prompt.
-        - `trace`: v3 trace payload (required for verifier scoring)
+        - `trace`: v3/v4 trace payload (required for verifier scoring)
         - `run_id`: DEPRECATED - Use trace_correlation_id instead
 
         ## Canonical Locations (Top-Level)
@@ -550,7 +550,7 @@ components:
           type: object
           nullable: true
           additionalProperties: true
-          description: v3 trace payload for training and evaluation
+          description: v3/v4 trace payload for training and evaluation
 
         inference_url:
           type: string
@@ -610,7 +610,7 @@ components:
         inference_url: "https://api.usesynth.ai/v1/trial-xyz"
         aborted: false
         trace:
-          schema_version: "3.0"
+          schema_version: "4.0"
           event_history:
             - type: "lm_call"
               event_type: "lm_call"

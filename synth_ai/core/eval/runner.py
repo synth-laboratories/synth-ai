@@ -57,7 +57,7 @@ def _count_tokens_from_trace(trace: dict[str, Any] | None) -> int:
 
     Checks multiple locations:
     1. trace.usage.total_tokens (task app returns usage directly)
-    2. trace.event_history[].usage (v3 trace format)
+    2. trace.event_history[].usage (v3/v4 trace format)
     3. trace.event_history[].response.usage (nested response)
     """
     if not trace:
@@ -77,11 +77,16 @@ def _count_tokens_from_trace(trace: dict[str, Any] | None) -> int:
         evt_usage = event.get("usage") or {}
         if isinstance(evt_usage, dict):
             total += evt_usage.get("total_tokens", 0)
-        response = event.get("response") or {}
+        response = event.get("response") or event.get("llm_response") or {}
         if isinstance(response, dict):
             resp_usage = response.get("usage") or {}
             if isinstance(resp_usage, dict):
                 total += resp_usage.get("total_tokens", 0)
+        raw_response = event.get("raw_response") or {}
+        if isinstance(raw_response, dict):
+            raw_usage = raw_response.get("usage") or {}
+            if isinstance(raw_usage, dict):
+                total += raw_usage.get("total_tokens", 0)
     return total
 
 

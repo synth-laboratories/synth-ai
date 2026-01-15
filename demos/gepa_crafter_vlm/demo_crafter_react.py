@@ -270,7 +270,7 @@ def create_crafter_vlm_local_api(system_prompt: str):
             trace_metadata["correlation_ids"] = {"trace_correlation_id": trace_correlation_id}
 
         trace = {
-            "schema_version": "3.0",
+            "schema_version": "4.0",
             "event_history": trace_events,
             "markov_blanket_message_history": [],
             "metadata": trace_metadata,

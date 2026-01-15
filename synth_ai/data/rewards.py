@@ -157,7 +157,7 @@ class CalibrationExample:
     Used to teach the verifier evaluation patterns through labeled examples.
     """
 
-    session_trace: Dict[str, Any]  # V3 SessionTrace format (validated separately)
+    session_trace: Dict[str, Any]  # V3/V4 SessionTrace format (validated separately)
     event_rewards: list[float]  # List of rewards per event (0.0-1.0), one per event in trace
     outcome_reward: float  # Overall outcome reward (0.0-1.0)
     metadata: Dict[str, Any] = field(default_factory=dict)  # Optional metadata

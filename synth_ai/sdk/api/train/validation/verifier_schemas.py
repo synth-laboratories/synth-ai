@@ -154,7 +154,13 @@ class VerifierRequestPayload(ExtraModel):
 
     policy_name: str = Field(..., description="Name of the policy being evaluated")
     task_app: dict[str, Any] = Field(..., description="Task app metadata (id, base_url)")
-    trace: dict[str, Any] = Field(..., description="Tracing v3 payload (event_history, metadata)")
+    trace: dict[str, Any] = Field(
+        ..., description="Tracing v3/v4 payload (event_history, metadata)"
+    )
+    artifact: Optional[list[dict[str, Any]]] = Field(
+        default=None,
+        description="Optional list of rollout artifacts for artifact-aware verifiers",
+    )
     options: dict[str, Any] = Field(..., description="Verifier options (provider, model, etc.)")
 
     class Config:

@@ -221,7 +221,7 @@ class RolloutResponse(BaseModel):
 
     - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
     - `reward_info`: Rollout metrics with `outcome_reward` (required)
-    - `trace`: v3 SessionTrace payload (optional for artifact-only evaluation)
+    - `trace`: v3/v4 SessionTrace payload (optional for artifact-only evaluation)
     - `inference_url`: Inference URL used for this rollout
     - `artifact`: Optional list of artifacts produced by the rollout
     - `success_status`: Optional infrastructure status (orthogonal to reward)
@@ -263,7 +263,7 @@ class RolloutResponse(BaseModel):
     )
     trace: dict[str, Any] | None = Field(
         default=None,
-        description="V3 SessionTrace payload. Optional for artifact-only evaluation.",
+        description="V3/V4 SessionTrace payload. Optional for artifact-only evaluation.",
     )
     inference_url: str | None = Field(
         default=None,

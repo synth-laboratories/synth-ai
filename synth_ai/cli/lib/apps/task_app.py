@@ -144,7 +144,7 @@ def _validate_rollout_payload(payload: Any) -> None:
     if not isinstance(trajectories, list):
         raise ValueError(
             f"`/rollout` response field 'trajectories' must be a list, got {type(trajectories).__name__}. "
-            f"Make sure your rollout executor returns a proper RolloutResponse with a v3 trace payload."
+            f"Make sure your rollout executor returns a proper RolloutResponse with a v3/v4 trace payload."
         )
 
     # Ensure trajectories list is not empty (training will fail if it's empty)

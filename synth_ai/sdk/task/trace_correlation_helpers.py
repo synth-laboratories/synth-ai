@@ -273,7 +273,7 @@ def build_trace_payload(
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
-    Build a v3 trace payload with event_history for trace-only responses.
+    Build a v4 trace payload with event_history for trace-only responses.
 
     Args:
         messages: The messages sent to the LLM (input)
@@ -318,6 +318,7 @@ def build_trace_payload(
         "timestamp": datetime.now(UTC).isoformat(),
         "llm_request": {"messages": messages},
         "llm_response": llm_response,
+        "api_format": "chat",
     }
 
     # Add correlation ID if provided
@@ -336,7 +337,7 @@ def build_trace_payload(
         trace_metadata["correlation_ids"] = corr_map
 
     trace: dict[str, Any] = {
-        "schema_version": "3.0",
+        "schema_version": "4.0",
         "event_history": event_history,
         "markov_blanket_message_history": [],
         "metadata": trace_metadata,
@@ -380,7 +381,7 @@ def include_event_history_in_response(
     correlation_id: str | None = None,
 ) -> dict[str, Any]:
     """
-    Ensure response.trace includes a v3 event_history payload.
+    Ensure response.trace includes a v4 event_history payload.
 
     Args:
         response_data: RolloutResponse dict (from .model_dump())
