@@ -13,6 +13,7 @@ private_tests/
 dev/
 build/
 dist/
+scripts/
 tauri/
 
 __pycache__
