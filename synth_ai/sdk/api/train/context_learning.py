@@ -15,6 +15,8 @@ SDK usage:
     best = job.download_best_script()
 """
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import os
@@ -96,7 +98,7 @@ class ContextLearningJob:
         api_key: Optional[str] = None,
         task_app_api_key: Optional[str] = None,
         overrides: Optional[Dict[str, Any]] = None,
-    ) -> "ContextLearningJob":
+    ) -> ContextLearningJob:
         config_path_obj = Path(config_path)
 
         if not backend_url:
@@ -125,7 +127,7 @@ class ContextLearningJob:
         *,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> "ContextLearningJob":
+    ) -> ContextLearningJob:
         if not backend_url:
             backend_url = BACKEND_URL_BASE
 

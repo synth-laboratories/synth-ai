@@ -17,6 +17,8 @@ Example SDK usage:
     print(f"Fine-tuned model: {result['fine_tuned_model']}")
 """
 
+from __future__ import annotations
+
 import asyncio
 import os
 from dataclasses import dataclass
@@ -105,7 +107,7 @@ class SFTJob:
         dataset_override: Optional[str | Path] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
-    ) -> "SFTJob":
+    ) -> SFTJob:
         """Create a job from a TOML config file.
 
         Args:
@@ -153,7 +155,7 @@ class SFTJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> "SFTJob":
+    ) -> SFTJob:
         """Resume an existing job by ID.
 
         Args:

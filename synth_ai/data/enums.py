@@ -31,21 +31,6 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class SuccessStatus(str, Enum):
-    """Infrastructure/runtime success status (orthogonal to reward).
-
-    This is never computed from reward. It describes whether the rollout
-    completed without infra/runtime failures.
-    """
-
-    SUCCESS = "success"
-    TIMEOUT = "timeout"
-    NETWORK_ERROR = "network_error"
-    APPLY_FAILED = "apply_failed"
-    RUNTIME_ERROR = "runtime_error"
-    FAILURE = "failure"
-
-
 class PromptLearningMethod(str, Enum):
     """Prompt optimization algorithms."""
 

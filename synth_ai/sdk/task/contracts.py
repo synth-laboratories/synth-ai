@@ -220,12 +220,22 @@ class RolloutResponse(BaseModel):
     ## Key Fields
 
     - `trace_correlation_id`: REQUIRED - Echo from request (single source of truth)
-    - `metrics`: Rollout metrics with `outcome_reward` (required)
-    - `trace`: v3 trace payload (required for verifier evaluation)
+    - `reward_info`: Rollout metrics with `outcome_reward` (required)
+    - `trace`: v3 SessionTrace payload (optional for artifact-only evaluation)
     - `inference_url`: Inference URL used for this rollout
     - `artifact`: Optional list of artifacts produced by the rollout
     - `success_status`: Optional infrastructure status (orthogonal to reward)
     - `status_detail`: Optional freeform detail for status
+
+    ## Flexible Evaluation Modes
+
+    Verifiers support three evaluation modes:
+    - trace + artifact: Full evaluation with execution trace AND outputs
+    - trace only: Evaluate based on execution trace alone
+    - artifact only: Evaluate based on outputs alone
+
+    Both `trace` and `artifact` are optional, but at least one should be provided
+    for verifier evaluation.
 
     ## Context Override Results (Unified Optimization)
 
@@ -236,7 +246,7 @@ class RolloutResponse(BaseModel):
 
         response = RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=1.0),
+            reward_info=RolloutMetrics(outcome_reward=1.0),
             trace=trace_payload,
             inference_url="https://api.usesynth.ai/v1/trial-xyz",
         )
@@ -247,15 +257,21 @@ class RolloutResponse(BaseModel):
         description="REQUIRED - Correlation ID for trace recovery. Single source of truth. "
         "Echo from request.trace_correlation_id.",
     )
-    metrics: RolloutMetrics
-    trace: dict[str, Any] | None = None
+    reward_info: RolloutMetrics = Field(
+        ...,
+        description="Reward and scoring information for this rollout.",
+    )
+    trace: dict[str, Any] | None = Field(
+        default=None,
+        description="V3 SessionTrace payload. Optional for artifact-only evaluation.",
+    )
     inference_url: str | None = Field(
         default=None,
         description="Inference URL used for this rollout.",
     )
     artifact: Optional[List[Artifact]] = Field(
         default=None,
-        description="Optional list of artifacts produced by the rollout.",
+        description="Artifacts produced by the rollout. Primary output field.",
     )
     success_status: Optional[SuccessStatus] = Field(
         default=None,
