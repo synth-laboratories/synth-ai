@@ -138,12 +138,31 @@ function SolidShell(props: { onExit?: () => void }) {
 		setUi,
 		layoutHeight: () => layout().contentHeight,
 	})
+	const activeOpenCodeSession = createMemo(() => {
+		const sessionId = appState.openCodeSessionId
+		if (!sessionId) return null
+		return appData.sessions.find((session) => session.session_id === sessionId) || null
+	})
 	const opencodeUrl = createMemo(() => {
+		const session = activeOpenCodeSession()
 		return (
+			session?.opencode_url ||
+			session?.access_url ||
 			appState.openCodeUrl ||
 			process.env.OPENCODE_URL ||
 			"http://localhost:3000"
 		)
+	})
+	const opencodeWorkingDir = createMemo(() => {
+		const raw = (
+			process.env.SYNTH_TUI_LAUNCH_CWD ||
+			process.env.OPENCODE_WORKING_DIR ||
+			process.env.INIT_CWD ||
+			process.env.PWD ||
+			process.cwd()
+		) as string
+		const trimmed = raw.trim()
+		return trimmed || undefined
 	})
 	const opencodeSessionId = createMemo(() => appState.openCodeSessionId ?? undefined)
 	createEffect(() => {
@@ -348,6 +367,7 @@ function SolidShell(props: { onExit?: () => void }) {
 				opencodeUrl={opencodeUrl}
 				opencodeSessionId={opencodeSessionId}
 				opencodeDimensions={opencodeDimensions}
+				opencodeWorkingDir={opencodeWorkingDir}
 				onExitOpenCode={() => {
 					setUi("principalPane", "jobs")
 				}}

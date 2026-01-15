@@ -58,6 +58,7 @@ const KEY = {
   ctrlO: "ctrl+o",
   ctrlP: "ctrl+p",
   ctrlV: "ctrl+v",
+  ctrlX: "ctrl+x",
   metaV: "meta+v",
 } as const
 
@@ -117,6 +118,7 @@ const ACTION_KEYS = {
   "chat.sessionList": [KEY.ctrlL],
   "chat.send": [KEY.enter],
   "chat.backspace": [KEY.backspace],
+  "chat.abort": [KEY.ctrlX],
   "candidates.prev": [KEY.left, KEY.h],
   "candidates.next": [KEY.right, KEY.l],
   "candidates.scrollUp": [KEY.up, KEY.k],
@@ -233,6 +235,7 @@ const CONTEXT_ACTIONS = {
     "chat.sessionList",
     "chat.send",
     "chat.backspace",
+    "chat.abort",
   ],
   "chat.selector": ["selector.up", "selector.down", "modal.confirm"],
 } as const satisfies Record<string, readonly KeyAction[]>

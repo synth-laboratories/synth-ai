@@ -96,6 +96,18 @@ function resolveOpenCodeCommand(): string | null {
   return null
 }
 
+function resolveLaunchDir(): string | null {
+  const raw = (
+    process.env.SYNTH_TUI_LAUNCH_CWD ||
+    process.env.OPENCODE_WORKING_DIR ||
+    process.env.INIT_CWD ||
+    process.env.PWD ||
+    process.cwd()
+  ) as string
+  const trimmed = raw.trim()
+  return trimmed || null
+}
+
 /**
  * Start the OpenCode server in the background.
  * Returns the server URL once it's ready.
@@ -106,100 +118,108 @@ export async function startOpenCodeServer(options: OpenCodeCallbacks = {}): Prom
     return serverUrl
   }
 
+  const workingDir = resolveLaunchDir()
+  const dirArgs = workingDir ? ["--dir", workingDir] : []
+
   const localLaunch = resolveLocalOpenCode()
   const fallbackCommand = resolveOpenCodeCommand()
-  const launch: OpenCodeLaunch | null = localLaunch ?? (fallbackCommand ? {
+  const baseLaunch: OpenCodeLaunch | null = localLaunch ?? (fallbackCommand ? {
     command: fallbackCommand,
     args: ["serve"],
+    cwd: process.cwd(),
   } : null)
 
-  if (!launch) {
+  if (!baseLaunch) {
     return null
   }
 
-  // Check if user has opencode installed or a local dev checkout
-  return new Promise((resolve) => {
-    try {
-      openCodeProcess = spawn(launch.command, launch.args, {
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: false,
-        cwd: launch.cwd,
-      })
+  const tryStart = (launch: OpenCodeLaunch): Promise<string | null> => {
+    return new Promise((resolve) => {
+      try {
+        openCodeProcess = spawn(launch.command, launch.args, {
+          stdio: ["ignore", "pipe", "pipe"],
+          detached: false,
+          cwd: launch.cwd,
+          env: process.env,
+        })
 
-      let resolved = false
-      let hasUrl = false
+        let resolved = false
+        let hasUrl = false
 
-      // Parse stdout for the server URL
-      openCodeProcess.stdout?.on("data", (data: Buffer) => {
-        const output = data.toString()
-        // Look for "listening on http://..." pattern
-        const match = output.match(/listening on (https?:\/\/[^\s]+)/)
-        if (match) {
-          if (!hasUrl) {
-            serverUrl = match[1]
-            options.onUrl?.(serverUrl)
-            hasUrl = true
+        // Parse stdout for the server URL
+        openCodeProcess.stdout?.on("data", (data: Buffer) => {
+          const output = data.toString()
+          const match = output.match(/listening on (https?:\/\/[^\s]+)/)
+          if (match) {
+            if (!hasUrl) {
+              serverUrl = match[1]
+              options.onUrl?.(serverUrl)
+              hasUrl = true
+            }
+            if (!resolved) {
+              resolved = true
+              resolve(serverUrl)
+            }
           }
+        })
+
+        // Also check stderr (some tools output there)
+        openCodeProcess.stderr?.on("data", (data: Buffer) => {
+          const output = data.toString()
+          const match = output.match(/listening on (https?:\/\/[^\s]+)/)
+          if (match) {
+            if (!hasUrl) {
+              serverUrl = match[1]
+              options.onUrl?.(serverUrl)
+              hasUrl = true
+            }
+            if (!resolved) {
+              resolved = true
+              resolve(serverUrl)
+            }
+          }
+        })
+
+        openCodeProcess.on("error", (_err) => {
           if (!resolved) {
             resolved = true
-            resolve(serverUrl)
+            resolve(null)
           }
-        }
-      })
+        })
 
-      // Also check stderr (some tools output there)
-      openCodeProcess.stderr?.on("data", (data: Buffer) => {
-        const output = data.toString()
-        const match = output.match(/listening on (https?:\/\/[^\s]+)/)
-        if (match) {
-          if (!hasUrl) {
-            serverUrl = match[1]
-            options.onUrl?.(serverUrl)
-            hasUrl = true
-          }
+        openCodeProcess.on("exit", () => {
+          openCodeProcess = null
+          serverUrl = null
+          options.onUrl?.(null)
           if (!resolved) {
             resolved = true
-            resolve(serverUrl)
+            resolve(null)
           }
-        }
-      })
+        })
 
-      openCodeProcess.on("error", (_err) => {
-        // opencode not installed or other error
-        if (!resolved) {
-          resolved = true
-          resolve(null)
-        }
-      })
+        registerCleanup("opencode-server", () => {
+          stopOpenCodeServer(options)
+        })
 
-      openCodeProcess.on("exit", () => {
-        openCodeProcess = null
-        serverUrl = null
-        options.onUrl?.(null)
-        if (!resolved) {
-          resolved = true
-          resolve(null)
-        }
-      })
+        const timeoutMs = resolveStartupTimeoutMs()
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true
+            resolve(null)
+          }
+        }, timeoutMs)
 
-      // Register cleanup to kill process on shutdown
-      registerCleanup("opencode-server", () => {
-        stopOpenCodeServer(options)
-      })
+      } catch {
+        resolve(null)
+      }
+    })
+  }
 
-      // Timeout after a longer window for first-run installs.
-      const timeoutMs = resolveStartupTimeoutMs()
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true
-          resolve(null)
-        }
-      }, timeoutMs)
-
-    } catch {
-      resolve(null)
-    }
-  })
+  if (dirArgs.length > 0) {
+    const urlWithDir = await tryStart({ ...baseLaunch, args: [...baseLaunch.args, ...dirArgs] })
+    if (urlWithDir) return urlWithDir
+  }
+  return await tryStart(baseLaunch)
 }
 
 /**

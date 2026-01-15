@@ -19,6 +19,7 @@ export type OpenCodeEventType =
   | "message.part.updated"
   | "message.part.removed"
   | "message.updated"
+  | "session.status"
   | "session.idle"
   | "session.error"
   | "session.created"
@@ -143,6 +144,18 @@ function buildLocalSessionRecord(sessionId: string, opencodeUrl: string): Sessio
   }
 }
 
+function resolveOpenCodeWorkingDir(): string | null {
+  const raw = (
+    process.env.SYNTH_TUI_LAUNCH_CWD ||
+    process.env.OPENCODE_WORKING_DIR ||
+    process.env.INIT_CWD ||
+    process.env.PWD ||
+    process.cwd()
+  ) as string
+  const trimmed = raw.trim()
+  return trimmed || null
+}
+
 export async function connectLocalOpenCodeSession(
   opencodeUrl: string,
   timeoutMs: number = 5000,
@@ -178,7 +191,10 @@ export async function connectLocalOpenCodeSession(
   }
 
   const managed = getRequestSignal()
-  const url = `${opencodeUrl}/session`
+  const workingDir = resolveOpenCodeWorkingDir()
+  const url = workingDir
+    ? `${opencodeUrl}/session?directory=${encodeURIComponent(workingDir)}`
+    : `${opencodeUrl}/session`
   const start = Date.now()
   log("http", `→ POST ${url}`)
   try {

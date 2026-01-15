@@ -33,6 +33,7 @@ type AppBodyProps = {
 	opencodeUrl: Accessor<string>
 	opencodeSessionId: Accessor<string | undefined>
 	opencodeDimensions: Accessor<{ width: number; height: number }>
+	opencodeWorkingDir: Accessor<string | undefined>
 	onExitOpenCode: () => void
 }
 
@@ -99,6 +100,7 @@ export function AppBody(props: AppBodyProps) {
 									sessionId={props.opencodeSessionId()}
 									width={props.opencodeDimensions().width}
 									height={props.opencodeDimensions().height}
+									workingDir={props.opencodeWorkingDir()}
 									onExit={props.onExitOpenCode}
 								/>
 							</Show>

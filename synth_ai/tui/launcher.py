@@ -74,7 +74,15 @@ def _ensure_dependencies_installed(runtime: str | None) -> None:
             )
 
 
-def run_tui() -> None:
+def run_tui(
+    *,
+    job_id: str | None = None,
+    backend_base: str | None = None,
+    api_key: str | None = None,
+    refresh_interval: float = 5.0,
+    event_interval: float = 2.0,
+    limit: int = 50,
+) -> None:
     if not ENTRY_PATH.exists():
         raise RuntimeError(
             "OpenTUI entrypoint not found. Ensure the repo is intact:\n"
@@ -93,7 +101,7 @@ def run_tui() -> None:
     mode = env.get("SYNTH_TUI_MODE", "prod")
     profile = resolve_tui_profile(mode)
     env["SYNTH_TUI_MODE"] = mode
-    env["SYNTH_BACKEND_URL"] = profile.backend_url
+    env["SYNTH_BACKEND_URL"] = backend_base or profile.backend_url
     env["SYNTH_FRONTEND_URL"] = profile.frontend_url
     env["SYNTH_TUI_URL_PROFILES"] = json.dumps(
         {
@@ -105,8 +113,29 @@ def run_tui() -> None:
         }
     )
     # API key (prefer login/config flow; only pass through env if already set)
-    if "SYNTH_API_KEY" not in env:
+    if api_key is not None:
+        env["SYNTH_API_KEY"] = api_key
+    elif "SYNTH_API_KEY" not in env:
         env["SYNTH_API_KEY"] = ""
+
+    if job_id:
+        env["SYNTH_TUI_JOB_ID"] = job_id
+    env["SYNTH_TUI_REFRESH_INTERVAL"] = str(refresh_interval)
+    env["SYNTH_TUI_EVENT_INTERVAL"] = str(event_interval)
+    env["SYNTH_TUI_LIMIT"] = str(limit)
+    env.setdefault("SYNTH_TUI_LAUNCH_CWD", os.getcwd())
+
+    try:
+        from synth_ai.sdk.opencode_skills import materialize_tui_opencode_config_dir
+
+        opencode_config_dir = materialize_tui_opencode_config_dir(
+            include_packaged_skills=["synth-api"]
+        )
+        env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
+    except Exception:
+        opencode_config_dir = Path(__file__).resolve().parent / "opencode_config"
+        if opencode_config_dir.exists():
+            env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
 
     cmd = [BUNTIME, str(ENTRY_PATH)]
     result = subprocess.run(cmd, env=env, cwd=TUI_ROOT_PATH)

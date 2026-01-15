@@ -506,10 +506,7 @@ export function formatEvalResults(data: AppData, job: any): string {
           shown.add("accuracy")
         }
       } else if (key === "mean_reward") {
-        val = summary.mean_reward ?? summary.mean_score
-        if (val != null) {
-          shown.add("mean_score")
-        }
+        val = summary.mean_reward
       }
       if (val == null) continue
       if (key === "reward" || key === "pass_rate") {
@@ -528,7 +525,7 @@ export function formatEvalResults(data: AppData, job: any): string {
     lines.push("")
   }
 
-  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
+  if (summary.mean_reward == null && rows.length > 0) {
     const rewards = rows
       .map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score)
       .filter((val) => typeof val === "number" && Number.isFinite(val)) as number[]

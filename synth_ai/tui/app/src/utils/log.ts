@@ -242,8 +242,8 @@ export function initLogger(_mode: Mode): string | null {
     // Override process.stdout.write
     process.stdout.write = function (
       data: string | Uint8Array,
-      encodingOrCallback?: BufferEncoding | ((err?: Error) => void),
-      callback?: (err?: Error) => void
+      encodingOrCallback?: BufferEncoding | ((err?: Error | null) => void),
+      callback?: (err?: Error | null) => void
     ): boolean {
       writeToConsoleLog(data)
       if (typeof encodingOrCallback === "function") {
@@ -255,8 +255,8 @@ export function initLogger(_mode: Mode): string | null {
     // Override process.stderr.write
     process.stderr.write = function (
       data: string | Uint8Array,
-      encodingOrCallback?: BufferEncoding | ((err?: Error) => void),
-      callback?: (err?: Error) => void
+      encodingOrCallback?: BufferEncoding | ((err?: Error | null) => void),
+      callback?: (err?: Error | null) => void
     ): boolean {
       writeToConsoleLog(data)
       if (typeof encodingOrCallback === "function") {

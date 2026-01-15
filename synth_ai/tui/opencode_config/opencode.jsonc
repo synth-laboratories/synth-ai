@@ -1,0 +1,25 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Synth AI default configuration for OpenCode
+  // This is loaded automatically when running synth-ai TUI
+  
+  "instructions": [
+    // The main AGENTS.md is loaded by default from this directory
+  ],
+  
+  // Default permissions for Synth AI CLI commands
+  "permission": {
+    "bash": {
+      // Allow synth-ai commands without prompting
+      "synth-ai *": "allow",
+      "uv run synth-ai *": "allow",
+      "python -m synth_ai *": "allow",
+      
+      // Allow common dev commands
+      "python *": "ask",
+      "pip *": "ask",
+      "uv *": "ask"
+    }
+  }
+}
+

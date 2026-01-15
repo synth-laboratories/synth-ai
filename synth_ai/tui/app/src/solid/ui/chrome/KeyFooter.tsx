@@ -29,6 +29,7 @@ const REFRESH_KEY = formatActionKeys("app.refresh", { primaryOnly: true })
 const QUIT_KEY = formatActionKeys("app.quit", { primaryOnly: true })
 const BACK_KEY = formatActionKeys("app.back", { primaryOnly: true })
 const SESSIONS_KEY = formatActionKeys("pane.openSessions", { primaryOnly: true })
+const ABORT_KEY = formatActionKeys("chat.abort", { primaryOnly: true })
 const LOAD_MORE_KEY = formatActionKeys("jobs.loadMore", { primaryOnly: true })
 const LIST_FILTER_KEY = formatActionKeys("modal.open.listFilter", { primaryOnly: true })
 const EVENT_FILTER_KEY = formatActionKeys("modal.open.filter", { primaryOnly: true })
@@ -41,6 +42,7 @@ export function KeyFooter(props: KeyFooterProps) {
       return [
         { description: "back", keyLabel: BACK_KEY },
         { description: "sessions", keyLabel: SESSIONS_KEY },
+        { description: "abort", keyLabel: ABORT_KEY },
         { description: "quit", keyLabel: QUIT_KEY },
       ]
     }
