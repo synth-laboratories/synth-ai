@@ -34,4 +34,29 @@ export const BOX = {
   backgroundColor: COLORS.bg,
 }
 
+/** Standard panel styling for detail panels */
+export const PANEL = {
+  border: true as const,
+  borderStyle: "single" as const,
+  borderColor: COLORS.border,
+  borderColorFocused: COLORS.textAccent,
+  paddingLeft: 1,
+  titleAlignment: "left" as const,
+}
+
+/** Standard text styling */
+export const TEXT = {
+  /** Default text color for panel content */
+  fg: COLORS.text,
+  /** Dimmed text for secondary/hint content */
+  fgDim: COLORS.textDim,
+  /** Bright text for emphasis */
+  fgBright: COLORS.textBright,
+}
+
+/** Get border color based on focus state */
+export function getPanelBorderColor(focused: boolean): string {
+  return focused ? PANEL.borderColorFocused : PANEL.borderColor
+}
+
 

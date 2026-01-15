@@ -162,7 +162,7 @@ async function writePersistedSettings(
 ): Promise<void> {
   try {
     await fs.mkdir(path.dirname(tuiSettingsPath), { recursive: true })
-    const mode = settings.mode ?? "prod"
+    const mode = settings.mode ?? null
     const keys = settings.keys
     const listFilters = settings.listFilters ?? getDefaultListFilters()
     const payload = {
@@ -181,7 +181,7 @@ async function writePersistedSettings(
 }
 
 export async function persistModeSelection(
-  mode: Mode,
+  mode: Mode | null,
   onError?: (message: string) => void,
 ): Promise<void> {
   const settings = await readPersistedSettings()

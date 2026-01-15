@@ -101,6 +101,7 @@ export function subscribeToOpenCodeEvents(
   const connection = connectJsonStream<OpenCodeEvent>({
     url: url.toString(),
     includeScope: false,
+    label: "opencode-events",
     onOpen: onConnect,
     onEvent: (event) => {
       if (!isActive) return

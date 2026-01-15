@@ -96,11 +96,10 @@ export function KeyFooter(props: KeyFooterProps) {
       height={defaultLayoutSpec.footerHeight}
       backgroundColor={COLORS.bgTabs}
       paddingLeft={1}
-      alignItems="center"
-      flexDirection="row"
-      gap={2}
+      flexDirection="column"
+      justifyContent="center"
     >
-      <text fg={COLORS.textDim}>Keys: </text>
+      <text fg={COLORS.textDim}>Keys:</text>
       <box flexDirection="row" gap={1}>
         <For each={hints()}>
           {(item, index) => (

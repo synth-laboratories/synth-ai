@@ -24,6 +24,7 @@ export function LogsList(props: LogsListProps) {
       height={props.height}
       title={props.title}
       totalCount={props.totalCount}
+      border
       emptyFallback={<text fg={COLORS.textDim}> No log files found.</text>}
       renderItem={(item, ctx) => (
         <box flexDirection="column">

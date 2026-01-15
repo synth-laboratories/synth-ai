@@ -43,6 +43,7 @@ export function connectJobDetailsStream(
   const connection = connectApiJsonStream<JobDetailsStreamEvent>({
     path: getPath,
     includeScope: false,
+    label: `job-details:${jobId}`,
     onEvent,
     onError,
   })

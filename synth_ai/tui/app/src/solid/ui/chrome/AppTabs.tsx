@@ -22,12 +22,12 @@ export function AppTabs(props: AppTabsProps) {
       borderColor={COLORS.borderDim}
       alignItems="center"
       flexDirection="row"
-      gap={2}
+      gap={3}
     >
       <KeyHint description="Create New Job" keyLabel={formatActionKeys("modal.open.createJob", { primaryOnly: true })} />
-      <KeyHint description="View Jobs" keyLabel={formatActionKeys("pane.jobs", { primaryOnly: true })} active={props.activePane() === ListPane.Jobs} />
-      <KeyHint description="View Logs" keyLabel={formatActionKeys("pane.logs", { primaryOnly: true })} active={props.activePane() === ListPane.Logs} />
+      <KeyHint description="Jobs" keyLabel={formatActionKeys("pane.jobs", { primaryOnly: true })} active={props.principalPane() === "jobs" && props.activePane() === ListPane.Jobs} />
       <KeyHint description="Agent" keyLabel={formatActionKeys("pane.togglePrincipal", { primaryOnly: true })} active={props.principalPane() === "opencode"} />
+      <KeyHint description="Logs" keyLabel={formatActionKeys("pane.logs", { primaryOnly: true })} active={props.principalPane() === "jobs" && props.activePane() === ListPane.Logs} />
     </box>
   )
 }

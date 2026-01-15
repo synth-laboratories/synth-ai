@@ -122,7 +122,7 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
         return true
       }
       if (action === "pane.select") {
-        const event = options.jobsDetail.events()[options.jobsDetail.eventWindow().selected]
+        const event = options.jobsDetail.events()[options.jobsDetail.selectedIndex()]
         if (event) {
           options.openEventModal(event)
         }

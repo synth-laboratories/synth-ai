@@ -53,7 +53,6 @@ type UseAppKeybindingsOptions = {
   openResultsModal: () => void
   openListFilterModal: () => void
   openSnapshotModal: () => void
-  openUrlsModal: () => void
   openSettingsModal: () => void
   openUsageModal: () => void
   openTaskAppsModal: () => void
@@ -161,8 +160,6 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
             return "modal.config"
           case "profile":
             return "modal.profile"
-          case "urls":
-            return "modal.urls"
           case "login":
             return "modal.login"
           default:
@@ -321,7 +318,6 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
                   return
               }
             case "profile":
-            case "urls":
               switch (action) {
                 case "modal.confirm":
                   options.closeActiveModal()
@@ -411,7 +407,15 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         }
       }
       if (options.ui.focusTarget === "agent") {
-        return
+        // Allow pane switching keys (1, 2, 3) to pass through
+        const globalAction = matchAction(evt, "app.global")
+        const isPaneSwitchAction =
+          globalAction === "pane.jobs" ||
+          globalAction === "pane.logs" ||
+          globalAction === "pane.togglePrincipal"
+        if (!isPaneSwitchAction) {
+          return
+        }
       }
     }
 
@@ -424,7 +428,9 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
 
     const agentFocused = options.ui.principalPane === "opencode" && options.ui.focusTarget === "agent"
     const isNavAction = action === "nav.down" || action === "nav.up" || action === "pane.select"
-    if (agentFocused && (isNavAction || getTextInput(evt))) {
+    const isPaneSwitchAction = action === "pane.jobs" || action === "pane.logs" || action === "pane.togglePrincipal"
+    // Don't block pane switch actions even when agent is focused
+    if (agentFocused && !isPaneSwitchAction && (isNavAction || getTextInput(evt))) {
       return
     }
 
@@ -456,16 +462,27 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         return
       case "pane.jobs":
         setListPane(ListPane.Jobs)
+        // Also switch away from opencode panel if needed
+        if (options.ui.principalPane === "opencode") {
+          options.setUi("principalPane", "jobs")
+          options.setUi("focusTarget", "list")
+        }
         return
       case "pane.logs":
         setListPane(ListPane.Logs)
+        // Also switch away from opencode panel if needed
+        if (options.ui.principalPane === "opencode") {
+          options.setUi("principalPane", "jobs")
+          options.setUi("focusTarget", "list")
+        }
         return
       case "pane.togglePrincipal": {
         const nextPane = options.ui.principalPane === "jobs" ? "opencode" : "jobs"
         options.setUi("principalPane", nextPane)
         if (nextPane === "opencode") {
           options.runAction("opencode-ensure", () => options.ensureOpenCodeServer())
-          focusManager.setFocus("agent")
+          // Set focus directly to avoid timing issues with enabled check
+          options.setUi("focusTarget", "agent")
         } else {
           focusManager.ensureValid()
         }
@@ -492,9 +509,6 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         return
       case "modal.open.snapshot":
         options.openSnapshotModal()
-        return
-      case "modal.open.urls":
-        options.openUrlsModal()
         return
       case "modal.open.settings":
         options.openSettingsModal()

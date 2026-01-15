@@ -1,5 +1,5 @@
 /**
- * Results panel formatting (best snapshot + eval results + expanded view).
+ * Results panel formatting (best Candidate + eval results + expanded view).
  */
 import type { AppData } from "../types"
 import { num } from "../tui_data"
@@ -425,11 +425,11 @@ export function formatResults(data: AppData): string {
     lines.push(`Train/Val: ${bestTrain ?? "-"} / ${bestValidation ?? "-"}`)
   }
   if (bestId === "-") {
-    lines.push("Best Snapshot: -")
+    lines.push("Best Candidate: -")
   } else if (data.bestSnapshot) {
-    lines.push(`Best Snapshot: ${bestId}`)
+    lines.push(`Best Candidate: ${bestId}`)
   } else {
-    lines.push(`Best Snapshot: ${bestId} (press p)`)
+    lines.push(`Best Candidate: ${bestId} (press p)`)
   }
 
   if (attempted.length > 0 || optimized.length > 0) {
@@ -573,7 +573,7 @@ export function formatResultsExpanded(data: AppData): string | null {
   lines.push(`Job: ${job.job_id}`)
   lines.push(`Status: ${job.status}`)
   lines.push(`Best Reward: ${job.best_reward ?? "-"}`)
-  lines.push(`Best Snapshot ID: ${data.bestSnapshotId || "-"}`)
+  lines.push(`Best Candidate ID: ${data.bestSnapshotId || "-"}`)
 
   const { attempted, optimized } = extractCandidateGroups(data)
   const paretoMean =
@@ -735,7 +735,7 @@ export function formatResultsExpanded(data: AppData): string | null {
       }
     }
   } else {
-    lines.push("Best snapshot data not loaded. Press 'p' to load.")
+    lines.push("Best Candidate data not loaded. Press 'p' to load.")
   }
 
   return lines.join("\n")

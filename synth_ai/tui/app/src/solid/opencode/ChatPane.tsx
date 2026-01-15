@@ -721,6 +721,9 @@ export function ChatPane(props: ChatPaneProps) {
       return
     }
 
+    // Don't process if another handler already handled this event
+    if ((evt as any).defaultPrevented) return
+
     const action = matchAction(evt, "chat.normal")
     if (!action) {
       const text = getTextInput(evt)

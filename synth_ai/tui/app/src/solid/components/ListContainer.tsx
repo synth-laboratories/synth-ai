@@ -1,4 +1,4 @@
-import { For, Show, type JSX } from "solid-js"
+import { For, Show, createMemo, type JSX } from "solid-js"
 
 import { COLORS } from "../theme"
 import { ListCard, type ListCardStyleContext } from "./ListCard"
@@ -12,6 +12,7 @@ export type ListContainerProps<T> = {
   totalCount: number
   emptyFallback: JSX.Element
   renderItem: (item: T, ctx: ListCardStyleContext, globalIndex: number) => JSX.Element
+  footer?: JSX.Element
   width?: number
   height?: number
   flexGrow?: number
@@ -29,6 +30,7 @@ export function ListContainer<T>(props: ListContainerProps<T>) {
     props.borderColor ?? (props.focused ? COLORS.textAccent : COLORS.border)
   const titleAlignment = () => props.titleAlignment ?? "left"
   const borderProps = () => (props.border === undefined ? {} : { border: props.border })
+  const title = createMemo(() => props.title || "")
 
   return (
     <box
@@ -38,7 +40,7 @@ export function ListContainer<T>(props: ListContainerProps<T>) {
       flexGrow={props.flexGrow}
       borderStyle="single"
       borderColor={borderColor()}
-      title={props.title}
+      title={title()}
       titleAlignment={titleAlignment()}
       flexDirection="column"
       paddingLeft={props.paddingLeft}
@@ -46,17 +48,20 @@ export function ListContainer<T>(props: ListContainerProps<T>) {
       paddingTop={props.paddingTop}
       paddingBottom={props.paddingBottom}
     >
-      <Show when={props.totalCount > 0} fallback={props.emptyFallback}>
-        <For each={props.items}>
-          {(entry) => {
-            const isSelected = entry.globalIndex === props.selectedIndex
-            return (
-              <ListCard isSelected={isSelected}>
-                {(ctx) => props.renderItem(entry.item, ctx, entry.globalIndex)}
-              </ListCard>
-            )
-          }}
-        </For>
+      <Show when={props.items.length > 0} fallback={props.emptyFallback}>
+        <box flexDirection="column">
+          <For each={props.items}>
+            {(entry) => {
+              const isSelected = entry.globalIndex === props.selectedIndex
+              return (
+                <ListCard isSelected={isSelected} panelFocused={props.focused}>
+                  {(ctx) => props.renderItem(entry.item, ctx, entry.globalIndex)}
+                </ListCard>
+              )
+            }}
+          </For>
+          <Show when={props.footer}>{props.footer}</Show>
+        </box>
       </Show>
     </box>
   )

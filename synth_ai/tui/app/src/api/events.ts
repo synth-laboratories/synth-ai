@@ -8,10 +8,6 @@ import { apiGet } from "./client"
 import { isAbortError } from "../utils/abort"
 import { isAborted } from "../utils/request"
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
-}
-
 function isRecord(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
@@ -67,7 +63,18 @@ function extractGEPAMetricsFromEvents(ctx: AppContext, events: JobEvent[]): void
   const job = data.selectedJob
   if (!job) return
   
-  const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa"
+  const trainingType =
+    typeof job.training_type === "string" ? job.training_type.toLowerCase() : ""
+  const algo = typeof job.algorithm === "string" ? job.algorithm.toLowerCase() : ""
+  const metaAlgo =
+    isRecord(job.metadata) && typeof job.metadata.algorithm === "string"
+      ? job.metadata.algorithm.toLowerCase()
+      : ""
+  const isGepa =
+    trainingType === "gepa" ||
+    trainingType === "graph_gepa" ||
+    algo === "gepa" ||
+    metaAlgo === "gepa"
   if (!isGepa) return
   
   // Only extract if metrics endpoint returned empty
@@ -246,8 +253,6 @@ export async function refreshEvents(
   const jobId = job.job_id
   const token = ui.eventsToken
   let nextLastSeq = ui.lastSeq
-  let nextSelectedEventIndex = ui.selectedEventIndex
-  let nextEventWindowStart = ui.eventWindowStart
 
   try {
     const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa"
@@ -317,19 +322,6 @@ export async function refreshEvents(
       
       if (config.eventHistoryLimit > 0 && mergedEvents.length > config.eventHistoryLimit) {
         mergedEvents = mergedEvents.slice(-config.eventHistoryLimit)
-        nextSelectedEventIndex = clamp(
-          nextSelectedEventIndex,
-          0,
-          Math.max(0, mergedEvents.length - 1),
-        )
-        nextEventWindowStart = clamp(
-          nextEventWindowStart,
-          0,
-          Math.max(
-            0,
-            mergedEvents.length - Math.max(1, ui.eventVisibleCount || config.eventVisibleCount),
-          ),
-        )
       }
       setData("events", mergedEvents)
       nextLastSeq = Math.max(nextLastSeq, ...newEvents.map((e) => e.seq))
@@ -341,12 +333,6 @@ export async function refreshEvents(
 
     if (nextLastSeq !== ui.lastSeq) {
       setUi("lastSeq", nextLastSeq)
-    }
-    if (nextSelectedEventIndex !== ui.selectedEventIndex) {
-      setUi("selectedEventIndex", nextSelectedEventIndex)
-    }
-    if (nextEventWindowStart !== ui.eventWindowStart) {
-      setUi("eventWindowStart", nextEventWindowStart)
     }
 
     return true

@@ -55,7 +55,9 @@ export function useAuthFlow(options: UseAuthFlowOptions): AuthFlowState {
     if (result.success && result.apiKey) {
       process.env.SYNTH_API_KEY = result.apiKey
       await persistModeKey(options.ui.currentMode, result.apiKey)
-      await persistModeSelection(options.ui.currentMode)
+      if (options.ui.settingsMode) {
+        await persistModeSelection(options.ui.settingsMode)
+      }
       options.closeActiveModal()
       options.setData("lastError", null)
       options.setData("status", "Authenticated! Loading...")

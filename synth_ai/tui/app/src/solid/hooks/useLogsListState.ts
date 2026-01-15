@@ -6,7 +6,7 @@ import type { AppState } from "../../state/app-state"
 import { formatTimestamp } from "../formatters/time"
 import { useLiveLogs } from "../utils/live-logs"
 import type { LogFileInfo } from "../utils/logs"
-import { formatListFilterTitle, getListFilterCount } from "../utils/listFilter"
+import { formatListTitle, getListFilterCount } from "../utils/listTitle"
 import { type ListWindowState, useListWindow } from "./useListWindow"
 
 export type LogsListRow = {
@@ -137,7 +137,9 @@ export function useLogsListState(options: UseLogsListStateOptions): LogsListStat
   const listTitle = createMemo(() => {
     const count = getListFilterCount(options.ui, ListPane.Logs)
     const mode = options.ui.listFilterMode[ListPane.Logs]
-    return formatListFilterTitle("Logs", mode, count)
+    const total = logFiles().length
+    const idx = liveLogs.selectedIndex()
+    return formatListTitle("Logs", mode, count, idx, total)
   })
   const filesTitle = createMemo(() => {
     const total = listWindow.total()

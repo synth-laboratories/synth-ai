@@ -135,7 +135,6 @@ function SolidShell(props: { onExit?: () => void }) {
 	const jobsDetail = useJobsDetailState({
 		data: appData,
 		ui: appState,
-		setUi,
 		layoutHeight: () => layout().contentHeight,
 	})
 	const activeOpenCodeSession = createMemo(() => {
@@ -312,7 +311,6 @@ function SolidShell(props: { onExit?: () => void }) {
 		openResultsModal: overlayModals.openResultsModal,
 		openListFilterModal: overlayModals.openListFilterModal,
 		openSnapshotModal: overlayModals.openSnapshotModal,
-		openUrlsModal: overlayModals.openUrlsModal,
 		openSettingsModal: overlayModals.openSettingsModal,
 		openUsageModal: overlayModals.openUsageModal,
 		openTaskAppsModal: overlayModals.openTaskAppsModal,

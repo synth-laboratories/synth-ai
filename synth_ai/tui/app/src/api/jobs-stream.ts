@@ -45,6 +45,7 @@ export function connectJobsStream(
 		path: getPath,
 		signal: options.signal,
 		includeScope: false,
+		label: "jobs-stream",
 		onEvent,
 		onError,
 	})

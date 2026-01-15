@@ -62,7 +62,6 @@ export type OverlayModalState = {
   openResultsModal: () => void
   openCandidatesForGeneration: (generation: number) => void
   openProfileModal: () => void
-  openUrlsModal: () => void
   openListFilterModal: () => void
   moveListFilter: (delta: number) => void
   toggleListFilterSelection: () => void
@@ -164,10 +163,6 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
 
   const openProfileModal = (): void => {
     options.openOverlayModal("profile")
-  }
-
-  const openUrlsModal = (): void => {
-    options.openOverlayModal("urls")
   }
 
   const persistListFilterState = (): void => {
@@ -283,11 +278,12 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
   }
 
   const openSettingsModal = (): void => {
-    const settingsOptions: Mode[] = ["prod", "dev", "local"]
+    const settingsOptions: Array<Mode | "reset"> = ["prod", "dev", "local", "reset"]
     options.setUi("settingsOptions", settingsOptions)
+    const selected = options.ui.settingsMode ?? "reset"
     setSettingsCursor(Math.max(
       0,
-      settingsOptions.indexOf(options.ui.currentMode),
+      settingsOptions.indexOf(selected),
     ))
     options.openOverlayModal("settings")
     void readPersistedSettings()
@@ -305,12 +301,21 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
   const selectSettingsBackend = async (): Promise<void> => {
     const selectedMode = options.ui.settingsOptions[settingsCursor()]
     if (!selectedMode) return
+    if (selectedMode === "reset") {
+      options.setUi("settingsMode", null)
+      await persistModeSelection(null)
+      options.closeActiveModal()
+      options.setData("status", "Mode selection cleared.")
+      return
+    }
+
     const urls = modeUrls[selectedMode]
     if (!urls.backendUrl || !urls.frontendUrl) {
       options.setData("status", `Missing URLs for ${selectedMode}.`)
       return
     }
 
+    options.setUi("settingsMode", selectedMode)
     options.setUi("currentMode", selectedMode)
     switchMode(selectedMode)
     await persistModeSelection(selectedMode)
@@ -610,7 +615,6 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
     openResultsModal,
     openCandidatesForGeneration,
     openProfileModal,
-    openUrlsModal,
     openListFilterModal,
     moveListFilter,
     toggleListFilterSelection,

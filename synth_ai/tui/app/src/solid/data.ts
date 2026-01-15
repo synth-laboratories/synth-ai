@@ -50,14 +50,16 @@ export function useSolidData(): SolidData {
 
   async function bootstrap(): Promise<void> {
     const settings = await readPersistedSettings()
+    const persistedMode = settings.mode ?? null
     let resolvedMode: Mode = ui.currentMode
-    // If mode is explicitly set via env, use it directly.
-    // Otherwise fall back to persisted settings.
-    if (!process.env.SYNTH_TUI_MODE && settings.mode) {
-      resolvedMode = settings.mode
-      setCurrentMode(resolvedMode)
-      setUi("currentMode", resolvedMode)
-      // Apply loaded mode's URLs
+    // Persisted settings are the source of truth for mode.
+    if (persistedMode) {
+      resolvedMode = persistedMode
+    }
+    setUi("settingsMode", persistedMode)
+    setCurrentMode(resolvedMode)
+    setUi("currentMode", resolvedMode)
+    if (persistedMode) {
       switchMode(resolvedMode)
     }
     const listFilters = settings.listFilters?.[resolvedMode]
