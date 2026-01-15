@@ -1,0 +1,52 @@
+{
+  "job_id": "eval_6acd974eeba14f79",
+  "status": "running",
+  "error": null,
+  "created_at": "2026-01-14T19:42:47.275512+00:00",
+  "started_at": "2026-01-14T19:42:47.611268+00:00",
+  "completed_at": null,
+  "config": {
+    "mode": "baseline",
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "app_id": null,
+    "policy": {
+      "agent": "opencode",
+      "model": "gpt-4.1-mini",
+      "api_key": "sk_demo_jjGwoOQH3x2vW-KJqE2qWZHaxHUEix_7VcDw0iugxIw",
+      "timeout": 400,
+      "provider": "openai"
+    },
+    "task_id": null,
+    "timeout": 900.0,
+    "env_name": "engine_bench",
+    "eval_mode": "task_app",
+    "env_config": {},
+    "save_trace": false,
+    "candidate_id": null,
+    "task_app_url": "http://localhost:8050",
+    "verifier_yaml": null,
+    "candidate_type": null,
+    "max_concurrent": 2,
+    "verifier_config": null,
+    "verifier_job_id": null,
+    "task_app_api_key": "sk_env_30c78a787bac223c716918181209f263",
+    "task_app_api_keys": [
+      "sk_env_30c78a787bac223c716918181209f263",
+      "7090c79d8e89cb0eeee04e449acfe0ae439f57363e70625a3ff8e0b3c8bc5d68"
+    ],
+    "trace_source_type": "eval_job",
+    "trace_source_job_id": null
+  },
+  "results": null
+}

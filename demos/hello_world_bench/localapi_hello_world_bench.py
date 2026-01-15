@@ -31,15 +31,14 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from fastapi import Request
-
-from synth_ai.data.artifacts import Artifact, ContextOverride
+from synth_ai.data.artifacts import Artifact
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.task.override_helpers import (
+    AgentType,
     apply_context_overrides,
     get_applied_env_vars,
-    AgentType,
 )
 from synth_ai.sdk.task.rubrics.models import Criterion, Rubric
 from synth_ai.sdk.task.server import RubricBundle
@@ -203,7 +202,7 @@ enabled = false
             "stdout": stdout.decode("utf-8", errors="replace"),
             "stderr": stderr.decode("utf-8", errors="replace"),
         }
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         return {"success": False, "stdout": "", "stderr": f"timeout after {timeout}s"}
@@ -221,9 +220,15 @@ async def _run_opencode_agent(
     api_key: str | None,
     extra_env_vars: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    opencode_bin = os.environ.get("OPENCODE_BIN") or str(Path.home() / ".opencode" / "bin" / "opencode")
+    opencode_bin = os.environ.get("OPENCODE_BIN") or str(
+        Path.home() / ".opencode" / "bin" / "opencode"
+    )
     if not Path(opencode_bin).exists():
-        return {"success": False, "stdout": "", "stderr": f"opencode binary not found: {opencode_bin}"}
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": f"opencode binary not found: {opencode_bin}",
+        }
 
     model_id = model.split("/", 1)[1] if "/" in model else model
     model_with_provider = f"openai/{model_id}"
@@ -231,12 +236,15 @@ async def _run_opencode_agent(
     base_url = ""
     if inference_url:
         base_url, correlation_id = _normalize_interceptor_base(inference_url)
-        print(f"[OpenCode] Parsed inference_url: base_url={base_url} correlation_id={correlation_id}", flush=True)
+        print(
+            f"[OpenCode] Parsed inference_url: base_url={base_url} correlation_id={correlation_id}",
+            flush=True,
+        )
         if correlation_id:
             base_url = f"{base_url}/{correlation_id}"
         print(f"[OpenCode] Final baseURL for OpenCode config: {base_url}", flush=True)
     else:
-        print(f"[OpenCode] NO inference_url provided, using direct OpenAI", flush=True)
+        print("[OpenCode] NO inference_url provided, using direct OpenAI", flush=True)
 
     actual_api_key = api_key or os.environ.get("OPENAI_API_KEY") or "placeholder"
     opencode_config = {
@@ -313,7 +321,7 @@ async def _run_opencode_agent(
 
     try:
         await asyncio.wait_for(proc.wait(), timeout=float(timeout))
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         return {"success": False, "stdout": "", "stderr": f"timeout after {timeout}s"}
@@ -331,19 +339,19 @@ async def _run_opencode_agent(
 
 def _write_sandbox_files(sandbox_dir: Path) -> None:
     """Write basic sandbox files (baseline, before any overrides are applied).
-    
+
     Note: Context overrides (AGENTS.md, skills, etc.) are applied separately
     by apply_context_overrides() from override_helpers.py.
-    
+
     Args:
         sandbox_dir: Path to sandbox directory
     """
     sandbox_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Write default AGENTS.md (will be overwritten by context overrides if provided)
     default_agents_md = "# Agent Instructions\n\nEdit output.txt per the task prompt, then stop.\n"
     (sandbox_dir / "AGENTS.md").write_text(default_agents_md, encoding="utf-8")
-    
+
     # Write the task file
     (sandbox_dir / "output.txt").write_text(
         "TODO: Replace this entire file with exactly one line: Hello, world!\n",
@@ -366,7 +374,7 @@ def _build_opencode_prompt(system_prompt: str, task_description: str) -> str:
 async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
     seed = request.env.seed or 0
     policy_config = request.policy.config or {}
-    
+
     # Support both old context_override (dict) and new context_overrides (list[ContextOverride])
     legacy_override = getattr(request, "context_override", None) or {}
     new_overrides = request.context_overrides  # New field from updated contract
@@ -381,26 +389,32 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     # Extract from legacy context_override (for backwards compatibility)
     system_prompt = str(legacy_override.get("system_prompt", DEFAULT_SYSTEM_PROMPT))
     task_description = str(legacy_override.get("task_description", DEFAULT_TASK_DESCRIPTION))
-    
+
     # Also check if new overrides have system_prompt/task_description in file_artifacts
     # (This would be the new way to override them)
-    
+
     prompt = _build_opencode_prompt(system_prompt, task_description)
 
     # DEBUG: Log what we're receiving
-    print(f"[hello_world_bench] ========================================", flush=True)
-    print(f"[hello_world_bench] ROLLOUT DEBUG", flush=True)
+    print("[hello_world_bench] ========================================", flush=True)
+    print("[hello_world_bench] ROLLOUT DEBUG", flush=True)
     print(f"[hello_world_bench] inference_url: {inference_url}", flush=True)
     print(f"[hello_world_bench] model: {model}", flush=True)
     print(f"[hello_world_bench] agent_type: {agent_type}", flush=True)
     print(f"[hello_world_bench] api_key present: {bool(api_key)}", flush=True)
-    print(f"[hello_world_bench] CONTEXT OVERRIDES (new):", flush=True)
-    print(f"[hello_world_bench]   context_overrides count: {len(new_overrides) if new_overrides else 0}", flush=True)
+    print("[hello_world_bench] CONTEXT OVERRIDES (new):", flush=True)
+    print(
+        f"[hello_world_bench]   context_overrides count: {len(new_overrides) if new_overrides else 0}",
+        flush=True,
+    )
     print(f"[hello_world_bench]   override_bundle_id: {override_bundle_id}", flush=True)
     if new_overrides:
         for i, ov in enumerate(new_overrides):
-            print(f"[hello_world_bench]   override[{i}]: files={list(ov.file_artifacts.keys())}, preflight={bool(ov.preflight_script)}, env_vars={list(ov.env_vars.keys())}", flush=True)
-    print(f"[hello_world_bench] ========================================", flush=True)
+            print(
+                f"[hello_world_bench]   override[{i}]: files={list(ov.file_artifacts.keys())}, preflight={bool(ov.preflight_script)}, env_vars={list(ov.env_vars.keys())}",
+                flush=True,
+            )
+    print("[hello_world_bench] ========================================", flush=True)
 
     start = time.perf_counter()
     agent_result: dict[str, Any] = {"success": False, "stdout": "", "stderr": ""}
@@ -408,10 +422,10 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
     with tempfile.TemporaryDirectory(prefix="hello_world_gepa_") as td:
         sandbox_dir = Path(td) / "sandbox"
-        
+
         # Write basic sandbox files first
         _write_sandbox_files(sandbox_dir)
-        
+
         # Apply context overrides using the new helper
         if new_overrides:
             agent_enum = AgentType.CODEX if agent_type == "codex" else AgentType.OPENCODE
@@ -446,15 +460,19 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                         ],
                     )
                 ]
-            
+
             # Log results
             for result in override_application_results:
-                status = result.overall_status.value if hasattr(result.overall_status, 'value') else result.overall_status
+                status = (
+                    result.overall_status.value
+                    if hasattr(result.overall_status, "value")
+                    else result.overall_status
+                )
                 print(f"[hello_world_bench] Override {result.override_id}: {status}", flush=True)
                 if result.errors:
                     for err in result.errors:
                         print(f"[hello_world_bench]   ERROR: {err.message}", flush=True)
-            
+
             # Get merged env vars from overrides
             extra_env_vars = get_applied_env_vars(new_overrides)
         else:
@@ -511,12 +529,12 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         "agent_stdout_tail": str(agent_result.get("stdout", ""))[-1500:],
         "agent_stderr_tail": str(agent_result.get("stderr", ""))[-2000:],
     }
-    
+
     # Include override summary in details for debugging
     if override_application_results:
         details["override_count"] = len(override_application_results)
         details["override_statuses"] = [
-            r.overall_status.value if hasattr(r.overall_status, 'value') else str(r.overall_status)
+            r.overall_status.value if hasattr(r.overall_status, "value") else str(r.overall_status)
             for r in override_application_results
         ]
         # Surface errors clearly in details/status_detail for easy debugging
@@ -532,11 +550,14 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     status_detail = None
     if override_application_results:
         non_applied = [
-            r for r in override_application_results
+            r
+            for r in override_application_results
             if (getattr(r.overall_status, "value", r.overall_status) != "applied")
         ]
         if non_applied:
-            status_detail = "Some context overrides failed to apply; see override_application_results"
+            status_detail = (
+                "Some context overrides failed to apply; see override_application_results"
+            )
 
     return RolloutResponse(
         trace_correlation_id=trace_correlation_id,
@@ -572,12 +593,16 @@ HELLO_WORLD_EVENT_RUBRIC = Rubric(
     version="1.0",
     goal_text="Evaluate intermediate agent actions (lightweight).",
     criteria=[
-        Criterion(id="follows_instructions", description="Follows the task instructions.", weight=1.0),
+        Criterion(
+            id="follows_instructions", description="Follows the task instructions.", weight=1.0
+        ),
     ],
     aggregation="weighted_sum",
 )
 
-HELLO_WORLD_RUBRICS = RubricBundle(outcome=HELLO_WORLD_OUTCOME_RUBRIC, events=HELLO_WORLD_EVENT_RUBRIC)
+HELLO_WORLD_RUBRICS = RubricBundle(
+    outcome=HELLO_WORLD_OUTCOME_RUBRIC, events=HELLO_WORLD_EVENT_RUBRIC
+)
 
 app = create_local_api(
     LocalAPIConfig(
@@ -602,4 +627,3 @@ if __name__ == "__main__":
     print(f"[hello_world_bench] ENVIRONMENT_API_KEY ready: {env_key[:15]}...")
     print(f"[hello_world_bench] Starting on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
-
