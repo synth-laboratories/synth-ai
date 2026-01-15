@@ -22,6 +22,8 @@ export type ChatPaneProps = {
   /** Working directory for OpenCode session execution */
   workingDir?: string
   onExit?: () => void
+  /** Whether this panel has focus */
+  focused?: boolean
 }
 
 // The SDK returns messages in this wrapper format
@@ -853,7 +855,7 @@ export function ChatPane(props: ChatPaneProps) {
       width={props.width}
       height={props.height}
       border
-      borderColor={COLORS.border}
+      borderColor={props.focused ? COLORS.textAccent : COLORS.border}
     >
       {/* Header */}
       <box flexDirection="column" backgroundColor={COLORS.bgHeader} paddingLeft={1} paddingRight={1}>

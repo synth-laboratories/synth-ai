@@ -103,6 +103,7 @@ export function AppBody(props: AppBodyProps) {
 									height={props.opencodeDimensions().height}
 									workingDir={props.opencodeWorkingDir()}
 									onExit={props.onExitOpenCode}
+									focused={props.focusTarget() === "agent"}
 								/>
 							</Show>
 						</ErrorBoundary>
@@ -113,7 +114,7 @@ export function AppBody(props: AppBodyProps) {
         when={props.activePane() !== ListPane.Logs}
 					fallback={
 						<LogsDetail
-							title="Logs (files)"
+							title="Logs"
 							filePath={props.logsList.selectedFile()?.path ?? null}
 							lines={props.logsDetailView().lines}
 							visibleLines={props.logsDetailView().visibleLines}
