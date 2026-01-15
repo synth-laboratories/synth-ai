@@ -31,7 +31,6 @@ export type ActiveModal =
   | "generations"
   | "results"
   | "profile"
-  | "urls"
   | "login"
   | "metrics"
   | "traces"
