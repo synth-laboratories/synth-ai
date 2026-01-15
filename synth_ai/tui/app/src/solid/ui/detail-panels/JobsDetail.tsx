@@ -1,4 +1,4 @@
-import { For, Show, createMemo } from "solid-js"
+import { Show, createMemo } from "solid-js"
 import { COLORS } from "../../theme"
 import type { AppData } from "../../../types"
 import type { JobEvent } from "../../../tui_data"
@@ -7,7 +7,8 @@ import { formatDetails } from "../../formatters/job-details"
 import { formatResults } from "../../formatters/results"
 import { GraphEvolveResultsPanel } from "./GraphEvolveResultsPanel"
 import { formatMetrics, formatMetricsCharts } from "../../formatters/metrics"
-import { ListCard, getIndicator } from "../../components/ListCard"
+import { getIndicator } from "../../components/ListCard"
+import { ListContainer } from "../../components/ListContainer"
 
 interface JobsDetailProps {
   data: AppData
@@ -37,7 +38,7 @@ function padLine(text: string, width: number): string {
 }
 
 function formatEventHeader(event: JobEvent): string {
-  const seq = String(event.seq).padStart(3, " ")
+  const seq = String(event.seq)
   const typeRaw = event.type || ""
   const type = typeRaw.replace(/^prompt\.learning\./, "")
   return `${seq} ${type}`.trimEnd()
@@ -79,6 +80,7 @@ export function JobsDetail(props: JobsDetailProps) {
     return clamp(lines + 2, 6, 10)
   })
   const resultsTitle = createMemo(() => {
+    if (isGraphEvolveVerifier()) return "Reward"
     const job = props.data.selectedJob
     return job && isEvalJob(job) ? "Results" : "Summary"
   })
@@ -110,6 +112,12 @@ export function JobsDetail(props: JobsDetailProps) {
     }
     return formatMetrics(props.data.metrics)
   })
+  const lineWidth = () => Math.max(20, props.detailWidth - 6)
+  const eventItems = () =>
+    props.eventWindow.slice.map((event, idx) => ({
+      item: event,
+      globalIndex: props.eventWindow.windowStart + idx,
+    }))
 
   return (
     <box flexDirection="column" flexGrow={1} border={false} gap={0}>
@@ -164,57 +172,36 @@ export function JobsDetail(props: JobsDetailProps) {
       </box>
 
       {/* Events Box - compact per-event cards (pure text) */}
-      <box
-        flexGrow={1}
-        border
-        borderStyle="single"
-        borderColor={props.eventsFocused ? COLORS.textAccent : COLORS.border}
+      <ListContainer
+        items={eventItems()}
+        selectedIndex={props.eventWindow.selected}
+        focused={!!props.eventsFocused}
         title="Events"
-        titleAlignment="left"
-        flexDirection="column"
+        totalCount={props.events.length}
+        flexGrow={1}
         paddingLeft={1}
-      >
-        <Show
-          when={props.events.length > 0}
-          fallback={<text fg={COLORS.textDim}>No events yet.</text>}
-        >
-          {(() => {
-            const selected = props.eventWindow.selected
-            const windowStart = props.eventWindow.windowStart
-            const lineWidth = Math.max(20, props.detailWidth - 6)
-            return (
-              <box flexDirection="column">
-                <For each={props.eventWindow.slice}>
-                  {(event, idx) => {
-                    const globalIdx = windowStart + idx()
-                    const isSel = globalIdx === selected
-                    const title = formatEventHeader(event)
-                    const timestamp = formatEventTimestamp(event) || "-"
-                    return (
-                      <ListCard isSelected={isSel}>
-                        {(ctx) => (
-                          <box flexDirection="column">
-                            <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
-                              <text fg={ctx.fg}>
-                                {padLine(`${getIndicator(ctx.isSelected)}${title}`, lineWidth)}
-                              </text>
-                            </box>
-                            <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
-                              <text fg={ctx.fgDim}>
-                                {padLine(`  ${timestamp}`, lineWidth)}
-                              </text>
-                            </box>
-                          </box>
-                        )}
-                      </ListCard>
-                    )
-                  }}
-                </For>
+        border
+        emptyFallback={<text fg={COLORS.textDim}>No events yet.</text>}
+        renderItem={(event, ctx) => {
+          const title = formatEventHeader(event)
+          const timestamp = formatEventTimestamp(event) || "-"
+          const width = lineWidth()
+          return (
+            <box flexDirection="column">
+              <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
+                <text fg={ctx.fg}>
+                  {padLine(`${getIndicator(ctx.isSelected)}${title}`, width)}
+                </text>
               </box>
-            )
-          })()}
-        </Show>
-      </box>
+              <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
+                <text fg={ctx.fgDim}>
+                  {padLine(`  ${timestamp}`, width)}
+                </text>
+              </box>
+            </box>
+          )
+        }}
+      />
 
       <Show when={props.lastError}>
         <text fg={COLORS.error}>{`Error: ${props.lastError}`}</text>
