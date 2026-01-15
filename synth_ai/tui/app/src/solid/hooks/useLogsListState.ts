@@ -22,7 +22,6 @@ export type LogsListState = {
   selectedFile: Accessor<LogFileInfo | null>
   listWindow: ListWindowState<LogsListRow>
   listTitle: Accessor<string>
-  filesTitle: Accessor<string>
   totalCount: Accessor<number>
 }
 
@@ -141,17 +140,6 @@ export function useLogsListState(options: UseLogsListStateOptions): LogsListStat
     const idx = liveLogs.selectedIndex()
     return formatListTitle("Logs", mode, count, idx, total)
   })
-  const filesTitle = createMemo(() => {
-    const total = listWindow.total()
-    const items = listWindow.visibleItems()
-    if (!total || items.length === 0) return "Logs (files)"
-    const start = items[0].globalIndex
-    const end = items[items.length - 1].globalIndex + 1
-    if (total > items.length) {
-      return `Logs (files) [${start + 1}-${end}/${total}]`
-    }
-    return "Logs (files)"
-  })
   const totalCount = createMemo(() => logFiles().length)
 
   return {
@@ -161,7 +149,6 @@ export function useLogsListState(options: UseLogsListStateOptions): LogsListStat
     selectedFile,
     listWindow,
     listTitle,
-    filesTitle,
     totalCount,
   }
 }
