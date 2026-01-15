@@ -305,7 +305,6 @@ function SolidShell(props: { onExit?: () => void }) {
 		moveListFilter: overlayModals.moveListFilter,
 		toggleListFilterSelection: overlayModals.toggleListFilterSelection,
 		selectAllListFilterSelection: overlayModals.selectAllListFilterSelection,
-		clearListFilterSelection: overlayModals.clearListFilterSelection,
 		startLoginAuth: authFlow.startLoginAuth,
 		openFilterModal: overlayModals.openFilterModal,
 		openConfigModal: overlayModals.openConfigModal,

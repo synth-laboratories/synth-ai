@@ -5,7 +5,6 @@ import { COLORS } from "../theme"
 import type { AppData } from "../../types"
 import { moveSelectionIndex, resolveSelectionWindow } from "../utils/list"
 import {
-  GOLD_TARGET,
   extractGraphEvolveCandidates,
   formatRacePreview,
   groupCandidatesByGeneration,
@@ -87,19 +86,20 @@ export function GraphEvolveGenerationsModal(props: GraphEvolveGenerationsModalPr
     }
 
     const selected = generations()[selectedIndex()] ?? null
-    const trackWidth = Math.max(8, detailWidth - 12 - 6 - 3)
+    const labelWidth = 4
+    const trackWidth = Math.max(8, detailWidth - labelWidth - 1)
     const preview = selected
       ? formatRacePreview({
           candidates: selected.candidates,
           maxCandidates: 3,
           trackWidth,
-          labelWidth: 12,
+          labelWidth,
           scorePrecision: 2,
         })
-      : { lines: ["No candidates yet."], bestDelta: null }
+      : { lines: ["No candidates yet."], bestReward: null }
 
     const detailLines: string[] = []
-    detailLines.push(clampLine(`Gold: ${GOLD_TARGET.toFixed(2)}`, detailWidth))
+    detailLines.push(clampLine("Reward 0.00-1.00", detailWidth))
     if (selected) {
       detailLines.push(clampLine(`Gen ${selected.generation} (top 3)`, detailWidth))
     }

@@ -42,13 +42,13 @@ type ActiveModalRendererProps = {
 
 export function ActiveModalRenderer(props: ActiveModalRendererProps) {
   const ui = props.ui
-  const listFilterHint = "up/down move | space select | a all | c none | esc close"
+  const listFilterHint = "up/down move | space select | a all/none | esc close"
   const listFilterView = createMemo(() => {
     const totalOptions = ui.listFilterOptions.length
     if (!totalOptions) {
       return ["  (no filters available)"]
     }
-    const total = totalOptions + 2
+    const total = totalOptions + 1
     const window = resolveSelectionWindow(
       total,
       ui.listFilterCursor,
@@ -56,24 +56,19 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
       ui.listFilterVisibleCount,
     )
     const selections = ui.listFilterSelections[ui.listFilterPane]
+    const mode = ui.listFilterMode[ui.listFilterPane]
     const lines: string[] = []
     const totalItems = ui.listFilterOptions.reduce((sum, option) => sum + option.count, 0)
-    const selectedCount = selections?.size ?? 0
-    const allSelected = totalOptions > 0 && selectedCount >= totalOptions
-    const noneSelected = selectedCount === 0
+    const allSelected = mode === "all"
     for (let idx = window.windowStart; idx < window.windowEnd; idx++) {
       const cursor = idx === window.selectedIndex ? ">" : " "
       if (idx === 0) {
         lines.push(`${cursor} [${allSelected ? "x" : " "}] All (${totalItems})`)
         continue
       }
-      if (idx === 1) {
-        lines.push(`${cursor} [${noneSelected ? "x" : " "}] None (0)`)
-        continue
-      }
-      const option = ui.listFilterOptions[idx - 2]
+      const option = ui.listFilterOptions[idx - 1]
       if (!option) continue
-      const active = selections?.has(option.id)
+      const active = mode === "all" ? true : mode === "subset" && selections?.has(option.id)
       lines.push(`${cursor} [${active ? "x" : " "}] ${option.label} (${option.count})`)
     }
     return lines
@@ -351,6 +346,7 @@ export function ActiveModalRenderer(props: ActiveModalRendererProps) {
         generationFilter={props.ui.candidatesGenerationFilter}
         width={props.dimensions().width}
         height={props.dimensions().height}
+        onGenerationChange={props.openCandidatesForGeneration}
         onClose={props.closeActiveModal}
         onStatus={(message: string) => {
           props.onStatusUpdate(message)

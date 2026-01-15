@@ -2,6 +2,7 @@
  * Job list selectors (pure-ish helpers).
  */
 import { normalizeJobType, type JobSummary } from "../tui_data"
+import type { ListFilterMode } from "../types"
 
 export function getJobTypeKey(job: JobSummary): string {
   return normalizeJobType(job).toLowerCase()
@@ -67,9 +68,11 @@ export function buildJobTypeOptions(
 export function getFilteredJobsByType(
   jobs: JobSummary[],
   typeFilter: ReadonlySet<string>,
+  mode: ListFilterMode,
 ): JobSummary[] {
-  if (!typeFilter.size) return jobs
+  if (mode === "none") return []
+  if (mode === "all") return jobs
+  if (!typeFilter.size) return []
   return jobs.filter((job) => typeFilter.has(getJobTypeKey(job)))
 }
-
 
