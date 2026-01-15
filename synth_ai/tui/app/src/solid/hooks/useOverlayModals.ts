@@ -17,6 +17,7 @@ import { openBrowser } from "../../auth"
 import { copyToClipboard } from "../../utils/clipboard"
 import {
   persistModeSelection,
+  persistListFilters,
   readPersistedSettings,
 } from "../../persistence/settings"
 import { moveSelectionIndex, resolveSelectionWindow } from "../utils/list"
@@ -25,6 +26,7 @@ import { isAborted } from "../../utils/request"
 import { log } from "../../utils/log"
 import type { LogFileInfo } from "../utils/logs"
 import { ListPane, type Mode } from "../../types"
+import { extractGraphEvolveCandidates, groupCandidatesByGeneration } from "../../formatters/graph-evolve"
 
 type UseOverlayModalsOptions = {
   ctx: AppContext
@@ -60,12 +62,10 @@ export type OverlayModalState = {
   openResultsModal: () => void
   openCandidatesForGeneration: (generation: number) => void
   openProfileModal: () => void
-  openUrlsModal: () => void
   openListFilterModal: () => void
   moveListFilter: (delta: number) => void
   toggleListFilterSelection: () => void
   selectAllListFilterSelection: () => void
-  clearListFilterSelection: () => void
   openSettingsModal: () => void
   moveSettingsCursor: (delta: number) => void
   selectSettingsBackend: () => Promise<void>
@@ -151,6 +151,12 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
 
   const openCandidatesForGeneration = (generation: number): void => {
     options.setUi("candidatesGenerationFilter", generation)
+    const candidates = extractGraphEvolveCandidates(options.data)
+    const generations = groupCandidatesByGeneration(candidates)
+    const index = generations.findIndex((group) => group.generation === generation)
+    if (index >= 0) {
+      options.setUi("verifierEvolveGenerationIndex", index)
+    }
     options.openOverlayModal("results")
     void options.ensureCandidatesModal()
   }
@@ -159,8 +165,21 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
     options.openOverlayModal("profile")
   }
 
-  const openUrlsModal = (): void => {
-    options.openOverlayModal("urls")
+  const persistListFilterState = (): void => {
+    void persistListFilters(
+      options.ui.currentMode,
+      {
+        [ListPane.Jobs]: {
+          mode: options.ui.listFilterMode[ListPane.Jobs],
+          selections: Array.from(options.ui.listFilterSelections[ListPane.Jobs]),
+        },
+        [ListPane.Logs]: {
+          mode: options.ui.listFilterMode[ListPane.Logs],
+          selections: Array.from(options.ui.listFilterSelections[ListPane.Logs]),
+        },
+      },
+      (message) => options.setData("status", message),
+    )
   }
 
   const openListFilterModal = (): void => {
@@ -172,6 +191,11 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
     } else {
       options.setUi("listFilterOptions", [])
     }
+    const pane = options.ui.activePane as ListPane
+    const mode = options.ui.listFilterMode[pane]
+    if ((mode === "all" || mode === "none") && options.ui.listFilterSelections[pane].size > 0) {
+      options.setUi("listFilterSelections", pane, new Set<string>())
+    }
     options.setUi("listFilterVisibleCount", options.ctx.state.config.listFilterVisibleCount)
     options.setUi("listFilterCursor", 0)
     options.setUi("listFilterWindowStart", 0)
@@ -181,7 +205,7 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
   const moveListFilter = (delta: number): void => {
     log("state", `moveListFilter delta=${delta} cursor=${options.ui.listFilterCursor} total=${options.ui.listFilterOptions.length}`)
     const totalOptions = options.ui.listFilterOptions.length
-    const total = totalOptions > 0 ? totalOptions + 2 : 0
+    const total = totalOptions > 0 ? totalOptions + 1 : 0
     const visibleCount = options.ui.listFilterVisibleCount
     const nextSelected = moveSelectionIndex(options.ui.listFilterCursor, delta, total)
     const window = resolveSelectionWindow(
@@ -206,51 +230,60 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
       selectAllListFilterSelection()
       return
     }
-    if (options.ui.listFilterCursor === 1) {
-      clearListFilterSelection()
-      return
-    }
-    const option = options.ui.listFilterOptions[options.ui.listFilterCursor - 2]
+    const option = options.ui.listFilterOptions[options.ui.listFilterCursor - 1]
     if (!option) {
       log("state", "toggleListFilterSelection: no option at cursor")
       return
     }
-    options.setUi("listFilterSelections", options.ui.listFilterPane as ListPane, (selections) => {
-      const next = new Set(selections)
-      const wasSelected = next.has(option.id)
-      if (wasSelected) {
-        next.delete(option.id)
-      } else {
-        next.add(option.id)
-      }
-      log("state", `toggleListFilterSelection: option=${option.id} ${wasSelected ? "deselected" : "selected"} total=${next.size}`)
-      return next
-    })
+    const pane = options.ui.listFilterPane as ListPane
+    const mode = options.ui.listFilterMode[pane]
+    const allIds = options.ui.listFilterOptions.map((entry) => entry.id)
+    let nextMode = mode
+    let next = new Set(options.ui.listFilterSelections[pane])
+    if (mode === "all") {
+      nextMode = "subset"
+      next = new Set(allIds)
+    } else if (mode === "none") {
+      nextMode = "subset"
+      next = new Set()
+    }
+    const wasSelected = next.has(option.id)
+    if (wasSelected) {
+      next.delete(option.id)
+    } else {
+      next.add(option.id)
+    }
+    if (next.size === 0) {
+      nextMode = "none"
+    } else if (allIds.length > 0 && allIds.every((id) => next.has(id))) {
+      nextMode = "all"
+      next = new Set()
+    } else {
+      nextMode = "subset"
+    }
+    log("state", `toggleListFilterSelection: option=${option.id} ${wasSelected ? "deselected" : "selected"} total=${next.size}`)
+    options.setUi("listFilterMode", pane, nextMode)
+    options.setUi("listFilterSelections", pane, next)
+    persistListFilterState()
   }
 
   const selectAllListFilterSelection = (): void => {
     const pane = options.ui.listFilterPane as ListPane
-    if (!options.ui.listFilterOptions.length) {
-      options.setUi("listFilterSelections", pane, new Set<string>())
-      return
-    }
-    const allIds = options.ui.listFilterOptions.map((option) => option.id)
-    log("state", `selectAllListFilterSelection: total=${allIds.length}`)
-    options.setUi("listFilterSelections", pane, new Set<string>(allIds))
-  }
-
-  const clearListFilterSelection = (): void => {
-    const prevSize = options.ui.listFilterSelections[options.ui.listFilterPane as ListPane].size
-    log("state", `clearListFilterSelection: clearing ${prevSize} selections`)
-    options.setUi("listFilterSelections", options.ui.listFilterPane as ListPane, new Set<string>())
+    const isAll = options.ui.listFilterMode[pane] === "all"
+    const nextMode = isAll ? "none" : "all"
+    options.setUi("listFilterMode", pane, nextMode)
+    options.setUi("listFilterSelections", pane, new Set<string>())
+    log("state", `selectAllListFilterSelection: mode=${nextMode}`)
+    persistListFilterState()
   }
 
   const openSettingsModal = (): void => {
-    const settingsOptions: Mode[] = ["prod", "dev", "local"]
+    const settingsOptions: Array<Mode | "reset"> = ["prod", "dev", "local", "reset"]
     options.setUi("settingsOptions", settingsOptions)
+    const selected = options.ui.settingsMode ?? "reset"
     setSettingsCursor(Math.max(
       0,
-      settingsOptions.indexOf(options.ui.currentMode),
+      settingsOptions.indexOf(selected),
     ))
     options.openOverlayModal("settings")
     void readPersistedSettings()
@@ -268,16 +301,32 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
   const selectSettingsBackend = async (): Promise<void> => {
     const selectedMode = options.ui.settingsOptions[settingsCursor()]
     if (!selectedMode) return
+    if (selectedMode === "reset") {
+      options.setUi("settingsMode", null)
+      await persistModeSelection(null)
+      options.closeActiveModal()
+      options.setData("status", "Mode selection cleared.")
+      return
+    }
+
     const urls = modeUrls[selectedMode]
     if (!urls.backendUrl || !urls.frontendUrl) {
       options.setData("status", `Missing URLs for ${selectedMode}.`)
       return
     }
 
+    options.setUi("settingsMode", selectedMode)
     options.setUi("currentMode", selectedMode)
     switchMode(selectedMode)
     await persistModeSelection(selectedMode)
     const settings = await readPersistedSettings()
+    const listFilters = settings.listFilters?.[selectedMode]
+    if (listFilters) {
+      options.setUi("listFilterMode", ListPane.Jobs, listFilters[ListPane.Jobs].mode)
+      options.setUi("listFilterSelections", ListPane.Jobs, new Set(listFilters[ListPane.Jobs].selections))
+      options.setUi("listFilterMode", ListPane.Logs, listFilters[ListPane.Logs].mode)
+      options.setUi("listFilterSelections", ListPane.Logs, new Set(listFilters[ListPane.Logs].selections))
+    }
     process.env.SYNTH_API_KEY = settings.keys[selectedMode] || ""
 
     if (!process.env.SYNTH_API_KEY) {
@@ -566,12 +615,10 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
     openResultsModal,
     openCandidatesForGeneration,
     openProfileModal,
-    openUrlsModal,
     openListFilterModal,
     moveListFilter,
     toggleListFilterSelection,
     selectAllListFilterSelection,
-    clearListFilterSelection,
     openSettingsModal,
     moveSettingsCursor,
     selectSettingsBackend,

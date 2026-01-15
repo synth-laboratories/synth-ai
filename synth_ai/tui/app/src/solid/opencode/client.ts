@@ -8,16 +8,19 @@ import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk/v2"
 export type { OpencodeClient }
 
 let clientInstance: OpencodeClient | null = null
+let clientUrl: string | null = null
 
 export function getClient(url: string): OpencodeClient {
-  if (!clientInstance) {
+  if (!clientInstance || clientUrl !== url) {
     clientInstance = createOpencodeClient({ baseUrl: url })
+    clientUrl = url
   }
   return clientInstance
 }
 
 export function resetClient(): void {
   clientInstance = null
+  clientUrl = null
 }
 
 // Re-export types we need

@@ -1,12 +1,12 @@
 import { type Accessor, createMemo } from "solid-js"
 
-import type { ActivePane, PrincipalPane } from "../../types"
+import type { ActivePane, ListFilterMode, PrincipalPane } from "../../types"
 import { ListPane } from "../../types"
 import type { AppState } from "../../state/app-state"
 import { formatTimestamp } from "../formatters/time"
 import { useLiveLogs } from "../utils/live-logs"
 import type { LogFileInfo } from "../utils/logs"
-import { formatListFilterTitle, getListFilterCount } from "../utils/listFilter"
+import { formatListTitle, getListFilterCount } from "../utils/listTitle"
 import { type ListWindowState, useListWindow } from "./useListWindow"
 
 export type LogsListRow = {
@@ -22,7 +22,6 @@ export type LogsListState = {
   selectedFile: Accessor<LogFileInfo | null>
   listWindow: ListWindowState<LogsListRow>
   listTitle: Accessor<string>
-  filesTitle: Accessor<string>
   totalCount: Accessor<number>
 }
 
@@ -90,8 +89,11 @@ export function buildLogTypeOptions(
 export function getFilteredLogsByType(
   files: LogFileInfo[],
   typeFilter: ReadonlySet<string>,
+  mode: ListFilterMode,
 ): LogFileInfo[] {
-  if (!typeFilter.size) return files
+  if (mode === "none") return []
+  if (mode === "all") return files
+  if (!typeFilter.size) return []
   return files.filter((file) => typeFilter.has(getLogTypeSuffix(file.name)))
 }
 
@@ -115,10 +117,10 @@ export function useLogsListState(options: UseLogsListStateOptions): LogsListStat
   const logFiles = createMemo(() => {
     const files = allLogFiles()
     const filters = options.ui.listFilterSelections[ListPane.Logs]
-    return getFilteredLogsByType(files, filters)
+    const mode = options.ui.listFilterMode[ListPane.Logs]
+    return getFilteredLogsByType(files, filters, mode)
   })
   const listItems = createMemo(() => logFiles().map(formatLogRow))
-  const totalFilterOptions = createMemo(() => buildLogTypeOptions(allLogFiles()).length)
   const listWindow = useListWindow({
     items: listItems,
     selectedIndex: liveLogs.selectedIndex,
@@ -133,18 +135,10 @@ export function useLogsListState(options: UseLogsListStateOptions): LogsListStat
   })
   const listTitle = createMemo(() => {
     const count = getListFilterCount(options.ui, ListPane.Logs)
-    return formatListFilterTitle("Logs", count, totalFilterOptions())
-  })
-  const filesTitle = createMemo(() => {
-    const total = listWindow.total()
-    const items = listWindow.visibleItems()
-    if (!total || items.length === 0) return "Logs (files)"
-    const start = items[0].globalIndex
-    const end = items[items.length - 1].globalIndex + 1
-    if (total > items.length) {
-      return `Logs (files) [${start + 1}-${end}/${total}]`
-    }
-    return "Logs (files)"
+    const mode = options.ui.listFilterMode[ListPane.Logs]
+    const total = logFiles().length
+    const idx = liveLogs.selectedIndex()
+    return formatListTitle("Logs", mode, count, idx, total)
   })
   const totalCount = createMemo(() => logFiles().length)
 
@@ -155,7 +149,6 @@ export function useLogsListState(options: UseLogsListStateOptions): LogsListStat
     selectedFile,
     listWindow,
     listTitle,
-    filesTitle,
     totalCount,
   }
 }

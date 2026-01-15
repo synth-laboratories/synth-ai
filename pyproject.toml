@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.4.12"
+version = "0.5.0"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
@@ -51,6 +51,7 @@ dependencies = [
     "gepa>=0.0.17",
     # Dataset loading - used by many task apps (banking77, math, hotpotqa, etc.)
     "datasets>=4.0.0",
+    "daytona-sdk>=0.130.0",
 ]
 
 [project.scripts]
@@ -143,6 +144,9 @@ include-package-data = true
     "tui/app/tsconfig.typecheck.json",
     "tui/app/src/**/*.ts",
     "tui/app/src/**/*.tsx",
+    # OpenCode: ship bundled config + packaged skills so users can install them via CLI
+    "tui/opencode_config/**/*",
+    "skills/**/*",
 ]
 
 [tool.pytest.ini_options]
@@ -189,6 +193,7 @@ src = ["synth_ai"]
 extend-exclude = [
     ".venv",
     ".tmp",
+    "**/*.ipynb",
     "dev",
     "docs",
     "scripts",

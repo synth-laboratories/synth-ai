@@ -14,7 +14,7 @@ Key patterns:
 Usage:
     1. Copy this template to your project
     2. Customize the dataset loading and task-specific logic
-    3. Update the scoring function for your task
+    3. Update the reward computation function for your task
     4. Run with: ENVIRONMENT_API_KEY=<your-key> python your_localapi.py
 """
 
@@ -69,7 +69,7 @@ def get_sample(seed: int) -> dict:
     Returns:
         dict with sample data including:
         - input: The input to process (query, text, etc.)
-        - expected_output: The expected output (for scoring)
+        - expected_output: The expected output (for reward computation)
         - Any other metadata needed for evaluation
     """
     idx = seed % get_dataset_size()
@@ -82,12 +82,12 @@ def get_sample(seed: int) -> dict:
 
 
 # =============================================================================
-# SCORING
+# REWARD COMPUTATION
 # =============================================================================
 
 
-def score_response(predicted: str, sample: dict) -> float:
-    """Score the LLM's response against the expected output.
+def compute_outcome_reward(predicted: str, sample: dict) -> float:
+    """Compute the outcome reward from the model output and expected output.
 
     Args:
         predicted: The LLM's generated response
@@ -97,8 +97,8 @@ def score_response(predicted: str, sample: dict) -> float:
         float between 0.0 and 1.0 representing match quality
     """
     expected = sample["expected_output"]
-    # Replace with task-specific scoring logic
-    # Examples: exact match, F1 score, semantic similarity, etc.
+    # Replace with task-specific reward logic.
+    # Examples: exact match, token overlap, semantic similarity, etc.
     return 1.0 if predicted.strip() == expected.strip() else 0.0
 
 
@@ -180,7 +180,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     IMPORTANT: This function demonstrates the correct pattern:
     1. Extract policy config and inference URL
     2. Call LLM with normalized URL
-    3. Score the response
+    3. Compute the reward
     4. Use build_rollout_response() to automatically handle trace correlation
     """
     seed = request.env.seed
@@ -200,15 +200,15 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         model=policy_config.get("model", "gpt-4o-mini"),
     )
 
-    # Score the prediction
-    score = score_response(predicted, sample)
+    # Compute the reward
+    outcome_reward = compute_outcome_reward(predicted, sample)
 
     # IMPORTANT: Use build_rollout_response() helper
     # This automatically extracts trace_correlation_id and handles the
     # complex policy_config filtering required for proper trace hydration
     return build_rollout_response(
         request=request,
-        outcome_reward=score,
+        outcome_reward=outcome_reward,
         policy_config=policy_config,
         inference_url=inference_url,
         # Optional: Include trace payload if you're building one

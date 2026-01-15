@@ -2,7 +2,7 @@ import { createEffect, onCleanup, onMount } from "solid-js"
 
 import { refreshHealth, refreshIdentity } from "../api/identity"
 import { refreshJobs, selectJob } from "../api/jobs"
-import { loadPersistedSettings } from "../persistence/settings"
+import { readPersistedSettings } from "../persistence/settings"
 import { getJobsCacheKey, loadJobsCache } from "../persistence/jobs-cache"
 import { switchMode, setCurrentMode } from "../state/app-state"
 import { config } from "../state/polling"
@@ -12,6 +12,7 @@ import { isAborted } from "../utils/request"
 import { createSolidContext } from "./context"
 import { createAppStore } from "./store"
 import { log } from "../utils/log"
+import { ListPane, type Mode } from "../types"
 
 export type SolidData = {
   refresh: () => Promise<boolean>
@@ -48,26 +49,28 @@ export function useSolidData(): SolidData {
   })
 
   async function bootstrap(): Promise<void> {
-    let persisted: Awaited<ReturnType<typeof loadPersistedSettings>> | null = null
-    // If mode is explicitly set via env, use it directly.
-    // Otherwise fall back to persisted settings.
-    if (!process.env.SYNTH_TUI_MODE) {
-      persisted = await loadPersistedSettings({
-        setCurrentMode: (mode) => {
-          setCurrentMode(mode)
-          setUi("currentMode", mode)
-        },
-      })
-      // Apply loaded mode's URLs
-      switchMode(ui.currentMode)
+    const settings = await readPersistedSettings()
+    const persistedMode = settings.mode ?? null
+    let resolvedMode: Mode = ui.currentMode
+    // Persisted settings are the source of truth for mode.
+    if (persistedMode) {
+      resolvedMode = persistedMode
+    }
+    setUi("settingsMode", persistedMode)
+    setCurrentMode(resolvedMode)
+    setUi("currentMode", resolvedMode)
+    if (persistedMode) {
+      switchMode(resolvedMode)
+    }
+    const listFilters = settings.listFilters?.[resolvedMode]
+    if (listFilters) {
+      setUi("listFilterMode", ListPane.Jobs, listFilters[ListPane.Jobs].mode)
+      setUi("listFilterSelections", ListPane.Jobs, new Set(listFilters[ListPane.Jobs].selections))
+      setUi("listFilterMode", ListPane.Logs, listFilters[ListPane.Logs].mode)
+      setUi("listFilterSelections", ListPane.Logs, new Set(listFilters[ListPane.Logs].selections))
     }
     if (!process.env.SYNTH_API_KEY) {
-      const settings =
-        persisted ??
-        (await loadPersistedSettings({
-          setCurrentMode: () => {},
-        }))
-      process.env.SYNTH_API_KEY = settings.keys[ui.currentMode] || ""
+      process.env.SYNTH_API_KEY = settings.keys[resolvedMode] || ""
     }
 
     if (!process.env.SYNTH_API_KEY) {

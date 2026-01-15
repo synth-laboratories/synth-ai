@@ -19,6 +19,8 @@ export interface ListCardStyleContext {
 export interface ListCardProps {
   /** Whether this card is currently selected */
   isSelected: boolean
+  /** Whether the parent panel/list has focus */
+  panelFocused?: boolean
   /** Render function receiving style context */
   children: (ctx: ListCardStyleContext) => JSX.Element
 }
@@ -29,12 +31,14 @@ export interface ListCardProps {
  */
 export function ListCard(props: ListCardProps) {
   const styleContext = (): ListCardStyleContext => {
-    const sel = getSelectionStyle(props.isSelected)
+    // Only show selection highlight when panel is focused (default to true for backwards compat)
+    const showSelection = props.isSelected && (props.panelFocused ?? true)
+    const sel = getSelectionStyle(showSelection)
     return {
       fg: sel.fg,
       bg: sel.bg,
       isSelected: props.isSelected,
-      fgDim: props.isSelected ? COLORS.textBright : COLORS.textDim,
+      fgDim: showSelection ? COLORS.textBright : COLORS.textDim,
     }
   }
 

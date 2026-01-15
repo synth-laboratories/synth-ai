@@ -1,6 +1,6 @@
-import { For, Show } from "solid-js"
 import { COLORS } from "../../theme"
-import { ListCard, getIndicator } from "../../components/ListCard"
+import { getIndicator } from "../../components/ListCard"
+import { ListContainer } from "../../components/ListContainer"
 import type { ListWindowItem } from "../../utils/list"
 import type { LogsListRow } from "../../hooks/useLogsListState"
 
@@ -16,41 +16,26 @@ interface LogsListProps {
 
 export function LogsList(props: LogsListProps) {
   return (
-    <box
+    <ListContainer
+      items={props.items}
+      selectedIndex={props.selectedIndex}
+      focused={props.focused}
       width={props.width}
       height={props.height}
-      borderStyle="single"
-      borderColor={props.focused ? COLORS.textAccent : COLORS.border}
       title={props.title}
-      titleAlignment="left"
-      flexDirection="column"
-    >
-      <Show
-        when={props.totalCount > 0}
-        fallback={<text fg={COLORS.textDim}> No log files found.</text>}
-      >
-        <For each={props.items}>
-          {(entry) => {
-            const isSelected = entry.globalIndex === props.selectedIndex
-            const item = entry.item
-
-            return (
-              <ListCard isSelected={isSelected}>
-                {(ctx) => (
-                  <box flexDirection="column">
-                    <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
-                      <text fg={ctx.fg}>{getIndicator(ctx.isSelected)}{item.type}</text>
-                    </box>
-                    <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
-                      <text fg={ctx.fgDim}>  {item.date}</text>
-                    </box>
-                  </box>
-                )}
-              </ListCard>
-            )
-          }}
-        </For>
-      </Show>
-    </box>
+      totalCount={props.totalCount}
+      border
+      emptyFallback={<text fg={COLORS.textDim}> No log files found.</text>}
+      renderItem={(item, ctx) => (
+        <box flexDirection="column">
+          <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
+            <text fg={ctx.fg}>{getIndicator(ctx.isSelected)}{item.type}</text>
+          </box>
+          <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
+            <text fg={ctx.fgDim}>  {item.date}</text>
+          </box>
+        </box>
+      )}
+    />
   )
 }

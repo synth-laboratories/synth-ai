@@ -2,10 +2,9 @@
  * Mode configuration and switching logic.
  *
  * Handles prod/dev/local mode URLs and API keys.
- * Process env overrides are honored at startup.
+ * Process env URL overrides are honored at startup.
  */
 
-import { parseMode } from "../types"
 import type { Mode, ModeUrls } from "../types"
 
 /** Hardcoded default URLs for each mode */
@@ -32,7 +31,6 @@ let envUrlsAtStartup = false
 
 /** Current mode */
 let currentMode: Mode = "prod"
-
 /**
  * Initialize mode state from environment.
  * Call this once at startup.
@@ -46,18 +44,13 @@ export function initModeState(): void {
     envUrlsAtStartup = true
   }
 
-  // Determine initial mode
-  const envMode = process.env.SYNTH_TUI_MODE
-  if (envMode) {
-    currentMode = parseMode(envMode)
-  }
-
   // If no env URLs were set, apply the default URLs for the current mode
   if (!envUrlsAtStartup) {
     const urls = modeUrls[currentMode]
     process.env.SYNTH_BACKEND_URL = urls.backendUrl
     process.env.SYNTH_FRONTEND_URL = urls.frontendUrl
   }
+
 }
 
 /**
@@ -80,13 +73,16 @@ export function hasEnvUrlsAtStartup(): boolean {
  */
 export function switchMode(mode: Mode): void {
   currentMode = mode
-  process.env.SYNTH_TUI_MODE = mode
 
   // Always update URLs on explicit mode switch
   const urls = modeUrls[mode]
   process.env.SYNTH_BACKEND_URL = urls.backendUrl
   process.env.SYNTH_FRONTEND_URL = urls.frontendUrl
 }
+
+/**
+ * Reset env URLs to the startup values.
+ */
 
 /**
  * Set the current mode without switching URLs.

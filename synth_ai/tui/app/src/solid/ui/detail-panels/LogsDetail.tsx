@@ -1,5 +1,5 @@
 import { Show } from "solid-js"
-import { COLORS } from "../../theme"
+import { TEXT, PANEL, getPanelBorderColor } from "../../theme"
 
 interface LogsDetailProps {
   title: string
@@ -28,25 +28,25 @@ export function LogsDetail(props: LogsDetailProps) {
   return (
     <box
       flexGrow={1}
-      border
-      borderStyle="single"
-      borderColor={props.focused ? COLORS.textAccent : COLORS.border}
+      border={PANEL.border}
+      borderStyle={PANEL.borderStyle}
+      borderColor={getPanelBorderColor(props.focused)}
       title={`${props.title}${scrollInfo()}`}
-      titleAlignment="left"
-      paddingLeft={1}
+      titleAlignment={PANEL.titleAlignment}
+      paddingLeft={PANEL.paddingLeft}
       paddingRight={1}
       flexDirection="column"
     >
       <Show when={props.filePath}>
         <box paddingBottom={1}>
-          <text fg={COLORS.textDim}>{props.filePath}</text>
+          <text fg={TEXT.fgDim}>{props.filePath}</text>
         </box>
       </Show>
       <Show
         when={props.lines.length > 0}
-        fallback={<text fg={COLORS.textDim}>No log content.</text>}
+        fallback={<text fg={TEXT.fg}>No log content.</text>}
       >
-        <text fg={COLORS.text}>
+        <text fg={TEXT.fg}>
           {props.visibleLines.join("\n")}
         </text>
       </Show>

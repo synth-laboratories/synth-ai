@@ -53,7 +53,7 @@ function extractEvalMetadata(config: unknown): Record<string, any> {
 
 function extractBestSnapshotId(payload: any): string | null {
   if (!payload) return null
-  // Check multiple possible locations for the best snapshot ID
+  // Check multiple possible locations for the best Candidate ID
   return (
     payload.best_snapshot_id ||
     payload.prompt_best_snapshot_id ||
@@ -268,8 +268,6 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   setUi("eventsToken", ui.eventsToken + 1)
   setUi("lastSeq", 0)
   setUi("selectedEventId", null)
-  setUi("selectedEventIndex", 0)
-  setUi("eventWindowStart", 0)
   setUi("verifierEvolveGenerationIndex", 0)
   setData("events", [])
   setData("metrics", {})
@@ -348,6 +346,9 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   if (jobSource === "eval" || isEvalJob(ctx.state.data.selectedJob)) {
     await fetchEvalResults(ctx, token)
   }
+  if (!isEvalJob(ctx.state.data.selectedJob)) {
+    await fetchMetrics(ctx)
+  }
   
 }
 
@@ -383,13 +384,13 @@ export async function fetchBestSnapshot(
       return
     }
     setData("bestSnapshot", payload)
-    setData("status", "Loaded best snapshot")
+    setData("status", "Loaded best Candidate")
   } catch (err: any) {
     if (isAbortError(err)) return
     if ((token != null && token !== ctx.state.ui.jobSelectToken) || ctx.state.data.selectedJob?.job_id !== jobId) {
       return
     }
-    setData("lastError", err?.message || "Failed to load best snapshot")
+    setData("lastError", err?.message || "Failed to load best Candidate")
   }
 }
 

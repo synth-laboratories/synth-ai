@@ -1,6 +1,6 @@
 # Rubrics Module
 
-This module provides rubric schema, loading, scoring, and validation utilities for Task Apps.
+This module provides rubric schema, loading, evaluation, and validation utilities for Task Apps.
 
 ## Organization
 
@@ -8,7 +8,7 @@ The rubrics module is organized into focused submodules:
 
 - **`models.py`** - Core `Criterion` and `Rubric` Pydantic models with flexible validation
 - **`loaders.py`** - Loading from JSON/YAML/HTTP sources and rubric blending utilities
-- **`scoring.py`** - Scoring utilities for events and outcomes against rubrics
+- **`evaluation.py`** - Evaluation utilities for events and outcomes against rubrics
 - **`strict.py`** - Strict validators (`StrictCriterion`, `StrictRubric`) for step-wise verifiers
 
 ## Quick Start
@@ -16,7 +16,7 @@ The rubrics module is organized into focused submodules:
 ### Basic Usage
 
 ```python
-from synth_ai.task.rubrics import Criterion, Rubric, load_rubric, score_events_against_rubric
+from synth_ai.task.rubrics import Criterion, Rubric, load_rubric, evaluate_events_against_rubric
 
 # Load from file
 rubric = load_rubric("path/to/rubric.json")
@@ -32,13 +32,13 @@ rubric = Rubric(
     aggregation="weighted_sum"
 )
 
-# Score events
+# Evaluate events
 events = [
-    {"criterion_id": "correctness", "score": 0.9},
-    {"criterion_id": "style", "score": 0.8},
+    {"criterion_id": "correctness", "reward": 0.9},
+    {"criterion_id": "style", "reward": 0.8},
 ]
-result = score_events_against_rubric(events, rubric)
-print(result["score"])  # Weighted average
+result = evaluate_events_against_rubric(events, rubric)
+print(result["reward"])  # Weighted average
 ```
 
 ### Strict Validation (for Verifier Configs)
@@ -60,7 +60,7 @@ except ValidationError as e:
 
 ### Flexible Models (`Criterion`, `Rubric`)
 
-Used by task apps for general scoring:
+Used by task apps for general reward computation:
 - ✅ Weights can be > 1.0
 - ✅ Weights don't need to sum to 1.0
 - ✅ Supports multiple aggregation types: `sum`, `weighted_sum`, `custom`, `inherit`
@@ -130,29 +130,29 @@ override = load_rubric("custom_tweaks.json")
 merged = blend_rubrics(base, override)
 ```
 
-### Scoring
+### Evaluation
 
-#### `score_events_against_rubric(events, rubric)`
-Score evaluation events (list of criterion scores).
+#### `evaluate_events_against_rubric(events, rubric)`
+Evaluate events (list of criterion rewards).
 
 ```python
 events = [
-    {"criterion_id": "quality", "score": 0.9},
-    {"id": "performance", "score": 0.8},
+    {"criterion_id": "quality", "reward": 0.9},
+    {"id": "performance", "reward": 0.8},
 ]
-result = score_events_against_rubric(events, rubric)
-# Returns: {"aggregation": "weighted_sum", "score": 0.85, "per_criterion": {...}}
+result = evaluate_events_against_rubric(events, rubric)
+# Returns: {"aggregation": "weighted_sum", "reward": 0.85, "per_criterion": {...}}
 ```
 
-#### `score_outcome_against_rubric(outcome, rubric)`
-Score a rollout outcome (dict of criterion scores).
+#### `evaluate_outcome_against_rubric(outcome, rubric)`
+Evaluate a rollout outcome (dict of criterion rewards).
 
 ```python
 outcome = {
     "quality": 0.9,
     "performance": 0.8,
 }
-result = score_outcome_against_rubric(outcome, rubric)
+result = evaluate_outcome_against_rubric(outcome, rubric)
 ```
 
 ### Strict Validation
@@ -200,7 +200,7 @@ from synth_ai.task.rubrics import RubricSpec, RubricCriterion
 
 ### From single `rubrics.py` file
 
-The old `synth_ai/task/rubrics.py` has been split into a module:
+The old single-file rubric helpers have been split into submodules:
 
 ```python
 # Old (still works via __init__.py)
@@ -209,7 +209,7 @@ from synth_ai.task.rubrics import Criterion, Rubric, load_rubric
 # New (explicit submodules)
 from synth_ai.task.rubrics.models import Criterion, Rubric
 from synth_ai.task.rubrics.loaders import load_rubric
-from synth_ai.task.rubrics.scoring import score_events_against_rubric
+from synth_ai.task.rubrics.evaluation import evaluate_events_against_rubric
 ```
 
 **Recommended:** Use the consolidated imports from `__init__.py`:
@@ -219,8 +219,8 @@ from synth_ai.task.rubrics import (
     Rubric,
     load_rubric,
     blend_rubrics,
-    score_events_against_rubric,
-    score_outcome_against_rubric,
+    evaluate_events_against_rubric,
+    evaluate_outcome_against_rubric,
     StrictRubric,
     validate_rubric_file,
 )

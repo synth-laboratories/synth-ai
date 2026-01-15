@@ -921,14 +921,14 @@ def handle_rl(
                 "prompt.learning.gepa.start",
                 "prompt.learning.gepa.complete",
             },
-            metric_names={"gepa.transformation.mean_score"},
+            metric_names={"gepa.transformation.mean_reward"},
         )
         handlers = [LossCurveHandler()]
-        click.echo("Using live chart (metric=gepa.transformation.mean_score)")
+        click.echo("Using live chart (metric=gepa.transformation.mean_reward)")
     else:
         config = StreamConfig(
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
-            metric_names={"gepa.transformation.mean_score"},
+            metric_names={"gepa.transformation.mean_reward"},
         )
         handlers = [CLIHandler(hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS)]
 
@@ -1199,7 +1199,7 @@ def handle_graphgen(
     # Build stream handlers
     if stream_format == "chart":
         handlers = [LossCurveHandler()]
-        click.echo("Using live loss chart (metric=gepa.transformation.mean_score)")
+        click.echo("Using live loss chart (metric=gepa.transformation.mean_reward)")
     else:
         handlers = [GraphGenHandler()]
 
@@ -2057,7 +2057,7 @@ def handle_prompt_learning(
     algorithm = str(build.payload.get("algorithm") or "").lower()
     metric_names: set[str] | None = None
     if algorithm == "gepa":
-        metric_names = {"gepa.transformation.mean_score"}
+        metric_names = {"gepa.transformation.mean_reward"}
 
     chart_mode = stream_format == "chart" and algorithm == "gepa"
     if stream_format == "chart" and not chart_mode:
@@ -2097,7 +2097,7 @@ def handle_prompt_learning(
                 metric_names=metric_names,
             )
             handlers = [LossCurveHandler()]
-            click.echo("Using live loss chart (metric=gepa.transformation.mean_score)")
+            click.echo("Using live loss chart (metric=gepa.transformation.mean_reward)")
         else:
             config = StreamConfig(
                 enabled_streams={

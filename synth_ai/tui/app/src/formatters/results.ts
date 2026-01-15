@@ -1,5 +1,5 @@
 /**
- * Results panel formatting (best snapshot + eval results + expanded view).
+ * Results panel formatting (best Candidate + eval results + expanded view).
  */
 import type { AppData } from "../types"
 import { num } from "../tui_data"
@@ -7,10 +7,10 @@ import { truncate } from "../utils/truncate"
 import { formatTimestamp, formatValue } from "./time"
 import { calculateTotalTokensFromEvents } from "./job-details"
 import {
-  GOLD_TARGET,
   extractGraphEvolveCandidates,
   formatRacePreview,
   groupCandidatesByGeneration,
+  REWARD_MAX,
 } from "./graph-evolve"
 
 function isRecord(value: unknown): value is Record<string, any> {
@@ -44,15 +44,8 @@ function formatGraphEvolveVerifierResults(data: AppData, job: any): string {
     num(job.best_reward ?? job.best_score) ??
     (candidates.length ? Math.max(...candidates.map((candidate) => candidate.reward)) : null)
   const bestReward = bestRewardValue != null ? formatReward(bestRewardValue) : "-"
-  const bestDelta =
-    bestRewardValue != null ? Math.abs(GOLD_TARGET - bestRewardValue) : null
-
   lines.push(`Status: ${job.status}`)
-  lines.push(
-    `Gold: ${GOLD_TARGET.toFixed(2)} | Best: ${bestReward}${
-      bestDelta != null ? ` (d=${bestDelta.toFixed(2)})` : ""
-    }`,
-  )
+  lines.push(`Reward 0.00-${REWARD_MAX.toFixed(2)} | Best: ${bestReward}`)
 
   if (!latest || latest.candidates.length === 0) {
     lines.push("No candidates yet.")
@@ -64,7 +57,7 @@ function formatGraphEvolveVerifierResults(data: AppData, job: any): string {
     candidates: latest.candidates,
     maxCandidates: 3,
     trackWidth: 14,
-    labelWidth: 12,
+    labelWidth: 4,
     scorePrecision: 2,
   })
   lines.push(...preview.lines)
@@ -432,11 +425,11 @@ export function formatResults(data: AppData): string {
     lines.push(`Train/Val: ${bestTrain ?? "-"} / ${bestValidation ?? "-"}`)
   }
   if (bestId === "-") {
-    lines.push("Best Snapshot: -")
+    lines.push("Best Candidate: -")
   } else if (data.bestSnapshot) {
-    lines.push(`Best Snapshot: ${bestId}`)
+    lines.push(`Best Candidate: ${bestId}`)
   } else {
-    lines.push(`Best Snapshot: ${bestId} (press p)`)
+    lines.push(`Best Candidate: ${bestId} (press p)`)
   }
 
   if (attempted.length > 0 || optimized.length > 0) {
@@ -506,10 +499,7 @@ export function formatEvalResults(data: AppData, job: any): string {
           shown.add("accuracy")
         }
       } else if (key === "mean_reward") {
-        val = summary.mean_reward ?? summary.mean_score
-        if (val != null) {
-          shown.add("mean_score")
-        }
+        val = summary.mean_reward
       }
       if (val == null) continue
       if (key === "reward" || key === "pass_rate") {
@@ -528,7 +518,7 @@ export function formatEvalResults(data: AppData, job: any): string {
     lines.push("")
   }
 
-  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
+  if (summary.mean_reward == null && rows.length > 0) {
     const rewards = rows
       .map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score)
       .filter((val) => typeof val === "number" && Number.isFinite(val)) as number[]
@@ -583,7 +573,7 @@ export function formatResultsExpanded(data: AppData): string | null {
   lines.push(`Job: ${job.job_id}`)
   lines.push(`Status: ${job.status}`)
   lines.push(`Best Reward: ${job.best_reward ?? "-"}`)
-  lines.push(`Best Snapshot ID: ${data.bestSnapshotId || "-"}`)
+  lines.push(`Best Candidate ID: ${data.bestSnapshotId || "-"}`)
 
   const { attempted, optimized } = extractCandidateGroups(data)
   const paretoMean =
@@ -745,7 +735,7 @@ export function formatResultsExpanded(data: AppData): string | null {
       }
     }
   } else {
-    lines.push("Best snapshot data not loaded. Press 'p' to load.")
+    lines.push("Best Candidate data not loaded. Press 'p' to load.")
   }
 
   return lines.join("\n")

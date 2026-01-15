@@ -4,17 +4,26 @@
  * A thin SolidJS client for OpenCode that replaces the embedded TUI.
  */
 import { createSignal, createEffect, createMemo, onCleanup, For, Show } from "solid-js"
-import { useKeyboard } from "@opentui/solid"
+import { createStore, reconcile, produce } from "solid-js/store"
+import { useKeyboard, useRenderer } from "@opentui/solid"
+
 import { formatActionKeys, getTextInput, matchAction } from "../../input/keymap"
+import { subscribeToOpenCodeEvents } from "../../api/opencode"
 import { getClient, type Message, type Part, type Event, type Session, type AssistantMessage } from "./client"
+import { MessageBubble } from "./MessageBubble"
 import { moveSelectionIndex } from "../utils/list"
+import { COLORS } from "../theme"
 
 export type ChatPaneProps = {
   url: string
   sessionId?: string
   width: number
   height: number
+  /** Working directory for OpenCode session execution */
+  workingDir?: string
   onExit?: () => void
+  /** Whether this panel has focus */
+  focused?: boolean
 }
 
 // The SDK returns messages in this wrapper format
@@ -51,6 +60,8 @@ type SessionListItem = {
   time: { updated: number }
 }
 
+type SessionStatus = { type: "idle" } | { type: "busy" } | { type: "retry"; delay: number }
+
 type SessionState = {
   id: string
   session: Session | null
@@ -58,6 +69,7 @@ type SessionState = {
   providers: Provider[]
   isLoading: boolean
   error: string | null
+  sessionStatus: SessionStatus
   sessionList: SessionListItem[]
 }
 
@@ -69,27 +81,38 @@ export function ChatPane(props: ChatPaneProps) {
     providers: [],
     isLoading: false,
     error: null,
+    sessionStatus: { type: "idle" },
     sessionList: [],
   })
+  // Use SolidJS store for parts - proper fine-grained reactivity like OpenCode's TUI
+  const [partsStore, setPartsStore] = createStore<Record<string, Part[]>>({})
   const [, setDebugLog] = createSignal<string[]>([])
-  const log = (msg: string) => setDebugLog(logs => [...logs.slice(-5), msg])
+  const log = (msg: string) => setDebugLog((logs) => [...logs.slice(-5), msg])
   const [inputText, setInputText] = createSignal("")
   const [showModelSelector, setShowModelSelector] = createSignal(false)
   const [showSessionSelector, setShowSessionSelector] = createSignal(false)
   const [selectedModel, setSelectedModel] = createSignal<SelectedModel | null>(null)
   const [modelSelectorIndex, setModelSelectorIndex] = createSignal(0)
   const [sessionSelectorIndex, setSessionSelectorIndex] = createSignal(0)
+  const [showAbortedBanner, setShowAbortedBanner] = createSignal(false)
+  const renderer = useRenderer()
+
   // Buffer for parts that arrive before their message (mutable to avoid signal race conditions)
   const pendingParts = new Map<string, Part[]>()
 
-  const client = getClient(props.url)
+  let client = getClient(props.url)
+  let cancelPolling = () => {}
+
+  createEffect(() => {
+    client = getClient(props.url)
+  })
 
   // Flatten models from connected providers (only show synth models)
   const availableModels = createMemo(() => {
     const models: { providerID: string; modelID: string; providerName: string; modelName: string }[] = []
     // Only include synth provider models
     const synthProvider = state().providers.find((p) => p.id === "synth")
-    
+
     if (synthProvider) {
       for (const [modelId, model] of Object.entries(synthProvider.models)) {
         models.push({
@@ -143,119 +166,131 @@ export function ChatPane(props: ChatPaneProps) {
     }
   })
 
-  // Initialize session and fetch providers
+  const setDefaultModel = (providers: Provider[]) => {
+    if (selectedModel()) return
+
+    const synthProvider = providers.find((p) => p.id === "synth")
+    if (!synthProvider) {
+      setSelectedModel({ providerID: "synth", modelID: "synth-large-instant" })
+      return
+    }
+
+    const preferredModels = ["synth-large-instant", "synth-large-thinking", "synth-medium", "synth-small"]
+    for (const modelId of preferredModels) {
+      if (synthProvider.models[modelId]) {
+        setSelectedModel({ providerID: "synth", modelID: modelId })
+        return
+      }
+    }
+
+    const firstModelId = Object.keys(synthProvider.models)[0]
+    if (firstModelId) {
+      setSelectedModel({ providerID: "synth", modelID: firstModelId })
+    }
+  }
+
   createEffect(async () => {
     try {
-      // Fetch providers for context limit info
       const providersRes = await client.provider.list({})
       const providerData = providersRes.data as ProviderListResponse | undefined
       const providers = providerData?.all || []
+      setState((s) => ({ ...s, providers }))
+      setDefaultModel(providers)
+    } catch (err) {
+      setState((s) => ({ ...s, error: String(err) }))
+    }
+  })
 
-      // Set default model - use synth provider (routed through Synth backend)
-      const setDefaultModel = () => {
-        if (selectedModel()) return // Already have a model selected
+  createEffect(async () => {
+    const sessionId = props.sessionId
+    cancelPolling()
+    if (!sessionId) {
+      pendingParts.clear()
+      setPartsStore(reconcile({}))
+      setState((s) => ({
+        ...s,
+        id: "",
+        session: null,
+        messages: [],
+        isLoading: false,
+        error: null,
+        sessionStatus: { type: "idle" },
+      }))
+      return
+    }
 
-        // Only use models from synth provider
-        const synthProvider = providers.find((p) => p.id === "synth")
-        if (!synthProvider) return
+    pendingParts.clear()
+    setPartsStore(reconcile({}))
 
-        // Preferred models in order of preference - synth-large-instant works best
-        const preferredModels = ["synth-large-instant", "synth-large-thinking", "synth-medium", "synth-small"]
+    try {
+      const [sessionRes, messagesRes, statusRes] = await Promise.all([
+        client.session.get({ sessionID: sessionId }),
+        client.session.messages({ sessionID: sessionId }),
+        client.session.status().catch(() => ({ data: {} })),
+      ])
+      const initialStatus = (statusRes.data as Record<string, SessionStatus>)?.[sessionId] || { type: "idle" }
 
-        // Try to find a preferred model
-        for (const modelId of preferredModels) {
-          if (synthProvider.models[modelId]) {
-            setSelectedModel({ providerID: "synth", modelID: modelId })
-            return
-          }
+      if (messagesRes.data) {
+        const partsData: Record<string, Part[]> = {}
+        for (const msg of messagesRes.data) {
+          partsData[msg.info.id] = msg.parts
         }
-
-        // Fall back to first available model from synth
-        const firstModelId = Object.keys(synthProvider.models)[0]
-        if (firstModelId) {
-          setSelectedModel({ providerID: "synth", modelID: firstModelId })
-        }
+        setPartsStore(reconcile(partsData))
       }
+      setState((s) => ({
+        ...s,
+        id: sessionId,
+        session: sessionRes.data || null,
+        messages: messagesRes.data || [],
+        error: null,
+        sessionStatus: initialStatus,
+        isLoading: initialStatus.type !== "idle",
+      }))
 
-      if (props.sessionId) {
-        // Load existing session
-        const [sessionRes, messagesRes] = await Promise.all([
-          client.session.get({ sessionID: props.sessionId }),
-          client.session.messages({ sessionID: props.sessionId }),
-        ])
-        setState((s) => ({
-          ...s,
-          id: props.sessionId!,
-          session: sessionRes.data || null,
-          messages: messagesRes.data || [],
-          providers,
-        }))
-        // Set model from last assistant message if available
-        const lastAssistant = (messagesRes.data || []).findLast((m) => m.info.role === "assistant")
-        if (lastAssistant && lastAssistant.info.role === "assistant") {
-          const assistantInfo = lastAssistant.info as AssistantMessage
-          setSelectedModel({ providerID: assistantInfo.providerID, modelID: assistantInfo.modelID })
-        } else {
-          setDefaultModel()
-        }
+      const lastAssistant = (messagesRes.data || []).findLast((m) => m.info.role === "assistant")
+      if (lastAssistant && lastAssistant.info.role === "assistant") {
+        const assistantInfo = lastAssistant.info as AssistantMessage
+        setSelectedModel({ providerID: assistantInfo.providerID, modelID: assistantInfo.modelID })
       } else {
-        // Create new session
-        const sessionRes = await client.session.create()
-        if (sessionRes.data) {
-          setState((s) => ({ ...s, id: sessionRes.data!.id, session: sessionRes.data!, providers }))
-        }
-        setDefaultModel()
+        setDefaultModel(state().providers)
       }
     } catch (err) {
       setState((s) => ({ ...s, error: String(err) }))
     }
   })
 
-  // Subscribe to events - use onMount for proper async handling
-  const abortController = new AbortController()
-
+  // Subscribe to OpenCode events using our Bun-compatible SSE reader.
+  // IMPORTANT: `@opencode-ai/sdk` event streaming can appear buffered under Bun, which breaks UI streaming.
   createEffect(() => {
-    // Track sessionId to re-run when it changes, but we use state().id in handleEvent
-    void state().id
-  })
+    log("Starting event subscription...")
+    const sub = subscribeToOpenCodeEvents(props.url, {
+      onConnect: () => log("SSE connected"),
+      onError: (err) => log(`SSE error: ${String(err)}`),
+      onEvent: (evt) => handleEvent(evt as unknown as Event),
+    })
 
-  // Start event subscription once on mount
-  createEffect(() => {
-    const subscribeToEvents = async () => {
-      log("Starting event subscription...")
-      while (!abortController.signal.aborted) {
-        try {
-          const events = await client.event.subscribe({}, { signal: abortController.signal })
-          log("SSE connected")
-          for await (const event of events.stream) {
-            handleEvent(event)
-          }
-          log("SSE stream ended")
-        } catch (err) {
-          if (!abortController.signal.aborted) {
-            log(`SSE error: ${err}`)
-            await new Promise(r => setTimeout(r, 1000)) // Wait before reconnect
-          }
-        }
-      }
-    }
-    subscribeToEvents()
-  })
-
-  onCleanup(() => {
-    abortController.abort()
+    onCleanup(() => {
+      sub.unsubscribe()
+    })
   })
 
   const handleEvent = (event: Event) => {
     const sessionId = state().id
     if (!sessionId) return
 
-    // DEBUG: Log all events to UI
     log(`EVENT: ${event.type}`)
 
     if (event.type === "message.updated") {
       const msg = event.properties.info
       if (msg.sessionID !== sessionId) return
+
+      // Check for pending parts that arrived before this message
+      const pending = pendingParts.get(msg.id) || []
+      pendingParts.delete(msg.id)
+
+      if (pending.length > 0) {
+        setPartsStore(msg.id, pending)
+      }
 
       setState((s) => {
         const existing = s.messages.findIndex((m) => m.info.id === msg.id)
@@ -264,146 +299,322 @@ export function ChatPane(props: ChatPaneProps) {
           // Update the info, keep parts from existing wrapper
           newMessages[existing] = { info: msg, parts: newMessages[existing].parts }
           return { ...s, messages: newMessages }
-        } else {
-          // New message - check for pending parts that arrived before this message
-          const pending = pendingParts.get(msg.id) || []
-          pendingParts.delete(msg.id)
-          return { ...s, messages: [...s.messages, { info: msg, parts: pending }] }
+        }
+
+        if (msg.role === "user") {
+          const optimisticIdx = s.messages.findIndex(
+            (m) => m.info.id.startsWith("pending_") && m.info.role === "user",
+          )
+          if (optimisticIdx >= 0) {
+            const newMessages = [...s.messages]
+            const realParts = pending.length > 0 ? pending : newMessages[optimisticIdx].parts
+            newMessages[optimisticIdx] = { info: msg, parts: realParts }
+            const optimisticMsgId = s.messages[optimisticIdx].info.id
+            const optimisticParts = partsStore[optimisticMsgId] || []
+            setPartsStore(produce((store) => {
+              delete store[optimisticMsgId]
+              store[msg.id] = realParts.length > 0 ? realParts : optimisticParts
+            }))
+            return { ...s, messages: newMessages }
+          }
+        }
+
+        return {
+          ...s,
+          messages: [...s.messages, { info: msg, parts: pending }],
         }
       })
     } else if (event.type === "message.part.updated") {
       const part = event.properties.part
       if (part.sessionID !== sessionId) return
 
-      setState((s) => {
-        const msgIdx = s.messages.findIndex((m) => m.info.id === part.messageID)
-        if (msgIdx < 0) {
-          // Message doesn't exist yet - buffer the part in mutable map
-          const existing = pendingParts.get(part.messageID) || []
-          const partIdx = existing.findIndex((ep) => ep.id === part.id)
-          if (partIdx >= 0) {
-            existing[partIdx] = part
-          } else {
-            existing.push(part)
-          }
-          pendingParts.set(part.messageID, existing)
-          return s
-        }
+      const existing = partsStore[part.messageID] || []
+      const partIdx = existing.findIndex((p) => p.id === part.id)
 
-        const newMessages = [...s.messages]
-        const existingParts = [...newMessages[msgIdx].parts]
-        const partIdx = existingParts.findIndex((p) => p.id === part.id)
-
-        if (partIdx >= 0) {
-          existingParts[partIdx] = part
+      if (partIdx >= 0) {
+        setPartsStore(part.messageID, partIdx, reconcile(part))
+      } else {
+        if (!existing.length) {
+          setPartsStore(part.messageID, [part])
         } else {
-          existingParts.push(part)
+          setPartsStore(part.messageID, produce((parts) => parts.push(part)))
         }
-
-        newMessages[msgIdx] = { ...newMessages[msgIdx], parts: existingParts }
-        return { ...s, messages: newMessages }
-      })
+      }
+      renderer.requestRender()
     } else if (event.type === "message.removed") {
       if (event.properties.sessionID !== sessionId) return
+      const messageID = event.properties.messageID
+      setPartsStore(produce((store) => {
+        delete store[messageID]
+      }))
       setState((s) => ({
         ...s,
-        messages: s.messages.filter((m) => m.info.id !== event.properties.messageID),
+        messages: s.messages.filter((m) => m.info.id !== messageID),
       }))
     } else if (event.type === "message.part.removed") {
       if (event.properties.sessionID !== sessionId) return
-      setState((s) => {
-        const msgIdx = s.messages.findIndex((m) => m.info.id === event.properties.messageID)
-        if (msgIdx < 0) return s
-
-        const newMessages = [...s.messages]
-        newMessages[msgIdx] = {
-          ...newMessages[msgIdx],
-          parts: newMessages[msgIdx].parts.filter((p) => p.id !== event.properties.partID),
-        }
-        return { ...s, messages: newMessages }
-      })
+      const { messageID, partID } = event.properties
+      setPartsStore(messageID, produce((parts) => {
+        if (!parts) return
+        const idx = parts.findIndex((p) => p.id === partID)
+        if (idx >= 0) parts.splice(idx, 1)
+      }))
     } else if (event.type === "session.updated") {
       const updatedSession = event.properties.info
       if (updatedSession.id !== sessionId) return
       setState((s) => ({ ...s, session: updatedSession }))
+    } else if (event.type === "session.status") {
+      if (event.properties.sessionID !== sessionId) return
+      const status = event.properties.status as SessionStatus
+      setState((s) => ({
+        ...s,
+        sessionStatus: status,
+        isLoading: status.type !== "idle",
+      }))
+      renderer.requestRender()
+    } else if (event.type === "session.error") {
+      if (event.properties.sessionID !== sessionId) return
+      const err = event.properties.error
+      let errorMsg = "OpenCode session error"
+      if (typeof err === "string") {
+        errorMsg = err
+      } else if (err && "data" in err && typeof err.data === "object" && err.data && "message" in err.data) {
+        errorMsg = String(err.data.message)
+      }
+      setState((s) => ({
+        ...s,
+        isLoading: false,
+        error: errorMsg,
+      }))
+      renderer.requestRender()
+    } else if (event.type === "session.idle") {
+      const idleSessionId = event.properties?.sessionID
+      if (idleSessionId && idleSessionId !== sessionId) return
+      setState((s) => ({
+        ...s,
+        isLoading: false,
+        sessionStatus: { type: "idle" },
+      }))
+      renderer.requestRender()
+    } else if (event.type === "permission.asked") {
+      const request = event.properties
+      if (request?.sessionID !== sessionId) return
+      void fetch(`${props.url}/permission/${request.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reply: "once" }),
+      }).catch((err) => {
+        setState((s) => ({ ...s, error: String(err) }))
+        renderer.requestRender()
+      })
     }
   }
 
   const sendMessage = async () => {
     const text = inputText().trim()
-    if (!text || state().isLoading) return
+    if (!text) return
+
+    if (text === "/abort" || text === "/stop" || text === "/interrupt") {
+      setInputText("")
+      abortSession("command")
+      return
+    }
+
+    if (state().isLoading || state().sessionStatus.type !== "idle") return
 
     const sessionId = state().id
-    if (!sessionId) return
+    if (!sessionId) {
+      setState((s) => ({
+        ...s,
+        error: `No active session. Press ${formatActionKeys("pane.openSessions", { primaryOnly: true })} to connect to OpenCode.`,
+      }))
+      renderer.requestRender()
+      return
+    }
 
+    // Clear input immediately
     setInputText("")
-    setState((s) => ({ ...s, isLoading: true, error: null }))
 
-    try {
-      const model = selectedModel()
-      await client.session.prompt({
-        sessionID: sessionId,
-        parts: [{ type: "text", text }],
-        ...(model && { model }),
-      })
-      // Refetch with retries - parts may not be immediately available
-      const refetchWithRetry = async (attempt: number) => {
-        if (abortController.signal.aborted) return
+    // Create optimistic user message and show immediately
+    const optimisticMsgId = `pending_${Date.now()}`
+    const now = Date.now()
+    const optimisticUserMsg = {
+      id: optimisticMsgId,
+      sessionID: sessionId,
+      role: "user" as const,
+      time: { created: now },
+    } as Message
+    const optimisticPart = {
+      id: `${optimisticMsgId}_part`,
+      messageID: optimisticMsgId,
+      sessionID: sessionId,
+      type: "text" as const,
+      text: text,
+      time: { start: now },
+    } as Part
+
+    setState((s) => ({
+      ...s,
+      isLoading: true,
+      error: null,
+      messages: [...s.messages, { info: optimisticUserMsg, parts: [optimisticPart] }],
+    }))
+    setPartsStore(optimisticMsgId, [optimisticPart])
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const model = selectedModel()
+    const directory = props.workingDir || state().session?.directory
+
+    let stopPolling = false
+    const promptStartedAt = Date.now()
+    cancelPolling = () => {
+      stopPolling = true
+    }
+
+    const poll = async () => {
+      while (!stopPolling) {
         try {
           const messagesRes = await client.session.messages({ sessionID: sessionId })
-          if (abortController.signal.aborted) return
           if (messagesRes.data) {
-            const lastMsg = messagesRes.data.at(-1)
-            const partCount = lastMsg?.parts?.length ?? 0
-            log(`Refetch #${attempt}: ${messagesRes.data.length} msgs, last has ${partCount} parts`)
-
-
-            setState((s) => {
-              const hasMissingParts = s.messages.some((m) => m.parts.length === 0)
-              if (messagesRes.data!.length > s.messages.length || hasMissingParts) {
-                return { ...s, messages: messagesRes.data! }
-              }
-              return s
-            })
-
-            // If still no parts and we have retries left, try again
-            if (partCount === 0 && attempt < 5 && !abortController.signal.aborted) {
-              setTimeout(() => refetchWithRetry(attempt + 1), 1000)
+            const partsData: Record<string, Part[]> = {}
+            for (const msg of messagesRes.data) {
+              partsData[msg.info.id] = msg.parts
+            }
+            setPartsStore(produce((store) => Object.assign(store, partsData)))
+            setState((s) => ({ ...s, messages: messagesRes.data! }))
+            renderer.requestRender()
+            const hasAssistant = messagesRes.data.some((msg) =>
+              msg.info.role === "assistant" &&
+              (msg.info.time?.created ?? 0) >= promptStartedAt,
+            )
+            if (state().sessionStatus.type === "idle" && hasAssistant) {
+              stopPolling = true
+              setState((s) => ({ ...s, isLoading: false }))
+              renderer.requestRender()
+              break
             }
           }
         } catch {
-          // Ignore refetch errors
+          // ignore polling errors
         }
+        if (Date.now() - promptStartedAt > 120000) {
+          stopPolling = true
+          setState((s) => ({ ...s, isLoading: false, error: "Timed out waiting for a response." }))
+          renderer.requestRender()
+          break
+        }
+        await new Promise((r) => setTimeout(r, 200))
       }
-      if (!abortController.signal.aborted) {
-        setTimeout(() => refetchWithRetry(1), 500)
+      cancelPolling = () => {}
+    }
+
+    void poll()
+
+    try {
+      const response = await fetch(`${props.url}/session/${sessionId}/prompt_async`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parts: [{ type: "text", text }],
+          ...(model && { model }),
+          ...(directory && { directory }),
+        }),
+      })
+      if (!response.ok && response.status !== 204) {
+        const body = await response.text().catch(() => "")
+        stopPolling = true
+        setState((s) => ({
+          ...s,
+          isLoading: false,
+          error: `Send failed (${response.status}): ${body || response.statusText}`,
+        }))
+        renderer.requestRender()
+        return
       }
     } catch (err) {
-      setState((s) => ({ ...s, error: String(err) }))
-    } finally {
-      setState((s) => ({ ...s, isLoading: false }))
+      stopPolling = true
+      setState((s) => ({ ...s, isLoading: false, error: String(err) }))
+      renderer.requestRender()
+      return
     }
   }
 
   // Create a new session
   const createNewSession = async () => {
     try {
-      const sessionRes = await client.session.create()
-      if (sessionRes.data) {
-        // Clear pending parts for old session
-        pendingParts.clear()
-        setState((s) => ({
-          ...s,
-          id: sessionRes.data!.id,
-          session: sessionRes.data!,
-          messages: [],
-          error: null,
-        }))
+      const directory = props.workingDir || state().session?.directory
+      const url = directory
+        ? `${props.url}/session?directory=${encodeURIComponent(directory)}`
+        : `${props.url}/session`
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+      if (!response.ok) {
+        const text = await response.text().catch(() => "")
+        setState((s) => ({ ...s, error: `Failed to create session: ${response.status} ${text}`.trim() }))
+        return
       }
+      const data = (await response.json().catch(() => null)) as { id?: string } | null
+      const sessionId = data?.id
+      if (!sessionId) {
+        setState((s) => ({ ...s, error: "Failed to create session: missing session id" }))
+        return
+      }
+      const sessionRes = await client.session.get({ sessionID: sessionId })
+      pendingParts.clear()
+      setPartsStore(reconcile({}))
+      setState((s) => ({
+        ...s,
+        id: sessionId,
+        session: sessionRes.data || null,
+        messages: [],
+        error: null,
+        isLoading: false,
+        sessionStatus: { type: "idle" },
+      }))
     } catch (err) {
       setState((s) => ({ ...s, error: String(err) }))
     }
   }
+
+  const abortSession = (reason: string) => {
+    const sessionId = state().id
+    if (!sessionId) return
+
+    cancelPolling()
+    setShowAbortedBanner(true)
+    setState((s) => ({ ...s, isLoading: false }))
+    setTimeout(() => {
+      setShowAbortedBanner(false)
+      renderer.requestRender()
+    }, 3000)
+    renderer.requestRender()
+
+    void fetch(`${props.url}/session/${sessionId}/abort`, { method: "POST" })
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.text().catch(() => "")
+          setState((s) => ({
+            ...s,
+            error: `Abort failed (${res.status}): ${body || res.statusText}`,
+          }))
+        }
+      })
+      .catch((err) => {
+        log(`Abort error (${reason}): ${err}`)
+        setState((s) => ({ ...s, error: String(err) }))
+      })
+      .finally(() => {
+        renderer.requestRender()
+      })
+  }
+
+  onCleanup(() => {
+    cancelPolling()
+  })
 
   // Load the list of sessions
   const loadSessionList = async () => {
@@ -418,7 +629,7 @@ export function ChatPane(props: ChatPaneProps) {
         setState((s) => ({ ...s, sessionList: sessions }))
       }
     } catch (err) {
-      console.error("Failed to load sessions:", err)
+      log(`Failed to load sessions: ${err}`)
     }
   }
 
@@ -429,16 +640,25 @@ export function ChatPane(props: ChatPaneProps) {
         client.session.get({ sessionID: sessionId }),
         client.session.messages({ sessionID: sessionId }),
       ])
-      // Clear pending parts for old session
       pendingParts.clear()
+      if (messagesRes.data) {
+        const partsData: Record<string, Part[]> = {}
+        for (const msg of messagesRes.data) {
+          partsData[msg.info.id] = msg.parts
+        }
+        setPartsStore(reconcile(partsData))
+      } else {
+        setPartsStore(reconcile({}))
+      }
       setState((s) => ({
         ...s,
         id: sessionId,
         session: sessionRes.data || null,
         messages: messagesRes.data || [],
         error: null,
+        isLoading: false,
+        sessionStatus: { type: "idle" },
       }))
-      // Update model from last assistant message if available
       const lastAssistant = (messagesRes.data || []).findLast((m) => m.info.role === "assistant")
       if (lastAssistant && lastAssistant.info.role === "assistant") {
         const assistantInfo = lastAssistant.info as AssistantMessage
@@ -466,7 +686,6 @@ export function ChatPane(props: ChatPaneProps) {
 
   // Handle keyboard input
   useKeyboard((evt) => {
-    // Model selector mode
     if (showModelSelector()) {
       const action = matchAction(evt, "chat.selector")
       if (!action) return
@@ -486,7 +705,6 @@ export function ChatPane(props: ChatPaneProps) {
       return
     }
 
-    // Session selector mode
     if (showSessionSelector()) {
       const action = matchAction(evt, "chat.selector")
       if (!action) return
@@ -505,7 +723,9 @@ export function ChatPane(props: ChatPaneProps) {
       return
     }
 
-    // Normal mode
+    // Don't process if another handler already handled this event
+    if ((evt as any).defaultPrevented) return
+
     const action = matchAction(evt, "chat.normal")
     if (!action) {
       const text = getTextInput(evt)
@@ -514,88 +734,120 @@ export function ChatPane(props: ChatPaneProps) {
       }
       return
     }
+
     evt.preventDefault?.()
     if (action === "chat.modelSelector") {
       setModelSelectorIndex(0)
       setShowModelSelector(true)
     } else if (action === "chat.newSession") {
-      createNewSession()
+      void createNewSession()
     } else if (action === "chat.sessionList") {
       setSessionSelectorIndex(0)
-      loadSessionList()
+      void loadSessionList()
       setShowSessionSelector(true)
     } else if (action === "chat.send") {
-      sendMessage()
+      void sendMessage()
     } else if (action === "chat.backspace") {
       setInputText((t) => t.slice(0, -1))
+    } else if (action === "chat.abort") {
+      if (state().isLoading || state().sessionStatus.type !== "idle") {
+        abortSession("key")
+      }
     }
   })
 
+  const bubbleWidth = createMemo(() => {
+    const hardMax = Math.min(72, Math.max(32, props.width - 6))
+    const target = Math.floor(props.width * 0.62)
+    return Math.max(32, Math.min(hardMax, target))
+  })
 
-  // Format duration in seconds
-  const formatDuration = (created: number, completed?: number) => {
-    if (!completed) return null
-    const duration = (completed - created) / 1000
-    return duration.toFixed(1) + "s"
+  function countWrappedLines(text: string, maxWidth: number): number {
+    if (!text) return 0
+    let lines = 0
+    for (const para of String(text).split("\n")) {
+      if (!para) {
+        lines += 1
+        continue
+      }
+      if (para.length <= maxWidth) {
+        lines += 1
+        continue
+      }
+      const words = para.split(" ")
+      let current = ""
+      for (const word of words) {
+        if (!current) {
+          if (word.length <= maxWidth) {
+            current = word
+          } else {
+            lines += Math.ceil(word.length / maxWidth)
+            current = ""
+          }
+          continue
+        }
+        if (current.length + 1 + word.length <= maxWidth) {
+          current += " " + word
+        } else {
+          lines += 1
+          if (word.length <= maxWidth) {
+            current = word
+          } else {
+            lines += Math.ceil(word.length / maxWidth)
+            current = ""
+          }
+        }
+      }
+      if (current) lines += 1
+    }
+    return lines
   }
 
-  // Render a message
-  const renderMessage = (wrapper: MessageWrapper) => {
-    const msg = wrapper.info
-    const isUser = msg.role === "user"
-    const isAssistant = msg.role === "assistant"
-    const assistantMsg = isAssistant ? (msg as AssistantMessage) : null
-    const label = isUser ? "You" : "Assistant"
+  const headerHeight = createMemo(() => (state().session?.directory ? 2 : 1))
+  const inputHeight = 3
+  const innerHeight = createMemo(() => Math.max(0, props.height - 2))
+  const messageAreaHeight = createMemo(() => Math.max(0, innerHeight() - headerHeight() - inputHeight))
 
-    return (
-      <box flexDirection="column" paddingLeft={1} paddingRight={1} marginBottom={1}>
-        <box flexDirection="row" gap={1}>
-          <text fg={isUser ? "#60a5fa" : "#10b981"}>{label}</text>
-          <Show when={assistantMsg}>
-            <text fg="#64748b">
-              <span style={{ fg: "#94a3b8" }}>{assistantMsg!.mode}</span>
-              {" · "}
-              <span>{assistantMsg!.modelID}</span>
-              <Show when={formatDuration(assistantMsg!.time.created, assistantMsg!.time.completed)}>
-                {" · "}
-                <span>{formatDuration(assistantMsg!.time.created, assistantMsg!.time.completed)}</span>
-              </Show>
-            </text>
-          </Show>
-        </box>
-        <box
-          border={["left"]}
-          borderColor={isUser ? "#3b82f6" : "#10b981"}
-          paddingLeft={1}
-        >
-          <Show when={wrapper.parts.length > 0} fallback={<text fg="#9ca3af">(no parts)</text>}>
-            <For each={wrapper.parts}>
-              {(part: Part) => {
-                // Show raw part data for debugging
-                const p = part as any
-                if (p.type === "text" && p.text && !p.ignored) {
-                  return <text>{p.text}</text>
-                } else if (p.type === "reasoning" && p.text) {
-                  return <text fg="#a78bfa">{p.text}</text>
-                } else if (p.type === "tool") {
-                  // Show tool status
-                  const toolName = p.tool || p.state?.title || "tool"
-                  const status = p.state?.status || "pending"
-                  return <text fg="#fbbf24">[{toolName}: {status}]</text>
-                } else if (p.type === "step-start" || p.type === "step-finish") {
-                  // Skip step tracking parts - they're internal workflow markers
-                  return null
-                } else {
-                  // Skip other unhandled parts silently
-                  return null
-                }
-              }}
-            </For>
-          </Show>
-        </box>
-      </box>
-    )
-  }
+  const visibleMessages = createMemo(() => {
+    const maxBubbleContentWidth = Math.max(10, bubbleWidth() - 4)
+    const maxHeight = messageAreaHeight()
+    const msgs = state().messages
+
+    type Visible = { wrapper: MessageWrapper; maxLines?: number }
+    const result: Visible[] = []
+    let used = 0
+
+    const loadingReserve = state().isLoading ? 1 : 0
+    const budget = Math.max(0, maxHeight - loadingReserve)
+
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const wrapper = msgs[i]
+      const parts = partsStore[wrapper.info.id] || wrapper.parts || []
+      let contentLines = 0
+      for (const p of parts as any[]) {
+        const text = (p?.text ?? p?.content ?? "").toString()
+        if (!text) continue
+        contentLines += countWrappedLines(text.trim(), maxBubbleContentWidth)
+      }
+      const bubbleHeight = Math.max(3, contentLines + 2)
+      const blockHeight = 1 + bubbleHeight + 1
+
+      if (used + blockHeight <= budget) {
+        result.push({ wrapper })
+        used += blockHeight
+        continue
+      }
+
+      if (result.length === 0 && budget > 0) {
+        const remainingForBubble = Math.max(0, budget - 2)
+        const remainingContent = Math.max(0, remainingForBubble - 2)
+        result.push({ wrapper, maxLines: Math.max(1, remainingContent) })
+      }
+      break
+    }
+
+    return result.reverse()
+  })
 
   return (
     <box
@@ -603,33 +855,52 @@ export function ChatPane(props: ChatPaneProps) {
       width={props.width}
       height={props.height}
       border
-      borderColor="#334155"
+      borderColor={props.focused ? COLORS.textAccent : COLORS.border}
     >
       {/* Header */}
-      <box flexDirection="column" backgroundColor="#1e293b" paddingLeft={1} paddingRight={1}>
+      <box flexDirection="column" backgroundColor={COLORS.bgHeader} paddingLeft={1} paddingRight={1}>
         <box flexDirection="row" justifyContent="space-between">
-          <Show when={state().session} fallback={<text fg="#e2e8f0">OpenCode Chat</text>}>
+          <Show
+            when={state().session}
+            fallback={
+              <text fg={COLORS.text}>
+                OpenCode Chat
+                <span style={{ fg: COLORS.textDim }}>{"  (" + formatActionKeys("pane.openSessions", { primaryOnly: true }) + " sessions)"}</span>
+                <Show when={showAbortedBanner()}>
+                  <span style={{ fg: "#ef4444", bold: true }}>{"  ·  ABORTED"}</span>
+                </Show>
+                <Show when={state().sessionStatus.type !== "idle" && !showAbortedBanner()}>
+                  <span style={{ fg: COLORS.textDim }}>{"  ·  " + formatActionKeys("chat.abort", { primaryOnly: true }) + " abort"}</span>
+                </Show>
+              </text>
+            }
+          >
             {(() => {
               const session = state().session!
-              // Check if title is a timestamp (OpenCode uses timestamp as default title)
               const isTimestampTitle = session.title && /^\d{4}-\d{2}-\d{2}T/.test(session.title)
               const displayTitle = (!session.title || isTimestampTitle) ? "New session" : session.title
               const timestamp = session.time?.created
                 ? new Date(session.time.created).toISOString().slice(0, 19).replace("T", " ")
                 : null
               return (
-                <text fg="#e2e8f0">
-                  <span style={{ fg: "#94a3b8" }}># </span>
+                <text fg={COLORS.text}>
+                  <span style={{ fg: COLORS.textDim }}># </span>
                   <span style={{ bold: true }}>{displayTitle}</span>
+                  <Show when={showAbortedBanner()}>
+                    <span style={{ fg: "#ef4444", bold: true }}>{"  ·  ABORTED"}</span>
+                  </Show>
+                  <Show when={state().sessionStatus.type !== "idle" && !showAbortedBanner()}>
+                    <span style={{ fg: COLORS.textDim }}>{"  ·  " + formatActionKeys("chat.abort", { primaryOnly: true }) + " abort"}</span>
+                  </Show>
                   <Show when={timestamp}>
-                    <span style={{ fg: "#64748b" }}>{" — " + timestamp}</span>
+                    <span style={{ fg: COLORS.textDim }}>{" — " + timestamp}</span>
                   </Show>
                 </text>
               )
             })()}
           </Show>
           <Show when={contextStats()}>
-            <text fg="#64748b">
+            <text fg={COLORS.textDim}>
               {contextStats()!.tokens} tokens
               <Show when={contextStats()!.percentUsed !== null}>
                 {" · "}{contextStats()!.percentUsed}%
@@ -638,9 +909,16 @@ export function ChatPane(props: ChatPaneProps) {
             </text>
           </Show>
         </box>
-        <Show when={state().session?.directory}>
-          <text fg="#64748b">{state().session!.directory}</text>
-        </Show>
+        <box flexDirection="row" gap={2}>
+          <Show when={state().session?.directory}>
+            <text fg={COLORS.textDim}>{state().session!.directory}</text>
+          </Show>
+          <Show when={state().sessionStatus.type !== "idle"}>
+            <text>
+              <span style={{ fg: COLORS.warning }}>{"● " + state().sessionStatus.type}</span>
+            </text>
+          </Show>
+        </box>
       </box>
 
       {/* Messages area */}
@@ -651,12 +929,50 @@ export function ChatPane(props: ChatPaneProps) {
           </box>
         </Show>
 
-        {/* Debug log - hidden in production */}
+        <Show when={!state().id && state().messages.length === 0}>
+          <box paddingLeft={1} paddingRight={1} paddingTop={1}>
+            <text fg={COLORS.textDim}>
+              No OpenCode session selected. Press {formatActionKeys("pane.openSessions", { primaryOnly: true })} to connect.
+            </text>
+          </box>
+        </Show>
 
-        <For each={state().messages}>{(wrapper) => renderMessage(wrapper)}</For>
+        <For each={visibleMessages()}>
+          {(item) => {
+            const wrapper = item.wrapper
+            const parts = () => partsStore[wrapper.info.id] || wrapper.parts || []
+            return (
+              <box
+                flexDirection="row"
+                justifyContent={wrapper.info.role === "user" ? "flex-end" : "flex-start"}
+                marginBottom={1}
+              >
+                <box flexDirection="column" width={bubbleWidth()}>
+                  <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1} marginBottom={0}>
+                    <text fg={wrapper.info.role === "user" ? COLORS.textAccent : COLORS.success}>
+                      <span style={{ bold: true }}>{wrapper.info.role === "user" ? "You" : "Assistant"}</span>
+                    </text>
+                    <Show when={wrapper.info.role === "assistant"}>
+                      <text fg={COLORS.textDim}>
+                        {(() => {
+                          const a = wrapper.info as AssistantMessage
+                          const duration = a.time?.completed
+                            ? `${((a.time.completed - a.time.created) / 1000).toFixed(1)}s`
+                            : null
+                          return `${a.mode} · ${a.modelID}${duration ? ` · ${duration}` : ""}`
+                        })()}
+                      </text>
+                    </Show>
+                  </box>
+                  <MessageBubble msg={wrapper.info} parts={parts} maxWidth={bubbleWidth()} maxLines={item.maxLines} />
+                </box>
+              </box>
+            )
+          }}
+        </For>
 
         <Show when={state().isLoading}>
-          <text fg="#94a3b8">Thinking...</text>
+          <text fg={COLORS.textDim}>Thinking...</text>
         </Show>
       </box>
 
@@ -677,8 +993,7 @@ export function ChatPane(props: ChatPaneProps) {
             <text fg="#e2e8f0">
               <span style={{ bold: true }}>Select Model</span>
               <span style={{ fg: "#64748b" }}>
-                {" "}
-                ({formatActionKeys("app.back", { primaryOnly: true })} to close,{" "}
+                {" "}({formatActionKeys("app.back", { primaryOnly: true })} to close,{" "}
                 {formatActionKeys("modal.confirm", { primaryOnly: true })} to select)
               </span>
             </text>
@@ -723,8 +1038,7 @@ export function ChatPane(props: ChatPaneProps) {
             <text fg="#e2e8f0">
               <span style={{ bold: true }}>Switch Session</span>
               <span style={{ fg: "#64748b" }}>
-                {" "}
-                ({formatActionKeys("app.back", { primaryOnly: true })} to close,{" "}
+                {" "}({formatActionKeys("app.back", { primaryOnly: true })} to close,{" "}
                 {formatActionKeys("modal.confirm", { primaryOnly: true })} to select)
               </span>
             </text>
@@ -758,18 +1072,18 @@ export function ChatPane(props: ChatPaneProps) {
       <box
         flexDirection="column"
         border={["top"]}
-        borderColor="#334155"
+        borderColor={COLORS.border}
         backgroundColor="#0f172a"
       >
         <box paddingLeft={1} paddingRight={1}>
-          <text fg="#64748b">{"> "}</text>
-          <text fg="#e2e8f0">
+          <text fg={COLORS.textDim}>{"> "}</text>
+          <text fg={COLORS.text}>
             {inputText() || "_"}
           </text>
         </box>
         <box paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
-          <Show when={currentModelDisplay()} fallback={<text fg="#64748b">No model selected</text>}>
-            <text fg="#64748b">
+          <Show when={currentModelDisplay()} fallback={<text fg={COLORS.textDim}>No model selected</text>}>
+            <text fg={COLORS.textDim}>
               {currentModelDisplay()!.modelName}
               <span style={{ fg: "#475569" }}> ({currentModelDisplay()!.providerName})</span>
             </text>
@@ -777,7 +1091,8 @@ export function ChatPane(props: ChatPaneProps) {
           <text fg="#475569">
             {formatActionKeys("chat.newSession", { primaryOnly: true })} new |{" "}
             {formatActionKeys("chat.sessionList", { primaryOnly: true })} sessions |{" "}
-            {formatActionKeys("chat.modelSelector", { primaryOnly: true })} model
+            {formatActionKeys("chat.modelSelector", { primaryOnly: true })} model |{" "}
+            {formatActionKeys("chat.abort", { primaryOnly: true })} abort | /abort
           </text>
         </box>
       </box>

@@ -27,3 +27,22 @@ export function getSelectedVerifierEvolveGeneration(data: AppData, index: number
   const clamped = clampIndex(index, generations.length)
   return generations[clamped]?.generation ?? null
 }
+
+export function getBestVerifierEvolveGenerationIndex(data: AppData): number | null {
+  const generations = getVerifierEvolveGenerations(data)
+  if (generations.length === 0) return null
+  let bestIndex = 0
+  let bestReward = -Infinity
+  generations.forEach((group, index) => {
+    if (!group.candidates.length) return
+    const groupBest = group.candidates.reduce(
+      (best, candidate) => (candidate.reward > best ? candidate.reward : best),
+      group.candidates[0]!.reward,
+    )
+    if (groupBest > bestReward) {
+      bestReward = groupBest
+      bestIndex = index
+    }
+  })
+  return bestIndex
+}

@@ -11,6 +11,7 @@ type JsonStreamOptions<T> = {
   headers?: HeadersInit
   signal?: AbortSignal
   includeScope?: boolean
+  label?: string
   onEvent: (event: T) => void
   onError?: (error: Error) => void
   onOpen?: () => void
@@ -23,6 +24,7 @@ type ApiJsonStreamOptions<T> = {
   signal?: AbortSignal
   includeScope?: boolean
   withAuth?: boolean
+  label?: string
   onEvent: (event: T) => void
   onError?: (error: Error) => void
   onOpen?: () => void
@@ -53,6 +55,7 @@ export function connectJsonStream<T>(options: JsonStreamOptions<T>): JsonStreamC
     headers,
     signal: options.signal,
     includeScope: options.includeScope ?? false,
+    label: options.label,
     getUrl,
     onOpen: options.onOpen,
     onMessage: (message) => {
@@ -96,6 +99,7 @@ export function connectApiJsonStream<T>(options: ApiJsonStreamOptions<T>): JsonS
     headers,
     signal: options.signal,
     includeScope: options.includeScope ?? false,
+    label: options.label,
     onOpen: options.onOpen,
     onEvent: options.onEvent,
     onError: options.onError,

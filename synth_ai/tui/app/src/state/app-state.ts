@@ -2,7 +2,7 @@
  * Global application state.
  */
 
-import type { ActivePane, FocusTarget, LogSource, Mode } from "../types"
+import type { ActivePane, FocusTarget, ListFilterMode, LogSource, Mode } from "../types"
 import { ListPane } from "../types"
 import { config } from "./polling"
 import {
@@ -23,6 +23,7 @@ export function switchMode(mode: Mode): void {
 
 export type AppState = {
   currentMode: Mode
+  settingsMode: Mode | null
   activePane: ActivePane
   focusTarget: FocusTarget
   healthStatus: string
@@ -36,7 +37,7 @@ export type AppState = {
   verifierEvolveGenerationIndex: number
   eventFilter: string
   settingsCursor: number
-  settingsOptions: Mode[]
+  settingsOptions: Array<Mode | "reset">
   settingsKeys: Record<Mode, string>
   listFilterPane: ActivePane
   listFilterOptions: Array<{ id: string; label: string; count: number }>
@@ -44,6 +45,7 @@ export type AppState = {
   listFilterWindowStart: number
   listFilterVisibleCount: number
   listFilterSelections: Record<ActivePane, Set<string>>
+  listFilterMode: Record<ActivePane, ListFilterMode>
   jobsListLimit: number
   jobsListLoadingMore: boolean
   jobsListHasMore: boolean
@@ -69,6 +71,7 @@ export type AppState = {
   logsTailMode: boolean
   logsDetailOffset: number
   logsDetailTail: boolean
+  jobsDetailOffset: number
   jobSelectToken: number
   eventsToken: number
   principalPane: "jobs" | "opencode"
@@ -94,6 +97,7 @@ export function createInitialAppState(): AppState {
   return {
     // Mode state (initialized later via initModeState)
     currentMode: getCurrentMode(),
+    settingsMode: null,
 
     activePane: ListPane.Jobs as ActivePane,
     focusTarget: "list" as FocusTarget,
@@ -113,7 +117,7 @@ export function createInitialAppState(): AppState {
 
     // Settings modal state
     settingsCursor: 0,
-    settingsOptions: [] as Mode[],
+    settingsOptions: [] as Array<Mode | "reset">,
     settingsKeys: { prod: "", dev: "", local: "" } as Record<Mode, string>,
 
     // List filter state
@@ -126,6 +130,10 @@ export function createInitialAppState(): AppState {
       [ListPane.Jobs]: new Set<string>(),
       [ListPane.Logs]: new Set<string>(),
     } as Record<ActivePane, Set<string>>,
+    listFilterMode: {
+      [ListPane.Jobs]: "all",
+      [ListPane.Logs]: "all",
+    } as Record<ActivePane, ListFilterMode>,
     jobsListLimit: config.jobLimit,
     jobsListLoadingMore: false,
     jobsListHasMore: false,
@@ -163,6 +171,7 @@ export function createInitialAppState(): AppState {
     logsTailMode: true,
     logsDetailOffset: 0,
     logsDetailTail: true,
+    jobsDetailOffset: 0,
 
     // Request tokens for cancellation
     jobSelectToken: 0,

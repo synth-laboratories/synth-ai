@@ -1,7 +1,7 @@
 /**
  * HTTP API client for backend communication.
  *
- * URLs come from launcher.py (which gets them from urls.py).
+ * URLs come from process.env (seeded by launcher.py, then updated on mode switch).
  * API key comes from process.env.SYNTH_API_KEY.
  */
 

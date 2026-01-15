@@ -66,6 +66,8 @@ See Also:
     - Quickstart: /quickstart/prompt-optimization-gepa
 """
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
@@ -150,6 +152,10 @@ class PromptLearningPolicyConfig(ExtraModel):
     temperature: float = 0.0
     max_completion_tokens: int = 512
     policy_name: str | None = None
+    # Arbitrary task-app specific policy config (agent selection, timeouts, etc.)
+    config: dict[str, Any] = Field(default_factory=dict)
+    # Optional baseline context override (unified optimization bootstrap)
+    context_override: dict[str, Any] | None = None
 
     @field_validator("inference_url", mode="before")
     @classmethod
@@ -711,7 +717,7 @@ class GEPAEvaluationConfig(ExtraModel):
         return _parse_seeds(v)
 
     @model_validator(mode="after")
-    def _resolve_seed_aliases(self) -> "GEPAEvaluationConfig":
+    def _resolve_seed_aliases(self) -> GEPAEvaluationConfig:
         """Resolve seed aliases for backwards compatibility."""
         # Resolve train_seeds from seeds (backwards compatibility)
         if self.train_seeds is None and self.seeds is not None:
@@ -910,6 +916,18 @@ class GEPAConfig(ExtraModel):
     adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None  # Adaptive pooling config
     adaptive_batch: GEPAAdaptiveBatchConfig | dict[str, Any] | None = (
         None  # Adaptive batch config (GEPA only)
+    )
+
+    # Unified optimization config (context engineering + prompts)
+    unified_optimization: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Unified optimization config for prompt + context engineering. "
+            "Controls which override channels are enabled (AGENTS.md, skills, preflight scripts, env vars). "
+            "See monorepo GEPAUnifiedOptimizationConfig for full schema. "
+            "Example: {enable_task_app_context_overrides: true, optimization_target: 'unified', "
+            "mutable_files: ['AGENTS.md', '.codex/skills.yaml'], allow_preflight_script: true}"
+        ),
     )
 
     # Backwards compatibility: flat fields (DEPRECATED - DO NOT USE)
@@ -1154,7 +1172,7 @@ class GEPAConfig(ExtraModel):
         return self.max_spend_usd
 
     @model_validator(mode="after")
-    def _sync_prompt_budget(self) -> "GEPAConfig":
+    def _sync_prompt_budget(self) -> GEPAConfig:
         """Keep proposed_prompt_max_tokens and token.max_limit aligned."""
         token_max = self.token.max_limit if self.token else None
         if token_max is not None:
@@ -1166,7 +1184,7 @@ class GEPAConfig(ExtraModel):
         return self
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any]) -> "GEPAConfig":
+    def from_mapping(cls, data: Mapping[str, Any]) -> GEPAConfig:
         """Load GEPA config from dict/TOML, handling both nested and flat structures."""
         if isinstance(data, dict) and "prompt_budget" in data and "token" not in data:
             data = dict(data)
@@ -1195,6 +1213,7 @@ class GEPAConfig(ExtraModel):
                 "adaptive_pool",
                 "adaptive_batch",
                 "verifier",
+                "unified_optimization",  # Context engineering config
             ):
                 nested_data[key] = value
             else:
@@ -1358,6 +1377,13 @@ class PromptLearningConfig(ExtraModel):
     task_app_url: str
     task_app_id: str | None = None
     initial_prompt: PromptPatternConfig | None = None
+    auto_discover_patterns: bool = Field(
+        default=False,
+        description=(
+            "Enable experimental pattern auto-discovery when initial_prompt is omitted. "
+            "This runs a validation rollout to infer prompt patterns from traces."
+        ),
+    )
     policy: PromptLearningPolicyConfig | None = None
     gepa: GEPAConfig | None = None
     verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
@@ -1441,7 +1467,7 @@ class PromptLearningConfig(ExtraModel):
             return data
 
         # Silently remove deprecated fields (don't raise errors)
-        deprecated_fields = {"display", "results_folder", "task_app_api_key"}
+        deprecated_fields = {"display", "results_folder", "env_file_path", "task_app_api_key"}
 
         for field in deprecated_fields:
             if field in data:
@@ -1459,11 +1485,11 @@ class PromptLearningConfig(ExtraModel):
         return result
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any]) -> "PromptLearningConfig":
+    def from_mapping(cls, data: Mapping[str, Any]) -> PromptLearningConfig:
         """Load prompt learning config from dict/TOML mapping."""
         # Remove deprecated fields at top level (silently for backwards compatibility)
         # The CLI validation module will warn about these
-        deprecated_top_level = {"display", "results_folder", "task_app_api_key"}
+        deprecated_top_level = {"display", "results_folder", "env_file_path", "task_app_api_key"}
 
         # Convert to mutable dict (creates a copy to avoid modifying the original)
         data = dict(data)
@@ -1505,7 +1531,7 @@ class PromptLearningConfig(ExtraModel):
         return cls.model_validate(pl_data)
 
     @classmethod
-    def from_path(cls, path: Path) -> "PromptLearningConfig":
+    def from_path(cls, path: Path) -> PromptLearningConfig:
         """Load prompt learning config from TOML file."""
         content = load_toml(path)
         return cls.from_mapping(content)

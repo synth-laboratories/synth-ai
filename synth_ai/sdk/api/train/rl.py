@@ -22,6 +22,8 @@ Example SDK usage:
         print(f"Final reward: {result.get('final_reward', 'N/A')}")
 """
 
+from __future__ import annotations
+
 import asyncio
 import os
 from dataclasses import dataclass
@@ -165,7 +167,7 @@ class RLJob:
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
         idempotency_key: Optional[str] = None,
-    ) -> "RLJob":
+    ) -> RLJob:
         """Create an RL job from a config file.
 
         Args:
@@ -232,7 +234,7 @@ class RLJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> "RLJob":
+    ) -> RLJob:
         """Resume an existing RL job by ID.
 
         Args:
@@ -253,6 +255,7 @@ class RLJob:
         if not backend_url:
             backend_url = BACKEND_URL_BASE
 
+        # Resolve API key
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
             if not api_key:

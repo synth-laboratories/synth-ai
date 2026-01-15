@@ -33,6 +33,7 @@ type AppBodyProps = {
 	opencodeUrl: Accessor<string>
 	opencodeSessionId: Accessor<string | undefined>
 	opencodeDimensions: Accessor<{ width: number; height: number }>
+	opencodeWorkingDir: Accessor<string | undefined>
 	onExitOpenCode: () => void
 }
 
@@ -66,6 +67,7 @@ export function AppBody(props: AppBodyProps) {
 					height={props.layout().contentHeight}
 					title={props.jobsList.title()}
 					totalCount={props.jobsList.totalCount()}
+					loadMoreHint={props.jobsList.loadMoreHint()}
 				/>
 			</Show>
 
@@ -99,7 +101,9 @@ export function AppBody(props: AppBodyProps) {
 									sessionId={props.opencodeSessionId()}
 									width={props.opencodeDimensions().width}
 									height={props.opencodeDimensions().height}
+									workingDir={props.opencodeWorkingDir()}
 									onExit={props.onExitOpenCode}
+									focused={props.focusTarget() === "agent"}
 								/>
 							</Show>
 						</ErrorBoundary>
@@ -110,7 +114,7 @@ export function AppBody(props: AppBodyProps) {
         when={props.activePane() !== ListPane.Logs}
 					fallback={
 						<LogsDetail
-							title={props.logsList.filesTitle()}
+							title="Logs"
 							filePath={props.logsList.selectedFile()?.path ?? null}
 							lines={props.logsDetailView().lines}
 							visibleLines={props.logsDetailView().visibleLines}
@@ -123,8 +127,9 @@ export function AppBody(props: AppBodyProps) {
 				>
 					<JobsDetail
 						data={props.data}
-						events={props.jobsDetail.events()}
-						eventWindow={props.jobsDetail.eventWindow()}
+						eventItems={props.jobsDetail.listWindow.visibleItems()}
+						totalEvents={props.jobsDetail.listWindow.total()}
+						selectedIndex={props.jobsDetail.selectedIndex()}
 						lastError={props.lastError()}
 						detailWidth={props.layout().detailWidth}
 						detailHeight={props.layout().contentHeight}

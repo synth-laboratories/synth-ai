@@ -1,19 +1,18 @@
 """TUI launcher - spawns the OpenTUI JS app via bun."""
 
-import json
 import os
 import subprocess
 from pathlib import Path
 from shutil import which
 
-from synth_ai.tui.urls import TUI_URL_PROFILES, resolve_tui_profile
+from synth_ai.core.urls import BACKEND_URL_BASE, FRONTEND_URL_BASE
 
 BUNTIME = which("bun")
 TUI_ROOT_PATH = Path(__file__).resolve().parent / "app"
 ENTRY_PATH = TUI_ROOT_PATH / "src" / "index.ts"
 
 
-def _ensure_dependencies_installed(runtime: str | None) -> None:
+def _ensure_dependencies_installed() -> None:
     """Ensure JavaScript dependencies are installed before running the TUI."""
     import shutil
     import sys
@@ -30,8 +29,6 @@ def _ensure_dependencies_installed(runtime: str | None) -> None:
 
     # Check if node_modules exists (or if solid-js is installed as a quick check)
     if not node_modules.exists() or not (node_modules / "solid-js").exists():
-        if runtime is None:
-            raise RuntimeError("Missing runtime. Install bun to fetch TUI dependencies.")
         print("Installing TUI dependencies...", file=sys.stderr)
         sys.stderr.flush()
 
@@ -48,7 +45,7 @@ def _ensure_dependencies_installed(runtime: str | None) -> None:
         try:
             # Run bun install
             install_result = subprocess.run(
-                [runtime, "install"],
+                [BUNTIME, "install"],
                 cwd=TUI_ROOT_PATH,
                 capture_output=True,
                 text=True,
@@ -87,26 +84,25 @@ def run_tui() -> None:
         raise RuntimeError("Missing runtime. Install bun to run the TUI.")
 
     # Ensure dependencies are installed
-    _ensure_dependencies_installed(BUNTIME)
+    _ensure_dependencies_installed()
 
     env = dict(os.environ)
-    mode = env.get("SYNTH_TUI_MODE", "prod")
-    profile = resolve_tui_profile(mode)
-    env["SYNTH_TUI_MODE"] = mode
-    env["SYNTH_BACKEND_URL"] = profile.backend_url
-    env["SYNTH_FRONTEND_URL"] = profile.frontend_url
-    env["SYNTH_TUI_URL_PROFILES"] = json.dumps(
-        {
-            name: {
-                "backendUrl": prof.backend_url,
-                "frontendUrl": prof.frontend_url,
-            }
-            for name, prof in TUI_URL_PROFILES.items()
-        }
-    )
-    # API key (prefer login/config flow; only pass through env if already set)
+    env["SYNTH_BACKEND_URL"] = BACKEND_URL_BASE
+    env["SYNTH_FRONTEND_URL"] = FRONTEND_URL_BASE
     if "SYNTH_API_KEY" not in env:
         env["SYNTH_API_KEY"] = ""
+    env.setdefault("SYNTH_TUI_LAUNCH_CWD", os.getcwd())
+    try:
+        from synth_ai.sdk.opencode_skills import materialize_tui_opencode_config_dir
+
+        opencode_config_dir = materialize_tui_opencode_config_dir(
+            include_packaged_skills=["synth-api"]
+        )
+        env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
+    except Exception:
+        opencode_config_dir = Path(__file__).resolve().parent / "opencode_config"
+        if opencode_config_dir.exists():
+            env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
 
     cmd = [BUNTIME, str(ENTRY_PATH)]
     result = subprocess.run(cmd, env=env, cwd=TUI_ROOT_PATH)

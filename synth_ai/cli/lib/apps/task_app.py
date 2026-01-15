@@ -268,6 +268,7 @@ def _validate_rollout_payload(payload: Any) -> None:
     outcome_reward = metrics.get("outcome_reward")
     outcome_objectives = metrics.get("outcome_objectives")
     event_objectives = metrics.get("event_objectives")
+    instance_objectives = metrics.get("instance_objectives")
     event_rewards = metrics.get("event_rewards")
 
     if not isinstance(outcome_reward, (int, float)):
@@ -310,6 +311,43 @@ def _validate_rollout_payload(payload: Any) -> None:
             if not isinstance(item, Mapping):
                 raise ValueError(
                     "`/rollout` metrics.event_objectives entries must be objects, "
+                    f"got {type(item).__name__} at index {idx}"
+                )
+
+    success_status = data.get("success_status")
+    if success_status is not None and not isinstance(success_status, str):
+        raise ValueError(
+            f"`/rollout` success_status must be a string, got {type(success_status).__name__}"
+        )
+
+    artifacts = data.get("artifact")
+    if artifacts is not None:
+        if not isinstance(artifacts, list):
+            raise ValueError(
+                f"`/rollout` artifact must be a list, got {type(artifacts).__name__}"
+            )
+        for idx, artifact in enumerate(artifacts):
+            if not isinstance(artifact, Mapping):
+                raise ValueError(
+                    "`/rollout` artifact entries must be objects, "
+                    f"got {type(artifact).__name__} at index {idx}"
+                )
+            content_type = artifact.get("content_type")
+            if not isinstance(content_type, str) or not content_type.strip():
+                raise ValueError(
+                    "`/rollout` artifact.content_type must be a non-empty string "
+                    f"(index {idx})"
+                )
+
+    if instance_objectives is not None:
+        if not isinstance(instance_objectives, list):
+            raise ValueError(
+                f"`/rollout` metrics.instance_objectives must be a list, got {type(instance_objectives).__name__}"
+            )
+        for idx, item in enumerate(instance_objectives):
+            if not isinstance(item, Mapping):
+                raise ValueError(
+                    "`/rollout` metrics.instance_objectives entries must be objects, "
                     f"got {type(item).__name__} at index {idx}"
                 )
 

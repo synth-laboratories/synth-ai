@@ -12,6 +12,20 @@ Dependency rule: data/ imports nothing from synth_ai except typing helpers.
 
 from __future__ import annotations
 
+# Artifact data types
+from synth_ai.data.artifacts import (
+    Artifact,
+    # Context override types
+    ApplicationErrorType,
+    ApplicationStatus,
+    ContextOverride,
+    ContextOverrideStatus,
+    FolderMode,
+    OverrideApplicationError,
+    OverrideOperation,
+    OverrideType,
+)
+
 # Enums - pure types
 from synth_ai.data.enums import (
     AdaptiveBatchLevel,
@@ -30,6 +44,7 @@ from synth_ai.data.enums import (
     RewardType,
     RLMethod,
     SFTMethod,
+    SuccessStatus,
     TrainingType,
     VerifierMode,
 )
@@ -86,6 +101,7 @@ __all__ = [
     # Enums
     "JobType",
     "JobStatus",
+    "SuccessStatus",
     "PromptLearningMethod",
     "RLMethod",
     "SFTMethod",
@@ -122,6 +138,16 @@ __all__ = [
     "RewardAggregates",
     "CalibrationExample",
     "GoldExample",
+    "Artifact",
+    # Context override types
+    "ContextOverride",
+    "ContextOverrideStatus",
+    "OverrideApplicationError",
+    "OverrideType",
+    "OverrideOperation",
+    "FolderMode",
+    "ApplicationStatus",
+    "ApplicationErrorType",
     # Trace data
     "SessionTrace",
     "SessionTimeStep",

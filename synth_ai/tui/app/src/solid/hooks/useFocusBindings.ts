@@ -8,7 +8,11 @@ import type { JobEvent } from "../../tui_data"
 import { focusManager } from "../../focus"
 import { ListPane } from "../../types"
 import { moveEventSelection } from "../utils/events"
-import { getSelectedVerifierEvolveGeneration, moveVerifierEvolveGenerationSelection } from "../utils/verifier-evolve"
+import {
+  getBestVerifierEvolveGenerationIndex,
+  getSelectedVerifierEvolveGeneration,
+  moveVerifierEvolveGenerationSelection,
+} from "../utils/verifier-evolve"
 
 type UseFocusBindingsOptions = {
   ctx: AppContext
@@ -67,6 +71,13 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
       options.ui.principalPane === "jobs" &&
       options.ui.activePane === ListPane.Jobs &&
       isVerifierEvolveJob(),
+    onFocus: () => {
+      const bestIndex = getBestVerifierEvolveGenerationIndex(options.ctx.state.data)
+      if (bestIndex == null) return
+      if (options.ui.verifierEvolveGenerationIndex === 0) {
+        options.ctx.setUi("verifierEvolveGenerationIndex", bestIndex)
+      }
+    },
     handleAction: (action) => {
       if (action === "nav.down" || action === "nav.up") {
         const delta = action === "nav.down" ? 1 : -1
@@ -111,7 +122,7 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
         return true
       }
       if (action === "pane.select") {
-        const event = options.jobsDetail.events()[options.jobsDetail.eventWindow().selected]
+        const event = options.jobsDetail.events()[options.jobsDetail.selectedIndex()]
         if (event) {
           options.openEventModal(event)
         }

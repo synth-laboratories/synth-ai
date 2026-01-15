@@ -2,9 +2,11 @@
 """Run the Banking77 GEPA demo end-to-end.
 
 Usage:
-    uv run python demos/gepa_banking77/run_demo.py
+    uv run python demos/gepa_banking77/run_demo.py           # Production mode (Cloudflare tunnels)
+    uv run python demos/gepa_banking77/run_demo.py --local   # Local mode (localhost, no tunnels)
 """
 
+import argparse
 import asyncio
 import json
 import os
@@ -16,15 +18,10 @@ import httpx
 from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
-from synth_ai.core.urls import (
-    BACKEND_URL_BASE,
-    backend_health_url,
-    join_url,
-    local_backend_url,
-)
+from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
@@ -39,10 +36,28 @@ from synth_ai.sdk.tunnels import (
     cleanup_all,
 )
 
+# Parse args
+parser = argparse.ArgumentParser(description="Run Banking77 GEPA demo")
+parser.add_argument(
+    "--local",
+    action="store_true",
+    help="Run in local mode: use localhost:8000 backend and skip Cloudflare tunnels",
+)
+parser.add_argument(
+    "--local-host",
+    type=str,
+    default="localhost",
+    help="Hostname for local API URLs (use 'host.docker.internal' if backend runs in Docker)",
+)
+args = parser.parse_args()
+
+LOCAL_MODE = args.local
+LOCAL_HOST = args.local_host
+
 
 def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
     """Wait for a local API health check using sync httpx (avoids Python 3.14 sniffio issues)."""
-    health_url = backend_health_url(local_backend_url(host, port))
+    health_url = f"http://{host}:{port}/health"
     headers = {"X-API-Key": api_key} if api_key else {}
     start = time.time()
 
@@ -62,21 +77,26 @@ def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: floa
 
 
 # Backend configuration
-SYNTH_API_BASE = BACKEND_URL_BASE
-LOCAL_MODE = SYNTH_API_BASE.startswith("http://localhost") or SYNTH_API_BASE.startswith(
-    "http://127.0.0.1"
-)
-TUNNEL_BACKEND = TunnelBackend.Localhost if LOCAL_MODE else TunnelBackend.CloudflareManagedTunnel
-LOCAL_API_PORT = 8013 if LOCAL_MODE else 8001
-OPTIMIZED_LOCAL_API_PORT = 8014 if LOCAL_MODE else 8002
-LOCAL_HOST = "127.0.0.1"
+if LOCAL_MODE:
+    SYNTH_API_BASE = "http://localhost:8000"
+    TUNNEL_BACKEND = TunnelBackend.Localhost
+    LOCAL_API_PORT = 8013
+    OPTIMIZED_LOCAL_API_PORT = 8014
+    print("=" * 60)
+    print("RUNNING IN LOCAL MODE")
+    print("=" * 60)
+else:
+    SYNTH_API_BASE = PROD_BASE_URL
+    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
+    LOCAL_API_PORT = 8001
+    OPTIMIZED_LOCAL_API_PORT = 8002
 
 print(f"Backend: {SYNTH_API_BASE}")
 print(f"Tunnel backend: {TUNNEL_BACKEND.value}")
 print(f"Local API Ports: {LOCAL_API_PORT}, {OPTIMIZED_LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(backend_health_url(SYNTH_API_BASE), timeout=30)
+r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
 else:
@@ -85,8 +105,17 @@ else:
 
 
 # Cell 3: Get API Key
-API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE)
-print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+API_KEY = os.environ.get("SYNTH_API_KEY", "")
+if not API_KEY:
+    print("No SYNTH_API_KEY found, minting demo key...")
+    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
+    print(f"Demo API Key: {API_KEY[:25]}...")
+else:
+    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+
+
+# Set API key in environment for SDK to use
+os.environ["SYNTH_API_KEY"] = API_KEY
 
 # Cell 4: Ensure Environment Key
 ENVIRONMENT_API_KEY = ensure_localapi_auth(
@@ -316,6 +345,7 @@ def create_banking77_local_api(system_prompt: str):
         os.environ["OPENAI_BASE_URL"] = inference_url
         api_key = policy_config.get("api_key")
 
+        start = time.perf_counter()
         predicted_intent = await classify_banking77_query(
             query=sample["text"],
             system_prompt=system_prompt,
@@ -324,6 +354,7 @@ def create_banking77_local_api(system_prompt: str):
             api_key=api_key,
             inference_url=inference_url,
         )
+        latency_ms = (time.perf_counter() - start) * 1000.0
 
         expected_intent = sample["label"]
         is_correct = (
@@ -343,11 +374,16 @@ def create_banking77_local_api(system_prompt: str):
         )
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=reward),
+            reward_info=RolloutMetrics(
+                outcome_reward=reward,
+                outcome_objectives={"reward": reward, "latency_ms": latency_ms},
+                instance_objectives=[{"reward": reward, "latency_ms": latency_ms}],
+                details={"latency_ms": latency_ms},
+            ),
             trace=None,
             trace_correlation_id=trace_correlation_id,
             inference_url=str(inference_url or ""),
+            success_status=SuccessStatus.SUCCESS,
         )
 
     def provide_taskset_description():
@@ -504,7 +540,7 @@ async def main():
         try:
             # Use sync httpx to fetch events (avoids nested event loop issues)
             response = httpx.get(
-                join_url(SYNTH_API_BASE, f"/api/prompt-learning/online/jobs/{job_id}/events"),
+                f"{SYNTH_API_BASE}/api/prompt-learning/online/jobs/{job_id}/events",
                 params={"since_seq": last_event_seq, "limit": 100},
                 headers={"X-API-Key": API_KEY},
                 timeout=30.0,
@@ -580,6 +616,16 @@ async def main():
                             print(
                                 f"  {status} Candidate {version_id}: mean reward = {accuracy:.2f}"
                             )
+                        program_candidate = (
+                            data.get("program_candidate", {}) if isinstance(data, dict) else {}
+                        )
+                        if isinstance(program_candidate, dict):
+                            prompt_summary = program_candidate.get("prompt_summary")
+                            if isinstance(prompt_summary, str) and prompt_summary.strip():
+                                print(f"    prompt_summary: {prompt_summary.strip()[:200]}")
+                            objectives = program_candidate.get("objectives")
+                            if isinstance(objectives, dict):
+                                print(f"    objectives: {objectives}")
 
                 elif event_type == "prompt.learning.gepa.proposal.completed":
                     # Message format: "Proposal generated in 11.23s (evaluation will start next)"
@@ -970,8 +1016,10 @@ async def main():
         timings["baseline_eval"] = time.time() - eval_start
 
         if baseline_result.succeeded:
-            # Try mean_score first, then mean_reward from summary, then calculate from seed_results
-            score = baseline_result.mean_score
+            # Try mean_reward/mean_score from result, then summary, then seed_results
+            score = getattr(baseline_result, "mean_reward", None)
+            if score is None:
+                score = getattr(baseline_result, "mean_score", None)
             if score is None:
                 summary = baseline_result.raw.get("summary", {})
                 score = summary.get("mean_reward") or summary.get("mean_score")
@@ -1006,8 +1054,10 @@ async def main():
         timings["optimized_eval"] = time.time() - eval_start
 
         if optimized_result.succeeded:
-            # Try mean_score first, then mean_reward from summary, then calculate from seed_results
-            score = optimized_result.mean_score
+            # Try mean_reward/mean_score, then summary, then seed_results
+            score = getattr(optimized_result, "mean_reward", None)
+            if score is None:
+                score = getattr(optimized_result, "mean_score", None)
             if score is None:
                 summary = optimized_result.raw.get("summary", {})
                 score = summary.get("mean_reward") or summary.get("mean_score")
@@ -1037,7 +1087,9 @@ async def main():
         if baseline_result.succeeded and optimized_result.succeeded:
             # Extract scores with fallback logic
             def extract_score(result: EvalResult) -> float | None:
-                score = result.mean_score
+                score = getattr(result, "mean_reward", None)
+                if score is None:
+                    score = getattr(result, "mean_score", None)
                 if score is None:
                     summary = result.raw.get("summary", {})
                     score = summary.get("mean_reward") or summary.get("mean_score")

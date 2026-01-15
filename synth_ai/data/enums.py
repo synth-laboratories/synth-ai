@@ -171,6 +171,26 @@ class SynthModelName(str, Enum):
     SYNTH_MEDIUM = "synth-medium"
 
 
+class SuccessStatus(str, Enum):
+    """Infrastructure/runtime success status (orthogonal to reward).
+
+    SuccessStatus indicates whether a rollout completed without infrastructure
+    or runtime failures. This is orthogonal to reward - a rollout can have
+    SUCCESS status but low reward (bad AI output), or FAILURE status
+    (infrastructure error) regardless of AI output quality.
+
+    NEVER computed from reward, rubric scores, or task outcomes.
+    ONLY computed from infrastructure/runtime execution status.
+    """
+
+    SUCCESS = "success"  # Rollout completed without infra errors
+    TIMEOUT = "timeout"  # Exceeded time budget (agent/harness timeout)
+    NETWORK_ERROR = "network_error"  # Provider/backend unreachable
+    APPLY_FAILED = "apply_failed"  # Override application failed
+    RUNTIME_ERROR = "runtime_error"  # Unhandled exception/subprocess crash
+    FAILURE = "failure"  # Generic infra failure
+
+
 # Legacy: list of model names for CLI validation
 SYNTH_MODEL_NAMES: list[str] = [m.value for m in SynthModelName]
 
@@ -178,6 +198,7 @@ SYNTH_MODEL_NAMES: list[str] = [m.value for m in SynthModelName]
 __all__ = [
     "JobType",
     "JobStatus",
+    "SuccessStatus",
     "PromptLearningMethod",
     "RLMethod",
     "SFTMethod",
@@ -195,5 +216,6 @@ __all__ = [
     "AdaptiveCurriculumLevel",
     "AdaptiveBatchLevel",
     "SynthModelName",
+    "SuccessStatus",
     "SYNTH_MODEL_NAMES",
 ]

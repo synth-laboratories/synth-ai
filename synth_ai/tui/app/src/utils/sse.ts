@@ -31,6 +31,7 @@ export function connectSse(
     headers?: HeadersInit
     signal?: AbortSignal
     includeScope?: boolean
+    label?: string
     reconnect?: SseReconnectOptions
     getUrl?: () => string
     onMessage: (message: SseMessage) => void
@@ -54,6 +55,7 @@ export function connectSse(
   const maxDelay = reconnect.maxDelayMs ?? SSE_RECONNECT_MAX_MS
   const multiplier = reconnect.multiplier ?? SSE_RECONNECT_MULTIPLIER
   const jitterMs = reconnect.jitterMs ?? SSE_RECONNECT_JITTER_MS
+  const streamLabel = options.label ? `SSE:${options.label}` : "SSE"
 
   const nextDelay = (attempt: number): number => {
     const exp = baseDelay * Math.pow(multiplier, Math.max(0, attempt - 1))
@@ -67,13 +69,13 @@ export function connectSse(
       while (!aborted) {
         const targetUrl = options.getUrl ? options.getUrl() : url
         const start = Date.now()
-        log("http", `→ GET (SSE) ${targetUrl}`)
+        log("http", `→ GET (${streamLabel}) ${targetUrl}`)
         try {
           const res = await fetch(targetUrl, {
             headers: options.headers,
             signal: mergedManaged.signal,
           })
-          log("http", `← ${res.status} GET (SSE) ${targetUrl} (${Date.now() - start}ms)`)
+          log("http", `← ${res.status} GET (${streamLabel}) ${targetUrl} (${Date.now() - start}ms)`)
 
           if (!res.ok) {
             const body = await res.text().catch(() => "")
@@ -141,7 +143,7 @@ export function connectSse(
           }
         } catch (err) {
           if (aborted || (err as { name?: string })?.name === "AbortError") return
-          log("http", `✗ GET (SSE) ${targetUrl} - ${(err as Error)?.message}`)
+          log("http", `✗ GET (${streamLabel}) ${targetUrl} - ${(err as Error)?.message}`)
           options.onError?.(err instanceof Error ? err : new Error(String(err)))
         } finally {
           if (reader) {

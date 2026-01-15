@@ -1,29 +1,38 @@
-import { For, Show, createMemo } from "solid-js"
-import { COLORS } from "../../theme"
+import { Show, createMemo } from "solid-js"
+import { Dynamic } from "solid-js/web"
+
 import type { AppData } from "../../../types"
 import type { JobEvent } from "../../../tui_data"
 import { isEvalJob } from "../../../tui_data"
-import { formatDetails } from "../../formatters/job-details"
-import { formatResults } from "../../formatters/results"
-import { GraphEvolveResultsPanel } from "./GraphEvolveResultsPanel"
-import { formatMetrics, formatMetricsCharts } from "../../formatters/metrics"
-import { ListCard, getIndicator } from "../../components/ListCard"
+import type { ListWindowItem } from "../../utils/list"
+import type { PanelRegistryKey } from "./types"
+
+// Import registries
+import { getDetailsPanel } from "./registries/details-registry"
+import { getResultsPanel } from "./registries/results-registry"
+import { getMetricsPanel, type MetricsView } from "./registries/metrics-registry"
+
+// Import panel modules to register them
+import "./details"
+import "./results"
+import "./metrics"
+
+// Import events panel directly (not registry-based)
+import { EventsListPanel } from "./events"
+import { COLORS, PANEL, TEXT, getPanelBorderColor } from "../../theme"
 
 interface JobsDetailProps {
   data: AppData
-  events: JobEvent[]
-  eventWindow: {
-    slice: JobEvent[]
-    windowStart: number
-    selected: number
-  }
+  eventItems: ListWindowItem<JobEvent>[]
+  totalEvents: number
+  selectedIndex: number
   lastError: string | null
   detailWidth: number
   detailHeight: number
   resultsFocused?: boolean
   eventsFocused?: boolean
   metricsFocused?: boolean
-  metricsView: "latest" | "charts"
+  metricsView: MetricsView
   verifierEvolveGenerationIndex: number
 }
 
@@ -31,60 +40,51 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
 
-function padLine(text: string, width: number): string {
-  if (text.length >= width) return text
-  return text.padEnd(width, " ")
-}
-
-function formatEventHeader(event: JobEvent): string {
-  const seq = String(event.seq).padStart(3, " ")
-  const typeRaw = event.type || ""
-  const type = typeRaw.replace(/^prompt\.learning\./, "")
-  return `${seq} ${type}`.trimEnd()
-}
-
-function formatEventTimestamp(event: JobEvent): string {
-  const ts = (event as any).timestamp
-  if (typeof ts !== "string" || ts.length === 0) return ""
-  // Keep it short but human-readable
-  const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return ""
-  return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-}
-
-
 /**
  * Jobs detail panels (right side).
+ * Uses registry pattern for pluggable panel components.
  */
 export function JobsDetail(props: JobsDetailProps) {
-  const detailsText = createMemo(() => formatDetails(props.data))
-  const resultsText = createMemo(() => formatResults(props.data))
-  const isGraphEvolveVerifier = createMemo(() => {
+  // Derive registry key from selected job
+  const registryKey = createMemo((): PanelRegistryKey => {
     const job = props.data.selectedJob
     const meta = job?.metadata as Record<string, any> | null
-    return job?.training_type === "graph_evolve" && meta?.graph_type === "verifier"
+    return {
+      trainingType: job?.training_type ?? null,
+      graphType: meta?.graph_type ?? null,
+      jobSource: job?.job_source ?? null,
+    }
   })
+
+  // Check for special job types
+  const isGraphEvolveVerifier = createMemo(() => {
+    const key = registryKey()
+    return key.trainingType === "graph_evolve" && key.graphType === "verifier"
+  })
+
+  // Get panel components from registries
+  const DetailsPanel = createMemo(() => getDetailsPanel(registryKey()))
+  const ResultsPanel = createMemo(() => getResultsPanel(registryKey()))
+  const MetricsPanel = createMemo(() => getMetricsPanel(props.metricsView))
+
+  // Calculate panel heights
   const metricPointsCount = createMemo(() => {
     const m: any = props.data.metrics || {}
     const pts = Array.isArray(m?.points) ? m.points : []
     return pts.length
   })
+
   const detailsHeight = createMemo(() => {
-    const lines = detailsText().split("\n").length
-    return clamp(lines + 2, 6, 9)
+    // Details panel is typically 6-9 lines
+    return clamp(7, 6, 9)
   })
+
   const resultsHeight = createMemo(() => {
     if (isGraphEvolveVerifier()) return 9
-    const lines = resultsText().split("\n").length
-    return clamp(lines + 2, 6, 10)
+    return clamp(8, 6, 10)
   })
-  const resultsTitle = createMemo(() => {
-    const job = props.data.selectedJob
-    return job && isEvalJob(job) ? "Results" : "Summary"
-  })
-  const resultsInnerHeight = createMemo(() => Math.max(4, resultsHeight() - 2))
+
   const metricsPanelHeight = createMemo(() => {
-    // Reserve fixed space for Details/Results and ensure Events always has room.
     const detailsH = detailsHeight()
     const resultsH = resultsHeight()
     const minEventsH = 12
@@ -94,127 +94,85 @@ export function JobsDetail(props: JobsDetailProps) {
       const desired = metricPointsCount() > 0 ? 22 : 18
       return clamp(desired, 12, maxH)
     }
-    // Latest mode: expand a bit when we actually have metrics.
     const desired = metricPointsCount() > 0 ? 8 : 4
     return clamp(desired, 4, maxH)
   })
-  const metricsText = createMemo(() => {
-    if (props.metricsView === "charts") {
-      const innerWidth = Math.max(30, props.detailWidth - 6)
-      const panelHeight = metricsPanelHeight()
-      // In charts mode we use the full panel height for larger charts.
-      return formatMetricsCharts(props.data.metrics, {
-        width: innerWidth,
-        height: panelHeight,
-      })
-    }
-    return formatMetrics(props.data.metrics)
+
+  // Fixed height for events panel
+  const eventsPanelHeight = createMemo(() => 14)
+
+  // Results panel title varies by job type
+  const resultsTitle = createMemo(() => {
+    if (isGraphEvolveVerifier()) return "Reward"
+    const job = props.data.selectedJob
+    return job && isEvalJob(job) ? "Results" : "Summary"
   })
 
+  // Determine if results panel needs special rendering (graph-evolve uses internal box)
+  const resultsNeedsWrapper = createMemo(() => !isGraphEvolveVerifier())
+
   return (
-    <box flexDirection="column" flexGrow={1} border={false} gap={0}>
-      {/* Details Box */}
-      <box
-        border
-        borderStyle="single"
-        borderColor={COLORS.border}
-        title="Details"
-        titleAlignment="left"
-        paddingLeft={1}
+    <box flexDirection="column" flexGrow={1} border={false} gap={0} overflow="hidden">
+      {/* Details Panel */}
+      <Dynamic
+        component={DetailsPanel()}
+        data={props.data}
+        width={props.detailWidth}
         height={detailsHeight()}
-      >
-        <text fg={COLORS.text}>{detailsText()}</text>
-      </box>
+      />
 
-      {/* Results Box */}
-      <box
-        border
-        borderStyle="single"
-        borderColor={props.resultsFocused && isGraphEvolveVerifier() ? COLORS.textAccent : COLORS.border}
-        title={resultsTitle()}
-        titleAlignment="left"
-        paddingLeft={1}
-        height={resultsHeight()}
+      {/* Results Panel */}
+      <Show
+        when={resultsNeedsWrapper()}
+        fallback={
+          <box
+            border={PANEL.border}
+            borderStyle={PANEL.borderStyle}
+            borderColor={getPanelBorderColor(!!props.resultsFocused)}
+            title={resultsTitle()}
+            titleAlignment={PANEL.titleAlignment}
+            paddingLeft={PANEL.paddingLeft}
+            height={resultsHeight()}
+          >
+            <Dynamic
+              component={ResultsPanel()}
+              data={props.data}
+              width={Math.max(30, props.detailWidth - 6)}
+              height={Math.max(4, resultsHeight() - 2)}
+              focused={!!props.resultsFocused}
+              extra={{ selectedGenerationIndex: props.verifierEvolveGenerationIndex }}
+            />
+          </box>
+        }
       >
-        <Show
-          when={isGraphEvolveVerifier()}
-          fallback={<text fg={COLORS.text}>{resultsText()}</text>}
-        >
-          <GraphEvolveResultsPanel
-            data={props.data}
-            width={Math.max(30, props.detailWidth - 6)}
-            height={resultsInnerHeight()}
-            focused={!!props.resultsFocused && isGraphEvolveVerifier()}
-            selectedGenerationIndex={props.verifierEvolveGenerationIndex}
-          />
-        </Show>
-      </box>
+        <Dynamic
+          component={ResultsPanel()}
+          data={props.data}
+          width={props.detailWidth}
+          height={resultsHeight()}
+          focused={!!props.resultsFocused}
+        />
+      </Show>
 
-      {/* Metrics Box */}
-      <box
-        border
-        borderStyle="single"
-        borderColor={props.metricsFocused ? COLORS.textAccent : COLORS.border}
-        title="Metrics"
-        titleAlignment="left"
-        paddingLeft={1}
+      {/* Metrics Panel */}
+      <Dynamic
+        component={MetricsPanel()}
+        metrics={props.data.metrics}
+        width={props.detailWidth}
         height={metricsPanelHeight()}
-      >
-        <text fg={COLORS.text}>{metricsText()}</text>
-      </box>
+        focused={!!props.metricsFocused}
+      />
 
-      {/* Events Box - compact per-event cards (pure text) */}
-      <box
-        flexGrow={1}
-        border
-        borderStyle="single"
-        borderColor={props.eventsFocused ? COLORS.textAccent : COLORS.border}
-        title="Events"
-        titleAlignment="left"
-        flexDirection="column"
-        paddingLeft={1}
-      >
-        <Show
-          when={props.events.length > 0}
-          fallback={<text fg={COLORS.textDim}>No events yet.</text>}
-        >
-          {(() => {
-            const selected = props.eventWindow.selected
-            const windowStart = props.eventWindow.windowStart
-            const lineWidth = Math.max(20, props.detailWidth - 6)
-            return (
-              <box flexDirection="column">
-                <For each={props.eventWindow.slice}>
-                  {(event, idx) => {
-                    const globalIdx = windowStart + idx()
-                    const isSel = globalIdx === selected
-                    const title = formatEventHeader(event)
-                    const timestamp = formatEventTimestamp(event) || "-"
-                    return (
-                      <ListCard isSelected={isSel}>
-                        {(ctx) => (
-                          <box flexDirection="column">
-                            <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
-                              <text fg={ctx.fg}>
-                                {padLine(`${getIndicator(ctx.isSelected)}${title}`, lineWidth)}
-                              </text>
-                            </box>
-                            <box flexDirection="row" backgroundColor={ctx.bg} width="100%">
-                              <text fg={ctx.fgDim}>
-                                {padLine(`  ${timestamp}`, lineWidth)}
-                              </text>
-                            </box>
-                          </box>
-                        )}
-                      </ListCard>
-                    )
-                  }}
-                </For>
-              </box>
-            )
-          })()}
-        </Show>
-      </box>
+      {/* Events Panel */}
+      <EventsListPanel
+        eventItems={props.eventItems}
+        totalEvents={props.totalEvents}
+        selectedIndex={props.selectedIndex}
+        focused={!!props.eventsFocused}
+        width={props.detailWidth}
+        height={eventsPanelHeight()}
+        emptyFallback={<text fg={TEXT.fg}>No events yet.</text>}
+      />
 
       <Show when={props.lastError}>
         <text fg={COLORS.error}>{`Error: ${props.lastError}`}</text>
