@@ -1,0 +1,13 @@
+# Simple Eval - Run 1 rollout on EngineBench
+[eval]
+task_app_url = "http://localhost:8020"
+seeds = [0]
+num_workers = 1
+
+[eval.policy]
+model = "gpt-4o-mini"
+timeout = 180
+
+[eval.policy.config]
+model = "gpt-4o-mini"
+timeout = 180

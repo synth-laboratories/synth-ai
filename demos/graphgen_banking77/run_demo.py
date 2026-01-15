@@ -23,19 +23,24 @@ KEY CONCEPTS:
 - Generation: One round of proposing and evaluating graph candidates
 
 USAGE:
-    uv run python demos/graphgen_banking77/run_demo.py
+    uv run python demos/graphgen_banking77/run_demo.py                    # Production (default)
+    uv run python demos/graphgen_banking77/run_demo.py --local            # Local backend
+    uv run python demos/graphgen_banking77/run_demo.py --local --local-host 127.0.0.1
 """
 
 # ==============================================================================
 # STEP 0: IMPORTS AND CLI CONFIGURATION
 # ==============================================================================
 
+import argparse
+import os
 import random
 import time
 
 import httpx
 from datasets import load_dataset
-from synth_ai.core.urls import BACKEND_URL_BASE, backend_health_url
+from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.api.train.graphgen import GraphGenJob
 from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenGoldOutput,
@@ -44,12 +49,36 @@ from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenTaskSetMetadata,
     GraphGenVerifierConfig,
 )
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+
+# Parse CLI args to configure the backend URL
+parser = argparse.ArgumentParser(description="Run Banking77 Graph Optimization demo")
+parser.add_argument(
+    "--local",
+    action="store_true",
+    help="Run in local mode: use localhost:8000 backend",
+)
+parser.add_argument(
+    "--prod",
+    action="store_true",
+    help="Run in production mode: use production backend (default)",
+)
+parser.add_argument(
+    "--local-host",
+    type=str,
+    default="localhost",
+    help="Hostname for local API (use 'host.docker.internal' for Docker)",
+)
+args = parser.parse_args()
+
+LOCAL_MODE = args.local
+LOCAL_HOST = args.local_host
 
 # ==============================================================================
 # STEP 1: BACKEND CONFIGURATION
 # ==============================================================================
-# GraphGen runs against the Synth backend. Use SYNTH_BACKEND_URL to override.
+# GraphGen runs as a backend service. You can use either:
+# - Production: api.usesynth.ai (default, requires API key)
+# - Local: localhost:8000 (for development/testing)
 
 
 def setup_backend() -> str:
@@ -58,16 +87,23 @@ def setup_backend() -> str:
     Returns:
         The backend base URL
     """
-    backend_url = BACKEND_URL_BASE
-    print("=" * 60)
-    print("BACKEND")
-    print(f"Backend: {backend_url}")
-    print("=" * 60)
+    if LOCAL_MODE:
+        backend_url = f"http://{LOCAL_HOST}:8000"
+        print("=" * 60)
+        print("RUNNING IN LOCAL MODE")
+        print(f"Backend: {backend_url}")
+        print("=" * 60)
+    else:
+        backend_url = BACKEND_URL_BASE
+        print("=" * 60)
+        print("RUNNING IN PRODUCTION MODE")
+        print(f"Backend: {backend_url}")
+        print("=" * 60)
 
     # Verify backend is healthy before proceeding
     print("\nChecking backend health...")
     try:
-        r = httpx.get(backend_health_url(backend_url), timeout=30)
+        r = httpx.get(f"{backend_url}/health", timeout=30)
         if r.status_code == 200:
             print(f"  Backend healthy: {r.json()}")
         else:
@@ -87,15 +123,26 @@ def setup_backend() -> str:
 # - Or we'll mint a temporary demo key for testing
 
 
-def setup_api_key() -> str:
+def setup_api_key(backend_url: str | None = None) -> str:
     """Get or create an API key for authentication.
 
     Args:
+        backend_url: Backend URL to use for minting demo keys (defaults to BACKEND_URL_BASE)
+
     Returns:
         The API key string
     """
-    api_key = get_or_mint_synth_api_key(backend_url=BACKEND_URL_BASE)
-    print(f"\nUsing SYNTH_API_KEY: {api_key[:20]}...")
+    api_key = os.environ.get("SYNTH_API_KEY", "")
+
+    if api_key:
+        print(f"\nUsing existing SYNTH_API_KEY: {api_key[:20]}...")
+    else:
+        print("\nNo SYNTH_API_KEY found, minting demo key...")
+        api_key = mint_demo_api_key(backend_url=backend_url)
+        print(f"  Demo API Key: {api_key[:25]}...")
+
+    # Set in environment for SDK to use automatically
+    os.environ["SYNTH_API_KEY"] = api_key
     return api_key
 
 
@@ -563,7 +610,7 @@ def main():
     backend_url = setup_backend()
 
     # Step 2: Configure API key
-    api_key = setup_api_key()
+    api_key = setup_api_key(backend_url=backend_url)
 
     # Step 3: Build dataset
     dataset, label_names = build_banking77_graphgen_dataset(num_train_tasks=50, num_test_tasks=20)

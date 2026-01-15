@@ -31,17 +31,17 @@ from urllib.parse import parse_qs, urlparse
 from fastapi import Request
 
 logger = logging.getLogger(__name__)
-from synth_ai.data.artifacts import Artifact
-from synth_ai.data.enums import SuccessStatus
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.task.contracts import (
+from synth_ai.data.artifacts import Artifact  # noqa: E402
+from synth_ai.data.enums import SuccessStatus  # noqa: E402
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api  # noqa: E402
+from synth_ai.sdk.task.contracts import (  # noqa: E402
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
     TaskInfo,
 )
-from synth_ai.sdk.task.rubrics.models import Criterion, Rubric
-from synth_ai.sdk.task.server import RubricBundle
+from synth_ai.sdk.task.rubrics.models import Criterion, Rubric  # noqa: E402
+from synth_ai.sdk.task.server import RubricBundle  # noqa: E402
 
 # =============================================================================
 # APP CONFIGURATION

@@ -174,6 +174,128 @@ Any OpenAI model works. Recommended:
 | `--timeout` | 180 | Timeout per rollout in seconds |
 | `--port` | 8017 | Port for local task app |
 | `--task-app-url` | - | Public URL for task app (tunnel URL) |
+| `--verifier` | - | Verifier graph ID for LLM-based rewards |
+| `--verifier-model` | gpt-4o-mini | Model for verifier |
+
+## Zero-Shot Verifiers
+
+Beyond unit test rewards, you can use zero-shot verifiers to get LLM-based event and outcome scores from agent traces. These verifiers evaluate the agent's behavior against a rubric without any training.
+
+### Available Verifiers
+
+| Verifier | Best For | Time | Description |
+|----------|----------|------|-------------|
+| `zero_shot_verifier_rubric_mapreduce` | Most traces | ~15s | Parallel per-event scoring + aggregation |
+| `zero_shot_verifier_rubric_rlm` | Huge traces | ~23s | Tool-based search for massive traces (>500K tokens) |
+| `zero_shot_verifier_rubric_single` | Small traces | ~5s | Single LLM call (traces <50K tokens only) |
+
+### Using Verifiers with Eval
+
+```bash
+# Run eval with mapreduce verifier (recommended)
+uv run python demos/engine_bench/run_eval.py \
+  --local --seeds 1 --model gpt-4o-mini --agent opencode \
+  --verifier zero_shot_verifier_rubric_mapreduce \
+  --verifier-model gpt-4o-mini
+```
+
+### Using Verifiers Directly on Traces
+
+After running an eval, you can verify traces directly via the API:
+
+```python
+import httpx
+import json
+
+# Load a trace from eval
+with open("trace.json") as f:
+    trace = json.load(f)
+
+# Define rubric criteria
+rubric = {
+    "task_description": "Implement the Pokemon card function",
+    "event": [
+        {"id": "tool_usage", "description": "Agent used appropriate tools", "weight": 0.5},
+        {"id": "code_quality", "description": "Code changes are correct", "weight": 0.5},
+    ],
+    "outcome": [
+        {"id": "task_completed", "description": "Task completed successfully", "weight": 1.0},
+    ],
+}
+
+# Call verifier
+response = httpx.post(
+    "http://localhost:8000/api/graphs/completions",
+    headers={"X-API-Key": api_key},
+    json={
+        "job_id": "zero_shot_verifier_rubric_mapreduce",
+        "input": {"trace": trace, "rubric": rubric, "options": {}},
+        "model": "gpt-4o-mini",
+    },
+    timeout=300,
+)
+
+result = response.json()
+output = result.get("output", {})
+
+# Event scores (per-step rewards)
+event_reviews = output.get("event_reviews", [])
+event_scores = [r.get("total", 0) for r in event_reviews]
+print(f"Event scores: {event_scores}")
+print(f"Mean event score: {sum(event_scores)/len(event_scores):.2f}")
+
+# Outcome score (final reward)
+outcome = output.get("outcome_review", {})
+print(f"Outcome score: {outcome.get('total', 'N/A')}")
+print(f"Summary: {outcome.get('summary', 'N/A')}")
+```
+
+### Rubric Format
+
+The rubric defines what criteria the verifier evaluates:
+
+```python
+rubric = {
+    # Task context (shown to verifier)
+    "task_description": "Description of what the agent should accomplish",
+
+    # Per-event criteria (scored for each LLM call)
+    "event": [
+        {"id": "criterion_id", "description": "What to look for", "weight": 0.5},
+        # ... more criteria
+    ],
+
+    # Outcome criteria (scored once for overall trace)
+    "outcome": [
+        {"id": "criterion_id", "description": "Overall success measure", "weight": 1.0},
+    ],
+}
+```
+
+### Verifier Output
+
+```python
+{
+    "event_reviews": [
+        {
+            "criteria": {
+                "tool_usage": {"score": 0.8, "reason": "Used edit tool correctly", "weight": 0.5},
+                "code_quality": {"score": 0.9, "reason": "Clean implementation", "weight": 0.5},
+            },
+            "total": 0.85,
+            "summary": "Agent read file and made correct edit"
+        },
+        # ... one per event
+    ],
+    "outcome_review": {
+        "criteria": {
+            "task_completed": {"score": 1.0, "reason": "All tests pass", "weight": 1.0},
+        },
+        "total": 1.0,
+        "summary": "Task completed successfully"
+    }
+}
+```
 
 ## Daytona Snapshot
 

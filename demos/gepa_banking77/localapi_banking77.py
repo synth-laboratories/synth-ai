@@ -396,5 +396,14 @@ app = create_local_api(
 
 if __name__ == "__main__":
     import uvicorn
+    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    # Ensure ENVIRONMENT_API_KEY is set and uploaded to the backend.
+    # This lets the backend know what key to send when calling /rollout.
+    env_key = ensure_localapi_auth(
+        backend_base="http://localhost:8000",  # local backend
+        synth_api_key=None,  # will use SYNTH_API_KEY from env if available
+    )
+    print(f"[localapi_banking77] ENVIRONMENT_API_KEY ready: {env_key[:15]}...")
+
+    uvicorn.run(app, host="0.0.0.0", port=8010)

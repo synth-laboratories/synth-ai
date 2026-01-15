@@ -1,0 +1,112 @@
+# GEPA with RLM Verifier - EngineBench
+# Uses zero_shot_verifier_rubric_rlm for LLM-based rewards
+
+[prompt_learning]
+task_app_url = "http://localhost:8020"
+env_name = "engine_bench"
+algorithm = "gepa"
+
+[prompt_learning.initial_prompt]
+id = "enginebench_coding"
+name = "EngineBench Coding Task"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "{task_description}"
+order = 0
+
+[prompt_learning.initial_prompt.wildcards]
+task_description = "REQUIRED"
+
+[prompt_learning.gepa]
+env_name = "engine_bench"
+
+[prompt_learning.gepa.evaluation]
+seeds = [0, 2, 7, 8, 9, 16, 22, 29, 35, 42, 51, 68, 77]  # 13 train seeds
+validation_seeds = [0, 9, 22]
+validation_pool = "train"
+validation_top_k = 3
+
+[prompt_learning.gepa.mutation]
+rate = 0.5
+
+[prompt_learning.gepa.population]
+initial_size = 4
+num_generations = 3
+children_per_generation = 4
+crossover_rate = 0.5
+selection_pressure = 1.0
+
+[prompt_learning.gepa.archive]
+pareto_set_size = 10
+
+[prompt_learning.gepa.rollout]
+budget = 100
+max_concurrent = 8
+minibatch_size = 4
+
+[prompt_learning.gepa.token]
+counting_model = "gpt-4"
+enforce_pattern_limit = false
+
+[prompt_learning.gepa.proposer]
+model = "gpt-4o-mini"
+
+[prompt_learning.policy]
+model = "gpt-4o-mini"
+provider = "openai"
+inference_mode = "synth_hosted"
+agent = "opencode"
+
+[prompt_learning.policy.context_override]
+system_prompt = """You are an expert Rust developer implementing Pokemon TCG cards.
+
+Your task: Implement card effects by editing Rust files with stub functions marked with TODO comments.
+
+Key patterns:
+- Use `def_id_matches(&card.def_id, "DF", NUMBER)` to identify cards
+- Implement attack modifiers in the `attack_override` function
+- Use `game.queue_prompt()` for user choices
+- Return `AttackOverrides::default()` if card doesn't apply
+
+Output requirements:
+1. EDIT files - replace TODO stubs with working code
+2. Make code compile (`cargo check`)
+3. Make tests pass (`cargo test`)"""
+
+# RLM Verifier configuration
+[prompt_learning.verifier]
+enabled = true
+reward_source = "fused"
+backend_base = "http://localhost:8000"
+backend_model = "gpt-5-mini"
+verifier_graph_id = "zero_shot_verifier_rubric_rlm"
+backend_event_enabled = true
+backend_outcome_enabled = true
+concurrency = 3
+timeout = 120.0
+
+# Weights: 50% unit tests, 25% event scores, 25% outcome score
+weight_env = 0.5
+weight_event = 0.25
+weight_outcome = 0.25
+
+[prompt_learning.verifier.backend_options]
+rubric = """
+task_description = "Implement Pokemon TCG card effects in Rust"
+
+[[event]]
+id = "tool_usage"
+description = "Agent used appropriate tools (read, edit, bash) effectively"
+weight = 0.5
+
+[[event]]
+id = "code_quality"
+description = "Code changes are correct, compile, and follow Rust conventions"
+weight = 0.5
+
+[[outcome]]
+id = "task_completed"
+description = "Task was completed successfully with all tests passing"
+weight = 1.0
+"""

@@ -9,7 +9,10 @@ This script:
 
 import argparse
 import asyncio
+import json
 import os
+from datetime import datetime
+from pathlib import Path
 
 # Parse args early
 parser = argparse.ArgumentParser(description="Run GEPA for Pokemon TCG")
@@ -23,6 +26,18 @@ parser.add_argument(
     action="store_true",
     help="Enable backend verifier evaluation and fuse verifier_reward with local_api_reward",
 )
+parser.add_argument("--react", action="store_true", help="Use the PTCG ReAct system prompt")
+parser.add_argument(
+    "--out-dir",
+    type=str,
+    default="",
+    help="If set, write local artifacts here (rollouts JSONL, backend traces, job results)",
+)
+parser.add_argument(
+    "--download-traces",
+    action="store_true",
+    help="Download backend traces into --out-dir/<run>/backend_traces (requires --out-dir)",
+)
 args = parser.parse_args()
 
 LOCAL_MODE = args.local
@@ -31,12 +46,21 @@ PORT = args.port
 MODEL = args.model
 NUM_GAMES = args.num_games
 ENABLE_VERIFIER = bool(args.enable_verifier)
+USE_REACT = args.react
+OUT_DIR_RAW = args.out_dir
+DOWNLOAD_TRACES = args.download_traces
 
-import time
+import time  # noqa: E402
 
 import httpx  # noqa: E402
-from localapi_ptcg import DEFAULT_SYSTEM_PROMPT, INSTANCE_IDS, app  # noqa: E402
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key  # noqa: E402
+from localapi_ptcg import (  # noqa: E402
+    DEFAULT_SYSTEM_PROMPT,
+    INSTANCE_IDS,
+    PTCG_REACT_SYSTEM_PROMPT,
+    app,
+)
+from synth_ai.core.env import mint_demo_api_key  # noqa: E402
+from synth_ai.core.urls import BACKEND_URL_BASE  # noqa: E402
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig  # noqa: E402
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
 from synth_ai.sdk.task import run_server_background  # noqa: E402
@@ -69,7 +93,7 @@ async def main():
         synth_api_base = f"http://{LOCAL_HOST}:8000"
         print(f"\nLOCAL MODE - using {synth_api_base} backend")
     else:
-        synth_api_base = PROD_BASE_URL
+        synth_api_base = BACKEND_URL_BASE
         print(f"\nPROD MODE - using {synth_api_base}")
 
     # Check backend health
@@ -91,6 +115,14 @@ async def main():
     env_key = ensure_localapi_auth(backend_base=synth_api_base, synth_api_key=api_key)
     print(f"Env key: {env_key[:15]}...")
 
+    run_dir: Path | None = None
+    if OUT_DIR_RAW:
+        run_stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        run_dir = Path(OUT_DIR_RAW).expanduser().resolve() / f"ptcg_eval_{run_stamp}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        os.environ["PTCG_TRACE_DIR"] = str(run_dir)
+        print(f"Writing local artifacts to: {run_dir}")
+
     # Acquire port and start task app
     port = acquire_port(PORT, on_conflict=PortConflictBehavior.FIND_NEW)
     if port != PORT:
@@ -103,8 +135,23 @@ async def main():
     task_app_url = f"http://{LOCAL_HOST}:{port}"
     print(f"Task app URL: {task_app_url}")
 
+    if run_dir is not None:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{task_app_url}/info",
+                    headers={"X-API-Key": env_key, "Content-Type": "application/json"},
+                )
+                resp.raise_for_status()
+                (run_dir / "task_app_info.json").write_text(
+                    json.dumps(resp.json(), indent=2, default=str), encoding="utf-8"
+                )
+        except Exception as e:
+            print(f"Warning: failed to fetch /info from task app: {e}")
+
     print("\n" + "=" * 60)
     print(f"Model: {MODEL}")
+    print(f"Prompt: {'ReAct' if USE_REACT else 'baseline'}")
     print(f"Number of games: {NUM_GAMES}")
     print(f"Available instances: {len(INSTANCE_IDS)}")
     print("=" * 60)
@@ -122,7 +169,7 @@ async def main():
         seeds=seeds,
         policy_config={
             "model": MODEL,
-            "system_prompt": DEFAULT_SYSTEM_PROMPT,
+            "system_prompt": PTCG_REACT_SYSTEM_PROMPT if USE_REACT else DEFAULT_SYSTEM_PROMPT,
         },
         env_config={},
         verifier_config=(
@@ -165,6 +212,23 @@ async def main():
             interval=5.0,
             progress=True,
         )
+
+        if run_dir is not None:
+            try:
+                raw_results = job.get_results()
+                (run_dir / "eval_job_results.json").write_text(
+                    json.dumps(raw_results, indent=2, default=str), encoding="utf-8"
+                )
+                (run_dir / "eval_job_id.txt").write_text(str(job_id), encoding="utf-8")
+            except Exception as e:
+                print(f"Warning: failed to write eval job results: {e}")
+
+            if DOWNLOAD_TRACES or OUT_DIR_RAW:
+                try:
+                    traces_dir = job.download_traces(run_dir / "backend_traces")
+                    print(f"Downloaded backend traces to {traces_dir}")
+                except Exception as e:
+                    print(f"Warning: failed to download backend traces: {e}")
 
         print("\n" + "=" * 60)
         print("EVAL RESULT")
