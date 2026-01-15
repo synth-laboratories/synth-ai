@@ -74,6 +74,12 @@ parser.add_argument(
     default=0.4,
     help="Weight for verifier outcome reward in fused mode (default: 0.4)",
 )
+parser.add_argument(
+    "--task-app-url",
+    type=str,
+    default=None,
+    help="Public URL for task app (e.g., cloudflare tunnel URL). Required for prod mode.",
+)
 args = parser.parse_args()
 
 # Validate mode selection
@@ -252,8 +258,13 @@ async def main():
         wait_for_health_check_sync("localhost", port, ENVIRONMENT_API_KEY, timeout=30.0)
         print(f"Task app ready on port {port}")
 
-        task_app_url = f"http://{LOCAL_HOST}:{port}"
-        print(f"Task app URL: {task_app_url}")
+        # Use tunnel URL if provided (for prod mode), otherwise use local URL
+        if args.task_app_url:
+            task_app_url = args.task_app_url
+            print(f"Task app URL (tunneled): {task_app_url}")
+        else:
+            task_app_url = f"http://{LOCAL_HOST}:{port}"
+            print(f"Task app URL: {task_app_url}")
 
     # Create eval job
     # Use seeds that map to instances in the selected split
@@ -344,11 +355,13 @@ async def main():
             for sr in sorted_results:
                 # Seed results from backend
                 seed = sr.get("seed", "?")
-                # Use 'score' field which is the fused reward (if verifier enabled)
-                # Falls back to outcome_reward if score not present
-                fused_reward = sr.get("score") or sr.get("outcome_reward", 0)
-                outcome_reward = sr.get("outcome_reward", 0)  # env/task app reward
-                verifier_reward = sr.get("verifier_score")
+                # Backend returns: reward (final), local_api_reward (task app), verifier_reward
+                # Legacy field names: outcome_reward, score
+                outcome_reward = (
+                    sr.get("local_api_reward") or sr.get("outcome_reward") or sr.get("reward") or 0
+                )
+                fused_reward = sr.get("reward") or sr.get("score") or outcome_reward
+                verifier_reward = sr.get("verifier_reward") or sr.get("verifier_score")
                 error = sr.get("error")
                 latency_ms = sr.get("latency_ms")
                 latency_sec = latency_ms / 1000.0 if latency_ms else None
@@ -367,7 +380,7 @@ async def main():
                 else:
                     # No verifier - just show env reward
                     print(
-                        f"  {status} seed={seed:2d}: {timing_str:>6s} | reward={outcome_reward:.2f}"
+                        f"  {status} seed={seed:2d}: {timing_str:>6s} | reward={fused_reward:.2f}"
                     )
 
                 if error:

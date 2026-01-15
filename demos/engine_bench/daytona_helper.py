@@ -14,7 +14,7 @@ import asyncio
 import os
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urlunparse
 
 
 def normalize_interceptor_base(inference_url: str) -> tuple[str, str | None]:
@@ -995,6 +995,23 @@ async def run_rollout_in_daytona(
     Args:
         agent_type: "codex" or "opencode" - which agent CLI to use
     """
+    # Apply INTERCEPTOR_TUNNEL_URL if set (for Daytona sandboxes to reach interceptor)
+    interceptor_tunnel_url = os.environ.get("INTERCEPTOR_TUNNEL_URL")
+    if interceptor_tunnel_url and inference_url:
+        parsed = urlparse(inference_url)
+        tunnel_parsed = urlparse(interceptor_tunnel_url)
+        inference_url = urlunparse(
+            (
+                tunnel_parsed.scheme,
+                tunnel_parsed.netloc,
+                parsed.path,
+                parsed.params,
+                parsed.query,
+                parsed.fragment,
+            )
+        )
+        print(f"[DaytonaRollout] Rewriting inference_url for tunnel: {inference_url[:80]}...")
+
     runner = DaytonaRolloutRunner(snapshot_name=snapshot_name)
     return await runner.run_rollout(
         instance_id=instance_id,
