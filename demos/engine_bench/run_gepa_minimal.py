@@ -18,11 +18,11 @@ import httpx
 from localapi_engine_bench import INSTANCE_IDS, app
 from synth_ai.core.urls import synth_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 parser = argparse.ArgumentParser(description="Run minimal GEPA for EngineBench")
 parser.add_argument("--port", type=int, default=8020)

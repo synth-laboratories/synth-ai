@@ -8,9 +8,9 @@ import json
 
 import httpx
 from synth_ai.core.urls import synth_eval_job_traces_url
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 parser = argparse.ArgumentParser(description="Inspect trace data for eval job")
 parser.add_argument("job_id", help="Eval job ID")

@@ -45,9 +45,9 @@ from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenTaskSetMetadata,
     GraphGenVerifierConfig,
 )
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 # ==============================================================================
 # STEP 1: BACKEND CONFIGURATION

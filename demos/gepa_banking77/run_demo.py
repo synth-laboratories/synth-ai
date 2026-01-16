@@ -24,7 +24,7 @@ from synth_ai.core.urls import (
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url, run_server_background
@@ -80,7 +80,7 @@ else:
 
 
 # Get API Key
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 print(f"API Key: {SYNTH_USER_KEY[:25]}...")
 
 

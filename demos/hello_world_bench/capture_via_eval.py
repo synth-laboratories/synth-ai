@@ -16,11 +16,11 @@ from synth_ai.core.urls import (
     synth_health_url,
 )
 from synth_ai.sdk.api.eval import EvalJobConfig
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 
 async def wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -69,7 +69,7 @@ async def main():
     print("\nSubmitting eval job...")
     job_payload = {
         "localapi_url": localapi_url,
-        "localapi_api_key": env_key,
+        "localapi_key": env_key,
         "app_id": "hello_world_bench",
         "env_name": "hello_world_bench",
         "seeds": [0],

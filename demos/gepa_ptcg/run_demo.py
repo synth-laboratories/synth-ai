@@ -57,11 +57,11 @@ from localapi_ptcg import (  # noqa: E402
 )
 from synth_ai.core.urls import synth_base_url, synth_health_url  # noqa: E402
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig  # noqa: E402
-from synth_ai.sdk.auth import get_or_mint_synth_api_key  # noqa: E402
+from synth_ai.sdk.auth import get_or_mint_synth_user_key  # noqa: E402
 from synth_ai.sdk.task import run_server_background  # noqa: E402
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port  # noqa: E402
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 
 def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:

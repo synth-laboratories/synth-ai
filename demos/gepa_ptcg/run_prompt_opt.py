@@ -11,12 +11,12 @@ import httpx
 from localapi_ptcg import INSTANCE_IDS, PTCG_REACT_SYSTEM_PROMPT, app
 from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 parser = argparse.ArgumentParser(description="Run GEPA prompt optimization for PTCG")
 parser.add_argument("--port", type=int, default=8017, help="Port for task app")

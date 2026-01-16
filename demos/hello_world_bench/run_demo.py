@@ -26,9 +26,9 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 from synth_ai.core.urls import synth_health_url, synth_interceptor_url
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 
 def normalize_interceptor_base(inference_url: str) -> tuple[str, str | None]:

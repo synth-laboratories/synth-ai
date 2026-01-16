@@ -17,7 +17,7 @@ from openai import AsyncOpenAI
 from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
@@ -41,7 +41,7 @@ r = httpx.get(synth_health_url(), timeout=30)
 print(f"Backend health: {r.status_code}")
 
 # API Key
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
 # Tool schema

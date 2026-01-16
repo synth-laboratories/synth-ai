@@ -29,7 +29,7 @@ from PIL import Image
 try:
     from synth_ai.core.urls import synth_base_url, synth_health_url
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
-    from synth_ai.sdk.auth import get_or_mint_synth_api_key
+    from synth_ai.sdk.auth import get_or_mint_synth_user_key
     from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
     from synth_ai.sdk.task.server import RubricBundle
 except ImportError as e:  # pragma: no cover
@@ -137,7 +137,7 @@ else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 # Get API key
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
 # ENVIRONMENT_SYNTH_USER_KEY will be provisioned in main() via a preliminary job
@@ -655,15 +655,15 @@ Create a webpage that feels polished, modern, and trustworthy."""
 
     gepa_config_path = demo_dir / "gepa_config.toml"
 
-    # Read TOML and override localapi_url and localapi_api_key
+    # Read TOML and override localapi_url and localapi_key
     with open(gepa_config_path) as f:
         config_dict = toml.load(f)
 
     config_dict["prompt_learning"]["localapi_url"] = local_api_url
-    config_dict["prompt_learning"]["localapi_api_key"] = ENVIRONMENT_SYNTH_USER_KEY
+    config_dict["prompt_learning"]["localapi_key"] = ENVIRONMENT_SYNTH_USER_KEY
     print(f"Using localapi_url: {local_api_url}")
     print(
-        f"Using localapi_api_key: {ENVIRONMENT_SYNTH_USER_KEY[:12]}...{ENVIRONMENT_SYNTH_USER_KEY[-4:]}"
+        f"Using localapi_key: {ENVIRONMENT_SYNTH_USER_KEY[:12]}...{ENVIRONMENT_SYNTH_USER_KEY[-4:]}"
     )
 
     job_config = PromptLearningJobConfig(

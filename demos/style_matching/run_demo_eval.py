@@ -26,7 +26,7 @@ from synth_ai.core.urls import (
     synth_health_url,
 )
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.task import run_server_background
 
@@ -93,7 +93,7 @@ if r.status_code != 200:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 print(f"Backend health: {r.json()}")
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
 ENVIRONMENT_SYNTH_USER_KEY = mint_environment_api_key()

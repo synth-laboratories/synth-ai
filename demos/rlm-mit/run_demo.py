@@ -21,7 +21,7 @@ from rlm.utils import prompts as rlm_prompts
 from rlm.utils.prompts import USER_PROMPT
 from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
@@ -83,7 +83,7 @@ else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 # Get API Key
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 os.environ["SYNTH_SYNTH_USER_KEY"] = SYNTH_USER_KEY
 print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 

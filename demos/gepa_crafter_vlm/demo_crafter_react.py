@@ -19,7 +19,7 @@ from fastapi import Request
 from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningResult
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
 from synth_ai.sdk.localapi.helpers import (
@@ -39,7 +39,7 @@ from synth_ai.sdk.tunnels import (
 )
 
 SYNTH_API_BASE = synth_base_url()
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 LOCALAPI_PORT = int(os.environ.get("CRAFTER_LOCALAPI_PORT", "8001"))
 OPTIMIZED_LOCALAPI_PORT = int(os.environ.get("CRAFTER_OPT_LOCALAPI_PORT", "8002"))
 POLICY_MODEL = os.environ.get("CRAFTER_POLICY_MODEL", "gpt-4.1-nano")

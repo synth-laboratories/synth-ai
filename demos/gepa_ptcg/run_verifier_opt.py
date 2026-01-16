@@ -21,7 +21,7 @@ from synth_ai.products.graph_evolve.config import (
     ProposerConfig,
     SeedsConfig,
 )
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 
 parser = argparse.ArgumentParser(description="Run PTCG verifier optimization")
 parser.add_argument(
@@ -85,7 +85,7 @@ if r.status_code != 200:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 print(f"Backend health: {r.json()}")
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 os.environ["SYNTH_SYNTH_USER_KEY"] = SYNTH_USER_KEY
 print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 

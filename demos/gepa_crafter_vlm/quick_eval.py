@@ -11,7 +11,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
@@ -35,7 +35,7 @@ normalize_action_name = _crafter_logic.normalize_action_name
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 # Config
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 EVAL_MODEL = "gpt-4o-mini"
 EVAL_SEEDS = [100, 101, 102]  # Just 3 seeds for speed

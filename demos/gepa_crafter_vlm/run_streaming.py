@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from synth_ai.core.urls import synth_prompt_learning_events_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.helpers import extract_api_key
@@ -39,7 +39,7 @@ CrafterVLMReActPolicy = _crafter_logic.CrafterVLMReActPolicy
 normalize_action_name = _crafter_logic.normalize_action_name
 
 # Config
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 POLICY_MODEL = "gpt-4.1-nano"
 EVAL_MODEL = "gpt-4o-mini"

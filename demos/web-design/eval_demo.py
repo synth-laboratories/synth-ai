@@ -10,7 +10,7 @@ import httpx
 try:
     from synth_ai.core.urls import synth_base_url
     from synth_ai.sdk.api.eval import EvalJobConfig
-    from synth_ai.sdk.auth import get_or_mint_synth_api_key
+    from synth_ai.sdk.auth import get_or_mint_synth_user_key
     from synth_ai.sdk.task.server import run_server_background
 except ImportError as e:
     raise ImportError(
@@ -18,7 +18,7 @@ except ImportError as e:
     ) from e
 
 SYNTH_API_BASE = synth_base_url()
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 # Create preliminary config to get localapi_key (SDK auto-provisions it)
 prelim_config = EvalJobConfig(
@@ -96,7 +96,7 @@ async def main():
         "job_type": "eval",
         "env_name": "web_design_generator",
         "localapi_url": local_api_url,
-        "localapi_api_key": ENVIRONMENT_API_KEY,
+        "localapi_key": ENVIRONMENT_API_KEY,
         "seeds": test_seeds,
         "policy": {
             "model": "gemini-2.5-flash-image",

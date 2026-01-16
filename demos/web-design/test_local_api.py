@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx
 from synth_ai.sdk.api.eval import EvalJobConfig
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 try:
@@ -24,7 +24,7 @@ sys.path.insert(0, str(demo_dir))
 _run_demo = importlib.import_module("run_demo")
 create_web_design_local_api = _run_demo.create_web_design_local_api
 
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 # Create preliminary config to get localapi_key (SDK auto-provisions it)
 prelim_config = EvalJobConfig(

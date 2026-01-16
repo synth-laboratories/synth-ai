@@ -27,7 +27,7 @@ from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenTaskSetMetadata,
     GraphGenVerifierConfig,
 )
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 
 parser = argparse.ArgumentParser(description="Run Crafter Verifier Optimization demo")
 parser.add_argument(
@@ -83,7 +83,7 @@ except Exception as e:
     print(f"WARNING: Could not check backend health: {e}")
 
 # Get API Key
-SYNTH_USER_KEY = get_or_mint_synth_api_key()
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
 

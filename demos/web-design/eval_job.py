@@ -210,7 +210,7 @@ def main() -> int:
     submit_url = f"{base}/api/eval/jobs" if not base.endswith("/api") else f"{base}/eval/jobs"
     job_request = {
         "localapi_url": cfg.localapi_url,
-        "localapi_api_key": cfg.localapi_api_key,
+        "localapi_key": cfg.localapi_key,
         "app_id": cfg.app_id,
         "env_name": cfg.env_name,
         "seeds": cfg.seeds,
