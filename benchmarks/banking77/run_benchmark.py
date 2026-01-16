@@ -22,7 +22,6 @@ Usage:
 
 Environment Variables:
     SYNTH_API_KEY: API key for Synth backend (will mint demo key if not set)
-    SYNTH_BACKEND: "prod" (default) or "dev"
 """
 
 import argparse
@@ -44,6 +43,7 @@ except ImportError:
     pass
 
 from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import synth_base_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.task import run_server_background
@@ -74,9 +74,6 @@ create_banking77_local_api = _demo.create_banking77_local_api
 BANKING77_LABELS = _demo.BANKING77_LABELS
 
 # Constants
-PROD_BACKEND = "https://api.usesynth.ai"
-DEV_BACKEND = "https://synth-backend-dev-docker.onrender.com"
-LOCAL_BACKEND = "http://localhost:8000"
 LOCAL_API_PORT = 8101
 
 CONFIGS_DIR = Path(__file__).parent / "configs"
@@ -87,16 +84,6 @@ RUNS = [1, 2, 3]
 
 # Baseline system prompt
 BASELINE_SYSTEM_PROMPT = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
-
-
-def get_backend_url() -> str:
-    """Get the backend URL based on environment."""
-    backend = os.environ.get("SYNTH_BACKEND", "prod").lower()
-    if backend == "local":
-        return LOCAL_BACKEND
-    if backend == "dev":
-        return DEV_BACKEND
-    return PROD_BACKEND
 
 
 def model_to_short(model: str) -> str:
@@ -219,7 +206,7 @@ async def main():
         return
 
     # Setup
-    backend_url = get_backend_url()
+    backend_url = synth_base_url()
     print(f"\nBackend: {backend_url}")
 
     # Check backend health
@@ -255,7 +242,7 @@ async def main():
     print("Local API ready!")
 
     # Create tunnel (or use localhost directly for local backend)
-    if backend_url == LOCAL_BACKEND:
+    if backend_url.startswith("http://localhost"):
         # When running against local backend, no tunnel needed
         local_api_url = f"http://localhost:{args.port}"
         print(f"\nUsing local URL directly: {local_api_url}")
