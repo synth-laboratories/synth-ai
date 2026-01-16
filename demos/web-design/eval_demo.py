@@ -2,35 +2,33 @@
 """Quick evaluation of web design image generation - just test baseline and report metrics."""
 
 import asyncio
-import os
 import time
 from pathlib import Path
 
 import httpx
 
 try:
-    from synth_ai.core.env import mint_demo_api_key
-    from synth_ai.core.urls import BACKEND_URL_BASE
-    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+    from synth_ai.core.urls import synth_base_url
+    from synth_ai.sdk.api.eval import EvalJobConfig
+    from synth_ai.sdk.auth import get_or_mint_synth_api_key
     from synth_ai.sdk.task.server import run_server_background
 except ImportError as e:
     raise ImportError(
         "Failed to import synth_ai. Run `uv sync` or `pip install -e .` first."
     ) from e
 
-SYNTH_API_KEY = os.getenv("SYNTH_API_KEY", "")
-if not SYNTH_API_KEY:
-    print("No SYNTH_API_KEY, minting demo key...")
-    SYNTH_API_KEY = mint_demo_api_key(backend_url=BACKEND_URL_BASE)
-    os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
+SYNTH_API_BASE = synth_base_url()
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
 
-ENVIRONMENT_API_KEY = os.getenv("ENVIRONMENT_API_KEY", "")
-if not ENVIRONMENT_API_KEY:
-    ENVIRONMENT_API_KEY = ensure_localapi_auth(
-        backend_base=BACKEND_URL_BASE,
-        synth_api_key=SYNTH_API_KEY,
-    )
-    os.environ["ENVIRONMENT_API_KEY"] = ENVIRONMENT_API_KEY
+# Create preliminary config to get localapi_key (SDK auto-provisions it)
+prelim_config = EvalJobConfig(
+    localapi_url="http://localhost:8103",  # placeholder
+    synth_user_key=SYNTH_USER_KEY,
+    env_name="web_design_generator",
+    seeds=[0],
+    policy_config={"model": "gemini-2.5-flash-image", "provider": "google"},
+)
+ENVIRONMENT_API_KEY = prelim_config.localapi_key
 
 # Baseline prompt to test
 BASELINE_STYLE_PROMPT = """You are generating a professional startup website screenshot.
@@ -94,13 +92,11 @@ async def main():
 
     print(f"Submitting eval job for {len(test_seeds)} seeds...")
 
-    backend_url = "http://localhost:8000"
-
     eval_payload = {
         "job_type": "eval",
         "env_name": "web_design_generator",
-        "task_app_url": local_api_url,
-        "task_app_api_key": ENVIRONMENT_API_KEY,
+        "localapi_url": local_api_url,
+        "localapi_api_key": ENVIRONMENT_API_KEY,
         "seeds": test_seeds,
         "policy": {
             "model": "gemini-2.5-flash-image",
@@ -109,7 +105,7 @@ async def main():
         },
         "verifier": {
             "enabled": True,
-            "backend_base": backend_url,
+            "backend_base": SYNTH_API_BASE,
             "backend_provider": "google",
             "backend_model": "gemini-2.5-flash",
             "graph_id": "zero_shot_verifier_rubric_single",
@@ -125,10 +121,10 @@ async def main():
     async with httpx.AsyncClient(timeout=600.0) as client:
         # Submit job
         response = await client.post(
-            f"{backend_url}/api/eval/jobs",
+            f"{SYNTH_API_BASE}/api/eval/jobs",
             json=eval_payload,
             headers={
-                "Authorization": f"Bearer {SYNTH_API_KEY}",
+                "Authorization": f"Bearer {SYNTH_USER_KEY}",
                 "Content-Type": "application/json",
             },
         )
@@ -149,8 +145,8 @@ async def main():
             await asyncio.sleep(5)
 
             status_response = await client.get(
-                f"{backend_url}/api/eval/jobs/{job_id}",
-                headers={"Authorization": f"Bearer {SYNTH_API_KEY}"},
+                f"{SYNTH_API_BASE}/api/eval/jobs/{job_id}",
+                headers={"Authorization": f"Bearer {SYNTH_USER_KEY}"},
             )
 
             if status_response.status_code != 200:
@@ -180,8 +176,8 @@ async def main():
 
         # Get final results
         results_response = await client.get(
-            f"{backend_url}/api/eval/jobs/{job_id}/results",
-            headers={"Authorization": f"Bearer {SYNTH_API_KEY}"},
+            f"{SYNTH_API_BASE}/api/eval/jobs/{job_id}/results",
+            headers={"Authorization": f"Bearer {SYNTH_USER_KEY}"},
         )
 
         if results_response.status_code != 200:

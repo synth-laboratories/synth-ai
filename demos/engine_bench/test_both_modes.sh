@@ -8,11 +8,11 @@ echo "Testing EngineBench Eval - Both Modes"
 echo "=========================================="
 echo ""
 
-# Test 1: Local Mode
-echo "=== TEST 1: LOCAL MODE (2 seeds) ==="
-uv run python demos/engine_bench/run_eval.py --local --seeds 2 --model gpt-4o-mini --timeout 120
+# Test 1: Local Backend Mode
+echo "=== TEST 1: LOCAL BACKEND MODE (2 seeds) ==="
+SYNTH_BACKEND_URL=http://localhost:8000 uv run python demos/engine_bench/run_eval.py --seeds 2 --model gpt-4o-mini --timeout 120
 echo ""
-echo "✅ Local mode test completed"
+echo "✅ Local backend mode test completed"
 echo ""
 
 # Test 2: Daytona Mode (if API key is set)

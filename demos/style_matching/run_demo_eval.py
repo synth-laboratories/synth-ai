@@ -2,8 +2,8 @@
 """Run style-matching heldout eval (4 combinations) using saved artifacts.
 
 Usage:
-    uv run python demos/style_matching/run_demo_eval.py --local
-    uv run python demos/style_matching/run_demo_eval.py --local \
+    uv run python demos/style_matching/run_demo_eval.py
+    uv run python demos/style_matching/run_demo_eval.py \
       --prompt-path demos/style_matching/artifacts/prompt_opt.json \
       --verifier-path demos/style_matching/artifacts/verifier_opt.json
 """
@@ -20,9 +20,18 @@ from typing import Any, Dict, List, Optional
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from synth_ai.core.urls import (
+    synth_base_url,
+    synth_graphs_completions_url,
+    synth_health_url,
+)
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.task import run_server_background
+
+# Note: This demo uses mint_environment_api_key() + setup_environment_api_key() pattern
+# which is different from the standard ensure_localapi_auth pattern
 from synth_ai.sdk.tunnels import (
     TunnelBackend,
     TunneledLocalAPI,
@@ -33,17 +42,6 @@ from synth_ai.sdk.tunnels import (
 )
 
 parser = argparse.ArgumentParser(description="Run style-matching heldout eval")
-parser.add_argument(
-    "--local",
-    action="store_true",
-    help="Run in local mode: use localhost:8000 backend",
-)
-parser.add_argument(
-    "--local-host",
-    type=str,
-    default="127.0.0.1",
-    help="Hostname for local task app (default: 127.0.0.1)",
-)
 parser.add_argument(
     "--prompt-path",
     type=str,
@@ -82,49 +80,30 @@ def _load_env_file(path: Path) -> None:
 
 _load_env_file(synth_root / ".env")
 
-USE_LOCAL_BACKEND = args.local
-SYNTH_API_BASE = "http://127.0.0.1:8000" if USE_LOCAL_BACKEND else "https://api.usesynth.ai"
-os.environ["BACKEND_BASE_URL"] = SYNTH_API_BASE
-
+SYNTH_API_BASE = synth_base_url()
 LOCAL_TASK_PORT = 8132
-LOCAL_TASK_HOST = args.local_host
 
-
-def _validate_api_key(api_key: str) -> bool:
-    if not api_key:
-        return False
-    headers = {"Authorization": f"Bearer {api_key}"}
-    try:
-        resp = httpx.get(f"{SYNTH_API_BASE}/api/v1/me", headers=headers, timeout=10)
-    except Exception:
-        return False
-    return resp.status_code == 200
-
+# Determine if we're using a local backend (skip tunnel if so)
+USE_LOCAL_BACKEND = SYNTH_API_BASE.startswith("http://localhost")
 
 print(f"Backend: {SYNTH_API_BASE}")
 
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+r = httpx.get(synth_health_url(), timeout=30)
 if r.status_code != 200:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 print(f"Backend health: {r.json()}")
 
-API_KEY = os.environ.get("SYNTH_API_KEY", "").strip()
-if not API_KEY or not _validate_api_key(API_KEY):
-    print("SYNTH_API_KEY missing or invalid for this backend; minting demo key...")
-    resp = httpx.post(f"{SYNTH_API_BASE}/api/demo/keys", json={"ttl_hours": 4}, timeout=30)
-    resp.raise_for_status()
-    API_KEY = resp.json()["api_key"]
-    print(f"Demo API Key: {API_KEY[:25]}...")
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
+print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
-os.environ["SYNTH_API_KEY"] = API_KEY
-
-ENVIRONMENT_API_KEY = mint_environment_api_key()
-print(f"Minted env key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
+ENVIRONMENT_SYNTH_USER_KEY = mint_environment_api_key()
+print(f"Minted env key: {ENVIRONMENT_SYNTH_USER_KEY[:12]}...{ENVIRONMENT_SYNTH_USER_KEY[-4:]}")
 
 try:
-    result = setup_environment_api_key(SYNTH_API_BASE, API_KEY, token=ENVIRONMENT_API_KEY)
+    result = setup_environment_api_key(
+        synth_user_key=SYNTH_USER_KEY,
+        token=ENVIRONMENT_SYNTH_USER_KEY,
+    )
     print(f"Uploaded env key: {result}")
 except Exception as exc:
     print(f"Env key upload failed (continuing locally): {exc}")
@@ -312,7 +291,7 @@ app.add_middleware(
 
 @app.get("/health")
 async def health() -> Dict[str, str]:
-    return {"status": "ok", "task_app": "style_matching"}
+    return {"status": "ok", "localapi": "style_matching"}
 
 
 @app.get("/task_info")
@@ -333,7 +312,7 @@ async def list_tasks() -> Dict[str, Any]:
 
 @app.get("/rollouts")
 async def list_rollouts(x_api_key: Optional[str] = Header(None)) -> Dict[str, Any]:
-    if x_api_key != ENVIRONMENT_API_KEY:
+    if x_api_key != ENVIRONMENT_SYNTH_USER_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return {"rollouts": ROLLOUT_LOG}
 
@@ -432,9 +411,9 @@ async def _call_policy_llm(messages: List[Dict[str, str]], policy_config: Dict[s
     api_key = policy_config.get("api_key")
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
-    elif ENVIRONMENT_API_KEY:
-        headers["X-API-Key"] = ENVIRONMENT_API_KEY
-        headers["Authorization"] = f"Bearer {ENVIRONMENT_API_KEY}"
+    elif ENVIRONMENT_SYNTH_USER_KEY:
+        headers["X-API-Key"] = ENVIRONMENT_SYNTH_USER_KEY
+        headers["Authorization"] = f"Bearer {ENVIRONMENT_SYNTH_USER_KEY}"
 
     payload = {"model": model, "messages": messages}
     payload["temperature"] = float(policy_config.get("temperature", 0.7))
@@ -462,13 +441,13 @@ async def _score_with_verifier(
     }
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {SYNTH_USER_KEY}",
         "Content-Type": "application/json",
     }
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
-            f"{SYNTH_API_BASE.rstrip('/')}/api/graphs/completions",
+            synth_graphs_completions_url(),
             headers=headers,
             json=payload,
         )
@@ -483,7 +462,7 @@ async def _score_with_verifier(
 
 @app.post("/rollout")
 async def rollout(request: Request, x_api_key: Optional[str] = Header(None)) -> Dict[str, Any]:
-    if x_api_key != ENVIRONMENT_API_KEY:
+    if x_api_key != ENVIRONMENT_SYNTH_USER_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     try:
@@ -580,11 +559,11 @@ async def wait_for_system_dns(hostname: str, timeout: float = 90.0, interval: fl
     raise RuntimeError(f"System DNS did not resolve {hostname} within {timeout}s: {last_exc}")
 
 
-def _task_app_healthcheck(host: str, port: int) -> bool:
+def _localapi_healthcheck(host: str, port: int) -> bool:
     try:
         resp = httpx.get(
             f"http://{host}:{port}/health",
-            headers={"X-API-Key": ENVIRONMENT_API_KEY},
+            headers={"X-API-Key": ENVIRONMENT_SYNTH_USER_KEY},
             timeout=5,
         )
         return resp.status_code == 200
@@ -592,46 +571,46 @@ def _task_app_healthcheck(host: str, port: int) -> bool:
         return False
 
 
-def _wait_for_task_app(host: str, port: int, timeout: float = 30.0) -> None:
+def _wait_for_localapi(host: str, port: int, timeout: float = 30.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if _task_app_healthcheck(host, port):
+        if _localapi_healthcheck(host, port):
             return
         time.sleep(1.0)
-    raise RuntimeError(f"Task app health check failed after {timeout}s")
+    raise RuntimeError(f"Localapi health check failed after {timeout}s")
 
 
-task_app_thread = None
-_task_app_lock = threading.Lock()
+localapi_thread = None
+_localapi_lock = threading.Lock()
 
 
-def _start_task_app() -> None:
+def _start_localapi() -> None:
     global LOCAL_TASK_PORT
-    global task_app_thread
+    global localapi_thread
 
     kill_port(LOCAL_TASK_PORT)
     if not is_port_available(LOCAL_TASK_PORT):
         LOCAL_TASK_PORT = find_available_port(LOCAL_TASK_PORT + 1)
         print(f"Port in use; switched to {LOCAL_TASK_PORT}")
 
-    task_app_thread = run_server_background(app, LOCAL_TASK_PORT, host=LOCAL_TASK_HOST)
-    _wait_for_task_app(LOCAL_TASK_HOST, LOCAL_TASK_PORT, timeout=30.0)
+    localapi_thread = run_server_background(app, LOCAL_TASK_PORT, host="127.0.0.1")
+    _wait_for_localapi("127.0.0.1", LOCAL_TASK_PORT, timeout=30.0)
 
 
-def _start_task_app_monitor(interval: float = 5.0) -> threading.Thread:
+def _start_localapi_monitor(interval: float = 5.0) -> threading.Thread:
     def _monitor() -> None:
         while True:
             time.sleep(interval)
-            with _task_app_lock:
-                if _task_app_healthcheck(LOCAL_TASK_HOST, LOCAL_TASK_PORT):
+            with _localapi_lock:
+                if _localapi_healthcheck("127.0.0.1", LOCAL_TASK_PORT):
                     continue
-                print("Task app health check failed; restarting...")
+                print("Localapi health check failed; restarting...")
                 try:
-                    _start_task_app()
+                    _start_localapi()
                 except Exception as exc:
-                    print(f"Task app restart failed: {exc}")
+                    print(f"Localapi restart failed: {exc}")
 
-    thread = threading.Thread(target=_monitor, daemon=True, name="task-app-monitor")
+    thread = threading.Thread(target=_monitor, daemon=True, name="localapi-monitor")
     thread.start()
     return thread
 
@@ -651,14 +630,13 @@ async def run_eval_job(
     label: str,
     prompt_sections: List[Dict[str, Any]],
     verifier_job_id: str,
-    task_app_url: str,
+    localapi_url: str,
     seeds: List[int],
 ) -> float:
     config = EvalJobConfig(
-        task_app_url=task_app_url,
-        backend_url=SYNTH_API_BASE,
-        api_key=API_KEY,
-        task_app_api_key=ENVIRONMENT_API_KEY,
+        localapi_url=localapi_url,
+        synth_user_key=SYNTH_USER_KEY,
+        localapi_key=ENVIRONMENT_SYNTH_USER_KEY,
         env_name="style-matching",
         seeds=seeds,
         policy_config={"model": "gpt-4.1-nano", "provider": "openai"},
@@ -686,13 +664,13 @@ async def main() -> None:
     print(f"Heldout seeds: {seeds[0]}-{seeds[-1]}")
 
     print(f"Starting task app on port {LOCAL_TASK_PORT}...")
-    with _task_app_lock:
-        _start_task_app()
+    with _localapi_lock:
+        _start_localapi()
     print("Task app ready!")
-    _start_task_app_monitor()
+    _start_localapi_monitor()
 
     if USE_LOCAL_BACKEND:
-        task_app_url = f"http://{LOCAL_TASK_HOST}:{LOCAL_TASK_PORT}"
+        localapi_url = f"http://127.0.0.1:{LOCAL_TASK_PORT}"
         tunnel = None
     else:
         print("Provisioning Cloudflare tunnel...")
@@ -700,10 +678,8 @@ async def main() -> None:
             tunnel = await TunneledLocalAPI.create(
                 local_port=LOCAL_TASK_PORT,
                 backend=TunnelBackend.CloudflareManagedTunnel,
-                api_key=API_KEY,
-                env_api_key=ENVIRONMENT_API_KEY,
-                backend_url=SYNTH_API_BASE,
-                reason="style_matching_eval",
+                synth_user_key=SYNTH_USER_KEY,
+                localapi_key=ENVIRONMENT_SYNTH_USER_KEY,
                 progress=True,
             )
             print(f"Waiting for system DNS to resolve {tunnel.hostname}...")
@@ -715,11 +691,11 @@ async def main() -> None:
             tunnel = await TunneledLocalAPI.create(
                 local_port=LOCAL_TASK_PORT,
                 backend=TunnelBackend.CloudflareQuickTunnel,
-                env_api_key=ENVIRONMENT_API_KEY,
+                localapi_key=ENVIRONMENT_SYNTH_USER_KEY,
                 progress=True,
             )
 
-        task_app_url = tunnel.url
+        localapi_url = tunnel.url
 
     baseline_sections = _extract_prompt_sections(baseline_prompt)
     optimized_sections = _extract_prompt_sections(optimized_prompt)
@@ -731,7 +707,7 @@ async def main() -> None:
         "baseline_prompt__baseline_verifier",
         baseline_sections,
         BASELINE_VERIFIER_JOB_ID,
-        task_app_url,
+        localapi_url,
         seeds,
     )
 
@@ -739,7 +715,7 @@ async def main() -> None:
         "baseline_prompt__optimized_verifier",
         baseline_sections,
         OPTIMIZED_VERIFIER_JOB_ID,
-        task_app_url,
+        localapi_url,
         seeds,
     )
 
@@ -747,7 +723,7 @@ async def main() -> None:
         "optimized_prompt__baseline_verifier",
         optimized_sections,
         BASELINE_VERIFIER_JOB_ID,
-        task_app_url,
+        localapi_url,
         seeds,
     )
 
@@ -755,7 +731,7 @@ async def main() -> None:
         "optimized_prompt__optimized_verifier",
         optimized_sections,
         OPTIMIZED_VERIFIER_JOB_ID,
-        task_app_url,
+        localapi_url,
         seeds,
     )
 

@@ -3,7 +3,7 @@
 Minimal test to demonstrate context override system works with EngineBench.
 
 This shows:
-1. Task app accepts context_override parameter
+1. Localapi accepts context_override parameter
 2. Context affects agent's coding output
 3. Different contexts produce different results
 """
@@ -13,9 +13,11 @@ import os
 from typing import Any, Dict
 
 import httpx
+from synth_ai.core.urls import synth_base_url
 
-# Task app configuration
-TASK_APP_URL = "http://localhost:8020/rollout"
+# Localapi configuration
+LOCALAPI_URL = "http://localhost:8020/rollout"
+SYNTH_API_BASE = synth_base_url()
 API_KEY = os.getenv("ENVIRONMENT_API_KEY", "sk_env_30c78a787bac223c716918181209f263")
 
 # Test configurations
@@ -88,7 +90,7 @@ async def test_context_override(test_name: str, context_override: Dict[str, Any]
         "policy": {
             "policy_name": "test-policy",
             "config": {
-                "inference_url": "http://localhost:8000/api/inference",
+                "inference_url": f"{SYNTH_API_BASE}/api/inference",
                 "model": "gpt-4.1-mini",
                 "temperature": 0.7,
                 "max_tokens": 4000,
@@ -112,7 +114,7 @@ async def test_context_override(test_name: str, context_override: Dict[str, Any]
 
     async with httpx.AsyncClient(timeout=300.0) as client:
         try:
-            response = await client.post(TASK_APP_URL, json=request, headers={"X-API-Key": API_KEY})
+            response = await client.post(LOCALAPI_URL, json=request, headers={"X-API-Key": API_KEY})
             response.raise_for_status()
 
             result = response.json()
@@ -157,7 +159,7 @@ async def main():
     print("=" * 80)
     print("UNIFIED OPTIMIZATION CONTEXT OVERRIDE DEMONSTRATION")
     print("=" * 80)
-    print(f"Task app: {TASK_APP_URL}")
+    print(f"Localapi: {LOCALAPI_URL}")
     print("Test card: df-001-ampharos (Stage 2, Poke-Body)")
     print("=" * 80)
 

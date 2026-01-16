@@ -16,15 +16,15 @@ from crafter_logic import (
     normalize_action_name,
 )
 from fastapi import Request
+from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningResult
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi.helpers import (
     call_chat_completion_api,
     create_http_client_hooks,
-    extract_api_key,
 )
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
@@ -38,9 +38,10 @@ from synth_ai.sdk.tunnels import (
     wait_for_health_check,
 )
 
-SYNTH_API_BASE = os.environ.get("SYNTH_API_BASE", "https://api.usesynth.ai").rstrip("/")
-TASK_APP_PORT = int(os.environ.get("CRAFTER_TASK_APP_PORT", "8001"))
-OPTIMIZED_TASK_APP_PORT = int(os.environ.get("CRAFTER_OPT_TASK_APP_PORT", "8002"))
+SYNTH_API_BASE = synth_base_url()
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
+LOCALAPI_PORT = int(os.environ.get("CRAFTER_LOCALAPI_PORT", "8001"))
+OPTIMIZED_LOCALAPI_PORT = int(os.environ.get("CRAFTER_OPT_LOCALAPI_PORT", "8002"))
 POLICY_MODEL = os.environ.get("CRAFTER_POLICY_MODEL", "gpt-4.1-nano")
 PROPOSER_TYPE = os.environ.get("CRAFTER_PROPOSER_TYPE", "dspy")
 PROPOSER_EFFORT = os.environ.get("CRAFTER_PROPOSER_EFFORT", "MEDIUM")
@@ -135,9 +136,6 @@ def create_crafter_vlm_local_api(system_prompt: str):
             image_only_mode=True,
         )
 
-        api_key = extract_api_key(fastapi_request, policy_config) or os.environ.get(
-            "OPENAI_API_KEY", ""
-        )
         http_client = getattr(fastapi_request.app.state, "http_client", None)
 
         trace_events: List[Dict[str, Any]] = []
@@ -151,7 +149,7 @@ def create_crafter_vlm_local_api(system_prompt: str):
                 messages=messages,
                 tools=policy.tools,
                 tool_choice="required",
-                api_key=api_key,
+                synth_user_key=SYNTH_USER_KEY,
                 http_client=http_client,
                 enable_dns_preresolution=True,
                 expected_tool_name="crafter_interact",
@@ -334,14 +332,14 @@ def create_crafter_vlm_local_api(system_prompt: str):
 async def run_gepa_job(
     *,
     api_key: str,
-    task_app_url: str,
+    localapi_url: str,
     baseline_system_prompt: str,
 ) -> PromptLearningResult:
     pareto_set_size = max(PARETO_SET_SIZE, 10)
     config_body = {
         "prompt_learning": {
             "algorithm": "gepa",
-            "task_app_url": task_app_url,
+            "localapi_url": localapi_url,
             "env_name": "crafter",
             "initial_prompt": {
                 "messages": [{"role": "system", "order": 0, "pattern": baseline_system_prompt}],
@@ -406,15 +404,14 @@ async def run_gepa_job(
 async def run_eval_job(
     *,
     api_key: str,
-    task_app_url: str,
+    localapi_url: str,
     seeds: List[int],
     mode: str,
 ) -> EvalResult:
     def _submit_and_poll() -> EvalResult:
         config = EvalJobConfig(
-            task_app_url=task_app_url,
-            backend_url=SYNTH_API_BASE,
-            api_key=api_key,
+            localapi_url=localapi_url,
+            synth_user_key=SYNTH_USER_KEY,
             app_id=f"crafter_vlm_{mode}",
             env_name="crafter",
             seeds=seeds,
@@ -470,24 +467,35 @@ def _ensure_available_port(port: int, label: str) -> int:
 
 
 async def main() -> None:
-    api_key = os.environ.get("SYNTH_API_KEY", "").strip()
-    if not api_key:
-        print("SYNTH_API_KEY not set; skipping GEPA job and evals.")
-        return
-
-    # Set API key in environment for SDK to use (in case it wasn't already set)
-    os.environ["SYNTH_API_KEY"] = api_key
-
     print(f"Backend: {SYNTH_API_BASE} (dev_mode={IS_DEV_MODE})")
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(f"{SYNTH_API_BASE}/health")
+        resp = await client.get(synth_health_url())
         resp.raise_for_status()
         print(f"Backend health: {resp.json()}")
 
-    environment_api_key = ensure_localapi_auth(
-        backend_base=SYNTH_API_BASE,
-        synth_api_key=api_key,
+    # Create preliminary job to get localapi_key (SDK auto-provisions it)
+    prelim_config = {
+        "prompt_learning": {
+            "algorithm": "gepa",
+            "localapi_url": f"http://localhost:{LOCALAPI_PORT}",
+            "env_name": "crafter",
+            "initial_prompt": {
+                "messages": [{"role": "system", "order": 0, "pattern": "placeholder"}],
+                "wildcards": {},
+            },
+            "policy": {"model": POLICY_MODEL, "provider": "openai"},
+            "gepa": {
+                "env_name": "crafter",
+                "evaluation": {"seeds": [0]},
+                "rollout": {"budget": 1},
+                "population": {"initial_size": 1, "num_generations": 1},
+            },
+        },
+    }
+    prelim_job = PromptLearningJob.from_dict(
+        config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
     )
+    environment_api_key = prelim_job.localapi_key
 
     allowed_actions = ", ".join(CRAFTER_ALLOWED_ACTIONS)
     baseline_prompt = (
@@ -507,14 +515,14 @@ async def main() -> None:
         "progress toward iron tools and combat when safe."
     )
 
-    baseline_port = _ensure_available_port(TASK_APP_PORT, "Baseline")
+    baseline_port = _ensure_available_port(LOCALAPI_PORT, "Baseline")
     baseline_app = create_crafter_vlm_local_api(baseline_prompt)
     run_server_background(baseline_app, port=baseline_port)
     await wait_for_health_check("127.0.0.1", baseline_port, environment_api_key, timeout=60.0)
 
     if USE_TUNNEL or not IS_DEV_MODE:
         baseline_url, proc = await open_quick_tunnel_with_dns_verification(
-            TASK_APP_PORT,
+            LOCALAPI_PORT,
             api_key=environment_api_key,
         )
         track_process(proc)
@@ -524,8 +532,8 @@ async def main() -> None:
     print(f"Baseline local API URL: {baseline_url}")
 
     job_result = await run_gepa_job(
-        api_key=api_key,
-        task_app_url=baseline_url,
+        synth_user_key=SYNTH_USER_KEY,
+        localapi_url=baseline_url,
         baseline_system_prompt=baseline_prompt,
     )
 
@@ -537,7 +545,7 @@ async def main() -> None:
         cleanup_all()
         return
 
-    pl_client = PromptLearningClient(SYNTH_API_BASE, api_key)
+    pl_client = PromptLearningClient(synth_user_key=SYNTH_USER_KEY)
     prompt_results = await pl_client.get_prompts(job_result.job_id)
     optimized_prompt = _extract_system_prompt(prompt_results.best_prompt)
     if not optimized_prompt:
@@ -545,14 +553,14 @@ async def main() -> None:
             "Failed to extract optimized system prompt from prompt learning results."
         )
 
-    optimized_port = _ensure_available_port(OPTIMIZED_TASK_APP_PORT, "Optimized")
+    optimized_port = _ensure_available_port(OPTIMIZED_LOCALAPI_PORT, "Optimized")
     optimized_app = create_crafter_vlm_local_api(optimized_prompt)
     run_server_background(optimized_app, port=optimized_port)
     await wait_for_health_check("127.0.0.1", optimized_port, environment_api_key, timeout=60.0)
 
     if USE_TUNNEL or not IS_DEV_MODE:
         optimized_url, proc = await open_quick_tunnel_with_dns_verification(
-            OPTIMIZED_TASK_APP_PORT,
+            OPTIMIZED_LOCALAPI_PORT,
             api_key=environment_api_key,
         )
         track_process(proc)
@@ -566,14 +574,14 @@ async def main() -> None:
         return
 
     baseline_eval = await run_eval_job(
-        api_key=api_key,
-        task_app_url=baseline_url,
+        synth_user_key=SYNTH_USER_KEY,
+        localapi_url=baseline_url,
         seeds=eval_seeds,
         mode="baseline",
     )
     optimized_eval = await run_eval_job(
-        api_key=api_key,
-        task_app_url=optimized_url,
+        synth_user_key=SYNTH_USER_KEY,
+        localapi_url=optimized_url,
         seeds=eval_seeds,
         mode="optimized",
     )

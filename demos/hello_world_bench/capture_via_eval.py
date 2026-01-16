@@ -3,16 +3,24 @@
 
 import asyncio
 import contextlib
-import os
 import time
 from pathlib import Path
 
 import httpx
 from localapi_hello_world_bench import app
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.core.urls import (
+    synth_base_url,
+    synth_eval_job_results_url,
+    synth_eval_job_url,
+    synth_eval_jobs_url,
+    synth_health_url,
+)
+from synth_ai.sdk.api.eval import EvalJobConfig
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
+
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
 
 
 async def wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -29,36 +37,39 @@ async def wait_for_health(host: str, port: int, api_key: str, timeout: float = 3
 
 
 async def main():
-    backend = "http://localhost:8000"
+    backend = synth_base_url()
 
     # Check backend
-    r = httpx.get(f"{backend}/health", timeout=10)
+    r = httpx.get(synth_health_url(), timeout=10)
     if r.status_code != 200:
         print(f"Backend not healthy: {r.status_code}")
         return
 
-    # Get API key
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        api_key = mint_demo_api_key(backend_url=backend)
-    print(f"API key: {api_key[:20]}...")
+    print(f"API key: {SYNTH_USER_KEY[:20]}...")
 
-    # Get env key
-    env_key = ensure_localapi_auth(backend_base=backend, synth_api_key=api_key)
+    # Create preliminary config to get localapi_key (SDK auto-provisions it)
+    prelim_config = EvalJobConfig(
+        localapi_url="http://localhost:8030",  # placeholder
+        synth_user_key=SYNTH_USER_KEY,
+        env_name="hello_world_bench",
+        seeds=[0],
+        policy_config={"model": "gpt-5-nano", "provider": "openai"},
+    )
+    env_key = prelim_config.localapi_key
     print(f"Env key: {env_key[:20]}...")
 
-    # Start task app
+    # Start localapi
     port = acquire_port(8030, on_conflict=PortConflictBehavior.FIND_NEW)
     run_server_background(app, port)
     await wait_for_health("localhost", port, env_key)
-    task_url = f"http://localhost:{port}"
-    print(f"Task app ready: {task_url}")
+    localapi_url = f"http://localhost:{port}"
+    print(f"Localapi ready: {localapi_url}")
 
     # Submit eval job
     print("\nSubmitting eval job...")
     job_payload = {
-        "task_app_url": task_url,
-        "task_app_api_key": env_key,
+        "localapi_url": localapi_url,
+        "localapi_api_key": env_key,
         "app_id": "hello_world_bench",
         "env_name": "hello_world_bench",
         "seeds": [0],
@@ -70,8 +81,8 @@ async def main():
         "timeout": 120.0,
     }
 
-    headers = {"Authorization": f"Bearer {api_key}"}
-    r = httpx.post(f"{backend}/api/eval/jobs", json=job_payload, headers=headers, timeout=30)
+    headers = {"Authorization": f"Bearer {SYNTH_USER_KEY}"}
+    r = httpx.post(synth_eval_jobs_url(), json=job_payload, headers=headers, timeout=30)
     if r.status_code >= 400:
         print(f"Failed to create job: {r.status_code}")
         print(f"Response: {r.text}")
@@ -85,7 +96,7 @@ async def main():
     # Poll until complete
     print("\nPolling job status...")
     for _ in range(60):
-        r = httpx.get(f"{backend}/api/eval/jobs/{job_id}", headers=headers, timeout=10)
+        r = httpx.get(synth_eval_job_url(job_id), headers=headers, timeout=10)
         if r.status_code != 200:
             print(f"Failed to get job status: {r.status_code}")
             return
@@ -106,7 +117,7 @@ async def main():
 
     # Get results to find correlation_id
     print("\nFetching results...")
-    r = httpx.get(f"{backend}/api/eval/jobs/{job_id}/results", headers=headers, timeout=10)
+    r = httpx.get(synth_eval_job_results_url(job_id), headers=headers, timeout=10)
     if r.status_code != 200:
         print(f"Failed to get results: {r.status_code}")
         return

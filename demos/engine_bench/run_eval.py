@@ -6,13 +6,11 @@ Runs an evaluation job for Pokemon TCG card implementations using synth-ai.
 This evaluates coding agents on their ability to implement game mechanics in Rust.
 
 Usage:
-    # Local mode (default)
-    uv run python demos/engine_bench/run_eval.py --local
-    uv run python demos/engine_bench/run_eval.py --local --seeds 5 --model gpt-4.1-mini
+    uv run python demos/engine_bench/run_eval.py
+    uv run python demos/engine_bench/run_eval.py --seeds 5 --model gpt-4.1-mini
 
-    # Daytona mode
-    DAYTONA_API_KEY=... uv run python demos/engine_bench/run_eval.py --daytona
-    DAYTONA_API_KEY=... uv run python demos/engine_bench/run_eval.py --daytona --seeds 5 --model gpt-4.1-mini
+    # Daytona mode (run localapi in cloud sandbox)
+    DAYTONA_SYNTH_USER_KEY=... uv run python demos/engine_bench/run_eval.py --daytona
 """
 
 import argparse
@@ -24,14 +22,12 @@ from pathlib import Path
 
 # Parse args early
 parser = argparse.ArgumentParser(description="Run EngineBench eval job")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
 parser.add_argument(
     "--daytona",
     action="store_true",
-    help="Run task app in Daytona sandbox (requires DAYTONA_API_KEY env var)",
+    help="Run localapi in Daytona sandbox (requires DAYTONA_SYNTH_USER_KEY env var)",
 )
-parser.add_argument("--local-host", type=str, default="localhost")
-parser.add_argument("--port", type=int, default=8017, help="Port for task app (local mode only)")
+parser.add_argument("--port", type=int, default=8017, help="Port for localapi")
 parser.add_argument("--seeds", type=int, default=1, help="Number of seeds to eval")
 parser.add_argument("--model", type=str, default="gpt-5.2", help="Model to use for coding agent")
 parser.add_argument(
@@ -75,21 +71,14 @@ parser.add_argument(
     help="Weight for verifier outcome reward in fused mode (default: 0.4)",
 )
 parser.add_argument(
-    "--task-app-url",
+    "--localapi-url",
     type=str,
     default=None,
-    help="Public URL for task app (e.g., cloudflare tunnel URL). Required for prod mode.",
+    help="Public URL for localapi (e.g., cloudflare tunnel URL). Required for prod mode.",
 )
 args = parser.parse_args()
 
-# Validate mode selection
-if args.local and args.daytona:
-    print("Error: Cannot use both --local and --daytona. Choose one.")
-    sys.exit(1)
-
 USE_DAYTONA = args.daytona
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
 PORT = args.port
 NUM_SEEDS = args.seeds
 MODEL = args.model
@@ -102,64 +91,44 @@ WEIGHT_ENV = args.weight_env
 WEIGHT_OUTCOME = args.weight_outcome
 
 # Validate Daytona requirements
-if USE_DAYTONA and not os.environ.get("DAYTONA_API_KEY"):
-    print("Error: --daytona requires DAYTONA_API_KEY environment variable")
-    print("Set it with: export DAYTONA_API_KEY=your_key")
+if USE_DAYTONA and not os.environ.get("DAYTONA_SYNTH_USER_KEY"):
+    print("Error: --daytona requires DAYTONA_SYNTH_USER_KEY environment variable")
+    print("Set it with: export DAYTONA_SYNTH_USER_KEY=your_key")
     sys.exit(1)
 
 import httpx  # noqa: E402
 
-# Import the task app
+# Import the localapi
 from localapi_engine_bench import INSTANCE_IDS, app  # noqa: E402
-from synth_ai.core.env import mint_demo_api_key  # noqa: E402
-from synth_ai.core.urls import BACKEND_URL_BASE  # noqa: E402
+from synth_ai.core.urls import synth_base_url, synth_health_url  # noqa: E402
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig  # noqa: E402
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
+from synth_ai.sdk.auth import get_or_mint_synth_api_key  # noqa: E402
 from synth_ai.sdk.task import run_server_background  # noqa: E402
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port  # noqa: E402
 
 # Import Daytona helper if needed
 if USE_DAYTONA:
     try:
-        from daytona_helper import DaytonaTaskAppRunner  # noqa: E402
+        from daytona_helper import DaytonaLocalapiRunner  # noqa: E402
     except ImportError:
         print("Error: Daytona helper not found. Make sure daytona_helper.py exists.")
         sys.exit(1)
 
 # Backend config
-if LOCAL_MODE:
-    SYNTH_API_BASE = "http://localhost:8000"
-    print("=" * 60)
-    print("LOCAL MODE - using localhost:8000 backend")
-    print("=" * 60)
-else:
-    SYNTH_API_BASE = BACKEND_URL_BASE
-    print(f"PROD MODE - using {SYNTH_API_BASE}")
-
-os.environ["SYNTH_API_BASE"] = SYNTH_API_BASE
+SYNTH_API_BASE = synth_base_url()
+print(f"Backend: {SYNTH_API_BASE}")
 
 # Check backend health
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+r = httpx.get(synth_health_url(), timeout=30)
 print(f"Backend health: {r.status_code}")
 
 # API Key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-if not API_KEY:
-    print("No SYNTH_API_KEY, minting demo key...")
-    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
-os.environ["SYNTH_API_KEY"] = API_KEY
-print(f"API Key: {API_KEY[:20]}...")
-
-# Environment Key
-ENVIRONMENT_API_KEY = ensure_localapi_auth(
-    backend_base=SYNTH_API_BASE,
-    synth_api_key=API_KEY,
-)
-print(f"Env key: {ENVIRONMENT_API_KEY[:12]}...")
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
+print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
 
 def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
-    """Wait for task app to be ready."""
+    """Wait for localapi to be ready."""
     health_url = f"http://{host}:{port}/health"
     headers = {"X-API-Key": api_key} if api_key else {}
     start = time.time()
@@ -178,7 +147,7 @@ async def main():
     print("\n" + "=" * 60)
     print("STARTING ENGINEBENCH EVAL")
     print("=" * 60)
-    print(f"Mode: {'Daytona' if USE_DAYTONA else 'Local'}")
+    print(f"Localapi mode: {'Daytona' if USE_DAYTONA else 'Local'}")
     print(f"Model: {MODEL}")
     print(f"Agent: {AGENT}")
     print(f"Split: {SPLIT}")
@@ -195,40 +164,39 @@ async def main():
     split_instances = [i for i in INSTANCE_IDS if i.startswith(f"{SPLIT}-")]
     print(f"Instances in {SPLIT} split: {len(split_instances)}")
 
-    # Start task app (local or Daytona)
+    # Start localapi (local or Daytona)
     daytona_runner = None
-    task_app_url = None
+    localapi_url = None
 
     if USE_DAYTONA:
         print("\n" + "=" * 60)
         print("PROVISIONING DAYTONA SANDBOX")
         print("=" * 60)
 
-        # Get task app file path
-        task_app_file = Path(__file__).parent / "localapi_engine_bench.py"
-        if not task_app_file.exists():
-            raise RuntimeError(f"Task app file not found: {task_app_file}")
+        # Get localapi file path
+        localapi_file = Path(__file__).parent / "localapi_engine_bench.py"
+        if not localapi_file.exists():
+            raise RuntimeError(f"Localapi file not found: {localapi_file}")
 
         # Create Daytona runner
-        daytona_runner = DaytonaTaskAppRunner(
-            api_key=os.environ.get("DAYTONA_API_KEY"),
+        daytona_runner = DaytonaLocalapiRunner(
+            api_key=os.environ.get("DAYTONA_SYNTH_USER_KEY"),
             api_url=os.environ.get("DAYTONA_API_URL"),
             target=os.environ.get("DAYTONA_TARGET"),
-            task_app_port=8000,  # Daytona preview URLs use port 8000
+            localapi_port=8000,  # Daytona preview URLs use port 8000
         )
 
         # Provision sandbox
         await daytona_runner.provision()
 
-        # Upload task app
-        await daytona_runner.upload_task_app(task_app_file)
+        # Upload localapi
+        await daytona_runner.upload_localapi(localapi_file)
 
-        # Setup environment
+        # Setup environment - Note: For Daytona, the task app will authenticate via SYNTH_USER_KEY
         env_vars = {
-            "SYNTH_API_KEY": API_KEY,
-            "SYNTH_API_BASE": SYNTH_API_BASE,
-            "ENVIRONMENT_API_KEY": ENVIRONMENT_API_KEY,
-            "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
+            "SYNTH_SYNTH_USER_KEY": SYNTH_USER_KEY,
+            "SYNTH_BACKEND_URL": SYNTH_API_BASE,
+            "OPENAI_SYNTH_USER_KEY": os.environ.get("OPENAI_SYNTH_USER_KEY", ""),
         }
 
         # Install dependencies
@@ -241,31 +209,27 @@ async def main():
             install_commands=install_commands,
         )
 
-        # Start task app
-        task_app_url = await daytona_runner.start_task_app()
-        print(f"Task app running in Daytona: {task_app_url}")
+        # Start localapi
+        localapi_url = await daytona_runner.start_localapi()
+        print(f"Localapi running in Daytona: {localapi_url}")
 
     else:
-        # Local mode
+        # Local localapi mode
         print("\n" + "=" * 60)
-        print("STARTING LOCAL TASK APP")
+        print("STARTING LOCAL LOCALAPI")
         print("=" * 60)
 
         port = acquire_port(PORT, on_conflict=PortConflictBehavior.FIND_NEW)
         if port != PORT:
             print(f"Port {PORT} in use, using {port} instead")
 
-        run_server_background(app, port)
-        wait_for_health_check_sync("localhost", port, ENVIRONMENT_API_KEY, timeout=30.0)
-        print(f"Task app ready on port {port}")
-
-        # Use tunnel URL if provided (for prod mode), otherwise use local URL
-        if args.task_app_url:
-            task_app_url = args.task_app_url
-            print(f"Task app URL (tunneled): {task_app_url}")
+        # Use tunnel URL if provided, otherwise use local URL
+        if args.localapi_url:
+            localapi_url = args.localapi_url
+            print(f"Localapi URL (tunneled): {localapi_url}")
         else:
-            task_app_url = f"http://{LOCAL_HOST}:{port}"
-            print(f"Task app URL: {task_app_url}")
+            localapi_url = f"http://localhost:{port}"
+            print(f"Localapi URL: {localapi_url}")
 
     # Create eval job
     # Use seeds that map to instances in the selected split
@@ -308,9 +272,8 @@ async def main():
         }
 
     config = EvalJobConfig(
-        local_api_url=task_app_url,
-        backend_url=SYNTH_API_BASE,
-        api_key=API_KEY,
+        localapi_url=localapi_url,
+        synth_user_key=SYNTH_USER_KEY,
         env_name="engine_bench",
         seeds=seeds,
         policy_config={
@@ -324,6 +287,12 @@ async def main():
         verifier_config=verifier_config,
         concurrency=10,  # Run up to 10 seeds in parallel
     )
+
+    # Start localapi if using local mode (after config is created to get localapi_key)
+    if not USE_DAYTONA:
+        run_server_background(app, port)
+        wait_for_health_check_sync("localhost", port, config.localapi_key, timeout=30.0)
+        print(f"Localapi ready on port {port}")
 
     job = EvalJob(config)
 
@@ -356,7 +325,7 @@ async def main():
             for sr in sorted_results:
                 # Seed results from backend
                 seed = sr.get("seed", "?")
-                # Backend returns: reward (final), local_api_reward (task app), verifier_reward
+                # Backend returns: reward (final), local_api_reward (localapi), verifier_reward
                 # Legacy field names: outcome_reward, score
                 outcome_reward = (
                     sr.get("local_api_reward") or sr.get("outcome_reward") or sr.get("reward") or 0

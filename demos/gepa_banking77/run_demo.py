@@ -2,11 +2,9 @@
 """Run the Banking77 GEPA demo end-to-end.
 
 Usage:
-    uv run python demos/gepa_banking77/run_demo.py           # Production mode (Cloudflare tunnels)
-    uv run python demos/gepa_banking77/run_demo.py --local   # Local mode (localhost, no tunnels)
+    uv run python demos/gepa_banking77/run_demo.py
 """
 
-import argparse
 import asyncio
 import json
 import os
@@ -18,14 +16,17 @@ import httpx
 from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import (
+    synth_base_url,
+    synth_health_url,
+    synth_prompt_learning_events_url,
+)
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task import normalize_inference_url, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
@@ -36,24 +37,6 @@ from synth_ai.sdk.tunnels import (
     acquire_port,
     cleanup_all,
 )
-
-# Parse args
-parser = argparse.ArgumentParser(description="Run Banking77 GEPA demo")
-parser.add_argument(
-    "--local",
-    action="store_true",
-    help="Run in local mode: use localhost:8000 backend and skip Cloudflare tunnels",
-)
-parser.add_argument(
-    "--local-host",
-    type=str,
-    default="localhost",
-    help="Hostname for local API URLs (use 'host.docker.internal' if backend runs in Docker)",
-)
-args = parser.parse_args()
-
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
 
 
 def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -78,26 +61,17 @@ def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: floa
 
 
 # Backend configuration
-if LOCAL_MODE:
-    SYNTH_API_BASE = "http://localhost:8000"
-    TUNNEL_BACKEND = TunnelBackend.Localhost
-    LOCAL_API_PORT = 8013
-    OPTIMIZED_LOCAL_API_PORT = 8014
-    print("=" * 60)
-    print("RUNNING IN LOCAL MODE")
-    print("=" * 60)
-else:
-    SYNTH_API_BASE = BACKEND_URL_BASE
-    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
-    LOCAL_API_PORT = 8001
-    OPTIMIZED_LOCAL_API_PORT = 8002
+SYNTH_API_BASE = synth_base_url()
+TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
+LOCAL_API_PORT = 8001
+OPTIMIZED_LOCAL_API_PORT = 8002
 
 print(f"Backend: {SYNTH_API_BASE}")
 print(f"Tunnel backend: {TUNNEL_BACKEND.value}")
 print(f"Local API Ports: {LOCAL_API_PORT}, {OPTIMIZED_LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+r = httpx.get(synth_health_url(), timeout=30)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
 else:
@@ -105,25 +79,15 @@ else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 
-# Cell 3: Get API Key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-if not API_KEY:
-    print("No SYNTH_API_KEY found, minting demo key...")
-    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
-    print(f"Demo API Key: {API_KEY[:25]}...")
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+# Get API Key
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
+print(f"API Key: {SYNTH_USER_KEY[:25]}...")
 
 
 # Set API key in environment for SDK to use
-os.environ["SYNTH_API_KEY"] = API_KEY
+os.environ["SYNTH_SYNTH_USER_KEY"] = SYNTH_USER_KEY
 
-# Cell 4: Ensure Environment Key
-ENVIRONMENT_API_KEY = ensure_localapi_auth(
-    backend_base=SYNTH_API_BASE,
-    synth_api_key=API_KEY,
-)
-print(f"Env key ready: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
+# env_key will be provisioned in main() via a preliminary job
 
 
 # Cell 5: Define Banking77 Local API
@@ -425,6 +389,31 @@ async def main():
     baseline_system_prompt = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
     user_prompt = "Customer Query: {query}\n\nAvailable Intents:\n{available_intents}\n\nClassify this query into one of the above banking intents using the tool call."
 
+    # Create preliminary job to get localapi_key (SDK auto-provisions it)
+    prelim_config = {
+        "prompt_learning": {
+            "algorithm": "gepa",
+            "localapi_url": f"http://localhost:{LOCAL_API_PORT}",
+            "env_name": "banking77",
+            "initial_prompt": {
+                "messages": [{"role": "system", "order": 0, "pattern": "placeholder"}],
+                "wildcards": {},
+            },
+            "policy": {"model": "gpt-4.1-nano", "provider": "openai"},
+            "gepa": {
+                "env_name": "banking77",
+                "evaluation": {"seeds": [0]},
+                "rollout": {"budget": 1},
+                "population": {"initial_size": 1, "num_generations": 1},
+            },
+        },
+    }
+    prelim_job = PromptLearningJob.from_dict(
+        config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
+    )
+    env_key = prelim_job.localapi_key
+    print(f"Env key ready: {env_key[:12]}...{env_key[-4:]}")
+
     # Timing helper
     def format_duration(seconds: float) -> str:
         if seconds < 60:
@@ -446,23 +435,18 @@ async def main():
     run_server_background(baseline_app, baseline_port)
 
     print(f"Waiting for baseline local API on port {baseline_port}...")
-    wait_for_health_check_sync("localhost", baseline_port, ENVIRONMENT_API_KEY, timeout=30.0)
+    wait_for_health_check_sync("localhost", baseline_port, env_key, timeout=30.0)
     print("Baseline local API ready!")
 
-    if LOCAL_MODE:
-        print(f"\nUsing {LOCAL_HOST} (no tunnel)...")
-        baseline_local_api_url = f"http://{LOCAL_HOST}:{baseline_port}"
-        baseline_tunnel = None
-    else:
-        print("\nProvisioning Cloudflare tunnel for baseline...")
-        tunnel_start = time.time()
-        baseline_tunnel = await TunneledLocalAPI.create(
-            local_port=baseline_port,
-            backend=TUNNEL_BACKEND,
-            progress=True,
-        )
-        baseline_local_api_url = baseline_tunnel.url
-        timings["baseline_tunnel"] = time.time() - tunnel_start
+    print("\nProvisioning Cloudflare tunnel for baseline...")
+    tunnel_start = time.time()
+    baseline_tunnel = await TunneledLocalAPI.create(
+        local_port=baseline_port,
+        backend=TUNNEL_BACKEND,
+        progress=True,
+    )
+    baseline_local_api_url = baseline_tunnel.url
+    timings["baseline_tunnel"] = time.time() - tunnel_start
     print(
         f"Baseline local API URL: {baseline_local_api_url}"
         + (
@@ -476,8 +460,8 @@ async def main():
     config_body = {
         "prompt_learning": {
             "algorithm": "gepa",
-            "task_app_id": "banking77",
-            "task_app_url": baseline_local_api_url,
+            "localapi_id": "banking77",
+            "localapi_url": baseline_local_api_url,
             "initial_prompt": {
                 "id": "banking77_pattern",
                 "name": "Banking77 Classification",
@@ -526,7 +510,6 @@ async def main():
 
     pl_job = PromptLearningJob.from_dict(
         config_dict=deepcopy(config_body),
-        backend_url=SYNTH_API_BASE,
     )
 
     job_id = pl_job.submit()
@@ -541,9 +524,9 @@ async def main():
         try:
             # Use sync httpx to fetch events (avoids nested event loop issues)
             response = httpx.get(
-                f"{SYNTH_API_BASE}/api/prompt-learning/online/jobs/{job_id}/events",
+                synth_prompt_learning_events_url(job_id, synth_base_url),
                 params={"since_seq": last_event_seq, "limit": 100},
-                headers={"X-API-Key": API_KEY},
+                headers={"X-API-Key": SYNTH_USER_KEY},
                 timeout=30.0,
             )
             events = response.json().get("events", []) if response.status_code == 200 else []
@@ -771,7 +754,7 @@ async def main():
         # Fetch events for more detailed error info
         try:
             print("\n--- Fetching job events for error details ---")
-            pl_client = PromptLearningClient(SYNTH_API_BASE, API_KEY)
+            pl_client = PromptLearningClient(synth_user_key=SYNTH_USER_KEY)
             events = await pl_client.get_events(gepa_result.job_id, limit=100)
             error_events = [
                 e
@@ -801,16 +784,15 @@ async def main():
 
     def run_eval_job(local_api_url: str, seeds: list[int], mode: str) -> EvalResult:
         config = EvalJobConfig(
-            local_api_url=local_api_url,
-            backend_url=SYNTH_API_BASE,
-            api_key=API_KEY,
+            localapi_url=local_api_url,
+            synth_user_key=SYNTH_USER_KEY,
             env_name="banking77",
             seeds=seeds,
             policy_config={
                 "model": "gpt-4.1-nano",
                 "provider": "openai",
                 "inference_mode": "synth_hosted",
-                "api_key": API_KEY,
+                "api_key": SYNTH_USER_KEY,
             },
             env_config={"split": "test"},
             concurrency=10,
@@ -878,7 +860,7 @@ async def main():
         print("GEPA Job Succeeded!\n")
 
         try:
-            pl_client = PromptLearningClient(SYNTH_API_BASE, API_KEY)
+            pl_client = PromptLearningClient(synth_user_key=SYNTH_USER_KEY)
             prompt_results = await pl_client.get_prompts(gepa_result.job_id)
 
             # Try to get the optimized prompt
@@ -1000,24 +982,19 @@ async def main():
             print(f"Port {OPTIMIZED_LOCAL_API_PORT} in use, using port {optimized_port} instead")
 
         run_server_background(optimized_app, optimized_port)
-        wait_for_health_check_sync("localhost", optimized_port, ENVIRONMENT_API_KEY, timeout=30.0)
+        wait_for_health_check_sync("localhost", optimized_port, env_key, timeout=30.0)
         print("Optimized local API ready!")
 
-        if LOCAL_MODE:
-            print(f"\nUsing {LOCAL_HOST} for optimized (no tunnel)...")
-            optimized_local_api_url = f"http://{LOCAL_HOST}:{optimized_port}"
-            optimized_tunnel = None
-        else:
-            print("\nProvisioning Cloudflare tunnel for optimized...")
-            tunnel_start = time.time()
-            optimized_tunnel = await TunneledLocalAPI.create(
-                local_port=optimized_port,
-                backend=TUNNEL_BACKEND,
-                progress=True,
-            )
-            optimized_local_api_url = optimized_tunnel.url
-            timings["optimized_tunnel"] = time.time() - tunnel_start
-            print(f"Optimized tunnel ready ({format_duration(timings['optimized_tunnel'])})")
+        print("\nProvisioning Cloudflare tunnel for optimized...")
+        tunnel_start = time.time()
+        optimized_tunnel = await TunneledLocalAPI.create(
+            local_port=optimized_port,
+            backend=TUNNEL_BACKEND,
+            progress=True,
+        )
+        optimized_local_api_url = optimized_tunnel.url
+        timings["optimized_tunnel"] = time.time() - tunnel_start
+        print(f"Optimized tunnel ready ({format_duration(timings['optimized_tunnel'])})")
 
         print("\nRunning BASELINE eval job...")
         eval_start = time.time()
@@ -1150,10 +1127,9 @@ async def main():
         print(f"Job did not succeed: {gepa_result.status.value}")
         # Error details already printed above for failed jobs
 
-    # Cell 10: Cleanup and Timing Summary
-    if not LOCAL_MODE:
-        print("\nCleaning up cloudflared processes...")
-        cleanup_all()
+    # Cleanup and Timing Summary
+    print("\nCleaning up cloudflared processes...")
+    cleanup_all()
 
     # Print timing summary
     timings["total"] = time.time() - total_start

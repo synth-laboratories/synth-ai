@@ -1,14 +1,12 @@
 """
-Daytona helper for running task apps in Daytona sandboxes.
+Daytona helper for running localapi servers in Daytona sandboxes.
 
 This module provides utilities to:
 1. Provision Daytona sandboxes
-2. Upload task app code to sandboxes
-3. Run task apps inside sandboxes with preview URLs
+2. Upload localapi code to sandboxes
+3. Run localapi servers inside sandboxes with preview URLs
 4. Clean up sandboxes after use
 """
-
-from __future__ import annotations
 
 import asyncio
 import os
@@ -71,8 +69,8 @@ except ImportError:
         CodeLanguage = None
 
 
-class DaytonaTaskAppRunner:
-    """Manages running a task app in a Daytona sandbox.
+class DaytonaLocalapiRunner:
+    """Manages running a localapi server in a Daytona sandbox.
 
     Supports snapshot-based caching for fast startup:
     1. First run: Create sandbox from base image, run setup, create snapshot
@@ -89,7 +87,7 @@ class DaytonaTaskAppRunner:
         api_url: Optional[str] = None,
         target: Optional[str] = None,
         image: str = "python:3.11-slim",
-        task_app_port: int = 8000,
+        localapi_port: int = 8000,
         use_snapshot: bool = True,  # Try to use cached snapshot
     ):
         """Initialize Daytona runner.
@@ -99,7 +97,7 @@ class DaytonaTaskAppRunner:
             api_url: Daytona API URL (or use DAYTONA_API_URL env var)
             target: Target region (or use DAYTONA_TARGET env var)
             image: Base image for sandbox (default: ubuntu latest)
-            task_app_port: Port for task app to bind to (default: 8000)
+            localapi_port: Port for localapi to bind to (default: 8000)
         """
         if not DAYTONA_AVAILABLE:
             raise RuntimeError("Daytona SDK not available. Install with: pip install daytona")
@@ -113,7 +111,7 @@ class DaytonaTaskAppRunner:
         self.api_url = api_url or os.environ.get("DAYTONA_API_URL")
         self.target = target or os.environ.get("DAYTONA_TARGET")
         self.image = image
-        self.task_app_port = task_app_port
+        self.localapi_port = localapi_port
         self.use_snapshot = use_snapshot
 
         config = DaytonaConfig(api_key=self.api_key)
@@ -126,7 +124,7 @@ class DaytonaTaskAppRunner:
         self.sandbox = None
         self.sandbox_id = None
         self.preview_url = None
-        self._task_app_process = None
+        self._localapi_process = None
         self._created_from_snapshot = False
 
     async def provision(self) -> str:
@@ -171,9 +169,9 @@ class DaytonaTaskAppRunner:
             self.sandbox_id = self.sandbox.id
             print(f"[Daytona] Sandbox provisioned: {self.sandbox_id}")
 
-        # Get preview URL for the task app port
+        # Get preview URL for the localapi port
         try:
-            preview_info = self.sandbox.get_preview_link(self.task_app_port)
+            preview_info = self.sandbox.get_preview_link(self.localapi_port)
             print(f"[Daytona] Preview URL: {preview_info}")
             # Extract URL from preview info object
             if hasattr(preview_info, "url"):
@@ -185,17 +183,17 @@ class DaytonaTaskAppRunner:
             else:
                 # Fallback: construct expected format
                 self.preview_url = (
-                    f"https://{self.task_app_port}-{self.sandbox_id}.proxy.daytona.works"
+                    f"https://{self.localapi_port}-{self.sandbox_id}.proxy.daytona.works"
                 )
 
             if self.preview_url:
                 print(f"[Daytona] Using preview URL: {self.preview_url}")
             else:
-                print(f"[Daytona] Warning: No preview URL available for port {self.task_app_port}")
+                print(f"[Daytona] Warning: No preview URL available for port {self.localapi_port}")
         except Exception as e:
             print(f"[Daytona] Warning: Could not get preview URL: {e}")
             # Fallback: construct expected format
-            self.preview_url = f"https://{self.task_app_port}-{self.sandbox_id}.proxy.daytona.works"
+            self.preview_url = f"https://{self.localapi_port}-{self.sandbox_id}.proxy.daytona.works"
             print(f"[Daytona] Using constructed preview URL: {self.preview_url}")
 
         return self.sandbox_id
@@ -228,32 +226,32 @@ class DaytonaTaskAppRunner:
         except Exception as e:
             raise RuntimeError(f"Failed to get preview URL: {e}") from e
 
-    async def upload_task_app(
+    async def upload_localapi(
         self,
-        task_app_path: Path,
+        localapi_path: Path,
         *,
         additional_files: Optional[list[Path]] = None,
     ) -> None:
-        """Upload task app code to the sandbox.
+        """Upload localapi code to the sandbox.
 
         Args:
-            task_app_path: Path to the task app Python file
+            localapi_path: Path to the localapi Python file
             additional_files: Optional list of additional files to upload
         """
         if not self.sandbox:
             raise RuntimeError("Sandbox not provisioned. Call provision() first.")
 
-        print(f"[Daytona] Uploading task app: {task_app_path}")
+        print(f"[Daytona] Uploading localapi: {localapi_path}")
 
-        # Read task app file
-        task_app_content = task_app_path.read_text()
-        task_app_bytes = task_app_content.encode("utf-8")
+        # Read localapi file
+        localapi_content = localapi_path.read_text()
+        localapi_bytes = localapi_content.encode("utf-8")
 
-        # Upload to /app/task_app.py in sandbox using fs.upload_file
+        # Upload to /app/localapi.py in sandbox using fs.upload_file
         await asyncio.to_thread(
             self.sandbox.fs.upload_file,
-            task_app_bytes,
-            "/app/task_app.py",
+            localapi_bytes,
+            "/app/localapi.py",
         )
 
         # Upload additional files if provided
@@ -269,7 +267,7 @@ class DaytonaTaskAppRunner:
                     )
                     print(f"[Daytona] Uploaded: {rel_path}")
 
-        print("[Daytona] Task app uploaded successfully")
+        print("[Daytona] Localapi uploaded successfully")
 
     async def setup_environment(
         self,
@@ -318,14 +316,14 @@ class DaytonaTaskAppRunner:
 
         print("[Daytona] Environment setup complete")
 
-    async def start_task_app(
+    async def start_localapi(
         self,
         *,
         host: str = "0.0.0.0",
         wait_for_health: bool = True,
         health_timeout: float = 60.0,
     ) -> str:
-        """Start the task app in the sandbox.
+        """Start the localapi in the sandbox.
 
         Args:
             host: Host to bind to (must be 0.0.0.0 for Daytona preview URLs)
@@ -333,27 +331,27 @@ class DaytonaTaskAppRunner:
             health_timeout: Timeout for health check
 
         Returns:
-            Task app URL (preview URL if available, otherwise localhost)
+            Localapi URL (preview URL if available, otherwise localhost)
         """
         if not self.sandbox:
             raise RuntimeError("Sandbox not provisioned. Call provision() first.")
 
         if not self.preview_url:
             raise RuntimeError(
-                "Preview URL not available. Cannot start task app without preview URL."
+                "Preview URL not available. Cannot start localapi without preview URL."
             )
 
-        print(f"[Daytona] Starting task app on {host}:{self.task_app_port}")
+        print(f"[Daytona] Starting localapi on {host}:{self.localapi_port}")
 
-        # Start task app in background
+        # Start localapi in background
         # Use uvicorn to run the FastAPI app
         # Source .env first to load environment variables
         cmd = (
             f"cd /app && "
             f"source .env 2>/dev/null || true && "
-            f"nohup python3 -m uvicorn task_app:app "
-            f"--host {host} --port {self.task_app_port} "
-            f"--log-level info > /app/task_app.log 2>&1 &"
+            f"nohup python3 -m uvicorn localapi:app "
+            f"--host {host} --port {self.localapi_port} "
+            f"--log-level info > /app/localapi.log 2>&1 &"
         )
 
         print(f"[Daytona] Running command: {cmd[:100]}...")
@@ -364,7 +362,7 @@ class DaytonaTaskAppRunner:
             cmd,
         )
 
-        self._task_app_process = result
+        self._localapi_process = result
 
         # Give it a moment to start
         await asyncio.sleep(5.0)
@@ -373,26 +371,26 @@ class DaytonaTaskAppRunner:
         try:
             log_result = await asyncio.to_thread(
                 self.sandbox.process.exec,
-                "cat /app/task_app.log 2>/dev/null | tail -50 || echo 'No log file'",
+                "cat /app/localapi.log 2>/dev/null | tail -50 || echo 'No log file'",
             )
             log_output = (
                 getattr(log_result, "output", "") or getattr(log_result, "result", "") or ""
             )
             if log_output.strip():
-                print(f"[Daytona] Task app logs:\n{log_output[:500]}")
+                print(f"[Daytona] Localapi logs:\n{log_output[:500]}")
         except Exception as e:
             print(f"[Daytona] Could not read logs: {e}")
 
         # Wait for health check if requested
         if wait_for_health:
-            print("[Daytona] Waiting for task app to be ready...")
+            print("[Daytona] Waiting for localapi to be ready...")
             await self._wait_for_health(health_timeout)
 
-        print(f"[Daytona] Task app started: {self.preview_url}")
+        print(f"[Daytona] Localapi started: {self.preview_url}")
         return self.preview_url
 
     async def _wait_for_health(self, timeout: float = 60.0) -> None:
-        """Wait for task app health check."""
+        """Wait for localapi health check."""
         import time
 
         import httpx
@@ -404,7 +402,7 @@ class DaytonaTaskAppRunner:
             try:
                 response = httpx.get(health_url, timeout=5.0)
                 if response.status_code in (200, 400):
-                    print("[Daytona] Task app health check passed")
+                    print("[Daytona] Localapi health check passed")
                     return
             except Exception:
                 pass
@@ -477,46 +475,46 @@ class DaytonaTaskAppRunner:
         await self.cleanup()
 
 
-async def run_task_app_in_daytona(
-    task_app_path: Path,
+async def run_localapi_in_daytona(
+    localapi_path: Path,
     *,
     api_key: Optional[str] = None,
     env_vars: Optional[dict[str, str]] = None,
     additional_files: Optional[list[Path]] = None,
     install_commands: Optional[list[str]] = None,
-    task_app_port: int = 8000,
-) -> tuple[str, DaytonaTaskAppRunner]:
-    """Convenience function to run a task app in Daytona.
+    localapi_port: int = 8000,
+) -> tuple[str, DaytonaLocalapiRunner]:
+    """Convenience function to run a localapi in Daytona.
 
     Args:
-        task_app_path: Path to task app Python file
+        localapi_path: Path to localapi Python file
         api_key: Daytona API key (or use DAYTONA_API_KEY env var)
         env_vars: Environment variables to set in sandbox
         additional_files: Additional files to upload
         install_commands: Commands to run for setup
-        task_app_port: Port for task app
+        localapi_port: Port for localapi
 
     Returns:
-        Tuple of (task_app_url, runner_instance)
+        Tuple of (localapi_url, runner_instance)
 
     Example:
-        >>> url, runner = await run_task_app_in_daytona(
-        ...     Path("my_task_app.py"),
+        >>> url, runner = await run_localapi_in_daytona(
+        ...     Path("my_localapi.py"),
         ...     env_vars={"SYNTH_API_KEY": "sk_..."},
         ... )
         >>> # Use url for eval job
         >>> await runner.cleanup()
     """
-    runner = DaytonaTaskAppRunner(
+    runner = DaytonaLocalapiRunner(
         api_key=api_key,
-        task_app_port=task_app_port,
+        localapi_port=localapi_port,
     )
 
     await runner.provision()
 
-    # Upload task app
-    await runner.upload_task_app(
-        task_app_path,
+    # Upload localapi
+    await runner.upload_localapi(
+        localapi_path,
         additional_files=additional_files,
     )
 
@@ -526,8 +524,8 @@ async def run_task_app_in_daytona(
         install_commands=install_commands,
     )
 
-    # Start task app
-    url = await runner.start_task_app()
+    # Start localapi
+    url = await runner.start_localapi()
 
     return url, runner
 

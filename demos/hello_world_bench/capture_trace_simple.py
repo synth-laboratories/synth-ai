@@ -12,10 +12,11 @@ import uuid
 from pathlib import Path
 
 import httpx
+from synth_ai.core.urls import synth_base_url
 
 
 async def main():
-    backend = "http://localhost:8000"
+    backend = synth_base_url()
     correlation_id = f"capture_{uuid.uuid4().hex[:8]}"
 
     # The interceptor baseURL that OpenCode will call

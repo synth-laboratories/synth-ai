@@ -12,8 +12,6 @@ EngineBench evaluates an agent's ability to:
 4. Produce code that passes deterministic cargo tests
 """
 
-from __future__ import annotations
-
 import asyncio
 import difflib
 import json
@@ -1588,10 +1586,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8017"))
 
     # Ensure ENVIRONMENT_API_KEY is set
-    env_key = ensure_localapi_auth(
-        backend_base="http://localhost:8000",
-        synth_api_key=None,
-    )
+    env_key = ensure_localapi_auth()
     print(f"[engine_bench] ENVIRONMENT_API_KEY ready: {env_key[:15]}...")
     print(f"[engine_bench] Starting on port {port}")
 

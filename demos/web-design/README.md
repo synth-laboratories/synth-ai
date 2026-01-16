@@ -128,7 +128,7 @@ Output:
 ```toml
 [prompt_learning]
 algorithm = "gepa"
-task_app_url = "http://localhost:8103"
+localapi_url = "http://localhost:8103"
 
 [prompt_learning.gepa.population]
 initial_size = 6                # Start with 6 random variants
@@ -149,7 +149,9 @@ validation_seeds = [15..22]     # 8 validation examples
 ```bash
 python3 run_demo.py                    # Run full optimization
 python3 run_demo.py --max-examples 10  # Smaller dataset (faster)
-python3 run_demo.py --local            # Use local backend
+
+# For local backend development:
+SYNTH_BACKEND_URL=http://localhost:8000 python3 run_demo.py
 ```
 
 **Workflow**:

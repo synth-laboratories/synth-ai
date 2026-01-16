@@ -2,12 +2,9 @@
 """Run the MIT RLM OOLONG GEPA demo end-to-end.
 
 Usage:
-    uv run python demos/rlm-mit/run_demo.py           # Production mode (Cloudflare tunnels)
-    uv run python demos/rlm-mit/run_demo.py --local   # Local mode (localhost, no tunnels)
-    uv run python demos/rlm-mit/run_demo.py --local --local-host 127.0.0.1
+    uv run python demos/rlm-mit/run_demo.py
 """
 
-import argparse
 import asyncio
 import os
 import time
@@ -22,32 +19,13 @@ from rlm.core import rlm as rlm_core
 from rlm.core import types as rlm_types
 from rlm.utils import prompts as rlm_prompts
 from rlm.utils.prompts import USER_PROMPT
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, kill_port
-
-# Parse args to configure backend
-parser = argparse.ArgumentParser(description="Run MIT RLM OOLONG GEPA demo")
-parser.add_argument(
-    "--local",
-    action="store_true",
-    help="Run in local mode: use localhost:8000 backend and skip Cloudflare tunnels",
-)
-parser.add_argument(
-    "--local-host",
-    type=str,
-    default="localhost",
-    help="Hostname for local API URLs (use 'host.docker.internal' if backend runs in Docker)",
-)
-args = parser.parse_args()
-
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
 
 
 # Work around rlm QueryMetadata typing bug under Python 3.11
@@ -91,24 +69,13 @@ rlm_core.build_rlm_system_prompt = patched_build_rlm_system_prompt
 load_dotenv()
 
 # Backend configuration
-if LOCAL_MODE:
-    SYNTH_API_BASE = "http://localhost:8000"
-    TUNNEL_BACKEND = TunnelBackend.Localhost
-    LOCAL_API_PORT = 8115
-    print("=" * 60)
-    print("RUNNING IN LOCAL MODE")
-    print("=" * 60)
-else:
-    SYNTH_API_BASE = BACKEND_URL_BASE
-    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
-    LOCAL_API_PORT = 8115
+LOCAL_API_PORT = 8115
+SYNTH_API_BASE = synth_base_url()
 
 print(f"Backend: {SYNTH_API_BASE}")
-print(f"Tunnel backend: {TUNNEL_BACKEND.value}")
-print(f"Local API Port: {LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+r = httpx.get(synth_health_url(), timeout=30)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
 else:
@@ -116,23 +83,9 @@ else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 # Get API Key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-if not API_KEY:
-    print("No SYNTH_API_KEY found, minting demo key...")
-    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
-    print(f"Demo API Key: {API_KEY[:25]}...")
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
-
-# Set API key in environment for SDK to use
-os.environ["SYNTH_API_KEY"] = API_KEY
-
-ENVIRONMENT_API_KEY = ensure_localapi_auth(
-    backend_base=SYNTH_API_BASE,
-    synth_api_key=API_KEY,
-)
-
-USE_TUNNEL = not LOCAL_MODE
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
+os.environ["SYNTH_SYNTH_USER_KEY"] = SYNTH_USER_KEY
+print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
 print("Config loaded")
 
@@ -386,7 +339,7 @@ def create_oolong_rlm_local_api():
         if not inference_url:
             raise ValueError("Missing inference_url in policy config")
 
-        api_key = policy_config.get("api_key") or API_KEY
+        api_key = policy_config.get("api_key") or SYNTH_USER_KEY
         if not api_key:
             raise ValueError("Missing policy api_key for inference proxy")
 
@@ -545,6 +498,30 @@ async def main():
     timings: dict[str, float] = {}
     total_start = time.time()
 
+    # Create preliminary job to get localapi_key (SDK auto-provisions it)
+    prelim_config = {
+        "prompt_learning": {
+            "algorithm": "gepa",
+            "localapi_url": f"http://localhost:{LOCAL_API_PORT}",  # placeholder
+            "env_name": "oolong",
+            "initial_prompt": {
+                "messages": [{"role": "system", "order": 0, "pattern": "placeholder"}],
+                "wildcards": {},
+            },
+            "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+            "gepa": {
+                "env_name": "oolong",
+                "evaluation": {"seeds": [0]},
+                "rollout": {"budget": 1},
+                "population": {"initial_size": 1, "num_generations": 1},
+            },
+        },
+    }
+    prelim_job = PromptLearningJob.from_dict(
+        config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
+    )
+    localapi_key = prelim_job.localapi_key
+
     # Start Local API
     print("\n" + "=" * 60)
     print("STARTING LOCAL API")
@@ -556,29 +533,21 @@ async def main():
     run_server_background(app, LOCAL_API_PORT)
 
     print(f"Waiting for local API on port {LOCAL_API_PORT}...")
-    wait_for_health_check_sync("localhost", LOCAL_API_PORT, ENVIRONMENT_API_KEY, timeout=60.0)
+    wait_for_health_check_sync("localhost", LOCAL_API_PORT, localapi_key, timeout=60.0)
     print("Local API ready!")
 
-    if USE_TUNNEL:
-        print("\nProvisioning Cloudflare tunnel...")
-        tunnel_start = time.time()
-        tunnel = await TunneledLocalAPI.create(
-            local_port=LOCAL_API_PORT,
-            backend=TUNNEL_BACKEND,
-            api_key=API_KEY,
-            backend_url=SYNTH_API_BASE,
-            progress=True,
-        )
-        local_api_url = tunnel.url
-        timings["tunnel"] = time.time() - tunnel_start
-    else:
-        print(f"\nUsing {LOCAL_HOST} (no tunnel)...")
-        local_api_url = f"http://{LOCAL_HOST}:{LOCAL_API_PORT}"
-
-    print(
-        f"Local API URL: {local_api_url}"
-        + (f" ({format_duration(timings['tunnel'])})" if "tunnel" in timings else "")
+    print("\nProvisioning Cloudflare tunnel...")
+    tunnel_start = time.time()
+    tunnel = await TunneledLocalAPI.create(
+        local_port=LOCAL_API_PORT,
+        backend=TunnelBackend.CloudflareManagedTunnel,
+        synth_user_key=SYNTH_USER_KEY,
+        progress=True,
     )
+    local_api_url = tunnel.url
+    timings["tunnel"] = time.time() - tunnel_start
+
+    print(f"Local API URL: {local_api_url} ({format_duration(timings['tunnel'])})")
 
     # Run GEPA optimization
     print("\n" + "=" * 60)
@@ -588,7 +557,7 @@ async def main():
     config_body = {
         "prompt_learning": {
             "algorithm": "gepa",
-            "task_app_url": local_api_url,
+            "localapi_url": local_api_url,
             "env_name": "oolong",
             "initial_prompt": {
                 "messages": [
@@ -636,8 +605,7 @@ async def main():
 
     job = PromptLearningJob.from_dict(
         config_dict=config_body,
-        backend_url=SYNTH_API_BASE,
-        api_key=API_KEY,
+        synth_user_key=SYNTH_USER_KEY,
     )
 
     print("\nSubmitting GEPA job...")

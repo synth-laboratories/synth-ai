@@ -8,8 +8,8 @@
 
 [prompt_learning]
 algorithm = "gepa"
-task_app_url = "http://localhost:8030"
-task_app_id = "hello_world_bench"
+localapi_url = "http://localhost:8030"
+localapi_id = "hello_world_bench"
 
 [prompt_learning.policy]
 model = "gpt-4.1-mini"
@@ -210,7 +210,7 @@ proposer_output_tokens = "FAST"
 
 # Enable unified optimization with context overrides
 [prompt_learning.gepa.unified_optimization]
-enable_task_app_context_overrides = true
+enable_localapi_context_overrides = true
 optimization_target = "unified"
 mutable_files = ["AGENTS.md"]
 allow_preflight_script = false

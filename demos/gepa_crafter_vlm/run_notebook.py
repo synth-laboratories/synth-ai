@@ -5,17 +5,14 @@ import argparse
 import os
 from pathlib import Path
 
+from synth_ai.core.urls import synth_base_url
+
 
 def main():
     """Execute the demo notebook using papermill."""
     import papermill as pm
 
     parser = argparse.ArgumentParser(description="Run Crafter VLM GEPA demo notebook")
-    parser.add_argument(
-        "--backend-url",
-        default=os.environ.get("BACKEND_BASE_URL", "https://api.usesynth.ai"),
-        help="Backend URL (default: https://api.usesynth.ai)",
-    )
     parser.add_argument(
         "--api-key",
         default=os.environ.get("SYNTH_API_KEY"),
@@ -43,41 +40,29 @@ def main():
         default=2,
         help="Number of GEPA generations (default: 2)",
     )
-    parser.add_argument(
-        "--use-tunnel",
-        action="store_true",
-        default=True,
-        help="Use cloudflared tunnels (required for production)",
-    )
-    parser.add_argument(
-        "--no-tunnel",
-        action="store_true",
-        help="Disable cloudflared tunnels (for local backend only)",
-    )
     args = parser.parse_args()
 
     notebook_dir = Path(__file__).parent
     input_notebook = notebook_dir / "gepa_crafter_vlm_verifier_optimization.ipynb"
     output_notebook = notebook_dir / "demo_prod_executed.ipynb"
 
-    use_tunnel = args.use_tunnel and not args.no_tunnel
+    backend_url = synth_base_url()
     parameters = {
-        "BACKEND_URL": args.backend_url,
+        "BACKEND_URL": backend_url,
         "POLICY_MODEL": args.policy_model,
         "VERIFIER_MODEL": args.verifier_model,
         "ROLLOUT_BUDGET": args.rollout_budget,
         "NUM_GENERATIONS": args.num_generations,
-        "USE_TUNNEL": use_tunnel,
+        "USE_TUNNEL": True,
     }
     if args.api_key:
         parameters["API_KEY"] = args.api_key
 
     print(f"Running notebook: {input_notebook}")
-    print(f"Backend: {args.backend_url}")
+    print(f"Backend: {backend_url}")
     print(f"Policy model: {args.policy_model}")
     print(f"Rollout budget: {args.rollout_budget}")
     print(f"Generations: {args.num_generations}")
-    print(f"Use tunnel: {use_tunnel}")
     print()
 
     pm.execute_notebook(

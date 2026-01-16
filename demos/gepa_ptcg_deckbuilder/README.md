@@ -72,13 +72,19 @@ python -m pip install maturin
 From this directory:
 
 ```bash
-uv run python run_demo.py --local --model gpt-4.1-mini --num-seeds 5
+uv run python run_demo.py --model gpt-4.1-mini --num-seeds 5
+```
+
+For local backend development, set the env var:
+
+```bash
+SYNTH_BACKEND_URL=http://localhost:8000 uv run python run_demo.py --model gpt-4.1-mini --num-seeds 5
 ```
 
 Larger run (more rollouts):
 
 ```bash
-uv run python run_demo.py --local --model gpt-4.1-mini --num-seeds 30
+uv run python run_demo.py --model gpt-4.1-mini --num-seeds 30
 ```
 
 Notes:
@@ -120,7 +126,13 @@ uv run python generate_and_score.py --challenge basic-deck --use-challenge-oppon
 Run evaluation jobs to benchmark a fixed prompt across multiple challenges:
 
 ```bash
-uv run python run_demo.py --local --model gpt-4.1-mini --num-seeds 5
+uv run python run_demo.py --model gpt-4.1-mini --num-seeds 5
+```
+
+For local backend development, set the env var:
+
+```bash
+SYNTH_BACKEND_URL=http://localhost:8000 uv run python run_demo.py --model gpt-4.1-mini --num-seeds 5
 ```
 
 **What it does:**
@@ -130,10 +142,9 @@ uv run python run_demo.py --local --model gpt-4.1-mini --num-seeds 5
 - Returns aggregate scores and per-seed results
 
 **Options:**
-- `--local`: Use local backend (`localhost:8000`)
 - `--model`: Model to use (e.g., `gpt-4.1-mini`)
 - `--num-seeds`: Number of seeds to evaluate (round-robin through challenges)
-- `--port`: Task app port (default: `8018`)
+- `--port`: LocalAPI port (default: `8018`)
 
 **Output:**
 - Mean reward across all seeds
@@ -147,21 +158,26 @@ uv run python run_demo.py --local --model gpt-4.1-mini --num-seeds 5
 Run GEPA (Genetic Evolution of Prompt Architectures) to optimize prompts:
 
 ```bash
-uv run python run_gepa_job.py --local --config gepa_deckbuilder.toml
+uv run python run_gepa_job.py --config gepa_deckbuilder.toml
+```
+
+For local backend development, set the env var:
+
+```bash
+SYNTH_BACKEND_URL=http://localhost:8000 uv run python run_gepa_job.py --config gepa_deckbuilder.toml
 ```
 
 **What it does:**
-- Starts the task app locally
+- Starts the LocalAPI server locally
 - Submits a GEPA optimization job to the backend
 - Evolves prompts over multiple generations using genetic algorithm
 - Returns the best prompt and score
 
 **Options:**
-- `--local`: Use local backend (`localhost:8000`)
 - `--config`: Path to GEPA config file (default: `gepa_deckbuilder.toml`)
 - `--budget`: Override rollout budget (e.g., `--budget 100`)
 - `--generations`: Override number of generations (e.g., `--generations 5`)
-- `--port`: Task app port (default: `8018`)
+- `--port`: LocalAPI port (default: `8018`)
 
 **Config File (`gepa_deckbuilder.toml`):**
 - `prompt_learning.gepa.rollout.budget`: Total rollouts (e.g., `50`)
@@ -176,7 +192,7 @@ uv run python run_gepa_job.py --local --config gepa_deckbuilder.toml
 
 **Example with overrides:**
 ```bash
-uv run python run_gepa_job.py --local --budget 100 --generations 5
+uv run python run_gepa_job.py --budget 100 --generations 5
 ```
 
 ---

@@ -25,8 +25,10 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import httpx
-from synth_ai.core.env import mint_demo_api_key  # noqa: E402
-from synth_ai.core.urls import BACKEND_URL_BASE  # noqa: E402
+from synth_ai.core.urls import synth_health_url, synth_interceptor_url
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
+
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
 
 
 def normalize_interceptor_base(inference_url: str) -> tuple[str, str | None]:
@@ -176,31 +178,23 @@ async def main() -> None:
     parser = argparse.ArgumentParser(
         description="hello_world_bench: OpenCode write/edit sanity check"
     )
-    parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
     parser.add_argument("--model", type=str, default="gpt-5-nano")
     parser.add_argument("--timeout", type=int, default=120)
     args = parser.parse_args()
 
-    backend_base = "http://localhost:8000" if args.local else BACKEND_URL_BASE
-    print(f"[hello_world_bench] Backend: {backend_base}")
+    # Check backend health
 
     # Ensure backend is alive.
-    r = httpx.get(f"{backend_base}/health", timeout=10)
+    r = httpx.get(synth_health_url(), timeout=10)
     print(f"[hello_world_bench] Backend health: {r.status_code}")
 
-    # Mint demo key if needed (client-side placeholder; backend uses stored env keys).
-    api_key = os.environ.get("SYNTH_API_KEY", "")
-    if not api_key:
-        print("[hello_world_bench] No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_base)
-        os.environ["SYNTH_API_KEY"] = api_key
-    print(f"[hello_world_bench] Demo API key present: {api_key[:16]}...")
+    print(f"[hello_world_bench] API key present: {SYNTH_USER_KEY[:16]}...")
 
     trial_id = f"hello-world-{uuid.uuid4().hex[:12]}"
     correlation_id = f"hello_world_{uuid.uuid4().hex[:12]}"
 
     # Register passthrough trial in interceptor registry.
-    register_url = f"{backend_base}/api/interceptor/v1/debug/register_trial/{trial_id}"
+    register_url = synth_interceptor_url(f"debug/register_trial/{trial_id}")
     reg = httpx.post(register_url, json={}, timeout=10)
     print(f"[hello_world_bench] Register trial: {reg.status_code} {register_url}")
     if reg.status_code >= 400:
@@ -210,9 +204,7 @@ async def main() -> None:
         )
 
     # This path is intentionally "chat/completions-ish"; OpenCode will call /responses off baseURL.
-    inference_url = (
-        f"{backend_base}/api/interceptor/v1/{trial_id}/chat/completions?cid={correlation_id}"
-    )
+    inference_url = f"{synth_interceptor_url(f'{trial_id}/chat/completions')}?cid={correlation_id}"
 
     with tempfile.TemporaryDirectory(prefix="hello_world_bench_") as td:
         sandbox_dir = Path(td) / "sandbox"
@@ -235,7 +227,7 @@ async def main() -> None:
             model=args.model,
             timeout=args.timeout,
             inference_url=inference_url,
-            api_key=api_key,
+            api_key=SYNTH_USER_KEY,
         )
         elapsed = time.time() - started
 

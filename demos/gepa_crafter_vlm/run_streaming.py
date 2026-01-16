@@ -12,10 +12,11 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
+from synth_ai.core.urls import synth_prompt_learning_events_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi.helpers import extract_api_key
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
@@ -38,13 +39,8 @@ CrafterVLMReActPolicy = _crafter_logic.CrafterVLMReActPolicy
 normalize_action_name = _crafter_logic.normalize_action_name
 
 # Config
-SYNTH_API_BASE = "https://api.usesynth.ai"
-SYNTH_API_KEY = os.environ.get("SYNTH_API_KEY", "")
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-
-# Set API key in environment for SDK to use
-if SYNTH_API_KEY:
-    os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
 POLICY_MODEL = "gpt-4.1-nano"
 EVAL_MODEL = "gpt-4o-mini"
 ROLLOUT_BUDGET = 6
@@ -60,7 +56,7 @@ def log(msg: str):
     print(f"[{ts}] {msg}", flush=True)
 
 
-def create_task_app(system_prompt: str):
+def create_localapi_app(system_prompt: str):
     """Create Crafter VLM task app."""
     app_id = "crafter_vlm"
     app_name = "Crafter VLM"
@@ -420,8 +416,8 @@ async def run_comparison_eval(
 
 async def stream_job_events(job_id: str):
     """Stream events from GEPA job."""
-    url = f"{SYNTH_API_BASE}/api/prompt-learning/jobs/{job_id}/events"
-    headers = {"Authorization": f"Bearer {SYNTH_API_KEY}"}
+    url = synth_prompt_learning_events_url(job_id)
+    headers = {"Authorization": f"Bearer {SYNTH_USER_KEY}"}
 
     client = httpx.AsyncClient(timeout=None)
     async with client, client.stream("GET", url, headers=headers) as response:
@@ -461,11 +457,29 @@ async def main():
     log(f"Max turns/rollout: {MAX_TURNS}")
     log("")
 
-    # Setup
-    env_key = ensure_localapi_auth(
-        backend_base=SYNTH_API_BASE,
-        synth_api_key=SYNTH_API_KEY,
+    # Create preliminary job to get localapi_key (SDK auto-provisions it)
+    prelim_config = {
+        "prompt_learning": {
+            "algorithm": "gepa",
+            "localapi_url": "http://localhost:8001",
+            "env_name": "crafter",
+            "initial_prompt": {
+                "messages": [{"role": "system", "order": 0, "pattern": "placeholder"}],
+                "wildcards": {},
+            },
+            "policy": {"model": POLICY_MODEL, "provider": "openai"},
+            "gepa": {
+                "env_name": "crafter",
+                "evaluation": {"seeds": [0]},
+                "rollout": {"budget": 1},
+                "population": {"initial_size": 1, "num_generations": 1},
+            },
+        },
+    }
+    prelim_job = PromptLearningJob.from_dict(
+        config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
     )
+    env_key = prelim_job.localapi_key
     log("Environment key configured")
 
     # Baseline prompt
@@ -482,7 +496,7 @@ async def main():
 
     # Start task app
     log("Starting task app...")
-    app = create_task_app(baseline_prompt)
+    app = create_localapi_app(baseline_prompt)
     run_server_background(app, port=8001)
     await wait_for_health_check("127.0.0.1", 8001, env_key, timeout=30.0)
     log("Task app ready on port 8001")
@@ -492,8 +506,7 @@ async def main():
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
         backend=TunnelBackend.CloudflareManagedTunnel,
-        api_key=SYNTH_API_KEY,
-        backend_url=SYNTH_API_BASE,
+        synth_user_key=SYNTH_USER_KEY,
         progress=False,
     )
     log(f"Tunnel ready: {tunnel.url}")
@@ -504,7 +517,7 @@ async def main():
     config_body = {
         "prompt_learning": {
             "algorithm": "gepa",
-            "task_app_url": tunnel.url,
+            "localapi_url": tunnel.url,
             "env_name": "crafter",
             "initial_prompt": {
                 "messages": [{"role": "system", "order": 0, "pattern": baseline_prompt}],
@@ -536,7 +549,7 @@ async def main():
             },
             "verifier": {
                 "enabled": False,
-                "reward_source": "task_app",
+                "reward_source": "localapi",
             },
         },
     }
@@ -557,7 +570,7 @@ async def main():
 
     if result.succeeded:
         log("Extracting optimized prompt...")
-        pl_client = PromptLearningClient(SYNTH_API_BASE, SYNTH_API_KEY)
+        pl_client = PromptLearningClient(synth_user_key=SYNTH_USER_KEY)
         prompt_results = await pl_client.get_prompts(job_id)
 
         optimized = None

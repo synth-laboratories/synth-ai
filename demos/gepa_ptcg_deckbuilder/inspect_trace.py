@@ -5,36 +5,27 @@ Inspect trace data for a specific seed to see the actual rollout response.
 
 import argparse
 import json
-import os
 
 import httpx
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_eval_job_traces_url
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
+
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
 
 parser = argparse.ArgumentParser(description="Inspect trace data for eval job")
 parser.add_argument("job_id", help="Eval job ID")
 parser.add_argument("seed", type=int, help="Seed to inspect")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
 args = parser.parse_args()
 
 
 def main():
-    # Backend setup
-    backend_url = "http://localhost:8000" if args.local else BACKEND_URL_BASE
-
-    # API key
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_url)
-
     # Get trace data
     print(f"\nFetching trace for seed {args.seed}...")
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(
-            f"{backend_url}/api/eval/jobs/{args.job_id}/traces/{args.seed}",
+            f"{synth_eval_job_traces_url(args.job_id)}/{args.seed}",
             params={"format": "json"},
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers={"Authorization": f"Bearer {SYNTH_USER_KEY}"},
         )
         if resp.status_code != 200:
             print(f"Failed to get trace: {resp.status_code} {resp.text}")

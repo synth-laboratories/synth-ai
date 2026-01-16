@@ -81,7 +81,7 @@ async def main():
         print()
         print(f"  USE_DAYTONA_SANDBOXES=1 DAYTONA_SNAPSHOT_NAME={snapshot_name} \\")
         print(
-            "    uv run python demos/engine_bench/run_eval.py --local --seeds 10 --model codex-5.1-mini --agent codex"
+            "    uv run python demos/engine_bench/run_eval.py --daytona --seeds 10 --model codex-5.1-mini --agent codex"
         )
         print()
         print("Or update daytona_helper.py SNAPSHOT_NAME constant.")

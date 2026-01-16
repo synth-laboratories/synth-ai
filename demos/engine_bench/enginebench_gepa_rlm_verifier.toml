@@ -2,7 +2,7 @@
 # Uses zero_shot_verifier_rubric_rlm for LLM-based rewards
 
 [prompt_learning]
-task_app_url = "http://localhost:8020"
+localapi_url = "http://localhost:8020"
 env_name = "engine_bench"
 algorithm = "gepa"
 

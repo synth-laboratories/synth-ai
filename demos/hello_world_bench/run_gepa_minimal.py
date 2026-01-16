@@ -3,28 +3,25 @@
 Run a minimal GEPA job for hello_world_bench.
 
 Usage:
-    cd /Users/joshpurtell/Documents/GitHub/synth-ai
-    LOG_LEVEL=DEBUG uv run python demos/hello_world_bench/run_gepa_minimal.py --local --model gpt-5-nano --generations 2
+    uv run python demos/hello_world_bench/run_gepa_minimal.py --model gpt-5-nano --generations 2
 """
 
 import argparse
 import asyncio
-import os
 import time
 from pathlib import Path
 
 import httpx
 from localapi_hello_world_bench import app
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
+
 parser = argparse.ArgumentParser(description="Run minimal GEPA for hello_world_bench")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
-parser.add_argument("--local-host", type=str, default="localhost")
 parser.add_argument("--port", type=int, default=8030)
 parser.add_argument("--model", type=str, default="gpt-5-nano")
 parser.add_argument("--timeout", type=int, default=120, help="Agent timeout per rollout")
@@ -65,26 +62,15 @@ def _wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) 
 
 
 async def main() -> None:
-    backend_url = f"http://{args.local_host}:8000" if args.local else BACKEND_URL_BASE
-
     async with httpx.AsyncClient() as client:
-        r = await client.get(f"{backend_url}/health", timeout=10)
-        print(f"Backend health: {r.status_code}")
+        r = await client.get(synth_health_url(), timeout=10)
+        print(f"Synth health: {r.status_code}")
 
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_url)
+    print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
-    env_key = ensure_localapi_auth(backend_base=backend_url, synth_api_key=api_key)
-    print(f"Environment key: {env_key[:16]}...")
-
-    # Start task app
+    # Acquire port and prepare localapi URL
     port = acquire_port(args.port, on_conflict=PortConflictBehavior.FIND_NEW)
-    run_server_background(app, port)
-    _wait_for_health(args.local_host, port, env_key)
-    task_url = f"http://{args.local_host}:{port}"
-    print(f"Task app ready: {task_url}")
+    localapi_url = f"http://localhost:{port}"
 
     config_path = Path(__file__).parent / args.config
     if not config_path.exists():
@@ -96,7 +82,7 @@ async def main() -> None:
         config_dict = tomllib.load(f)
 
     # Apply overrides
-    config_dict["prompt_learning"]["task_app_url"] = task_url
+    config_dict["prompt_learning"]["localapi_url"] = localapi_url
     config_dict["prompt_learning"]["policy"]["model"] = args.model
     if (
         "policy" in config_dict["prompt_learning"]
@@ -127,11 +113,13 @@ async def main() -> None:
     print("Submitting GEPA job...")
     job = PromptLearningJob.from_dict(
         config_dict=config_dict,
-        backend_url=backend_url,
-        api_key=api_key,
-        task_app_api_key=env_key,
-        skip_health_check=True,
+        synth_user_key=SYNTH_USER_KEY,
     )
+
+    # Start localapi server
+    run_server_background(app, port)
+    _wait_for_health("localhost", port, job.localapi_key)
+    print(f"Localapi ready: {localapi_url}")
 
     job_id = job.submit()
     print(f"Job ID: {job_id}")

@@ -3,8 +3,8 @@
 
 [prompt_learning]
 algorithm = "gepa"
-task_app_id = "web_design_generator"
-task_app_url = "http://localhost:8103"
+localapi_id = "web_design_generator"
+localapi_url = "http://localhost:8103"
 
 # Initial style prompt to optimize
 [prompt_learning.initial_prompt]

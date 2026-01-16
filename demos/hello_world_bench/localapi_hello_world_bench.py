@@ -621,7 +621,7 @@ if __name__ == "__main__":
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
     port = int(os.getenv("PORT", "8030"))
-    env_key = ensure_localapi_auth(backend_base="http://localhost:8000", synth_api_key=None)
+    env_key = ensure_localapi_auth()
     print(f"[hello_world_bench] ENVIRONMENT_API_KEY ready: {env_key[:15]}...")
     print(f"[hello_world_bench] Starting on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

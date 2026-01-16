@@ -4,35 +4,27 @@ Inspect detailed eval job results to understand why seeds failed.
 """
 
 import argparse
-import os
 
 import httpx
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_eval_job_results_url, synth_eval_job_url
+from synth_ai.sdk.auth import get_or_mint_synth_api_key
+
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
 
 parser = argparse.ArgumentParser(description="Inspect eval job results")
 parser.add_argument("job_id", help="Eval job ID to inspect")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
 args = parser.parse_args()
 
 
 def main():
-    # Backend setup
-    backend_url = "http://localhost:8000" if args.local else BACKEND_URL_BASE
-
-    # API key
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_url)
-        print(f"API Key: {api_key[:20]}...")
+    print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
     # Get job status
     print(f"\nFetching job status for: {args.job_id}")
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(
-            f"{backend_url}/api/eval/jobs/{args.job_id}",
-            headers={"Authorization": f"Bearer {api_key}"},
+            synth_eval_job_url(args.job_id),
+            headers={"Authorization": f"Bearer {SYNTH_USER_KEY}"},
         )
         if resp.status_code != 200:
             print(f"Failed to get job: {resp.status_code} {resp.text}")
@@ -45,8 +37,8 @@ def main():
     print("\nFetching detailed results...")
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(
-            f"{backend_url}/api/eval/jobs/{args.job_id}/results",
-            headers={"Authorization": f"Bearer {api_key}"},
+            synth_eval_job_results_url(args.job_id),
+            headers={"Authorization": f"Bearer {SYNTH_USER_KEY}"},
         )
         if resp.status_code != 200:
             print(f"Failed to get results: {resp.status_code} {resp.text}")

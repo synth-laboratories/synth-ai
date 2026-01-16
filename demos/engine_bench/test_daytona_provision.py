@@ -14,7 +14,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from daytona_helper import DaytonaTaskAppRunner
+from daytona_helper import DaytonaLocalapiRunner
 
 
 async def main():
@@ -27,7 +27,7 @@ async def main():
         sys.exit(1)
 
     start = time.time()
-    runner = DaytonaTaskAppRunner(use_snapshot=True)
+    runner = DaytonaLocalapiRunner(use_snapshot=True)
 
     try:
         # Test 1: Provision

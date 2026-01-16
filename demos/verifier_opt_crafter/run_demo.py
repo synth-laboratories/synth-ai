@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 import nest_asyncio
 from synth_ai.core.paths import REPO_ROOT
-from synth_ai.core.urls import BACKEND_URL_BASE, backend_health_url
+from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.sdk.api.train.graphgen import GraphGenJob
 from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenGoldOutput,
@@ -68,13 +68,13 @@ repo_root = REPO_ROOT
 nest_asyncio.apply()
 
 # Backend configuration
-SYNTH_API_BASE = BACKEND_URL_BASE
+SYNTH_API_BASE = synth_base_url()
 
 print(f"Backend: {SYNTH_API_BASE}")
 
 # Check backend health
 try:
-    r = httpx.get(backend_health_url(SYNTH_API_BASE), timeout=30)
+    r = httpx.get(synth_health_url(), timeout=30)
     if r.status_code == 200:
         print(f"Backend health: {r.json()}")
     else:
@@ -83,8 +83,8 @@ except Exception as e:
     print(f"WARNING: Could not check backend health: {e}")
 
 # Get API Key
-API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE)
-print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+SYNTH_USER_KEY = get_or_mint_synth_api_key()
+print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
 
 def _find_default_dataset() -> Optional[Path]:
@@ -373,8 +373,7 @@ async def main():
     # Create GraphGen job for verifier optimization
     job = GraphGenJob.from_dataset(
         dataset=dataset,
-        backend_url=SYNTH_API_BASE,
-        api_key=API_KEY,
+        synth_user_key=SYNTH_USER_KEY,
         graph_type="verifier",
         policy_models=["gpt-4o-mini"],  # Policy models for graph execution
         judge_model="gpt-4o-mini",  # Judge/verifier model for scoring traces
