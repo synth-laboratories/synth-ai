@@ -3,7 +3,7 @@ import urllib.request
 from dataclasses import dataclass
 
 from synth_ai.core import localapi_state
-from synth_ai.core.urls import BACKEND_URL_API
+from synth_ai.core.urls import synth_base_url, synth_rl_jobs_url
 from synth_ai.core.user_config import load_user_env
 
 DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"
@@ -74,7 +74,7 @@ def modal_auth_status() -> tuple[bool, str]:
 def load_env() -> DemoEnv:
     """Resolve environment with sane defaults.
 
-    Backend URL: Uses centralized BACKEND_URL_API from urls.py
+    Backend URL: Uses centralized base from urls.py
     API keys: SYNTH_API_KEY from environment
     TASK_APP_BASE_URL: From environment or state
     """
@@ -89,10 +89,10 @@ def load_env() -> DemoEnv:
     task_app_name = str(os.getenv("TASK_APP_NAME") or "")
     task_app_secret_name = str(os.getenv("TASK_APP_SECRET_NAME") or DEFAULT_TASK_APP_SECRET_NAME)
 
-    env.dev_backend_url = BACKEND_URL_API
+    env.dev_backend_url = synth_base_url()
     env.synth_api_key = synth_api_key
     env.env_api_key = env_api_key
-    env.task_app_base_url = task_url.rstrip("/") if task_url else ""
+    env.task_app_base_url = task_url if task_url else ""
     env.task_app_name = task_app_name
     env.task_app_secret_name = task_app_secret_name
 
@@ -143,7 +143,7 @@ def run_job(
     """Create and stream a short RL job using the backend API (placeholder: prints cURL to execute)."""
     print("\nTo create an RL job, run:")
     print(
-        'curl -s -X POST "' + env.dev_backend_url + '/rl/jobs" '
+        'curl -s -X POST "' + synth_rl_jobs_url(env.dev_backend_url) + '" '
         "-H 'Content-Type: application/json' "
         f"-H 'Authorization: Bearer {env.synth_api_key}' "
         "-d '{"  # intentionally not fully formed here for brevity in this scaffold

@@ -2,7 +2,7 @@
 """Run verifier optimization (Graph Evolve) for PTCG gameplay traces.
 
 Usage:
-    uv run python demos/gepa_ptcg/run_verifier_opt.py --local
+    uv run python demos/gepa_ptcg/run_verifier_opt.py
 """
 
 import argparse
@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import httpx
+from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.products.graph_evolve import GraphOptimizationClient, GraphOptimizationConfig
 from synth_ai.products.graph_evolve.config import (
     EvolutionConfig,
@@ -20,9 +21,9 @@ from synth_ai.products.graph_evolve.config import (
     ProposerConfig,
     SeedsConfig,
 )
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 
 parser = argparse.ArgumentParser(description="Run PTCG verifier optimization")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
 parser.add_argument(
     "--dataset",
     type=str,
@@ -62,24 +63,11 @@ def _load_env_file(path: Path) -> None:
 
 _load_env_file(synth_root / ".env")
 
-USE_LOCAL_BACKEND = args.local
-SYNTH_API_BASE = "http://127.0.0.1:8000" if USE_LOCAL_BACKEND else "https://api.usesynth.ai"
-os.environ["BACKEND_BASE_URL"] = SYNTH_API_BASE
-
-
-def _validate_api_key(api_key: str) -> bool:
-    if not api_key:
-        return False
-    headers = {"Authorization": f"Bearer {api_key}"}
-    try:
-        resp = httpx.get(f"{SYNTH_API_BASE}/api/v1/me", headers=headers, timeout=10)
-    except Exception:
-        return False
-    return resp.status_code == 200
+SYNTH_API_BASE = synth_base_url()
 
 
 def _get_org_id() -> str:
-    headers = {"Authorization": f"Bearer {API_KEY}"}
+    headers = {"Authorization": f"Bearer {SYNTH_USER_KEY}"}
     for path in ("/api/v1/me", "/me"):
         resp = httpx.get(f"{SYNTH_API_BASE}{path}", headers=headers, timeout=10)
         if resp.status_code == 200:
@@ -92,22 +80,14 @@ def _get_org_id() -> str:
 
 print(f"Backend: {SYNTH_API_BASE}")
 
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
+r = httpx.get(synth_health_url(), timeout=30)
 if r.status_code != 200:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 print(f"Backend health: {r.json()}")
 
-API_KEY = os.environ.get("SYNTH_API_KEY", "").strip()
-if not API_KEY or not _validate_api_key(API_KEY):
-    print("SYNTH_API_KEY missing or invalid for this backend; minting demo key...")
-    resp = httpx.post(f"{SYNTH_API_BASE}/api/demo/keys", json={"ttl_hours": 4}, timeout=30)
-    resp.raise_for_status()
-    API_KEY = resp.json()["api_key"]
-    print(f"Demo API Key: {API_KEY[:25]}...")
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
-
-os.environ["SYNTH_API_KEY"] = API_KEY
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
+os.environ["SYNTH_SYNTH_USER_KEY"] = SYNTH_USER_KEY
+print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
 dataset_path = Path(args.dataset)
 if not dataset_path.exists():
@@ -158,12 +138,12 @@ verifier_config = GraphOptimizationConfig(
 
 
 async def run_verifier_optimization() -> tuple[str, Dict[str, Any]]:
-    async with GraphOptimizationClient(SYNTH_API_BASE, API_KEY) as client:
+    async with GraphOptimizationClient(SYNTH_API_BASE, SYNTH_USER_KEY) as client:
         job_id = await client.start_job(verifier_config)
         print(f"Graph evolve job: {job_id}")
 
     async with httpx.AsyncClient(timeout=90.0) as http:
-        headers = {"Authorization": f"Bearer {API_KEY}"}
+        headers = {"Authorization": f"Bearer {SYNTH_USER_KEY}"}
         for _ in range(900):
             try:
                 status_resp = await http.get(
@@ -189,7 +169,7 @@ async def run_verifier_optimization() -> tuple[str, Dict[str, Any]]:
 
 
 async def save_verifier_graph(job_id: str, org_id: str) -> str:
-    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {SYNTH_USER_KEY}", "Content-Type": "application/json"}
     payload = {
         "name": f"ptcg-verifier-{job_id[:8]}",
         "org_id": org_id,

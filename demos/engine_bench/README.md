@@ -47,9 +47,9 @@ The demo involves three components that need to communicate:
 
 ## Running Modes
 
-### Mode 1: Local Mode (Recommended for Development)
+### Mode 1: Local Backend (for Development)
 
-Uses your local backend - no tunnel needed. The Daytona sandbox still needs to reach the interceptor, so we use `INTERCEPTOR_TUNNEL_URL`.
+Uses your local backend - no tunnel needed for the task app. The Daytona sandbox still needs to reach the interceptor, so we use `INTERCEPTOR_TUNNEL_URL`.
 
 **Step 1**: Start the local backend
 ```bash
@@ -66,10 +66,11 @@ cloudflared tunnel --url http://localhost:8000
 **Step 3**: Run the eval
 ```bash
 cd synth-ai
+SYNTH_BACKEND_URL=http://localhost:8000 \
 INTERCEPTOR_TUNNEL_URL=https://xxx-xxx-xxx.trycloudflare.com \
 USE_DAYTONA_SANDBOXES=1 \
 uv run python demos/engine_bench/run_eval.py \
-  --local --seeds 1 --model gpt-4o-mini --agent opencode --timeout 180
+  --seeds 1 --model gpt-4o-mini --agent opencode --timeout 180
 ```
 
 ### Mode 2: Production Mode with Synth Managed Tunnel (Recommended)
@@ -167,7 +168,6 @@ Any OpenAI model works. Recommended:
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--local` | - | Use local backend (localhost:8000) |
 | `--seeds N` | 1 | Number of random instances to evaluate |
 | `--model` | gpt-4o-mini | Model for agent to use |
 | `--agent` | opencode | Agent type: `codex` or `opencode` |
@@ -193,8 +193,9 @@ Beyond unit test rewards, you can use zero-shot verifiers to get LLM-based event
 
 ```bash
 # Run eval with mapreduce verifier (recommended)
+# For local backend development, set SYNTH_BACKEND_URL=http://localhost:8000
 uv run python demos/engine_bench/run_eval.py \
-  --local --seeds 1 --model gpt-4o-mini --agent opencode \
+  --seeds 1 --model gpt-4o-mini --agent opencode \
   --verifier zero_shot_verifier_rubric_mapreduce \
   --verifier-model gpt-4o-mini
 ```

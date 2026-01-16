@@ -8,7 +8,6 @@ full (slower) config in enginebench_gepa.toml.
 
 import argparse
 import asyncio
-import os
 import time
 from pathlib import Path
 
@@ -20,16 +19,17 @@ except ImportError:  # pragma: no cover
     import tomli as tomllib  # type: ignore
 
 from localapi_engine_bench import INSTANCE_IDS, app
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 try:
     from synth_ai.sdk.task.server import run_server_background
 except ImportError:  # pragma: no cover
     from synth_ai.sdk.task import run_server_background
+
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 
 def _wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -56,8 +56,6 @@ def _load_config(config_path: Path) -> dict[str, object]:
 
 async def main() -> int:
     parser = argparse.ArgumentParser(description="Run EngineBench GEPA (full config)")
-    parser.add_argument("--local", action="store_true", help="Use localhost backend")
-    parser.add_argument("--local-host", type=str, default="localhost")
     parser.add_argument("--port", type=int, default=8020, help="Task app port")
     parser.add_argument(
         "--config",
@@ -69,40 +67,26 @@ async def main() -> int:
     parser.add_argument("--generations", type=int, help="Override number of generations")
     args = parser.parse_args()
 
-    backend_url = f"http://{args.local_host}:8000" if args.local else BACKEND_URL_BASE
-    print(f"Backend: {backend_url}")
     print(f"Instances available: {len(INSTANCE_IDS)}")
 
+    # Check backend health
     async with httpx.AsyncClient() as client:
-        r = await client.get(f"{backend_url}/health", timeout=10)
+        r = await client.get(synth_health_url(), timeout=10)
         if r.status_code != 200:
             raise RuntimeError(f"Backend not healthy: {r.status_code}")
 
-    api_key = os.environ.get("SYNTH_API_KEY", "")
-    if not api_key:
-        print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_url)
-        os.environ["SYNTH_API_KEY"] = api_key
-    print(f"API Key: {api_key[:20]}...")
-
-    env_key = ensure_localapi_auth(
-        backend_base=backend_url,
-        synth_api_key=api_key,
-    )
-    print(f"Environment key: {env_key[:12]}...")
+    print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
     port = acquire_port(args.port, on_conflict=PortConflictBehavior.FIND_NEW)
-    run_server_background(app, port)
-    _wait_for_health(args.local_host, port, env_key)
-    task_url = f"http://{args.local_host}:{port}"
-    print(f"Task app ready: {task_url}")
+    localapi_url = f"http://localhost:{port}"
+    print(f"Localapi URL: {localapi_url}")
 
     config_path = Path(__file__).parent / args.config
     config_dict = _load_config(config_path)
     prompt_cfg = config_dict.get("prompt_learning")
     if not isinstance(prompt_cfg, dict):
         raise RuntimeError(f"Config {config_path} must contain a [prompt_learning] section")
-    prompt_cfg["task_app_url"] = task_url
+    prompt_cfg["localapi_url"] = localapi_url
 
     if args.budget is not None:
         prompt_cfg.setdefault("gepa", {}).setdefault("rollout", {})["budget"] = args.budget
@@ -114,11 +98,13 @@ async def main() -> int:
     print("\nSubmitting GEPA job...")
     job = PromptLearningJob.from_dict(
         config_dict=config_dict,
-        backend_url=backend_url,
-        api_key=api_key,
-        task_app_api_key=env_key,
-        skip_health_check=True,
+        synth_user_key=SYNTH_USER_KEY,
     )
+
+    run_server_background(app, port)
+    _wait_for_health("localhost", port, job.config.localapi_key)
+    print(f"Localapi ready: {localapi_url}")
+
     job_id = job.submit()
     print(f"Job ID: {job_id}")
 

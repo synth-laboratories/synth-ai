@@ -84,10 +84,9 @@ def make_gold_examples(session_trace: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Debug verifier scoring against localhost backend."
-    )
-    parser.add_argument("--backend", default="http://localhost:8000", help="Backend base URL")
+    from synth_ai.core.urls import synth_base_url
+
+    parser = argparse.ArgumentParser(description="Debug verifier scoring.")
     parser.add_argument(
         "--verifier-job-id",
         default="zero_shot_verifier_contrastive_single",
@@ -95,6 +94,8 @@ def main() -> None:
     )
     parser.add_argument("--model", default="gpt-4.1-nano", help="Verifier model override")
     args = parser.parse_args()
+
+    backend = synth_base_url()
 
     repo_root = Path(__file__).resolve().parents[2]
     env_path = repo_root / ".env"
@@ -123,7 +124,7 @@ def main() -> None:
         "Content-Type": "application/json",
     }
 
-    url = f"{args.backend.rstrip('/')}/api/graphs/completions"
+    url = f"{backend.rstrip('/')}/api/graphs/completions"
     print(f"POST {url}")
     print(f"job_id: {args.verifier_job_id}")
 

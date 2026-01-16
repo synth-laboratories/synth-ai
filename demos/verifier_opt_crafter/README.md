@@ -12,9 +12,9 @@ The demo:
 
 ## Prerequisites
 
-- Backend running (default: `http://localhost:8000` for local mode)
 - `SYNTH_API_KEY` environment variable set
 - Crafter trace dataset (see below)
+- For local backend development, set `SYNTH_BACKEND_URL=http://localhost:8000`
 
 ## Dataset
 
@@ -34,27 +34,24 @@ Each trace should contain:
 
 ## Usage
 
-### Local Mode (recommended for development)
-
-```bash
-uv run python demos/verifier_opt_crafter/run_demo.py --local
-```
-
-### Production Mode
-
 ```bash
 uv run python demos/verifier_opt_crafter/run_demo.py
+```
+
+For local backend development, set the env var:
+
+```bash
+SYNTH_BACKEND_URL=http://localhost:8000 uv run python demos/verifier_opt_crafter/run_demo.py
 ```
 
 ### Options
 
 ```bash
---local              Use localhost:8000 backend (no tunnels)
 --dataset-path PATH  Path to trace dataset (if not in default location)
 --max-traces N       Maximum traces to use (default: 30)
 --generations N      Number of optimization generations (default: 3)
 --children N         Children per generation (default: 3)
---rollout-budget N  Rollout budget for optimization (default: 100)
+--rollout-budget N   Rollout budget for optimization (default: 100)
 ```
 
 ## Example Output

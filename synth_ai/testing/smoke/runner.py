@@ -16,13 +16,11 @@ import httpx
 
 from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
 from synth_ai.core.tracing_v3.turso.daemon import start_sqld
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_base_url, synth_inference_chat_completions_url
 from synth_ai.sdk.localapi.client import LocalAPIClient
 from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
-    RolloutMode,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
 )
 from synth_ai.sdk.task.validators import (
@@ -730,8 +728,8 @@ class MockRLTrainer:
 
 async def _run_smoke_async(
     *,
-    task_app_url: str,
-    api_key: str | None,
+    localapi_url: str,
+    localapi_key: str | None,
     env_name_opt: str | None,
     policy_name: str,
     model: str,
@@ -760,10 +758,10 @@ async def _run_smoke_async(
             click.echo(f"Failed to load RL config {config_path}: {exc}", err=True)
             return 2
 
-        # Prefer explicit CLI --url; only use config services.task_url if URL not provided
+        # Prefer explicit CLI --url; only use config services.localapi_url if URL not provided
         try:
-            if not task_app_url and cfg.services and getattr(cfg.services, "task_url", None):
-                task_app_url = cfg.services.task_url
+            if not localapi_url and cfg.services and getattr(cfg.services, "localapi_url", None):
+                localapi_url = cfg.services.localapi_url
         except Exception:
             pass
         # Fill env and model if not explicitly set
@@ -793,11 +791,11 @@ async def _run_smoke_async(
         except Exception:
             pass
 
-    base = validate_task_app_url(task_app_url)
+    base = validate_task_app_url(localapi_url)
     mock_backend = (mock_backend or "synthetic").strip().lower()
 
     # Discover environment if not provided
-    async with LocalAPIClient(base_url=base, api_key=api_key) as client:
+    async with LocalAPIClient(base_url=base, localapi_key=localapi_key) as client:
         # Probe basic info quickly
         try:
             _ = await client.health()
@@ -825,14 +823,8 @@ async def _run_smoke_async(
             return 2
 
         # Inference URL: user override > preset > local mock > Synth API default
-        synth_base = (
-            os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL") or BACKEND_URL_BASE
-        ).rstrip("/")
-        # Avoid double '/api' if base already includes it
-        if synth_base.endswith("/api"):
-            default_infer = f"{synth_base}/inference/v1/chat/completions"
-        else:
-            default_infer = f"{synth_base}/api/inference/v1/chat/completions"
+        synth_base = synth_base_url()
+        default_infer = synth_inference_chat_completions_url(synth_base)
 
         # Helper to execute one or more rollouts and return exit code
         async def __do_rollouts(inference_url_raw: str) -> int:
@@ -878,20 +870,12 @@ async def _run_smoke_async(
                         policy_cfg.update(sampling)
 
                     request = RolloutRequest(
-                        run_id=run_id,
+                        trace_correlation_id=run_id,
                         env=RolloutEnvSpec(env_name=env_name, config={}, seed=i),
                         policy=RolloutPolicySpec(policy_name=policy_name, config=policy_cfg),
-                        record=RolloutRecordConfig(
-                            trajectories=True,
-                            logprobs=False,
-                            value=False,
-                            return_trace=return_trace,
-                            trace_format=("structured" if return_trace else "compact"),
-                        ),
                         on_done="reset",
                         training_session_id=None,
                         synth_base_url=synth_base,
-                        mode=RolloutMode.RL,
                     )
 
                     try:
@@ -1109,8 +1093,8 @@ async def _run_smoke_async(
 
 async def _run_train_step(
     *,
-    task_app_url: str,
-    api_key: str | None,
+    localapi_url: str,
+    localapi_key: str | None,
     env_name_opt: str | None,
     policy_name: str,
     model: str,
@@ -1132,8 +1116,8 @@ async def _run_train_step(
         t0 = time.perf_counter()
         try:
             code = await _run_smoke_async(
-                task_app_url=task_app_url,
-                api_key=api_key,
+                localapi_url=localapi_url,
+                localapi_key=localapi_key,
                 env_name_opt=env_name_opt,
                 policy_name=policy_name,
                 model=model,
@@ -1195,10 +1179,10 @@ async def _run_train_step(
 @click.command()
 @click.option(
     "--url",
-    "task_app_url",
+    "localapi_url",
     type=str,
-    default=lambda: os.getenv("TASK_APP_URL", "http://localhost:8765"),
-    help="Task app base URL.",
+    default=lambda: os.getenv("SYNTH_LOCALAPI_URL", "http://localhost:8765"),
+    help="LocalAPI base URL.",
 )
 @click.option(
     "--api-key",
@@ -1284,8 +1268,8 @@ async def _run_train_step(
     help="Emulate a train step by running this many rollouts concurrently (0 = sequential).",
 )
 def smoke(
-    task_app_url: str,
-    api_key: str,
+    localapi_url: str,
+    localapi_key: str,
     env_name: str | None,
     policy_name: str,
     model: str,
@@ -1302,7 +1286,7 @@ def smoke(
     batch_size: int | None,
     parallel: int,
 ) -> None:
-    """Smoke-test a Task App by emulating a trainer rollout using GPT-5-Nano.
+    """Smoke-test a LocalAPI by emulating a trainer rollout using GPT-5-Nano.
 
     This command posts a minimal RL rollout to the task app, with a valid
     OpenAI-compatible inference URL including a trace correlation id, and
@@ -1334,21 +1318,21 @@ def smoke(
             if sqld_proc:
                 background_procs.append(("sqld", sqld_proc))
 
-        # Auto-start task app if configured
-        task_app_override_url = None
+        # Auto-start LocalAPI if configured
+        localapi_override_url = None
         if smoke_config.get("task_app_name"):
             task_app_name = smoke_config["task_app_name"]
             task_app_port = smoke_config.get("task_app_port", 8765)
             task_app_force = smoke_config.get("task_app_force", True)
 
-            task_app_proc, task_app_url = _start_task_app_server(
+            task_app_proc, localapi_url = _start_task_app_server(
                 task_app_name=task_app_name,
                 port=task_app_port,
                 force=task_app_force,
             )
             background_procs.append(("task_app", task_app_proc))
-            task_app_override_url = task_app_url
-            click.echo(f"[smoke] Task app started, will use URL: {task_app_url}", err=True)
+            localapi_override_url = localapi_url
+            click.echo(f"[smoke] LocalAPI started, will use URL: {localapi_url}", err=True)
     except Exception as exc:
         # Cleanup any processes that did start
         for proc_name, proc in background_procs:
@@ -1364,9 +1348,9 @@ def smoke(
         raise click.ClickException(f"Auto-start failed: {exc}") from exc
 
     # Apply TOML defaults (CLI args take precedence)
-    # Override task_url with auto-started task app URL if applicable
-    if task_app_override_url:
-        task_app_url = task_app_override_url
+    # Override localapi_url with auto-started LocalAPI URL if applicable
+    if localapi_override_url:
+        localapi_url = localapi_override_url
     # For string/int args: use TOML value if CLI value matches the default
     ctx = click.get_current_context()
 
@@ -1391,7 +1375,7 @@ def smoke(
         return cli_value
 
     # Apply TOML defaults
-    task_app_url = use_toml_default("task_app_url", task_app_url, "task_url")
+    localapi_url = use_toml_default("localapi_url", localapi_url, "localapi_url")
     env_name = use_toml_default("env_name", env_name, "env_name")
     policy_name = use_toml_default("policy_name", policy_name, "policy_name")
     model = use_toml_default("model", model, "model")
@@ -1402,7 +1386,7 @@ def smoke(
     use_mock = use_toml_default("use_mock", use_mock, "use_mock")
     mock_backend = use_toml_default("mock_backend", mock_backend, "mock_backend")
     mock_port = use_toml_default("mock_port", mock_port, "mock_port")
-    api_key = use_toml_default("api_key", api_key, "api_key")
+    localapi_key = use_toml_default("localapi_key", localapi_key, "localapi_key")
 
     # Auto-configure tracing to avoid interactive prompts
     try:
@@ -1447,8 +1431,8 @@ def smoke(
         from synth_ai.core.user_config import load_user_env
 
         load_user_env(override=False)
-        if not api_key:
-            api_key = os.getenv("ENVIRONMENT_API_KEY", "")
+        if not localapi_key:
+            localapi_key = os.getenv("ENVIRONMENT_API_KEY", "")
     except Exception:
         pass
 
@@ -1456,8 +1440,8 @@ def smoke(
         if parallel and parallel > 0:
             exit_code = asyncio.run(
                 _run_train_step(
-                    task_app_url=task_app_url,
-                    api_key=(api_key or None),
+                    localapi_url=localapi_url,
+                    localapi_key=(localapi_key or None),
                     env_name_opt=env_name,
                     policy_name=policy_name,
                     model=model,
@@ -1475,8 +1459,8 @@ def smoke(
         else:
             exit_code = asyncio.run(
                 _run_smoke_async(
-                    task_app_url=task_app_url,
-                    api_key=(api_key or None),
+                    localapi_url=localapi_url,
+                    localapi_key=(localapi_key or None),
                     env_name_opt=env_name,
                     policy_name=policy_name,
                     model=model,

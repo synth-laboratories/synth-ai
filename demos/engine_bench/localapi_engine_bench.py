@@ -12,8 +12,6 @@ EngineBench evaluates an agent's ability to:
 4. Produce code that passes deterministic cargo tests
 """
 
-from __future__ import annotations
-
 import asyncio
 import difflib
 import json
@@ -23,6 +21,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -35,9 +34,13 @@ from synth_ai.data.artifacts import Artifact  # noqa: E402
 from synth_ai.data.enums import SuccessStatus  # noqa: E402
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api  # noqa: E402
 from synth_ai.sdk.task.contracts import (  # noqa: E402
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
+    TaskDescriptor,
     TaskInfo,
 )
 from synth_ai.sdk.task.rubrics.models import Criterion, Rubric  # noqa: E402
@@ -1025,7 +1028,7 @@ def provide_taskset_description() -> dict:
     }
 
 
-def provide_task_instances(seeds: list[int]):
+def provide_task_instances(seeds: Sequence[int]):
     """Yield TaskInfo for each seed."""
     for seed in seeds:
         instance_id = get_instance_by_seed(seed)
@@ -1034,19 +1037,18 @@ def provide_task_instances(seeds: list[int]):
         card_name = cards[0].get("name", instance_id) if cards else instance_id
 
         yield TaskInfo(
-            task={"id": APP_ID, "name": APP_NAME},
-            dataset={
-                "id": APP_ID,
-                "split": instance_id.split("-")[0],  # df or hp
-                "index": seed,
-                "instance_id": instance_id,
-            },
-            inference={"tool": "code_edit"},
-            limits={"max_turns": 30},
+            task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+            dataset=DatasetInfo(
+                id=APP_ID,
+                default_split=instance_id.split("-")[0],  # df or hp
+            ),
+            inference=InferenceInfo(),
+            limits=LimitsInfo(max_turns=30),
             task_metadata={
                 "instance_id": instance_id,
                 "card_name": card_name,
                 "expansion": instance.get("expansion", "dragon_frontiers"),
+                "seed": seed,
             },
         )
 
@@ -1588,10 +1590,7 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8017"))
 
     # Ensure ENVIRONMENT_API_KEY is set
-    env_key = ensure_localapi_auth(
-        backend_base="http://localhost:8000",
-        synth_api_key=None,
-    )
+    env_key = ensure_localapi_auth()
     print(f"[engine_bench] ENVIRONMENT_API_KEY ready: {env_key[:15]}...")
     print(f"[engine_bench] Starting on port {port}")
 

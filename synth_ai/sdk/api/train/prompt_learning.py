@@ -11,7 +11,7 @@ Example CLI usage:
 Example SDK usage:
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 
-    job = PromptLearningJob.from_dict(config_dict, api_key="sk_live_...")
+    job = PromptLearningJob.from_dict(config_dict, synth_user_key="sk_live_...")
     job.submit()
     result = job.poll_until_complete(progress=True)  # Built-in progress printing
 
@@ -24,8 +24,6 @@ For domain-specific verification, you can use **Verifier Graphs**. See `PromptLe
 in `synth_ai.sdk.api.train.configs.prompt_learning` for configuration details.
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 import time
@@ -35,7 +33,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from synth_ai.core.telemetry import log_info
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_prompt_learning_job_url, synth_prompt_learning_jobs_url
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 from .builders import (
@@ -45,7 +43,7 @@ from .builders import (
 )
 from .local_api import check_local_api_health
 from .pollers import JobPoller, PollOutcome
-from .utils import ensure_api_base, http_get, http_post
+from .utils import http_get, http_post
 
 
 class JobStatus(str, Enum):
@@ -59,7 +57,7 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
     @classmethod
-    def from_string(cls, status: str) -> JobStatus:
+    def from_string(cls, status: str) -> "JobStatus":
         """Convert string to JobStatus, defaulting to PENDING for unknown values."""
         try:
             return cls(status.lower())
@@ -100,7 +98,7 @@ class PromptLearningResult:
     raw: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_response(cls, job_id: str, data: Dict[str, Any]) -> PromptLearningResult:
+    def from_response(cls, job_id: str, data: Dict[str, Any]) -> "PromptLearningResult":
         """Create result from API response dict."""
         status_str = data.get("status", "pending")
         status = JobStatus.from_string(status_str)
@@ -155,17 +153,17 @@ class PromptLearningJobConfig:
         config_path: Path to the TOML configuration file. Mutually exclusive with config_dict.
         config_dict: Dictionary with prompt learning configuration. Mutually exclusive with config_path.
             Should have the same structure as the TOML file (with 'prompt_learning' section).
-        backend_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
-        api_key: Synth API key for authentication.
-        task_app_api_key: API key for authenticating with the Local API.
+        synth_base_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
+        synth_user_key: Synth API key for authentication.
+        localapi_key: API key for authenticating with the LocalAPI.
         allow_experimental: If True, allows use of experimental models.
         overrides: Dictionary of config overrides.
 
     Example (file-based):
         >>> config = PromptLearningJobConfig(
         ...     config_path=Path("my_config.toml"),
-        ...     backend_url="https://api.usesynth.ai",
-        ...     api_key="sk_live_...",
+        ...     synth_base_url="https://api.usesynth.ai",
+        ...     synth_user_key="sk_live_...",
         ... )
 
     Example (programmatic):
@@ -173,23 +171,23 @@ class PromptLearningJobConfig:
         ...     config_dict={
         ...         "prompt_learning": {
         ...             "algorithm": "gepa",
-        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "localapi_url": "https://tunnel.example.com",
         ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
         ...             "gepa": {...},
         ...         }
         ...     },
-        ...     backend_url="https://api.usesynth.ai",
-        ...     api_key="sk_live_...",
+        ...     synth_base_url="https://api.usesynth.ai",
+        ...     synth_user_key="sk_live_...",
         ... )
     """
 
-    backend_url: str
-    api_key: str
+    synth_user_key: str
     config_path: Optional[Path] = None
     config_dict: Optional[Dict[str, Any]] = None
-    task_app_api_key: Optional[str] = None
+    localapi_key: Optional[str] = None
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
+    synth_base_url: str | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration."""
@@ -205,16 +203,14 @@ class PromptLearningJobConfig:
         if has_path and not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
-        if not self.backend_url:
-            raise ValueError("backend_url is required")
-        if not self.api_key:
-            raise ValueError("api_key is required")
+        if not self.synth_user_key:
+            raise ValueError("synth_user_key is required")
 
-        # Get task_app_api_key from environment if not provided
-        if not self.task_app_api_key:
-            self.task_app_api_key = ensure_localapi_auth(
-                backend_base=self.backend_url,
-                synth_api_key=self.api_key,
+        # Get localapi_key from environment if not provided
+        if not self.localapi_key:
+            self.localapi_key = ensure_localapi_auth(
+                synth_user_key=self.synth_user_key,
+                synth_base_url=self.synth_base_url,
             )
 
 
@@ -230,7 +226,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/prompt-learning/online/jobs/{job_id}")
+        return super().poll(f"/prompt-learning/online/jobs/{job_id}")
 
 
 class PromptLearningJob:
@@ -247,8 +243,8 @@ class PromptLearningJob:
         >>> # Create job from config
         >>> job = PromptLearningJob.from_config(
         ...     config_path="my_config.toml",
-        ...     backend_url="https://api.usesynth.ai",
-        ...     api_key=os.environ["SYNTH_API_KEY"]
+        ...     synth_base_url="https://api.usesynth.ai",
+        ...     synth_user_key=os.environ["SYNTH_API_KEY"]
         ... )
         >>>
         >>> # Submit job
@@ -275,7 +271,7 @@ class PromptLearningJob:
         Args:
             config: Job configuration
             job_id: Existing job ID (if resuming a previous job)
-            skip_health_check: If True, skip task app health check before submission.
+            skip_health_check: If True, skip LocalAPI health check before submission.
                               Useful when using tunnels where DNS may not have propagated yet.
         """
         self.config = config
@@ -287,19 +283,19 @@ class PromptLearningJob:
     def from_config(
         cls,
         config_path: str | Path,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
+        localapi_key: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
-    ) -> PromptLearningJob:
+        synth_base_url: Optional[str] = None,
+    ) -> "PromptLearningJob":
         """Create a job from a TOML config file.
 
         Args:
             config_path: Path to TOML config file
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
-            task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY env var)
+            synth_base_url: Backend API URL (defaults to env or production)
+            synth_user_key: API key (defaults to SYNTH_API_KEY env var)
+            localapi_key: LocalAPI key (defaults to ENVIRONMENT_API_KEY env var)
             allow_experimental: Allow experimental models
             overrides: Config overrides
 
@@ -313,22 +309,19 @@ class PromptLearningJob:
 
         config_path_obj = Path(config_path)
 
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         config = PromptLearningJobConfig(
             config_path=config_path_obj,
-            backend_url=backend_url,
-            api_key=api_key,
-            task_app_api_key=task_app_api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
+            localapi_key=localapi_key,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
         )
@@ -339,13 +332,13 @@ class PromptLearningJob:
     def from_dict(
         cls,
         config_dict: Dict[str, Any],
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
+        localapi_key: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
         skip_health_check: bool = False,
-    ) -> PromptLearningJob:
+        synth_base_url: Optional[str] = None,
+    ) -> "PromptLearningJob":
         """Create a job from a configuration dictionary (programmatic use).
 
         This allows creating prompt learning jobs without a TOML file, enabling
@@ -356,7 +349,7 @@ class PromptLearningJob:
         {
             "prompt_learning": {
                 "algorithm": "gepa",
-                "task_app_url": "https://...",
+                "localapi_url": "https://...",
                 "policy": {"model": "gpt-4o-mini", "provider": "openai"},
                 "gepa": {...},
             }
@@ -365,12 +358,12 @@ class PromptLearningJob:
 
         Args:
             config_dict: Configuration dictionary with 'prompt_learning' section
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
-            task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY env var)
+            synth_base_url: Backend API URL (defaults to env or production)
+            synth_user_key: API key (defaults to SYNTH_API_KEY env var)
+            localapi_key: LocalAPI key (defaults to ENVIRONMENT_API_KEY env var)
             allow_experimental: Allow experimental models
             overrides: Config overrides
-            skip_health_check: If True, skip task app health check before submission
+            skip_health_check: If True, skip LocalAPI health check before submission
 
         Returns:
             PromptLearningJob instance
@@ -383,7 +376,7 @@ class PromptLearningJob:
             ...     config_dict={
             ...         "prompt_learning": {
             ...             "algorithm": "gepa",
-            ...             "task_app_url": "https://tunnel.example.com",
+            ...             "localapi_url": "https://tunnel.example.com",
             ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
             ...             "gepa": {
             ...                 "rollout": {"budget": 50, "max_concurrent": 5},
@@ -392,38 +385,34 @@ class PromptLearningJob:
             ...             },
             ...         }
             ...     },
-            ...     api_key="sk_live_...",
+            ...     synth_user_key="sk_live_...",
             ... )
             >>> job_id = job.submit()
         """
 
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         config = PromptLearningJobConfig(
             config_dict=config_dict,
-            backend_url=backend_url,
-            api_key=api_key,
-            task_app_api_key=task_app_api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
+            localapi_key=localapi_key,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
         )
 
         # Auto-detect tunnel URLs and skip health check if not explicitly set
         if skip_health_check is False:  # Only auto-detect if not explicitly True
-            task_url = config_dict.get("prompt_learning", {}).get(
-                "task_app_url"
-            ) or config_dict.get("prompt_learning", {}).get("local_api_url")
-            if task_url and (
-                ".trycloudflare.com" in task_url.lower() or ".cfargotunnel.com" in task_url.lower()
+            localapi_url = config_dict.get("prompt_learning", {}).get("localapi_url")
+            if localapi_url and (
+                ".trycloudflare.com" in localapi_url.lower()
+                or ".cfargotunnel.com" in localapi_url.lower()
             ):
                 skip_health_check = True
 
@@ -433,37 +422,34 @@ class PromptLearningJob:
     def from_job_id(
         cls,
         job_id: str,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-    ) -> PromptLearningJob:
+        synth_user_key: Optional[str] = None,
+        synth_base_url: Optional[str] = None,
+    ) -> "PromptLearningJob":
         """Resume an existing job by ID.
 
         Args:
             job_id: Existing job ID
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
+            synth_base_url: Backend API URL (defaults to env or production)
+            synth_user_key: API key (defaults to SYNTH_API_KEY env var)
 
         Returns:
             PromptLearningJob instance for the existing job
         """
 
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         # Create minimal config (we don't need the config for resuming - use empty dict)
         # The config_dict is never used when resuming since we have the job_id
         config = PromptLearningJobConfig(
             config_dict={"prompt_learning": {"_resumed": True}},  # Placeholder for resume mode
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
         )
 
         return cls(config, job_id=job_id)
@@ -476,17 +462,17 @@ class PromptLearningJob:
         """
         if self._build_result is None:
             overrides = self.config.overrides or {}
-            overrides["backend"] = self.config.backend_url
-            # Pass task_app_api_key to builder via overrides
-            if self.config.task_app_api_key:
-                overrides["task_app_api_key"] = self.config.task_app_api_key
+            overrides["synth_base_url"] = self.config.synth_base_url
+            # Pass localapi_key to builder via overrides
+            if self.config.localapi_key:
+                overrides["localapi_key"] = self.config.localapi_key
 
             # Route to appropriate builder based on config mode
             if self.config.config_dict is not None:
                 # Programmatic mode: use dict-based builder
                 self._build_result = build_prompt_learning_payload_from_mapping(
                     raw_config=self.config.config_dict,
-                    task_url=None,
+                    localapi_url=None,
                     overrides=overrides,
                     allow_experimental=self.config.allow_experimental,
                     source_label="PromptLearningJob.from_dict",
@@ -501,7 +487,7 @@ class PromptLearningJob:
 
                 self._build_result = build_prompt_learning_payload(
                     config_path=self.config.config_path,
-                    task_url=None,
+                    localapi_url=None,
                     overrides=overrides,
                     allow_experimental=self.config.allow_experimental,
                 )
@@ -521,7 +507,7 @@ class PromptLearningJob:
 
         Raises:
             RuntimeError: If job submission fails
-            ValueError: If task app health check fails
+            ValueError: If LocalAPI health check fails
         """
         # Log context based on config mode
         if self.config.config_path is not None:
@@ -536,14 +522,14 @@ class PromptLearningJob:
 
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check:
-            health = check_local_api_health(build.task_url, self.config.task_app_api_key or "")
+            health = check_local_api_health(build.localapi_url, self.config.localapi_key or "")
             if not health.ok:
                 raise ValueError(f"Task app health check failed: {health.detail}")
 
         # Submit job
-        create_url = f"{ensure_api_base(self.config.backend_url)}/prompt-learning/online/jobs"
+        create_url = synth_prompt_learning_jobs_url(self.config.synth_base_url)
         headers = {
-            "X-API-Key": self.config.api_key,
+            "X-API-Key": self.config.synth_user_key,
             "Content-Type": "application/json",
         }
 
@@ -563,7 +549,7 @@ class PromptLearningJob:
                     f"\n1. Backend route /api/prompt-learning/online/jobs not registered"
                     f"\n2. Backend server needs restart (lazy import may have failed)"
                     f"\n3. Check backend logs for: 'Failed to import prompt_learning_online_router'"
-                    f"\n4. Verify backend is running at: {self.config.backend_url}"
+                    f"\n4. Verify backend is running at: {self.config.synth_base_url}"
                 )
             raise RuntimeError(error_msg)
 
@@ -603,9 +589,9 @@ class PromptLearningJob:
 
         async def _fetch() -> Dict[str, Any]:
             client = PromptLearningClient(
-                ensure_api_base(self.config.backend_url),
-                self.config.api_key,
+                synth_user_key=self.config.synth_user_key,
                 timeout=30.0,
+                synth_base_url=self.config.synth_base_url,
             )
             result = await client.get_job(self._job_id)  # type: ignore[arg-type]  # We check None above
             return dict(result) if isinstance(result, dict) else {}
@@ -651,9 +637,9 @@ class PromptLearningJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
         job_id = self._job_id
-        base_url = ensure_api_base(self.config.backend_url)
+        base_url = self.config.synth_base_url
         headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
+            "Authorization": f"Bearer {self.config.synth_user_key}",
             "Content-Type": "application/json",
         }
 
@@ -664,7 +650,7 @@ class PromptLearningJob:
         while elapsed <= timeout:
             try:
                 # Fetch job status
-                url = f"{base_url}/prompt-learning/online/jobs/{job_id}"
+                url = synth_prompt_learning_job_url(job_id, base_url)
                 resp = http_get(url, headers=headers, timeout=request_timeout)
                 data = (
                     resp.json()
@@ -735,8 +721,8 @@ class PromptLearningJob:
 
         async def _fetch() -> Dict[str, Any]:
             client = PromptLearningClient(
-                ensure_api_base(self.config.backend_url),
-                self.config.api_key,
+                synth_user_key=self.config.synth_user_key,
+                synth_base_url=self.config.synth_base_url,
             )
             results = await client.get_prompts(self._job_id)  # type: ignore[arg-type]  # We check None above
 
@@ -788,8 +774,8 @@ class PromptLearningJob:
 
         async def _fetch() -> Optional[str]:
             client = PromptLearningClient(
-                ensure_api_base(self.config.backend_url),
-                self.config.api_key,
+                synth_user_key=self.config.synth_user_key,
+                synth_base_url=self.config.synth_base_url,
             )
             return await client.get_prompt_text(self._job_id, rank=rank)  # type: ignore[arg-type]  # We check None above
 

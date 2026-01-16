@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import importlib
 import os
 from collections.abc import Callable
@@ -84,7 +82,7 @@ def _maybe_expand_minimal_config(raw_config: dict[str, Any]) -> dict[str, Any]:
 @dataclass(slots=True)
 class RLBuildResult:
     payload: dict[str, Any]
-    task_url: str
+    localapi_url: str
     idempotency: str | None
 
 
@@ -98,7 +96,7 @@ class SFTBuildResult:
 @dataclass(slots=True)
 class PromptLearningBuildResult:
     payload: dict[str, Any]
-    task_url: str
+    localapi_url: str
 
 
 def _format_validation_error(path: Path, exc: ValidationError) -> str:
@@ -114,12 +112,12 @@ def _format_validation_error(path: Path, exc: ValidationError) -> str:
 def build_rl_payload(
     *,
     config_path: Path,
-    task_url: str,
+    localapi_url: str,
     overrides: dict[str, Any],
     idempotency: str | None,
     allow_experimental: bool | None = None,
 ) -> RLBuildResult:
-    ctx: dict[str, Any] = {"config_path": str(config_path), "task_url": task_url}
+    ctx: dict[str, Any] = {"config_path": str(config_path), "localapi_url": localapi_url}
     log_info("build_rl_payload invoked", ctx=ctx)
     # Load and validate config with SDK-level checks
     from synth_ai.sdk.api.train.utils import load_toml
@@ -155,17 +153,17 @@ def build_rl_payload(
     services = data.get("services") if isinstance(data.get("services"), dict) else {}
     model_cfg = rl_cfg.model
 
-    cli_task_url = overrides.get("task_url")
-    env_task_url = task_url or os.environ.get("TASK_APP_URL")
-    config_task_url = services.get("task_url") if isinstance(services, dict) else None
-    final_task_url = ConfigResolver.resolve(
-        "task_app_url",
-        cli_value=cli_task_url,
-        env_value=env_task_url,
-        config_value=config_task_url,
+    cli_localapi_url = overrides.get("localapi_url")
+    env_localapi_url = localapi_url or os.environ.get("SYNTH_LOCALAPI_URL")
+    config_localapi_url = services.get("localapi_url") if isinstance(services, dict) else None
+    final_localapi_url = ConfigResolver.resolve(
+        "localapi_url",
+        cli_value=cli_localapi_url,
+        env_value=env_localapi_url,
+        config_value=config_localapi_url,
         required=True,
     )
-    assert final_task_url is not None  # required=True guarantees non-None
+    assert final_localapi_url is not None  # required=True guarantees non-None
 
     model_source = (model_cfg.source or "").strip() if model_cfg else ""
     model_base = (model_cfg.base or "").strip() if model_cfg else ""
@@ -219,14 +217,15 @@ def build_rl_payload(
     # Force TOML services.task_url to the effective endpoint to avoid split URLs
     try:
         if isinstance(data.get("services"), dict):
-            data["services"]["task_url"] = final_task_url
+            data["services"].pop("localapi_url", None)
+            data["services"]["task_url"] = final_localapi_url
         else:
-            data["services"] = {"task_url": final_task_url}
+            data["services"] = {"task_url": final_localapi_url}
     except Exception:
         pass
 
     payload_data: dict[str, Any] = {
-        "endpoint_base_url": final_task_url.rstrip("/"),
+        "endpoint_base_url": final_localapi_url.rstrip("/"),
         "config": data,
     }
     payload: dict[str, Any] = {
@@ -240,13 +239,13 @@ def build_rl_payload(
     if model_base:
         payload_data["base_model"] = model_base
 
-    backend = overrides.get("backend")
-    if backend:
+    synth_base_url = overrides.get("synth_base_url")
+    if synth_base_url:
         metadata_default: dict[str, Any] = {}
         metadata = cast(dict[str, Any], payload.setdefault("metadata", metadata_default))
-        metadata["backend_base_url"] = ensure_api_base(str(backend))
+        metadata["synth_base_url"] = ensure_api_base(str(synth_base_url))
 
-    return RLBuildResult(payload=payload, task_url=final_task_url, idempotency=idempotency)
+    return RLBuildResult(payload=payload, localapi_url=final_localapi_url, idempotency=idempotency)
 
 
 def build_sft_payload(
@@ -407,7 +406,7 @@ def build_sft_payload(
 def build_prompt_learning_payload(
     *,
     config_path: Path,
-    task_url: str | None,
+    localapi_url: str | None,
     overrides: dict[str, Any],
     allow_experimental: bool | None = None,
 ) -> PromptLearningBuildResult:
@@ -416,7 +415,7 @@ def build_prompt_learning_payload(
     Supports both minimal and full config formats in TOML files.
     Minimal configs are auto-expanded before validation.
     """
-    ctx: dict[str, Any] = {"config_path": str(config_path), "task_url": task_url}
+    ctx: dict[str, Any] = {"config_path": str(config_path), "localapi_url": localapi_url}
     log_info("build_prompt_learning_payload invoked", ctx=ctx)
     from pydantic import ValidationError
 
@@ -463,44 +462,49 @@ def build_prompt_learning_payload(
                 "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
             )
 
-    cli_task_url = overrides.get("task_url") or task_url
-    env_task_url = os.environ.get("TASK_APP_URL")
-    config_task_url = (pl_cfg.task_app_url or "").strip() or None
+    cli_localapi_url = (
+        overrides.get("localapi_url")
+        or overrides.get("prompt_learning.localapi_url")
+        or localapi_url
+    )
+    env_localapi_url = os.environ.get("SYNTH_LOCALAPI_URL")
+    config_localapi_url = (pl_cfg.localapi_url or "").strip() or None
 
     # For prompt learning, prefer config value over env if config is explicitly set
-    # This allows TOML files to specify task_app_url without env var interference
+    # This allows TOML files to specify localapi_url without env var interference
     # But CLI override always wins
-    if cli_task_url:
+    if cli_localapi_url:
         # CLI override takes precedence
-        final_task_url = ConfigResolver.resolve(
-            "task_app_url",
-            cli_value=cli_task_url,
+        final_localapi_url = ConfigResolver.resolve(
+            "localapi_url",
+            cli_value=cli_localapi_url,
             env_value=None,  # Don't check env when CLI is set
-            config_value=config_task_url,
+            config_value=config_localapi_url,
             required=True,
         )
-    elif config_task_url:
+    elif config_localapi_url:
         # Config explicitly set - use it (ignore env var to avoid conflicts)
-        final_task_url = config_task_url
+        final_localapi_url = config_localapi_url
     else:
         # No config, fall back to env or error
-        final_task_url = ConfigResolver.resolve(
-            "task_app_url",
+        final_localapi_url = ConfigResolver.resolve(
+            "localapi_url",
             cli_value=None,
-            env_value=env_task_url,
+            env_value=env_localapi_url,
             config_value=None,
             required=True,
         )
-    assert final_task_url is not None  # required=True guarantees non-None
+    assert final_localapi_url is not None  # required=True guarantees non-None
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
 
-    # Ensure task_app_url is set
+    # Ensure task_app_url is set for backend payload
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
-        pl_section["task_app_url"] = final_task_url
-        pl_section.pop("task_app_api_key", None)
+        pl_section.pop("localapi_url", None)
+        pl_section["task_app_url"] = final_localapi_url
+        pl_section.pop("localapi_key", None)
 
         # GEPA: Extract train_seeds from nested structure for backwards compatibility
         # Backend checks for train_seeds at top level before parsing nested structure
@@ -542,25 +546,26 @@ def build_prompt_learning_payload(
                 pl_section["evaluation_seeds"] = train_seeds
 
     else:
-        config_dict["prompt_learning"] = {"task_app_url": final_task_url}
+        config_dict["prompt_learning"] = {"task_app_url": final_localapi_url}
 
     # Build payload matching backend API format
     # Extract nested overrides if present, otherwise use flat overrides directly
     # The experiment queue passes flat overrides like {"prompt_learning.policy.model": "..."}
     # But some SDK code passes nested like {"overrides": {"prompt_learning.policy.model": "..."}}
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
-    # Remove non-override keys (backend, task_url, metadata, auto_start)
+    # Remove non-override keys (synth_base_url, localapi_url, metadata, auto_start)
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
         if k
         not in (
-            "backend",
-            "task_url",
+            "synth_base_url",
+            "localapi_url",
+            "prompt_learning.localapi_url",
             "metadata",
             "auto_start",
-            "task_app_api_key",
-            "prompt_learning.task_app_api_key",
+            "localapi_key",
+            "prompt_learning.localapi_key",
         )
     }
 
@@ -573,7 +578,9 @@ def build_prompt_learning_payload(
         _deep_update(config_dict, config_overrides)
         pl_section = config_dict.get("prompt_learning", {})
         if isinstance(pl_section, dict):
-            pl_section.pop("task_app_api_key", None)
+            pl_section.pop("localapi_url", None)
+            pl_section.pop("localapi_key", None)
+            pl_section["task_app_url"] = final_localapi_url
 
     # ASSERT: Verify critical overrides are reflected in config_body
     pl_section_in_dict = config_dict.get("prompt_learning", {})
@@ -635,19 +642,19 @@ def build_prompt_learning_payload(
         "auto_start": overrides.get("auto_start", True),
     }
 
-    backend = overrides.get("backend")
-    if backend:
+    synth_base_url = overrides.get("synth_base_url")
+    if synth_base_url:
         metadata_default: dict[str, Any] = {}
         metadata = cast(dict[str, Any], payload.setdefault("metadata", metadata_default))
-        metadata["backend_base_url"] = ensure_api_base(str(backend))
+        metadata["synth_base_url"] = ensure_api_base(str(synth_base_url))
 
-    return PromptLearningBuildResult(payload=payload, task_url=final_task_url)
+    return PromptLearningBuildResult(payload=payload, localapi_url=final_localapi_url)
 
 
 def build_prompt_learning_payload_from_mapping(
     *,
     raw_config: dict[str, Any],
-    task_url: str | None,
+    localapi_url: str | None,
     overrides: dict[str, Any],
     allow_experimental: bool | None = None,
     source_label: str = "programmatic",
@@ -664,13 +671,13 @@ def build_prompt_learning_payload_from_mapping(
         ...     raw_config={
         ...         "prompt_learning": {
         ...             "algorithm": "gepa",
-        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "localapi_url": "https://tunnel.example.com",
         ...             "total_seeds": 200,
         ...             "proposer_effort": "LOW",
         ...             "proposer_output_tokens": "FAST",
         ...         }
         ...     },
-        ...     task_url=None,
+        ...     localapi_url=None,
         ...     overrides={},
         ... )
 
@@ -679,24 +686,24 @@ def build_prompt_learning_payload_from_mapping(
         ...     raw_config={
         ...         "prompt_learning": {
         ...             "algorithm": "gepa",
-        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "localapi_url": "https://tunnel.example.com",
         ...             "gepa": {...},
         ...         }
         ...     },
-        ...     task_url=None,
+        ...     localapi_url=None,
         ...     overrides={},
         ... )
 
     Args:
         raw_config: Configuration dictionary with the same structure as the TOML file.
                    Should have a 'prompt_learning' section.
-        task_url: Override for task_app_url
+        localapi_url: Override for localapi_url
         overrides: Config overrides (merged into config)
         allow_experimental: Allow experimental models
         source_label: Label for logging/error messages (default: "programmatic")
 
     Returns:
-        PromptLearningBuildResult with payload and task_url
+        PromptLearningBuildResult with payload and localapi_url
     """
     ctx: dict[str, Any] = {"source": source_label}
     log_info("build_prompt_learning_payload_from_mapping invoked", ctx=ctx)
@@ -751,39 +758,44 @@ def build_prompt_learning_payload_from_mapping(
                 "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
             )
 
-    cli_task_url = overrides.get("task_url") or task_url
-    env_task_url = os.environ.get("TASK_APP_URL")
-    config_task_url = (pl_cfg.task_app_url or "").strip() or None
+    cli_localapi_url = (
+        overrides.get("localapi_url")
+        or overrides.get("prompt_learning.localapi_url")
+        or localapi_url
+    )
+    env_localapi_url = os.environ.get("SYNTH_LOCALAPI_URL")
+    config_localapi_url = (pl_cfg.localapi_url or "").strip() or None
 
-    # Resolve task_app_url with same precedence as file-based builder
-    if cli_task_url:
-        final_task_url = ConfigResolver.resolve(
-            "task_app_url",
-            cli_value=cli_task_url,
+    # Resolve localapi_url with same precedence as file-based builder
+    if cli_localapi_url:
+        final_localapi_url = ConfigResolver.resolve(
+            "localapi_url",
+            cli_value=cli_localapi_url,
             env_value=None,
-            config_value=config_task_url,
+            config_value=config_localapi_url,
             required=True,
         )
-    elif config_task_url:
-        final_task_url = config_task_url
+    elif config_localapi_url:
+        final_localapi_url = config_localapi_url
     else:
-        final_task_url = ConfigResolver.resolve(
-            "task_app_url",
+        final_localapi_url = ConfigResolver.resolve(
+            "localapi_url",
             cli_value=None,
-            env_value=env_task_url,
+            env_value=env_localapi_url,
             config_value=None,
             required=True,
         )
-    assert final_task_url is not None
+    assert final_localapi_url is not None
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
 
-    # Ensure task_app_url is set
+    # Ensure task_app_url is set for backend payload
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
-        pl_section["task_app_url"] = final_task_url
-        pl_section.pop("task_app_api_key", None)
+        pl_section.pop("localapi_url", None)
+        pl_section["task_app_url"] = final_localapi_url
+        pl_section.pop("localapi_key", None)
 
         # GEPA: Extract train_seeds from nested structure
         if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:
@@ -798,7 +810,7 @@ def build_prompt_learning_payload_from_mapping(
             if train_seeds and not pl_section.get("evaluation_seeds"):
                 pl_section["evaluation_seeds"] = train_seeds
     else:
-        config_dict["prompt_learning"] = {"task_app_url": final_task_url}
+        config_dict["prompt_learning"] = {"task_app_url": final_localapi_url}
 
     # Build payload matching backend API format
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
@@ -807,12 +819,13 @@ def build_prompt_learning_payload_from_mapping(
         for k, v in config_overrides.items()
         if k
         not in (
-            "backend",
-            "task_url",
+            "synth_base_url",
+            "localapi_url",
+            "prompt_learning.localapi_url",
             "metadata",
             "auto_start",
-            "task_app_api_key",
-            "prompt_learning.task_app_api_key",
+            "localapi_key",
+            "prompt_learning.localapi_key",
         )
     }
 
@@ -823,7 +836,9 @@ def build_prompt_learning_payload_from_mapping(
         _deep_update(config_dict, config_overrides)
         pl_section = config_dict.get("prompt_learning", {})
         if isinstance(pl_section, dict):
-            pl_section.pop("task_app_api_key", None)
+            pl_section.pop("localapi_url", None)
+            pl_section.pop("localapi_key", None)
+            pl_section["task_app_url"] = final_localapi_url
 
     # Final validation
     if "prompt_learning" not in config_dict:
@@ -839,13 +854,13 @@ def build_prompt_learning_payload_from_mapping(
         "auto_start": overrides.get("auto_start", True),
     }
 
-    backend = overrides.get("backend")
-    if backend:
+    synth_base_url = overrides.get("synth_base_url")
+    if synth_base_url:
         metadata_default: dict[str, Any] = {}
         metadata = cast(dict[str, Any], payload.setdefault("metadata", metadata_default))
-        metadata["backend_base_url"] = ensure_api_base(str(backend))
+        metadata["synth_base_url"] = ensure_api_base(str(synth_base_url))
 
-    return PromptLearningBuildResult(payload=payload, task_url=final_task_url)
+    return PromptLearningBuildResult(payload=payload, localapi_url=final_localapi_url)
 
 
 __all__ = [

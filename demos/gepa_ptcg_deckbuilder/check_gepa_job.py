@@ -2,33 +2,25 @@
 """Check GEPA job status and events."""
 
 import argparse
-import os
 
 import httpx
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_prompt_learning_events_url, synth_prompt_learning_job_url
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
+
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 parser = argparse.ArgumentParser(description="Check GEPA job status")
 parser.add_argument("job_id", help="GEPA job ID")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
 args = parser.parse_args()
 
 
 def main():
-    # Backend setup
-    backend_url = "http://localhost:8000" if args.local else BACKEND_URL_BASE
-
-    # API key
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        api_key = mint_demo_api_key(backend_url=backend_url)
-
     # Get job status
     print(f"\nFetching job status for: {args.job_id}")
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(
-            f"{backend_url}/api/prompt-learning/online/jobs/{args.job_id}",
-            headers={"Authorization": f"Bearer {api_key}"},
+            synth_prompt_learning_job_url(args.job_id),
+            headers={"Authorization": f"Bearer {SYNTH_USER_KEY}"},
         )
         if resp.status_code != 200:
             print(f"Failed to get job: {resp.status_code} {resp.text}")
@@ -42,8 +34,8 @@ def main():
     print("\nFetching events...")
     with httpx.Client(timeout=30.0) as client:
         resp = client.get(
-            f"{backend_url}/api/prompt-learning/online/jobs/{args.job_id}/events",
-            headers={"Authorization": f"Bearer {api_key}"},
+            synth_prompt_learning_events_url(args.job_id),
+            headers={"Authorization": f"Bearer {SYNTH_USER_KEY}"},
             params={"limit": 50},
         )
         if resp.status_code == 200:

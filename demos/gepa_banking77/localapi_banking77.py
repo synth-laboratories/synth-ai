@@ -8,6 +8,7 @@ and aggregates the scores.
 
 import json
 import time
+from collections.abc import Sequence
 
 import httpx
 from datasets import load_dataset
@@ -16,9 +17,13 @@ from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url
 from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
+    TaskDescriptor,
     TaskInfo,
 )
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
@@ -235,15 +240,15 @@ def provide_taskset_description() -> dict:
     }
 
 
-def provide_task_instances(seeds: list[int]):
+def provide_task_instances(seeds: Sequence[int]):
     """Yield TaskInfo for each seed. Called by Synth to get task metadata."""
     for seed in seeds:
         sample = get_sample(seed, split="train")
         yield TaskInfo(
-            task={"id": APP_ID, "name": APP_NAME},
-            dataset={"id": APP_ID, "split": sample["split"], "index": sample["index"]},
-            inference={"tool": TOOL_NAME},
-            limits={"max_turns": 1},
+            task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+            dataset=DatasetInfo(id=APP_ID, split=sample["split"], index=sample["index"]),
+            inference=InferenceInfo(tool=TOOL_NAME),
+            limits=LimitsInfo(max_turns=1),
             task_metadata={"query": sample["text"], "expected_intent": sample["label"]},
         )
 
@@ -395,15 +400,13 @@ app = create_local_api(
 # =============================================================================
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
-    # Ensure ENVIRONMENT_API_KEY is set and uploaded to the backend.
-    # This lets the backend know what key to send when calling /rollout.
-    env_key = ensure_localapi_auth(
-        backend_base="http://localhost:8000",  # local backend
-        synth_api_key=None,  # will use SYNTH_API_KEY from env if available
-    )
+    port = int(os.getenv("PORT", "8010"))
+    env_key = ensure_localapi_auth()
     print(f"[localapi_banking77] ENVIRONMENT_API_KEY ready: {env_key[:15]}...")
 
-    uvicorn.run(app, host="0.0.0.0", port=8010)
+    uvicorn.run(app, host="0.0.0.0", port=port)

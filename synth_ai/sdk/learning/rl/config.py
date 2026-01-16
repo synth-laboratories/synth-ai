@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,7 +15,7 @@ def _ensure_positive(value: Any, *, name: str) -> int:
 @dataclass(slots=True)
 class RLJobConfig:
     model: str
-    task_app_url: str
+    localapi_url: str
     trainer_id: str
     batch_size: int = 1
     group_size: int = 2

@@ -15,14 +15,12 @@ Example SDK usage:
     async with InProcessTaskApp(task_app_path="my_task_app.py", port=8114) as task_app:
         job = RLJob.from_config(
             config_path="my_config.toml",
-            task_app_url=task_app.url,
+            localapi_url=task_app.url,
         )
         job.submit()
         result = job.poll_until_complete()
         print(f"Final reward: {result.get('final_reward', 'N/A')}")
 """
-
-from __future__ import annotations
 
 import asyncio
 import os
@@ -31,13 +29,13 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from synth_ai.core.telemetry import log_info
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_api_base, synth_rl_jobs_url
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 from .builders import RLBuildResult, build_rl_payload
 from .local_api import check_local_api_health
 from .pollers import RLJobPoller
-from .utils import ensure_api_base, http_post
+from .utils import http_post
 
 
 @dataclass
@@ -51,17 +49,14 @@ class RLJobConfig:
         config_path: Path to the TOML configuration file that defines the
             RL training task, including model settings, training hyperparameters,
             reward configuration, and Local API URL.
-        backend_url: Base URL of the Synth API backend (e.g.,
-            "https://api.usesynth.ai"). Can also be set via BACKEND_BASE_URL
-            environment variable.
-        api_key: Synth API key for authentication. Can also be set via
+        synth_base_url: Base URL of the Synth API backend (e.g.,
+            "https://api.usesynth.ai"). Can also be set via SYNTH_BACKEND_URL.
+        synth_user_key: Synth API key for authentication. Can also be set via
             SYNTH_API_KEY environment variable.
-        task_app_url: URL of the Local API that serves rollout environments.
-            Can be set via TASK_APP_URL env var if not provided.
-            (Alias: also known as "task app URL" in older documentation)
-        task_app_api_key: API key for authenticating with the Local API.
+        localapi_url: URL of the LocalAPI that serves rollout environments.
+            Can be set via SYNTH_LOCALAPI_URL env var if not provided.
+        localapi_key: API key for authenticating with the LocalAPI.
             Defaults to ENVIRONMENT_API_KEY env var if not provided.
-            (Alias: also known as "task app API key" in older documentation)
         allow_experimental: If True, allows use of experimental models and
             features. Defaults to None (uses config file setting).
         overrides: Dictionary of config overrides that take precedence over
@@ -73,40 +68,38 @@ class RLJobConfig:
     Example:
         >>> config = RLJobConfig(
         ...     config_path=Path("rl_config.toml"),
-        ...     backend_url="https://api.usesynth.ai",
-        ...     api_key="sk_live_...",
-        ...     task_app_url="https://my-task-app.example.com",
+        ...     synth_base_url="https://api.usesynth.ai",
+        ...     synth_user_key="sk_live_...",
+        ...     localapi_url="https://my-task-app.example.com",
         ... )
     """
 
     config_path: Path
-    backend_url: str
-    api_key: str
-    task_app_url: Optional[str] = None
-    task_app_api_key: Optional[str] = None
+    synth_user_key: str
+    localapi_url: Optional[str] = None
+    localapi_key: Optional[str] = None
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
     idempotency_key: Optional[str] = None
+    synth_base_url: str | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration."""
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
-        if not self.backend_url:
-            raise ValueError("backend_url is required")
-        if not self.api_key:
-            raise ValueError("api_key is required")
+        if not self.synth_user_key:
+            raise ValueError("synth_user_key is required")
 
-        # Get task_app_api_key from environment if not provided
-        if not self.task_app_api_key:
-            self.task_app_api_key = ensure_localapi_auth(
-                backend_base=self.backend_url,
-                synth_api_key=self.api_key,
+        # Get localapi_key from environment if not provided
+        if not self.localapi_key:
+            self.localapi_key = ensure_localapi_auth(
+                synth_user_key=self.synth_user_key,
+                synth_base_url=self.synth_base_url,
             )
 
-        # Get task_app_url from environment if not provided
-        if not self.task_app_url:
-            self.task_app_url = os.environ.get("TASK_APP_URL")
+        # Get localapi_url from environment if not provided
+        if not self.localapi_url:
+            self.localapi_url = os.environ.get("SYNTH_LOCALAPI_URL")
 
 
 class RLJob:
@@ -121,16 +114,16 @@ class RLJob:
         >>> from synth_ai.sdk.api.train.rl import RLJob
         >>> from synth_ai.sdk.task.in_process import InProcessTaskApp
         >>>
-        >>> # With in-process task app
+        >>> # With in-process LocalAPI
         >>> async with InProcessTaskApp(
         ...     task_app_path="my_task_app.py",
         ...     port=8114,
         ... ) as task_app:
         ...     job = RLJob.from_config(
         ...         config_path="my_config.toml",
-        ...         backend_url="https://api.usesynth.ai",
-        ...         api_key=os.environ["SYNTH_API_KEY"],
-        ...         task_app_url=task_app.url,
+        ...         synth_base_url="https://api.usesynth.ai",
+        ...         synth_user_key=os.environ["SYNTH_API_KEY"],
+        ...         localapi_url=task_app.url,
         ...     )
         ...     job_id = job.submit()
         ...     result = job.poll_until_complete(timeout=7200.0)
@@ -148,7 +141,7 @@ class RLJob:
         Args:
             config: Job configuration
             job_id: Existing job ID (if resuming a previous job)
-            skip_health_check: If True, skip task app health check before submission.
+            skip_health_check: If True, skip LocalAPI health check before submission.
                               Useful when using tunnels where DNS may not have propagated yet.
         """
         self.config = config
@@ -160,22 +153,22 @@ class RLJob:
     def from_config(
         cls,
         config_path: str | Path,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        task_app_url: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
+        localapi_url: Optional[str] = None,
+        localapi_key: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
         idempotency_key: Optional[str] = None,
-    ) -> RLJob:
+        synth_base_url: Optional[str] = None,
+    ) -> "RLJob":
         """Create an RL job from a config file.
 
         Args:
             config_path: Path to TOML config file
-            backend_url: Backend API URL (defaults to env var BACKEND_BASE_URL)
-            api_key: API key (defaults to env var SYNTH_API_KEY)
-            task_app_url: Task app URL (defaults to env var TASK_APP_URL or config file)
-            task_app_api_key: Task app API key (defaults to env var ENVIRONMENT_API_KEY)
+            synth_base_url: Backend API URL (defaults to SYNTH_BACKEND_URL)
+            synth_user_key: API key (defaults to env var SYNTH_API_KEY)
+            localapi_url: LocalAPI URL (defaults to env var SYNTH_LOCALAPI_URL or config file)
+            localapi_key: LocalAPI key (defaults to env var ENVIRONMENT_API_KEY)
             allow_experimental: Allow experimental features
             overrides: Config overrides (merged into config)
             idempotency_key: Optional idempotency key for job submission
@@ -186,41 +179,38 @@ class RLJob:
         Example:
             >>> job = RLJob.from_config(
             ...     config_path="configs/rl_gspo.toml",
-            ...     backend_url="https://api.usesynth.ai",
-            ...     api_key=os.environ["SYNTH_API_KEY"],
-            ...     task_app_url="https://my-task-app.usesynth.ai",
+            ...     synth_base_url="https://api.usesynth.ai",
+            ...     synth_user_key=os.environ["SYNTH_API_KEY"],
+            ...     localapi_url="https://my-task-app.usesynth.ai",
             ... )
         """
         config_path_obj = Path(config_path)
 
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
-        # Resolve task app URL
-        if not task_app_url:
-            task_app_url = os.environ.get("TASK_APP_URL")
+        # Resolve LocalAPI URL
+        if not localapi_url:
+            localapi_url = os.environ.get("SYNTH_LOCALAPI_URL")
 
-        # Resolve task app API key
-        if not task_app_api_key:
-            task_app_api_key = ensure_localapi_auth(
-                backend_base=backend_url,
-                synth_api_key=api_key,
+        # Resolve LocalAPI API key
+        if not localapi_key:
+            localapi_key = ensure_localapi_auth(
+                synth_user_key=synth_user_key,
+                synth_base_url=synth_base_url,
             )
 
         config = RLJobConfig(
             config_path=config_path_obj,
-            backend_url=backend_url,
-            api_key=api_key,
-            task_app_url=task_app_url,
-            task_app_api_key=task_app_api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
+            localapi_url=localapi_url,
+            localapi_key=localapi_key,
             allow_experimental=allow_experimental,
             overrides=overrides,
             idempotency_key=idempotency_key,
@@ -232,15 +222,15 @@ class RLJob:
     def from_job_id(
         cls,
         job_id: str,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-    ) -> RLJob:
+        synth_user_key: Optional[str] = None,
+        synth_base_url: Optional[str] = None,
+    ) -> "RLJob":
         """Resume an existing RL job by ID.
 
         Args:
             job_id: Existing job ID
-            backend_url: Backend API URL (defaults to env var BACKEND_BASE_URL)
-            api_key: API key (defaults to env var SYNTH_API_KEY)
+            synth_base_url: Backend API URL (defaults to SYNTH_BACKEND_URL)
+            synth_user_key: API key (defaults to env var SYNTH_API_KEY)
 
         Returns:
             RLJob instance for the existing job
@@ -248,26 +238,23 @@ class RLJob:
         Example:
             >>> job = RLJob.from_job_id(
             ...     job_id="rl_abc123",
-            ...     backend_url="https://api.usesynth.ai",
-            ...     api_key=os.environ["SYNTH_API_KEY"],
+            ...     synth_base_url="https://api.usesynth.ai",
+            ...     synth_user_key=os.environ["SYNTH_API_KEY"],
             ... )
         """
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         # Create minimal config (we don't need the config file for resuming)
         config = RLJobConfig(
             config_path=Path("/dev/null"),  # Dummy path
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
         )
 
         return cls(config, job_id=job_id)
@@ -282,13 +269,13 @@ class RLJob:
                 )
 
             overrides = self.config.overrides or {}
-            overrides["backend"] = self.config.backend_url
-            if self.config.task_app_url:
-                overrides["task_url"] = self.config.task_app_url
+            overrides["synth_base_url"] = self.config.synth_base_url
+            if self.config.localapi_url:
+                overrides["localapi_url"] = self.config.localapi_url
 
             self._build_result = build_rl_payload(
                 config_path=self.config.config_path,
-                task_url=self.config.task_app_url or "",
+                localapi_url=self.config.localapi_url or "",
                 overrides=overrides,
                 idempotency=self.config.idempotency_key,
                 allow_experimental=self.config.allow_experimental,
@@ -303,7 +290,7 @@ class RLJob:
 
         Raises:
             RuntimeError: If job submission fails
-            ValueError: If task app health check fails
+            ValueError: If LocalAPI health check fails
         """
         ctx: Dict[str, Any] = {"config_path": str(self.config.config_path)}
         log_info("RLJob.submit invoked", ctx=ctx)
@@ -314,15 +301,15 @@ class RLJob:
 
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check:
-            task_app_key = self.config.task_app_api_key or ""
-            health = check_local_api_health(build.task_url, task_app_key)
+            localapi_key = self.config.localapi_key or ""
+            health = check_local_api_health(build.localapi_url, localapi_key)
             if not health.ok:
                 raise ValueError(f"Task app health check failed: {health.detail}")
 
         # Submit job
-        create_url = f"{ensure_api_base(self.config.backend_url)}/rl/jobs"
+        create_url = synth_rl_jobs_url(self.config.synth_base_url)
         headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
+            "Authorization": f"Bearer {self.config.synth_user_key}",
             "Content-Type": "application/json",
         }
 
@@ -344,7 +331,7 @@ class RLJob:
                     f"\n\nPossible causes:"
                     f"\n1. Backend route /api/rl/jobs not registered"
                     f"\n2. Backend server needs restart"
-                    f"\n3. Verify backend is running at: {self.config.backend_url}"
+                    f"\n3. Verify backend is running at: {self.config.synth_base_url}"
                 )
             raise RuntimeError(error_msg)
 
@@ -383,8 +370,8 @@ class RLJob:
 
         async def _fetch() -> Dict[str, Any]:
             client = JobsClient(
-                ensure_api_base(self.config.backend_url),
-                self.config.api_key,
+                synth_user_key=self.config.synth_user_key,
+                synth_base_url=self.config.synth_base_url,
             )
             # Use RlJobsApi to get job status
             result = await client.rl.retrieve(job_id=self._job_id)  # type: ignore[arg-type]
@@ -417,8 +404,8 @@ class RLJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
         poller = RLJobPoller(
-            base_url=ensure_api_base(self.config.backend_url),
-            api_key=self.config.api_key,
+            base_url=synth_api_base(self.config.synth_base_url),
+            synth_user_key=self.config.synth_user_key,
         )
 
         import time

@@ -8,8 +8,9 @@ import json
 import os
 
 import httpx
+from synth_ai.core.urls import synth_base_url
 
-INTERCEPTOR_URL = "http://localhost:8000/api/interceptor/v1/test-trial/chat/completions"
+INTERCEPTOR_URL = f"{synth_base_url()}/api/interceptor/v1/test-trial/chat/completions"
 MODEL = "gpt-4o"  # or gpt-5.2
 
 TOOLS = [

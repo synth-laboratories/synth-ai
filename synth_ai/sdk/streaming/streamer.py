@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import json
@@ -66,7 +64,7 @@ class StreamEndpoints:
     timeline_fallbacks: tuple[str, ...] = ()
 
     @classmethod
-    def learning(cls, job_id: str) -> StreamEndpoints:
+    def learning(cls, job_id: str) -> "StreamEndpoints":
         base = f"/learning/jobs/{job_id}"
         return cls(
             status=base,
@@ -76,7 +74,7 @@ class StreamEndpoints:
         )
 
     @classmethod
-    def prompt_learning(cls, job_id: str) -> StreamEndpoints:
+    def prompt_learning(cls, job_id: str) -> "StreamEndpoints":
         """Endpoints for prompt learning jobs (GEPA)."""
         base = f"/prompt-learning/online/jobs/{job_id}"
         return cls(
@@ -95,7 +93,7 @@ class StreamEndpoints:
         )
 
     @classmethod
-    def context_learning(cls, job_id: str) -> StreamEndpoints:
+    def context_learning(cls, job_id: str) -> "StreamEndpoints":
         """Endpoints for context learning jobs."""
         base = f"/context-learning/jobs/{job_id}"
         return cls(
@@ -113,7 +111,7 @@ class StreamEndpoints:
         return None
 
     @classmethod
-    def rl(cls, job_id: str) -> StreamEndpoints:
+    def rl(cls, job_id: str) -> "StreamEndpoints":
         base = f"/rl/jobs/{job_id}"
         return cls(
             status=base,
@@ -133,7 +131,7 @@ class StreamEndpoints:
         )
 
     @classmethod
-    def graphgen(cls, job_id: str) -> StreamEndpoints:
+    def graphgen(cls, job_id: str) -> "StreamEndpoints":
         """Endpoints for GraphGen workflow optimization jobs.
 
         GraphGen jobs use /api/graphgen/jobs/{job_id} endpoints.
@@ -156,7 +154,7 @@ class JobStreamer:
         self,
         *,
         base_url: str,
-        api_key: str,
+        synth_user_key: str,
         job_id: str,
         endpoints: StreamEndpoints | None = None,
         config: StreamConfig | None = None,
@@ -167,8 +165,8 @@ class JobStreamer:
         http_client: AsyncHttpClient | None = None,
         sleep_fn=sleep,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
+        self.base_url = base_url
+        self.synth_user_key = synth_user_key
         self.job_id = job_id
         self.endpoints = endpoints or StreamEndpoints.learning(job_id)
         self.config = config or StreamConfig.default()
@@ -213,7 +211,7 @@ class JobStreamer:
         ctx: dict[str, Any] = {"job_id": self.job_id, "base_url": self.base_url}
         log_info("JobStreamer.stream_until_terminal invoked", ctx=ctx)
         http_cm = self._http or AsyncHttpClient(
-            self.base_url, self.api_key, timeout=self.http_timeout
+            self.base_url, self.synth_user_key, timeout=self.http_timeout
         )
         async with http_cm as http:
             # Use SSE streaming exclusively for events (prompt learning jobs)
@@ -332,11 +330,11 @@ class JobStreamer:
 
     async def _stream_events_sse(self, sse_url: str) -> AsyncIterator[StreamMessage]:
         """Stream events via Server-Sent Events (SSE)."""
-        url = f"{self.base_url.rstrip('/')}/{sse_url.lstrip('/')}"
+        url = f"{self.base_url}{sse_url}"
         headers = {
             "Accept": "text/event-stream",
             "Cache-Control": "no-cache",
-            "authorization": f"Bearer {self.api_key}",
+            "authorization": f"Bearer {self.synth_user_key}",
         }
 
         # Create a separate session for SSE (long-lived connection)

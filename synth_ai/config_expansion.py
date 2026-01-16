@@ -9,7 +9,7 @@ to ensure reproducibility.
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    task_app_url = "http://localhost:8001"
+    localapi_url = "http://localhost:8001"
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
@@ -24,7 +24,7 @@ to ensure reproducibility.
 
     ```toml
     [eval]
-    task_app_url = "http://localhost:8103"
+    localapi_url = "http://localhost:8103"
     seeds = [0, 1, 2, 3, 4]
     ```
 
@@ -46,7 +46,7 @@ Any field can be overridden by specifying it explicitly:
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    task_app_url = "http://localhost:8001"
+    localapi_url = "http://localhost:8001"
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
@@ -61,8 +61,6 @@ See Also:
     - Full config reference: job_configs.txt
     - SDK entry points: synth_ai.sdk.api.train.configs.prompt_learning
 """
-
-from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
@@ -174,7 +172,7 @@ def expand_eval_config(minimal: dict[str, Any]) -> dict[str, Any]:
     """Expand minimal eval config to full config.
 
     Required fields:
-        - task_app_url: URL of the task app
+        - localapi_url: URL of the LocalAPI
         - seeds: List of seeds or range dict
 
     Optional fields:
@@ -193,7 +191,7 @@ def expand_eval_config(minimal: dict[str, Any]) -> dict[str, Any]:
 
     Example:
         >>> minimal = {
-        ...     "task_app_url": "http://localhost:8103",
+        ...     "localapi_url": "http://localhost:8103",
         ...     "seeds": [0, 1, 2, 3, 4],
         ... }
         >>> full = expand_eval_config(minimal)
@@ -203,8 +201,8 @@ def expand_eval_config(minimal: dict[str, Any]) -> dict[str, Any]:
         600.0
     """
     # Validate required fields
-    if "task_app_url" not in minimal:
-        raise ValueError("task_app_url is required")
+    if "localapi_url" not in minimal:
+        raise ValueError("localapi_url is required")
     if "seeds" not in minimal:
         raise ValueError("seeds is required")
 
@@ -212,13 +210,13 @@ def expand_eval_config(minimal: dict[str, Any]) -> dict[str, Any]:
     seeds = resolve_seeds(minimal["seeds"])
 
     return {
-        "task_app_url": minimal["task_app_url"],
+        "localapi_url": minimal["localapi_url"],
         "env_name": minimal.get("env_name", minimal.get("app_id", "default")),
         "app_id": minimal.get("app_id"),
         "seeds": seeds,
         "max_concurrent": min(d.eval_max_concurrent, len(seeds)),
         "timeout": d.eval_timeout,
-        "policy": minimal.get("policy", {}),  # detected from task app if empty
+        "policy": minimal.get("policy", {}),  # detected from LocalAPI if empty
         "_defaults_version": d.version,  # track which version was used
     }
 
@@ -227,7 +225,7 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
     """Expand minimal GEPA config to full config.
 
     Required fields:
-        - task_app_url: URL of the task app
+        - localapi_url: URL of the LocalAPI
         - proposer_effort: "LOW_CONTEXT" | "LOW" | "MEDIUM" | "HIGH"
         - proposer_output_tokens: "RAPID" | "FAST" | "SLOW"
         - num_generations: Number of evolutionary generations
@@ -255,7 +253,7 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
 
     Example:
         >>> minimal = {
-        ...     "task_app_url": "http://localhost:8001",
+        ...     "localapi_url": "http://localhost:8001",
         ...     "total_seeds": 200,
         ...     "proposer_effort": "LOW",
         ...     "proposer_output_tokens": "FAST",
@@ -271,8 +269,8 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
     d = get_defaults(minimal.get("defaults_version"))
 
     # Validate required fields
-    if "task_app_url" not in minimal:
-        raise ValueError("task_app_url is required")
+    if "localapi_url" not in minimal:
+        raise ValueError("localapi_url is required")
     if "proposer_effort" not in minimal:
         raise ValueError("proposer_effort is required")
     if "proposer_output_tokens" not in minimal:
@@ -323,7 +321,7 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
     # Build full config with defaults
     return {
         "algorithm": "gepa",
-        "task_app_url": minimal["task_app_url"],
+        "localapi_url": minimal["localapi_url"],
         "gepa": {
             "env_name": minimal.get("env_name", "default"),
             "proposer_effort": minimal["proposer_effort"],
@@ -469,8 +467,5 @@ def is_minimal_config(config: dict[str, Any]) -> bool:
         return True
 
     # Check for flat structure (no deeply nested evaluation/population configs)
-    # This catches cases like {"task_app_url": "...", "train_seeds": [...]}
-    if "train_seeds" in config and "gepa" not in config:
-        return True
-
-    return False
+    # This catches cases like {"localapi_url": "...", "train_seeds": [...]}
+    return "train_seeds" in config and "gepa" not in config

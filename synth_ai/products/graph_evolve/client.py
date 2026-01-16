@@ -4,12 +4,12 @@ This module provides a client for interacting with the graph
 optimization job API on the backend.
 """
 
-from __future__ import annotations
-
 import json
 from typing import Any, AsyncIterator, Dict, Optional
 
 import httpx
+
+from synth_ai.core.urls import synth_base_url as resolve_synth_base_url
 
 from .config import GraphOptimizationConfig
 
@@ -21,7 +21,7 @@ class GraphOptimizationClient:
     The client is agnostic to graph internals - it just manages jobs.
 
     Example:
-        async with GraphOptimizationClient("http://localhost:8000", api_key) as client:
+        async with GraphOptimizationClient("http://localhost:8000", synth_user_key) as client:
             config = GraphOptimizationConfig.from_toml("config.toml")
             job_id = await client.start_job(config)
 
@@ -34,26 +34,26 @@ class GraphOptimizationClient:
 
     def __init__(
         self,
-        base_url: str = "http://localhost:8000",
-        api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
         timeout: float = 300.0,
+        synth_base_url: str | None = None,
     ):
         """Initialize the client.
 
         Args:
-            base_url: Backend API URL
-            api_key: Optional API key for authentication
+            synth_base_url: Backend API URL
+            synth_user_key: Optional API key for authentication
             timeout: Request timeout in seconds
         """
-        self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
+        self.base_url = resolve_synth_base_url(synth_base_url)
+        self.synth_user_key = synth_user_key
         self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
 
-    async def __aenter__(self) -> GraphOptimizationClient:
+    async def __aenter__(self) -> "GraphOptimizationClient":
         headers = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+        if self.synth_user_key:
+            headers["Authorization"] = f"Bearer {self.synth_user_key}"
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             headers=headers,

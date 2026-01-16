@@ -8,8 +8,8 @@ Example:
     >>> from synth_ai.sdk.inference import InferenceClient
     >>>
     >>> client = InferenceClient(
-    ...     base_url="https://api.usesynth.ai",
-    ...     api_key=os.environ["SYNTH_API_KEY"],
+    ...     synth_user_key=os.environ["SYNTH_API_KEY"],
+    ...     synth_base_url="https://api.usesynth.ai",
     ... )
     >>>
     >>> response = await client.create_chat_completion(
@@ -27,6 +27,7 @@ Example:
 from typing import Any
 
 from synth_ai.core.http import AsyncHttpClient
+from synth_ai.core.urls import synth_api_v1_base, synth_inference_chat_completions_url
 from synth_ai.sdk.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,
@@ -44,8 +45,8 @@ class InferenceClient:
         >>> from synth_ai.sdk.inference import InferenceClient
         >>>
         >>> client = InferenceClient(
-        ...     base_url="https://api.usesynth.ai",
-        ...     api_key=os.environ["SYNTH_API_KEY"],
+        ...     synth_user_key=os.environ["SYNTH_API_KEY"],
+        ...     synth_base_url="https://api.usesynth.ai",
         ... )
         >>>
         >>> # Simple completion
@@ -64,16 +65,24 @@ class InferenceClient:
         ... )
     """
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 30.0,
+        synth_base_url: str | None = None,
+    ) -> None:
         """Initialize the inference client.
 
         Args:
-            base_url: Base URL for the Synth AI API
-            api_key: API key for authentication
+            synth_base_url: Base URL for the Synth AI API
+            synth_user_key: Synth API key for authentication
             timeout: Request timeout in seconds (default: 30.0)
         """
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     async def create_chat_completion(
@@ -121,6 +130,10 @@ class InferenceClient:
         # Backend now expects an explicit thinking_budget; provide a sensible default if omitted
         if "thinking_budget" not in body:
             body["thinking_budget"] = 256
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
             # Route through backend inference proxy to Modal
-            return await http.post_json("/api/inference/v1/chat/completions", json=body)
+            return await http.post_json(
+                synth_inference_chat_completions_url(self._synth_base_url), json=body
+            )

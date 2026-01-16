@@ -314,6 +314,10 @@ class DatasetInfo(_ExtraAllowModel):
     splits: list[str] | None = None
     default_split: str | None = None
     description: str | None = None
+    # Commonly used extra fields
+    split: str | None = None
+    index: int | None = None
+    instance_id: str | None = None
 
 
 class InferenceInfo(_ExtraAllowModel):
@@ -321,6 +325,9 @@ class InferenceInfo(_ExtraAllowModel):
 
     model: str | None = None
     inference_url: str | None = None
+    # Commonly used extra fields
+    tool: str | None = None
+    supports_proxy: bool | None = None
 
 
 class LimitsInfo(_ExtraAllowModel):
@@ -329,6 +336,8 @@ class LimitsInfo(_ExtraAllowModel):
     max_turns: int | None = None
     max_response_tokens: int | None = None
     timeout_seconds: int | None = None
+    # Commonly used extra fields
+    max_steps_per_episode: int | None = None
 
 
 class TaskInfo(_ExtraAllowModel):

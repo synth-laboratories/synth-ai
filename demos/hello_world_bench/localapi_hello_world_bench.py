@@ -24,6 +24,7 @@ import logging
 import os
 import tempfile
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -32,7 +33,16 @@ from fastapi import Request
 from synth_ai.data.artifacts import Artifact
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
 from synth_ai.sdk.task.override_helpers import (
     AgentType,
     apply_context_overrides,
@@ -68,20 +78,20 @@ def provide_taskset_description() -> dict[str, Any]:
     return {"id": APP_ID, "splits": ["default"], "sizes": {"default": 1, "total": 1}}
 
 
-def provide_task_instances(seeds: list[int]):
+def provide_task_instances(seeds: Sequence[int]):
     # We don't meaningfully vary the task per seed yet, but GEPA requires many seeds.
     # We still emit distinct instance_id values for bookkeeping.
     for seed in seeds:
         yield TaskInfo(
-            task={"id": APP_ID, "name": APP_NAME},
-            dataset={
-                "id": APP_ID,
-                "split": "default",
-                "index": seed,
-                "instance_id": f"hw-{seed}",
-            },
-            inference={"tool": "code_edit"},
-            limits={"max_turns": 10},
+            task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+            dataset=DatasetInfo(
+                id=APP_ID,
+                split="default",
+                index=seed,
+                instance_id=f"hw-{seed}",
+            ),
+            inference=InferenceInfo(tool="code_edit"),
+            limits=LimitsInfo(max_turns=10),
             task_metadata={"seed": seed},
         )
 
@@ -512,10 +522,9 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
     artifacts = [
         Artifact(
-            name="output_txt",
             content=final_output,
-            type="text",
             content_type="text/plain",
+            metadata={"name": "output_txt"},
         )
     ]
 
@@ -621,7 +630,7 @@ if __name__ == "__main__":
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
     port = int(os.getenv("PORT", "8030"))
-    env_key = ensure_localapi_auth(backend_base="http://localhost:8000", synth_api_key=None)
+    env_key = ensure_localapi_auth()
     print(f"[hello_world_bench] ENVIRONMENT_API_KEY ready: {env_key[:15]}...")
     print(f"[hello_world_bench] Starting on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)

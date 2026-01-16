@@ -10,8 +10,8 @@ Example:
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
         backend=TunnelBackend.CloudflareManagedTunnel,
-        api_key="sk_live_...",
-        env_api_key="env_key_...",
+        synth_user_key="sk_live_...",
+        localapi_key="env_key_...",
     )
 
     # Quick tunnel (random subdomain, no API key needed)
@@ -20,12 +20,12 @@ Example:
         backend=TunnelBackend.CloudflareQuickTunnel,
     )
 
-    print(f"Local API exposed at: {tunnel.url}")
+    print(f"LocalAPI exposed at: {tunnel.url}")
 
     # Use the URL for remote jobs
     job = PromptLearningJob.from_dict(
         config_dict={...},
-        task_app_url=tunnel.url,
+        localapi_url=tunnel.url,
     )
 
     # Clean up when done
@@ -35,8 +35,6 @@ See Also:
     - `synth_ai.sdk.tunnels`: Lower-level tunnel functions
     - `synth_ai.core.integrations.cloudflare`: Core tunnel implementation
 """
-
-from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass, field
@@ -97,8 +95,8 @@ class TunneledLocalAPI:
         >>> tunnel = await TunneledLocalAPI.create(
         ...     local_port=8001,
         ...     backend=TunnelBackend.CloudflareManagedTunnel,
-        ...     api_key="sk_live_...",
-        ...     env_api_key="env_key_...",
+        ...     synth_user_key="sk_live_...",
+        ...     localapi_key="env_key_...",
         ... )
         >>> print(tunnel.url)
         https://task-1234-5678.usesynth.ai
@@ -119,12 +117,12 @@ class TunneledLocalAPI:
         local_port: int,
         backend: TunnelBackend = TunnelBackend.CloudflareManagedTunnel,
         *,
-        api_key: Optional[str] = None,
-        env_api_key: Optional[str] = None,
-        backend_url: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
+        localapi_key: Optional[str] = None,
         verify_dns: bool = True,
         progress: bool = False,
-    ) -> TunneledLocalAPI:
+        synth_base_url: Optional[str] = None,
+    ) -> "TunneledLocalAPI":
         """Create a tunnel to expose a local API.
 
         This is the main entry point for creating tunnels. It handles:
@@ -137,29 +135,29 @@ class TunneledLocalAPI:
         Args:
             local_port: Local port to tunnel (e.g., 8001)
             backend: Tunnel backend to use. Defaults to CloudflareManagedTunnel.
-                - CloudflareManagedTunnel: Stable subdomain, requires api_key
-                - CloudflareQuickTunnel: Random subdomain, no api_key needed
-            api_key: Synth API key for authentication (required for managed tunnels).
+                - CloudflareManagedTunnel: Stable subdomain, requires synth_user_key
+                - CloudflareQuickTunnel: Random subdomain, no synth_user_key needed
+            synth_user_key: Synth API key for authentication (required for managed tunnels).
                 If not provided, will be read from SYNTH_API_KEY environment variable.
-            env_api_key: API key for the local task app (for health checks).
+            localapi_key: API key for the LocalAPI (for health checks).
                 Defaults to ENVIRONMENT_API_KEY env var.
-            backend_url: Optional backend URL (defaults to production, managed only)
             verify_dns: Whether to verify DNS resolution after creating tunnel.
                 Set to False if you're sure DNS will work (e.g., reusing subdomain).
             progress: If True, print status updates during setup
+            synth_base_url: Optional backend URL override (managed only)
 
         Returns:
             TunneledLocalAPI instance with .url, .hostname, .close(), etc.
 
         Raises:
-            ValueError: If api_key is missing for managed tunnels
+            ValueError: If synth_user_key is missing for managed tunnels
             RuntimeError: If tunnel creation or verification fails
         """
         import os
 
         # Auto-detect API key from environment if not provided
-        if api_key is None:
-            api_key = os.environ.get("SYNTH_API_KEY")
+        if synth_user_key is None:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
 
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
@@ -181,27 +179,27 @@ class TunneledLocalAPI:
                 _raw={},
             )
 
-        # Resolve env_api_key from environment if not provided
-        if env_api_key is None:
-            env_api_key = ensure_localapi_auth(
-                backend_base=backend_url,
-                synth_api_key=api_key,
+        # Resolve localapi_key from environment if not provided
+        if localapi_key is None:
+            localapi_key = ensure_localapi_auth(
+                synth_user_key=synth_user_key,
+                synth_base_url=synth_base_url,
             )
 
         if backend == TunnelBackend.CloudflareManagedTunnel:
             return await cls._create_managed(
                 local_port=local_port,
-                api_key=api_key,
-                env_api_key=env_api_key,
-                backend_url=backend_url,
+                synth_user_key=synth_user_key,
+                localapi_key=localapi_key,
                 verify_dns=verify_dns,
                 progress=progress,
                 track_process=track_process,
+                synth_base_url=synth_base_url,
             )
         elif backend == TunnelBackend.CloudflareQuickTunnel:
             return await cls._create_quick(
                 local_port=local_port,
-                env_api_key=env_api_key,
+                localapi_key=localapi_key,
                 progress=progress,
                 track_process=track_process,
             )
@@ -212,13 +210,13 @@ class TunneledLocalAPI:
     async def _create_managed(
         cls,
         local_port: int,
-        api_key: Optional[str],
-        env_api_key: Optional[str],
-        backend_url: Optional[str],
+        synth_user_key: Optional[str],
+        localapi_key: Optional[str],
         verify_dns: bool,
         progress: bool,
         track_process,
-    ) -> TunneledLocalAPI:
+        synth_base_url: Optional[str] = None,
+    ) -> "TunneledLocalAPI":
         """Internal: Create a managed tunnel via Synth backend."""
         from synth_ai.core.integrations.cloudflare import (
             open_managed_tunnel_with_connection_wait,
@@ -226,9 +224,9 @@ class TunneledLocalAPI:
             verify_tunnel_dns_resolution,
         )
 
-        if not api_key:
+        if not synth_user_key:
             raise ValueError(
-                "api_key is required for CloudflareManagedTunnel. "
+                "synth_user_key is required for CloudflareManagedTunnel. "
                 "Use CloudflareQuickTunnel for anonymous tunnels."
             )
 
@@ -237,9 +235,9 @@ class TunneledLocalAPI:
             print(f"Provisioning managed tunnel for port {local_port}...")
 
         tunnel_data = await rotate_tunnel(
-            api_key,
+            synth_user_key,
             local_port,
-            backend_url=backend_url,
+            synth_base_url=synth_base_url,
         )
 
         hostname = tunnel_data["hostname"]
@@ -280,7 +278,7 @@ class TunneledLocalAPI:
                     url,
                     name="tunnel",
                     timeout_seconds=60.0,  # Reduced from 90s since cloudflared is already connected
-                    api_key=env_api_key,
+                    localapi_key=localapi_key,
                 )
 
         if progress:
@@ -300,10 +298,10 @@ class TunneledLocalAPI:
     async def _create_quick(
         cls,
         local_port: int,
-        env_api_key: Optional[str],
+        localapi_key: Optional[str],
         progress: bool,
         track_process,
-    ) -> TunneledLocalAPI:
+    ) -> "TunneledLocalAPI":
         """Internal: Create a quick (anonymous) tunnel via trycloudflare.com."""
         from synth_ai.core.integrations.cloudflare import (
             open_quick_tunnel_with_dns_verification,
@@ -314,7 +312,7 @@ class TunneledLocalAPI:
 
         url, proc = await open_quick_tunnel_with_dns_verification(
             port=local_port,
-            api_key=env_api_key,
+            localapi_key=localapi_key,
         )
 
         track_process(proc)
@@ -356,7 +354,7 @@ class TunneledLocalAPI:
                 ctx={"hostname": self.hostname, "backend": self.backend.value},
             )
 
-    def __enter__(self) -> TunneledLocalAPI:
+    def __enter__(self) -> "TunneledLocalAPI":
         """Context manager entry (for sync use after async creation)."""
         return self
 
@@ -371,11 +369,11 @@ class TunneledLocalAPI:
         local_port: int | None = None,
         backend: TunnelBackend = TunnelBackend.CloudflareManagedTunnel,
         *,
-        api_key: Optional[str] = None,
-        backend_url: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
         verify_dns: bool = True,
         progress: bool = False,
-    ) -> TunneledLocalAPI:
+        synth_base_url: Optional[str] = None,
+    ) -> "TunneledLocalAPI":
         """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
 
         This is a convenience method that:
@@ -389,10 +387,10 @@ class TunneledLocalAPI:
             app: FastAPI or ASGI application to tunnel
             local_port: Port to use (defaults to finding an available port starting from 8001)
             backend: Tunnel backend to use
-            api_key: Synth API key (defaults to SYNTH_API_KEY env var)
-            backend_url: Backend URL (defaults to production)
+            synth_user_key: Synth API key (defaults to SYNTH_API_KEY env var)
             verify_dns: Whether to verify DNS resolution
             progress: If True, print status updates
+            synth_base_url: Backend URL override (managed only)
 
         Returns:
             TunneledLocalAPI instance with .url, .hostname, .close(), etc.
@@ -409,8 +407,8 @@ class TunneledLocalAPI:
         from synth_ai.sdk.task.server import run_server_background
         from synth_ai.sdk.tunnels.ports import find_available_port, kill_port
 
-        if api_key is None:
-            api_key = os.environ.get("SYNTH_API_KEY") or None
+        if synth_user_key is None:
+            synth_user_key = os.environ.get("SYNTH_API_KEY") or None
 
         # Find or use port
         if local_port is None:
@@ -435,10 +433,10 @@ class TunneledLocalAPI:
         return await cls.create(
             local_port=local_port,
             backend=backend,
-            api_key=api_key,
-            backend_url=backend_url,
+            synth_user_key=synth_user_key,
             verify_dns=verify_dns,
             progress=progress,
+            synth_base_url=synth_base_url,
         )
 
 

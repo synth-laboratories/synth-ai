@@ -3,14 +3,12 @@
 
 import asyncio
 import importlib
-import os
 import sys
 from pathlib import Path
 
 import httpx
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.api.eval import EvalJobConfig
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 try:
@@ -26,18 +24,17 @@ sys.path.insert(0, str(demo_dir))
 _run_demo = importlib.import_module("run_demo")
 create_web_design_local_api = _run_demo.create_web_design_local_api
 
-# Get API key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
-if not API_KEY:
-    print("No SYNTH_API_KEY, minting demo key...")
-    API_KEY = mint_demo_api_key(backend_url=BACKEND_URL_BASE)
-    os.environ["SYNTH_API_KEY"] = API_KEY
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
-# Get environment key
-ENVIRONMENT_API_KEY = ensure_localapi_auth(
-    backend_base=BACKEND_URL_BASE,
-    synth_api_key=API_KEY,
+# Create preliminary config to get localapi_key (SDK auto-provisions it)
+prelim_config = EvalJobConfig(
+    localapi_url="http://localhost:8002",  # placeholder
+    synth_user_key=SYNTH_USER_KEY,
+    env_name="web_design",
+    seeds=[0],
+    policy_config={"model": "gemini-2.5-flash-image", "provider": "google"},
 )
+ENVIRONMENT_API_KEY = prelim_config.localapi_key
 print(f"Env key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
 
 

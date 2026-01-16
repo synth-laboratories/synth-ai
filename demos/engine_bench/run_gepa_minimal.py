@@ -6,27 +6,25 @@ Uses minimum viable seeds (13) and 2 generations to verify GEPA works.
 
 Usage:
     cd /path/to/synth-ai
-    LOG_LEVEL=DEBUG uv run python demos/engine_bench/run_gepa_minimal.py --local
+    uv run python demos/engine_bench/run_gepa_minimal.py
 """
 
 import argparse
 import asyncio
-import os
 import time
 from pathlib import Path
 
 import httpx
 from localapi_engine_bench import INSTANCE_IDS, app
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
+
 parser = argparse.ArgumentParser(description="Run minimal GEPA for EngineBench")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
-parser.add_argument("--local-host", type=str, default="localhost")
 parser.add_argument("--port", type=int, default=8020)
 parser.add_argument(
     "--config",
@@ -63,40 +61,20 @@ async def main():
     print("Config: 13 seeds (10 pareto + 3 feedback), 2 generations")
     print(f"Instances available: {len(INSTANCE_IDS)}")
 
-    # Backend setup
-    backend_url = f"http://{args.local_host}:8000" if args.local else BACKEND_URL_BASE
-    if args.local:
-        print(f"LOCAL MODE - {backend_url}")
-    else:
-        print(f"PROD MODE - {backend_url}")
-
-    # Check backend
+    # Check backend health
     async with httpx.AsyncClient() as client:
         try:
-            r = await client.get(f"{backend_url}/health", timeout=10)
-            print(f"Backend health: {r.status_code}")
+            r = await client.get(synth_health_url(), timeout=10)
+            print(f"Synth health: {r.status_code}")
         except Exception as e:
-            print(f"Backend check failed: {e}")
-            print("Make sure the backend is running!")
+            print(f"Synth check failed: {e}")
             return
 
-    # API key
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_url)
-        print(f"API Key: {api_key[:20]}...")
+    print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
-    env_key = ensure_localapi_auth(backend_base=backend_url, synth_api_key=api_key)
-    print(f"Environment key: {env_key[:20]}...")
-
-    # Start task app
+    # Acquire port and prepare localapi URL
     port = acquire_port(args.port, on_conflict=PortConflictBehavior.FIND_NEW)
-    run_server_background(app, port)
-    wait_for_health(args.local_host, port, env_key)
-    print(f"Task app ready on port {port}")
-
-    task_url = f"http://{args.local_host}:{port}"
+    localapi_url = f"http://localhost:{port}"
 
     # Load config
     config_path = Path(__file__).parent / args.config
@@ -113,7 +91,7 @@ async def main():
         config_dict = tomllib.load(f)
 
     # Apply overrides
-    config_dict["prompt_learning"]["task_app_url"] = task_url
+    config_dict["prompt_learning"]["localapi_url"] = localapi_url
 
     if args.budget:
         if "gepa" not in config_dict["prompt_learning"]:
@@ -130,15 +108,17 @@ async def main():
         config_dict["prompt_learning"]["gepa"]["population"]["num_generations"] = args.generations
 
     print("\nSubmitting GEPA job...")
-    print(f"  Task URL: {task_url}")
-    print(f"  Task app API key: {env_key[:20]}...")
+    print(f"  Localapi URL: {localapi_url}")
     job = PromptLearningJob.from_dict(
         config_dict=config_dict,
-        backend_url=backend_url,
-        api_key=api_key,
-        task_app_api_key=env_key,
-        skip_health_check=True,  # We already validated health above
+        synth_user_key=SYNTH_USER_KEY,
     )
+    print(f"  Localapi API key: {job.config.localapi_key[:20]}...")
+
+    # Start localapi server
+    run_server_background(app, port)
+    wait_for_health("localhost", port, job.config.localapi_key)
+    print(f"Localapi ready on port {port}")
 
     job_id = job.submit()
     print(f"Job ID: {job_id}")

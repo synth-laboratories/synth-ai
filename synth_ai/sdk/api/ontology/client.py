@@ -13,7 +13,7 @@ Example:
             print(f"{node.name}: {node.description}")
 
     # Using explicit credentials
-    client = OntologyClient(base_url="http://localhost:8000", api_key="sk_...")
+    client = OntologyClient(synth_user_key="sk_...", synth_base_url="http://localhost:8000")
     async with client:
         context = await client.get_node_context("Entity")
 """
@@ -24,7 +24,18 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from synth_ai.core.http import AsyncHttpClient
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_ontology_health_url,
+    synth_ontology_node_context_url,
+    synth_ontology_node_neighborhood_url,
+    synth_ontology_node_properties_url,
+    synth_ontology_node_relationships_incoming_url,
+    synth_ontology_node_relationships_outgoing_url,
+    synth_ontology_node_url,
+    synth_ontology_nodes_url,
+    synth_ontology_properties_url,
+)
 
 # =============================================================================
 # Data Models
@@ -178,31 +189,29 @@ class OntologyClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
         timeout: float = 30.0,
+        synth_base_url: Optional[str] = None,
     ) -> None:
         """Initialize the ontology client.
 
         Args:
-            base_url: Backend base URL (defaults to env-based resolution)
-            api_key: Synth API key (defaults to env-based resolution)
+            synth_user_key: Synth API key (defaults to env-based resolution)
             timeout: Request timeout in seconds
+            synth_base_url: Backend URL override (defaults to SYNTH_BACKEND_URL or production)
         """
-        if base_url is None:
-            base_url = BACKEND_URL_BASE
-        if api_key is None:
-            api_key = os.environ.get("SYNTH_API_KEY", "")
+        if synth_user_key is None:
+            synth_user_key = os.environ.get("SYNTH_API_KEY", "")
 
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+        self._synth_base_url = synth_base_url
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
         self._http: Optional[AsyncHttpClient] = None
 
     async def __aenter__(self) -> "OntologyClient":
         self._http = AsyncHttpClient(
-            self._base_url,
-            self._api_key,
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
             timeout=self._timeout,
         )
         await self._http.__aenter__()
@@ -237,7 +246,7 @@ class OntologyClient:
         """
         http = self._ensure_http()
         params = {"node_type": node_type} if node_type else None
-        data = await http.get("/api/ontology/nodes", params=params)
+        data = await http.get(synth_ontology_nodes_url(self._synth_base_url), params=params)
 
         if not isinstance(data, dict):
             return []
@@ -256,7 +265,7 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get(f"/api/ontology/nodes/{name}")
+            data = await http.get(synth_ontology_node_url(name, self._synth_base_url))
             if isinstance(data, dict):
                 return OntologyNode.from_dict(data)
         except Exception:
@@ -276,7 +285,7 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get(f"/api/ontology/nodes/{name}/context")
+            data = await http.get(synth_ontology_node_context_url(name, self._synth_base_url))
             if isinstance(data, dict):
                 return NodeContext.from_dict(data)
         except Exception:
@@ -296,7 +305,7 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get(f"/api/ontology/nodes/{name}/neighborhood")
+            data = await http.get(synth_ontology_node_neighborhood_url(name, self._synth_base_url))
             if isinstance(data, dict):
                 return Neighborhood.from_dict(data)
         except Exception:
@@ -314,7 +323,7 @@ class OntologyClient:
             List of PropertyClaim objects
         """
         http = self._ensure_http()
-        data = await http.get("/api/ontology/properties")
+        data = await http.get(synth_ontology_properties_url(self._synth_base_url))
 
         if not isinstance(data, dict):
             return []
@@ -333,7 +342,7 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get(f"/api/ontology/nodes/{name}/properties")
+            data = await http.get(synth_ontology_node_properties_url(name, self._synth_base_url))
             if isinstance(data, dict):
                 props_data = data.get("properties", [])
                 return [PropertyClaim.from_dict(p) for p in props_data if isinstance(p, dict)]
@@ -356,7 +365,9 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get(f"/api/ontology/nodes/{name}/relationships/outgoing")
+            data = await http.get(
+                synth_ontology_node_relationships_outgoing_url(name, self._synth_base_url)
+            )
             if isinstance(data, list):
                 return [Relationship.from_dict(r) for r in data if isinstance(r, dict)]
         except Exception:
@@ -374,7 +385,9 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get(f"/api/ontology/nodes/{name}/relationships/incoming")
+            data = await http.get(
+                synth_ontology_node_relationships_incoming_url(name, self._synth_base_url)
+            )
             if isinstance(data, list):
                 return [Relationship.from_dict(r) for r in data if isinstance(r, dict)]
         except Exception:
@@ -393,7 +406,7 @@ class OntologyClient:
         """
         http = self._ensure_http()
         try:
-            data = await http.get("/api/ontology/health")
+            data = await http.get(synth_ontology_health_url(self._synth_base_url))
             return data if isinstance(data, dict) else {"status": "unknown"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
@@ -406,22 +419,24 @@ class OntologyClient:
 
 def list_nodes_sync(
     node_type: Optional[str] = None,
-    base_url: Optional[str] = None,
-    api_key: Optional[str] = None,
+    synth_user_key: Optional[str] = None,
+    synth_base_url: Optional[str] = None,
 ) -> List[OntologyNode]:
     """Synchronous wrapper for list_nodes.
 
     Args:
         node_type: Optional filter by node type
-        base_url: Backend base URL
-        api_key: Synth API key
+        synth_user_key: Synth API key
+        synth_base_url: Backend base URL
 
     Returns:
         List of OntologyNode objects
     """
 
     async def _run():
-        async with OntologyClient(base_url=base_url, api_key=api_key) as client:
+        async with OntologyClient(
+            synth_user_key=synth_user_key, synth_base_url=synth_base_url
+        ) as client:
             return await client.list_nodes(node_type=node_type)
 
     return asyncio.get_event_loop().run_until_complete(_run())
@@ -429,22 +444,24 @@ def list_nodes_sync(
 
 def get_node_context_sync(
     name: str,
-    base_url: Optional[str] = None,
-    api_key: Optional[str] = None,
+    synth_user_key: Optional[str] = None,
+    synth_base_url: Optional[str] = None,
 ) -> NodeContext:
     """Synchronous wrapper for get_node_context.
 
     Args:
         name: Node name
-        base_url: Backend base URL
-        api_key: Synth API key
+        synth_user_key: Synth API key
+        synth_base_url: Backend base URL
 
     Returns:
         NodeContext with node data
     """
 
     async def _run():
-        async with OntologyClient(base_url=base_url, api_key=api_key) as client:
+        async with OntologyClient(
+            synth_user_key=synth_user_key, synth_base_url=synth_base_url
+        ) as client:
             return await client.get_node_context(name)
 
     return asyncio.get_event_loop().run_until_complete(_run())

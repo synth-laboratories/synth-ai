@@ -10,7 +10,6 @@ cd "$SCRIPT_DIR"
 SEEDS=${SEEDS:-3}
 MODEL=${MODEL:-gpt-4o-mini}
 TIMEOUT=${TIMEOUT:-180}
-LOCAL=${LOCAL:-false}
 
 echo "============================================================"
 echo "Running eval jobs for both opencode and codex agents"
@@ -18,7 +17,7 @@ echo "============================================================"
 echo "Seeds: $SEEDS"
 echo "Model: $MODEL"
 echo "Timeout: ${TIMEOUT}s"
-echo "Local mode: $LOCAL"
+echo "Backend: ${SYNTH_BACKEND_URL:-https://api.usesynth.ai}"
 echo ""
 
 # Create artifacts directory
@@ -28,24 +27,16 @@ mkdir -p "$ARTIFACTS_DIR"
 # Run opencode agent
 echo ""
 echo "============================================================"
-echo "Running OPencode agent eval"
+echo "Running OpenCode agent eval"
 echo "============================================================"
-if [ "$LOCAL" = "true" ]; then
-    uv run python run_eval.py --local --seeds "$SEEDS" --model "$MODEL" --agent opencode --timeout "$TIMEOUT"
-else
-    uv run python run_eval.py --seeds "$SEEDS" --model "$MODEL" --agent opencode --timeout "$TIMEOUT"
-fi
+uv run python run_eval.py --seeds "$SEEDS" --model "$MODEL" --agent opencode --timeout "$TIMEOUT"
 
 # Run codex agent
 echo ""
 echo "============================================================"
 echo "Running Codex agent eval"
 echo "============================================================"
-if [ "$LOCAL" = "true" ]; then
-    uv run python run_eval.py --local --seeds "$SEEDS" --model "$MODEL" --agent codex --timeout "$TIMEOUT"
-else
-    uv run python run_eval.py --seeds "$SEEDS" --model "$MODEL" --agent codex --timeout "$TIMEOUT"
-fi
+uv run python run_eval.py --seeds "$SEEDS" --model "$MODEL" --agent codex --timeout "$TIMEOUT"
 
 echo ""
 echo "============================================================"

@@ -17,13 +17,15 @@ This serves as a minimal test case for verifying GEPA infrastructure works corre
 
 ## Prerequisites
 
-1. **Backend running locally**:
+1. **Synth backend** - Either use the hosted backend (default) or run locally.
+   For local development:
    ```bash
    cd /path/to/monorepo
    bash scripts/run_backend_local.sh
+   export SYNTH_BACKEND_URL=http://localhost:8000
    ```
 
-2. **Redis running** (for trace storage):
+2. **Redis running** (for trace storage when using local backend):
    ```bash
    redis-server
    ```
@@ -38,17 +40,22 @@ This serves as a minimal test case for verifying GEPA infrastructure works corre
 cd /path/to/synth-ai
 
 # Run with OpenCode (default)
-uv run python demos/hello_world_bench/run_gepa_minimal.py --local --model gpt-4.1-mini
+uv run python demos/hello_world_bench/run_gepa_minimal.py --model gpt-4.1-mini
 
 # Run with Codex CLI
-uv run python demos/hello_world_bench/run_gepa_minimal.py --local --model gpt-5.1-codex-mini --agent codex
+uv run python demos/hello_world_bench/run_gepa_minimal.py --model gpt-5.1-codex-mini --agent codex
+```
+
+For local backend development, set the env var:
+
+```bash
+SYNTH_BACKEND_URL=http://localhost:8000 uv run python demos/hello_world_bench/run_gepa_minimal.py --model gpt-4.1-mini
 ```
 
 ### Command Line Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--local` | Required | Run against local backend (localhost:8000) |
 | `--model` | Required | Model to use (e.g., `gpt-4.1-mini`, `gpt-5.1-codex-mini`) |
 | `--agent` | `opencode` | Agent type: `opencode` or `codex` |
 | `--generations` | From config | Number of GEPA generations |
@@ -60,7 +67,6 @@ uv run python demos/hello_world_bench/run_gepa_minimal.py --local --model gpt-5.
 ```bash
 # OpenCode with gpt-4.1-mini (1 generation, 10 rollouts)
 uv run python demos/hello_world_bench/run_gepa_minimal.py \
-  --local \
   --model gpt-4.1-mini \
   --generations 1 \
   --budget 10 \
@@ -68,7 +74,6 @@ uv run python demos/hello_world_bench/run_gepa_minimal.py \
 
 # Codex CLI with gpt-5.1-codex-mini
 uv run python demos/hello_world_bench/run_gepa_minimal.py \
-  --local \
   --model gpt-5.1-codex-mini \
   --generations 1 \
   --budget 10 \

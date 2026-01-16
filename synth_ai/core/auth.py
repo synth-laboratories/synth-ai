@@ -6,10 +6,8 @@ from dataclasses import dataclass
 import requests
 from requests import RequestException
 
-from synth_ai.core.urls import FRONTEND_URL_BASE
+from synth_ai.core.urls import frontend_device_init_url, frontend_device_token_url, frontend_url
 
-INIT_URL = FRONTEND_URL_BASE + "/api/auth/device/init"
-TOKEN_URL = FRONTEND_URL_BASE + "/api/auth/device/token"
 POLL_INTERVAL = 3
 
 
@@ -24,7 +22,7 @@ def _coerce_str(value) -> str:
     return str(value or "").strip()
 
 
-def extract_synth_api_key(payload: dict) -> str:
+def extract_synth_user_key(payload: dict) -> str:
     direct_candidates = (
         "synth_api_key",
         "synthApiKey",
@@ -52,7 +50,7 @@ def extract_synth_api_key(payload: dict) -> str:
     return ""
 
 
-def extract_environment_api_key(payload: dict) -> str:
+def extract_localapi_key(payload: dict) -> str:
     keys = payload.get("keys")
     if not isinstance(keys, dict):
         return ""
@@ -61,7 +59,7 @@ def extract_environment_api_key(payload: dict) -> str:
 
 def init_auth_session() -> AuthSession:
     try:
-        res = requests.post(INIT_URL, timeout=10)
+        res = requests.post(frontend_device_init_url(), timeout=10)
     except RequestException as exc:
         raise RuntimeError(f"Failed to reach handshake init endpoint: {exc}") from exc
     if res.status_code != 200:
@@ -93,7 +91,7 @@ def init_auth_session() -> AuthSession:
 def fetch_data(device_code: str) -> requests.Response | None:
     try:
         return requests.post(
-            TOKEN_URL,
+            frontend_device_token_url(),
             json={"device_code": device_code},
             timeout=10,
         )
@@ -102,7 +100,8 @@ def fetch_data(device_code: str) -> requests.Response | None:
 
 
 def fetch_credentials_from_web_browser() -> dict:
-    print(f"Fetching your credentials from {FRONTEND_URL_BASE}")
+    frontend_base = frontend_url("")
+    print(f"Fetching your credentials from {frontend_base}")
 
     auth_session = init_auth_session()
 
@@ -127,10 +126,10 @@ def fetch_credentials_from_web_browser() -> dict:
     if data is None:
         raise TimeoutError("Handshake timed out before credentials were returned.")
 
-    print(f"Connected to {FRONTEND_URL_BASE}")
+    print(f"Connected to {frontend_base}")
     return {
-        "SYNTH_API_KEY": extract_synth_api_key(data),
-        "ENVIRONMENT_API_KEY": extract_environment_api_key(data),
+        "SYNTH_API_KEY": extract_synth_user_key(data),
+        "ENVIRONMENT_API_KEY": extract_localapi_key(data),
     }
 
 

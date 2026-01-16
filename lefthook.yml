@@ -9,20 +9,23 @@
 # Usage:
 #   lefthook run pre-commit  # Run hooks manually
 #   lefthook uninstall      # Remove hooks
+#
+# Note: Python commands use .venv/bin/python3 if available, otherwise fall back to python3
 
 pre-commit:
   parallel: true
   files: git diff --cached --name-only --diff-filter=ACMR
   commands:
-    # Python: Verify imports work (catch broken imports before commit)
-    python-import-check:
+    # Python: Type check with pyright (catches syntax, import, and type errors)
+    # Uses wrapper to only fail on synth_ai SDK errors, not external library issues
+    python-typecheck:
       tags:
         - python
-        - lint
+        - typecheck
       glob:
-        - "synth_ai/*.py"
-        - "synth_ai/**/*.py"
-      run: python3 .lefthook/pre-commit/import_check.py {files}
+        - "*.py"
+        - "**/*.py"
+      run: uv run python scripts/check_synth_ai_types.py {files}
 
     # Python: Ruff linting with auto-fix (only on staged Python files that exist)
     python-ruff:
@@ -67,3 +70,9 @@ pre-commit:
         - "synth_ai/tui/app/**/*.ts"
       root: synth_ai/tui/app
       run: bun run typecheck
+
+    # URL Centralization: Ensure URLs are only defined in authorized files
+    url-centralization:
+      tags:
+        - lint
+      run: bash -c 'PY=".venv/bin/python3"; [ -x "$PY" ] || PY=python3; $PY scripts/check_url_centralization.py'

@@ -118,7 +118,7 @@ def format_app_json(apps: list[ScannedApp]) -> str:
 async def run_scan(
     port_range: tuple[int, int],
     timeout: float,
-    api_key: str | None,
+    localapi_key: str | None,
     verbose_callback: Callable[[str], None] | None = None,
 ) -> list[ScannedApp]:
     """Run the scan operation.
@@ -126,7 +126,7 @@ async def run_scan(
     Args:
         port_range: Tuple of (start_port, end_port)
         timeout: Health check timeout
-        api_key: API key for health checks
+        localapi_key: API key for health checks
         verbose_callback: Optional callback for verbose output
 
     Returns:
@@ -135,32 +135,32 @@ async def run_scan(
     start_port, end_port = port_range
     all_apps: list[ScannedApp] = []
 
-    env_api_key = api_key
-    if not env_api_key:
+    resolved_localapi_key = localapi_key
+    if not resolved_localapi_key:
         try:
             from synth_ai.core.env import resolve_env_var
 
-            env_api_key = resolve_env_var("ENVIRONMENT_API_KEY")
+            resolved_localapi_key = resolve_env_var("ENVIRONMENT_API_KEY")
         except Exception:
-            env_api_key = os.getenv("ENVIRONMENT_API_KEY")
+            resolved_localapi_key = os.getenv("ENVIRONMENT_API_KEY")
 
     if verbose_callback:
         verbose_callback(f"Scanning ports {start_port}-{end_port}...")
 
-    local_apps = await scan_local_ports(start_port, end_port, env_api_key, timeout)
+    local_apps = await scan_local_ports(start_port, end_port, resolved_localapi_key, timeout)
     all_apps.extend(local_apps)
 
     if verbose_callback:
         verbose_callback(f"Found {len(local_apps)} local app(s)")
 
-    synth_api_key = os.getenv("SYNTH_API_KEY")
-    cloudflare_apps = await scan_cloudflare_apps(synth_api_key, env_api_key, timeout)
+    synth_user_key = os.getenv("SYNTH_API_KEY")
+    cloudflare_apps = await scan_cloudflare_apps(synth_user_key, resolved_localapi_key, timeout)
     all_apps.extend(cloudflare_apps)
 
     if verbose_callback:
         verbose_callback(f"Found {len(cloudflare_apps)} Cloudflare app(s)")
 
-    service_record_apps = await scan_service_records(env_api_key, timeout)
+    service_record_apps = await scan_service_records(resolved_localapi_key, timeout)
     all_apps.extend(service_record_apps)
 
     if verbose_callback:

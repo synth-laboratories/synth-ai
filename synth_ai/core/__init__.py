@@ -51,7 +51,6 @@ from synth_ai.core.pricing import (
     estimate_cost,
     get_token_rates,
 )
-from synth_ai.core.urls import BACKEND_URL_BASE
 
 __all__ = [
     # Errors
@@ -67,7 +66,6 @@ __all__ = [
     # Environment
     "get_api_key",
     "mask_value",
-    "BACKEND_URL_BASE",
     # HTTP
     "AsyncHttpClient",
     "sleep",

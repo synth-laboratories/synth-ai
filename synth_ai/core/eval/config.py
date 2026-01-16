@@ -21,8 +21,8 @@ class EvalRunConfig:
     """Configuration for evaluation runs."""
 
     app_id: str
-    task_app_url: str | None
-    task_app_api_key: str | None = None
+    localapi_url: str | None
+    localapi_key: str | None = None
     env_name: str | None = None
     env_config: dict[str, Any] = field(default_factory=dict)
     policy_name: str | None = None
@@ -36,8 +36,8 @@ class EvalRunConfig:
     output_txt: Path | None = None
     output_json: Path | None = None
     verifier_config: dict[str, Any] | None = None
-    backend_url: str | None = None
-    backend_api_key: str | None = None
+    synth_base_url: str | None = None
+    synth_user_key: str | None = None
     wait: bool = False
     poll_interval: float = 5.0
     traces_dir: Path | None = None
@@ -130,8 +130,8 @@ def _from_prompt_learning(
 
     return EvalRunConfig(
         app_id=app_id,
-        task_app_url=pl_cfg.task_app_url,
-        task_app_api_key=pl_cfg.task_app_api_key,
+        localapi_url=pl_cfg.localapi_url,
+        localapi_key=pl_cfg.localapi_key,
         env_name=env_name,
         env_config=env_config,
         policy_name=pl_cfg.policy.policy_name if pl_cfg.policy else None,
@@ -151,7 +151,7 @@ def _from_legacy_eval(raw: dict[str, Any]) -> EvalRunConfig:
     if not isinstance(eval_section, dict):
         eval_section = {}
 
-    if eval_section.get("task_app_url") and eval_section.get("seeds"):
+    if eval_section.get("localapi_url") and eval_section.get("seeds"):
         expanded = expand_eval_config(eval_section)
         eval_section = {**expanded, **eval_section}
 
@@ -165,8 +165,8 @@ def _from_legacy_eval(raw: dict[str, Any]) -> EvalRunConfig:
 
     return EvalRunConfig(
         app_id=app_id,
-        task_app_url=eval_section.get("url") or eval_section.get("task_app_url"),
-        task_app_api_key=eval_section.get("task_app_api_key"),
+        localapi_url=eval_section.get("localapi_url"),
+        localapi_key=eval_section.get("localapi_key"),
         env_name=eval_section.get("env_name"),
         env_config=dict(eval_section.get("env_config") or {}),
         policy_name=eval_section.get("policy_name"),
@@ -187,13 +187,13 @@ def resolve_eval_config(
     cli_app_id: str | None,
     cli_model: str | None,
     cli_seeds: list[int] | None,
-    cli_url: str | None,
+    cli_localapi_url: str | None,
     cli_ops: list[str] | None,
     cli_return_trace: bool | None,
     cli_concurrency: int | None,
     cli_output_txt: Path | None,
     cli_output_json: Path | None,
-    cli_backend_url: str | None,
+    cli_synth_base_url: str | None,
     cli_wait: bool,
     cli_poll_interval: float | None,
     cli_traces_dir: Path | None,
@@ -212,8 +212,8 @@ def resolve_eval_config(
 
     if cli_app_id:
         resolved.app_id = cli_app_id
-    if cli_url:
-        resolved.task_app_url = cli_url
+    if cli_localapi_url:
+        resolved.localapi_url = cli_localapi_url
     if cli_seeds:
         resolved.seeds = cli_seeds
     if cli_ops:
@@ -226,8 +226,8 @@ def resolve_eval_config(
         resolved.output_txt = cli_output_txt
     if cli_output_json is not None:
         resolved.output_json = cli_output_json
-    if cli_backend_url:
-        resolved.backend_url = cli_backend_url
+    if cli_synth_base_url:
+        resolved.synth_base_url = cli_synth_base_url
     if cli_wait:
         resolved.wait = True
     if cli_poll_interval is not None:

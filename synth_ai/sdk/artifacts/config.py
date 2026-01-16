@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import click
 
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_api_url
 
 DEFAULT_TIMEOUT = 30.0
 
@@ -14,38 +14,32 @@ DEFAULT_TIMEOUT = 30.0
 class ArtifactsConfig:
     """Configuration for artifacts CLI commands."""
 
-    base_url: str
-    api_key: str
+    synth_base_url: str | None
+    synth_user_key: str
     timeout: float = DEFAULT_TIMEOUT
 
     @property
     def api_base_url(self) -> str:
         """Get the API base URL (ensures /api suffix)."""
-        base = self.base_url.rstrip("/")
-        if not base.endswith("/api"):
-            base = f"{base}/api"
-        return base
+        return synth_api_url("", self.synth_base_url)
 
 
 def resolve_backend_config(
     *,
-    base_url: str | None = None,
-    api_key: str | None = None,
+    synth_user_key: str | None = None,
     timeout: float | None = None,
+    synth_base_url: str | None = None,
 ) -> ArtifactsConfig:
     """Resolve backend configuration from environment or explicit values."""
-    if base_url is None:
-        base_url = BACKEND_URL_BASE
-
-    if api_key is None:
-        api_key = os.getenv("SYNTH_API_KEY", "")
-        if not api_key:
+    if synth_user_key is None:
+        synth_user_key = os.getenv("SYNTH_API_KEY", "")
+        if not synth_user_key:
             raise click.ClickException(
                 "API key required. Set SYNTH_API_KEY env var or use --api-key option."
             )
 
     return ArtifactsConfig(
-        base_url=base_url or "",
-        api_key=api_key,
+        synth_base_url=synth_base_url,
+        synth_user_key=synth_user_key,
         timeout=timeout or DEFAULT_TIMEOUT,
     )

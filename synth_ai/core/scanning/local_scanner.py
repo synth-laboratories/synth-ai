@@ -10,7 +10,7 @@ from synth_ai.core.scanning.models import ScannedApp
 async def scan_local_ports(
     start_port: int,
     end_port: int,
-    api_key: str | None,
+    localapi_key: str | None,
     timeout: float = 2.0,
     max_concurrent: int = 20,
 ) -> list[ScannedApp]:
@@ -19,7 +19,7 @@ async def scan_local_ports(
     Args:
         start_port: Start of port range (inclusive)
         end_port: End of port range (inclusive)
-        api_key: API key for health checks
+        localapi_key: API key for health checks
         timeout: Health check timeout in seconds
         max_concurrent: Maximum concurrent checks
 
@@ -38,7 +38,9 @@ async def scan_local_ports(
         async with semaphore:
             for base_url in [f"http://localhost:{port}", f"http://127.0.0.1:{port}"]:
                 try:
-                    health_status, metadata = await check_app_health(base_url, api_key, timeout)
+                    health_status, metadata = await check_app_health(
+                        base_url, localapi_key, timeout
+                    )
                     if health_status != "unknown":
                         app_id, task_name, dataset_id, version = extract_app_info(metadata)
                         name = app_id or task_name or f"localhost:{port}"
@@ -130,13 +132,13 @@ def scan_registry() -> list[ScannedApp]:
 
 
 async def scan_service_records(
-    api_key: str | None,
+    localapi_key: str | None,
     timeout: float = 2.0,
 ) -> list[ScannedApp]:
     """Scan service records file for local services and check their health.
 
     Args:
-        api_key: API key for health checks
+        localapi_key: API key for health checks
         timeout: Health check timeout in seconds
 
     Returns:
@@ -158,7 +160,7 @@ async def scan_service_records(
                 app_id = record.get("app_id")
 
                 if url and port:
-                    health_status, metadata = await check_app_health(url, api_key, timeout)
+                    health_status, metadata = await check_app_health(url, localapi_key, timeout)
                     record_app_id, task_name, dataset_id, version = extract_app_info(metadata)
 
                     final_app_id = record_app_id or app_id

@@ -9,7 +9,7 @@
 
 [prompt_learning]
 algorithm = "gepa"
-task_app_url = "http://localhost:8020"
+localapi_url = "http://localhost:8020"
 task_app_id = "engine_bench"
 
 [prompt_learning.policy]

@@ -102,7 +102,9 @@ function buildTaskLine(
     meta.task_app_id,
     meta.app_id,
   )
-  const host = formatHost(pickString(rawConfig?.task_app_url, meta.task_app_url, meta.endpoint_base_url))
+  const host = formatHost(
+    pickString(rawConfig?.localapi_url, meta.localapi_url, rawConfig?.task_app_url, meta.endpoint_base_url),
+  )
   const parts = [envName, taskId].filter((value, index, array) => value && array.indexOf(value) === index) as string[]
   let label = parts.join(" / ")
   if (!label && host) label = host

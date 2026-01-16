@@ -20,12 +20,14 @@ class AgentSessionManager:
 
     def __init__(
         self,
-        base_url: str,
-        api_key: str,
+        synth_user_key: str,
         org_id: Optional[UUID] = None,
         default_limits: Optional[list[dict[str, Any]]] = None,
+        synth_base_url: str | None = None,
     ):
-        self.client = AgentSessionClient(base_url, api_key)
+        self.client = AgentSessionClient(
+            synth_user_key=synth_user_key, synth_base_url=synth_base_url
+        )
         self.org_id = org_id
         self.default_limits = default_limits or []
         self._current_session: Optional[AgentSession] = None

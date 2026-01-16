@@ -7,8 +7,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from synth_ai.core.urls import BACKEND_URL_BASE
-
 
 class OptimizationTool(str, Enum):
     MIPRO = "mipro"
@@ -136,9 +134,9 @@ class ResearchAgentJobConfig:
     repo_url: str = ""
     repo_branch: str | None = None
     inline_files: dict[str, str] | None = None
-    backend_url: str = ""
-    api_key: str = ""
-    allow_missing_api_key: bool = False
+    synth_base_url: str | None = None
+    synth_user_key: str = ""
+    allow_missing_synth_user_key: bool = False
     backend: str | None = None
     model: str | None = None
     max_agent_spend_usd: float | None = None
@@ -148,12 +146,10 @@ class ResearchAgentJobConfig:
     def __post_init__(self) -> None:
         if not self.repo_url and not self.inline_files:
             raise ValueError("Either repo_url or inline_files must be provided")
-        if not self.api_key:
-            self.api_key = os.getenv("SYNTH_API_KEY", "").strip()
-        if not self.api_key and not self.allow_missing_api_key:
-            raise ValueError("api_key is required")
-        if not self.backend_url:
-            self.backend_url = BACKEND_URL_BASE
+        if not self.synth_user_key:
+            self.synth_user_key = os.getenv("SYNTH_API_KEY", "").strip()
+        if not self.synth_user_key and not self.allow_missing_synth_user_key:
+            raise ValueError("synth_user_key is required")
 
     @classmethod
     def from_toml(cls, path: str | Path) -> "ResearchAgentJobConfig":
@@ -208,9 +204,9 @@ class ResearchAgentJobConfig:
             max_agent_spend_usd=section.get("max_agent_spend_usd"),
             max_synth_spend_usd=section.get("max_synth_spend_usd"),
             reasoning_effort=section.get("reasoning_effort"),
-            backend_url=section.get("backend_url", ""),
-            api_key=section.get("api_key", ""),
-            allow_missing_api_key=True,
+            synth_base_url=section.get("synth_base_url"),
+            synth_user_key=section.get("synth_user_key", ""),
+            allow_missing_synth_user_key=True,
         )
 
 
@@ -229,18 +225,18 @@ class ResearchAgentJob:
         *,
         research: ResearchConfig,
         repo_url: str,
-        backend_url: str,
-        api_key: str,
+        synth_user_key: str,
         model: str | None = None,
         max_agent_spend_usd: float | None = None,
+        synth_base_url: str | None = None,
     ) -> "ResearchAgentJob":
         config = ResearchAgentJobConfig(
             research=research,
             repo_url=repo_url,
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_user_key=synth_user_key,
             model=model,
             max_agent_spend_usd=max_agent_spend_usd,
+            synth_base_url=synth_base_url,
         )
         return cls(config=config)
 
@@ -249,15 +245,15 @@ class ResearchAgentJob:
         cls,
         *,
         job_id: str,
-        backend_url: str,
-        api_key: str,
+        synth_user_key: str,
+        synth_base_url: str | None = None,
     ) -> "ResearchAgentJob":
         research = ResearchConfig(task_description="Existing research job")
         config = ResearchAgentJobConfig(
             research=research,
             repo_url="existing",
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_user_key=synth_user_key,
+            synth_base_url=synth_base_url,
         )
         job = cls(config=config)
         job._job_id = job_id

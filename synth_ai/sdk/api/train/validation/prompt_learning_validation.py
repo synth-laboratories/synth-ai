@@ -6,8 +6,6 @@ This module validates TOML configs and warns about:
 3. Missing required fields
 """
 
-from __future__ import annotations
-
 import warnings
 from pathlib import Path
 from typing import Any
@@ -22,8 +20,8 @@ KNOWN_TOP_LEVEL_SECTIONS = {
 # Known fields in [prompt_learning] section
 KNOWN_PROMPT_LEARNING_FIELDS = {
     "algorithm",
-    "task_app_url",
-    "task_app_api_key",
+    "localapi_url",
+    "localapi_key",
     "task_app_id",
     "initial_prompt",
     "auto_discover_patterns",
@@ -54,7 +52,7 @@ KNOWN_POLICY_FIELDS = {
     "temperature",
     "max_completion_tokens",
     "policy_name",
-    # Pass-through config for task apps (agent selection, timeouts, etc.)
+    # Pass-through config for LocalAPI handlers (agent selection, timeouts, etc.)
     "config",
     # Context override baseline in config (legacy + unified optimization bootstrap)
     "context_override",
@@ -183,7 +181,7 @@ KNOWN_VERIFIER_FIELDS = {
     "enabled",
     "reward_source",
     "backend_base",
-    "backend_api_key_env",
+    "synth_user_key_env",
     "backend_provider",
     "backend_model",
     "verifier_graph_id",
@@ -378,8 +376,8 @@ def validate_prompt_learning_config(
     elif algorithm != "gepa":
         result.add_error(f"{path_prefix}Invalid algorithm '{algorithm}'. Must be 'gepa'")
 
-    if not pl_config.get("task_app_url"):
-        result.add_error(f"{path_prefix}Missing required 'task_app_url' in [prompt_learning]")
+    if not pl_config.get("localapi_url"):
+        result.add_error(f"{path_prefix}Missing required 'localapi_url' in [prompt_learning]")
 
     auto_discover = pl_config.get("auto_discover_patterns", False)
     if not pl_config.get("initial_prompt") and not auto_discover:

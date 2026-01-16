@@ -16,8 +16,6 @@ from pathlib import Path
 
 # Parse args early
 parser = argparse.ArgumentParser(description="Run GEPA for Pokemon TCG")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
-parser.add_argument("--local-host", type=str, default="localhost")
 parser.add_argument("--port", type=int, default=8017, help="Port for task app")
 parser.add_argument("--model", type=str, default="gpt-4.1-mini", help="Model to use")
 parser.add_argument("--num-games", type=int, default=3, help="Number of games to run")
@@ -40,8 +38,6 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
 PORT = args.port
 MODEL = args.model
 NUM_GAMES = args.num_games
@@ -59,12 +55,13 @@ from localapi_ptcg import (  # noqa: E402
     PTCG_REACT_SYSTEM_PROMPT,
     app,
 )
-from synth_ai.core.env import mint_demo_api_key  # noqa: E402
-from synth_ai.core.urls import BACKEND_URL_BASE  # noqa: E402
+from synth_ai.core.urls import synth_base_url, synth_health_url  # noqa: E402
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig  # noqa: E402
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
+from synth_ai.sdk.auth import get_or_mint_synth_user_key  # noqa: E402
 from synth_ai.sdk.task import run_server_background  # noqa: E402
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port  # noqa: E402
+
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 
 def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -89,31 +86,16 @@ async def main():
     print("POKEMON TCG GEPA DEMO")
     print("=" * 60)
 
-    if LOCAL_MODE:
-        synth_api_base = f"http://{LOCAL_HOST}:8000"
-        print(f"\nLOCAL MODE - using {synth_api_base} backend")
-    else:
-        synth_api_base = BACKEND_URL_BASE
-        print(f"\nPROD MODE - using {synth_api_base}")
-
     # Check backend health
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.get(f"{synth_api_base}/health", timeout=10)
-            print(f"Backend health: {resp.status_code}")
+            resp = await client.get(synth_health_url(), timeout=10)
+            print(f"Synth health: {resp.status_code}")
         except Exception as e:
-            print(f"Backend health check failed: {e}")
+            print(f"Synth health check failed: {e}")
             return
 
-    # Get API key
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=synth_api_base)
-        print(f"API Key: {api_key[:20]}...")
-
-    env_key = ensure_localapi_auth(backend_base=synth_api_base, synth_api_key=api_key)
-    print(f"Env key: {env_key[:15]}...")
+    print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
     run_dir: Path | None = None
     if OUT_DIR_RAW:
@@ -128,43 +110,13 @@ async def main():
     if port != PORT:
         print(f"Port {PORT} in use, using {port} instead")
 
-    run_server_background(app, port)
-    wait_for_health_check_sync(LOCAL_HOST, port, env_key, timeout=30.0)
-    print(f"Task app ready on port {port}")
-
-    task_app_url = f"http://{LOCAL_HOST}:{port}"
-    print(f"Task app URL: {task_app_url}")
-
-    if run_dir is not None:
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(
-                    f"{task_app_url}/info",
-                    headers={"X-API-Key": env_key, "Content-Type": "application/json"},
-                )
-                resp.raise_for_status()
-                (run_dir / "task_app_info.json").write_text(
-                    json.dumps(resp.json(), indent=2, default=str), encoding="utf-8"
-                )
-        except Exception as e:
-            print(f"Warning: failed to fetch /info from task app: {e}")
-
-    print("\n" + "=" * 60)
-    print(f"Model: {MODEL}")
-    print(f"Prompt: {'ReAct' if USE_REACT else 'baseline'}")
-    print(f"Number of games: {NUM_GAMES}")
-    print(f"Available instances: {len(INSTANCE_IDS)}")
-    print("=" * 60)
-
-    # Generate seeds for evaluation
+    localapi_url = f"http://localhost:{port}"
     seeds = list(range(NUM_GAMES))
-    print(f"\nSubmitting eval job with seeds: {seeds}")
-    print(f"Instance IDs: {[INSTANCE_IDS[s % len(INSTANCE_IDS)] for s in seeds]}")
 
+    # Create config (auto-provisions localapi_key)
     config = EvalJobConfig(
-        local_api_url=task_app_url,
-        backend_url=synth_api_base,
-        api_key=api_key,
+        localapi_url=localapi_url,
+        synth_user_key=SYNTH_USER_KEY,
         env_name="ptcg",
         seeds=seeds,
         policy_config={
@@ -178,7 +130,7 @@ async def main():
                 # task app's local_api_reward (outcome_reward).
                 "enabled": True,
                 "reward_source": "fused",
-                "backend_base": synth_api_base,
+                "backend_base": synth_base_url(),
                 "backend_provider": "openai",
                 "backend_model": MODEL,
                 # Zero-shot rubric verifier graph.
@@ -199,6 +151,35 @@ async def main():
         ),
         concurrency=1,  # Run one at a time for now
     )
+
+    run_server_background(app, port)
+    wait_for_health_check_sync("localhost", port, config.localapi_key, timeout=30.0)
+    print(f"Localapi ready on port {port}")
+    print(f"Localapi URL: {localapi_url}")
+
+    if run_dir is not None:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"{localapi_url}/info",
+                    headers={"X-API-Key": config.localapi_key, "Content-Type": "application/json"},
+                )
+                resp.raise_for_status()
+                (run_dir / "localapi_info.json").write_text(
+                    json.dumps(resp.json(), indent=2, default=str), encoding="utf-8"
+                )
+        except Exception as e:
+            print(f"Warning: failed to fetch /info from localapi: {e}")
+
+    print("\n" + "=" * 60)
+    print(f"Model: {MODEL}")
+    print(f"Prompt: {'ReAct' if USE_REACT else 'baseline'}")
+    print(f"Number of games: {NUM_GAMES}")
+    print(f"Available instances: {len(INSTANCE_IDS)}")
+    print("=" * 60)
+
+    print(f"\nSubmitting eval job with seeds: {seeds}")
+    print(f"Instance IDs: {[INSTANCE_IDS[s % len(INSTANCE_IDS)] for s in seeds]}")
 
     job = EvalJob(config)
 

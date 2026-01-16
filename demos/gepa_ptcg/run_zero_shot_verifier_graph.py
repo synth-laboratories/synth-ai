@@ -3,10 +3,10 @@
 
 Typical flow:
 1) Run eval + trace capture:
-   ./.venv/bin/python demos/gepa_ptcg/run_demo.py --local --react --num-games 10 --out-dir demos/gepa_ptcg/artifacts/runs
+   ./.venv/bin/python demos/gepa_ptcg/run_demo.py --react --num-games 10 --out-dir demos/gepa_ptcg/artifacts/runs
 
 2) Run zero-shot verifier graph over the downloaded traces:
-   ./.venv/bin/python demos/gepa_ptcg/run_zero_shot_verifier_graph.py --local --run-dir <the printed run dir>
+   ./.venv/bin/python demos/gepa_ptcg/run_zero_shot_verifier_graph.py --run-dir <the printed run dir>
 """
 
 import argparse
@@ -15,9 +15,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.graphs.completions import GraphCompletionsSyncClient
+
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -50,8 +51,6 @@ def _extract_trace_id(session_trace: dict[str, Any]) -> str | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run zero-shot verifier graph over PTCG traces")
-    parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
-    parser.add_argument("--backend-url", type=str, default="", help="Override backend base URL")
     parser.add_argument(
         "--run-dir", type=str, required=True, help="Run directory produced by run_demo.py"
     )
@@ -70,37 +69,27 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.backend_url:
-        backend_url = args.backend_url
-    elif args.local:
-        backend_url = "http://127.0.0.1:8000"
-    else:
-        backend_url = BACKEND_URL_BASE
-
-    api_key = os.getenv("SYNTH_API_KEY", "").strip()
-    if not api_key:
-        api_key = mint_demo_api_key(backend_url=backend_url)
-        os.environ["SYNTH_API_KEY"] = api_key
+    os.environ["SYNTH_API_KEY"] = SYNTH_USER_KEY
 
     run_dir = Path(args.run_dir).expanduser().resolve()
     traces_dir = run_dir / "backend_traces"
-    info_path = run_dir / "task_app_info.json"
+    info_path = run_dir / "localapi_info.json"
     out_path = run_dir / "zero_shot_verifier_outputs.jsonl"
 
     if not traces_dir.exists():
         raise FileNotFoundError(f"Traces dir not found: {traces_dir}")
     if not info_path.exists():
         raise FileNotFoundError(
-            f"Missing task_app_info.json (expected from run_demo.py): {info_path}"
+            f"Missing localapi_info.json (expected from run_demo.py): {info_path}"
         )
 
     info = _load_json(info_path)
     rubrics = info.get("rubrics")
     if not isinstance(rubrics, dict):
-        raise ValueError("task_app_info.json missing 'rubrics' dict")
+        raise ValueError("localapi_info.json missing 'rubrics' dict")
 
     graph_id = f"zero_shot_verifier_rubric_{args.shape}"
-    client = GraphCompletionsSyncClient(backend_url, api_key)
+    client = GraphCompletionsSyncClient(synth_user_key=SYNTH_USER_KEY)
 
     trace_files = sorted([p for p in traces_dir.rglob("*.json") if p.is_file()])
     if not trace_files:

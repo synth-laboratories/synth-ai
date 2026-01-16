@@ -1,7 +1,5 @@
 """Task app validation utilities."""
 
-from __future__ import annotations
-
 import re
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -177,22 +175,22 @@ def normalize_inference_url(
     return str(result)
 
 
-def validate_task_app_url(url: str | None) -> str:
-    """Validate and normalize a task app URL.
+def validate_task_app_url(localapi_url: str | None) -> str:
+    """Validate a LocalAPI URL.
 
     Args:
-        url: URL to validate
+        localapi_url: URL to validate
 
     Returns:
-        Normalized URL
+        URL
 
     Raises:
         ValueError: If URL is invalid
     """
-    if not url:
-        raise ValueError("Task app URL is required")
+    if not localapi_url:
+        raise ValueError("LocalAPI URL is required")
 
-    url = url.strip().rstrip("/")
+    url = localapi_url.strip()
 
     # Basic URL validation
     url_pattern = re.compile(
@@ -206,7 +204,7 @@ def validate_task_app_url(url: str | None) -> str:
     )
 
     if not url_pattern.match(url):
-        raise ValueError(f"Invalid task app URL: {url}")
+        raise ValueError(f"Invalid LocalAPI URL: {url}")
 
     return url
 
@@ -233,7 +231,7 @@ def _print_info(msg: str) -> None:
 
 async def validate_task_app_endpoint(
     url: str,
-    api_key: str | None = None,
+    localapi_key: str | None = None,
     min_instances: int = 10,
     verbose: bool = False,
 ) -> tuple[bool, dict[str, Any]]:
@@ -255,8 +253,8 @@ async def validate_task_app_endpoint(
 
     # Set up headers
     headers = {}
-    if api_key:
-        headers["X-API-Key"] = api_key
+    if localapi_key:
+        headers["X-API-Key"] = localapi_key
 
     click.echo(f"\n{'=' * 60}")
     click.echo(f"Validating Task App: {url}")
@@ -297,7 +295,7 @@ async def validate_task_app_endpoint(
                     _print_info(f"Auth required: {auth_info.get('required')}")
                     _print_info(f"Expected key prefix: {auth_info.get('expected_prefix', 'N/A')}")
 
-                    if api_key:
+                    if localapi_key:
                         _print_success("API key provided and accepted")
                         results["auth"]["provided"] = True
                         results["auth"]["accepted"] = True

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,10 +18,15 @@ class PollOutcome:
 
 class JobPoller:
     def __init__(
-        self, base_url: str, api_key: str, *, interval: float = 5.0, timeout: float = 3600.0
+        self,
+        base_url: str,
+        synth_user_key: str,
+        *,
+        interval: float = 5.0,
+        timeout: float = 3600.0,
     ) -> None:
         self.base_url = ensure_api_base(base_url)
-        self.api_key = api_key
+        self.synth_user_key = synth_user_key
         self.interval = interval
         self.timeout = timeout
         ctx: dict[str, Any] = {
@@ -35,7 +38,7 @@ class JobPoller:
 
     def _headers(self) -> dict[str, str]:
         return {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self.synth_user_key}",
             "Content-Type": "application/json",
         }
 
@@ -48,15 +51,7 @@ class JobPoller:
         click.echo("Polling job status...")
         while elapsed <= self.timeout:
             try:
-                # Normalize URL to avoid double /api/api
-                if self.base_url.endswith("/api") and path.startswith("/api"):
-                    # Remove /api from path since base_url already has it
-                    path_normalized = path[4:].lstrip("/")
-                    url = f"{self.base_url}/{path_normalized}"
-                else:
-                    # Ensure proper path joining
-                    path_clean = path.lstrip("/")
-                    url = f"{self.base_url}/{path_clean}"
+                url = f"{self.base_url}{path}"
                 resp = http_get(url, headers=self._headers())
                 info = (
                     resp.json()
@@ -113,7 +108,7 @@ class PromptLearningJobPoller(JobPoller):
         """
         ctx: dict[str, Any] = {"job_id": job_id, "job_type": "prompt_learning"}
         log_info("PromptLearningJobPoller.poll_job invoked", ctx=ctx)
-        return super().poll(f"/api/prompt-learning/online/jobs/{job_id}")
+        return super().poll(f"/prompt-learning/online/jobs/{job_id}")
 
 
 class EvalJobPoller(JobPoller):
@@ -124,7 +119,7 @@ class EvalJobPoller(JobPoller):
     Example:
         >>> poller = EvalJobPoller(
         ...     base_url="https://api.usesynth.ai",
-        ...     api_key="sk_live_...",
+        ...     synth_user_key="sk_live_...",
         ...     interval=2.0,
         ...     timeout=1200.0,
         ... )
@@ -148,7 +143,7 @@ class EvalJobPoller(JobPoller):
         """
         ctx: dict[str, Any] = {"job_id": job_id, "job_type": "eval"}
         log_info("EvalJobPoller.poll_job invoked", ctx=ctx)
-        return super().poll(f"/api/eval/jobs/{job_id}")
+        return super().poll(f"/eval/jobs/{job_id}")
 
 
 __all__ = [

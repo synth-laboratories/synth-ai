@@ -4,14 +4,20 @@ The backend calls your /rollout endpoint with different seeds (test cases)
 and aggregates the scores.
 """
 
+from collections.abc import Sequence
+
 import httpx
 from fastapi import Request
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url
 from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
+    TaskDescriptor,
     TaskInfo,
 )
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
@@ -104,15 +110,15 @@ def provide_taskset_description() -> dict:
     }
 
 
-def provide_task_instances(seeds: list[int]):
+def provide_task_instances(seeds: Sequence[int]):
     """Yield TaskInfo for each seed. Called by Synth to get task metadata."""
     for seed in seeds:
         sample = get_sample(seed)
         yield TaskInfo(
-            task={"id": APP_ID, "name": APP_NAME},
-            dataset={"id": APP_ID, "split": "default", "index": seed % get_dataset_size()},
-            inference={},
-            limits={"max_turns": 1},
+            task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+            dataset=DatasetInfo(id=APP_ID, split="default", index=seed % get_dataset_size()),
+            inference=InferenceInfo(),
+            limits=LimitsInfo(max_turns=1),
             task_metadata=sample,
         )
 

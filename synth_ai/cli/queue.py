@@ -7,6 +7,8 @@ from pathlib import Path
 
 import click
 
+from synth_ai.core.urls import synth_base_url
+
 # Clear config cache if env vars are set (must happen before other imports)
 if os.getenv("EXPERIMENT_QUEUE_DB_PATH") or os.getenv("EXPERIMENT_QUEUE_TRAIN_CMD"):
     from synth_ai.core.experiment_queue import config as queue_config
@@ -468,11 +470,11 @@ def start(
     elif local is False:
         # Explicitly unset if --no-local is used
         env.pop("EXPERIMENT_QUEUE_LOCAL", None)
-        click.echo("Using production backend (api.usesynth.ai)", err=True)
+        click.echo(f"Using production backend ({synth_base_url()})", err=True)
     else:
         # Use existing env var or default (production)
         if "EXPERIMENT_QUEUE_LOCAL" not in env:
-            click.echo("Using production backend (api.usesynth.ai)", err=True)
+            click.echo(f"Using production backend ({synth_base_url()})", err=True)
 
     # Create lock file with current PID before starting worker
     lock_file = _worker_lock_file()

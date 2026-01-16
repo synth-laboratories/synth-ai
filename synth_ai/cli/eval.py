@@ -15,8 +15,8 @@ import click
 @click.option("--trace-db", required=False, default="")
 @click.option("--metadata", multiple=True)
 @click.option("--seeds", required=False, default="")
-@click.option("--url", required=False, default="")
-@click.option("--backend", required=False, default="")
+@click.option("--localapi-url", required=False, default="")
+@click.option("--synth-base-url", required=False, default="")
 @click.option("--ops", required=False, default="")
 @click.option("--return-trace", is_flag=True, default=False)
 @click.option("--concurrency", required=False, default="")
@@ -36,8 +36,7 @@ def eval(
     trace_db: str,
     metadata: tuple[str, ...],
     seeds: str,
-    url: str,
-    backend: str,
+    localapi_url: str,
     ops: str,
     return_trace: bool,
     concurrency: str,
@@ -48,8 +47,9 @@ def eval(
     traces_dir: str,
     output_txt: str,
     output_json: str,
+    synth_base_url: str,
 ) -> None:
-    """Execute evaluation rollouts against a task app."""
+    """Execute evaluation rollouts against a LocalAPI."""
     from synth_ai.core.eval import (
         format_eval_report,
         format_eval_table,
@@ -70,8 +70,8 @@ def eval(
         "trace_db": trace_db,
         "metadata": list(metadata),
         "seeds": seeds,
-        "url": url,
-        "backend": backend,
+        "localapi_url": localapi_url,
+        "synth_base_url": synth_base_url,
         "ops": ops,
         "return_trace": return_trace,
         "concurrency": concurrency,
@@ -90,13 +90,13 @@ def eval(
         cli_app_id=str(normalized.get("app_id") or "") or None,
         cli_model=str(normalized.get("model") or "") or None,
         cli_seeds=normalized.get("seeds") or None,
-        cli_url=str(normalized.get("url") or "") or None,
+        cli_localapi_url=str(normalized.get("localapi_url") or "") or None,
         cli_ops=normalized.get("ops") or None,
         cli_return_trace=effective_return_trace,
         cli_concurrency=normalized.get("concurrency") or None,
         cli_output_txt=Path(output_txt) if output_txt else None,
         cli_output_json=Path(output_json_path) if output_json_path else None,
-        cli_backend_url=str(normalized.get("backend") or "") or None,
+        cli_synth_base_url=str(normalized.get("synth_base_url") or "") or None,
         cli_wait=bool(wait),
         cli_poll_interval=float(normalized.get("poll") or 0) if normalized.get("poll") else None,
         cli_traces_dir=Path(traces_dir) if traces_dir else None,
@@ -104,8 +104,8 @@ def eval(
         metadata=normalized.get("metadata") or {},
     )
 
-    if not resolved.task_app_url:
-        raise click.ClickException("task_app_url is required (provide via TOML or --url)")
+    if not resolved.localapi_url:
+        raise click.ClickException("localapi_url is required (provide via TOML or --localapi-url)")
     if not resolved.env_name:
         raise click.ClickException("env_name is required (provide via TOML)")
     if not resolved.seeds:
@@ -131,7 +131,7 @@ def eval(
             payload = {
                 "config": {
                     "app_id": resolved.app_id,
-                    "task_app_url": resolved.task_app_url,
+                    "localapi_url": resolved.localapi_url,
                     "env_name": resolved.env_name,
                     "policy_name": resolved.policy_name,
                     "policy_config": resolved.policy_config,

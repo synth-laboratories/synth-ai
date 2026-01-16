@@ -359,10 +359,10 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     # Auto-derive base_task_info from app_id/name if not provided
     if cfg.base_task_info is None:
         cfg.base_task_info = TaskInfo(
-            task={"id": cfg.app_id, "name": cfg.name},
-            dataset={"id": cfg.app_id},
-            inference={},
-            limits={},
+            task=TaskDescriptor(id=cfg.app_id, name=cfg.name),
+            dataset=DatasetInfo(id=cfg.app_id),
+            inference=InferenceInfo(),
+            limits=LimitsInfo(),
         )
 
     app = FastAPI(title=cfg.name, description=cfg.description)
@@ -464,7 +464,9 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
             typed_rubrics = rubric_bundle
 
         response = InfoResponse(
-            service=_ServiceInfo(task=cfg.base_task_info.task, version=cfg.base_task_info.task.version),
+            service=_ServiceInfo(
+                task=cfg.base_task_info.task, version=cfg.base_task_info.task.version
+            ),
             dataset=cfg.base_task_info.dataset,
             rubrics=typed_rubrics,
             inference=cfg.base_task_info.inference,
@@ -633,7 +635,7 @@ def run_server_background(
         from synth_ai.sdk.tunnels import wait_for_health_check
 
         thread = run_server_background(my_app, port=8001)
-        await wait_for_health_check("localhost", 8001, api_key)
+        await wait_for_health_check("localhost", 8001, localapi_key)
     """
     import asyncio
     import threading

@@ -6,11 +6,9 @@ This demo optimizes a style system prompt that guides Gemini 2.5 Flash Image
 to generate visually accurate webpage screenshots from functional descriptions.
 
 Usage:
-    uv run python demos/web-design/run_demo.py --local   # Local mode (fast iteration)
-    uv run python demos/web-design/run_demo.py           # Production mode (with tunnels)
+    uv run python demos/web-design/run_demo.py
 """
 
-import argparse
 import asyncio
 import base64
 import io
@@ -29,11 +27,10 @@ from datasets import load_dataset, load_from_disk
 from PIL import Image
 
 try:
-    from synth_ai.core.env import get_backend_url, mint_demo_api_key
-    from synth_ai.core.urls import BACKEND_URL_BASE
+    from synth_ai.core.urls import synth_base_url, synth_health_url
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningJobConfig
+    from synth_ai.sdk.auth import get_or_mint_synth_user_key
     from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
     from synth_ai.sdk.task.server import RubricBundle
 except ImportError as e:  # pragma: no cover
     raise ImportError(
@@ -50,7 +47,16 @@ except ImportError:  # pragma: no cover
     # Back-compat with older packaging.
     from synth_ai.sdk.task import run_server_background
 
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
 from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import (
@@ -71,15 +77,6 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("google").setLevel(logging.WARNING)
 logging.getLogger("google.auth").setLevel(logging.WARNING)
 logging.getLogger("google_genai").setLevel(logging.WARNING)
-
-# Parse args early
-parser = argparse.ArgumentParser(description="Run Web Design GEPA demo")
-parser.add_argument("--local", action="store_true", help="Local mode (localhost, no tunnels)")
-parser.add_argument("--local-host", type=str, default="127.0.0.1", help="Local host for APIs")
-args = parser.parse_args()
-
-LOCAL_MODE = args.local
-LOCAL_HOST = args.local_host
 
 WEB_DESIGN_RUBRICS = RubricBundle(
     outcome=Rubric(
@@ -134,46 +131,26 @@ def _maybe_warn_on_synth_ai_mismatch() -> None:
 
 _maybe_warn_on_synth_ai_mismatch()
 
-# Backend config - respect SYNTH_BACKEND_URL env var, fall back to --local flag behavior
-SYNTH_API_BASE = get_backend_url() if os.environ.get("SYNTH_BACKEND_URL") else ("http://127.0.0.1:8000" if LOCAL_MODE else BACKEND_URL_BASE)
-if LOCAL_MODE:
-    TUNNEL_BACKEND = TunnelBackend.Localhost
-    LOCAL_API_PORT = 8103
-    print("=" * 80)
-    print("RUNNING IN LOCAL MODE")
-    print("=" * 80)
-else:
-    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
-    LOCAL_API_PORT = 8001
+# Backend config
+LOCAL_API_PORT = 8001
+SYNTH_API_BASE = synth_base_url()
 
 print(f"Backend: {SYNTH_API_BASE}")
 print(f"Local API Port: {LOCAL_API_PORT}")
 
 # Check backend health
-r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=60)
+r = httpx.get(synth_health_url(), timeout=60)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
 else:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 
 # Get API key
-API_KEY = os.environ.get("SYNTH_API_KEY", "")
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
+print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
-if not API_KEY:
-    print("No SYNTH_API_KEY, minting demo key...")
-    API_KEY = mint_demo_api_key(backend_url=SYNTH_API_BASE)
-    print(f"Demo API Key: {API_KEY[:25]}...")
-else:
-    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
-
-os.environ["SYNTH_API_KEY"] = API_KEY
-
-# Ensure environment key
-ENVIRONMENT_API_KEY = ensure_localapi_auth(
-    backend_base=SYNTH_API_BASE,
-    synth_api_key=API_KEY,
-)
-print(f"Env key ready: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
+# ENVIRONMENT_SYNTH_USER_KEY will be provisioned in main() via a preliminary job
+ENVIRONMENT_SYNTH_USER_KEY: str = ""  # Placeholder, set in main()
 
 
 # ==============================================================================
@@ -455,8 +432,8 @@ Apply the visual style guidelines to match the original design."""
             messages = [{"role": "user", "content": full_prompt}]
 
             # Build URL - inference_url may already include /chat/completions
-            url = inference_url.rstrip('/')
-            if '/chat/completions' not in url:
+            url = inference_url.rstrip("/")
+            if "/chat/completions" not in url:
                 url = f"{url}/chat/completions"
 
             async with httpx.AsyncClient(timeout=120.0) as client:
@@ -468,7 +445,7 @@ Apply the visual style guidelines to match the original design."""
                         "temperature": 0.7,
                     },
                     headers={
-                        "Authorization": f"Bearer {ENVIRONMENT_API_KEY}",
+                        "Authorization": f"Bearer {ENVIRONMENT_SYNTH_USER_KEY}",
                         "Content-Type": "application/json",
                     },
                 )
@@ -532,7 +509,6 @@ Apply the visual style guidelines to match the original design."""
                 trace_correlation_id = None
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id or "unknown",
             reward_info=RolloutMetrics(outcome_reward=reward),
             trace=None,
             trace_correlation_id=trace_correlation_id or request.trace_correlation_id or "unknown",
@@ -567,11 +543,11 @@ Apply the visual style guidelines to match the original design."""
                 original_data_url = None
 
             yield TaskInfo(
-                task={"id": APP_ID, "name": APP_NAME},
-                dataset={"id": APP_ID, "split": "train", "index": sample["index"]},
+                task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+                dataset=DatasetInfo(id=APP_ID, split="train", index=sample["index"]),
                 environment="web_design",  # Must match gepa_config.toml prompt_learning.gepa.env_name
-                inference={},
-                limits={"max_turns": 1},
+                inference=InferenceInfo(),
+                limits=LimitsInfo(max_turns=1),
                 task_metadata={
                     "page": f"{sample['site_name']}/{sample['page_name']}",
                     "description_length": len(sample["functional_description"]),
@@ -602,6 +578,8 @@ print("Web design local API defined")
 
 
 async def main():
+    global ENVIRONMENT_SYNTH_USER_KEY
+
     baseline_style_prompt = """You are generating a professional startup website screenshot.
 
 VISUAL STYLE GUIDELINES:
@@ -612,6 +590,31 @@ VISUAL STYLE GUIDELINES:
 - Branding: Professional, tech-forward visual identity
 
 Create a webpage that feels polished, modern, and trustworthy."""
+
+    # Create preliminary job config to get localapi_key (SDK auto-provisions it)
+    prelim_config = PromptLearningJobConfig(
+        config_dict={
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "localapi_url": f"http://localhost:{LOCAL_API_PORT}",
+                "env_name": "web_design",
+                "initial_prompt": {
+                    "messages": [{"role": "system", "order": 0, "pattern": "placeholder"}],
+                    "wildcards": {},
+                },
+                "policy": {"model": "gemini-2.5-flash-image", "provider": "google"},
+                "gepa": {
+                    "env_name": "web_design",
+                    "evaluation": {"seeds": [0]},
+                    "rollout": {"budget": 1},
+                    "population": {"initial_size": 1, "num_generations": 1},
+                },
+            },
+        },
+        synth_user_key=SYNTH_USER_KEY,
+    )
+    ENVIRONMENT_SYNTH_USER_KEY = prelim_config.localapi_key
+    print(f"Env key ready: {ENVIRONMENT_SYNTH_USER_KEY[:12]}...{ENVIRONMENT_SYNTH_USER_KEY[-4:]}")
 
     def format_duration(seconds: float) -> str:
         if seconds < 60:
@@ -636,24 +639,20 @@ Create a webpage that feels polished, modern, and trustworthy."""
     # Wait for health check
     await asyncio.sleep(3)
 
-    # Get local API URL (with tunnel if production)
-    if LOCAL_MODE:
-        local_api_url = f"http://{LOCAL_HOST}:{port}"
-        tunnel = None
-    else:
-        print("\nProvisioning Cloudflare tunnel...")
-        tunnel_start = time.time()
-        tunnel = await TunneledLocalAPI.create(
-            local_port=port,
-            backend=TUNNEL_BACKEND,
-            progress=True,
-        )
-        local_api_url = tunnel.url
-        timings["tunnel"] = time.time() - tunnel_start
+    # Get local API URL (with tunnel)
+    print("\nProvisioning Cloudflare tunnel...")
+    tunnel_start = time.time()
+    tunnel = await TunneledLocalAPI.create(
+        local_port=port,
+        backend=TunnelBackend.CloudflareManagedTunnel,
+        progress=True,
+    )
+    local_api_url = tunnel.url
+    timings["tunnel"] = time.time() - tunnel_start
 
-        # Wait a bit longer for DNS propagation to ensure backend can reach it
-        print("Waiting 10s for full DNS propagation...")
-        await asyncio.sleep(10)
+    # Wait a bit longer for DNS propagation to ensure backend can reach it
+    print("Waiting 10s for full DNS propagation...")
+    await asyncio.sleep(10)
 
     print(f"Local API URL: {local_api_url}")
 
@@ -664,19 +663,20 @@ Create a webpage that feels polished, modern, and trustworthy."""
 
     gepa_config_path = demo_dir / "gepa_config.toml"
 
-    # Read TOML and override task_app_url and task_app_api_key
+    # Read TOML and override localapi_url and localapi_key
     with open(gepa_config_path) as f:
         config_dict = toml.load(f)
 
-    config_dict["prompt_learning"]["task_app_url"] = local_api_url
-    config_dict["prompt_learning"]["task_app_api_key"] = ENVIRONMENT_API_KEY
-    print(f"Using task_app_url: {local_api_url}")
-    print(f"Using task_app_api_key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
+    config_dict["prompt_learning"]["localapi_url"] = local_api_url
+    config_dict["prompt_learning"]["localapi_key"] = ENVIRONMENT_SYNTH_USER_KEY
+    print(f"Using localapi_url: {local_api_url}")
+    print(
+        f"Using localapi_key: {ENVIRONMENT_SYNTH_USER_KEY[:12]}...{ENVIRONMENT_SYNTH_USER_KEY[-4:]}"
+    )
 
     job_config = PromptLearningJobConfig(
         config_dict=config_dict,
-        backend_url=SYNTH_API_BASE,
-        api_key=API_KEY,
+        synth_user_key=SYNTH_USER_KEY,
     )
 
     job = PromptLearningJob(config=job_config)
@@ -739,7 +739,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
         # The backend uses `seq > since_seq` (strict gt), so we keep `since_seq` as the last seen seq.
         last_seq = 0
         url = f"{SYNTH_API_BASE}/api/prompt-learning/online/jobs/{job_id}/events"
-        headers = {"Authorization": f"Bearer {API_KEY}"}
+        headers = {"Authorization": f"Bearer {SYNTH_USER_KEY}"}
         while not stop_events.is_set():
             try:
                 resp = httpx.get(
@@ -818,9 +818,8 @@ Create a webpage that feels polished, modern, and trustworthy."""
         print(f"Error: {result.error}")
 
     # Cleanup
-    if tunnel:
-        print("\nCleaning up tunnel...")
-        cleanup_all()
+    print("\nCleaning up tunnel...")
+    cleanup_all()
 
     # Summary
     total_time = time.time() - total_start

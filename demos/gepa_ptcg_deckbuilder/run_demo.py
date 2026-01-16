@@ -7,12 +7,9 @@ Tests LLM deck building capabilities with constraint satisfaction scoring.
 
 import argparse
 import asyncio
-import os
 import time
 
 parser = argparse.ArgumentParser(description="Run Pokemon TCG Deck Builder eval")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
-parser.add_argument("--local-host", type=str, default="localhost")
 parser.add_argument("--port", type=int, default=8018)
 parser.add_argument("--model", type=str, default="gpt-4.1-mini")
 parser.add_argument("--num-seeds", type=int, default=5, help="Number of seeds to evaluate")
@@ -20,12 +17,13 @@ args = parser.parse_args()
 
 import httpx  # noqa: E402
 from localapi_deckbuilder import DEFAULT_SYSTEM_PROMPT, INSTANCE_IDS, app  # noqa: E402
-from synth_ai.core.env import mint_demo_api_key  # noqa: E402
-from synth_ai.core.urls import BACKEND_URL_BASE  # noqa: E402
+from synth_ai.core.urls import synth_base_url, synth_health_url  # noqa: E402
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig  # noqa: E402
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
+from synth_ai.sdk.auth import get_or_mint_synth_user_key  # noqa: E402
 from synth_ai.sdk.task import run_server_background  # noqa: E402
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port  # noqa: E402
+
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
 
 
 def wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -50,38 +48,22 @@ async def main():
     print("=" * 60)
 
     # Backend setup
-    if args.local:
-        backend_url = f"http://{args.local_host}:8000"
-        print(f"LOCAL MODE - {backend_url}")
-    else:
-        backend_url = BACKEND_URL_BASE
-        print(f"PROD MODE - {backend_url}")
+    print(f"Backend: {synth_base_url()}")
 
     # Check backend
     async with httpx.AsyncClient() as client:
         try:
-            r = await client.get(f"{backend_url}/health", timeout=10)
-            print(f"Backend health: {r.status_code}")
+            r = await client.get(synth_health_url(), timeout=10)
+            print(f"Synth health: {r.status_code}")
         except Exception as e:
-            print(f"Backend check failed: {e}")
+            print(f"Synth check failed: {e}")
             return
 
-    # API key
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_url)
-        print(f"API Key: {api_key[:20]}...")
+    print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
-    env_key = ensure_localapi_auth(backend_base=backend_url, synth_api_key=api_key)
-
-    # Start task app
+    # Acquire port and prepare localapi URL
     port = acquire_port(args.port, on_conflict=PortConflictBehavior.FIND_NEW)
-    run_server_background(app, port)
-    wait_for_health(args.local_host, port, env_key)
-    print(f"Task app ready on port {port}")
-
-    task_url = f"http://{args.local_host}:{port}"
+    localapi_url = f"http://localhost:{port}"
 
     print(f"\nModel: {args.model}")
     print(f"Seeds: {args.num_seeds}")
@@ -92,9 +74,8 @@ async def main():
     print(f"\nSubmitting eval with seeds: {seeds}")
 
     config = EvalJobConfig(
-        local_api_url=task_url,
-        backend_url=backend_url,
-        api_key=api_key,
+        localapi_url=localapi_url,
+        synth_user_key=SYNTH_USER_KEY,
         env_name="deckbuilder",
         seeds=seeds,
         policy_config={
@@ -104,6 +85,11 @@ async def main():
         env_config={},
         concurrency=2,
     )
+
+    # Start localapi server (after config creation to get localapi_key)
+    run_server_background(app, port)
+    wait_for_health("localhost", port, config.localapi_key)
+    print(f"Localapi ready on port {port}")
 
     job = EvalJob(config)
     job_id = job.submit()

@@ -8,29 +8,29 @@ import httpx
 
 async def check_app_health(
     url: str,
-    api_key: str | None,
+    localapi_key: str | None,
     timeout: float = 2.0,
 ) -> tuple[Literal["healthy", "unhealthy", "unknown"], dict[str, Any]]:
     """Check health and fetch metadata from a task app.
 
     Args:
         url: Base URL of the task app
-        api_key: API key for authentication via X-API-Key header
+        localapi_key: API key for authentication via X-API-Key header
         timeout: Request timeout in seconds
 
     Returns:
         Tuple of (health_status, metadata_dict)
     """
     headers: dict[str, str] = {}
-    if api_key:
-        headers["X-API-Key"] = api_key
+    if localapi_key:
+        headers["X-API-Key"] = localapi_key
 
     metadata: dict[str, Any] = {}
 
     health_status: Literal["healthy", "unhealthy", "unknown"] = "unknown"
     try:
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            health_url = f"{url.rstrip('/')}/health"
+            health_url = f"{url}/health"
             health_resp = await client.get(health_url, headers=headers)
 
             if health_resp.status_code in (530, 502, 503, 504):
@@ -68,7 +68,7 @@ async def check_app_health(
     # Fetch /info endpoint for metadata
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            info_url = f"{url.rstrip('/')}/info"
+            info_url = f"{url}/info"
             info_resp = await client.get(info_url, headers=headers)
             if info_resp.status_code == 200:
                 try:
@@ -119,7 +119,7 @@ def extract_app_info(
 
 async def check_multiple_apps_health(
     urls: list[str],
-    api_key: str | None,
+    localapi_key: str | None,
     timeout: float = 2.0,
     max_concurrent: int = 10,
 ) -> dict[str, tuple[Literal["healthy", "unhealthy", "unknown"], dict[str, Any]]]:
@@ -127,7 +127,7 @@ async def check_multiple_apps_health(
 
     Args:
         urls: List of app URLs to check
-        api_key: API key for authentication
+        localapi_key: API key for authentication
         timeout: Request timeout in seconds per app
         max_concurrent: Maximum number of concurrent HTTP requests
 
@@ -139,7 +139,7 @@ async def check_multiple_apps_health(
 
     async def check_one(url: str) -> None:
         async with semaphore:
-            status, metadata = await check_app_health(url, api_key, timeout)
+            status, metadata = await check_app_health(url, localapi_key, timeout)
             results[url] = (status, metadata)
 
     await asyncio.gather(*[check_one(url) for url in urls], return_exceptions=True)

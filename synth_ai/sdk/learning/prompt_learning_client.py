@@ -3,6 +3,11 @@
 from typing import Any, Dict, List, Optional
 
 from synth_ai.core.http import AsyncHttpClient
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_prompt_learning_events_url,
+    synth_prompt_learning_job_url,
+)
 from synth_ai.data import extract_outcome_reward
 
 from .prompt_learning_types import PromptResults
@@ -48,32 +53,32 @@ class PromptLearningClient:
     """Client for interacting with prompt learning jobs and retrieving results."""
 
     def __init__(
-        self, base_url: str | None = None, api_key: str | None = None, *, timeout: float = 30.0
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 30.0,
+        synth_base_url: str | None = None,
     ) -> None:
         """Initialize the prompt learning client.
 
         Args:
-            base_url: Base URL of the backend API (defaults to BACKEND_URL_BASE from urls.py)
-            api_key: API key for authentication (defaults to SYNTH_API_KEY env var)
+            synth_user_key: Synth API key for authentication (defaults to SYNTH_API_KEY env var)
             timeout: Request timeout in seconds
+            synth_base_url: Backend URL override (defaults to SYNTH_BACKEND_URL or production)
         """
         import os
 
-        from synth_ai.core.urls import BACKEND_URL_BASE
-
-        if not base_url:
-            base_url = BACKEND_URL_BASE
-        self._base_url = base_url
+        self._synth_base_url = synth_base_url
 
         # Resolve API key from environment if not provided
-        if api_key is None:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if synth_user_key is None:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
-        self._api_key = api_key
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     async def get_job(self, job_id: str) -> Dict[str, Any]:
@@ -89,8 +94,10 @@ class PromptLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.get(f"/api/prompt-learning/online/jobs/{job_id}")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.get(synth_prompt_learning_job_url(job_id, self._synth_base_url))
 
     async def get_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 5000
@@ -110,8 +117,12 @@ class PromptLearningClient:
         """
         _validate_job_id(job_id)
         params = {"since_seq": since_seq, "limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.get(f"/api/prompt-learning/online/jobs/{job_id}/events", params=params)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            js = await http.get(
+                synth_prompt_learning_events_url(job_id, self._synth_base_url), params=params
+            )
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
         # Handle case where response is directly a list
@@ -452,30 +463,32 @@ class PromptLearningClient:
 
 
 # Synchronous wrapper for convenience
-def get_prompts(job_id: str, base_url: str, api_key: str) -> PromptResults:
+def get_prompts(job_id: str, base_url: str, synth_user_key: str) -> PromptResults:
     """Synchronous wrapper to get prompts from a job.
 
     Args:
         job_id: Job ID (e.g., "pl_9c58b711c2644083")
         base_url: Backend API base URL
-        api_key: API key for authentication
+        synth_user_key: Synth API key for authentication
 
     Returns:
         PromptResults dataclass with prompt results
     """
     import asyncio
 
-    client = PromptLearningClient(base_url, api_key)
+    client = PromptLearningClient(synth_user_key=synth_user_key, synth_base_url=base_url)
     return asyncio.run(client.get_prompts(job_id))
 
 
-def get_prompt_text(job_id: str, base_url: str, api_key: str, rank: int = 1) -> Optional[str]:
+def get_prompt_text(
+    job_id: str, base_url: str, synth_user_key: str, rank: int = 1
+) -> Optional[str]:
     """Synchronous wrapper to get prompt text by rank.
 
     Args:
         job_id: Job ID
         base_url: Backend API base URL
-        api_key: API key for authentication
+        synth_user_key: Synth API key for authentication
         rank: Prompt rank (1 = best, 2 = second best, etc.)
 
     Returns:
@@ -483,22 +496,22 @@ def get_prompt_text(job_id: str, base_url: str, api_key: str, rank: int = 1) -> 
     """
     import asyncio
 
-    client = PromptLearningClient(base_url, api_key)
+    client = PromptLearningClient(synth_user_key=synth_user_key, synth_base_url=base_url)
     return asyncio.run(client.get_prompt_text(job_id, rank))
 
 
-def get_scoring_summary(job_id: str, base_url: str, api_key: str) -> Dict[str, Any]:
+def get_scoring_summary(job_id: str, base_url: str, synth_user_key: str) -> Dict[str, Any]:
     """Synchronous wrapper to get scoring summary.
 
     Args:
         job_id: Job ID
         base_url: Backend API base URL
-        api_key: API key for authentication
+        synth_user_key: Synth API key for authentication
 
     Returns:
         Dictionary with scoring statistics
     """
     import asyncio
 
-    client = PromptLearningClient(base_url, api_key)
+    client = PromptLearningClient(synth_user_key=synth_user_key, synth_base_url=base_url)
     return asyncio.run(client.get_scoring_summary(job_id))

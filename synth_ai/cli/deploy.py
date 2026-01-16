@@ -6,7 +6,7 @@ import click
 
 from synth_ai.cli.lib.apps.task_app import find_task_apps_in_cwd
 from synth_ai.core.cfgs import CFDeployCfg, LocalDeployCfg, ModalDeployCfg
-from synth_ai.core.env import get_synth_and_env_keys
+from synth_ai.core.env import get_synth_and_localapi_keys
 from synth_ai.core.integrations.cloudflare import deploy_app_tunnel
 from synth_ai.core.integrations.modal import deploy_app_modal
 from synth_ai.core.paths import print_paths_formatted
@@ -118,7 +118,7 @@ def deploy(
                 print("Usage: synth-ai deploy [RUNTIME] [TASK_APP_PATH]")
                 return None
 
-        synth_api_key, env_api_key = get_synth_and_env_keys()
+        synth_user_key, localapi_key = get_synth_and_localapi_keys()
         if keep_alive:
             wait = True
 
@@ -131,7 +131,7 @@ def deploy(
                 deploy_app_uvicorn(
                     LocalDeployCfg.create(  # type: ignore[call-arg, arg-type]
                         task_app_path=task_app_path,
-                        env_api_key=env_api_key,  # type: ignore[arg-type]
+                        localapi_key=localapi_key,  # type: ignore[arg-type]
                         trace=trace,
                         host=host,
                         port=port,
@@ -142,8 +142,8 @@ def deploy(
                 deploy_app_modal(
                     ModalDeployCfg.create_from_kwargs(
                         task_app_path=task_app_path,
-                        synth_api_key=synth_api_key,
-                        env_api_key=env_api_key,
+                        synth_user_key=synth_user_key,
+                        localapi_key=localapi_key,
                         modal_app=modal_app,
                         name=name,
                         modal_mode=modal_mode,
@@ -153,7 +153,7 @@ def deploy(
                 )
             case "tunnel":
                 log_info("starting tunnel deploy", ctx=ctx)
-                if tunnel_mode == "managed" and not synth_api_key:
+                if tunnel_mode == "managed" and not synth_user_key:
                     raise RuntimeError(
                         "SYNTH_API_KEY required for managed tunnel mode. "
                         "Either run synth-ai setup to load automatically or manually set it in your shell."
@@ -162,7 +162,7 @@ def deploy(
                     deploy_app_tunnel(
                         CFDeployCfg.create(
                             task_app_path=task_app_path,
-                            env_api_key=env_api_key,
+                            localapi_key=localapi_key,
                             host=host,
                             port=port,
                             mode=cast(Literal["quick", "managed"], tunnel_mode),

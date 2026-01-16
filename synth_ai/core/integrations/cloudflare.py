@@ -28,7 +28,7 @@ from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.cfgs import CFDeployCfg
 from synth_ai.core.paths import REPO_ROOT, temporary_import_paths
 from synth_ai.core.telemetry import log_error, log_event, log_info
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_tunnel_rotate_url, synth_tunnels_url
 
 
 def __resolve_env_var(key: str) -> str:
@@ -91,15 +91,15 @@ class ManagedTunnelRecord:
 # ---------------------------------------------------------------------------
 
 
-async def fetch_managed_tunnels(synth_api_key: str) -> list[ManagedTunnelRecord]:
+async def fetch_managed_tunnels(synth_user_key: str) -> list[ManagedTunnelRecord]:
     """
     Fetch managed tunnels tied to the provided Synth API key.
 
     Raises:
         RuntimeError: If backend returns an error or unexpected payload.
     """
-    url = f"{BACKEND_URL_BASE}/api/v1/tunnels/"
-    headers = {"Authorization": f"Bearer {synth_api_key}"}
+    url = synth_tunnels_url()
+    headers = {"Authorization": f"Bearer {synth_user_key}"}
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(url, headers=headers)
@@ -797,7 +797,7 @@ async def verify_tunnel_dns_resolution(
     tunnel_url: str,
     name: str = "tunnel",
     timeout_seconds: float = 60.0,
-    api_key: Optional[str] = None,
+    localapi_key: Optional[str] = None,
 ) -> None:
     """
     Verify that a tunnel URL's hostname can be resolved via DNS (using public
@@ -811,7 +811,7 @@ async def verify_tunnel_dns_resolution(
         tunnel_url: The tunnel URL to verify (e.g., https://xxx.trycloudflare.com/v1)
         name: Human-readable name for logging
         timeout_seconds: Maximum time to wait for DNS resolution
-        api_key: Optional API key for health check authentication (defaults to ENVIRONMENT_API_KEY env var)
+        localapi_key: Optional API key for health check authentication (defaults to ENVIRONMENT_API_KEY env var)
 
     Raises:
         RuntimeError: If DNS resolution or HTTP connectivity fails after timeout
@@ -891,10 +891,10 @@ async def verify_tunnel_dns_resolution(
                 ]
 
                 # Include API key if provided (or from env var)
-                if api_key is None:
-                    api_key = os.getenv("ENVIRONMENT_API_KEY")
-                if api_key:
-                    curl_cmd.extend(["-H", f"X-API-Key: {api_key}"])
+                if localapi_key is None:
+                    localapi_key = os.getenv("ENVIRONMENT_API_KEY")
+                if localapi_key:
+                    curl_cmd.extend(["-H", f"X-API-Key: {localapi_key}"])
 
                 result = await loop.run_in_executor(
                     None,
@@ -981,7 +981,7 @@ async def open_quick_tunnel_with_dns_verification(
     wait_s: float = 10.0,
     max_retries: Optional[int] = None,
     dns_timeout_s: Optional[float] = None,
-    api_key: Optional[str] = None,
+    localapi_key: Optional[str] = None,
 ) -> Tuple[str, subprocess.Popen]:
     """
     Open a quick Cloudflare tunnel with DNS verification and retry logic.
@@ -994,7 +994,7 @@ async def open_quick_tunnel_with_dns_verification(
         wait_s: Maximum time to wait for URL in seconds
         max_retries: Maximum number of tunnel creation retries (default: from SYNTH_TUNNEL_MAX_RETRIES env var, or 2)
         dns_timeout_s: Maximum time to wait for DNS resolution (default: from SYNTH_TUNNEL_DNS_TIMEOUT_SECS env var, or 60)
-        api_key: Optional API key for health check authentication (defaults to ENVIRONMENT_API_KEY env var)
+        localapi_key: Optional API key for health check authentication (defaults to ENVIRONMENT_API_KEY env var)
 
     Returns:
         Tuple of (public_url, process_handle)
@@ -1006,8 +1006,8 @@ async def open_quick_tunnel_with_dns_verification(
     dns_timeout_s = dns_timeout_s or float(os.getenv("SYNTH_TUNNEL_DNS_TIMEOUT_SECS", "60"))
 
     # Get API key from parameter or env var
-    if api_key is None:
-        api_key = os.getenv("ENVIRONMENT_API_KEY")
+    if localapi_key is None:
+        localapi_key = os.getenv("ENVIRONMENT_API_KEY")
 
     last_err: Optional[Exception] = None
     for attempt in range(1, max_retries + 1):
@@ -1027,7 +1027,7 @@ async def open_quick_tunnel_with_dns_verification(
                 url,
                 timeout_seconds=dns_timeout_s,
                 name=f"tunnel attempt {attempt}",
-                api_key=api_key,
+                localapi_key=localapi_key,
             )
 
             logger.info("Tunnel verified and ready!")
@@ -1356,7 +1356,7 @@ def store_tunnel_credentials(
     Store tunnel credentials in the process environment and user config.
 
     Writes:
-    - TASK_APP_URL=<tunnel_url>
+    - SYNTH_LOCALAPI_URL=<tunnel_url>
     - CF_ACCESS_CLIENT_ID=<client_id> (if Access enabled)
     - CF_ACCESS_CLIENT_SECRET=<client_secret> (if Access enabled)
 
@@ -1365,9 +1365,9 @@ def store_tunnel_credentials(
         access_client_id: Cloudflare Access client ID (optional)
         access_client_secret: Cloudflare Access client secret (optional)
     """
-    os.environ["TASK_APP_URL"] = tunnel_url
+    os.environ["SYNTH_LOCALAPI_URL"] = tunnel_url
 
-    updates: dict[str, str] = {"TASK_APP_URL": tunnel_url}
+    updates: dict[str, str] = {"SYNTH_LOCALAPI_URL": tunnel_url}
     if access_client_id:
         os.environ["CF_ACCESS_CLIENT_ID"] = access_client_id
         updates["CF_ACCESS_CLIENT_ID"] = access_client_id
@@ -1389,9 +1389,9 @@ def store_tunnel_credentials(
 
 
 async def rotate_tunnel(
-    synth_api_key: str,
+    synth_user_key: str,
     port: int,
-    backend_url: Optional[str] = None,
+    synth_base_url: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Rotate (delete + recreate) the org's managed tunnel via Synth backend API.
@@ -1402,9 +1402,9 @@ async def rotate_tunnel(
     3. Wait for DNS propagation (up to 90s) before returning
 
     Args:
-        synth_api_key: Synth API key for authentication
+        synth_user_key: Synth API key for authentication
         port: Local port the new tunnel will forward to
-        backend_url: Optional backend URL (defaults to BACKEND_URL_BASE)
+        synth_base_url: Optional backend URL override
 
     Returns:
         Dict containing:
@@ -1418,10 +1418,7 @@ async def rotate_tunnel(
     Raises:
         RuntimeError: If API request fails
     """
-    from synth_ai.core.urls import BACKEND_URL_BASE
-
-    base_url = backend_url or BACKEND_URL_BASE
-    url = f"{base_url}/api/v1/tunnels/rotate"
+    url = synth_tunnel_rotate_url(synth_base_url)
 
     def mask_key(key: str) -> str:
         if len(key) > 14:
@@ -1434,8 +1431,8 @@ async def rotate_tunnel(
             response = await client.post(
                 url,
                 headers={
-                    "X-API-Key": synth_api_key,
-                    "Authorization": f"Bearer {synth_api_key}",
+                    "X-API-Key": synth_user_key,
+                    "Authorization": f"Bearer {synth_user_key}",
                 },
                 json={
                     "local_port": port,
@@ -1458,7 +1455,7 @@ async def rotate_tunnel(
             f"Backend API returned {exc.response.status_code} when rotating tunnel:\n"
             f"  Error: {error_detail}\n"
             f"  URL: {url}\n"
-            f"  API Key: {mask_key(synth_api_key)}"
+            f"  API Key: {mask_key(synth_user_key)}"
         ) from exc
     except httpx.ReadTimeout as exc:
         raise RuntimeError(
@@ -1474,7 +1471,7 @@ async def rotate_tunnel(
 
 
 async def create_tunnel(
-    synth_api_key: str,
+    synth_user_key: str,
     port: int,
     subdomain: Optional[str] = None,
 ) -> dict[str, Any]:
@@ -1484,7 +1481,7 @@ async def create_tunnel(
     The backend waits for DNS propagation (up to 90s) before returning.
 
     Args:
-        synth_api_key: Synth API key for authentication
+        synth_user_key: Synth API key for authentication
         port: Local port the tunnel will forward to
         subdomain: Optional custom subdomain (e.g., "my-company")
 
@@ -1500,7 +1497,7 @@ async def create_tunnel(
     Raises:
         RuntimeError: If API request fails
     """
-    url = f"{BACKEND_URL_BASE}/api/v1/tunnels/"
+    url = synth_tunnels_url()
 
     # Mask API key for error messages
     def mask_key(key: str) -> str:
@@ -1516,8 +1513,8 @@ async def create_tunnel(
             response = await client.post(
                 url,
                 headers={
-                    "X-API-Key": synth_api_key,
-                    "Authorization": f"Bearer {synth_api_key}",  # Fallback
+                    "X-API-Key": synth_user_key,
+                    "Authorization": f"Bearer {synth_user_key}",  # Fallback
                 },
                 json={
                     "subdomain": subdomain or f"tunnel-{port}",
@@ -1543,7 +1540,7 @@ async def create_tunnel(
                 f"Authentication failed when creating tunnel:\n"
                 f"  Status: {exc.response.status_code}\n"
                 f"  Error: {error_detail}\n"
-                f"  API Key used: {mask_key(synth_api_key)}\n"
+                f"  API Key used: {mask_key(synth_user_key)}\n"
                 f"  URL: {url}\n"
                 f"  This usually means:\n"
                 f"    - The API key is invalid or expired\n"
@@ -1559,13 +1556,13 @@ async def create_tunnel(
                 f"Backend API returned {exc.response.status_code} when creating tunnel:\n"
                 f"  Error: {error_detail}\n"
                 f"  URL: {url}\n"
-                f"  API Key: {mask_key(synth_api_key)}"
+                f"  API Key: {mask_key(synth_user_key)}"
             ) from exc
     except httpx.ReadTimeout as exc:
         raise RuntimeError(
             f"Request timed out when creating tunnel (backend waits for DNS propagation):\n"
             f"  URL: {url}\n"
-            f"  API Key: {mask_key(synth_api_key)}\n"
+            f"  API Key: {mask_key(synth_user_key)}\n"
             f"  Timeout: 180s\n"
             f"  This is usually temporary - try again in a moment"
         ) from exc
@@ -1573,7 +1570,7 @@ async def create_tunnel(
         raise RuntimeError(
             f"Failed to connect to backend when creating tunnel:\n"
             f"  URL: {url}\n"
-            f"  API Key: {mask_key(synth_api_key)}\n"
+            f"  API Key: {mask_key(synth_user_key)}\n"
             f"  Error: {exc}\n"
             f"  Check network connectivity and backend availability"
         ) from exc
@@ -1582,7 +1579,7 @@ async def create_tunnel(
 async def wait_for_health_check(
     host: str,
     port: int,
-    api_key: str | None = None,
+    localapi_key: str | None = None,
     timeout: float = 30.0,
 ) -> None:
     """
@@ -1591,17 +1588,17 @@ async def wait_for_health_check(
     Args:
         host: Host to check
         port: Port to check
-        api_key: API key for authentication (defaults to ENVIRONMENT_API_KEY env var)
+        localapi_key: API key for authentication (defaults to ENVIRONMENT_API_KEY env var)
         timeout: Maximum time to wait in seconds
 
     Raises:
         RuntimeError: If health check fails or times out
     """
-    if api_key is None:
-        api_key = os.environ.get("ENVIRONMENT_API_KEY", "")
+    if localapi_key is None:
+        localapi_key = os.environ.get("ENVIRONMENT_API_KEY", "")
 
     health_url = f"http://{host}:{port}/health"
-    headers = {"X-API-Key": api_key} if api_key else {}
+    headers = {"X-API-Key": localapi_key} if localapi_key else {}
     start = time.time()
 
     while time.time() - start < timeout:
@@ -1717,11 +1714,11 @@ async def deploy_app_tunnel(
     ensure_cloudflared_installed()
 
     selected_managed: Optional[ManagedTunnelRecord] = None
-    synth_api_key: Optional[str] = None
+    synth_user_key: Optional[str] = None
 
     if cfg.mode == "managed":
-        synth_api_key = __resolve_env_var("SYNTH_API_KEY")
-        tunnels = await fetch_managed_tunnels(synth_api_key)
+        synth_user_key = __resolve_env_var("SYNTH_API_KEY")
+        tunnels = await fetch_managed_tunnels(synth_user_key)
         if tunnels:
             selected_managed = _select_existing_tunnel(tunnels, cfg.subdomain)
             if selected_managed:
@@ -1730,7 +1727,7 @@ async def deploy_app_tunnel(
         else:
             print("ℹ️  No managed tunnels found; provisioning a new managed tunnel.")
 
-    os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
+    os.environ["ENVIRONMENT_API_KEY"] = cfg.localapi_key
     if cfg.trace:
         os.environ["TASKAPP_TRACING_ENABLED"] = "1"
     else:
@@ -1746,7 +1743,7 @@ async def deploy_app_tunnel(
     # Only wait for health check if wait mode is enabled (for AI agents, skip to avoid stalls)
     if wait or keep_alive:
         await wait_for_health_check(
-            cfg.host, cfg.port, cfg.env_api_key, timeout=health_check_timeout
+            cfg.host, cfg.port, cfg.localapi_key, timeout=health_check_timeout
         )
     else:
         # In background mode, give it a short moment to start, but don't wait for full health check
@@ -1792,9 +1789,9 @@ async def deploy_app_tunnel(
                 access_client_id = selected_managed.credential("access_client_id")
                 access_client_secret = selected_managed.credential("access_client_secret")
             else:
-                if not synth_api_key:
-                    synth_api_key = __resolve_env_var("SYNTH_API_KEY")
-                data = await create_tunnel(synth_api_key, cfg.port, cfg.subdomain)
+                if not synth_user_key:
+                    synth_user_key = __resolve_env_var("SYNTH_API_KEY")
+                data = await create_tunnel(synth_user_key, cfg.port, cfg.subdomain)
                 tunnel_token = data["tunnel_token"]
                 hostname = data["hostname"]
                 access_client_id = data.get("access_client_id")

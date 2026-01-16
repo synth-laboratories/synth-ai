@@ -1,7 +1,7 @@
 """Submit an eval job to the Synth backend.
 
 Usage:
-    python -m synth_ai.tui.eval_job <task_app_url> <env_name>
+    python -m synth_ai.tui.eval_job <localapi_url> <env_name>
 
 Outputs JSON to stdout for progress/results:
     {"status": "submitted", "job_id": "eval-abc123"}
@@ -13,8 +13,6 @@ Outputs JSON to stdout for progress/results:
 import json
 import os
 import sys
-
-from synth_ai.core.urls import BACKEND_URL_BASE
 
 # Default eval configuration
 DEFAULT_SEEDS = list(range(20))  # 20 seeds for quick eval
@@ -30,40 +28,36 @@ def _output(data: dict) -> None:
     print(json.dumps(data), flush=True)
 
 
-def run_eval_job(task_app_url: str, env_name: str) -> None:
+def run_eval_job(localapi_url: str, env_name: str) -> None:
     """Submit and poll an eval job."""
     from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
     from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
     # Get config from environment
-    api_key = os.environ.get("SYNTH_API_KEY")
-    if not api_key:
+    synth_user_key = os.environ.get("SYNTH_API_KEY")
+    if not synth_user_key:
         _output({"status": "error", "error": "SYNTH_API_KEY not set"})
         return
 
-    # Get task app API key for authentication
+    # Get LocalAPI API key for authentication
     try:
-        task_app_api_key = ensure_localapi_auth(
-            backend_base=BACKEND_URL_BASE,
-            synth_api_key=api_key,
-        )
+        localapi_key = ensure_localapi_auth(synth_user_key=synth_user_key)
     except Exception as e:
-        _output({"status": "error", "error": f"Failed to get task app API key: {e}"})
+        _output({"status": "error", "error": f"Failed to get LocalAPI API key: {e}"})
         return
 
     # Build config with defaults
     config = EvalJobConfig(
-        task_app_url=task_app_url,
-        task_app_api_key=task_app_api_key,
-        backend_url=BACKEND_URL_BASE,
-        api_key=api_key,
+        localapi_url=localapi_url,
+        localapi_key=localapi_key,
+        synth_user_key=synth_user_key,
         env_name=env_name,
         seeds=DEFAULT_SEEDS,
         policy_config={
             "model": DEFAULT_MODEL,
             "provider": DEFAULT_PROVIDER,
             "inference_mode": DEFAULT_INFERENCE_MODE,
-            "api_key": api_key,
+            "api_key": synth_user_key,
         },
         env_config={"split": "test"},
         concurrency=DEFAULT_CONCURRENCY,
@@ -115,14 +109,14 @@ def main() -> None:
         _output(
             {
                 "status": "error",
-                "error": "Usage: python -m synth_ai.tui.eval_job <task_app_url> <env_name>",
+                "error": "Usage: python -m synth_ai.tui.eval_job <localapi_url> <env_name>",
             }
         )
         sys.exit(1)
 
-    task_app_url = sys.argv[1]
+    localapi_url = sys.argv[1]
     env_name = sys.argv[2]
-    run_eval_job(task_app_url, env_name)
+    run_eval_job(localapi_url, env_name)
 
 
 if __name__ == "__main__":

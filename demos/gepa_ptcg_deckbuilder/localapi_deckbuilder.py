@@ -9,22 +9,25 @@ The reward is a combination of:
 2. Win rate against opponent decks using deterministic AI v4 battles (0.0-0.5)
 """
 
-from __future__ import annotations
-
 import json
 import os
 import re
 import subprocess
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import httpx
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
+    TaskDescriptor,
     TaskInfo,
 )
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
@@ -1187,12 +1190,6 @@ Build the deck now. Output ONLY the JSON with the deck array."""
                     "deck": deck,
                 },
             ),
-            metadata={
-                "instance_id": instance_id,
-                "constraint_score": constraint_score,
-                "win_rate": win_rate,
-                "final_reward": final_reward,
-            },
         )
 
     except Exception as e:
@@ -1228,7 +1225,7 @@ def provide_taskset_description() -> dict:
     }
 
 
-def provide_task_instances(seeds: list[int]) -> list[TaskInfo]:
+def provide_task_instances(seeds: Sequence[int]) -> list[TaskInfo]:
     instances = []
     for seed in seeds:
         idx = seed % len(INSTANCE_IDS)
@@ -1236,10 +1233,10 @@ def provide_task_instances(seeds: list[int]) -> list[TaskInfo]:
         instance = get_instance(instance_id)
         instances.append(
             TaskInfo(
-                task={"id": "deckbuilder", "name": "Pokemon TCG Deck Builder"},
-                dataset={"id": "ptcg-deckbuilder", "split": "train", "index": idx},
-                inference={"tool": "deck_builder"},
-                limits={"max_turns": 1},
+                task=TaskDescriptor(id="deckbuilder", name="Pokemon TCG Deck Builder"),
+                dataset=DatasetInfo(id="ptcg-deckbuilder", split="train", index=idx),
+                inference=InferenceInfo(tool="deck_builder"),
+                limits=LimitsInfo(max_turns=1),
                 task_metadata={
                     "instance_id": instance_id,
                     "challenge_name": instance["name"] if instance else "",

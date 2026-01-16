@@ -17,20 +17,20 @@ Usage:
     from synth_ai.products.graph_evolve import GraphOptimizationClient, GraphOptimizationConfig
 
     config = GraphOptimizationConfig.from_toml("config.toml")
-    async with GraphOptimizationClient(base_url, api_key) as client:
+    async with GraphOptimizationClient(base_url, synth_user_key) as client:
         job_id = await client.start_job(config)
         async for event in client.stream_events(job_id):
             print(event)
 """
 
-from .config import GraphOptimizationConfig
 from .client import GraphOptimizationClient
+from .config import GraphOptimizationConfig
 from .converters import (
-    convert_openai_sft,
-    preview_conversion,
+    ConversionError,
     ConversionResult,
     ConversionWarning,
-    ConversionError,
+    convert_openai_sft,
+    preview_conversion,
 )
 
 __all__ = [

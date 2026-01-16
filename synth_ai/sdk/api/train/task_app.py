@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import socket
 import subprocess
 import time
@@ -216,19 +214,19 @@ def _health_response_ok(resp: requests.Response | None) -> tuple[bool, str]:
 
 
 def check_task_app_health(
-    base_url: str, api_key: str, *, timeout: float = 10.0, max_retries: int = 5
+    base_url: str, localapi_key: str, *, timeout: float = 10.0, max_retries: int = 5
 ) -> TaskAppHealth:
     # Send ALL known environment keys so the server can authorize any valid one
     import os
 
-    headers = {"X-API-Key": api_key}
+    headers = {"X-API-Key": localapi_key}
     aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
-    keys: list[str] = [api_key]
+    keys: list[str] = [localapi_key]
     if aliases:
         keys.extend([p.strip() for p in aliases.split(",") if p.strip()])
     if keys:
         headers["X-API-Keys"] = ",".join(keys)
-        headers.setdefault("Authorization", f"Bearer {api_key}")
+        headers.setdefault("Authorization", f"Bearer {localapi_key}")
     base = base_url.rstrip("/")
     detail_parts: list[str] = []
 
@@ -425,10 +423,10 @@ def check_task_app_health(
 
 
 def check_local_api_health(
-    base_url: str, api_key: str, *, timeout: float = 10.0, max_retries: int = 5
+    base_url: str, localapi_key: str, *, timeout: float = 10.0, max_retries: int = 5
 ) -> LocalAPIHealth:
     """Alias for check_task_app_health with LocalAPI naming."""
-    health = check_task_app_health(base_url, api_key, timeout=timeout, max_retries=max_retries)
+    health = check_task_app_health(base_url, localapi_key, timeout=timeout, max_retries=max_retries)
     return LocalAPIHealth(
         ok=health.ok,
         health_status=health.health_status,

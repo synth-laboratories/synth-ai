@@ -10,10 +10,22 @@ import click
 
 from synth_ai.cli.lib.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
 from synth_ai.core.config.errors import format_error_message, get_required_value
-from synth_ai.core.env import get_synth_and_env_keys, mask_str
+from synth_ai.core.env import get_synth_and_localapi_keys, mask_str
 from synth_ai.core.paths import print_paths_formatted
 from synth_ai.core.telemetry import flush_logger, log_error, log_info
-from synth_ai.core.urls import BACKEND_URL_API
+from synth_ai.core.urls import (
+    synth_base_url as resolve_synth_base_url,
+)
+from synth_ai.core.urls import (
+    synth_file_url,
+    synth_files_url,
+    synth_learning_job_start_url,
+    synth_learning_jobs_url,
+    synth_prompt_learning_events_url,
+    synth_prompt_learning_jobs_url,
+    synth_rl_jobs_url,
+    synth_rl_verify_task_app_url,
+)
 from synth_ai.data import extract_outcome_reward
 from synth_ai.sdk.api.train.builders import (
     build_prompt_learning_payload,
@@ -26,7 +38,6 @@ from synth_ai.sdk.api.train.graphgen_models import load_graphgen_taskset
 from synth_ai.sdk.api.train.local_api import check_local_api_health
 from synth_ai.sdk.api.train.utils import (
     TrainError,
-    ensure_api_base,
     http_get,
     http_post,
     limit_jsonl_examples,
@@ -117,11 +128,6 @@ def _extract_reward_value(
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 return float(value)
     return None
-
-
-def _default_backend() -> str:
-    """Return the default backend URL from centralized urls module."""
-    return BACKEND_URL_API
 
 
 _DEFAULT_SFT_HIDDEN_EVENTS = {
@@ -348,7 +354,7 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.cli.train imported")
 
 @click.command()
 @click.argument("cfg_path", required=False, type=click.Path(exists=True, path_type=Path))
-@click.option("--task-url", default=None, help="Override task app base URL (RL only)")
+@click.option("--localapi-url", default=None, help="Override LocalAPI URL (RL only)")
 @click.option(
     "--dataset",
     "dataset_path",
@@ -394,10 +400,10 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.cli.train imported")
     help="Limit SFT training to the first N examples",
 )
 @click.option(
-    "--backend",
-    "backend_override",
+    "--synth-base-url",
+    "synth_base_url",
     default=None,
-    help="Backend base URL (e.g., http://localhost:8000). Overrides BACKEND_BASE_URL env var.",
+    help="Synth API base URL (e.g., http://localhost:8000). Overrides SYNTH_BACKEND_URL.",
 )
 @click.option(
     "--local-backend",
@@ -446,7 +452,7 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.cli.train imported")
 )
 def train(
     cfg_path: Path | None,
-    task_url: str | None,
+    localapi_url: str | None,
     dataset_path: str | None,
     model: str | None,
     allow_experimental: bool | None,
@@ -457,7 +463,6 @@ def train(
     poll_interval: float,
     stream_format: str,
     examples_limit: int | None,
-    backend_override: str | None,
     local_backend: bool | None,
     tui: bool | None,
     show_curve: bool | None,
@@ -465,6 +470,7 @@ def train(
     train_type_override: str | None,
     rollout_budget: int | None,
     proposer_effort: str | None,
+    synth_base_url: str | None,
 ) -> None:
     """Interactive launcher for RL / SFT / Prompt Learning / GraphGen / Context Learning jobs."""
     import traceback
@@ -475,7 +481,7 @@ def train(
         "poll_timeout": poll_timeout,
         "poll_interval": poll_interval,
         "stream_format": stream_format,
-        "backend_override": backend_override,
+        "synth_base_url": synth_base_url,
     }
     log_info("train_command invoked", ctx=ctx)
 
@@ -518,49 +524,16 @@ def train(
 
             train_type = train_type_override or validate_train_cfg(cfg_path)
 
-        synth_api_key, _ = get_synth_and_env_keys()
+        synth_user_key, _ = get_synth_and_localapi_keys()
 
-        # Resolve backend URL with priority: --backend flag > BACKEND_BASE_URL env > default
-        if backend_override:
-            # CLI flag takes highest precedence
-            backend_base = ensure_api_base(backend_override.strip())
-            click.echo(f"Backend base: {backend_base} (from --backend flag)")
+        # Resolve Synth base URL with priority: --synth-base-url flag > default
+        resolved_synth_base_url = resolve_synth_base_url(synth_base_url)
+        if synth_base_url:
+            click.echo(f"Synth base URL: {resolved_synth_base_url} (from --synth-base-url flag)")
         else:
-            # Check BACKEND_BASE_URL after evaluating overrides
-            backend_base_url_env = os.environ.get("BACKEND_BASE_URL", "").strip()
-            backend_override_env = os.environ.get("BACKEND_OVERRIDE", "").strip()
-
-            # Debug: Show what env vars are set
             click.echo(
-                f"🔍 DEBUG: BACKEND_BASE_URL={backend_base_url_env or '(not set)'}", err=True
+                f"Synth base URL: {resolved_synth_base_url} (key {mask_str(synth_user_key)})"
             )
-            click.echo(
-                f"🔍 DEBUG: BACKEND_OVERRIDE={backend_override_env or '(not set)'}", err=True
-            )
-
-            # Use _default_backend() to respect BACKEND_BASE_URL env var
-            backend_raw = _default_backend()
-            click.echo(f"🔍 DEBUG: _default_backend() returned: {backend_raw}", err=True)
-            backend_base = ensure_api_base(backend_raw)
-
-            # Assertion: Validate backend URL is what we expect
-            if backend_base_url_env:
-                expected_backend = ensure_api_base(backend_base_url_env)
-                if backend_base != expected_backend:
-                    raise click.ClickException(
-                        f"Backend URL mismatch! Expected: {expected_backend}, Got: {backend_base}. "
-                        f"BACKEND_BASE_URL={backend_base_url_env} but resolved to {backend_base}. "
-                        f"This indicates BACKEND_BASE_URL is not being respected.\n"
-                        f"💡 Solutions:\n"
-                        f"   1. Set BACKEND_BASE_URL=http://localhost:8000 in your shell\n"
-                        f"   2. Use --backend http://localhost:8000 flag (requires package rebuild)\n"
-                        f"   3. Set BACKEND_OVERRIDE=http://localhost:8000 in your shell\n"
-                        f"   4. Set SYNTH_BACKEND_URL_OVERRIDE=local and LOCAL_BACKEND_URL=http://localhost:8000"
-                    )
-
-            click.echo(f"Backend base: {backend_base} (key {mask_str(synth_api_key)})")
-            if backend_base_url_env:
-                click.echo(f"  (from BACKEND_BASE_URL={backend_base_url_env})")
 
         # Skip TOML-based validation for GraphGen (uses JSON datasets)
         if train_type != "graphgen" and cfg_path:
@@ -572,9 +545,9 @@ def train(
                     raise click.ClickException("Prompt Learning requires a TOML config file.")
                 handle_prompt_learning(
                     cfg_path=cfg_path,
-                    backend_base=backend_base,
-                    synth_key=synth_api_key,
-                    task_url_override=task_url,
+                    synth_base_url=resolved_synth_base_url,
+                    synth_user_key=synth_user_key,
+                    localapi_url_override=localapi_url,
                     allow_experimental=allow_experimental,
                     dry_run=dry_run,
                     poll=poll,
@@ -590,8 +563,8 @@ def train(
                     )
                 handle_context_learning(
                     cfg_path=cfg_path,
-                    backend_base=backend_base,
-                    synth_key=synth_api_key,
+                    synth_base_url=resolved_synth_base_url,
+                    synth_user_key=synth_user_key,
                     poll=poll,
                     stream_format=stream_format,
                 )
@@ -600,9 +573,9 @@ def train(
                     raise click.ClickException("RL requires a TOML config file.")
                 handle_rl(
                     cfg_path=cfg_path,
-                    backend_base=backend_base,
-                    synth_key=synth_api_key,
-                    task_url_override=task_url,
+                    synth_base_url=resolved_synth_base_url,
+                    synth_user_key=synth_user_key,
+                    localapi_url_override=localapi_url,
                     model_override=model,
                     idempotency=idempotency,
                     allow_experimental=allow_experimental,
@@ -620,8 +593,8 @@ def train(
                 )
                 handle_sft(
                     cfg_path=cfg_path,
-                    backend_base=backend_base,
-                    synth_key=synth_api_key,
+                    synth_base_url=resolved_synth_base_url,
+                    synth_user_key=synth_user_key,
                     dataset_override=dataset_override_path,
                     allow_experimental=allow_experimental,
                     dry_run=dry_run,
@@ -637,8 +610,8 @@ def train(
                 graphgen_dataset_path = Path(dataset_path).expanduser().resolve()
                 handle_graphgen(
                     dataset_path=graphgen_dataset_path,
-                    backend_base=backend_base,
-                    synth_key=synth_api_key,
+                    synth_base_url=resolved_synth_base_url,
+                    synth_user_key=synth_user_key,
                     policy_models=model,
                     rollout_budget=rollout_budget,
                     proposer_effort=proposer_effort,
@@ -660,10 +633,10 @@ def train(
 def handle_context_learning(
     *,
     cfg_path: Path,
-    backend_base: str,
-    synth_key: str,
+    synth_user_key: str,
     poll: bool,
     stream_format: str,
+    synth_base_url: str,
 ) -> None:
     """Submit and stream a Context Learning job.
 
@@ -676,8 +649,8 @@ def handle_context_learning(
     try:
         job = ContextLearningJob.from_config(
             cfg_path,
-            backend_url=backend_base,
-            api_key=synth_key,
+            synth_user_key=synth_user_key,
+            synth_base_url=synth_base_url,
         )
         result = job.submit()
     except Exception as e:
@@ -713,7 +686,7 @@ def handle_context_learning(
 
 
 def _wait_for_training_file(
-    backend_base: str, api_key: str, file_id: str, *, timeout: float = 10.0
+    synth_user_key: str, file_id: str, *, timeout: float = 10.0, synth_base_url: str
 ) -> None:
     """Wait for training file to be visible after upload.
 
@@ -723,8 +696,8 @@ def _wait_for_training_file(
     - By job creation time, replica lag has resolved
     - Quick sanity check only, not critical path
     """
-    url = f"{backend_base.rstrip('/')}/files/{file_id}"
-    headers = {"Authorization": f"Bearer {api_key}"}
+    url = synth_file_url(file_id, synth_base_url)
+    headers = {"Authorization": f"Bearer {synth_user_key}"}
     elapsed = 0.0
     interval = 2.0
     first_check = True
@@ -764,7 +737,7 @@ def _wait_for_training_file(
             click.echo(f"  URL: {url}")
             click.echo(f"  Status: {resp.status_code}")
             click.echo(f"  Response: {error_body}")
-            click.echo(f"  API key: {mask_value(api_key)}")
+            click.echo(f"  API key: {mask_value(synth_user_key)}")
             raise click.ClickException(
                 f"Authentication error ({resp.status_code}). "
                 "Check that your SYNTH_API_KEY is valid and has permission to access this organization's files."
@@ -791,9 +764,8 @@ def _wait_for_training_file(
 def handle_rl(
     *,
     cfg_path: Path,
-    backend_base: str,
-    synth_key: str,
-    task_url_override: str | None,
+    synth_user_key: str,
+    localapi_url_override: str | None,
     model_override: str | None,
     idempotency: str | None,
     allow_experimental: bool | None,
@@ -802,33 +774,37 @@ def handle_rl(
     poll_timeout: float,
     poll_interval: float,
     stream_format: str,
+    synth_base_url: str,
 ) -> None:
     ctx: dict[str, Any] = {
         "cfg_path": str(cfg_path),
-        "backend_base": backend_base,
-        "task_url_override": task_url_override,
+        "synth_base_url": synth_base_url,
+        "localapi_url_override": localapi_url_override,
         "poll": poll,
     }
     log_info("handle_rl invoked", ctx=ctx)
     overrides: dict[str, Any] = {
-        "backend": backend_base,
-        "task_url": task_url_override,
+        "synth_base_url": synth_base_url,
+        "localapi_url": localapi_url_override,
         "model": model_override,
     }
     build = build_rl_payload(
         config_path=cfg_path,
-        task_url=task_url_override or os.environ.get("TASK_APP_URL", ""),
+        localapi_url=localapi_url_override or os.environ.get("SYNTH_LOCALAPI_URL", ""),
         overrides=overrides,
         idempotency=idempotency,
         allow_experimental=allow_experimental,
     )
 
     # Backend-side verification: try ALL org environment keys against /health and /task_info
-    verify_url = f"{backend_base}/rl/verify_task_app"
-    verify_headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}
+    verify_url = synth_rl_verify_task_app_url(synth_base_url)
+    verify_headers = {
+        "Authorization": f"Bearer {synth_user_key}",
+        "Content-Type": "application/json",
+    }
     try:
         vresp = http_post(
-            verify_url, headers=verify_headers, json_body={"endpoint_base_url": build.task_url}
+            verify_url, headers=verify_headers, json_body={"endpoint_base_url": build.localapi_url}
         )
         try:
             parsed_json = vresp.json()
@@ -846,15 +822,15 @@ def handle_rl(
                 vjs["body"] = parsed_json
     except Exception as _ve:
         raise click.ClickException(
-            f"Task app verification call failed: {type(_ve).__name__}: {_ve}"
+            f"LocalAPI verification call failed: {type(_ve).__name__}: {_ve}"
         ) from _ve
     if vresp.status_code is not None and vresp.status_code >= 400:
-        click.echo("Task app verification error:\n" + preview_json(vjs, limit=800))
+        click.echo("LocalAPI verification error:\n" + preview_json(vjs, limit=800))
         raise click.ClickException(f"Verification failed with status {vresp.status_code}")
     if not bool(vjs.get("any_ok")):
-        click.echo("Task app verification failed; no auth combination succeeded. Full report:")
+        click.echo("LocalAPI verification failed; no auth combination succeeded. Full report:")
         click.echo(preview_json(vjs, limit=1200))
-        raise click.ClickException("Task app verification failed (auth)")
+        raise click.ClickException("LocalAPI verification failed (auth)")
     else:
         # Print concise summary
         try:
@@ -877,16 +853,16 @@ def handle_rl(
     )
     os.environ["ENVIRONMENT_API_KEY"] = env_key
 
-    click.echo("Performing task app health check…")
-    health = check_local_api_health(build.task_url, env_key)
+    click.echo("Performing LocalAPI health check…")
+    health = check_local_api_health(build.localapi_url, env_key)
     if not health.ok:
-        click.echo(f"Task app health check failed: {health.detail}")
+        click.echo(f"LocalAPI health check failed: {health.detail}")
         raise click.ClickException("Aborting due to failing health check")
     else:
-        click.echo("Task app healthy")
+        click.echo("LocalAPI healthy")
 
-    create_url = f"{backend_base}/rl/jobs"
-    headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}
+    create_url = synth_rl_jobs_url(synth_base_url)
+    headers = {"Authorization": f"Bearer {synth_user_key}", "Content-Type": "application/json"}
     if build.idempotency:
         headers["Idempotency-Key"] = build.idempotency
 
@@ -933,8 +909,8 @@ def handle_rl(
         handlers = [CLIHandler(hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS)]
 
     streamer = JobStreamer(
-        base_url=backend_base,
-        api_key=synth_key,
+        base_url=synth_base_url,
+        synth_user_key=synth_user_key,
         job_id=job_id,
         endpoints=StreamEndpoints.rl(job_id),
         config=config,
@@ -950,8 +926,7 @@ def handle_rl(
 def handle_sft(
     *,
     cfg_path: Path,
-    backend_base: str,
-    synth_key: str,
+    synth_user_key: str,
     dataset_override: Path | None,
     allow_experimental: bool | None,
     dry_run: bool,
@@ -960,10 +935,11 @@ def handle_sft(
     poll_interval: float,
     stream_format: str,
     examples_limit: int | None,
+    synth_base_url: str,
 ) -> None:
     ctx: dict[str, Any] = {
         "cfg_path": str(cfg_path),
-        "backend_base": backend_base,
+        "synth_base_url": synth_base_url,
         "dataset_override": str(dataset_override) if dataset_override else None,
         "poll": poll,
     }
@@ -993,12 +969,15 @@ def handle_sft(
             click.echo("Validating validation dataset…")
             validate_sft_jsonl(build.validation_file)
 
-        upload_url = f"{backend_base.rstrip('/')}/files"
+        upload_url = synth_files_url(synth_base_url)
         click.echo("\n=== Uploading Training Data ===")
         click.echo(f"Dataset: {build.train_file}")
         click.echo(f"Destination: {upload_url}")
         resp = post_multipart(
-            upload_url, api_key=synth_key, file_field="file", file_path=build.train_file
+            upload_url,
+            synth_user_key=synth_user_key,
+            file_field="file",
+            file_path=build.train_file,
         )
         js = (
             resp.json()
@@ -1021,7 +1000,7 @@ def handle_sft(
             click.echo(f"Uploading validation dataset: {build.validation_file}")
             vresp = post_multipart(
                 upload_url,
-                api_key=synth_key,
+                synth_user_key=synth_user_key,
                 file_field="file",
                 file_path=build.validation_file,
             )
@@ -1046,7 +1025,7 @@ def handle_sft(
 
         click.echo("\n=== Checking File Processing Status ===")
         try:
-            _wait_for_training_file(backend_base, synth_key, train_file_id)
+            _wait_for_training_file(synth_user_key, train_file_id, synth_base_url=synth_base_url)
         except click.ClickException as exc:
             click.echo(f"[WARN] File readiness check failed: {exc}")
             click.echo("Proceeding anyway - backend will validate file during job creation...")
@@ -1055,8 +1034,8 @@ def handle_sft(
         click.echo("Job payload preview:")
         click.echo(preview_json(payload, limit=800))
 
-        create_url = f"{backend_base}/learning/jobs"
-        headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}
+        create_url = synth_learning_jobs_url(synth_base_url)
+        headers = {"Authorization": f"Bearer {synth_user_key}", "Content-Type": "application/json"}
         click.echo(f"\nPOST {create_url}")
         resp = http_post(create_url, headers=headers, json_body=payload)
         js = (
@@ -1076,7 +1055,7 @@ def handle_sft(
         click.echo(f"✓ Job created (id={job_id})")
 
         click.echo("\n=== Starting Training Job ===")
-        start_url = f"{backend_base}/learning/jobs/{job_id}/start"
+        start_url = synth_learning_job_start_url(job_id, synth_base_url)
         click.echo(f"POST {start_url}")
         start_resp = http_post(start_url, headers=headers, json_body={})
         if start_resp.status_code not in (200, 201):
@@ -1095,8 +1074,8 @@ def handle_sft(
         if stream_format == "chart":
             click.echo("Using live loss chart (metric=train.loss)")
         streamer = JobStreamer(
-            base_url=backend_base,
-            api_key=synth_key,
+            base_url=synth_base_url,
+            synth_user_key=synth_user_key,
             job_id=job_id,
             endpoints=StreamEndpoints.learning(job_id),
             config=config,
@@ -1120,8 +1099,7 @@ def handle_sft(
 def handle_graphgen(
     *,
     dataset_path: Path,
-    backend_base: str,
-    synth_key: str,
+    synth_user_key: str,
     policy_models: str | None,
     rollout_budget: int | None,
     proposer_effort: str | None,
@@ -1129,6 +1107,7 @@ def handle_graphgen(
     poll_timeout: float,
     poll_interval: float,
     stream_format: str,
+    synth_base_url: str,
 ) -> None:
     """Handle GraphGen workflow optimization job creation and streaming.
 
@@ -1136,7 +1115,7 @@ def handle_graphgen(
     """
     ctx: dict[str, Any] = {
         "dataset_path": str(dataset_path),
-        "backend_base": backend_base,
+        "synth_base_url": synth_base_url,
         "poll": poll,
     }
     log_info("handle_graphgen invoked", ctx=ctx)
@@ -1171,9 +1150,9 @@ def handle_graphgen(
         rollout_budget=rollout_budget or 100,
         proposer_effort=proposer_effort or "medium",  # type: ignore
         problem_spec=problem_spec,
-        backend_url=backend_base,
-        api_key=synth_key,
+        synth_user_key=synth_user_key,
         auto_start=True,
+        synth_base_url=synth_base_url,
     )
 
     click.echo("\n=== Submitting GraphGen Job ===")
@@ -1414,19 +1393,22 @@ def _save_verbose_log_file(
 
 def _save_prompt_learning_results_locally(
     *,
-    backend_base: str,
-    api_key: str,
+    synth_user_key: str,
     job_id: str,
     config_path: Path,
     results_folder: Path,
+    synth_base_url: str,
 ) -> None:
     """Fetch events and generate results file locally after prompt learning completes."""
     from datetime import datetime
 
     try:
         # Fetch all events
-        url = f"{backend_base}/prompt-learning/online/jobs/{job_id}/events?limit={_RESULTS_FILE_MAX_EVENTS}"
-        headers = {"Authorization": f"Bearer {api_key}"}
+        url = (
+            f"{synth_prompt_learning_events_url(job_id, synth_base_url)}"
+            f"?limit={_RESULTS_FILE_MAX_EVENTS}"
+        )
+        headers = {"Authorization": f"Bearer {synth_user_key}"}
         resp = http_get(url, headers=headers, timeout=30.0)
 
         if resp.status_code != 200:
@@ -1934,9 +1916,8 @@ def _save_prompt_learning_results_locally(
 def handle_prompt_learning(
     *,
     cfg_path: Path,
-    backend_base: str,
-    synth_key: str,
-    task_url_override: str | None,
+    synth_user_key: str,
+    localapi_url_override: str | None,
     allow_experimental: bool | None,
     dry_run: bool,
     poll: bool,
@@ -1947,12 +1928,13 @@ def handle_prompt_learning(
     tui: bool = False,
     show_curve: bool = True,
     verbose_summary: bool = True,
+    synth_base_url: str,
 ) -> None:
     """Handle prompt learning job creation (MIPRO or GEPA)."""
     ctx: dict[str, Any] = {
         "cfg_path": str(cfg_path),
-        "backend_base": backend_base,
-        "task_url_override": task_url_override,
+        "synth_base_url": synth_base_url,
+        "localapi_url_override": localapi_url_override,
         "poll": poll,
     }
     log_info("handle_prompt_learning invoked", ctx=ctx)
@@ -1963,78 +1945,64 @@ def handle_prompt_learning(
     os.environ["ENVIRONMENT_API_KEY"] = env_key
 
     overrides: dict[str, Any] = {
-        "backend": backend_base,
-        "task_url": task_url_override,
+        "synth_base_url": synth_base_url,
+        "localapi_url": localapi_url_override,
     }
 
     build = build_prompt_learning_payload(
         config_path=cfg_path,
-        task_url=task_url_override,
+        localapi_url=localapi_url_override,
         overrides=overrides,
         allow_experimental=allow_experimental,
     )
 
-    # Assertion: Validate task app URL is reachable from backend perspective
-    # If backend is localhost and task app is localhost, they should be able to communicate
-    task_app_url = build.task_url or ""
-    if backend_base.startswith("http://localhost") or backend_base.startswith("http://127.0.0.1"):
-        if task_app_url.startswith("http://localhost") or task_app_url.startswith(
+    # Assertion: Validate LocalAPI URL is reachable from backend perspective
+    # If backend is localhost and LocalAPI is localhost, they should be able to communicate
+    localapi_url = build.localapi_url or ""
+    if synth_base_url.startswith("http://localhost") or synth_base_url.startswith(
+        "http://127.0.0.1"
+    ):
+        if localapi_url.startswith("http://localhost") or localapi_url.startswith(
             "http://127.0.0.1"
         ):
             # Both are local - this should work
             pass
         else:
             click.echo(
-                f"⚠️  WARNING: Backend is local ({backend_base}) but task app is remote ({task_app_url})"
+                f"⚠️  WARNING: Synth backend is local ({synth_base_url}) but LocalAPI is remote ({localapi_url})"
             )
             click.echo(
-                "   The backend may not be able to reach the task app. Consider using a tunnel or local task app."
+                "   The backend may not be able to reach the LocalAPI. Consider using a tunnel or local LocalAPI."
             )
 
-    click.echo("Performing task app health check…")
-    click.echo(f"Task app URL: {build.task_url}")
+    click.echo("Performing LocalAPI health check…")
+    click.echo(f"LocalAPI URL: {build.localapi_url}")
     click.echo("⏳ Checking /health endpoint (timeout: 10s)...")
-    health = check_local_api_health(build.task_url, env_key, timeout=10.0)
+    health = check_local_api_health(build.localapi_url, env_key, timeout=10.0)
     if not health.ok:
-        click.echo(f"❌ Task app health check failed: {health.detail}")
+        click.echo(f"❌ LocalAPI health check failed: {health.detail}")
         click.echo(f"   Health status: {health.health_status}")
         click.echo(f"   Task info status: {health.task_info_status}")
         click.echo("💡 Troubleshooting:")
-        click.echo("   1. Ensure the task app is running: lsof -i :8102")
+        click.echo("   1. Ensure the LocalAPI is running: lsof -i :8102")
         click.echo("   2. Test manually: curl -v http://127.0.0.1:8102/health")
-        click.echo("   3. Check task app logs for errors")
-        click.echo("   4. Restart the task app if it's hung")
+        click.echo("   3. Check LocalAPI logs for errors")
+        click.echo("   4. Restart the LocalAPI if it's hung")
         raise click.ClickException("Aborting due to failing health check")
     else:
-        click.echo("Task app healthy")
-
-    # Ensure backend_base has /api prefix
-    if not backend_base.endswith("/api"):
-        backend_base = ensure_api_base(backend_base)
+        click.echo("LocalAPI healthy")
 
     # Assertion: Validate backend URL before making request
-    if not backend_base.startswith("http"):
+    if not synth_base_url.startswith("http"):
         raise click.ClickException(
-            f"Invalid backend URL: {backend_base}. Must start with http:// or https://"
+            f"Invalid Synth base URL: {synth_base_url}. Must start with http:// or https://"
         )
 
-    create_url = f"{backend_base}/prompt-learning/online/jobs"
-    headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}
+    create_url = synth_prompt_learning_jobs_url(synth_base_url)
+    headers = {"Authorization": f"Bearer {synth_user_key}", "Content-Type": "application/json"}
 
     click.echo(f"POST {create_url}")
     click.echo("Payload preview:\n" + preview_json(build.payload, limit=800))
-
-    # Assertion: If using local backend, verify it's actually localhost
-    if (
-        os.getenv("BACKEND_BASE_URL")
-        and "localhost" in os.getenv("BACKEND_BASE_URL", "").lower()
-        and "localhost" not in backend_base.lower()
-        and "127.0.0.1" not in backend_base
-    ):
-        raise click.ClickException(
-            f"BACKEND_BASE_URL was set to localhost but backend_base resolved to {backend_base}. "
-            f"This indicates the environment variable is not being respected."
-        )
 
     # Increase timeout for job creation (can take longer due to validation checks)
     resp = http_post(create_url, headers=headers, json_body=build.payload, timeout=180.0)
@@ -2164,8 +2132,8 @@ def handle_prompt_learning(
         handlers = [handler]
 
     streamer = JobStreamer(
-        base_url=backend_base,
-        api_key=synth_key,
+        base_url=synth_base_url,
+        synth_user_key=synth_user_key,
         job_id=job_id,
         endpoints=StreamEndpoints.prompt_learning(job_id),
         config=config,
@@ -2197,12 +2165,12 @@ def handle_prompt_learning(
             log_writer = handlers[0]._write_log
         display_prompt_learning_summary(
             job_id=job_id,
-            backend_base=backend_base,
-            api_key=synth_key,
+            synth_user_key=synth_user_key,
             optimization_curve=optimization_curve,
             show_curve=show_curve,
             algorithm=algorithm,
             log_writer=log_writer,
+            synth_base_url=synth_base_url,
         )
 
     # Save results file locally
@@ -2215,9 +2183,9 @@ def handle_prompt_learning(
         handlers[0].flush()
 
     _save_prompt_learning_results_locally(
-        backend_base=backend_base,
-        api_key=synth_key,
+        synth_user_key=synth_user_key,
         job_id=job_id,
         config_path=cfg_path,
         results_folder=results_folder,
+        synth_base_url=synth_base_url,
     )

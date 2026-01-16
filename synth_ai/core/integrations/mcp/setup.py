@@ -3,8 +3,8 @@ import os
 
 from synth_ai.core.auth import (
     AuthSession,
-    extract_environment_api_key,
-    extract_synth_api_key,
+    extract_localapi_key,
+    extract_synth_user_key,
     fetch_data,
     init_auth_session,
 )
@@ -55,8 +55,8 @@ def setup_fetch(device_code: str) -> str:
                 },
                 ensure_ascii=False,
             )
-        synth_key = extract_synth_api_key(payload)
-        if not synth_key:
+        synth_user_key = extract_synth_user_key(payload)
+        if not synth_user_key:
             return json.dumps(
                 {
                     "status": "error",
@@ -65,10 +65,10 @@ def setup_fetch(device_code: str) -> str:
                 },
                 ensure_ascii=False,
             )
-        credentials = {"SYNTH_API_KEY": synth_key}
-        env_key = extract_environment_api_key(payload)
-        if env_key:
-            credentials["ENVIRONMENT_API_KEY"] = env_key
+        credentials = {"SYNTH_API_KEY": synth_user_key}
+        localapi_key = extract_localapi_key(payload)
+        if localapi_key:
+            credentials["ENVIRONMENT_API_KEY"] = localapi_key
         for k, v in credentials.items():
             write_env_var_to_json(k, v, str(SYNTH_USER_CONFIG_PATH))
             os.environ[k] = v

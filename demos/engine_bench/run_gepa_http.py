@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 import httpx
+from synth_ai.core.urls import synth_base_url
 
 
 async def run_gepa():
@@ -18,20 +19,21 @@ async def run_gepa():
         print("⚠ Warning: SYNTH_API_KEY not set in environment")
         return None
 
+    backend = synth_base_url()
     request = {"algorithm": "gepa", "config_path": str(config_path), "auto_start": True}
 
     print("=" * 80)
     print("Starting GEPA Unified Optimization via HTTP API")
     print("=" * 80)
     print(f"Config: {config_path}")
-    print("Backend: http://localhost:8000")
+    print(f"Backend: {backend}")
     print(f"API Key: {api_key[:20]}...")
     print("=" * 80)
 
     async with httpx.AsyncClient(timeout=600.0) as client:
         print("\nSending request to /api/prompt-learning/online/jobs endpoint...")
         response = await client.post(
-            "http://localhost:8000/api/prompt-learning/online/jobs",
+            f"{backend}/api/prompt-learning/online/jobs",
             json=request,
             headers={"X-API-Key": api_key},
         )

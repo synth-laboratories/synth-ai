@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -132,7 +130,7 @@ def _infer_config_type(data: dict) -> str:
     if data.get("job_type") == "rl":
         return "rl"
     services = data.get("services")
-    if isinstance(services, dict) and ("task_url" in services or "environment" in services):
+    if isinstance(services, dict) and ("localapi_url" in services or "environment" in services):
         return "rl"
 
     # 3) Other SFT signals

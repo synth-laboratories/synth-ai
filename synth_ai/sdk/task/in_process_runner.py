@@ -1,9 +1,9 @@
-"""SDK helper for running prompt-learning and RL jobs against a tunneled task app.
+"""SDK helper for running prompt-learning and RL jobs against a tunneled LocalAPI.
 
 This module keeps everything in-process:
-1) Spins up a FastAPI task app via InProcessTaskApp
+1) Spins up a FastAPI LocalAPI via InProcessTaskApp
 2) Opens a tunnel (Cloudflare by default, or uses preconfigured URL)
-3) Applies dot-notation overrides (task_app_url, budgets, seeds, models)
+3) Applies dot-notation overrides (localapi_url, budgets, seeds, models)
 4) Submits jobs to the remote backend using SDK clients
 5) Optionally polls until completion and returns a structured result
 
@@ -15,7 +15,7 @@ Tunnel Modes:
   (ngrok, etc.) where Cloudflare tunnels don't work
 
 Environment Variables:
-- SYNTH_TASK_APP_URL: If set, auto-enables preconfigured mode with this URL
+- SYNTH_LOCALAPI_URL: If set, auto-enables preconfigured mode with this URL
 - SYNTH_TUNNEL_MODE: Override tunnel mode (e.g., "preconfigured", "local")
 """
 
@@ -27,11 +27,10 @@ from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 
 from synth_ai.core.dict_utils import deep_update as _deep_update
 from synth_ai.core.telemetry import log_info
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_api_url
 from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.api.train.rl import RLJob
-from synth_ai.sdk.api.train.utils import ensure_api_base
 from synth_ai.sdk.task.in_process import InProcessTaskApp
 
 BackendMode = Literal["prompt_learning", "rl"]
@@ -43,54 +42,20 @@ class InProcessJobResult:
 
     job_id: str
     status: Dict[str, Any]
-    task_app_url: str
-    backend_url: str
+    localapi_url: str
+    synth_base_url: str | None
     task_app_health: LocalAPIHealth | None = None
 
 
-def _normalize_base_url(url: str) -> str:
-    """Strip trailing slashes and /api suffix for consistent handling."""
-    base = url.strip().rstrip("/")
-    if base.endswith("/api"):
-        base = base[: -len("/api")]
-    return base
-
-
-def resolve_backend_api_base(override: str | None = None) -> str:
+def resolve_backend_api_base(synth_base_url: str | None = None) -> str:
     """Resolve backend base URL using the documented priority order.
 
     Priority:
     1. Explicit override argument
-    2. TARGET_BACKEND_BASE_URL
-    3. BACKEND_OVERRIDE
-    4. SYNTH_BACKEND_URL
-    5. BACKEND_BASE_URL
-    6. NEXT_PUBLIC_API_URL
-    7. Fallback to BACKEND_URL_BASE
+    2. SYNTH_BACKEND_URL
+    3. Fallback to default backend base
     """
-
-    env_order = [
-        "TARGET_BACKEND_BASE_URL",
-        "BACKEND_OVERRIDE",
-        "SYNTH_BACKEND_URL",
-        "BACKEND_BASE_URL",
-        "NEXT_PUBLIC_API_URL",
-    ]
-
-    if override and override.strip():
-        candidate = override.strip()
-    else:
-        candidate = ""
-        for key in env_order:
-            value = os.environ.get(key, "").strip()
-            if value:
-                candidate = value
-                break
-        if not candidate:
-            candidate = BACKEND_URL_BASE
-
-    normalized = _normalize_base_url(candidate)
-    return ensure_api_base(normalized)
+    return synth_api_url("", synth_base_url)
 
 
 def _require_env(key: str, *, friendly_name: str | None = None) -> str:
@@ -119,9 +84,8 @@ async def run_in_process_job(
     *,
     job_type: BackendMode,
     config_path: str | Path,
-    backend_url: str | None = None,
-    api_key: str | None = None,
-    task_app_api_key: str | None = None,
+    synth_user_key: str | None = None,
+    localapi_key: str | None = None,
     allow_experimental: bool | None = None,
     overrides: Mapping[str, Any] | None = None,
     poll: bool = True,
@@ -143,8 +107,9 @@ async def run_in_process_job(
     port: int = 8114,
     auto_find_port: bool = True,
     health_check_timeout: float = 30.0,
+    synth_base_url: str | None = None,
 ) -> InProcessJobResult:
-    """Run a prompt-learning or RL job with a tunneled task app."""
+    """Run a prompt-learning or RL job with a tunneled LocalAPI."""
     ctx: Dict[str, Any] = {
         "job_type": job_type,
         "config_path": str(config_path),
@@ -152,14 +117,14 @@ async def run_in_process_job(
         "tunnel_mode": tunnel_mode,
     }
     log_info("run_in_process_job invoked", ctx=ctx)
-    """Run a prompt-learning or RL job with a tunneled task app.
+    """Run a prompt-learning or RL job with a tunneled LocalAPI.
     
     Args:
         job_type: Type of job - "prompt_learning" or "rl"
         config_path: Path to the TOML config file
-        backend_url: Optional backend URL override
-        api_key: Synth API key for backend auth
-        task_app_api_key: API key for task app auth
+        synth_base_url: Optional Synth base URL override
+        synth_user_key: Synth API key for backend auth
+        localapi_key: API key for LocalAPI auth
         allow_experimental: Allow experimental features
         overrides: Config overrides (dot-notation supported)
         poll: Whether to poll for completion
@@ -169,7 +134,7 @@ async def run_in_process_job(
         app: FastAPI app instance
         config: TaskAppConfig object
         config_factory: Callable that returns TaskAppConfig
-        task_app_path: Path to task app .py file
+        task_app_path: Path to LocalAPI .py file
         tunnel_mode: Tunnel mode - "quick", "named", "local", or "preconfigured"
         preconfigured_url: External tunnel URL when tunnel_mode="preconfigured"
         preconfigured_auth_header: Auth header name for preconfigured URL
@@ -183,21 +148,24 @@ async def run_in_process_job(
     Returns:
         InProcessJobResult with job_id, status, and URLs
     """
-    backend_api_base = resolve_backend_api_base(backend_url)
+    resolved_synth_base_url = synth_base_url
 
     # Set SYNTH_BACKEND_URL so that tunnel operations (like rotate_tunnel) use the correct backend
-    os.environ["SYNTH_BACKEND_URL"] = backend_api_base
+    if resolved_synth_base_url:
+        os.environ["SYNTH_BACKEND_URL"] = resolved_synth_base_url
 
-    resolved_api_key = api_key or _require_env("SYNTH_API_KEY", friendly_name="Backend API key")
-    resolved_task_app_key = task_app_api_key or _require_env(
-        "ENVIRONMENT_API_KEY", friendly_name="Task app API key"
+    resolved_synth_user_key = synth_user_key or _require_env(
+        "SYNTH_API_KEY", friendly_name="Backend API key"
+    )
+    resolved_localapi_key = localapi_key or _require_env(
+        "ENVIRONMENT_API_KEY", friendly_name="LocalAPI API key"
     )
 
     config_path = Path(config_path)
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    # Launch the task app with tunnel (Cloudflare by default, or preconfigured URL)
+    # Launch the LocalAPI with tunnel (Cloudflare by default, or preconfigured URL)
     async with InProcessTaskApp(
         app=app,
         config=config,
@@ -211,11 +179,11 @@ async def run_in_process_job(
         preconfigured_auth_token=preconfigured_auth_token,
         skip_tunnel_verification=skip_tunnel_verification,
         force_new_tunnel=force_new_tunnel,
-        api_key=resolved_task_app_key,
+        localapi_key=resolved_localapi_key,
         auto_find_port=auto_find_port,
         health_check_timeout=health_check_timeout,
     ) as task_app:
-        task_url = task_app.url or f"http://{host}:{task_app.port}"
+        localapi_url = task_app.url or f"http://{host}:{task_app.port}"
 
         # Check if backend verified DNS propagation (so we can skip local health checks)
         dns_verified_by_backend = getattr(task_app, "_dns_verified_by_backend", False)
@@ -237,35 +205,37 @@ async def run_in_process_job(
                 detail=f"Skipped ({reason})",
             )
         else:
-            health = check_local_api_health(task_url, resolved_task_app_key)
+            health = check_local_api_health(localapi_url, resolved_localapi_key)
             if not health.ok:
-                raise RuntimeError(f"Task app health check failed for {task_url}: {health.detail}")
+                raise RuntimeError(
+                    f"LocalAPI health check failed for {localapi_url}: {health.detail}"
+                )
 
-        # Common overrides: task URL + API key injected in both dot and flat forms
-        task_overrides = {
-            "task_url": task_url,
-            "task_app_api_key": resolved_task_app_key,
-            "prompt_learning.task_app_url": task_url,
-            "prompt_learning.task_app_api_key": resolved_task_app_key,
+        # Common overrides: LocalAPI URL + API key injected in both dot and flat forms
+        localapi_overrides = {
+            "localapi_url": localapi_url,
+            "localapi_key": resolved_localapi_key,
+            "prompt_learning.localapi_url": localapi_url,
+            "prompt_learning.localapi_key": resolved_localapi_key,
         }
-        merged_overrides = merge_dot_overrides(overrides, task_overrides)
+        merged_overrides = merge_dot_overrides(overrides, localapi_overrides)
 
         if job_type == "prompt_learning":
             job = PromptLearningJob.from_config(
                 config_path=config_path,
-                backend_url=backend_api_base,
-                api_key=resolved_api_key,
-                task_app_api_key=resolved_task_app_key,
+                synth_base_url=resolved_synth_base_url,
+                synth_user_key=resolved_synth_user_key,
+                localapi_key=resolved_localapi_key,
                 allow_experimental=allow_experimental,
                 overrides=merged_overrides,
             )
         elif job_type == "rl":
             job = RLJob.from_config(
                 config_path=config_path,
-                backend_url=backend_api_base,
-                api_key=resolved_api_key,
-                task_app_url=task_url,
-                task_app_api_key=resolved_task_app_key,
+                synth_base_url=resolved_synth_base_url,
+                synth_user_key=resolved_synth_user_key,
+                localapi_url=localapi_url,
+                localapi_key=resolved_localapi_key,
                 allow_experimental=allow_experimental,
                 overrides=merged_overrides,
             )
@@ -289,8 +259,8 @@ async def run_in_process_job(
     return InProcessJobResult(
         job_id=job_id,
         status=status,
-        task_app_url=task_url,
-        backend_url=backend_api_base,
+        localapi_url=localapi_url,
+        synth_base_url=resolved_synth_base_url,
         task_app_health=health,
     )
 

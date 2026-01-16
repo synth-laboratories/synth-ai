@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -20,9 +21,13 @@ from typing import Any
 import httpx
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
+    TaskDescriptor,
     TaskInfo,
 )
 from synth_ai.sdk.task.rubrics import Criterion, Rubric
@@ -668,11 +673,6 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
                     "trace_steps": trace_steps,
                 },
             ),
-            metadata={
-                "instance_id": instance_id,
-                "winner": result["winner"],
-                "reward": reward,
-            },
         )
 
     except Exception as e:
@@ -703,7 +703,7 @@ def provide_taskset_description() -> dict:
     }
 
 
-def provide_task_instances(seeds: list[int]) -> list[TaskInfo]:
+def provide_task_instances(seeds: Sequence[int]) -> list[TaskInfo]:
     """Provide task instances for given seeds."""
     instances = []
     for seed in seeds:
@@ -712,10 +712,10 @@ def provide_task_instances(seeds: list[int]) -> list[TaskInfo]:
 
         instances.append(
             TaskInfo(
-                task={"id": "ptcg", "name": "Pokemon TCG"},
-                dataset={"id": "ptcg-games", "split": "train", "index": idx},
-                inference={"tool": "ptcg_action"},
-                limits={"max_turns": 500},
+                task=TaskDescriptor(id="ptcg", name="Pokemon TCG"),
+                dataset=DatasetInfo(id="ptcg-games", split="train", index=idx),
+                inference=InferenceInfo(tool="ptcg_action"),
+                limits=LimitsInfo(max_turns=500),
                 task_metadata={"instance_id": instance_id},
             )
         )

@@ -30,8 +30,6 @@ Example SDK usage:
     job.submit()
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 import os
@@ -40,6 +38,18 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Sequence
 
 from synth_ai.core.telemetry import log_info
+from synth_ai.core.urls import (
+    synth_api_base,
+    synth_graphgen_graph_completions_url,
+    synth_graphgen_graph_record_url,
+    synth_graphgen_job_download_url,
+    synth_graphgen_job_events_url,
+    synth_graphgen_job_graph_txt_url,
+    synth_graphgen_job_metrics_url,
+    synth_graphgen_job_start_url,
+    synth_graphgen_job_url,
+    synth_graphgen_jobs_url,
+)
 
 from .graphgen_models import (
     GraphGenJobConfig,
@@ -47,7 +57,7 @@ from .graphgen_models import (
     load_graphgen_taskset,
     parse_graphgen_taskset,
 )
-from .utils import ensure_api_base, http_get, http_post
+from .utils import http_get, http_post
 
 
 @dataclass
@@ -120,25 +130,25 @@ class GraphGenJob:
         *,
         dataset: GraphGenTaskSet,
         config: GraphGenJobConfig,
-        backend_url: str,
-        api_key: str,
+        synth_user_key: str,
         auto_start: bool = True,
         metadata: Optional[Dict[str, Any]] = None,
+        synth_base_url: str | None = None,
     ) -> None:
         """Initialize an GraphGen job.
 
         Args:
             dataset: The GraphGenTaskSet containing tasks and evaluation config
             config: Job configuration (policy model, budget, etc.)
-            backend_url: Backend API URL
-            api_key: Synth API key
+            synth_user_key: Synth API key
             auto_start: Whether to start the job immediately after creation
             metadata: Additional metadata for the job
+            synth_base_url: Backend API URL
         """
         self.dataset = dataset
         self.config = config
-        self.backend_url = ensure_api_base(backend_url)
-        self.api_key = api_key
+        self.synth_base_url = synth_base_url
+        self.synth_user_key = synth_user_key
         self.auto_start = auto_start
         self.metadata = metadata or {}
 
@@ -162,11 +172,11 @@ class GraphGenJob:
         target_llm_calls: Optional[int] = None,
         graph_type: Optional[Literal["policy", "verifier", "rlm"]] = None,
         initial_graph_id: Optional[str] = None,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
         auto_start: bool = True,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> GraphGenJob:
+        synth_base_url: Optional[str] = None,
+    ) -> "GraphGenJob":
         """Create an GraphGen job from a dataset.
 
         Args:
@@ -187,8 +197,8 @@ class GraphGenJob:
             initial_graph_id: Optional graph ID to warm-start optimization from.
                 If provided, skips initial graph generation and starts evolution from this graph.
                 Useful for starting from a known good graph (e.g., map-reduce verifier).
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
+            synth_base_url: Backend API URL (defaults to env or production)
+            synth_user_key: Synth API key (defaults to SYNTH_API_KEY env var)
             auto_start: Whether to start the job immediately
             metadata: Additional metadata for the job
 
@@ -212,8 +222,6 @@ class GraphGenJob:
             >>> # From GraphGenTaskSet object
             >>> job = GraphGenJob.from_dataset(my_taskset, policy_models=["gpt-4o"])
         """
-        from synth_ai.core.env import get_backend_from_env
-
         # Parse dataset
         if isinstance(dataset, (str, Path)):
             parsed_dataset = load_graphgen_taskset(dataset)
@@ -226,19 +234,12 @@ class GraphGenJob:
                 f"dataset must be a file path, dict, or GraphGenTaskSet, got {type(dataset)}"
             )
 
-        # Resolve backend URL
-        if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         # Normalize policy_models: convert single string to list
@@ -273,8 +274,8 @@ class GraphGenJob:
         return cls(
             dataset=parsed_dataset,
             config=config,
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
             auto_start=auto_start,
             metadata=metadata,
         )
@@ -283,34 +284,25 @@ class GraphGenJob:
     def from_job_id(
         cls,
         job_id: str,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-    ) -> GraphGenJob:
+        synth_user_key: Optional[str] = None,
+        synth_base_url: Optional[str] = None,
+    ) -> "GraphGenJob":
         """Resume an existing GraphGen job by ID.
 
         Args:
             job_id: GraphGen job ID ("graphgen_*") or underlying GEPA job ID ("pl_*")
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
+            synth_base_url: Backend API URL (defaults to env or production)
+            synth_user_key: Synth API key (defaults to SYNTH_API_KEY env var)
 
         Returns:
             GraphGenJob instance for the existing job
         """
-        from synth_ai.core.env import get_backend_from_env
-
-        # Resolve backend URL
-        if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         # Create minimal instance - dataset will be fetched from backend if needed
@@ -327,8 +319,8 @@ class GraphGenJob:
             config=GraphGenJobConfig(
                 policy_models=["(resumed)"]
             ),  # Placeholder, will be fetched from backend
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
             auto_start=False,
         )
 
@@ -347,11 +339,13 @@ class GraphGenJob:
     def from_graph_evolve_job_id(
         cls,
         graph_evolve_job_id: str,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-    ) -> GraphGenJob:
+        synth_user_key: Optional[str] = None,
+        synth_base_url: Optional[str] = None,
+    ) -> "GraphGenJob":
         """Alias for resuming an GraphGen job from a GEPA job ID."""
-        return cls.from_job_id(graph_evolve_job_id, backend_url=backend_url, api_key=api_key)
+        return cls.from_job_id(
+            graph_evolve_job_id, synth_base_url=synth_base_url, synth_user_key=synth_user_key
+        )
 
     @property
     def job_id(self) -> Optional[str]:
@@ -461,7 +455,7 @@ class GraphGenJob:
         payload = self._build_payload()
 
         # Submit job - use /graphgen/jobs endpoint (legacy: /adas/jobs)
-        create_url = f"{self.backend_url}/graphgen/jobs"
+        create_url = synth_graphgen_jobs_url(self.synth_base_url)
 
         # Debug: print payload for troubleshooting
 
@@ -475,7 +469,7 @@ class GraphGenJob:
             f"Submitting GraphGen job payload (excluding dataset): {json.dumps(debug_payload, indent=2)}"
         )
         headers = {
-            "X-API-Key": self.api_key,
+            "X-API-Key": self.synth_user_key,
             "Content-Type": "application/json",
         }
 
@@ -493,7 +487,7 @@ class GraphGenJob:
                     f"\n\nPossible causes:"
                     f"\n1. Backend route /api/graphgen/jobs not registered"
                     f"\n2. GraphGen feature may not be enabled on this backend"
-                    f"\n3. Verify backend is running at: {self.backend_url}"
+                    f"\n3. Verify backend is running at: {self.synth_base_url}"
                 )
             raise RuntimeError(error_msg)
 
@@ -554,9 +548,9 @@ class GraphGenJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}"
+        url = synth_graphgen_job_url(self.job_id, self.synth_base_url)
         headers = {
-            "X-API-Key": self.api_key,
+            "X-API-Key": self.synth_user_key,
         }
 
         resp = http_get(url, headers=headers, timeout=30.0)
@@ -578,9 +572,9 @@ class GraphGenJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/start"
+        url = synth_graphgen_job_start_url(self.job_id, self.synth_base_url)
         headers = {
-            "X-API-Key": self.api_key,
+            "X-API-Key": self.synth_user_key,
             "Content-Type": "application/json",
         }
 
@@ -600,9 +594,9 @@ class GraphGenJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        base = f"{self.backend_url}/graphgen/jobs/{self.job_id}/events"
+        base = synth_graphgen_job_events_url(self.job_id, self.synth_base_url)
         url = f"{base}?since_seq={since_seq}&limit={limit}"
-        headers = {"X-API-Key": self.api_key}
+        headers = {"X-API-Key": self.synth_user_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
@@ -635,8 +629,8 @@ class GraphGenJob:
             params["run_id"] = run_id
 
         qs = urlencode(params)
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/metrics?{qs}"
-        headers = {"X-API-Key": self.api_key}
+        url = f"{synth_graphgen_job_metrics_url(self.job_id, self.synth_base_url)}?{qs}"
+        headers = {"X-API-Key": self.synth_user_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
@@ -691,8 +685,8 @@ class GraphGenJob:
         # Create streamer with GraphGen endpoints
         # Backend handles GraphGen → GEPA resolution internally via job_relationships table
         streamer = JobStreamer(
-            base_url=self.backend_url,
-            api_key=self.api_key,
+            base_url=synth_api_base(self.synth_base_url),
+            synth_user_key=self.synth_user_key,
             job_id=self.job_id,  # Only GraphGen job ID - backend resolves to GEPA internally
             endpoints=StreamEndpoints.graphgen(self.job_id),
             config=config,
@@ -721,9 +715,9 @@ class GraphGenJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/download"
+        url = synth_graphgen_job_download_url(self.job_id, self.synth_base_url)
         headers = {
-            "X-API-Key": self.api_key,
+            "X-API-Key": self.synth_user_key,
         }
 
         resp = http_get(url, headers=headers, timeout=30.0)
@@ -745,8 +739,8 @@ class GraphGenJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/graph.txt"
-        headers = {"X-API-Key": self.api_key}
+        url = synth_graphgen_job_graph_txt_url(self.job_id, self.synth_base_url)
+        headers = {"X-API-Key": self.synth_user_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
@@ -785,9 +779,9 @@ class GraphGenJob:
         if prompt_snapshot_id and graph_snapshot_id:
             raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
 
-        url = f"{self.backend_url}/graphgen/graph/completions"
+        url = synth_graphgen_graph_completions_url(self.synth_base_url)
         headers = {
-            "X-API-Key": self.api_key,
+            "X-API-Key": self.synth_user_key,
             "Content-Type": "application/json",
         }
 
@@ -860,9 +854,9 @@ class GraphGenJob:
         if prompt_snapshot_id and graph_snapshot_id:
             raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
 
-        url = f"{self.backend_url}/graphgen/graph/record"
+        url = synth_graphgen_graph_record_url(self.synth_base_url)
         headers = {
-            "X-API-Key": self.api_key,
+            "X-API-Key": self.synth_user_key,
             "Content-Type": "application/json",
         }
 

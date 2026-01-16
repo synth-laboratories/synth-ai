@@ -3,9 +3,14 @@ import os
 import click
 
 from synth_ai.core.env import mask_str, resolve_env_var
-from synth_ai.core.localapi_state import persist_env_api_key
+from synth_ai.core.localapi_state import persist_localapi_key
 from synth_ai.core.process import ensure_local_port_available
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import (
+    synth_api_base,
+    synth_env_keys_url,
+    synth_env_keys_verify_url,
+    synth_public_key_url,
+)
 from synth_ai.core.user_config import load_user_env, update_user_config
 
 __all__ = [
@@ -20,29 +25,29 @@ def ensure_localapi_credentials(*, require_synth: bool = False, prompt: bool = T
 
     load_user_env(override=False)
 
-    env_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
-    if prompt and not env_key:
+    localapi_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+    if prompt and not localapi_key:
         resolve_env_var("ENVIRONMENT_API_KEY")
-        env_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+        localapi_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
 
-    if env_key:
+    if localapi_key:
         update_user_config(
             {
-                "ENVIRONMENT_API_KEY": env_key,
-                "DEV_ENVIRONMENT_API_KEY": env_key,
+                "ENVIRONMENT_API_KEY": localapi_key,
+                "DEV_ENVIRONMENT_API_KEY": localapi_key,
             }
         )
-        persist_env_api_key(env_key)
+        persist_localapi_key(localapi_key)
     elif prompt:
         raise click.ClickException("ENVIRONMENT_API_KEY is required.")
 
-    synth_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
-    if prompt and (require_synth or not synth_key):
+    synth_user_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
+    if prompt and (require_synth or not synth_user_key):
         resolve_env_var("SYNTH_API_KEY")
-        synth_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
+        synth_user_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
 
-    if synth_key:
-        update_user_config({"SYNTH_API_KEY": synth_key})
+    if synth_user_key:
+        update_user_config({"SYNTH_API_KEY": synth_user_key})
     elif require_synth and prompt:
         raise click.ClickException("SYNTH_API_KEY is required.")
 
@@ -62,22 +67,15 @@ def ensure_port_free(port: int, host: str, *, force: bool) -> None:
 
 
 def preflight_localapi_key(*, crash_on_failure: bool = False) -> None:
-    """Ensure ENVIRONMENT_API_KEY exists and attempt a backend registration."""
+    """Ensure ENVIRONMENT_API_KEY exists and attempt a Synth registration."""
 
     ensure_localapi_credentials(require_synth=False, prompt=not crash_on_failure)
     load_user_env(override=False)
 
-    raw_backend = (
-        os.environ.get("BACKEND_BASE_URL")
-        or os.environ.get("SYNTH_BASE_URL")
-        or f"{BACKEND_URL_BASE}/api"
-    )
-    backend_base = raw_backend.rstrip("/")
-    if not backend_base.endswith("/api"):
-        backend_base += "/api"
+    synth_api_base_url = synth_api_base()
 
-    synth_key = os.environ.get("SYNTH_API_KEY") or ""
-    env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+    synth_user_key = os.environ.get("SYNTH_API_KEY") or ""
+    localapi_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
 
     def _mint_key() -> str | None:
         try:
@@ -92,7 +90,7 @@ def preflight_localapi_key(*, crash_on_failure: bool = False) -> None:
                     "DEV_ENVIRONMENT_API_KEY": key,
                 }
             )
-            persist_env_api_key(key)
+            persist_localapi_key(key)
             click.echo(f"[preflight] minted ENVIRONMENT_API_KEY ({mask_str(key)})")
             return key
         except Exception as exc:  # pragma: no cover - defensive fallback
@@ -106,11 +104,11 @@ def preflight_localapi_key(*, crash_on_failure: bool = False) -> None:
             return None
 
     minted = False
-    if not env_api_key:
-        env_api_key = _mint_key() or ""
-        minted = bool(env_api_key)
+    if not localapi_key:
+        localapi_key = _mint_key() or ""
+        minted = bool(localapi_key)
 
-    if not env_api_key:
+    if not localapi_key:
         if crash_on_failure:
             raise click.ClickException(
                 "[CRITICAL] ENVIRONMENT_API_KEY missing; run `synth-ai setup` to configure it."
@@ -119,10 +117,10 @@ def preflight_localapi_key(*, crash_on_failure: bool = False) -> None:
         return
 
     if minted:
-        persist_env_api_key(env_api_key)
+        persist_localapi_key(localapi_key)
 
-    if not synth_key.strip():
-        click.echo("[preflight] SYNTH_API_KEY not set; skipping backend preflight.")
+    if not synth_user_key.strip():
+        click.echo("[preflight] SYNTH_API_KEY not set; skipping Synth preflight.")
         return
 
     try:
@@ -135,10 +133,12 @@ def preflight_localapi_key(*, crash_on_failure: bool = False) -> None:
         return
 
     try:
-        with httpx.Client(timeout=15.0, headers={"Authorization": f"Bearer {synth_key}"}) as client:
-            click.echo(f"[preflight] backend={backend_base}")
+        with httpx.Client(
+            timeout=15.0, headers={"Authorization": f"Bearer {synth_user_key}"}
+        ) as client:
+            click.echo(f"[preflight] synth_api_base={synth_api_base_url}")
             click.echo("[preflight] fetching public key…")
-            rpk = client.get(f"{backend_base.rstrip('/')}/v1/crypto/public-key")
+            rpk = client.get(synth_public_key_url())
             if rpk.status_code != 200:
                 click.echo(
                     f"[preflight] public key fetch failed with {rpk.status_code}; skipping upload"
@@ -151,18 +151,18 @@ def preflight_localapi_key(*, crash_on_failure: bool = False) -> None:
 
             pk_bytes = base64.b64decode(pk, validate=True)
             sealed_box = SealedBox(PublicKey(pk_bytes))
-            ciphertext = sealed_box.encrypt(env_api_key.encode("utf-8"))
+            ciphertext = sealed_box.encrypt(localapi_key.encode("utf-8"))
             ct_b64 = base64.b64encode(ciphertext).decode()
             payload = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ct_b64}
 
-            click.echo(f"[preflight] posting to {backend_base.rstrip('/')}/v1/env-keys")
-            response = client.post(f"{backend_base.rstrip('/')}/v1/env-keys", json=payload)
+            click.echo(f"[preflight] posting to {synth_env_keys_url()}")
+            response = client.post(synth_env_keys_url(), json=payload)
             if 200 <= response.status_code < 300:
                 click.echo(
-                    f"✅ ENVIRONMENT_API_KEY uploaded successfully ({mask_str(env_api_key)})"
+                    f"✅ ENVIRONMENT_API_KEY uploaded successfully ({mask_str(localapi_key)})"
                 )
                 try:
-                    ver = client.get(f"{backend_base.rstrip('/')}/v1/env-keys/verify")
+                    ver = client.get(synth_env_keys_verify_url())
                     if ver.status_code == 200 and (ver.json() or {}).get("present"):
                         click.echo("✅ Key verified in backend")
                     else:

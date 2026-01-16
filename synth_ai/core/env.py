@@ -15,7 +15,7 @@ from synth_ai.core.secure_files import write_private_json
 from synth_ai.core.user_config import load_user_env
 
 from .errors import AuthenticationError
-from .urls import BACKEND_URL_BASE
+from .urls import synth_demo_keys_url
 
 
 def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | None:
@@ -56,21 +56,21 @@ def mask_value(value: str, visible_chars: int = 4) -> str:
     return f"{value[:visible_chars]}...{value[-visible_chars:]}"
 
 
-def get_synth_and_env_keys() -> tuple[str, str]:
+def get_synth_and_localapi_keys() -> tuple[str, str]:
     load_user_env(override=False)
-    synth_api_key = os.environ.get("SYNTH_API_KEY")
-    env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
-    if not synth_api_key:
+    synth_user_key = os.environ.get("SYNTH_API_KEY")
+    localapi_key = os.environ.get("ENVIRONMENT_API_KEY")
+    if not synth_user_key:
         raise RuntimeError(
             f"SYNTH_API_KEY not in process environment or {SYNTH_HOME_DIR} config. "
             "Either run synth-ai setup to load automatically or manually set it in your shell."
         )
-    if not env_api_key:
+    if not localapi_key:
         raise RuntimeError(
             f"ENVIRONMENT_API_KEY not in process environment or {SYNTH_HOME_DIR} config. "
             "Either run synth-ai setup to load automatically or manually set it in your shell."
         )
-    return synth_api_key, env_api_key
+    return synth_user_key, localapi_key
 
 
 def mask_str(input: str, position: int = 3) -> str:
@@ -166,14 +166,14 @@ def write_env_var_to_json(
 
 
 def mint_demo_api_key(
-    backend_url: str | None = None,
     ttl_hours: int = 4,
     timeout: float = 30.0,
+    synth_base_url: str | None = None,
 ) -> str:
     """Mint a demo Synth API key from the backend.
 
     Args:
-        backend_url: Backend URL (defaults to BACKEND_URL_BASE)
+        synth_base_url: Backend URL (defaults to SYNTH_BACKEND_URL or production)
         ttl_hours: Time-to-live in hours (default: 4)
         timeout: Request timeout in seconds (default: 30.0)
 
@@ -183,10 +183,7 @@ def mint_demo_api_key(
     Raises:
         RuntimeError: If the request fails or returns invalid response
     """
-    if backend_url is None:
-        backend_url = BACKEND_URL_BASE
-
-    url = f"{backend_url}/api/demo/keys"
+    url = synth_demo_keys_url(synth_base_url)
 
     try:
         resp = httpx.post(
@@ -210,7 +207,7 @@ def mint_demo_api_key(
 
 __all__ = [
     "get_api_key",
-    "get_synth_and_env_keys",
+    "get_synth_and_localapi_keys",
     "mint_demo_api_key",
     "mask_value",
     "mask_str",

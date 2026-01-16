@@ -23,9 +23,8 @@ This demo runs as a LocalAPI task app and is usually executed via a Synth backen
 
 #### Runner: `run_demo.py`
 - Starts the task app locally.
-- Submits an eval job to either:
-  - local backend at `http://localhost:8000` (`--local`)
-  - or the hosted backend (default)
+- Submits an eval job to the Synth backend.
+- Backend URL defaults to production; override with `SYNTH_BACKEND_URL` env var for local testing.
 - Prints mean reward and per-seed winners.
 
 ---
@@ -33,7 +32,8 @@ This demo runs as a LocalAPI task app and is usually executed via a Synth backen
 ### Prerequisites
 
 #### Backend (for interceptor evals)
-- A Synth backend running (local mode expects `http://localhost:8000`) with the interceptor mounted at `/api/interceptor/v1`.
+- A Synth backend running with the interceptor mounted at `/api/interceptor/v1`.
+- For local development, set `SYNTH_BACKEND_URL=http://localhost:8000`.
 
 #### Engine (`tcg_py`)
 This demo uses `tcg_py` from `engine-bench` (Rust engine bindings).
@@ -61,18 +61,24 @@ python -m pip install maturin
 
 ---
 
-### Run (local backend + interceptor)
+### Run
 
 From this folder:
 
 ```bash
-uv run python run_demo.py --local --model gpt-4.1-mini --num-games 3
+uv run python run_demo.py --model gpt-4.1-mini --num-games 3
 ```
 
 Increase games (seeds):
 
 ```bash
-uv run python run_demo.py --local --model gpt-4.1-mini --num-games 20
+uv run python run_demo.py --model gpt-4.1-mini --num-games 20
+```
+
+For local backend development, set the env var:
+
+```bash
+SYNTH_BACKEND_URL=http://localhost:8000 uv run python run_demo.py --model gpt-4.1-mini --num-games 3
 ```
 
 Notes:
@@ -91,7 +97,7 @@ Set a trace directory and run an eval:
 
 ```bash
 export PTCG_TRACE_DIR=./demos/gepa_ptcg/artifacts
-uv run python run_demo.py --local --model gpt-4.1-mini --num-games 10
+uv run python run_demo.py --model gpt-4.1-mini --num-games 10
 ```
 
 This writes `ptcg_rollouts.jsonl` under `PTCG_TRACE_DIR`.
@@ -107,7 +113,7 @@ uv run python build_verifier_dataset.py \
 #### 3) Optimize the verifier graph
 
 ```bash
-uv run python run_verifier_opt.py --local \
+uv run python run_verifier_opt.py \
   --dataset demos/gepa_ptcg/artifacts/ptcg_verifier_dataset.json
 ```
 
@@ -120,7 +126,7 @@ The optimized verifier artifact is saved to `demos/gepa_ptcg/artifacts/verifier_
 Use the optimized verifier to guide GEPA prompt learning:
 
 ```bash
-uv run python run_prompt_opt.py --local \
+uv run python run_prompt_opt.py \
   --verifier-path demos/gepa_ptcg/artifacts/verifier_opt.json \
   --budget 30 --generations 3
 ```

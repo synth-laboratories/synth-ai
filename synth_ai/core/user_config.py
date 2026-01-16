@@ -110,7 +110,7 @@ def load_user_env(*, override: bool = True) -> dict[str, str]:
         if modal_block:
             _apply(
                 {
-                    "TASK_APP_BASE_URL": modal_block.get("base_url"),
+                    "SYNTH_LOCALAPI_URL": modal_block.get("base_url"),
                     "TASK_APP_NAME": modal_block.get("app_name"),
                     "TASK_APP_SECRET_NAME": modal_block.get("secret_name"),
                 }
@@ -119,8 +119,8 @@ def load_user_env(*, override: bool = True) -> dict[str, str]:
         if secrets:
             _apply(
                 {
-                    "ENVIRONMENT_API_KEY": secrets.get("environment_api_key"),
-                    "DEV_ENVIRONMENT_API_KEY": secrets.get("environment_api_key"),
+                    "ENVIRONMENT_API_KEY": secrets.get("localapi_key"),
+                    "DEV_ENVIRONMENT_API_KEY": secrets.get("localapi_key"),
                 }
             )
     return applied

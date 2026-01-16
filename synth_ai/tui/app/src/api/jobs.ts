@@ -22,7 +22,8 @@ function extractEvalMetadata(config: unknown): Record<string, any> {
 
   if (typeof config.env_name === "string") metadata.env_name = config.env_name
   if (typeof config.app_id === "string") metadata.app_id = config.app_id
-  if (typeof config.task_app_url === "string") metadata.task_app_url = config.task_app_url
+  if (typeof config.localapi_url === "string") metadata.localapi_url = config.localapi_url
+  else if (typeof config.task_app_url === "string") metadata.localapi_url = config.task_app_url
   if (Array.isArray(config.seeds)) metadata.seeds = config.seeds
   if (typeof config.max_concurrent === "number") metadata.max_concurrent = config.max_concurrent
   if (typeof config.timeout === "number") metadata.timeout = config.timeout

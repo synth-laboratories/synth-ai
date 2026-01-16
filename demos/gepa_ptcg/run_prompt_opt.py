@@ -4,23 +4,21 @@
 import argparse
 import asyncio
 import json
-import os
 import time
 from pathlib import Path
 
 import httpx
 from localapi_ptcg import INSTANCE_IDS, PTCG_REACT_SYSTEM_PROMPT, app
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
+SYNTH_USER_KEY = get_or_mint_synth_user_key()
+
 parser = argparse.ArgumentParser(description="Run GEPA prompt optimization for PTCG")
-parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
-parser.add_argument("--local-host", type=str, default="localhost")
 parser.add_argument("--port", type=int, default=8017, help="Port for task app")
 parser.add_argument("--model", type=str, default="gpt-4.1-mini", help="Policy model")
 parser.add_argument(
@@ -62,35 +60,19 @@ async def main() -> None:
     print("POKEMON TCG - GEPA PROMPT OPTIMIZATION (ReAct)")
     print("=" * 60)
 
-    if args.local:
-        backend_url = f"http://{args.local_host}:8000"
-        print(f"LOCAL MODE - {backend_url}")
-    else:
-        backend_url = BACKEND_URL_BASE
-        print(f"PROD MODE - {backend_url}")
-
     async with httpx.AsyncClient() as client:
         try:
-            r = await client.get(f"{backend_url}/health", timeout=10)
-            print(f"Backend health: {r.status_code}")
+            r = await client.get(synth_health_url(), timeout=10)
+            print(f"Synth health: {r.status_code}")
         except Exception as e:
-            print(f"Backend check failed: {e}")
+            print(f"Synth health check failed: {e}")
             return
 
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
-        print("No SYNTH_API_KEY, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_url)
-        print(f"API Key: {api_key[:20]}...")
+    print(f"API Key: {SYNTH_USER_KEY[:20]}...")
 
-    env_key = ensure_localapi_auth(backend_base=backend_url, synth_api_key=api_key)
-
+    # Acquire port and prepare localapi URL
     port = acquire_port(args.port, on_conflict=PortConflictBehavior.FIND_NEW)
-    run_server_background(app, port)
-    wait_for_health(args.local_host, port, env_key)
-    print(f"Task app ready on port {port}")
-
-    task_url = f"http://{args.local_host}:{port}"
+    localapi_url = f"http://localhost:{port}"
 
     verifier_path = Path(args.verifier_path)
     if not verifier_path.exists():
@@ -107,7 +89,7 @@ async def main() -> None:
     config_dict = {
         "prompt_learning": {
             "algorithm": "gepa",
-            "task_app_url": task_url,
+            "localapi_url": localapi_url,
             "task_app_id": "ptcg",
             "policy": {
                 "model": args.model,
@@ -151,7 +133,7 @@ async def main() -> None:
             "verifier": {
                 "enabled": True,
                 "reward_source": "fused",
-                "backend_base": backend_url,
+                "backend_base": synth_base_url(),
                 "backend_provider": "openai",
                 "backend_model": args.model,
                 "verifier_graph_id": verifier_graph_id,
@@ -168,10 +150,13 @@ async def main() -> None:
 
     job = PromptLearningJob.from_dict(
         config_dict=config_dict,
-        backend_url=backend_url,
-        api_key=api_key,
-        task_app_api_key=env_key,
+        synth_user_key=SYNTH_USER_KEY,
     )
+
+    # Start localapi server
+    run_server_background(app, port)
+    wait_for_health("localhost", port, job.config.localapi_key)
+    print(f"Localapi ready on port {port}")
 
     job_id = job.submit()
     print(f"Job ID: {job_id}")
@@ -182,7 +167,7 @@ async def main() -> None:
         print(f"Job failed: {result.error}")
         return
 
-    pl_client = PromptLearningClient(backend_url, api_key)
+    pl_client = PromptLearningClient(synth_user_key=SYNTH_USER_KEY)
     prompt_results = await pl_client.get_prompts(job_id)
     optimized_prompt = None
     if prompt_results.best_prompt:

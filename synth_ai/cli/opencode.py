@@ -6,7 +6,7 @@ import click
 @click.command()
 @click.option("--model", "model_name", type=str, default=None)
 @click.option("--force", is_flag=True, help="Prompt for API keys even if cached.")
-@click.option("--url", "override_url", type=str, default=None)
+@click.option("--synth-base-url", type=str, default=None)
 @click.option(
     "--config",
     "config_path",
@@ -17,8 +17,8 @@ import click
 def opencode(
     model_name: str | None,
     force: bool,
-    override_url: str | None,
     config_path: str | None,
+    synth_base_url: str | None,
 ) -> None:
     """Launch OpenCode with optional Synth backend routing."""
     from pathlib import Path
@@ -29,6 +29,6 @@ def opencode(
     run_opencode(
         model_name=model_name,
         force=force,
-        override_url=override_url,
         config_path=config,
+        synth_base_url=synth_base_url,
     )

@@ -10,7 +10,7 @@ import httpx
 
 from synth_ai.core.scanning.health_checker import check_app_health, extract_app_info
 from synth_ai.core.scanning.models import ScannedApp
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_tunnels_url
 
 _QUICK_TUNNEL_URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.I)
 
@@ -160,25 +160,25 @@ def _try_get_quick_tunnel_url(pid: int | None, port: int) -> str | None:
     return None
 
 
-async def fetch_managed_tunnels(api_key: str | None) -> list[dict[str, Any]]:
+async def fetch_managed_tunnels(synth_user_key: str | None) -> list[dict[str, Any]]:
     """Fetch active managed tunnels from backend API.
 
     Args:
-        api_key: SYNTH_API_KEY for authentication
+        synth_user_key: SYNTH_API_KEY for authentication
 
     Returns:
         List of tunnel metadata dicts
     """
-    if not api_key:
+    if not synth_user_key:
         return []
 
     try:
         headers: dict[str, str] = {}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+        if synth_user_key:
+            headers["Authorization"] = f"Bearer {synth_user_key}"
 
         async with httpx.AsyncClient(timeout=5.0) as client:
-            url = f"{BACKEND_URL_BASE.rstrip('/')}/api/v1/tunnels/"
+            url = synth_tunnels_url()
             resp = await client.get(url, headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
@@ -201,15 +201,15 @@ def get_tunnel_processes() -> dict[int, Any]:
 
 
 async def scan_cloudflare_apps(
-    api_key: str | None,
-    env_api_key: str | None,
+    synth_user_key: str | None,
+    localapi_key: str | None,
     timeout: float = 2.0,
 ) -> list[ScannedApp]:
     """Scan for Cloudflare tunnel apps using process-based discovery.
 
     Args:
-        api_key: SYNTH_API_KEY for backend API
-        env_api_key: ENVIRONMENT_API_KEY for health checks
+        synth_user_key: SYNTH_API_KEY for backend API
+        localapi_key: ENVIRONMENT_API_KEY for health checks
         timeout: Health check timeout
 
     Returns:
@@ -228,7 +228,7 @@ async def scan_cloudflare_apps(
 
         if mode == "quick" and tunnel_url and tunnel_url not in seen_urls:
             seen_urls.add(tunnel_url)
-            health_status, metadata = await check_app_health(tunnel_url, env_api_key, timeout)
+            health_status, metadata = await check_app_health(tunnel_url, localapi_key, timeout)
             app_id, task_name, dataset_id, version = extract_app_info(metadata)
 
             tunnel_hostname = tunnel_url.replace("https://", "").split("/")[0]
@@ -253,8 +253,8 @@ async def scan_cloudflare_apps(
             )
 
     # Method 2: Query backend API for managed tunnels
-    synth_api_key = api_key or os.getenv("SYNTH_API_KEY")
-    managed_tunnels = await fetch_managed_tunnels(synth_api_key)
+    synth_user_key = synth_user_key or os.getenv("SYNTH_API_KEY")
+    managed_tunnels = await fetch_managed_tunnels(synth_user_key)
     for tunnel in managed_tunnels:
         hostname = tunnel.get("hostname")
         local_port = tunnel.get("local_port")
@@ -262,7 +262,7 @@ async def scan_cloudflare_apps(
             url = f"https://{hostname}"
             if url not in seen_urls:
                 seen_urls.add(url)
-                health_status, metadata = await check_app_health(url, env_api_key, timeout)
+                health_status, metadata = await check_app_health(url, localapi_key, timeout)
                 app_id, task_name, dataset_id, version = extract_app_info(metadata)
 
                 name = app_id or task_name or hostname.split(".")[0] or url
@@ -292,7 +292,7 @@ async def scan_cloudflare_apps(
             tunnel_url = _try_get_quick_tunnel_url(proc.pid, port)
             if tunnel_url and tunnel_url not in seen_urls:
                 seen_urls.add(tunnel_url)
-                health_status, metadata = await check_app_health(tunnel_url, env_api_key, timeout)
+                health_status, metadata = await check_app_health(tunnel_url, localapi_key, timeout)
                 app_id, task_name, dataset_id, version = extract_app_info(metadata)
 
                 tunnel_hostname = tunnel_url.replace("https://", "").split("/")[0]
@@ -332,7 +332,7 @@ async def scan_cloudflare_apps(
 
             if tunnel_url and tunnel_url not in seen_urls:
                 seen_urls.add(tunnel_url)
-                health_status, metadata = await check_app_health(tunnel_url, env_api_key, timeout)
+                health_status, metadata = await check_app_health(tunnel_url, localapi_key, timeout)
                 app_id, task_name, dataset_id, version = extract_app_info(metadata)
 
                 if not hostname and tunnel_url.startswith("https://"):

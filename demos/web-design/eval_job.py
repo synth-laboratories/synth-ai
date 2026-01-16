@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Run ONE backend EvalJob for web-design (local backend) and print results.
+"""Run ONE backend EvalJob for web-design and print results.
 
 This:
-- starts the web-design task app on localhost:8103
-- submits a single eval job to localhost:8000 with multiple seeds
-- prints wall time, mean_score (reward), total_cost_usd, and per-seed breakdown
+- starts the web-design task app locally
+- submits a single eval job with multiple seeds
+- prints wall time, mean_reward, total_cost_usd, and per-seed breakdown
 """
 
 import argparse
@@ -15,17 +15,17 @@ from pathlib import Path
 
 import httpx
 from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import synth_base_url
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task.server import run_server_background
 
 
-def _load_task_app_module() -> object:
+def _load_localapi_module() -> object:
     """Load the local task app module from this folder without sys.path hacks."""
     import importlib.util
 
-    module_path = Path(__file__).resolve().with_name("web_design_task_app.py")
-    spec = importlib.util.spec_from_file_location("web_design_task_app", module_path)
+    module_path = Path(__file__).resolve().with_name("web_design_localapi.py")
+    spec = importlib.util.spec_from_file_location("web_design_localapi", module_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Failed to load module spec for {module_path}")
     mod = importlib.util.module_from_spec(spec)
@@ -74,7 +74,7 @@ def _pick_task_port(requested: int) -> int:
     raise RuntimeError(f"No free port found in range [{start}, {start + 49}]")
 
 
-def _task_app_healthy(url: str, env_api_key: str) -> bool:
+def _localapi_healthy(url: str, env_api_key: str) -> bool:
     try:
         with httpx.Client(timeout=2.0) as client:
             r = client.get(f"{url}/health", headers={"X-API-Key": env_api_key})
@@ -85,11 +85,6 @@ def _task_app_healthy(url: str, env_api_key: str) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--backend",
-        default="http://localhost:8000",
-        help="Backend base URL (default: localhost:8000)",
-    )
     parser.add_argument(
         "--task-port", type=int, default=8103, help="Task app port (default: 8103). Use 0 for auto."
     )
@@ -112,20 +107,25 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    backend = str(args.backend).rstrip("/")
+    backend = synth_base_url()
 
     synth_api_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
     if not synth_api_key:
         print("No SYNTH_API_KEY, minting demo key...")
-        synth_api_key = mint_demo_api_key(backend_url=backend)
+        synth_api_key = mint_demo_api_key()
         os.environ["SYNTH_API_KEY"] = synth_api_key
 
     env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
     if not env_api_key:
-        env_api_key = ensure_localapi_auth(
-            backend_base=backend,
-            synth_api_key=synth_api_key,
+        # Create preliminary config to get localapi_key (SDK auto-provisions it)
+        prelim_config = EvalJobConfig(
+            localapi_url="http://localhost:8103",  # placeholder
+            synth_user_key=synth_api_key,
+            env_name="web_design",
+            seeds=[0],
+            policy_config={"model": "gemini-2.5-flash-image", "provider": "google"},
         )
+        env_api_key = prelim_config.localapi_key
         os.environ["ENVIRONMENT_API_KEY"] = env_api_key
 
     requested_port = int(args.task_port)
@@ -133,23 +133,23 @@ def main() -> int:
     requested_url = f"http://localhost:{requested_port}"
 
     # If port is busy but an existing task app is healthy, reuse it.
-    if not _port_is_free(requested_port) and _task_app_healthy(requested_url, env_api_key):
+    if not _port_is_free(requested_port) and _localapi_healthy(requested_url, env_api_key):
         task_port = requested_port
         task_url = requested_url
-        started_task_app = False
+        started_localapi = False
     else:
         task_port = _pick_task_port(int(args.task_port))
         task_url = f"http://localhost:{task_port}"
-        started_task_app = True
+        started_localapi = True
 
     seeds = _parse_seeds(str(args.seeds))
 
-    task_mod = _load_task_app_module()
+    task_mod = _load_localapi_module()
     app_id = getattr(task_mod, "APP_ID", "web_design_generator")
     create_web_design_local_api = task_mod.create_web_design_local_api
 
     # Start task app (only if we aren't reusing an existing one)
-    if started_task_app:
+    if started_localapi:
         app = create_web_design_local_api(BASELINE_STYLE_PROMPT)
         run_server_background(app, port=task_port)
 
@@ -167,17 +167,16 @@ def main() -> int:
         else:
             raise RuntimeError(f"Task app did not become healthy at {task_url}/health")
 
-    if started_task_app:
-        print(f"Task app started: {task_url} (port={task_port})")
+    if started_localapi:
+        print(f"Localapi started: {task_url} (port={task_port})")
     else:
-        print(f"Task app already running: {task_url} (port={task_port})")
+        print(f"Localapi already running: {task_url} (port={task_port})")
 
     # Build EvalJob (ONE job, many seeds)
     cfg = EvalJobConfig(
-        task_app_url=task_url,
-        backend_url=backend,
-        api_key=synth_api_key,
-        task_app_api_key=env_api_key,
+        localapi_url=task_url,
+        synth_user_key=synth_api_key,
+        localapi_key=env_api_key,
         app_id=app_id,
         env_name="web_design",
         seeds=seeds,
@@ -189,7 +188,7 @@ def main() -> int:
         verifier_config={
             "enabled": True,
             "reward_source": "verifier",
-            "backend_base": backend,
+            "backend_base": backend,  # Verifier needs to know where backend is
             "backend_provider": "google",
             "backend_model": "gemini-2.5-flash",
             "verifier_graph_id": "zero_shot_verifier_rubric_single",
@@ -210,8 +209,8 @@ def main() -> int:
     base = backend.rstrip("/")
     submit_url = f"{base}/api/eval/jobs" if not base.endswith("/api") else f"{base}/eval/jobs"
     job_request = {
-        "task_app_url": cfg.task_app_url,
-        "task_app_api_key": cfg.task_app_api_key,
+        "localapi_url": cfg.localapi_url,
+        "localapi_key": cfg.localapi_key,
         "app_id": cfg.app_id,
         "env_name": cfg.env_name,
         "seeds": cfg.seeds,
@@ -238,7 +237,7 @@ def main() -> int:
 
     print(f"EvalJob submitted: {job_id}")
 
-    job = EvalJob.from_job_id(job_id, backend_url=backend, api_key=synth_api_key)
+    job = EvalJob.from_job_id(job_id, synth_user_key=synth_api_key)
     result = job.poll_until_complete(timeout=float(args.poll_timeout), progress=True)
     wall_s = time.time() - t0
 
@@ -246,12 +245,12 @@ def main() -> int:
     print("EVAL RESULTS (WEB DESIGN)")
     print("=" * 80)
     print(f"backend: {backend}")
-    print(f"task_app_url: {task_url}")
+    print(f"localapi_url: {task_url}")
     print(f"job_id: {job_id}")
     print(f"wall_time_s: {wall_s:.1f}")
 
     if result.succeeded:
-        print(f"mean_score (reward): {result.mean_score}")
+        print(f"mean_reward: {result.mean_reward}")
         print(f"total_cost_usd: {result.total_cost_usd}")
         print(f"total_tokens: {result.total_tokens}")
         print(f"completed: {result.num_completed}/{result.num_total}")

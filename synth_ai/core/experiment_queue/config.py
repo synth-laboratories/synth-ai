@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from synth_ai.core.urls import BACKEND_URL_API, join_url, local_backend_url
+from synth_ai.core.urls import local_backend_url, synth_base_url
 
 # Default database path in user's home directory
 # Can be overridden via EXPERIMENT_QUEUE_DB_PATH environment variable
@@ -54,7 +54,7 @@ class ExperimentQueueConfig:
     sqlite_path: Path
     broker_url: str
     result_backend_url: str
-    backend_url: str
+    synth_base_url: str
 
     @property
     def sqlalchemy_url(self) -> str:
@@ -66,23 +66,22 @@ class ExperimentQueueConfig:
 def load_config() -> ExperimentQueueConfig:
     """Resolve configuration once per process.
 
-    Backend URL Resolution:
-    - Default: Production backend (https://api.usesynth.ai/api)
-    - Set EXPERIMENT_QUEUE_LOCAL=true to use local backend (http://localhost:8000/api)
+    Synth base URL Resolution:
+    - Default: Production backend (https://api.usesynth.ai)
+    - Set EXPERIMENT_QUEUE_LOCAL=true to use local backend (http://localhost:8000)
     - Override with EXPERIMENT_QUEUE_BACKEND_URL env var for custom URL
-    - Falls back to DEV_BACKEND_URL if set (for compatibility)
 
     Examples:
         # Use production (default)
-        load_config()  # Uses https://api.usesynth.ai/api
+        load_config()  # Uses https://api.usesynth.ai
 
         # Use local backend
         os.environ["EXPERIMENT_QUEUE_LOCAL"] = "true"
-        load_config()  # Uses http://localhost:8000/api
+        load_config()  # Uses http://localhost:8000
 
         # Use custom backend
-        os.environ["EXPERIMENT_QUEUE_BACKEND_URL"] = "http://custom:9000/api"
-        load_config()  # Uses http://custom:9000/api
+        os.environ["EXPERIMENT_QUEUE_BACKEND_URL"] = "http://custom:9000"
+        load_config()  # Uses http://custom:9000
     """
     sqlite_path: Path | None = None
     for candidate in _candidate_db_paths():
@@ -100,27 +99,23 @@ def load_config() -> ExperimentQueueConfig:
     )
 
     # Backend API URL for progress polling
-    # Defaults to production: https://api.usesynth.ai/api
+    # Defaults to production: https://api.usesynth.ai
     # Override with EXPERIMENT_QUEUE_BACKEND_URL or EXPERIMENT_QUEUE_LOCAL=true for localhost:8000
     if os.getenv("EXPERIMENT_QUEUE_LOCAL", "").lower() in ("true", "1", "yes"):
         # Local mode: use localhost:8000
-        backend_url = os.getenv(
+        synth_base = os.getenv(
             "EXPERIMENT_QUEUE_BACKEND_URL",
-            join_url(local_backend_url(), "/api"),
+            local_backend_url(),
         )
     else:
         # Production mode (default): use api.usesynth.ai
-        backend_url = (
-            os.getenv("EXPERIMENT_QUEUE_BACKEND_URL")
-            or os.getenv("DEV_BACKEND_URL")
-            or BACKEND_URL_API
-        )
+        synth_base = os.getenv("EXPERIMENT_QUEUE_BACKEND_URL") or synth_base_url()
 
     return ExperimentQueueConfig(
         sqlite_path=sqlite_path,
         broker_url=broker_url,
         result_backend_url=result_backend_url,
-        backend_url=backend_url,
+        synth_base_url=synth_base,
     )
 
 

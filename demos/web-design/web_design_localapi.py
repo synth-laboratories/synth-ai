@@ -22,9 +22,13 @@ from datasets import load_dataset, load_from_disk
 from PIL import Image
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
+    TaskDescriptor,
     TaskInfo,
 )
 from synth_ai.sdk.task.rubrics import Criterion, Rubric
@@ -247,11 +251,11 @@ def create_web_design_local_api(style_prompt: str) -> Any:
                 original_data_url = None
 
             yield TaskInfo(
-                task={"id": APP_ID, "name": APP_NAME},
-                dataset={"id": APP_ID, "split": "train", "index": sample["index"]},
+                task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+                dataset=DatasetInfo(id=APP_ID, split="train", index=sample["index"]),
                 environment="web_design",
-                inference={},
-                limits={"max_turns": 1},
+                inference=InferenceInfo(),
+                limits=LimitsInfo(max_turns=1),
                 task_metadata={
                     "page": f"{sample['site_name']}/{sample['page_name']}",
                     "description_length": len(sample["functional_description"]),
@@ -340,7 +344,6 @@ def create_web_design_local_api(style_prompt: str) -> Any:
         )
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id,
             reward_info=RolloutMetrics(outcome_reward=0.0),
             trace=trace_payload,
             trace_correlation_id=trace_correlation_id,
