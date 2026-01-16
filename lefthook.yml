@@ -85,3 +85,13 @@ pre-commit:
         - "demos/*.py"
         - "demos/**/*.py"
       run: bash -c 'PY=".venv/bin/python3"; [ -x "$PY" ] || PY=python3; $PY scripts/check_demo_compile.py {files}'
+
+    # Demos: Verify synth_ai imports are valid (catch broken imports before commit)
+    demos-imports:
+      tags:
+        - python
+        - lint
+      glob:
+        - "demos/*.py"
+        - "demos/**/*.py"
+      run: bash -c 'PY=".venv/bin/python3"; [ -x "$PY" ] || PY=python3; $PY scripts/check_demo_imports.py {files}'
