@@ -21,12 +21,12 @@ from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob, PromptLearningResult
 from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.localapi import LocalAPIConfig, RubricBundle, create_local_api
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.helpers import (
     call_chat_completion_api,
     create_http_client_hooks,
 )
-from synth_ai.sdk.task import TaskInfo, run_server_background
+from synth_ai.sdk.task import RubricBundle, TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
 from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
