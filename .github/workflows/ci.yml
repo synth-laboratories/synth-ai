@@ -75,16 +75,17 @@ jobs:
       - name: Check URL centralization
         run: python scripts/check_url_centralization.py
 
-  demo-compile:
-    name: Demo Compile Check
+  python-typecheck:
+    name: Python Type Check (synth_ai SDK)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Compile demo scripts
-        run: python3 scripts/check_demo_compile.py
+      - uses: astral-sh/setup-uv@v4
+      - name: Type check Python files (synth_ai SDK usage only)
+        run: uv run python scripts/check_synth_ai_types.py
 
   url-backend-drift:
     name: URL Backend Drift Check
