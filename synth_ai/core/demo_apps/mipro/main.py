@@ -24,8 +24,7 @@ from pathlib import Path
 
 import toml
 
-from synth_ai.core.env import get_synth_and_env_keys
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.env import get_synth_and_localapi_keys
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.task import InProcessTaskApp
 
@@ -44,7 +43,7 @@ def _validate_vendor_keys() -> None:
 
 async def main():
     """Run MIPRO optimization with in-process task app."""
-    synth_key, env_key = get_synth_and_env_keys()
+    synth_key, env_key = get_synth_and_localapi_keys()
     _validate_vendor_keys()
 
     # Run MIPRO with in-process task app
@@ -83,7 +82,6 @@ async def main():
             try:
                 job = PromptLearningJob.from_config(
                     config_path=temp_config_path,
-                    backend_url=BACKEND_URL_BASE,
                     api_key=synth_key,
                     task_app_api_key=env_key,
                 )
@@ -157,14 +155,10 @@ async def main():
             print(f"\n✅ MIPRO optimization complete in {total_time:.1f}s\n")
 
             # Get results
-            from synth_ai.sdk.api.train.utils import ensure_api_base
             from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 
             assert synth_key is not None, "synth_key must be set"
-            client = PromptLearningClient(
-                ensure_api_base(BACKEND_URL_BASE),
-                synth_key,
-            )
+            client = PromptLearningClient(api_key=synth_key)
             prompt_results = await client.get_prompts(str(job._job_id))
 
             print("=" * 80)

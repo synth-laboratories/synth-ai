@@ -52,9 +52,9 @@ def validate_context_learning_cfg(cfg: Dict[str, Any]) -> None:
     if not isinstance(section, dict):
         raise ValueError("[context_learning] section must be a dict")
 
-    task_app_url = section.get("task_app_url") or section.get("task_url")
-    if not task_app_url:
-        raise ValueError("[context_learning].task_app_url is required")
+    localapi_url = section.get("localapi_url")
+    if not localapi_url:
+        raise ValueError("[context_learning].localapi_url is required")
 
     evaluation_seeds = section.get("evaluation_seeds")
     if evaluation_seeds is not None and not isinstance(evaluation_seeds, list):
@@ -90,8 +90,8 @@ def validate_po_cfg(cfg: Dict[str, Any]) -> None:
     if algorithm not in {"mipro", "gepa"}:
         raise ValueError("[prompt_learning].algorithm must be 'mipro' or 'gepa'")
 
-    if not pl_cfg.get("task_app_url"):
-        raise ValueError("[prompt_learning].task_app_url is required")
+    if not pl_cfg.get("localapi_url"):
+        raise ValueError("[prompt_learning].localapi_url is required")
 
     if algorithm == "mipro":
         mipro = pl_cfg.get("mipro")

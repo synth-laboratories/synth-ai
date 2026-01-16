@@ -15,9 +15,9 @@ Example:
     job.submit()
     result = job.poll_until_complete()
 
-    # RL training with in-process task app
+    # RL training with in-process LocalAPI
     async with InProcessTaskApp(task_app_path="my_task_app.py", port=8114) as task_app:
-        rl_job = RLJob.from_config("rl_config.toml", task_app_url=task_app.url)
+        rl_job = RLJob.from_config("rl_config.toml", localapi_url=task_app.url)
         rl_job.submit()
         rl_result = rl_job.poll_until_complete()
 
@@ -26,8 +26,6 @@ Example:
     graphgen_job.submit()
     result = graphgen_job.stream_until_complete()
 """
-
-from __future__ import annotations
 
 # GraphGen (Graph Opt)
 from synth_ai.sdk.api.train.graphgen import GraphGenJob, GraphGenJobResult, GraphGenSubmitResult

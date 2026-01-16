@@ -7,8 +7,8 @@ Example:
     >>> from synth_ai.sdk.jobs import JobsClient
     >>>
     >>> async with JobsClient(
-    ...     base_url="https://api.usesynth.ai",
-    ...     api_key=os.environ["SYNTH_API_KEY"],
+    ...     synth_base_url="https://api.usesynth.ai",
+    ...     synth_user_key=os.environ["SYNTH_API_KEY"],
     ... ) as client:
     ...     # Upload training data
     ...     file_result = await client.files.upload(
@@ -27,11 +27,26 @@ Example:
     ...     status = await client.sft.retrieve(job["id"])
 """
 
-from __future__ import annotations
-
 import importlib
 from collections.abc import Callable
 from typing import Any, cast
+
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_file_url,
+    synth_files_url,
+    synth_learning_job_cancel_url,
+    synth_model_url,
+    synth_models_url,
+    synth_rl_job_cancel_url,
+    synth_rl_job_events_url,
+    synth_rl_job_metrics_url,
+    synth_rl_job_url,
+    synth_rl_jobs_url,
+    synth_sft_job_events_url,
+    synth_sft_job_url,
+    synth_sft_jobs_url,
+)
 
 try:
     _supported_module = cast(Any, importlib.import_module("synth_ai.sdk.api.models.supported"))
@@ -57,8 +72,9 @@ except Exception as exc:  # pragma: no cover - critical dependency
 
 
 class FilesApi:
-    def __init__(self, http: AsyncHttpClient) -> None:
+    def __init__(self, http: AsyncHttpClient, synth_base_url: str | None) -> None:
         self._http = http
+        self._synth_base_url = synth_base_url
 
     async def upload(
         self,
@@ -73,7 +89,7 @@ class FilesApi:
         files = {"file": (filename, content, content_type)}
         headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
         return await self._http.post_multipart(
-            "/api/files", data=data, files=files, headers=headers
+            synth_files_url(self._synth_base_url), data=data, files=files, headers=headers
         )
 
     async def list(
@@ -85,26 +101,19 @@ class FilesApi:
         if after is not None:
             params["after"] = after
         params["limit"] = limit
-        return await self._http.get("/api/files", params=params)
+        return await self._http.get(synth_files_url(self._synth_base_url), params=params)
 
     async def retrieve(self, file_id: str) -> dict[str, Any]:
-        return await self._http.get(f"/api/files/{file_id}")
+        return await self._http.get(synth_file_url(file_id, self._synth_base_url))
 
     async def delete(self, file_id: str) -> Any:
-        return await self._http.delete(f"/api/files/{file_id}")
-
-    async def list_jobs(
-        self, file_id: str, *, after: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
-        params: dict[str, Any] = {"limit": limit}
-        if after is not None:
-            params["after"] = after
-        return await self._http.get(f"/api/files/{file_id}/jobs", params=params)
+        return await self._http.delete(synth_file_url(file_id, self._synth_base_url))
 
 
 class SftJobsApi:
-    def __init__(self, http: AsyncHttpClient) -> None:
+    def __init__(self, http: AsyncHttpClient, synth_base_url: str | None) -> None:
         self._http = http
+        self._synth_base_url = synth_base_url
 
     async def create(
         self,
@@ -131,7 +140,9 @@ class SftJobsApi:
             require_training_file=True,
         )
         headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
-        return await self._http.post_json("/api/sft/jobs", json=payload, headers=headers)
+        return await self._http.post_json(
+            synth_sft_jobs_url(self._synth_base_url), json=payload, headers=headers
+        )
 
     async def list(
         self,
@@ -157,38 +168,35 @@ class SftJobsApi:
             params["created_before"] = created_before
         if after is not None:
             params["after"] = after
-        return await self._http.get("/api/sft/jobs", params=params)
+        return await self._http.get(synth_sft_jobs_url(self._synth_base_url), params=params)
 
     async def retrieve(self, job_id: str) -> dict[str, Any]:
-        return await self._http.get(f"/api/sft/jobs/{job_id}")
+        return await self._http.get(synth_sft_job_url(job_id, self._synth_base_url))
 
     async def cancel(self, job_id: str) -> dict[str, Any]:
-        return await self._http.post_json(f"/api/sft/jobs/{job_id}/cancel", json={})
+        return await self._http.post_json(
+            synth_learning_job_cancel_url(job_id, self._synth_base_url), json={}
+        )
 
     async def list_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
     ) -> dict[str, Any]:
         params = {"since_seq": since_seq, "limit": limit}
-        return await self._http.get(f"/api/sft/jobs/{job_id}/events", params=params)
-
-    async def checkpoints(
-        self, job_id: str, *, after: str | None = None, limit: int = 10
-    ) -> dict[str, Any]:
-        params: dict[str, Any] = {"limit": limit}
-        if after is not None:
-            params["after"] = after
-        return await self._http.get(f"/api/sft/jobs/{job_id}/checkpoints", params=params)
+        return await self._http.get(
+            synth_sft_job_events_url(job_id, self._synth_base_url), params=params
+        )
 
 
 class RlJobsApi:
-    def __init__(self, http: AsyncHttpClient) -> None:
+    def __init__(self, http: AsyncHttpClient, synth_base_url: str | None) -> None:
         self._http = http
+        self._synth_base_url = synth_base_url
 
     async def create(
         self,
         *,
         model: str,
-        endpoint_base_url: str,
+        endpoint_synth_base_url: str,
         trainer_id: str,
         trainer: dict[str, Any] | None = None,
         job_config_id: str | None = None,
@@ -198,7 +206,7 @@ class RlJobsApi:
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": normalize_model_identifier(model),
-            "endpoint_base_url": endpoint_base_url,
+            "endpoint_synth_base_url": endpoint_synth_base_url,
             "trainer_id": trainer_id,
         }
         if trainer is not None:
@@ -210,7 +218,9 @@ class RlJobsApi:
         if metadata is not None:
             payload["metadata"] = metadata
         headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
-        return await self._http.post_json("/api/rl/jobs", json=payload, headers=headers)
+        return await self._http.post_json(
+            synth_rl_jobs_url(self._synth_base_url), json=payload, headers=headers
+        )
 
     async def list(
         self,
@@ -233,30 +243,37 @@ class RlJobsApi:
             params["created_before"] = created_before
         if after is not None:
             params["after"] = after
-        return await self._http.get("/api/rl/jobs", params=params)
+        return await self._http.get(synth_rl_jobs_url(self._synth_base_url), params=params)
 
     async def retrieve(self, job_id: str) -> dict[str, Any]:
-        return await self._http.get(f"/api/rl/jobs/{job_id}")
+        return await self._http.get(synth_rl_job_url(job_id, self._synth_base_url))
 
     async def cancel(self, job_id: str) -> dict[str, Any]:
-        return await self._http.post_json(f"/api/rl/jobs/{job_id}/cancel", json={})
+        return await self._http.post_json(
+            synth_rl_job_cancel_url(job_id, self._synth_base_url), json={}
+        )
 
     async def list_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
     ) -> dict[str, Any]:
         params = {"since_seq": since_seq, "limit": limit}
-        return await self._http.get(f"/api/rl/jobs/{job_id}/events", params=params)
+        return await self._http.get(
+            synth_rl_job_events_url(job_id, self._synth_base_url), params=params
+        )
 
     async def metrics(
         self, job_id: str, *, after_step: int = -1, limit: int = 200
     ) -> dict[str, Any]:
         params = {"after_step": after_step, "limit": limit}
-        return await self._http.get(f"/api/rl/jobs/{job_id}/metrics", params=params)
+        return await self._http.get(
+            synth_rl_job_metrics_url(job_id, self._synth_base_url), params=params
+        )
 
 
 class ModelsApi:
-    def __init__(self, http: AsyncHttpClient) -> None:
+    def __init__(self, http: AsyncHttpClient, synth_base_url: str | None) -> None:
         self._http = http
+        self._synth_base_url = synth_base_url
 
     async def list(
         self,
@@ -276,21 +293,13 @@ class ModelsApi:
             params["status"] = status
         if after is not None:
             params["after"] = after
-        return await self._http.get("/api/models", params=params)
+        return await self._http.get(synth_models_url(self._synth_base_url), params=params)
 
     async def retrieve(self, model_id: str) -> dict[str, Any]:
-        return await self._http.get(f"/api/models/{model_id}")
+        return await self._http.get(synth_model_url(model_id, self._synth_base_url))
 
     async def delete(self, model_id: str) -> Any:
-        return await self._http.delete(f"/api/models/{model_id}")
-
-    async def list_jobs(
-        self, model_id: str, *, after: str | None = None, limit: int = 20
-    ) -> dict[str, Any]:
-        params: dict[str, Any] = {"limit": limit}
-        if after is not None:
-            params["after"] = after
-        return await self._http.get(f"/api/models/{model_id}/jobs", params=params)
+        return await self._http.delete(synth_model_url(model_id, self._synth_base_url))
 
 
 class JobsClient:
@@ -305,10 +314,10 @@ class JobsClient:
     Example:
         >>> from synth_ai.sdk.jobs import JobsClient
         >>>
-        >>> async with JobsClient(
-        ...     base_url="https://api.usesynth.ai",
-        ...     api_key=os.environ["SYNTH_API_KEY"],
-        ... ) as client:
+    >>> async with JobsClient(
+    ...     synth_base_url="https://api.usesynth.ai",
+    ...     synth_user_key=os.environ["SYNTH_API_KEY"],
+    ... ) as client:
         ...     # Upload a file
         ...     file_result = await client.files.upload(
         ...         filename="data.jsonl",
@@ -337,29 +346,33 @@ class JobsClient:
 
     def __init__(
         self,
-        base_url: str,
-        api_key: str,
+        synth_user_key: str | None = None,
         timeout: float = 30.0,
         http: AsyncHttpClient | None = None,
+        synth_base_url: str | None = None,
     ) -> None:
         """Initialize the Jobs API client.
 
         Args:
-            base_url: Base URL for the Synth AI API (e.g., "https://api.usesynth.ai")
-            api_key: API key for authentication
+            synth_base_url: Base URL for the Synth AI API (e.g., "https://api.usesynth.ai")
+            synth_user_key: Synth API key for authentication
             timeout: Request timeout in seconds (default: 30.0)
             http: Optional pre-configured HTTP client (for testing/customization)
         """
-        self._base_url = base_url
-        self._api_key = api_key
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
-        self._http = http or AsyncHttpClient(base_url, api_key, timeout=timeout)
-        self.files = FilesApi(self._http)
-        self.sft = SftJobsApi(self._http)
-        self.rl = RlJobsApi(self._http)
-        self.models = ModelsApi(self._http)
+        self._http = http or AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), synth_user_key, timeout=timeout
+        )
+        self.files = FilesApi(self._http, self._synth_base_url)
+        self.sft = SftJobsApi(self._http, self._synth_base_url)
+        self.rl = RlJobsApi(self._http, self._synth_base_url)
+        self.models = ModelsApi(self._http, self._synth_base_url)
 
-    async def __aenter__(self) -> JobsClient:
+    async def __aenter__(self) -> "JobsClient":
         await self._http.__aenter__()
         return self
 

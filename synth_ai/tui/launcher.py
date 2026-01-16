@@ -5,8 +5,6 @@ import subprocess
 from pathlib import Path
 from shutil import which
 
-from synth_ai.core.urls import BACKEND_URL_BASE, FRONTEND_URL_BASE
-
 BUNTIME = which("bun")
 TUI_ROOT_PATH = Path(__file__).resolve().parent / "app"
 ENTRY_PATH = TUI_ROOT_PATH / "src" / "index.ts"
@@ -87,8 +85,6 @@ def run_tui() -> None:
     _ensure_dependencies_installed()
 
     env = dict(os.environ)
-    env["SYNTH_BACKEND_URL"] = BACKEND_URL_BASE
-    env["SYNTH_FRONTEND_URL"] = FRONTEND_URL_BASE
     if "SYNTH_API_KEY" not in env:
         env["SYNTH_API_KEY"] = ""
     env.setdefault("SYNTH_TUI_LAUNCH_CWD", os.getcwd())

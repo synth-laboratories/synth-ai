@@ -11,8 +11,6 @@ Provides both sync and async clients:
 - GraphCompletionsClient: Alias for GraphCompletionsAsyncClient (backward compat)
 """
 
-from __future__ import annotations
-
 import json
 from dataclasses import dataclass
 from typing import Any, List, Literal, Mapping, TypedDict
@@ -21,6 +19,11 @@ import httpx
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_graph_evolve_graphs_url,
+    synth_graphs_completions_url,
+)
 from synth_ai.sdk.graphs.verifier_schemas import (
     CalibrationExampleInput,
     GoldExampleInput,
@@ -76,7 +79,7 @@ class GraphCompletionResponse:
     """Raw response dict for accessing additional fields."""
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> GraphCompletionResponse:
+    def from_dict(cls, data: dict[str, Any]) -> "GraphCompletionResponse":
         """Create from API response dict."""
         return cls(
             output=data.get("output", {}),
@@ -92,7 +95,7 @@ class GraphCompletionsSyncClient:
 
     Example:
         ```python
-        client = GraphCompletionsSyncClient(base_url, api_key)
+        client = GraphCompletionsSyncClient(base_url, synth_user_key)
 
         # Run inference on a GraphGen job
         response = client.run(job_id="graphgen_xxx", input_data={"query": "hello"})
@@ -103,9 +106,17 @@ class GraphCompletionsSyncClient:
         ```
     """
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 60.0) -> None:
-        self._base = base_url.rstrip("/")
-        self._key = api_key
+    def __init__(
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 60.0,
+        synth_base_url: str | None = None,
+    ) -> None:
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     def _resolve_job_id(self, *, job_id: str | None, graph: GraphTarget | None) -> str:
@@ -163,8 +174,8 @@ class GraphCompletionsSyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        url = f"{self._base}/api/graphs/completions"
-        headers = {"X-API-Key": self._key, "Content-Type": "application/json"}
+        url = synth_graphs_completions_url(self._synth_base_url)
+        headers = {"X-API-Key": self._synth_user_key, "Content-Type": "application/json"}
 
         with httpx.Client(timeout=timeout or self._timeout) as client:
             resp = client.post(url, headers=headers, json=payload)
@@ -237,7 +248,7 @@ class GraphCompletionsAsyncClient:
 
     Example:
         ```python
-        client = GraphCompletionsAsyncClient(base_url, api_key)
+        client = GraphCompletionsAsyncClient(base_url, synth_user_key)
 
         # Run inference on a GraphGen job
         result = await client.run(job_id="graphgen_xxx", input_data={"query": "hello"})
@@ -245,9 +256,17 @@ class GraphCompletionsAsyncClient:
         ```
     """
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 60.0) -> None:
-        self._base = base_url.rstrip("/")
-        self._key = api_key
+    def __init__(
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 60.0,
+        synth_base_url: str | None = None,
+    ) -> None:
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     async def list_graphs(
@@ -271,7 +290,7 @@ class GraphCompletionsAsyncClient:
 
         Example:
             ```python
-            client = GraphCompletionsClient(base_url, api_key)
+            client = GraphCompletionsClient(base_url, synth_user_key)
 
             # List all graphs
             result = await client.list_graphs()
@@ -287,8 +306,14 @@ class GraphCompletionsAsyncClient:
             params["kind"] = kind
 
         try:
-            async with AsyncHttpClient(self._base, self._key, timeout=self._timeout) as http:
-                js = await http.get_json("/graph-evolve/graphs", params=params)
+            async with AsyncHttpClient(
+                synth_api_v1_base(self._synth_base_url),
+                self._synth_user_key,
+                timeout=self._timeout,
+            ) as http:
+                js = await http.get_json(
+                    synth_graph_evolve_graphs_url(self._synth_base_url), params=params
+                )
                 if not isinstance(js, dict):
                     return {"graphs": [], "total": 0}
                 return {
@@ -345,8 +370,14 @@ class GraphCompletionsAsyncClient:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
         try:
-            async with AsyncHttpClient(self._base, self._key, timeout=self._timeout) as http:
-                js = await http.post_json("/api/graphs/completions", json=payload)
+            async with AsyncHttpClient(
+                synth_api_v1_base(self._synth_base_url),
+                self._synth_user_key,
+                timeout=self._timeout,
+            ) as http:
+                js = await http.post_json(
+                    synth_graphs_completions_url(self._synth_base_url), json=payload
+                )
                 if not isinstance(js, dict):
                     raise ValueError("graph_completions_invalid_response_shape")
                 return js
@@ -744,15 +775,15 @@ class VerifierAsyncClient(GraphCompletionsAsyncClient):
         options: Mapping[str, Any] | None = None,
         policy_name: str = "policy",
         task_app_id: str = "task",
-        task_app_base_url: str | None = None,
+        localapi_url: str | None = None,
         job_id: str | None = None,
         graph: GraphTarget | None = None,
         model: str | None = None,
         prompt_snapshot_id: str | None = None,
     ) -> dict[str, Any]:
         task_app_payload: dict[str, Any] = {"id": task_app_id}
-        if task_app_base_url:
-            task_app_payload["base_url"] = task_app_base_url
+        if localapi_url:
+            task_app_payload["base_url"] = localapi_url
 
         trace_payload = normalize_for_json(session_trace)
         input_data: dict[str, Any] = {

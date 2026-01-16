@@ -2,15 +2,30 @@ from pathlib import Path
 from typing import Any
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_learning_files_url,
+    synth_learning_job_start_url,
+    synth_learning_job_url,
+    synth_learning_jobs_url,
+)
 
 from .config import prepare_sft_job_payload
 from .data import validate_jsonl_or_raise
 
 
 class FtClient:
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+    def __init__(
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 30.0,
+        synth_base_url: str | None = None,
+    ) -> None:
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     async def upload_training_file(self, path: str | Path, *, purpose: str = "fine-tune") -> str:
@@ -18,14 +33,18 @@ class FtClient:
         if p.suffix.lower() == ".jsonl" and purpose == "fine-tune":
             validate_jsonl_or_raise(p, min_messages=2)
         content = p.read_bytes()
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
             data = {"purpose": purpose}
             files = {"file": (p.name, content, _infer_content_type(p.name))}
-            js = await http.post_multipart("/api/learning/files", data=data, files=files)
+            js = await http.post_multipart(
+                synth_learning_files_url(self._synth_base_url), data=data, files=files
+            )
         if not isinstance(js, dict) or "id" not in js:
             raise HTTPError(
                 status=500,
-                url="/api/learning/files",
+                url=synth_learning_files_url(self._synth_base_url),
                 message="invalid_upload_response",
                 body_snippet=str(js)[:200],
             )
@@ -48,12 +67,18 @@ class FtClient:
             training_file_field="training_file_id",
             require_training_file=True,
         )
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.post_json("/api/learning/jobs", json=body)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.post_json(synth_learning_jobs_url(self._synth_base_url), json=body)
 
     async def start_job(self, job_id: str) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.post_json(f"/api/learning/jobs/{job_id}/start", json={})
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.post_json(
+                synth_learning_job_start_url(job_id, self._synth_base_url), json={}
+            )
 
     async def get_job_status(self, job_id: str) -> dict[str, Any]:
         """Get the status and details of an SFT job.
@@ -64,8 +89,10 @@ class FtClient:
         Returns:
             Job details including status, progress, etc.
         """
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.get(f"/api/learning/jobs/{job_id}")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.get(synth_learning_job_url(job_id, self._synth_base_url))
 
     async def list_jobs(self, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
         """List SFT jobs.
@@ -77,8 +104,12 @@ class FtClient:
         Returns:
             List of job objects
         """
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            result = await http.get(f"/api/learning/jobs?limit={limit}&offset={offset}")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            result = await http.get(
+                f"{synth_learning_jobs_url(self._synth_base_url)}?limit={limit}&offset={offset}"
+            )
             return result if isinstance(result, list) else result.get("jobs", [])
 
 

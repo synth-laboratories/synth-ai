@@ -9,6 +9,8 @@
 # Usage:
 #   lefthook run pre-commit  # Run hooks manually
 #   lefthook uninstall      # Remove hooks
+#
+# Note: Python commands use .venv/bin/python3 if available, otherwise fall back to python3
 
 pre-commit:
   parallel: true
@@ -22,7 +24,7 @@ pre-commit:
       glob:
         - "synth_ai/*.py"
         - "synth_ai/**/*.py"
-      run: python3 .lefthook/pre-commit/import_check.py {files}
+      run: bash -c 'PY=".venv/bin/python3"; [ -x "$PY" ] || PY=python3; $PY .lefthook/pre-commit/import_check.py {files}'
 
     # Python: Ruff linting with auto-fix (only on staged Python files that exist)
     python-ruff:
@@ -72,7 +74,7 @@ pre-commit:
     url-centralization:
       tags:
         - lint
-      run: python3 scripts/check_url_centralization.py
+      run: bash -c 'PY=".venv/bin/python3"; [ -x "$PY" ] || PY=python3; $PY scripts/check_url_centralization.py'
 
     # Demos: Compile demo scripts and ensure synth_ai imports from repo checkout
     demos-compile:
@@ -82,4 +84,4 @@ pre-commit:
       glob:
         - "demos/*.py"
         - "demos/**/*.py"
-      run: python3 scripts/check_demo_compile.py {files}
+      run: bash -c 'PY=".venv/bin/python3"; [ -x "$PY" ] || PY=python3; $PY scripts/check_demo_compile.py {files}'

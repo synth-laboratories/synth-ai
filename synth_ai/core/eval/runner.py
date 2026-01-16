@@ -1,4 +1,4 @@
-"""Eval runner for executing rollouts against task apps.
+"""Eval runner for executing rollouts against LocalAPI endpoints.
 
 This module provides two execution modes:
 
@@ -6,15 +6,13 @@ This module provides two execution modes:
    - Creates eval job via POST /api/eval/jobs
    - Polls job status until completion
    - Fetches detailed results with token costs and traces
-   - Requires backend_url and backend_api_key (or SYNTH_BASE_URL/SYNTH_API_KEY env vars)
+   - Requires synth_base_url and synth_user_key (or SYNTH_BACKEND_URL/SYNTH_API_KEY env vars)
 
-2. **Direct Mode**: Calls task apps directly (legacy, no usage tracking)
-   - Makes direct HTTP requests to task app /rollout endpoint
+2. **Direct Mode**: Calls LocalAPI endpoints directly (legacy, no usage tracking)
+   - Makes direct HTTP requests to LocalAPI /rollout endpoint
    - No trace capture or usage tracking
    - Simpler but limited functionality
 """
-
-from __future__ import annotations
 
 import asyncio
 import json
@@ -27,6 +25,13 @@ from typing import Any
 import httpx
 
 from synth_ai.core.eval.config import EvalRunConfig
+from synth_ai.core.urls import (
+    synth_base_url,
+    synth_eval_job_results_url,
+    synth_eval_job_traces_url,
+    synth_eval_job_url,
+    synth_eval_jobs_url,
+)
 from synth_ai.sdk.task.client import TaskAppClient
 from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
@@ -56,7 +61,7 @@ def _count_tokens_from_trace(trace: dict[str, Any] | None) -> int:
     """Extract total token count from trace.
 
     Checks multiple locations:
-    1. trace.usage.total_tokens (task app returns usage directly)
+    1. trace.usage.total_tokens (LocalAPI returns usage directly)
     2. trace.event_history[].usage (v3 trace format)
     3. trace.event_history[].response.usage (nested response)
     """
@@ -126,7 +131,7 @@ def _build_rollout_request(config: EvalRunConfig, seed: int) -> RolloutRequest:
     if structured_config is not None:
         policy_kwargs["structured_config"] = structured_config
 
-    synth_base = os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL")
+    synth_base = synth_base_url(config.synth_base_url)
 
     return RolloutRequest(
         trace_correlation_id=_build_trace_correlation_id(config, seed),
@@ -206,27 +211,27 @@ async def _eval_seed(
 
 
 async def run_eval(config: EvalRunConfig) -> list[EvalResult]:
-    """Run evaluation against a task app."""
-    backend_url = config.backend_url or os.getenv("SYNTH_BASE_URL") or os.getenv("BACKEND_OVERRIDE")
-    api_key = config.backend_api_key or os.getenv("SYNTH_API_KEY")
+    """Run evaluation against a LocalAPI."""
+    synth_base = synth_base_url(config.synth_base_url)
+    synth_user_key = config.synth_user_key or os.getenv("SYNTH_API_KEY")
 
-    if backend_url and api_key:
-        return await run_eval_via_backend(config, backend_url, api_key)
+    if synth_base and synth_user_key:
+        return await run_eval_via_backend(config, synth_user_key, synth_base)
 
     return await run_eval_direct(config)
 
 
 async def run_eval_direct(config: EvalRunConfig) -> list[EvalResult]:
-    """Direct mode: Call task apps directly without backend."""
-    if not config.task_app_url:
-        raise ValueError("task_app_url is required for eval runs")
+    """Direct mode: Call LocalAPI endpoints directly without backend."""
+    if not config.localapi_url:
+        raise ValueError("localapi_url is required for eval runs")
     if not config.seeds:
         raise ValueError("No seeds provided for evaluation")
 
-    api_key = config.task_app_api_key or os.getenv("ENVIRONMENT_API_KEY")
+    localapi_key = config.localapi_key or os.getenv("ENVIRONMENT_API_KEY")
     semaphore = asyncio.Semaphore(max(1, int(config.concurrency or 1)))
 
-    async with TaskAppClient(base_url=config.task_app_url, api_key=api_key) as client:
+    async with TaskAppClient(base_url=config.localapi_url, localapi_key=localapi_key) as client:
         tasks = [_eval_seed(client, config, seed, semaphore) for seed in config.seeds]
         results = await asyncio.gather(*tasks)
 
@@ -236,27 +241,23 @@ async def run_eval_direct(config: EvalRunConfig) -> list[EvalResult]:
 
 async def run_eval_via_backend(
     config: EvalRunConfig,
-    backend_url: str,
-    api_key: str,
+    synth_user_key: str,
+    synth_base_url: str,
 ) -> list[EvalResult]:
     """Backend mode: Route through backend interceptor for trace/usage capture."""
-    if not config.task_app_url:
-        raise ValueError("task_app_url is required for eval runs")
+    if not config.localapi_url:
+        raise ValueError("localapi_url is required for eval runs")
     if not config.seeds:
         raise ValueError("No seeds provided for evaluation")
 
-    base = backend_url.rstrip("/")
-    if not base.endswith("/api"):
-        base = f"{base}/api"
-
-    headers = {"Authorization": f"Bearer {api_key}"}
+    headers = {"Authorization": f"Bearer {synth_user_key}"}
 
     policy = dict(config.policy_config or {})
     policy["policy_name"] = config.policy_name
 
     job_request = {
-        "task_app_url": config.task_app_url,
-        "task_app_api_key": config.task_app_api_key or os.getenv("ENVIRONMENT_API_KEY"),
+        "task_app_url": config.localapi_url,
+        "task_app_api_key": config.localapi_key or os.getenv("ENVIRONMENT_API_KEY"),
         "app_id": config.app_id,
         "env_name": config.env_name,
         "seeds": list(config.seeds),
@@ -270,8 +271,9 @@ async def run_eval_via_backend(
     poll_interval = config.poll_interval or _POLL_INTERVAL_S
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
-        print(f"[eval] Creating eval job via backend: {base}/eval/jobs", flush=True)
-        resp = await client.post(f"{base}/eval/jobs", json=job_request, headers=headers)
+        job_url = synth_eval_jobs_url(synth_base_url)
+        print(f"[eval] Creating eval job via backend: {job_url}", flush=True)
+        resp = await client.post(job_url, json=job_request, headers=headers)
 
         if resp.status_code not in (200, 201):
             raise RuntimeError(f"Failed to create eval job: {resp.status_code} {resp.text}")
@@ -286,7 +288,9 @@ async def run_eval_via_backend(
         for attempt in range(_MAX_POLL_ATTEMPTS):
             await asyncio.sleep(poll_interval)
 
-            status_resp = await client.get(f"{base}/eval/jobs/{job_id}", headers=headers)
+            status_resp = await client.get(
+                synth_eval_job_url(job_id, synth_base_url), headers=headers
+            )
             if status_resp.status_code != 200:
                 print(f"[eval] Warning: status check failed: {status_resp.status_code}", flush=True)
                 continue
@@ -308,7 +312,9 @@ async def run_eval_via_backend(
             error = status_data.get("error", "Unknown error")
             raise RuntimeError(f"Eval job {job_id} failed: {error}")
 
-        results_resp = await client.get(f"{base}/eval/jobs/{job_id}/results", headers=headers)
+        results_resp = await client.get(
+            synth_eval_job_results_url(job_id, synth_base_url), headers=headers
+        )
         if results_resp.status_code != 200:
             raise RuntimeError(
                 f"Failed to get results: {results_resp.status_code} {results_resp.text}"
@@ -344,23 +350,19 @@ async def run_eval_via_backend(
 
 async def fetch_traces_from_backend(
     job_id: str,
-    backend_url: str,
-    api_key: str,
+    synth_user_key: str,
     output_dir: str,
+    synth_base_url: str,
 ) -> str:
     """Download traces zip from backend and extract to output_dir."""
     import io
     import zipfile
     from pathlib import Path
 
-    base = backend_url.rstrip("/")
-    if not base.endswith("/api"):
-        base = f"{base}/api"
-
-    headers = {"Authorization": f"Bearer {api_key}"}
+    headers = {"Authorization": f"Bearer {synth_user_key}"}
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-        resp = await client.get(f"{base}/eval/jobs/{job_id}/traces", headers=headers)
+        resp = await client.get(synth_eval_job_traces_url(job_id, synth_base_url), headers=headers)
 
         if resp.status_code != 200:
             raise RuntimeError(f"Failed to download traces: {resp.status_code} {resp.text}")
@@ -445,7 +447,7 @@ def format_eval_table(results: list[EvalResult]) -> str:
 def format_eval_report(config: EvalRunConfig, results: list[EvalResult]) -> str:
     payload = {
         "app_id": config.app_id,
-        "task_app_url": config.task_app_url,
+        "localapi_url": config.localapi_url,
         "env_name": config.env_name,
         "policy_name": config.policy_name,
         "policy_config": config.policy_config,

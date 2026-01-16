@@ -10,7 +10,7 @@ Only 6 fields required - everything else is auto-derived:
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    task_app_url = "https://your-tunnel.trycloudflare.com"
+    localapi_url = "https://your-tunnel.trycloudflare.com"
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
@@ -39,7 +39,7 @@ For complete control over all parameters:
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    task_app_url = "https://your-tunnel.trycloudflare.com"
+    localapi_url = "https://your-tunnel.trycloudflare.com"
 
     [prompt_learning.gepa]
     env_name = "banking77"
@@ -65,8 +65,6 @@ See Also:
     - Training reference: /training/gepa
     - Quickstart: /quickstart/prompt-optimization-gepa
 """
-
-from __future__ import annotations
 
 from collections.abc import Mapping
 from enum import Enum
@@ -140,8 +138,8 @@ class PromptLearningPolicyConfig(ExtraModel):
     """Policy configuration for prompt learning (provider, temperature, etc.).
 
     Note: The 'model' field has been removed. The model is detected from actual
-    LLM calls made by the task app during rollouts. This allows multi-stage task
-    apps to use different models per stage without config mismatches.
+    LLM calls made by the LocalAPI during rollouts. This allows multi-stage LocalAPI
+    handlers to use different models per stage without config mismatches.
     """
 
     provider: ProviderName
@@ -152,7 +150,7 @@ class PromptLearningPolicyConfig(ExtraModel):
     temperature: float = 0.0
     max_completion_tokens: int = 512
     policy_name: str | None = None
-    # Arbitrary task-app specific policy config (agent selection, timeouts, etc.)
+    # Arbitrary LocalAPI-specific policy config (agent selection, timeouts, etc.)
     config: dict[str, Any] = Field(default_factory=dict)
     # Optional baseline context override (unified optimization bootstrap)
     context_override: dict[str, Any] | None = None
@@ -204,7 +202,7 @@ class PromptLearningVerifierConfig(ExtraModel):
             - "verifier": Use only verifier quality scores.
             - "fused": Weighted combination of environment and verifier rewards.
         backend_base: Base URL for the verifier service (e.g. "https://api.usesynth.ai").
-        backend_api_key_env: Env var containing the Synth API key (default: "SYNTH_API_KEY").
+        synth_user_key_env: Env var containing the Synth API key (default: "SYNTH_API_KEY").
         backend_provider: Provider for the verifier model (e.g. "openai", "groq").
         backend_model: Model used to execute the verifier rubric or graph (e.g. "gpt-4o-mini").
         verifier_graph_id: ID or name of a registered Verifier Graph on the backend.
@@ -218,7 +216,7 @@ class PromptLearningVerifierConfig(ExtraModel):
     enabled: bool = False
     reward_source: RewardSource = RewardSource.TASK_APP
     backend_base: str = ""
-    backend_api_key_env: str = "SYNTH_API_KEY"
+    synth_user_key_env: str = "SYNTH_API_KEY"
     backend_provider: str = ""
     backend_model: str = ""
     verifier_graph_id: str = ""
@@ -717,7 +715,7 @@ class GEPAEvaluationConfig(ExtraModel):
         return _parse_seeds(v)
 
     @model_validator(mode="after")
-    def _resolve_seed_aliases(self) -> GEPAEvaluationConfig:
+    def _resolve_seed_aliases(self) -> "GEPAEvaluationConfig":
         """Resolve seed aliases for backwards compatibility."""
         # Resolve train_seeds from seeds (backwards compatibility)
         if self.train_seeds is None and self.seeds is not None:
@@ -882,7 +880,7 @@ class GEPAConfig(ExtraModel):
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
     proposer_type: str = "dspy"
-    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"
+    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH", "GEMINI", "GEMINI_PRO"] = "LOW"
     proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"
     proposed_prompt_max_tokens: int = 32000
     # Custom metaprompt (optional)
@@ -1172,7 +1170,7 @@ class GEPAConfig(ExtraModel):
         return self.max_spend_usd
 
     @model_validator(mode="after")
-    def _sync_prompt_budget(self) -> GEPAConfig:
+    def _sync_prompt_budget(self) -> "GEPAConfig":
         """Keep proposed_prompt_max_tokens and token.max_limit aligned."""
         token_max = self.token.max_limit if self.token else None
         if token_max is not None:
@@ -1184,7 +1182,7 @@ class GEPAConfig(ExtraModel):
         return self
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any]) -> GEPAConfig:
+    def from_mapping(cls, data: Mapping[str, Any]) -> "GEPAConfig":
         """Load GEPA config from dict/TOML, handling both nested and flat structures."""
         if isinstance(data, dict) and "prompt_budget" in data and "token" not in data:
             data = dict(data)
@@ -1301,7 +1299,7 @@ class PromptLearningConfig(ExtraModel):
     This is the top-level config loaded from a TOML file. Use `PromptLearningConfig.from_path()`
     to load from a file, or `PromptLearningConfig.from_mapping()` to load from a dict.
 
-    Prompt learning optimizes prompts for a given task app and dataset using:
+    Prompt learning optimizes prompts for a given LocalAPI and dataset using:
     - **GEPA**: Genetic Evolution of Prompt Architectures - evolutionary optimization
       with crossover, mutation, and selection across generations
 
@@ -1315,7 +1313,7 @@ class PromptLearningConfig(ExtraModel):
         # Or from dict
         config = PromptLearningConfig.from_mapping({
             "algorithm": "gepa",
-            "task_app_url": "https://your-tunnel.trycloudflare.com",
+            "localapi_url": "https://your-tunnel.trycloudflare.com",
             "gepa": {
                 "env_name": "banking77",
                 "policy": {"model": "gpt-4o-mini", "provider": "openai"},
@@ -1327,14 +1325,14 @@ class PromptLearningConfig(ExtraModel):
 
     Attributes:
         algorithm: Optimization algorithm - "gepa".
-        task_app_url: URL of your task app (typically a Cloudflare tunnel URL).
-        task_app_id: Optional identifier for the task app (for logging).
+        localapi_url: URL of your LocalAPI (typically a Cloudflare tunnel URL).
+        task_app_id: Optional identifier for the LocalAPI (for logging).
         initial_prompt: Initial prompt pattern to seed optimization.
         policy: Policy (LLM) configuration for rollouts.
         gepa: GEPA-specific configuration (if algorithm="gepa").
         verifier: Optional verifier configuration for LLM-based reward scoring.
         proxy_models: Proxy models configuration for cost-effective evaluation.
-        env_config: Additional environment configuration passed to task app.
+        env_config: Additional environment configuration passed to the LocalAPI.
         free_tier: Enable free tier mode with cost-effective OSS models.
         use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
             False = disable (use Synth credits), None = auto-detect based on org settings.
@@ -1374,7 +1372,7 @@ class PromptLearningConfig(ExtraModel):
     """
 
     algorithm: str  # "gepa"
-    task_app_url: str
+    localapi_url: str
     task_app_id: str | None = None
     initial_prompt: PromptPatternConfig | None = None
     auto_discover_patterns: bool = Field(
@@ -1466,8 +1464,13 @@ class PromptLearningConfig(ExtraModel):
         if not isinstance(data, dict):
             return data
 
+        if "task_app_api_key" in data:
+            raise ValueError(
+                "task_app_api_key is no longer supported; use localapi_key for LocalAPI auth."
+            )
+
         # Silently remove deprecated fields (don't raise errors)
-        deprecated_fields = {"display", "results_folder", "env_file_path", "task_app_api_key"}
+        deprecated_fields = {"display", "results_folder", "env_file_path"}
 
         for field in deprecated_fields:
             if field in data:
@@ -1485,11 +1488,16 @@ class PromptLearningConfig(ExtraModel):
         return result
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any]) -> PromptLearningConfig:
+    def from_mapping(cls, data: Mapping[str, Any]) -> "PromptLearningConfig":
         """Load prompt learning config from dict/TOML mapping."""
         # Remove deprecated fields at top level (silently for backwards compatibility)
         # The CLI validation module will warn about these
-        deprecated_top_level = {"display", "results_folder", "env_file_path", "task_app_api_key"}
+        if "task_app_api_key" in data:
+            raise ValueError(
+                "task_app_api_key is no longer supported; use localapi_key for LocalAPI auth."
+            )
+
+        deprecated_top_level = {"display", "results_folder", "env_file_path"}
 
         # Convert to mutable dict (creates a copy to avoid modifying the original)
         data = dict(data)
@@ -1503,6 +1511,10 @@ class PromptLearningConfig(ExtraModel):
         if not pl_data:
             # If no prompt_learning section, assume top-level is prompt_learning
             pl_data = dict(data)
+        if "task_app_api_key" in pl_data:
+            raise ValueError(
+                "task_app_api_key is no longer supported; use localapi_key for LocalAPI auth."
+            )
 
         # Handle proxy_models at top-level FIRST (takes precedence over algorithm-specific)
         # This ensures top-level proxy_models is available for algorithm configs to check
@@ -1531,7 +1543,7 @@ class PromptLearningConfig(ExtraModel):
         return cls.model_validate(pl_data)
 
     @classmethod
-    def from_path(cls, path: Path) -> PromptLearningConfig:
+    def from_path(cls, path: Path) -> "PromptLearningConfig":
         """Load prompt learning config from TOML file."""
         content = load_toml(path)
         return cls.from_mapping(content)

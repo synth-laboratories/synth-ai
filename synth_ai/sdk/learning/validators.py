@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from typing import Any
@@ -34,7 +32,7 @@ def validate_training_jsonl(path: str | Path, *, sample_lines: int = 50) -> None
         raise ValueError("empty JSONL")
 
 
-def validate_task_app_url(url: str, *, name: str = "TASK_APP_BASE_URL") -> None:
+def validate_task_app_url(url: str, *, name: str = "SYNTH_LOCALAPI_URL") -> None:
     from synth_ai.sdk.task.validators import validate_task_app_url as _vt
 
     try:

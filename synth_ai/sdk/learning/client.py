@@ -4,6 +4,19 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError, sleep
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_balance_autumn_normalized_url,
+    synth_learning_files_url,
+    synth_learning_job_events_url,
+    synth_learning_job_metrics_url,
+    synth_learning_job_start_url,
+    synth_learning_job_timeline_url,
+    synth_learning_job_url,
+    synth_learning_jobs_url,
+    synth_learning_models_url,
+    synth_pricing_preflight_url,
+)
 from synth_ai.sdk.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,
@@ -12,22 +25,36 @@ from synth_ai.sdk.learning.sft.config import prepare_sft_job_payload
 
 
 class LearningClient:
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+    def __init__(
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 30.0,
+        synth_base_url: str | None = None,
+    ) -> None:
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     async def upload_training_file(self, path: str | Path, *, purpose: str = "fine-tune") -> str:
         p = Path(path)
         content = p.read_bytes()
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
             data = {"purpose": purpose}
             files = {"file": (p.name, content, _infer_content_type(p.name))}
-            js = await http.post_multipart("/api/learning/files", data=data, files=files)
+            js = await http.post_multipart(
+                synth_learning_files_url(self._synth_base_url), data=data, files=files
+            )
         if not isinstance(js, dict) or "id" not in js:
             raise HTTPError(
                 status=500,
-                url="/api/learning/files",
+                url=synth_learning_files_url(self._synth_base_url),
                 message="invalid_upload_response",
                 body_snippet=str(js)[:200],
             )
@@ -75,23 +102,43 @@ class LearningClient:
                 "hyperparameters": hyperparameters or {},
                 "metadata": metadata or {},
             }
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.post_json("/api/learning/jobs", json=body)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            return await http.post_json(synth_learning_jobs_url(self._synth_base_url), json=body)
 
     async def start_job(self, job_id: str) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.post_json(f"/api/learning/jobs/{job_id}/start", json={})
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            return await http.post_json(
+                synth_learning_job_start_url(job_id, self._synth_base_url), json={}
+            )
 
     async def get_job(self, job_id: str) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.get(f"/api/learning/jobs/{job_id}")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            return await http.get(synth_learning_job_url(job_id, self._synth_base_url))
 
     async def get_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
     ) -> list[dict[str, Any]]:
         params = {"since_seq": since_seq, "limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.get(f"/api/learning/jobs/{job_id}/events", params=params)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            js = await http.get(
+                synth_learning_job_events_url(job_id, self._synth_base_url), params=params
+            )
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
         return []
@@ -112,16 +159,28 @@ class LearningClient:
             params["after_step"] = after_step
         if run_id is not None:
             params["run_id"] = run_id
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.get(f"/api/learning/jobs/{job_id}/metrics", params=params)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            js = await http.get(
+                synth_learning_job_metrics_url(job_id, self._synth_base_url), params=params
+            )
         if isinstance(js, dict) and isinstance(js.get("points"), list):
             return js["points"]
         return []
 
     async def get_timeline(self, job_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
         params = {"limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.get(f"/api/learning/jobs/{job_id}/timeline", params=params)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            js = await http.get(
+                synth_learning_job_timeline_url(job_id, self._synth_base_url), params=params
+            )
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
         return []
@@ -168,24 +227,32 @@ class LearningClient:
             "estimated_seconds": float(estimated_seconds or 0.0),
             "container_count": int(container_count or 1),
         }
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.post_json("/api/v1/pricing/preflight", json=body)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            js = await http.post_json(synth_pricing_preflight_url(self._synth_base_url), json=body)
         if not isinstance(js, dict):
             raise HTTPError(
                 status=500,
-                url="/api/v1/pricing/preflight",
+                url=synth_pricing_preflight_url(self._synth_base_url),
                 message="invalid_preflight_response",
                 body_snippet=str(js)[:200],
             )
         return js
 
     async def balance_autumn_normalized(self) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.get("/api/v1/balance/autumn-normalized")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            js = await http.get(synth_balance_autumn_normalized_url(self._synth_base_url))
         if not isinstance(js, dict):
             raise HTTPError(
                 status=500,
-                url="/api/v1/balance/autumn-normalized",
+                url=synth_balance_autumn_normalized_url(self._synth_base_url),
                 message="invalid_balance_response",
                 body_snippet=str(js)[:200],
             )
@@ -206,8 +273,12 @@ class LearningClient(LearningClient):  # type: ignore[misc]
 
         Calls backend route `/api/learning/models` and returns a compact list.
         """
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.get("/api/learning/models")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url),
+            self._synth_user_key,
+            timeout=self._timeout,
+        ) as http:
+            js = await http.get(synth_learning_models_url(self._synth_base_url))
         if isinstance(js, dict) and isinstance(js.get("data"), list):
             out: list[FineTunedModelInfo] = []
             for item in js["data"]:

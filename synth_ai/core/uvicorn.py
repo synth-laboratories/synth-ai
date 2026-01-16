@@ -52,7 +52,7 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
     }
     log_info("deploy_app_uvicorn invoked", ctx=ctx)
     try:
-        os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
+        os.environ["ENVIRONMENT_API_KEY"] = cfg.localapi_key
         if cfg.trace:
             os.environ["TASKAPP_TRACING_ENABLED"] = "1"
         else:
@@ -132,7 +132,7 @@ app = get_asgi_app(module)
 
 # Set environment
 import os
-os.environ["ENVIRONMENT_API_KEY"] = {repr(cfg.env_api_key)}
+os.environ["ENVIRONMENT_API_KEY"] = {repr(cfg.localapi_key)}
 """
         if cfg.trace:
             wrapper_content += 'os.environ["TASKAPP_TRACING_ENABLED"] = "1"\n'

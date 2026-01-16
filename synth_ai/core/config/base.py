@@ -9,7 +9,7 @@ from typing import Any
 
 from synth_ai.core.env import get_api_key
 from synth_ai.core.errors import ConfigError
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_base_url as resolve_synth_base_url
 
 
 @dataclass
@@ -41,18 +41,18 @@ class BaseJobConfig:
     handling of common fields like API keys and backend URLs.
 
     Attributes:
-        task_app_url: URL of the task app to use
-        backend_url: Synth backend URL (defaults to production)
-        api_key: Synth API key (resolved from env if not provided)
-        environment_api_key: API key for environment access
+        localapi_url: URL of the LocalAPI to use
+        synth_base_url: Synth backend URL (defaults to production)
+        synth_user_key: Synth API key (resolved from env if not provided)
+        localapi_key: API key for LocalAPI access
         timeout_seconds: Job timeout in seconds
         metadata: Optional metadata dict attached to job
     """
 
-    task_app_url: str | None = None
-    backend_url: str | None = None
-    api_key: str | None = None
-    environment_api_key: str | None = None
+    localapi_url: str | None = None
+    synth_base_url: str | None = None
+    synth_user_key: str | None = None
+    localapi_key: str | None = None
     timeout_seconds: int = 3600
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -62,18 +62,18 @@ class BaseJobConfig:
         Uses provided values or falls back to environment resolution.
 
         Returns:
-            Tuple of (backend_url, api_key)
+            Tuple of (synth_base_url, synth_user_key)
 
         Raises:
             ConfigError: If required credentials cannot be resolved
         """
-        api_key = self.api_key or get_api_key(required=True)
-        backend_url = self.backend_url or BACKEND_URL_BASE
+        synth_user_key = self.synth_user_key or get_api_key(required=True)
+        synth_base = resolve_synth_base_url(self.synth_base_url)
 
-        if not api_key:
+        if not synth_user_key:
             raise ConfigError("API key is required")
 
-        return backend_url, api_key
+        return synth_base, synth_user_key
 
     def validate(self) -> list[str]:
         """Validate the configuration.

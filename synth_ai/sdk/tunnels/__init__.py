@@ -1,7 +1,7 @@
-"""Cloudflare tunnel helpers for exposing local APIs.
+"""Cloudflare tunnel helpers for exposing LocalAPI endpoints.
 
 This module provides high-level and low-level tunnel management for
-exposing local task apps to the internet via Cloudflare tunnels.
+exposing local LocalAPI endpoints to the internet via Cloudflare tunnels.
 
 **Recommended:** Use `TunneledLocalAPI` for a clean, one-liner experience:
 
@@ -11,8 +11,8 @@ exposing local task apps to the internet via Cloudflare tunnels.
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
         backend=TunnelBackend.CloudflareManagedTunnel,
-        api_key="sk_live_...",
-        env_api_key="env_key_...",
+        synth_user_key="sk_live_...",
+        localapi_key="env_key_...",
         progress=True,  # Print status updates
     )
 
@@ -32,7 +32,7 @@ exposing local task apps to the internet via Cloudflare tunnels.
     print(f"Local API exposed at: {tunnel.url}")
 
     # Use the URL for remote jobs
-    job = PromptLearningJob.from_dict(config, task_app_url=tunnel.url)
+    job = PromptLearningJob.from_dict(config, localapi_url=tunnel.url)
 
     # Clean up when done
     tunnel.close()
@@ -59,8 +59,6 @@ Note:
     Processes registered with track_process() are automatically cleaned up
     when Python exits (via atexit). You can also call cleanup_all() manually.
 """
-
-from __future__ import annotations
 
 from typing import Any
 
@@ -114,10 +112,10 @@ async def create_tunneled_api(
     local_port: int | None = None,
     backend: TunnelBackend = TunnelBackend.CloudflareManagedTunnel,
     *,
-    api_key: str | None = None,
-    backend_url: str | None = None,
+    synth_user_key: str | None = None,
     verify_dns: bool = True,
     progress: bool = False,
+    synth_base_url: str | None = None,
 ) -> TunneledLocalAPI:
     """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
 
@@ -131,10 +129,10 @@ async def create_tunneled_api(
         app: FastAPI or ASGI application to tunnel
         local_port: Port to use (defaults to auto-finding an available port from 8001)
         backend: Tunnel backend to use
-        api_key: Synth API key (defaults to SYNTH_API_KEY env var)
-        backend_url: Backend URL (defaults to production)
+        synth_user_key: Synth API key (defaults to SYNTH_API_KEY env var)
         verify_dns: Whether to verify DNS resolution
         progress: If True, print status updates
+        synth_base_url: Backend URL override (managed only)
 
     Returns:
         TunneledLocalAPI instance
@@ -149,10 +147,10 @@ async def create_tunneled_api(
         app=app,
         local_port=local_port,
         backend=backend,
-        api_key=api_key,
-        backend_url=backend_url,
+        synth_user_key=synth_user_key,
         verify_dns=verify_dns,
         progress=progress,
+        synth_base_url=synth_base_url,
     )
 
 

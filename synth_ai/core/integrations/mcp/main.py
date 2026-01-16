@@ -26,13 +26,13 @@ async def list_tools() -> list[Tool]:
             description="Deploy a task app to a local server",
             inputSchema={
                 "type": "object",
-                "required": ["task_app_path", "env_api_key"],
+                "required": ["task_app_path", "localapi_key"],
                 "properties": {
                     "task_app_path": {
                         "type": "string",
                         "description": "Absolute path to the task app Python file",
                     },
-                    "env_api_key": {
+                    "localapi_key": {
                         "type": "string",
                         "description": "Use the ENVIRONMENT_API_KEY fetched via the setup function or supplied by user",
                     },
@@ -47,7 +47,12 @@ async def list_tools() -> list[Tool]:
             description="Deploy a task app to Modal",
             inputSchema={
                 "type": "object",
-                "required": ["task_app_path", "modal_app_path", "synth_api_key", "env_api_key"],
+                "required": [
+                    "task_app_path",
+                    "modal_app_path",
+                    "synth_user_key",
+                    "localapi_key",
+                ],
                 "properties": {
                     "task_app_path": {
                         "type": "string",
@@ -57,11 +62,11 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": "Absolute path to the Modal app Python file",
                     },
-                    "synth_api_key": {
+                    "synth_user_key": {
                         "type": "string",
                         "description": "SYNTH_API_KEY for authentication",
                     },
-                    "env_api_key": {
+                    "localapi_key": {
                         "type": "string",
                         "description": "ENVIRONMENT_API_KEY used to access the task app",
                     },
@@ -143,12 +148,12 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
             return [TextContent(type="text", text=setup_start())]
         case "deploy_modal":
             missing: list[str] = []
-            synth_api_key = str(args.get("synth_api_key")).strip()
-            if not synth_api_key:
-                missing.append("synth_api_key")
-            env_api_key = str(args.get("env_api_key")).strip()
-            if not env_api_key:
-                missing.append("env_api_key")
+            synth_user_key = str(args.get("synth_user_key")).strip()
+            if not synth_user_key:
+                missing.append("synth_user_key")
+            localapi_key = str(args.get("localapi_key")).strip()
+            if not localapi_key:
+                missing.append("localapi_key")
             task_app_path_raw = args.get("task_app_path")
             if not task_app_path_raw:
                 missing.append("task_app_path")
@@ -157,8 +162,8 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
                 missing.append("modal_app_path")
             if len(missing) > 0:
                 return [TextContent(type="text", text=f"{name} missing args: {missing}")]
-            assert synth_api_key is not None
-            assert env_api_key is not None
+            assert synth_user_key is not None
+            assert localapi_key is not None
             assert task_app_path_raw is not None
             assert modal_app_path_raw is not None
             cfg_kwargs: dict[str, Any] = {
@@ -172,8 +177,8 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
             try:
                 cfg = ModalDeployCfg.create_from_kwargs(
                     task_app_path=Path(task_app_path_raw),
-                    synth_api_key=synth_api_key,
-                    env_api_key=env_api_key,
+                    synth_user_key=synth_user_key,
+                    localapi_key=localapi_key,
                     **cfg_kwargs,
                 )
             except Exception as exc:

@@ -418,7 +418,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     if not pl_section:
         errors.append(
             "Missing [prompt_learning] section in config. "
-            "Expected: [prompt_learning] with algorithm, task_app_url, etc."
+            "Expected: [prompt_learning] with algorithm, localapi_url, etc."
         )
         _raise_validation_errors(errors, config_path)
         return
@@ -441,18 +441,18 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     elif algorithm != "gepa":
         errors.append(f"Invalid algorithm: '{algorithm}'\n  Must be 'gepa'\n  Got: '{algorithm}'")
 
-    # Validate task_app_url
-    task_app_url = pl_section.get("task_app_url")
-    if not task_app_url:
+    # Validate localapi_url
+    localapi_url = pl_section.get("localapi_url")
+    if not localapi_url:
         errors.append(
-            "Missing required field: prompt_learning.task_app_url\n"
+            "Missing required field: prompt_learning.localapi_url\n"
             "  Example:\n"
-            '    task_app_url = "http://127.0.0.1:8102"'
+            '    localapi_url = "http://127.0.0.1:8102"'
         )
-    elif not isinstance(task_app_url, str):
-        errors.append(f"task_app_url must be a string, got {type(task_app_url).__name__}")
-    elif not task_app_url.startswith(("http://", "https://")):
-        errors.append(f"task_app_url must start with http:// or https://, got: '{task_app_url}'")
+    elif not isinstance(localapi_url, str):
+        errors.append(f"localapi_url must be a string, got {type(localapi_url).__name__}")
+    elif not localapi_url.startswith(("http://", "https://")):
+        errors.append(f"localapi_url must start with http:// or https://, got: '{localapi_url}'")
 
     # Validate initial_prompt if present
     initial_prompt = pl_section.get("initial_prompt")
@@ -888,7 +888,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
 
             # Proposer effort validation
             proposer_effort = str(gepa_config.get("proposer_effort", "LOW")).upper()
-            valid_effort_levels = {"LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"}
+            valid_effort_levels = {"LOW_CONTEXT", "LOW", "MEDIUM", "HIGH", "GEMINI", "GEMINI_PRO"}
             if proposer_effort not in valid_effort_levels:
                 errors.append(
                     f"Invalid proposer_effort: '{proposer_effort}'\n"
@@ -1247,12 +1247,12 @@ def validate_rl_config(config_data: dict[str, Any], config_path: Path) -> None:
     if not algorithm:
         errors.append("Missing required field: rl.algorithm\n  Must be one of: 'grpo', 'ppo', etc.")
 
-    # Validate task_url
-    task_url = rl_section.get("task_url")
-    if not task_url:
-        errors.append("Missing required field: rl.task_url")
-    elif not isinstance(task_url, str):
-        errors.append(f"task_url must be a string, got {type(task_url).__name__}")
+    # Validate localapi_url
+    localapi_url = rl_section.get("localapi_url")
+    if not localapi_url:
+        errors.append("Missing required field: rl.localapi_url")
+    elif not isinstance(localapi_url, str):
+        errors.append(f"localapi_url must be a string, got {type(localapi_url).__name__}")
 
     if errors:
         _raise_validation_errors(errors, config_path)
@@ -1313,7 +1313,7 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
         errors.append(f"❌ Expected algorithm='gepa', got '{algorithm}'")
 
     # Check required top-level fields (env_name is now in gepa section)
-    required_top_level = ["task_app_url", "task_app_api_key"]
+    required_top_level = ["localapi_url", "localapi_key"]
     for field in required_top_level:
         if not pl_section.get(field):
             errors.append(f"❌ [prompt_learning].{field} is required")

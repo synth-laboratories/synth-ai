@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any, Mapping, Sequence
 
 from synth_ai.core.http import http_request
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_sdk_logs_url
 
 
 def _get_sdk_version() -> str:
@@ -21,7 +21,6 @@ def _get_sdk_version() -> str:
         return "0.0.0"
 
 
-_ENDPOINT_SUFFIX = "/api/v1/sdk-logs"
 _MAX_MESSAGE_LENGTH = 4_096
 _ALLOWED_LEVELS = {"debug", "info", "warning", "error", "critical"}
 
@@ -126,16 +125,15 @@ def _post_with_retry(entries: list[dict[str, Any]]) -> bool:
     Returns False if no API key available (batch should be held for later).
     """
     try:
-        base = BACKEND_URL_BASE
-        key = (os.environ.get("SYNTH_API_KEY") or "").strip()
+        synth_user_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
 
         # If no API key, signal to hold batch for next cycle
-        if not base or not key:
+        if not synth_user_key:
             return False
 
-        url = f"{base}{_ENDPOINT_SUFFIX}"
+        url = synth_sdk_logs_url()
         headers = {
-            "authorization": f"Bearer {key}",
+            "authorization": f"Bearer {synth_user_key}",
             "accept": "application/json",
             "content-type": "application/json",
         }

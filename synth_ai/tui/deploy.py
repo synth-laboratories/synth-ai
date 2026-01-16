@@ -363,11 +363,11 @@ async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) 
         aggregator.log("app", "Getting environment API key...")
         try:
             # In local mode, use localhost backend for auth; otherwise use env vars or production
-            backend_base = "http://localhost:8000" if local_mode else None
-            synth_api_key = os.environ.get("SYNTH_API_KEY")
-            env_api_key = ensure_localapi_auth(
-                backend_base=backend_base,
-                synth_api_key=synth_api_key,
+            synth_base_url = "http://localhost:8000" if local_mode else None
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            localapi_key = ensure_localapi_auth(
+                synth_base_url=synth_base_url,
+                synth_user_key=synth_user_key,
             )
         except Exception as e:
             aggregator.status("error", error=f"Failed to get environment API key: {e}")
@@ -425,7 +425,7 @@ async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) 
         # Wait for health check
         aggregator.log("app", "Waiting for health check...")
         try:
-            await wait_for_health_check("localhost", port, api_key=env_api_key, timeout=30.0)
+            await wait_for_health_check("localhost", port, localapi_key=localapi_key, timeout=30.0)
         except Exception as e:
             aggregator.status("error", error=f"Health check failed: {e}")
             return
@@ -442,7 +442,7 @@ async def deploy_localapi(localapi_path: str, deployment_id: str | None = None) 
                 tunnel = await TunneledLocalAPI.create(
                     local_port=port,
                     backend=TunnelBackend.CloudflareManagedTunnel,
-                    env_api_key=env_api_key,
+                    localapi_key=localapi_key,
                     progress=False,
                 )
                 url = tunnel.url

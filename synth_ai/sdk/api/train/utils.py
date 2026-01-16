@@ -13,6 +13,7 @@ from typing import Any, cast
 import requests
 
 from synth_ai.core.telemetry import log_error, log_info
+from synth_ai.core.urls import synth_api_base
 
 try:
     sft_module = cast(Any, importlib.import_module("synth_ai.sdk.learning.sft"))
@@ -123,7 +124,12 @@ def http_get(
 
 
 def post_multipart(
-    url: str, *, api_key: str, file_field: str, file_path: Path, purpose: str = "fine-tune"
+    url: str,
+    *,
+    synth_user_key: str,
+    file_field: str,
+    file_path: Path,
+    purpose: str = "fine-tune",
 ) -> requests.Response:
     ctx: dict[str, Any] = {
         "url": url,
@@ -132,7 +138,7 @@ def post_multipart(
         "purpose": purpose,
     }
     log_info("post_multipart", ctx=ctx)
-    headers = {"Authorization": f"Bearer {api_key}"}
+    headers = {"Authorization": f"Bearer {synth_user_key}"}
     files = {file_field: (file_path.name, file_path.read_bytes(), "application/jsonl")}
     data = {"purpose": purpose}
     try:
@@ -203,10 +209,7 @@ def limit_jsonl_examples(src: Path, limit: int) -> Path:
 
 
 def ensure_api_base(base: str) -> str:
-    base = base.rstrip("/")
-    if not base.endswith("/api"):
-        base = f"{base}/api"
-    return base
+    return synth_api_base(base)
 
 
 def preview_json(data: Any, limit: int = 600) -> str:

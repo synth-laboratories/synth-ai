@@ -4,8 +4,6 @@ Prefer synth_ai.sdk.localapi.client moving forward. This module remains for
 backward compatibility during the naming transition.
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 from typing import Any
@@ -29,19 +27,19 @@ class TaskAppClient:
     def __init__(
         self,
         base_url: str,
-        api_key: str | None = None,
+        localapi_key: str | None = None,
         *,
         timeout: float = 600.0,
         retries: int = 3,
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
+        self.localapi_key = localapi_key
         self.timeout = timeout
         self.retries = max(1, retries)
         self._client: httpx.AsyncClient | None = None
         self.env = _TaskAppEnvironmentClient(self)
 
-    async def __aenter__(self) -> TaskAppClient:
+    async def __aenter__(self) -> "TaskAppClient":
         await self._ensure_client()
         return self
 
@@ -60,7 +58,7 @@ class TaskAppClient:
     def _headers(self) -> dict[str, str]:
         headers: dict[str, str] = {}
         # Primary key
-        primary = (self.api_key or "").strip()
+        primary = (self.localapi_key or "").strip()
         if primary:
             headers["X-API-Key"] = primary
             # Also set Authorization for clients that read bearer tokens

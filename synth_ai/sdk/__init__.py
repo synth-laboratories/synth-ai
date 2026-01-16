@@ -33,7 +33,7 @@ except Exception:  # pragma: no cover - optional dependency guard
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
 
 # Auth helpers
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
+from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
 from synth_ai.sdk.graphs.verifier_schemas import VerifierOptions, VerifierScoreResponse
 
@@ -117,7 +117,7 @@ __all__ = [
     # Inference
     "InferenceClient",
     # Auth helpers
-    "get_or_mint_synth_api_key",
+    "get_or_mint_synth_user_key",
     # Jobs API Client
     "JobsClient",
     # Tunnels

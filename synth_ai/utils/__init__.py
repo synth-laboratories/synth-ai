@@ -21,9 +21,9 @@ from synth_ai.core.localapi_state import (
     localapi_config_path,
     localapi_id_from_path,
     now_iso,
-    persist_api_key,
-    persist_env_api_key,
+    persist_localapi_key,
     persist_localapi_url,
+    persist_synth_user_key,
     persist_template_id,
     read_localapi_config,
     record_localapi,
@@ -54,7 +54,6 @@ from synth_ai.core.telemetry import (
     log_info,
     log_warning,
 )
-from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.core.user_config import (
     load_user_config,
     load_user_env,
@@ -129,7 +128,6 @@ __all__ = [
     "ClaudeConfig",
     "DEFAULT_LOCALAPI_SECRET_NAME",
     "HTTPError",
-    "BACKEND_URL_BASE",
     "REPO_ROOT",
     "cleanup_paths",
     "configure_import_paths",
@@ -152,8 +150,8 @@ __all__ = [
     "log_info",
     "log_warning",
     "now_iso",
-    "persist_api_key",
-    "persist_env_api_key",
+    "persist_synth_user_key",
+    "persist_localapi_key",
     "persist_localapi_url",
     "persist_template_id",
     "popen_capture",

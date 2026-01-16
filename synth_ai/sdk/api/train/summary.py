@@ -1,11 +1,10 @@
 """Final summary display for prompt learning jobs."""
 
-from __future__ import annotations
-
 from typing import Any, Optional
 
 import click
 
+from synth_ai.core.urls import synth_prompt_learning_events_url, synth_prompt_learning_job_url
 from synth_ai.data.objectives_compat import extract_outcome_reward
 
 from .utils import http_get
@@ -24,12 +23,12 @@ def _extract_reward_value(payload: dict[str, Any]) -> Optional[float]:
 def display_prompt_learning_summary(
     *,
     job_id: str,
-    backend_base: str,
-    api_key: str,
+    synth_user_key: str,
     optimization_curve: list[tuple[int, float]] | None = None,
     show_curve: bool = False,
     algorithm: str | None = None,
     log_writer: Any | None = None,
+    synth_base_url: str,
 ) -> None:
     """Display comprehensive final summary for prompt learning jobs.
 
@@ -48,8 +47,8 @@ def display_prompt_learning_summary(
     # Fetch final job status and events
     try:
         # Fetch job status
-        job_url = f"{backend_base}/prompt-learning/online/jobs/{job_id}"
-        headers = {"Authorization": f"Bearer {api_key}"}
+        job_url = synth_prompt_learning_job_url(job_id, synth_base_url)
+        headers = {"Authorization": f"Bearer {synth_user_key}"}
         resp = http_get(job_url, headers=headers, timeout=30.0)
 
         if resp.status_code != 200:
@@ -59,7 +58,7 @@ def display_prompt_learning_summary(
         resp.json()  # Validate response is JSON
 
         # Fetch events
-        events_url = f"{backend_base}/prompt-learning/online/jobs/{job_id}/events?limit=1000"
+        events_url = f"{synth_prompt_learning_events_url(job_id, synth_base_url)}?limit=1000"
         events_resp = http_get(events_url, headers=headers, timeout=30.0)
 
         if events_resp.status_code != 200:
@@ -234,9 +233,9 @@ def _generate_summary_text(
     events: list[dict[str, Any]],
     algorithm: str | None = None,
     optimization_curve: list[tuple[int, float]] | None = None,
-    backend_base: str | None = None,
-    api_key: str | None = None,
+    synth_user_key: str | None = None,
     job_id: str | None = None,
+    synth_base_url: str | None = None,
 ) -> tuple[str, str]:
     """Generate summary table and curve text from events (for file output).
 

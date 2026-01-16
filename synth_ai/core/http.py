@@ -4,8 +4,6 @@ This module provides async HTTP client functionality used by SDK modules
 for communicating with the Synth backend.
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 from typing import Any
@@ -19,31 +17,31 @@ class AsyncHttpClient:
     """Async HTTP client for Synth API calls.
 
     Usage:
-        async with AsyncHttpClient(base_url, api_key) as client:
+        async with AsyncHttpClient(base_url, synth_user_key) as client:
             result = await client.get("/api/jobs/123")
     """
 
     def __init__(
         self,
         base_url: str,
-        api_key: str,
+        synth_user_key: str,
         timeout: float = 30.0,
     ) -> None:
         """Initialize the HTTP client.
 
         Args:
-            base_url: Base URL for the API (without trailing /api)
-            api_key: API key for authentication
+            base_url: Base URL for the API
+            synth_user_key: API key for authentication
             timeout: Request timeout in seconds
         """
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+        self._base_url = base_url
+        self._synth_user_key = synth_user_key
         self._timeout = aiohttp.ClientTimeout(total=timeout)
         self._session: aiohttp.ClientSession | None = None
 
-    async def __aenter__(self) -> AsyncHttpClient:
+    async def __aenter__(self) -> "AsyncHttpClient":
         if self._session is None:
-            headers = {"authorization": f"Bearer {self._api_key}"}
+            headers = {"authorization": f"Bearer {self._synth_user_key}"}
             # Optional dev overrides for user/org context
             user_id = os.getenv("SYNTH_USER_ID") or os.getenv("X_USER_ID")
             if user_id:
@@ -68,9 +66,6 @@ class AsyncHttpClient:
         """Convert relative path to absolute URL."""
         if path.startswith(("http://", "https://")):
             return path
-        # Handle /api prefix
-        if self._base_url.endswith("/api") and path.startswith("/api"):
-            path = path[4:]
         return f"{self._base_url}/{path.lstrip('/')}"
 
     async def get(

@@ -1,6 +1,4 @@
-"""Configuration dataclasses for task app CLI commands (eval, filter)."""
-
-from __future__ import annotations
+"""Configuration dataclasses for LocalAPI CLI commands (eval, filter)."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -11,7 +9,7 @@ from typing import Any, Literal, Optional
 class EvalConfig:
     """Configuration for 'synth-ai eval' command.
 
-    Validates and provides defaults for evaluation runs against task apps.
+    Validates and provides defaults for evaluation runs against LocalAPI endpoints.
     """
 
     # Required: Task app identifier
@@ -24,7 +22,7 @@ class EvalConfig:
     seeds: list[int]
 
     # Optional: Task app URL (None = spawn in-process)
-    task_app_url: str | None = None
+    localapi_url: str | None = None
 
     # Optional: Data split to use
     split: str = "train"
@@ -91,7 +89,7 @@ class EvalConfig:
             )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> EvalConfig:
+    def from_dict(cls, data: dict[str, Any]) -> "EvalConfig":
         """Create EvalConfig from a dictionary (e.g. from TOML).
 
         Args:
@@ -105,7 +103,7 @@ class EvalConfig:
             "app_id": data.get("app_id"),
             "model": data.get("model"),
             "seeds": data.get("seeds", []),
-            "task_app_url": data.get("task_app_url"),
+            "localapi_url": data.get("localapi_url"),
             "split": data.get("split", "train"),
             "max_turns": data.get("max_turns"),
             "max_llm_calls": data.get("max_llm_calls", 10),
@@ -210,7 +208,7 @@ class FilterConfig:
             raise ValueError("shuffle_seed requires shuffle=true")
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> FilterConfig:
+    def from_dict(cls, data: dict[str, Any]) -> "FilterConfig":
         """Create FilterConfig from a dictionary (e.g. from TOML).
 
         Args:

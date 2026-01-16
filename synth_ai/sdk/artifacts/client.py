@@ -4,6 +4,16 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from synth_ai.core.http import AsyncHttpClient
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_artifact_model_url,
+    synth_artifact_prompt_url,
+    synth_artifacts_url,
+    synth_learning_exports_hf_url,
+    synth_learning_models_on_wasabi_url,
+    synth_prompt_learning_artifacts_url,
+    synth_prompt_learning_snapshot_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,16 +26,24 @@ class ArtifactsClient:
     to HuggingFace, and accessing prompt snapshots.
     """
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 30.0,
+        synth_base_url: str | None = None,
+    ) -> None:
         """Initialize the artifacts client.
 
         Args:
-            base_url: Base URL of the backend API (e.g., "https://api.usesynth.ai")
-            api_key: API key for authentication
+            synth_user_key: Synth API key for authentication
             timeout: Request timeout in seconds (default: 30.0)
+            synth_base_url: Backend URL override (defaults to SYNTH_BACKEND_URL or production)
         """
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     async def list_artifacts(
@@ -42,18 +60,24 @@ class ArtifactsClient:
         if status:
             params["status"] = status
 
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.get("/api/artifacts", params=params)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.get(synth_artifacts_url(self._synth_base_url), params=params)
 
     async def get_model(self, model_id: str) -> Dict[str, Any]:
         """Get detailed information about a model artifact."""
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.get(f"/api/artifacts/models/{model_id}")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.get(synth_artifact_model_url(model_id, self._synth_base_url))
 
     async def get_prompt(self, job_id: str) -> Dict[str, Any]:
         """Get detailed information about a prompt optimization job."""
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.get(f"/api/artifacts/prompts/{job_id}")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.get(synth_artifact_prompt_url(job_id, self._synth_base_url))
 
     async def export_to_huggingface(
         self,
@@ -85,8 +109,12 @@ class ArtifactsClient:
         if folder_name:
             body["folder_name"] = folder_name
 
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.post_json("/api/learning/exports/hf", json=body)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.post_json(
+                synth_learning_exports_hf_url(self._synth_base_url), json=body
+            )
 
     async def get_prompt_snapshot(
         self,
@@ -94,9 +122,11 @@ class ArtifactsClient:
         snapshot_id: str,
     ) -> Dict[str, Any]:
         """Get a specific prompt snapshot."""
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
             return await http.get(
-                f"/api/prompt-learning/online/jobs/{job_id}/snapshots/{snapshot_id}"
+                synth_prompt_learning_snapshot_url(job_id, snapshot_id, self._synth_base_url)
             )
 
     async def list_prompt_snapshots(
@@ -104,8 +134,12 @@ class ArtifactsClient:
         job_id: str,
     ) -> List[Dict[str, Any]]:
         """List all artifacts (snapshots) for a prompt job."""
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            artifacts = await http.get(f"/api/prompt-learning/online/jobs/{job_id}/artifacts")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            artifacts = await http.get(
+                synth_prompt_learning_artifacts_url(job_id, self._synth_base_url)
+            )
             if isinstance(artifacts, list):
                 return artifacts
             if isinstance(artifacts, dict) and isinstance(artifacts.get("artifacts"), list):
@@ -114,5 +148,7 @@ class ArtifactsClient:
 
     async def get_models_on_wasabi(self) -> Dict[str, Any]:
         """Get models available on Wasabi."""
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.get("/api/learning/models/on-wasabi")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            return await http.get(synth_learning_models_on_wasabi_url(self._synth_base_url))

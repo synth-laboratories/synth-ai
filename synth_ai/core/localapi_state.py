@@ -15,8 +15,8 @@ __all__ = [
     "current_localapi_id",
     "load_template_id",
     "now_iso",
-    "persist_api_key",
-    "persist_env_api_key",
+    "persist_synth_user_key",
+    "persist_localapi_key",
     "persist_localapi_url",
     "persist_template_id",
     "read_localapi_config",
@@ -213,22 +213,22 @@ def load_template_id() -> str | None:
     return str(value) if isinstance(value, str) else None
 
 
-def persist_api_key(key: str) -> None:
+def persist_synth_user_key(synth_user_key: str) -> None:
     target = current_localapi_id()
 
     def _mutate(entry: dict[str, Any]) -> None:
         secrets = entry.setdefault("secrets", {})
-        secrets["synth_api_key"] = key
+        secrets["synth_user_key"] = synth_user_key
 
     update_localapi_entry(target, mutate=_mutate)
 
 
-def persist_env_api_key(key: str, path: str | Path | None = None) -> None:
+def persist_localapi_key(localapi_key: str, path: str | Path | None = None) -> None:
     target = path or current_localapi_id()
 
     def _mutate(entry: dict[str, Any]) -> None:
         secrets = entry.setdefault("secrets", {})
-        secrets["environment_api_key"] = key
+        secrets["localapi_key"] = localapi_key
 
     update_localapi_entry(target, mutate=_mutate)
 
@@ -287,7 +287,7 @@ def persist_localapi_url(url: str, *, name: str | None = None, path: str | None 
     modal_after = entry.get("modal", {}) if isinstance(entry, dict) else {}
     changed: list[str] = []
     if previous_modal.get("base_url") != modal_after.get("base_url"):
-        changed.append("TASK_APP_BASE_URL")
+        changed.append("SYNTH_LOCALAPI_URL")
     if derived_name and previous_modal.get("app_name") != modal_after.get("app_name"):
         changed.append("TASK_APP_NAME")
     if previous_modal.get("secret_name") != modal_after.get("secret_name"):

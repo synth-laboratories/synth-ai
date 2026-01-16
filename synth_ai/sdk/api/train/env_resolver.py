@@ -64,14 +64,6 @@ def _resolve_key(spec: KeySpec) -> str:
                 os.environ[spec.name] = alt
                 click.echo(f"Found {spec.name} via {alias}: {mask_value(alt)}")
                 break
-    if not env_val and spec.name == "TASK_APP_URL":
-        for alias in ("TASK_APP_BASE_URL",):
-            alt = os.environ.get(alias)
-            if alt:
-                env_val = alt
-                os.environ[spec.name] = alt
-                click.echo(f"Found {spec.name} via {alias}: {mask_value(alt)}")
-                break
     if env_val:
         click.echo(f"Found {spec.name} in current sources: {mask_value(env_val)}")
         os.environ[spec.name] = env_val

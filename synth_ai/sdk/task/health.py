@@ -1,14 +1,12 @@
-"""Helpers for probing Task App health endpoints."""
-
-from __future__ import annotations
+"""Helpers for probing LocalAPI health endpoints."""
 
 from typing import Any
 
 import aiohttp
 
 
-async def task_app_health(task_app_url: str) -> dict[str, Any]:
-    """Probe a Task App base URL for basic reachability.
+async def task_app_health(localapi_url: str) -> dict[str, Any]:
+    """Probe a LocalAPI base URL for basic reachability.
 
     Behavior:
     - Try HEAD first (follows redirects)
@@ -18,7 +16,7 @@ async def task_app_health(task_app_url: str) -> dict[str, Any]:
 
     async def _try_request(session: aiohttp.ClientSession, method: str) -> dict[str, Any] | None:
         request = getattr(session, method)
-        async with request(task_app_url, allow_redirects=True) as response:
+        async with request(localapi_url, allow_redirects=True) as response:
             if 200 <= response.status < 400:
                 return {"ok": True, "status": response.status}
         return None

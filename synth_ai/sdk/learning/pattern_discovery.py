@@ -1,12 +1,15 @@
 """Client for backend pattern discovery."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
 
-from synth_ai.core.env import get_api_key, get_backend_url
+from synth_ai.core.env import get_api_key
 from synth_ai.core.http import AsyncHttpClient
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_eval_job_results_url,
+    synth_prompt_learning_patterns_discover_url,
+)
 
 
 @dataclass
@@ -38,28 +41,24 @@ class PatternDiscoveryClient:
 
     def __init__(
         self,
-        base_url: str | None = None,
-        api_key: str | None = None,
+        synth_user_key: str | None = None,
         *,
         timeout: float = 30.0,
+        synth_base_url: str | None = None,
     ) -> None:
-        if base_url is None:
-            base_url = get_backend_url()
-        base_url = base_url.strip().rstrip("/")
-        if base_url.endswith("/api"):
-            base_url = base_url[:-4]
+        if synth_user_key is None:
+            synth_user_key = get_api_key("SYNTH_API_KEY", required=True)
 
-        if api_key is None:
-            api_key = get_api_key("SYNTH_API_KEY", required=True)
-
-        self._base_url = base_url
-        self._api_key = api_key
+        self._synth_base_url = synth_base_url
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     async def discover(self, request: PatternDiscoveryRequest) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
             return await http.post_json(
-                "/api/prompt-learning/patterns/discover",
+                synth_prompt_learning_patterns_discover_url(self._synth_base_url),
                 json=request.to_payload(),
             )
 
@@ -67,21 +66,17 @@ class PatternDiscoveryClient:
 async def get_eval_patterns(
     job_id: str,
     *,
-    base_url: str | None = None,
-    api_key: str | None = None,
+    synth_user_key: str | None = None,
     timeout: float = 30.0,
+    synth_base_url: str | None = None,
 ) -> dict[str, Any] | None:
-    if base_url is None:
-        base_url = get_backend_url()
-    base_url = base_url.strip().rstrip("/")
-    if base_url.endswith("/api"):
-        base_url = base_url[:-4]
+    if synth_user_key is None:
+        synth_user_key = get_api_key("SYNTH_API_KEY", required=True)
 
-    if api_key is None:
-        api_key = get_api_key("SYNTH_API_KEY", required=True)
-
-    async with AsyncHttpClient(base_url, api_key, timeout=timeout) as http:
-        data = await http.get_json(f"/api/eval/jobs/{job_id}/results")
+    async with AsyncHttpClient(
+        synth_api_v1_base(synth_base_url), synth_user_key, timeout=timeout
+    ) as http:
+        data = await http.get_json(synth_eval_job_results_url(job_id, synth_base_url))
     summary = data.get("summary") if isinstance(data, dict) else None
     if isinstance(summary, dict):
         return summary.get("pattern_discovery")

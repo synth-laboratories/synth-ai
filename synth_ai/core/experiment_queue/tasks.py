@@ -14,6 +14,10 @@ from typing import Any
 
 from celery.utils.log import get_task_logger
 
+from synth_ai.core.urls import (
+    synth_prompt_learning_events_url,
+    synth_prompt_learning_job_url,
+)
 from synth_ai.core.user_config import load_user_env
 
 from .api_schemas import BackendEventsResponse
@@ -40,16 +44,16 @@ logger = get_task_logger(__name__)
 TRAIN_COMMAND_ENV = "EXPERIMENT_QUEUE_TRAIN_CMD"
 
 
-def _load_synth_api_key() -> str:
+def _load_synth_user_key() -> str:
     """Load SYNTH_API_KEY from the process environment or user config."""
     load_user_env(override=False)
-    api_key = os.getenv("SYNTH_API_KEY")
-    if not api_key:
+    synth_user_key = os.getenv("SYNTH_API_KEY")
+    if not synth_user_key:
         raise RuntimeError(
             "❌ SYNTH_API_KEY not found. "
             "Set it in your shell environment or run synth-ai setup to store it."
         )
-    return api_key
+    return synth_user_key
 
 
 def _find_venv_python() -> str:
@@ -146,8 +150,8 @@ def _poll_backend_progress(
     status_tracker: ExperimentStatusTracker,
     policy: str | None,
     environment: str | None,
-    backend_url: str,
-    api_key: str,
+    synth_base_url: str,
+    synth_user_key: str,
     stop_event: threading.Event,
     job_start_time: float | None = None,
 ) -> None:
@@ -158,8 +162,8 @@ def _poll_backend_progress(
     ETA, and best score information. Updates the experiment status_json in real-time.
 
     Backend URL Configuration:
-    - Default: Production (https://api.usesynth.ai/api)
-    - Local: Set EXPERIMENT_QUEUE_LOCAL=true or use --local flag (http://localhost:8000/api)
+    - Default: Production (https://api.usesynth.ai)
+    - Local: Set EXPERIMENT_QUEUE_LOCAL=true or use --local flag (http://localhost:8000)
     - Custom: Set EXPERIMENT_QUEUE_BACKEND_URL env var
 
     Args:
@@ -167,8 +171,8 @@ def _poll_backend_progress(
         status_tracker: ExperimentStatusTracker instance for updating status_json
         policy: Policy model name (e.g., "gpt-4", "llama-3.1-8b-instant")
         environment: Environment name (e.g., "heartdisease", "hotpotqa")
-        backend_url: Backend API base URL (from config.backend_url)
-        api_key: API key for authentication (from SYNTH_API_KEY env var)
+        synth_base_url: Backend API base URL (from config.synth_base_url)
+        synth_user_key: API key for authentication (from SYNTH_API_KEY env var)
         stop_event: Threading event to signal when to stop polling
     """
     import logging
@@ -200,16 +204,16 @@ def _poll_backend_progress(
     assert backend_job_id.startswith("pl_"), (
         f"Invalid backend_job_id format: expected 'pl_*', got '{backend_job_id}'"
     )
-    assert backend_url, "backend_url cannot be empty"
-    assert backend_url.startswith(("http://", "https://")), (
-        f"Invalid backend_url format: {backend_url}"
+    assert synth_base_url, "synth_base_url cannot be empty"
+    assert synth_base_url.startswith(("http://", "https://")), (
+        f"Invalid synth_base_url format: {synth_base_url}"
     )
-    assert api_key, "api_key cannot be empty"
+    assert synth_user_key, "synth_user_key cannot be empty"
     assert status_tracker is not None, "status_tracker cannot be None"
     assert stop_event is not None, "stop_event cannot be None"
 
-    url = f"{backend_url.rstrip('/')}/prompt-learning/online/jobs/{backend_job_id}/events"
-    headers = {"Authorization": f"Bearer {api_key}"}
+    url = synth_prompt_learning_events_url(backend_job_id, synth_base_url)
+    headers = {"Authorization": f"Bearer {synth_user_key}"}
     last_seq = 0
     progress_start_time: float | None = None  # Track when we first see progress
     consecutive_timeouts = 0  # Track consecutive timeouts for exponential backoff
@@ -771,7 +775,7 @@ def _build_train_command(config_path: str) -> list[str]:
 
     # Get backend URL from config and add --backend flag
     config = load_config()
-    backend_url = config.backend_url
+    synth_base_url = config.synth_base_url
 
     segments.extend(
         [
@@ -780,7 +784,7 @@ def _build_train_command(config_path: str) -> list[str]:
             "--config",
             config_path,
             "--backend",
-            backend_url,
+            synth_base_url,
             "--poll",
             "--stream-format",
             "cli",
@@ -952,17 +956,17 @@ def _finalize_job(
 
                     # Fetch backend job metadata
                     config = load_config()
-                    backend_url = config.backend_url
+                    synth_base_url = config.synth_base_url
                     # Load API key from environment/user config - fail loudly if not found
                     try:
-                        api_key = _load_synth_api_key()
+                        synth_user_key = _load_synth_user_key()
                     except RuntimeError as e:
                         logger.error(str(e))
                         raise
 
-                    if backend_url and api_key:
-                        url = f"{backend_url.rstrip('/')}/prompt-learning/online/jobs/{job.backend_job_id}"
-                        headers = {"Authorization": f"Bearer {api_key}"}
+                    if synth_base_url and synth_user_key:
+                        url = synth_prompt_learning_job_url(job.backend_job_id, synth_base_url)
+                        headers = {"Authorization": f"Bearer {synth_user_key}"}
                         resp = requests.get(
                             url, headers=headers, timeout=60.0
                         )  # Increased from 10s to 60s to handle backend overload
@@ -1285,15 +1289,17 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
         env["PYTHONUNBUFFERED"] = "1"
 
         # Log authentication status BEFORE running command
-        synth_key = env.get("SYNTH_API_KEY")
-        env_key = env.get("ENVIRONMENT_API_KEY")
+        synth_user_key = env.get("SYNTH_API_KEY")
+        localapi_key = env.get("ENVIRONMENT_API_KEY")
         logger.info(
             "🔐 Authentication status for job %s:\n  SYNTH_API_KEY: %s\n  ENVIRONMENT_API_KEY: %s",
             job.job_id,
-            f"{synth_key[:8]}...{synth_key[-4:]}"
-            if synth_key and len(synth_key) > 12
+            f"{synth_user_key[:8]}...{synth_user_key[-4:]}"
+            if synth_user_key and len(synth_user_key) > 12
             else "(NOT SET)",
-            f"{env_key[:8]}...{env_key[-4:]}" if env_key and len(env_key) > 12 else "(NOT SET)",
+            f"{localapi_key[:8]}...{localapi_key[-4:]}"
+            if localapi_key and len(localapi_key) > 12
+            else "(NOT SET)",
         )
 
         logger.info(
@@ -1312,18 +1318,18 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
         # Get backend URL and API key for progress polling
         config = load_config()
         assert config is not None, "load_config() returned None"
-        backend_url = config.backend_url
-        assert isinstance(backend_url, str), (
-            f"config.backend_url must be str, got {type(backend_url).__name__}"
+        synth_base_url = config.synth_base_url
+        assert isinstance(synth_base_url, str), (
+            f"config.synth_base_url must be str, got {type(synth_base_url).__name__}"
         )
-        assert backend_url.startswith(("http://", "https://")), (
-            f"backend_url must start with http:// or https://, got {backend_url}"
+        assert synth_base_url.startswith(("http://", "https://")), (
+            f"synth_base_url must start with http:// or https://, got {synth_base_url}"
         )
 
         # Get API key from environment/user config - fail loudly if not found
         # This is needed for the poller thread, which runs in the worker process
         try:
-            api_key = _load_synth_api_key()
+            synth_user_key = _load_synth_user_key()
         except RuntimeError as e:
             logger.error(str(e))
             raise
@@ -1402,14 +1408,14 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
 
                         # Start progress poller now that we have backend_job_id
                         # API key should already be loaded and validated above
-                        if not api_key:
+                        if not synth_user_key:
                             raise RuntimeError(
                                 f"❌ SYNTH_API_KEY not available for job {job.job_id}. "
                                 "This should have been caught earlier - API key loading failed."
                             )
-                        elif not backend_url:
+                        elif not synth_base_url:
                             logger.warning(
-                                "⚠️  Cannot start progress poller for job %s: backend_url not configured. "
+                                "⚠️  Cannot start progress poller for job %s: synth_base_url not configured. "
                                 "Progress updates will not be available, but job will continue.",
                                 job.job_id,
                             )
@@ -1422,8 +1428,8 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                             )
 
                         if (
-                            api_key
-                            and backend_url
+                            synth_user_key
+                            and synth_base_url
                             and backend_job_id
                             and backend_job_id.startswith("pl_")
                         ):
@@ -1434,11 +1440,11 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                             assert isinstance(status_tracker, ExperimentStatusTracker), (
                                 f"status_tracker must be ExperimentStatusTracker, got {type(status_tracker).__name__}"
                             )
-                            assert isinstance(backend_url, str), (
-                                f"backend_url must be str, got {type(backend_url).__name__}"
+                            assert isinstance(synth_base_url, str), (
+                                f"synth_base_url must be str, got {type(synth_base_url).__name__}"
                             )
-                            assert isinstance(api_key, str), (
-                                f"api_key must be str, got {type(api_key).__name__}"
+                            assert isinstance(synth_user_key, str), (
+                                f"synth_user_key must be str, got {type(synth_user_key).__name__}"
                             )
                             assert poller_stop is not None, "poller_stop cannot be None"
 
@@ -1449,8 +1455,8 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                                     status_tracker,
                                     policy,
                                     environment,
-                                    backend_url,
-                                    api_key,
+                                    synth_base_url,
+                                    synth_user_key,
                                     poller_stop,
                                     job_start_time,  # Pass job start time for rollouts/min calculation
                                 ),
@@ -1897,15 +1903,15 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                 import requests
 
                 config = load_config()
-                backend_url = config.backend_url
+                synth_base_url = config.synth_base_url
                 try:
-                    api_key = _load_synth_api_key()
+                    synth_user_key = _load_synth_user_key()
                 except RuntimeError:
-                    api_key = None
+                    synth_user_key = None
 
-                if backend_url and api_key:
-                    url = f"{backend_url.rstrip('/')}/prompt-learning/online/jobs/{backend_job_id}"
-                    headers = {"Authorization": f"Bearer {api_key}"}
+                if synth_base_url and synth_user_key:
+                    url = synth_prompt_learning_job_url(backend_job_id, synth_base_url)
+                    headers = {"Authorization": f"Bearer {synth_user_key}"}
                     resp = requests.get(url, headers=headers, timeout=10.0)
 
                     if resp.status_code == 200:

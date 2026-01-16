@@ -8,7 +8,7 @@ import os
 import secrets
 from typing import Any
 
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_env_keys_url, synth_public_key_url
 from synth_ai.core.user_config import load_user_env, update_user_config
 
 ENVIRONMENT_API_KEY_NAME = "ENVIRONMENT_API_KEY"
@@ -33,39 +33,32 @@ def mint_environment_api_key() -> str:
     return secrets.token_hex(32)
 
 
-def _resolve_backend_base(backend_base: str | None) -> str:
-    backend = backend_base.rstrip("/") if backend_base else BACKEND_URL_BASE
-    if not backend.endswith("/api"):
-        backend = f"{backend}/api"
-    return backend
-
-
 def ensure_localapi_auth(
-    backend_base: str | None = None,
-    synth_api_key: str | None = None,
+    synth_user_key: str | None = None,
     *,
     upload: bool = True,
     persist: bool | None = None,
+    synth_base_url: str | None = None,
 ) -> str:
     """Ensure ENVIRONMENT_API_KEY is present and optionally registered."""
 
     load_user_env(override=False)
 
-    key = (os.environ.get(ENVIRONMENT_API_KEY_NAME) or "").strip()
-    if not key:
-        key = (os.environ.get(DEV_ENVIRONMENT_API_KEY_NAME) or "").strip()
-        if key:
-            os.environ[ENVIRONMENT_API_KEY_NAME] = key
+    localapi_key = (os.environ.get(ENVIRONMENT_API_KEY_NAME) or "").strip()
+    if not localapi_key:
+        localapi_key = (os.environ.get(DEV_ENVIRONMENT_API_KEY_NAME) or "").strip()
+        if localapi_key:
+            os.environ[ENVIRONMENT_API_KEY_NAME] = localapi_key
 
     minted = False
-    if not key:
-        key = mint_environment_api_key()
-        if not key:
+    if not localapi_key:
+        localapi_key = mint_environment_api_key()
+        if not localapi_key:
             raise RuntimeError("Failed to mint ENVIRONMENT_API_KEY")
-        os.environ[ENVIRONMENT_API_KEY_NAME] = key
+        os.environ[ENVIRONMENT_API_KEY_NAME] = localapi_key
         minted = True
 
-    os.environ.setdefault(DEV_ENVIRONMENT_API_KEY_NAME, key)
+    os.environ.setdefault(DEV_ENVIRONMENT_API_KEY_NAME, localapi_key)
 
     if persist is None:
         persist = os.environ.get("SYNTH_LOCALAPI_AUTH_PERSIST", "1") != "0"
@@ -73,35 +66,29 @@ def ensure_localapi_auth(
     if minted and persist:
         update_user_config(
             {
-                ENVIRONMENT_API_KEY_NAME: key,
-                DEV_ENVIRONMENT_API_KEY_NAME: key,
+                ENVIRONMENT_API_KEY_NAME: localapi_key,
+                DEV_ENVIRONMENT_API_KEY_NAME: localapi_key,
             }
         )
 
     if upload:
-        if synth_api_key is None:
-            synth_api_key = os.environ.get("SYNTH_API_KEY")
-        if synth_api_key:
-            # Skip upload if backend_base is None to avoid hitting production
-            # The key will still work locally without being uploaded
-            if backend_base is None:
-                logger = logging.getLogger(__name__)
-                logger.debug(
-                    "Skipping ENVIRONMENT_API_KEY upload: no backend_base provided "
-                    "(key will work locally without upload)"
+        if synth_user_key is None:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+        if synth_user_key:
+            try:
+                setup_environment_api_key(
+                    synth_user_key=synth_user_key,
+                    localapi_key=localapi_key,
+                    synth_base_url=synth_base_url,
                 )
-            else:
-                backend = _resolve_backend_base(backend_base)
-                try:
-                    setup_environment_api_key(backend, synth_api_key, token=key)
-                except Exception as exc:
-                    logger = logging.getLogger(__name__)
-                    logger.warning("Failed to upload ENVIRONMENT_API_KEY to %s: %s", backend, exc)
+            except Exception as exc:
+                logger = logging.getLogger(__name__)
+                logger.warning("Failed to upload ENVIRONMENT_API_KEY to backend: %s", exc)
 
-    if not key:
+    if not localapi_key:
         raise RuntimeError("ENVIRONMENT_API_KEY is required but missing")
 
-    return key
+    return localapi_key
 
 
 def encrypt_for_backend(pubkey_b64: str, secret: str | bytes) -> str:
@@ -134,27 +121,26 @@ def encrypt_for_backend(pubkey_b64: str, secret: str | bytes) -> str:
 
 
 def setup_environment_api_key(
-    backend_base: str,
-    synth_api_key: str,
-    token: str | None = None,
+    synth_user_key: str,
+    localapi_key: str | None = None,
     *,
     timeout: float = 15.0,
+    synth_base_url: str | None = None,
 ) -> dict[str, Any]:
     import requests
 
-    backend = backend_base.rstrip("/")
-    if backend.endswith("/api"):
-        backend = backend[:-4]
-    if not backend:
-        raise ValueError("backend_base must be provided")
-    if not synth_api_key:
-        raise ValueError("synth_api_key must be provided")
+    if not synth_user_key:
+        raise ValueError("synth_user_key must be provided")
 
-    plaintext = token if token is not None else os.getenv(ENVIRONMENT_API_KEY_NAME, "").strip()
+    plaintext = (
+        localapi_key
+        if localapi_key is not None
+        else os.getenv(ENVIRONMENT_API_KEY_NAME, "").strip()
+    )
     if not plaintext:
-        raise ValueError("ENVIRONMENT_API_KEY must be set (or pass token=...) to upload")
+        raise ValueError("ENVIRONMENT_API_KEY must be set (or pass localapi_key=...) to upload")
     if not isinstance(plaintext, str):
-        raise TypeError("token must be a string")
+        raise TypeError("localapi_key must be a string")
 
     token_bytes = plaintext.encode("utf-8")
     if not token_bytes:
@@ -162,8 +148,8 @@ def setup_environment_api_key(
     if len(token_bytes) > MAX_ENVIRONMENT_API_KEY_BYTES:
         raise ValueError("ENVIRONMENT_API_KEY token exceeds 8 KiB limit")
 
-    headers = {"Authorization": f"Bearer {synth_api_key}"}
-    pub_url = f"{backend}/api/v1/crypto/public-key"
+    headers = {"Authorization": f"Bearer {synth_user_key}"}
+    pub_url = synth_public_key_url(synth_base_url)
     response = requests.get(pub_url, headers=headers, timeout=timeout)
     _raise_with_detail(response)
 
@@ -186,7 +172,7 @@ def setup_environment_api_key(
     ciphertext_b64 = encrypt_for_backend(pubkey, token_bytes)
 
     body = {"name": ENVIRONMENT_API_KEY_NAME, "ciphertext_b64": ciphertext_b64}
-    post_url = f"{backend}/api/v1/env-keys"
+    post_url = synth_env_keys_url(synth_base_url)
 
     response2 = requests.post(
         post_url,

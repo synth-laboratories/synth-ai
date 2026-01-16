@@ -57,14 +57,14 @@ def stream_modal_cmd_output(
             url = match.group(0).rstrip(".,")
             if not url:
                 continue
-            os.environ["TASK_APP_URL"] = url
+            os.environ["SYNTH_LOCALAPI_URL"] = url
             try:
                 from synth_ai.core.user_config import update_user_config
 
-                update_user_config({"TASK_APP_URL": url})
+                update_user_config({"SYNTH_LOCALAPI_URL": url})
             except Exception:
                 pass
-            log_info("modal deploy URL detected", ctx={"task_app_url": url})
+            log_info("modal deploy URL detected", ctx={"localapi_url": url})
     return process.wait(), url
 
 
@@ -87,7 +87,7 @@ def run_modal_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.Popen:
 
 def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
     is_mcp = os.getenv("CTX") == "mcp"
-    os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
+    os.environ["ENVIRONMENT_API_KEY"] = cfg.localapi_key
     ctx: dict[str, object] = {
         "task_app_path": str(cfg.task_app_path),
         "modal_app_path": str(cfg.modal_app_path),
@@ -112,7 +112,7 @@ def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
         cmd.extend(["--name", cfg.modal_app_name])
     ctx["cmd"] = cmd
 
-    task_app_url: str | None = None
+    localapi_url: str | None = None
     try:
         if cfg.dry_run:
             print(f"deploy --runtime modal --dry-run → {shlex.join(cmd)}")
@@ -124,21 +124,21 @@ def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
         if wait:
             # Blocking mode: wait for process to complete
             if is_mcp:
-                rc, task_app_url = stream_modal_cmd_output(process, print_stdout=False)
+                rc, localapi_url = stream_modal_cmd_output(process, print_stdout=False)
                 if rc != 0:
                     raise subprocess.CalledProcessError(rc, cmd)
                 summary = f"[deploy_modal] modal {cfg.cmd_arg} completed"
-                if task_app_url:
-                    summary = f"{summary} → {task_app_url}"
+                if localapi_url:
+                    summary = f"{summary} → {localapi_url}"
                 return summary
             print(f"{'-' * 31} Modal start {'-' * 31}")
-            rc, task_app_url = stream_modal_cmd_output(process)
+            rc, localapi_url = stream_modal_cmd_output(process)
             if rc != 0:
                 raise subprocess.CalledProcessError(rc, cmd)
             print(f"{'-' * 32} Modal end {'-' * 32}")
-            if task_app_url:
-                print(f"Your task app is live on Modal at: {task_app_url}")
-            ctx["task_app_url"] = task_app_url
+            if localapi_url:
+                print(f"Your LocalAPI is live on Modal at: {localapi_url}")
+            ctx["localapi_url"] = localapi_url
             log_info("modal deploy completed", ctx=ctx)
         else:
             # Non-blocking mode: start process and return immediately
@@ -151,6 +151,6 @@ def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
             return f"[deploy_modal] modal {cfg.cmd_arg} started in background (PID: {process.pid})"
     except subprocess.CalledProcessError as err:
         ctx["exit_code"] = err.returncode
-        ctx["task_app_url"] = task_app_url
+        ctx["localapi_url"] = localapi_url
         log_error("modal deploy failed", ctx=ctx)
         raise RuntimeError(f"modal {cfg.cmd_arg} failed with exit code: {err.returncode}") from err

@@ -8,7 +8,7 @@ from synth_ai.core.agents.utils import write_agents_md
 from synth_ai.core.bin import install_bin, verify_bin
 from synth_ai.core.env import resolve_env_var
 from synth_ai.core.paths import get_bin_path
-from synth_ai.core.urls import BACKEND_URL_BASE, BACKEND_URL_SYNTH_RESEARCH_OPENAI
+from synth_ai.core.urls import synth_research_openai_base
 from synth_ai.data.enums import SYNTH_MODEL_NAMES
 
 try:
@@ -54,7 +54,7 @@ def _load_session_config(config_path=None):
         return {"limit_cost_usd": 20.0}
 
 
-def _create_session(base_url, api_key, session_config, session_type="codex_agent"):
+def _create_session(synth_base_url, synth_user_key, session_config, session_type="codex_agent"):
     """Create agent session with limits."""
     import asyncio
 
@@ -65,7 +65,7 @@ def _create_session(base_url, api_key, session_config, session_type="codex_agent
     session_limit_gpu_hours = session_config.get("limit_gpu_hours")
 
     async def create():
-        client = AgentSessionClient(f"{base_url}/api", api_key)
+        client = AgentSessionClient(synth_user_key=synth_user_key, synth_base_url=synth_base_url)
         limits = []
         if session_limit_tokens:
             limits.append(
@@ -103,20 +103,26 @@ def _create_session(base_url, api_key, session_config, session_type="codex_agent
     return asyncio.run(create())
 
 
-def _end_session(base_url, api_key, session_id):
+def _end_session(synth_base_url, synth_user_key, session_id):
     """End agent session."""
     import asyncio
 
     from synth_ai.sdk.session import AgentSessionClient
 
     async def end():
-        client = AgentSessionClient(f"{base_url}/api", api_key)
+        client = AgentSessionClient(synth_user_key=synth_user_key, synth_base_url=synth_base_url)
         await client.end(session_id)
 
     asyncio.run(end())
 
 
-def run_codex(model_name=None, force=False, override_url=None, wire_api=None, config_path=None):
+def run_codex(
+    model_name=None,
+    force=False,
+    wire_api=None,
+    config_path=None,
+    synth_base_url=None,
+):
     """Launch Codex with optional Synth backend routing."""
     while True:
         bin_path = get_bin_path("codex")
@@ -141,18 +147,13 @@ def run_codex(model_name=None, force=False, override_url=None, wire_api=None, co
     session_limit_tokens = session_config.get("limit_tokens")
     session_limit_gpu_hours = session_config.get("limit_gpu_hours")
 
-    api_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
-    if override_url:
-        base_url = override_url.rstrip("/")
-        if base_url.endswith("/api"):
-            base_url = base_url[:-4]
-    else:
-        base_url = BACKEND_URL_BASE
+    synth_user_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
+    base_url = synth_base_url
 
     session_id = None
     if session_limit_tokens or session_limit_cost or session_limit_gpu_hours:
         try:
-            session_id = _create_session(base_url, api_key, session_config, "codex_agent")
+            session_id = _create_session(base_url, synth_user_key, session_config, "codex_agent")
             env["SYNTH_SESSION_ID"] = session_id
             print(f"Created agent session: {session_id}")
             print("  Note: Set X-Session-ID header in Codex config to use this session")
@@ -169,11 +170,7 @@ def run_codex(model_name=None, force=False, override_url=None, wire_api=None, co
     if model_name is not None:
         if model_name not in SYNTH_MODEL_NAMES:
             raise ValueError(f"model_name={model_name} is invalid. Valid: {SYNTH_MODEL_NAMES}")
-        if override_url:
-            url = override_url
-            print("Using override URL:", url)
-        else:
-            url = BACKEND_URL_SYNTH_RESEARCH_OPENAI
+        url = synth_research_openai_base(synth_base_url)
 
         if wire_api is None:
             wire_api = "responses" if "/responses" in url or url.endswith("/responses") else "chat"
@@ -208,7 +205,7 @@ def run_codex(model_name=None, force=False, override_url=None, wire_api=None, co
     finally:
         if session_id is not None:
             try:
-                _end_session(base_url, api_key, session_id)
+                _end_session(base_url, synth_user_key, session_id)
                 print(f"Ended agent session: {session_id}")
             except Exception as e:
                 print(f"Warning: Failed to end agent session: {e}")

@@ -1,4 +1,4 @@
-"""In-process task app support for local development and demos."""
+"""In-process LocalAPI support for local development and demos."""
 
 import asyncio
 import logging
@@ -178,7 +178,7 @@ async def _resolve_via_public_dns(hostname: str, timeout: float = 5.0) -> Option
 
 async def _verify_tunnel_ready(
     tunnel_url: str,
-    api_key: str,
+    localapi_key: str,
     *,
     max_retries: int | None = None,
     retry_delay: float | None = None,
@@ -217,14 +217,14 @@ async def _verify_tunnel_ready(
     hostname = parsed.netloc
 
     headers = {
-        "X-API-Key": api_key,
-        "Authorization": f"Bearer {api_key}",
+        "X-API-Key": localapi_key,
+        "Authorization": f"Bearer {localapi_key}",
         "Host": hostname,  # Always set Host header for IP-based requests
     }
     aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
     if aliases:
         headers["X-API-Keys"] = ",".join(
-            [api_key, *[p.strip() for p in aliases.split(",") if p.strip()]]
+            [localapi_key, *[p.strip() for p in aliases.split(",") if p.strip()]]
         )
 
     logger.info(
@@ -266,9 +266,9 @@ async def _verify_tunnel_ready(
                             "--resolve",
                             f"{hostname}:443:{_resolved_ip}",
                             "-H",
-                            f"X-API-Key: {api_key}",
+                            f"X-API-Key: {localapi_key}",
                             "-H",
-                            f"Authorization: Bearer {api_key}",
+                            f"Authorization: Bearer {localapi_key}",
                             f"https://{hostname}{path}",
                         ]
                         result = await _loop.run_in_executor(
@@ -303,7 +303,7 @@ async def _verify_tunnel_ready(
                 )
             else:
                 # Fall back to hostname-based request (local DNS)
-                base = tunnel_url.rstrip("/")
+                base = tunnel_url
                 async with httpx.AsyncClient(
                     timeout=timeout_per_request, verify=verify_tls
                 ) as client:
@@ -351,7 +351,7 @@ async def _verify_tunnel_ready(
 
 async def _verify_preconfigured_url_ready(
     tunnel_url: str,
-    api_key: str,
+    localapi_key: str,
     *,
     extra_headers: Optional[dict[str, str]] = None,
     max_retries: int = 10,
@@ -366,7 +366,7 @@ async def _verify_preconfigured_url_ready(
 
     Args:
         tunnel_url: The external tunnel URL to verify
-        api_key: API key for task app authentication
+        localapi_key: API key for LocalAPI authentication
         extra_headers: Additional headers for the tunnel (e.g., auth tokens)
         max_retries: Number of retry attempts
         retry_delay: Delay between retries in seconds
@@ -375,10 +375,10 @@ async def _verify_preconfigured_url_ready(
     Returns:
         True if tunnel is accessible, False otherwise
     """
-    base = tunnel_url.rstrip("/")
+    base = tunnel_url
     headers = {
-        "X-API-Key": api_key,
-        "Authorization": f"Bearer {api_key}",
+        "X-API-Key": localapi_key,
+        "Authorization": f"Bearer {localapi_key}",
     }
 
     # Add any extra headers (e.g., custom auth tokens)
@@ -422,31 +422,29 @@ async def _verify_preconfigured_url_ready(
 
 
 class InProcessTaskApp:
-    """Context manager for running Local APIs in-process with automatic tunneling.
+    """Context manager for running LocalAPI instances in-process with automatic tunneling.
 
     This class simplifies local development and demos by:
-    1. Starting a Local API server in a background thread
+    1. Starting a LocalAPI server in a background thread
     2. Opening a tunnel automatically (Cloudflare by default, or use preconfigured URL)
     3. Providing the tunnel URL for GEPA/RL jobs
     4. Cleaning up everything on exit
-
-    (Alias: also known as "task app" in older documentation)
 
     Supports multiple input methods:
     - FastAPI app instance (most direct)
     - TaskAppConfig object
     - Config factory function (Callable[[], TaskAppConfig])
-    - Local API file path (fallback for compatibility)
+    - LocalAPI file path (fallback for compatibility)
 
     Tunnel modes:
     - "quick": Cloudflare quick tunnel (default for local dev)
     - "named": Cloudflare named/managed tunnel
     - "local": No tunnel, use localhost URL directly
     - "preconfigured": Use externally-provided URL (set via preconfigured_url param or
-      SYNTH_TASK_APP_URL env var). Useful for ngrok or other external tunnel providers.
+      SYNTH_LOCALAPI_URL env var). Useful for ngrok or other external tunnel providers.
 
     Attributes:
-        url: The public URL of the running Local API (tunnel URL or localhost).
+        url: The public URL of the running LocalAPI (tunnel URL or localhost).
             Available after entering the context manager.
         local_url: The local URL (http://host:port) where the server is running.
         port: The actual port the server is bound to (may differ from requested
@@ -465,7 +463,7 @@ class InProcessTaskApp:
             config_factory=build_config,
             port=8114,
         ) as task_app:
-            print(f"Local API running at: {task_app.url}")
+            print(f"LocalAPI running at: {task_app.url}")
 
         # Use preconfigured URL (e.g., from ngrok, localtunnel, etc.)
         async with InProcessTaskApp(
@@ -474,7 +472,7 @@ class InProcessTaskApp:
             tunnel_mode="preconfigured",
             preconfigured_url="https://abc123.ngrok.io",
         ) as task_app:
-            print(f"Local API running at: {task_app.url}")
+            print(f"LocalAPI running at: {task_app.url}")
         ```
     """
 
@@ -491,7 +489,7 @@ class InProcessTaskApp:
         preconfigured_url: Optional[str] = None,
         preconfigured_auth_header: Optional[str] = None,
         preconfigured_auth_token: Optional[str] = None,
-        api_key: Optional[str] = None,
+        localapi_key: Optional[str] = None,
         health_check_timeout: float = 30.0,
         auto_find_port: bool = True,
         skip_tunnel_verification: bool = True,  # Default True - verification is unreliable
@@ -499,30 +497,30 @@ class InProcessTaskApp:
         on_start: Optional[Callable[["InProcessTaskApp"], None]] = None,
         on_stop: Optional[Callable[["InProcessTaskApp"], None]] = None,
     ):
-        """Initialize in-process Local API.
+        """Initialize in-process LocalAPI.
 
         Args:
             app: FastAPI app instance (most direct)
             config: TaskAppConfig object
             config_factory: Callable that returns TaskAppConfig
-            task_app_path: Path to Local API .py file (fallback, alias: task app)
+            task_app_path: Path to LocalAPI .py file (fallback for compatibility)
             port: Local port to run server on
             host: Host to bind to (default: 127.0.0.1, use 0.0.0.0 for external access)
             tunnel_mode: Tunnel mode - "quick", "named", "local", or "preconfigured"
             preconfigured_url: External tunnel URL to use when tunnel_mode="preconfigured".
-                              Can also be set via SYNTH_TASK_APP_URL env var.
+                              Can also be set via SYNTH_LOCALAPI_URL env var.
             preconfigured_auth_header: Optional auth header name for preconfigured URL
                                        (e.g., "x-custom-auth-token")
             preconfigured_auth_token: Optional auth token value for preconfigured URL
-            api_key: API key for health checks (defaults to ENVIRONMENT_API_KEY env var)
+            localapi_key: API key for health checks (defaults to ENVIRONMENT_API_KEY env var)
             health_check_timeout: Max time to wait for health check in seconds
             auto_find_port: If True, automatically find available port if requested port is busy
             skip_tunnel_verification: If True, skip HTTP verification of tunnel connectivity.
                                       Useful when the tunnel URL is known to be valid.
             force_new_tunnel: If True, create a fresh tunnel instead of reusing existing one.
                              Use this when an existing managed tunnel is stale/broken.
-            on_start: Optional callback called when task app starts (receives self)
-            on_stop: Optional callback called when task app stops (receives self)
+            on_start: Optional callback called when LocalAPI starts (receives self)
+            on_stop: Optional callback called when LocalAPI stops (receives self)
 
         Raises:
             ValueError: If multiple or no input methods provided, or invalid parameters
@@ -570,7 +568,7 @@ class InProcessTaskApp:
         self.preconfigured_url = preconfigured_url
         self.preconfigured_auth_header = preconfigured_auth_header
         self.preconfigured_auth_token = preconfigured_auth_token
-        self.api_key = api_key
+        self.localapi_key = localapi_key
         self.health_check_timeout = health_check_timeout
         self.auto_find_port = auto_find_port
         self.skip_tunnel_verification = skip_tunnel_verification
@@ -588,19 +586,19 @@ class InProcessTaskApp:
         self._dns_verified_by_backend = False  # Track if backend verified DNS propagation
 
     async def __aenter__(self) -> "InProcessTaskApp":
-        """Start task app and tunnel."""
+        """Start LocalAPI and tunnel."""
 
         # For named tunnels, pre-fetch tunnel config to get the correct port
         # (existing tunnels are configured for a specific port)
         mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
         if mode == "named":
             try:
-                from synth_ai.core.env import get_api_key as get_synth_api_key
+                from synth_ai.core.env import get_api_key as get_synth_user_key
 
-                synth_api_key = get_synth_api_key()
-                if synth_api_key is None:
+                synth_user_key = get_synth_user_key()
+                if synth_user_key is None:
                     raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
-                tunnel_config = await self._fetch_tunnel_config(synth_api_key)
+                tunnel_config = await self._fetch_tunnel_config(synth_user_key)
                 tunnel_port = tunnel_config.get("local_port")
                 if tunnel_config.get("hostname") and tunnel_port and tunnel_port != self.port:
                     logger.info(
@@ -616,7 +614,7 @@ class InProcessTaskApp:
         else:
             self._prefetched_tunnel_config = None
 
-        logger.debug(f"Starting in-process task app on {self.host}:{self.port}")
+        logger.debug(f"Starting in-process LocalAPI on {self.host}:{self.port}")
 
         # For named tunnels, the port is baked into the tunnel config - we MUST use it
         tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
@@ -737,10 +735,10 @@ class InProcessTaskApp:
         self._server_thread.start()
 
         # 3. Wait for health check
-        api_key = self.api_key or self._get_api_key()
+        localapi_key = self.localapi_key or self._get_localapi_key()
         logger.debug(f"Waiting for health check on {self.host}:{self.port}")
         await wait_for_health_check(
-            self.host, self.port, api_key, timeout=self.health_check_timeout
+            self.host, self.port, localapi_key, timeout=self.health_check_timeout
         )
         logger.debug(f"Health check passed for {self.host}:{self.port}")
 
@@ -748,11 +746,11 @@ class InProcessTaskApp:
         mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
 
         # Check for preconfigured URL via env var
-        env_preconfigured_url = os.getenv("SYNTH_TASK_APP_URL")
+        env_preconfigured_url = os.getenv("SYNTH_LOCALAPI_URL")
         if env_preconfigured_url:
             mode = "preconfigured"
             self.preconfigured_url = env_preconfigured_url
-            logger.info(f"Using preconfigured URL from SYNTH_TASK_APP_URL: {env_preconfigured_url}")
+            logger.info(f"Using preconfigured URL from SYNTH_LOCALAPI_URL: {env_preconfigured_url}")
 
         override_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
 
@@ -762,17 +760,17 @@ class InProcessTaskApp:
             if not self.preconfigured_url:
                 raise ValueError(
                     "tunnel_mode='preconfigured' requires preconfigured_url parameter "
-                    "or SYNTH_TASK_APP_URL environment variable"
+                    "or SYNTH_LOCALAPI_URL environment variable"
                 )
 
-            self.url = self.preconfigured_url.rstrip("/")
+            self.url = self.preconfigured_url
             self._tunnel_proc = None
             self._is_preconfigured = True
             logger.info(f"Using preconfigured tunnel URL: {self.url}")
 
             # Optionally verify the preconfigured URL is accessible
             if not self.skip_tunnel_verification:
-                api_key = self.api_key or self._get_api_key()
+                localapi_key = self.localapi_key or self._get_localapi_key()
 
                 # Build headers including any custom auth for the tunnel
                 extra_headers: dict[str, str] = {}
@@ -781,7 +779,7 @@ class InProcessTaskApp:
 
                 ready = await _verify_preconfigured_url_ready(
                     self.url,
-                    api_key,
+                    localapi_key,
                     extra_headers=extra_headers,
                     max_retries=10,  # Fewer retries - external URL should work quickly
                     retry_delay=1.0,
@@ -807,20 +805,20 @@ class InProcessTaskApp:
             ensure_cloudflared_installed()
 
             # For tunnel config, we need the SYNTH_API_KEY (not ENVIRONMENT_API_KEY)
-            from synth_ai.core.env import get_api_key as get_synth_api_key
+            from synth_ai.core.env import get_api_key as get_synth_user_key
 
-            synth_api_key = get_synth_api_key()
-            if synth_api_key is None:
+            synth_user_key = get_synth_user_key()
+            if synth_user_key is None:
                 raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
 
-            # For task app auth, use the environment API key
-            api_key = self.api_key or self._get_api_key()
+            # For LocalAPI auth, use the environment API key
+            localapi_key = self.localapi_key or self._get_localapi_key()
 
             # Use pre-fetched config (port was already adjusted before server started)
             tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
             if not tunnel_config:
                 # Fetch if not pre-fetched (shouldn't happen normally)
-                tunnel_config = await self._fetch_tunnel_config(synth_api_key)
+                tunnel_config = await self._fetch_tunnel_config(synth_user_key)
 
             named_host = tunnel_config.get("hostname")
             tunnel_token = tunnel_config.get("tunnel_token")
@@ -834,7 +832,7 @@ class InProcessTaskApp:
                 logger.info("force_new_tunnel=True, rotating tunnel (delete+create)")
                 try:
                     rotated = await rotate_tunnel(
-                        synth_api_key=synth_api_key,
+                        synth_user_key=synth_user_key,
                         port=self.port,
                         reason="force_new_tunnel=True",
                     )
@@ -865,7 +863,7 @@ class InProcessTaskApp:
                     # Generate subdomain from port or use default
                     subdomain = f"task-app-{self.port}"
                     new_tunnel = await create_tunnel(
-                        synth_api_key=synth_api_key,
+                        synth_user_key=synth_user_key,
                         port=self.port,
                         subdomain=subdomain,
                     )
@@ -905,7 +903,7 @@ class InProcessTaskApp:
             # First, check if cloudflared is already running (tunnel might be accessible)
             ready = await _verify_tunnel_ready(
                 self.url,
-                api_key,
+                localapi_key,
                 max_retries=1,  # Single quick check
                 retry_delay=0.5,
                 verify_tls=_should_verify_tls(),
@@ -939,7 +937,7 @@ class InProcessTaskApp:
                 print("[CLOUDFLARE] Waiting for tunnel to become accessible...")
                 ready = await _verify_tunnel_ready(
                     self.url,
-                    api_key,
+                    localapi_key,
                     max_retries=15,  # Up to ~30 seconds for tunnel to connect
                     retry_delay=2.0,
                     verify_tls=_should_verify_tls(),
@@ -957,7 +955,7 @@ class InProcessTaskApp:
 
                     try:
                         rotated = await rotate_tunnel(
-                            synth_api_key=synth_api_key,
+                            synth_user_key=synth_user_key,
                             port=self.port,
                             reason=f"Tunnel {named_host} failed to connect",
                         )
@@ -979,7 +977,7 @@ class InProcessTaskApp:
                         # Verify the new tunnel
                         ready = await _verify_tunnel_ready(
                             self.url,
-                            api_key,
+                            localapi_key,
                             max_retries=15,
                             retry_delay=2.0,
                             verify_tls=_should_verify_tls(),
@@ -1010,7 +1008,7 @@ class InProcessTaskApp:
             # Cloudflare quick tunnels can be flaky - retry with fresh tunnels if needed
             ensure_cloudflared_installed()
 
-            api_key = self.api_key or self._get_api_key()
+            localapi_key = self.localapi_key or self._get_localapi_key()
             max_tunnel_attempts = int(os.getenv("SYNTH_TUNNEL_MAX_ATTEMPTS", "3"))
 
             for tunnel_attempt in range(max_tunnel_attempts):
@@ -1030,7 +1028,7 @@ class InProcessTaskApp:
                 logger.info("Opening Cloudflare quick tunnel...")
                 try:
                     self.url, self._tunnel_proc = await open_quick_tunnel_with_dns_verification(
-                        self.port, api_key=api_key
+                        self.port, localapi_key=localapi_key
                     )
                 except Exception as e:
                     logger.warning(f"Tunnel creation failed: {e}")
@@ -1049,7 +1047,7 @@ class InProcessTaskApp:
                 # Extra guard: wait for tunnel HTTP routing to become ready (not just DNS)
                 ready = await _verify_tunnel_ready(
                     self.url,
-                    api_key,
+                    localapi_key,
                     verify_tls=_should_verify_tls(),
                 )
                 if ready:
@@ -1085,7 +1083,7 @@ class InProcessTaskApp:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Stop tunnel and server."""
-        logger.info("Stopping in-process task app...")
+        logger.info("Stopping in-process LocalAPI...")
 
         # Unregister from signal handling
         _registered_instances.discard(self)
@@ -1122,8 +1120,8 @@ class InProcessTaskApp:
             self._server_thread = None
             self._uvicorn_server = None
 
-    def _get_api_key(self) -> str:
-        """Get API key from environment or default."""
+    def _get_localapi_key(self) -> str:
+        """Get LocalAPI key from environment or default."""
         import os
 
         try:
@@ -1135,7 +1133,7 @@ class InProcessTaskApp:
 
         return os.getenv("ENVIRONMENT_API_KEY", "test")
 
-    async def _fetch_tunnel_config(self, api_key: str) -> dict:
+    async def _fetch_tunnel_config(self, synth_user_key: str) -> dict:
         """Fetch the customer's tunnel configuration from the backend.
 
         Uses the existing /api/v1/tunnels/tunnel endpoint to get the customer's
@@ -1147,18 +1145,17 @@ class InProcessTaskApp:
             - local_port: The local port the tunnel routes to
             - local_host: The local host the tunnel routes to
         """
-        from synth_ai.core.urls import BACKEND_URL_BASE
+        from synth_ai.core.urls import synth_tunnels_url
 
-        backend_url = BACKEND_URL_BASE
-        url = f"{backend_url}/api/v1/tunnels/"
+        url = synth_tunnels_url()
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
                 resp = await client.get(
                     url,
                     headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "X-API-Key": api_key,
+                        "Authorization": f"Bearer {synth_user_key}",
+                        "X-API-Key": synth_user_key,
                     },
                 )
 

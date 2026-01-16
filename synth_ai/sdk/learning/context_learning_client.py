@@ -6,11 +6,11 @@ for terminal/coding agents. This is "prompt optimization" for terminal agents.
 Example usage:
     from synth_ai.sdk.learning import ContextLearningClient, ContextLearningJobConfig
 
-    client = ContextLearningClient("http://localhost:8000", "your-api-key")
+    client = ContextLearningClient("http://localhost:8000", "your-synth-user-key")
 
     # Create a job from config
     config = ContextLearningJobConfig.from_dict({
-        "task_app_url": "http://localhost:8102",
+        "localapi_url": "http://localhost:8102",
         "evaluation_seeds": [0, 1, 2, 3, 4],
         "environment": {
             "preflight_script": "#!/bin/bash\\necho 'Setting up...'",
@@ -37,6 +37,16 @@ import contextlib
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from synth_ai.core.http import AsyncHttpClient
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_context_learning_best_script_url,
+    synth_context_learning_cancel_url,
+    synth_context_learning_events_url,
+    synth_context_learning_job_url,
+    synth_context_learning_jobs_url,
+    synth_context_learning_metrics_url,
+    synth_context_learning_start_url,
+)
 
 from .context_learning_types import (
     BestScriptResult,
@@ -73,22 +83,30 @@ class ContextLearningClient:
     - Retrieving best scripts and results
 
     Example:
-        >>> client = ContextLearningClient("http://localhost:8000", "your-api-key")
+        >>> client = ContextLearningClient("http://localhost:8000", "your-synth-user-key")
         >>> job_id = await client.create_job(config)
         >>> status = await client.get_job(job_id)
         >>> print(status.status)  # "running"
     """
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 60.0) -> None:
+    def __init__(
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 60.0,
+        synth_base_url: str | None = None,
+    ) -> None:
         """Initialize the context learning client.
 
         Args:
-            base_url: Base URL of the backend API (e.g., "http://localhost:8000")
-            api_key: API key for authentication
+            synth_user_key: API key for authentication
             timeout: Request timeout in seconds (default: 60s for long operations)
+            synth_base_url: Backend URL override (defaults to SYNTH_BACKEND_URL or production)
         """
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
 
     # -------------------------------------------------------------------------
@@ -115,8 +133,12 @@ class ContextLearningClient:
 
         payload = config.to_dict()
 
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            result = await http.post_json("/api/context-learning/jobs", json=payload)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            result = await http.post_json(
+                synth_context_learning_jobs_url(self._synth_base_url), json=payload
+            )
 
         job_id = result.get("job_id")
         if not job_id:
@@ -137,8 +159,10 @@ class ContextLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            result = await http.get(f"/api/context-learning/jobs/{job_id}")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            result = await http.get(synth_context_learning_job_url(job_id, self._synth_base_url))
         return ContextLearningJobStatus.from_dict(result)
 
     async def list_jobs(self, *, limit: int = 50) -> List[ContextLearningJobStatus]:
@@ -150,8 +174,12 @@ class ContextLearningClient:
         Returns:
             List of job statuses, sorted by created_at descending
         """
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            result = await http.get("/api/context-learning/jobs", params={"limit": limit})
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            result = await http.get(
+                synth_context_learning_jobs_url(self._synth_base_url), params={"limit": limit}
+            )
 
         if isinstance(result, list):
             return [ContextLearningJobStatus.from_dict(j) for j in result]
@@ -171,8 +199,12 @@ class ContextLearningClient:
             RuntimeError: If job cannot be started
         """
         _validate_job_id(job_id)
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            result = await http.post_json(f"/api/context-learning/jobs/{job_id}/start", json={})
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            result = await http.post_json(
+                synth_context_learning_start_url(job_id, self._synth_base_url), json={}
+            )
         return ContextLearningJobStatus.from_dict(result)
 
     async def cancel_job(self, job_id: str) -> ContextLearningJobStatus:
@@ -189,8 +221,12 @@ class ContextLearningClient:
             RuntimeError: If job cannot be cancelled
         """
         _validate_job_id(job_id)
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            result = await http.post_json(f"/api/context-learning/jobs/{job_id}/cancel", json={})
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            result = await http.post_json(
+                synth_context_learning_cancel_url(job_id, self._synth_base_url), json={}
+            )
         return ContextLearningJobStatus.from_dict(result)
 
     # -------------------------------------------------------------------------
@@ -211,9 +247,11 @@ class ContextLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
             result = await http.get(
-                f"/api/context-learning/jobs/{job_id}/events",
+                synth_context_learning_events_url(job_id, self._synth_base_url),
                 params={"limit": limit},
             )
 
@@ -242,9 +280,11 @@ class ContextLearningClient:
         if name:
             params["name"] = name
 
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
             result = await http.get(
-                f"/api/context-learning/jobs/{job_id}/metrics",
+                synth_context_learning_metrics_url(job_id, self._synth_base_url),
                 params=params,
             )
 
@@ -324,8 +364,12 @@ class ContextLearningClient:
             RuntimeError: If job is not completed or no best script available
         """
         _validate_job_id(job_id)
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            result = await http.get(f"/api/context-learning/jobs/{job_id}/best-script")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            result = await http.get(
+                synth_context_learning_best_script_url(job_id, self._synth_base_url)
+            )
         return BestScriptResult.from_dict(result)
 
     async def get_results(self, job_id: str) -> ContextLearningResults:
@@ -411,7 +455,7 @@ class ContextLearningClient:
 
         Example:
             >>> config = ContextLearningJobConfig.from_dict({
-            ...     "task_app_url": "http://localhost:8102",
+            ...     "localapi_url": "http://localhost:8102",
             ...     "evaluation_seeds": [0, 1, 2],
             ... })
             >>> results = await client.run_job(config)
@@ -436,65 +480,65 @@ class ContextLearningClient:
 
 def create_job(
     config: ContextLearningJobConfig | Dict[str, Any],
-    base_url: str,
-    api_key: str,
+    base_url: str | None = None,
+    synth_user_key: str | None = None,
 ) -> str:
     """Synchronous wrapper to create a context learning job.
 
     Args:
         config: Job configuration
         base_url: Backend API base URL
-        api_key: API key for authentication
+        synth_user_key: API key for authentication
 
     Returns:
         Job ID
     """
-    client = ContextLearningClient(base_url, api_key)
+    client = ContextLearningClient(base_url, synth_user_key)
     return asyncio.run(client.create_job(config))
 
 
 def get_job_status(
     job_id: str,
-    base_url: str,
-    api_key: str,
+    base_url: str | None = None,
+    synth_user_key: str | None = None,
 ) -> ContextLearningJobStatus:
     """Synchronous wrapper to get job status.
 
     Args:
         job_id: Job ID
         base_url: Backend API base URL
-        api_key: API key for authentication
+        synth_user_key: API key for authentication
 
     Returns:
         Job status
     """
-    client = ContextLearningClient(base_url, api_key)
+    client = ContextLearningClient(base_url, synth_user_key)
     return asyncio.run(client.get_job(job_id))
 
 
 def get_best_script(
     job_id: str,
-    base_url: str,
-    api_key: str,
+    base_url: str | None = None,
+    synth_user_key: str | None = None,
 ) -> BestScriptResult:
     """Synchronous wrapper to get best script.
 
     Args:
         job_id: Job ID
         base_url: Backend API base URL
-        api_key: API key for authentication
+        synth_user_key: API key for authentication
 
     Returns:
         Best script result
     """
-    client = ContextLearningClient(base_url, api_key)
+    client = ContextLearningClient(base_url, synth_user_key)
     return asyncio.run(client.get_best_script(job_id))
 
 
 def run_job(
     config: ContextLearningJobConfig | Dict[str, Any],
-    base_url: str,
-    api_key: str,
+    base_url: str | None = None,
+    synth_user_key: str | None = None,
     *,
     poll_interval: float = 5.0,
     timeout: Optional[float] = None,
@@ -505,7 +549,7 @@ def run_job(
     Args:
         config: Job configuration
         base_url: Backend API base URL
-        api_key: API key for authentication
+        synth_user_key: API key for authentication
         poll_interval: Seconds between status checks
         timeout: Maximum seconds to wait
         on_event: Optional callback for each event
@@ -513,7 +557,7 @@ def run_job(
     Returns:
         Complete results
     """
-    client = ContextLearningClient(base_url, api_key)
+    client = ContextLearningClient(base_url, synth_user_key)
     return asyncio.run(
         client.run_job(
             config,

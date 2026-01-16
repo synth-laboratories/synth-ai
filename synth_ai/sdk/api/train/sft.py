@@ -17,8 +17,6 @@ Example SDK usage:
     print(f"Fine-tuned model: {result['fine_tuned_model']}")
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 from dataclasses import dataclass
@@ -26,7 +24,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from synth_ai.core.telemetry import log_info
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import synth_api_base, synth_files_url, synth_learning_jobs_url
 
 from .builders import SFTBuildResult, build_sft_payload
 from .pollers import SFTJobPoller
@@ -38,20 +36,18 @@ class SFTJobConfig:
     """Configuration for an SFT job."""
 
     config_path: Path
-    backend_url: str
-    api_key: str
+    synth_user_key: str
     dataset_override: Optional[Path] = None
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
+    synth_base_url: str | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration."""
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
-        if not self.backend_url:
-            raise ValueError("backend_url is required")
-        if not self.api_key:
-            raise ValueError("api_key is required")
+        if not self.synth_user_key:
+            raise ValueError("synth_user_key is required")
 
 
 class SFTJob:
@@ -68,8 +64,8 @@ class SFTJob:
         >>> # Create job from config
         >>> job = SFTJob.from_config(
         ...     config_path="my_config.toml",
-        ...     backend_url="https://api.usesynth.ai",
-        ...     api_key=os.environ["SYNTH_API_KEY"]
+        ...     synth_base_url="https://api.usesynth.ai",
+        ...     synth_user_key=os.environ["SYNTH_API_KEY"]
         ... )
         >>>
         >>> # Submit job
@@ -102,18 +98,18 @@ class SFTJob:
     def from_config(
         cls,
         config_path: str | Path,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
         dataset_override: Optional[str | Path] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
-    ) -> SFTJob:
+        synth_base_url: Optional[str] = None,
+    ) -> "SFTJob":
         """Create a job from a TOML config file.
 
         Args:
             config_path: Path to TOML config file
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
+            synth_base_url: Backend API URL (defaults to env or production)
+            synth_user_key: Synth API key (defaults to SYNTH_API_KEY env var)
             dataset_override: Override dataset path from config
             allow_experimental: Allow experimental models
             overrides: Config overrides
@@ -127,21 +123,18 @@ class SFTJob:
         """
         config_path_obj = Path(config_path)
 
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         config = SFTJobConfig(
             config_path=config_path_obj,
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
             dataset_override=Path(dataset_override) if dataset_override else None,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
@@ -153,35 +146,32 @@ class SFTJob:
     def from_job_id(
         cls,
         job_id: str,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-    ) -> SFTJob:
+        synth_user_key: Optional[str] = None,
+        synth_base_url: Optional[str] = None,
+    ) -> "SFTJob":
         """Resume an existing job by ID.
 
         Args:
             job_id: Existing job ID
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
+            synth_base_url: Backend API URL (defaults to env or production)
+            synth_user_key: Synth API key (defaults to SYNTH_API_KEY env var)
 
         Returns:
             SFTJob instance for the existing job
         """
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         # Create minimal config (we don't need the config file for resuming)
         config = SFTJobConfig(
             config_path=Path("/dev/null"),  # Dummy path
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
         )
 
         return cls(config, job_id=job_id)
@@ -224,10 +214,10 @@ class SFTJob:
             validate_sft_jsonl(build.validation_file)
 
         # Upload training file
-        upload_url = f"{self.config.backend_url.rstrip('/')}/files"
+        upload_url = synth_files_url(self.config.synth_base_url)
         resp = post_multipart(
             upload_url,
-            api_key=self.config.api_key,
+            synth_user_key=self.config.synth_user_key,
             file_field="file",
             file_path=build.train_file,
         )
@@ -249,7 +239,7 @@ class SFTJob:
         if build.validation_file:
             vresp = post_multipart(
                 upload_url,
-                api_key=self.config.api_key,
+                synth_user_key=self.config.synth_user_key,
                 file_field="file",
                 file_path=build.validation_file,
             )
@@ -270,9 +260,9 @@ class SFTJob:
             )["validation_files"] = [self._val_file_id]
 
         # Submit job
-        create_url = f"{self.config.backend_url.rstrip('/')}/learning/jobs"
+        create_url = synth_learning_jobs_url(self.config.synth_base_url)
         headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
+            "Authorization": f"Bearer {self.config.synth_user_key}",
             "Content-Type": "application/json",
         }
 
@@ -318,9 +308,9 @@ class SFTJob:
 
         async def _fetch() -> Dict[str, Any]:
             client = LearningClient(
-                self.config.backend_url,
-                self.config.api_key,
+                synth_user_key=self.config.synth_user_key,
                 timeout=30.0,
+                synth_base_url=self.config.synth_base_url,
             )
             result = await client.get_job(self._job_id)  # type: ignore[arg-type]  # We check None above
             return dict(result) if isinstance(result, dict) else {}
@@ -352,8 +342,8 @@ class SFTJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
         poller = SFTJobPoller(
-            base_url=self.config.backend_url,
-            api_key=self.config.api_key,
+            base_url=synth_api_base(self.config.synth_base_url),
+            synth_user_key=self.config.synth_user_key,
             interval=interval,
             timeout=timeout,
         )

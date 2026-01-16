@@ -10,7 +10,7 @@ from synth_ai.core.telemetry import log_error, log_info
 
 class LocalDeployCfg(BaseModel):
     task_app_path: Path
-    env_api_key: str
+    localapi_key: str
     trace: bool = True
     host: str = "127.0.0.1"
     port: int = 8000
@@ -20,7 +20,7 @@ class LocalDeployCfg(BaseModel):
         cls,
         *,
         task_app_path: Path,
-        env_api_key: str,
+        localapi_key: str,
         trace: bool = True,
         host: str = "127.0.0.1",
         port: int = 8000,
@@ -35,7 +35,7 @@ class LocalDeployCfg(BaseModel):
         try:
             cfg = cls(
                 task_app_path=task_app_path,
-                env_api_key=env_api_key,
+                localapi_key=localapi_key,
                 trace=trace,
                 host=host,
                 port=port,
@@ -59,14 +59,14 @@ class LocalDeployCfg(BaseModel):
             "port": port,
         }
         log_info("creating LocalDeployCfg from dict", ctx=ctx)
-        env_api_key = data.get("env_api_key")
-        if not env_api_key or not isinstance(env_api_key, str):
-            raise ValueError("env_api_key is required in local deploy configuration")
+        localapi_key = data.get("localapi_key")
+        if not localapi_key or not isinstance(localapi_key, str):
+            raise ValueError("localapi_key is required in local deploy configuration")
 
         try:
             cfg = cls(
                 task_app_path=path,
-                env_api_key=env_api_key,
+                localapi_key=localapi_key,
                 trace=trace,
                 host=host,
                 port=port,
@@ -82,8 +82,8 @@ class ModalDeployCfg(BaseModel):
     task_app_path: Path
     modal_app_path: Path
     modal_bin_path: Path
-    synth_api_key: str
-    env_api_key: str
+    synth_user_key: str
+    localapi_key: str
     cmd_arg: Literal["deploy", "serve"] = "deploy"
     modal_app_name: Optional[str] = None
     dry_run: bool = False
@@ -94,8 +94,8 @@ class ModalDeployCfg(BaseModel):
         *,
         task_app_path: Path,
         modal_app_path: Path,
-        synth_api_key: str,
-        env_api_key: str,
+        synth_user_key: str,
+        localapi_key: str,
         modal_bin_path: Path | None = None,
         cmd_arg: Literal["deploy", "serve"] = "deploy",
         modal_app_name: Optional[str] = None,
@@ -123,8 +123,8 @@ class ModalDeployCfg(BaseModel):
                 task_app_path=task_app_path,
                 modal_app_path=modal_app_path,
                 modal_bin_path=modal_bin_path,
-                synth_api_key=synth_api_key,
-                env_api_key=env_api_key,
+                synth_user_key=synth_user_key,
+                localapi_key=localapi_key,
                 cmd_arg=cmd_arg,
                 modal_app_name=modal_app_name,
                 dry_run=dry_run,
@@ -140,12 +140,12 @@ class ModalDeployCfg(BaseModel):
         ctx: dict[str, Any] = {**kwargs}
         log_info("creating ModalDeployCfg from kwargs", ctx=ctx)
 
-        synth_api_key = kwargs.get("synth_api_key")
-        if not synth_api_key or not isinstance(synth_api_key, str):
-            raise ValueError("synth_api_key must be provided as a string")
-        env_api_key = kwargs.get("env_api_key")
-        if not env_api_key or not isinstance(env_api_key, str):
-            raise ValueError("env_api_key must be provided as a string")
+        synth_user_key = kwargs.get("synth_user_key")
+        if not synth_user_key or not isinstance(synth_user_key, str):
+            raise ValueError("synth_user_key must be provided as a string")
+        localapi_key = kwargs.get("localapi_key")
+        if not localapi_key or not isinstance(localapi_key, str):
+            raise ValueError("localapi_key must be provided as a string")
 
         cmd_arg = str(kwargs.get("modal_mode", "deploy")).strip().lower()
         if cmd_arg not in {"deploy", "serve"}:
@@ -201,8 +201,8 @@ class ModalDeployCfg(BaseModel):
                 task_app_path=task_app_path,
                 modal_app_path=modal_app_path,
                 modal_bin_path=modal_bin_path,
-                synth_api_key=synth_api_key,
-                env_api_key=env_api_key,
+                synth_user_key=synth_user_key,
+                localapi_key=localapi_key,
                 cmd_arg=literal_cmd,
                 modal_app_name=modal_app_name,
                 dry_run=dry_run,
@@ -216,7 +216,7 @@ class ModalDeployCfg(BaseModel):
 
 class CFDeployCfg(BaseModel):
     task_app_path: Path
-    env_api_key: str
+    localapi_key: str
     host: str = "127.0.0.1"
     port: int = 8000
     mode: Literal["quick", "managed"] = "quick"
@@ -229,7 +229,7 @@ class CFDeployCfg(BaseModel):
         cls,
         *,
         task_app_path: Path,
-        env_api_key: str,
+        localapi_key: str,
         host: str = "127.0.0.1",
         port: int = 8000,
         mode: Literal["quick", "managed"] = "quick",
@@ -238,7 +238,7 @@ class CFDeployCfg(BaseModel):
     ) -> "CFDeployCfg":
         return cls(
             task_app_path=task_app_path,
-            env_api_key=env_api_key,
+            localapi_key=localapi_key,
             host=host,
             port=port,
             mode=mode,

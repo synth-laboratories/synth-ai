@@ -4,8 +4,6 @@ Context Learning optimizes environment setup scripts (pre-flight/post-flight bas
 for terminal/coding agents, similar to how prompt learning optimizes prompts.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -18,7 +16,7 @@ class EnvironmentConfig:
     postflight_script: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> EnvironmentConfig:
+    def from_dict(cls, data: Dict[str, Any]) -> "EnvironmentConfig":
         """Create an EnvironmentConfig from a dictionary."""
         return cls(
             preflight_script=data.get("preflight_script"),
@@ -45,7 +43,7 @@ class AlgorithmConfig:
     policy_config: Optional[Dict[str, Any]] = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> AlgorithmConfig:
+    def from_dict(cls, data: Dict[str, Any]) -> "AlgorithmConfig":
         """Create an AlgorithmConfig from a dictionary."""
         return cls(
             initial_population_size=data.get("initial_population_size", 10),
@@ -75,9 +73,9 @@ class AlgorithmConfig:
 class ContextLearningJobConfig:
     """Configuration for creating a context learning job."""
 
-    task_app_url: str
+    localapi_url: str
     evaluation_seeds: List[int]
-    task_app_api_key: Optional[str] = None
+    localapi_key: Optional[str] = None
     environment: Optional[EnvironmentConfig] = None
     algorithm_config: Optional[AlgorithmConfig] = None
     metadata: Optional[Dict[str, Any]] = None
@@ -90,7 +88,7 @@ class ContextLearningJobConfig:
     auto_start: bool = True
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ContextLearningJobConfig:
+    def from_dict(cls, data: Dict[str, Any]) -> "ContextLearningJobConfig":
         """Create a ContextLearningJobConfig from a dictionary."""
         env_data = data.get("environment")
         env = EnvironmentConfig.from_dict(env_data) if isinstance(env_data, dict) else None
@@ -99,9 +97,9 @@ class ContextLearningJobConfig:
         algo = AlgorithmConfig.from_dict(algo_data) if isinstance(algo_data, dict) else None
 
         return cls(
-            task_app_url=data["task_app_url"],
+            localapi_url=data["localapi_url"],
             evaluation_seeds=data.get("evaluation_seeds", []),
-            task_app_api_key=data.get("task_app_api_key"),
+            localapi_key=data.get("localapi_key"),
             environment=env,
             algorithm_config=algo,
             metadata=data.get("metadata"),
@@ -117,7 +115,7 @@ class ContextLearningJobConfig:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API requests."""
         result: Dict[str, Any] = {
-            "task_app_url": self.task_app_url,
+            "task_app_url": self.localapi_url,
             "evaluation_seeds": self.evaluation_seeds,
             "max_concurrent_rollouts": self.max_concurrent_rollouts,
             "verifier_job_id": self.verifier_job_id,
@@ -125,8 +123,8 @@ class ContextLearningJobConfig:
             "require_agent_trace_log": self.require_agent_trace_log,
             "auto_start": self.auto_start,
         }
-        if self.task_app_api_key:
-            result["task_app_api_key"] = self.task_app_api_key
+        if self.localapi_key:
+            result["task_app_api_key"] = self.localapi_key
         if self.environment:
             result["environment"] = self.environment.to_dict()
         if self.algorithm_config:
@@ -157,7 +155,7 @@ class ContextLearningJobStatus:
     error: Optional[str] = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ContextLearningJobStatus:
+    def from_dict(cls, data: Dict[str, Any]) -> "ContextLearningJobStatus":
         """Create a ContextLearningJobStatus from a dictionary."""
         return cls(
             job_id=data["job_id"],
@@ -195,7 +193,7 @@ class ContextLearningEvent:
     seq: Optional[int] = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ContextLearningEvent:
+    def from_dict(cls, data: Dict[str, Any]) -> "ContextLearningEvent":
         """Create a ContextLearningEvent from a dictionary."""
         return cls(
             event_type=data.get("event_type", data.get("type", "")),
@@ -218,7 +216,7 @@ class BestScriptResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> BestScriptResult:
+    def from_dict(cls, data: Dict[str, Any]) -> "BestScriptResult":
         """Create a BestScriptResult from a dictionary."""
         return cls(
             job_id=data.get("job_id", ""),
@@ -241,7 +239,7 @@ class ContextLearningMetric:
     data: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ContextLearningMetric:
+    def from_dict(cls, data: Dict[str, Any]) -> "ContextLearningMetric":
         """Create a ContextLearningMetric from a dictionary."""
         return cls(
             name=data.get("name", ""),
@@ -270,7 +268,7 @@ class ContextLearningResults:
         status: ContextLearningJobStatus,
         events: List[ContextLearningEvent],
         best_script: Optional[BestScriptResult] = None,
-    ) -> ContextLearningResults:
+    ) -> "ContextLearningResults":
         """Create results from status and events."""
         # Extract generation count from events
         generations_completed = 0

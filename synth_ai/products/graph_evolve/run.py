@@ -9,10 +9,8 @@ Usage:
     synth graph-optimization run --config config.toml
 
     # With custom backend:
-    python -m synth_ai.products.graph_gepa.run --config config.toml --backend http://localhost:8000
+    python -m synth_ai.products.graph_gepa.run --config config.toml --synth-base-url http://localhost:8000
 """
-
-from __future__ import annotations
 
 import argparse
 import asyncio
@@ -27,17 +25,17 @@ from .config import GraphOptimizationConfig
 
 async def run_optimization(
     config_path: str,
-    backend_url: str = "http://localhost:8000",
-    api_key: Optional[str] = None,
+    synth_user_key: Optional[str] = None,
     verbose: bool = False,
+    synth_base_url: str | None = None,
 ) -> int:
     """Run graph optimization from config file.
 
     Args:
         config_path: Path to TOML config file
-        backend_url: Backend API URL
-        api_key: Optional API key
+        synth_user_key: Optional API key
         verbose: Print verbose output
+        synth_base_url: Backend API URL
 
     Returns:
         Exit code (0 for success, 1 for error)
@@ -65,7 +63,9 @@ async def run_optimization(
     print(f"  Algorithm: {config.algorithm}")
 
     # Run optimization
-    async with GraphOptimizationClient(backend_url, api_key) as client:
+    async with GraphOptimizationClient(
+        synth_user_key=synth_user_key, synth_base_url=synth_base_url
+    ) as client:
         # Start job
         print("🚀 Starting optimization job...")
         try:
@@ -177,7 +177,7 @@ Examples:
     python -m synth_ai.products.graph_gepa.run --config config.toml
     
     # Run with custom backend:
-    python -m synth_ai.products.graph_gepa.run --config config.toml --backend http://api.example.com
+    python -m synth_ai.products.graph_gepa.run --config config.toml --synth-base-url http://api.example.com
     
     # Verbose output:
     python -m synth_ai.products.graph_gepa.run --config config.toml --verbose
@@ -191,10 +191,10 @@ Examples:
         help="Path to TOML configuration file",
     )
     parser.add_argument(
-        "--backend",
+        "--synth-base-url",
         "-b",
-        default=os.environ.get("SYNTH_BACKEND_URL", "http://localhost:8000"),
-        help="Backend API URL (default: $SYNTH_BACKEND_URL or http://localhost:8000)",
+        default=os.environ.get("SYNTH_BACKEND_URL"),
+        help="Backend API URL override (default: $SYNTH_BACKEND_URL or production)",
     )
     parser.add_argument(
         "--api-key",
@@ -214,9 +214,9 @@ Examples:
     return asyncio.run(
         run_optimization(
             config_path=args.config,
-            backend_url=args.backend,
-            api_key=args.api_key,
+            synth_user_key=args.api_key,
             verbose=args.verbose,
+            synth_base_url=args.synth_base_url,
         )
     )
 

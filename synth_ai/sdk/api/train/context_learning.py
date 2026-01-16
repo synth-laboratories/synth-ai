@@ -15,8 +15,6 @@ SDK usage:
     best = job.download_best_script()
 """
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import os
@@ -25,7 +23,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from synth_ai.core.telemetry import log_info
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import (
+    synth_api_base,
+    synth_context_learning_best_script_url,
+    synth_context_learning_jobs_url,
+)
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.streaming import (
     ContextLearningHandler,
@@ -58,22 +60,20 @@ class BestScriptResult:
 @dataclass
 class ContextLearningJobConfig:
     config_path: Path
-    backend_url: str
-    api_key: str
-    task_app_api_key: Optional[str] = None
+    synth_user_key: str
+    localapi_key: Optional[str] = None
     overrides: Optional[Dict[str, Any]] = None
+    synth_base_url: str | None = None
 
     def __post_init__(self) -> None:
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
-        if not self.backend_url:
-            raise ValueError("backend_url is required")
-        if not self.api_key:
-            raise ValueError("api_key is required")
-        if not self.task_app_api_key:
-            self.task_app_api_key = ensure_localapi_auth(
-                backend_base=self.backend_url,
-                synth_api_key=self.api_key,
+        if not self.synth_user_key:
+            raise ValueError("synth_user_key is required")
+        if not self.localapi_key:
+            self.localapi_key = ensure_localapi_auth(
+                synth_user_key=self.synth_user_key,
+                synth_base_url=self.synth_base_url,
             )
 
 
@@ -94,28 +94,25 @@ class ContextLearningJob:
         cls,
         config_path: str | Path,
         *,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
+        localapi_key: Optional[str] = None,
         overrides: Optional[Dict[str, Any]] = None,
-    ) -> ContextLearningJob:
+        synth_base_url: Optional[str] = None,
+    ) -> "ContextLearningJob":
         config_path_obj = Path(config_path)
 
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         cfg = ContextLearningJobConfig(
             config_path=config_path_obj,
-            backend_url=backend_url,
-            api_key=api_key,
-            task_app_api_key=task_app_api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
+            localapi_key=localapi_key,
             overrides=overrides or {},
         )
         return cls(cfg)
@@ -125,23 +122,20 @@ class ContextLearningJob:
         cls,
         job_id: str,
         *,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-    ) -> ContextLearningJob:
-        if not backend_url:
-            backend_url = BACKEND_URL_BASE
-
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        synth_user_key: Optional[str] = None,
+        synth_base_url: Optional[str] = None,
+    ) -> "ContextLearningJob":
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         cfg = ContextLearningJobConfig(
             config_path=Path("/dev/null"),
-            backend_url=backend_url,
-            api_key=api_key,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
         )
         return cls(cfg, job_id=job_id)
 
@@ -154,9 +148,9 @@ class ContextLearningJob:
         if not isinstance(section, dict):
             raise TrainError("Missing required [context_learning] section.")
 
-        task_app_url = section.get("task_app_url") or section.get("task_url")
-        if not task_app_url:
-            raise TrainError("[context_learning].task_app_url is required")
+        localapi_url = section.get("localapi_url")
+        if not localapi_url:
+            raise TrainError("[context_learning].localapi_url is required")
 
         evaluation_seeds = section.get("evaluation_seeds") or []
         if not isinstance(evaluation_seeds, list):
@@ -196,8 +190,8 @@ class ContextLearningJob:
         metadata = section.get("metadata") if isinstance(section.get("metadata"), dict) else {}
 
         payload: Dict[str, Any] = {
-            "task_app_url": task_app_url,
-            "task_app_api_key": self.config.task_app_api_key,
+            "task_app_url": localapi_url,
+            "task_app_api_key": self.config.localapi_key,
             "evaluation_seeds": evaluation_seeds,
             "environment": {
                 "preflight_script": preflight_script,
@@ -221,9 +215,9 @@ class ContextLearningJob:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
 
         payload = self._build_payload()
-        url = f"{self.config.backend_url.rstrip('/')}/context-learning/jobs"
+        url = synth_context_learning_jobs_url(self.config.synth_base_url)
         headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
+            "Authorization": f"Bearer {self.config.synth_user_key}",
             "Content-Type": "application/json",
         }
         log_info("ContextLearningJob.submit invoked", ctx={"url": url})
@@ -266,8 +260,8 @@ class ContextLearningJob:
             handlers = [ContextLearningHandler()]
 
         streamer = JobStreamer(
-            base_url=self.config.backend_url,
-            api_key=self.config.api_key,
+            base_url=synth_api_base(self.config.synth_base_url),
+            synth_user_key=self.config.synth_user_key,
             job_id=self._job_id,
             endpoints=StreamEndpoints.context_learning(self._job_id),
             config=config,
@@ -286,8 +280,8 @@ class ContextLearningJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.config.backend_url.rstrip('/')}/context-learning/jobs/{self._job_id}/best-script"
-        headers = {"Authorization": f"Bearer {self.config.api_key}"}
+        url = synth_context_learning_best_script_url(self._job_id, self.config.synth_base_url)
+        headers = {"Authorization": f"Bearer {self.config.synth_user_key}"}
         resp = http_get(url, headers=headers)
         if resp.status_code != 200:
             raise RuntimeError(f"Failed to fetch best script: {resp.status_code} {resp.text[:500]}")

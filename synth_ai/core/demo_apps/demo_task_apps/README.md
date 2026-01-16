@@ -13,6 +13,6 @@ uvx python -c "from synth_ai.demos.demo_task_apps.math.app import run; run()"
 
 - Expected envs:
   - `ENVIRONMENT_API_KEY` (for the task app to contact the environment service)
-  - `DEV_BACKEND_URL` and `SYNTH_API_KEY` for launching RL jobs from the CLI (if wired)
+- `SYNTH_BACKEND_URL` and `SYNTH_API_KEY` for launching RL jobs from the CLI (if wired)
 
 These demos are designed to pair with `uvx synth-ai demo.*` commands described in pip_install_rl.txt.

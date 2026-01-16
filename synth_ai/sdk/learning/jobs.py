@@ -4,54 +4,63 @@ from contextlib import suppress
 from typing import Any
 
 from synth_ai.core.http import AsyncHttpClient, sleep
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_learning_job_events_url,
+    synth_learning_job_metrics_url,
+    synth_learning_job_url,
+    synth_orchestration_job_events_url,
+    synth_orchestration_job_url,
+    synth_rl_job_url,
+)
 
 from .constants import TERMINAL_EVENT_FAILURE, TERMINAL_EVENT_SUCCESS, TERMINAL_STATUSES
 
 
-def _api_base(b: str) -> str:
-    b = (b or "").rstrip("/")
-    return b if b.endswith("/api") else f"{b}/api"
-
-
 class JobsApiResolver:
-    def __init__(self, base_url: str, *, strict: bool) -> None:
-        self._base = _api_base(base_url)
+    def __init__(self, *, strict: bool, synth_base_url: str | None = None) -> None:
+        self._synth_base_url = synth_base_url
         self._strict = strict
 
     def status_urls(self, job_id: str) -> list[str]:
         if self._strict:
-            return [f"{self._base}/learning/jobs/{job_id}"]
+            return [synth_learning_job_url(job_id, self._synth_base_url)]
         return [
-            f"{self._base}/learning/jobs/{job_id}",
-            f"{self._base}/rl/jobs/{job_id}",
-            f"{self._base}/orchestration/jobs/{job_id}",
+            synth_learning_job_url(job_id, self._synth_base_url),
+            synth_rl_job_url(job_id, self._synth_base_url),
+            synth_orchestration_job_url(job_id, self._synth_base_url),
         ]
 
     def events_urls(self, job_id: str, since: int) -> list[str]:
         if self._strict:
-            return [f"{self._base}/learning/jobs/{job_id}/events?since_seq={since}&limit=200"]
+            return [
+                f"{synth_learning_job_events_url(job_id, self._synth_base_url)}?since_seq={since}&limit=200"
+            ]
         return [
-            f"{self._base}/learning/jobs/{job_id}/events?since_seq={since}&limit=200",
-            f"{self._base}/orchestration/jobs/{job_id}/events?since_seq={since}&limit=200",
+            f"{synth_learning_job_events_url(job_id, self._synth_base_url)}?since_seq={since}&limit=200",
+            f"{synth_orchestration_job_events_url(job_id, self._synth_base_url)}?since_seq={since}&limit=200",
             # RL /jobs/{id}/events is SSE in backend; avoid in JSON poller
         ]
 
     def metrics_url(self, job_id: str, after_step: int) -> str:
-        return f"{self._base}/learning/jobs/{job_id}/metrics?after_step={after_step}&limit=200"
+        return (
+            f"{synth_learning_job_metrics_url(job_id, self._synth_base_url)}"
+            f"?after_step={after_step}&limit=200"
+        )
 
 
 class JobHandle:
     def __init__(
         self,
-        base_url: str,
-        api_key: str,
+        synth_user_key: str,
         job_id: str,
         *,
         strict: bool = True,
         timeout: float = 600.0,
+        synth_base_url: str | None = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
+        self.synth_base_url = synth_base_url
+        self.synth_user_key = synth_user_key
         self.job_id = job_id
         self.strict = strict
         self.timeout = timeout
@@ -73,10 +82,12 @@ class JobHandle:
         empty_polls = 0
         saw_any_event = False
         start_t = time.time()
-        resolver = JobsApiResolver(self.base_url, strict=self.strict)
+        resolver = JobsApiResolver(strict=self.strict, synth_base_url=self.synth_base_url)
         detected_fine_tuned_model: str | None = None
 
-        async with AsyncHttpClient(self.base_url, self.api_key, timeout=self.timeout) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self.synth_base_url), self.synth_user_key, timeout=self.timeout
+        ) as http:
             while True:
                 # Status
                 status_data: dict[str, Any] | None = None

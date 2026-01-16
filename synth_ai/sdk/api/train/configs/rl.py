@@ -11,7 +11,7 @@ Example TOML configuration:
     variety = "gspo"
 
     [services]
-    task_url = "https://your-tunnel.trycloudflare.com"
+    localapi_url = "https://your-tunnel.trycloudflare.com"
 
     [model]
     base = "Qwen/Qwen3-4B"
@@ -52,13 +52,13 @@ class RLServicesConfig(ExtraModel):
     """Service URLs for RL training.
 
     Attributes:
-        task_url: URL of your task app (typically a Cloudflare tunnel URL).
+        localapi_url: URL of your LocalAPI (typically a Cloudflare tunnel URL).
             Required for rollout execution.
         verifier_url: Optional URL for verifier service. Defaults to Synth's
             hosted verifier at https://synth-backend.onrender.com/api.
     """
 
-    task_url: str
+    localapi_url: str
     verifier_url: str | None = None
 
 
@@ -92,16 +92,16 @@ class ModelConfig(ExtraModel):
 class RolloutConfig(ExtraModel):
     """Rollout configuration for episode collection.
 
-    Controls how episodes are collected from the task app during training.
+    Controls how episodes are collected from the LocalAPI during training.
 
     Attributes:
-        env_name: Environment/task name registered in your task app.
+        env_name: Environment/task name registered in your LocalAPI.
         policy_name: Policy identifier for the rollout.
         env_config: Optional environment-specific configuration dict.
         policy_config: Optional policy-specific configuration dict.
         max_turns: Maximum steps per episode before truncation.
         episodes_per_batch: Number of episodes to collect per training batch.
-        max_concurrent_rollouts: Maximum parallel rollouts to the task app.
+        max_concurrent_rollouts: Maximum parallel rollouts to the LocalAPI.
         batches_per_step: Batches to collect per training step. Default: 1.
     """
 
@@ -280,7 +280,7 @@ class SmokeConfig(ExtraModel):
     a full training job.
 
     Attributes:
-        task_url: Override task app URL for testing.
+        localapi_url: Override LocalAPI URL for testing.
         env_name: Environment name to test.
         policy_name: Policy name to test.
         max_steps: Maximum steps for smoke test.
@@ -290,8 +290,8 @@ class SmokeConfig(ExtraModel):
         mock_port: Port for mock backend.
         return_trace: Include trace in response.
         use_mock: Use mock policy.
-        task_app_name: Task app to auto-serve (e.g., "grpo-crafter").
-        task_app_port: Port for auto-served task app. Default: 8765.
+        task_app_name: LocalAPI to auto-serve (e.g., "grpo-crafter").
+        task_app_port: Port for auto-served LocalAPI. Default: 8765.
         task_app_force: Use --force flag when serving.
         sqld_auto_start: Auto-start sqld server.
         sqld_db_path: Database path. Default: ./traces/local.db.
@@ -300,7 +300,7 @@ class SmokeConfig(ExtraModel):
     """
 
     # Test parameters
-    task_url: str | None = None
+    localapi_url: str | None = None
     env_name: str | None = None
     policy_name: str | None = None
     max_steps: int | None = None
@@ -313,7 +313,7 @@ class SmokeConfig(ExtraModel):
 
     # Task app auto-start configuration
     task_app_name: str | None = None  # Task app to serve (e.g., "grpo-crafter")
-    task_app_port: int | None = None  # Port for task app (default: 8765)
+    task_app_port: int | None = None  # Port for LocalAPI (default: 8765)
     task_app_force: bool | None = None  # Use --force flag when serving
 
     # sqld auto-start configuration
@@ -339,7 +339,7 @@ class RLConfig(ExtraModel):
         # Or from dict
         config = RLConfig.from_mapping({
             "algorithm": {"type": "online", "method": "policy_gradient", "variety": "gspo"},
-            "services": {"task_url": "https://my-tunnel.trycloudflare.com"},
+            "services": {"localapi_url": "https://my-tunnel.trycloudflare.com"},
             "model": {"base": "Qwen/Qwen3-4B", "trainer_mode": "lora", "label": "my-model"},
             ...
         })
@@ -347,7 +347,7 @@ class RLConfig(ExtraModel):
 
     Attributes:
         algorithm: Algorithm configuration (type, method, variety).
-        services: Service URLs (task_url, verifier_url).
+        services: Service URLs (localapi_url, verifier_url).
         compute: GPU and compute configuration.
         topology: Deprecated - use compute.topology.
         vllm: vLLM inference server configuration.

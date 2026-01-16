@@ -4,51 +4,40 @@ from contextlib import suppress
 from typing import Any
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError, sleep
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_learning_job_events_url,
+    synth_learning_job_metrics_url,
+    synth_learning_job_url,
+    synth_rl_jobs_url,
+)
 from synth_ai.sdk.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,
 )
 
 
-def _api_base(b: str) -> str:
-    b = (b or "").rstrip("/")
-    return b if b.endswith("/api") else f"{b}/api"
-
-
 class RlClient:
     """Lightweight RL client for provider-agnostic job control."""
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 600.0) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+    def __init__(
+        self,
+        synth_user_key: str | None = None,
+        *,
+        timeout: float = 600.0,
+        synth_base_url: str | None = None,
+    ) -> None:
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
-
-    async def resolve_trainer_start_url(self, trainer_id: str) -> str:
-        path = f"/api/rl/services/{trainer_id}"
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
-            js = await http.get(path)
-        if not isinstance(js, dict):
-            raise HTTPError(
-                status=500,
-                url=path,
-                message="invalid_service_response",
-                body_snippet=str(js)[:200],
-            )
-        start_url = js.get("training_start_url")
-        if not isinstance(start_url, str) or not start_url:
-            raise HTTPError(
-                status=500,
-                url=path,
-                message="missing_training_start_url",
-                body_snippet=str(js)[:200],
-            )
-        return start_url
 
     async def create_job(
         self,
         *,
         model: str,
-        task_app_url: str,
+        localapi_url: str,
         trainer: dict[str, Any],
         trainer_id: str | None = None,
         job_config_id: str | None = None,
@@ -63,7 +52,7 @@ class RlClient:
             "job_type": "rl",
             "data": {
                 "model": normalized_model,
-                "endpoint_base_url": task_app_url,
+                "endpoint_base_url": localapi_url,
                 **({"job_config_id": job_config_id} if job_config_id else {}),
                 **({"config": inline_config} if inline_config else {}),
                 "trainer": {
@@ -72,8 +61,10 @@ class RlClient:
                 },
             },
         }
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.post_json(f"{_api_base(self._base_url)}/rl/jobs", json=body)
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=self._timeout
+        ) as http:
+            js = await http.post_json(synth_rl_jobs_url(self._synth_base_url), json=body)
         if not isinstance(js, dict):
             raise HTTPError(
                 status=500,
@@ -83,28 +74,22 @@ class RlClient:
             )
         return js
 
-    async def start_job_if_supported(self, job_id: str) -> dict[str, Any] | None:
-        path = f"{_api_base(self._base_url)}/rl/jobs/{job_id}/start"
-        try:
-            async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
-                return await http.post_json(path, json={})
-        except HTTPError as he:  # noqa: PERF203
-            if he.status == 404:
-                return None
-            raise
-
     async def get_job(self, job_id: str) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
-            return await http.get(f"{_api_base(self._base_url)}/learning/jobs/{job_id}")
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=30.0
+        ) as http:
+            return await http.get(synth_learning_job_url(job_id, self._synth_base_url))
 
     async def get_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
     ) -> list[dict[str, Any]]:
         params = {"since_seq": since_seq, "limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=30.0
+        ) as http:
             try:
                 js = await http.get(
-                    f"{_api_base(self._base_url)}/learning/jobs/{job_id}/events",
+                    synth_learning_job_events_url(job_id, self._synth_base_url),
                     params=params,
                     headers={"accept": "application/json"},
                 )
@@ -124,9 +109,11 @@ class RlClient:
         self, job_id: str, *, after_step: int = -1, limit: int = 200
     ) -> list[dict[str, Any]]:
         params = {"after_step": after_step, "limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
+        async with AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), self._synth_user_key, timeout=30.0
+        ) as http:
             js = await http.get(
-                f"{_api_base(self._base_url)}/learning/jobs/{job_id}/metrics", params=params
+                synth_learning_job_metrics_url(job_id, self._synth_base_url), params=params
             )
         if isinstance(js, dict) and isinstance(js.get("points"), list):
             return js["points"]
@@ -160,7 +147,9 @@ class RlClient:
                 status_data = None
             if status_data is None:
                 with suppress(Exception):
-                    print(f"[poll] get_job returned None base={self._base_url} job_id={job_id}")
+                    print(
+                        f"[poll] get_job returned None base={self._synth_base_url} job_id={job_id}"
+                    )
             status = str((status_data or {}).get("status") or "").lower()
             if status_data:
                 linked = status_data.get("linked_job_id")

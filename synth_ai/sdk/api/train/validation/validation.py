@@ -281,7 +281,7 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
     # Inject services section if not present (will be populated at runtime)
     if "services" not in config:
         config["services"] = {
-            "task_url": "placeholder",  # Will be resolved at runtime
+            "localapi_url": "placeholder",  # Will be resolved at runtime
         }
 
     # Inject reference placement if not present (like builders.py does)

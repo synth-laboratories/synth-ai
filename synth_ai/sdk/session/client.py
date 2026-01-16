@@ -6,6 +6,16 @@ from typing import Any, List, Optional
 from uuid import UUID
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError
+from synth_ai.core.urls import (
+    synth_api_v1_base,
+    synth_me_url,
+    synth_session_end_url,
+    synth_session_limits_increase_url,
+    synth_session_limits_url,
+    synth_session_url,
+    synth_session_usage_url,
+    synth_sessions_url,
+)
 
 from .exceptions import (
     InvalidLimitError,
@@ -26,15 +36,19 @@ class AgentSessionClient:
 
     def __init__(
         self,
-        base_url: str,
-        api_key: str,
+        synth_user_key: str | None = None,
         timeout: float = 30.0,
         http: Optional[AsyncHttpClient] = None,
+        synth_base_url: str | None = None,
     ):
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
+        self._synth_base_url = synth_base_url
+        if synth_user_key is None:
+            raise ValueError("synth_user_key is required")
+        self._synth_user_key = synth_user_key
         self._timeout = timeout
-        self._http = http or AsyncHttpClient(base_url, api_key, timeout)
+        self._http = http or AsyncHttpClient(
+            synth_api_v1_base(self._synth_base_url), synth_user_key, timeout
+        )
 
     def _parse_session(self, data: dict[str, Any]) -> AgentSession:
         """Parse session from API response."""
@@ -118,7 +132,7 @@ class AgentSessionClient:
         if org_id is None:
             try:
                 async with self._http:
-                    me_data = await self._http.get("/api/v1/me")
+                    me_data = await self._http.get(synth_me_url(self._synth_base_url))
                     org_id = UUID(me_data["org_id"])
             except Exception as e:
                 raise ValueError(
@@ -147,7 +161,9 @@ class AgentSessionClient:
 
         try:
             async with self._http:
-                data = await self._http.post_json("/api/v1/sessions", json=payload)
+                data = await self._http.post_json(
+                    synth_sessions_url(self._synth_base_url), json=payload
+                )
                 return self._parse_session(data)
         except HTTPError as e:
             if e.status == 400:
@@ -158,7 +174,7 @@ class AgentSessionClient:
         """Get session by ID."""
         try:
             async with self._http:
-                data = await self._http.get(f"/api/v1/sessions/{session_id}")
+                data = await self._http.get(synth_session_url(session_id, self._synth_base_url))
                 return self._parse_session(data)
         except HTTPError as e:
             if e.status == 404:
@@ -169,7 +185,9 @@ class AgentSessionClient:
         """End a session."""
         try:
             async with self._http:
-                data = await self._http.post_json(f"/api/v1/sessions/{session_id}/end", json={})
+                data = await self._http.post_json(
+                    synth_session_end_url(session_id, self._synth_base_url), json={}
+                )
                 return self._parse_session(data)
         except HTTPError as e:
             if e.status == 404:
@@ -228,7 +246,7 @@ class AgentSessionClient:
         try:
             async with self._http:
                 data = await self._http.post_json(
-                    f"/api/v1/sessions/{session_id}/limits/increase",
+                    synth_session_limits_increase_url(session_id, self._synth_base_url),
                     json={"metric_type": metric_type, "increase_by": float(increase_by)},
                 )
                 return AgentSessionLimit(
@@ -268,7 +286,7 @@ class AgentSessionClient:
         try:
             async with self._http:
                 data = await self._http.post_json(
-                    f"/api/v1/sessions/{session_id}/limits",
+                    synth_session_limits_url(session_id, self._synth_base_url),
                     json=limit,
                 )
                 return AgentSessionLimit(
@@ -303,7 +321,9 @@ class AgentSessionClient:
         """Get all limits for a session."""
         try:
             async with self._http:
-                data = await self._http.get(f"/api/v1/sessions/{session_id}/limits")
+                data = await self._http.get(
+                    synth_session_limits_url(session_id, self._synth_base_url)
+                )
                 return [
                     AgentSessionLimit(
                         limit_id=UUID(limit_data["limit_id"])
@@ -354,7 +374,7 @@ class AgentSessionClient:
 
         try:
             async with self._http:
-                data = await self._http.get("/api/v1/sessions", params=params)
+                data = await self._http.get(synth_sessions_url(self._synth_base_url), params=params)
                 return [self._parse_session(session_data) for session_data in data]
         except HTTPError:
             raise
@@ -373,7 +393,9 @@ class AgentSessionClient:
 
         try:
             async with self._http:
-                data = await self._http.get(f"/api/v1/sessions/{session_id}/usage", params=params)
+                data = await self._http.get(
+                    synth_session_usage_url(session_id, self._synth_base_url), params=params
+                )
                 return [
                     SessionUsageRecord(
                         id=UUID(record_data["id"]),

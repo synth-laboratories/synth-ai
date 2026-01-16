@@ -17,8 +17,9 @@ from synth_ai.core.demo_apps.demo_registry import (
 )
 from synth_ai.core.demo_apps.demo_task_apps import core as demo_core
 from synth_ai.core.demo_apps.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
-from synth_ai.core.localapi_state import persist_env_api_key
+from synth_ai.core.localapi_state import persist_localapi_key
 from synth_ai.core.process import get_subprocess_env, should_filter_log_line
+from synth_ai.core.urls import synth_api_base
 from synth_ai.core.user_config import update_user_config
 
 try:
@@ -102,7 +103,7 @@ def setup() -> int:
             return 1
 
     update_user_config({"SYNTH_API_KEY": synth_key})
-    persist_env_api_key(rl_env_key)
+    persist_localapi_key(rl_env_key)
     os.environ["SYNTH_API_KEY"] = synth_key
     os.environ["ENVIRONMENT_API_KEY"] = rl_env_key
 
@@ -144,7 +145,7 @@ def setup() -> int:
         new_url = ""
         for token in out.split():
             if _is_modal_public_url(token):
-                new_url = token.strip().rstrip("/")
+                new_url = token.strip()
                 break
         if new_url and new_url != current:
             print(f"Updating TASK_APP_BASE_URL from Modal CLI → {new_url}")
@@ -161,15 +162,13 @@ def setup() -> int:
     _maybe_fix_task_url()
 
     if env.dev_backend_url:
-        api = env.dev_backend_url.rstrip("/") + (
-            "" if env.dev_backend_url.endswith("/api") else "/api"
-        )
+        api = synth_api_base(env.dev_backend_url)
         demo_core.assert_http_ok(api + "/health", method="GET")
         # Intentionally suppress backend health print for concise output
     if env.task_app_base_url:
         demo_core.assert_http_ok(
-            env.task_app_base_url.rstrip("/") + "/health", method="GET"
-        ) or demo_core.assert_http_ok(env.task_app_base_url.rstrip("/"), method="GET")
+            env.task_app_base_url + "/health", method="GET"
+        ) or demo_core.assert_http_ok(env.task_app_base_url, method="GET")
         # Intentionally suppress task app health print
     else:
         print("\nSet your task app URL by running:\nuvx synth-ai rl_demo deploy\n")
@@ -670,7 +669,7 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
                 if code == 0 and out:
                     for tok in out.split():
                         if _is_modal_public_url(tok):
-                            resolved = tok.strip().rstrip("/")
+                            resolved = tok.strip()
                             break
         if not resolved:
             print(f"[{label}] Task app URL not configured or not a valid Modal public URL.")
@@ -680,7 +679,7 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
             ).strip()
             if not entered or not _is_modal_public_url(entered):
                 raise RuntimeError(f"[{label}] Valid Task App URL is required.")
-            task_url = entered.rstrip("/")
+            task_url = entered
         else:
             task_url = resolved
         demo_core.persist_localapi_url(task_url, name=(env.task_app_name or None))
@@ -708,7 +707,7 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         print(f"[{label}] {_key_preview(ek, 'ENVIRONMENT_API_KEY')}")
     except Exception:
         pass
-    health_base = task_url.rstrip("/")
+    health_base = task_url
     health_urls = [f"{health_base}/health/rollout", f"{health_base}/health"]
     rc = 0
     body: Any = ""
@@ -820,7 +819,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
             from synth_ai.sdk.learning.rl.secrets import mint_environment_api_key
 
             env_key = mint_environment_api_key()
-            persist_env_api_key(env_key)
+            persist_localapi_key(env_key)
             os.environ["ENVIRONMENT_API_KEY"] = env_key
             env.env_api_key = env_key
             print("[deploy] Minted new ENVIRONMENT_API_KEY")
@@ -828,19 +827,16 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
             os.environ["ENVIRONMENT_API_KEY"] = env_key
 
         # Optionally upload the new key to the backend using sealed box helper
-        backend_base = (env.dev_backend_url or "").rstrip("/")
+        synth_base_url = env.dev_backend_url or ""
         synth_key = (
             env.synth_api_key
             or os.environ.get("SYNTH_API_KEY")  # type: ignore[misc]
             or ""
         ).strip()
-        if backend_base and synth_key:
-            # Pass a base WITHOUT trailing /api to setup_environment_api_key,
-            # since it appends /api/v1/... internally.
-            non_api_base = backend_base[:-4] if backend_base.endswith("/api") else backend_base
+        if synth_base_url and synth_key:
             try:
                 choice = (
-                    input(f"Upload ENVIRONMENT_API_KEY to backend {non_api_base}? [Y/n]: ")
+                    input(f"Upload ENVIRONMENT_API_KEY to backend {synth_base_url}? [Y/n]: ")
                     .strip()
                     .lower()
                     or "y"
@@ -849,16 +845,20 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
                 choice = "y"
             if choice.startswith("y"):
                 try:
-                    print(f"[deploy] Uploading ENVIRONMENT_API_KEY to {non_api_base} …")
+                    print(f"[deploy] Uploading ENVIRONMENT_API_KEY to {synth_base_url} …")
                     from synth_ai.sdk.learning.rl.env_keys import setup_environment_api_key
 
-                    setup_environment_api_key(non_api_base, synth_key, token=env_key)
+                    setup_environment_api_key(
+                        synth_key,
+                        token=env_key,
+                        synth_base_url=synth_base_url,
+                    )
                     print("[deploy] Backend sealed-box upload complete.")
                 except Exception as upload_err:
                     print(f"[deploy] Failed to upload ENVIRONMENT_API_KEY: {upload_err}")
                     print(
                         'Hint: run `uvx python -c "from synth_ai.sdk.learning.rl.env_keys import setup_environment_api_key as s;'
-                        " s('<backend>', '<synth_api_key>')\"` once the backend is reachable."
+                        " s('<synth_api_key>', synth_base_url='<backend>')\"` once the backend is reachable."
                     )
 
         synth_key = (
@@ -907,7 +907,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
 
                 m_all = _re.findall(r"https?://[^\s]+\.modal\.run", deploy_logs or "")
                 if m_all:
-                    url = m_all[-1].strip().rstrip("/")
+                    url = m_all[-1].strip()
             except Exception:
                 pass
         url_cmd = ["uv", "run", "python", "-m", "modal", "app", "url", name_in]
@@ -915,7 +915,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
         if code2 == 0:
             for token in out2.split():
                 if _is_modal_public_url(token):
-                    url = token.strip().rstrip("/")
+                    url = token.strip()
                     break
         # Fallback: try reading recent Modal logs for the app to find a URL line
         if not url:
@@ -925,7 +925,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
                     if name_in in line:
                         for token in line.split():
                             if _is_modal_public_url(token):
-                                url = token.strip().rstrip("/")
+                                url = token.strip()
                                 break
                     if url:
                         break
@@ -936,7 +936,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
                 "Enter the Modal public URL (must contain '.modal.run'), or press Enter to abort: "
             ).strip()
             if entered and _is_modal_public_url(entered):
-                url = entered.rstrip("/")
+                url = entered
         if not url:
             raise RuntimeError("Failed to resolve public URL from modal CLI output")
         demo_core.persist_localapi_url(url, name=app_name or None)
@@ -968,7 +968,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
     env = demo_core.load_env()
     synth_key = (env.synth_api_key or "").strip()
     if not env.dev_backend_url:
-        print("Backend URL missing. Set DEV_BACKEND_URL or BACKEND_OVERRIDE.")
+        print("Backend URL missing. Set SYNTH_BACKEND_URL.")
         return 1
     try:
         env = _ensure_task_app_ready(env, synth_key, label="configure")
@@ -1324,7 +1324,7 @@ def run(
         return 1
 
     if not env.dev_backend_url:
-        print("Backend URL missing. Set DEV_BACKEND_URL or BACKEND_OVERRIDE.")
+        print("Backend URL missing. Set SYNTH_BACKEND_URL.")
         return 1
 
     try:
@@ -1346,13 +1346,9 @@ def run(
     # Detect monorepo launcher and delegate if available (aligns with run_clustered.sh which works)
     launcher = "/Users/joshpurtell/Documents/GitHub/monorepo/tests/applications/math/rl/start_math_clustered.py"
     if os.path.isfile(launcher):
-        backend_base = (
-            env.dev_backend_url[:-4]
-            if env.dev_backend_url.endswith("/api")
-            else env.dev_backend_url
-        )
+        synth_base_url = env.dev_backend_url
         run_env = os.environ.copy()
-        run_env["BACKEND_URL"] = backend_base
+        run_env["BACKEND_URL"] = synth_base_url
         run_env["SYNTH_API_KEY"] = env.synth_api_key
         run_env["TASK_APP_BASE_URL"] = env.task_app_base_url
         run_env["ENVIRONMENT_API_KEY"] = env.env_api_key
@@ -1372,10 +1368,7 @@ def run(
         if code != 0:
             print(f"Clustered runner exited with code {code}")
             # Actionable guidance for common auth issues
-            try:
-                base_url = backend_base.rstrip("/") + "/api"
-            except Exception:
-                base_url = backend_base
+            base_url = synth_api_base(synth_base_url)
             sk = (env.synth_api_key or "").strip()
             ek = (env.env_api_key or "").strip()
             print("Hint: If backend responded 401, verify SYNTH_API_KEY for:", base_url)
@@ -1398,7 +1391,7 @@ def run(
     if group_size is not None:
         inline_cfg.setdefault("training", {})["group_size"] = int(group_size)
     model_name = model or (inline_cfg.get("model", {}) or {}).get("name", "Qwen/Qwen3-0.6B")  # type: ignore[misc]
-    api = env.dev_backend_url.rstrip("/") + ("" if env.dev_backend_url.endswith("/api") else "/api")
+    api = synth_api_base(env.dev_backend_url)
     # Print backend and key preview before request for clearer diagnostics
     try:
         sk = (env.synth_api_key or "").strip()
@@ -1544,7 +1537,6 @@ def run(
         headers={"Authorization": f"Bearer {env.synth_api_key}"},
     )
     # Inform the user immediately that the job has started and where to track it
-    print("Your job is running. Visit usesynth.ai to view its progress")
     since = 0
     terminal = {"succeeded", "failed", "cancelled", "error", "completed"}
     last_status = ""

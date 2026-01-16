@@ -31,7 +31,7 @@ import click
 def scan(
     port_range: str,
     timeout: float,
-    api_key: str | None,
+    localapi_key: str | None,
     output_json: bool,
     verbose: bool,
 ) -> None:
@@ -61,7 +61,7 @@ def scan(
         def verbose_callback(msg: str) -> None:
             click.echo(msg, err=True)
 
-    apps = asyncio.run(run_scan((start_port, end_port), timeout, api_key, verbose_callback))
+    apps = asyncio.run(run_scan((start_port, end_port), timeout, localapi_key, verbose_callback))
 
     if output_json:
         click.echo(format_app_json(apps))

@@ -7,16 +7,16 @@ from synth_ai.core.agents.utils import write_agents_md
 from synth_ai.core.bin import install_bin, verify_bin
 from synth_ai.core.env import resolve_env_var
 from synth_ai.core.paths import get_bin_path
-from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
+from synth_ai.core.urls import synth_research_anthropic_base
 
 
-def run_claude(model_name=None, force=False, override_url=None):
+def run_claude(model_name=None, force=False, synth_base_url=None):
     """Launch Claude Code with optional Synth backend routing.
 
     Args:
         model_name: Model name for routing through Synth backend
         force: Prompt for API keys even if cached
-        override_url: Custom backend URL
+        synth_base_url: Backend URL override
     """
     while True:
         bin_path = get_bin_path("claude")
@@ -36,15 +36,11 @@ def run_claude(model_name=None, force=False, override_url=None):
     env = os.environ.copy()
 
     if model_name is not None:
-        if override_url:
-            url = f"{override_url.rstrip('/')}/{model_name}"
-            print(f"Using override URL with model: {url}")
-        else:
-            url = f"{BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC}/{model_name}"
+        url = f"{synth_research_anthropic_base(synth_base_url)}/{model_name}"
         env["ANTHROPIC_BASE_URL"] = url
-        api_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
-        env["ANTHROPIC_AUTH_TOKEN"] = api_key
-        env["SYNTH_API_KEY"] = api_key
+        synth_user_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
+        env["ANTHROPIC_AUTH_TOKEN"] = synth_user_key
+        env["SYNTH_API_KEY"] = synth_user_key
 
     try:
         subprocess.run(["claude"], check=True, env=env)

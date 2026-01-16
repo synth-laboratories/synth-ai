@@ -39,7 +39,12 @@ from typing import Any, Callable, Dict, List, Optional
 import httpx
 
 from synth_ai.core.telemetry import log_info
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import (
+    synth_eval_job_results_url,
+    synth_eval_job_traces_url,
+    synth_eval_job_url,
+    synth_eval_jobs_url,
+)
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 
@@ -160,16 +165,16 @@ class EvalJobConfig:
     an evaluation job via the backend.
 
     Attributes:
-        task_app_url: URL of the task app to evaluate (e.g., "http://localhost:8103").
-            Required for job submission. Alias: local_api_url
-        backend_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
-            Can also be set via SYNTH_BASE_URL or BACKEND_BASE_URL environment variables.
-        api_key: Synth API key for authentication with the backend.
+        localapi_url: URL of the LocalAPI to evaluate (e.g., "http://localhost:8103").
+            Required for job submission.
+        synth_base_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
+            Can also be set via SYNTH_BACKEND_URL environment variable.
+        synth_user_key: Synth API key for authentication with the backend.
             Can also be set via SYNTH_API_KEY environment variable.
-        task_app_api_key: API key for authenticating with the task app.
-            Defaults to ENVIRONMENT_API_KEY env var if not provided. Alias: local_api_key
-        app_id: Task app identifier (optional, for logging/tracking).
-        env_name: Environment name within the task app.
+        localapi_key: API key for authenticating with the LocalAPI.
+            Defaults to ENVIRONMENT_API_KEY env var if not provided.
+        app_id: LocalAPI identifier (optional, for logging/tracking).
+        env_name: Environment name within the LocalAPI.
         seeds: List of seeds/indices to evaluate.
         policy_config: Model and provider configuration for the policy.
         env_config: Additional environment configuration.
@@ -178,19 +183,19 @@ class EvalJobConfig:
 
     Example:
         >>> config = EvalJobConfig(
-        ...     task_app_url="http://localhost:8103",
-        ...     backend_url="https://api.usesynth.ai",
-        ...     api_key="sk_live_...",
+        ...     localapi_url="http://localhost:8103",
+        ...     synth_base_url="https://api.usesynth.ai",
+        ...     synth_user_key="sk_live_...",
         ...     env_name="banking77",
         ...     seeds=[0, 1, 2, 3, 4],
         ...     policy_config={"model": "gpt-4", "provider": "openai"},
         ... )
     """
 
-    task_app_url: str = field(default="")
-    api_key: str = field(default="")
-    backend_url: Optional[str] = field(default="")
-    task_app_api_key: Optional[str] = None
+    localapi_url: str = field(default="")
+    synth_user_key: str = field(default="")
+    synth_base_url: Optional[str] = None
+    localapi_key: Optional[str] = None
     app_id: Optional[str] = None
     env_name: Optional[str] = None
     seeds: List[int] = field(default_factory=list)
@@ -199,33 +204,21 @@ class EvalJobConfig:
     verifier_config: Optional[Dict[str, Any]] = None
     concurrency: int = 5
     timeout: float = 600.0
-    # Aliases for backwards compatibility (not stored, just used in __init__)
-    local_api_url: str = field(default="", repr=False)
-    local_api_key: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
-        """Validate configuration and handle aliases."""
-        # Handle aliases for backwards compatibility
-        if self.local_api_url and not self.task_app_url:
-            self.task_app_url = self.local_api_url
-        if self.local_api_key and not self.task_app_api_key:
-            self.task_app_api_key = self.local_api_key
-
-        if not self.task_app_url:
-            raise ValueError("task_app_url (or local_api_url) is required")
-        # Use backend_url from config if provided, otherwise fall back to BACKEND_URL_BASE
-        if not self.backend_url:
-            self.backend_url = BACKEND_URL_BASE
-        if not self.api_key:
-            raise ValueError("api_key is required")
+        """Validate configuration."""
+        if not self.localapi_url:
+            raise ValueError("localapi_url is required")
+        if not self.synth_user_key:
+            raise ValueError("synth_user_key is required")
         if not self.seeds:
             raise ValueError("seeds list is required and cannot be empty")
 
-        # Get task_app_api_key from environment if not provided
-        if not self.task_app_api_key:
-            self.task_app_api_key = ensure_localapi_auth(
-                backend_base=self.backend_url,
-                synth_api_key=self.api_key,
+        # Get localapi_key from environment if not provided
+        if not self.localapi_key:
+            self.localapi_key = ensure_localapi_auth(
+                synth_base_url=self.synth_base_url,
+                synth_user_key=self.synth_user_key,
             )
 
 
@@ -249,8 +242,8 @@ class EvalJob:
         >>> # Create job from config file
         >>> job = EvalJob.from_config(
         ...     config_path="banking77_eval.toml",
-        ...     backend_url="https://api.usesynth.ai",
-        ...     api_key=os.environ["SYNTH_API_KEY"],
+        ...     synth_base_url="https://api.usesynth.ai",
+        ...     synth_user_key=os.environ["SYNTH_API_KEY"],
         ... )
         >>>
         >>> # Submit job
@@ -281,7 +274,7 @@ class EvalJob:
         """Initialize an evaluation job.
 
         Args:
-            config: Job configuration with task app URL, seeds, policy, etc.
+            config: Job configuration with LocalAPI URL, seeds, policy, etc.
             job_id: Existing job ID (if resuming a previous job)
         """
         self.config = config
@@ -291,11 +284,11 @@ class EvalJob:
     def from_config(
         cls,
         config_path: str | Path,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
-        task_app_url: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
+        localapi_key: Optional[str] = None,
+        localapi_url: Optional[str] = None,
         seeds: Optional[List[int]] = None,
+        synth_base_url: Optional[str] = None,
     ) -> "EvalJob":
         """Create a job from a TOML config file.
 
@@ -304,11 +297,11 @@ class EvalJob:
 
         Args:
             config_path: Path to TOML config file
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
-            task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY)
-            task_app_url: Override task app URL from config
+            synth_user_key: API key (defaults to SYNTH_API_KEY env var)
+            localapi_key: LocalAPI key (defaults to ENVIRONMENT_API_KEY)
+            localapi_url: Override LocalAPI URL from config
             seeds: Override seeds list from config
+            synth_base_url: Backend API URL (defaults to env or production)
 
         Returns:
             EvalJob instance ready for submission
@@ -320,8 +313,8 @@ class EvalJob:
         Example:
             >>> job = EvalJob.from_config(
             ...     "banking77_eval.toml",
-            ...     backend_url="https://api.usesynth.ai",
-            ...     api_key="sk_live_...",
+            ...     synth_base_url="https://api.usesynth.ai",
+            ...     synth_user_key="sk_live_...",
             ...     seeds=[0, 1, 2],  # Override seeds
             ... )
         """
@@ -341,7 +334,7 @@ class EvalJob:
             if pl_config:
                 eval_config = {
                     "app_id": pl_config.get("task_app_id"),
-                    "url": pl_config.get("task_app_url"),
+                    "localapi_url": pl_config.get("localapi_url"),
                     "env_name": pl_config.get("gepa", {}).get("env_name"),
                     "seeds": pl_config.get("gepa", {}).get("evaluation", {}).get("seeds", []),
                     "policy_config": pl_config.get("gepa", {}).get("policy", {}),
@@ -351,29 +344,27 @@ class EvalJob:
                 }
 
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         # Build config with overrides
-        final_task_app_url = (
-            task_app_url or eval_config.get("url") or eval_config.get("task_app_url")
-        )
-        if not final_task_app_url:
-            raise ValueError("task_app_url is required (in config or as argument)")
+        final_localapi_url = localapi_url or eval_config.get("localapi_url")
+        if not final_localapi_url:
+            raise ValueError("localapi_url is required (in config or as argument)")
 
         final_seeds = seeds or eval_config.get("seeds", [])
         if not final_seeds:
             raise ValueError("seeds list is required (in config or as argument)")
 
         config = EvalJobConfig(
-            task_app_url=final_task_app_url,
-            backend_url=backend_url,
-            api_key=api_key,
-            task_app_api_key=task_app_api_key,
+            localapi_url=final_localapi_url,
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
+            localapi_key=localapi_key,
             app_id=eval_config.get("app_id"),
             env_name=eval_config.get("env_name"),
             seeds=list(final_seeds),
@@ -390,8 +381,8 @@ class EvalJob:
     def from_job_id(
         cls,
         job_id: str,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
+        synth_user_key: Optional[str] = None,
+        synth_base_url: Optional[str] = None,
     ) -> "EvalJob":
         """Resume an existing job by ID.
 
@@ -399,8 +390,8 @@ class EvalJob:
 
         Args:
             job_id: Existing job ID (e.g., "eval-abc123")
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
+            synth_user_key: API key (defaults to SYNTH_API_KEY env var)
+            synth_base_url: Backend API URL (defaults to env or production)
 
         Returns:
             EvalJob instance for the existing job
@@ -412,34 +403,27 @@ class EvalJob:
             ...     results = job.get_results()
         """
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_user_key:
+            synth_user_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_user_key:
                 raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                    "synth_user_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
 
         # Create minimal config for resumed job
         config = EvalJobConfig(
-            task_app_url="resumed",  # Placeholder - not needed for status/results
-            backend_url=backend_url,
-            api_key=api_key,
+            localapi_url="resumed",  # Placeholder - not needed for status/results
+            synth_base_url=synth_base_url,
+            synth_user_key=synth_user_key,
             seeds=[0],  # Placeholder
         )
 
         return cls(config, job_id=job_id)
 
-    def _base_url(self) -> str:
-        """Get normalized base URL for API calls."""
-        base = (self.config.backend_url or BACKEND_URL_BASE).rstrip("/")
-        if not base.endswith("/api"):
-            base = f"{base}/api"
-        return base
-
     def _headers(self) -> Dict[str, str]:
         """Get headers for API calls."""
         return {
-            "Authorization": f"Bearer {self.config.api_key}",
+            "Authorization": f"Bearer {self.config.synth_user_key}",
             "Content-Type": "application/json",
         }
 
@@ -463,7 +447,7 @@ class EvalJob:
             >>> job_id = job.submit()
             >>> print(f"Submitted: {job_id}")
         """
-        ctx: Dict[str, Any] = {"task_app_url": self.config.task_app_url}
+        ctx: Dict[str, Any] = {"localapi_url": self.config.localapi_url}
         log_info("EvalJob.submit invoked", ctx=ctx)
 
         if self._job_id:
@@ -473,8 +457,8 @@ class EvalJob:
         policy = dict(self.config.policy_config)
 
         job_request = {
-            "task_app_url": self.config.task_app_url,
-            "task_app_api_key": self.config.task_app_api_key,
+            "task_app_url": self.config.localapi_url,
+            "task_app_api_key": self.config.localapi_key,
             "app_id": self.config.app_id,
             "env_name": self.config.env_name,
             "seeds": self.config.seeds,
@@ -486,7 +470,7 @@ class EvalJob:
         }
 
         # Submit synchronously using httpx
-        url = f"{self._base_url()}/eval/jobs"
+        url = synth_eval_jobs_url(self.config.synth_base_url)
 
         with httpx.Client(timeout=httpx.Timeout(120.0)) as client:
             resp = client.post(url, json=job_request, headers=self._headers())
@@ -535,7 +519,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}"
+        url = synth_eval_job_url(self._job_id, self.config.synth_base_url)
 
         with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
             resp = client.get(url, headers=self._headers())
@@ -695,7 +679,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}/results"
+        url = synth_eval_job_results_url(self._job_id, self.config.synth_base_url)
 
         with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
             resp = client.get(url, headers=self._headers())
@@ -731,7 +715,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}/traces"
+        url = synth_eval_job_traces_url(self._job_id, self.config.synth_base_url)
         output_path = Path(output_dir)
 
         with httpx.Client(timeout=httpx.Timeout(60.0)) as client:

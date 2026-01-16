@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import time
 from collections.abc import Callable
@@ -7,26 +5,23 @@ from contextlib import suppress
 
 import aiohttp
 
-
-def _api_base(b: str) -> str:
-    b = (b or "").rstrip("/")
-    return b if b.endswith("/api") else f"{b}/api"
+from synth_ai.core.urls import synth_learning_job_events_url, synth_rl_job_events_url
 
 
 async def stream_events(
-    base_url: str,
-    api_key: str,
+    synth_user_key: str,
     job_id: str,
     *,
     seconds: int = 60,
     on_event: Callable[[dict], None] | None = None,
+    synth_base_url: str | None = None,
 ) -> None:
     if seconds <= 0:
         return
-    headers = {"Accept": "text/event-stream", "Authorization": f"Bearer {api_key}"}
+    headers = {"Accept": "text/event-stream", "Authorization": f"Bearer {synth_user_key}"}
     candidates = [
-        f"{_api_base(base_url)}/rl/jobs/{job_id}/events?since_seq=0",
-        f"{_api_base(base_url)}/learning/jobs/{job_id}/events?since_seq=0",
+        f"{synth_rl_job_events_url(job_id, synth_base_url)}?since_seq=0",
+        f"{synth_learning_job_events_url(job_id, synth_base_url)}?since_seq=0",
     ]
     for url in candidates:
         try:
