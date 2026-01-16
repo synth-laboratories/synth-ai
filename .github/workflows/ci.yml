@@ -64,6 +64,49 @@ jobs:
       - name: ty check
         run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
 
+  url-centralization:
+    name: URL Centralization Check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check URL centralization
+        run: python scripts/check_url_centralization.py
+
+  demo-compile:
+    name: Demo Compile Check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile demo scripts
+        run: python3 scripts/check_demo_compile.py
+
+  url-backend-drift:
+    name: URL Backend Drift Check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout synth-ai
+        uses: actions/checkout@v4
+
+      - name: Checkout monorepo
+        uses: actions/checkout@v4
+        with:
+          repository: synth-laboratories/monorepo
+          path: monorepo
+          token: ${{ secrets.MONOREPO_READ_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check URL backend drift
+        run: python scripts/check_url_backend_drift.py --backend-path monorepo/backend --frontend-path monorepo/frontend
+
   validate-openapi:
     name: Validate OpenAPI ↔ Pydantic
     runs-on: blacksmith-4vcpu-ubuntu-2404

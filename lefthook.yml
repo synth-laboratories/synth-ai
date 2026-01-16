@@ -67,3 +67,19 @@ pre-commit:
         - "synth_ai/tui/app/**/*.ts"
       root: synth_ai/tui/app
       run: bun run typecheck
+
+    # URL Centralization: Ensure URLs are only defined in authorized files
+    url-centralization:
+      tags:
+        - lint
+      run: python3 scripts/check_url_centralization.py
+
+    # Demos: Compile demo scripts and ensure synth_ai imports from repo checkout
+    demos-compile:
+      tags:
+        - python
+        - lint
+      glob:
+        - "demos/*.py"
+        - "demos/**/*.py"
+      run: python3 scripts/check_demo_compile.py {files}
