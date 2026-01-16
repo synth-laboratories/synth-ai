@@ -89,7 +89,7 @@ def main() -> None:
         raise ValueError("localapi_info.json missing 'rubrics' dict")
 
     graph_id = f"zero_shot_verifier_rubric_{args.shape}"
-    client = GraphCompletionsSyncClient(api_key=SYNTH_USER_KEY)
+    client = GraphCompletionsSyncClient(synth_user_key=SYNTH_USER_KEY)
 
     trace_files = sorted([p for p in traces_dir.rglob("*.json") if p.is_file()])
     if not trace_files:

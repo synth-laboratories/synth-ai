@@ -28,7 +28,16 @@ from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url, run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import (
     PortConflictBehavior,
@@ -361,10 +370,10 @@ def create_banking77_local_api(system_prompt: str):
         for seed in seeds:
             sample = dataset.sample(split="train", index=seed)
             yield TaskInfo(
-                task={"id": APP_ID, "name": APP_NAME},
-                dataset={"id": APP_ID, "split": sample["split"], "index": sample["index"]},
-                inference={"tool": TOOL_NAME},
-                limits={"max_turns": 1},
+                task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+                dataset=DatasetInfo(id=APP_ID, split=sample["split"], index=sample["index"]),
+                inference=InferenceInfo(tool=TOOL_NAME),
+                limits=LimitsInfo(max_turns=1),
                 task_metadata={"query": sample["text"], "expected_intent": sample["label"]},
             )
 
@@ -460,7 +469,7 @@ async def main():
     config_body = {
         "prompt_learning": {
             "algorithm": "gepa",
-            "localapi_id": "banking77",
+            "task_app_id": "banking77",
             "localapi_url": baseline_local_api_url,
             "initial_prompt": {
                 "id": "banking77_pattern",
@@ -1007,7 +1016,7 @@ async def main():
             # Prefer typed mean_reward; otherwise fall back to summary/seed results.
             mean_reward = getattr(baseline_result, "mean_reward", None)
             if mean_reward is None:
-                mean_reward = getattr(baseline_result, "mean_score", None)
+                mean_reward = getattr(baseline_result, "mean_reward", None)
             if mean_reward is None:
                 summary = baseline_result.raw.get("summary", {})
                 mean_reward = summary.get("mean_reward")
@@ -1044,7 +1053,7 @@ async def main():
             # Prefer typed mean_reward; otherwise fall back to summary/seed results.
             mean_reward = getattr(optimized_result, "mean_reward", None)
             if mean_reward is None:
-                mean_reward = getattr(optimized_result, "mean_score", None)
+                mean_reward = getattr(optimized_result, "mean_reward", None)
             if mean_reward is None:
                 summary = optimized_result.raw.get("summary", {})
                 mean_reward = summary.get("mean_reward")
@@ -1075,7 +1084,7 @@ async def main():
             def extract_mean_reward(result: EvalResult) -> float | None:
                 mean_reward = getattr(result, "mean_reward", None)
                 if mean_reward is None:
-                    mean_reward = getattr(result, "mean_score", None)
+                    mean_reward = getattr(result, "mean_reward", None)
                 if mean_reward is None:
                     summary = result.raw.get("summary", {})
                     mean_reward = summary.get("mean_reward")

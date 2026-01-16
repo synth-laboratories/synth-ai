@@ -24,7 +24,16 @@ from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, kill_port
 
 
@@ -426,7 +435,6 @@ def create_oolong_rlm_local_api():
         reward = 1.0 if normalize_answer(predicted) == normalize_answer(gold) else 0.0
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id,
             reward_info=RolloutMetrics(
                 outcome_reward=reward,
                 details={"messages": messages_for_validation, "predicted": predicted, "gold": gold},
@@ -445,10 +453,10 @@ def create_oolong_rlm_local_api():
         for seed in seeds:
             sample = oolong.sample(split="validation", index=seed)
             yield TaskInfo(
-                task={"id": APP_ID, "name": APP_NAME},
-                dataset={"id": APP_ID, "split": sample.split, "index": sample.index},
-                inference={"tool": "rlm_repl"},
-                limits={"max_turns": 1},
+                task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+                dataset=DatasetInfo(id=APP_ID, split=sample.split, index=sample.index),
+                inference=InferenceInfo(tool="rlm_repl"),
+                limits=LimitsInfo(max_turns=1),
                 task_metadata={"query": sample.query},
             )
 

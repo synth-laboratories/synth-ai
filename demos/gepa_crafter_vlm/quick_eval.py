@@ -14,7 +14,15 @@ from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
 from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import TaskInfo, run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+)
 from synth_ai.sdk.tunnels import wait_for_health_check
 from synth_ai.sdk.tunnels.tunneled_api import TunnelBackend, TunneledLocalAPI
 
@@ -164,7 +172,6 @@ def create_localapi_app(system_prompt: str):
 
         score, details = CrafterScorer.score_episode(observation, len(episode_rewards), max_steps)
         return RolloutResponse(
-            run_id=request.trace_correlation_id,
             reward_info=RolloutMetrics(outcome_reward=score, details=details),
             trace=None,
             trace_correlation_id=policy_config.get("trace_correlation_id"),
@@ -176,10 +183,10 @@ def create_localapi_app(system_prompt: str):
     def provide_task_instances(seeds):
         for seed in seeds:
             yield TaskInfo(
-                task={"id": app_id, "name": app_name},
-                dataset={"id": app_id, "split": "train", "index": seed},
-                inference={"tool": tool_name},
-                limits={"max_turns": MAX_TURNS},
+                task=TaskDescriptor(id=app_id, name=app_name),
+                dataset=DatasetInfo(id=app_id, split="train", index=seed),
+                inference=InferenceInfo(tool=tool_name),
+                limits=LimitsInfo(max_turns=MAX_TURNS),
                 task_metadata={"seed": seed},
             )
 

@@ -18,6 +18,8 @@ Usage:
     4. Run with: ENVIRONMENT_API_KEY=<your-key> python your_localapi.py
 """
 
+from collections.abc import Sequence
+
 import httpx
 from fastapi import Request
 
@@ -28,8 +30,12 @@ from synth_ai.sdk.task import (
     normalize_inference_url,
 )
 from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutRequest,
     RolloutResponse,
+    TaskDescriptor,
     TaskInfo,
 )
 
@@ -115,15 +121,15 @@ def provide_taskset_description() -> dict:
     }
 
 
-def provide_task_instances(seeds: list[int]):
+def provide_task_instances(seeds: Sequence[int]):
     """Generate TaskInfo objects for each seed."""
     for seed in seeds:
         sample = get_sample(seed)
         yield TaskInfo(
-            task={"id": APP_ID, "name": APP_NAME},
-            dataset={"id": APP_ID, "split": "test", "index": sample["index"]},
-            inference={},
-            limits={"max_turns": 1},  # Adjust based on your task
+            task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+            dataset=DatasetInfo(id=APP_ID, split="test", index=sample["index"]),
+            inference=InferenceInfo(),
+            limits=LimitsInfo(max_turns=1),  # Adjust based on your task
             task_metadata={
                 "input": sample["input"],
                 "expected_output": sample["expected_output"],

@@ -47,7 +47,16 @@ except ImportError:  # pragma: no cover
     # Back-compat with older packaging.
     from synth_ai.sdk.task import run_server_background
 
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
 from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import (
@@ -500,7 +509,6 @@ Apply the visual style guidelines to match the original design."""
                 trace_correlation_id = None
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id or "unknown",
             reward_info=RolloutMetrics(outcome_reward=reward),
             trace=None,
             trace_correlation_id=trace_correlation_id or request.trace_correlation_id or "unknown",
@@ -535,11 +543,11 @@ Apply the visual style guidelines to match the original design."""
                 original_data_url = None
 
             yield TaskInfo(
-                task={"id": APP_ID, "name": APP_NAME},
-                dataset={"id": APP_ID, "split": "train", "index": sample["index"]},
+                task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+                dataset=DatasetInfo(id=APP_ID, split="train", index=sample["index"]),
                 environment="web_design",  # Must match gepa_config.toml prompt_learning.gepa.env_name
-                inference={},
-                limits={"max_turns": 1},
+                inference=InferenceInfo(),
+                limits=LimitsInfo(max_turns=1),
                 task_metadata={
                     "page": f"{sample['site_name']}/{sample['page_name']}",
                     "description_length": len(sample["functional_description"]),

@@ -196,7 +196,7 @@ async def main():
     results_list = results_data.get("results", [])
 
     print(f"Status: {status_data.get('status', 'unknown')}")
-    print(f"Mean Score: {summary.get('mean_score', 'N/A')}")
+    print(f"Mean Reward: {summary.get('mean_reward', 'N/A')}")
     print(f"Total Cost: ${summary.get('total_cost_usd', 0.0):.4f}")
     print(f"Total Time: {total_time:.1f}s")
     print()

@@ -359,10 +359,10 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     # Auto-derive base_task_info from app_id/name if not provided
     if cfg.base_task_info is None:
         cfg.base_task_info = TaskInfo(
-            task={"id": cfg.app_id, "name": cfg.name},
-            dataset={"id": cfg.app_id},
-            inference={},
-            limits={},
+            task=TaskDescriptor(id=cfg.app_id, name=cfg.name),
+            dataset=DatasetInfo(id=cfg.app_id),
+            inference=InferenceInfo(),
+            limits=LimitsInfo(),
         )
 
     app = FastAPI(title=cfg.name, description=cfg.description)

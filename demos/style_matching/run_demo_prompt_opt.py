@@ -95,7 +95,7 @@ print(f"Minted env key: {ENVIRONMENT_SYNTH_USER_KEY[:12]}...{ENVIRONMENT_SYNTH_U
 try:
     result = setup_environment_api_key(
         synth_user_key=SYNTH_USER_KEY,
-        token=ENVIRONMENT_SYNTH_USER_KEY,
+        localapi_key=ENVIRONMENT_SYNTH_USER_KEY,
     )
     print(f"Uploaded env key: {result}")
 except Exception as exc:

@@ -90,7 +90,7 @@ async def main() -> None:
         "prompt_learning": {
             "algorithm": "gepa",
             "localapi_url": localapi_url,
-            "localapi_id": "ptcg",
+            "task_app_id": "ptcg",
             "policy": {
                 "model": args.model,
                 "provider": "openai",

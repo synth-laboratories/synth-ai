@@ -85,7 +85,7 @@ async def main():
             "prompt_learning": {
                 "algorithm": "gepa",
                 "localapi_url": localapi_url,
-                "localapi_id": "ptcg_deckbuilder",
+                "task_app_id": "ptcg_deckbuilder",
                 "policy": {
                     "model": "gpt-4.1-mini",
                     "provider": "openai",

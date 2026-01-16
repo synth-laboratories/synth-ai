@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import time
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional
 
@@ -27,7 +28,15 @@ from synth_ai.sdk.localapi.helpers import (
     create_http_client_hooks,
 )
 from synth_ai.sdk.task import RubricBundle, TaskInfo, run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+)
 from synth_ai.sdk.task.rubrics import Criterion, Rubric
 from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import (
@@ -279,7 +288,7 @@ def create_crafter_vlm_local_api(system_prompt: str):
         )
 
         return RolloutResponse(
-            metrics=metrics,
+            reward_info=metrics,
             trace_correlation_id=trace_correlation_id,
             trace=trace,
             inference_url=policy_config.get("inference_url", ""),
@@ -293,14 +302,14 @@ def create_crafter_vlm_local_api(system_prompt: str):
             "description": "Vision-language model playing Crafter using image-only observations",
         }
 
-    def provide_task_instances(seeds: List[int]):
+    def provide_task_instances(seeds: Sequence[int]):
         for seed in seeds:
             yield TaskInfo(
-                task={"id": "crafter_vlm", "name": "Crafter VLM", "version": "1.0.0"},
+                task=TaskDescriptor(id="crafter_vlm", name="Crafter VLM", version="1.0.0"),
                 environment="crafter",
-                dataset={"id": "crafter_vlm", "split": "train", "index": seed},
-                inference={"supports_proxy": True, "tool": "crafter_interact"},
-                limits={"max_turns": 50, "max_steps_per_episode": 200},
+                dataset=DatasetInfo(id="crafter_vlm", split="train", index=seed),
+                inference=InferenceInfo(supports_proxy=True, tool="crafter_interact"),
+                limits=LimitsInfo(max_turns=50, max_steps_per_episode=200),
                 task_metadata={"seed": seed, "format": "vlm_image_only"},
             )
 
@@ -309,11 +318,11 @@ def create_crafter_vlm_local_api(system_prompt: str):
         name="Crafter VLM ReAct Agent",
         description="Crafter local API for VLM ReAct agent with image-only observations.",
         base_task_info=TaskInfo(
-            task={"id": "crafter_vlm", "name": "Crafter VLM", "version": "1.0.0"},
+            task=TaskDescriptor(id="crafter_vlm", name="Crafter VLM", version="1.0.0"),
             environment="crafter",
-            dataset={"id": "crafter_vlm", "splits": ["train", "test"]},
-            inference={"supports_proxy": True, "tool": "crafter_interact"},
-            limits={"max_turns": 50, "max_steps_per_episode": 200},
+            dataset=DatasetInfo(id="crafter_vlm", splits=["train", "test"]),
+            inference=InferenceInfo(supports_proxy=True, tool="crafter_interact"),
+            limits=LimitsInfo(max_turns=50, max_steps_per_episode=200),
             task_metadata={"format": "vlm_image_only"},
         ),
         provide_taskset_description=describe_taskset,
@@ -331,7 +340,7 @@ def create_crafter_vlm_local_api(system_prompt: str):
 
 async def run_gepa_job(
     *,
-    api_key: str,
+    synth_user_key: str,
     localapi_url: str,
     baseline_system_prompt: str,
 ) -> PromptLearningResult:
@@ -403,7 +412,7 @@ async def run_gepa_job(
 
 async def run_eval_job(
     *,
-    api_key: str,
+    synth_user_key: str,
     localapi_url: str,
     seeds: List[int],
     mode: str,
@@ -411,7 +420,7 @@ async def run_eval_job(
     def _submit_and_poll() -> EvalResult:
         config = EvalJobConfig(
             localapi_url=localapi_url,
-            synth_user_key=SYNTH_USER_KEY,
+            synth_user_key=synth_user_key,
             app_id=f"crafter_vlm_{mode}",
             env_name="crafter",
             seeds=seeds,
@@ -523,7 +532,7 @@ async def main() -> None:
     if USE_TUNNEL or not IS_DEV_MODE:
         baseline_url, proc = await open_quick_tunnel_with_dns_verification(
             LOCALAPI_PORT,
-            api_key=environment_api_key,
+            localapi_key=environment_api_key,
         )
         track_process(proc)
     else:
@@ -561,7 +570,7 @@ async def main() -> None:
     if USE_TUNNEL or not IS_DEV_MODE:
         optimized_url, proc = await open_quick_tunnel_with_dns_verification(
             OPTIMIZED_LOCALAPI_PORT,
-            api_key=environment_api_key,
+            localapi_key=environment_api_key,
         )
         track_process(proc)
     else:

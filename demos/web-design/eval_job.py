@@ -4,7 +4,7 @@
 This:
 - starts the web-design task app locally
 - submits a single eval job with multiple seeds
-- prints wall time, mean_score (reward), total_cost_usd, and per-seed breakdown
+- prints wall time, mean_reward, total_cost_usd, and per-seed breakdown
 """
 
 import argparse
@@ -250,7 +250,7 @@ def main() -> int:
     print(f"wall_time_s: {wall_s:.1f}")
 
     if result.succeeded:
-        print(f"mean_score (reward): {result.mean_score}")
+        print(f"mean_reward: {result.mean_reward}")
         print(f"total_cost_usd: {result.total_cost_usd}")
         print(f"total_tokens: {result.total_tokens}")
         print(f"completed: {result.num_completed}/{result.num_total}")

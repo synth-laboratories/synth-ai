@@ -224,7 +224,7 @@ async def call_chat_completion_api(
     messages: list[dict[str, str]],
     tools: list[dict[str, Any]] | None = None,
     tool_choice: str | None = None,
-    api_key: str | None = None,
+    synth_user_key: str | None = None,
     http_client: Any | None = None,
     enable_dns_preresolution: bool = True,
     validate_response: bool = True,
@@ -277,11 +277,11 @@ async def call_chat_completion_api(
     lowered = route_base.lower()
     is_provider_host = ("api.openai.com" in lowered) or ("api.groq.com" in lowered)
 
-    if api_key:
+    if synth_user_key:
         if is_provider_host:
-            headers["Authorization"] = f"Bearer {api_key}"
+            headers["Authorization"] = f"Bearer {synth_user_key}"
         else:
-            headers["X-API-Key"] = api_key
+            headers["X-API-Key"] = synth_user_key
 
     payload: dict[str, Any] = {
         "model": model,

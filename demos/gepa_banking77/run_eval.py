@@ -20,7 +20,16 @@ from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
 from synth_ai.sdk.auth import get_or_mint_synth_user_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 # Parse args early
@@ -258,10 +267,10 @@ def create_banking77_local_api(system_prompt: str):
         for seed in seeds:
             sample = dataset.sample(split="train", index=seed)
             yield TaskInfo(
-                task={"id": "banking77", "name": "Banking77 Intent Classification"},
-                dataset={"id": "banking77", "split": sample["split"], "index": sample["index"]},
-                inference={"tool": TOOL_NAME},
-                limits={"max_turns": 1},
+                task=TaskDescriptor(id="banking77", name="Banking77 Intent Classification"),
+                dataset=DatasetInfo(id="banking77", split=sample["split"], index=sample["index"]),
+                inference=InferenceInfo(tool=TOOL_NAME),
+                limits=LimitsInfo(max_turns=1),
                 task_metadata={"query": sample["text"], "expected_intent": sample["label"]},
             )
 
@@ -343,7 +352,7 @@ async def main():
         print("EVAL RESULT")
         print("=" * 60)
         print(f"Status: {result.status}")
-        print(f"Mean score: {result.mean_score}")
+        print(f"Mean reward: {result.mean_reward}")
         print(f"Error: {result.error}")
         if result.seed_results:
             print(f"Seed results: {len(result.seed_results)}")

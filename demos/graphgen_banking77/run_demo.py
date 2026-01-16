@@ -395,7 +395,7 @@ def create_graphgen_job(
         # Natural language task description
         problem_spec=problem_spec,
         # Authentication
-        api_key=api_key,
+        synth_user_key=api_key,
         # Start immediately after creation
         auto_start=True,
     )

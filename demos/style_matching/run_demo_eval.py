@@ -102,7 +102,7 @@ print(f"Minted env key: {ENVIRONMENT_SYNTH_USER_KEY[:12]}...{ENVIRONMENT_SYNTH_U
 try:
     result = setup_environment_api_key(
         synth_user_key=SYNTH_USER_KEY,
-        token=ENVIRONMENT_SYNTH_USER_KEY,
+        localapi_key=ENVIRONMENT_SYNTH_USER_KEY,
     )
     print(f"Uploaded env key: {result}")
 except Exception as exc:
@@ -654,7 +654,7 @@ async def run_eval_job(
     result = job.poll_until_complete(timeout=1800.0, interval=3.0, progress=True)
     if not result.succeeded:
         raise RuntimeError(f"Eval job failed ({label}): {result.error}")
-    return result.mean_score or 0.0
+    return result.mean_reward or 0.0
 
 
 async def main() -> None:
