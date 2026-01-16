@@ -152,7 +152,7 @@ async def main():
 
         # Start localapi server
         run_server_background(app, port)
-        wait_for_health("localhost", port, job.localapi_key)
+        wait_for_health("localhost", port, job.config.localapi_key)
         print(f"Localapi ready on port {port}")
     else:
         print(f"\nLoading config from: {config_path}")
@@ -184,7 +184,7 @@ async def main():
 
         # Start localapi server
         run_server_background(app, port)
-        wait_for_health("localhost", port, job.localapi_key)
+        wait_for_health("localhost", port, job.config.localapi_key)
         print(f"Localapi ready on port {port}")
 
     job_id = job.submit()

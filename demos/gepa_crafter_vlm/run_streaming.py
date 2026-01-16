@@ -479,7 +479,7 @@ async def main():
     prelim_job = PromptLearningJob.from_dict(
         config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
     )
-    env_key = prelim_job.localapi_key
+    env_key = prelim_job.config.localapi_key
     log("Environment key configured")
 
     # Baseline prompt

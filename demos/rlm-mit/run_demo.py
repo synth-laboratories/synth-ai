@@ -520,7 +520,7 @@ async def main():
     prelim_job = PromptLearningJob.from_dict(
         config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
     )
-    localapi_key = prelim_job.localapi_key
+    localapi_key = prelim_job.config.localapi_key
 
     # Start Local API
     print("\n" + "=" * 60)

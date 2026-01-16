@@ -495,7 +495,7 @@ async def main() -> None:
     prelim_job = PromptLearningJob.from_dict(
         config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
     )
-    environment_api_key = prelim_job.localapi_key
+    environment_api_key = prelim_job.config.localapi_key
 
     allowed_actions = ", ".join(CRAFTER_ALLOWED_ACTIONS)
     baseline_prompt = (

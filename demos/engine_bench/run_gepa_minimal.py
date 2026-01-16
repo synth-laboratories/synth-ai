@@ -113,11 +113,11 @@ async def main():
         config_dict=config_dict,
         synth_user_key=SYNTH_USER_KEY,
     )
-    print(f"  Localapi API key: {job.localapi_key[:20]}...")
+    print(f"  Localapi API key: {job.config.localapi_key[:20]}...")
 
     # Start localapi server
     run_server_background(app, port)
-    wait_for_health("localhost", port, job.localapi_key)
+    wait_for_health("localhost", port, job.config.localapi_key)
     print(f"Localapi ready on port {port}")
 
     job_id = job.submit()

@@ -102,7 +102,7 @@ async def main() -> int:
     )
 
     run_server_background(app, port)
-    _wait_for_health("localhost", port, job.localapi_key)
+    _wait_for_health("localhost", port, job.config.localapi_key)
     print(f"Localapi ready: {localapi_url}")
 
     job_id = job.submit()
