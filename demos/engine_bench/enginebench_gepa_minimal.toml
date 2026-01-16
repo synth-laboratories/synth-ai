@@ -10,7 +10,7 @@
 [prompt_learning]
 algorithm = "gepa"
 localapi_url = "http://localhost:8020"
-localapi_id = "engine_bench"
+task_app_id = "engine_bench"
 
 [prompt_learning.policy]
 model = "gpt-4.1-mini"

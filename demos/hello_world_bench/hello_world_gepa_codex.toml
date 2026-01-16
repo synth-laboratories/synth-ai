@@ -16,7 +16,7 @@
 [prompt_learning]
 algorithm = "gepa"
 localapi_url = "http://localhost:8030"
-localapi_id = "hello_world_bench"
+task_app_id = "hello_world_bench"
 
 [prompt_learning.policy]
 model = "gpt-4o-mini"

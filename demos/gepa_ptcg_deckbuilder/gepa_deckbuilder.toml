@@ -6,7 +6,7 @@
 [prompt_learning]
 algorithm = "gepa"
 localapi_url = "http://localhost:8018"
-localapi_id = "ptcg_deckbuilder"
+task_app_id = "ptcg_deckbuilder"
 
 # Policy: Model for generating deck-building responses
 [prompt_learning.policy]
