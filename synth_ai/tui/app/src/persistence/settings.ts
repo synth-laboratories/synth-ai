@@ -5,7 +5,7 @@ import path from "node:path"
 import { promises as fs } from "node:fs"
 
 import { ListPane, parseMode } from "../types"
-import type { ListFilterMode, Mode } from "../types"
+import type { ListFilterMode, Mode, PrimaryView } from "../types"
 import { tuiSettingsPath } from "../paths"
 
 export type PersistedListFilter = {
@@ -17,6 +17,7 @@ export type PersistedListFilters = Record<Mode, Record<ListPane, PersistedListFi
 
 export type PersistedSettings = {
   mode: Mode | null
+  primaryView: PrimaryView | null
   keys: Record<Mode, string>
   listFilters: PersistedListFilters
 }
@@ -34,14 +35,17 @@ function getDefaultListFilters(): PersistedListFilters {
     prod: {
       [ListPane.Jobs]: createDefaultListFilter(),
       [ListPane.Logs]: createDefaultListFilter(),
+      [ListPane.Sessions]: createDefaultListFilter(),
     },
     dev: {
       [ListPane.Jobs]: createDefaultListFilter(),
       [ListPane.Logs]: createDefaultListFilter(),
+      [ListPane.Sessions]: createDefaultListFilter(),
     },
     local: {
       [ListPane.Jobs]: createDefaultListFilter(),
       [ListPane.Logs]: createDefaultListFilter(),
+      [ListPane.Sessions]: createDefaultListFilter(),
     },
   }
 }
@@ -63,6 +67,13 @@ function normalizeListFilterSelections(value: unknown): string[] {
     seen.add(trimmed)
   }
   return Array.from(seen)
+}
+
+function normalizePrimaryView(value: unknown): PrimaryView | null {
+  if (value === "jobs" || value === "agent" || value === "logs") {
+    return value
+  }
+  return null
 }
 
 function normalizePersistedListFilter(value: unknown): PersistedListFilter {
@@ -93,20 +104,24 @@ function normalizePersistedListFilters(value: unknown): PersistedListFilters {
     prod: {
       [ListPane.Jobs]: normalizePane("prod", ListPane.Jobs),
       [ListPane.Logs]: normalizePane("prod", ListPane.Logs),
+      [ListPane.Sessions]: normalizePane("prod", ListPane.Sessions),
     },
     dev: {
       [ListPane.Jobs]: normalizePane("dev", ListPane.Jobs),
       [ListPane.Logs]: normalizePane("dev", ListPane.Logs),
+      [ListPane.Sessions]: normalizePane("dev", ListPane.Sessions),
     },
     local: {
       [ListPane.Jobs]: normalizePane("local", ListPane.Jobs),
       [ListPane.Logs]: normalizePane("local", ListPane.Logs),
+      [ListPane.Sessions]: normalizePane("local", ListPane.Sessions),
     },
   }
 }
 
 export async function readPersistedSettings(): Promise<PersistedSettings> {
   let mode: Mode | null = null
+  let primaryView: PrimaryView | null = null
   let keys = getEmptyKeys()
   let listFilters = getDefaultListFilters()
   try {
@@ -123,6 +138,9 @@ export async function readPersistedSettings(): Promise<PersistedSettings> {
         local: typeof candidate.local === "string" ? candidate.local.trim() : "",
       }
     }
+    if (data?.primaryView) {
+      primaryView = normalizePrimaryView(data.primaryView)
+    }
     if (data?.listFilters) {
       listFilters = normalizePersistedListFilters(data.listFilters)
     }
@@ -131,7 +149,7 @@ export async function readPersistedSettings(): Promise<PersistedSettings> {
       // Ignore missing file, keep other errors silent for now.
     }
   }
-  return { mode, keys, listFilters }
+  return { mode, primaryView, keys, listFilters }
 }
 
 export type LoadSettingsDeps = {
@@ -153,6 +171,7 @@ function sanitizeListFilters(filters: Record<ListPane, PersistedListFilter>): Re
   return {
     [ListPane.Jobs]: normalizePersistedListFilter(filters[ListPane.Jobs]),
     [ListPane.Logs]: normalizePersistedListFilter(filters[ListPane.Logs]),
+    [ListPane.Sessions]: normalizePersistedListFilter(filters[ListPane.Sessions]),
   }
 }
 
@@ -163,10 +182,12 @@ async function writePersistedSettings(
   try {
     await fs.mkdir(path.dirname(tuiSettingsPath), { recursive: true })
     const mode = settings.mode ?? null
+    const primaryView = settings.primaryView ?? null
     const keys = settings.keys
     const listFilters = settings.listFilters ?? getDefaultListFilters()
     const payload = {
       mode,
+      primaryView,
       keys: {
         prod: keys.prod,
         dev: keys.dev,
@@ -209,4 +230,12 @@ export async function persistListFilters(
     [mode]: sanitizeListFilters(filters),
   }
   await writePersistedSettings({ ...settings, listFilters }, onError)
+}
+
+export async function persistPrimaryView(
+  primaryView: PrimaryView | null,
+  onError?: (message: string) => void,
+): Promise<void> {
+  const settings = await readPersistedSettings()
+  await writePersistedSettings({ ...settings, primaryView }, onError)
 }

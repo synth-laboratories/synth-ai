@@ -6,6 +6,7 @@ import type { JobEvent } from "../../../tui_data"
 import { isEvalJob } from "../../../tui_data"
 import type { ListWindowItem } from "../../utils/list"
 import type { PanelRegistryKey } from "./types"
+import type { JobsDetailLayout } from "../../hooks/useJobsDetailLayout"
 
 // Import registries
 import { getDetailsPanel } from "./registries/details-registry"
@@ -20,6 +21,7 @@ import "./metrics"
 // Import events panel directly (not registry-based)
 import { EventsListPanel } from "./events"
 import { COLORS, PANEL, TEXT, getPanelBorderColor } from "../../theme"
+import { PromptDiffPanel } from "./PromptDiffPanel"
 
 interface JobsDetailProps {
   data: AppData
@@ -29,15 +31,15 @@ interface JobsDetailProps {
   lastError: string | null
   detailWidth: number
   detailHeight: number
+  scrollOffset: number
+  layout: JobsDetailLayout
+  detailsFocused?: boolean
   resultsFocused?: boolean
+  promptDiffFocused?: boolean
   eventsFocused?: boolean
   metricsFocused?: boolean
   metricsView: MetricsView
   verifierEvolveGenerationIndex: number
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
 }
 
 /**
@@ -67,39 +69,9 @@ export function JobsDetail(props: JobsDetailProps) {
   const ResultsPanel = createMemo(() => getResultsPanel(registryKey()))
   const MetricsPanel = createMemo(() => getMetricsPanel(props.metricsView))
 
-  // Calculate panel heights
-  const metricPointsCount = createMemo(() => {
-    const m: any = props.data.metrics || {}
-    const pts = Array.isArray(m?.points) ? m.points : []
-    return pts.length
-  })
-
-  const detailsHeight = createMemo(() => {
-    // Details panel is typically 6-9 lines
-    return clamp(7, 6, 9)
-  })
-
-  const resultsHeight = createMemo(() => {
-    if (isGraphEvolveVerifier()) return 9
-    return clamp(8, 6, 10)
-  })
-
-  const metricsPanelHeight = createMemo(() => {
-    const detailsH = detailsHeight()
-    const resultsH = resultsHeight()
-    const minEventsH = 12
-    const maxH = Math.max(4, props.detailHeight - (detailsH + resultsH + minEventsH))
-
-    if (props.metricsView === "charts") {
-      const desired = metricPointsCount() > 0 ? 22 : 18
-      return clamp(desired, 12, maxH)
-    }
-    const desired = metricPointsCount() > 0 ? 8 : 4
-    return clamp(desired, 4, maxH)
-  })
-
-  // Fixed height for events panel
-  const eventsPanelHeight = createMemo(() => 14)
+  const sectionHeight = (id: keyof JobsDetailLayout["byId"], fallback: number) =>
+    props.layout.byId[id]?.height ?? fallback
+  const hasPromptDiff = createMemo(() => Boolean(props.layout.byId.promptDiff))
 
   // Results panel title varies by job type
   const resultsTitle = createMemo(() => {
@@ -112,71 +84,100 @@ export function JobsDetail(props: JobsDetailProps) {
   const resultsNeedsWrapper = createMemo(() => !isGraphEvolveVerifier())
 
   return (
-    <box flexDirection="column" flexGrow={1} border={false} gap={0} overflow="hidden">
-      {/* Details Panel */}
-      <Dynamic
-        component={DetailsPanel()}
-        data={props.data}
+    <box
+      flexDirection="column"
+      flexGrow={1}
+      border={false}
+      gap={0}
+      overflow="hidden"
+      height={props.detailHeight}
+      position="relative"
+    >
+      <box
+        flexDirection="column"
+        gap={0}
         width={props.detailWidth}
-        height={detailsHeight()}
-      />
-
-      {/* Results Panel */}
-      <Show
-        when={resultsNeedsWrapper()}
-        fallback={
-          <box
-            border={PANEL.border}
-            borderStyle={PANEL.borderStyle}
-            borderColor={getPanelBorderColor(!!props.resultsFocused)}
-            title={resultsTitle()}
-            titleAlignment={PANEL.titleAlignment}
-            paddingLeft={PANEL.paddingLeft}
-            height={resultsHeight()}
-          >
-            <Dynamic
-              component={ResultsPanel()}
-              data={props.data}
-              width={Math.max(30, props.detailWidth - 6)}
-              height={Math.max(4, resultsHeight() - 2)}
-              focused={!!props.resultsFocused}
-              extra={{ selectedGenerationIndex: props.verifierEvolveGenerationIndex }}
-            />
-          </box>
-        }
+        height={props.layout.contentHeight}
+        position="absolute"
+        left={0}
+        top={-props.scrollOffset}
       >
+        {/* Details Panel */}
         <Dynamic
-          component={ResultsPanel()}
+          component={DetailsPanel()}
           data={props.data}
           width={props.detailWidth}
-          height={resultsHeight()}
-          focused={!!props.resultsFocused}
+          height={sectionHeight("details", 7)}
+          focused={!!props.detailsFocused}
         />
-      </Show>
 
-      {/* Metrics Panel */}
-      <Dynamic
-        component={MetricsPanel()}
-        metrics={props.data.metrics}
-        width={props.detailWidth}
-        height={metricsPanelHeight()}
-        focused={!!props.metricsFocused}
-      />
+        {/* Results Panel */}
+        <Show
+          when={resultsNeedsWrapper()}
+          fallback={
+            <box
+              border={PANEL.border}
+              borderStyle={PANEL.borderStyle}
+              borderColor={getPanelBorderColor(!!props.resultsFocused)}
+              title={resultsTitle()}
+              titleAlignment={PANEL.titleAlignment}
+              paddingLeft={PANEL.paddingLeft}
+              height={sectionHeight("results", 8)}
+            >
+              <Dynamic
+                component={ResultsPanel()}
+                data={props.data}
+                width={Math.max(30, props.detailWidth - 6)}
+                height={Math.max(4, sectionHeight("results", 8) - 2)}
+                focused={!!props.resultsFocused}
+                extra={{ selectedGenerationIndex: props.verifierEvolveGenerationIndex }}
+              />
+            </box>
+          }
+        >
+          <Dynamic
+            component={ResultsPanel()}
+            data={props.data}
+            width={props.detailWidth}
+            height={sectionHeight("results", 8)}
+            focused={!!props.resultsFocused}
+          />
+        </Show>
 
-      {/* Events Panel */}
-      <EventsListPanel
-        eventItems={props.eventItems}
-        totalEvents={props.totalEvents}
-        selectedIndex={props.selectedIndex}
-        focused={!!props.eventsFocused}
-        width={props.detailWidth}
-        height={eventsPanelHeight()}
-        emptyFallback={<text fg={TEXT.fg}>No events yet.</text>}
-      />
+        {/* Prompt Diff Panel */}
+        <Show when={hasPromptDiff()}>
+          <PromptDiffPanel
+            data={props.data}
+            width={props.detailWidth}
+            height={sectionHeight("promptDiff", 8)}
+            focused={!!props.promptDiffFocused}
+          />
+        </Show>
 
-      <Show when={props.lastError}>
-        <text fg={COLORS.error}>{`Error: ${props.lastError}`}</text>
-      </Show>
+        {/* Metrics Panel */}
+        <Dynamic
+          component={MetricsPanel()}
+          metrics={props.data.metrics}
+          width={props.detailWidth}
+          height={sectionHeight("metrics", 8)}
+          focused={!!props.metricsFocused}
+        />
+
+        {/* Events Panel */}
+        <EventsListPanel
+          eventItems={props.eventItems}
+          totalEvents={props.totalEvents}
+          selectedIndex={props.selectedIndex}
+          focused={!!props.eventsFocused}
+          width={props.detailWidth}
+          height={sectionHeight("events", 14)}
+          emptyFallback={<text fg={TEXT.fg}>No events yet.</text>}
+        />
+
+        <Show when={props.lastError}>
+          <text fg={COLORS.error}>{`Error: ${props.lastError}`}</text>
+        </Show>
+      </box>
     </box>
   )
 }

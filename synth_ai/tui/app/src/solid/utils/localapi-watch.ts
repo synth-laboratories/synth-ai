@@ -1,6 +1,10 @@
 import { type Accessor, createEffect, createSignal, onCleanup } from "solid-js"
 import fs from "node:fs"
-import { scanMultipleDirectories, type LocalApiScanCache, type ScannedLocalAPI } from "./localapi-scanner"
+import {
+  scanMultipleDirectories,
+  type LocalApiScanCache,
+  type ScannedLocalAPI,
+} from "../../services/localapi-scanner"
 
 type LocalApiWatchOptions = {
   enabled: Accessor<boolean>

@@ -1,6 +1,6 @@
 import { type Accessor, createMemo } from "solid-js"
 
-import { computeListWindow, type ListWindowItem } from "../utils/list"
+import { computeListWindowFromStart, resolveSelectionWindow, type ListWindowItem } from "../utils/list"
 
 export type ListWindowState<T> = {
   visibleCount: Accessor<number>
@@ -25,25 +25,35 @@ export function useListWindow<T>(options: UseListWindowOptions<T>): ListWindowSt
     const rows = Math.floor((height - chromeHeight) / options.rowHeight)
     return Math.max(0, rows)
   })
+  const total = createMemo(() => options.items().length)
+
+  const windowStart = createMemo(() => {
+    const items = options.items()
+    const totalCount = items.length
+    const visible = visibleCount()
+    if (!totalCount || visible <= 0) {
+      return 0
+    }
+
+    const resolved = resolveSelectionWindow(
+      totalCount,
+      options.selectedIndex(),
+      0,
+      visible,
+      "edge",
+    )
+    return resolved.windowStart
+  })
 
   const visibleItems = createMemo(() =>
-    computeListWindow(options.items(), options.selectedIndex(), visibleCount()),
+    computeListWindowFromStart(options.items(), windowStart(), visibleCount()),
   )
-
-  const total = createMemo(() => options.items().length)
-  const windowStart = createMemo(() => {
-    const items = visibleItems()
-    return items.length ? items[0].globalIndex : 0
-  })
-  const windowEnd = createMemo(() => {
-    const items = visibleItems()
-    return items.length ? items[items.length - 1].globalIndex + 1 : 0
-  })
+  const windowEnd = createMemo(() => windowStart() + visibleItems().length)
 
   return {
     visibleCount,
     visibleItems,
-    windowStart,
+    windowStart: windowStart,
     windowEnd,
     total,
   }

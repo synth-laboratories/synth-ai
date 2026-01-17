@@ -1,6 +1,6 @@
 import { Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import { useKeyboard, useRenderer } from "@opentui/solid"
-import { formatActionKeys, matchAction } from "../../input/keymap"
+import { getActionHint, buildCombinedHint, buildActionHint, matchAction } from "../../input/keymap"
 
 import type { AppData } from "../../types"
 import {
@@ -357,12 +357,12 @@ export function TraceViewerModal(props: TraceViewerModalProps) {
     const idx = selectedIndex()
     const { maxOffset } = displayContent()
     const scrollInfo = maxOffset > 0 ? ` [${scrollOffset() + 1}/${maxOffset + 1}]` : ""
-    const navHint = `${formatActionKeys("trace.prev", { primaryOnly: true })}/${formatActionKeys("trace.next", { primaryOnly: true })} trace (${idx + 1}/${total})`
-    const scrollHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} scroll${scrollInfo}`
+    const navHint = `${buildCombinedHint("trace.prev", "trace.next", "trace")} (${idx + 1}/${total})`
+    const scrollHint = `${buildCombinedHint("nav.down", "nav.up", "scroll")}${scrollInfo}`
     const imageHint = loadedImage()
-      ? ` | ${formatActionKeys("trace.toggleImage", { primaryOnly: true })} ${showImage() ? "hide" : "show"} image`
+      ? ` | ${buildActionHint("trace.toggleImage", showImage() ? "hide image" : "show image")}`
       : ""
-    return `${navHint} | ${scrollHint}${imageHint} | ${formatActionKeys("trace.refresh")} refresh | ${formatActionKeys("app.back")} close`
+    return `${navHint} | ${scrollHint}${imageHint} | ${getActionHint("trace.refresh")} | ${getActionHint("app.back")}`
   })
 
   const title = createMemo(() => {

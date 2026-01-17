@@ -1,12 +1,17 @@
-import { type Accessor } from "solid-js"
+import { type Accessor, createMemo } from "solid-js"
 
 import { defaultLayoutSpec } from "../../layout"
+import { clampLine } from "../../../utils/text"
 
 type StatusBarProps = {
   statusText: Accessor<string>
+  width: Accessor<number>
 }
 
 export function StatusBar(props: StatusBarProps) {
+  const contentWidth = createMemo(() => Math.max(1, props.width() - 3))
+  const statusLine = createMemo(() => clampLine(props.statusText(), contentWidth()))
+
   return (
     <box
       height={defaultLayoutSpec.statusHeight}
@@ -17,7 +22,7 @@ export function StatusBar(props: StatusBarProps) {
       paddingLeft={1}
       alignItems="center"
     >
-      <text fg="#e2e8f0">{props.statusText()}</text>
+      <text fg="#e2e8f0">{statusLine()}</text>
     </box>
   )
 }

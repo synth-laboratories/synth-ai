@@ -4,8 +4,8 @@ import type { AppData } from "../../types"
 import type { AppState } from "../../state/app-state"
 import type { JobEvent } from "../../tui_data"
 import { getFilteredEvents } from "../../formatters"
-import { deriveSelectedIndex } from "../utils/list"
-import { getEventKey } from "../utils/events"
+import { deriveSelectedIndex, uniqueById } from "../utils/list"
+import { getEventKey } from "../../utils/events"
 import { useListWindow, type ListWindowState } from "./useListWindow"
 
 export type JobsDetailState = {
@@ -27,16 +27,17 @@ export function useJobsDetailState(options: UseJobsDetailStateOptions): JobsDeta
   const events = createMemo(() =>
     getFilteredEvents(options.data.events, options.ui.eventFilter),
   )
+  const uniqueEvents = createMemo(() => uniqueById(events(), getEventKey))
 
   const selectedIndex = createMemo(() =>
-    deriveSelectedIndex(events(), options.ui.selectedEventId, getEventKey),
+    deriveSelectedIndex(uniqueEvents(), options.ui.selectedEventId, getEventKey),
   )
 
   // Fixed height to match JobsDetail panel
   const eventsHeight = createMemo(() => EVENT_PANEL_HEIGHT)
 
   const listWindow = useListWindow({
-    items: events,
+    items: uniqueEvents,
     selectedIndex,
     height: eventsHeight,
     rowHeight: EVENT_CARD_HEIGHT,
@@ -44,7 +45,7 @@ export function useJobsDetailState(options: UseJobsDetailStateOptions): JobsDeta
   })
 
   return {
-    events,
+    events: uniqueEvents,
     listWindow,
     selectedIndex,
   }

@@ -4,6 +4,9 @@
 import { createMemo } from "solid-js"
 import type { ResultsPanelProps } from "./types"
 import { TEXT, PANEL, getPanelBorderColor } from "../../../theme"
+import { getPanelContentHeight, getPanelContentWidth } from "../../../../utils/panel"
+import { clampLines, wrapTextLines } from "../../../../utils/text"
+import type { TextPanelComponent } from "../types"
 import { formatEvalResults } from "../../../../formatters/results"
 
 export function EvalResultsPanel(props: ResultsPanelProps) {
@@ -12,6 +15,10 @@ export function EvalResultsPanel(props: ResultsPanelProps) {
     if (!job) return "Results: -"
     return formatEvalResults(props.data, job)
   })
+  const contentWidth = createMemo(() => getPanelContentWidth(props.width))
+  const contentHeight = createMemo(() => getPanelContentHeight(props.height))
+  const lines = createMemo(() => wrapTextLines(resultsText(), contentWidth()))
+  const visibleLines = createMemo(() => clampLines(lines(), contentHeight()))
 
   return (
     <box
@@ -23,7 +30,13 @@ export function EvalResultsPanel(props: ResultsPanelProps) {
       paddingLeft={PANEL.paddingLeft}
       height={props.height}
     >
-      <text fg={TEXT.fg}>{resultsText()}</text>
+      <text fg={TEXT.fg}>{visibleLines().join("\n")}</text>
     </box>
   )
+}
+
+(EvalResultsPanel as TextPanelComponent<ResultsPanelProps>).getLines = (props, contentWidth) => {
+  const job = props.data.selectedJob
+  if (!job) return wrapTextLines("Results: -", contentWidth)
+  return wrapTextLines(formatEvalResults(props.data, job), contentWidth)
 }

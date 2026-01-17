@@ -1,9 +1,9 @@
 /**
- * Event navigation helpers (Solid UI).
+ * Event navigation helpers.
  */
-import type { AppContext } from "../../context"
-import { getFilteredEvents } from "../../formatters"
-import { moveSelectionById } from "./list"
+import type { AppContext } from "../context"
+import { getFilteredEvents } from "../formatters"
+import { moveSelectionById, uniqueById } from "./list"
 
 export function getEventKey(event: { seq?: number; timestamp?: string | null; type?: string }): string {
   if (Number.isFinite(event.seq)) {
@@ -19,9 +19,10 @@ export function moveEventSelection(ctx: AppContext, delta: number): void {
   const { data, ui } = ctx.state
   const { setUi } = ctx
   const filtered = getFilteredEvents(data.events, ui.eventFilter)
-  if (!filtered.length) return
+  const unique = uniqueById(filtered, getEventKey)
+  if (!unique.length) return
 
-  const nextId = moveSelectionById(filtered, ui.selectedEventId, delta, getEventKey)
+  const nextId = moveSelectionById(unique, ui.selectedEventId, delta, getEventKey)
   if (nextId && nextId !== ui.selectedEventId) {
     setUi("selectedEventId", nextId)
   }

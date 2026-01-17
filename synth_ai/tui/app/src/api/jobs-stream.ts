@@ -37,7 +37,7 @@ export function connectJobsStream(
 	onEvent: JobStreamHandler,
 	onError?: JobStreamErrorHandler,
 	sinceSeq: number | (() => number) = 0,
-	options: { signal?: AbortSignal } = {},
+	options: { signal?: AbortSignal; onOpen?: () => void } = {},
 ): JobStreamConnection {
 	const getSinceSeq = typeof sinceSeq === "function" ? sinceSeq : () => sinceSeq
 	const getPath = () => `/jobs/stream?since_seq=${getSinceSeq()}`
@@ -48,6 +48,7 @@ export function connectJobsStream(
 		label: "jobs-stream",
 		onEvent,
 		onError,
+		onOpen: options.onOpen,
 	})
 
 	return {

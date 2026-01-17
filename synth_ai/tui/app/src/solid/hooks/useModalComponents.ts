@@ -1,7 +1,7 @@
 import { createMemo, createSignal, type Component, type Setter } from "solid-js"
 
 import { useLocalApiScanner } from "../utils/localapi-watch"
-import { toDisplayPath } from "../utils/files"
+import { toDisplayPath } from "../../utils/files"
 
 export type ModalComponentsState = {
   candidatesModalComponent: () => Component<any> | null

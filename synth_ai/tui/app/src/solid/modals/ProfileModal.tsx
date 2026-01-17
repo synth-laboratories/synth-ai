@@ -1,6 +1,6 @@
 import { type Accessor } from "solid-js"
 
-import { formatActionKeys } from "../../input/keymap"
+import { getActionHint } from "../../input/keymap"
 import type { AppData } from "../../types"
 import { TextContentModal } from "./ModalShared"
 
@@ -22,7 +22,7 @@ export function ProfileModal(props: ProfileModalProps) {
       height={15}
       borderColor="#818cf8"
       titleColor="#818cf8"
-      hint={`${formatActionKeys("app.back")} close`}
+      hint={getActionHint("app.back")}
       dimensions={props.dimensions}
       text={content}
     />

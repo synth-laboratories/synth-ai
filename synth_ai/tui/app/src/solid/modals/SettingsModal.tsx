@@ -1,6 +1,6 @@
 import { type Accessor, createMemo } from "solid-js"
 
-import { formatActionKeys } from "../../input/keymap"
+import { buildCombinedHint, getActionHint } from "../../input/keymap"
 import { modeUrls } from "../../state/app-state"
 import type { AppState } from "../../state/app-state"
 import { TextContentModal } from "./ModalShared"
@@ -58,7 +58,7 @@ export function SettingsModal(props: SettingsModalProps) {
       height={20}
       borderColor="#38bdf8"
       titleColor="#38bdf8"
-      hint={`${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} navigate | ${formatActionKeys("modal.confirm")} select | ${formatActionKeys("app.back")} close`}
+      hint={`${buildCombinedHint("nav.down", "nav.up", "navigate")} | ${getActionHint("modal.confirm")} | ${getActionHint("app.back")}`}
       dimensions={props.dimensions}
       text={content()}
     />

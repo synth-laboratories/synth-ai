@@ -1,6 +1,6 @@
 import fs from "node:fs"
 import path from "node:path"
-import { tuiLogsDir } from "../../paths"
+import { tuiLogsDir } from "../paths"
 
 export type LogFileInfo = {
   path: string

@@ -1,9 +1,10 @@
 import { Show, createEffect, createMemo, createSignal } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
-import { formatActionKeys, matchAction } from "../../input/keymap"
+import { getActionHint, buildCombinedHint, matchAction } from "../../input/keymap"
 
 import type { AppData } from "../../types"
 import { copyToClipboard } from "../../utils/clipboard"
+import { buildPromptDiffBlocks, formatPromptDiffBlocks } from "../../utils/prompt-diff"
 import { clampIndex, moveSelectionIndex, resolveSelectionWindow } from "../utils/list"
 import { extractGraphEvolveCandidates, groupCandidatesByGeneration } from "../../formatters/graph-evolve"
 
@@ -177,6 +178,13 @@ function buildCandidateDetail(candidate: CandidateView | null): string {
       const content = message.content ?? ""
       lines.push(`[${role}] ${content}`)
     }
+    lines.push("")
+  }
+
+  const diffBlocks = buildPromptDiffBlocks(payload)
+  if (diffBlocks.length > 0) {
+    lines.push("=== PROMPT DIFF ===")
+    lines.push(...formatPromptDiffBlocks(diffBlocks))
     lines.push("")
   }
 
@@ -416,16 +424,16 @@ export function CandidatesModal(props: CandidatesModalProps) {
       ? `[${offset + 1}-${Math.min(offset + detailHeight, total)}/${total}] `
       : ""
     const navHint = canNavigateGenerations()
-      ? `${formatActionKeys("candidates.scrollUp", { primaryOnly: true })}/${formatActionKeys("candidates.scrollDown", { primaryOnly: true })} candidate`
-      : `${formatActionKeys("candidates.prev", { primaryOnly: true })}/${formatActionKeys("candidates.next", { primaryOnly: true })} candidate`
+      ? buildCombinedHint("candidates.scrollUp", "candidates.scrollDown", "candidate")
+      : buildCombinedHint("candidates.prev", "candidates.next", "candidate")
     const generationHint = canNavigateGenerations()
-      ? `${formatActionKeys("candidates.prev", { primaryOnly: true })}/${formatActionKeys("candidates.next", { primaryOnly: true })} gen`
+      ? buildCombinedHint("candidates.prev", "candidates.next", "gen")
       : null
     const scrollHint = canNavigateGenerations()
-      ? `${formatActionKeys("nav.pageUp", { primaryOnly: true })}/${formatActionKeys("nav.pageDown", { primaryOnly: true })} scroll`
-      : `${formatActionKeys("candidates.scrollUp", { primaryOnly: true })}/${formatActionKeys("candidates.scrollDown", { primaryOnly: true })} scroll`
-    const copyHint = `${formatActionKeys("modal.copy", { primaryOnly: true })} copy`
-    const closeHint = `${formatActionKeys("app.back")} close`
+      ? buildCombinedHint("nav.pageUp", "nav.pageDown", "scroll")
+      : buildCombinedHint("candidates.scrollUp", "candidates.scrollDown", "scroll")
+    const copyHint = getActionHint("modal.copy")
+    const closeHint = getActionHint("app.back")
     const parts = [navHint, generationHint, scrollHint, copyHint, closeHint].filter(Boolean)
     return `${range}${parts.join(" | ")}`
   })

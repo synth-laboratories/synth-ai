@@ -7,6 +7,7 @@ import type { PromptCandidate } from "../types"
 import { apiGet } from "./client"
 import { isAbortError } from "../utils/abort"
 import { isAborted } from "../utils/request"
+import { log } from "../utils/log"
 
 function isRecord(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -252,6 +253,16 @@ export async function refreshEvents(
 
   const jobId = job.job_id
   const token = ui.eventsToken
+  const start = Date.now()
+  const attempts: Array<{ path: string; ok: boolean; ms: number; error?: string }> = []
+  const beforeSeq = ui.lastSeq
+  let chosenPath: string | null = null
+  let extractMs: number | null = null
+  let mergeMs: number | null = null
+  let candidatesMs: number | null = null
+  let metricsMs: number | null = null
+  let newEventsCount = 0
+  let totalEventsCount = data.events.length
   let nextLastSeq = ui.lastSeq
 
   try {
@@ -274,35 +285,70 @@ export async function refreshEvents(
     let payload: any = null
     let lastErr: any = null
     for (const path of paths) {
+      const attemptStart = Date.now()
       try {
         if (isAborted()) return true
         payload = await apiGet(path)
+        attempts.push({ path, ok: true, ms: Date.now() - attemptStart })
+        chosenPath = path
         lastErr = null
         break
       } catch (err: any) {
         if (isAbortError(err)) return true
+        attempts.push({
+          path,
+          ok: false,
+          ms: Date.now() - attemptStart,
+          error: err?.message || "unknown",
+        })
         lastErr = err
       }
     }
 
     if (lastErr) {
       if (token !== ctx.state.ui.eventsToken || ctx.state.data.selectedJob?.job_id !== jobId) {
+        log("state", "events refresh stale", {
+          jobId,
+          token,
+          currentToken: ctx.state.ui.eventsToken,
+          totalMs: Date.now() - start,
+          attempts,
+          stage: "error",
+        })
         return true
       }
       setData("lastError", lastErr?.message || "Failed to load events")
+      log("state", "events refresh failed", {
+        jobId,
+        token,
+        error: lastErr?.message || "unknown",
+        totalMs: Date.now() - start,
+        attempts,
+      })
       return false
     }
 
     if (token !== ctx.state.ui.eventsToken || ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "events refresh stale", {
+        jobId,
+        token,
+        currentToken: ctx.state.ui.eventsToken,
+        totalMs: Date.now() - start,
+        attempts,
+        stage: "post-fetch",
+      })
       return true
     }
 
+    const extractStart = Date.now()
     const { events, nextSeq } = extractEvents(payload)
+    extractMs = Date.now() - extractStart
     if (events.length > 0) {
       // Deduplicate by seq to be resilient to overlapping polling/SSE/backfills.
       const existingEvents = data.events
       const existingSeqs = new Set(existingEvents.map((e) => e.seq))
       const newEvents = events.filter((e) => !existingSeqs.has(e.seq))
+      newEventsCount = newEvents.length
       if (newEvents.length === 0) {
         // Still advance lastSeq if the server tells us to.
         if (typeof nextSeq === "number" && Number.isFinite(nextSeq)) {
@@ -311,19 +357,44 @@ export async function refreshEvents(
         if (nextLastSeq !== ui.lastSeq) {
           setUi("lastSeq", nextLastSeq)
         }
+        log("state", "events refresh", {
+          jobId,
+          jobSource: job.job_source ?? null,
+          isEval: isEvalJob(job),
+          sinceSeq: beforeSeq,
+          nextSeq,
+          eventsCount: events.length,
+          newEvents: 0,
+          totalEvents: existingEvents.length,
+          totalMs: Date.now() - start,
+          extractMs,
+          mergeMs,
+          candidatesMs,
+          metricsMs,
+          chosenPath,
+          attempts,
+          note: "dedupe-no-op",
+        })
         return true
       }
 
+      const mergeStart = Date.now()
       let mergedEvents = [...existingEvents, ...newEvents]
+      const candidatesStart = Date.now()
       updateCandidatesFromEvents(ctx, newEvents)
+      candidatesMs = Date.now() - candidatesStart
       
       // Extract GEPA metrics from events as fallback if metrics endpoint is empty
+      const metricsStart = Date.now()
       extractGEPAMetricsFromEvents(ctx, newEvents)
+      metricsMs = Date.now() - metricsStart
       
       if (config.eventHistoryLimit > 0 && mergedEvents.length > config.eventHistoryLimit) {
         mergedEvents = mergedEvents.slice(-config.eventHistoryLimit)
       }
       setData("events", mergedEvents)
+      mergeMs = Date.now() - mergeStart
+      totalEventsCount = mergedEvents.length
       nextLastSeq = Math.max(nextLastSeq, ...newEvents.map((e) => e.seq))
     }
 
@@ -335,9 +406,32 @@ export async function refreshEvents(
       setUi("lastSeq", nextLastSeq)
     }
 
+    log("state", "events refresh", {
+      jobId,
+      jobSource: job.job_source ?? null,
+      isEval: isEvalJob(job),
+      sinceSeq: beforeSeq,
+      nextSeq,
+      eventsCount: events.length,
+      newEvents: newEventsCount,
+      totalEvents: totalEventsCount,
+      totalMs: Date.now() - start,
+      extractMs,
+      mergeMs,
+      candidatesMs,
+      metricsMs,
+      chosenPath,
+      attempts,
+    })
     return true
   } catch (err: any) {
     if (isAbortError(err)) return true
+    log("state", "events refresh exception", {
+      jobId,
+      error: err?.message || "unknown",
+      totalMs: Date.now() - start,
+      attempts,
+    })
     return false
   }
 }

@@ -120,7 +120,7 @@ export function setListPane(pane: ActivePane): boolean {
   const state = requireFocusState()
   if (state.getActivePane() === pane) return false
   state.setActivePane(pane)
-  if (pane === ListPane.Logs && state.getFocusTarget() !== "list") {
+  if (pane !== ListPane.Jobs && state.getFocusTarget() !== "list") {
     state.setFocusTarget("list")
   }
   focusManager.ensureValid()

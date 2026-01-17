@@ -3,14 +3,19 @@
  *
  * A thin SolidJS client for OpenCode that replaces the embedded TUI.
  */
-import { createSignal, createEffect, createMemo, onCleanup, For, Show } from "solid-js"
+import { createSignal, createEffect, createMemo, onCleanup, Show } from "solid-js"
 import { createStore, reconcile, produce } from "solid-js/store"
 import { useKeyboard, useRenderer } from "@opentui/solid"
 
-import { formatActionKeys, getTextInput, matchAction } from "../../input/keymap"
+import { getActionHint, getTextInput, matchAction } from "../../input/keymap"
 import { subscribeToOpenCodeEvents } from "../../api/opencode"
 import { getClient, type Message, type Part, type Event, type Session, type AssistantMessage } from "./client"
-import { MessageBubble } from "./MessageBubble"
+import { ChatConversation, type ChatConversationController } from "./ChatConversation"
+import { ChatInput, CHAT_INPUT_HEIGHT, type ChatInputController } from "./ChatInput"
+import { SuggestionPopup, type SuggestionItem } from "./SuggestionPopup"
+import type { MessageWrapper } from "./chat-types"
+import { buildAvailableModels } from "./model-utils"
+import type { AvailableModel, Provider, ProviderListResponse, SelectedModel } from "./model-types"
 import { moveSelectionIndex } from "../utils/list"
 import { COLORS } from "../theme"
 
@@ -19,45 +24,13 @@ export type ChatPaneProps = {
   sessionId?: string
   width: number
   height: number
+  framed?: boolean
+  scrollFocused?: boolean
   /** Working directory for OpenCode session execution */
   workingDir?: string
   onExit?: () => void
   /** Whether this panel has focus */
   focused?: boolean
-}
-
-// The SDK returns messages in this wrapper format
-type MessageWrapper = {
-  info: Message
-  parts: Part[]
-}
-
-type ProviderModel = {
-  id: string
-  name?: string
-  limit: { context: number; output: number }
-}
-
-type Provider = {
-  id: string
-  name: string
-  models: Record<string, ProviderModel>
-}
-
-type SelectedModel = {
-  providerID: string
-  modelID: string
-}
-
-type ProviderListResponse = {
-  all: Provider[]
-  connected: string[]
-}
-
-type SessionListItem = {
-  id: string
-  title: string | undefined
-  time: { updated: number }
 }
 
 type SessionStatus = { type: "idle" } | { type: "busy" } | { type: "retry"; delay: number }
@@ -70,8 +43,35 @@ type SessionState = {
   isLoading: boolean
   error: string | null
   sessionStatus: SessionStatus
-  sessionList: SessionListItem[]
 }
+
+type SuggestionMode = "commands" | "models"
+
+type CommandSuggestion = SuggestionItem & {
+  kind: "command"
+  command: string
+}
+
+type ModelSuggestion = SuggestionItem & {
+  kind: "model"
+  model: SelectedModel
+}
+
+type SuggestionEntry = CommandSuggestion | ModelSuggestion
+
+type SlashContext =
+  | { mode: "commands"; query: string }
+  | { mode: "models"; filter: string }
+
+type SlashCommand = {
+  command: string
+  description: string
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  { command: "model", description: "Select a model" },
+  { command: "abort", description: "Abort the current response" },
+]
 
 export function ChatPane(props: ChatPaneProps) {
   const [state, setState] = createSignal<SessionState>({
@@ -82,20 +82,23 @@ export function ChatPane(props: ChatPaneProps) {
     isLoading: false,
     error: null,
     sessionStatus: { type: "idle" },
-    sessionList: [],
   })
   // Use SolidJS store for parts - proper fine-grained reactivity like OpenCode's TUI
   const [partsStore, setPartsStore] = createStore<Record<string, Part[]>>({})
   const [, setDebugLog] = createSignal<string[]>([])
   const log = (msg: string) => setDebugLog((logs) => [...logs.slice(-5), msg])
-  const [inputText, setInputText] = createSignal("")
-  const [showModelSelector, setShowModelSelector] = createSignal(false)
-  const [showSessionSelector, setShowSessionSelector] = createSignal(false)
+  const scrollFocused = createMemo(() => props.scrollFocused === true)
   const [selectedModel, setSelectedModel] = createSignal<SelectedModel | null>(null)
-  const [modelSelectorIndex, setModelSelectorIndex] = createSignal(0)
-  const [sessionSelectorIndex, setSessionSelectorIndex] = createSignal(0)
   const [showAbortedBanner, setShowAbortedBanner] = createSignal(false)
+  const [inputText, setInputText] = createSignal("")
+  const [suggestionIndex, setSuggestionIndex] = createSignal(0)
   const renderer = useRenderer()
+  const framed = createMemo(() => props.framed !== false)
+  const frameInset = createMemo(() => (framed() ? 2 : 0))
+  const innerWidth = createMemo(() => Math.max(0, props.width - frameInset()))
+  const innerHeight = createMemo(() => Math.max(0, props.height - frameInset()))
+  let inputController: ChatInputController | null = null
+  let conversationController: ChatConversationController | null = null
 
   // Buffer for parts that arrive before their message (mutable to avoid signal race conditions)
   const pendingParts = new Map<string, Part[]>()
@@ -107,25 +110,8 @@ export function ChatPane(props: ChatPaneProps) {
     client = getClient(props.url)
   })
 
-  // Flatten models from connected providers (only show synth models)
-  const availableModels = createMemo(() => {
-    const models: { providerID: string; modelID: string; providerName: string; modelName: string }[] = []
-    // Only include synth provider models
-    const synthProvider = state().providers.find((p) => p.id === "synth")
-
-    if (synthProvider) {
-      for (const [modelId, model] of Object.entries(synthProvider.models)) {
-        models.push({
-          providerID: synthProvider.id,
-          modelID: modelId,
-          providerName: synthProvider.name,
-          modelName: model.name || modelId,
-        })
-      }
-    }
-
-    return models
-  })
+  // Flatten models from providers, prioritizing synth when available.
+  const availableModels = createMemo<AvailableModel[]>(() => buildAvailableModels(state().providers))
 
   // Current model display info
   const currentModelDisplay = createMemo(() => {
@@ -188,6 +174,120 @@ export function ChatPane(props: ChatPaneProps) {
       setSelectedModel({ providerID: "synth", modelID: firstModelId })
     }
   }
+
+  const getSlashToken = (rawText: string): string | null => {
+    const trimmedStart = rawText.trimStart()
+    if (!trimmedStart.startsWith("/")) return null
+    const withoutSlash = trimmedStart.slice(1)
+    const token = withoutSlash.split(/\s+/)[0] ?? ""
+    return token.toLowerCase()
+  }
+
+  const getSlashContext = (rawText: string): SlashContext | null => {
+    const trimmedStart = rawText.trimStart()
+    if (!trimmedStart.startsWith("/")) return null
+    const afterSlash = trimmedStart.slice(1)
+    const token = (afterSlash.split(/\s+/)[0] ?? "").toLowerCase()
+    if (token === "model") {
+      const filter = afterSlash.slice(token.length).trim()
+      return { mode: "models", filter }
+    }
+    if (afterSlash.includes(" ")) return null
+    return { mode: "commands", query: token }
+  }
+
+  const slashContext = createMemo(() => (props.focused === true ? getSlashContext(inputText()) : null))
+  const currentModelKey = createMemo(() => {
+    const model = selectedModel()
+    return model ? `${model.providerID}:${model.modelID}` : null
+  })
+
+  const commandSuggestions = createMemo<CommandSuggestion[]>(() => {
+    const ctx = slashContext()
+    if (!ctx || ctx.mode !== "commands") return []
+    const query = ctx.query
+    return SLASH_COMMANDS
+      .filter((cmd) => cmd.command.startsWith(query))
+      .map((cmd) => ({
+        kind: "command",
+        id: cmd.command,
+        command: cmd.command,
+        label: `/${cmd.command}`,
+        description: cmd.description,
+      }))
+  })
+
+  const modelSuggestions = createMemo<ModelSuggestion[]>(() => {
+    const ctx = slashContext()
+    if (!ctx || ctx.mode !== "models") return []
+    const filter = ctx.filter.trim().toLowerCase()
+    const currentKey = currentModelKey()
+    return availableModels()
+      .filter((model) => {
+        if (!filter) return true
+        const haystack = `${model.modelName} ${model.modelID} ${model.providerName}`.toLowerCase()
+        return haystack.includes(filter)
+      })
+      .map((model) => {
+        const id = `${model.providerID}:${model.modelID}`
+        const isCurrent = currentKey === id
+        return {
+          kind: "model",
+          id,
+          label: `${isCurrent ? "* " : "  "}${model.modelName}`,
+          description: model.providerName,
+          model: { providerID: model.providerID, modelID: model.modelID },
+        }
+      })
+  })
+
+  const maxSuggestionItems = createMemo(() => Math.max(1, Math.min(12, innerHeight() - 3)))
+  const suggestionItems = createMemo<SuggestionEntry[]>(() => {
+    const ctx = slashContext()
+    if (!ctx) return []
+    const list = ctx.mode === "models" ? modelSuggestions() : commandSuggestions()
+    return list.slice(0, maxSuggestionItems())
+  })
+
+  const showSuggestions = createMemo(() => slashContext() !== null)
+  const suggestionTitle = createMemo(() => (slashContext()?.mode === "models" ? "Models" : "Commands"))
+  const suggestionQuery = createMemo(() => {
+    const ctx = slashContext()
+    if (!ctx) return undefined
+    if (ctx.mode === "models") {
+      return ctx.filter ? `/model ${ctx.filter}` : "/model"
+    }
+    return ctx.query ? `/${ctx.query}` : "/"
+  })
+  const suggestionWidth = createMemo(() => Math.max(1, Math.min(innerWidth(), 52)))
+  const suggestionHeight = createMemo(() => {
+    const itemCount = suggestionItems().length
+    const contentLines = itemCount > 0 ? itemCount + 1 : 2
+    return Math.min(innerHeight(), contentLines + 2)
+  })
+  const suggestionLeft = createMemo(() => (framed() ? 1 : 0))
+  const suggestionTop = createMemo(() => {
+    const bottomOffset = (framed() ? 1 : 0) + CHAT_INPUT_HEIGHT
+    return Math.max(0, props.height - bottomOffset - suggestionHeight())
+  })
+
+  createEffect((prevMode: SuggestionMode | null) => {
+    const ctx = slashContext()
+    const mode = ctx?.mode ?? null
+    const items = suggestionItems()
+    if (mode !== prevMode) {
+      if (mode === "models") {
+        const currentKey = currentModelKey()
+        const idx = items.findIndex((item) => item.kind === "model" && item.id === currentKey)
+        setSuggestionIndex(idx >= 0 ? idx : 0)
+      } else {
+        setSuggestionIndex(0)
+      }
+    } else {
+      setSuggestionIndex((current) => moveSelectionIndex(current, 0, items.length))
+    }
+    return mode
+  }, null)
 
   createEffect(async () => {
     try {
@@ -410,31 +510,75 @@ export function ChatPane(props: ChatPaneProps) {
     }
   }
 
-  const sendMessage = async () => {
-    const text = inputText().trim()
-    if (!text) return
-
-    if (text === "/abort" || text === "/stop" || text === "/interrupt") {
-      setInputText("")
-      abortSession("command")
-      return
+  const applySuggestionSelection = (item: SuggestionEntry): boolean => {
+    if (item.kind === "command") {
+      if (item.command === "model") {
+        const next = "/model "
+        if (inputController) {
+          inputController.setInputText(next)
+        } else {
+          setInputText(next)
+        }
+        setSuggestionIndex(0)
+        return false
+      }
+      if (item.command === "abort") {
+        abortSession("command")
+        return true
+      }
+      return false
     }
 
-    if (state().isLoading || state().sessionStatus.type !== "idle") return
+    if (item.kind === "model") {
+      setSelectedModel(item.model)
+      return true
+    }
+
+    return false
+  }
+
+  const submitMessage = (rawText: string): boolean => {
+    const text = rawText.trim()
+    if (!text) return false
+
+    const ctx = getSlashContext(rawText)
+    if (ctx) {
+      const items = suggestionItems()
+      if (!items.length) {
+        if (ctx.mode === "commands") {
+          const slashToken = getSlashToken(rawText)
+          setState((s) => ({ ...s, error: `Unknown command: /${slashToken || ""}`.trim() }))
+          renderer.requestRender()
+        }
+        return false
+      }
+      const index = moveSelectionIndex(suggestionIndex(), 0, items.length)
+      return applySuggestionSelection(items[index])
+    }
+    if (getSlashToken(rawText) !== null) {
+      const slashToken = getSlashToken(rawText)
+      setState((s) => ({ ...s, error: `Unknown command: /${slashToken || ""}`.trim() }))
+      renderer.requestRender()
+      return false
+    }
+
+    if (state().isLoading || state().sessionStatus.type !== "idle") return false
 
     const sessionId = state().id
     if (!sessionId) {
       setState((s) => ({
         ...s,
-        error: `No active session. Press ${formatActionKeys("pane.openSessions", { primaryOnly: true })} to connect to OpenCode.`,
+        error: "No active session. Select one from the Sessions list.",
       }))
       renderer.requestRender()
-      return
+      return false
     }
 
-    // Clear input immediately
-    setInputText("")
+    void sendMessage(text, sessionId)
+    return true
+  }
 
+  const sendMessage = async (text: string, sessionId: string) => {
     // Create optimistic user message and show immediately
     const optimisticMsgId = `pending_${Date.now()}`
     const now = Date.now()
@@ -575,6 +719,7 @@ export function ChatPane(props: ChatPaneProps) {
         isLoading: false,
         sessionStatus: { type: "idle" },
       }))
+      conversationController?.resetScroll()
     } catch (err) {
       setState((s) => ({ ...s, error: String(err) }))
     }
@@ -616,139 +761,70 @@ export function ChatPane(props: ChatPaneProps) {
     cancelPolling()
   })
 
-  // Load the list of sessions
-  const loadSessionList = async () => {
-    try {
-      const sessionsRes = await client.session.list({ limit: 20 })
-      if (sessionsRes.data) {
-        const sessions = sessionsRes.data.map((s: any) => ({
-          id: s.id,
-          title: s.title,
-          time: s.time,
-        }))
-        setState((s) => ({ ...s, sessionList: sessions }))
-      }
-    } catch (err) {
-      log(`Failed to load sessions: ${err}`)
-    }
-  }
-
-  // Switch to a different session
-  const switchToSession = async (sessionId: string) => {
-    try {
-      const [sessionRes, messagesRes] = await Promise.all([
-        client.session.get({ sessionID: sessionId }),
-        client.session.messages({ sessionID: sessionId }),
-      ])
-      pendingParts.clear()
-      if (messagesRes.data) {
-        const partsData: Record<string, Part[]> = {}
-        for (const msg of messagesRes.data) {
-          partsData[msg.info.id] = msg.parts
-        }
-        setPartsStore(reconcile(partsData))
-      } else {
-        setPartsStore(reconcile({}))
-      }
-      setState((s) => ({
-        ...s,
-        id: sessionId,
-        session: sessionRes.data || null,
-        messages: messagesRes.data || [],
-        error: null,
-        isLoading: false,
-        sessionStatus: { type: "idle" },
-      }))
-      const lastAssistant = (messagesRes.data || []).findLast((m) => m.info.role === "assistant")
-      if (lastAssistant && lastAssistant.info.role === "assistant") {
-        const assistantInfo = lastAssistant.info as AssistantMessage
-        setSelectedModel({ providerID: assistantInfo.providerID, modelID: assistantInfo.modelID })
-      }
-      setShowSessionSelector(false)
-    } catch (err) {
-      setState((s) => ({ ...s, error: String(err) }))
-    }
-  }
-
   const handleBack = () => {
-    if (showModelSelector()) {
-      setShowModelSelector(false)
-      return true
-    }
-    if (showSessionSelector()) {
-      setShowSessionSelector(false)
+    if (showSuggestions()) {
+      if (inputController) {
+        inputController.setInputText("")
+      } else {
+        setInputText("")
+      }
       return true
     }
     return false
   }
 
   ;(ChatPane as any).handleBack = handleBack
+  ;(ChatPane as any).getInputState = () =>
+    inputController?.getInputState() ?? { inputText: "", inputTextLength: 0 }
 
   // Handle keyboard input
   useKeyboard((evt) => {
-    if (showModelSelector()) {
-      const action = matchAction(evt, "chat.selector")
-      if (!action) return
-      evt.preventDefault?.()
-      if (action === "modal.confirm") {
-        const models = availableModels()
-        const idx = modelSelectorIndex()
-        if (models[idx]) {
-          setSelectedModel({ providerID: models[idx].providerID, modelID: models[idx].modelID })
-          setShowModelSelector(false)
-        }
-      } else if (action === "selector.up") {
-        setModelSelectorIndex((i) => moveSelectionIndex(i, -1, availableModels().length))
-      } else if (action === "selector.down") {
-        setModelSelectorIndex((i) => moveSelectionIndex(i, 1, availableModels().length))
-      }
-      return
-    }
-
-    if (showSessionSelector()) {
-      const action = matchAction(evt, "chat.selector")
-      if (!action) return
-      evt.preventDefault?.()
-      if (action === "modal.confirm") {
-        const sessions = state().sessionList
-        const idx = sessionSelectorIndex()
-        if (sessions[idx]) {
-          switchToSession(sessions[idx].id)
-        }
-      } else if (action === "selector.up") {
-        setSessionSelectorIndex((i) => moveSelectionIndex(i, -1, state().sessionList.length))
-      } else if (action === "selector.down") {
-        setSessionSelectorIndex((i) => moveSelectionIndex(i, 1, state().sessionList.length))
-      }
-      return
-    }
-
     // Don't process if another handler already handled this event
     if ((evt as any).defaultPrevented) return
+
+    const scrollAction = matchAction(evt, "chat.scroll")
+    if (
+      scrollAction &&
+      showSuggestions() &&
+      (scrollAction === "nav.up" || scrollAction === "nav.down" || scrollAction === "nav.home" || scrollAction === "nav.end")
+    ) {
+      const items = suggestionItems()
+      if (items.length) {
+        if (scrollAction === "nav.up") {
+          setSuggestionIndex((idx) => moveSelectionIndex(idx, -1, items.length))
+        } else if (scrollAction === "nav.down") {
+          setSuggestionIndex((idx) => moveSelectionIndex(idx, 1, items.length))
+        } else if (scrollAction === "nav.home") {
+          setSuggestionIndex(0)
+        } else if (scrollAction === "nav.end") {
+          setSuggestionIndex(items.length - 1)
+        }
+        evt.preventDefault?.()
+        return
+      }
+    }
+
+    if (scrollAction && conversationController?.handleScrollAction(scrollAction)) {
+      evt.preventDefault?.()
+      return
+    }
 
     const action = matchAction(evt, "chat.normal")
     if (!action) {
       const text = getTextInput(evt)
-      if (text) {
-        setInputText((t) => t + text)
+      if (text && inputController?.handleTextInput(text)) {
+        return
       }
       return
     }
 
     evt.preventDefault?.()
-    if (action === "chat.modelSelector") {
-      setModelSelectorIndex(0)
-      setShowModelSelector(true)
-    } else if (action === "chat.newSession") {
+    if (action === "chat.newSession") {
       void createNewSession()
-    } else if (action === "chat.sessionList") {
-      setSessionSelectorIndex(0)
-      void loadSessionList()
-      setShowSessionSelector(true)
     } else if (action === "chat.send") {
-      void sendMessage()
+      inputController?.handleAction(action)
     } else if (action === "chat.backspace") {
-      setInputText((t) => t.slice(0, -1))
+      inputController?.handleAction(action)
     } else if (action === "chat.abort") {
       if (state().isLoading || state().sessionStatus.type !== "idle") {
         abortSession("key")
@@ -756,106 +832,15 @@ export function ChatPane(props: ChatPaneProps) {
     }
   })
 
-  const bubbleWidth = createMemo(() => {
-    const hardMax = Math.min(72, Math.max(32, props.width - 6))
-    const target = Math.floor(props.width * 0.62)
-    return Math.max(32, Math.min(hardMax, target))
-  })
-
-  function countWrappedLines(text: string, maxWidth: number): number {
-    if (!text) return 0
-    let lines = 0
-    for (const para of String(text).split("\n")) {
-      if (!para) {
-        lines += 1
-        continue
-      }
-      if (para.length <= maxWidth) {
-        lines += 1
-        continue
-      }
-      const words = para.split(" ")
-      let current = ""
-      for (const word of words) {
-        if (!current) {
-          if (word.length <= maxWidth) {
-            current = word
-          } else {
-            lines += Math.ceil(word.length / maxWidth)
-            current = ""
-          }
-          continue
-        }
-        if (current.length + 1 + word.length <= maxWidth) {
-          current += " " + word
-        } else {
-          lines += 1
-          if (word.length <= maxWidth) {
-            current = word
-          } else {
-            lines += Math.ceil(word.length / maxWidth)
-            current = ""
-          }
-        }
-      }
-      if (current) lines += 1
-    }
-    return lines
-  }
-
   const headerHeight = createMemo(() => (state().session?.directory ? 2 : 1))
-  const inputHeight = 3
-  const innerHeight = createMemo(() => Math.max(0, props.height - 2))
-  const messageAreaHeight = createMemo(() => Math.max(0, innerHeight() - headerHeight() - inputHeight))
-
-  const visibleMessages = createMemo(() => {
-    const maxBubbleContentWidth = Math.max(10, bubbleWidth() - 4)
-    const maxHeight = messageAreaHeight()
-    const msgs = state().messages
-
-    type Visible = { wrapper: MessageWrapper; maxLines?: number }
-    const result: Visible[] = []
-    let used = 0
-
-    const loadingReserve = state().isLoading ? 1 : 0
-    const budget = Math.max(0, maxHeight - loadingReserve)
-
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      const wrapper = msgs[i]
-      const parts = partsStore[wrapper.info.id] || wrapper.parts || []
-      let contentLines = 0
-      for (const p of parts as any[]) {
-        const text = (p?.text ?? p?.content ?? "").toString()
-        if (!text) continue
-        contentLines += countWrappedLines(text.trim(), maxBubbleContentWidth)
-      }
-      const bubbleHeight = Math.max(3, contentLines + 2)
-      const blockHeight = 1 + bubbleHeight + 1
-
-      if (used + blockHeight <= budget) {
-        result.push({ wrapper })
-        used += blockHeight
-        continue
-      }
-
-      if (result.length === 0 && budget > 0) {
-        const remainingForBubble = Math.max(0, budget - 2)
-        const remainingContent = Math.max(0, remainingForBubble - 2)
-        result.push({ wrapper, maxLines: Math.max(1, remainingContent) })
-      }
-      break
-    }
-
-    return result.reverse()
-  })
-
+  const frameProps = () =>
+    framed() ? { border: true, borderColor: props.focused ? COLORS.textAccent : COLORS.border } : {}
   return (
     <box
+      {...frameProps()}
       flexDirection="column"
       width={props.width}
       height={props.height}
-      border
-      borderColor={props.focused ? COLORS.textAccent : COLORS.border}
     >
       {/* Header */}
       <box flexDirection="column" backgroundColor={COLORS.bgHeader} paddingLeft={1} paddingRight={1}>
@@ -864,13 +849,11 @@ export function ChatPane(props: ChatPaneProps) {
             when={state().session}
             fallback={
               <text fg={COLORS.text}>
-                OpenCode Chat
-                <span style={{ fg: COLORS.textDim }}>{"  (" + formatActionKeys("pane.openSessions", { primaryOnly: true }) + " sessions)"}</span>
                 <Show when={showAbortedBanner()}>
                   <span style={{ fg: "#ef4444", bold: true }}>{"  ·  ABORTED"}</span>
                 </Show>
                 <Show when={state().sessionStatus.type !== "idle" && !showAbortedBanner()}>
-                  <span style={{ fg: COLORS.textDim }}>{"  ·  " + formatActionKeys("chat.abort", { primaryOnly: true }) + " abort"}</span>
+                  <span style={{ fg: COLORS.textDim }}>{"  ·  " + getActionHint("chat.abort")}</span>
                 </Show>
               </text>
             }
@@ -890,7 +873,7 @@ export function ChatPane(props: ChatPaneProps) {
                     <span style={{ fg: "#ef4444", bold: true }}>{"  ·  ABORTED"}</span>
                   </Show>
                   <Show when={state().sessionStatus.type !== "idle" && !showAbortedBanner()}>
-                    <span style={{ fg: COLORS.textDim }}>{"  ·  " + formatActionKeys("chat.abort", { primaryOnly: true }) + " abort"}</span>
+                    <span style={{ fg: COLORS.textDim }}>{"  ·  " + getActionHint("chat.abort")}</span>
                   </Show>
                   <Show when={timestamp}>
                     <span style={{ fg: COLORS.textDim }}>{" — " + timestamp}</span>
@@ -899,15 +882,20 @@ export function ChatPane(props: ChatPaneProps) {
               )
             })()}
           </Show>
-          <Show when={contextStats()}>
-            <text fg={COLORS.textDim}>
-              {contextStats()!.tokens} tokens
-              <Show when={contextStats()!.percentUsed !== null}>
-                {" · "}{contextStats()!.percentUsed}%
-              </Show>
-              {" · "}{contextStats()!.cost}
-            </text>
-          </Show>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <Show when={scrollFocused()}>
+              <text fg={COLORS.textAccent}>[scroll]</text>
+            </Show>
+            <Show when={contextStats()}>
+              <text fg={COLORS.textDim}>
+                {contextStats()!.tokens} tokens
+                <Show when={contextStats()!.percentUsed !== null}>
+                  {" · "}{contextStats()!.percentUsed}%
+                </Show>
+                {" · "}{contextStats()!.cost}
+              </text>
+            </Show>
+          </box>
         </box>
         <box flexDirection="row" gap={2}>
           <Show when={state().session?.directory}>
@@ -921,181 +909,47 @@ export function ChatPane(props: ChatPaneProps) {
         </box>
       </box>
 
-      {/* Messages area */}
-      <box flexDirection="column" flexGrow={1} overflow="hidden" paddingLeft={1} paddingRight={1}>
-        <Show when={state().error}>
-          <box backgroundColor="#7f1d1d" paddingLeft={1} paddingRight={1}>
-            <text fg="#fca5a5">Error: {state().error}</text>
-          </box>
-        </Show>
+      <ChatConversation
+        width={innerWidth()}
+        height={innerHeight()}
+        headerHeight={headerHeight()}
+        sessionId={state().id}
+        messages={state().messages}
+        partsStore={partsStore}
+        error={state().error}
+        scrollFocused={scrollFocused()}
+        isLoading={state().isLoading}
+        register={(controller) => {
+          conversationController = controller
+        }}
+      />
 
-        <Show when={!state().id && state().messages.length === 0}>
-          <box paddingLeft={1} paddingRight={1} paddingTop={1}>
-            <text fg={COLORS.textDim}>
-              No OpenCode session selected. Press {formatActionKeys("pane.openSessions", { primaryOnly: true })} to connect.
-            </text>
-          </box>
-        </Show>
+      <ChatInput
+        focused={props.focused === true}
+        width={innerWidth()}
+        currentModelDisplay={currentModelDisplay()}
+        onSubmit={submitMessage}
+        onInputChange={(text) => {
+          setInputText(text)
+          setSuggestionIndex(0)
+        }}
+        register={(controller) => {
+          inputController = controller
+        }}
+      />
 
-        <For each={visibleMessages()}>
-          {(item) => {
-            const wrapper = item.wrapper
-            const parts = () => partsStore[wrapper.info.id] || wrapper.parts || []
-            return (
-              <box
-                flexDirection="row"
-                justifyContent={wrapper.info.role === "user" ? "flex-end" : "flex-start"}
-                marginBottom={1}
-              >
-                <box flexDirection="column" width={bubbleWidth()}>
-                  <box flexDirection="row" justifyContent="space-between" paddingLeft={1} paddingRight={1} marginBottom={0}>
-                    <text fg={wrapper.info.role === "user" ? COLORS.textAccent : COLORS.success}>
-                      <span style={{ bold: true }}>{wrapper.info.role === "user" ? "You" : "Assistant"}</span>
-                    </text>
-                    <Show when={wrapper.info.role === "assistant"}>
-                      <text fg={COLORS.textDim}>
-                        {(() => {
-                          const a = wrapper.info as AssistantMessage
-                          const duration = a.time?.completed
-                            ? `${((a.time.completed - a.time.created) / 1000).toFixed(1)}s`
-                            : null
-                          return `${a.mode} · ${a.modelID}${duration ? ` · ${duration}` : ""}`
-                        })()}
-                      </text>
-                    </Show>
-                  </box>
-                  <MessageBubble msg={wrapper.info} parts={parts} maxWidth={bubbleWidth()} maxLines={item.maxLines} />
-                </box>
-              </box>
-            )
-          }}
-        </For>
-
-        <Show when={state().isLoading}>
-          <text fg={COLORS.textDim}>Thinking...</text>
-        </Show>
-      </box>
-
-      {/* Model Selector Overlay */}
-      <Show when={showModelSelector()}>
-        <box
-          position="absolute"
-          top={3}
-          left={2}
-          width={Math.min(props.width - 4, 50)}
-          height={Math.min(props.height - 6, 15)}
-          backgroundColor="#1e293b"
-          border
-          borderColor="#3b82f6"
-          flexDirection="column"
-        >
-          <box paddingLeft={1} paddingRight={1} backgroundColor="#334155">
-            <text fg="#e2e8f0">
-              <span style={{ bold: true }}>Select Model</span>
-              <span style={{ fg: "#64748b" }}>
-                {" "}({formatActionKeys("app.back", { primaryOnly: true })} to close,{" "}
-                {formatActionKeys("modal.confirm", { primaryOnly: true })} to select)
-              </span>
-            </text>
-          </box>
-          <box flexDirection="column" flexGrow={1} overflow="hidden" paddingLeft={1} paddingRight={1}>
-            <For each={availableModels()}>
-              {(model, index) => {
-                const isSelected = () => index() === modelSelectorIndex()
-                const isCurrent = () => {
-                  const sel = selectedModel()
-                  return sel?.providerID === model.providerID && sel?.modelID === model.modelID
-                }
-                return (
-                  <box backgroundColor={isSelected() ? "#3b82f6" : undefined}>
-                    <text fg={isSelected() ? "#e2e8f0" : "#94a3b8"}>
-                      {isCurrent() ? "* " : "  "}
-                      {model.modelName}
-                      <span style={{ fg: isSelected() ? "#bfdbfe" : "#64748b" }}> ({model.providerName})</span>
-                    </text>
-                  </box>
-                )
-              }}
-            </For>
-          </box>
-        </box>
+      <Show when={showSuggestions()}>
+        <SuggestionPopup
+          title={suggestionTitle()}
+          query={suggestionQuery()}
+          items={suggestionItems()}
+          selectedIndex={suggestionIndex()}
+          width={suggestionWidth()}
+          height={suggestionHeight()}
+          left={suggestionLeft()}
+          top={suggestionTop()}
+        />
       </Show>
-
-      {/* Session Selector Overlay */}
-      <Show when={showSessionSelector()}>
-        <box
-          position="absolute"
-          top={3}
-          left={2}
-          width={Math.min(props.width - 4, 60)}
-          height={Math.min(props.height - 6, 15)}
-          backgroundColor="#1e293b"
-          border
-          borderColor="#10b981"
-          flexDirection="column"
-        >
-          <box paddingLeft={1} paddingRight={1} backgroundColor="#334155">
-            <text fg="#e2e8f0">
-              <span style={{ bold: true }}>Switch Session</span>
-              <span style={{ fg: "#64748b" }}>
-                {" "}({formatActionKeys("app.back", { primaryOnly: true })} to close,{" "}
-                {formatActionKeys("modal.confirm", { primaryOnly: true })} to select)
-              </span>
-            </text>
-          </box>
-          <box flexDirection="column" flexGrow={1} overflow="hidden" paddingLeft={1} paddingRight={1}>
-            <Show when={state().sessionList.length === 0}>
-              <text fg="#64748b">Loading sessions...</text>
-            </Show>
-            <For each={state().sessionList}>
-              {(session, index) => {
-                const isSelected = () => index() === sessionSelectorIndex()
-                const isCurrent = () => session.id === state().id
-                const title = session.title || "New session"
-                const timeStr = new Date(session.time.updated).toLocaleDateString()
-                return (
-                  <box backgroundColor={isSelected() ? "#10b981" : undefined}>
-                    <text fg={isSelected() ? "#e2e8f0" : "#94a3b8"}>
-                      {isCurrent() ? "* " : "  "}
-                      {title}
-                      <span style={{ fg: isSelected() ? "#a7f3d0" : "#64748b" }}> ({timeStr})</span>
-                    </text>
-                  </box>
-                )
-              }}
-            </For>
-          </box>
-        </box>
-      </Show>
-
-      {/* Input area */}
-      <box
-        flexDirection="column"
-        border={["top"]}
-        borderColor={COLORS.border}
-        backgroundColor="#0f172a"
-      >
-        <box paddingLeft={1} paddingRight={1}>
-          <text fg={COLORS.textDim}>{"> "}</text>
-          <text fg={COLORS.text}>
-            {inputText() || "_"}
-          </text>
-        </box>
-        <box paddingLeft={1} paddingRight={1} flexDirection="row" justifyContent="space-between">
-          <Show when={currentModelDisplay()} fallback={<text fg={COLORS.textDim}>No model selected</text>}>
-            <text fg={COLORS.textDim}>
-              {currentModelDisplay()!.modelName}
-              <span style={{ fg: "#475569" }}> ({currentModelDisplay()!.providerName})</span>
-            </text>
-          </Show>
-          <text fg="#475569">
-            {formatActionKeys("chat.newSession", { primaryOnly: true })} new |{" "}
-            {formatActionKeys("chat.sessionList", { primaryOnly: true })} sessions |{" "}
-            {formatActionKeys("chat.modelSelector", { primaryOnly: true })} model |{" "}
-            {formatActionKeys("chat.abort", { primaryOnly: true })} abort | /abort
-          </text>
-        </box>
-      </box>
     </box>
   )
 }

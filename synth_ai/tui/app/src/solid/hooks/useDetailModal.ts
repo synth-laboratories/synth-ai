@@ -7,8 +7,8 @@ import type { ModalState } from "../modals/types"
 import { formatEventDetail } from "../../formatters"
 import { registerCleanup, unregisterCleanup } from "../../lifecycle"
 import { clamp, wrapModalText } from "../../utils/truncate"
-import { formatActionKeys } from "../../input/keymap"
-import { readLogFile } from "../utils/logs"
+import { getActionHint, buildCombinedHint } from "../../input/keymap"
+import { readLogFile } from "../../utils/logs"
 
 export type DetailModalLayout = {
   width: number
@@ -88,13 +88,13 @@ export function useDetailModal(options: UseDetailModalOptions): DetailModalState
     const range = view.total > view.visibleCount
       ? `[${view.offset + 1}-${Math.min(view.offset + view.visible.length, view.total)}/${view.total}] `
       : ""
-    const fullscreenHint = `${formatActionKeys("detail.toggleFullscreen", { primaryOnly: true })} fullscreen | `
-    const scrollHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} scroll`
+    const fullscreenHint = `${getActionHint("detail.toggleFullscreen")} | `
+    const scrollHint = buildCombinedHint("nav.down", "nav.up", "scroll")
     if (state.type === "log") {
       const tail = state.tail ? " [TAIL]" : ""
-      return `${range}${fullscreenHint}${scrollHint} | ${formatActionKeys("detail.tail", { primaryOnly: true })} tail${tail} | ${formatActionKeys("modal.copy", { primaryOnly: true })} copy | ${formatActionKeys("app.back")} close`
+      return `${range}${fullscreenHint}${scrollHint} | ${getActionHint("detail.tail")}${tail} | ${getActionHint("modal.copy")} | ${getActionHint("app.back")}`
     }
-    return `${range}${fullscreenHint}${scrollHint} | ${formatActionKeys("app.back")} close`
+    return `${range}${fullscreenHint}${scrollHint} | ${getActionHint("app.back")}`
   })
 
   createEffect(() => {

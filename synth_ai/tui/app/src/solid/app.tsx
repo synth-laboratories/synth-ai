@@ -1,5 +1,5 @@
 import { render, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import { createEffect, createMemo, createSignal, onMount, type Component } from "solid-js"
+import { createEffect, createMemo, createSignal, onCleanup, onMount, type Component } from "solid-js"
 
 import { computeLayoutMetrics } from "./layout"
 import { useSolidData } from "./data"
@@ -9,7 +9,7 @@ import { AppTabs } from "./ui/chrome/AppTabs"
 import { StatusBar } from "./ui/chrome/StatusBar"
 import { KeyFooter, type JobsLoadMoreState } from "./ui/chrome/KeyFooter"
 import { AppModals } from "./ui/modals/AppModals"
-import { toDisplayPath } from "./utils/files"
+import { toDisplayPath } from "../utils/files"
 import { useActionRunner } from "./hooks/useActionRunner"
 import { useAppKeybindings } from "./hooks/useAppKeybindings"
 import { useAuthFlow } from "./hooks/useAuthFlow"
@@ -17,20 +17,28 @@ import { useDetailModal } from "./hooks/useDetailModal"
 import { useFocusBindings } from "./hooks/useFocusBindings"
 import { useJobEvents } from "./hooks/useJobEvents"
 import { useJobsStream } from "./hooks/useJobsStream"
+import { useJobsDetailLayout, type JobsDetailSectionId } from "./hooks/useJobsDetailLayout"
 import { useJobsDetailState } from "./hooks/useJobsDetailState"
 import { useJobsListState } from "./hooks/useJobsListState"
 import { useLogsDetailState } from "./hooks/useLogsDetailState"
 import { useLogsListState } from "./hooks/useLogsListState"
+import { useSessionsListState } from "./hooks/useSessionsListState"
 import { useModalComponents } from "./hooks/useModalComponents"
 import { useModalStack } from "./hooks/useModalStack"
 import { useOverlayModals } from "./hooks/useOverlayModals"
+import { useScrollState } from "./hooks/useScrollState"
 import { useStatusText } from "./hooks/useStatusText"
+import { getPanelContentHeight, getPanelContentWidth } from "../utils/panel"
+import { persistPrimaryView } from "../persistence/settings"
 
 import { cancelSelected, fetchArtifacts, fetchMetrics, loadMoreJobs } from "../api/jobs"
+import { refreshSessions } from "../api/sessions"
 import type { JobSummary } from "../tui_data"
+import { ListPane } from "../types"
 import { bindFocusState } from "../focus"
 import { installSignalHandlers, registerRenderer, shutdown } from "../lifecycle"
 import { log, installGlobalErrorHandlers } from "../utils/log"
+import { getJobsList } from "../state/jobs-index"
 
 function wireShutdown(renderer: { stop: () => void; destroy: () => void }): void {
 	registerRenderer(renderer)
@@ -101,6 +109,7 @@ function SolidShell(props: { onExit?: () => void }) {
 	const { setData, setUi } = data.ctx
 	const actionRunner = useActionRunner({ setData })
 	const { actions, runAction } = actionRunner
+	let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 	bindFocusState({
 		getFocusTarget: () => appState.focusTarget,
 		setFocusTarget: (target) => setUi("focusTarget", target),
@@ -118,15 +127,48 @@ function SolidShell(props: { onExit?: () => void }) {
 			void shutdown(0)
 		}, 0)
 	})
+	onMount(() => {
+		const intervalMs = 5000
+		const warnMs = 250
+		let lastTick = Date.now()
+		let count = 0
+		log("state", "heartbeat start", { intervalMs })
+		heartbeatTimer = setInterval(() => {
+			const now = Date.now()
+			const driftMs = now - lastTick - intervalMs
+			lastTick = now
+			count += 1
+			const mem = process.memoryUsage()
+			log("state", "heartbeat", {
+				count,
+				driftMs: Math.round(driftMs),
+				rssMb: Math.round(mem.rss / 1024 / 1024),
+				heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+				primaryView: appState.primaryView,
+				focusTarget: appState.focusTarget,
+				activePane: appState.activePane,
+			})
+			if (driftMs > warnMs) {
+				log("state", "event-loop lag", { driftMs: Math.round(driftMs) })
+			}
+		}, intervalMs)
+	})
+	onCleanup(() => {
+		if (heartbeatTimer) {
+			clearInterval(heartbeatTimer)
+			heartbeatTimer = null
+			log("state", "heartbeat stop")
+		}
+	})
+	const primaryView = createMemo(() => appState.primaryView)
 	const activePane = createMemo(() => appState.activePane)
 	const focusTarget = createMemo(() => appState.focusTarget)
 	const verifierEvolveGenerationIndex = createMemo(() => appState.verifierEvolveGenerationIndex)
-	const principalPane = createMemo(() => appState.principalPane)
-	const jobsStreamEnabled = createMemo(() => Boolean(appData.userId))
+	const jobsStreamEnabled = createMemo(() => Boolean(appData.userId && appData.jobsLoaded))
 	const jobsList = useJobsListState({
 		data: appData,
 		ui: appState,
-		activePane,
+		primaryView,
 		height: () => layout().contentHeight,
 		onSelectJob: (jobId) => {
 			runAction("select-job", () => data.select(jobId))
@@ -170,44 +212,104 @@ function SolidShell(props: { onExit?: () => void }) {
 			sessionID ? { type: "session", sessionID } : { type: "home" },
 		)
 	})
+	const principalWidth = createMemo(() => layout().detailWidth)
+	const principalHeight = createMemo(() => layout().contentHeight)
+	const principalInnerWidth = createMemo(() => getPanelContentWidth(principalWidth(), 0, 0))
+	const principalInnerHeight = createMemo(() => getPanelContentHeight(principalHeight()))
 	const opencodeDimensions = createMemo(() => ({
-		width: Math.max(1, layout().detailWidth),
-		height: Math.max(1, layout().contentHeight),
+		width: principalInnerWidth(),
+		height: principalInnerHeight(),
 	}))
 	createEffect(() => {
-		if (principalPane() === "opencode") {
+		const desiredPane =
+			primaryView() === "jobs" ? ListPane.Jobs :
+				primaryView() === "logs" ? ListPane.Logs : ListPane.Sessions
+		if (appState.activePane !== desiredPane) {
+			setUi("activePane", desiredPane)
+		}
+	})
+	createEffect((prevView: string | null) => {
+		const view = primaryView()
+		if (view === "agent" && prevView !== "agent") {
+			runAction("sessions-refresh", () => refreshSessions(data.ctx))
+		}
+		return view
+	}, null as string | null)
+	createEffect((prevView: string | null) => {
+		if (!appState.settingsLoaded) return prevView
+		const view = primaryView()
+		if (prevView === view) return view
+		void persistPrimaryView(view)
+		return view
+	}, null as string | null)
+	createEffect(() => {
+		if (primaryView() === "agent") {
 			void ensureChatPane()
 		}
 	})
 	const committedJobId = createMemo(() => appData.selectedJob?.job_id ?? null)
+	createEffect((prevId: string | null) => {
+		const nextId = committedJobId()
+		if (nextId !== prevId) {
+			setUi("jobsDetailOffset", 0)
+		}
+		return nextId
+	}, null as string | null)
 	useJobEvents({
 		ctx: data.ctx,
 		selectedJobId: committedJobId,
-		activePane,
-		principalPane,
+		primaryView,
 	})
 	useJobsStream({
 		ctx: data.ctx,
 		enabled: jobsStreamEnabled,
 	})
 	const logsList = useLogsListState({
-		activePane,
-		principalPane,
+		primaryView,
 		height: () => layout().contentHeight,
 		ui: appState,
+	})
+	const sessionsList = useSessionsListState({
+		data: appData,
+		ui: appState,
+		setUi,
+		height: () => layout().contentHeight,
+		isActive: () => primaryView() === "agent",
 	})
 	const logsDetail = useLogsDetailState({
 		selectedFile: logsList.selectedFile,
 		lines: logsList.liveLogs.lines,
-		height: () => layout().contentHeight,
+		height: principalInnerHeight,
+		framed: () => false,
 		ui: appState,
 		setUi,
 	})
 	const logsDetailView = logsDetail.view
 	const logsDetailTail = createMemo(() => appState.logsDetailTail)
 	const metricsView = createMemo(() => appState.metricsView)
+	const lastError = createMemo(() => appData.lastError)
+	const jobsDetailLayout = useJobsDetailLayout({
+		data: appData,
+		detailWidth: principalInnerWidth,
+		metricsView,
+		lastError,
+	})
+	const jobsDetailScroll = useScrollState({
+		offset: () => appState.jobsDetailOffset,
+		setOffset: (next) => setUi("jobsDetailOffset", next),
+		height: principalInnerHeight,
+		contentHeight: () => jobsDetailLayout().contentHeight,
+	})
+	const jobsDetailScrollOffset = jobsDetailScroll.offset
+	const resultsInteractive = createMemo(() => jobsDetailLayout().resultsInteractive)
+	const scrollJobsDetailBy = (delta: number) => jobsDetailScroll.scrollBy(delta)
+	const ensureJobsDetailSectionVisible = (id: JobsDetailSectionId) => {
+		const section = jobsDetailLayout().byId[id]
+		if (!section) return
+		jobsDetailScroll.ensureVisible(section.top, section.top + section.height)
+	}
 	const jobsCacheRemaining = createMemo(() =>
-		countJobsCacheRemaining(appData.jobs, appData.jobsCache),
+		countJobsCacheRemaining(getJobsList(appData), appData.jobsCache),
 	)
 	const jobsLoadMoreState = createMemo<JobsLoadMoreState>(() => {
 		if (appState.jobsListLoadingMore) return "loading"
@@ -217,9 +319,6 @@ function SolidShell(props: { onExit?: () => void }) {
 	const hasSelectedJob = createMemo(() => Boolean(appData.selectedJob))
 
 	const statusText = useStatusText({ data: appData, ui: appState })
-	const lastError = createMemo(() => {
-		return appData.lastError
-	})
 	const detailModal = useDetailModal({ layout })
 	const modalStack = useModalStack({ abortAction: actions.abort })
 	const authFlow = useAuthFlow({
@@ -252,10 +351,14 @@ function SolidShell(props: { onExit?: () => void }) {
 	useFocusBindings({
 		ctx: data.ctx,
 		ui: appState,
+		primaryView,
 		jobsList,
 		logsList,
+		sessionsList,
 		jobsDetail,
 		logsDetail,
+		scrollJobsDetailBy,
+		ensureJobsDetailSectionVisible,
 		openEventModal: detailModal.openEventModal,
 		openLogModal: detailModal.openLogModal,
 		openMetricsAndFetch: overlayModals.openMetricsAndFetch,
@@ -314,7 +417,6 @@ function SolidShell(props: { onExit?: () => void }) {
 		openSettingsModal: overlayModals.openSettingsModal,
 		openUsageModal: overlayModals.openUsageModal,
 		openTaskAppsModal: overlayModals.openTaskAppsModal,
-		openSessionsModal: overlayModals.openSessionsModal,
 		openMetricsAndFetch: overlayModals.openMetricsAndFetch,
 		openTracesModal: overlayModals.openTracesModal,
 		ensureCreateJobModal: modalComponents.ensureCreateJobModal,
@@ -344,16 +446,22 @@ function SolidShell(props: { onExit?: () => void }) {
 			backgroundColor="#0b1120"
 		>
 			<AppHeader />
-			<AppTabs activePane={activePane} principalPane={principalPane} />
+			<AppTabs primaryView={primaryView} compact={() => layout().compact} />
 
 			<AppBody
 				layout={layout}
-				activePane={activePane}
-				principalPane={principalPane}
+				primaryView={primaryView}
 				focusTarget={focusTarget}
+				principalWidth={principalWidth}
+				principalHeight={principalHeight}
+				principalInnerWidth={principalInnerWidth}
+				principalInnerHeight={principalInnerHeight}
 				jobsList={jobsList}
 				logsList={logsList}
+				sessionsList={sessionsList}
 				jobsDetail={jobsDetail}
+				jobsDetailLayout={jobsDetailLayout}
+				jobsDetailScrollOffset={jobsDetailScrollOffset}
 				logsDetailView={logsDetailView}
 				logsDetailTail={logsDetailTail}
 				metricsView={metricsView}
@@ -366,7 +474,7 @@ function SolidShell(props: { onExit?: () => void }) {
 				opencodeDimensions={opencodeDimensions}
 				opencodeWorkingDir={opencodeWorkingDir}
 				onExitOpenCode={() => {
-					setUi("principalPane", "jobs")
+					setUi("primaryView", "jobs")
 				}}
 			/>
 
@@ -428,13 +536,16 @@ function SolidShell(props: { onExit?: () => void }) {
 				}}
 			/>
 
-			<StatusBar statusText={statusText} />
+			<StatusBar statusText={statusText} width={() => layout().totalWidth} />
 			<KeyFooter
-				principalPane={principalPane}
+				primaryView={primaryView}
 				activePane={activePane}
 				focusTarget={focusTarget}
+				width={() => layout().totalWidth}
+				compact={() => layout().compact}
 				jobsLoadMoreState={jobsLoadMoreState}
 				hasSelectedJob={hasSelectedJob}
+				resultsInteractive={resultsInteractive}
 			/>
 		</box>
 	)

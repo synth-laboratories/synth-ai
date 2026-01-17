@@ -14,18 +14,28 @@ export enum JobType {
 export enum ListPane {
   Jobs = "jobs",
   Logs = "logs",
+  Sessions = "sessions",
 }
 
 export type ActivePane = ListPane
+
+/** Primary top-level view */
+export type PrimaryView = "jobs" | "agent" | "logs"
 
 /** List filter mode */
 export type ListFilterMode = "all" | "none" | "subset"
 
 /** Focusable target in the main layout */
-export type FocusTarget = "list" | "results" | "metrics" | "events" | "agent" | "logs-detail"
-
-/** Principal pane - top-level view mode */
-export type PrincipalPane = "jobs" | "opencode"
+export type FocusTarget =
+  | "list"
+  | "principal"
+  | "conversation"
+  | "details"
+  | "results"
+  | "promptDiff"
+  | "metrics"
+  | "events"
+  | "agent"
 
 /** Source of a deployment log entry */
 export type LogSource = "uvicorn" | "cloudflare" | "app"
@@ -218,10 +228,12 @@ export type UsageData = {
 }
 
 export type AppData = {
-  jobs: JobSummary[]
+  jobsById: Record<string, JobSummary>
+  jobsOrder: string[]
   jobsCache: JobSummary[]
   jobsCacheAppended: JobSummary[]
   jobsCacheKey: string | null
+  jobsLoaded: boolean
   selectedJob: JobSummary | null
   events: JobEvent[]
   metrics: Record<string, unknown>

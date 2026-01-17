@@ -2,7 +2,8 @@ import { type Accessor, createEffect, createMemo } from "solid-js"
 import type { SetStoreFunction } from "solid-js/store"
 
 import type { AppState } from "../../state/app-state"
-import type { LogFileInfo } from "../utils/logs"
+import type { LogFileInfo } from "../../utils/logs"
+import { clampOffset, computeMaxOffset } from "../../utils/scroll"
 
 export type LogsDetailView = {
   lines: string[]
@@ -23,16 +24,23 @@ type UseLogsDetailStateOptions = {
   selectedFile: Accessor<LogFileInfo | null>
   lines: Accessor<string[]>
   height: Accessor<number>
+  framed?: Accessor<boolean>
   ui: AppState
   setUi: SetStoreFunction<AppState>
 }
 
-const LOGS_DETAIL_HEADER_ROWS = 6
-
 export function useLogsDetailState(options: UseLogsDetailStateOptions): LogsDetailState {
-  const visibleHeight = createMemo(() => Math.max(1, options.height() - LOGS_DETAIL_HEADER_ROWS))
+  const framed = createMemo(() => (options.framed ? options.framed() : true))
+  const hasFilePath = createMemo(() => Boolean(options.selectedFile()?.path))
+  const chromeRows = createMemo(() => {
+    let rows = 0
+    if (framed()) rows += 2 // top + bottom border
+    if (hasFilePath()) rows += 2 // file path row + padding
+    return rows
+  })
+  const visibleHeight = createMemo(() => Math.max(1, options.height() - chromeRows()))
   const maxOffset = createMemo(() =>
-    Math.max(0, options.lines().length - visibleHeight()),
+    computeMaxOffset(options.lines().length, visibleHeight()),
   )
 
   // Track line count when focus leaves, to detect new content on focus return
@@ -54,7 +62,7 @@ export function useLogsDetailState(options: UseLogsDetailStateOptions): LogsDeta
     }
     const max = maxOffset()
     // Always use offset as single source of truth (tail mode syncs it via effect above)
-    const offset = Math.min(options.ui.logsDetailOffset, max)
+    const offset = clampOffset(options.ui.logsDetailOffset, max)
     const visibleLines = lines.slice(offset, offset + visibleHeight())
     return { lines, visibleLines, offset, maxOffset: max }
   })
@@ -74,7 +82,7 @@ export function useLogsDetailState(options: UseLogsDetailStateOptions): LogsDeta
     if (!lines.length) return false
     const max = maxOffset()
     const current = options.ui.logsDetailOffset
-    const next = Math.max(0, Math.min(max, current + delta))
+    const next = clampOffset(current + delta, max)
     if (next === current) return false
     options.setUi("logsDetailOffset", next)
     options.setUi("logsDetailTail", false)

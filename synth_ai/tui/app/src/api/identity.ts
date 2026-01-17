@@ -10,6 +10,17 @@ export type RefreshIdentityResult = {
   authError: boolean
 }
 
+const HEALTH_COOLDOWN_MS = (() => {
+  const rawSeconds = parseFloat(process.env.SYNTH_TUI_HEALTH_COOLDOWN || "60")
+  const seconds = Number.isFinite(rawSeconds) ? rawSeconds : 60
+  return Math.max(0, seconds) * 1000
+})()
+
+const healthState = {
+  lastCheckAt: 0,
+  inFlight: false,
+}
+
 export async function refreshIdentity(
   ctx: AppContext,
 ): Promise<RefreshIdentityResult> {
@@ -64,14 +75,34 @@ export async function refreshIdentity(
 
 export async function refreshHealth(
   ctx: AppContext,
+  options: { force?: boolean; cooldownMs?: number } = {},
 ): Promise<void> {
   const { setUi } = ctx
+  const force = options.force === true
+  const cooldownMs = Math.max(0, options.cooldownMs ?? HEALTH_COOLDOWN_MS)
+  const now = Date.now()
+
+  if (healthState.inFlight) {
+    return
+  }
+  if (!force && now - healthState.lastCheckAt < cooldownMs) {
+    return
+  }
+  healthState.inFlight = true
+  let shouldRecord = false
 
   try {
     const health = await checkBackendHealth()
     setUi("healthStatus", health)
+    shouldRecord = true
   } catch (err: any) {
     if (isAbortError(err)) return
     setUi("healthStatus", `err(${err?.message || "unknown"})`)
+    shouldRecord = true
+  } finally {
+    healthState.inFlight = false
+    if (shouldRecord) {
+      healthState.lastCheckAt = Date.now()
+    }
   }
 }
