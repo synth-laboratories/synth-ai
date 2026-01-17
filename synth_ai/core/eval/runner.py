@@ -1,4 +1,20 @@
-"""Eval runner for executing rollouts against task apps."""
+"""Eval runner for executing rollouts against task apps.
+
+This module provides two execution modes:
+
+1. **Backend Mode (Default)**: Routes through backend interceptor for trace/usage capture
+   - Creates eval job via POST /api/eval/jobs
+   - Polls job status until completion
+   - Fetches detailed results with token costs and traces
+   - Requires backend_url and backend_api_key (or SYNTH_BASE_URL/SYNTH_API_KEY env vars)
+
+2. **Direct Mode**: Calls task apps directly (legacy, no usage tracking)
+   - Makes direct HTTP requests to task app /rollout endpoint
+   - No trace capture or usage tracking
+   - Simpler but limited functionality
+"""
+
+from __future__ import annotations
 
 import asyncio
 import json
@@ -6,7 +22,6 @@ import os
 import time
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -15,33 +30,36 @@ from synth_ai.core.eval.config import EvalRunConfig
 from synth_ai.sdk.task.client import TaskAppClient
 from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
-    RolloutMode,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
 )
 
+# Default poll interval for backend job status
 _POLL_INTERVAL_S = 2.0
-_MAX_POLL_ATTEMPTS = 600
+_MAX_POLL_ATTEMPTS = 600  # 20 minutes max
 
 
 @dataclass(slots=True)
 class EvalResult:
     seed: int
     score: float | None
-    reward_mean: float | None
-    outcome_score: float | None
-    events_score: float | None
     latency_ms: float | None
     verifier_score: float | None
     tokens: int | None
     cost_usd: float | None
     error: str | None = None
     trace: dict[str, Any] | None = None
+    outcome_objectives: dict[str, float] | None = None
 
 
 def _count_tokens_from_trace(trace: dict[str, Any] | None) -> int:
-    """Extract total token count from trace."""
+    """Extract total token count from trace.
+
+    Checks multiple locations:
+    1. trace.usage.total_tokens (task app returns usage directly)
+    2. trace.event_history[].usage (v3/v4 trace format)
+    3. trace.event_history[].response.usage (nested response)
+    """
     if not trace:
         return 0
 
@@ -59,11 +77,16 @@ def _count_tokens_from_trace(trace: dict[str, Any] | None) -> int:
         evt_usage = event.get("usage") or {}
         if isinstance(evt_usage, dict):
             total += evt_usage.get("total_tokens", 0)
-        response = event.get("response") or {}
+        response = event.get("response") or event.get("llm_response") or {}
         if isinstance(response, dict):
             resp_usage = response.get("usage") or {}
             if isinstance(resp_usage, dict):
                 total += resp_usage.get("total_tokens", 0)
+        raw_response = event.get("raw_response") or {}
+        if isinstance(raw_response, dict):
+            raw_usage = raw_response.get("usage") or {}
+            if isinstance(raw_usage, dict):
+                total += raw_usage.get("total_tokens", 0)
     return total
 
 
@@ -85,7 +108,8 @@ def _count_tokens_from_trajectories(trajectories: list[Any]) -> int:
     return total
 
 
-def _build_run_id(config: EvalRunConfig, seed: int) -> str:
+def _build_trace_correlation_id(config: EvalRunConfig, seed: int) -> str:
+    """Build a unique trace correlation ID for a rollout."""
     base = config.app_id or config.env_name or "eval"
     suffix = uuid.uuid4().hex[:8]
     return f"{base}-seed-{seed}-{suffix}"
@@ -107,26 +131,15 @@ def _build_rollout_request(config: EvalRunConfig, seed: int) -> RolloutRequest:
     if structured_config is not None:
         policy_kwargs["structured_config"] = structured_config
 
-    trace_fmt: Any = config.trace_format
-    record = RolloutRecordConfig(
-        trajectories=True,
-        logprobs=False,
-        value=False,
-        return_trace=config.return_trace,
-        trace_format=trace_fmt,
-    )
-
     synth_base = os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL")
 
     return RolloutRequest(
-        run_id=_build_run_id(config, seed),
+        trace_correlation_id=_build_trace_correlation_id(config, seed),
         env=RolloutEnvSpec(env_name=config.env_name, config=env_config, seed=seed),
         policy=RolloutPolicySpec(**policy_kwargs),
-        record=record,
         on_done="reset",
         training_session_id=None,
         synth_base_url=synth_base,
-        mode=config.mode or RolloutMode.EVAL,
     )
 
 
@@ -144,31 +157,20 @@ async def _eval_seed(
             response = await client.rollout(request)
             latency_ms = (time.perf_counter() - start) * 1000.0
 
-            metrics = response.metrics
-            reward_mean = metrics.reward_mean
-            outcome_score = metrics.outcome_score
-            events_score = metrics.events_score
-            outcome_reward = metrics.outcome_reward
-            outcome_objectives = metrics.outcome_objectives
+            reward_info = response.reward_info
+            outcome_reward = reward_info.outcome_reward
+            outcome_objectives = reward_info.outcome_objectives
 
-            reward_val = None
-            if isinstance(outcome_objectives, dict):
-                reward_val = outcome_objectives.get("reward")
-            if reward_val is None and outcome_reward is not None:
-                reward_val = outcome_reward
-            if reward_val is None and outcome_score is not None:
-                reward_val = outcome_score
-            if reward_val is None and reward_mean is not None:
-                reward_val = reward_mean
-            score = float(reward_val) if reward_val is not None else None
+            score = float(outcome_reward) if outcome_reward is not None else None
+
             verifier_score = None
             tokens = None
             cost_usd = None
 
-            if isinstance(metrics.details, dict):
-                verifier_score = metrics.details.get("verifier_score")
-                tokens = metrics.details.get("tokens")
-                cost_usd = metrics.details.get("cost_usd")
+            if isinstance(reward_info.details, dict):
+                verifier_score = reward_info.details.get("verifier_score")
+                tokens = reward_info.details.get("tokens")
+                cost_usd = reward_info.details.get("cost_usd")
 
             trace = response.trace if config.return_trace else None
 
@@ -185,30 +187,26 @@ async def _eval_seed(
             return EvalResult(
                 seed=seed,
                 score=score,
-                reward_mean=reward_mean,
-                outcome_score=outcome_score,
-                events_score=events_score,
                 latency_ms=latency_ms,
                 verifier_score=verifier_score,
                 tokens=tokens,
                 cost_usd=cost_usd,
                 error=None,
                 trace=trace,
+                outcome_objectives=dict(outcome_objectives) if outcome_objectives else None,
             )
         except Exception as exc:
             latency_ms = (time.perf_counter() - start) * 1000.0
             return EvalResult(
                 seed=seed,
                 score=None,
-                reward_mean=None,
-                outcome_score=None,
-                events_score=None,
                 latency_ms=latency_ms,
                 verifier_score=None,
                 tokens=None,
                 cost_usd=None,
                 error=str(exc),
                 trace=None,
+                outcome_objectives=None,
             )
 
 
@@ -269,10 +267,12 @@ async def run_eval_via_backend(
         "seeds": list(config.seeds),
         "policy": policy,
         "env_config": config.env_config,
-        "mode": config.mode.value if hasattr(config.mode, "value") else str(config.mode or "eval"),
         "max_concurrent": config.concurrency,
         "timeout": config.timeout,
+        "ops": list(config.ops or []),
     }
+
+    poll_interval = config.poll_interval or _POLL_INTERVAL_S
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
         print(f"[eval] Creating eval job via backend: {base}/eval/jobs", flush=True)
@@ -289,7 +289,7 @@ async def run_eval_via_backend(
         print(f"[eval] Job created: {job_id}", flush=True)
 
         for attempt in range(_MAX_POLL_ATTEMPTS):
-            await asyncio.sleep(_POLL_INTERVAL_S)
+            await asyncio.sleep(poll_interval)
 
             status_resp = await client.get(f"{base}/eval/jobs/{job_id}", headers=headers)
             if status_resp.status_code != 200:
@@ -306,7 +306,7 @@ async def run_eval_via_backend(
                 print(f"[eval] Job {job_id} status: {status} (attempt {attempt})", flush=True)
         else:
             raise RuntimeError(
-                f"Eval job {job_id} timed out after {_MAX_POLL_ATTEMPTS * _POLL_INTERVAL_S}s"
+                f"Eval job {job_id} timed out after {_MAX_POLL_ATTEMPTS * poll_interval}s"
             )
 
         if status == "failed":
@@ -328,15 +328,13 @@ async def run_eval_via_backend(
                 EvalResult(
                     seed=int(row.get("seed", 0)),
                     score=row.get("score"),
-                    reward_mean=row.get("reward_mean"),
-                    outcome_score=row.get("outcome_score"),
-                    events_score=row.get("events_score"),
                     latency_ms=row.get("latency_ms"),
                     verifier_score=row.get("verifier_score"),
                     tokens=row.get("tokens"),
                     cost_usd=row.get("cost_usd"),
                     error=row.get("error"),
                     trace=None,
+                    outcome_objectives=row.get("outcome_objectives"),
                 )
             )
 
@@ -358,6 +356,7 @@ async def fetch_traces_from_backend(
     """Download traces zip from backend and extract to output_dir."""
     import io
     import zipfile
+    from pathlib import Path
 
     base = backend_url.rstrip("/")
     if not base.endswith("/api"):
@@ -384,9 +383,6 @@ def format_eval_table(results: list[EvalResult]) -> str:
     headers = [
         "seed",
         "score",
-        "reward_mean",
-        "outcome",
-        "events",
         "latency_ms",
         "verifier",
         "tokens",
@@ -405,9 +401,6 @@ def format_eval_table(results: list[EvalResult]) -> str:
         [
             r.seed,
             _fmt(r.score),
-            _fmt(r.reward_mean),
-            _fmt(r.outcome_score),
-            _fmt(r.events_score),
             _fmt(r.latency_ms),
             _fmt(r.verifier_score),
             _fmt(r.tokens),
@@ -421,9 +414,6 @@ def format_eval_table(results: list[EvalResult]) -> str:
         return sum(values) / len(values) if values else None
 
     scores = [r.score for r in results if isinstance(r.score, (int, float))]
-    reward_means = [r.reward_mean for r in results if isinstance(r.reward_mean, (int, float))]
-    outcomes = [r.outcome_score for r in results if isinstance(r.outcome_score, (int, float))]
-    events = [r.events_score for r in results if isinstance(r.events_score, (int, float))]
     latencies = [r.latency_ms for r in results if isinstance(r.latency_ms, (int, float))]
     verifier_scores = [
         r.verifier_score for r in results if isinstance(r.verifier_score, (int, float))
@@ -435,9 +425,6 @@ def format_eval_table(results: list[EvalResult]) -> str:
         [
             "avg",
             _fmt(_avg(scores)),
-            _fmt(_avg(reward_means)),
-            _fmt(_avg(outcomes)),
-            _fmt(_avg(events)),
             _fmt(_avg(latencies)),
             _fmt(_avg(verifier_scores)),
             _fmt(int(sum(tokens) / len(tokens)) if tokens else None),
@@ -477,6 +464,8 @@ def format_eval_report(config: EvalRunConfig, results: list[EvalResult]) -> str:
 
 def save_traces(results: list[EvalResult], traces_dir: str) -> int:
     """Save traces to individual JSON files in the given directory."""
+    from pathlib import Path
+
     path = Path(traces_dir)
     path.mkdir(parents=True, exist_ok=True)
 
