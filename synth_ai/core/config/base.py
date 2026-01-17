@@ -4,6 +4,8 @@ This module defines the base config class that all job configs inherit from,
 ensuring consistent handling of common fields like API keys and backend URLs.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 

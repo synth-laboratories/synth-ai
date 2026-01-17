@@ -77,7 +77,12 @@ def _build_inline_secret() -> Secret:
     return Secret.from_dict(secrets_dict)
 
 
-INLINE_SECRET = _build_inline_secret()
+_INLINE_SECRET_ERROR: str | None = None
+INLINE_SECRETS: list[Secret] = []
+try:
+    INLINE_SECRETS.append(_build_inline_secret())
+except RuntimeError as exc:
+    _INLINE_SECRET_ERROR = str(exc)
 
 app = App("hendrycks-math-task-app")
 
@@ -88,7 +93,7 @@ app = App("hendrycks-math-task-app")
     memory=16384,
     cpu=4,
     min_containers=1,
-    secrets=[INLINE_SECRET],
+    secrets=INLINE_SECRETS,
 )
 @asgi_app()
 def fastapi_app():
@@ -98,6 +103,9 @@ def fastapi_app():
     from fastapi.responses import JSONResponse
 
     from synth_ai.sdk.task.auth import is_api_key_header_authorized
+
+    if _INLINE_SECRET_ERROR:
+        raise RuntimeError(_INLINE_SECRET_ERROR)
 
     # Inline, self-contained FastAPI app (math-only)
     @lru_cache(maxsize=1)
@@ -671,8 +679,7 @@ def fastapi_app():
             ],
             "branches": {},
             "metrics": {
-                "episode_rewards": [total_reward],
-                "reward_mean": float(total_reward),
+                "outcome_reward": float(total_reward),
                 "num_steps": len(steps),
                 "num_episodes": 1,
             },

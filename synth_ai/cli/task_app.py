@@ -31,6 +31,8 @@ from click.exceptions import Abort
 
 from synth_ai.core.paths import REPO_ROOT
 
+UTC = UTC
+
 # Tracing imports - make conditional for optional dependencies
 try:
     from synth_ai.core.tracing_v3 import (  # type: ignore[import-untyped]
@@ -68,7 +70,7 @@ except Exception:  # pragma: no cover - fallback
     PROD_BASE_URL_DEFAULT = "https://api.usesynth.ai"
 
 try:
-    _task_apps_module = cast(Any, importlib.import_module("synth_ai.sdk.task.apps"))
+    _task_apps_module = cast(Any, importlib.import_module("synth_ai.sdk.localapi.apps"))
     ModalDeploymentConfig = cast(
         type[ModalDeploymentConfigType], _task_apps_module.ModalDeploymentConfig
     )
@@ -2868,7 +2870,7 @@ def fastapi_app():
         raise RuntimeError("Task app import failed: " + str(e))
 
     # Get the entry from registry (now that it's registered)
-    from synth_ai.sdk.task.apps import registry
+    from synth_ai.sdk.localapi.apps import registry
     from synth_ai.sdk.task.server import create_task_app
     entry = registry.get(ENTRY_ID)
     cfg = entry.modal

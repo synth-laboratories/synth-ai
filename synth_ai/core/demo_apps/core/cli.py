@@ -1584,8 +1584,8 @@ def run(
             pts = mj.get("points") or []  # type: ignore[misc]
             for p in pts:
                 name = p.get("name")  # type: ignore[misc]
-                if name == "eval.reward_mean":
-                    print(f"metric eval.reward_mean step={p.get('step')} value={p.get('value')}")  # type: ignore[misc]
+                if name == "eval.outcome_reward":
+                    print(f"metric eval.outcome_reward step={p.get('step')} value={p.get('value')}")  # type: ignore[misc]
                     break
         if time.time() - start_t > (timeout or 600):
             print("Timeout waiting for terminal state.")

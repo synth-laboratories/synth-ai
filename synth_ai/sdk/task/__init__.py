@@ -30,13 +30,6 @@ from .datasets import TaskDatasetRegistry, TaskDatasetSpec
 from .errors import error_payload, http_exception, json_error_response
 from .health import task_app_health
 from .in_process import InProcessTaskApp
-from .in_process_runner import (
-    InProcessJobResult,
-    merge_dot_overrides,
-    resolve_backend_api_base,
-    run_in_process_job,
-    run_in_process_job_sync,
-)
 from .inference_api import InferenceAPIClient
 from .json import to_jsonable
 from .llm_call_guards import (
@@ -94,6 +87,23 @@ from .vendors import (
     get_openai_key_or_503,
     normalize_vendor_keys,
 )
+
+_IN_PROCESS_RUNNER_IMPORTS = {
+    "InProcessJobResult",
+    "merge_dot_overrides",
+    "resolve_backend_api_base",
+    "run_in_process_job",
+    "run_in_process_job_sync",
+}
+
+
+def __getattr__(name: str):
+    if name in _IN_PROCESS_RUNNER_IMPORTS:
+        from . import in_process_runner
+
+        return getattr(in_process_runner, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "build_rollout_response",

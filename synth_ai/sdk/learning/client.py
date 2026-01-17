@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
@@ -111,6 +112,11 @@ class LearningClient:
         if after_step is not None:
             params["after_step"] = after_step
         if run_id is not None:
+            warnings.warn(
+                "run_id is deprecated, use trace_correlation_id instead. Will be removed in v2.0.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             params["run_id"] = run_id
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/learning/jobs/{job_id}/metrics", params=params)

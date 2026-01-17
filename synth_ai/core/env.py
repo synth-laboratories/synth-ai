@@ -4,6 +4,8 @@ This module provides non-interactive environment variable resolution
 for use by SDK and CLI. URL configuration is handled by urls.py.
 """
 
+from __future__ import annotations
+
 import json
 import os
 from pathlib import Path
@@ -71,6 +73,11 @@ def get_synth_and_env_keys() -> tuple[str, str]:
             "Either run synth-ai setup to load automatically or manually set it in your shell."
         )
     return synth_api_key, env_api_key
+
+
+def get_backend_url() -> str:
+    """Return the configured backend URL base."""
+    return BACKEND_URL_BASE
 
 
 def mask_str(input: str, position: int = 3) -> str:

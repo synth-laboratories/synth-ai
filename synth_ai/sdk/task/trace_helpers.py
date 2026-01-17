@@ -12,6 +12,7 @@ See monorepo/trace_creation_and_judgement.txt "Fatal Guards" section for require
 """
 
 import logging
+import warnings
 from datetime import UTC
 from typing import Any
 
@@ -44,6 +45,12 @@ def validate_trace_correlation_id(
     Raises:
         ValueError: If trace_correlation_id is missing and fatal=True
     """
+    if run_id is not None:
+        warnings.warn(
+            "run_id is deprecated, use trace_correlation_id instead. Will be removed in v2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     if not trace_correlation_id:
         inference_url = (
             policy_config.get("inference_url", "NOT_SET") if policy_config else "NOT_SET"
@@ -93,6 +100,12 @@ def include_trace_correlation_id_in_response(
     Returns:
         Modified response_data with trace_correlation_id in all required places
     """
+    if run_id is not None:
+        warnings.warn(
+            "run_id is deprecated, use trace_correlation_id instead. Will be removed in v2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     id_for_log = run_id or trace_correlation_id or "UNKNOWN"
     if not trace_correlation_id:
         logger.error(
@@ -356,6 +369,12 @@ def verify_trace_correlation_id_in_response(
     Returns:
         True if all required locations have the correlation ID, False otherwise
     """
+    if run_id is not None:
+        warnings.warn(
+            "run_id is deprecated, use trace_correlation_id instead. Will be removed in v2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     id_for_log = run_id or expected_correlation_id or "UNKNOWN"
     if not expected_correlation_id:
         logger.error(

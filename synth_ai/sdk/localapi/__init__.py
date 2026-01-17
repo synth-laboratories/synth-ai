@@ -4,17 +4,15 @@ Prefer this module over synth_ai.sdk.task.* moving forward. The task namespace
 remains for backward compatibility while the naming transition completes.
 """
 
-from typing import TYPE_CHECKING
-
-from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
+from typing import TYPE_CHECKING, Any
 
 from .auth import ensure_localapi_auth
-from .rollouts import RolloutResponseBuilder
 
 # Defer template imports to avoid circular dependency
 # template.py imports from sdk.task, which may transitively import localapi
 
 if TYPE_CHECKING:
+    from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
     from synth_ai.sdk.task import (
         InProcessTaskApp,
         LocalAPIClient,
@@ -43,13 +41,28 @@ _TASK_IMPORTS = {
     "create_task_app",
     "run_task_app",
 }
+_TRAIN_IMPORTS = {
+    "LocalAPIHealth",
+    "check_local_api_health",
+}
+_LOCAL_IMPORTS = {
+    "RolloutResponseBuilder",
+}
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name in _TASK_IMPORTS:
         from synth_ai.sdk import task
 
         return getattr(task, name)
+    if name in _TRAIN_IMPORTS:
+        from synth_ai.sdk.api.train import local_api as _local_api
+
+        return getattr(_local_api, name)
+    if name in _LOCAL_IMPORTS:
+        from . import rollouts as _rollouts
+
+        return getattr(_rollouts, name)
     if name == "create_local_api":
         from synth_ai.sdk.task import create_task_app
 

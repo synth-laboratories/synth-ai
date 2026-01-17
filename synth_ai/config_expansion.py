@@ -165,6 +165,19 @@ def get_defaults(version: str | None = None) -> DefaultsV1:
     return DEFAULTS_REGISTRY[version]
 
 
+def _warn_on_unsupported_minimal_keys(
+    minimal: dict[str, Any], allowed_keys: set[str], *, context: str
+) -> None:
+    ignored = sorted(k for k in minimal if k not in allowed_keys)
+    if not ignored:
+        return
+    warnings.warn(
+        f"{context} config includes unsupported keys that will be ignored: {', '.join(ignored)}",
+        UserWarning,
+        stacklevel=2,
+    )
+
+
 # =============================================================================
 # CONFIG EXPANSION
 # =============================================================================
@@ -269,6 +282,39 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
         [0, 1, 2, 3, 4]
     """
     d = get_defaults(minimal.get("defaults_version"))
+    _warn_on_unsupported_minimal_keys(
+        minimal,
+        {
+            "algorithm",
+            "task_app_url",
+            "task_app_id",
+            "total_seeds",
+            "train_seeds",
+            "validation_seeds",
+            "val_seeds",
+            "env_name",
+            "proposer_effort",
+            "proposer_output_tokens",
+            "num_generations",
+            "children_per_generation",
+            "population_size",
+            "defaults_version",
+            "max_cost_usd",
+            "max_rollouts",
+            "max_seconds",
+            "max_trials",
+            # Pass-through fields supported by backend prompt_learning config
+            "policy",
+            "env_config",
+            "verifier",
+            "proxy_models",
+            "initial_prompt",
+            "auto_discover_patterns",
+            "free_tier",
+            "use_byok",
+        },
+        context="prompt_learning minimal",
+    )
 
     # Validate required fields
     if "task_app_url" not in minimal:
@@ -288,9 +334,9 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
         split = int(total * d.train_ratio)
         train_seeds = list(range(0, split))
         val_seeds = list(range(split, total))
-    elif "train_seeds" in minimal or "validation_seeds" in minimal:
+    elif "train_seeds" in minimal or "validation_seeds" in minimal or "val_seeds" in minimal:
         train_seeds = resolve_seeds(minimal.get("train_seeds", []))
-        val_seeds = resolve_seeds(minimal.get("validation_seeds", []))
+        val_seeds = resolve_seeds(minimal.get("validation_seeds", minimal.get("val_seeds", [])))
     else:
         raise ValueError("Either total_seeds or (train_seeds + validation_seeds) is required")
 
@@ -320,10 +366,19 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
     num_gens = minimal["num_generations"]
     children = minimal["children_per_generation"]
 
-    # Build full config with defaults
-    return {
+    # Build full config with defaults (backend reads these nested sections)
+    result = {
         "algorithm": "gepa",
         "task_app_url": minimal["task_app_url"],
+        "task_app_id": minimal.get("task_app_id"),
+        "policy": minimal.get("policy"),
+        "env_config": minimal.get("env_config"),
+        "verifier": minimal.get("verifier"),
+        "proxy_models": minimal.get("proxy_models"),
+        "initial_prompt": minimal.get("initial_prompt"),
+        "auto_discover_patterns": minimal.get("auto_discover_patterns"),
+        "free_tier": minimal.get("free_tier"),
+        "use_byok": minimal.get("use_byok"),
         "gepa": {
             "env_name": minimal.get("env_name", "default"),
             "proposer_effort": minimal["proposer_effort"],
@@ -354,6 +409,7 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
         "termination_config": build_termination_config(minimal),
         "_defaults_version": d.version,  # track which version was used
     }
+    return {k: v for k, v in result.items() if v is not None}
 
 
 def build_termination_config(minimal: dict[str, Any]) -> dict[str, Any] | None:
@@ -461,7 +517,7 @@ def is_minimal_config(config: dict[str, Any]) -> bool:
     has_full = any(k in config for k in full_indicators)
 
     # If it has nested structure, it's a full config
-    if has_full and not has_minimal:
+    if has_full:
         return False
 
     # If it has minimal indicators, it's minimal
@@ -470,7 +526,4 @@ def is_minimal_config(config: dict[str, Any]) -> bool:
 
     # Check for flat structure (no deeply nested evaluation/population configs)
     # This catches cases like {"task_app_url": "...", "train_seeds": [...]}
-    if "train_seeds" in config and "gepa" not in config:
-        return True
-
-    return False
+    return "train_seeds" in config and "gepa" not in config
