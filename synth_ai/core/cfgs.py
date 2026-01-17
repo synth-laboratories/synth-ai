@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Any, Literal, Optional, cast
 
@@ -152,10 +151,6 @@ class ModalDeployCfg(BaseModel):
             raise ValueError("`--modal-mode` must be either 'deploy' or 'serve'.")
 
         dry_run = bool(kwargs.get("dry_run", False))
-        if dry_run and os.getenv("CTX") == "mcp":
-            ctx["error"] = "dry_run_mcp"
-            log_error("ModalDeployCfg create_from_kwargs blocked", ctx=ctx)
-            raise ValueError("`synth-ai deploy --runtime modal --dry-run` cannot be used by MCP")
         if dry_run and cmd_arg == "serve":
             ctx["error"] = "dry_run_serve"
             log_error("ModalDeployCfg create_from_kwargs blocked", ctx=ctx)

@@ -35,10 +35,11 @@ prelim_config = EvalJobConfig(
     policy_config={"model": "gemini-2.5-flash-image", "provider": "google"},
 )
 ENVIRONMENT_API_KEY = prelim_config.localapi_key
+assert ENVIRONMENT_API_KEY is not None, "localapi_key must be set"
 print(f"Env key: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
 
 
-async def main():
+async def main() -> None:
     baseline_style_prompt = """You are generating a professional startup website screenshot.
 
 VISUAL STYLE GUIDELINES:

@@ -9,7 +9,7 @@ import inspect
 import os
 import threading
 from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -167,8 +167,8 @@ class TaskAppConfig:
     ensure_localapi_auth: bool = True
     expose_debug_env: bool = True
     cors_origins: Sequence[str] | None = None
-    startup_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
-    shutdown_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
+    startup_hooks: Sequence[Callable[..., None | Awaitable[None]]] = field(default_factory=tuple)
+    shutdown_hooks: Sequence[Callable[..., None | Awaitable[None]]] = field(default_factory=tuple)
 
     def clone(self) -> "TaskAppConfig":
         """Return a shallow copy safe to mutate when wiring the app."""
@@ -261,7 +261,7 @@ def _build_proxy_routes(
         return data
 
     def _log_proxy(route: str, payload: dict[str, Any]) -> None:
-        try:
+        with suppress(Exception):  # pragma: no cover - best effort logging
             messages = payload.get("messages") if isinstance(payload, dict) else None
             msg_count = len(messages) if isinstance(messages, list) else 0
             tool_count = len(payload.get("tools") or []) if isinstance(payload, dict) else 0
@@ -270,8 +270,6 @@ def _build_proxy_routes(
                 f"[task:proxy:{route}] model={model} messages={msg_count} tools={tool_count}",
                 flush=True,
             )
-        except Exception:  # pragma: no cover - best effort logging
-            pass
 
     system_hint = proxy.system_hint
 
@@ -402,15 +400,15 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
 
     def _call_hook(hook: Callable[..., Any]) -> Awaitable[Any]:
         try:
-            params = inspect.signature(hook).parameters  # type: ignore[arg-type]
+            params = inspect.signature(hook).parameters
         except (TypeError, ValueError):
             params = {}
         if params:
-            return _maybe_await(hook(app))  # type: ignore[misc]
+            return _maybe_await(hook(app))
         return _maybe_await(hook())
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI):
+    async def lifespan(_: FastAPI) -> Any:
         # Auto-ensure environment API key if enabled (defaults to True)
         # This handles minting, persisting, and uploading the key transparently
         if cfg.ensure_localapi_auth:
@@ -567,7 +565,7 @@ def run_task_app(
     config = config_factory()
     # Defensive: ensure the factory produced a valid TaskAppConfig to avoid
     # confusing attribute errors later in the boot sequence.
-    if not isinstance(config, TaskAppConfig):  # type: ignore[arg-type]
+    if not isinstance(config, TaskAppConfig):
         raise TypeError(
             f"Task app config_factory must return TaskAppConfig, got {type(config).__name__}"
         )
@@ -580,8 +578,8 @@ def run_task_app(
 
     print(f"[task:server] Starting '{config.app_id}' on {host}:{port}", flush=True)
 
-    # Record local service before starting
-    try:
+    # Record local service before starting (fail silently - records are optional)
+    with suppress(Exception):
         import os
 
         from synth_ai.core.service_records import record_service
@@ -597,19 +595,15 @@ def run_task_app(
             app_id=config.app_id,
             pid=pid,
         )
-    except Exception:
-        pass  # Fail silently - records are optional
 
     try:
         uvicorn.run(app, host=host, port=port, reload=reload)
     finally:
         # Clean up record when server exits
-        try:
+        with suppress(Exception):
             from synth_ai.core.service_records import remove_service_record
 
             remove_service_record(port)
-        except Exception:
-            pass
 
 
 def run_server_background(

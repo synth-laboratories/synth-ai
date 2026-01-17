@@ -104,12 +104,12 @@ def _to_demo_relative(path: Path, demo_dir: Path) -> str:
         return str(path)
 
 
-def main():
+def main() -> None:
     # Get API key
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("Error: GOOGLE_API_KEY or GEMINI_API_KEY environment variable not set")
-        exit(1)
+        raise SystemExit(1)
 
     # Find all screenshots
     demo_dir = Path(__file__).parent.resolve()

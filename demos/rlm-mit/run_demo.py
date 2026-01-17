@@ -9,7 +9,7 @@ import asyncio
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List
+from typing import Any, Iterable
 
 import httpx
 from datasets import load_dataset
@@ -39,7 +39,7 @@ from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, kill_port
 
 # Work around rlm QueryMetadata typing bug under Python 3.11
 class PatchedQueryMetadata:
-    def __init__(self, prompt):
+    def __init__(self, prompt) -> None:
         if isinstance(prompt, str):
             self.context_lengths = [len(prompt)]
             self.context_type = "str"
@@ -115,7 +115,7 @@ class OolongSample:
 
 
 class OolongDataset:
-    def __init__(self, hf_dataset: str = "oolongbench/oolong-real", hf_config: str = "dnd"):
+    def __init__(self, hf_dataset: str = "oolongbench/oolong-real", hf_config: str = "dnd") -> None:
         self.hf_dataset = hf_dataset
         self.hf_config = hf_config
         self._cache = {}
@@ -150,14 +150,14 @@ class OolongDataset:
 
 
 # Prompt template helpers
-def _normalize_prompt_template(policy_config: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize_prompt_template(policy_config: dict[str, Any]) -> dict[str, Any]:
     template = policy_config.get("prompt_template") or {}
     if not isinstance(template, dict):
         template = {}
     return template
 
 
-def _get_prompt_sections(policy_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _get_prompt_sections(policy_config: dict[str, Any]) -> list[dict[str, Any]]:
     template = _normalize_prompt_template(policy_config)
     sections = (
         template.get("sections")
@@ -171,9 +171,9 @@ def _get_prompt_sections(policy_config: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def render_prompt_sections(
-    sections: List[Dict[str, Any]], placeholders: Dict[str, str]
-) -> List[Dict[str, str]]:
-    rendered: List[Dict[str, str]] = []
+    sections: list[dict[str, Any]], placeholders: dict[str, str]
+) -> list[dict[str, str]]:
+    rendered: list[dict[str, str]] = []
     for section in sections:
         role = section.get("role", "user")
         pattern = section.get("content") or section.get("pattern") or ""
@@ -182,7 +182,7 @@ def render_prompt_sections(
     return rendered
 
 
-def split_system_and_user(messages: List[Dict[str, str]]) -> tuple[str, str]:
+def split_system_and_user(messages: list[dict[str, str]]) -> tuple[str, str]:
     system_parts = [m["content"] for m in messages if m.get("role") == "system"]
     user_parts = [m["content"] for m in messages if m.get("role") != "system"]
     system_prompt = "\n\n".join(system_parts).strip()
@@ -440,7 +440,7 @@ def create_oolong_rlm_local_api():
                 details={"messages": messages_for_validation, "predicted": predicted, "gold": gold},
             ),
             trace=None,
-            trace_correlation_id=policy_config.get("trace_correlation_id"),
+            trace_correlation_id=request.trace_correlation_id or "",
         )
 
     def provide_taskset_description():
@@ -495,7 +495,7 @@ def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: floa
 
 
 # Main async function
-async def main():
+async def main() -> None:
     # Timing helper
     def format_duration(seconds: float) -> str:
         if seconds < 60:
@@ -529,6 +529,9 @@ async def main():
         config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
     )
     localapi_key = prelim_job.config.localapi_key
+    if not localapi_key:
+        raise ValueError("localapi_key is required")
+    assert isinstance(localapi_key, str)
 
     # Start Local API
     print("\n" + "=" * 60)

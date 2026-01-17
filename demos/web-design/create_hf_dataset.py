@@ -20,7 +20,6 @@ import re
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from datasets import Dataset, Features, Value
 from datasets import Image as HFImage
@@ -85,7 +84,7 @@ def extract_date_from_filename(filename: str) -> str | None:
 
 def create_dataset(
     descriptions_file: Path,
-    images_root: Optional[Path] = None,
+    images_root: Path | None = None,
     *,
     resize_size: int = 384,
     max_image_pixels: int = 12_000_000,
@@ -246,7 +245,7 @@ def create_dataset(
     return dataset
 
 
-def push_to_hub(dataset, repo_name: str, token: str = None):
+def push_to_hub(dataset, repo_name: str, token: str | None = None) -> None:
     """Push dataset to Hugging Face Hub."""
     print(f"\nPushing dataset to Hugging Face Hub: {repo_name}")
 

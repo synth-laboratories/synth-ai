@@ -1,16 +1,23 @@
 [environment]
-# Use the uv-managed Python environment
 root = ["."]
-extra-paths = ["."]
 
 [src]
+# Check all Python in the repo
 include = [
     "synth_ai",
+    "tests",
+    "demos",
+    "benchmarks",
+    "scripts",
 ]
-exclude = [
-    "synth_ai/v0",
-    "synth_ai/cli/task_apps.py",
-    "synth_ai/demos",
-    "synth_ai/environments",
-    "synth_ai/utils/task_app_discovery.py",
-]
+
+[rules]
+possibly-missing-attribute = "ignore"
+
+# Demos and benchmarks use local implicit imports (e.g., `from localapi_X import ...`)
+# that ty can't resolve statically. synth_ai imports are validated by check_api_drift.py
+[[overrides]]
+include = ["demos/**", "benchmarks/**"]
+
+[overrides.rules]
+unresolved-import = "ignore"

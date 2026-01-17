@@ -80,7 +80,7 @@ print("Hello, World!")
 You MUST use the write tool to accomplish this task."""
 
 
-async def test_responses_api_streaming():
+async def test_responses_api_streaming() -> None:
     """Test the Responses API with streaming and tools."""
     print("=" * 80)
     print("TEST: OpenAI Responses API with Streaming + Tools")
@@ -184,7 +184,7 @@ async def test_responses_api_streaming():
             print("  The model may have responded with text instead of using tools.")
 
 
-async def test_responses_api_non_streaming():
+async def test_responses_api_non_streaming() -> None:
     """Test the Responses API WITHOUT streaming for comparison."""
     print("\n" + "=" * 80)
     print("TEST: OpenAI Responses API WITHOUT Streaming (for comparison)")
@@ -236,7 +236,7 @@ async def test_responses_api_non_streaming():
             print(f"    - {tc.get('name')}: {tc.get('arguments', {})}")
 
 
-async def test_chat_completions_streaming():
+async def test_chat_completions_streaming() -> None:
     """Test Chat Completions API with streaming and tools for comparison."""
     print("\n" + "=" * 80)
     print("TEST: OpenAI Chat Completions API with Streaming + Tools")
@@ -337,7 +337,7 @@ async def test_chat_completions_streaming():
             print(f"    - {tc.get('name')}: {tc.get('arguments', '')[:100]}...")
 
 
-async def main():
+async def main() -> None:
     print("🧪 OpenAI API Tool Test Suite")
     print("Testing whether tools work correctly with streaming\n")
 

@@ -38,9 +38,15 @@ from .utils import calculate_cost, detect_provider
 # Context variables for session and turn tracking
 # These variables automatically propagate across async call boundaries,
 # allowing deeply nested code to access tracing context without explicit passing
-_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar("session_id")
-_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar("turn_number")
-_session_tracer_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar("session_tracer")
+_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "session_id", default=None
+)
+_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "turn_number", default=None
+)
+_session_tracer_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
+    "session_tracer", default=None
+)
 
 
 def set_session_id(session_id: str | None) -> None:
@@ -156,7 +162,7 @@ def trace_llm_call(
     system_id: str = "llm",
     extract_tokens: bool = True,
     extract_cost: bool = True,
-):
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """Decorator to trace LLM API calls.
 
     Automatically records LLM API calls as LMCAISEvent instances. Extracts token
@@ -270,7 +276,11 @@ def trace_llm_call(
     return decorator
 
 
-def trace_method(event_type: str = "runtime", system_id: str | None = None):
+def trace_method(
+    event_type: str = "runtime", system_id: str | None = None
+) -> Callable[
+    [Callable[..., Awaitable[T]] | Callable[..., T]], Callable[..., Awaitable[T]] | Callable[..., T]
+]:
     """Generic method tracing decorator.
 
     Traces any method call by recording it as a RuntimeEvent. Supports both
@@ -364,33 +374,43 @@ class SessionContext:
         ```
     """
 
-    def __init__(self, session_id: str, tracer: Any | None = None):
+    def __init__(self, session_id: str, tracer: Any | None = None) -> None:
         self.session_id = session_id
         self.tracer = tracer
         self._token: Token[str | None] | None = None
         self._tracer_token: Token[Any] | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> SessionContext:
         # Store tokens to restore previous context on exit
         self._token = _session_id_ctx.set(self.session_id)
         if self.tracer:
             self._tracer_token = _session_tracer_ctx.set(self.tracer)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
         # Restore previous context - this is crucial for proper isolation
         if self._token is not None:
             _session_id_ctx.reset(self._token)
         if self._tracer_token is not None:
             _session_tracer_ctx.reset(self._tracer_token)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> SessionContext:
         self._token = _session_id_ctx.set(self.session_id)
         if self.tracer:
             self._tracer_token = _session_tracer_ctx.set(self.tracer)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
         if self._token is not None:
             _session_id_ctx.reset(self._token)
         if self._tracer_token is not None:

@@ -80,7 +80,7 @@ def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: floa
     raise RuntimeError(f"Health check failed: {health_url}")
 
 
-async def main():
+async def main() -> None:
     """Main entry point."""
     print("=" * 60)
     print("POKEMON TCG GEPA DEMO")
@@ -153,6 +153,7 @@ async def main():
     )
 
     run_server_background(app, port)
+    assert config.localapi_key is not None, "localapi_key must be set"
     wait_for_health_check_sync("localhost", port, config.localapi_key, timeout=30.0)
     print(f"Localapi ready on port {port}")
     print(f"Localapi URL: {localapi_url}")

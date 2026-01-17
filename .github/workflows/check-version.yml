@@ -1,0 +1,19 @@
+name: Check README version matches pyproject.toml
+
+on:
+  pull_request:
+    branches: [main, nightly]
+  push:
+    branches: [main, nightly]
+
+jobs:
+  check-version:
+    name: Check README version matches pyproject.toml
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check README version matches
+        run: python scripts/check_readme_version.py

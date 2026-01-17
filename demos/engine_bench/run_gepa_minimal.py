@@ -54,7 +54,7 @@ def wait_for_health(host: str, port: int, api_key: str, timeout: float = 30.0) -
     raise RuntimeError(f"Health check failed: {url}")
 
 
-async def main():
+async def main() -> None:
     print("=" * 60)
     print("ENGINEBENCH - MINIMAL GEPA JOB")
     print("=" * 60)
@@ -113,11 +113,12 @@ async def main():
         config_dict=config_dict,
         synth_user_key=SYNTH_USER_KEY,
     )
-    print(f"  Localapi API key: {job.config.localapi_key[:20]}...")
+    localapi_key = job.config.localapi_key or ""
+    print(f"  Localapi API key: {localapi_key[:20]}...")
 
     # Start localapi server
     run_server_background(app, port)
-    wait_for_health("localhost", port, job.config.localapi_key)
+    wait_for_health("localhost", port, localapi_key)
     print(f"Localapi ready on port {port}")
 
     job_id = job.submit()

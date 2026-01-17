@@ -11,7 +11,7 @@ This module provides utilities to:
 import asyncio
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 
@@ -63,10 +63,7 @@ except ImportError:
         DAYTONA_AVAILABLE = True
     except ImportError:
         DAYTONA_AVAILABLE = False
-        Daytona = None
-        DaytonaConfig = None
-        CreateSandboxFromImageParams = None
-        CodeLanguage = None
+        # Classes not defined - code must check DAYTONA_AVAILABLE before use
 
 
 class DaytonaLocalapiRunner:
@@ -83,13 +80,13 @@ class DaytonaLocalapiRunner:
     def __init__(
         self,
         *,
-        api_key: Optional[str] = None,
-        api_url: Optional[str] = None,
-        target: Optional[str] = None,
+        api_key: str | None = None,
+        api_url: str | None = None,
+        target: str | None = None,
         image: str = "python:3.11-slim",
         localapi_port: int = 8000,
         use_snapshot: bool = True,  # Try to use cached snapshot
-    ):
+    ) -> None:
         """Initialize Daytona runner.
 
         Args:
@@ -196,6 +193,7 @@ class DaytonaLocalapiRunner:
             self.preview_url = f"https://{self.localapi_port}-{self.sandbox_id}.proxy.daytona.works"
             print(f"[Daytona] Using constructed preview URL: {self.preview_url}")
 
+        assert self.sandbox_id is not None, "Sandbox ID should be set after provisioning"
         return self.sandbox_id
 
     async def _get_preview_url(self, port: int) -> dict[str, Any]:
@@ -230,7 +228,7 @@ class DaytonaLocalapiRunner:
         self,
         localapi_path: Path,
         *,
-        additional_files: Optional[list[Path]] = None,
+        additional_files: list[Path] | None = None,
     ) -> None:
         """Upload localapi code to the sandbox.
 
@@ -272,8 +270,8 @@ class DaytonaLocalapiRunner:
     async def setup_environment(
         self,
         *,
-        env_vars: Optional[dict[str, str]] = None,
-        install_commands: Optional[list[str]] = None,
+        env_vars: dict[str, str] | None = None,
+        install_commands: list[str] | None = None,
     ) -> None:
         """Set up environment in the sandbox.
 
@@ -404,14 +402,14 @@ class DaytonaLocalapiRunner:
                 if response.status_code in (200, 400):
                     print("[Daytona] Localapi health check passed")
                     return
-            except Exception:
+            except Exception:  # noqa: S110
                 pass
             await asyncio.sleep(1.0)
 
         raise RuntimeError(f"Health check failed after {timeout}s: {health_url}")
 
     async def create_snapshot(
-        self, snapshot_name: Optional[str] = None, image: Optional[str] = None
+        self, snapshot_name: str | None = None, image: str | None = None
     ) -> str:
         """Create a snapshot from a container image.
 
@@ -438,7 +436,7 @@ class DaytonaLocalapiRunner:
 
             params = CreateSnapshotParams(name=name, image=img)
 
-            def on_logs(chunk):
+            def on_logs(chunk: str) -> None:
                 print(f"[Daytona] {chunk}", end="")
 
             await asyncio.to_thread(self.client.snapshot.create, params, on_logs=on_logs)
@@ -465,12 +463,17 @@ class DaytonaLocalapiRunner:
         self.sandbox_id = None
         self.preview_url = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "DaytonaLocalapiRunner":
         """Async context manager entry."""
         await self.provision()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         """Async context manager exit."""
         await self.cleanup()
 
@@ -478,10 +481,10 @@ class DaytonaLocalapiRunner:
 async def run_localapi_in_daytona(
     localapi_path: Path,
     *,
-    api_key: Optional[str] = None,
-    env_vars: Optional[dict[str, str]] = None,
-    additional_files: Optional[list[Path]] = None,
-    install_commands: Optional[list[str]] = None,
+    api_key: str | None = None,
+    env_vars: dict[str, str] | None = None,
+    additional_files: list[Path] | None = None,
+    install_commands: list[str] | None = None,
     localapi_port: int = 8000,
 ) -> tuple[str, DaytonaLocalapiRunner]:
     """Convenience function to run a localapi in Daytona.
@@ -543,9 +546,9 @@ class DaytonaRolloutRunner:
     def __init__(
         self,
         *,
-        api_key: Optional[str] = None,
-        snapshot_name: Optional[str] = None,
-    ):
+        api_key: str | None = None,
+        snapshot_name: str | None = None,
+    ) -> None:
         if not DAYTONA_AVAILABLE:
             raise RuntimeError("Daytona SDK not available")
 
@@ -567,7 +570,7 @@ class DaytonaRolloutRunner:
         model: str = "codex-5.1-mini",
         timeout: int = 300,
         openai_api_key: str,
-        inference_url: Optional[str] = None,
+        inference_url: str | None = None,
         agent_type: str = "codex",  # "codex" or "opencode"
     ) -> dict[str, Any]:
         """Run a complete rollout in a dedicated sandbox.
@@ -751,7 +754,7 @@ class DaytonaRolloutRunner:
         model: str,
         timeout: int,
         openai_api_key: str,
-        inference_url: Optional[str] = None,
+        inference_url: str | None = None,
     ) -> dict[str, Any]:
         """Run codex agent in sandbox."""
         # Remove any auth.json that might override API config
@@ -817,7 +820,7 @@ codex exec --yolo --skip-git-repo-check -m {model} "$(cat /app/prompt.txt)"
         model: str,
         timeout: int,
         openai_api_key: str,
-        inference_url: Optional[str] = None,
+        inference_url: str | None = None,
     ) -> dict[str, Any]:
         """Run opencode agent in sandbox."""
         # Build base URL - normalize from inference_url (same as local version)
@@ -959,7 +962,7 @@ cat {test_file} >> {card_file}
 
 
 # Global pool for reusing Daytona clients
-_daytona_client: Optional[Daytona] = None
+_daytona_client: Daytona | None = None
 
 
 def get_daytona_client() -> Daytona:
@@ -981,8 +984,8 @@ async def run_rollout_in_daytona(
     model: str = "codex-5.1-mini",
     timeout: int = 300,
     openai_api_key: str,
-    inference_url: Optional[str] = None,
-    snapshot_name: Optional[str] = None,
+    inference_url: str | None = None,
+    snapshot_name: str | None = None,
     agent_type: str = "codex",  # "codex" or "opencode"
 ) -> dict[str, Any]:
     """Convenience function to run a rollout in a Daytona sandbox.

@@ -1,0 +1,19 @@
+name: TUI Tests (bun)
+
+on:
+  pull_request:
+    branches: [main, nightly]
+  push:
+    branches: [main, nightly]
+
+jobs:
+  tui-tests:
+    name: TUI Tests (bun)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - name: Run TUI parsing tests
+        run: |
+          cd synth_ai/_tui
+          bun test

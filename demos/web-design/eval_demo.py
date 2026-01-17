@@ -28,7 +28,10 @@ prelim_config = EvalJobConfig(
     seeds=[0],
     policy_config={"model": "gemini-2.5-flash-image", "provider": "google"},
 )
-ENVIRONMENT_API_KEY = prelim_config.localapi_key
+_api_key = prelim_config.localapi_key
+if not _api_key:
+    raise ValueError("localapi_key must be set")
+ENVIRONMENT_API_KEY: str = _api_key
 
 # Baseline prompt to test
 BASELINE_STYLE_PROMPT = """You are generating a professional startup website screenshot.
@@ -43,7 +46,7 @@ VISUAL STYLE GUIDELINES:
 Create a webpage that feels polished, modern, and trustworthy."""
 
 
-async def main():
+async def main() -> None:
     print("=" * 80)
     print("WEB DESIGN EVAL - BASELINE TEST")
     print("=" * 80)

@@ -9,7 +9,6 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from datasets import load_dataset
 from openai import AsyncOpenAI
@@ -19,7 +18,16 @@ from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutMetrics,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
 from synth_ai.sdk.tunnels import (
     TunnelBackend,
     TunneledLocalAPI,
@@ -130,7 +138,7 @@ async def answer_question(
     question: str,
     system_prompt: str,
     model: str,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> str:
     """Answer a HotpotQA question using OpenAI API."""
     client = AsyncOpenAI(api_key=api_key) if api_key else AsyncOpenAI()
@@ -174,10 +182,10 @@ def create_hotpotqa_local_api(system_prompt: str, env_api_key: str):
     dataset.ensure_ready()
 
     async def run_rollout(request: RolloutRequest, fastapi_request) -> RolloutResponse:
-        seed = request.env.seed
+        seed = request.env.seed or 0
         sample = dataset.sample(seed)
 
-        inference_url = request.policy.config.get("inference_url")
+        inference_url = request.policy.config.get("inference_url") or ""
         os.environ["OPENAI_BASE_URL"] = inference_url
         api_key = request.policy.config.get("api_key")
         model = request.policy.config.get("model", "gpt-4o-mini")
@@ -194,10 +202,9 @@ def create_hotpotqa_local_api(system_prompt: str, env_api_key: str):
         reward = 1.0 if is_correct else 0.0
 
         return RolloutResponse(
-            run_id=request.trace_correlation_id,
+            trace_correlation_id=request.trace_correlation_id or "",
             reward_info=RolloutMetrics(outcome_reward=reward),
             trace=None,
-            trace_correlation_id=request.policy.config.get("trace_correlation_id"),
         )
 
     def provide_taskset_description():
@@ -210,10 +217,10 @@ def create_hotpotqa_local_api(system_prompt: str, env_api_key: str):
         for seed in seeds:
             sample = dataset.sample(seed)
             yield TaskInfo(
-                task={"id": APP_ID, "name": APP_NAME},
-                dataset={"id": APP_ID, "split": "train", "index": sample["index"]},
-                inference={"tool": "answer_question"},
-                limits={"max_turns": 1},
+                task=TaskDescriptor(id=APP_ID, name=APP_NAME),
+                dataset=DatasetInfo(id=APP_ID, split="train", index=sample["index"]),
+                inference=InferenceInfo(tool="answer_question"),
+                limits=LimitsInfo(max_turns=1),
                 task_metadata={
                     "question": sample["question"],
                     "expected_answer": sample["answer"],
@@ -273,10 +280,9 @@ async def run_single_experiment(
         tunnel = await TunneledLocalAPI.create(
             local_port=LOCAL_API_PORT,
             backend=TunnelBackend.CloudflareManagedTunnel,
-            api_key=api_key,
-            env_api_key=env_api_key,
-            reason=f"hotpotqa_{model}_run{run_number}",
-            backend_url=BACKEND_URL,
+            synth_user_key=api_key,
+            localapi_key=env_api_key,
+            synth_base_url=BACKEND_URL,
             progress=True,
         )
         local_api_url = tunnel.url
@@ -339,9 +345,9 @@ async def run_single_experiment(
 
     pl_job = PromptLearningJob.from_dict(
         config_dict=config_body,
-        backend_url=BACKEND_URL,
-        api_key=api_key,
-        task_app_api_key=env_api_key,
+        synth_base_url=BACKEND_URL,
+        synth_user_key=api_key,
+        localapi_key=env_api_key,
         skip_health_check=True,
     )
 
@@ -369,7 +375,7 @@ async def run_single_experiment(
         score_str = f"{result.best_score:.1%}" if result.best_score is not None else "N/A"
         print(f"\nGEPA succeeded! Best score: {score_str}")
 
-        pl_client = PromptLearningClient(BACKEND_URL, api_key)
+        pl_client = PromptLearningClient(synth_user_key=api_key, synth_base_url=BACKEND_URL)
         prompt_results = await pl_client.get_prompts(job_id)
 
         if prompt_results.top_prompts:
@@ -442,7 +448,7 @@ async def main():
     api_key = os.environ.get("SYNTH_API_KEY", "")
     if not api_key and not args.dry_run:
         print("Minting demo API key...")
-        api_key = mint_demo_api_key(backend_url=BACKEND_URL)
+        api_key = mint_demo_api_key(synth_base_url=BACKEND_URL)
         print(f"Demo API Key: {api_key[:25]}...")
 
     # Mint environment key
@@ -450,7 +456,7 @@ async def main():
         env_api_key = mint_environment_api_key()
         print(f"Minted env key: {env_api_key[:12]}...{env_api_key[-4:]}")
 
-        result = setup_environment_api_key(BACKEND_URL, api_key, token=env_api_key)
+        result = setup_environment_api_key(api_key, env_api_key, synth_base_url=BACKEND_URL)
         print(f"Uploaded env key: {result}")
     else:
         env_api_key = "dry_run_key"

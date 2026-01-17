@@ -1,0 +1,25 @@
+line-length = 100
+target-version = "py311"
+src = ["synth_ai", "tests", "demos", "benchmarks", "scripts"]
+extend-exclude = [
+    ".venv",
+    "**/*.ipynb",
+]
+
+[lint]
+select = ["E", "F", "I", "N", "UP", "YTT", "B", "C4", "T10", "SIM", "ANN", "S", "PTH"]
+ignore = [
+    "E501",   # Formatter handles line length
+    "B008",   # Function calls in defaults - needed for FastAPI Depends()
+    "UP035",  # Never add `from __future__ import annotations`
+    "ANN401", # Allow `Any` type - sometimes necessary
+    "S101",   # Allow assert
+    "S104",   # Bind 0.0.0.0 - intentional for servers
+]
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["N999"]
+"**/__main__.py" = ["N999"]
+"tests/**/*.py" = ["ANN", "S"]  # Fixtures hard to type; tests use asserts
+"demos/**/*.py" = ["ANN", "S", "PTH"]  # Demos are experimental
+"benchmarks/**/*.py" = ["ANN", "S", "PTH"]  # Benchmarks are experimental

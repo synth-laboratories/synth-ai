@@ -60,12 +60,12 @@ Now, analyze this screenshot and provide the functional description following th
 class RateLimiter:
     """Rate limiter that ensures we don't exceed API quota."""
 
-    def __init__(self, max_requests_per_minute: int = 9):
+    def __init__(self, max_requests_per_minute: int = 9) -> None:
         self.max_requests = max_requests_per_minute
         self.requests = []
         self.lock = asyncio.Lock()
 
-    async def acquire(self):
+    async def acquire(self) -> None:
         """Wait if necessary to stay within rate limit."""
         async with self.lock:
             now = time.time()
@@ -141,12 +141,12 @@ def _to_demo_relative(path: Path, demo_dir: Path) -> str:
         return str(path)
 
 
-async def main():
+async def main() -> None:
     # Get API key
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("Error: GOOGLE_API_KEY or GEMINI_API_KEY environment variable not set")
-        exit(1)
+        raise SystemExit(1)
 
     # Find all screenshots
     demo_dir = Path(__file__).parent.resolve()

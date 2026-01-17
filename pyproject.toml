@@ -7,90 +7,59 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    # Core dependencies
+    # Core SDK
     "pydantic>=2.0.0",
     "requests>=2.32.3",
-    "tqdm>=4.66.4",
-    "typing_extensions>=4.0.0",
-    # AI/LLM providers
+    "httpx>=0.28.1",
+    "click>=8.1.0",
     "rich>=13.9.0",
+    "tqdm>=4.66.4",
+    # LLM providers
     "openai>=1.99.0",
     "anthropic>=0.42.0",
-    # Tracing and observability
-    "langfuse>=2.53.9,<3.0.0",
-    "opentelemetry-api>=1.26.0",
-    "opentelemetry-sdk>=1.26.0",
-    # Storage and caching
     "groq>=0.30.0",
     "google-genai>=1.26.0",
-    "together>=1.5.21",
-    "mistralai>=1.9.2",
-    # Environment framework - basic dependencies
+    # Task app server
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",
-    "numpy>=2.2.3",
-    "networkx>=3.4.2",
+    "aiohttp>=3.8.0",
+    "nest_asyncio>=1.6.0",
+    # Storage and auth
     "sqlalchemy>=2.0.42",
-    "celery>=5.4.0",
-    "redis>=6.2.0",
-    "aiosqlite>=0.21.0",
     "libsql>=0.1.8",
     "pynacl>=1.5.0",
-    "click>=8.1.7,<8.2", # For CLI (pin to signature compatible with Typer)
-    "aiohttp>=3.8.0", # For async HTTP requests
-    "nest_asyncio>=1.6.0", # For nested event loops in sync callbacks
-    "httpx>=0.28.1", # CLI preflights and HTTP clients (pulls httpcore)
-    "modal>=1.1.4,<2.0.0",
-    "docker>=7.0.0",
-    "mcp>=1.21.0",
-    "ruff>=0.12.9",
+    # Utilities
+    "numpy>=2.2.3",
     "tomli_w>=1.0.0",
-    "dspy>=3.0.4",
-    "setuptools>=80.9.0",
-    "gymnasium>=0.26.2",
-    "gepa>=0.0.17",
-    # Dataset loading - used by many task apps (banking77, math, hotpotqa, etc.)
+    # Integrations
     "datasets>=4.0.0",
-    "daytona-sdk>=0.130.0",
 ]
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
 
 [project.optional-dependencies]
-dev = [
-    "build>=1.2.2.post1",
-    "twine>=4.0.0",
-    "keyring>=24.0.0",
-    "pytest>=8.3.3",
-    "pytest-xdist>=3.6.1",
-    "pytest-timeout>=2.3.1",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=4.1.0",
-    "pyright>=1.1.350",
-    "coverage[toml]>=7.3.0",
-    "ruff>=0.1.0",
-    "papermill>=2.6.0",
-    "nest_asyncio>=1.6.0",
+modal = [
+    "modal>=1.1.4,<2.0.0",
+]
+queue = [
+    "celery>=5.4.0",
 ]
 research = [
-    # Heavy game environment dependencies
     "crafter>=1.8.3",
-    "datasets>=4.0.0",  # For math environments
 ]
 swe = [
     "morphcloud>=0.1.3",
     "swebench>=2.3.0",
 ]
 all = [
-    # Include research and swe dependencies in all
+    "modal>=1.1.4,<2.0.0",
+    "celery>=5.4.0",
     "crafter>=1.8.3",
-    "datasets>=4.0.0",
     "morphcloud>=0.1.3",
     "swebench>=2.3.0",
     "pyboy>=2.6.0",
     "transformers>=4.56.1",
-    "redis>=6.2.0",
 ]
 analytics = [
     "pandas>=2.2.3",
@@ -111,32 +80,13 @@ exclude = [
     "docs*",
     "tests*",
     "scripts*",
-    "private_tests*",
-    # Exclude heavy demo/test subpackages from distribution
-    "synth_ai.*agent_demos*",
-    "synth_ai.*old*",
-    "synth_ai.*tests*",
-    "synth_ai.*units*",
-    "synth_ai.tracing_v3.tests*",
 ]
 
 [tool.setuptools]
 include-package-data = true
 
-[tool.setuptools.exclude-package-data]
-"synth_ai" = [
-    # Exclude heavy data inside agent_demos/old/tests
-    "**/agent_demos/**",
-    "**/old/**",
-    "**/tests/**",
-    "**/units/**",
-]
-
 [tool.setuptools.package-data]
 "synth_ai" = [
-    "demos/demo_task_apps/math/config.toml",
-    "demos/demo_task_apps/math/deploy_task_app.sh",
-    "_tui/dist/*",
     "tui/app/package.json",
     "tui/app/package.dist.json",
     "tui/app/bunfig.toml",
@@ -144,13 +94,12 @@ include-package-data = true
     "tui/app/tsconfig.typecheck.json",
     "tui/app/src/**/*.ts",
     "tui/app/src/**/*.tsx",
-    # OpenCode: ship bundled config + packaged skills so users can install them via CLI
     "tui/opencode_config/**/*",
     "skills/**/*",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "private_tests"]
+testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
@@ -178,69 +127,29 @@ precision = 2
 show_missing = true
 skip_covered = false
 
-[tool.pyright]
-include = ["synth_ai", "tests"]
-exclude = ["**/__pycache__"]
-pythonVersion = "3.11"
-typeCheckingMode = "standard"
-reportMissingImports = true
-reportMissingTypeStubs = false
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-src = ["synth_ai"]
-extend-exclude = [
-    ".venv",
-    ".tmp",
-    "**/*.ipynb",
-    "dev",
-    "docs",
-    "scripts",
-    "tests",
-    "private_tests",
-    "old",
-    "tauri",
-    "temp",
-    "traces",
-    "traces_*",
-    "synth_ai.db",
-    "synth_ai/tracing_v3/tests",
-]
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "N", "UP", "YTT", "B", "C4", "T10", "SIM"]
-ignore = [
-    "E501",  # Line too long
-    "B008",  # Do not perform function call in argument defaults
-    "UP035", # Don't require `from __future__ import annotations` (not needed in 3.11+)
-    "UP006", # Allow typing.Tuple
-    "UP045", # Allow Optional[...] annotations
-]
-
-[tool.ruff.lint.per-file-ignores]
-"synth_ai/http.py" = ["F403"]
-"**/__init__.py" = ["N999"]
-"**/__main__.py" = ["N999"]
-
-[tool.ty]
-# Suppress conservative warnings about possibly-missing-attribute
-# These are false positives for dict.get() calls and dynamic attributes
-rules = { "possibly-missing-attribute" = "ignore" }
-
 [dependency-groups]
 dev = [
+    # Testing
     "pytest>=8.3.3",
     "pytest-xdist>=3.6.1",
     "pytest-timeout>=2.3.1",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=4.1.0",
-    "ruff>=0.1.0",
-    "pyright>=1.1.350",
     "responses>=0.25.7",
-    "httpx>=0.28.1",
-    "crafter>=1.8.3",
+    # Linting/typing
+    "ruff>=0.1.0",
+    "ty>=0.0.1a7",
+    # Notebooks
     "papermill>=2.6.0",
-    "nest_asyncio>=1.6.0",
     "nbstripout>=0.8.2",
+    # Optional deps (for ty to resolve imports in synth_ai/)
+    "modal>=1.1.4,<2.0.0",
+    "celery>=5.4.0",
+    "psutil>=5.9.0",
+    # Demo dependencies (for ty to resolve imports)
+    "crafter>=1.8.3",
+    "daytona>=0.10.3",
+    "playwright>=1.49.1",
+    "matplotlib>=3.10.0",
+    "google-generativeai>=0.8.5",
 ]

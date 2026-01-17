@@ -4,15 +4,14 @@ Tests for Turso embedded replica synchronization.
 """
 
 import asyncio
-import os
 import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import pytest_asyncio
-
-from ..config import CONFIG
-from ..replica_sync import (
+from synth_ai.core.tracing_v3.config import CONFIG
+from synth_ai.core.tracing_v3.replica_sync import (
     ReplicaSync,
     get_replica_sync,
     start_replica_sync,
@@ -31,8 +30,7 @@ class TestReplicaSync:
             db_path = f.name
         yield db_path
         # Cleanup
-        if os.path.exists(db_path):
-            os.unlink(db_path)
+        Path(db_path).unlink(missing_ok=True)
 
     @pytest_asyncio.fixture
     async def mock_libsql_connection(self):
@@ -42,7 +40,7 @@ class TestReplicaSync:
         mock_conn.close = Mock()
         return mock_conn
 
-    async def test_replica_sync_init(self, temp_db):
+    async def test_replica_sync_init(self, temp_db) -> None:
         """Test ReplicaSync initialization."""
         sync = ReplicaSync(
             db_path=temp_db,
@@ -58,19 +56,21 @@ class TestReplicaSync:
         assert sync._sync_task is None
         assert sync._conn is None
 
-    async def test_replica_sync_init_from_config(self, temp_db):
+    async def test_replica_sync_init_from_config(self, temp_db) -> None:
         """Test ReplicaSync initialization from CONFIG."""
-        with patch.object(CONFIG, "sync_url", "libsql://config.turso.io"):
-            with patch.object(CONFIG, "auth_token", "config-token"):
-                with patch.object(CONFIG, "sync_interval", 10):
-                    sync = ReplicaSync(db_path=temp_db)
+        with (
+            patch.object(CONFIG, "sync_url", "libsql://config.turso.io"),
+            patch.object(CONFIG, "auth_token", "config-token"),
+            patch.object(CONFIG, "sync_interval", 10),
+        ):
+            sync = ReplicaSync(db_path=temp_db)
 
-                    assert sync.sync_url == "libsql://config.turso.io"
-                    assert sync.auth_token == "config-token"
-                    assert sync.sync_interval == 10
+            assert sync.sync_url == "libsql://config.turso.io"
+            assert sync.auth_token == "config-token"
+            assert sync.sync_interval == 10
 
     @pytest.mark.fast
-    async def test_sync_once_success(self, temp_db, mock_libsql_connection):
+    async def test_sync_once_success(self, temp_db, mock_libsql_connection) -> None:
         """Test successful single sync operation."""
         with patch("libsql.connect", return_value=mock_libsql_connection):
             sync = ReplicaSync(
@@ -84,7 +84,7 @@ class TestReplicaSync:
                 assert result is True
                 mock_to_thread.assert_called_once_with(mock_libsql_connection.sync)
 
-    async def test_sync_once_failure(self, temp_db):
+    async def test_sync_once_failure(self, temp_db) -> None:
         """Test failed sync operation."""
         sync = ReplicaSync(
             db_path=temp_db, sync_url="libsql://test.turso.io", auth_token="test-token"
@@ -96,7 +96,7 @@ class TestReplicaSync:
 
             assert result is False
 
-    async def test_sync_once_no_url_error(self, temp_db):
+    async def test_sync_once_no_url_error(self, temp_db) -> None:
         """Test sync_once with no sync_url configured."""
         sync = ReplicaSync(db_path=temp_db, sync_url="")
 
@@ -105,7 +105,7 @@ class TestReplicaSync:
         assert result is False
 
     @pytest.mark.fast
-    async def test_start_background_sync(self, temp_db, mock_libsql_connection):
+    async def test_start_background_sync(self, temp_db, mock_libsql_connection) -> None:
         """Test starting background sync task."""
         with patch("libsql.connect", return_value=mock_libsql_connection):
             sync = ReplicaSync(
@@ -130,7 +130,7 @@ class TestReplicaSync:
 
             assert task.done()
 
-    async def test_start_background_sync_already_running(self, temp_db):
+    async def test_start_background_sync_already_running(self, temp_db) -> None:
         """Test starting background sync when already running."""
         sync = ReplicaSync(db_path=temp_db, sync_url="libsql://test.turso.io", sync_interval=1)
 
@@ -144,12 +144,10 @@ class TestReplicaSync:
 
         assert result == mock_task  # Should return existing task
 
-    async def test_stop_sync(self, temp_db, mock_libsql_connection):
+    async def test_stop_sync(self, temp_db, mock_libsql_connection) -> None:
         """Test stopping sync task and closing connection."""
         with patch("libsql.connect", return_value=mock_libsql_connection):
-            sync = ReplicaSync(
-                db_path=temp_db, sync_url="libsql://test.turso.io", sync_interval=1
-            )
+            sync = ReplicaSync(db_path=temp_db, sync_url="libsql://test.turso.io", sync_interval=1)
 
             # Start and establish connection
             await sync.sync_once()
@@ -162,7 +160,7 @@ class TestReplicaSync:
             mock_libsql_connection.close.assert_called_once()
             assert sync._conn is None
 
-    async def test_global_replica_sync(self, temp_db):
+    async def test_global_replica_sync(self, temp_db) -> None:
         """Test global replica sync management."""
         # Ensure we start clean
         await stop_replica_sync()
@@ -194,11 +192,11 @@ class TestReplicaSync:
                 assert get_replica_sync() is None
 
     @pytest.mark.fast
-    async def test_keep_fresh_error_handling(self, temp_db, mock_libsql_connection):
+    async def test_keep_fresh_error_handling(self, temp_db, mock_libsql_connection) -> None:
         """Test error handling in keep_fresh loop."""
         call_count = 0
 
-        def side_effect():
+        def side_effect() -> None:
             nonlocal call_count
             call_count += 1
             if call_count == 2:
@@ -213,7 +211,7 @@ class TestReplicaSync:
             )
 
             # Start background sync
-            task = sync.start_background_sync()
+            sync.start_background_sync()
 
             # Let it run through a few iterations
             await asyncio.sleep(0.2)

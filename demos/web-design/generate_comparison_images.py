@@ -114,23 +114,29 @@ Apply the visual style guidelines to match the original design."""
     response = client.models.generate_content(model="gemini-2.5-flash-image", contents=full_prompt)
 
     # Extract image bytes from response
-    if hasattr(response, "candidates") and len(response.candidates) > 0:
-        candidate = response.candidates[0]
-        if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
-            for part in candidate.content.parts:
-                if hasattr(part, "inline_data") and part.inline_data is not None:
-                    return part.inline_data.data
+    candidates = getattr(response, "candidates", None)
+    if candidates and len(candidates) > 0:
+        candidate = candidates[0]
+        content = getattr(candidate, "content", None)
+        parts = getattr(content, "parts", None) if content else None
+        if parts:
+            for part in parts:
+                inline_data = getattr(part, "inline_data", None)
+                if inline_data is not None and inline_data.data is not None:
+                    return inline_data.data
 
     # Try response.parts directly
-    if hasattr(response, "parts"):
-        for part in response.parts:
-            if hasattr(part, "inline_data") and part.inline_data is not None:
-                return part.inline_data.data
+    parts = getattr(response, "parts", None)
+    if parts:
+        for part in parts:
+            inline_data = getattr(part, "inline_data", None)
+            if inline_data is not None and inline_data.data is not None:
+                return inline_data.data
 
     raise ValueError(f"No image data in response: {response}")
 
 
-def main():
+def main() -> None:
     output_dir = Path(__file__).parent / "comparison_images"
     output_dir.mkdir(exist_ok=True)
 

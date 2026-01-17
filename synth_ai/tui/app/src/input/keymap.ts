@@ -179,7 +179,7 @@ const ACTION_META: Record<KeyAction, ActionMeta> = {
   "modal.open.settings": { label: "Settings", hint: buildHint("Settings", ACTION_KEYS["modal.open.settings"]) },
   "modal.open.usage": { label: "Usage", hint: buildHint("Usage", ACTION_KEYS["modal.open.usage"]) },
   "modal.open.taskApps": { label: "Apps", hint: buildHint("Apps", ACTION_KEYS["modal.open.taskApps"]) },
-  "modal.open.createJob": { label: "New Job", hint: buildHint("New Job", ACTION_KEYS["modal.open.createJob"]) },
+  "modal.open.createJob": { label: "New Job", hint: "(n) New Job" },
   "modal.open.metrics": { label: "Metrics", hint: buildHint("Metrics", ACTION_KEYS["modal.open.metrics"]) },
   "modal.open.traces": { label: "Traces", hint: buildHint("Traces", ACTION_KEYS["modal.open.traces"]) },
   "job.cancel": { label: "Cancel", hint: buildHint("Cancel", ACTION_KEYS["job.cancel"]) },

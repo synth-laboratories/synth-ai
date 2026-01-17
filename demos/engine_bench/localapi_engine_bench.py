@@ -155,11 +155,12 @@ async def setup_sandbox(instance_id: str, work_dir: Path) -> SandboxSetupResult:
 
     # Copy the scaffold (which uses crates.io dependencies)
     await asyncio.to_thread(
-        shutil.copytree,
-        SCAFFOLD_DIR,
-        sandbox_dir,
-        symlinks=True,
-        ignore=shutil.ignore_patterns(".git", "target", "*.pyc", "__pycache__"),
+        lambda: shutil.copytree(
+            SCAFFOLD_DIR,
+            sandbox_dir,
+            symlinks=True,
+            ignore=shutil.ignore_patterns(".git", "target", "*.pyc", "__pycache__"),
+        )
     )
 
     # Load instance to get card_file path
@@ -721,7 +722,7 @@ async def run_opencode_agent(
         "[OpenCode] Config written: path=%s model=%s baseURL=%s",
         config_path,
         model_with_provider,
-        opencode_config["provider"]["openai"]["options"]["baseURL"],
+        base_url,
     )
     print(f"  [OpenCode] Config written to: {config_path}")
     print(f"  [OpenCode] Model: {model_with_provider}")
@@ -776,7 +777,7 @@ async def run_opencode_agent(
         stdout_chunks = []
         stderr_chunks = []
 
-        async def read_stream(stream, chunks, prefix):
+        async def read_stream(stream, chunks, prefix) -> None:
             try:
                 while True:
                     chunk = await stream.read(1024)
@@ -961,7 +962,7 @@ def build_prompt_with_context(
 
     tests = instance.get("tests", [])
 
-    def format_test(t):
+    def format_test(t) -> str:
         desc = t.get("description")
         if desc:
             return f"- {t['name']}: {desc}"

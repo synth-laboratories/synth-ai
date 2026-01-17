@@ -13,12 +13,13 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import httpx
 import nest_asyncio
 from synth_ai.core.paths import REPO_ROOT
 from synth_ai.core.urls import synth_base_url, synth_health_url
+from synth_ai.data.enums import VerifierMode
 from synth_ai.sdk.api.train.graphgen import GraphGenJob
 from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenGoldOutput,
@@ -87,7 +88,7 @@ SYNTH_USER_KEY = get_or_mint_synth_user_key()
 print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 
 
-def _find_default_dataset() -> Optional[Path]:
+def _find_default_dataset() -> Path | None:
     """Find default Crafter trace dataset locations."""
     # Common locations relative to repo root
     candidates = [
@@ -116,7 +117,7 @@ def _find_default_dataset() -> Optional[Path]:
     return None
 
 
-def _load_adas_dataset(path: Path) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+def _load_adas_dataset(path: Path) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
     """Load an ADAS-style dataset with tasks + gold_outputs.
 
     Returns:
@@ -127,7 +128,7 @@ def _load_adas_dataset(path: Path) -> Tuple[List[Dict[str, Any]], Dict[str, Dict
     gold_outputs = data.get("gold_outputs") or []
     gold_by_task = {g.get("task_id"): g.get("output") for g in gold_outputs if isinstance(g, dict)}
 
-    traces: List[Dict[str, Any]] = []
+    traces: list[dict[str, Any]] = []
     for t in tasks:
         if not isinstance(t, dict):
             continue
@@ -150,7 +151,7 @@ def _load_adas_dataset(path: Path) -> Tuple[List[Dict[str, Any]], Dict[str, Dict
     return traces, gold_by_task
 
 
-def _load_jsonl_traces(path: Path) -> List[Dict[str, Any]]:
+def _load_jsonl_traces(path: Path) -> list[dict[str, Any]]:
     """Load traces from JSONL file."""
     traces = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -181,14 +182,14 @@ def _truncate_trace_for_context(trace: Any, max_items: int = 10, max_chars: int 
 
 
 def _split_train_val(
-    traces: List[Dict[str, Any]], train_ratio: float = 0.8
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    traces: list[dict[str, Any]], train_ratio: float = 0.8
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Split traces into train/validation sets."""
     split_idx = int(len(traces) * train_ratio)
     return traces[:split_idx], traces[split_idx:]
 
 
-def _build_graphgen_dataset(traces: List[Dict[str, Any]]) -> GraphGenTaskSet:
+def _build_graphgen_dataset(traces: list[dict[str, Any]]) -> GraphGenTaskSet:
     """Build GraphGen dataset from traces."""
     tasks = []
     gold_outputs = []
@@ -278,7 +279,7 @@ Secondary objective: produce actionable feedback aligned with the score.""",
         tasks=tasks,
         gold_outputs=gold_outputs,
         verifier_config=GraphGenVerifierConfig(
-            mode="gold_examples",  # Use gold examples mode since we have gold scores
+            mode=VerifierMode.GOLD_EXAMPLES,  # Use gold examples mode since we have gold scores
             model="gpt-4o-mini",
             provider="openai",
         ),
@@ -287,7 +288,7 @@ Secondary objective: produce actionable feedback aligned with the score.""",
     )
 
 
-async def main():
+async def main() -> None:
     """Main demo function."""
 
     # Timing helper
@@ -321,10 +322,11 @@ async def main():
             print("  - demos/verifier_opt_crafter/data/crafter_verifier_graph_opt_dataset.json")
             sys.exit(1)
 
+    assert dataset_path is not None  # Guaranteed by logic above
     print(f"Loading dataset from: {dataset_path}")
 
-    traces: List[Dict[str, Any]] = []
-    gold_outputs: Dict[str, Dict[str, Any]] = {}
+    traces: list[dict[str, Any]] = []
+    gold_outputs: dict[str, dict[str, Any]] = {}
 
     if dataset_path.suffix == ".json":
         traces, gold_outputs = _load_adas_dataset(dataset_path)
@@ -390,14 +392,18 @@ async def main():
         print(f"GraphGen Job ID: {job_id.graphgen_job_id}")
         print(f"Graph Evolve Job ID: {job_id.graph_evolve_job_id}")
     except Exception as e:
-        if hasattr(e, "errors"):
+        errors = getattr(e, "errors", None)
+        if errors is not None and isinstance(errors, list):
             print("\n" + "=" * 60)
             print("VALIDATION ERRORS")
             print("=" * 60)
-            for error in e.errors:
-                print(f"  {error.get('field', 'unknown')}: {error.get('error', 'unknown error')}")
-                if "suggestion" in error:
-                    print(f"    Suggestion: {error['suggestion']}")
+            for error in errors:
+                if isinstance(error, dict):
+                    print(
+                        f"  {error.get('field', 'unknown')}: {error.get('error', 'unknown error')}"
+                    )
+                    if "suggestion" in error:
+                        print(f"    Suggestion: {error['suggestion']}")
         else:
             print(f"\nERROR: {e}")
         raise
@@ -407,15 +413,15 @@ async def main():
     print("-" * 60)
 
     # Track generation timings
-    generation_timings: Dict[int, Dict[str, Any]] = {}
-    current_generation: Optional[int] = None
-    generation_start_time: Optional[float] = None
+    generation_timings: dict[int, dict[str, Any]] = {}
+    current_generation: int | None = None
+    generation_start_time: float | None = None
     eval_count = 0
-    initial_graph_time: Optional[float] = None
-    initial_validation_time: Optional[float] = None
-    holdout_start_time: Optional[float] = None
+    initial_graph_time: float | None = None
+    initial_validation_time: float | None = None
+    holdout_start_time: float | None = None
 
-    def on_event_callback(event: Dict[str, Any]) -> None:
+    def on_event_callback(event: dict[str, Any]) -> None:
         nonlocal current_generation, generation_start_time, eval_count
         nonlocal initial_graph_time, initial_validation_time, holdout_start_time
 

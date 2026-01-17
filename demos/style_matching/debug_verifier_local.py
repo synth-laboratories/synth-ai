@@ -2,13 +2,13 @@ import argparse
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import httpx
 
 
-def load_env_file(path: Path) -> Dict[str, str]:
-    env: Dict[str, str] = {}
+def load_env_file(path: Path) -> dict[str, str]:
+    env: dict[str, str] = {}
     if not path.exists():
         return env
     for line in path.read_text().splitlines():
@@ -22,7 +22,7 @@ def load_env_file(path: Path) -> Dict[str, str]:
     return env
 
 
-def extract_verifier_score(result: Dict[str, Any]) -> float:
+def extract_verifier_score(result: dict[str, Any]) -> float:
     output = result.get("output", result)
     if isinstance(output, dict):
         outcome_review = output.get("outcome_review")
@@ -46,7 +46,7 @@ def extract_verifier_score(result: Dict[str, Any]) -> float:
     return 0.0
 
 
-def make_session_trace() -> Dict[str, Any]:
+def make_session_trace() -> dict[str, Any]:
     return {
         "session_id": "debug-trace",
         "session_time_steps": [
@@ -72,7 +72,7 @@ def make_session_trace() -> Dict[str, Any]:
     }
 
 
-def make_gold_examples(session_trace: Dict[str, Any]) -> List[Dict[str, Any]]:
+def make_gold_examples(session_trace: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         {
             "summary": "Short, direct example",

@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser(description="Create Daytona snapshot for EngineBench")
     parser.add_argument(
         "--name",
@@ -66,7 +66,7 @@ async def main():
 
     params = CreateSnapshotParams(name=snapshot_name, image=image)
 
-    def on_logs(chunk):
+    def on_logs(chunk) -> None:
         print(chunk, end="", flush=True)
 
     try:

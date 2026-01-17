@@ -2,7 +2,7 @@ import base64
 import re
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -69,7 +69,7 @@ ACTION_STRING_TO_INT = {name: idx for idx, name in enumerate(CRAFTER_ACTIONS)}
 INT_TO_ACTION_STRING = {idx: name for name, idx in ACTION_STRING_TO_INT.items()}
 
 
-def normalize_action_name(action: str) -> Optional[str]:
+def normalize_action_name(action: str) -> str | None:
     if not isinstance(action, str):
         return None
     action_norm = action.strip().lower()
@@ -136,7 +136,7 @@ def normalize_action_name(action: str) -> Optional[str]:
     return None
 
 
-def _encode_image_to_data_url(image: Any) -> Optional[str]:
+def _encode_image_to_data_url(image: Any) -> str | None:
     if not isinstance(image, np.ndarray):
         return None
     if image.ndim != 3 or image.shape[-1] not in (1, 3, 4):
@@ -162,7 +162,7 @@ def _extract_observation_image(obs: Any) -> Any:
     return None
 
 
-def _extract_achievements(info: Dict[str, Any]) -> List[str]:
+def _extract_achievements(info: dict[str, Any]) -> list[str]:
     achievements = info.get("achievements")
     if isinstance(achievements, dict):
         return [k for k, v in achievements.items() if v]
@@ -171,7 +171,7 @@ def _extract_achievements(info: Dict[str, Any]) -> List[str]:
     return []
 
 
-def _extract_health(info: Dict[str, Any]) -> float:
+def _extract_health(info: dict[str, Any]) -> float:
     for key in ("health", "player_health", "hp"):
         value = info.get(key)
         if isinstance(value, (int, float)):
@@ -179,7 +179,7 @@ def _extract_health(info: Dict[str, Any]) -> float:
     return 0.0
 
 
-def _extract_inventory(info: Dict[str, Any]) -> Dict[str, int]:
+def _extract_inventory(info: dict[str, Any]) -> dict[str, int]:
     inventory = info.get("inventory")
     if isinstance(inventory, dict):
         return {str(k): int(v) for k, v in inventory.items() if isinstance(v, (int, float))}
@@ -196,17 +196,17 @@ class CrafterEnvironmentWrapper:
     def __post_init__(self) -> None:
         self._env = crafter.Env()
         self._step_count = 0
-        self._last_info: Dict[str, Any] = {}
+        self._last_info: dict[str, Any] = {}
 
-    def _reset_env(self) -> Tuple[Any, Dict[str, Any]]:
+    def _reset_env(self) -> tuple[Any, dict[str, Any]]:
         try:
-            obs, info = self._env.reset(seed=self.seed)
+            obs, info = self._env.reset(**{"seed": self.seed})
         except TypeError:
             obs = self._env.reset()
             info = {}
         return obs, info
 
-    async def reset(self) -> Dict[str, Any]:
+    async def reset(self) -> dict[str, Any]:
         obs, info = self._reset_env()
         self._step_count = 0
         self._last_info = info if isinstance(info, dict) else {}
@@ -219,7 +219,7 @@ class CrafterEnvironmentWrapper:
             "truncated": False,
         }
 
-    async def step(self, action: int) -> Dict[str, Any]:
+    async def step(self, action: int) -> dict[str, Any]:
         result = self._env.step(action)
         if isinstance(result, tuple) and len(result) == 5:
             obs, reward, terminated, truncated, info = result
@@ -244,7 +244,7 @@ class CrafterEnvironmentWrapper:
             "inventory": _extract_inventory(info),
         }
 
-    def get_achievements(self) -> List[str]:
+    def get_achievements(self) -> list[str]:
         return _extract_achievements(self._last_info)
 
 
@@ -259,7 +259,7 @@ class CrafterVLMReActPolicy:
         self.image_only_mode = image_only_mode
         self.tools = [self._build_crafter_interact_tool()]
 
-    def _build_crafter_interact_tool(self) -> Dict[str, Any]:
+    def _build_crafter_interact_tool(self) -> dict[str, Any]:
         return {
             "type": "function",
             "function": {
@@ -284,13 +284,13 @@ class CrafterVLMReActPolicy:
 
     def build_messages(
         self,
-        observation: Dict[str, Any],
-        history: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        messages: List[Dict[str, Any]] = [{"role": "system", "content": self.system_prompt}]
+        observation: dict[str, Any],
+        history: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        messages: list[dict[str, Any]] = [{"role": "system", "content": self.system_prompt}]
         messages.extend(history)
 
-        user_content: List[Dict[str, Any]] = []
+        user_content: list[dict[str, Any]] = []
         image_url = observation.get("observation_image_data_url")
         if self.image_only_mode:
             if image_url:
@@ -306,7 +306,7 @@ class CrafterVLMReActPolicy:
 
         return messages
 
-    def _format_text_summary(self, observation: Dict[str, Any]) -> str:
+    def _format_text_summary(self, observation: dict[str, Any]) -> str:
         inventory = observation.get("inventory") or {}
         achievements = observation.get("achievements") or []
         return (
@@ -324,10 +324,10 @@ class CrafterScorer:
 
     @staticmethod
     def score_episode(
-        final_observation: Dict[str, Any],
+        final_observation: dict[str, Any],
         episode_length: int,
         max_steps: int,
-    ) -> Tuple[float, Dict[str, Any]]:
+    ) -> tuple[float, dict[str, Any]]:
         achievements = final_observation.get("achievements", [])
         health = final_observation.get("health", 0.0)
         terminated = final_observation.get("terminated", False)

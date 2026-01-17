@@ -5,11 +5,22 @@ import subprocess
 from pathlib import Path
 
 import click
-from modal.config import config
 
 from synth_ai.core.cfgs import ModalDeployCfg
 from synth_ai.core.paths import REPO_ROOT, temporary_import_paths
 from synth_ai.core.telemetry import log_error, log_info
+
+
+def _get_modal_config():
+    """Lazy import modal.config to make modal an optional dependency."""
+    try:
+        from modal.config import config
+
+        return config
+    except ImportError:
+        raise ImportError(
+            "Modal support requires the 'modal' extra. Install with: pip install synth-ai[modal]"
+        ) from None
 
 
 def __validate_modal_app(*args, **kwargs):
@@ -23,6 +34,7 @@ MODAL_URL_REGEX = re.compile(r"https?://[^\s]+modal\.run[^\s]*")
 
 
 def is_modal_setup_needed() -> bool:
+    config = _get_modal_config()
     token_id = os.environ.get("MODAL_TOKEN_ID") or config.get("token_id") or ""
     token_secret = os.environ.get("MODAL_TOKEN_SECRET") or config.get("token_secret") or ""
     return not token_id or not token_secret
@@ -86,7 +98,6 @@ def run_modal_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.Popen:
 
 
 def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
-    is_mcp = os.getenv("CTX") == "mcp"
     os.environ["ENVIRONMENT_API_KEY"] = cfg.localapi_key
     ctx: dict[str, object] = {
         "task_app_path": str(cfg.task_app_path),
@@ -95,7 +106,6 @@ def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
         "cmd_arg": cfg.cmd_arg,
         "dry_run": cfg.dry_run,
         "modal_app_name": cfg.modal_app_name,
-        "is_mcp": is_mcp,
         "wait": wait,
     }
     log_info("deploy_app_modal invoked", ctx=ctx)
@@ -123,14 +133,6 @@ def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
 
         if wait:
             # Blocking mode: wait for process to complete
-            if is_mcp:
-                rc, localapi_url = stream_modal_cmd_output(process, print_stdout=False)
-                if rc != 0:
-                    raise subprocess.CalledProcessError(rc, cmd)
-                summary = f"[deploy_modal] modal {cfg.cmd_arg} completed"
-                if localapi_url:
-                    summary = f"{summary} → {localapi_url}"
-                return summary
             print(f"{'-' * 31} Modal start {'-' * 31}")
             rc, localapi_url = stream_modal_cmd_output(process)
             if rc != 0:

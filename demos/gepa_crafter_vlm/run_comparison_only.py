@@ -8,6 +8,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -35,7 +36,7 @@ COMPARISON_SEEDS = list(range(30))
 COMPARISON_MAX_TURNS = 15
 
 
-def log(msg: str):
+def log(msg: str) -> None:
     """Print timestamped log message."""
     ts = datetime.now().strftime("%H:%M:%S")
     print(f"[{ts}] {msg}", flush=True)
@@ -96,7 +97,7 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
 
         message = response.choices[0].message
         response_text = message.content or ""
-        tool_calls = [
+        tool_calls: list[dict[str, Any]] = [
             {
                 "id": tc.id,
                 "type": "function",
@@ -163,7 +164,7 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
     }
 
 
-async def main():
+async def main() -> None:
     log("=" * 60)
     log(f"COMPARISON EVAL: {len(COMPARISON_SEEDS)} seeds, {COMPARISON_MAX_TURNS} turns/rollout")
     log("=" * 60)

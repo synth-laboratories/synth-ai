@@ -7,6 +7,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -111,7 +112,7 @@ def create_localapi_app(system_prompt: str):
 
             message = response.choices[0].message
             response_text = message.content or ""
-            tool_calls = [
+            tool_calls: list[dict[str, Any]] = [
                 {
                     "id": tc.id,
                     "type": "function",
@@ -174,7 +175,7 @@ def create_localapi_app(system_prompt: str):
         return RolloutResponse(
             reward_info=RolloutMetrics(outcome_reward=score, details=details),
             trace=None,
-            trace_correlation_id=policy_config.get("trace_correlation_id"),
+            trace_correlation_id=policy_config.get("trace_correlation_id", ""),
         )
 
     def provide_taskset_description():
@@ -227,7 +228,7 @@ def run_eval(local_api_url: str, seeds: list[int], mode: str):
     return job.poll_until_complete(timeout=300.0, interval=2.0, progress=True)
 
 
-async def main():
+async def main() -> None:
     print("=" * 50)
     print("Quick Eval: Baseline vs Optimized Prompt")
     print("=" * 50)
