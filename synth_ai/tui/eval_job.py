@@ -6,7 +6,7 @@ Usage:
 Outputs JSON to stdout for progress/results:
     {"status": "submitted", "job_id": "eval-abc123"}
     {"status": "progress", "completed": 5, "total": 20}
-    {"status": "completed", "mean_score": 0.85, "cost_usd": 0.02}
+    {"status": "completed", "mean_reward": 0.85, "cost_usd": 0.02}
     {"status": "error", "error": "..."}
 """
 
@@ -97,7 +97,7 @@ def run_eval_job(task_app_url: str, env_name: str) -> None:
             _output(
                 {
                     "status": "completed",
-                    "mean_score": result.mean_score,
+                    "mean_reward": result.mean_reward,
                     "cost_usd": result.total_cost_usd,
                     "num_completed": result.num_completed,
                     "num_total": result.num_total,

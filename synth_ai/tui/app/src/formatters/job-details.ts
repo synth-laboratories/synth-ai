@@ -38,7 +38,7 @@ export function formatEvalDetails(snapshot: Snapshot, job: JobSummary): string {
   ]
 
   // Extract key metrics from summary
-  const meanReward = summary.mean_reward ?? summary.mean_score
+  const meanReward = summary.mean_reward
   if (meanReward != null) {
     lines.push(`  Mean Reward: ${formatValue(meanReward)}`)
   }
@@ -177,4 +177,3 @@ export function calculateTotalTokensFromEvents(events: JobEvent[]): number {
   }
   return total
 }
-

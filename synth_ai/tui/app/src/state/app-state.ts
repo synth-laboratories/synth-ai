@@ -97,6 +97,16 @@ export function setKeySourceForBackend(backendId: BackendId, source: BackendKeyS
   frontendKeySources[getFrontendUrlId(backendId)] = source
 }
 
+function resolveLaunchCwd(): string {
+  return (
+    process.env.SYNTH_TUI_LAUNCH_CWD ||
+    process.env.OPENCODE_WORKING_DIR ||
+    process.env.INIT_CWD ||
+    process.env.PWD ||
+    process.cwd()
+  ).trim()
+}
+
 // Mutable app state
 export const appState = {
   // Backend state
@@ -167,17 +177,9 @@ export const appState = {
   openCodeUrl: null as string | null,
   openCodeStatus: null as string | null,
   openCodeAutoConnectAttempted: false,
-  openCodeMessages: [] as Array<{
-    id: string
-    role: "user" | "assistant" | "tool"
-    content: string
-    timestamp: Date
-    toolName?: string
-    toolStatus?: "pending" | "running" | "completed" | "failed"
-  }>,
-  openCodeScrollOffset: 0,
-  openCodeInputValue: "",
-  openCodeIsProcessing: false,
+  openCodeAbort: null as null | (() => void),
+  /** Working directory for OpenCode agent execution (should be synth-ai launch CWD, not tui/app). */
+  opencodeWorkingDir: resolveLaunchCwd(),
 
   // Metrics panel view state
   metricsView: "latest" as "latest" | "charts",

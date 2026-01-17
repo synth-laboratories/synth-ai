@@ -16,12 +16,21 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from starlette.middleware import Middleware
 
 from synth_ai.core.telemetry import log_info
 
 from .auth import normalize_environment_api_key, require_api_key_dependency
-from .contracts import RolloutRequest, RolloutResponse, TaskInfo
+from .contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    RolloutRequest,
+    RolloutResponse,
+    TaskDescriptor,
+    TaskInfo,
+)
 from .datasets import TaskDatasetRegistry
 from .errors import http_exception
 from .json import to_jsonable
@@ -43,12 +52,38 @@ def _default_app_state() -> dict[str, Any]:
     return {}
 
 
-@dataclass(slots=True)
-class RubricBundle:
-    """Optional rubrics advertised by the task app."""
+class RubricBundle(BaseModel):
+    """Rubrics advertised by the task app.
+
+    This model is served from `GET /info` as `rubrics` and is the **single source of truth**
+    for rubric definitions. It is intentionally a Pydantic model so FastAPI can emit an
+    OpenAPI schema that non-Python clients (Rust/TypeScript/etc.) can generate from.
+    """
 
     outcome: Rubric | None = None
     events: Rubric | None = None
+
+
+class _ServiceInfo(BaseModel):
+    """Metadata about the running task app service."""
+
+    task: TaskDescriptor
+    version: str | None = None
+
+
+class InfoResponse(BaseModel):
+    """Typed `GET /info` response.
+
+    `GET /info` is the canonical contract boundary for:
+    - task metadata (`service`, `dataset`, `inference`, `limits`)
+    - optional rubric advertising (`rubrics`)
+    """
+
+    service: _ServiceInfo
+    dataset: DatasetInfo
+    rubrics: RubricBundle | None = None
+    inference: InferenceInfo
+    limits: LimitsInfo
 
 
 @dataclass(slots=True)
@@ -421,27 +456,23 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
         # Coordination endpoint for tests and automation; indicates app is reachable
         return to_jsonable({"ok": True, "service": cfg.app_id})
 
-    @app.get("/info", dependencies=[Depends(auth_dependency)])
-    async def info() -> Mapping[str, Any]:
-        dataset_meta = cfg.base_task_info.dataset
-        rubrics: dict[str, Any] | None = None
+    @app.get("/info", dependencies=[Depends(auth_dependency)], response_model=InfoResponse)
+    async def info() -> InfoResponse:
         rubric_bundle = cfg.rubrics
+        typed_rubrics: RubricBundle | None = None
         if rubric_bundle and (rubric_bundle.outcome or rubric_bundle.events):
-            rubrics = {
-                "outcome": rubric_bundle.outcome.model_dump() if rubric_bundle.outcome else None,
-                "events": rubric_bundle.events.model_dump() if rubric_bundle.events else None,
-            }
-        payload = {
-            "service": {
-                "task": cfg.base_task_info.task,
-                "version": cfg.base_task_info.task.version,
-            },
-            "dataset": dataset_meta,
-            "rubrics": rubrics,
-            "inference": cfg.base_task_info.inference,
-            "limits": cfg.base_task_info.limits,
-        }
-        return to_jsonable(payload)
+            typed_rubrics = rubric_bundle
+
+        response = InfoResponse(
+            service=_ServiceInfo(
+                task=cfg.base_task_info.task, version=cfg.base_task_info.task.version
+            ),
+            dataset=cfg.base_task_info.dataset,
+            rubrics=typed_rubrics,
+            inference=cfg.base_task_info.inference,
+            limits=cfg.base_task_info.limits,
+        )
+        return response
 
     @app.get("/task_info", dependencies=[Depends(auth_dependency)])
     async def task_info(

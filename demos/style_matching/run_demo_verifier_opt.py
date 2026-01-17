@@ -238,7 +238,7 @@ verifier_dataset = {
         "output_config": {
             "format": "json",
             "strict": True,
-            "extract_from": ["(root)"],
+            "extract_from": ["parse_output_output", "judge_style_output", "(root)"],
             "schema": {
                 "type": "object",
                 "properties": {
@@ -280,10 +280,13 @@ verifier_config = GraphOptimizationConfig(
     algorithm="graph_evolve",
     dataset_name="style_matching_verifier",
     graph_type="verifier",
-    graph_structure="single_prompt",
+    graph_structure="dag",
     topology_guidance=(
-        "Single-node VerifierGraph. Use one DagNode (e.g., judge_style) with template_transform. "
-        "Set output_mapping to copy event_reviews, outcome_review, event_totals, score to root. "
+        "Two-node VerifierGraph: judge_style -> parse_output. "
+        "judge_style runs the evaluator, parse_output is a schema adapter that returns strict JSON. "
+        "parse_output should read judge_style_output and emit: event_reviews (list), "
+        "outcome_review (object), event_totals (list), score (number). "
+        "Set output_mapping on parse_output to copy these fields to root. "
         "Include verdict_weights and aggregation_policy: weighted_average."
     ),
     allowed_policy_models=["gpt-4.1-nano", "gpt-4o-mini"],
@@ -302,14 +305,20 @@ verifier_config = GraphOptimizationConfig(
         "(generic outputs < 0.3)."
     ),
     problem_spec=(
-        "You are generating a VerifierGraph. The final output MUST be a JSON object with: "
-        "event_reviews (list of per-event review objects with criteria, total, summary), "
-        "outcome_review (object with criteria, total, summary), and event_totals (list of numbers). "
-        "Include a top-level score if helpful, but the verifier contract is based on outcome_review.total "
-        "and event_totals. Make totals floats in [0,1]. Scoring policy must be strict: start at 1.0 and "
-        "deduct for every discrepancy vs gold examples. Generic/standard outputs should score below 0.3. "
-        "Deduction guide: obvious/giveaway discrepancy deduct 0.15-0.3, major discrepancy 0.08-0.15, "
-        "minor 0.02-0.08."
+        "You are generating a VerifierGraph. Use two nodes: judge_style then parse_output. "
+        "parse_output MUST return ONLY valid JSON (no prose, no markdown) with this schema:\n"
+        "{\n"
+        '  "event_reviews": [\n'
+        '    {"criteria": {"tone": 0.0, "decisiveness": 0.0, "concreteness": 0.0}, "total": 0.0, "summary": ""}\n'
+        "  ],\n"
+        '  "outcome_review": {"criteria": {"tone": 0.0, "decisiveness": 0.0, "concreteness": 0.0}, "total": 0.0, "summary": ""},\n'
+        '  "event_totals": [0.0],\n'
+        '  "score": 0.0\n'
+        "}\n"
+        "criteria must be an object mapping strings to numbers, total must be a number, "
+        "event_totals must be a list of numbers. If unsure, output empty lists/objects and 0.0 values. "
+        "Scoring policy: start at 1.0 and deduct for discrepancies vs gold examples; "
+        "generic outputs should score below 0.3."
     ),
 )
 

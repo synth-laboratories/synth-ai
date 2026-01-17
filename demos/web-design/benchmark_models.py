@@ -15,7 +15,7 @@ from datasets import load_dataset
 try:
     import google.generativeai as genai
 
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     if GOOGLE_API_KEY:
         genai.configure(api_key=GOOGLE_API_KEY)
 except ImportError:

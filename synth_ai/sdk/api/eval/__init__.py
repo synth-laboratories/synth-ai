@@ -15,12 +15,12 @@ Example SDK usage:
     # progress=True provides built-in status printing:
     # [00:05] running | 3/10 completed
     # [00:10] running | 7/10 completed
-    # [00:15] completed | mean_score: 0.85
+    # [00:15] completed | mean_reward: 0.85
     result = job.poll_until_complete(progress=True)
 
     # Typed result access (not raw dict)
     if result.succeeded:
-        print(f"Mean score: {result.mean_score}")
+        print(f"Mean reward: {result.mean_reward}")
         print(f"Total cost: ${result.total_cost_usd:.4f}")
 
 See Also:

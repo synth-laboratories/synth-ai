@@ -42,6 +42,37 @@ function extractCandidateGroups(snapshot: Snapshot): {
   attempted: Array<Record<string, any>>
   optimized: Array<Record<string, any>>
 } {
+  // Prefer API candidates if loaded
+  if (snapshot.apiCandidatesLoaded && snapshot.apiCandidates.length > 0) {
+    const apiCandidates = snapshot.apiCandidates.map((c: any) => ({
+      candidate_id: c.candidate_id,
+      id: c.candidate_id,
+      name: c.content?.name || c.content?.candidate_name,
+      reward: c.reward,
+      is_pareto: c.is_pareto,
+      isPareto: c.is_pareto,
+      generation: c.generation,
+      parent_id: c.parent_id,
+      status: c.status,
+      stages: c.content?.stages,
+      prompt_text: c.content?.prompt_text,
+      messages: c.content?.messages,
+      score: {
+        reward: c.reward,
+        instance_scores: c.seed_rewards?.map((sr: any) => sr.reward),
+      },
+      instance_scores: c.seed_rewards?.map((sr: any) => sr.reward),
+      graph_text_export: c.graph_text_export,
+      _content: c.content,
+    }))
+    const optimized = apiCandidates.filter((c) => c.is_pareto)
+    return {
+      attempted: apiCandidates,
+      optimized,
+    }
+  }
+
+  // Fallback to event-based candidates
   const job: any = snapshot.selectedJob
   const metadata = isRecord(job?.metadata) ? job.metadata : {}
   const attemptedPrimary = asArray(metadata?.attempted_candidates)
@@ -407,10 +438,7 @@ export function formatEvalResults(snapshot: Snapshot): string {
           shown.add("accuracy")
         }
       } else if (key === "mean_reward") {
-        val = summary.mean_reward ?? summary.mean_score
-        if (val != null) {
-          shown.add("mean_score")
-        }
+        val = summary.mean_reward
       }
       if (val == null) continue
       if (key === "reward" || key === "pass_rate") {
@@ -429,7 +457,7 @@ export function formatEvalResults(snapshot: Snapshot): string {
     lines.push("")
   }
 
-  if (summary.mean_reward == null && summary.mean_score == null && rows.length > 0) {
+  if (summary.mean_reward == null && rows.length > 0) {
     const rewards = rows
       .map((row) => row.reward ?? row.outcome_reward ?? row.reward_mean ?? row.events_score)
       .filter((val) => typeof val === "number" && Number.isFinite(val)) as number[]

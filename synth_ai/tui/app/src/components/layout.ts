@@ -278,66 +278,6 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 	logsBox.add(logsEmptyText)
 	detailColumn.add(logsBox)
 
-	// OpenCode pane - shows agent chat interface (hidden by default)
-	const openCodeBox = new BoxRenderable(renderer, {
-		id: "opencode-box",
-		width: "auto",
-		height: "auto",
-		flexDirection: "column",
-		flexGrow: 2,
-		flexShrink: 1,
-		borderStyle: "single",
-		borderColor: "#334155",
-		title: "OpenCode Agent",
-		titleAlignment: "left",
-		border: true,
-		visible: false, // Hidden by default, shown when principalPane is "opencode"
-	})
-	const openCodeMessagesBox = new BoxRenderable(renderer, {
-		id: "opencode-messages-box",
-		width: "auto",
-		height: "auto",
-		flexDirection: "column",
-		flexGrow: 1,
-		flexShrink: 1,
-		border: false,
-	})
-	const openCodeMessagesText = new TextRenderable(renderer, {
-		id: "opencode-messages-text",
-		content: "No messages yet.\n\nConnect to an OpenCode session to start chatting.\nPress Shift+O to open the sessions modal.",
-		fg: "#e2e8f0",
-	})
-	openCodeMessagesBox.add(openCodeMessagesText)
-	openCodeBox.add(openCodeMessagesBox)
-
-	const openCodeInputBox = new BoxRenderable(renderer, {
-		id: "opencode-input-box",
-		width: "auto",
-		height: 3,
-		borderStyle: "single",
-		borderColor: "#475569",
-		title: "Message",
-		titleAlignment: "left",
-		border: true,
-		flexGrow: 0,
-		flexShrink: 0,
-	})
-	const openCodeInputText = new TextRenderable(renderer, {
-		id: "opencode-input-text",
-		content: "",
-		fg: "#f8fafc",
-	})
-	openCodeInputBox.add(openCodeInputText)
-	openCodeBox.add(openCodeInputBox)
-
-	const openCodeStatusText = new TextRenderable(renderer, {
-		id: "opencode-status-text",
-		content: "Not connected - Press Shift+O for sessions",
-		fg: "#94a3b8",
-	})
-	openCodeBox.add(openCodeStatusText)
-	main.add(openCodeBox)
-
 	const statusBox = new BoxRenderable(renderer, {
 		id: "status-box",
 		width: "auto",
@@ -448,14 +388,6 @@ export function buildLayout(renderer: CliRenderer, getFooterText: () => string) 
 		sessionsModalText,
 		sessionsModalHint,
 		sessionsModalVisible: false,
-
-		// OpenCode pane
-		openCodeBox,
-		openCodeMessagesBox,
-		openCodeMessagesText,
-		openCodeInputBox,
-		openCodeInputText,
-		openCodeStatusText,
 
 		// Detail column (for principal pane switching)
 		detailColumn,

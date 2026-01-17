@@ -196,7 +196,7 @@ def create_iris_local_api(system_prompt: str, env_api_key: str):
 
         return RolloutResponse(
             run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=reward),
+            reward_info=RolloutMetrics(outcome_reward=reward),
             trace=None,
             trace_correlation_id=request.policy.config.get("trace_correlation_id"),
         )

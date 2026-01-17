@@ -1,0 +1,26 @@
+[pattern_matching]
+id = "banking77"
+trace_glob = "banking77_eval_*/traces/seed_*.json"
+
+[prompt_learning.initial_prompt]
+id = "banking77_eval"
+name = "Banking77 Intent Classification"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = """Customer Query: {query}
+
+Available Intents:
+{available_intents}
+
+Classify this query into one of the above banking intents using the tool call."""
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+query = "REQUIRED"
+available_intents = "REQUIRED"

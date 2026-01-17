@@ -188,7 +188,7 @@ GEMINI_API_KEY=AIzaSy...
 ### Python Dependencies
 
 ```bash
-pip install google-genai datasets pillow httpx python-dotenv
+pip install google-genai datasets pillow httpx
 ```
 
 Or use the project's existing environment (uv, poetry, etc.)

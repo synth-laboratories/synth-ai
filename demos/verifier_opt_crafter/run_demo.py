@@ -228,7 +228,7 @@ def _build_graphgen_dataset(traces: List[Dict[str, Any]]) -> GraphGenTaskSet:
         "properties": {
             "trace": {
                 "type": "object",
-                "description": "Crafter v3 trace with session_time_steps, metadata, etc.",
+                "description": "Crafter v3/v4 trace with event_history or session_time_steps, metadata, etc.",
             },
             "trace_id": {"type": "string"},
         },
@@ -256,7 +256,7 @@ def _build_graphgen_dataset(traces: List[Dict[str, Any]]) -> GraphGenTaskSet:
             description="""Evaluate Crafter agent execution traces.
 
 You are building a VERIFIER GRAPH that scores how well an agent played Crafter.
-The input is a v3 trace capturing:
+The input is a v3/v4 trace capturing:
 - Per-turn observations (inventory, position, achievements)
 - Actions taken by the agent
 - Event rewards from the environment

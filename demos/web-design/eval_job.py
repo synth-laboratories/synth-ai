@@ -14,8 +14,9 @@ import time
 from pathlib import Path
 
 import httpx
-from synth_ai.core.urls import BACKEND_URL_BASE, join_url
+from synth_ai.core.env import mint_demo_api_key
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task.server import run_server_background
 
 
@@ -76,7 +77,7 @@ def _pick_task_port(requested: int) -> int:
 def _task_app_healthy(url: str, env_api_key: str) -> bool:
     try:
         with httpx.Client(timeout=2.0) as client:
-            r = client.get(join_url(url, "/health"), headers={"X-API-Key": env_api_key})
+            r = client.get(f"{url}/health", headers={"X-API-Key": env_api_key})
             return r.status_code == 200
     except Exception:
         return False
@@ -84,6 +85,11 @@ def _task_app_healthy(url: str, env_api_key: str) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--backend",
+        default="http://localhost:8000",
+        help="Backend base URL (default: localhost:8000)",
+    )
     parser.add_argument(
         "--task-port", type=int, default=8103, help="Task app port (default: 8103). Use 0 for auto."
     )
@@ -106,12 +112,21 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    backend = str(args.backend).rstrip("/")
+
     synth_api_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
-    env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
     if not synth_api_key:
-        raise RuntimeError("SYNTH_API_KEY is required (set in environment)")
+        print("No SYNTH_API_KEY, minting demo key...")
+        synth_api_key = mint_demo_api_key(backend_url=backend)
+        os.environ["SYNTH_API_KEY"] = synth_api_key
+
+    env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
     if not env_api_key:
-        raise RuntimeError("ENVIRONMENT_API_KEY is required (set in environment)")
+        env_api_key = ensure_localapi_auth(
+            backend_base=backend,
+            synth_api_key=synth_api_key,
+        )
+        os.environ["ENVIRONMENT_API_KEY"] = env_api_key
 
     requested_port = int(args.task_port)
     requested_port = 8103 if requested_port == 0 else requested_port
@@ -143,16 +158,14 @@ def main() -> int:
     with httpx.Client(timeout=5.0) as client:
         for _ in range(40):
             try:
-                r = client.get(join_url(task_url, "/health"), headers=auth_headers)
+                r = client.get(f"{task_url}/health", headers=auth_headers)
                 if r.status_code == 200:
                     break
             except Exception:
                 pass
             time.sleep(0.5)
         else:
-            raise RuntimeError(
-                f"Task app did not become healthy at {join_url(task_url, '/health')}"
-            )
+            raise RuntimeError(f"Task app did not become healthy at {task_url}/health")
 
     if started_task_app:
         print(f"Task app started: {task_url} (port={task_port})")
@@ -162,7 +175,7 @@ def main() -> int:
     # Build EvalJob (ONE job, many seeds)
     cfg = EvalJobConfig(
         task_app_url=task_url,
-        backend_url=BACKEND_URL_BASE,
+        backend_url=backend,
         api_key=synth_api_key,
         task_app_api_key=env_api_key,
         app_id=app_id,
@@ -176,7 +189,7 @@ def main() -> int:
         verifier_config={
             "enabled": True,
             "reward_source": "verifier",
-            "backend_base": BACKEND_URL_BASE,
+            "backend_base": backend,
             "backend_provider": "google",
             "backend_model": "gemini-2.5-flash",
             "verifier_graph_id": "zero_shot_verifier_rubric_single",
@@ -194,7 +207,8 @@ def main() -> int:
 
     t0 = time.time()
     # Submit with a larger timeout than the SDK default (local backends sometimes do preflight work).
-    submit_url = join_url(BACKEND_URL_BASE, "/api/eval/jobs")
+    base = backend.rstrip("/")
+    submit_url = f"{base}/api/eval/jobs" if not base.endswith("/api") else f"{base}/eval/jobs"
     job_request = {
         "task_app_url": cfg.task_app_url,
         "task_app_api_key": cfg.task_app_api_key,
@@ -224,33 +238,33 @@ def main() -> int:
 
     print(f"EvalJob submitted: {job_id}")
 
-    job = EvalJob.from_job_id(job_id, backend_url=BACKEND_URL_BASE, api_key=synth_api_key)
+    job = EvalJob.from_job_id(job_id, backend_url=backend, api_key=synth_api_key)
     result = job.poll_until_complete(timeout=float(args.poll_timeout), progress=True)
     wall_s = time.time() - t0
 
     print("\n" + "=" * 80)
     print("EVAL RESULTS (WEB DESIGN)")
     print("=" * 80)
-    print(f"backend: {BACKEND_URL_BASE}")
+    print(f"backend: {backend}")
     print(f"task_app_url: {task_url}")
     print(f"job_id: {job_id}")
     print(f"wall_time_s: {wall_s:.1f}")
 
     if result.succeeded:
-        print(f"mean_score (reward): {result.mean_score}")
+        print(f"mean_reward: {result.mean_reward}")
         print(f"total_cost_usd: {result.total_cost_usd}")
         print(f"total_tokens: {result.total_tokens}")
         print(f"completed: {result.num_completed}/{result.num_total}")
         print("\nPer-seed:")
         for r in result.seed_results:
             seed = r.get("seed")
-            score = r.get("score")
+            reward = r.get("reward") or r.get("outcome_reward") or r.get("reward_mean") or r.get("score")
             cost = r.get("cost_usd")
             toks = r.get("tokens")
             lat = r.get("latency_ms")
             err = r.get("error")
             print(
-                f"- seed={seed} score={score} cost_usd={cost} tokens={toks} latency_ms={lat} error={err}"
+                f"- seed={seed} reward={reward} cost_usd={cost} tokens={toks} latency_ms={lat} error={err}"
             )
         return 0
 

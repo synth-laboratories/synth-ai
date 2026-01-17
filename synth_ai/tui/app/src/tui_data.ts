@@ -91,8 +91,10 @@ export function coerceJob(
   if (isEval && !trainingType) {
     trainingType = "eval"
   }
+  const explicitSource = payload?.job_source
   const resolvedSource =
-    isEval && source === "learning" ? "eval" : source ?? (isEval ? "eval" : null)
+    explicitSource ||
+    (isEval && source === "learning" ? "eval" : source ?? (isEval ? "eval" : null))
   return {
     job_id: jobId,
     status: String(payload?.status || "unknown"),

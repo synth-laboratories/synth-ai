@@ -57,7 +57,7 @@ def _count_tokens_from_trace(trace: dict[str, Any] | None) -> int:
 
     Checks multiple locations:
     1. trace.usage.total_tokens (task app returns usage directly)
-    2. trace.event_history[].usage (v3 trace format)
+    2. trace.event_history[].usage (v3/v4 trace format)
     3. trace.event_history[].response.usage (nested response)
     """
     if not trace:
@@ -77,11 +77,16 @@ def _count_tokens_from_trace(trace: dict[str, Any] | None) -> int:
         evt_usage = event.get("usage") or {}
         if isinstance(evt_usage, dict):
             total += evt_usage.get("total_tokens", 0)
-        response = event.get("response") or {}
+        response = event.get("response") or event.get("llm_response") or {}
         if isinstance(response, dict):
             resp_usage = response.get("usage") or {}
             if isinstance(resp_usage, dict):
                 total += resp_usage.get("total_tokens", 0)
+        raw_response = event.get("raw_response") or {}
+        if isinstance(raw_response, dict):
+            raw_usage = raw_response.get("usage") or {}
+            if isinstance(raw_usage, dict):
+                total += raw_usage.get("total_tokens", 0)
     return total
 
 
@@ -152,9 +157,9 @@ async def _eval_seed(
             response = await client.rollout(request)
             latency_ms = (time.perf_counter() - start) * 1000.0
 
-            metrics = response.metrics
-            outcome_reward = metrics.outcome_reward
-            outcome_objectives = metrics.outcome_objectives
+            reward_info = response.reward_info
+            outcome_reward = reward_info.outcome_reward
+            outcome_objectives = reward_info.outcome_objectives
 
             score = float(outcome_reward) if outcome_reward is not None else None
 
@@ -162,10 +167,10 @@ async def _eval_seed(
             tokens = None
             cost_usd = None
 
-            if isinstance(metrics.details, dict):
-                verifier_score = metrics.details.get("verifier_score")
-                tokens = metrics.details.get("tokens")
-                cost_usd = metrics.details.get("cost_usd")
+            if isinstance(reward_info.details, dict):
+                verifier_score = reward_info.details.get("verifier_score")
+                tokens = reward_info.details.get("tokens")
+                cost_usd = reward_info.details.get("cost_usd")
 
             trace = response.trace if config.return_trace else None
 

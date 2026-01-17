@@ -7,10 +7,12 @@ and aggregates the scores.
 """
 
 import json
+import time
 
 import httpx
 from datasets import load_dataset
 from fastapi import Request
+from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import normalize_inference_url
 from synth_ai.sdk.task.contracts import (
@@ -336,12 +338,14 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     if not inference_url:
         raise ValueError("No inference_url provided in policy config")
 
+    start = time.perf_counter()
     predicted_intent = await call_llm(
         query=sample["text"],
         inference_url=inference_url,
         model=policy_config.get("model", "gpt-4.1-nano"),
         api_key=policy_config.get("api_key"),
     )
+    latency_ms = (time.perf_counter() - start) * 1000.0
 
     score = score_response(predicted_intent, sample)
 
@@ -356,11 +360,16 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     )
 
     return RolloutResponse(
-        run_id=request.trace_correlation_id,
-        metrics=RolloutMetrics(outcome_reward=score),
+        reward_info=RolloutMetrics(
+            outcome_reward=score,
+            outcome_objectives={"reward": score, "latency_ms": latency_ms},
+            instance_objectives=[{"reward": score, "latency_ms": latency_ms}],
+            details={"latency_ms": latency_ms},
+        ),
         trace=None,
         trace_correlation_id=trace_correlation_id,
         inference_url=str(inference_url or ""),
+        success_status=SuccessStatus.SUCCESS,
     )
 
 
@@ -387,5 +396,14 @@ app = create_local_api(
 
 if __name__ == "__main__":
     import uvicorn
+    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    # Ensure ENVIRONMENT_API_KEY is set and uploaded to the backend.
+    # This lets the backend know what key to send when calling /rollout.
+    env_key = ensure_localapi_auth(
+        backend_base="http://localhost:8000",  # local backend
+        synth_api_key=None,  # will use SYNTH_API_KEY from env if available
+    )
+    print(f"[localapi_banking77] ENVIRONMENT_API_KEY ready: {env_key[:15]}...")
+
+    uvicorn.run(app, host="0.0.0.0", port=8010)

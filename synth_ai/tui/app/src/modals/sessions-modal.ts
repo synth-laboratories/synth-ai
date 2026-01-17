@@ -8,11 +8,6 @@ import { blurForModal, restoreFocusFromModal } from "../ui/panes"
 import { copyToClipboard } from "../utils/clipboard"
 import { clamp, wrapModalText, type ModalController } from "./base"
 import { fetchSessions, disconnectSession, checkSessionHealth } from "../api/sessions"
-import { renderOpenCodePane } from "../ui/opencode"
-import { subscribeToOpenCodeEvents, processOpenCodeEvent, type EventSubscription } from "../api/opencode"
-
-// Track active SSE subscription
-let activeSubscription: EventSubscription | null = null
 
 /**
  * Format session details for the modal.
@@ -279,7 +274,11 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
       snapshot.status = `Creating session on OpenCode...`
       ctx.render()
 
-      const createResponse = await fetch(`${opencode_url}/session`, {
+      const dir = ctx.state.appState.opencodeWorkingDir
+      const sessionCreateUrl = dir
+        ? `${opencode_url}/session?directory=${encodeURIComponent(dir)}`
+        : `${opencode_url}/session`
+      const createResponse = await fetch(sessionCreateUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -323,28 +322,7 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
       // Set as active session
       appState.openCodeSessionId = sessionId
       snapshot.status = `Connected to OpenCode at ${opencode_url} | Session: ${sessionId}`
-
-      // Start SSE subscription for events
-      if (activeSubscription) {
-        activeSubscription.unsubscribe()
-      }
-      activeSubscription = subscribeToOpenCodeEvents(opencode_url, {
-        onEvent: (event) => {
-          processOpenCodeEvent(ctx, event)
-          renderOpenCodePane(ctx)
-        },
-        onError: (error) => {
-          snapshot.lastError = error.message
-          ctx.render()
-        },
-        onConnect: () => {
-          snapshot.status = `SSE connected | Session: ${sessionId}`
-          ctx.render()
-        },
-      })
-
       updateContent()
-      renderOpenCodePane(ctx)
       ctx.render()
     } catch (err: any) {
       snapshot.lastError = err?.message || "Failed to connect"
@@ -394,32 +372,12 @@ export function createSessionsModal(ctx: AppContext): ModalController & {
     const session = activeSessions[selectedIndex]
     if (session) {
       appState.openCodeSessionId = session.session_id
-      // Ensure the session is in snapshot.sessions for renderOpenCodePane to find it
+      // Ensure the session is in snapshot.sessions for downstream consumers.
       if (!snapshot.sessions.find((s) => s.session_id === session.session_id)) {
         snapshot.sessions.push(session)
       }
       snapshot.status = `Selected session: ${session.session_id}`
-
-      // Start SSE subscription for events
-      const sessionUrl = session.opencode_url || session.access_url
-      if (sessionUrl) {
-        if (activeSubscription) {
-          activeSubscription.unsubscribe()
-        }
-        activeSubscription = subscribeToOpenCodeEvents(sessionUrl, {
-          onEvent: (event) => {
-            processOpenCodeEvent(ctx, event)
-            renderOpenCodePane(ctx)
-          },
-          onError: (error) => {
-            snapshot.lastError = error.message
-            ctx.render()
-          },
-        })
-      }
-
       toggle(false)
-      renderOpenCodePane(ctx)
       ctx.render()
     }
   }

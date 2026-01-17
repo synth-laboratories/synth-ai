@@ -5,6 +5,7 @@ import type { Snapshot } from "../../types"
 import {
   fetchTracesList,
   fetchTraceJson,
+  fetchTraceFromApi,
   extractImagesFromTrace,
   type TraceMetadata,
 } from "../../api/traces"
@@ -116,17 +117,36 @@ export function TraceViewerModal(props: TraceViewerModalProps) {
     setLoadingState("loading-trace")
     setScrollOffset(0)
 
-    fetchTraceJson(trace.trace_s3_url)
+    const jobId = props.snapshot.selectedJob?.job_id
+    if (!jobId) {
+      setError("No job selected")
+      setLoadingState("error")
+      return
+    }
+
+    fetchTraceFromApi(jobId, trace.seed, trace.candidate_id)
       .then((content) => {
         if (content) {
           setTraceContent(content)
           const extractedImages = extractImagesFromTrace(content)
           setImages(extractedImages)
           setLoadingState("ready")
-        } else {
-          setError("Failed to load trace (URL may have expired)")
-          setLoadingState("error")
+          return
         }
+        return fetchTraceJson(trace.trace_s3_url)
+      })
+      .then((fallbackContent) => {
+        if (!fallbackContent) {
+          if (!traceContent()) {
+            setError("Failed to load trace (URL may have expired)")
+            setLoadingState("error")
+          }
+          return
+        }
+        setTraceContent(fallbackContent)
+        const extractedImages = extractImagesFromTrace(fallbackContent)
+        setImages(extractedImages)
+        setLoadingState("ready")
       })
       .catch((err) => {
         setError(`Failed to load trace: ${err?.message || "Unknown error"}`)

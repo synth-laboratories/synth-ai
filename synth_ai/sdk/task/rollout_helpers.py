@@ -11,6 +11,9 @@ def build_rollout_response(
     inference_url: str | None = None,
     trace: dict[str, Any] | None = None,
     policy_config: dict[str, Any] | None = None,
+    artifact: list[Any] | None = None,
+    success_status: Any | None = None,
+    status_detail: str | None = None,
     **kwargs,
 ) -> RolloutResponse:
     """Build a RolloutResponse from a RolloutRequest.
@@ -18,13 +21,19 @@ def build_rollout_response(
     This helper ensures that trace_correlation_id is properly echoed from
     the request, which is required for trace hydration to work.
 
+    Supports flexible evaluation modes for verifiers (v3/v4 traces):
+    - trace + artifact: Full evaluation with execution trace AND outputs
+    - trace only: Evaluate based on execution trace alone
+    - artifact only: Evaluate based on outputs alone
+
     Args:
         request: The original rollout request (contains trace_correlation_id)
-        outcome_reward: The reward/score for this rollout
+        outcome_reward: The reward for this rollout
         inference_url: The inference URL used (optional, extracted from policy_config if not provided)
-        trace: Optional trace payload
+        trace: Optional v3/v4 SessionTrace payload
+        artifact: Optional list of artifacts (code files, outputs, etc.)
         policy_config: Optional - only needed if inference_url not provided
-        **kwargs: Additional metrics kwargs (event_rewards, etc.)
+        **kwargs: Additional reward_info kwargs (event_rewards, etc.)
 
     Returns:
         RolloutResponse with trace_correlation_id echoed from request
@@ -42,7 +51,10 @@ def build_rollout_response(
 
     return RolloutResponse(
         trace_correlation_id=request.trace_correlation_id,
-        metrics=RolloutMetrics(outcome_reward=outcome_reward, **kwargs),
+        reward_info=RolloutMetrics(outcome_reward=outcome_reward, **kwargs),
         trace=trace,
         inference_url=str(inference_url or ""),
+        artifact=artifact,
+        success_status=success_status,
+        status_detail=status_detail,
     )

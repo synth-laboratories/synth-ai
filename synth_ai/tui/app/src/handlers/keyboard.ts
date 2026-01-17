@@ -32,9 +32,36 @@ export function createKeyboardHandler(
   modals: ModalControllers,
 ): (key: any) => void {
   return function handleKeypress(key: any): void {
-    // Ctrl+C always quits
+    // Ctrl+C always quits.
     if (key.ctrl && key.name === "c") {
       void shutdown(0)
+      return
+    }
+
+    if (modals.usage.isVisible) {
+      modals.usage.handleKey?.(key)
+      return
+    }
+    if (modals.sessions.isVisible) {
+      modals.sessions.handleKey?.(key)
+      return
+    }
+
+    if (ctx.state.appState.principalPane === "opencode") {
+      if (key.ctrl && key.name === "x" && ctx.state.appState.openCodeAbort) {
+        ctx.state.appState.openCodeAbort()
+        return
+      }
+      if (key.name === "escape" && ctx.state.appState.openCodeAbort) {
+        ctx.state.appState.openCodeAbort()
+        return
+      }
+      if (key.name === "g" && key.shift) {
+        togglePrincipalPane(ctx)
+      }
+      if (key.name === "o" && key.shift) {
+        void modals.sessions.open()
+      }
       return
     }
 
@@ -46,14 +73,6 @@ export function createKeyboardHandler(
     // No modal consumed the key - q/escape quits
     if (key.name === "q" || key.name === "escape") {
       void shutdown(0)
-      return
-    }
-    if (modals.usage.isVisible) {
-      modals.usage.handleKey?.(key)
-      return
-    }
-    if (modals.sessions.isVisible) {
-      modals.sessions.handleKey?.(key)
       return
     }
 

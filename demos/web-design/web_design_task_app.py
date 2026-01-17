@@ -26,11 +26,10 @@ from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
-    RubricCriterion,
-    RubricInfo,
-    RubricSection,
     TaskInfo,
 )
+from synth_ai.sdk.task.rubrics import Criterion, Rubric
+from synth_ai.sdk.task.server import RubricBundle
 from synth_ai.sdk.task.trace_correlation_helpers import (
     build_trace_payload,
     extract_trace_correlation_id,
@@ -53,6 +52,25 @@ DEFAULT_MAX_EXAMPLES = int(os.environ.get("SYNTH_WEB_DESIGN_MAX_EXAMPLES", "8"))
 DEFAULT_MAX_IMAGE_PIXELS = int(
     os.environ.get("SYNTH_WEB_DESIGN_MAX_IMAGE_PIXELS", "12000000")
 )  # 12MP
+
+WEB_DESIGN_RUBRICS = RubricBundle(
+    outcome=Rubric(
+        version="1.0",
+        goal_text="Evaluate how well the generated webpage matches the original visually",
+        criteria=[
+            Criterion(
+                id="visual_fidelity",
+                description=(
+                    "How well does the generated webpage match the original webpage visually? "
+                    "Evaluate color scheme, typography, layout, spacing, and overall visual fidelity."
+                ),
+                weight=1.0,
+                required=True,
+            )
+        ],
+        aggregation="weighted_sum",
+    )
+)
 
 
 class WebDesignDataset:
@@ -235,21 +253,6 @@ def create_web_design_local_api(style_prompt: str) -> Any:
                 environment="web_design",
                 inference={},
                 limits={"max_turns": 1},
-                rubric=RubricInfo(
-                    outcome=RubricSection(
-                        name="Visual Fidelity",
-                        criteria=[
-                            RubricCriterion(
-                                id="visual_fidelity",
-                                description=(
-                                    "How well does the generated webpage match the original webpage visually? "
-                                    "Evaluate color scheme, typography, layout, spacing, and overall visual fidelity."
-                                ),
-                                weight=1.0,
-                            )
-                        ],
-                    )
-                ),
                 task_metadata={
                     "page": f"{sample['site_name']}/{sample['page_name']}",
                     "description_length": len(sample["functional_description"]),
@@ -325,6 +328,17 @@ def create_web_design_local_api(style_prompt: str) -> Any:
         if not generated_bytes:
             raise ValueError("No image data in policy model response")
 
+        # Save generated image to disk for inspection
+        output_dir = Path(__file__).parent / "generated_images"
+        output_dir.mkdir(exist_ok=True)
+        run_id_short = (
+            request.trace_correlation_id[:8] if request.trace_correlation_id else "unknown"
+        )
+        img_path = output_dir / f"seed_{seed}_run_{run_id_short}.png"
+        with open(img_path, "wb") as f:
+            f.write(generated_bytes)
+        logger.info(f"Saved generated image to {img_path}")
+
         trace_correlation_id = extract_trace_correlation_id(
             policy_config=policy_cfg,
             inference_url=inference_url,
@@ -339,7 +353,7 @@ def create_web_design_local_api(style_prompt: str) -> Any:
 
         return RolloutResponse(
             run_id=request.trace_correlation_id,
-            metrics=RolloutMetrics(outcome_reward=0.0),
+            reward_info=RolloutMetrics(outcome_reward=0.0),
             trace=trace_payload,
             trace_correlation_id=trace_correlation_id,
             inference_url=inference_url,
@@ -353,6 +367,7 @@ def create_web_design_local_api(style_prompt: str) -> Any:
             provide_taskset_description=provide_taskset_description,
             provide_task_instances=provide_task_instances,
             rollout=run_rollout,
+            rubrics=WEB_DESIGN_RUBRICS,
             cors_origins=["*"],
         )
     )

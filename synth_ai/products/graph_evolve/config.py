@@ -476,6 +476,15 @@ class GraphOptimizationConfig(BaseModel):
     # Optional dataset-specific config
     dataset_config: Dict[str, Any] = Field(default_factory=dict)
 
+    # Optional aggregate loss configuration (invocations/bundles)
+    loss_config: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Optional aggregate loss config. Supports multiple invocations per seed "
+            "(any@k/rate@k/all@k) and bundle-based reducers (e.g., contrastive_gap)."
+        ),
+    )
+
     # Constraint: max LLM calls per execution
     max_llm_calls_per_run: Optional[int] = Field(
         default=None,
@@ -647,6 +656,9 @@ class GraphOptimizationConfig(BaseModel):
             request["output_config"] = self.output_config
         if self.problem_spec:
             request["problem_spec"] = self.problem_spec
+
+        if self.loss_config:
+            request["loss_config"] = self.loss_config
 
         # Include indifference points for epsilon-Pareto dominance
         if self.indifference_points:

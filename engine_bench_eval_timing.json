@@ -1,0 +1,162 @@
+[
+  {
+    "seed": 0,
+    "elapsed_sec": 13.8,
+    "reward": 0.7899999999999999,
+    "compile_pass": true,
+    "tests": "7/10",
+    "status": "success"
+  },
+  {
+    "seed": 1,
+    "elapsed_sec": 13.8,
+    "reward": 0.8090909090909091,
+    "compile_pass": true,
+    "tests": "8/11",
+    "status": "success"
+  },
+  {
+    "seed": 2,
+    "elapsed_sec": 11.3,
+    "reward": 0.8727272727272728,
+    "compile_pass": true,
+    "tests": "9/11",
+    "status": "success"
+  },
+  {
+    "seed": 3,
+    "elapsed_sec": 6.1,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 4,
+    "elapsed_sec": 7.8,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 5,
+    "elapsed_sec": 12.2,
+    "reward": 0.9363636363636363,
+    "compile_pass": true,
+    "tests": "10/11",
+    "status": "success"
+  },
+  {
+    "seed": 6,
+    "elapsed_sec": 6.1,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 7,
+    "elapsed_sec": 5.9,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 8,
+    "elapsed_sec": 16.2,
+    "reward": 0.7,
+    "compile_pass": true,
+    "tests": "8/14",
+    "status": "success"
+  },
+  {
+    "seed": 9,
+    "elapsed_sec": 6.9,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 10,
+    "elapsed_sec": 14.4,
+    "reward": 1.0,
+    "compile_pass": true,
+    "tests": "8/8",
+    "status": "success"
+  },
+  {
+    "seed": 11,
+    "elapsed_sec": 7.6,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 12,
+    "elapsed_sec": 8.1,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 13,
+    "elapsed_sec": 13.7,
+    "reward": 0.922222222222222,
+    "compile_pass": true,
+    "tests": "8/9",
+    "status": "success"
+  },
+  {
+    "seed": 14,
+    "elapsed_sec": 6.5,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 15,
+    "elapsed_sec": 7.6,
+    "reward": 0.0,
+    "compile_pass": false,
+    "tests": "0/0",
+    "status": "success"
+  },
+  {
+    "seed": 16,
+    "elapsed_sec": 17.3,
+    "reward": 1.0,
+    "compile_pass": true,
+    "tests": "8/8",
+    "status": "success"
+  },
+  {
+    "seed": 17,
+    "elapsed_sec": 17.6,
+    "reward": 1.0,
+    "compile_pass": true,
+    "tests": "8/8",
+    "status": "success"
+  },
+  {
+    "seed": 18,
+    "elapsed_sec": 17.2,
+    "reward": 0.9299999999999999,
+    "compile_pass": true,
+    "tests": "9/10",
+    "status": "success"
+  },
+  {
+    "seed": 19,
+    "elapsed_sec": 13.4,
+    "reward": 1.0,
+    "compile_pass": true,
+    "tests": "8/8",
+    "status": "success"
+  }
+]

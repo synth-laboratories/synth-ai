@@ -21,6 +21,8 @@ export const snapshot: Snapshot = {
   lastError: null,
   lastRefresh: null,
   allCandidates: [],
+  apiCandidates: [],
+  apiCandidatesLoaded: false,
   tunnels: [],
   tunnelHealthResults: new Map(),
   tunnelsLoading: false,
@@ -41,6 +43,8 @@ export function resetSnapshot(): void {
   snapshot.evalResultRows = []
   snapshot.artifacts = []
   snapshot.allCandidates = []
+  snapshot.apiCandidates = []
+  snapshot.apiCandidatesLoaded = false
   snapshot.lastError = null
   snapshot.lastRefresh = null
   snapshot.tunnels = []

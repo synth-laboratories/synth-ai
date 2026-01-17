@@ -1,0 +1,54 @@
+# Dockerfile for EngineBench Daytona sandbox
+# Includes: Python 3.11, Rust/cargo, Codex CLI, OpenCode CLI, synth-ai SDK, engine-bench repo
+FROM python:3.11-slim
+
+# Install system deps + Rust + Node.js (for Codex/OpenCode)
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    build-essential \
+    ca-certificates \
+    gnupg \
+    unzip \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y nodejs \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Install Codex CLI globally
+RUN npm install -g @openai/codex
+
+# Install OpenCode CLI
+RUN curl -fsSL https://opencode.ai/install | bash
+ENV PATH="/root/.opencode/bin:$PATH"
+
+# Install uv for fast Python package management
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+
+# Install Python deps
+RUN uv pip install --system fastapi uvicorn httpx synth-ai
+
+# Clone engine-bench repo (needed for cargo tests)
+RUN git clone https://github.com/JoshuaPurtell/engine-bench.git /engine-bench
+
+# Pre-compile Rust deps (speeds up first cargo test)
+WORKDIR /engine-bench
+RUN cargo build --release 2>/dev/null || true
+
+# Pre-create config directories
+RUN mkdir -p /root/.codex /root/.opencode
+
+WORKDIR /app
+
+# Verify setup
+RUN python3 -c "import fastapi, uvicorn, synth_ai; print('Python deps OK')"
+RUN rustc --version && cargo --version
+RUN codex --version || echo "Codex installed"
+RUN opencode --version || echo "OpenCode installed"
+RUN node --version

@@ -1,0 +1,74 @@
+# Quick GEPA Demo - Unified Context Optimization for EngineBench
+# Minimal config for fast demonstration (2 generations, 3 seeds)
+
+[prompt_learning]
+task_app_url = "http://localhost:8020"
+env_name = "engine_bench"
+algorithm = "gepa"
+
+[prompt_learning.initial_prompt]
+id = "enginebench_coding"
+name = "EngineBench Coding Task"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "{task_description}"
+order = 0
+
+[prompt_learning.initial_prompt.wildcards]
+task_description = "REQUIRED"
+
+[prompt_learning.gepa]
+env_name = "engine_bench"
+
+[prompt_learning.gepa.evaluation]
+seeds = [0, 2, 7, 8, 9, 16, 22, 29, 35, 42, 51, 68, 77]  # Train seeds (13 total for pareto + feedback)
+validation_seeds = [0, 9, 22]  # Pareto validation seeds
+validation_pool = "train"
+validation_top_k = 3
+
+[prompt_learning.gepa.mutation]
+rate = 0.5
+
+[prompt_learning.gepa.population]
+initial_size = 4
+num_generations = 2
+children_per_generation = 4
+crossover_rate = 0.5
+selection_pressure = 1.0
+
+[prompt_learning.gepa.archive]
+pareto_set_size = 10  # Minimum required for reliable optimization
+
+[prompt_learning.gepa.rollout]
+budget = 100  # Maximum number of rollouts per generation
+max_concurrent = 10  # Run up to 10 rollouts concurrently
+minibatch_size = 4  # Process rollouts in batches of 4
+
+[prompt_learning.gepa.token]
+counting_model = "gpt-4"
+enforce_pattern_limit = false
+
+[prompt_learning.gepa.proposer]
+model = "claude-sonnet-4"
+
+[prompt_learning.policy]
+model = "gpt-4o-mini"
+provider = "openai"
+inference_mode = "synth_hosted"
+
+[prompt_learning.policy.context_override]
+system_prompt = """You are an expert Rust developer implementing Pokemon TCG cards.
+
+Your task: Implement card effects by editing Rust files with stub functions marked with TODO comments.
+
+Key patterns:
+- Use `def_id_matches(&card.def_id, "DF", NUMBER)` to identify cards
+- Implement attack modifiers in the `attack_override` function
+- Use `game.queue_prompt()` for user choices
+- Return `AttackOverrides::default()` if card doesn't apply
+
+Output requirements:
+1. EDIT files - replace TODO stubs with working code
+2. Make code compile (`cargo check`)
+3. Make tests pass (`cargo test`)"""

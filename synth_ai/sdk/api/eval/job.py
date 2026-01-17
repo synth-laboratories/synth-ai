@@ -12,12 +12,12 @@ Example:
     # progress=True provides built-in status printing:
     # [00:05] running | 3/10 completed
     # [00:10] running | 7/10 completed
-    # [00:15] completed | mean_score: 0.85
+    # [00:15] completed | mean_reward: 0.85
     result = job.poll_until_complete(progress=True)
 
     # Typed result access (not raw dict)
     if result.succeeded:
-        print(f"Mean score: {result.mean_score}")
+        print(f"Mean reward: {result.mean_reward}")
         print(f"Total cost: ${result.total_cost_usd:.4f}")
         for seed_result in result.seed_results:
             print(f"  Seed {seed_result['seed']}: {seed_result['score']}")
@@ -80,7 +80,7 @@ class EvalResult:
     Example:
         >>> result = job.poll_until_complete(progress=True)
         >>> if result.succeeded:
-        ...     print(f"Mean score: {result.mean_score:.2%}")
+        ...     print(f"Mean reward: {result.mean_reward:.2%}")
         ...     print(f"Total cost: ${result.total_cost_usd:.4f}")
         >>> else:
         ...     print(f"Failed: {result.error}")
@@ -88,7 +88,7 @@ class EvalResult:
 
     job_id: str
     status: EvalStatus
-    mean_score: Optional[float] = None
+    mean_reward: Optional[float] = None
     total_tokens: Optional[int] = None
     total_cost_usd: Optional[float] = None
     num_completed: int = 0
@@ -104,11 +104,13 @@ class EvalResult:
         status = EvalStatus.from_string(status_str)
 
         # Extract summary metrics
-        summary = data.get("summary", {})
+        summary = data.get("summary", {}) if isinstance(data.get("summary"), dict) else {}
         results_info = data.get("results", {})
 
         # Handle both summary dict and inline fields
-        mean_score = summary.get("mean_score") or data.get("mean_score")
+        mean_reward = summary.get("mean_reward") or data.get("mean_reward")
+        if mean_reward is None and isinstance(results_info, dict):
+            mean_reward = results_info.get("mean_reward")
         total_tokens = summary.get("total_tokens") or data.get("total_tokens")
         total_cost_usd = summary.get("total_cost_usd") or data.get("total_cost_usd")
 
@@ -124,7 +126,7 @@ class EvalResult:
         return cls(
             job_id=job_id,
             status=status,
-            mean_score=mean_score,
+            mean_reward=mean_reward,
             total_tokens=total_tokens,
             total_cost_usd=total_cost_usd,
             num_completed=num_completed,
@@ -257,7 +259,7 @@ class EvalJob:
         >>>
         >>> # Poll until complete
         >>> results = job.poll_until_complete(timeout=1200.0)
-        >>> print(f"Mean score: {results['summary']['mean_score']}")
+        >>> print(f"Mean reward: {results['summary']['mean_reward']}")
         >>>
         >>> # Download traces
         >>> job.download_traces("./traces")
@@ -528,7 +530,7 @@ class EvalJob:
             >>> status = job.get_status()
             >>> print(f"Status: {status['status']}")
             >>> if status["status"] == "completed":
-            ...     print(f"Mean score: {status['results']['mean_score']}")
+            ...     print(f"Mean reward: {status['results']['mean_reward']}")
         """
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -563,7 +565,7 @@ class EvalJob:
             on_status: Optional callback called on each status update (for custom progress handling)
 
         Returns:
-            EvalResult with typed status, mean_score, seed_results, etc.
+            EvalResult with typed status, mean_reward, seed_results, etc.
 
         Raises:
             RuntimeError: If job hasn't been submitted yet
@@ -573,10 +575,10 @@ class EvalJob:
             >>> result = job.poll_until_complete(progress=True)
             [00:05] running | 3/10 completed
             [00:10] running | 7/10 completed
-            [00:15] completed | mean_score: 0.85
+            [00:15] completed | mean_reward: 0.85
             >>> result.succeeded
             True
-            >>> result.mean_score
+            >>> result.mean_reward
             0.85
         """
         if not self._job_id:
@@ -615,14 +617,18 @@ class EvalJob:
                 if progress:
                     mins, secs = divmod(int(elapsed), 60)
                     if status.is_terminal:
-                        # Get final results for mean_score
+                        # Get final results for mean_reward
                         try:
                             final_results = self.get_results()
-                            mean_score = final_results.get("summary", {}).get("mean_score")
-                            score_str = (
-                                f"mean_score: {mean_score:.2f}" if mean_score is not None else ""
+                            mean_reward = final_results.get("summary", {}).get("mean_reward")
+                            if mean_reward is None:
+                                results_info = final_results.get("results", {})
+                                if isinstance(results_info, dict):
+                                    mean_reward = results_info.get("mean_reward")
+                            reward_str = (
+                                f"mean_reward: {mean_reward:.2f}" if mean_reward is not None else ""
                             )
-                            print(f"[{mins:02d}:{secs:02d}] {status.value} | {score_str}")
+                            print(f"[{mins:02d}:{secs:02d}] {status.value} | {reward_str}")
                             # Use final results for the return value
                             last_data = final_results
                         except Exception:
@@ -664,7 +670,7 @@ class EvalJob:
             - job_id: Job identifier
             - status: Job status
             - summary: Aggregate metrics
-                - mean_score: Average score across seeds
+                - mean_reward: Average reward across seeds
                 - total_tokens: Total token usage
                 - total_cost_usd: Total cost
                 - num_seeds: Number of seeds evaluated
