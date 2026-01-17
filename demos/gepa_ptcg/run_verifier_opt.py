@@ -10,7 +10,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import httpx
 from synth_ai.products.graph_evolve import GraphOptimizationClient, GraphOptimizationConfig

@@ -1,0 +1,68 @@
+{
+  "job_id": "eval_cc0290d387c7445a",
+  "status": "completed",
+  "summary": {
+    "seeds": [
+      0
+    ],
+    "total": 1,
+    "failed": 0,
+    "completed": 1,
+    "mean_reward": 0.0,
+    "pattern_discovery": {
+      "stats": {
+        "calls_used": 8,
+        "total_calls": 8,
+        "usable_calls": 8,
+        "excluded_calls": 0
+      },
+      "job_id": null,
+      "patterns": [
+        {
+          "name": "pattern_1",
+          "messages": [
+            {
+              "role": "system",
+              "order": 0,
+              "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions). If you output an illegal action, you lose immediately.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n",
+              "pattern": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions). If you output an illegal action, you lose immediately.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+            },
+            {
+              "role": "user",
+              "order": 1,
+              "content": "=== POKEMON TCG GAME STATE ===\nPhase: {wildcard_2} | Current Turn: P{wildcard_2} | You are: P1\n\n{wildcard_2})\n{wildcard_2}H{wildcard_2}:{wildcard_2}\n  {wildcard_2} {wildcard_2}",
+              "pattern": "=== POKEMON TCG GAME STATE ===\nPhase: {wildcard_2} | Current Turn: P{wildcard_2} | You are: P1\n\n{wildcard_2})\n{wildcard_2}H{wildcard_2}:{wildcard_2}\n  {wildcard_2} {wildcard_2}"
+            }
+          ],
+          "match_rate": 1.0,
+          "role_sequence": [
+            "system",
+            "user"
+          ],
+          "support_count": 8
+        }
+      ],
+      "warnings": []
+    }
+  },
+  "results": [
+    {
+      "seed": 0,
+      "trial_id": "eval-cc0290d387c7445a-i0000-t0000-s0",
+      "correlation_id": "eval_eval_cc0290d387c7445a_seed0_eeddbb8f",
+      "reward": 0.0,
+      "local_api_reward": 0.0,
+      "verifier_reward": null,
+      "event_reward": null,
+      "latency_ms": 5027.67649997259,
+      "tokens": 5395,
+      "cost_usd": 0.0023104,
+      "error": null,
+      "trace_id": "eval_eval_cc0290d387c7445a_seed0_eeddbb8f",
+      "trace_s3_key": null,
+      "trace_s3_url": null,
+      "trace_s3_etag": null,
+      "trace_s3_bytes": null
+    }
+  ]
+}

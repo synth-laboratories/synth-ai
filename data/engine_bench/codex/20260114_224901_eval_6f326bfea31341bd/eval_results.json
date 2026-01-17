@@ -1,0 +1,83 @@
+{
+  "job_id": "eval_6f326bfea31341bd",
+  "agent": "codex",
+  "model": "gpt-4o-mini",
+  "split": "df",
+  "seeds": [
+    22,
+    23,
+    24
+  ],
+  "instance_ids": [
+    "df-023-tropius",
+    "df-024-vibrava",
+    "df-025-xatu"
+  ],
+  "timestamp": "20260114_224901",
+  "status": "completed",
+  "mean_reward": 0.62,
+  "error": null,
+  "seed_results": [
+    {
+      "seed": 22,
+      "trial_id": "eval-6f326bfea31341bd-i0000-t0022-s22",
+      "correlation_id": "eval_eval_6f326bfea31341bd_seed22_30242cf6",
+      "reward": 0.86,
+      "local_api_reward": 0.86,
+      "verifier_reward": null,
+      "event_reward": null,
+      "latency_ms": 21952.5699579972,
+      "tokens": 39,
+      "cost_usd": 1.26e-05,
+      "error": null,
+      "trace_id": "eval_eval_6f326bfea31341bd_seed22_30242cf6",
+      "trace_s3_key": null,
+      "trace_s3_url": null,
+      "trace_s3_etag": null,
+      "trace_s3_bytes": null
+    },
+    {
+      "seed": 23,
+      "trial_id": "eval-6f326bfea31341bd-i0000-t0023-s23",
+      "correlation_id": "eval_eval_6f326bfea31341bd_seed23_44082c88",
+      "reward": 1.0,
+      "local_api_reward": 1.0,
+      "verifier_reward": null,
+      "event_reward": null,
+      "latency_ms": 22658.8984160335,
+      "tokens": 39,
+      "cost_usd": 1.26e-05,
+      "error": null,
+      "trace_id": "eval_eval_6f326bfea31341bd_seed23_44082c88",
+      "trace_s3_key": null,
+      "trace_s3_url": null,
+      "trace_s3_etag": null,
+      "trace_s3_bytes": null
+    },
+    {
+      "seed": 24,
+      "trial_id": "eval-6f326bfea31341bd-i0000-t0024-s24",
+      "correlation_id": "eval_eval_6f326bfea31341bd_seed24_a811d276",
+      "reward": 0.0,
+      "local_api_reward": 0.0,
+      "verifier_reward": null,
+      "event_reward": null,
+      "latency_ms": 15118.341125024,
+      "tokens": 39,
+      "cost_usd": 1.26e-05,
+      "error": null,
+      "trace_id": "eval_eval_6f326bfea31341bd_seed24_a811d276",
+      "trace_s3_key": null,
+      "trace_s3_url": null,
+      "trace_s3_etag": null,
+      "trace_s3_bytes": null
+    }
+  ],
+  "config": {
+    "timeout": 180,
+    "verifier": null,
+    "verifier_model": null,
+    "weight_env": null,
+    "weight_outcome": null
+  }
+}

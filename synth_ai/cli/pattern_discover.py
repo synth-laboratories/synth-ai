@@ -74,10 +74,7 @@ def pattern_discover(
             name = candidate.get("name") or candidate.get("id") or "pattern"
             support = candidate.get("support_count", "?")
             match_rate = candidate.get("match_rate")
-            if isinstance(match_rate, (int, float)):
-                match_text = f"{match_rate:.2f}"
-            else:
-                match_text = "?"
+            match_text = f"{match_rate:.2f}" if isinstance(match_rate, (int, float)) else "?"
             click.echo(f"  - {name}: support={support} match_rate={match_text}")
     else:
         click.echo("No patterns discovered.")

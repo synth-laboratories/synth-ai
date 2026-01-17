@@ -1,4 +1,7 @@
-from synth_ai.sdk.task import task_app_health, validate_task_app_url
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from synth_ai.sdk.task import task_app_health, validate_task_app_url
 
 from .client import LearningClient
 from .context_learning_client import (
@@ -28,16 +31,16 @@ from .context_learning_types import (
 )
 from .health import backend_health, balance_autumn_normalized, pricing_preflight
 from .jobs import JobHandle, JobsApiResolver
+from .pattern_discovery import (
+    PatternDiscoveryClient,
+    PatternDiscoveryRequest,
+    get_eval_patterns,
+)
 from .prompt_learning_client import (
     PromptLearningClient,
     get_prompt_text,
     get_prompts,
     get_scoring_summary,
-)
-from .pattern_discovery import (
-    PatternDiscoveryClient,
-    PatternDiscoveryRequest,
-    get_eval_patterns,
 )
 from .rl import (
     MAX_ENVIRONMENT_API_KEY_BYTES,
@@ -111,3 +114,13 @@ __all__ = [
     "JobHandle",
     "JobsApiResolver",
 ]
+
+_TASK_IMPORTS = {"task_app_health", "validate_task_app_url"}
+
+
+def __getattr__(name: str):
+    if name in _TASK_IMPORTS:
+        from synth_ai.sdk import task
+
+        return getattr(task, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

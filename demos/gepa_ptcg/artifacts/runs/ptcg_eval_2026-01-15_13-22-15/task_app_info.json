@@ -1,0 +1,110 @@
+{
+  "service": {
+    "task": {
+      "id": "ptcg",
+      "name": "Pokemon TCG GEPA Demo",
+      "description": null,
+      "version": null
+    },
+    "version": null
+  },
+  "dataset": {
+    "id": "ptcg",
+    "name": null,
+    "version": null,
+    "splits": null,
+    "default_split": null,
+    "description": null
+  },
+  "rubrics": {
+    "outcome": {
+      "version": "1.0",
+      "goal_text": "Evaluate Pokemon TCG gameplay quality and strategic play at the end of the rollout",
+      "criteria": [
+        {
+          "id": "win_or_strong_advantage",
+          "description": "Did the agent win? If not, did it create a clear advantage (e.g., prize lead, board control) by the end of the rollout?",
+          "weight": 1.0,
+          "required": false
+        },
+        {
+          "id": "prize_plan_and_tempo",
+          "description": "Demonstrates a coherent prize plan and tempo: prioritizes taking prizes, avoids low-impact lines when meaningful progress (damage/prizes/board improvement) is available.",
+          "weight": 1.0,
+          "required": false
+        },
+        {
+          "id": "resource_management",
+          "description": "Manages resources well: attaches energy with intent, avoids wasting limited resources, and makes reasonable retreat/switch choices relative to board state.",
+          "weight": 1.0,
+          "required": false
+        },
+        {
+          "id": "board_development",
+          "description": "Develops the board: benches basics when appropriate, evolves when possible, and maintains an attacker pipeline rather than stalling with an empty/fragile board.",
+          "weight": 1.0,
+          "required": false
+        },
+        {
+          "id": "avoid_blunders",
+          "description": "Avoid obvious blunders and self-sabotage (illegal actions, wasting turns, repeatedly missing attacks when available).",
+          "weight": 1.0,
+          "required": true
+        }
+      ],
+      "aggregation": "weighted_sum"
+    },
+    "events": {
+      "version": "1.0",
+      "goal_text": "Evaluate action quality during the rollout (basic best practices)",
+      "criteria": [
+        {
+          "id": "legality_and_prompt_following",
+          "description": "Actions are legal and follow the current available_actions requirements.",
+          "weight": 2.0,
+          "required": true
+        },
+        {
+          "id": "energy_attachment_discipline",
+          "description": "Attaches energy most turns when it enables near-term attacks or improves future tempo; avoids obviously wasted attachments.",
+          "weight": 1.0,
+          "required": false
+        },
+        {
+          "id": "evolution_when_available",
+          "description": "Evolves Pok\u00e9mon when it improves survivability/damage output and is available.",
+          "weight": 1.0,
+          "required": false
+        },
+        {
+          "id": "progress_turn_economy",
+          "description": "Makes progress (attach energy, evolve, attack) and avoids stalling.",
+          "weight": 1.0,
+          "required": false
+        },
+        {
+          "id": "attack_when_good",
+          "description": "Attacks when a reasonable attack is available instead of passing unnecessarily.",
+          "weight": 1.0,
+          "required": false
+        },
+        {
+          "id": "target_selection",
+          "description": "Selects reasonable targets: prefers taking prizes or threatening KOs over low-value attacks when choices exist.",
+          "weight": 1.0,
+          "required": false
+        }
+      ],
+      "aggregation": "weighted_sum"
+    }
+  },
+  "inference": {
+    "model": null,
+    "inference_url": null
+  },
+  "limits": {
+    "max_turns": null,
+    "max_response_tokens": null,
+    "timeout_seconds": null
+  }
+}

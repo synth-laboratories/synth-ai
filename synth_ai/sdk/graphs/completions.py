@@ -28,7 +28,6 @@ from synth_ai.sdk.graphs.verifier_schemas import (
     CalibrationExampleInput,
     EvidenceItem,
     GoldExampleInput,
-    VerifierScoreResponse,
 )
 
 GraphKind = Literal["zero_shot", "graphgen", "registered"]
@@ -552,7 +551,9 @@ class GraphCompletionsAsyncClient:
         # Save evidence locally if requested
         if save_evidence:
             evidence_dir = save_evidence if isinstance(save_evidence, (Path, str)) else None
-            evidence_path = save_evidence_locally(output, evidence_dir=evidence_dir, prefix="rubric")
+            evidence_path = save_evidence_locally(
+                output, evidence_dir=evidence_dir, prefix="rubric"
+            )
             if evidence_path:
                 output["_evidence_saved_to"] = str(evidence_path)
 
@@ -628,7 +629,9 @@ class GraphCompletionsAsyncClient:
         # Save evidence locally if requested
         if save_evidence:
             evidence_dir = save_evidence if isinstance(save_evidence, (Path, str)) else None
-            evidence_path = save_evidence_locally(output, evidence_dir=evidence_dir, prefix="fewshot")
+            evidence_path = save_evidence_locally(
+                output, evidence_dir=evidence_dir, prefix="fewshot"
+            )
             if evidence_path:
                 output["_evidence_saved_to"] = str(evidence_path)
 
@@ -721,7 +724,9 @@ class GraphCompletionsAsyncClient:
         # Save evidence locally if requested
         if save_evidence:
             evidence_dir = save_evidence if isinstance(save_evidence, (Path, str)) else None
-            evidence_path = save_evidence_locally(output, evidence_dir=evidence_dir, prefix="contrastive")
+            evidence_path = save_evidence_locally(
+                output, evidence_dir=evidence_dir, prefix="contrastive"
+            )
             if evidence_path:
                 output["_evidence_saved_to"] = str(evidence_path)
 

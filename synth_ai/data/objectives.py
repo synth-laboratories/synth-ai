@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from synth_ai.data.enums import (
     ObjectiveDirection,
@@ -55,7 +55,7 @@ class RewardObservation:
     scope: RewardScope = RewardScope.OUTCOME
     source: RewardSource = RewardSource.TASK_APP
     objective_key: ObjectiveKey = ObjectiveKey.REWARD
-    event_id: Optional[Union[str, int]] = None
+    event_id: Optional[str | int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -73,7 +73,7 @@ class OutcomeObjectiveAssignment:
 class EventObjectiveAssignment:
     """Objective values scoped to a single event."""
 
-    event_id: Union[str, int]
+    event_id: str | int
     objectives: Dict[str, float]
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -82,7 +82,7 @@ class EventObjectiveAssignment:
 class InstanceObjectiveAssignment:
     """Objective values scoped to a single task instance."""
 
-    instance_id: Union[str, int]
+    instance_id: str | int
     objectives: Dict[str, float]
     metadata: Dict[str, Any] = field(default_factory=dict)
 

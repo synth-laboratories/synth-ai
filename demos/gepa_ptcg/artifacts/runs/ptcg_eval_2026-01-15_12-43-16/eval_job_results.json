@@ -1,0 +1,65 @@
+{
+  "job_id": "eval_c6b4e3a28a334104",
+  "status": "completed",
+  "summary": {
+    "seeds": [
+      0,
+      1
+    ],
+    "total": 2,
+    "failed": 0,
+    "completed": 2,
+    "mean_reward": 0.0,
+    "pattern_discovery": {
+      "stats": {
+        "calls_used": 6,
+        "total_calls": 6,
+        "usable_calls": 6,
+        "excluded_calls": 0
+      },
+      "job_id": null,
+      "patterns": [],
+      "warnings": [
+        "Skipping role sequence [\"system\", \"user\"] due to zero match rate"
+      ]
+    }
+  },
+  "results": [
+    {
+      "seed": 0,
+      "trial_id": "eval-c6b4e3a28a334104-i0000-t0000-s0",
+      "correlation_id": "eval_eval_c6b4e3a28a334104_seed0_a0794e78",
+      "reward": 0.0,
+      "local_api_reward": 0.0,
+      "verifier_reward": null,
+      "event_reward": null,
+      "latency_ms": 15496.3842500001,
+      "tokens": 2666,
+      "cost_usd": 0.0021925,
+      "error": null,
+      "trace_id": "eval_eval_c6b4e3a28a334104_seed0_a0794e78",
+      "trace_s3_key": null,
+      "trace_s3_url": null,
+      "trace_s3_etag": null,
+      "trace_s3_bytes": null
+    },
+    {
+      "seed": 1,
+      "trial_id": "eval-c6b4e3a28a334104-i0000-t0001-s1",
+      "correlation_id": "eval_eval_c6b4e3a28a334104_seed1_b981c2b6",
+      "reward": 0.0,
+      "local_api_reward": 0.0,
+      "verifier_reward": null,
+      "event_reward": null,
+      "latency_ms": 15755.6160829845,
+      "tokens": 2678,
+      "cost_usd": 0.002199,
+      "error": null,
+      "trace_id": "eval_eval_c6b4e3a28a334104_seed1_b981c2b6",
+      "trace_s3_key": null,
+      "trace_s3_url": null,
+      "trace_s3_etag": null,
+      "trace_s3_bytes": null
+    }
+  ]
+}

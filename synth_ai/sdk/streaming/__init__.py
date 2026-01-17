@@ -1,10 +1,10 @@
 from .config import StreamConfig
 from .handlers import (
-    GraphGenHandler,
     BufferedHandler,
     CallbackHandler,
     CLIHandler,
     ContextLearningHandler,
+    GraphGenHandler,
     IntegrationTestHandler,
     JSONHandler,
     LossCurveHandler,

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import os
+import tomllib
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-import os
-import tomllib
 from typing import Any
 
 
@@ -156,7 +156,7 @@ class ResearchAgentJobConfig:
             self.backend_url = "https://api.usesynth.ai"
 
     @classmethod
-    def from_toml(cls, path: str | Path) -> "ResearchAgentJobConfig":
+    def from_toml(cls, path: str | Path) -> ResearchAgentJobConfig:
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(path)
@@ -233,7 +233,7 @@ class ResearchAgentJob:
         api_key: str,
         model: str | None = None,
         max_agent_spend_usd: float | None = None,
-    ) -> "ResearchAgentJob":
+    ) -> ResearchAgentJob:
         config = ResearchAgentJobConfig(
             research=research,
             repo_url=repo_url,
@@ -251,7 +251,7 @@ class ResearchAgentJob:
         job_id: str,
         backend_url: str,
         api_key: str,
-    ) -> "ResearchAgentJob":
+    ) -> ResearchAgentJob:
         research = ResearchConfig(task_description="Existing research job")
         config = ResearchAgentJobConfig(
             research=research,

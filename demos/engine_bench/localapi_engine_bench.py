@@ -1028,7 +1028,8 @@ async def run_claude_code_agent(
     cmd = [
         claude_bin,
         "--print",  # Non-interactive mode, outputs result
-        "--model", model,
+        "--model",
+        model,
         "--dangerously-skip-permissions",  # Allow all tool calls without prompting
         prompt,
     ]
@@ -1042,7 +1043,8 @@ async def run_claude_code_agent(
 
     try:
         print(
-            f"[ClaudeCode] ⚡⚡⚡ STARTING SUBPROCESS: cmd={cmd[:4]}... cwd={sandbox_dir}", flush=True
+            f"[ClaudeCode] ⚡⚡⚡ STARTING SUBPROCESS: cmd={cmd[:4]}... cwd={sandbox_dir}",
+            flush=True,
         )
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -1392,7 +1394,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
 
             # Print any errors from Daytona
             if not daytona_result.get("success"):
-                print(f"[engine_bench] ❌ Daytona rollout failed!")
+                print("[engine_bench] ❌ Daytona rollout failed!")
                 print(f"[engine_bench] Error: {daytona_result.get('error', 'unknown')}")
                 print(f"[engine_bench] Output: {daytona_result.get('output', '')[:2000]}")
 

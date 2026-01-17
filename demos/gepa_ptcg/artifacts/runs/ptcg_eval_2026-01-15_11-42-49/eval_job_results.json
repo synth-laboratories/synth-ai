@@ -1,0 +1,46 @@
+{
+  "job_id": "eval_81523ed563b54699",
+  "status": "completed",
+  "summary": {
+    "seeds": [
+      0
+    ],
+    "total": 1,
+    "failed": 0,
+    "completed": 1,
+    "mean_reward": 0.4,
+    "pattern_discovery": {
+      "stats": {
+        "calls_used": 7,
+        "total_calls": 7,
+        "usable_calls": 7,
+        "excluded_calls": 0
+      },
+      "job_id": null,
+      "patterns": [],
+      "warnings": [
+        "Skipping role sequence [\"system\", \"user\"] due to zero match rate"
+      ]
+    }
+  },
+  "results": [
+    {
+      "seed": 0,
+      "trial_id": "eval-81523ed563b54699-i0000-t0000-s0",
+      "correlation_id": "eval_eval_81523ed563b54699_seed0_8c79d095",
+      "reward": 0.4,
+      "local_api_reward": 0.4,
+      "verifier_reward": null,
+      "event_reward": null,
+      "latency_ms": 5062.3389580287,
+      "tokens": 4741,
+      "cost_usd": 0.002032,
+      "error": null,
+      "trace_id": "eval_eval_81523ed563b54699_seed0_8c79d095",
+      "trace_s3_key": null,
+      "trace_s3_url": null,
+      "trace_s3_etag": null,
+      "trace_s3_bytes": null
+    }
+  ]
+}

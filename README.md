@@ -72,6 +72,10 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 
 **[docs.usesynth.ai](https://docs.usesynth.ai)**
 
+## Community
+
+**[Join our Discord](https://discord.gg/VKxZqUhZ)**
+
 ## GEPA Prompt Optimization (SDK)
 
 Run GEPA prompt optimization programmatically:

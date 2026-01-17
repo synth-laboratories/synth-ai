@@ -1,0 +1,307 @@
+{
+  "metadata": {
+    "env": "ptcg",
+    "seed": 0,
+    "model": "gpt-5.2",
+    "winner": "P2",
+    "end_reason": "llm_error_or_invalid_action (3 errors: Hypnoblast\"))",
+    "session_id": "ptcg-0-1768522889",
+    "instance_id": "ptcg-game-000",
+    "correlation_ids": {
+      "trace_correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    "trace_correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+  },
+  "event_history": [
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": null,
+        "action_valid": true,
+        "decision_step": 1
+      },
+      "timestamp": "2026-01-16T00:21:29.867521+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Setup | Current Turn: P1 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose your starting Active Pokemon from: [4, 11]\n\n=== YOUR SIDE ===\nActive: None\n\nBench:\n  (empty)\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - ENERGY-PSYCHIC (id:41)\n  - df-033-kirlia (id:7)\n  - df-061-ralts (id:4)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - df-017-jynx (id:11)\n\nDeck: 47 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: None\n\nBench:\n  (empty)\n\nHand: 7 cards | Deck: 47 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseActive with card_id from: [4, 11]"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseActive\",\"card_id\":11}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": null,
+        "action_valid": true,
+        "decision_step": 2
+      },
+      "timestamp": "2026-01-16T00:21:29.867553+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Setup | Current Turn: P1 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose 0-5 Basic Pokemon for your Bench from: [4]\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: None\n\nBench:\n  (empty)\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - ENERGY-PSYCHIC (id:41)\n  - df-033-kirlia (id:7)\n  - df-061-ralts (id:4)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n\nDeck: 47 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: None\n\nBench:\n  (empty)\n\nHand: 7 cards | Deck: 47 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseBench with 0-5 card_ids from: [4]"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseBench\",\"card_ids\":[4]}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": null,
+        "action_valid": true,
+        "decision_step": 3
+      },
+      "timestamp": "2026-01-16T00:21:29.867556+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: None\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - ENERGY-PSYCHIC (id:41)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n\nDeck: 46 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 46 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-PSYCHIC (id:41), ENERGY-FIRE (id:50), ENERGY-PSYCHIC (id:44) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"AttachEnergy\",\"energy_id\":41,\"target_id\":11}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": null,
+        "action_valid": true,
+        "decision_step": 4
+      },
+      "timestamp": "2026-01-16T00:21:29.867569+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:41)\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n\nDeck: 46 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 46 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50), ENERGY-PSYCHIC (id:44) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"EndTurn\"}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": null,
+        "action_valid": true,
+        "decision_step": 5
+      },
+      "timestamp": "2026-01-16T00:21:29.867570+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:41)\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n  - df-010-snorlax (id:17)\n\nDeck: 45 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 45 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Play Basic Pokemon: df-010-snorlax (id:17)\n  Attach Energy: ENERGY-FIRE (id:50), ENERGY-PSYCHIC (id:44) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"PlayBasic\",\"card_id\":17}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": null,
+        "action_valid": true,
+        "decision_step": 6
+      },
+      "timestamp": "2026-01-16T00:21:29.867573+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:41)\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\nBench 2: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 17\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n\nDeck: 45 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 45 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50), ENERGY-PSYCHIC (id:44) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"AttachEnergy\",\"energy_id\":44,\"target_id\":11}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "invalid_action",
+        "error": "Failed to parse action: InvalidFormat(\"Unknown attack: Hypnoblast\")",
+        "snapshot": null,
+        "action_valid": false,
+        "decision_step": 7
+      },
+      "timestamp": "2026-01-16T00:21:29.867574+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:41), ENERGY-PSYCHIC (id:44)\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\nBench 2: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 17\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n\nDeck: 45 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 45 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  Attacks available:\n  - Psybeam: 20 damage, Cost: [Psychic, Colorless]\n  End Turn: Available"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"DeclareAttack\",\"attack\":\"Hypnoblast\"}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "invalid_action",
+        "error": "Failed to parse action: InvalidFormat(\"Unknown attack: Good Morning\")",
+        "snapshot": null,
+        "action_valid": false,
+        "decision_step": 7
+      },
+      "timestamp": "2026-01-16T00:21:29.867577+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:41), ENERGY-PSYCHIC (id:44)\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\nBench 2: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 17\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n\nDeck: 45 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 45 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  Attacks available:\n  - Psybeam: 20 damage, Cost: [Psychic, Colorless]\n  End Turn: Available"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"DeclareAttack\",\"attack\":\"Good Morning\"}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "invalid_action",
+        "error": "Failed to parse action: InvalidFormat(\"Unknown attack: Freeze Dry\")",
+        "snapshot": null,
+        "action_valid": false,
+        "decision_step": 7
+      },
+      "timestamp": "2026-01-16T00:21:29.867578+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions).\n- If an action type is NOT listed in available_actions, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Attack with active Pokemon\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:41), ENERGY-PSYCHIC (id:44)\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\nBench 2: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 17\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n\nDeck: 45 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 45 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  Attacks available:\n  - Psybeam: 20 damage, Cost: [Psychic, Colorless]\n  End Turn: Available"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"DeclareAttack\",\"attack\":\"Freeze Dry\"}"
+        }
+      },
+      "correlation_id": "eval_eval_26430b10d1fd4f36_seed0_46e48023"
+    }
+  ],
+  "schema_version": "4.0",
+  "markov_blanket_message_history": []
+}

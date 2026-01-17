@@ -27,7 +27,6 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import httpx
-
 from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
 
 
@@ -54,7 +53,9 @@ async def run_opencode_agent(
     inference_url: str,
     api_key: str,
 ) -> dict[str, Any]:
-    opencode_bin = os.environ.get("OPENCODE_BIN") or str(Path.home() / ".opencode" / "bin" / "opencode")
+    opencode_bin = os.environ.get("OPENCODE_BIN") or str(
+        Path.home() / ".opencode" / "bin" / "opencode"
+    )
     if not Path(opencode_bin).exists():
         raise RuntimeError(f"opencode binary not found: {opencode_bin}")
 
@@ -139,7 +140,7 @@ async def run_opencode_agent(
 
     try:
         await asyncio.wait_for(proc.wait(), timeout=float(timeout))
-    except asyncio.TimeoutError:
+    except TimeoutError:
         proc.kill()
         await proc.wait()
         raise
@@ -173,7 +174,9 @@ def write_sandbox_files(sandbox_dir: Path) -> None:
 
 
 async def main() -> None:
-    parser = argparse.ArgumentParser(description="hello_world_bench: OpenCode write/edit sanity check")
+    parser = argparse.ArgumentParser(
+        description="hello_world_bench: OpenCode write/edit sanity check"
+    )
     parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
     parser.add_argument("--model", type=str, default="gpt-5-nano")
     parser.add_argument("--timeout", type=int, default=120)
@@ -203,7 +206,9 @@ async def main() -> None:
     print(f"[hello_world_bench] Register trial: {reg.status_code} {register_url}")
     if reg.status_code >= 400:
         print(reg.text)
-        raise RuntimeError("Failed to register debug trial (did you restart backend after adding the route?)")
+        raise RuntimeError(
+            "Failed to register debug trial (did you restart backend after adding the route?)"
+        )
 
     # This path is intentionally "chat/completions-ish"; OpenCode will call /responses off baseURL.
     inference_url = (
@@ -235,10 +240,14 @@ async def main() -> None:
         )
         elapsed = time.time() - started
 
-        print(f"[hello_world_bench] OpenCode returncode={result['returncode']} elapsed={elapsed:.2f}s")
+        print(
+            f"[hello_world_bench] OpenCode returncode={result['returncode']} elapsed={elapsed:.2f}s"
+        )
 
         output_path = sandbox_dir / "output.txt"
-        final_output = output_path.read_text(encoding="utf-8") if output_path.exists() else "<missing>"
+        final_output = (
+            output_path.read_text(encoding="utf-8") if output_path.exists() else "<missing>"
+        )
         print("[hello_world_bench] Final output.txt:")
         print("-----")
         print(final_output.rstrip("\n"))
@@ -252,4 +261,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

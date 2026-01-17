@@ -14,10 +14,10 @@ from __future__ import annotations
 
 # Artifact data types
 from synth_ai.data.artifacts import (
-    Artifact,
     # Context override types
     ApplicationErrorType,
     ApplicationStatus,
+    Artifact,
     ContextOverride,
     ContextOverrideStatus,
     FolderMode,

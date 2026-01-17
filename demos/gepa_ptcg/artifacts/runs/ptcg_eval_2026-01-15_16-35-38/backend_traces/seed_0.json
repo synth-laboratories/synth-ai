@@ -1,0 +1,3501 @@
+{
+  "metadata": {
+    "env": "ptcg",
+    "seed": 0,
+    "model": "gpt-5.2",
+    "winner": "P2",
+    "end_reason": "P2 took all prizes",
+    "session_id": "ptcg-0-1768523755",
+    "instance_id": "ptcg-game-000",
+    "correlation_ids": {
+      "trace_correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    "trace_correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+  },
+  "event_history": [
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Setup",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 41,
+                "name": "ENERGY-PSYCHIC",
+                "def_id": "ENERGY-PSYCHIC"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 4,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 11,
+                "name": "Jynx \u03b4",
+                "def_id": "df-017-jynx"
+              }
+            ],
+            "bench": [],
+            "active": null,
+            "deck_count": 47,
+            "prizes_remaining": 6
+          },
+          "game_steps": 1,
+          "turn_context": {
+            "phase": "Setup",
+            "turn_index": 0,
+            "active_switch_required": false
+          },
+          "decision_step": 1,
+          "opponent_side": {
+            "bench": [],
+            "active": null,
+            "deck_count": 47,
+            "hand_count": 7,
+            "prizes_remaining": 6
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [
+              4,
+              11
+            ],
+            "details": {
+              "options": [
+                4,
+                11
+              ]
+            },
+            "required": true,
+            "action_type": "ChooseActive"
+          },
+          "available_actions": [
+            {
+              "type": "ChooseActive",
+              "options": {
+                "options": [
+                  4,
+                  11
+                ]
+              }
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 1
+      },
+      "timestamp": "2026-01-16T00:35:55.888395+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Setup | Current Turn: P1 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose your starting Active Pokemon from: [4, 11]\n\n=== YOUR SIDE ===\nActive: None\n\nBench:\n  (empty)\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - ENERGY-PSYCHIC (id:41)\n  - df-033-kirlia (id:7)\n  - df-061-ralts (id:4)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - df-017-jynx (id:11)\n\nDeck: 47 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: None\n\nBench:\n  (empty)\n\nHand: 7 cards | Deck: 47 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseActive with card_id from: [4, 11]\n\nsnapshot_json:\n{\"phase\":\"Setup\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":true,\"action_type\":\"ChooseActive\",\"choices\":[4,11],\"details\":{\"options\":[4,11]}},\"your_side\":{\"active\":null,\"bench\":[],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":41,\"def_id\":\"ENERGY-PSYCHIC\",\"name\":\"ENERGY-PSYCHIC\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":4,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\"}],\"deck_count\":47,\"prizes_remaining\":6},\"opponent_side\":{\"active\":null,\"bench\":[],\"hand_count\":7,\"deck_count\":47,\"prizes_remaining\":6},\"available_actions\":[{\"type\":\"ChooseActive\",\"options\":{\"options\":[4,11]}}],\"attacks\":[],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":0,\"phase\":\"Setup\",\"active_switch_required\":false},\"game_steps\":1,\"decision_step\":1}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseActive\",\"card_id\":4}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Setup",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic"
+              ],
+              "name": "Hypnosis",
+              "damage": 0,
+              "effects": [],
+              "total_energy": 1
+            },
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psychic Boom",
+              "damage": 10,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 41,
+                "name": "ENERGY-PSYCHIC",
+                "def_id": "ENERGY-PSYCHIC"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 11,
+                "name": "Jynx \u03b4",
+                "def_id": "df-017-jynx"
+              }
+            ],
+            "bench": [],
+            "active": {
+              "hp": [
+                50,
+                50
+              ],
+              "id": 4,
+              "name": "Ralts \u03b4",
+              "def_id": "df-061-ralts",
+              "energy": [],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 47,
+            "prizes_remaining": 6
+          },
+          "game_steps": 2,
+          "turn_context": {
+            "phase": "Setup",
+            "turn_index": 0,
+            "active_switch_required": false
+          },
+          "decision_step": 2,
+          "opponent_side": {
+            "bench": [],
+            "active": null,
+            "deck_count": 47,
+            "hand_count": 7,
+            "prizes_remaining": 6
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [
+              11
+            ],
+            "details": {
+              "max": 5,
+              "min": 0,
+              "options": [
+                11
+              ]
+            },
+            "required": true,
+            "action_type": "ChooseBench"
+          },
+          "available_actions": [
+            {
+              "type": "ChooseBench",
+              "options": {
+                "max": 5,
+                "min": 0,
+                "options": [
+                  11
+                ]
+              }
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 2
+      },
+      "timestamp": "2026-01-16T00:35:55.888425+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Setup | Current Turn: P1 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose 0-5 Basic Pokemon for your Bench from: [11]\n\n=== YOUR SIDE ===\nActive: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\n\nBench:\n  (empty)\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - ENERGY-PSYCHIC (id:41)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - df-017-jynx (id:11)\n\nDeck: 47 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: None\n\nBench:\n  (empty)\n\nHand: 7 cards | Deck: 47 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseBench with 0-5 card_ids from: [11]\n\nsnapshot_json:\n{\"phase\":\"Setup\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":true,\"action_type\":\"ChooseBench\",\"choices\":[11],\"details\":{\"max\":5,\"min\":0,\"options\":[11]}},\"your_side\":{\"active\":{\"id\":4,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":41,\"def_id\":\"ENERGY-PSYCHIC\",\"name\":\"ENERGY-PSYCHIC\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\"}],\"deck_count\":47,\"prizes_remaining\":6},\"opponent_side\":{\"active\":null,\"bench\":[],\"hand_count\":7,\"deck_count\":47,\"prizes_remaining\":6},\"available_actions\":[{\"type\":\"ChooseBench\",\"options\":{\"max\":5,\"min\":0,\"options\":[11]}}],\"attacks\":[{\"name\":\"Hypnosis\",\"damage\":0,\"cost\":[\"Psychic\"],\"total_energy\":1,\"effects\":[]},{\"name\":\"Psychic Boom\",\"damage\":10,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":0,\"phase\":\"Setup\",\"active_switch_required\":false},\"game_steps\":2,\"decision_step\":2}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseBench\",\"card_ids\":[11]}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic"
+              ],
+              "name": "Hypnosis",
+              "damage": 0,
+              "effects": [],
+              "total_energy": 1
+            },
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psychic Boom",
+              "damage": 10,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 41,
+                "name": "ENERGY-PSYCHIC",
+                "def_id": "ENERGY-PSYCHIC"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 44,
+                "name": "ENERGY-PSYCHIC",
+                "def_id": "ENERGY-PSYCHIC"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  60,
+                  60
+                ],
+                "id": 11,
+                "name": "Jynx \u03b4",
+                "def_id": "df-017-jynx",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                50,
+                50
+              ],
+              "id": 4,
+              "name": "Ralts \u03b4",
+              "def_id": "df-061-ralts",
+              "energy": [],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 46,
+            "prizes_remaining": 6
+          },
+          "game_steps": 15,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 1,
+            "active_switch_required": false
+          },
+          "decision_step": 3,
+          "opponent_side": {
+            "bench": [],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 46,
+            "hand_count": 4,
+            "prizes_remaining": 6
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "AttachEnergy",
+              "options": {
+                "targets": [
+                  4,
+                  11
+                ],
+                "energy_ids": [
+                  41,
+                  50,
+                  44
+                ]
+              }
+            },
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  21,
+                  20
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 3
+      },
+      "timestamp": "2026-01-16T00:35:55.888429+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: None\n\nBench:\nBench 1: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - ENERGY-PSYCHIC (id:41)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n\nDeck: 46 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 46 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-PSYCHIC (id:41), ENERGY-FIRE (id:50), ENERGY-PSYCHIC (id:44) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":4,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[60,60],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":41,\"def_id\":\"ENERGY-PSYCHIC\",\"name\":\"ENERGY-PSYCHIC\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":44,\"def_id\":\"ENERGY-PSYCHIC\",\"name\":\"ENERGY-PSYCHIC\"}],\"deck_count\":46,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[],\"hand_count\":4,\"deck_count\":46,\"prizes_remaining\":6},\"available_actions\":[{\"type\":\"AttachEnergy\",\"options\":{\"energy_ids\":[41,50,44],\"targets\":[4,11]}},{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[21,20]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Hypnosis\",\"damage\":0,\"cost\":[\"Psychic\"],\"total_energy\":1,\"effects\":[]},{\"name\":\"Psychic Boom\",\"damage\":10,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":1,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":15,\"decision_step\":3}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"AttachEnergy\",\"energy_id\":41,\"target_id\":4}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic"
+              ],
+              "name": "Hypnosis",
+              "damage": 0,
+              "effects": [],
+              "total_energy": 1
+            },
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psychic Boom",
+              "damage": 10,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 44,
+                "name": "ENERGY-PSYCHIC",
+                "def_id": "ENERGY-PSYCHIC"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  60,
+                  60
+                ],
+                "id": 11,
+                "name": "Jynx \u03b4",
+                "def_id": "df-017-jynx",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                50,
+                50
+              ],
+              "id": 4,
+              "name": "Ralts \u03b4",
+              "def_id": "df-061-ralts",
+              "energy": [
+                "ENERGY-PSYCHIC"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 46,
+            "prizes_remaining": 6
+          },
+          "game_steps": 16,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 1,
+            "active_switch_required": false
+          },
+          "decision_step": 4,
+          "opponent_side": {
+            "bench": [],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 46,
+            "hand_count": 4,
+            "prizes_remaining": 6
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  21,
+                  20
+                ]
+              }
+            },
+            {
+              "type": "DeclareAttack",
+              "options": {
+                "attack_names": [
+                  "Hypnosis"
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 4
+      },
+      "timestamp": "2026-01-16T00:35:55.888453+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: ENERGY-PSYCHIC (id:41)\n\nBench:\nBench 1: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n\nDeck: 46 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 46 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50), ENERGY-PSYCHIC (id:44) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  Attacks available:\n  - Hypnosis: 0 damage, Cost: [Psychic]\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":4,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[\"ENERGY-PSYCHIC\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[60,60],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":44,\"def_id\":\"ENERGY-PSYCHIC\",\"name\":\"ENERGY-PSYCHIC\"}],\"deck_count\":46,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[],\"hand_count\":4,\"deck_count\":46,\"prizes_remaining\":6},\"available_actions\":[{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[21,20]}},{\"type\":\"DeclareAttack\",\"options\":{\"attack_names\":[\"Hypnosis\"]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Hypnosis\",\"damage\":0,\"cost\":[\"Psychic\"],\"total_energy\":1,\"effects\":[]},{\"name\":\"Psychic Boom\",\"damage\":10,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":1,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":16,\"decision_step\":4}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"DeclareAttack\",\"attack\":\"Hypnosis\"}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic"
+              ],
+              "name": "Hypnosis",
+              "damage": 0,
+              "effects": [],
+              "total_energy": 1
+            },
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psychic Boom",
+              "damage": 10,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 44,
+                "name": "ENERGY-PSYCHIC",
+                "def_id": "ENERGY-PSYCHIC"
+              },
+              {
+                "id": 17,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  60,
+                  60
+                ],
+                "id": 11,
+                "name": "Jynx \u03b4",
+                "def_id": "df-017-jynx",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                50,
+                50
+              ],
+              "id": 4,
+              "name": "Ralts \u03b4",
+              "def_id": "df-061-ralts",
+              "energy": [
+                "ENERGY-PSYCHIC"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 45,
+            "prizes_remaining": 6
+          },
+          "game_steps": 26,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 3,
+            "active_switch_required": false
+          },
+          "decision_step": 5,
+          "opponent_side": {
+            "bench": [],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 45,
+            "hand_count": 4,
+            "prizes_remaining": 6
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayBasic",
+              "options": {
+                "card_ids": [
+                  17
+                ]
+              }
+            },
+            {
+              "type": "AttachEnergy",
+              "options": {
+                "targets": [
+                  4,
+                  11
+                ],
+                "energy_ids": [
+                  50,
+                  44
+                ]
+              }
+            },
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  21,
+                  20
+                ]
+              }
+            },
+            {
+              "type": "DeclareAttack",
+              "options": {
+                "attack_names": [
+                  "Hypnosis"
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 5
+      },
+      "timestamp": "2026-01-16T00:35:55.888459+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 4\n  Energy: ENERGY-PSYCHIC (id:41)\n\nBench:\nBench 1: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n  - df-010-snorlax (id:17)\n\nDeck: 45 cards | Prizes: 6 remaining\n\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110)\n\nBench:\n  (empty)\n\nHand: 4 cards | Deck: 45 cards | Prizes: 6 remaining\n\n=== AVAILABLE ACTIONS ===\n  Play Basic Pokemon: df-010-snorlax (id:17)\n  Attach Energy: ENERGY-FIRE (id:50), ENERGY-PSYCHIC (id:44) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  Attacks available:\n  - Hypnosis: 0 damage, Cost: [Psychic]\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":4,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[\"ENERGY-PSYCHIC\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[60,60],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":44,\"def_id\":\"ENERGY-PSYCHIC\",\"name\":\"ENERGY-PSYCHIC\"},{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\"}],\"deck_count\":45,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[],\"hand_count\":4,\"deck_count\":45,\"prizes_remaining\":6},\"available_actions\":[{\"type\":\"PlayBasic\",\"options\":{\"card_ids\":[17]}},{\"type\":\"AttachEnergy\",\"options\":{\"energy_ids\":[50,44],\"targets\":[4,11]}},{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[21,20]}},{\"type\":\"DeclareAttack\",\"options\":{\"attack_names\":[\"Hypnosis\"]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Hypnosis\",\"damage\":0,\"cost\":[\"Psychic\"],\"total_energy\":1,\"effects\":[]},{\"name\":\"Psychic Boom\",\"damage\":10,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":3,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":26,\"decision_step\":5}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"DeclareAttack\",\"attack\":\"Hypnosis\"}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "EndOfTurn",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 44,
+                "name": "ENERGY-PSYCHIC",
+                "def_id": "ENERGY-PSYCHIC"
+              },
+              {
+                "id": 17,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  60,
+                  60
+                ],
+                "id": 11,
+                "name": "Jynx \u03b4",
+                "def_id": "df-017-jynx",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": null,
+            "deck_count": 45,
+            "prizes_remaining": 6
+          },
+          "game_steps": 32,
+          "turn_context": {
+            "phase": "EndOfTurn",
+            "turn_index": 4,
+            "active_switch_required": true
+          },
+          "decision_step": 6,
+          "opponent_side": {
+            "bench": [],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 44,
+            "hand_count": 5,
+            "prizes_remaining": 5
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [
+              11
+            ],
+            "details": {
+              "options": [
+                11
+              ]
+            },
+            "required": true,
+            "action_type": "ChooseActive"
+          },
+          "available_actions": [
+            {
+              "type": "ChooseActive",
+              "options": {
+                "options": [
+                  11
+                ]
+              }
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 6
+      },
+      "timestamp": "2026-01-16T00:35:55.888462+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: End of Turn | Current Turn: P2 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose a new Active Pokemon from bench: [11]\n\n=== YOUR SIDE ===\nActive: None\n\nBench:\nBench 1: df-017-jynx (Psychic)\n  HP: 60/60\n  ID: 11\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n  - df-010-snorlax (id:17)\n\nDeck: 45 cards | Prizes: 6 remaining\n\nDiscard: 2 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\n  (empty)\n\nHand: 5 cards | Deck: 44 cards | Prizes: 5 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseNewActive with card_id from: [11]\n\nsnapshot_json:\n{\"phase\":\"EndOfTurn\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":true,\"action_type\":\"ChooseActive\",\"choices\":[11],\"details\":{\"options\":[11]}},\"your_side\":{\"active\":null,\"bench\":[{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[60,60],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":44,\"def_id\":\"ENERGY-PSYCHIC\",\"name\":\"ENERGY-PSYCHIC\"},{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\"}],\"deck_count\":45,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[],\"hand_count\":5,\"deck_count\":44,\"prizes_remaining\":5},\"available_actions\":[{\"type\":\"ChooseActive\",\"options\":{\"options\":[11]}}],\"attacks\":[],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":4,\"phase\":\"EndOfTurn\",\"active_switch_required\":true},\"game_steps\":32,\"decision_step\":6}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseActive\",\"card_id\":11}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psybeam",
+              "damage": 20,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 44,
+                "name": "ENERGY-PSYCHIC",
+                "def_id": "ENERGY-PSYCHIC"
+              },
+              {
+                "id": 17,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax"
+              },
+              {
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax"
+              }
+            ],
+            "bench": [],
+            "active": {
+              "hp": [
+                10,
+                60
+              ],
+              "id": 11,
+              "name": "Jynx \u03b4",
+              "def_id": "df-017-jynx",
+              "energy": [],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 44,
+            "prizes_remaining": 6
+          },
+          "game_steps": 42,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 6,
+            "active_switch_required": false
+          },
+          "decision_step": 7,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "hand_count": 5,
+            "prizes_remaining": 5
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayBasic",
+              "options": {
+                "card_ids": [
+                  17,
+                  18
+                ]
+              }
+            },
+            {
+              "type": "AttachEnergy",
+              "options": {
+                "targets": [
+                  11
+                ],
+                "energy_ids": [
+                  50,
+                  44
+                ]
+              }
+            },
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  21,
+                  20
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 7
+      },
+      "timestamp": "2026-01-16T00:35:55.888465+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 10/60\n  ID: 11\n  Energy: None\n\nBench:\n  (empty)\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - ENERGY-PSYCHIC (id:44)\n  - df-010-snorlax (id:17)\n  - df-010-snorlax (id:18)\n\nDeck: 44 cards | Prizes: 6 remaining\n\nDiscard: 2 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: None\n\nHand: 5 cards | Deck: 43 cards | Prizes: 5 remaining\n\n=== AVAILABLE ACTIONS ===\n  Play Basic Pokemon: df-010-snorlax (id:17), df-010-snorlax (id:18)\n  Attach Energy: ENERGY-FIRE (id:50), ENERGY-PSYCHIC (id:44) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[10,60],\"energy\":[],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":44,\"def_id\":\"ENERGY-PSYCHIC\",\"name\":\"ENERGY-PSYCHIC\"},{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\"},{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\"}],\"deck_count\":44,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":5,\"deck_count\":43,\"prizes_remaining\":5},\"available_actions\":[{\"type\":\"PlayBasic\",\"options\":{\"card_ids\":[17,18]}},{\"type\":\"AttachEnergy\",\"options\":{\"energy_ids\":[50,44],\"targets\":[11]}},{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[21,20]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Psybeam\",\"damage\":20,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":6,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":42,\"decision_step\":7}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"AttachEnergy\",\"energy_id\":44,\"target_id\":11}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psybeam",
+              "damage": 20,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 17,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax"
+              },
+              {
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax"
+              }
+            ],
+            "bench": [],
+            "active": {
+              "hp": [
+                10,
+                60
+              ],
+              "id": 11,
+              "name": "Jynx \u03b4",
+              "def_id": "df-017-jynx",
+              "energy": [
+                "ENERGY-PSYCHIC"
+              ],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 44,
+            "prizes_remaining": 6
+          },
+          "game_steps": 43,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 6,
+            "active_switch_required": false
+          },
+          "decision_step": 8,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "hand_count": 5,
+            "prizes_remaining": 5
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayBasic",
+              "options": {
+                "card_ids": [
+                  17,
+                  18
+                ]
+              }
+            },
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  21,
+                  20
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 8
+      },
+      "timestamp": "2026-01-16T00:35:55.888469+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 10/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:44)\n\nBench:\n  (empty)\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - df-010-snorlax (id:17)\n  - df-010-snorlax (id:18)\n\nDeck: 44 cards | Prizes: 6 remaining\n\nDiscard: 2 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: None\n\nHand: 5 cards | Deck: 43 cards | Prizes: 5 remaining\n\n=== AVAILABLE ACTIONS ===\n  Play Basic Pokemon: df-010-snorlax (id:17), df-010-snorlax (id:18)\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[10,60],\"energy\":[\"ENERGY-PSYCHIC\"],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\"},{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\"}],\"deck_count\":44,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":5,\"deck_count\":43,\"prizes_remaining\":5},\"available_actions\":[{\"type\":\"PlayBasic\",\"options\":{\"card_ids\":[17,18]}},{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[21,20]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Psybeam\",\"damage\":20,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":6,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":43,\"decision_step\":8}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"PlayBasic\",\"card_id\":17}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psybeam",
+              "damage": 20,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 17,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                10,
+                60
+              ],
+              "id": 11,
+              "name": "Jynx \u03b4",
+              "def_id": "df-017-jynx",
+              "energy": [
+                "ENERGY-PSYCHIC"
+              ],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 44,
+            "prizes_remaining": 6
+          },
+          "game_steps": 44,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 6,
+            "active_switch_required": false
+          },
+          "decision_step": 9,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "hand_count": 5,
+            "prizes_remaining": 5
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayBasic",
+              "options": {
+                "card_ids": [
+                  18
+                ]
+              }
+            },
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  21,
+                  20
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 9
+      },
+      "timestamp": "2026-01-16T00:35:55.888478+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 10/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:44)\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 17\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - df-010-snorlax (id:18)\n\nDeck: 44 cards | Prizes: 6 remaining\n\nDiscard: 2 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: None\n\nHand: 5 cards | Deck: 43 cards | Prizes: 5 remaining\n\n=== AVAILABLE ACTIONS ===\n  Play Basic Pokemon: df-010-snorlax (id:18)\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[10,60],\"energy\":[\"ENERGY-PSYCHIC\"],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\"}],\"deck_count\":44,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":5,\"deck_count\":43,\"prizes_remaining\":5},\"available_actions\":[{\"type\":\"PlayBasic\",\"options\":{\"card_ids\":[18]}},{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[21,20]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Psybeam\",\"damage\":20,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":6,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":44,\"decision_step\":9}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"PlayBasic\",\"card_id\":18}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psybeam",
+              "damage": 20,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 21,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 17,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                10,
+                60
+              ],
+              "id": 11,
+              "name": "Jynx \u03b4",
+              "def_id": "df-017-jynx",
+              "energy": [
+                "ENERGY-PSYCHIC"
+              ],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 44,
+            "prizes_remaining": 6
+          },
+          "game_steps": 45,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 6,
+            "active_switch_required": false
+          },
+          "decision_step": 10,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "hand_count": 5,
+            "prizes_remaining": 5
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  21,
+                  20
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 10
+      },
+      "timestamp": "2026-01-16T00:35:55.888485+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 10/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:44)\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 17\n  Energy: None\nBench 2: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 18\n  Energy: None\n\nHand:\n  - df-082-tv-reporter (id:21)\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n\nDeck: 44 cards | Prizes: 6 remaining\n\nDiscard: 2 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: None\n\nHand: 5 cards | Deck: 43 cards | Prizes: 5 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  Play Trainer: df-082-tv-reporter (id:21), df-082-tv-reporter (id:20)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[10,60],\"energy\":[\"ENERGY-PSYCHIC\"],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":21,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"}],\"deck_count\":44,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":5,\"deck_count\":43,\"prizes_remaining\":5},\"available_actions\":[{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[21,20]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Psybeam\",\"damage\":20,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":6,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":45,\"decision_step\":10}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"PlayTrainer\",\"card_id\":21}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "auto_end_turn",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Psychic",
+                "Colorless"
+              ],
+              "name": "Psybeam",
+              "damage": 20,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 17,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                10,
+                60
+              ],
+              "id": 11,
+              "name": "Jynx \u03b4",
+              "def_id": "df-017-jynx",
+              "energy": [
+                "ENERGY-PSYCHIC"
+              ],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 44,
+            "prizes_remaining": 6
+          },
+          "game_steps": 46,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 6,
+            "active_switch_required": false
+          },
+          "decision_step": 11,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "hand_count": 5,
+            "prizes_remaining": 5
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 11
+      },
+      "timestamp": "2026-01-16T00:35:55.888488+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-017-jynx (Psychic)\n  HP: 10/60\n  ID: 11\n  Energy: ENERGY-PSYCHIC (id:44)\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 17\n  Energy: None\nBench 2: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 18\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n\nDeck: 44 cards | Prizes: 6 remaining\n\nDiscard: 3 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: None\n\nHand: 5 cards | Deck: 43 cards | Prizes: 5 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":11,\"def_id\":\"df-017-jynx\",\"name\":\"Jynx \u03b4\",\"hp\":[10,60],\"energy\":[\"ENERGY-PSYCHIC\"],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"}],\"deck_count\":44,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":5,\"deck_count\":43,\"prizes_remaining\":5},\"available_actions\":[{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Psybeam\",\"damage\":20,\"cost\":[\"Psychic\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":6,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":46,\"decision_step\":11}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\": \"EndTurn\"}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "EndOfTurn",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 17,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": null,
+            "deck_count": 44,
+            "prizes_remaining": 6
+          },
+          "game_steps": 52,
+          "turn_context": {
+            "phase": "EndOfTurn",
+            "turn_index": 7,
+            "active_switch_required": true
+          },
+          "decision_step": 12,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 42,
+            "hand_count": 6,
+            "prizes_remaining": 4
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [
+              17,
+              18
+            ],
+            "details": {
+              "options": [
+                17,
+                18
+              ]
+            },
+            "required": true,
+            "action_type": "ChooseActive"
+          },
+          "available_actions": [
+            {
+              "type": "ChooseActive",
+              "options": {
+                "options": [
+                  17,
+                  18
+                ]
+              }
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 12
+      },
+      "timestamp": "2026-01-16T00:35:55.888493+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: End of Turn | Current Turn: P2 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose a new Active Pokemon from bench: [17, 18]\n\n=== YOUR SIDE ===\nActive: None\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 17\n  Energy: None\nBench 2: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 18\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n\nDeck: 44 cards | Prizes: 6 remaining\n\nDiscard: 5 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115)\n\nHand: 6 cards | Deck: 42 cards | Prizes: 4 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseNewActive with card_id from: [17, 18]\n\nsnapshot_json:\n{\"phase\":\"EndOfTurn\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":true,\"action_type\":\"ChooseActive\",\"choices\":[17,18],\"details\":{\"options\":[17,18]}},\"your_side\":{\"active\":null,\"bench\":[{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"}],\"deck_count\":44,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":6,\"deck_count\":42,\"prizes_remaining\":4},\"available_actions\":[{\"type\":\"ChooseActive\",\"options\":{\"options\":[17,18]}}],\"attacks\":[],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":7,\"phase\":\"EndOfTurn\",\"active_switch_required\":true},\"game_steps\":52,\"decision_step\":12}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseActive\",\"card_id\":17}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Colorless",
+                "Colorless"
+              ],
+              "name": "Claw Swipe",
+              "damage": 30,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              },
+              {
+                "id": 1,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                40,
+                90
+              ],
+              "id": 17,
+              "name": "Snorlax \u03b4",
+              "def_id": "df-010-snorlax",
+              "energy": [],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "prizes_remaining": 6
+          },
+          "game_steps": 61,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 9,
+            "active_switch_required": false
+          },
+          "decision_step": 13,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 41,
+            "hand_count": 7,
+            "prizes_remaining": 4
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayBasic",
+              "options": {
+                "card_ids": [
+                  1
+                ]
+              }
+            },
+            {
+              "type": "AttachEnergy",
+              "options": {
+                "targets": [
+                  17,
+                  18
+                ],
+                "energy_ids": [
+                  50
+                ]
+              }
+            },
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  20
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 13
+      },
+      "timestamp": "2026-01-16T00:35:55.888499+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-010-snorlax (Colorless)\n  HP: 40/90\n  ID: 17\n  Energy: None\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 18\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n  - df-061-ralts (id:1)\n\nDeck: 43 cards | Prizes: 6 remaining\n\nDiscard: 5 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115)\n\nHand: 7 cards | Deck: 41 cards | Prizes: 4 remaining\n\n=== AVAILABLE ACTIONS ===\n  Play Basic Pokemon: df-061-ralts (id:1)\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  Play Trainer: df-082-tv-reporter (id:20)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[40,90],\"energy\":[],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"},{\"id\":1,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\"}],\"deck_count\":43,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":7,\"deck_count\":41,\"prizes_remaining\":4},\"available_actions\":[{\"type\":\"PlayBasic\",\"options\":{\"card_ids\":[1]}},{\"type\":\"AttachEnergy\",\"options\":{\"energy_ids\":[50],\"targets\":[17,18]}},{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[20]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Claw Swipe\",\"damage\":30,\"cost\":[\"Colorless\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":9,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":61,\"decision_step\":13}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"PlayBasic\",\"card_id\":1}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Colorless",
+                "Colorless"
+              ],
+              "name": "Claw Swipe",
+              "damage": 30,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              },
+              {
+                "id": 50,
+                "name": "ENERGY-FIRE",
+                "def_id": "ENERGY-FIRE"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 1,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                40,
+                90
+              ],
+              "id": 17,
+              "name": "Snorlax \u03b4",
+              "def_id": "df-010-snorlax",
+              "energy": [],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "prizes_remaining": 6
+          },
+          "game_steps": 62,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 9,
+            "active_switch_required": false
+          },
+          "decision_step": 14,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 41,
+            "hand_count": 7,
+            "prizes_remaining": 4
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "AttachEnergy",
+              "options": {
+                "targets": [
+                  17,
+                  18,
+                  1
+                ],
+                "energy_ids": [
+                  50
+                ]
+              }
+            },
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  20
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 14
+      },
+      "timestamp": "2026-01-16T00:35:55.888502+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-010-snorlax (Colorless)\n  HP: 40/90\n  ID: 17\n  Energy: None\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 18\n  Energy: None\nBench 2: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 1\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n  - ENERGY-FIRE (id:50)\n\nDeck: 43 cards | Prizes: 6 remaining\n\nDiscard: 5 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115)\n\nHand: 7 cards | Deck: 41 cards | Prizes: 4 remaining\n\n=== AVAILABLE ACTIONS ===\n  Attach Energy: ENERGY-FIRE (id:50) -> targets available\n  Play Trainer: df-082-tv-reporter (id:20)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[40,90],\"energy\":[],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":1,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"},{\"id\":50,\"def_id\":\"ENERGY-FIRE\",\"name\":\"ENERGY-FIRE\"}],\"deck_count\":43,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":7,\"deck_count\":41,\"prizes_remaining\":4},\"available_actions\":[{\"type\":\"AttachEnergy\",\"options\":{\"energy_ids\":[50],\"targets\":[17,18,1]}},{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[20]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Claw Swipe\",\"damage\":30,\"cost\":[\"Colorless\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":9,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":62,\"decision_step\":14}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"AttachEnergy\",\"energy_id\":50,\"target_id\":17}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Colorless",
+                "Colorless"
+              ],
+              "name": "Claw Swipe",
+              "damage": 30,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 20,
+                "name": "TV Reporter",
+                "def_id": "df-082-tv-reporter"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 1,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                40,
+                90
+              ],
+              "id": 17,
+              "name": "Snorlax \u03b4",
+              "def_id": "df-010-snorlax",
+              "energy": [
+                "ENERGY-FIRE"
+              ],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "prizes_remaining": 6
+          },
+          "game_steps": 63,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 9,
+            "active_switch_required": false
+          },
+          "decision_step": 15,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 41,
+            "hand_count": 7,
+            "prizes_remaining": 4
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayTrainer",
+              "options": {
+                "card_ids": [
+                  20
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 15
+      },
+      "timestamp": "2026-01-16T00:35:55.888512+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-010-snorlax (Colorless)\n  HP: 40/90\n  ID: 17\n  Energy: ENERGY-FIRE (id:50)\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 18\n  Energy: None\nBench 2: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 1\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n  - df-082-tv-reporter (id:20)\n\nDeck: 43 cards | Prizes: 6 remaining\n\nDiscard: 5 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115)\n\nHand: 7 cards | Deck: 41 cards | Prizes: 4 remaining\n\n=== AVAILABLE ACTIONS ===\n  Play Trainer: df-082-tv-reporter (id:20)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[40,90],\"energy\":[\"ENERGY-FIRE\"],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":1,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":20,\"def_id\":\"df-082-tv-reporter\",\"name\":\"TV Reporter\"}],\"deck_count\":43,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":7,\"deck_count\":41,\"prizes_remaining\":4},\"available_actions\":[{\"type\":\"PlayTrainer\",\"options\":{\"card_ids\":[20]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Claw Swipe\",\"damage\":30,\"cost\":[\"Colorless\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":9,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":63,\"decision_step\":15}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"PlayTrainer\",\"card_id\":20}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "auto_end_turn",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Colorless",
+                "Colorless"
+              ],
+              "name": "Claw Swipe",
+              "damage": 30,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 1,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                40,
+                90
+              ],
+              "id": 17,
+              "name": "Snorlax \u03b4",
+              "def_id": "df-010-snorlax",
+              "energy": [
+                "ENERGY-FIRE"
+              ],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 43,
+            "prizes_remaining": 6
+          },
+          "game_steps": 64,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 9,
+            "active_switch_required": false
+          },
+          "decision_step": 16,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 41,
+            "hand_count": 7,
+            "prizes_remaining": 4
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 16
+      },
+      "timestamp": "2026-01-16T00:35:55.888523+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-010-snorlax (Colorless)\n  HP: 40/90\n  ID: 17\n  Energy: ENERGY-FIRE (id:50)\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 18\n  Energy: None\nBench 2: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 1\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n\nDeck: 43 cards | Prizes: 6 remaining\n\nDiscard: 6 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115)\n\nHand: 7 cards | Deck: 41 cards | Prizes: 4 remaining\n\n=== AVAILABLE ACTIONS ===\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":17,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[40,90],\"energy\":[\"ENERGY-FIRE\"],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":1,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"}],\"deck_count\":43,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":7,\"deck_count\":41,\"prizes_remaining\":4},\"available_actions\":[{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Claw Swipe\",\"damage\":30,\"cost\":[\"Colorless\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":9,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":64,\"decision_step\":16}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\": \"EndTurn\"}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "EndOfTurn",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  90,
+                  90
+                ],
+                "id": 18,
+                "name": "Snorlax \u03b4",
+                "def_id": "df-010-snorlax",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 1,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": null,
+            "deck_count": 43,
+            "prizes_remaining": 6
+          },
+          "game_steps": 70,
+          "turn_context": {
+            "phase": "EndOfTurn",
+            "turn_index": 10,
+            "active_switch_required": true
+          },
+          "decision_step": 17,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS",
+                  "ENERGY-GRASS"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 40,
+            "hand_count": 8,
+            "prizes_remaining": 3
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [
+              18,
+              1
+            ],
+            "details": {
+              "options": [
+                18,
+                1
+              ]
+            },
+            "required": true,
+            "action_type": "ChooseActive"
+          },
+          "available_actions": [
+            {
+              "type": "ChooseActive",
+              "options": {
+                "options": [
+                  18,
+                  1
+                ]
+              }
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 17
+      },
+      "timestamp": "2026-01-16T00:35:55.888542+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: End of Turn | Current Turn: P2 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose a new Active Pokemon from bench: [18, 1]\n\n=== YOUR SIDE ===\nActive: None\n\nBench:\nBench 1: df-010-snorlax (Colorless)\n  HP: 90/90\n  ID: 18\n  Energy: None\nBench 2: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 1\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n\nDeck: 43 cards | Prizes: 6 remaining\n\nDiscard: 8 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115), ENERGY-GRASS (id:113)\n\nHand: 8 cards | Deck: 40 cards | Prizes: 3 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseNewActive with card_id from: [18, 1]\n\nsnapshot_json:\n{\"phase\":\"EndOfTurn\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":true,\"action_type\":\"ChooseActive\",\"choices\":[18,1],\"details\":{\"options\":[18,1]}},\"your_side\":{\"active\":null,\"bench\":[{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[90,90],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":1,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"}],\"deck_count\":43,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":8,\"deck_count\":40,\"prizes_remaining\":3},\"available_actions\":[{\"type\":\"ChooseActive\",\"options\":{\"options\":[18,1]}}],\"attacks\":[],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":10,\"phase\":\"EndOfTurn\",\"active_switch_required\":true},\"game_steps\":70,\"decision_step\":17}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseActive\",\"card_id\":18}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Colorless",
+                "Colorless"
+              ],
+              "name": "Claw Swipe",
+              "damage": 30,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              },
+              {
+                "id": 13,
+                "name": "Vulpix \u03b4",
+                "def_id": "df-070-vulpix"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 1,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                40,
+                90
+              ],
+              "id": 18,
+              "name": "Snorlax \u03b4",
+              "def_id": "df-010-snorlax",
+              "energy": [],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 42,
+            "prizes_remaining": 6
+          },
+          "game_steps": 80,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 12,
+            "active_switch_required": false
+          },
+          "decision_step": 18,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS",
+                  "ENERGY-GRASS"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 39,
+            "hand_count": 8,
+            "prizes_remaining": 3
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "PlayBasic",
+              "options": {
+                "card_ids": [
+                  13
+                ]
+              }
+            },
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 18
+      },
+      "timestamp": "2026-01-16T00:35:55.888548+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-010-snorlax (Colorless)\n  HP: 40/90\n  ID: 18\n  Energy: None\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 1\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n  - df-070-vulpix (id:13)\n\nDeck: 42 cards | Prizes: 6 remaining\n\nDiscard: 8 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115), ENERGY-GRASS (id:113)\n\nHand: 8 cards | Deck: 39 cards | Prizes: 3 remaining\n\n=== AVAILABLE ACTIONS ===\n  Play Basic Pokemon: df-070-vulpix (id:13)\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[40,90],\"energy\":[],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":1,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"},{\"id\":13,\"def_id\":\"df-070-vulpix\",\"name\":\"Vulpix \u03b4\"}],\"deck_count\":42,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":8,\"deck_count\":39,\"prizes_remaining\":3},\"available_actions\":[{\"type\":\"PlayBasic\",\"options\":{\"card_ids\":[13]}},{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Claw Swipe\",\"damage\":30,\"cost\":[\"Colorless\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":12,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":80,\"decision_step\":18}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"PlayBasic\",\"card_id\":13}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "auto_end_turn",
+        "error": null,
+        "snapshot": {
+          "phase": "Main",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [
+            {
+              "cost": [
+                "Colorless",
+                "Colorless"
+              ],
+              "name": "Claw Swipe",
+              "damage": 30,
+              "effects": [],
+              "total_energy": 2
+            }
+          ],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 1,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 13,
+                "name": "Vulpix \u03b4",
+                "def_id": "df-070-vulpix",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                40,
+                90
+              ],
+              "id": 18,
+              "name": "Snorlax \u03b4",
+              "def_id": "df-010-snorlax",
+              "energy": [],
+              "damage_counters": 5,
+              "special_conditions": []
+            },
+            "deck_count": 42,
+            "prizes_remaining": 6
+          },
+          "game_steps": 81,
+          "turn_context": {
+            "phase": "Main",
+            "turn_index": 12,
+            "active_switch_required": false
+          },
+          "decision_step": 19,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS",
+                  "ENERGY-GRASS"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 39,
+            "hand_count": 8,
+            "prizes_remaining": 3
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [],
+            "details": {},
+            "required": false,
+            "action_type": ""
+          },
+          "available_actions": [
+            {
+              "type": "EndTurn",
+              "options": {}
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 19
+      },
+      "timestamp": "2026-01-16T00:35:55.888551+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: Main | Current Turn: P1 | You are: P1\n\n=== YOUR SIDE ===\nActive: df-010-snorlax (Colorless)\n  HP: 40/90\n  ID: 18\n  Energy: None\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 1\n  Energy: None\nBench 2: df-070-vulpix (Fire)\n  HP: 50/50\n  ID: 13\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n\nDeck: 42 cards | Prizes: 6 remaining\n\nDiscard: 8 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115), ENERGY-GRASS (id:113)\n\nHand: 8 cards | Deck: 39 cards | Prizes: 3 remaining\n\n=== AVAILABLE ACTIONS ===\n  End Turn: Available\n\nsnapshot_json:\n{\"phase\":\"Main\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":false,\"action_type\":\"\",\"choices\":[],\"details\":{}},\"your_side\":{\"active\":{\"id\":18,\"def_id\":\"df-010-snorlax\",\"name\":\"Snorlax \u03b4\",\"hp\":[40,90],\"energy\":[],\"damage_counters\":5,\"special_conditions\":[]},\"bench\":[{\"id\":1,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":13,\"def_id\":\"df-070-vulpix\",\"name\":\"Vulpix \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"}],\"deck_count\":42,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":8,\"deck_count\":39,\"prizes_remaining\":3},\"available_actions\":[{\"type\":\"EndTurn\",\"options\":{}}],\"attacks\":[{\"name\":\"Claw Swipe\",\"damage\":30,\"cost\":[\"Colorless\",\"Colorless\"],\"total_energy\":2,\"effects\":[]}],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":12,\"phase\":\"Main\",\"active_switch_required\":false},\"game_steps\":81,\"decision_step\":19}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\": \"EndTurn\"}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "EndOfTurn",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 1,
+                "name": "Ralts \u03b4",
+                "def_id": "df-061-ralts",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 13,
+                "name": "Vulpix \u03b4",
+                "def_id": "df-070-vulpix",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": null,
+            "deck_count": 42,
+            "prizes_remaining": 6
+          },
+          "game_steps": 87,
+          "turn_context": {
+            "phase": "EndOfTurn",
+            "turn_index": 13,
+            "active_switch_required": true
+          },
+          "decision_step": 20,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS",
+                  "ENERGY-GRASS",
+                  "ENERGY-PSYCHIC"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 38,
+            "hand_count": 9,
+            "prizes_remaining": 2
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [
+              1,
+              13
+            ],
+            "details": {
+              "options": [
+                1,
+                13
+              ]
+            },
+            "required": true,
+            "action_type": "ChooseActive"
+          },
+          "available_actions": [
+            {
+              "type": "ChooseActive",
+              "options": {
+                "options": [
+                  1,
+                  13
+                ]
+              }
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 20
+      },
+      "timestamp": "2026-01-16T00:35:55.888557+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: End of Turn | Current Turn: P2 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose a new Active Pokemon from bench: [1, 13]\n\n=== YOUR SIDE ===\nActive: None\n\nBench:\nBench 1: df-061-ralts (Psychic)\n  HP: 50/50\n  ID: 1\n  Energy: None\nBench 2: df-070-vulpix (Fire)\n  HP: 50/50\n  ID: 13\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n\nDeck: 42 cards | Prizes: 6 remaining\n\nDiscard: 9 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115), ENERGY-GRASS (id:113), ENERGY-PSYCHIC (id:84)\n\nHand: 9 cards | Deck: 38 cards | Prizes: 2 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseNewActive with card_id from: [1, 13]\n\nsnapshot_json:\n{\"phase\":\"EndOfTurn\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":true,\"action_type\":\"ChooseActive\",\"choices\":[1,13],\"details\":{\"options\":[1,13]}},\"your_side\":{\"active\":null,\"bench\":[{\"id\":1,\"def_id\":\"df-061-ralts\",\"name\":\"Ralts \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":13,\"def_id\":\"df-070-vulpix\",\"name\":\"Vulpix \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"}],\"deck_count\":42,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-PSYCHIC\"],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":9,\"deck_count\":38,\"prizes_remaining\":2},\"available_actions\":[{\"type\":\"ChooseActive\",\"options\":{\"options\":[1,13]}}],\"attacks\":[],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":13,\"phase\":\"EndOfTurn\",\"active_switch_required\":true},\"game_steps\":87,\"decision_step\":20}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseActive\",\"card_id\":1}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    },
+    {
+      "type": "lm_call",
+      "metadata": {
+        "note": "llm_action",
+        "error": null,
+        "snapshot": {
+          "phase": "EndOfTurn",
+          "rules": {
+            "max_bench": 5,
+            "energy_attach_per_turn": 1
+          },
+          "attacks": [],
+          "your_side": {
+            "hand": [
+              {
+                "id": 7,
+                "name": "Kirlia \u03b4",
+                "def_id": "df-033-kirlia"
+              }
+            ],
+            "bench": [
+              {
+                "hp": [
+                  50,
+                  50
+                ],
+                "id": 13,
+                "name": "Vulpix \u03b4",
+                "def_id": "df-070-vulpix",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": null,
+            "deck_count": 42,
+            "prizes_remaining": 6
+          },
+          "game_steps": 93,
+          "turn_context": {
+            "phase": "EndOfTurn",
+            "turn_index": 14,
+            "active_switch_required": true
+          },
+          "decision_step": 21,
+          "opponent_side": {
+            "bench": [
+              {
+                "hp": [
+                  70,
+                  70
+                ],
+                "id": 71,
+                "name": "Pinsir \u03b4",
+                "def_id": "df-009-pinsir",
+                "energy": [
+                  "ENERGY-GRASS",
+                  "ENERGY-GRASS",
+                  "ENERGY-PSYCHIC"
+                ],
+                "damage_counters": 0,
+                "special_conditions": []
+              },
+              {
+                "hp": [
+                  80,
+                  80
+                ],
+                "id": 74,
+                "name": "Heracross \u03b4",
+                "def_id": "df-003-heracross",
+                "energy": [],
+                "damage_counters": 0,
+                "special_conditions": []
+              }
+            ],
+            "active": {
+              "hp": [
+                70,
+                70
+              ],
+              "id": 72,
+              "name": "Pinsir \u03b4",
+              "def_id": "df-009-pinsir",
+              "energy": [
+                "ENERGY-GRASS",
+                "ENERGY-GRASS",
+                "ENERGY-GRASS"
+              ],
+              "damage_counters": 0,
+              "special_conditions": []
+            },
+            "deck_count": 37,
+            "hand_count": 10,
+            "prizes_remaining": 1
+          },
+          "current_player": "P1",
+          "pending_prompt": {
+            "choices": [
+              13
+            ],
+            "details": {
+              "options": [
+                13
+              ]
+            },
+            "required": true,
+            "action_type": "ChooseActive"
+          },
+          "available_actions": [
+            {
+              "type": "ChooseActive",
+              "options": {
+                "options": [
+                  13
+                ]
+              }
+            }
+          ]
+        },
+        "action_valid": true,
+        "decision_step": 21
+      },
+      "timestamp": "2026-01-16T00:35:55.888564+00:00",
+      "api_format": "chat",
+      "event_type": "lm_call",
+      "llm_request": {
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.\n\nYou MUST select only legal actions based on the current available_actions_json list.\n\nGuidance (internal):\n- Consider the phase, available attacks, energy attachment limits, and bench capacity.\n- Prefer clear progress: develop the board, attach energy with intent, and attack when it is reasonable.\n- Avoid illegal actions, wasting turns, or repeatedly passing when attacking is available.\n\nHard rules:\n- You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.\n- You can only attach ONE energy per turn.\n- After your actions, you MUST use EndTurn.\n- You MUST choose an action that is currently allowed (from available_actions_json).\n- If an action type is NOT listed in available_actions_json, do NOT output it.\n- If you are unsure, choose EndTurn (only if EndTurn is listed).\n\nCRITICAL - For DeclareAttack:\n- You MUST use EXACTLY one of the attack names from available_actions_json where type=\"DeclareAttack\"\n- The valid attack names are in: available_actions_json[type=\"DeclareAttack\"].options.attack_names\n- Do NOT guess or make up attack names. Use ONLY the names provided.\n\nYou must respond with ONLY a JSON action (no extra text):\n- {\"action\": \"PlayBasic\", \"card_id\": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)\n- {\"action\": \"AttachEnergy\", \"energy_id\": <id>, \"target_id\": <id>} - Attach energy\n- {\"action\": \"DeclareAttack\", \"attack\": \"<name>\"} - Use ONLY attack name from options.attack_names\n- {\"action\": \"EndTurn\"} - End your turn\n- {\"action\": \"ChooseActive\", \"card_id\": <id>} - Setup: choose active\n- {\"action\": \"ChooseBench\", \"card_ids\": [<id>, ...]} - Setup: choose bench\n"
+          },
+          {
+            "role": "user",
+            "content": "=== POKEMON TCG GAME STATE ===\nPhase: End of Turn | Current Turn: P2 | You are: P1\n\n>>> PENDING ACTION REQUIRED <<<\nChoose a new Active Pokemon from bench: [13]\n\n=== YOUR SIDE ===\nActive: None\n\nBench:\nBench 1: df-070-vulpix (Fire)\n  HP: 50/50\n  ID: 13\n  Energy: None\n\nHand:\n  - df-033-kirlia (id:7)\n\nDeck: 42 cards | Prizes: 6 remaining\n\nDiscard: 10 cards\n\n=== OPPONENT SIDE ===\nActive: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 72\n  Energy: ENERGY-GRASS (id:117), ENERGY-GRASS (id:110), ENERGY-GRASS (id:119)\n\nBench:\nBench 1: df-009-pinsir (Grass)\n  HP: 70/70\n  ID: 71\n  Energy: ENERGY-GRASS (id:115), ENERGY-GRASS (id:113), ENERGY-PSYCHIC (id:84)\nBench 2: df-003-heracross (Grass)\n  HP: 80/80\n  ID: 74\n  Energy: None\n\nHand: 10 cards | Deck: 37 cards | Prizes: 1 remaining\n\n=== AVAILABLE ACTIONS ===\n  ** You must respond to the pending prompt! **\n  Action: ChooseNewActive with card_id from: [13]\n\nsnapshot_json:\n{\"phase\":\"EndOfTurn\",\"current_player\":\"P1\",\"pending_prompt\":{\"required\":true,\"action_type\":\"ChooseActive\",\"choices\":[13],\"details\":{\"options\":[13]}},\"your_side\":{\"active\":null,\"bench\":[{\"id\":13,\"def_id\":\"df-070-vulpix\",\"name\":\"Vulpix \u03b4\",\"hp\":[50,50],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand\":[{\"id\":7,\"def_id\":\"df-033-kirlia\",\"name\":\"Kirlia \u03b4\"}],\"deck_count\":42,\"prizes_remaining\":6},\"opponent_side\":{\"active\":{\"id\":72,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-GRASS\"],\"damage_counters\":0,\"special_conditions\":[]},\"bench\":[{\"id\":71,\"def_id\":\"df-009-pinsir\",\"name\":\"Pinsir \u03b4\",\"hp\":[70,70],\"energy\":[\"ENERGY-GRASS\",\"ENERGY-GRASS\",\"ENERGY-PSYCHIC\"],\"damage_counters\":0,\"special_conditions\":[]},{\"id\":74,\"def_id\":\"df-003-heracross\",\"name\":\"Heracross \u03b4\",\"hp\":[80,80],\"energy\":[],\"damage_counters\":0,\"special_conditions\":[]}],\"hand_count\":10,\"deck_count\":37,\"prizes_remaining\":1},\"available_actions\":[{\"type\":\"ChooseActive\",\"options\":{\"options\":[13]}}],\"attacks\":[],\"rules\":{\"max_bench\":5,\"energy_attach_per_turn\":1},\"turn_context\":{\"turn_index\":14,\"phase\":\"EndOfTurn\",\"active_switch_required\":true},\"game_steps\":93,\"decision_step\":21}\n"
+          }
+        ]
+      },
+      "llm_response": {
+        "message": {
+          "role": "assistant",
+          "content": "{\"action\":\"ChooseActive\",\"card_id\":13}"
+        }
+      },
+      "correlation_id": "eval_eval_ebb465242d244f4f_seed0_6ded5e9c"
+    }
+  ],
+  "schema_version": "4.0",
+  "markov_blanket_message_history": []
+}

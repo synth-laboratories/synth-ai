@@ -18,12 +18,12 @@ Example:
 """
 
 from .client import (
+    Neighborhood,
+    NodeContext,
     OntologyClient,
     OntologyNode,
     PropertyClaim,
     Relationship,
-    NodeContext,
-    Neighborhood,
 )
 
 __all__ = [

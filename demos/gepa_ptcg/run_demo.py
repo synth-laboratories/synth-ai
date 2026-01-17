@@ -53,7 +53,12 @@ DOWNLOAD_TRACES = args.download_traces
 import time  # noqa: E402
 
 import httpx  # noqa: E402
-from localapi_ptcg import DEFAULT_SYSTEM_PROMPT, INSTANCE_IDS, PTCG_REACT_SYSTEM_PROMPT, app  # noqa: E402
+from localapi_ptcg import (  # noqa: E402
+    DEFAULT_SYSTEM_PROMPT,
+    INSTANCE_IDS,
+    PTCG_REACT_SYSTEM_PROMPT,
+    app,
+)
 from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key  # noqa: E402
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig  # noqa: E402
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
@@ -81,13 +86,13 @@ async def main():
     """Main entry point."""
     # Print tcg_py version
     try:
-        import tcg_py
         import importlib.metadata
+
         tcg_version = importlib.metadata.version("tcg-py")
         print(f"tcg_py version: {tcg_version}")
     except Exception as e:
         print(f"tcg_py version: unknown ({e})")
-    
+
     print("=" * 60)
     print("POKEMON TCG GEPA DEMO")
     print("=" * 60)
@@ -142,7 +147,8 @@ async def main():
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(
-                    f"{task_app_url}/info", headers={"X-API-Key": env_key, "Content-Type": "application/json"}
+                    f"{task_app_url}/info",
+                    headers={"X-API-Key": env_key, "Content-Type": "application/json"},
                 )
                 resp.raise_for_status()
                 (run_dir / "task_app_info.json").write_text(
@@ -225,14 +231,14 @@ async def main():
                 (run_dir / "eval_job_id.txt").write_text(str(job_id), encoding="utf-8")
             except Exception as e:
                 print(f"Warning: failed to write eval job results: {e}")
-        
+
         # Try to get raw_results if not already available
         if raw_results is None:
             try:
                 raw_results = job.get_results()
             except Exception:
                 pass
-        
+
         # Use raw_results if available, otherwise fall back to result.seed_results
         seed_results_to_use = None
         if raw_results and isinstance(raw_results, dict) and "seed_results" in raw_results:
@@ -264,18 +270,24 @@ async def main():
             # Debug: Print first seed_result structure to understand format
             if len(seed_results_to_use) > 0:
                 debug_sr = seed_results_to_use[0]
-                print(f"\n[DEBUG] First seed_result keys: {list(debug_sr.keys()) if isinstance(debug_sr, dict) else 'not a dict'}")
+                print(
+                    f"\n[DEBUG] First seed_result keys: {list(debug_sr.keys()) if isinstance(debug_sr, dict) else 'not a dict'}"
+                )
                 if isinstance(debug_sr, dict):
                     # Print all values to see what's actually there
-                    print(f"[DEBUG] Sample values: {[(k, v) for k, v in list(debug_sr.items())[:10]]}")
+                    print(
+                        f"[DEBUG] Sample values: {[(k, v) for k, v in list(debug_sr.items())[:10]]}"
+                    )
                     if "details" in debug_sr:
                         print(f"[DEBUG] Details keys: {list(debug_sr['details'].keys())}")
                     if "metadata" in debug_sr:
                         print(f"[DEBUG] Metadata keys: {list(debug_sr['metadata'].keys())}")
                     # Check if data might be in reward_info
                     if "reward_info" in debug_sr:
-                        print(f"[DEBUG] reward_info keys: {list(debug_sr['reward_info'].keys()) if isinstance(debug_sr['reward_info'], dict) else 'not a dict'}")
-            
+                        print(
+                            f"[DEBUG] reward_info keys: {list(debug_sr['reward_info'].keys()) if isinstance(debug_sr['reward_info'], dict) else 'not a dict'}"
+                        )
+
             # Print detailed statistics table
             print(f"\n{'=' * 130}")
             print("DETAILED GAME STATISTICS")
@@ -289,14 +301,14 @@ async def main():
                 f"{'Prizes':<8} {'Prizes':<10} {'Damage':<8} {'Damage':<10} {'':<50}"
             )
             print("-" * 135)
-            
+
             # Load rollouts JSONL file if available - it has the actual game results
             rollouts_data = {}
             if run_dir:
                 rollouts_file = run_dir / "ptcg_rollouts.jsonl"
                 if rollouts_file.exists():
                     try:
-                        with open(rollouts_file, "r") as f:
+                        with open(rollouts_file) as f:
                             for line in f:
                                 if line.strip():
                                     rollout = json.loads(line)
@@ -305,39 +317,40 @@ async def main():
                                         rollouts_data[seed_val] = rollout
                     except Exception as e:
                         print(f"[DEBUG] Failed to load rollouts: {e}")
-            
+
             for idx, sr in enumerate(seed_results_to_use):
                 seed = sr.get("seed", idx)
-                
+
                 # Try to get data from rollouts file first (most reliable)
                 rollout = rollouts_data.get(seed, {})
                 result_data = rollout.get("result", {})
-                
+
                 # Try multiple ways to extract data
                 metadata = sr.get("metadata", {}) or sr.get("rollout_metadata", {}) or {}
                 details = sr.get("details", {}) or {}
                 reward_info = sr.get("reward_info", {}) or {}
-                
+
                 # Check if details is nested in reward_info
                 if isinstance(reward_info, dict) and "details" in reward_info:
                     details = reward_info["details"] or details
                 if isinstance(reward_info, dict) and "metadata" in reward_info:
                     metadata = reward_info["metadata"] or metadata
-                
+
                 # Merge rollout result data into details (rollout data takes precedence)
                 if result_data:
                     details = {**details, **result_data}
-                
+
                 # Extract instance_id - try multiple locations (rollout data first)
                 instance_id = (
                     rollout.get("instance_id")
                     or (metadata.get("instance_id") if metadata else None)
                     or (details.get("instance_id") if details else None)
                     or sr.get("instance_id")
-                    or sr.get("trial_id", "").split("-")[-1] if sr.get("trial_id") else None
-                    or f"seed_{seed}"
+                    or sr.get("trial_id", "").split("-")[-1]
+                    if sr.get("trial_id")
+                    else None or f"seed_{seed}"
                 )
-                
+
                 # Extract winner - try multiple locations (rollout result first)
                 winner = (
                     result_data.get("winner")
@@ -346,12 +359,14 @@ async def main():
                     or sr.get("winner")
                     or "?"
                 )
-                
+
                 # Extract game statistics - check details first, then try direct access
                 # Also check reward_info.details if it exists
-                reward_details = reward_info.get("details", {}) if isinstance(reward_info, dict) else {}
+                reward_details = (
+                    reward_info.get("details", {}) if isinstance(reward_info, dict) else {}
+                )
                 all_details = {**details, **reward_details} if details or reward_details else {}
-                
+
                 # Extract game statistics - rollout result data takes precedence
                 agent_turns = (
                     result_data.get("decision_steps")
@@ -363,7 +378,7 @@ async def main():
                     or sr.get("turns")
                     or "?"
                 )
-                
+
                 total_turns = (
                     result_data.get("turns")
                     or all_details.get("turns")
@@ -371,7 +386,7 @@ async def main():
                     or sr.get("turns")
                     or "?"
                 )
-                
+
                 # Extract prize information (rollout result first)
                 p1_prizes_remaining = (
                     result_data.get("p1_prizes")
@@ -381,7 +396,7 @@ async def main():
                 )
                 if p1_prizes_remaining is None:
                     p1_prizes_remaining = 6
-                    
+
                 p2_prizes_remaining = (
                     result_data.get("p2_prizes")
                     or all_details.get("p2_prizes")
@@ -390,11 +405,15 @@ async def main():
                 )
                 if p2_prizes_remaining is None:
                     p2_prizes_remaining = 6
-                
+
                 # Calculate prizes taken (start with 6, subtract remaining)
-                agent_prizes_taken = 6 - p1_prizes_remaining if isinstance(p1_prizes_remaining, int) else "?"
-                opponent_prizes_taken = 6 - p2_prizes_remaining if isinstance(p2_prizes_remaining, int) else "?"
-                
+                agent_prizes_taken = (
+                    6 - p1_prizes_remaining if isinstance(p1_prizes_remaining, int) else "?"
+                )
+                opponent_prizes_taken = (
+                    6 - p2_prizes_remaining if isinstance(p2_prizes_remaining, int) else "?"
+                )
+
                 # Extract damage from rollout result first
                 agent_damage = (
                     result_data.get("p1_damage_dealt")
@@ -410,7 +429,7 @@ async def main():
                     or sr.get("p2_damage_dealt")
                     or 0
                 )
-                
+
                 # Determine loss reason (rollout result first)
                 end_reason = (
                     result_data.get("end_reason")
@@ -426,7 +445,7 @@ async def main():
                     or sr.get("errors")
                     or 0
                 )
-                
+
                 # Build descriptive loss reason
                 if winner == "P1":
                     loss_reason = "Won"
@@ -438,10 +457,11 @@ async def main():
                         or details.get("error_messages")
                         or []
                     )
-                    
+
                     if error_msgs:
                         # Extract error type from most common error
                         from collections import Counter
+
                         error_counts = Counter(error_msgs)
                         most_common_error = error_counts.most_common(1)[0][0]
                         # Extract error type (e.g., "EnergyAlreadyAttached" from "Action failed: EnergyAlreadyAttached")
@@ -464,12 +484,14 @@ async def main():
                         # Fallback: add minimal context
                         prize_diff = (
                             opponent_prizes_taken - agent_prizes_taken
-                            if isinstance(opponent_prizes_taken, int) and isinstance(agent_prizes_taken, int)
+                            if isinstance(opponent_prizes_taken, int)
+                            and isinstance(agent_prizes_taken, int)
                             else None
                         )
                         damage_diff = (
                             opponent_damage - agent_damage
-                            if isinstance(opponent_damage, (int, float)) and isinstance(agent_damage, (int, float))
+                            if isinstance(opponent_damage, (int, float))
+                            and isinstance(agent_damage, (int, float))
                             else None
                         )
                         reason_parts = ["Lost"]
@@ -484,30 +506,30 @@ async def main():
                             else:
                                 reason_parts.append(f"+{abs(damage_diff)} dmg")
                         loss_reason = " | ".join(reason_parts)
-                
+
                 # Format opponent turns (approximate - total turns minus agent turns)
                 opponent_turns = "?"
                 if isinstance(total_turns, int) and isinstance(agent_turns, int):
                     opponent_turns = max(0, total_turns - agent_turns)
-                
+
                 print(
                     f"{seed:<6} {instance_id:<15} {winner:<8} {agent_turns:<8} {opponent_turns:<10} "
                     f"{agent_prizes_taken:<8} {opponent_prizes_taken:<10} {agent_damage:<8} {opponent_damage:<10} "
                     f"{loss_reason[:50]:<50}"
                 )
-            
+
             print(f"{'=' * 135}\n")
-            
+
             # Also print summary format for compatibility
             print(f"Game results summary ({len(seed_results_to_use)}):")
             for idx, sr in enumerate(seed_results_to_use):
                 seed = sr.get("seed", idx)
                 rollout = rollouts_data.get(seed, {})
                 result_data = rollout.get("result", {})
-                
+
                 metadata = sr.get("metadata", {}) or sr.get("rollout_metadata", {}) or {}
                 details = sr.get("details", {}) or {}
-                
+
                 instance_id = (
                     rollout.get("instance_id")
                     or metadata.get("instance_id")
