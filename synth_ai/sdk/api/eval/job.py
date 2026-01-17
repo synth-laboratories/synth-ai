@@ -34,7 +34,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 import httpx
 
@@ -549,7 +549,7 @@ class EvalJob:
         self,
         *,
         timeout: float = 1200.0,
-        interval: float = 2.0,
+        interval: float = 15.0,
         progress: bool = False,
         on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> EvalResult:
@@ -560,7 +560,7 @@ class EvalJob:
 
         Args:
             timeout: Maximum seconds to wait (default: 1200 = 20 minutes)
-            interval: Seconds between poll attempts (default: 2)
+            interval: Seconds between poll attempts (default: 15)
             progress: If True, print status updates during polling (useful for notebooks)
             on_status: Optional callback called on each status update (for custom progress handling)
 
@@ -659,6 +659,98 @@ class EvalJob:
                 log_info("poll request failed", ctx={"error": str(exc), "job_id": job_id})
 
             time.sleep(interval)
+
+    def stream_until_complete(
+        self,
+        *,
+        timeout: float = 1200.0,
+        interval: float = 15.0,
+        handlers: Optional[Sequence[Any]] = None,
+        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> EvalResult:
+        """Stream job events until completion using SSE.
+
+        This provides real-time event streaming instead of polling,
+        reducing server load and providing faster updates.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 1200 = 20 minutes)
+            interval: Seconds between status checks (for SSE reconnects)
+            handlers: Optional StreamHandler instances for custom event handling
+            on_event: Optional callback called on each event
+
+        Returns:
+            EvalResult with typed status, mean_reward, seed_results, etc.
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+            TimeoutError: If timeout exceeded
+
+        Example:
+            >>> result = job.stream_until_complete()
+            [00:05] Eval started: 10 seeds
+            [00:10] Progress: 5/10 seeds completed
+            [00:15] Eval completed: mean_reward=0.85
+            >>> result.succeeded
+            True
+        """
+        import asyncio
+        import contextlib
+
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        from synth_ai.sdk.streaming import (
+            EvalHandler,
+            JobStreamer,
+            StreamConfig,
+            StreamEndpoints,
+            StreamType,
+        )
+
+        # Build stream config
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS},
+            max_events_per_poll=500,
+            deduplicate=True,
+        )
+
+        # Use provided handlers or default EvalHandler
+        if handlers is None:
+            handlers = [EvalHandler()]
+
+        # Create streamer with eval endpoints
+        # Note: base_url should NOT include /api prefix - JobStreamer adds it
+        base_url = self._base_url().replace("/api", "").rstrip("/")
+        streamer = JobStreamer(
+            base_url=base_url,
+            api_key=self.config.api_key,
+            job_id=self._job_id,
+            endpoints=StreamEndpoints.eval(self._job_id),
+            config=config,
+            handlers=list(handlers),
+            interval_seconds=interval,
+            timeout_seconds=timeout,
+        )
+
+        # Run streaming
+        final_status = asyncio.run(streamer.stream_until_terminal())
+
+        # Callback for custom handling
+        if on_event and isinstance(final_status, dict):
+            with contextlib.suppress(Exception):
+                on_event(final_status)
+
+        # Fetch full results if completed
+        status_str = str(final_status.get("status", "")).lower()
+        if status_str == "completed":
+            try:
+                full_results = self.get_results()
+                return EvalResult.from_response(self._job_id, full_results)
+            except Exception:
+                pass
+
+        return EvalResult.from_response(self._job_id, final_status)
 
     def get_results(self) -> Dict[str, Any]:
         """Get detailed job results.

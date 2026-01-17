@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Sequence
 
 from synth_ai.core.telemetry import log_info
 from synth_ai.core.urls import BACKEND_URL_BASE
@@ -611,7 +611,7 @@ class PromptLearningJob:
         self,
         *,
         timeout: float = 3600.0,
-        interval: float = 5.0,
+        interval: float = 15.0,
         progress: bool = False,
         on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
         request_timeout: float = 180.0,
@@ -713,6 +713,86 @@ class PromptLearningJob:
 
         # Return with whatever data we have, status will indicate not complete
         return PromptLearningResult.from_response(job_id, last_data)
+
+    def stream_until_complete(
+        self,
+        *,
+        timeout: float = 3600.0,
+        interval: float = 15.0,
+        handlers: Optional[Sequence[Any]] = None,
+        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> PromptLearningResult:
+        """Stream job events until completion using SSE.
+
+        This provides real-time event streaming instead of polling,
+        reducing server load and providing faster updates.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 3600 = 1 hour)
+            interval: Seconds between status checks (for SSE reconnects)
+            handlers: Optional StreamHandler instances for custom event handling
+            on_event: Optional callback called on each event
+
+        Returns:
+            PromptLearningResult with typed status, best_score, etc.
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+            TimeoutError: If timeout exceeded
+
+        Example:
+            >>> result = job.stream_until_complete()
+            [00:15] running | score: 0.72
+            [00:30] running | score: 0.78
+            [00:45] succeeded | score: 0.85
+            >>> result.succeeded
+            True
+        """
+        import contextlib
+
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        from synth_ai.sdk.streaming import (
+            JobStreamer,
+            PromptLearningHandler,
+            StreamConfig,
+            StreamEndpoints,
+            StreamType,
+        )
+
+        # Build stream config
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            max_events_per_poll=500,
+            deduplicate=True,
+        )
+
+        # Use provided handlers or default PromptLearningHandler
+        if handlers is None:
+            handlers = [PromptLearningHandler()]
+
+        # Create streamer with prompt learning endpoints
+        streamer = JobStreamer(
+            base_url=ensure_api_base(self.config.backend_url),
+            api_key=self.config.api_key,
+            job_id=self._job_id,
+            endpoints=StreamEndpoints.prompt_learning(self._job_id),
+            config=config,
+            handlers=list(handlers),
+            interval_seconds=interval,
+            timeout_seconds=timeout,
+        )
+
+        # Run streaming
+        final_status = asyncio.run(streamer.stream_until_terminal())
+
+        # Callback for custom handling
+        if on_event and isinstance(final_status, dict):
+            with contextlib.suppress(Exception):
+                on_event(final_status)
+
+        return PromptLearningResult.from_response(self._job_id, final_status)
 
     def get_results(self) -> Dict[str, Any]:
         """Get job results (prompts, scores, etc.).

@@ -34,6 +34,8 @@ TERMINAL_EVENT_SUCCESS = {
     # GEPA / Prompt Learning events
     "prompt.learning.gepa.complete",
     "gepa.complete",
+    # Eval job events
+    "eval.job.completed",
 }
 TERMINAL_EVENT_FAILURE = {
     "sft.job.failed",
@@ -49,6 +51,8 @@ TERMINAL_EVENT_FAILURE = {
     # GEPA / Prompt Learning events
     "prompt.learning.gepa.failed",
     "gepa.failed",
+    # Eval job events
+    "eval.job.failed",
 }
 
 
@@ -145,6 +149,21 @@ class StreamEndpoints:
             status=base,
             events=f"{base}/events",
             metrics=f"{base}/metrics",
+            timeline=None,
+        )
+
+    @classmethod
+    def eval(cls, job_id: str) -> StreamEndpoints:
+        """Endpoints for eval jobs.
+
+        Eval jobs use /api/eval/jobs/{job_id} endpoints.
+        No fallbacks needed - eval endpoints are standalone.
+        """
+        base = f"/eval/jobs/{job_id}"
+        return cls(
+            status=base,
+            events=f"{base}/events",
+            metrics=None,  # Eval jobs don't have a metrics endpoint
             timeline=None,
         )
 

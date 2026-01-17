@@ -2050,7 +2050,83 @@ class PromptLearningHandler(StreamHandler):
             click.echo(f"[{timestamp}] Proposal scored: {score:.4f}")
 
 
+class EvalHandler(StreamHandler):
+    """CLI-friendly handler for Eval jobs.
+
+    Emits high-signal progress for evaluation jobs,
+    showing seed completion and final results.
+    """
+
+    def __init__(self) -> None:
+        self.completed_seeds = 0
+        self.total_seeds = 0
+        self.mean_reward = 0.0
+
+    def handle(self, message: StreamMessage) -> None:
+        if not self.should_handle(message):
+            return
+
+        timestamp = datetime.now().strftime("%H:%M:%S")
+
+        if message.stream_type is StreamType.STATUS:
+            status = str(message.data.get("status") or message.data.get("state") or "unknown")
+            click.echo(f"[{timestamp}] status={status}")
+            return
+
+        if message.stream_type is StreamType.EVENTS:
+            event_type = str(message.data.get("type") or "")
+            msg = message.data.get("message") or ""
+            data = message.data.get("data") or {}
+
+            if event_type == "eval.job.started":
+                seed_count = data.get("seed_count", 0)
+                self.total_seeds = seed_count
+                click.echo(f"[{timestamp}] Eval started: {seed_count} seeds")
+                return
+
+            if event_type == "eval.job.progress":
+                completed = data.get("completed", 0)
+                total = data.get("total", self.total_seeds)
+                self.completed_seeds = completed
+                click.echo(f"[{timestamp}] Progress: {completed}/{total} seeds completed")
+                return
+
+            if event_type == "eval.seed.completed":
+                seed = data.get("seed")
+                reward = data.get("reward")
+                if reward is not None:
+                    click.echo(f"[{timestamp}] Seed {seed} completed: reward={reward:.4f}")
+                else:
+                    click.echo(f"[{timestamp}] Seed {seed} completed")
+                return
+
+            if event_type == "eval.job.completed":
+                mean_reward = data.get("mean_reward")
+                error = data.get("error")
+                if error:
+                    click.echo(f"[{timestamp}] Eval failed: {error}")
+                elif mean_reward is not None:
+                    self.mean_reward = mean_reward
+                    click.echo(f"[{timestamp}] Eval completed: mean_reward={mean_reward:.4f}")
+                else:
+                    click.echo(f"[{timestamp}] Eval completed")
+                return
+
+            if event_type == "eval.job.failed":
+                error = data.get("error") or msg
+                click.echo(f"[{timestamp}] Eval failed: {error}")
+                return
+
+            # Default event display
+            if msg:
+                click.echo(f"[{timestamp}] {event_type}: {msg}")
+            else:
+                click.echo(f"[{timestamp}] {event_type}")
+
+
 __all__ = [
+    "ContextLearningHandler",
+    "EvalHandler",
     "GraphGenHandler",
     "BufferedHandler",
     "CallbackHandler",
