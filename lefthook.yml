@@ -10,14 +10,18 @@
 #   lefthook run pre-commit  # Run hooks manually
 #   lefthook uninstall      # Remove hooks
 #
-# Note: Python commands use .venv/bin/python3 if available, otherwise fall back to python3
+# Script execution standard:
+#   - All scripts live in scripts/
+#   - Python scripts: `uv run python scripts/X.py` (same as CI)
+#   - TypeScript: `bun run <command>` in the relevant directory
 
 pre-commit:
   parallel: true
   files: git diff --cached --name-only --diff-filter=ACMR
   commands:
-    # Python: Type check with pyright (catches syntax, import, and type errors)
-    # Uses wrapper to only fail on synth_ai SDK errors, not external library issues
+    # Python: Type check with ty (Astral's type checker)
+    # Runs in project env so it has access to all dependency type stubs
+    # Excludes demos/benchmarks - they're experimental with optional deps
     python-typecheck:
       tags:
         - python
@@ -25,7 +29,7 @@ pre-commit:
       glob:
         - "*.py"
         - "**/*.py"
-      run: uv run python scripts/check_synth_ai_types.py {files}
+      run: uv run --group dev ty check {files}
 
     # Python: Ruff linting with auto-fix (only on staged Python files that exist)
     python-ruff:
@@ -35,7 +39,7 @@ pre-commit:
       glob:
         - "*.py"
         - "**/*.py"
-      run: uv run ruff check --fix {files}
+      run: uv run ruff check --fix --unsafe-fixes {files}
       stage_fixed: true
 
     # Python: Ruff format with auto-fix (only on staged Python files that exist)
@@ -75,4 +79,31 @@ pre-commit:
     url-centralization:
       tags:
         - lint
-      run: bash -c 'PY=".venv/bin/python3"; [ -x "$PY" ] || PY=python3; $PY scripts/check_url_centralization.py'
+      glob:
+        - "*.py"
+        - "**/*.py"
+        - "*.ts"
+        - "**/*.ts"
+        - "*.tsx"
+        - "**/*.tsx"
+      run: uv run python scripts/check_url_centralization.py {files}
+
+    # Unused Dependencies: Ensure all deps in pyproject.toml are actually used
+    unused-deps:
+      tags:
+        - deps
+        - lint
+      glob:
+        - "pyproject.toml"
+      run: uv run python scripts/check_unused_deps.py
+
+    # API Drift: Ensure demos/ and benchmarks/ use valid synth_ai APIs
+    api-drift:
+      tags:
+        - api
+        - lint
+      glob:
+        - "synth_ai/**/*.py"
+        - "demos/**/*.py"
+        - "benchmarks/**/*.py"
+      run: uv run python scripts/check_api_drift.py {files}
