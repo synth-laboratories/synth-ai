@@ -1,0 +1,20 @@
+name: URL Centralization Check
+
+on:
+  pull_request:
+    branches: [main, nightly]
+  push:
+    branches: [main, nightly]
+
+jobs:
+  url-centralization:
+    name: URL Centralization Check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Check URL centralization
+        run: uv run python scripts/check_url_centralization.py

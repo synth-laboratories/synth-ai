@@ -1,0 +1,20 @@
+name: Unused Dependencies Check
+
+on:
+  pull_request:
+    branches: [main, nightly]
+  push:
+    branches: [main, nightly]
+
+jobs:
+  unused-deps:
+    name: Unused Dependencies Check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Check for unused dependencies
+        run: uv run python scripts/check_unused_deps.py

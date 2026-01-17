@@ -1,0 +1,20 @@
+name: Lint (ruff)
+
+on:
+  pull_request:
+    branches: [main, nightly]
+  push:
+    branches: [main, nightly]
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: ruff check
+        run: uv run --group dev ruff check

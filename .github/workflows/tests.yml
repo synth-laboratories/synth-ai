@@ -1,0 +1,33 @@
+name: Tests (unit, fast≤5s)
+
+on:
+  pull_request:
+    branches: [main, nightly]
+  push:
+    branches: [main, nightly]
+
+jobs:
+  tests:
+    name: Tests (unit, fast≤5s)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Run fast unit tests (≤5s)
+        run: |
+          # Pre-install dev dependencies so timing only measures test execution
+          uv sync --group dev
+          SECONDS=0
+          set -e
+          # Strict ultra-fast unit tests only
+          uv run --group dev pytest tests/unit -m unit -q --maxfail=1
+          uv run --group dev pytest tests/environments/unit/test_external_registry.py -q --maxfail=1
+          DUR=$SECONDS
+          echo "Total fast unit test time: ${DUR}s"
+          if [ "$DUR" -gt 20 ]; then
+            echo "Fast unit tests exceeded 20 seconds (${DUR}s)" >&2
+            exit 1
+          fi

@@ -1,0 +1,30 @@
+name: URL Backend Drift Check
+
+on:
+  pull_request:
+    branches: [main, nightly]
+  push:
+    branches: [main, nightly]
+
+jobs:
+  url-backend-drift:
+    name: URL Backend Drift Check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout synth-ai
+        uses: actions/checkout@v4
+
+      - name: Checkout monorepo
+        uses: actions/checkout@v4
+        with:
+          repository: synth-laboratories/monorepo
+          path: monorepo
+          token: ${{ secrets.MONOREPO_READ_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Check URL backend drift
+        run: uv run python scripts/check_url_backend_drift.py --backend-path monorepo/backend --frontend-path monorepo/frontend

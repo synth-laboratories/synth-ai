@@ -21,17 +21,7 @@ jobs:
 
       - name: Get version (must be .dev)
         id: v
-        run: |
-          python - <<'PY'
-          import tomllib, pathlib, os
-          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
-          v = data['project']['version']
-          print(f"version={v}")
-          if '.dev' not in v:
-              raise SystemExit('Not a dev version; skipping dev publish.')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"version={v}\n")
-          PY
+        run: uv run python scripts/check_dev_version.py
 
       - name: Build distributions
         run: |
