@@ -12,6 +12,19 @@ import os
 import time
 from pathlib import Path
 
+# Auto-load .env file from synth-ai root
+_env_file = Path(__file__).parent.parent.parent / ".env"
+if _env_file.exists():
+    with open(_env_file) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                # Strip quotes if present
+                value = value.strip().strip("'\"")
+                if key.strip() not in os.environ:  # Don't override existing env vars
+                    os.environ[key.strip()] = value
+
 import httpx
 
 try:

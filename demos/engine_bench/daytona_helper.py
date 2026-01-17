@@ -571,6 +571,8 @@ class DaytonaRolloutRunner:
         openai_api_key: str,
         inference_url: Optional[str] = None,
         agent_type: str = "codex",  # "codex" or "opencode"
+        agents_md: Optional[str] = None,  # Optional: GEPA-optimized AGENTS.md
+        codex_skills: Optional[str] = None,  # Optional: GEPA-optimized .codex/skills.yaml
     ) -> dict[str, Any]:
         """Run a complete rollout in a dedicated sandbox.
 
@@ -583,6 +585,8 @@ class DaytonaRolloutRunner:
             openai_api_key: API key for LLM calls
             inference_url: Optional interceptor URL
             agent_type: "codex" or "opencode"
+            agents_md: Optional AGENTS.md content for GEPA unified optimization
+            codex_skills: Optional .codex/skills.yaml content for GEPA unified optimization
 
         Returns:
             dict with: passed, total, output, success, error
@@ -591,11 +595,12 @@ class DaytonaRolloutRunner:
 
         try:
             # 1. Provision sandbox from snapshot
-            print(f"[DaytonaRollout:{instance_id}] Provisioning sandbox...")
+            print(f"[DaytonaRollout:{instance_id}] Provisioning sandbox...", flush=True)
             await self._provision()
             provision_time = asyncio.get_event_loop().time() - start_time
             print(
-                f"[DaytonaRollout:{instance_id}] Sandbox ready in {provision_time:.1f}s: {self.sandbox_id}"
+                f"[DaytonaRollout:{instance_id}] Sandbox ready in {provision_time:.1f}s: {self.sandbox_id}",
+                flush=True,
             )
 
             # 2. Setup instance files
@@ -615,6 +620,7 @@ class DaytonaRolloutRunner:
                     timeout=timeout,
                     openai_api_key=openai_api_key,
                     inference_url=inference_url,
+                    agents_md=agents_md,
                 )
             else:
                 agent_result = await self._run_codex_agent(
@@ -622,6 +628,8 @@ class DaytonaRolloutRunner:
                     timeout=timeout,
                     openai_api_key=openai_api_key,
                     inference_url=inference_url,
+                    agents_md=agents_md,
+                    codex_skills=codex_skills,
                 )
 
             if not agent_result.get("success"):
@@ -650,11 +658,14 @@ class DaytonaRolloutRunner:
 
         except Exception as e:
             import traceback
+            tb = traceback.format_exc()
+            print(f"[DaytonaRollout:{instance_id}] ❌ EXCEPTION: {e}")
+            print(f"[DaytonaRollout:{instance_id}] Traceback:\n{tb}")
 
             return {
                 "passed": 0,
                 "total": 1,
-                "output": traceback.format_exc(),
+                "output": tb,
                 "success": False,
                 "error": str(e),
             }
@@ -754,10 +765,34 @@ class DaytonaRolloutRunner:
         timeout: int,
         openai_api_key: str,
         inference_url: Optional[str] = None,
+        agents_md: Optional[str] = None,
+        codex_skills: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Run codex agent in sandbox."""
+        """Run codex agent in sandbox.
+        
+        Args:
+            agents_md: Optional AGENTS.md content (GEPA-optimized)
+            codex_skills: Optional .codex/skills.yaml content (GEPA-optimized)
+        """
         # Remove any auth.json that might override API config
         await self._exec("rm -f /root/.codex/auth.json /root/.codex/auth.json.bak", timeout=10)
+        
+        # Write GEPA-optimized AGENTS.md if provided
+        if agents_md:
+            await self._write_file("/app/tcg_expansions/AGENTS.md", agents_md)
+            print(f"[DaytonaRollout] Wrote GEPA-optimized AGENTS.md ({len(agents_md)} chars)")
+        else:
+            # Default stub AGENTS.md
+            await self._write_file(
+                "/app/tcg_expansions/AGENTS.md",
+                "# Agent Instructions\n\nSee the task prompt for instructions.\n",
+            )
+        
+        # Write GEPA-optimized .codex/skills.yaml if provided
+        if codex_skills:
+            await self._exec("mkdir -p /app/tcg_expansions/.codex", timeout=10)
+            await self._write_file("/app/tcg_expansions/.codex/skills.yaml", codex_skills)
+            print(f"[DaytonaRollout] Wrote GEPA-optimized .codex/skills.yaml ({len(codex_skills)} chars)")
 
         # Build base URL for config - normalize from inference_url
         # The interceptor URL format: http://host/api/interceptor/openai/v1/responses?cid=xxx
@@ -793,6 +828,7 @@ enabled = false
         print(
             f"[DaytonaRollout] Configured codex config.toml: base_url={base_url} wire_api={wire_api}"
         )
+        print(f"[DaytonaRollout] API key for sandbox: {openai_api_key[:25]}..." if openai_api_key else "[DaytonaRollout] WARNING: No API key!")
 
         # Build env vars - OPENAI_BASE_URL is critical for codex to use interceptor
         env_vars = f'OPENAI_API_KEY="{openai_api_key}" OPENAI_MODEL="{model}"'
@@ -806,7 +842,14 @@ cd /app/tcg_expansions && \
 {env_vars} \
 codex exec --yolo --skip-git-repo-check -m {model} "$(cat /app/prompt.txt)"
 """
+        print(f"[DaytonaRollout] Running codex command (timeout={timeout}s)...")
         result = await self._exec(cmd, timeout=timeout)
+        
+        # Debug output
+        output_preview = result["output"][:1000] if result["output"] else "(no output)"
+        print(f"[DaytonaRollout] Codex exit_code={result.get('exit_code', 'unknown')} success={result['success']}")
+        print(f"[DaytonaRollout] Codex output preview:\n{output_preview}")
+        
         return {
             "success": result["success"],
             "stdout": result["output"],
@@ -820,8 +863,24 @@ codex exec --yolo --skip-git-repo-check -m {model} "$(cat /app/prompt.txt)"
         timeout: int,
         openai_api_key: str,
         inference_url: Optional[str] = None,
+        agents_md: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Run opencode agent in sandbox."""
+        """Run opencode agent in sandbox.
+        
+        Args:
+            agents_md: Optional AGENTS.md content (GEPA-optimized)
+        """
+        # Write GEPA-optimized AGENTS.md if provided
+        if agents_md:
+            await self._write_file("/app/tcg_expansions/AGENTS.md", agents_md)
+            print(f"[DaytonaRollout] Wrote GEPA-optimized AGENTS.md for OpenCode ({len(agents_md)} chars)")
+        else:
+            # Default stub to prevent infinite loop
+            await self._write_file(
+                "/app/tcg_expansions/AGENTS.md",
+                "# Agent Instructions\n\nSee the task prompt for instructions.\n",
+            )
+        
         # Build base URL - normalize from inference_url (same as local version)
         base_url = "https://api.openai.com/v1"
         if inference_url:
@@ -868,12 +927,6 @@ codex exec --yolo --skip-git-repo-check -m {model} "$(cat /app/prompt.txt)"
         await self._write_file("/app/tcg_expansions/opencode.json", config_content)
         print(
             f"[DaytonaRollout] OpenCode config written: model={model_with_provider} baseURL={base_url}"
-        )
-
-        # Also create AGENTS.md to prevent infinite loop
-        await self._write_file(
-            "/app/tcg_expansions/AGENTS.md",
-            "# Agent Instructions\n\nSee the task prompt for instructions.\n",
         )
 
         # Run opencode using 'run' subcommand for non-interactive mode
@@ -986,6 +1039,8 @@ async def run_rollout_in_daytona(
     inference_url: Optional[str] = None,
     snapshot_name: Optional[str] = None,
     agent_type: str = "codex",  # "codex" or "opencode"
+    agents_md: Optional[str] = None,  # Optional: GEPA-optimized AGENTS.md content
+    codex_skills: Optional[str] = None,  # Optional: GEPA-optimized .codex/skills.yaml content
 ) -> dict[str, Any]:
     """Convenience function to run a rollout in a Daytona sandbox.
 
@@ -994,6 +1049,8 @@ async def run_rollout_in_daytona(
 
     Args:
         agent_type: "codex" or "opencode" - which agent CLI to use
+        agents_md: Optional AGENTS.md content (for GEPA unified optimization)
+        codex_skills: Optional .codex/skills.yaml content (for GEPA unified optimization)
     """
     # Apply INTERCEPTOR_TUNNEL_URL if set (for Daytona sandboxes to reach interceptor)
     interceptor_tunnel_url = os.environ.get("INTERCEPTOR_TUNNEL_URL")
@@ -1010,16 +1067,35 @@ async def run_rollout_in_daytona(
                 parsed.fragment,
             )
         )
-        print(f"[DaytonaRollout] Rewriting inference_url for tunnel: {inference_url[:80]}...")
+        print(f"[DaytonaRollout] Rewriting inference_url for tunnel: {inference_url[:80]}...", flush=True)
 
-    runner = DaytonaRolloutRunner(snapshot_name=snapshot_name)
-    return await runner.run_rollout(
-        instance_id=instance_id,
-        instance_data=instance_data,
-        prompt=prompt,
-        model=model,
-        timeout=timeout,
-        openai_api_key=openai_api_key,
-        agent_type=agent_type,
-        inference_url=inference_url,
-    )
+    try:
+        print(f"[DaytonaRollout] Creating runner with snapshot={snapshot_name}...", flush=True)
+        runner = DaytonaRolloutRunner(snapshot_name=snapshot_name)
+        print(f"[DaytonaRollout] Runner created, starting rollout for {instance_id}...", flush=True)
+        result = await runner.run_rollout(
+            instance_id=instance_id,
+            instance_data=instance_data,
+            prompt=prompt,
+            model=model,
+            timeout=timeout,
+            openai_api_key=openai_api_key,
+            agent_type=agent_type,
+            inference_url=inference_url,
+            agents_md=agents_md,
+            codex_skills=codex_skills,
+        )
+        print(f"[DaytonaRollout] Rollout complete: success={result.get('success')} passed={result.get('passed')}/{result.get('total')}", flush=True)
+        return result
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[DaytonaRollout] ❌ FATAL ERROR: {e}", flush=True)
+        print(f"[DaytonaRollout] Traceback:\n{tb}", flush=True)
+        return {
+            "passed": 0,
+            "total": 1,
+            "output": tb,
+            "success": False,
+            "error": str(e),
+        }

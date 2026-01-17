@@ -11,6 +11,7 @@ Win rate against AI v4 is the reward signal.
 import contextlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -48,6 +49,7 @@ ENGINE_BENCH_DIR = Path(
 )
 
 PTCG_TRACE_DIR_ENV = "PTCG_TRACE_DIR"
+MAX_INVALID_ACTIONS = int(os.getenv("PTCG_MAX_INVALID_ACTIONS", "2"))
 
 # Sample decks for testing - Dragon Frontiers cards
 SAMPLE_DECK_1 = (
@@ -91,13 +93,20 @@ IMPORTANT RULES:
 - You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full!
 - You can only attach ONE energy per turn.
 - After your actions, you MUST use EndTurn.
-- Check available_actions to see what you can do!
-- You MUST choose an action that is currently allowed (from available_actions). If you output an illegal action, you lose immediately.
+- Check available_actions_json to see what you can do.
+- You MUST choose an action that is currently allowed (from available_actions_json).
+- If an action type is NOT listed in available_actions_json, do NOT output it.
+- If you are unsure, choose EndTurn (only if EndTurn is listed).
+
+CRITICAL - For DeclareAttack:
+- You MUST use EXACTLY one of the attack names from available_actions_json where type="DeclareAttack"
+- The valid attack names are in: available_actions_json[type="DeclareAttack"].options.attack_names
+- Do NOT guess or make up attack names. Use ONLY the names provided.
 
 You must respond with ONLY a JSON action:
-- {"action": "PlayBasic", "card_id": <id>} - Play basic to bench
+- {"action": "PlayBasic", "card_id": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)
 - {"action": "AttachEnergy", "energy_id": <id>, "target_id": <id>} - Attach energy
-- {"action": "DeclareAttack", "attack": "<name>"} - Attack with active Pokemon
+- {"action": "DeclareAttack", "attack": "<name>"} - Use ONLY attack name from options.attack_names
 - {"action": "EndTurn"} - End your turn
 - {"action": "ChooseActive", "card_id": <id>} - Setup: choose active
 - {"action": "ChooseBench", "card_ids": [<id>, ...]} - Setup: choose bench
@@ -109,7 +118,7 @@ Respond with ONLY the JSON action, no explanation.
 # final response to be ONLY a JSON action; any intermediate reasoning must remain internal.
 PTCG_REACT_SYSTEM_PROMPT = """You are an expert Pokemon TCG player. Your goal is to win by knocking out opponent's Pokemon to take prize cards.
 
-You MUST select only legal actions based on the current available_actions list.
+You MUST select only legal actions based on the current available_actions_json list.
 
 Guidance (internal):
 - Consider the phase, available attacks, energy attachment limits, and bench capacity.
@@ -120,12 +129,19 @@ Hard rules:
 - You can only have 5 Pokemon on your bench. Do NOT try PlayBasic if bench is full.
 - You can only attach ONE energy per turn.
 - After your actions, you MUST use EndTurn.
-- You MUST choose an action that is currently allowed (from available_actions). If you output an illegal action, you lose immediately.
+- You MUST choose an action that is currently allowed (from available_actions_json).
+- If an action type is NOT listed in available_actions_json, do NOT output it.
+- If you are unsure, choose EndTurn (only if EndTurn is listed).
+
+CRITICAL - For DeclareAttack:
+- You MUST use EXACTLY one of the attack names from available_actions_json where type="DeclareAttack"
+- The valid attack names are in: available_actions_json[type="DeclareAttack"].options.attack_names
+- Do NOT guess or make up attack names. Use ONLY the names provided.
 
 You must respond with ONLY a JSON action (no extra text):
-- {"action": "PlayBasic", "card_id": <id>} - Play basic to bench
+- {"action": "PlayBasic", "card_id": <id>} - Play basic to bench (use card_id from options.basic_pokemon_ids)
 - {"action": "AttachEnergy", "energy_id": <id>, "target_id": <id>} - Attach energy
-- {"action": "DeclareAttack", "attack": "<name>"} - Attack with active Pokemon
+- {"action": "DeclareAttack", "attack": "<name>"} - Use ONLY attack name from options.attack_names
 - {"action": "EndTurn"} - End your turn
 - {"action": "ChooseActive", "card_id": <id>} - Setup: choose active
 - {"action": "ChooseBench", "card_ids": [<id>, ...]} - Setup: choose bench
@@ -278,23 +294,99 @@ async def call_llm(
         # Interceptor primarily uses X-API-Key; keep Authorization for compatibility.
         headers["X-API-Key"] = api_key
         headers["Authorization"] = f"Bearer {api_key}"
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    # gpt-5-* models require max_completion_tokens instead of max_tokens.
+    if model.startswith("gpt-5"):
+        payload["max_completion_tokens"] = max_tokens
+    else:
+        payload["temperature"] = temperature
+        payload["max_tokens"] = max_tokens
+
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
             inference_url,
             headers=headers,
-            json={
-                "model": model,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            },
+            json=payload,
         )
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]
+
+
+# ============================================================================
+# Trace Helpers
+# ============================================================================
+
+
+def _build_v4_trace_from_steps(
+    trace_steps: list[dict[str, Any]],
+    *,
+    system_prompt: str,
+    trace_correlation_id: str | None,
+    seed: int,
+    instance_id: str,
+    model: str,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    event_history: list[dict[str, Any]] = []
+    for step in trace_steps:
+        action_raw = step.get("action_raw")
+        prompt_text = step.get("prompt_text") or step.get("game_state")
+        snapshot_json = step.get("snapshot_json")
+        if not action_raw or not prompt_text:
+            continue
+        user_prompt = prompt_text
+        if snapshot_json:
+            user_prompt = f"{user_prompt}\n\nsnapshot_json:\n{snapshot_json}\n"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        llm_response = {"message": {"role": "assistant", "content": action_raw}}
+        event = {
+            "type": "lm_call",
+            "event_type": "lm_call",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "llm_request": {"messages": messages},
+            "llm_response": llm_response,
+            "api_format": "chat",
+            "metadata": {
+                "decision_step": step.get("decision_step"),
+                "action_valid": step.get("action_valid"),
+                "note": step.get("note"),
+                "error": step.get("error"),
+                "snapshot": step.get("snapshot"),
+            },
+        }
+        if trace_correlation_id:
+            event["correlation_id"] = trace_correlation_id
+        event_history.append(event)
+
+    trace_metadata: dict[str, Any] = {
+        "session_id": f"ptcg-{seed}-{int(time.time())}",
+        "env": "ptcg",
+        "seed": seed,
+        "instance_id": instance_id,
+        "model": model,
+        "winner": result.get("winner"),
+        "end_reason": result.get("end_reason"),
+    }
+    if trace_correlation_id:
+        trace_metadata["trace_correlation_id"] = trace_correlation_id
+        trace_metadata["correlation_ids"] = {"trace_correlation_id": trace_correlation_id}
+
+    return {
+        "schema_version": "4.0",
+        "event_history": event_history,
+        "markov_blanket_message_history": [],
+        "metadata": trace_metadata,
+    }
 
 
 # ============================================================================
@@ -308,7 +400,7 @@ async def run_game(
     inference_url: str,
     api_key: str,
     model: str = "gpt-4.1-mini",
-    max_steps: int = 500,
+    max_steps: int = 10_000,
     collect_trace: bool = False,
 ) -> dict:
     """Run a single game and return the result."""
@@ -327,7 +419,17 @@ async def run_game(
     # Keep a separate counter here for "decision steps" (i.e., how many times we asked the LLM).
     decision_steps = 0
     errors = 0
+    error_messages: list[str] = []  # Track specific error messages
     trace_steps: list[dict[str, Any]] = []
+    last_action_type: str | None = None
+    last_obs_bench_count: int | None = None
+    last_obs_game_state: str | None = None
+    
+    # Track damage dealt/received
+    p1_damage_dealt = 0
+    p2_damage_dealt = 0
+    last_p1_active_hp = None
+    last_p2_active_hp = None
 
     def _record_step(step: dict[str, Any]) -> None:
         if collect_trace:
@@ -360,9 +462,109 @@ async def run_game(
         action_val = parsed.get("action")
         return str(action_val) if isinstance(action_val, str) else None
 
+    def _normalize_game_state(
+        game_state: str,
+        available_actions: list[str] | None,
+        has_prompt: bool,
+    ) -> str:
+        attacks_text = None
+        attacks_match = re.search(r"Attacks available:\\n((?:\\s+- .+\\n)+)", game_state)
+        if attacks_match:
+            attacks_text = attacks_match.group(1).rstrip()
+
+        normalized_action = None
+        if has_prompt or not available_actions:
+            for line in game_state.splitlines():
+                if "Action:" in line:
+                    normalized_action = line.split("Action:", 1)[1].strip()
+                    break
+            if normalized_action:
+                normalized_action = normalized_action.replace("ChooseNewActive", "ChooseActive")
+        if not normalized_action and available_actions:
+            normalized_action = ", ".join(available_actions)
+        if not normalized_action:
+            normalized_action = "none"
+
+        cleaned = re.sub(
+            r"^=== AVAILABLE ACTIONS ===.*$",
+            "",
+            game_state,
+            flags=re.MULTILINE | re.DOTALL,
+        ).rstrip()
+        normalized = f"{cleaned}\n\nAVAILABLE ACTIONS (normalized): {normalized_action}"
+        if attacks_text:
+            normalized = f"{normalized}\n\nATTACKS (available):\n{attacks_text}"
+        return normalized
+
+    def _infer_end_reason(result: Any) -> str:
+        if result.end_reason != "GameOver":
+            return result.end_reason
+        if result.p1_prizes_remaining == 0:
+            return "P1 took all prizes"
+        if result.p2_prizes_remaining == 0:
+            return "P2 took all prizes"
+
+        if last_obs_game_state:
+            your_side_match = re.search(
+                r"=== YOUR SIDE ===(.*?)=== OPPONENT SIDE ===",
+                last_obs_game_state,
+                re.DOTALL,
+            )
+            if your_side_match:
+                your_side = your_side_match.group(1)
+                no_bench = "Bench:\n  (empty)" in your_side
+                active_none = "Active: None" in your_side
+                if active_none and no_bench:
+                    return "No Pokemon left"
+                if last_action_type == "ChooseActive" and (last_obs_bench_count is not None):
+                    if last_obs_bench_count <= 1 and no_bench:
+                        return "No bench Pokemon after KO"
+                    if last_obs_bench_count <= 1:
+                        return "No bench Pokemon after KO"
+
+        if last_action_type == "ChooseActive" and (last_obs_bench_count is not None):
+            if last_obs_bench_count <= 1:
+                return "No bench Pokemon after KO"
+
+        return "GameOver"
+
+
     while not game.is_game_over():
         # Get observation - handles AI turns automatically
         obs = game.run_until_agent_turn()
+        prompt_text = getattr(obs, "prompt_text", None) or obs.game_state
+        snapshot_json = getattr(obs, "prompt_json", None)
+        if not snapshot_json:
+            print(f"[ptcg] WARNING: prompt_json is empty/None - tcg_py may need rebuilding")
+        snapshot = None
+        if snapshot_json:
+            try:
+                snapshot = json.loads(snapshot_json)
+            except Exception:
+                snapshot = None
+        snapshot_actions = []
+        snapshot_attack_names = []
+        if snapshot:
+            snapshot_actions = snapshot.get("available_actions") or []
+            for action in snapshot_actions:
+                if action.get("type") == "DeclareAttack":
+                    snapshot_attack_names = (
+                        action.get("options", {}).get("attack_names") or []
+                    )
+                    break
+            if not snapshot_attack_names:
+                snapshot_attack_names = [
+                    attack.get("name")
+                    for attack in (snapshot.get("attacks") or [])
+                    if attack.get("name")
+                ]
+            # Debug: always log attack names when Attack action is available
+            if "Attack" in str(obs.available_actions):
+                print(f"[ptcg] DEBUG: snapshot_attack_names={snapshot_attack_names}")
+                if not snapshot_attack_names:
+                    print(f"[ptcg] DEBUG: Attack available but no names in snapshot. Snapshot keys: {list(snapshot.keys())}")
+                    print(f"[ptcg] DEBUG: available_actions: {snapshot_actions}")
+                    print(f"[ptcg] DEBUG: attacks array: {snapshot.get('attacks', [])}")
 
         if game.is_game_over():
             final = game.get_result()
@@ -374,9 +576,57 @@ async def run_game(
 
         # Log current state
         bench = getattr(obs, "my_bench_count", "?")
-        game_state = str(obs.game_state)
+        game_state = str(prompt_text)
+        if snapshot is not None:
+            normalized_game_state = prompt_text
+        else:
+            normalized_game_state = _normalize_game_state(
+                game_state,
+                list(obs.available_actions or []),
+                obs.has_prompt,
+            )
+        if isinstance(bench, int):
+            last_obs_bench_count = bench
+        last_obs_game_state = normalized_game_state
         # Pull internal game steps for debugging "winner=None" cases (often MaxSteps vs genuine loss).
         game_steps = getattr(game.get_result(), "steps", "?")
+        
+        # Track damage from snapshot when available; fall back to text parsing.
+        try:
+            if snapshot is not None:
+                current_p1_hp = (
+                    snapshot.get("your_side", {})
+                    .get("active", {})
+                    .get("hp", [None, None])[0]
+                )
+                current_p2_hp = (
+                    snapshot.get("opponent_side", {})
+                    .get("active", {})
+                    .get("hp", [None, None])[0]
+                )
+            else:
+                p1_hp_match = re.search(
+                    r"=== YOUR SIDE ===.*?Active:.*?HP: (\d+)/(\d+)", game_state, re.DOTALL
+                )
+                p2_hp_match = re.search(
+                    r"=== OPPONENT SIDE ===.*?Active:.*?HP: (\d+)/(\d+)", game_state, re.DOTALL
+                )
+                current_p1_hp = int(p1_hp_match.group(1)) if p1_hp_match else None
+                current_p2_hp = int(p2_hp_match.group(1)) if p2_hp_match else None
+
+            # Calculate damage dealt (HP decreased, but only if same Pokemon)
+            if last_p1_active_hp is not None and current_p1_hp is not None:
+                if current_p1_hp < last_p1_active_hp:
+                    p2_damage_dealt += (last_p1_active_hp - current_p1_hp)
+            if last_p2_active_hp is not None and current_p2_hp is not None:
+                if current_p2_hp < last_p2_active_hp:
+                    p1_damage_dealt += (last_p2_active_hp - current_p2_hp)
+
+            last_p1_active_hp = current_p1_hp
+            last_p2_active_hp = current_p2_hp
+        except Exception:
+            pass
+        
         print(
             f"[ptcg] Decision {decision_steps}: player={obs.current_player}, phase={obs.phase}, "
             f"bench={bench}, prizes=({obs.my_prizes},{obs.opp_prizes}), actions={obs.available_actions}, "
@@ -394,9 +644,21 @@ async def run_game(
                     "action_raw": None,
                     "action_valid": True,
                     "note": "no_actions_step",
-                    "game_state": _truncate(getattr(obs, "game_state", None)),
+                    "prompt_text": _truncate(prompt_text),
+                    "snapshot": snapshot,
+                    "snapshot_json": snapshot_json,
+                    "game_state": _truncate(normalized_game_state),
+                    "my_bench_count": bench if isinstance(bench, int) else None,
                 }
             )
+            game.step()
+            decision_steps += 1
+            continue
+
+        # Skip if it's not P1's turn and there's no prompt to answer.
+        if obs.current_player != "P1" and not obs.has_prompt:
+            print(f"[ptcg] WARNING: Not P1's turn (current_player={obs.current_player}), stepping...")
+            print("[ptcg] No prompt available; skipping LLM call.")
             game.step()
             decision_steps += 1
             continue
@@ -412,7 +674,11 @@ async def run_game(
                     "action_raw": '{"action": "EndTurn"}',
                     "action_valid": True,
                     "note": "auto_end_turn",
-                    "game_state": _truncate(getattr(obs, "game_state", None)),
+                    "prompt_text": _truncate(prompt_text),
+                    "snapshot": snapshot,
+                    "snapshot_json": snapshot_json,
+                    "game_state": _truncate(normalized_game_state),
+                    "my_bench_count": bench if isinstance(bench, int) else None,
                 }
             )
             with contextlib.suppress(Exception):
@@ -421,47 +687,135 @@ async def run_game(
             decision_steps += 1
             continue
 
-        # Call LLM (fail-fast: invalid/unparseable action => immediate loss)
-        try:
-            allowed = ", ".join(obs.available_actions or [])
-            user_prompt = f"{obs.game_state}\n\navailable_actions: [{allowed}]\n"
-            action_json = await call_llm(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                inference_url=inference_url,
-                api_key=api_key,
-                model=model,
-            )
-            print(f"[ptcg] LLM: {action_json[:100]}...")
-
-            # Submit action
+        # Call LLM (allow a small number of invalid actions before ending)
+        invalid_attempts = 0
+        should_end_game = False
+        while True:
             try:
-                parsed_action, action_type, parse_error = _parse_action(action_json)
-                game.submit_action(action_json)
-                print("[ptcg] Action OK")
-                trace_steps.append(
-                    {
-                        "decision_step": decision_steps,
-                        "available_actions": list(obs.available_actions or []),
-                        "action_type": _parse_action_type(action_json),
-                        "action_raw": action_json,
-                        "action_valid": True,
-                        "note": "llm_action",
-                        "game_state": _truncate(getattr(obs, "game_state", None)),
-                    }
+                user_prompt = normalized_game_state
+                if snapshot_json:
+                    # Extract attack names explicitly for clarity
+                    attack_names_text = ""
+                    if snapshot_attack_names:
+                        attack_names_text = f"\n\nAVAILABLE ATTACKS (use EXACTLY one of these):\n" + "\n".join(f"  - {name}" for name in snapshot_attack_names)
+                        print(f"[ptcg] Sending attack names to LLM: {snapshot_attack_names}")
+                    user_prompt = (
+                        f"{user_prompt}{attack_names_text}\n\nsnapshot_json:\n{snapshot_json}\n"
+                        f"\navailable_actions_json:\n{json.dumps(snapshot_actions)}\n"
+                    )
+                action_json = await call_llm(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    inference_url=inference_url,
+                    api_key=api_key,
+                    model=model,
                 )
+                print(f"[ptcg] LLM: {action_json[:100]}...")
+
+                # Submit action
+                try:
+                    parsed_action, action_type, parse_error = _parse_action(action_json)
+                    
+                    # Track HP before attack to measure damage
+                    if action_type == "DeclareAttack":
+                        p1_hp_before = last_p1_active_hp
+                        p2_hp_before = last_p2_active_hp
+                    
+                    game.submit_action(action_json)
+                    print("[ptcg] Action OK")
+                    
+                    # If attack was declared, check HP after to calculate damage
+                    if action_type == "DeclareAttack":
+                        # Get updated observation after attack
+                        # Note: This is approximate - actual damage tracking would need game engine support
+                        # For now, we'll track via HP changes in the next observation
+                        pass
+                    
+                    action_type = _parse_action_type(action_json)
+                    last_action_type = action_type
+                    trace_steps.append(
+                        {
+                            "decision_step": decision_steps,
+                            "available_actions": list(obs.available_actions or []),
+                            "action_type": action_type,
+                            "action_raw": action_json,
+                            "action_valid": True,
+                            "note": "llm_action",
+                            "prompt_text": _truncate(prompt_text),
+                            "snapshot": snapshot,
+                            "snapshot_json": snapshot_json,
+                            "game_state": _truncate(normalized_game_state),
+                            "my_bench_count": bench if isinstance(bench, int) else None,
+                        }
+                    )
+                    break
+                except Exception as e:
+                    invalid_attempts += 1
+                    error_msg = str(e)
+                    print(f"[ptcg] Action FAILED: {e}")
+                    # Track error message (extract error type if possible)
+                    if error_msg not in error_messages:
+                        error_messages.append(error_msg)
+                    action_type = _parse_action_type(action_json)
+                    last_action_type = action_type
+                    trace_steps.append(
+                        {
+                            "decision_step": decision_steps,
+                            "available_actions": list(obs.available_actions or []),
+                            "action_type": action_type,
+                            "action_raw": action_json,
+                            "action_valid": False,
+                            "error": error_msg,
+                            "note": "invalid_action",
+                            "prompt_text": _truncate(prompt_text),
+                            "snapshot": snapshot,
+                            "snapshot_json": snapshot_json,
+                            "game_state": _truncate(normalized_game_state),
+                            "my_bench_count": bench if isinstance(bench, int) else None,
+                        }
+                    )
+                    errors += 1
+                    _record_step(
+                        {
+                            "decision_step": decision_steps,
+                            "phase": str(obs.phase),
+                            "current_player": obs.current_player,
+                            "available_actions": list(obs.available_actions or []),
+                            "action_type": "InvalidAction",
+                            "action": {"raw": action_json},
+                            "action_valid": False,
+                            "auto_action": False,
+                            "error": str(e),
+                            "game_state": normalized_game_state,
+                        }
+                    )
+                    if invalid_attempts > MAX_INVALID_ACTIONS:
+                        should_end_game = True
+                        break
+                    print(
+                        "[ptcg] Retrying after invalid action "
+                        f"({invalid_attempts}/{MAX_INVALID_ACTIONS})"
+                    )
+                    continue
+
             except Exception as e:
-                print(f"[ptcg] Action FAILED: {e}")
+                error_msg = str(e)
+                print(f"[ptcg] LLM error: {e}")
+                if error_msg not in error_messages:
+                    error_messages.append(error_msg)
                 trace_steps.append(
                     {
                         "decision_step": decision_steps,
                         "available_actions": list(obs.available_actions or []),
-                        "action_type": _parse_action_type(action_json),
-                        "action_raw": action_json,
+                        "action_type": None,
+                        "action_raw": None,
                         "action_valid": False,
-                        "error": str(e),
-                        "note": "invalid_action",
-                        "game_state": _truncate(getattr(obs, "game_state", None)),
+                        "error": error_msg,
+                        "note": "llm_error",
+                        "prompt_text": _truncate(prompt_text),
+                        "snapshot": snapshot,
+                        "snapshot_json": snapshot_json,
+                        "game_state": _truncate(normalized_game_state),
                     }
                 )
                 errors += 1
@@ -471,45 +825,18 @@ async def run_game(
                         "phase": str(obs.phase),
                         "current_player": obs.current_player,
                         "available_actions": list(obs.available_actions or []),
-                        "action_type": "InvalidAction",
-                        "action": {"raw": action_json},
+                        "action_type": "LLMError",
+                        "action": None,
                         "action_valid": False,
                         "auto_action": False,
                         "error": str(e),
-                        "game_state": game_state,
+                        "game_state": normalized_game_state,
                     }
                 )
+                should_end_game = True
                 break
 
-        except Exception as e:
-            print(f"[ptcg] LLM error: {e}")
-            trace_steps.append(
-                {
-                    "decision_step": decision_steps,
-                    "available_actions": list(obs.available_actions or []),
-                    "action_type": None,
-                    "action_raw": None,
-                    "action_valid": False,
-                    "error": str(e),
-                    "note": "llm_error",
-                    "game_state": _truncate(getattr(obs, "game_state", None)),
-                }
-            )
-            errors += 1
-            _record_step(
-                {
-                    "decision_step": decision_steps,
-                    "phase": str(obs.phase),
-                    "current_player": obs.current_player,
-                    "available_actions": list(obs.available_actions or []),
-                    "action_type": "LLMError",
-                    "action": None,
-                    "action_valid": False,
-                    "auto_action": False,
-                    "error": str(e),
-                    "game_state": game_state,
-                }
-            )
+        if should_end_game:
             break
 
         # Step the game
@@ -520,6 +847,17 @@ async def run_game(
     result = game.get_result()
     # If we bailed due to errors, treat as a loss for P1.
     if errors:
+        # Build error description
+        error_desc = f"{errors} errors"
+        if error_messages:
+            # Get most common error or first error
+            from collections import Counter
+            error_counts = Counter(error_messages)
+            most_common_error = error_counts.most_common(1)[0][0]
+            # Extract error type (e.g., "EnergyAlreadyAttached" from "Action failed: EnergyAlreadyAttached")
+            error_type = most_common_error.split(":")[-1].strip() if ":" in most_common_error else most_common_error
+            error_desc = f"{errors} errors: {error_type}"
+        
         result_payload = {
             "winner": "P2",
             "turns": result.turns,
@@ -527,14 +865,18 @@ async def run_game(
             "decision_steps": decision_steps,
             "p1_prizes": result.p1_prizes_remaining,
             "p2_prizes": result.p2_prizes_remaining,
-            "end_reason": f"llm_error_or_invalid_action (errors={errors})",
+            "p1_damage_dealt": p1_damage_dealt,
+            "p2_damage_dealt": p2_damage_dealt,
+            "end_reason": f"llm_error_or_invalid_action ({error_desc})",
             "errors": errors,
+            "error_messages": error_messages,
             "trace_steps": trace_steps,
         }
         if collect_trace:
             result_payload["trace_steps"] = trace_steps
             result_payload["decision_steps"] = decision_steps
         return result_payload
+    end_reason = _infer_end_reason(result)
     result_payload = {
         "winner": result.winner,
         "turns": result.turns,
@@ -542,8 +884,11 @@ async def run_game(
         "decision_steps": decision_steps,
         "p1_prizes": result.p1_prizes_remaining,
         "p2_prizes": result.p2_prizes_remaining,
-        "end_reason": result.end_reason,
+        "p1_damage_dealt": p1_damage_dealt,
+        "p2_damage_dealt": p2_damage_dealt,
+        "end_reason": end_reason,
         "errors": errors,
+        "error_messages": error_messages if errors > 0 else [],
         "trace_steps": trace_steps,
     }
     if collect_trace:
@@ -553,18 +898,25 @@ async def run_game(
 
 
 def compute_outcome_reward(result: dict[str, Any]) -> float:
-    """Score the rollout outcome for P1: win=1.0, loss=0.0, draws use prize differential."""
-    if result.get("winner") == "P1":
-        return 1.0
-    if result.get("winner") == "P2":
-        return 0.0
-    p1_prizes = result.get("p1_prizes", 0)
-    p2_prizes = result.get("p2_prizes", 0)
-    if p1_prizes < p2_prizes:
-        return 0.6
-    if p1_prizes > p2_prizes:
-        return 0.4
-    return 0.5
+    """Compute shaped outcome reward for P1 using prizes and winner."""
+    winner = result.get("winner")
+    if winner == "P1":
+        base_reward = 1.0
+    elif winner == "P2":
+        base_reward = 0.0
+    else:
+        base_reward = 0.5
+
+    total_prizes = 6
+    p1_remaining = result.get("p1_prizes", total_prizes)
+    p2_remaining = result.get("p2_prizes", total_prizes)
+    p1_taken = max(0, total_prizes - int(p1_remaining))
+    p2_taken = max(0, total_prizes - int(p2_remaining))
+
+    # +0.1 per prize advantage, -0.1 per prize deficit
+    prize_reward = 0.1 * (p1_taken - p2_taken)
+    shaped_reward = base_reward + prize_reward
+    return max(0.0, min(1.0, shaped_reward))
 
 
 # ============================================================================
@@ -595,7 +947,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
     model = policy_config.get("model", "gpt-4.1-mini")
     inference_url = policy_config.get("inference_url")
     api_key = policy_config.get("api_key")
-    max_steps = int(policy_config.get("max_steps", 500))
+    max_steps = int(policy_config.get("max_steps", 10_000))
 
     if not inference_url:
         return RolloutResponse(
@@ -630,6 +982,15 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
 
         # Calculate reward: 1.0 for win, 0.0 for loss, 0.5 for draw/max_steps
         reward = compute_outcome_reward(result)
+        trace = _build_v4_trace_from_steps(
+            trace_steps,
+            system_prompt=system_prompt,
+            trace_correlation_id=request.trace_correlation_id,
+            seed=seed,
+            instance_id=instance_id,
+            model=model,
+            result=result,
+        )
 
         print(f"\n{'=' * 60}")
         print(f"[ptcg] Game {instance_id} completed")
@@ -651,6 +1012,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "outcome_reward": reward,
                 "result": {k: v for k, v in result.items() if k != "trace_steps"},
+                "trace": trace,
                 "trace_steps": trace_steps,
                 "policy": {"model": model},
             }
@@ -668,11 +1030,16 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
                     "steps": result["steps"],
                     "p1_prizes": result["p1_prizes"],
                     "p2_prizes": result["p2_prizes"],
+                    "p1_damage_dealt": result.get("p1_damage_dealt", 0),
+                    "p2_damage_dealt": result.get("p2_damage_dealt", 0),
                     "end_reason": result["end_reason"],
                     "errors": result["errors"],
+                    "error_messages": result.get("error_messages", []),
                     "trace_steps": trace_steps,
                 },
             ),
+            trace=trace,
+            inference_url=normalize_inference_url(inference_url),
             metadata={
                 "instance_id": instance_id,
                 "winner": result["winner"],
@@ -720,7 +1087,7 @@ def provide_task_instances(seeds: list[int]) -> list[TaskInfo]:
                 task={"id": "ptcg", "name": "Pokemon TCG"},
                 dataset={"id": "ptcg-games", "split": "train", "index": idx},
                 inference={"tool": "ptcg_action"},
-                limits={"max_turns": 500},
+                limits={"max_turns": 10_000},
                 task_metadata={"instance_id": instance_id},
             )
         )

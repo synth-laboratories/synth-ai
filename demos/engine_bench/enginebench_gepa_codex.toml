@@ -1,0 +1,162 @@
+# GEPA Configuration for EngineBench with Codex Unified Optimization
+# Optimizes: system_prompt, AGENTS.md, and .codex/skills.yaml
+
+[prompt_learning]
+task_app_url = "http://localhost:8020"
+env_name = "engine_bench"
+algorithm = "gepa"
+
+[prompt_learning.initial_prompt]
+id = "enginebench_codex_unified"
+name = "EngineBench Codex Unified Context"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "{task_description}"
+order = 0
+
+[prompt_learning.initial_prompt.wildcards]
+task_description = "REQUIRED"
+
+[prompt_learning.gepa]
+env_name = "engine_bench"
+
+[prompt_learning.gepa.evaluation]
+# 15 training seeds, 10 validation seeds (need train > pareto_set_size + 3)
+seeds = [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]
+validation_seeds = [37, 38, 39, 40, 41, 42, 43, 44, 45, 46]
+validation_pool = "validation"
+validation_top_k = 3
+
+[prompt_learning.gepa.mutation]
+rate = 0.5
+
+[prompt_learning.gepa.population]
+initial_size = 4
+num_generations = 1
+children_per_generation = 4
+crossover_rate = 0.5
+selection_pressure = 1.0
+
+[prompt_learning.gepa.archive]
+pareto_set_size = 10
+
+[prompt_learning.gepa.rollout]
+budget = 100
+max_concurrent = 6
+minibatch_size = 6
+
+# Enable unified optimization to vary all context artifacts
+[prompt_learning.gepa.unified_optimization]
+enable_task_app_context_overrides = true
+optimization_target = "unified"
+mutable_artifacts = ["system_prompt", "agents_md", "codex_skills"]
+
+[prompt_learning.policy]
+model = "gpt-5-nano"
+provider = "openai"
+inference_mode = "synth_hosted"
+
+# ==============================================================================
+# UNIFIED CONTEXT OVERRIDE - All artifacts that GEPA will optimize
+# ==============================================================================
+[prompt_learning.policy.context_override]
+
+# System prompt (passed to the LLM)
+system_prompt = """You are an expert Rust developer implementing Pokemon TCG cards.
+
+CRITICAL: The stub file contains `todo!()` macros that YOU MUST REPLACE with working code.
+
+Example - if you see:
+```rust
+pub fn grind_damage(attached_energy: u32) -> i32 { todo!() }
+// ATTACK_1_TEXT: "Does 10 damage times the amount of Energy attached"
+```
+
+You MUST use the edit tool to change it to:
+```rust
+pub fn grind_damage(attached_energy: u32) -> i32 { (10 * attached_energy) as i32 }
+```
+
+REQUIRED WORKFLOW:
+1. Read the stub file ONCE to find the todo!() functions
+2. IMMEDIATELY use the edit tool to replace todo!() with working code
+3. Run `cargo check` to verify compilation
+4. Run `cargo test` to verify tests pass
+
+DO NOT read the file multiple times"""
+
+# AGENTS.md content (read by Codex at startup)
+agents_md = """# Codex Agent Instructions
+
+## Objective
+Implement Pokemon TCG card effects in Rust by replacing `todo!()` stubs with working code.
+
+## Key Patterns
+
+### Card Identification
+Use `def_id_matches(&card.def_id, "DF", NUMBER)` to match specific cards:
+```rust
+if def_id_matches(&card.def_id, "DF", 23) {
+    // This is Dragon Frontiers card #23
+}
+```
+
+### Attack Implementation
+Attacks go in the `attack_override` function. Return damage values directly:
+```rust
+pub fn some_attack_damage() -> i32 { 40 }
+```
+
+### Poke-Powers/Bodies
+Implement in `power_effect` function for activated abilities.
+
+## Workflow
+1. Read the stub file to identify `todo!()` locations
+2. Edit the file to replace each `todo!()` with implementation
+3. Run `cargo check` to verify it compiles
+4. Run `cargo test` to verify correctness
+
+## Common Mistakes to Avoid
+- Do NOT read the file multiple times
+- Do NOT forget to handle coin flips with the `coin: bool` parameter
+- Do NOT return wrong damage types (use i32)
+"""
+
+# .codex/skills.yaml content (Codex skill definitions)
+codex_skills = """# Codex Skills for Pokemon TCG Implementation
+
+skills:
+  - name: implement_attack
+    description: Implement a Pokemon attack function
+    triggers:
+      - "attack"
+      - "damage"
+      - "todo!()"
+    steps:
+      - Read the attack text comment to understand the effect
+      - Calculate the damage formula
+      - Replace todo!() with the implementation
+
+  - name: implement_power
+    description: Implement a Poke-Power or Poke-Body
+    triggers:
+      - "power"
+      - "body"
+      - "ability"
+    steps:
+      - Identify the power type (Power vs Body)
+      - Implement the effect logic
+      - Handle any conditions or triggers
+
+  - name: verify_implementation
+    description: Verify the implementation compiles and passes tests
+    triggers:
+      - "verify"
+      - "check"
+      - "test"
+    steps:
+      - Run cargo check
+      - Run cargo test
+      - Fix any errors
+"""

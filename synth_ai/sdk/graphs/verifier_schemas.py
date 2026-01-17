@@ -18,6 +18,14 @@ if TYPE_CHECKING:
     from synth_ai.data.rewards import CalibrationExample, GoldExample
 
 
+class EvidenceItem(BaseModel):
+    """Evidence item recorded during RLM evaluation via add_evidence tool."""
+
+    description: str = Field(..., description="Brief description of what this evidence demonstrates")
+    evidence_snippet: str = Field(..., description="The actual evidence text from the trace")
+    iteration: Optional[int] = Field(None, description="RLM iteration when evidence was recorded")
+
+
 class CriterionScorePayload(BaseModel):
     """Per-criterion score returned by the verifier."""
 
@@ -67,6 +75,10 @@ class VerifierScoreResponse(BaseModel):
     event_objectives: Optional[List[Dict[str, float]]] = Field(
         default=None,
         description="Per-event objectives aligned with trace events.",
+    )
+    evidence: List[EvidenceItem] = Field(
+        default_factory=list,
+        description="Evidence items recorded during RLM evaluation via add_evidence tool",
     )
     details: dict[str, Any] = Field(
         default_factory=dict, description="Additional details (provider, latency, etc.)"

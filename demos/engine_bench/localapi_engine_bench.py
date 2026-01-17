@@ -385,6 +385,21 @@ def normalize_interceptor_base(inference_url: str) -> tuple[str, str | None]:
     return base, correlation_id
 
 
+def resolve_interceptor_api_key(
+    *, inference_url: str | None, interceptor_key: str | None, openai_key: str | None
+) -> str:
+    """Choose the API key for agent calls.
+
+    When routing through the interceptor, prefer the Synth key for auth.
+    Otherwise fall back to the OpenAI key for direct provider access.
+    """
+    if inference_url and interceptor_key:
+        return interceptor_key
+    if openai_key:
+        return openai_key
+    return interceptor_key or ""
+
+
 # =============================================================================
 # DEFAULT CONTEXT ARTIFACTS (for unified optimization)
 # =============================================================================
@@ -656,7 +671,11 @@ async def run_opencode_agent(
     base_url = ""
     model_id = model.split("/", 1)[1] if "/" in model else model
     model_with_provider = f"openai/{model_id}"
-    actual_api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
+    actual_api_key = resolve_interceptor_api_key(
+        inference_url=inference_url,
+        interceptor_key=api_key,
+        openai_key=os.environ.get("OPENAI_API_KEY", ""),
+    )
     if not actual_api_key:
         print("  [OpenCode] WARNING: No API key available!")
         actual_api_key = "placeholder"
@@ -896,7 +915,11 @@ enabled = false
     ]
 
     env = os.environ.copy()
-    env["OPENAI_API_KEY"] = api_key or os.environ.get("OPENAI_API_KEY", "")
+    env["OPENAI_API_KEY"] = resolve_interceptor_api_key(
+        inference_url=inference_url,
+        interceptor_key=api_key,
+        openai_key=os.environ.get("OPENAI_API_KEY", ""),
+    )
     env["OPENAI_MODEL"] = model
     if inference_url:
         env["OPENAI_BASE_URL"] = base_url
@@ -919,6 +942,171 @@ enabled = false
         proc.kill()
         return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
     except Exception as e:
+        return {"success": False, "stdout": "", "stderr": str(e)}
+
+
+async def run_claude_code_agent(
+    prompt: str,
+    sandbox_dir: Path,
+    model: str = "claude-3-5-haiku-20241022",
+    timeout: int = 300,
+    inference_url: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Run Claude Code agent on the sandbox.
+
+    Args:
+        prompt: The task prompt for the agent
+        sandbox_dir: Directory to run the agent in
+        model: Model to use (e.g. "claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022")
+        timeout: Timeout in seconds
+        inference_url: Synth interceptor URL to route LLM calls through (Anthropic-compatible)
+        api_key: API key for the interceptor
+    """
+    # Find Claude Code binary
+    claude_bin = os.environ.get("CLAUDE_BIN")
+    if not claude_bin:
+        # Check standard locations
+        macos_app = Path("/Applications/Claude.app/Contents/MacOS/claude")
+        if macos_app.exists():
+            claude_bin = str(macos_app)
+        else:
+            claude_bin = shutil.which("claude")
+
+    if not claude_bin:
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": "claude binary not found. Install Claude Code or set CLAUDE_BIN.",
+        }
+
+    # Build environment for Claude Code
+    env = os.environ.copy()
+
+    # Claude Code uses ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN for interceptor routing
+    # (same pattern as the monorepo/demos/engine_bench/claude_code/run.sh wrapper)
+    actual_api_key = api_key or os.environ.get("SYNTH_API_KEY", "")
+    if not actual_api_key:
+        print("  [ClaudeCode] WARNING: No API key available!")
+        actual_api_key = "placeholder"
+
+    base_url = ""
+    correlation_id = None
+    if inference_url:
+        base_url, correlation_id = normalize_interceptor_base(inference_url)
+        # Include correlation_id in the path for proper trace registration
+        if correlation_id:
+            base_url = f"{base_url}/{correlation_id}"
+        # Set Anthropic-style environment variables
+        env["ANTHROPIC_BASE_URL"] = base_url
+        env["ANTHROPIC_AUTH_TOKEN"] = actual_api_key
+        logger.info(
+            "[ClaudeCode] URL construction: inference_url=%s base_url=%s correlation_id=%s",
+            inference_url,
+            base_url,
+            correlation_id,
+        )
+    else:
+        # Direct Anthropic API usage
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        if anthropic_key:
+            env["ANTHROPIC_API_KEY"] = anthropic_key
+        logger.info("[ClaudeCode] No inference_url provided, using direct Anthropic API")
+
+    print(f"  [ClaudeCode] Using binary: {claude_bin}")
+    print(f"  [ClaudeCode] Model: {model}")
+    print(f"  [ClaudeCode] BaseURL: {base_url or 'direct Anthropic API'}")
+    print(
+        f"  [ClaudeCode] API key: {actual_api_key[:15]}..."
+        if len(actual_api_key) > 15
+        else "  [ClaudeCode] API key: (short)"
+    )
+    print(f"  [ClaudeCode] Working directory: {sandbox_dir}")
+
+    # Claude Code command: use --print for non-interactive mode
+    # --model to specify model, --dangerously-skip-permissions to allow all tool calls
+    cmd = [
+        claude_bin,
+        "--print",  # Non-interactive mode, outputs result
+        "--model", model,
+        "--dangerously-skip-permissions",  # Allow all tool calls without prompting
+        prompt,
+    ]
+
+    logger.info(
+        "[ClaudeCode] Starting subprocess: cmd=%s cwd=%s timeout=%ds",
+        " ".join(cmd[:5]) + "...",
+        sandbox_dir,
+        timeout,
+    )
+
+    try:
+        print(
+            f"[ClaudeCode] ⚡⚡⚡ STARTING SUBPROCESS: cmd={cmd[:4]}... cwd={sandbox_dir}", flush=True
+        )
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=str(sandbox_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        print(f"[ClaudeCode] ⚡⚡⚡ SUBPROCESS STARTED: pid={proc.pid}", flush=True)
+
+        # Stream output in real-time
+        stdout_chunks = []
+        stderr_chunks = []
+
+        async def read_stream(stream, chunks, prefix):
+            try:
+                while True:
+                    chunk = await stream.read(1024)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    text = chunk.decode("utf-8", errors="replace")
+                    for line in text.splitlines():
+                        if line.strip():
+                            print(f"[ClaudeCode] {prefix}: {line}", flush=True)
+            except Exception as e:
+                print(f"[ClaudeCode] ⚡⚡⚡ Error reading {prefix}: {e}", flush=True)
+
+        stdout_task = asyncio.create_task(read_stream(proc.stdout, stdout_chunks, "STDOUT"))
+        stderr_task = asyncio.create_task(read_stream(proc.stderr, stderr_chunks, "STDERR"))
+
+        try:
+            returncode = await asyncio.wait_for(proc.wait(), timeout=timeout)
+            await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+        except TimeoutError:
+            print(f"[ClaudeCode] ⚡⚡⚡ TIMEOUT after {timeout}s - killing process", flush=True)
+            proc.kill()
+            await proc.wait()
+            stdout_task.cancel()
+            stderr_task.cancel()
+            return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
+
+        stdout = b"".join(stdout_chunks)
+        stderr = b"".join(stderr_chunks)
+
+        print(
+            f"[ClaudeCode] ⚡⚡⚡ SUBPROCESS COMPLETED: returncode={returncode} stdout_len={len(stdout)} stderr_len={len(stderr)}",
+            flush=True,
+        )
+
+        return {
+            "success": returncode == 0,
+            "stdout": stdout.decode("utf-8", errors="replace"),
+            "stderr": stderr.decode("utf-8", errors="replace"),
+        }
+    except TimeoutError:
+        print(f"[ClaudeCode] ⚡⚡⚡ TIMEOUT after {timeout}s", flush=True)
+        proc.kill()
+        return {"success": False, "stdout": "", "stderr": f"Timeout after {timeout}s"}
+    except Exception as e:
+        print(f"[ClaudeCode] ⚡⚡⚡ EXCEPTION: {e}", flush=True)
+        import traceback
+
+        traceback.print_exc()
         return {"success": False, "stdout": "", "stderr": str(e)}
 
 
@@ -1133,6 +1321,10 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     reference_snippets = context_override.get("reference_snippets", DEFAULT_REFERENCE_SNIPPETS)
     hooks_documentation = context_override.get("hooks_documentation", DEFAULT_HOOKS_DOCUMENTATION)
 
+    # Agent-specific file artifacts (for GEPA optimization of AGENTS.md, skills, etc.)
+    agents_md = context_override.get("agents_md")  # Optional: AGENTS.md content
+    codex_skills = context_override.get("codex_skills")  # Optional: .codex/skills.yaml content
+
     print(f"\n{'=' * 60}", flush=True)
     print(f"[engine_bench] ⚡⚡⚡ Running rollout for {instance_id}", flush=True)
     print(f"  Agent: {agent_type}", flush=True)
@@ -1148,6 +1340,10 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         f"hooks_doc={len(hooks_documentation)} chars",
         flush=True,
     )
+    if agents_md:
+        print(f"  AGENTS.md: {len(agents_md)} chars (GEPA optimizable)", flush=True)
+    if codex_skills:
+        print(f"  codex_skills: {len(codex_skills)} chars (GEPA optimizable)", flush=True)
     print(f"{'=' * 60}\n", flush=True)
 
     # =========================================================================
@@ -1166,8 +1362,12 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
             hooks_documentation=hooks_documentation,
         )
 
-        # Get OpenAI API key (could be from env or interceptor setup)
-        openai_api_key = os.environ.get("OPENAI_API_KEY", api_key or "")
+        # Choose auth for agent calls; prefer Synth key when routing via interceptor.
+        openai_api_key = resolve_interceptor_api_key(
+            inference_url=inference_url,
+            interceptor_key=api_key,
+            openai_key=os.environ.get("OPENAI_API_KEY", ""),
+        )
 
         # Get trace correlation ID from request
         trace_correlation_id = (
@@ -1186,7 +1386,15 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 inference_url=inference_url,
                 snapshot_name=DAYTONA_SNAPSHOT_NAME,
                 agent_type=agent_type,  # "codex" or "opencode"
+                agents_md=agents_md,  # Optional: GEPA-optimized AGENTS.md
+                codex_skills=codex_skills,  # Optional: GEPA-optimized .codex/skills.yaml
             )
+
+            # Print any errors from Daytona
+            if not daytona_result.get("success"):
+                print(f"[engine_bench] ❌ Daytona rollout failed!")
+                print(f"[engine_bench] Error: {daytona_result.get('error', 'unknown')}")
+                print(f"[engine_bench] Output: {daytona_result.get('output', '')[:2000]}")
 
             passed = daytona_result.get("passed", 0)
             total = daytona_result.get("total", 1)
@@ -1276,6 +1484,41 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                     stderr_full = agent_result["stderr"]
                     if stderr_full.strip():
                         print(f"  [Codex] stderr (full):\n{stderr_full}")
+        elif agent_type == "claude_code":
+            print(
+                f"[engine_bench] ⚡⚡⚡ CALLING run_claude_code_agent: model={model} timeout={timeout} inference_url={inference_url}",
+                flush=True,
+            )
+            agent_result = await run_claude_code_agent(
+                prompt,
+                sandbox_dir,
+                model=model,
+                timeout=timeout,
+                inference_url=inference_url,
+                api_key=api_key,
+            )
+            print(
+                f"[engine_bench] ⚡⚡⚡ run_claude_code_agent RETURNED: success={agent_result.get('success')}",
+                flush=True,
+            )
+
+            # Log Claude Code output for debugging
+            if not agent_result["success"]:
+                print("  [ClaudeCode] ⚡⚡⚡ FAILED", flush=True)
+                print(
+                    f"  [ClaudeCode] ⚡⚡⚡ stdout: {agent_result.get('stdout', '')[:500]}",
+                    flush=True,
+                )
+                print(
+                    f"  [ClaudeCode] ⚡⚡⚡ stderr: {agent_result.get('stderr', '')[:1000]}",
+                    flush=True,
+                )
+            else:
+                print("  [ClaudeCode] ⚡⚡⚡ Completed successfully", flush=True)
+                if agent_result.get("stderr"):
+                    stderr_full = agent_result["stderr"]
+                    if stderr_full.strip():
+                        print(f"  [ClaudeCode] ⚡⚡⚡ stderr (full):\n{stderr_full}", flush=True)
         else:
             print(
                 f"[engine_bench] ⚡⚡⚡ CALLING run_opencode_agent: model={model} timeout={timeout} inference_url={inference_url}",

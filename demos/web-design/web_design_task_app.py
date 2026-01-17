@@ -327,6 +327,17 @@ def create_web_design_local_api(style_prompt: str) -> Any:
         if not generated_bytes:
             raise ValueError("No image data in policy model response")
 
+        # Save generated image to disk for inspection
+        output_dir = Path(__file__).parent / "generated_images"
+        output_dir.mkdir(exist_ok=True)
+        run_id_short = (
+            request.trace_correlation_id[:8] if request.trace_correlation_id else "unknown"
+        )
+        img_path = output_dir / f"seed_{seed}_run_{run_id_short}.png"
+        with open(img_path, "wb") as f:
+            f.write(generated_bytes)
+        logger.info(f"Saved generated image to {img_path}")
+
         trace_correlation_id = extract_trace_correlation_id(
             policy_config=policy_cfg,
             inference_url=inference_url,

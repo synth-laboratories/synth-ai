@@ -22,6 +22,19 @@ import sys
 import time
 from pathlib import Path
 
+# Auto-load .env file from synth-ai root
+_env_file = Path(__file__).parent.parent.parent / ".env"
+if _env_file.exists():
+    with open(_env_file) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                # Strip quotes if present
+                value = value.strip().strip("'\"")
+                if key.strip() not in os.environ:  # Don't override existing env vars
+                    os.environ[key.strip()] = value
+
 # Parse args early
 parser = argparse.ArgumentParser(description="Run EngineBench eval job")
 parser.add_argument("--local", action="store_true", help="Use localhost:8000 backend")
@@ -38,8 +51,8 @@ parser.add_argument(
     "--agent",
     type=str,
     default="opencode",
-    choices=["opencode", "codex"],
-    help="Agent runner to use (opencode or codex)",
+    choices=["opencode", "codex", "claude_code"],
+    help="Agent runner to use (opencode, codex, or claude_code)",
 )
 parser.add_argument("--timeout", type=int, default=300, help="Agent timeout in seconds")
 parser.add_argument(
