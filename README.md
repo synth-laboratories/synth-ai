@@ -2,8 +2,8 @@
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-[![PyPI Main](https://img.shields.io/badge/main-0.4.12-blue)](https://pypi.org/project/synth-ai/0.4.12/)
-[![PyPI Nightly](https://img.shields.io/badge/nightly-0.4.12-orange)](https://pypi.org/project/synth-ai/0.4.12/)
+[![PyPI Main](https://img.shields.io/badge/main-0.5.4.dev20260116-blue)](https://pypi.org/project/synth-ai/0.5.4.dev20260116/)
+[![PyPI Nightly](https://img.shields.io/badge/nightly-0.5.4.dev20260116-orange)](https://pypi.org/project/synth-ai/0.5.4.dev20260116/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
 ![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
