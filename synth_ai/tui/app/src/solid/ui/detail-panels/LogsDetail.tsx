@@ -10,12 +10,15 @@ interface LogsDetailProps {
   tail: boolean
   offset: number
   maxOffset: number
+  framed?: boolean
 }
 
 /**
  * Logs detail panel (right side).
  */
 export function LogsDetail(props: LogsDetailProps) {
+  const framed = () => props.framed !== false
+
   const scrollInfo = () => {
     if (props.lines.length === 0) return ""
     const current = props.offset + 1
@@ -25,14 +28,23 @@ export function LogsDetail(props: LogsDetailProps) {
     return ` [${current}-${end}/${total}]${tailIndicator}`
   }
 
+  const borderProps = () => {
+    if (!framed()) {
+      return { border: false }
+    }
+    return {
+      border: PANEL.border,
+      borderStyle: PANEL.borderStyle,
+      borderColor: getPanelBorderColor(props.focused),
+      title: `${props.title}${scrollInfo()}`,
+      titleAlignment: PANEL.titleAlignment,
+    }
+  }
+
   return (
     <box
+      {...borderProps()}
       flexGrow={1}
-      border={PANEL.border}
-      borderStyle={PANEL.borderStyle}
-      borderColor={getPanelBorderColor(props.focused)}
-      title={`${props.title}${scrollInfo()}`}
-      titleAlignment={PANEL.titleAlignment}
       paddingLeft={PANEL.paddingLeft}
       paddingRight={1}
       flexDirection="column"

@@ -2,94 +2,114 @@ import { For, Show, createMemo, type Accessor } from "solid-js"
 
 import { COLORS } from "../../theme"
 import { defaultLayoutSpec } from "../../layout"
-import { KeyHint } from "../../components/KeyHint"
-import { formatActionKeys } from "../../../input/keymap"
-import { ListPane, type ActivePane, type FocusTarget, type PrincipalPane } from "../../../types"
+import { clampLine } from "../../../utils/text"
+import {
+  getActionHint,
+  buildActionHint,
+  buildCombinedHint,
+} from "../../../input/keymap"
+import { ListPane, type ActivePane, type FocusTarget, type PrimaryView } from "../../../types"
 
 export type JobsLoadMoreState = "none" | "server" | "cache" | "loading"
 
 type KeyFooterProps = {
-  principalPane: Accessor<PrincipalPane>
+  primaryView: Accessor<PrimaryView>
   activePane: Accessor<ActivePane>
   focusTarget: Accessor<FocusTarget>
+  width: Accessor<number>
+  compact: Accessor<boolean>
   jobsLoadMoreState: Accessor<JobsLoadMoreState>
   hasSelectedJob: Accessor<boolean>
+  resultsInteractive: Accessor<boolean>
 }
 
 type KeyHintItem = {
-  description: string
-  keyLabel: string
+  hint: string
   active?: boolean
 }
 
-const NAV_KEYS = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })}`
-const FOCUS_KEYS = `${formatActionKeys("focus.next", { primaryOnly: true })}/${formatActionKeys("focus.prev", { primaryOnly: true })}`
-const SELECT_KEY = formatActionKeys("pane.select", { primaryOnly: true })
-const REFRESH_KEY = formatActionKeys("app.refresh", { primaryOnly: true })
-const QUIT_KEY = formatActionKeys("app.quit", { primaryOnly: true })
-const BACK_KEY = formatActionKeys("app.back", { primaryOnly: true })
-const SESSIONS_KEY = formatActionKeys("pane.openSessions", { primaryOnly: true })
-const ABORT_KEY = formatActionKeys("chat.abort", { primaryOnly: true })
-const LOAD_MORE_KEY = formatActionKeys("jobs.loadMore", { primaryOnly: true })
-const LIST_FILTER_KEY = formatActionKeys("modal.open.listFilter", { primaryOnly: true })
-const EVENT_FILTER_KEY = formatActionKeys("modal.open.filter", { primaryOnly: true })
-const CANCEL_KEY = formatActionKeys("job.cancel", { primaryOnly: true })
-const ARTIFACTS_KEY = formatActionKeys("job.artifacts", { primaryOnly: true })
+// Pre-built combined hints for navigation
+const MOVE_HINT = buildCombinedHint("nav.down", "nav.up", "move")
+const SCROLL_HINT = buildCombinedHint("nav.down", "nav.up", "scroll")
+const FOCUS_HINT = buildCombinedHint("focus.next", "focus.prev", "focus")
 
 export function KeyFooter(props: KeyFooterProps) {
   const hints = createMemo<KeyHintItem[]>(() => {
-    if (props.principalPane() === "opencode") {
-      return [
-        { description: "back", keyLabel: BACK_KEY },
-        { description: "sessions", keyLabel: SESSIONS_KEY },
-        { description: "abort", keyLabel: ABORT_KEY },
-        { description: "quit", keyLabel: QUIT_KEY },
-      ]
-    }
-
+    const view = props.primaryView()
     const activePane = props.activePane()
     const focusTarget = props.focusTarget()
     const items: KeyHintItem[] = []
 
     if (focusTarget === "list") {
-      items.push({ description: "move", keyLabel: NAV_KEYS })
-      items.push({ description: "view", keyLabel: SELECT_KEY })
+      items.push({ hint: MOVE_HINT })
+      items.push({ hint: buildActionHint("pane.select", "view") })
       if (activePane === ListPane.Jobs) {
         const loadMore = props.jobsLoadMoreState()
         if (loadMore === "server") {
-          items.push({ description: "more", keyLabel: LOAD_MORE_KEY })
+          items.push({ hint: buildActionHint("jobs.loadMore", "more") })
         } else if (loadMore === "cache") {
-          items.push({ description: "more (cached)", keyLabel: LOAD_MORE_KEY })
+          items.push({ hint: buildActionHint("jobs.loadMore", "more (cached)") })
         }
-        items.push({ description: "filter", keyLabel: LIST_FILTER_KEY })
+        items.push({ hint: getActionHint("modal.open.listFilter") })
+      } else if (activePane === ListPane.Logs) {
+        items.push({ hint: getActionHint("modal.open.listFilter") })
       }
+    } else if (focusTarget === "conversation") {
+      if (view === "agent") {
+        items.push({ hint: SCROLL_HINT })
+      }
+    } else if (focusTarget === "principal") {
+      if (view === "jobs" || view === "logs") {
+        items.push({ hint: SCROLL_HINT })
+      }
+      if (view === "logs") {
+        items.push({ hint: buildActionHint("pane.select", "tail") })
+      }
+    } else if (focusTarget === "details") {
+      items.push({ hint: SCROLL_HINT })
+    } else if (focusTarget === "promptDiff") {
+      items.push({ hint: SCROLL_HINT })
     } else if (focusTarget === "events") {
-      items.push({ description: "move", keyLabel: NAV_KEYS })
-      items.push({ description: "view", keyLabel: SELECT_KEY })
-      items.push({ description: "filter", keyLabel: EVENT_FILTER_KEY })
+      items.push({ hint: MOVE_HINT })
+      items.push({ hint: buildActionHint("pane.select", "view") })
+      items.push({ hint: getActionHint("modal.open.filter") })
     } else if (focusTarget === "results") {
-      items.push({ description: "move", keyLabel: NAV_KEYS })
-      items.push({ description: "view", keyLabel: SELECT_KEY })
+      if (props.resultsInteractive()) {
+        items.push({ hint: MOVE_HINT })
+        items.push({ hint: buildActionHint("pane.select", "view") })
+      } else {
+        items.push({ hint: SCROLL_HINT })
+      }
     } else if (focusTarget === "metrics") {
-      items.push({ description: "open", keyLabel: SELECT_KEY })
-    } else if (focusTarget === "logs-detail") {
-      items.push({ description: "scroll", keyLabel: NAV_KEYS })
-      items.push({ description: "tail", keyLabel: SELECT_KEY })
+      items.push({ hint: SCROLL_HINT })
+      items.push({ hint: buildActionHint("pane.select", "open") })
+    } else if (focusTarget === "agent") {
+      items.push({ hint: getActionHint("chat.abort") })
+      items.push({ hint: getActionHint("app.back") })
     }
 
-    if (activePane === ListPane.Jobs && props.hasSelectedJob()) {
-      items.push({ description: "cancel", keyLabel: CANCEL_KEY })
-      items.push({ description: "artifacts", keyLabel: ARTIFACTS_KEY })
+    if (view === "jobs" && props.hasSelectedJob()) {
+      items.push({ hint: getActionHint("job.cancel") })
+      items.push({ hint: buildActionHint("job.artifacts", "download") })
     }
 
-    items.push({ description: "focus", keyLabel: FOCUS_KEYS })
-    items.push({ description: "refresh", keyLabel: REFRESH_KEY })
-    items.push({ description: "quit", keyLabel: QUIT_KEY })
+    items.push({ hint: FOCUS_HINT })
+    items.push({ hint: getActionHint("app.refresh") })
+    items.push({ hint: getActionHint("app.quit") })
 
     return items
   })
 
   const hintCount = createMemo(() => hints().length)
+  const fullLine = createMemo(() =>
+    hints()
+      .map((item) => item.hint)
+      .join(" | "),
+  )
+  const compactText = createMemo(() => {
+    return clampLine(fullLine(), Math.max(1, props.width() - 2))
+  })
+  const useCompact = createMemo(() => props.compact() || fullLine().length > props.width() - 2)
 
   return (
     <box
@@ -100,18 +120,23 @@ export function KeyFooter(props: KeyFooterProps) {
       justifyContent="center"
     >
       <text fg={COLORS.textDim}>Keys:</text>
-      <box flexDirection="row" gap={1}>
-        <For each={hints()}>
-          {(item, index) => (
-            <>
-              <KeyHint description={item.description} keyLabel={item.keyLabel} active={item.active} />
-              <Show when={index() < hintCount() - 1}>
-                <text fg={COLORS.textDim}>|</text>
-              </Show>
-            </>
-          )}
-        </For>
-      </box>
+      <Show
+        when={!useCompact()}
+        fallback={<text fg={COLORS.textDim}>{compactText()}</text>}
+      >
+        <box flexDirection="row" gap={1}>
+          <For each={hints()}>
+            {(item, index) => (
+              <>
+                <text fg={item.active ? COLORS.textBright : COLORS.textDim}>{item.hint}</text>
+                <Show when={index() < hintCount() - 1}>
+                  <text fg={COLORS.textDim}>|</text>
+                </Show>
+              </>
+            )}
+          </For>
+        </box>
+      </Show>
     </box>
   )
 }

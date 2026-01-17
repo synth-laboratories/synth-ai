@@ -1,6 +1,6 @@
-import type { AppContext } from "../../context"
-import type { AppData } from "../../types"
-import { extractGraphEvolveCandidates, groupCandidatesByGeneration } from "../../formatters/graph-evolve"
+import type { AppContext } from "../context"
+import type { AppData } from "../types"
+import { extractGraphEvolveCandidates, groupCandidatesByGeneration } from "../formatters/graph-evolve"
 import { clampIndex, moveSelectionIndex } from "./list"
 
 function getVerifierEvolveGenerations(data: AppData) {

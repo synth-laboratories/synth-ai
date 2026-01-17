@@ -1,26 +1,35 @@
+import type { Accessor } from "solid-js"
 import type { AppContext } from "../../context"
 import type { AppState } from "../../state/app-state"
 import type { JobsDetailState } from "./useJobsDetailState"
+import type { JobsDetailSectionId } from "./useJobsDetailLayout"
 import type { JobsListState } from "./useJobsListState"
 import type { LogsDetailState } from "./useLogsDetailState"
 import type { LogsListState } from "./useLogsListState"
+import type { SessionsListState } from "./useSessionsListState"
 import type { JobEvent } from "../../tui_data"
 import { focusManager } from "../../focus"
-import { ListPane } from "../../types"
-import { moveEventSelection } from "../utils/events"
+import { log } from "../../utils/log"
+import type { PrimaryView } from "../../types"
+import { moveEventSelection } from "../../utils/events"
 import {
   getBestVerifierEvolveGenerationIndex,
   getSelectedVerifierEvolveGeneration,
   moveVerifierEvolveGenerationSelection,
-} from "../utils/verifier-evolve"
+} from "../../utils/verifier-evolve"
+import { shouldShowPromptDiffPanel } from "../ui/detail-panels/PromptDiffPanel"
 
 type UseFocusBindingsOptions = {
   ctx: AppContext
   ui: AppState
+  primaryView: Accessor<PrimaryView>
   jobsList: JobsListState
   logsList: LogsListState
+  sessionsList: SessionsListState
   jobsDetail: JobsDetailState
   logsDetail: LogsDetailState
+  scrollJobsDetailBy: (delta: number) => boolean
+  ensureJobsDetailSectionVisible: (id: JobsDetailSectionId) => void
   openEventModal: (event: JobEvent) => void
   openLogModal: (filePath: string) => Promise<void>
   openMetricsAndFetch: () => void
@@ -42,20 +51,54 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
     handleAction: (action) => {
       if (action === "nav.down" || action === "nav.up") {
         const delta = action === "nav.down" ? 1 : -1
-        if (options.ui.activePane === ListPane.Jobs) {
-          options.jobsList.moveSelection(delta)
-        } else if (options.ui.activePane === ListPane.Logs) {
-          options.logsList.liveLogs.moveSelection(delta)
+        const view = options.primaryView()
+        const beforeIndex =
+          view === "jobs"
+            ? options.jobsList.selectedIndex()
+            : view === "logs"
+              ? options.logsList.selectedIndex()
+              : options.sessionsList.selectedIndex()
+        const listSize =
+          view === "jobs"
+            ? options.jobsList.totalCount()
+            : view === "logs"
+              ? options.logsList.totalCount()
+              : options.sessionsList.totalCount()
+        let moved = false
+        if (view === "jobs") {
+          moved = options.jobsList.moveSelection(delta)
+        } else if (view === "logs") {
+          moved = options.logsList.liveLogs.moveSelection(delta)
+        } else {
+          moved = options.sessionsList.moveSelection(delta)
         }
+        const afterIndex =
+          view === "jobs"
+            ? options.jobsList.selectedIndex()
+            : view === "logs"
+              ? options.logsList.selectedIndex()
+              : options.sessionsList.selectedIndex()
+        log("action", "list.nav", {
+          view,
+          delta,
+          moved,
+          beforeIndex,
+          afterIndex,
+          listSize,
+        })
         return true
       }
       if (action === "pane.select") {
-        if (options.ui.activePane === ListPane.Jobs) {
+        if (options.primaryView() === "jobs") {
           options.jobsList.selectCurrent()
-        } else if (options.ui.activePane === ListPane.Logs) {
+        } else if (options.primaryView() === "logs") {
           const file = options.logsList.selectedFile()
           if (file) {
             void options.openLogModal(file.path)
+          }
+        } else {
+          if (options.sessionsList.selectCurrent()) {
+            focusManager.setFocus("agent")
           }
         }
         return true
@@ -65,13 +108,71 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
   })
 
   focusManager.register({
-    id: "results",
+    id: "agent",
     order: 1,
-    enabled: () =>
-      options.ui.principalPane === "jobs" &&
-      options.ui.activePane === ListPane.Jobs &&
-      isVerifierEvolveJob(),
+    enabled: () => options.primaryView() === "agent",
+  })
+
+  focusManager.register({
+    id: "conversation",
+    order: 2,
+    enabled: () => options.primaryView() === "agent",
+  })
+
+  focusManager.register({
+    id: "principal",
+    order: 3,
+    enabled: () => options.primaryView() !== "agent",
+    onBlur: () => {
+      if (options.primaryView() === "logs") {
+        options.logsDetail.onBlur()
+      }
+    },
     onFocus: () => {
+      if (options.primaryView() === "logs") {
+        options.logsDetail.onFocus()
+      }
+    },
+    handleAction: (action) => {
+      if (action === "nav.down" || action === "nav.up") {
+        const delta = action === "nav.down" ? 1 : -1
+        if (options.primaryView() === "jobs") {
+          options.scrollJobsDetailBy(delta)
+        } else if (options.primaryView() === "logs") {
+          options.logsDetail.scrollBy(delta)
+        }
+        return true
+      }
+      if (action === "pane.select" && options.primaryView() === "logs") {
+        options.logsDetail.jumpToTail()
+        return true
+      }
+      return false
+    },
+  })
+
+  focusManager.register({
+    id: "details",
+    order: 4,
+    enabled: () => options.primaryView() === "jobs",
+    onFocus: () => options.ensureJobsDetailSectionVisible("details"),
+    handleAction: (action) => {
+      if (action === "nav.down" || action === "nav.up") {
+        const delta = action === "nav.down" ? 1 : -1
+        options.scrollJobsDetailBy(delta)
+        return true
+      }
+      return false
+    },
+  })
+
+  focusManager.register({
+    id: "results",
+    order: 5,
+    enabled: () => options.primaryView() === "jobs",
+    onFocus: () => {
+      options.ensureJobsDetailSectionVisible("results")
+      if (!isVerifierEvolveJob()) return
       const bestIndex = getBestVerifierEvolveGenerationIndex(options.ctx.state.data)
       if (bestIndex == null) return
       if (options.ui.verifierEvolveGenerationIndex === 0) {
@@ -81,10 +182,15 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
     handleAction: (action) => {
       if (action === "nav.down" || action === "nav.up") {
         const delta = action === "nav.down" ? 1 : -1
-        moveVerifierEvolveGenerationSelection(options.ctx, delta)
+        if (isVerifierEvolveJob()) {
+          moveVerifierEvolveGenerationSelection(options.ctx, delta)
+        } else {
+          options.scrollJobsDetailBy(delta)
+        }
         return true
       }
       if (action === "pane.select") {
+        if (!isVerifierEvolveJob()) return false
         const generation = getSelectedVerifierEvolveGeneration(
           options.ctx.state.data,
           options.ui.verifierEvolveGenerationIndex,
@@ -99,10 +205,32 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
   })
 
   focusManager.register({
-    id: "metrics",
-    order: 2,
-    enabled: () => options.ui.principalPane === "jobs" && options.ui.activePane === ListPane.Jobs,
+    id: "promptDiff",
+    order: 6,
+    enabled: () =>
+      options.primaryView() === "jobs" && shouldShowPromptDiffPanel(options.ctx.state.data),
+    onFocus: () => options.ensureJobsDetailSectionVisible("promptDiff"),
     handleAction: (action) => {
+      if (action === "nav.down" || action === "nav.up") {
+        const delta = action === "nav.down" ? 1 : -1
+        options.scrollJobsDetailBy(delta)
+        return true
+      }
+      return false
+    },
+  })
+
+  focusManager.register({
+    id: "metrics",
+    order: 7,
+    enabled: () => options.primaryView() === "jobs",
+    onFocus: () => options.ensureJobsDetailSectionVisible("metrics"),
+    handleAction: (action) => {
+      if (action === "nav.down" || action === "nav.up") {
+        const delta = action === "nav.down" ? 1 : -1
+        options.scrollJobsDetailBy(delta)
+        return true
+      }
       if (action === "pane.select") {
         options.openMetricsAndFetch()
         return true
@@ -113,8 +241,9 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
 
   focusManager.register({
     id: "events",
-    order: 3,
-    enabled: () => options.ui.principalPane === "jobs" && options.ui.activePane === ListPane.Jobs,
+    order: 8,
+    enabled: () => options.primaryView() === "jobs",
+    onFocus: () => options.ensureJobsDetailSectionVisible("events"),
     handleAction: (action) => {
       if (action === "nav.down" || action === "nav.up") {
         const delta = action === "nav.down" ? 1 : -1
@@ -132,29 +261,4 @@ export function useFocusBindings(options: UseFocusBindingsOptions): void {
     },
   })
 
-  focusManager.register({
-    id: "agent",
-    order: 4,
-    enabled: () => options.ui.principalPane === "opencode",
-  })
-
-  focusManager.register({
-    id: "logs-detail",
-    order: 5,
-    enabled: () => options.ui.principalPane === "jobs" && options.ui.activePane === ListPane.Logs,
-    onBlur: () => options.logsDetail.onBlur(),
-    onFocus: () => options.logsDetail.onFocus(),
-    handleAction: (action) => {
-      if (action === "nav.down" || action === "nav.up") {
-        const delta = action === "nav.down" ? 1 : -1
-        options.logsDetail.scrollBy(delta)
-        return true
-      }
-      if (action === "pane.select") {
-        options.logsDetail.jumpToTail()
-        return true
-      }
-      return false
-    },
-  })
 }

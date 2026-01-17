@@ -1,6 +1,6 @@
 import { type Accessor, createMemo } from "solid-js"
 
-import { formatActionKeys } from "../../input/keymap"
+import { getActionHint, buildCombinedHint, buildActionHint } from "../../input/keymap"
 import { formatSessionDetails } from "../../formatters/modals"
 import type { SessionHealthResult, SessionRecord } from "../../types"
 import { ScrollableTextModal } from "./ModalShared"
@@ -46,12 +46,12 @@ export function SessionsModal(props: SessionsModalProps) {
       offset={props.scrollOffset()}
       hint={{
         baseHints: [
-          `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} select`,
-          `${formatActionKeys("sessions.connect")} connect local`,
-          `${formatActionKeys("sessions.disconnect")} disconnect`,
-          `${formatActionKeys("sessions.copy", { primaryOnly: true })} copy URL`,
-          `${formatActionKeys("modal.confirm")} select`,
-          `${formatActionKeys("app.back")} close`,
+          buildCombinedHint("nav.down", "nav.up", "select"),
+          buildActionHint("sessions.connect", "connect local"),
+          getActionHint("sessions.disconnect"),
+          buildActionHint("sessions.copy", "copy URL"),
+          getActionHint("modal.confirm"),
+          getActionHint("app.back"),
         ],
       }}
     />

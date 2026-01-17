@@ -1,6 +1,6 @@
 import { type Accessor } from "solid-js"
 
-import { formatActionKeys } from "../../input/keymap"
+import { getActionHint, buildActionHint } from "../../input/keymap"
 import { TextInputModal } from "./ModalShared"
 
 type SnapshotModalProps = {
@@ -17,7 +17,7 @@ export function SnapshotModal(props: SnapshotModalProps) {
       height={7}
       borderColor="#60a5fa"
       titleColor="#60a5fa"
-      hint={`${formatActionKeys("modal.confirm")} apply | ${formatActionKeys("app.back")} close`}
+      hint={`${buildActionHint("modal.confirm", "apply")} | ${getActionHint("app.back")}`}
       dimensions={props.dimensions}
       label="Snapshot ID:"
       placeholder="Enter snapshot id"

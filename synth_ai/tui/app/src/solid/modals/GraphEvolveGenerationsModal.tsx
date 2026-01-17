@@ -1,6 +1,6 @@
 import { Show, createEffect, createMemo, createSignal } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
-import { formatActionKeys, matchAction } from "../../input/keymap"
+import { getActionHint, buildCombinedHint, buildActionHint, matchAction } from "../../input/keymap"
 import { COLORS } from "../theme"
 import type { AppData } from "../../types"
 import { moveSelectionIndex, resolveSelectionWindow } from "../utils/list"
@@ -180,10 +180,10 @@ export function GraphEvolveGenerationsModal(props: GraphEvolveGenerationsModalPr
       layout().total > layout().visibleCount
         ? `[${windowStart() + 1}-${Math.min(windowStart() + layout().visibleCount, layout().total)}/${layout().total}] `
         : ""
-    const tabHint = `${formatActionKeys("generation.prev", { primaryOnly: true })}/${formatActionKeys("generation.next", { primaryOnly: true })} gen`
-    const scrollHint = `${formatActionKeys("nav.up", { primaryOnly: true })}/${formatActionKeys("nav.down", { primaryOnly: true })} scroll`
-    const openHint = `${formatActionKeys("modal.confirm")} view`
-    const closeHint = `${formatActionKeys("app.back")} close`
+    const tabHint = buildCombinedHint("generation.prev", "generation.next", "gen")
+    const scrollHint = buildCombinedHint("nav.up", "nav.down", "scroll")
+    const openHint = buildActionHint("modal.confirm", "view")
+    const closeHint = getActionHint("app.back")
     return `${range}${tabHint} | ${scrollHint} | ${openHint} | ${closeHint}`
   })
 

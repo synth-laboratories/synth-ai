@@ -3,13 +3,13 @@ import path from "node:path"
 import type { Accessor, Component, Setter } from "solid-js"
 import type { SetStoreFunction } from "solid-js/store"
 
-import { getTextInput, matchAction, type KeyEvent } from "../../input/keymap"
+import { matchAction, type KeyEvent } from "../../input/keymap"
 import { log, logKey } from "../../utils/log"
-import { focusManager, setListPane } from "../../focus"
+import { focusManager } from "../../focus"
 import { ListPane } from "../../types"
 import type { AppState } from "../../state/app-state"
 import { shutdown } from "../../lifecycle"
-import { readLogFile } from "../utils/logs"
+import { readLogFile } from "../../utils/logs"
 import { copyToClipboard } from "../../utils/clipboard"
 import type { AppData } from "../../types"
 import type { ActiveModal, ModalState } from "../modals/types"
@@ -56,7 +56,6 @@ type UseAppKeybindingsOptions = {
   openSettingsModal: () => void
   openUsageModal: () => void
   openTaskAppsModal: () => void
-  openSessionsModal: () => void
   openMetricsAndFetch: () => void
   openTracesModal: () => void
   ensureCreateJobModal: () => void
@@ -71,6 +70,23 @@ type UseAppKeybindingsOptions = {
 }
 
 export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
+  function logDispatch(
+    action: string,
+    context: string,
+    extra?: Record<string, unknown>,
+  ): void {
+    log("action", "dispatch", {
+      action,
+      context,
+      primaryView: options.ui.primaryView,
+      focusTarget: options.ui.focusTarget,
+      activePane: options.ui.activePane,
+      modal: options.modal()?.type ?? null,
+      activeModal: options.activeModal() ?? null,
+      ...(extra ?? {}),
+    })
+  }
+
   function handleGlobalBack(evt: KeyEventWithPrevent): void {
     evt.preventDefault?.()
 
@@ -92,12 +108,13 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
       return
     }
 
-    if (options.ui.principalPane === "opencode") {
+    if (options.ui.primaryView === "agent") {
       const chatBack = (options.chatPaneComponent() as any)?.handleBack
       if (typeof chatBack === "function" && chatBack()) {
         return
       }
-      options.setUi("principalPane", "jobs")
+      options.setUi("primaryView", "jobs")
+      options.setUi("focusTarget", "list")
       return
     }
   }
@@ -109,14 +126,15 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         ? `detail:${options.modal()?.type}`
         : options.showCreateJobModal()
           ? "createJob"
-          : options.ui.principalPane === "opencode"
-            ? "opencode"
+          : options.ui.primaryView === "agent"
+            ? "agent"
             : options.ui.activePane // "jobs" or "logs"
     logKey(evt, currentContext)
 
     const globalAction = matchAction(evt, "app.global")
     if (globalAction) {
-      log("action",globalAction, "app.global")
+      log("action", globalAction, "app.global")
+      logDispatch(globalAction, "app.global")
     }
     switch (globalAction) {
       case "app.forceQuit":
@@ -170,7 +188,8 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
       if (context) {
         const action = matchAction(evt, context)
         if (action) {
-          log("action",action, context)
+          log("action", action, context)
+          logDispatch(action, context)
           evt.preventDefault?.()
           switch (overlayModal) {
             case "filter":
@@ -394,43 +413,54 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
       if (handled) return
     }
 
-    if (options.ui.principalPane === "opencode") {
-      const action = matchAction(evt, "app.opencode")
-      if (action) {
-        evt.preventDefault?.()
-        switch (action) {
-          case "pane.openSessions":
-            options.openSessionsModal()
-            return
-          default:
-            return
-        }
-      }
-      if (options.ui.focusTarget === "agent") {
-        // Allow pane switching keys (1, 2, 3) to pass through
-        const globalAction = matchAction(evt, "app.global")
-        const isPaneSwitchAction =
-          globalAction === "pane.jobs" ||
-          globalAction === "pane.logs" ||
-          globalAction === "pane.togglePrincipal"
-        if (!isPaneSwitchAction) {
-          return
-        }
-      }
-    }
+    const isAgentView = options.ui.primaryView === "agent"
+    const focusTarget = options.ui.focusTarget
+    const isAgentInput = isAgentView && focusTarget === "agent"
+    const isAgentScroll = isAgentView && focusTarget === "conversation"
+    const isPaneSwitchAction =
+      globalAction === "pane.jobs" ||
+      globalAction === "pane.logs" ||
+      globalAction === "pane.agent"
+    const isFocusAction = globalAction === "focus.next" || globalAction === "focus.prev"
+    const isNavAction = globalAction === "nav.down" || globalAction === "nav.up"
 
-    const action = matchAction(evt, "app.global")
-    if (!action) return
-
-    if ((options.activeModal() || options.modal()) && !action.startsWith("modal.open.")) {
+    if (isAgentScroll && isNavAction) {
+      if (globalAction) {
+        log("action", "action.blocked", { action: globalAction, reason: "agent-scroll" })
+      }
       return
     }
 
-    const agentFocused = options.ui.principalPane === "opencode" && options.ui.focusTarget === "agent"
-    const isNavAction = action === "nav.down" || action === "nav.up" || action === "pane.select"
-    const isPaneSwitchAction = action === "pane.jobs" || action === "pane.logs" || action === "pane.togglePrincipal"
-    // Don't block pane switch actions even when agent is focused
-    if (agentFocused && !isPaneSwitchAction && (isNavAction || getTextInput(evt))) {
+    if (isAgentInput) {
+      const inputStateGetter = (options.chatPaneComponent() as any)?.getInputState
+      const inputState = typeof inputStateGetter === "function" ? inputStateGetter() : null
+      const inputHasText = (inputState?.inputTextLength ?? 0) > 0
+      if (isPaneSwitchAction && !inputHasText) {
+        // Allow pane switching when input is empty.
+      } else if (isFocusAction) {
+        // Allow focus cycling even while input is active.
+      } else {
+        if (globalAction) {
+          log("action", "action.blocked", {
+            action: globalAction,
+            reason: "agent-input",
+            inputLength: inputState?.inputTextLength ?? 0,
+          })
+        }
+        return
+      }
+    }
+
+    const action = globalAction
+    if (!action) return
+
+    if ((options.activeModal() || options.modal()) && !action.startsWith("modal.open.")) {
+      log("action", "action.blocked", {
+        action,
+        reason: "modal",
+        modal: options.modal()?.type ?? null,
+        activeModal: options.activeModal() ?? null,
+      })
       return
     }
 
@@ -461,33 +491,18 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         options.runAction("jobs-load-more", () => options.loadMoreJobs())
         return
       case "pane.jobs":
-        setListPane(ListPane.Jobs)
-        // Also switch away from opencode panel if needed
-        if (options.ui.principalPane === "opencode") {
-          options.setUi("principalPane", "jobs")
-          options.setUi("focusTarget", "list")
-        }
+        options.setUi("primaryView", "jobs")
+        options.setUi("focusTarget", "list")
         return
       case "pane.logs":
-        setListPane(ListPane.Logs)
-        // Also switch away from opencode panel if needed
-        if (options.ui.principalPane === "opencode") {
-          options.setUi("principalPane", "jobs")
-          options.setUi("focusTarget", "list")
-        }
+        options.setUi("primaryView", "logs")
+        options.setUi("focusTarget", "list")
         return
-      case "pane.togglePrincipal": {
-        const nextPane = options.ui.principalPane === "jobs" ? "opencode" : "jobs"
-        options.setUi("principalPane", nextPane)
-        if (nextPane === "opencode") {
-          options.runAction("opencode-ensure", () => options.ensureOpenCodeServer())
-          // Set focus directly to avoid timing issues with enabled check
-          options.setUi("focusTarget", "agent")
-        } else {
-          focusManager.ensureValid()
-        }
+      case "pane.agent":
+        options.setUi("primaryView", "agent")
+        options.setUi("focusTarget", "list")
+        options.runAction("opencode-ensure", () => options.ensureOpenCodeServer())
         return
-      }
       case "app.logout":
         void options.logout()
         return
@@ -505,6 +520,9 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         options.openResultsModal()
         return
       case "modal.open.listFilter":
+        if (options.ui.primaryView === "agent") {
+          return
+        }
         options.openListFilterModal()
         return
       case "modal.open.snapshot":
@@ -532,9 +550,11 @@ export function useAppKeybindings(options: UseAppKeybindingsOptions): void {
         }
         return
       case "job.cancel":
+        if (options.ui.primaryView !== "jobs") return
         options.runAction("cancel-job", () => options.cancelSelectedJob())
         return
       case "job.artifacts":
+        if (options.ui.primaryView !== "jobs") return
         options.runAction("artifacts", () => options.fetchArtifacts())
         return
       default:

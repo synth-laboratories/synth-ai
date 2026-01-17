@@ -3,6 +3,7 @@ import { type Accessor, createMemo } from "solid-js"
 import type { AppState } from "../../state/app-state"
 import { resolveSelectionWindow } from "../utils/list"
 import { TextContentModal } from "./ModalShared"
+import { buildCombinedHint, getActionHint } from "../../input/keymap"
 
 type ListFilterModalProps = {
   dimensions: Accessor<{ width: number; height: number }>
@@ -10,7 +11,7 @@ type ListFilterModalProps = {
 }
 
 export function ListFilterModal(props: ListFilterModalProps) {
-  const hint = "up/down move | space select | a all/none | esc close"
+  const hint = `${buildCombinedHint("nav.down", "nav.up", "move")} | ${getActionHint("listFilter.toggle")} | ${getActionHint("listFilter.all")} | ${getActionHint("app.back")}`
   const view = createMemo(() => {
     const totalOptions = props.ui.listFilterOptions.length
     if (!totalOptions) {

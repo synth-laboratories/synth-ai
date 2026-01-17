@@ -1,8 +1,19 @@
-import { For, Show, createMemo, type JSX } from "solid-js"
+import { For, Show, createEffect, createMemo, type JSX } from "solid-js"
 
 import { COLORS } from "../theme"
 import { ListCard, type ListCardStyleContext } from "./ListCard"
 import type { ListWindowItem } from "../utils/list"
+import { log } from "../../utils/log"
+
+type ListSelectionSnapshot = {
+  title: string
+  selectedIndex: number
+  itemsLength: number
+  firstIndex: number | null
+  lastIndex: number | null
+  selectedCount: number
+  focused: boolean
+}
 
 export type ListContainerProps<T> = {
   items: Array<ListWindowItem<T>>
@@ -32,6 +43,48 @@ export function ListContainer<T>(props: ListContainerProps<T>) {
   const borderProps = () => (props.border === undefined ? {} : { border: props.border })
   const title = createMemo(() => props.title || "")
 
+  createEffect((prev: ListSelectionSnapshot | null) => {
+    const items = props.items
+    const selectedIndex = props.selectedIndex
+    const itemsLength = items.length
+    const firstIndex = itemsLength > 0 ? items[0].globalIndex : null
+    const lastIndex = itemsLength > 0 ? items[itemsLength - 1].globalIndex : null
+    let selectedCount = 0
+    for (const entry of items) {
+      if (entry.globalIndex === selectedIndex) selectedCount += 1
+    }
+    const snapshot: ListSelectionSnapshot = {
+      title: title(),
+      selectedIndex,
+      itemsLength,
+      firstIndex,
+      lastIndex,
+      selectedCount,
+      focused: props.focused,
+    }
+    const changed =
+      !prev ||
+      prev.title !== snapshot.title ||
+      prev.selectedIndex !== snapshot.selectedIndex ||
+      prev.itemsLength !== snapshot.itemsLength ||
+      prev.firstIndex !== snapshot.firstIndex ||
+      prev.lastIndex !== snapshot.lastIndex ||
+      prev.selectedCount !== snapshot.selectedCount ||
+      prev.focused !== snapshot.focused
+    if (changed) {
+      log("state", "list render selection", snapshot)
+      const selectedInRange =
+        firstIndex != null &&
+        lastIndex != null &&
+        selectedIndex >= firstIndex &&
+        selectedIndex <= lastIndex
+      if (itemsLength > 0 && selectedInRange && selectedCount !== 1) {
+        log("state", "list render selection mismatch", snapshot)
+      }
+    }
+    return snapshot
+  }, null)
+
   return (
     <box
       {...borderProps()}
@@ -52,9 +105,9 @@ export function ListContainer<T>(props: ListContainerProps<T>) {
         <box flexDirection="column">
           <For each={props.items}>
             {(entry) => {
-              const isSelected = entry.globalIndex === props.selectedIndex
+              const isSelected = () => entry.globalIndex === props.selectedIndex
               return (
-                <ListCard isSelected={isSelected} panelFocused={props.focused}>
+                <ListCard isSelected={isSelected} panelFocused={() => props.focused}>
                   {(ctx) => props.renderItem(entry.item, ctx, entry.globalIndex)}
                 </ListCard>
               )

@@ -5,7 +5,7 @@ import { refreshJobs, selectJob } from "../api/jobs"
 import { readPersistedSettings } from "../persistence/settings"
 import { getJobsCacheKey, loadJobsCache } from "../persistence/jobs-cache"
 import { switchMode, setCurrentMode } from "../state/app-state"
-import { config } from "../state/polling"
+import { config, pollingState, setPollNextAt, shouldPoll, clearJobsTimer, onSseChange } from "../state/polling"
 import { isOpenCodeServerRunning, startOpenCodeServer } from "../utils/opencode-server"
 import { registerCleanup, unregisterCleanup } from "../lifecycle"
 import { isAborted } from "../utils/request"
@@ -33,6 +33,9 @@ export function useSolidData(): SolidData {
         setData("jobsCache", [])
         setData("jobsCacheAppended", [])
       }
+      if (data.jobsLoaded) {
+        setData("jobsLoaded", false)
+      }
       return
     }
 
@@ -51,6 +54,7 @@ export function useSolidData(): SolidData {
   async function bootstrap(): Promise<void> {
     const settings = await readPersistedSettings()
     const persistedMode = settings.mode ?? null
+    const persistedPrimaryView = settings.primaryView ?? null
     let resolvedMode: Mode = ui.currentMode
     // Persisted settings are the source of truth for mode.
     if (persistedMode) {
@@ -62,13 +66,19 @@ export function useSolidData(): SolidData {
     if (persistedMode) {
       switchMode(resolvedMode)
     }
+    if (persistedPrimaryView) {
+      setUi("primaryView", persistedPrimaryView)
+    }
     const listFilters = settings.listFilters?.[resolvedMode]
     if (listFilters) {
       setUi("listFilterMode", ListPane.Jobs, listFilters[ListPane.Jobs].mode)
       setUi("listFilterSelections", ListPane.Jobs, new Set(listFilters[ListPane.Jobs].selections))
       setUi("listFilterMode", ListPane.Logs, listFilters[ListPane.Logs].mode)
       setUi("listFilterSelections", ListPane.Logs, new Set(listFilters[ListPane.Logs].selections))
+      setUi("listFilterMode", ListPane.Sessions, listFilters[ListPane.Sessions].mode)
+      setUi("listFilterSelections", ListPane.Sessions, new Set(listFilters[ListPane.Sessions].selections))
     }
+    setUi("settingsLoaded", true)
     if (!process.env.SYNTH_API_KEY) {
       process.env.SYNTH_API_KEY = settings.keys[resolvedMode] || ""
     }
@@ -86,21 +96,47 @@ export function useSolidData(): SolidData {
       return
     }
 
-    const tasks = [
-      refreshHealth(ctx),
-      refreshJobs(ctx),
-    ]
-    await Promise.allSettled(tasks)
+    const jobsPromise = refreshJobs(ctx, { limit: config.jobLimit })
+    const healthPromise = refreshHealth(ctx, { force: true })
+    const results = await Promise.allSettled([healthPromise, jobsPromise])
+    const jobsResult = results[1]
+    if (jobsResult.status === "fulfilled") {
+      setData("jobsLoaded", true)
+    }
   }
 
   async function refresh(): Promise<boolean> {
     if (!process.env.SYNTH_API_KEY) {
       return false
     }
-    const jobsResult = await refreshJobs(ctx)
-    await refreshHealth(ctx)
+    const [jobsResult] = await Promise.all([
+      refreshJobs(ctx),
+      refreshHealth(ctx, { force: true }),
+    ])
     if (isAborted()) return false
+    if (jobsResult.ok) {
+      setData("jobsLoaded", true)
+    }
     return jobsResult.ok
+  }
+
+  async function refreshPolling(): Promise<boolean> {
+    if (!process.env.SYNTH_API_KEY) {
+      return false
+    }
+    let jobsOk = true
+    if (shouldPoll("jobs")) {
+      const jobsResult = await refreshJobs(ctx)
+      jobsOk = jobsResult.ok
+      if (jobsOk) {
+        setData("jobsLoaded", true)
+      }
+      if (!jobsOk) {
+        void refreshHealth(ctx)
+      }
+    }
+    if (isAborted()) return false
+    return jobsOk
   }
 
   async function select(jobId: string): Promise<void> {
@@ -171,24 +207,40 @@ export function useSolidData(): SolidData {
     let delayMs = Math.max(1, config.refreshInterval) * 1000
     const minDelayMs = delayMs
     const maxDelayMs = Math.max(delayMs, Math.max(1, config.maxRefreshInterval) * 1000)
-    let timer: ReturnType<typeof setTimeout> | null = null
-    let inFlight = false
 
     const schedule = (nextDelay: number) => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(() => {
+      if (!shouldPoll("jobs")) {
+        clearJobsTimer()
+        return
+      }
+      if (pollingState.jobsTimer) clearTimeout(pollingState.jobsTimer)
+      const delay = Math.max(0, nextDelay)
+      setPollNextAt("jobs", Date.now() + delay)
+      pollingState.jobsTimer = setTimeout(() => {
         void run()
-      }, nextDelay)
+      }, delay)
     }
 
     const run = async () => {
-      if (inFlight) {
+      if (!shouldPoll("jobs")) {
+        clearJobsTimer()
+        return
+      }
+      if (pollingState.jobsInFlight) {
         schedule(delayMs)
         return
       }
-      inFlight = true
-      const ok = await refresh().catch(() => false)
-      inFlight = false
+      pollingState.jobsInFlight = true
+      let ok = false
+      try {
+        ok = await refreshPolling().catch(() => false)
+      } finally {
+        pollingState.jobsInFlight = false
+      }
+      if (!shouldPoll("jobs")) {
+        clearJobsTimer()
+        return
+      }
       if (ok) {
         delayMs = minDelayMs
       } else {
@@ -197,10 +249,22 @@ export function useSolidData(): SolidData {
       schedule(delayMs)
     }
 
-    schedule(delayMs)
+    const unsubscribeSse = onSseChange("jobs", (connected) => {
+      if (connected) {
+        clearJobsTimer()
+        return
+      }
+      delayMs = minDelayMs
+      schedule(0)
+    })
+    if (shouldPoll("jobs")) {
+      schedule(delayMs)
+    }
     const cleanupName = "data-refresh-interval"
     const cleanup = () => {
-      if (timer) clearTimeout(timer)
+      clearJobsTimer()
+      pollingState.jobsInFlight = false
+      unsubscribeSse()
     }
     registerCleanup(cleanupName, cleanup)
     onCleanup(() => {

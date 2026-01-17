@@ -13,10 +13,12 @@ export type AppStore = {
 
 export function createInitialData(): AppData {
   return {
-    jobs: [],
+    jobsById: {},
+    jobsOrder: [],
     jobsCache: [],
     jobsCacheAppended: [],
     jobsCacheKey: null,
+    jobsLoaded: false,
     selectedJob: null,
     events: [],
     metrics: {},

@@ -1,7 +1,7 @@
 import { type Accessor, createMemo, type JSX } from "solid-js"
 
 import { ModalFrame } from "../components/ModalFrame"
-import { buildScrollableModal, type ScrollableModalView } from "../utils/modal"
+import { buildScrollableModal, type ScrollableModalView } from "../../utils/modal"
 
 type HintVisibility = "auto" | "always" | "never"
 

@@ -1,15 +1,13 @@
-import { type Accessor } from "solid-js"
+import { Show, type Accessor } from "solid-js"
 
 import { COLORS } from "../../theme"
 import { defaultLayoutSpec } from "../../layout"
 import { KeyHint } from "../../components/KeyHint"
-import { formatActionKeys } from "../../../input/keymap"
-import { ListPane } from "../../../types"
-import type { ActivePane, PrincipalPane } from "../../../types"
+import type { PrimaryView } from "../../../types"
 
 type AppTabsProps = {
-  activePane: Accessor<ActivePane>
-  principalPane: Accessor<PrincipalPane>
+  primaryView: Accessor<PrimaryView>
+  compact: Accessor<boolean>
 }
 
 export function AppTabs(props: AppTabsProps) {
@@ -22,12 +20,14 @@ export function AppTabs(props: AppTabsProps) {
       borderColor={COLORS.borderDim}
       alignItems="center"
       flexDirection="row"
-      gap={3}
+      gap={props.compact() ? 1 : 3}
     >
-      <KeyHint description="Create New Job" keyLabel={formatActionKeys("modal.open.createJob", { primaryOnly: true })} />
-      <KeyHint description="Jobs" keyLabel={formatActionKeys("pane.jobs", { primaryOnly: true })} active={props.principalPane() === "jobs" && props.activePane() === ListPane.Jobs} />
-      <KeyHint description="Agent" keyLabel={formatActionKeys("pane.togglePrincipal", { primaryOnly: true })} active={props.principalPane() === "opencode"} />
-      <KeyHint description="Logs" keyLabel={formatActionKeys("pane.logs", { primaryOnly: true })} active={props.principalPane() === "jobs" && props.activePane() === ListPane.Logs} />
+      <Show when={!props.compact()}>
+        <KeyHint action="modal.open.createJob" />
+      </Show>
+      <KeyHint action="pane.jobs" active={props.primaryView() === "jobs"} />
+      <KeyHint action="pane.agent" active={props.primaryView() === "agent"} />
+      <KeyHint action="pane.logs" active={props.primaryView() === "logs"} />
     </box>
   )
 }

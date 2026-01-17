@@ -2,7 +2,7 @@ import { createMemo } from "solid-js"
 
 import type { ResultsPanelProps } from "./types"
 import { COLORS } from "../../../theme"
-import { formatActionKeys } from "../../../../input/keymap"
+import { buildCombinedHint, buildActionHint } from "../../../../input/keymap"
 import { clampIndex } from "../../../utils/list"
 import {
   extractGraphEvolveCandidates,
@@ -47,9 +47,9 @@ export function GraphEvolveResultsPanel(props: ResultsPanelProps) {
 
   const hint = createMemo(() => {
     const focusHint = props.focused
-      ? `${formatActionKeys("nav.up", { primaryOnly: true })}/${formatActionKeys("nav.down", { primaryOnly: true })} select`
-      : `${formatActionKeys("focus.prev", { primaryOnly: true })}/${formatActionKeys("focus.next", { primaryOnly: true })} focus`
-    const viewHint = `${formatActionKeys("pane.select", { primaryOnly: true })} view`
+      ? buildCombinedHint("nav.up", "nav.down", "select")
+      : buildCombinedHint("focus.prev", "focus.next", "focus")
+    const viewHint = buildActionHint("pane.select", "view")
     const group = selectedGroup()
     const genLabel = group ? `Gen ${group.generation}` : "Gen -"
     const rewardLabel = formatReward(selectedBestReward())

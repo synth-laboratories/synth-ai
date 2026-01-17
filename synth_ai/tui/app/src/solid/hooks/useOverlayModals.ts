@@ -1,5 +1,5 @@
 import { createSignal, type Accessor } from "solid-js"
-import type { SetStoreFunction } from "solid-js/store"
+import { reconcile, type SetStoreFunction } from "solid-js/store"
 
 import type { AppContext } from "../../context"
 import type { AppData, SessionHealthResult, SessionRecord, UsageData } from "../../types"
@@ -10,9 +10,11 @@ import { buildJobTypeOptions } from "../../selectors/jobs"
 import { buildLogTypeOptions } from "./useLogsListState"
 import { fetchMetrics } from "../../api/jobs"
 import { apiGet } from "../../api/client"
-import { fetchSessions, disconnectSession, checkSessionHealth } from "../../api/sessions"
+import { getJobsList } from "../../state/jobs-index"
+import { fetchSessions, refreshSessions, disconnectSession, checkSessionHealth } from "../../api/sessions"
 import { refreshTunnels, refreshTunnelHealth } from "../../api/tunnels"
 import { connectLocalOpenCodeSession } from "../../api/opencode"
+import { refreshIdentity } from "../../api/identity"
 import { openBrowser } from "../../auth"
 import { copyToClipboard } from "../../utils/clipboard"
 import {
@@ -24,9 +26,10 @@ import { moveSelectionIndex, resolveSelectionWindow } from "../utils/list"
 import { isAbortError } from "../../utils/abort"
 import { isAborted } from "../../utils/request"
 import { log } from "../../utils/log"
-import type { LogFileInfo } from "../utils/logs"
+import type { LogFileInfo } from "../../utils/logs"
 import { ListPane, type Mode } from "../../types"
 import { extractGraphEvolveCandidates, groupCandidatesByGeneration } from "../../formatters/graph-evolve"
+import { createInitialData } from "../store"
 
 type UseOverlayModalsOptions = {
   ctx: AppContext
@@ -93,6 +96,25 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
   const [sessionsScrollOffset, setSessionsScrollOffset] = createSignal(0)
   const [sessionsCache, setSessionsCache] = createSignal<SessionRecord[]>([])
   const [sessionsHealthCache, setSessionsHealthCache] = createSignal<Map<string, SessionHealthResult>>(new Map())
+
+  const resetDataForModeSwitch = (mode: Mode): void => {
+    const nextData = createInitialData()
+    nextData.status = `Switching to ${mode}...`
+    options.setData(reconcile(nextData))
+    options.setUi("jobsListLoadingMore", false)
+    options.setUi("jobsListHasMore", false)
+    options.setUi("jobsListServerCount", 0)
+    options.setUi("jobSelectToken", 0)
+    options.setUi("eventsToken", 0)
+    options.setUi("lastSeq", 0)
+    options.setUi("selectedEventId", null)
+    options.setUi("selectedEventIndex", 0)
+    options.setUi("eventWindowStart", 0)
+    options.setUi("verifierEvolveGenerationIndex", 0)
+    options.setUi("jobsDetailOffset", 0)
+    options.setUi("logsSelectedIndex", 0)
+    options.setUi("logsWindowStart", 0)
+  }
 
   const openFilterModal = (): void => {
     options.setModalInputValue(options.ui.eventFilter)
@@ -177,6 +199,10 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
           mode: options.ui.listFilterMode[ListPane.Logs],
           selections: Array.from(options.ui.listFilterSelections[ListPane.Logs]),
         },
+        [ListPane.Sessions]: {
+          mode: options.ui.listFilterMode[ListPane.Sessions],
+          selections: Array.from(options.ui.listFilterSelections[ListPane.Sessions]),
+        },
       },
       (message) => options.setData("status", message),
     )
@@ -185,7 +211,7 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
   const openListFilterModal = (): void => {
     options.setUi("listFilterPane", options.ui.activePane)
     if (options.ui.activePane === ListPane.Jobs) {
-      options.setUi("listFilterOptions", buildJobTypeOptions(options.data.jobs))
+      options.setUi("listFilterOptions", buildJobTypeOptions(getJobsList(options.data)))
     } else if (options.ui.activePane === ListPane.Logs) {
       options.setUi("listFilterOptions", buildLogTypeOptions(options.logFiles()))
     } else {
@@ -337,8 +363,18 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
     }
 
     options.closeActiveModal()
-    options.setData("status", `Switching to ${selectedMode}...`)
+    resetDataForModeSwitch(selectedMode)
+    const identity = await refreshIdentity(options.ctx)
+    if (identity.authError) {
+      options.setData("status", "Sign in required")
+      options.promptLogin()
+      return
+    }
     await options.refreshData()
+    await Promise.allSettled([
+      refreshSessions(options.ctx),
+      refreshTunnels(options.ctx),
+    ])
   }
 
   const openUsageModal = (): void => {
@@ -487,18 +523,21 @@ export function useOverlayModals(options: UseOverlayModalsOptions): OverlayModal
   }
 
   const refreshSessionHealth = async (sessions: SessionRecord[]): Promise<void> => {
-    const next = new Map(sessionsHealthCache())
     const activeSessions = sessions.filter(
       (s) => s.state === "connected" || s.state === "connecting" || s.state === "reconnecting",
     )
-    for (const session of activeSessions) {
-      if (isAborted()) return
-      const result = await checkSessionHealth(session, 5000)
-      next.set(session.session_id, result)
-      const nextMap = new Map(next)
-      setSessionsHealthCache(nextMap)
-      options.setData("sessionHealthResults", nextMap)
-    }
+    if (!activeSessions.length) return
+    const results = await Promise.all(
+      activeSessions.map((session) => checkSessionHealth(session, 5000)),
+    )
+    if (isAborted()) return
+    const next = new Map(sessionsHealthCache())
+    activeSessions.forEach((session, index) => {
+      next.set(session.session_id, results[index])
+    })
+    const nextMap = new Map(next)
+    setSessionsHealthCache(nextMap)
+    options.setData("sessionHealthResults", nextMap)
   }
 
   const connectLocalSession = async (): Promise<void> => {

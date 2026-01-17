@@ -7,7 +7,7 @@ import type { ActiveModal } from "../modals/types"
 import type { AuthStatus } from "../../auth"
 import { runDeviceCodeAuth } from "../../auth"
 import { persistModeKey, persistModeSelection } from "../../persistence/settings"
-import { pollingState, clearEventsTimer, clearJobsTimer } from "../../state/polling"
+import { pollingState, clearEventsTimer, clearJobsTimer, resetSseConnections } from "../../state/polling"
 import { createInitialData } from "../store"
 type AbortRegistry = { abortAll: () => void }
 
@@ -74,7 +74,7 @@ export function useAuthFlow(options: UseAuthFlowOptions): AuthFlowState {
       pollingState.sseDisconnect()
       pollingState.sseDisconnect = null
     }
-    pollingState.sseConnected = false
+    resetSseConnections()
     clearJobsTimer()
     clearEventsTimer()
 

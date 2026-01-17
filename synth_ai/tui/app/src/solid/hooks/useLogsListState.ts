@@ -1,12 +1,13 @@
 import { type Accessor, createMemo } from "solid-js"
 
-import type { ActivePane, ListFilterMode, PrincipalPane } from "../../types"
+import type { ListFilterMode, PrimaryView } from "../../types"
 import { ListPane } from "../../types"
 import type { AppState } from "../../state/app-state"
 import { formatTimestamp } from "../formatters/time"
 import { useLiveLogs } from "../utils/live-logs"
-import type { LogFileInfo } from "../utils/logs"
-import { formatListTitle, getListFilterCount } from "../utils/listTitle"
+import type { LogFileInfo } from "../../utils/logs"
+import { formatListTitle, getListFilterCount } from "../../utils/listTitle"
+import { uniqueById } from "../utils/list"
 import { type ListWindowState, useListWindow } from "./useListWindow"
 
 export type LogsListRow = {
@@ -26,8 +27,7 @@ export type LogsListState = {
 }
 
 type UseLogsListStateOptions = {
-  activePane: Accessor<ActivePane>
-  principalPane: Accessor<PrincipalPane>
+  primaryView: Accessor<PrimaryView>
   height: Accessor<number>
   ui: AppState
 }
@@ -107,12 +107,12 @@ function formatLogRow(file: LogFileInfo): LogsListRow {
 
 export function useLogsListState(options: UseLogsListStateOptions): LogsListState {
   const liveLogs = useLiveLogs({
-    listActive: () => options.activePane() === ListPane.Logs,
-    detailActive: () => options.activePane() === ListPane.Logs && options.principalPane() === "jobs",
+    listActive: () => options.primaryView() === "logs",
+    detailActive: () => options.primaryView() === "logs",
   })
 
   const allLogFiles = createMemo(() =>
-    options.activePane() === ListPane.Logs ? liveLogs.files() : [],
+    options.primaryView() === "logs" ? liveLogs.files() : [],
   )
   const logFiles = createMemo(() => {
     const files = allLogFiles()
@@ -120,7 +120,10 @@ export function useLogsListState(options: UseLogsListStateOptions): LogsListStat
     const mode = options.ui.listFilterMode[ListPane.Logs]
     return getFilteredLogsByType(files, filters, mode)
   })
-  const listItems = createMemo(() => logFiles().map(formatLogRow))
+  const uniqueLogFiles = createMemo(() =>
+    uniqueById(logFiles(), (file) => file.path),
+  )
+  const listItems = createMemo(() => uniqueLogFiles().map(formatLogRow))
   const listWindow = useListWindow({
     items: listItems,
     selectedIndex: liveLogs.selectedIndex,
@@ -129,18 +132,18 @@ export function useLogsListState(options: UseLogsListStateOptions): LogsListStat
     chromeHeight: 2,
   })
   const selectedFile = createMemo(() => {
-    const files = logFiles()
+    const files = uniqueLogFiles()
     const index = liveLogs.selectedIndex()
     return files[index] ?? null
   })
   const listTitle = createMemo(() => {
     const count = getListFilterCount(options.ui, ListPane.Logs)
     const mode = options.ui.listFilterMode[ListPane.Logs]
-    const total = logFiles().length
+    const total = uniqueLogFiles().length
     const idx = liveLogs.selectedIndex()
     return formatListTitle("Logs", mode, count, idx, total)
   })
-  const totalCount = createMemo(() => logFiles().length)
+  const totalCount = createMemo(() => uniqueLogFiles().length)
 
   return {
     liveLogs,

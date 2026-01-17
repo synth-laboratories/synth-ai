@@ -1,6 +1,6 @@
 import { type Accessor, createMemo } from "solid-js"
 
-import { formatActionKeys } from "../../input/keymap"
+import { getActionHint, buildCombinedHint } from "../../input/keymap"
 import { formatMetricsCharts } from "../../formatters/metrics"
 import type { AppData } from "../../types"
 import { ScrollableTextModal } from "./ModalShared"
@@ -39,10 +39,10 @@ export function MetricsModal(props: MetricsModalProps) {
       raw={raw()}
       offset={props.offset}
       hint={{
-        scrollHint: `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} scroll`,
+        scrollHint: buildCombinedHint("nav.down", "nav.up", "scroll"),
         baseHints: [
-          `${formatActionKeys("metrics.refresh")} refresh`,
-          `${formatActionKeys("app.back")} close`,
+          getActionHint("metrics.refresh"),
+          getActionHint("app.back"),
         ],
       }}
     />

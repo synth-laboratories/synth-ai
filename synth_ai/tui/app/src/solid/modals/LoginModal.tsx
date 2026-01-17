@@ -1,6 +1,6 @@
 import { type Accessor, createMemo } from "solid-js"
 
-import { formatActionKeys } from "../../input/keymap"
+import { getActionHint, buildActionHint } from "../../input/keymap"
 import type { AuthStatus } from "../../auth"
 import { TextContentModal } from "./ModalShared"
 
@@ -12,10 +12,11 @@ type LoginModalProps = {
 export function LoginModal(props: LoginModalProps) {
   const copy = createMemo(() => {
     const status = props.loginStatus()
-    const confirmKey = formatActionKeys("login.confirm")
-    const closeKey = formatActionKeys("app.back")
+    const startHint = getActionHint("login.confirm")
+    const closeHint = getActionHint("app.back")
+    const retryHint = buildActionHint("login.confirm", "retry")
     let content = "Press Enter to open browser and sign in..."
-    let hint = `${confirmKey} start | ${closeKey} cancel`
+    let hint = `${startHint} | ${buildActionHint("app.back", "cancel")}`
     switch (status.state) {
       case "initializing":
         content = "Initializing..."
@@ -23,11 +24,11 @@ export function LoginModal(props: LoginModalProps) {
         break
       case "waiting":
         content = `Browser opened. Complete sign-in there.\n\nURL: ${status.verificationUri}`
-        hint = `Waiting for browser auth... | ${closeKey} cancel`
+        hint = `Waiting for browser auth... | ${buildActionHint("app.back", "cancel")}`
         break
       case "polling":
         content = "Browser opened. Complete sign-in there.\n\nChecking for completion..."
-        hint = `Waiting for browser auth... | ${closeKey} cancel`
+        hint = `Waiting for browser auth... | ${buildActionHint("app.back", "cancel")}`
         break
       case "success":
         content = "Authentication successful!"
@@ -35,7 +36,7 @@ export function LoginModal(props: LoginModalProps) {
         break
       case "error":
         content = `Error: ${status.message}`
-        hint = `${confirmKey} retry | ${closeKey} close`
+        hint = `${retryHint} | ${closeHint}`
         break
       default:
         break

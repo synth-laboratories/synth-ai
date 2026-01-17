@@ -1,7 +1,7 @@
 /**
  * Event formatting and filtering helpers.
  */
-import { formatActionKeys } from "../input/keymap"
+import { buildActionHint } from "../input/keymap"
 import type { JobEvent } from "../tui_data"
 
 export function formatEventData(data: unknown): string {
@@ -74,7 +74,7 @@ export function formatEventCardText(
     return `${header}\n${clipped}`
   }
   const viewHint = opts?.isLong
-    ? ` (${formatActionKeys("pane.select", { primaryOnly: true })} to view)`
+    ? ` ${buildActionHint("pane.select", "view")}`
     : ""
   const trimmed = detail.length > 120 ? `${detail.slice(0, 117)}...${viewHint}` : detail
   return `${header}\n${trimmed}`

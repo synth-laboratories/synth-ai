@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js"
+import { createMemo, type JSX } from "solid-js"
 import { COLORS } from "../theme"
 import { getSelectionStyle } from "../utils/list"
 
@@ -18,9 +18,9 @@ export interface ListCardStyleContext {
 
 export interface ListCardProps {
   /** Whether this card is currently selected */
-  isSelected: boolean
+  isSelected: boolean | (() => boolean)
   /** Whether the parent panel/list has focus */
-  panelFocused?: boolean
+  panelFocused?: boolean | (() => boolean)
   /** Render function receiving style context */
   children: (ctx: ListCardStyleContext) => JSX.Element
 }
@@ -30,19 +30,26 @@ export interface ListCardProps {
  * Uses render-prop pattern for flexible content.
  */
 export function ListCard(props: ListCardProps) {
-  const styleContext = (): ListCardStyleContext => {
+  const ctx = createMemo<ListCardStyleContext>(() => {
+    const isSelected = typeof props.isSelected === "function" ? props.isSelected() : props.isSelected
+    const panelFocused =
+      props.panelFocused === undefined
+        ? true
+        : typeof props.panelFocused === "function"
+          ? props.panelFocused()
+          : props.panelFocused
     // Only show selection highlight when panel is focused (default to true for backwards compat)
-    const showSelection = props.isSelected && (props.panelFocused ?? true)
+    const showSelection = isSelected && panelFocused
     const sel = getSelectionStyle(showSelection)
     return {
       fg: sel.fg,
       bg: sel.bg,
-      isSelected: props.isSelected,
+      isSelected,
       fgDim: showSelection ? COLORS.textBright : COLORS.textDim,
     }
-  }
+  })
 
-  return <>{props.children(styleContext())}</>
+  return <>{props.children(ctx())}</>
 }
 
 /**

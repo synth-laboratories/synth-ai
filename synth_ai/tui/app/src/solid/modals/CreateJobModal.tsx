@@ -9,10 +9,10 @@
  */
 import { For, Show, createMemo, createSignal, createEffect } from "solid-js"
 import { COLORS } from "../theme"
-import { toDisplayPath, expandPath, getUniqueFilename } from "../utils/files"
-import { createLocalApiFile, openInEditor } from "../services/file-creation"
-import { deployLocalApi, submitEvalJob, submitLearningJob } from "../services/deployment"
-import { formatActionKeys, matchAction, type KeyEvent } from "../../input/keymap"
+import { toDisplayPath, expandPath, getUniqueFilename } from "../../utils/files"
+import { createLocalApiFile, openInEditor } from "../../services/file-creation"
+import { deployLocalApi, submitEvalJob, submitLearningJob } from "../../services/deployment"
+import { getActionHint, buildCombinedHint, buildActionHint, matchAction, type KeyEvent } from "../../input/keymap"
 import { moveSelectionIndex } from "../utils/list"
 
 export interface CreateJobModalProps {
@@ -323,14 +323,15 @@ export function CreateJobModal(props: CreateJobModalProps) {
 
   const stepHint = createMemo(() => {
     const currentStep = step()
-    const navHint = `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} navigate`
-    const confirmHint = `${formatActionKeys("modal.confirm")} confirm`
-    const backHint = `${formatActionKeys("app.back")} back`
+    const navHint = buildCombinedHint("nav.down", "nav.up", "navigate")
+    const confirmHint = getActionHint("modal.confirm")
+    const backHint = getActionHint("app.back")
+    const cancelHint = buildActionHint("app.back", "cancel")
     if (isDeploying()) return "Deploying..."
-    if (currentStep === "selectFile") return `${navHint} | ${formatActionKeys("modal.confirm")} select | ${formatActionKeys("app.back")} cancel`
-    if (currentStep === "selectDirectory") return `${navHint} | ${formatActionKeys("modal.confirm")} select | ${backHint}`
-    if (currentStep === "confirmCreate") return `${formatActionKeys("modal.confirm")} create | ${backHint}`
-    if (currentStep === "selectType") return `${navHint} | ${formatActionKeys("modal.confirm")} deploy | ${backHint}`
+    if (currentStep === "selectFile") return `${navHint} | ${buildActionHint("modal.confirm", "select")} | ${cancelHint}`
+    if (currentStep === "selectDirectory") return `${navHint} | ${buildActionHint("modal.confirm", "select")} | ${backHint}`
+    if (currentStep === "confirmCreate") return `${buildActionHint("modal.confirm", "create")} | ${backHint}`
+    if (currentStep === "selectType") return `${navHint} | ${buildActionHint("modal.confirm", "deploy")} | ${backHint}`
     return `${navHint} | ${confirmHint} | ${backHint}`
   })
 

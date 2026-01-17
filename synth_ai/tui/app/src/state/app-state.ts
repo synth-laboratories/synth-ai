@@ -2,7 +2,7 @@
  * Global application state.
  */
 
-import type { ActivePane, FocusTarget, ListFilterMode, LogSource, Mode } from "../types"
+import type { ActivePane, FocusTarget, ListFilterMode, LogSource, Mode, PrimaryView } from "../types"
 import { ListPane } from "../types"
 import { config } from "./polling"
 import {
@@ -24,6 +24,7 @@ export function switchMode(mode: Mode): void {
 export type AppState = {
   currentMode: Mode
   settingsMode: Mode | null
+  settingsLoaded: boolean
   activePane: ActivePane
   focusTarget: FocusTarget
   healthStatus: string
@@ -74,7 +75,7 @@ export type AppState = {
   jobsDetailOffset: number
   jobSelectToken: number
   eventsToken: number
-  principalPane: "jobs" | "opencode"
+  primaryView: PrimaryView
   openCodeSessionId: string | null
   openCodeUrl: string | null
   openCodeStatus: string | null
@@ -98,8 +99,10 @@ export function createInitialAppState(): AppState {
     // Mode state (initialized later via initModeState)
     currentMode: getCurrentMode(),
     settingsMode: null,
+    settingsLoaded: false,
 
     activePane: ListPane.Jobs as ActivePane,
+    primaryView: "jobs" as PrimaryView,
     focusTarget: "list" as FocusTarget,
     healthStatus: "unknown",
     autoSelected: false,
@@ -129,10 +132,12 @@ export function createInitialAppState(): AppState {
     listFilterSelections: {
       [ListPane.Jobs]: new Set<string>(),
       [ListPane.Logs]: new Set<string>(),
+      [ListPane.Sessions]: new Set<string>(),
     } as Record<ActivePane, Set<string>>,
     listFilterMode: {
       [ListPane.Jobs]: "all",
       [ListPane.Logs]: "all",
+      [ListPane.Sessions]: "all",
     } as Record<ActivePane, ListFilterMode>,
     jobsListLimit: config.jobLimit,
     jobsListLoadingMore: false,
@@ -178,7 +183,6 @@ export function createInitialAppState(): AppState {
     eventsToken: 0,
 
     // OpenCode state
-    principalPane: "jobs" as "jobs" | "opencode",
     openCodeSessionId: null as string | null,
     openCodeUrl: null as string | null,
     openCodeStatus: null as string | null,

@@ -95,14 +95,37 @@ export function connectSse(
           const decoder = new TextDecoder()
           let buffer = ""
           let currentEvent: SseMessage = {}
+          log("state", "sse reader start", {
+            label: streamLabel,
+          })
 
           while (!aborted) {
+            const readStart = Date.now()
             const { done, value } = await reader.read()
+            const readMs = Date.now() - readStart
+            const bytes = value ? value.length : 0
+            log("state", "sse read", {
+              label: streamLabel,
+              done,
+              readMs,
+              bytes,
+              bufferBytes: buffer.length,
+            })
             if (done) break
+            if (!value || value.length === 0) continue
 
+            const decodeStart = Date.now()
             buffer += decoder.decode(value, { stream: true })
+            const decodeMs = Date.now() - decodeStart
+            const splitStart = Date.now()
             const lines = buffer.split("\n")
             buffer = lines.pop() ?? ""
+            const splitMs = Date.now() - splitStart
+
+            const handleStart = Date.now()
+            let messageCount = 0
+            let onMessageMs = 0
+            let messageBytes = 0
 
             for (const line of lines) {
               if (line.startsWith(":")) {
@@ -111,7 +134,26 @@ export function connectSse(
 
               if (line === "") {
                 if (currentEvent.data) {
+                  const dataBytes = currentEvent.data.length
+                  log("state", "sse message start", {
+                    label: streamLabel,
+                    dataBytes,
+                    event: currentEvent.event ?? null,
+                    id: currentEvent.id ?? null,
+                  })
+                  const messageStart = Date.now()
                   options.onMessage(currentEvent)
+                  const messageMs = Date.now() - messageStart
+                  onMessageMs += messageMs
+                  messageBytes += dataBytes
+                  messageCount += 1
+                  log("state", "sse message end", {
+                    label: streamLabel,
+                    dataBytes,
+                    event: currentEvent.event ?? null,
+                    id: currentEvent.id ?? null,
+                    messageMs,
+                  })
                 }
                 currentEvent = {}
                 continue
@@ -136,6 +178,21 @@ export function connectSse(
                   break
               }
             }
+
+            const handleMs = Date.now() - handleStart
+            log("state", "sse chunk", {
+              label: streamLabel,
+              bytes,
+              bufferBytes: buffer.length,
+              lines: lines.length,
+              messages: messageCount,
+              messageBytes,
+              readMs,
+              decodeMs,
+              splitMs,
+              handleMs,
+              onMessageMs,
+            })
           }
 
           if (!aborted) {

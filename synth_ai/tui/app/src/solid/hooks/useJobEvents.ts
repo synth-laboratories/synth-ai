@@ -1,20 +1,19 @@
 import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js"
 
 import { refreshEvents } from "../../api/events"
+import { refreshHealth } from "../../api/identity"
 import type { JobDetailsStreamEvent } from "../../api/job-details-stream"
-import type { ActivePane, PrincipalPane } from "../../types"
-import { ListPane } from "../../types"
+import type { PrimaryView } from "../../types"
 import type { AppContext } from "../../context"
 import { registerCleanup, unregisterCleanup } from "../../lifecycle"
 import { useJobDetailsStream } from "../api/useJobDetailsStream"
 import type { JobEvent } from "../../tui_data"
-import { config } from "../../state/polling"
+import { clearEventsTimer, config, pollingState, setPollNextAt, shouldPoll, onSseChange } from "../../state/polling"
 
 type UseJobEventsOptions = {
   ctx: AppContext
   selectedJobId: Accessor<string | null>
-  activePane: Accessor<ActivePane>
-  principalPane: Accessor<PrincipalPane>
+  primaryView: Accessor<PrimaryView>
 }
 
 export function useJobEvents(options: UseJobEventsOptions): void {
@@ -34,7 +33,8 @@ export function useJobEvents(options: UseJobEventsOptions): void {
   useJobDetailsStream({
     jobId: options.selectedJobId,
     sinceSeq: lastSeenSeq,
-    enabled: () => options.principalPane() === "jobs" && options.activePane() !== ListPane.Logs,
+    enabled: () => options.primaryView() === "jobs",
+    sseKey: "job-events",
     onEvent: (event: JobDetailsStreamEvent) => {
       if (event.seq > lastSeenSeq()) {
         setLastSeenSeq(event.seq)
@@ -62,32 +62,39 @@ export function useJobEvents(options: UseJobEventsOptions): void {
     onError: (error) => {
       // Log but don't show to user - polling will still work as fallback.
       console.error("Job details SSE error:", error.message)
+      void refreshHealth(options.ctx)
     },
   })
 
   // Poll/backfill events to avoid gaps when SSE drops or when selecting an older job.
   createEffect(() => {
     const jobId = options.selectedJobId()
-    const enabled = options.principalPane() === "jobs" && options.activePane() !== ListPane.Logs
+    const enabled = options.primaryView() === "jobs"
     if (!jobId || !enabled) return
 
     let cancelled = false
-    let inFlight = false
-
+    let pollingActive = false
     const refreshOnce = async (): Promise<boolean | null> => {
       if (cancelled) return null
-      if (inFlight) return null
-      inFlight = true
+      if (pollingState.eventsInFlight) return null
+      if (!shouldPoll("job-events")) return null
+      pollingState.eventsInFlight = true
       try {
-        return await refreshEvents(options.ctx)
+        const ok = await refreshEvents(options.ctx)
+        if (!ok) {
+          void refreshHealth(options.ctx)
+        }
+        return ok
       } catch {
+        void refreshHealth(options.ctx)
         return false
       } finally {
-        inFlight = false
+        pollingState.eventsInFlight = false
       }
     }
 
     async function backfillOnce(): Promise<void> {
+      if (!shouldPoll("job-events")) return
       // Pull up to ~10 pages (2000 events) max per selection, but stop early if no progress.
       for (let i = 0; i < 10; i++) {
         const beforeSeq = options.ctx.state.ui.lastSeq
@@ -107,17 +114,29 @@ export function useJobEvents(options: UseJobEventsOptions): void {
     let delayMs = Math.max(0.5, config.eventInterval) * 1000
     const minDelayMs = delayMs
     const maxDelayMs = Math.max(delayMs, Math.max(1, config.maxEventInterval) * 1000)
-    let timer: ReturnType<typeof setTimeout> | null = null
-
+    const stopPolling = () => {
+      pollingActive = false
+      clearEventsTimer()
+    }
     const schedule = (nextDelay: number) => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(() => {
+      if (!shouldPoll("job-events")) {
+        stopPolling()
+        return
+      }
+      if (pollingState.eventsTimer) clearTimeout(pollingState.eventsTimer)
+      const delay = Math.max(0, nextDelay)
+      setPollNextAt("job-events", Date.now() + delay)
+      pollingState.eventsTimer = setTimeout(() => {
         void run()
-      }, nextDelay)
+      }, delay)
     }
 
     const run = async () => {
       if (cancelled) return
+      if (!shouldPoll("job-events")) {
+        stopPolling()
+        return
+      }
       const ok = await refreshOnce()
       if (ok == null) {
         schedule(delayMs)
@@ -131,15 +150,38 @@ export function useJobEvents(options: UseJobEventsOptions): void {
       schedule(delayMs)
     }
 
-    void (async () => {
-      await backfillOnce()
-      if (cancelled) return
-      schedule(delayMs)
-    })()
+    const startPolling = () => {
+      if (cancelled || pollingActive) return
+      if (!shouldPoll("job-events")) return
+      pollingActive = true
+      void (async () => {
+        await backfillOnce()
+        if (cancelled) return
+        if (!shouldPoll("job-events")) {
+          pollingActive = false
+          return
+        }
+        schedule(delayMs)
+      })()
+    }
+
+    const unsubscribeSse = onSseChange("job-events", (connected) => {
+      if (connected) {
+        stopPolling()
+        return
+      }
+      delayMs = minDelayMs
+      startPolling()
+    })
+    if (shouldPoll("job-events")) {
+      startPolling()
+    }
     const cleanupName = "events-refresh-interval"
     const cleanup = () => {
       cancelled = true
-      if (timer) clearTimeout(timer)
+      stopPolling()
+      pollingState.eventsInFlight = false
+      unsubscribeSse()
     }
     registerCleanup(cleanupName, cleanup)
     onCleanup(() => {

@@ -8,6 +8,14 @@ import { isAbortError } from "../utils/abort"
 import { isAborted } from "../utils/request"
 import { log } from "../utils/log"
 import { getJobsCacheKey, mergeJobsCache, scheduleJobsCacheWrite } from "../persistence/jobs-cache"
+import {
+  cloneJob,
+  getJobById,
+  getJobsIndex,
+  getJobsList,
+  replaceJobsIndex,
+  upsertJobsIndex,
+} from "../state/jobs-index"
 
 function isRecord(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -65,7 +73,7 @@ function extractBestSnapshotId(payload: any): string | null {
   )
 }
 
-const PROMPT_LEARNING_LIMIT_MAX = 200
+const JOBS_PAGE_SIZE = 25
 
 type RefreshJobsResult = {
   ok: boolean
@@ -76,7 +84,7 @@ type RefreshJobsResult = {
 }
 
 function resolveJobsLimit(ctx: AppContext, override?: number): number {
-  const fallback = ctx.state.config.jobLimit
+  const fallback = JOBS_PAGE_SIZE
   const value = override ?? ctx.state.ui.jobsListLimit ?? fallback
   const limit = Number.isFinite(value) ? Math.max(1, Number(value)) : fallback
   return Math.max(1, limit)
@@ -87,6 +95,47 @@ function getJobTimestamp(job: JobSummary): number {
   if (!value) return 0
   const parsed = Date.parse(value)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+type DuplicateJobId = {
+  id: string
+  count: number
+  indices: number[]
+}
+
+function findDuplicateJobIds(jobs: JobSummary[]): DuplicateJobId[] {
+  const counts = new Map<string, DuplicateJobId>()
+  jobs.forEach((job, idx) => {
+    const id = job.job_id
+    if (!id) return
+    const entry = counts.get(id)
+    if (!entry) {
+      counts.set(id, { id, count: 1, indices: [idx] })
+    } else {
+      entry.count += 1
+      entry.indices.push(idx)
+    }
+  })
+  return Array.from(counts.values()).filter((entry) => entry.count > 1)
+}
+
+function buildDuplicateKey(duplicates: DuplicateJobId[]): string {
+  return duplicates.map((entry) => `${entry.id}:${entry.count}:${entry.indices.join(",")}`).join("|")
+}
+
+function countOrderChanges(
+  prevIds: string[],
+  nextIds: string[],
+): { lengthChanged: boolean; changedCount: number } {
+  const lengthChanged = prevIds.length !== nextIds.length
+  const compareCount = lengthChanged ? Math.min(prevIds.length, nextIds.length) : prevIds.length
+  let changedCount = 0
+  for (let i = 0; i < compareCount; i += 1) {
+    if (prevIds[i] !== nextIds[i]) {
+      changedCount += 1
+    }
+  }
+  return { lengthChanged, changedCount }
 }
 
 export function recordJobsCache(ctx: AppContext, jobs: JobSummary[]): void {
@@ -124,8 +173,9 @@ function appendCachedJobs(
   const batchSize = Math.max(1, options.batchSize ?? config.jobLimit)
   if (!data.jobsCache.length) return 0
 
-  const existingIds = new Set(data.jobs.map((job) => job.job_id))
-  const oldest = data.jobs[data.jobs.length - 1]
+  const existingJobs = getJobsList(data)
+  const existingIds = new Set(existingJobs.map((job) => job.job_id))
+  const oldest = existingJobs[existingJobs.length - 1]
   const oldestTs = oldest ? getJobTimestamp(oldest) : 0
   const candidates = data.jobsCache.filter((job) => job.job_id && !existingIds.has(job.job_id))
   const eligible = oldestTs
@@ -136,8 +186,44 @@ function appendCachedJobs(
   const batch = sortJobs(eligible).slice(0, batchSize)
   if (!batch.length) return 0
 
+  const overlap = batch
+    .map((job, idx) => ({ id: job.job_id, idx }))
+    .filter((entry) => entry.id && existingIds.has(entry.id))
+  if (overlap.length > 0) {
+    log("state", "jobs cache append overlap", { overlap })
+  }
+  const batchDuplicates = findDuplicateJobIds(batch)
+  if (batchDuplicates.length > 0) {
+    log("state", "jobs cache append duplicates", { duplicates: batchDuplicates })
+  }
+
   ctx.setData("jobsCacheAppended", (prev) => mergeJobs(prev, batch))
-  ctx.setData("jobs", (prev) => sortJobs([...prev, ...batch]))
+  const prevIndex = getJobsIndex(data)
+  const nextIndex = upsertJobsIndex(prevIndex, batch)
+  const prevIds = prevIndex.order
+  const nextIds = nextIndex.order
+  const { lengthChanged, changedCount } = countOrderChanges(prevIds, nextIds)
+  const prevDuplicates = findDuplicateJobIds(getJobsList(data))
+  const nextDuplicates = findDuplicateJobIds(getJobsList({
+    jobsById: nextIndex.byId,
+    jobsOrder: nextIndex.order,
+  }))
+  log("state", "jobs cache append apply", {
+    batchCount: batch.length,
+    batchIds: batch.map((job) => job.job_id),
+    prevLength: prevIds.length,
+    nextLength: nextIds.length,
+    changedCount: lengthChanged ? null : changedCount,
+    prevDuplicates,
+    nextDuplicates,
+    prevHead: prevIds.slice(0, Math.min(12, prevIds.length)),
+    nextHead: nextIds.slice(0, Math.min(12, nextIds.length)),
+    prevTail: prevIds.slice(-Math.min(12, prevIds.length)),
+    nextTail: nextIds.slice(-Math.min(12, nextIds.length)),
+    prevIds,
+    nextIds,
+  })
+  ctx.setData({ jobsById: nextIndex.byId, jobsOrder: nextIndex.order })
   return batch.length
 }
 
@@ -148,7 +234,13 @@ export async function refreshJobs(
   const { data, ui } = ctx.state
   const { setData, setUi } = ctx
   const limit = resolveJobsLimit(ctx, options.limit)
-  const promptLimit = Math.min(limit, PROMPT_LEARNING_LIMIT_MAX)
+  const promptLimit = limit
+  const start = Date.now()
+  let promptMs: number | null = null
+  let promptExtractMs: number | null = null
+  let learningMs: number | null = null
+  let learningExtractMs: number | null = null
+  let mergeMs: number | null = null
   if (ui.jobsListLimit !== limit) {
     setUi("jobsListLimit", limit)
   }
@@ -158,45 +250,119 @@ export async function refreshJobs(
       return { ok: false, promptCount: 0, learningCount: 0, serverCount: 0, serverHasMore: false }
     }
     setData("status", "Refreshing jobs...")
-    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${promptLimit}`)
-    const promptJobs = extractJobs(promptPayload, "prompt-learning")
+    const learningPromise = (async () => {
+      const learningStart = Date.now()
+      try {
+        if (isAborted()) {
+          return { jobs: [] as JobSummary[], error: null as string | null, aborted: true }
+        }
+        const learningPayload = await apiGet(`/learning/jobs?limit=${limit}`)
+        learningMs = Date.now() - learningStart
+        const extractStart = Date.now()
+        return {
+          jobs: extractJobs(learningPayload, "learning"),
+          error: null,
+          aborted: false,
+          extractMs: Date.now() - extractStart,
+        }
+      } catch (err: any) {
+        learningMs = Date.now() - learningStart
+        if (isAbortError(err)) {
+          return { jobs: [] as JobSummary[], error: null as string | null, aborted: true }
+        }
+        return {
+          jobs: [] as JobSummary[],
+          error: err?.message || "Failed to load learning jobs",
+          aborted: false,
+        }
+      }
+    })()
 
-    let learningJobs: JobSummary[] = []
-    let learningError: string | null = null
-    try {
-      if (isAborted()) {
-        return { ok: false, promptCount: 0, learningCount: 0, serverCount: 0, serverHasMore: false }
-      }
-      const learningPayload = await apiGet(`/learning/jobs?limit=${limit}`)
-      learningJobs = extractJobs(learningPayload, "learning")
-    } catch (err: any) {
-      if (isAbortError(err)) {
-        return { ok: false, promptCount: 0, learningCount: 0, serverCount: 0, serverHasMore: false }
-      }
-      learningError = err?.message || "Failed to load learning jobs"
+    const promptStart = Date.now()
+    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${promptLimit}`)
+    promptMs = Date.now() - promptStart
+    const promptExtractStart = Date.now()
+    const promptJobs = extractJobs(promptPayload, "prompt-learning")
+    promptExtractMs = Date.now() - promptExtractStart
+    const promptDuplicates = findDuplicateJobIds(promptJobs)
+    if (promptDuplicates.length > 0) {
+      log("state", "jobs refresh duplicates", { source: "prompt", duplicates: promptDuplicates })
     }
 
+    const learningResult = await learningPromise
+    if (learningResult.aborted) {
+      return { ok: false, promptCount: 0, learningCount: 0, serverCount: 0, serverHasMore: false }
+    }
+    const learningJobs = learningResult.jobs
+    learningExtractMs = learningResult.extractMs ?? learningExtractMs
+    const learningError = learningResult.error
+    const learningDuplicates = findDuplicateJobIds(learningJobs)
+    if (learningDuplicates.length > 0) {
+      log("state", "jobs refresh duplicates", { source: "learning", duplicates: learningDuplicates })
+    }
+
+    const mergeStart = Date.now()
     const serverJobs = mergeJobs(promptJobs, learningJobs)
-    const promptHasMore =
-      promptJobs.length >= promptLimit && promptLimit < PROMPT_LEARNING_LIMIT_MAX
+    const serverDuplicates = findDuplicateJobIds(serverJobs)
+    if (serverDuplicates.length > 0) {
+      log("state", "jobs refresh duplicates", { source: "merged", duplicates: serverDuplicates })
+    }
+    const promptHasMore = promptJobs.length >= promptLimit
     const learningHasMore = learningJobs.length >= limit
     const serverHasMore = promptHasMore || learningHasMore
 
     const serverIds = new Set(serverJobs.map((job) => job.job_id))
     const nextAppended = data.jobsCacheAppended.filter((job) => !serverIds.has(job.job_id))
+    const appendedDuplicates = findDuplicateJobIds(nextAppended)
+    if (appendedDuplicates.length > 0) {
+      log("state", "jobs refresh duplicates", { source: "appended", duplicates: appendedDuplicates })
+    }
     const jobs = mergeJobs(serverJobs, nextAppended)
+    const finalDuplicates = findDuplicateJobIds(jobs)
+    if (finalDuplicates.length > 0) {
+      log("state", "jobs refresh duplicates", { source: "final", duplicates: finalDuplicates })
+    }
+    mergeMs = Date.now() - mergeStart
+
+    const prevIds = data.jobsOrder
+    const nextIndex = replaceJobsIndex(jobs)
+    const nextIds = nextIndex.order
+    const { lengthChanged, changedCount } = countOrderChanges(prevIds, nextIds)
+    const prevDuplicates = findDuplicateJobIds(getJobsList(data))
+    const nextDuplicates = findDuplicateJobIds(getJobsList({
+      jobsById: nextIndex.byId,
+      jobsOrder: nextIndex.order,
+    }))
+    const duplicatesChanged = buildDuplicateKey(prevDuplicates) !== buildDuplicateKey(nextDuplicates)
+    const orderChanged = lengthChanged || changedCount > 0
+    if (orderChanged || duplicatesChanged) {
+      log("state", "jobs refresh apply", {
+        prevLength: prevIds.length,
+        nextLength: nextIds.length,
+        changedCount: lengthChanged ? null : changedCount,
+        prevDuplicates,
+        nextDuplicates,
+        prevHead: prevIds.slice(0, Math.min(12, prevIds.length)),
+        nextHead: nextIds.slice(0, Math.min(12, nextIds.length)),
+        prevTail: prevIds.slice(-Math.min(12, prevIds.length)),
+        nextTail: nextIds.slice(-Math.min(12, nextIds.length)),
+        prevIds,
+        nextIds,
+        selectedJobId: data.selectedJob?.job_id ?? null,
+      })
+    }
 
     setData("jobsCacheAppended", nextAppended)
-    setData("jobs", jobs)
+    setData({ jobsById: nextIndex.byId, jobsOrder: nextIndex.order })
     setData("lastRefresh", Date.now())
     setData("lastError", learningError)
     setUi("jobsListHasMore", serverHasMore)
     setUi("jobsListServerCount", serverJobs.length)
 
     if (data.selectedJob) {
-      const match = serverJobs.find((j) => j.job_id === data.selectedJob?.job_id)
+      const match = nextIndex.byId[data.selectedJob?.job_id ?? ""]
       if (match && !data.selectedJob.metadata) {
-        setData("selectedJob", match)
+        setData("selectedJob", cloneJob(match))
       }
     }
 
@@ -214,6 +380,12 @@ export async function refreshJobs(
       serverCount: serverJobs.length,
       serverHasMore,
       cacheCount: data.jobsCache.length,
+      promptMs,
+      promptExtractMs,
+      learningMs,
+      learningExtractMs,
+      mergeMs,
+      totalMs: Date.now() - start,
     })
     return {
       ok: true,
@@ -233,10 +405,10 @@ export async function refreshJobs(
 }
 
 export async function loadMoreJobs(ctx: AppContext): Promise<void> {
-  const { ui, config } = ctx.state
+  const { ui } = ctx.state
   if (ui.jobsListLoadingMore) return
 
-  const step = Math.max(1, config.jobLimit)
+  const step = JOBS_PAGE_SIZE
   const currentLimit = resolveJobsLimit(ctx)
   const nextLimit = currentLimit + step
   const prevServerCount = ui.jobsListServerCount
@@ -263,13 +435,29 @@ export async function loadMoreJobs(ctx: AppContext): Promise<void> {
 export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   const { data, ui } = ctx.state
   const { setData, setUi } = ctx
+  const selectStart = Date.now()
 
   const token = ui.jobSelectToken + 1
+  const immediate = getJobById(data, jobId)
+  log("state", "selectJob start", {
+    jobId,
+    cached: Boolean(immediate),
+    jobSource: immediate?.job_source ?? null,
+    token,
+  })
+  const resetStart = Date.now()
   setUi("jobSelectToken", token)
   setUi("eventsToken", ui.eventsToken + 1)
   setUi("lastSeq", 0)
   setUi("selectedEventId", null)
   setUi("verifierEvolveGenerationIndex", 0)
+  log("state", "selectJob reset ui", {
+    jobId,
+    token,
+    totalMs: Date.now() - resetStart,
+  })
+
+  const dataResetStart = Date.now()
   setData("events", [])
   setData("metrics", {})
   setData("bestSnapshotId", null)
@@ -277,8 +465,11 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   setData("evalSummary", null)
   setData("evalResultRows", [])
   setData("allCandidates", [])
-
-  const immediate = data.jobs.find((job) => job.job_id === jobId)
+  log("state", "selectJob reset data", {
+    jobId,
+    token,
+    totalMs: Date.now() - dataResetStart,
+  })
   const placeholder = {
     job_id: jobId,
     status: "loading",
@@ -293,11 +484,18 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
     error: null,
     job_source: null,
   } as JobSummary
-  setData("selectedJob", immediate ?? placeholder)
+  const selectionResetStart = Date.now()
+  setData("selectedJob", immediate ? cloneJob(immediate) : placeholder)
   setData("status", `Loading job ${jobId}...`)
+  log("state", "selectJob reset selection", {
+    jobId,
+    token,
+    totalMs: Date.now() - selectionResetStart,
+  })
 
   const jobSource = immediate?.job_source ?? null
   try {
+    const detailsStart = Date.now()
     const path =
       jobSource === "eval"
         ? `/eval/jobs/${jobId}`
@@ -305,10 +503,19 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
           ? `/learning/jobs/${jobId}?include_metadata=true`
           : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`
     const job = await apiGet(path)
+    const detailsMs = Date.now() - detailsStart
     if (token !== ctx.state.ui.jobSelectToken || ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "selectJob stale", {
+        jobId,
+        token,
+        currentToken: ctx.state.ui.jobSelectToken,
+        detailsMs,
+        stage: "details",
+      })
       return
     }
 
+    const processStart = Date.now()
     const coerced = coerceJob(job, jobSource ?? "prompt-learning")
     if (jobSource === "eval" || isEvalJob(coerced)) {
       const evalMeta = extractEvalMetadata(job?.config)
@@ -331,14 +538,36 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
     }
     setData("selectedJob", coerced)
     setData("status", `Selected job ${jobId}`)
+    log("state", "selectJob details", {
+      jobId,
+      jobSource: coerced.job_source ?? jobSource ?? null,
+      status: coerced.status,
+      detailsMs,
+      processMs: Date.now() - processStart,
+      totalMs: Date.now() - selectStart,
+    })
   } catch (err: any) {
     if (isAbortError(err)) return
     if (token !== ctx.state.ui.jobSelectToken || ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "selectJob stale", {
+        jobId,
+        token,
+        currentToken: ctx.state.ui.jobSelectToken,
+        stage: "details-error",
+        error: err?.message || "unknown",
+        totalMs: Date.now() - selectStart,
+      })
       return
     }
     const errMsg = err?.message || `Failed to load job ${jobId}`
     setData("lastError", errMsg)
     setData("status", `Error: ${errMsg}`)
+    log("state", "selectJob error", {
+      jobId,
+      jobSource,
+      error: errMsg,
+      totalMs: Date.now() - selectStart,
+    })
   }
 
   if (jobSource !== "learning" && jobSource !== "eval" && !isEvalJob(ctx.state.data.selectedJob)) {
@@ -350,7 +579,11 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   if (!isEvalJob(ctx.state.data.selectedJob)) {
     await fetchMetrics(ctx)
   }
-  
+  log("state", "selectJob complete", {
+    jobId,
+    jobSource: ctx.state.data.selectedJob?.job_source ?? jobSource ?? null,
+    totalMs: Date.now() - selectStart,
+  })
 }
 
 export async function fetchBestSnapshot(
@@ -364,16 +597,20 @@ export async function fetchBestSnapshot(
 
   const jobId = job.job_id
   const snapshotId = data.bestSnapshotId
+  const start = Date.now()
+  const endpoint = snapshotId
+    ? `/prompt-learning/online/jobs/${jobId}/snapshots/${snapshotId}`
+    : `/prompt-learning/online/jobs/${jobId}/best-snapshot`
 
   try {
     let payload: any
     // If we have a snapshot ID, use the specific snapshot endpoint
     if (snapshotId) {
-      payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/snapshots/${snapshotId}`)
+      payload = await apiGet(endpoint)
       payload = payload?.payload || payload
     } else {
       // Otherwise, use the best-snapshot endpoint which can find it even without an explicit ID
-      payload = await apiGet(`/prompt-learning/online/jobs/${jobId}/best-snapshot`)
+      payload = await apiGet(endpoint)
       // Update bestSnapshotId from the response if it wasn't set
       if (payload?.best_snapshot_id && !data.bestSnapshotId) {
         setData("bestSnapshotId", payload.best_snapshot_id)
@@ -382,16 +619,44 @@ export async function fetchBestSnapshot(
     }
 
     if ((token != null && token !== ctx.state.ui.jobSelectToken) || ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "bestSnapshot stale", {
+        jobId,
+        endpoint,
+        token,
+        currentToken: ctx.state.ui.jobSelectToken,
+        totalMs: Date.now() - start,
+      })
       return
     }
     setData("bestSnapshot", payload)
     setData("status", "Loaded best Candidate")
+    log("state", "bestSnapshot fetched", {
+      jobId,
+      endpoint,
+      hasSnapshotId: Boolean(snapshotId),
+      payloadKeys: payload && typeof payload === "object" ? Object.keys(payload).length : 0,
+      totalMs: Date.now() - start,
+    })
   } catch (err: any) {
     if (isAbortError(err)) return
     if ((token != null && token !== ctx.state.ui.jobSelectToken) || ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "bestSnapshot stale", {
+        jobId,
+        endpoint,
+        token,
+        currentToken: ctx.state.ui.jobSelectToken,
+        error: err?.message || "unknown",
+        totalMs: Date.now() - start,
+      })
       return
     }
     setData("lastError", err?.message || "Failed to load best Candidate")
+    log("state", "bestSnapshot error", {
+      jobId,
+      endpoint,
+      error: err?.message || "unknown",
+      totalMs: Date.now() - start,
+    })
   }
 }
 
@@ -405,22 +670,49 @@ export async function fetchEvalResults(
   if (!job || !isEvalJob(job)) return
 
   const jobId = job.job_id
+  const start = Date.now()
   try {
     setData("status", "Loading eval results...")
     const payload = await apiGet(`/eval/jobs/${job.job_id}/results`)
     if ((token != null && token !== ctx.state.ui.jobSelectToken) || ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "evalResults stale", {
+        jobId,
+        token,
+        currentToken: ctx.state.ui.jobSelectToken,
+        totalMs: Date.now() - start,
+      })
       return
     }
-    setData("evalSummary", payload?.summary && typeof payload.summary === "object" ? payload.summary : null)
-    setData("evalResultRows", Array.isArray(payload?.results) ? payload.results : [])
+    const summary = payload?.summary && typeof payload.summary === "object" ? payload.summary : null
+    const rows = Array.isArray(payload?.results) ? payload.results : []
+    setData("evalSummary", summary)
+    setData("evalResultRows", rows)
     setData("status", `Loaded eval results for ${job.job_id}`)
+    log("state", "evalResults fetched", {
+      jobId,
+      summaryKeys: summary ? Object.keys(summary).length : 0,
+      rows: rows.length,
+      totalMs: Date.now() - start,
+    })
   } catch (err: any) {
     if (isAbortError(err)) return
     if ((token != null && token !== ctx.state.ui.jobSelectToken) || ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "evalResults stale", {
+        jobId,
+        token,
+        currentToken: ctx.state.ui.jobSelectToken,
+        error: err?.message || "unknown",
+        totalMs: Date.now() - start,
+      })
       return
     }
     setData("lastError", err?.message || "Failed to load eval results")
     setData("status", "Failed to load eval results")
+    log("state", "evalResults error", {
+      jobId,
+      error: err?.message || "unknown",
+      totalMs: Date.now() - start,
+    })
   }
 }
 
@@ -431,6 +723,7 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
   if (!job) return
 
   const jobId = job.job_id
+  const start = Date.now()
   try {
     if (isEvalJob(job)) {
       await fetchEvalResults(ctx, undefined)
@@ -443,17 +736,37 @@ export async function fetchMetrics(ctx: AppContext): Promise<void> {
         : `/prompt-learning/online/jobs/${job.job_id}/metrics`
     const payload = await apiGet(path)
     if (ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "metrics stale", {
+        jobId,
+        totalMs: Date.now() - start,
+      })
       return
     }
     setData("metrics", payload)
     setData("status", "")
+    log("state", "metrics fetched", {
+      jobId,
+      metricKeys: payload && typeof payload === "object" ? Object.keys(payload).length : 0,
+      points: Array.isArray(payload?.points) ? payload.points.length : null,
+      totalMs: Date.now() - start,
+    })
   } catch (err: any) {
     if (isAbortError(err)) return
     if (ctx.state.data.selectedJob?.job_id !== jobId) {
+      log("state", "metrics stale", {
+        jobId,
+        error: err?.message || "unknown",
+        totalMs: Date.now() - start,
+      })
       return
     }
     setData("lastError", err?.message || "Failed to load metrics")
     setData("status", "Failed to load metrics")
+    log("state", "metrics error", {
+      jobId,
+      error: err?.message || "unknown",
+      totalMs: Date.now() - start,
+    })
   }
 }
 

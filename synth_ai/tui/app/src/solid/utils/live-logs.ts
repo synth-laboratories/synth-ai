@@ -1,7 +1,7 @@
 import { type Accessor, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import fs from "node:fs"
-import { getLogsDirectory, listLogFiles, readLogChunk, type LogFileInfo } from "./logs"
-import { clampIndex, moveSelectionById, resolveSelectionIndexById } from "./list"
+import { getLogsDirectory, listLogFiles, readLogChunk, type LogFileInfo } from "../../utils/logs"
+import { clampIndex, moveSelectionById, resolveSelectionIndexById, uniqueById } from "./list"
 
 type LiveLogsOptions = {
   listActive: Accessor<boolean>
@@ -85,7 +85,7 @@ export function useLiveLogs(options: LiveLogsOptions): LiveLogsState {
 
       const previous = files()
       const selectedPath = selectedId()
-      const nextFiles = await listLogFiles()
+      const nextFiles = uniqueById(await listLogFiles(), (file) => file.path)
       if (disposed) return
 
       if (!filesEqual(previous, nextFiles)) {
@@ -113,15 +113,16 @@ export function useLiveLogs(options: LiveLogsOptions): LiveLogsState {
     }
 
     void refreshLogFiles()
-    pollTimer = setInterval(() => {
-      void refreshLogFiles()
-    }, 2000)
-
+    let pollIntervalMs = 2000
     try {
       watcher = fs.watch(getLogsDirectory(), { persistent: false }, scheduleRefresh)
+      pollIntervalMs = 5000
     } catch {
       // ignore
     }
+    pollTimer = setInterval(() => {
+      void refreshLogFiles()
+    }, pollIntervalMs)
 
     onCleanup(() => {
       disposed = true
@@ -212,14 +213,16 @@ export function useLiveLogs(options: LiveLogsOptions): LiveLogsState {
     }
 
     void refreshContent(true)
-    pollTimer = setInterval(() => {
-      void refreshContent(false)
-    }, 1000)
+    let pollIntervalMs = 1000
     try {
       watcher = fs.watch(file.path, { persistent: false }, scheduleRefresh)
+      pollIntervalMs = 2000
     } catch {
       // ignore
     }
+    pollTimer = setInterval(() => {
+      void refreshContent(false)
+    }, pollIntervalMs)
 
     onCleanup(() => {
       disposed = true

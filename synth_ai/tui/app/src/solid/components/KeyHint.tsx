@@ -1,19 +1,19 @@
 import { COLORS } from "../theme"
+import { getActionHint, type KeyAction } from "../../input/keymap"
 
 interface KeyHintProps {
-  description: string
-  keyLabel: string
+  action: KeyAction
   active?: boolean
 }
 
 /**
- * KeyHint component that renders exactly "Description (key)" with colors
- * matching the gold/reference TUI style.
+ * KeyHint component that renders the hint for a key action.
+ * Uses centralized hints with embedded key format, e.g. "(r)efresh", "(f)ilter"
  */
 export function KeyHint(props: KeyHintProps) {
   return (
     <text fg={props.active ? COLORS.textBright : COLORS.textDim}>
-      {`${props.description} (${props.keyLabel})`}
+      {getActionHint(props.action)}
     </text>
   )
 }

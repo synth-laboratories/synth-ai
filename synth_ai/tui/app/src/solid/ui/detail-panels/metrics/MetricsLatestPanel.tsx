@@ -4,10 +4,17 @@
 import { createMemo } from "solid-js"
 import type { MetricsPanelProps } from "./types"
 import { TEXT, PANEL, getPanelBorderColor } from "../../../theme"
+import { getPanelContentHeight, getPanelContentWidth } from "../../../../utils/panel"
+import { clampLines, wrapTextLines } from "../../../../utils/text"
+import type { TextPanelComponent } from "../types"
 import { formatMetrics } from "../../../../formatters/metrics"
 
 export function MetricsLatestPanel(props: MetricsPanelProps) {
   const metricsText = createMemo(() => formatMetrics(props.metrics))
+  const contentWidth = createMemo(() => getPanelContentWidth(props.width))
+  const contentHeight = createMemo(() => getPanelContentHeight(props.height))
+  const lines = createMemo(() => wrapTextLines(metricsText(), contentWidth()))
+  const visibleLines = createMemo(() => clampLines(lines(), contentHeight()))
 
   return (
     <box
@@ -19,7 +26,10 @@ export function MetricsLatestPanel(props: MetricsPanelProps) {
       paddingLeft={PANEL.paddingLeft}
       height={props.height}
     >
-      <text fg={TEXT.fg}>{metricsText()}</text>
+      <text fg={TEXT.fg}>{visibleLines().join("\n")}</text>
     </box>
   )
 }
+
+(MetricsLatestPanel as TextPanelComponent<MetricsPanelProps>).getLines = (props, contentWidth) =>
+  wrapTextLines(formatMetrics(props.metrics), contentWidth)

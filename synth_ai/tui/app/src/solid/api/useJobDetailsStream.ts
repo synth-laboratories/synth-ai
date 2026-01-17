@@ -9,13 +9,16 @@ import {
   type JobDetailsStreamEvent,
 } from "../../api/job-details-stream"
 import { registerCleanup, unregisterCleanup } from "../../lifecycle"
+import { type SseChannel, setSseConnected } from "../../state/polling"
 
 export interface UseJobDetailsStreamOptions {
   jobId: () => string | null | undefined
   onEvent: (event: JobDetailsStreamEvent) => void
   onError?: (error: Error) => void
+  onOpen?: () => void
   sinceSeq?: () => number
   enabled?: () => boolean
+  sseKey?: SseChannel
 }
 
 /**
@@ -25,6 +28,11 @@ export interface UseJobDetailsStreamOptions {
 export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
   let connection: JobDetailsStreamConnection | null = null
   const cleanupName = "job-details-stream"
+  const trackSse = (connected: boolean) => {
+    if (options.sseKey) {
+      setSseConnected(options.sseKey, connected)
+    }
+  }
 
   // Cleanup function for disconnecting the stream
   const cleanup = () => {
@@ -32,6 +40,7 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
       connection.disconnect()
       connection = null
     }
+    trackSse(false)
   }
 
   createEffect(() => {
@@ -49,12 +58,15 @@ export function useJobDetailsStream(options: UseJobDetailsStreamOptions): void {
     }
 
     // Connect to the stream
-    connection = connectJobDetailsStream(
-      jobId,
-      options.onEvent,
-      options.onError,
-      () => options.sinceSeq?.() ?? 0,
-    )
+    connection = connectJobDetailsStream(jobId, options.onEvent, (err) => {
+      trackSse(false)
+      options.onError?.(err)
+    }, () => options.sinceSeq?.() ?? 0, {
+      onOpen: () => {
+        trackSse(true)
+        options.onOpen?.()
+      },
+    })
     // Re-registering with same name overwrites previous entry (Map semantics)
     registerCleanup(cleanupName, cleanup)
   })

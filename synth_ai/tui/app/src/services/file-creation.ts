@@ -3,7 +3,7 @@
  */
 import * as fs from "fs"
 import * as path from "path"
-import { LOCALAPI_TEMPLATE } from "../../templates/localapi"
+import { LOCALAPI_TEMPLATE } from "../templates/localapi"
 import { getUniqueFilename, toDisplayPath } from "../utils/files"
 
 export interface CreateFileResult {

@@ -1,5 +1,6 @@
 import { buildApiUrl, getAuthHeaders } from "./client"
 import { connectSse } from "../utils/sse"
+import { log } from "../utils/log"
 
 export type JsonStreamConnection = {
   disconnect: () => void
@@ -50,6 +51,7 @@ export function connectJsonStream<T>(options: JsonStreamOptions<T>): JsonStreamC
     })
   const parse = options.parse ?? ((raw: string) => JSON.parse(raw) as T)
   const headers = normalizeHeaders(options.headers)
+  const label = options.label ?? "json-stream"
 
   const connection = connectSse(getUrl(), {
     headers,
@@ -60,13 +62,28 @@ export function connectJsonStream<T>(options: JsonStreamOptions<T>): JsonStreamC
     onOpen: options.onOpen,
     onMessage: (message) => {
       if (!message.data) return
+      const dataBytes = message.data.length
+      log("state", "stream parse start", { label, dataBytes })
+      let parsed: T | null = null
+      const parseStart = Date.now()
       try {
-        const parsed = parse(message.data)
-        if (parsed != null) {
-          options.onEvent(parsed)
-        }
-      } catch {
-        // Ignore parse errors.
+        parsed = parse(message.data)
+      } catch (err) {
+        log("state", "stream parse error", {
+          label,
+          dataBytes,
+          error: err instanceof Error ? err.message : String(err),
+        })
+        return
+      } finally {
+        const parseMs = Date.now() - parseStart
+        log("state", "stream parse end", { label, dataBytes, parseMs })
+      }
+      if (parsed != null) {
+        const eventStart = Date.now()
+        options.onEvent(parsed)
+        const eventMs = Date.now() - eventStart
+        log("state", "stream event handled", { label, eventMs })
       }
     },
     onError: options.onError,

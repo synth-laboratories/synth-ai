@@ -1,5 +1,6 @@
-import type { AppState } from "../../state/app-state"
-import { ListPane, type ListFilterMode } from "../../types"
+import type { AppState } from "../state/app-state"
+import { getActionHint } from "../input/keymap"
+import { ListPane, type ListFilterMode } from "../types"
 
 export function getListFilterCount(ui: AppState, pane: ListPane): number {
   const mode = ui.listFilterMode[pane]
@@ -14,10 +15,12 @@ function formatIndexPart(selectedIndex: number, totalCount: number): string {
 }
 
 function formatFilterPart(mode: ListFilterMode, filterCount: number): string {
+  const filterHint = getActionHint("modal.open.listFilter")
   if (mode === "all") {
-    return "Filter (f)"
+    return filterHint
   }
-  return `Filter: ${filterCount} (f)`
+  // Insert count into hint, e.g. "(f)ilter" -> "(f)ilter: 3"
+  return `${filterHint}: ${filterCount}`
 }
 
 export function formatListTitle(

@@ -1,11 +1,20 @@
 /**
  * Job list selectors (pure-ish helpers).
+ * Keep list labels stable; do not depend on metadata fetched later.
  */
-import { normalizeJobType, type JobSummary } from "../tui_data"
+import type { JobSummary } from "../tui_data"
 import type { ListFilterMode } from "../types"
 
 export function getJobTypeKey(job: JobSummary): string {
-  return normalizeJobType(job).toLowerCase()
+  const trainingType = job.training_type?.toLowerCase() || ""
+  if (trainingType) return trainingType
+  const source = job.job_source?.toLowerCase() || ""
+  if (source) return source
+  const id = job.job_id || ""
+  if (id.startsWith("eval_")) return "eval"
+  if (id.startsWith("pl_")) return "prompt_learning"
+  if (id.startsWith("learning_")) return "learning"
+  return "unknown"
 }
 
 export function getJobTypeLabel(job: JobSummary): string {
@@ -75,4 +84,3 @@ export function getFilteredJobsByType(
   if (!typeFilter.size) return []
   return jobs.filter((job) => typeFilter.has(getJobTypeKey(job)))
 }
-

@@ -6,6 +6,7 @@
  */
 
 import { fetchWithTimeout } from "../utils/request"
+import { log } from "../utils/log"
 import { DEFAULT_API_TIMEOUT_MS, DEFAULT_HEALTH_TIMEOUT_MS } from "../network"
 
 /**
@@ -33,19 +34,53 @@ function sanitizeErrorBody(text: string, maxLen: number): string {
 async function parseJsonOrThrow(res: Response, label: string): Promise<any> {
   const contentType = res.headers.get("content-type") || ""
   const isJson = contentType.includes("application/json") || contentType.includes("application/problem+json")
+  const startRead = Date.now()
   const text = await res.text().catch(() => "")
+  const readMs = Date.now() - startRead
+  const bytes = Buffer.byteLength(text, "utf8")
+  const contentLength = res.headers.get("content-length")
 
   if (!isJson) {
     const snippet = sanitizeErrorBody(text, 200)
     const suffix = snippet ? ` - ${snippet}` : ""
+    log("http", "parse.skip", {
+      label,
+      status: res.status,
+      contentType,
+      contentLength,
+      bytes,
+      readMs,
+    })
     throw new Error(`${label}: expected JSON but got ${contentType || "unknown content-type"}${suffix}`)
   }
 
+  const startParse = Date.now()
   try {
-    return text ? JSON.parse(text) : {}
+    const parsed = text ? JSON.parse(text) : {}
+    const parseMs = Date.now() - startParse
+    log("http", "parse.json", {
+      label,
+      status: res.status,
+      contentType,
+      contentLength,
+      bytes,
+      readMs,
+      parseMs,
+    })
+    return parsed
   } catch {
+    const parseMs = Date.now() - startParse
     const snippet = sanitizeErrorBody(text, 200)
     const suffix = snippet ? ` - ${snippet}` : ""
+    log("http", "parse.error", {
+      label,
+      status: res.status,
+      contentType,
+      contentLength,
+      bytes,
+      readMs,
+      parseMs,
+    })
     throw new Error(`${label}: invalid JSON response${suffix}`)
   }
 }

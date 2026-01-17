@@ -1,6 +1,6 @@
 import { type Accessor, createMemo } from "solid-js"
 
-import { formatActionKeys } from "../../input/keymap"
+import { getActionHint, buildCombinedHint, buildActionHint } from "../../input/keymap"
 import { formatTunnelDetails } from "../../formatters/modals"
 import type { AppData } from "../../types"
 import { ScrollableTextModal } from "./ModalShared"
@@ -33,9 +33,9 @@ export function TaskAppsModal(props: TaskAppsModalProps) {
       offset={props.offset}
       hint={{
         baseHints: [
-          `${formatActionKeys("nav.down", { primaryOnly: true })}/${formatActionKeys("nav.up", { primaryOnly: true })} select`,
-          `${formatActionKeys("modal.copy", { primaryOnly: true })} copy hostname`,
-          `${formatActionKeys("app.back")} close`,
+          buildCombinedHint("nav.down", "nav.up", "select"),
+          buildActionHint("modal.copy", "copy hostname"),
+          getActionHint("app.back"),
         ],
       }}
     />
