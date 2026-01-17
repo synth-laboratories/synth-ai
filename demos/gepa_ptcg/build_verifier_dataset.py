@@ -10,14 +10,14 @@ import argparse
 import json
 import math
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Iterable
 
 
 def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, value))
 
 
-def _compute_outcome_reward(result: Dict[str, Any]) -> float:
+def _compute_outcome_reward(result: dict[str, Any]) -> float:
     winner = result.get("winner")
     if winner == "P1":
         return 1.0
@@ -32,7 +32,7 @@ def _compute_outcome_reward(result: Dict[str, Any]) -> float:
     return 0.5
 
 
-def _score_rollout(record: Dict[str, Any]) -> Tuple[float, Dict[str, float]]:
+def _score_rollout(record: dict[str, Any]) -> tuple[float, dict[str, float]]:
     result = record.get("result", {})
     trace_steps = record.get("trace_steps", []) or []
     decision_steps = result.get("decision_steps") or len(trace_steps) or 1
@@ -81,7 +81,7 @@ def _score_rollout(record: Dict[str, Any]) -> Tuple[float, Dict[str, float]]:
     return _clamp(score), metrics
 
 
-def _load_rollouts(path: Path, limit: int | None = None) -> List[Dict[str, Any]]:
+def _load_rollouts(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
     if not path.exists():
         raise FileNotFoundError(f"Rollout file not found: {path}")
     records = []
@@ -96,7 +96,7 @@ def _load_rollouts(path: Path, limit: int | None = None) -> List[Dict[str, Any]]
     return records
 
 
-def _summarize_scores(scores: Iterable[float]) -> Dict[str, float]:
+def _summarize_scores(scores: Iterable[float]) -> dict[str, float]:
     values = list(scores)
     if not values:
         return {"count": 0}
@@ -111,7 +111,7 @@ def _summarize_scores(scores: Iterable[float]) -> Dict[str, float]:
     }
 
 
-def build_dataset(records: List[Dict[str, Any]], drop_game_state: bool) -> Dict[str, Any]:
+def build_dataset(records: list[dict[str, Any]], drop_game_state: bool) -> dict[str, Any]:
     tasks = []
     gold_outputs = []
     scores = []

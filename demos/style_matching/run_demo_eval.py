@@ -15,7 +15,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, cast
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -109,7 +109,7 @@ except Exception as exc:
     print(f"Env key upload failed (continuing locally): {exc}")
 
 
-def _parse_seed_range(seed_range: str) -> List[int]:
+def _parse_seed_range(seed_range: str) -> list[int]:
     if "-" not in seed_range:
         raise ValueError("Seed range must be start-end")
     start_s, end_s = seed_range.split("-", 1)
@@ -134,7 +134,7 @@ USER_PROMPT_TEMPLATE = (
     "Write the essay now."
 )
 
-TASKS: List[Dict[str, Any]] = [
+TASKS: list[dict[str, Any]] = [
     {
         "id": "outline_speed",
         "input": {
@@ -198,7 +198,7 @@ TASKS: List[Dict[str, Any]] = [
 ]
 
 
-def _make_trace(user_text: str, assistant_text: str) -> Dict[str, Any]:
+def _make_trace(user_text: str, assistant_text: str) -> dict[str, Any]:
     return {
         "session_id": "trace",
         "session_time_steps": [
@@ -224,7 +224,7 @@ def _make_trace(user_text: str, assistant_text: str) -> Dict[str, Any]:
     }
 
 
-GOLD_EXAMPLES: List[Dict[str, Any]] = [
+GOLD_EXAMPLES: list[dict[str, Any]] = [
     {
         "summary": "Direct, builder tone with concrete examples",
         "gold_score": 0.95,
@@ -258,7 +258,7 @@ BASELINE_VERIFIER_JOB_ID = "zero_shot_verifier_contrastive_single"
 VERIFIER_MODEL = "gpt-4.1-nano"
 VERIFIER_JOB_ID = BASELINE_VERIFIER_JOB_ID
 
-ROLLOUT_LOG: List[Dict[str, Any]] = []
+ROLLOUT_LOG: list[dict[str, Any]] = []
 
 prompt_path = Path(args.prompt_path)
 if not prompt_path.exists():
@@ -281,7 +281,7 @@ if not OPTIMIZED_VERIFIER_JOB_ID:
 
 app = FastAPI(title="Style Matching Task App")
 app.add_middleware(
-    CORSMiddleware,
+    cast(Any, CORSMiddleware),
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
@@ -290,12 +290,12 @@ app.add_middleware(
 
 
 @app.get("/health")
-async def health() -> Dict[str, str]:
+async def health() -> dict[str, str]:
     return {"status": "ok", "localapi": "style_matching"}
 
 
 @app.get("/task_info")
-async def task_info() -> Dict[str, Any]:
+async def task_info() -> dict[str, Any]:
     return {
         "taskset": {
             "name": "style_matching",
@@ -306,24 +306,24 @@ async def task_info() -> Dict[str, Any]:
 
 
 @app.get("/tasks")
-async def list_tasks() -> Dict[str, Any]:
+async def list_tasks() -> dict[str, Any]:
     return {"tasks": TASKS, "gold_examples": GOLD_EXAMPLES}
 
 
 @app.get("/rollouts")
-async def list_rollouts(x_api_key: Optional[str] = Header(None)) -> Dict[str, Any]:
+async def list_rollouts(x_api_key: str | None = Header(None)) -> dict[str, Any]:
     if x_api_key != ENVIRONMENT_SYNTH_USER_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return {"rollouts": ROLLOUT_LOG}
 
 
-def _format_notes(notes: List[str]) -> str:
+def _format_notes(notes: list[str]) -> str:
     if not notes:
         return "- (none)"
     return "\n".join(f"- {note}" for note in notes)
 
 
-def _safe_format(text: str, values: Dict[str, Any]) -> str:
+def _safe_format(text: str, values: dict[str, Any]) -> str:
     class _DefaultDict(dict):
         def __missing__(self, key: str) -> str:
             return ""
@@ -332,8 +332,8 @@ def _safe_format(text: str, values: Dict[str, Any]) -> str:
 
 
 def _render_messages_from_sections(
-    sections: List[Dict[str, Any]], values: Dict[str, Any]
-) -> List[Dict[str, str]]:
+    sections: list[dict[str, Any]], values: dict[str, Any]
+) -> list[dict[str, str]]:
     rendered = []
     for section in sorted(sections, key=lambda s: s.get("order", 0)):
         role = section.get("role", "user")
@@ -344,8 +344,8 @@ def _render_messages_from_sections(
 
 
 def _build_messages(
-    task_input: Dict[str, Any], prompt_sections: Optional[List[Dict[str, Any]]] = None
-) -> List[Dict[str, str]]:
+    task_input: dict[str, Any], prompt_sections: list[dict[str, Any]] | None = None
+) -> list[dict[str, str]]:
     notes_text = _format_notes(task_input.get("notes", []))
     values = {
         "title": task_input.get("title", ""),
@@ -373,14 +373,14 @@ def _build_inference_url(inference_url: str) -> str:
     return f"{inference_url.rstrip('/')}/chat/completions"
 
 
-def _extract_completion(data: Dict[str, Any]) -> str:
+def _extract_completion(data: dict[str, Any]) -> str:
     try:
         return data["choices"][0]["message"]["content"] or ""
     except (KeyError, IndexError, TypeError):
         return ""
 
 
-def _extract_verifier_score(result: Dict[str, Any]) -> float:
+def _extract_verifier_score(result: dict[str, Any]) -> float:
     output = result.get("output", result)
     if isinstance(output, dict):
         outcome_review = output.get("outcome_review")
@@ -399,7 +399,7 @@ def _extract_verifier_score(result: Dict[str, Any]) -> float:
     return 0.0
 
 
-async def _call_policy_llm(messages: List[Dict[str, str]], policy_config: Dict[str, Any]) -> str:
+async def _call_policy_llm(messages: list[dict[str, str]], policy_config: dict[str, Any]) -> str:
     inference_url = policy_config.get("inference_url")
     if not inference_url:
         raise RuntimeError("policy.config.inference_url is required")
@@ -426,7 +426,7 @@ async def _call_policy_llm(messages: List[Dict[str, str]], policy_config: Dict[s
 
 
 async def _score_with_verifier(
-    session_trace: Dict[str, Any], verifier_job_id: Optional[str] = None
+    session_trace: dict[str, Any], verifier_job_id: str | None = None
 ) -> float:
     job_id = verifier_job_id or VERIFIER_JOB_ID
     payload = {
@@ -461,7 +461,7 @@ async def _score_with_verifier(
 
 
 @app.post("/rollout")
-async def rollout(request: Request, x_api_key: Optional[str] = Header(None)) -> Dict[str, Any]:
+async def rollout(request: Request, x_api_key: str | None = Header(None)) -> dict[str, Any]:
     if x_api_key != ENVIRONMENT_SYNTH_USER_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -546,7 +546,7 @@ async def rollout(request: Request, x_api_key: Optional[str] = Header(None)) -> 
 
 async def wait_for_system_dns(hostname: str, timeout: float = 90.0, interval: float = 3.0) -> None:
     deadline = time.time() + timeout
-    last_exc: Optional[Exception] = None
+    last_exc: Exception | None = None
     while time.time() < deadline:
         try:
             import socket
@@ -615,7 +615,7 @@ def _start_localapi_monitor(interval: float = 5.0) -> threading.Thread:
     return thread
 
 
-def _extract_prompt_sections(prompt_obj: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _extract_prompt_sections(prompt_obj: dict[str, Any]) -> list[dict[str, Any]]:
     template = prompt_obj.get("template") or {}
     sections = template.get("sections")
     if isinstance(sections, list) and sections:
@@ -628,10 +628,10 @@ def _extract_prompt_sections(prompt_obj: Dict[str, Any]) -> List[Dict[str, Any]]
 
 async def run_eval_job(
     label: str,
-    prompt_sections: List[Dict[str, Any]],
+    prompt_sections: list[dict[str, Any]],
     verifier_job_id: str,
     localapi_url: str,
-    seeds: List[int],
+    seeds: list[int],
 ) -> float:
     config = EvalJobConfig(
         localapi_url=localapi_url,
@@ -700,7 +700,7 @@ async def main() -> None:
     baseline_sections = _extract_prompt_sections(baseline_prompt)
     optimized_sections = _extract_prompt_sections(optimized_prompt)
 
-    results: Dict[str, float] = {}
+    results: dict[str, float] = {}
 
     VERIFIER_JOB_ID = BASELINE_VERIFIER_JOB_ID
     results["baseline_prompt__baseline_verifier"] = await run_eval_job(

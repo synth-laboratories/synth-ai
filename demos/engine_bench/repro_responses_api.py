@@ -62,7 +62,7 @@ DO NOT just read the file. You MUST call the edit tool.
 """
 
 
-def main():
+def main() -> bool | None:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         print("Need OPENAI_API_KEY")

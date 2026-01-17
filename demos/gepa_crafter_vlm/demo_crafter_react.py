@@ -5,7 +5,7 @@ import subprocess
 import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, cast
 
 import httpx
 from crafter_logic import (
@@ -103,8 +103,8 @@ CRAFTER_RUBRICS = RubricBundle(
 
 
 def _build_trace_event(
-    messages: List[Dict[str, Any]], response_json: Dict[str, Any], *, turn: int
-) -> Dict[str, Any]:
+    messages: list[dict[str, Any]], response_json: dict[str, Any], *, turn: int
+) -> dict[str, Any]:
     return {
         "type": "lm_call",
         "event_type": "lm_call",
@@ -147,9 +147,9 @@ def create_crafter_vlm_local_api(system_prompt: str):
 
         http_client = getattr(fastapi_request.app.state, "http_client", None)
 
-        trace_events: List[Dict[str, Any]] = []
-        history: List[Dict[str, Any]] = []
-        episode_rewards: List[float] = []
+        trace_events: list[dict[str, Any]] = []
+        history: list[dict[str, Any]] = []
+        episode_rewards: list[float] = []
 
         for turn in range(max_turns):
             messages = policy.build_messages(observation, history)
@@ -168,12 +168,12 @@ def create_crafter_vlm_local_api(system_prompt: str):
             trace_events.append(_build_trace_event(messages, response_json, turn=turn))
 
             next_observation = observation
-            tool_responses: List[Dict[str, Any]] = []
+            tool_responses: list[dict[str, Any]] = []
             if tool_calls:
                 for tc in tool_calls:
                     tool_call_id = tc.get("id") or tc.get("tool_call_id")
                     tool_name = tc.get("function", {}).get("name")
-                    actions_list: List[str] = []
+                    actions_list: list[str] = []
                     if tool_name == "crafter_interact":
                         args_str = tc.get("function", {}).get("arguments", "{}")
                         try:
@@ -187,8 +187,8 @@ def create_crafter_vlm_local_api(system_prompt: str):
                         actions_list = ["noop"]
 
                     actions_list = actions_list[:5]
-                    normalized_actions: List[str] = []
-                    action_results: List[Dict[str, Any]] = []
+                    normalized_actions: list[str] = []
+                    action_results: list[dict[str, Any]] = []
 
                     for action_str in actions_list:
                         normalized = normalize_action_name(action_str) or "noop"
@@ -263,7 +263,7 @@ def create_crafter_vlm_local_api(system_prompt: str):
             policy_config.get("inference_url"),
         )
 
-        trace_metadata: Dict[str, Any] = {
+        trace_metadata: dict[str, Any] = {
             "session_id": f"crafter-{seed}-{int(time.time())}",
             "env": "crafter",
             "seed": seed,
@@ -289,12 +289,12 @@ def create_crafter_vlm_local_api(system_prompt: str):
 
         return RolloutResponse(
             reward_info=metrics,
-            trace_correlation_id=trace_correlation_id,
+            trace_correlation_id=request.trace_correlation_id,
             trace=trace,
             inference_url=policy_config.get("inference_url", ""),
         )
 
-    def describe_taskset() -> Dict[str, Any]:
+    def describe_taskset() -> dict[str, Any]:
         return {
             "id": "crafter_vlm",
             "name": "Crafter VLM ReAct Agent",
@@ -331,8 +331,8 @@ def create_crafter_vlm_local_api(system_prompt: str):
         rubrics=CRAFTER_RUBRICS,
         app_state={},
         cors_origins=["*"],
-        startup_hooks=[startup_http_client],
-        shutdown_hooks=[shutdown_http_client],
+        startup_hooks=[cast(Callable[[], None], startup_http_client)],
+        shutdown_hooks=[cast(Callable[[], None], shutdown_http_client)],
     )
 
     return create_local_api(config)
@@ -414,7 +414,7 @@ async def run_eval_job(
     *,
     synth_user_key: str,
     localapi_url: str,
-    seeds: List[int],
+    seeds: list[int],
     mode: str,
 ) -> EvalResult:
     def _submit_and_poll() -> EvalResult:
@@ -436,7 +436,7 @@ async def run_eval_job(
     return await asyncio.to_thread(_submit_and_poll)
 
 
-def _extract_system_prompt(best_prompt: Optional[Dict[str, Any]]) -> Optional[str]:
+def _extract_system_prompt(best_prompt: dict[str, Any] | None) -> str | None:
     if not best_prompt:
         return None
     messages = best_prompt.get("messages", [])

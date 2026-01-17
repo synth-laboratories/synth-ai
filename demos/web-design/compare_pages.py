@@ -8,7 +8,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 
 
-async def capture_generated_page(html_file: Path, output_path: Path):
+async def capture_generated_page(html_file: Path, output_path: Path) -> None:
     """Capture screenshot of generated HTML page."""
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -27,7 +27,7 @@ async def capture_generated_page(html_file: Path, output_path: Path):
         print(f"✓ Captured screenshot: {output_path}")
 
 
-async def main():
+async def main() -> None:
     # Find generated HTML files
     generated_dir = Path(__file__).parent / "generated_pages"
     html_files = list(generated_dir.glob("*.html"))

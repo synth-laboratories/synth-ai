@@ -8,6 +8,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 from dotenv import load_dotenv
@@ -58,7 +59,7 @@ COMPARISON_SEEDS = list(range(30))  # 30 seeds for fair comparison
 COMPARISON_MAX_TURNS = 15  # Fewer turns for faster comparison
 
 
-def log(msg: str):
+def log(msg: str) -> None:
     """Print timestamped log message."""
     ts = datetime.now().strftime("%H:%M:%S")
     print(f"[{ts}] {msg}", flush=True)
@@ -116,7 +117,7 @@ def create_localapi_app(system_prompt: str):
 
             message = response.choices[0].message
             response_text = message.content or ""
-            tool_calls = [
+            tool_calls: list[dict[str, Any]] = [
                 {
                     "id": tc.id,
                     "type": "function",
@@ -181,7 +182,7 @@ def create_localapi_app(system_prompt: str):
         return RolloutResponse(
             reward_info=RolloutMetrics(outcome_reward=score, details=details),
             trace=None,
-            trace_correlation_id=policy_config.get("trace_correlation_id"),
+            trace_correlation_id=policy_config.get("trace_correlation_id", ""),
         )
 
     def provide_taskset_description():
@@ -244,7 +245,7 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
 
         message = response.choices[0].message
         response_text = message.content or ""
-        tool_calls = [
+        tool_calls: list[dict[str, Any]] = [
             {
                 "id": tc.id,
                 "type": "function",
@@ -254,7 +255,7 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
         ]
 
         next_observation = observation
-        tool_responses = []
+        tool_responses: list[dict[str, Any]] = []
 
         if tool_calls:
             for tc in tool_calls:
@@ -421,7 +422,7 @@ async def run_comparison_eval(
     }
 
 
-async def stream_job_events(job_id: str):
+async def stream_job_events(job_id: str) -> None:
     """Stream events from GEPA job."""
     url = synth_prompt_learning_events_url(job_id)
     headers = {"Authorization": f"Bearer {SYNTH_USER_KEY}"}
@@ -455,7 +456,7 @@ async def stream_job_events(job_id: str):
                     pass
 
 
-async def main():
+async def main() -> None:
     log("=" * 60)
     log("GEPA Crafter VLM Demo (Streaming)")
     log("=" * 60)

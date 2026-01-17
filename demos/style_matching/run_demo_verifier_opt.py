@@ -11,13 +11,15 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.products.graph_evolve import GraphOptimizationClient, GraphOptimizationConfig
 from synth_ai.products.graph_evolve.config import (
     EvolutionConfig,
+    GraphStructure,
+    GraphType,
     LimitsConfig,
     ProposerConfig,
     SeedsConfig,
@@ -65,7 +67,7 @@ print(f"Using API Key: {SYNTH_USER_KEY[:20]}...")
 VERIFIER_MODEL = "gpt-4.1-nano"
 
 
-def _make_trace(user_text: str, assistant_text: str) -> Dict[str, Any]:
+def _make_trace(user_text: str, assistant_text: str) -> dict[str, Any]:
     return {
         "session_id": "trace",
         "session_time_steps": [
@@ -175,7 +177,7 @@ VERIFIER_EXAMPLES = [
 VERIFIER_TRAIN_SEEDS = list(range(4))
 VERIFIER_VAL_SEEDS = list(range(4, len(VERIFIER_EXAMPLES)))
 
-verifier_dataset = {
+verifier_dataset: dict[str, Any] = {
     "tasks": [
         {
             "task_id": example["task_id"],
@@ -278,8 +280,8 @@ verifier_dataset = {
 verifier_config = GraphOptimizationConfig(
     algorithm="graph_evolve",
     dataset_name="style_matching_verifier",
-    graph_type="verifier",
-    graph_structure="dag",
+    graph_type=GraphType.VERIFIER,
+    graph_structure=GraphStructure.DAG,
     topology_guidance=(
         "Two-node VerifierGraph: judge_style -> parse_output. "
         "judge_style runs the evaluator, parse_output is a schema adapter that returns strict JSON. "
@@ -337,8 +339,10 @@ def _get_org_id() -> str:
     raise RuntimeError("Unable to resolve org_id from /api/v1/me or /me")
 
 
-async def run_verifier_optimization() -> tuple[str, Dict[str, Any]]:
-    async with GraphOptimizationClient(SYNTH_API_BASE, SYNTH_USER_KEY) as client:
+async def run_verifier_optimization() -> tuple[str, dict[str, Any]]:
+    async with GraphOptimizationClient(
+        synth_user_key=SYNTH_USER_KEY, synth_base_url=SYNTH_API_BASE
+    ) as client:
         job_id = await client.start_job(verifier_config)
         print(f"Graph evolve job: {job_id}")
 

@@ -10,7 +10,7 @@ This shows:
 
 import asyncio
 import os
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 from synth_ai.core.urls import synth_base_url
@@ -70,7 +70,9 @@ CRITICAL TASK: Implement card effects by editing Rust files with stub functions 
 SHIP WORKING CODE. NOTHING LESS."""
 
 
-async def test_context_override(test_name: str, context_override: Dict[str, Any]):
+async def test_context_override(
+    test_name: str, context_override: dict[str, Any] | None
+) -> dict[str, Any]:
     """Test a context override configuration."""
     print(f"\n{'=' * 80}")
     print(f"TEST: {test_name}")
@@ -149,12 +151,13 @@ async def test_context_override(test_name: str, context_override: Dict[str, Any]
 
         except httpx.HTTPError as e:
             print(f"\n✗ Request failed: {e}")
-            if hasattr(e, "response") and e.response:
-                print(f"Response: {e.response.text}")
+            resp = getattr(e, "response", None)
+            if resp is not None:
+                print(f"Response: {resp.text}")
             raise
 
 
-async def main():
+async def main() -> int:
     """Run context override tests."""
     print("=" * 80)
     print("UNIFIED OPTIMIZATION CONTEXT OVERRIDE DEMONSTRATION")

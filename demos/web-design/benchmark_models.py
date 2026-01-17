@@ -16,19 +16,21 @@ try:
     import google.generativeai as genai
 
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    GENAI_AVAILABLE = True
     if GOOGLE_API_KEY:
         genai.configure(api_key=GOOGLE_API_KEY)
 except ImportError:
-    genai = None
+    GENAI_AVAILABLE = False
     GOOGLE_API_KEY = None
 
 try:
     from openai import AsyncOpenAI
 
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    OPENAI_AVAILABLE = True
     openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 except ImportError:
-    AsyncOpenAI = None
+    OPENAI_AVAILABLE = False
     OPENAI_API_KEY = None
     openai_client = None
 
@@ -83,7 +85,7 @@ async def benchmark_model(model: str) -> dict:
     try:
         # Gemini models
         if model.startswith("gemini"):
-            if not genai or not GOOGLE_API_KEY:
+            if not GENAI_AVAILABLE or not GOOGLE_API_KEY:
                 return {
                     "model": model,
                     "duration": None,
@@ -119,7 +121,7 @@ async def benchmark_model(model: str) -> dict:
 
         # GPT/OpenAI models
         elif model.startswith(("gpt", "chatgpt")):
-            if not openai_client or not OPENAI_API_KEY:
+            if not OPENAI_AVAILABLE or not openai_client or not OPENAI_API_KEY:
                 return {
                     "model": model,
                     "duration": None,
@@ -161,7 +163,7 @@ async def benchmark_model(model: str) -> dict:
         }
 
 
-async def main():
+async def main() -> None:
     print("=" * 80)
     print("IMAGE GENERATION BENCHMARK")
     print("=" * 80)

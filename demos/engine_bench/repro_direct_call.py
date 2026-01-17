@@ -101,7 +101,7 @@ def simulate_tool_result(tool_name: str, args: dict) -> str:
     return "Unknown tool"
 
 
-def main():
+def main() -> bool:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         print("Need OPENAI_API_KEY environment variable")

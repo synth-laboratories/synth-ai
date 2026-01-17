@@ -185,7 +185,7 @@ class WebDesignDataset:
         resize_size: int = 384,
         site_filter: str = DEFAULT_SITE_FILTER,
         max_examples: int = DEFAULT_MAX_EXAMPLES,
-    ):
+    ) -> None:
         self._examples = None
         self._site_filter = site_filter
         self._max_examples = max_examples
@@ -204,7 +204,7 @@ class WebDesignDataset:
         self._resize_size = resize_size
         self._max_image_pixels = DEFAULT_MAX_IMAGE_PIXELS
 
-    def _load(self):
+    def _load(self) -> None:
         if self._examples is not None:
             return
 
@@ -324,7 +324,7 @@ class WebDesignDataset:
 
         # Images are already written in resized form (and capped by pixel limit).
 
-    def _ensure_resized_images(self):
+    def _ensure_resized_images(self) -> None:
         """Resize all images to cached versions if they don't exist."""
         if self._examples is None:
             return
@@ -364,10 +364,12 @@ class WebDesignDataset:
 
     def size(self) -> int:
         self._load()
+        assert self._examples is not None
         return len(self._examples)
 
     def sample(self, index: int) -> dict:
         self._load()
+        assert self._examples is not None
         idx = index % len(self._examples)
         ex = self._examples[idx]
         return {
@@ -399,7 +401,7 @@ def create_web_design_local_api(style_prompt: str):
 
     async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutResponse:
         """Run a single rollout: generate image using policy model and verify."""
-        seed = request.env.seed
+        seed = request.env.seed or 0
         sample = dataset.sample(seed)
 
         try:
@@ -577,7 +579,7 @@ print("Web design local API defined")
 # ==============================================================================
 
 
-async def main():
+async def main() -> None:
     global ENVIRONMENT_SYNTH_USER_KEY
 
     baseline_style_prompt = """You are generating a professional startup website screenshot.
@@ -613,6 +615,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
         },
         synth_user_key=SYNTH_USER_KEY,
     )
+    assert prelim_config.localapi_key is not None, "localapi_key must be set"
     ENVIRONMENT_SYNTH_USER_KEY = prelim_config.localapi_key
     print(f"Env key ready: {ENVIRONMENT_SYNTH_USER_KEY[:12]}...{ENVIRONMENT_SYNTH_USER_KEY[-4:]}")
 
@@ -790,7 +793,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
     print("RESULTS")
     print("=" * 80)
 
-    if result.succeeded:
+    if result.succeeded and result.best_score is not None:
         print("Status: SUCCESS")
         print(f"Best Score: {result.best_score:.3f}/1.0 ({result.best_score * 10:.1f}/10)")
 
@@ -828,7 +831,7 @@ Create a webpage that feels polished, modern, and trustworthy."""
     print("=" * 80)
     print(f"Total time: {format_duration(total_time)}")
     print(f"Optimization time: {format_duration(timings.get('optimization', 0))}")
-    if result.succeeded:
+    if result.succeeded and result.best_score is not None:
         print(f"Final score: {result.best_score * 10:.1f}/10")
     print()
 

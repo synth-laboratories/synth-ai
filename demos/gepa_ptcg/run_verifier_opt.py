@@ -10,13 +10,15 @@ import asyncio
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 from synth_ai.core.urls import synth_base_url, synth_health_url
 from synth_ai.products.graph_evolve import GraphOptimizationClient, GraphOptimizationConfig
 from synth_ai.products.graph_evolve.config import (
     EvolutionConfig,
+    GraphStructure,
+    GraphType,
     LimitsConfig,
     ProposerConfig,
     SeedsConfig,
@@ -107,8 +109,8 @@ VERIFIER_MODEL = "gpt-4.1-nano"
 verifier_config = GraphOptimizationConfig(
     algorithm="graph_evolve",
     dataset_name="ptcg_gameplay_verifier",
-    graph_type="verifier",
-    graph_structure="dag",
+    graph_type=GraphType.VERIFIER,
+    graph_structure=GraphStructure.DAG,
     topology_guidance=(
         "Two-node VerifierGraph: judge_gameplay -> parse_output. "
         "judge_gameplay scores gameplay quality against rubric guidance; "
@@ -137,8 +139,10 @@ verifier_config = GraphOptimizationConfig(
 )
 
 
-async def run_verifier_optimization() -> tuple[str, Dict[str, Any]]:
-    async with GraphOptimizationClient(SYNTH_API_BASE, SYNTH_USER_KEY) as client:
+async def run_verifier_optimization() -> tuple[str, dict[str, Any]]:
+    async with GraphOptimizationClient(
+        synth_user_key=SYNTH_USER_KEY, synth_base_url=SYNTH_API_BASE
+    ) as client:
         job_id = await client.start_job(verifier_config)
         print(f"Graph evolve job: {job_id}")
 

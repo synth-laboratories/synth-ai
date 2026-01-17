@@ -63,7 +63,7 @@ pub fn grind_damage(attached_energy: u32) -> i32 { (10 * attached_energy) as i32
 """
 
 
-def main():
+def main() -> bool | None:
     api_key = os.environ.get("SYNTH_API_KEY") or os.environ.get("OPENAI_API_KEY")
     if not api_key:
         print("Need SYNTH_API_KEY or OPENAI_API_KEY")

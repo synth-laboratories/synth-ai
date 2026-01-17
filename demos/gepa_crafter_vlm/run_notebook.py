@@ -8,7 +8,7 @@ from pathlib import Path
 from synth_ai.core.urls import synth_base_url
 
 
-def main():
+def main() -> None:
     """Execute the demo notebook using papermill."""
     import papermill as pm
 

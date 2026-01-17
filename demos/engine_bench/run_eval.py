@@ -143,7 +143,7 @@ def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: floa
     raise RuntimeError(f"Health check failed: {health_url}")
 
 
-async def main():
+async def main() -> None:
     print("\n" + "=" * 60)
     print("STARTING ENGINEBENCH EVAL")
     print("=" * 60)
@@ -291,6 +291,7 @@ async def main():
     # Start localapi if using local mode (after config is created to get localapi_key)
     if not USE_DAYTONA:
         run_server_background(app, port)
+        assert config.localapi_key is not None, "localapi_key must be set in local mode"
         wait_for_health_check_sync("localhost", port, config.localapi_key, timeout=30.0)
         print(f"Localapi ready on port {port}")
 

@@ -106,7 +106,7 @@ async def process_batch(
     failed: list,
     output_file: Path,
     max_concurrent: int = 10,
-):
+) -> None:
     """Process a batch of screenshots in parallel."""
     semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -129,12 +129,12 @@ async def process_batch(
         json.dump(results, f, indent=2)
 
 
-async def main():
+async def main() -> None:
     # Get API key
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("Error: GOOGLE_API_KEY or GEMINI_API_KEY environment variable not set")
-        exit(1)
+        raise SystemExit(1)
 
     # Find all screenshots
     data_dir = Path(__file__).parent / "data"

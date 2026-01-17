@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from daytona_helper import DaytonaLocalapiRunner
 
 
-async def main():
+async def main() -> None:
     print("=" * 60)
     print("TESTING DAYTONA PROVISIONING")
     print("=" * 60)

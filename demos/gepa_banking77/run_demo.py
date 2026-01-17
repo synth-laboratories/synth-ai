@@ -38,7 +38,6 @@ from synth_ai.sdk.task.contracts import (
     TaskDescriptor,
     TaskInfo,
 )
-from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import (
     PortConflictBehavior,
     TunnelBackend,
@@ -310,12 +309,12 @@ def create_banking77_local_api(system_prompt: str):
 
     async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
         split = request.env.config.get("split", "train")
-        seed = request.env.seed
+        seed = request.env.seed or 0
 
         sample = dataset.sample(split=split, index=seed)
 
         policy_config = request.policy.config or {}
-        inference_url = policy_config.get("inference_url")
+        inference_url = policy_config.get("inference_url") or ""
         os.environ["OPENAI_BASE_URL"] = inference_url
         api_key = policy_config.get("api_key")
 
@@ -337,16 +336,11 @@ def create_banking77_local_api(system_prompt: str):
         )
         reward = 1.0 if is_correct else 0.0
 
-        policy_cfg_for_trace = {
+        {
             key: value
             for key, value in policy_config.items()
             if key not in {"trace_correlation_id", "trace"}
         }
-        trace_correlation_id = extract_trace_correlation_id(
-            policy_config=policy_cfg_for_trace,
-            inference_url=str(inference_url or ""),
-        )
-
         return RolloutResponse(
             reward_info=RolloutMetrics(
                 outcome_reward=reward,
@@ -355,8 +349,8 @@ def create_banking77_local_api(system_prompt: str):
                 details={"latency_ms": latency_ms},
             ),
             trace=None,
-            trace_correlation_id=trace_correlation_id,
-            inference_url=str(inference_url or ""),
+            trace_correlation_id=request.trace_correlation_id,
+            inference_url=inference_url,
             success_status=SuccessStatus.SUCCESS,
         )
 
@@ -420,7 +414,9 @@ async def main():
     prelim_job = PromptLearningJob.from_dict(
         config_dict=prelim_config, synth_user_key=SYNTH_USER_KEY
     )
-    env_key = prelim_job.config.localapi_key
+    env_key = prelim_job.config.localapi_key or ""
+    if not env_key:
+        raise ValueError("localapi_key is required")
     print(f"Env key ready: {env_key[:12]}...{env_key[-4:]}")
 
     # Timing helper
@@ -507,12 +503,12 @@ async def main():
     # NOTE: PromptLearningJob.submit() validates/builds the payload and may mutate the provided mapping
     # (e.g., nested dicts can be parsed into Pydantic models like GEPAConfig). Anything that expects
     # dict-like `.get(...)` access should be derived BEFORE submission or from a copy.
-    total_pareto_seeds = int(
-        (config_body.get("prompt_learning", {}) or {})
-        .get("gepa", {})
-        .get("archive", {})
-        .get("pareto_set_size", 0)
-        or 0
+    prompt_learning_cfg = config_body.get("prompt_learning", {}) or {}
+    gepa_cfg = prompt_learning_cfg.get("gepa", {}) if isinstance(prompt_learning_cfg, dict) else {}
+    archive_cfg = gepa_cfg.get("archive", {}) if isinstance(gepa_cfg, dict) else {}
+    pareto_size_raw = archive_cfg.get("pareto_set_size", 0) if isinstance(archive_cfg, dict) else 0
+    total_pareto_seeds = (
+        int(pareto_size_raw) if isinstance(pareto_size_raw, (int, float, str)) else 0
     )
 
     print(f"Creating GEPA job (local_api_url={baseline_local_api_url})...")
@@ -533,7 +529,7 @@ async def main():
         try:
             # Use sync httpx to fetch events (avoids nested event loop issues)
             response = httpx.get(
-                synth_prompt_learning_events_url(job_id, synth_base_url),
+                synth_prompt_learning_events_url(job_id, SYNTH_API_BASE),
                 params={"since_seq": last_event_seq, "limit": 100},
                 headers={"X-API-Key": SYNTH_USER_KEY},
                 timeout=30.0,

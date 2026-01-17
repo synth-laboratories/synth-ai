@@ -2,6 +2,7 @@
 """Score generated images using Gemini VLM verifier."""
 
 import base64
+import json
 import os
 import sys
 from pathlib import Path
@@ -71,10 +72,11 @@ Respond with ONLY a JSON object in this exact format:
         ],
     )
 
-    return response.text
+    text = response.text or ""
+    return json.loads(text)
 
 
-def main():
+def main() -> None:
     comparison_dir = Path(__file__).parent / "comparison_images"
     baseline_path = comparison_dir / "baseline_generated.png"
     mutated_path = comparison_dir / "mutated_generated.png"

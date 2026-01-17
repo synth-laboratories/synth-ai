@@ -136,9 +136,9 @@ async def run_single_experiment(
     # Create and submit job
     pl_job = PromptLearningJob.from_dict(
         config_dict=config,
-        backend_url=backend_url,
-        api_key=api_key,
-        task_app_api_key=env_api_key,
+        synth_base_url=backend_url,
+        synth_user_key=api_key,
+        localapi_key=env_api_key,
         skip_health_check=True,
     )
 
@@ -219,7 +219,7 @@ async def main():
     api_key = os.environ.get("SYNTH_API_KEY", "")
     if not api_key:
         print("No SYNTH_API_KEY found, minting demo key...")
-        api_key = mint_demo_api_key(backend_url=backend_url, ttl_hours=8)
+        api_key = mint_demo_api_key(synth_base_url=backend_url, ttl_hours=8)
         print(f"Demo API Key: {api_key[:25]}...")
     else:
         print(f"Using SYNTH_API_KEY: {api_key[:20]}...")
@@ -228,7 +228,7 @@ async def main():
     env_api_key = mint_environment_api_key()
     print(f"Minted env key: {env_api_key[:12]}...{env_api_key[-4:]}")
 
-    result = setup_environment_api_key(backend_url, api_key, token=env_api_key)
+    result = setup_environment_api_key(api_key, env_api_key, synth_base_url=backend_url)
     print(f"Uploaded env key: {result}")
 
     # Start local API
@@ -251,10 +251,9 @@ async def main():
         tunnel = await TunneledLocalAPI.create(
             local_port=args.port,
             backend=TunnelBackend.CloudflareManagedTunnel,
-            api_key=api_key,
-            env_api_key=env_api_key,
-            reason="langprobe_dec31_benchmark",
-            backend_url=backend_url,
+            synth_user_key=api_key,
+            localapi_key=env_api_key,
+            synth_base_url=backend_url,
             progress=True,
         )
         local_api_url = tunnel.url

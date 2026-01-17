@@ -11,19 +11,23 @@ from google import genai
 from PIL import Image
 
 
-def load_astral_example():
+def load_astral_example() -> dict:
     """Load an example from astral site."""
     dataset_path = Path(__file__).parent / "hf_dataset"
     dataset = load_from_disk(str(dataset_path))
 
-    # Filter for astral examples
-    astral_examples = [ex for ex in dataset if ex["site_name"] == "astral"]
+    # Filter for astral examples - dataset items are dict-like
+    astral_examples: list[dict] = [
+        dict(ex.items())
+        for ex in dataset
+        if ex["site_name"] == "astral"  # type: ignore[index]
+    ]
 
     if not astral_examples:
         raise ValueError("No astral examples found in dataset")
 
     # Get homepage or pricing page if available
-    example = None
+    example: dict | None = None
     for ex in astral_examples:
         if "homepage" in ex["page_name"] or "pricing" in ex["page_name"]:
             example = ex
@@ -49,19 +53,25 @@ The design should be modern, clean, and professional."""
     response = client.models.generate_content(model="gemini-2.5-flash-image", contents=prompt)
 
     # Extract image bytes from response
-    if hasattr(response, "candidates") and len(response.candidates) > 0:
+    if hasattr(response, "candidates") and response.candidates and len(response.candidates) > 0:
         candidate = response.candidates[0]
         if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
-            for part in candidate.content.parts:
-                if hasattr(part, "inline_data") and part.inline_data is not None:
-                    # inline_data is a Blob object with data attribute
-                    return part.inline_data.data
+            parts = candidate.content.parts
+            if parts:
+                for part in parts:
+                    if hasattr(part, "inline_data") and part.inline_data is not None:
+                        # inline_data is a Blob object with data attribute
+                        data = part.inline_data.data
+                        if data is not None:
+                            return data
 
     # Try response.parts directly
-    if hasattr(response, "parts"):
+    if hasattr(response, "parts") and response.parts:
         for part in response.parts:
             if hasattr(part, "inline_data") and part.inline_data is not None:
-                return part.inline_data.data
+                data = part.inline_data.data
+                if data is not None:
+                    return data
 
     raise ValueError("No image data in response")
 
@@ -166,13 +176,13 @@ IMPORTANT: List 10-15 concrete, specific visual differences. Be precise about wh
     return json.loads(text)
 
 
-def main():
+def main() -> None:
     # Get API key
     gemini_key = os.environ.get("GEMINI_API_KEY")
 
     if not gemini_key:
         print("Error: GEMINI_API_KEY not set")
-        exit(1)
+        raise SystemExit(1)
 
     # Load astral example
     print("Loading astral example from dataset...")
