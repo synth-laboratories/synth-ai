@@ -107,8 +107,6 @@ _CLI_IMPORTS = {
     ),
     "ensure_port_free": ("synth_ai.cli.lib.localapi_env", "ensure_port_free"),
     "preflight_localapi_key": ("synth_ai.cli.lib.localapi_env", "preflight_localapi_key"),
-    # From core.integrations.mcp.claude
-    "ClaudeConfig": ("synth_ai.core.integrations.mcp.claude", "ClaudeConfig"),
 }
 
 
@@ -125,7 +123,6 @@ def __getattr__(name: str) -> Any:
 __all__ = [
     # Core
     "AsyncHttpClient",
-    "ClaudeConfig",
     "DEFAULT_LOCALAPI_SECRET_NAME",
     "HTTPError",
     "REPO_ROOT",

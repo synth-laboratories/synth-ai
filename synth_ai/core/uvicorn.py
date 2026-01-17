@@ -84,19 +84,6 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
 
         # Record local service will happen after process starts (to get correct PID)
 
-        if os.environ.get("CTX") == "mcp":
-            thread = threading.Thread(
-                target=serve_app_uvicorn,
-                args=(app, cfg.host, cfg.port),
-                name=f"synth-uvicorn-{cfg.port}",
-                daemon=True,
-            )
-            thread.start()
-            _THREADS[cfg.port] = thread
-            ctx["mode"] = "mcp"
-            log_info("uvicorn server running in background thread", ctx=ctx)
-            return f"[deploy_local] {msg}"
-
         # Use nohup to run in background
         print(msg)
         print("[deploy_local] Starting server in background with nohup...")
