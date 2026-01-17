@@ -7,24 +7,28 @@ Tests async functionality, hooks, and isolation.
 import time
 
 import pytest
-
-from ..abstractions import EnvironmentEvent, LMCAISEvent, RuntimeEvent, TimeRecord
-from ..decorators import SessionContext, get_session_id
-from ..hooks import HookManager
-from ..lm_call_record_abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
+    EnvironmentEvent,
+    LMCAISEvent,
+    RuntimeEvent,
+    TimeRecord,
+)
+from synth_ai.core.tracing_v3.decorators import SessionContext, get_session_id
+from synth_ai.core.tracing_v3.hooks import HookManager
+from synth_ai.core.tracing_v3.lm_call_record_abstractions import (
     LLMCallRecord,
     LLMContentPart,
     LLMMessage,
     LLMUsage,
 )
-from ..session_tracer import SessionTracer
+from synth_ai.core.tracing_v3.session_tracer import SessionTracer
 
 
 @pytest.mark.asyncio
 class TestSessionTracer:
     """Test the async SessionTracer functionality."""
 
-    async def test_basic_session_lifecycle(self):
+    async def test_basic_session_lifecycle(self) -> None:
         """Test basic session lifecycle."""
         tracer = SessionTracer(auto_save=False)
 
@@ -72,7 +76,7 @@ class TestSessionTracer:
         assert trace.session_id == session_id
         assert tracer.current_session is None
 
-    async def test_session_context_manager(self):
+    async def test_session_context_manager(self) -> None:
         """Test session context manager."""
         tracer = SessionTracer(auto_save=False)
 
@@ -86,7 +90,7 @@ class TestSessionTracer:
         # Session should be ended
         assert tracer.current_session is None
 
-    async def test_timestep_context_manager(self):
+    async def test_timestep_context_manager(self) -> None:
         """Test timestep context manager."""
         tracer = SessionTracer(auto_save=False)
 
@@ -111,7 +115,7 @@ class TestSessionTracer:
 
         await tracer.end_session(save=False)
 
-    async def test_multiple_timesteps(self):
+    async def test_multiple_timesteps(self) -> None:
         """Test multiple timesteps in a session."""
         tracer = SessionTracer(auto_save=False)
 
@@ -141,7 +145,7 @@ class TestSessionTracer:
             assert step.step_id == f"step_{i}"
             assert step.turn_number == i
 
-    async def test_hooks_integration(self):
+    async def test_hooks_integration(self) -> None:
         """Test hooks integration."""
         # Create custom hook manager
         hooks = HookManager()
@@ -158,7 +162,7 @@ class TestSessionTracer:
 
         # Register hooks
         async def track_hook(hook_name):
-            async def hook_func(**kwargs):
+            async def hook_func(**kwargs) -> None:
                 hook_calls[hook_name] += 1
 
             return hook_func
@@ -190,7 +194,7 @@ class TestSessionTracer:
         assert hook_calls["event_recorded"] == 1
         assert hook_calls["message_recorded"] == 1
 
-    async def test_error_handling(self):
+    async def test_error_handling(self) -> None:
         """Test error handling in various scenarios."""
         tracer = SessionTracer(auto_save=False)
 
@@ -219,7 +223,7 @@ class TestSessionTracer:
 
         await tracer.end_session(save=False)
 
-    async def test_session_isolation(self):
+    async def test_session_isolation(self) -> None:
         """Test that sessions are isolated from each other."""
         tracer1 = SessionTracer(auto_save=False)
         tracer2 = SessionTracer(auto_save=False)
@@ -245,7 +249,7 @@ class TestSessionTracer:
         await tracer1.end_session(save=False)
         await tracer2.end_session(save=False)
 
-    async def test_auto_save_disabled(self):
+    async def test_auto_save_disabled(self) -> None:
         """Test that auto_save=False prevents database writes."""
         # Create tracer with no DB path (should not write)
         tracer = SessionTracer(db_url=None, auto_save=False)
@@ -258,7 +262,7 @@ class TestSessionTracer:
         assert trace is not None
         assert len(trace.markov_blanket_message_history) == 1
 
-    async def test_session_context_variables(self):
+    async def test_session_context_variables(self) -> None:
         """Test session context variables."""
         tracer = SessionTracer(auto_save=False)
 
@@ -272,7 +276,7 @@ class TestSessionTracer:
         assert get_session_id() == session_id
 
         # Use SessionContext
-        async with SessionContext("different_session") as ctx:
+        async with SessionContext("different_session"):
             assert get_session_id() == "different_session"
 
         # Should revert
@@ -283,7 +287,7 @@ class TestSessionTracer:
         # Should be cleared
         assert get_session_id() is None
 
-    async def test_event_types(self):
+    async def test_event_types(self) -> None:
         """Test different event types."""
         tracer = SessionTracer(auto_save=False)
 
@@ -363,7 +367,7 @@ class TestSessionTracer:
         assert lm_call_record.model_name == "gpt-4"
         assert lm_call_record.usage.total_tokens == 150
 
-    async def test_concurrent_timesteps_same_session(self):
+    async def test_concurrent_timesteps_same_session(self) -> None:
         """Test that timesteps within a session are sequential, not concurrent."""
         tracer = SessionTracer(auto_save=False)
 

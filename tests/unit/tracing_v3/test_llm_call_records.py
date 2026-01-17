@@ -7,18 +7,17 @@ proper usage patterns for migrating from legacy fields to the new structure.
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TypedDict, cast
 
 import pytest
-
-from ..abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
     LMCAISEvent,
     SessionTimeStep,
     SessionTrace,
     TimeRecord,
 )
-from ..lm_call_record_abstractions import (
+from synth_ai.core.tracing_v3.lm_call_record_abstractions import (
     LLMCallRecord,
     LLMContentPart,
     LLMMessage,
@@ -92,10 +91,10 @@ class AnthropicResponse(TypedDict):
 class TestLLMCallRecord:
     """Test LLMCallRecord creation and manipulation."""
 
-    def test_create_basic_call_record(self):
+    def test_create_basic_call_record(self) -> None:
         """Test creating a basic LLMCallRecord."""
         call_id = str(uuid.uuid4())
-        started_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
 
         record = LLMCallRecord(
             call_id=call_id,
@@ -121,10 +120,10 @@ class TestLLMCallRecord:
         assert len(record.input_messages) == 1
         assert len(record.output_messages) == 1
 
-    def test_compute_latency(self):
+    def test_compute_latency(self) -> None:
         """Test latency computation from timestamps."""
-        started_at = datetime.now(timezone.utc)
-        completed_at = datetime.now(timezone.utc)
+        started_at = datetime.now(UTC)
+        completed_at = datetime.now(UTC)
 
         record = LLMCallRecord(
             call_id=str(uuid.uuid4()),
@@ -138,7 +137,7 @@ class TestLLMCallRecord:
         assert latency >= 0
         assert record.latency_ms == latency
 
-    def test_tool_call_record(self):
+    def test_tool_call_record(self) -> None:
         """Test LLMCallRecord with tool calls."""
         record = LLMCallRecord(
             call_id=str(uuid.uuid4()),
@@ -169,7 +168,7 @@ class TestLLMCallRecord:
 class TestLMCAISEventWithCallRecords:
     """Test LMCAISEvent with integrated LLMCallRecord."""
 
-    def test_create_event_with_call_records(self):
+    def test_create_event_with_call_records(self) -> None:
         """Test creating an LMCAISEvent with call_records."""
         call_record = LLMCallRecord(
             call_id=str(uuid.uuid4()),
@@ -192,7 +191,7 @@ class TestLMCAISEventWithCallRecords:
         assert event_call_record.model_name == "gpt-4"
         assert event_call_record.usage.total_tokens == 150
 
-    def test_aggregate_from_call_records(self):
+    def test_aggregate_from_call_records(self) -> None:
         """Test computing aggregates from multiple call_records."""
         call_records = [
             LLMCallRecord(
@@ -248,7 +247,7 @@ class TestLMCAISEventWithCallRecords:
         assert abs(event.cost_usd - 0.009) < 0.0001  # Use floating point comparison
         assert event.latency_ms == 1200
 
-    def test_migration_pattern(self):
+    def test_migration_pattern(self) -> None:
         """Test migration from legacy fields to call_records."""
         # Legacy pattern (what we're migrating from)
         legacy_event = LMCAISEvent(
@@ -296,9 +295,9 @@ class TestLMCAISEventWithCallRecords:
 class TestComplexScenarios:
     """Test complex scenarios with multiple calls and tool usage."""
 
-    def test_multi_turn_conversation(self):
+    def test_multi_turn_conversation(self) -> None:
         """Test a multi-turn conversation with multiple LLM calls."""
-        session = SessionTrace(session_id=str(uuid.uuid4()), created_at=datetime.now(timezone.utc))
+        session = SessionTrace(session_id=str(uuid.uuid4()), created_at=datetime.now(UTC))
 
         # Turn 1: Initial question
         turn1 = SessionTimeStep(step_id="turn_1", step_index=0, turn_number=1)
@@ -402,42 +401,42 @@ class TestComplexScenarios:
         assert len(turn2_call.tool_results) == 1
         assert turn2_call.tool_results[0].call_id == "weather_1"
 
-    def test_streaming_response(self):
+    def test_streaming_response(self) -> None:
         """Test LLMCallRecord with streaming chunks."""
-        from ..lm_call_record_abstractions import LLMChunk
+        from synth_ai.core.tracing_v3.lm_call_record_abstractions import LLMChunk
 
         chunks = [
             LLMChunk(
                 sequence_index=0,
-                received_at=datetime.now(timezone.utc),
+                received_at=datetime.now(UTC),
                 event_type="content.delta",
                 delta_text="The",
                 choice_index=0,
             ),
             LLMChunk(
                 sequence_index=1,
-                received_at=datetime.now(timezone.utc),
+                received_at=datetime.now(UTC),
                 event_type="content.delta",
                 delta_text=" answer",
                 choice_index=0,
             ),
             LLMChunk(
                 sequence_index=2,
-                received_at=datetime.now(timezone.utc),
+                received_at=datetime.now(UTC),
                 event_type="content.delta",
                 delta_text=" is",
                 choice_index=0,
             ),
             LLMChunk(
                 sequence_index=3,
-                received_at=datetime.now(timezone.utc),
+                received_at=datetime.now(UTC),
                 event_type="content.delta",
                 delta_text=" 42",
                 choice_index=0,
             ),
             LLMChunk(
                 sequence_index=4,
-                received_at=datetime.now(timezone.utc),
+                received_at=datetime.now(UTC),
                 event_type="message.stop",
                 choice_index=0,
             ),
@@ -464,7 +463,7 @@ class TestComplexScenarios:
 class TestProviderMappings:
     """Test mapping different provider formats to LLMCallRecord."""
 
-    def test_openai_chat_completions_mapping(self):
+    def test_openai_chat_completions_mapping(self) -> None:
         """Test mapping OpenAI Chat Completions to LLMCallRecord."""
         # Simulate OpenAI response structure
         openai_response: OpenAIChatResponse = {
@@ -513,7 +512,7 @@ class TestProviderMappings:
         assert record.usage.total_tokens == 19
         assert record.finish_reason == "stop"
 
-    def test_anthropic_messages_mapping(self):
+    def test_anthropic_messages_mapping(self) -> None:
         """Test mapping Anthropic Messages API to LLMCallRecord."""
         # Simulate Anthropic response structure
         anthropic_response: AnthropicResponse = {
@@ -641,7 +640,7 @@ def helper_compute_aggregates_from_records(call_records: list[LLMCallRecord]) ->
 class TestAggregateHelper:
     """Test the aggregate computation helper."""
 
-    def test_compute_aggregates(self):
+    def test_compute_aggregates(self) -> None:
         """Test computing aggregates from multiple call records."""
         records = [
             LLMCallRecord(

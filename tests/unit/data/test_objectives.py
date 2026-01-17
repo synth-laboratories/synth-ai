@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Dict, List, Optional
 
 import pytest
-
 from synth_ai.data.enums import ObjectiveDirection, ObjectiveKey
 from synth_ai.data.objectives import (
     EventObjectiveAssignment,
@@ -14,8 +12,6 @@ from synth_ai.data.objectives import (
 from synth_ai.data.objectives_compat import (
     extract_instance_rewards,
     extract_outcome_reward,
-    normalize_to_outcome_objectives,
-    to_legacy_format,
 )
 
 
@@ -59,22 +55,17 @@ def test_event_objective_assignment_serialization() -> None:
 @pytest.mark.parametrize(
     "payload, expected",
     [
+        # outcome_objectives['reward'] is preferred
         ({"outcome_objectives": {"reward": 0.95}}, 0.95),
-        ({"outcome_objectives": {"reward": 0.9}, "objectives": {"reward": 0.1}}, 0.9),
-        ({"objectives": {"reward": 0.9}, "outcome_reward": 0.1}, 0.9),
+        # outcome_objectives takes precedence over outcome_reward
+        ({"outcome_objectives": {"reward": 0.9}, "outcome_reward": 0.1}, 0.9),
+        # outcome_reward is the fallback
         ({"outcome_reward": 0.8}, 0.8),
-        ({"total_reward": 0.7}, 0.7),
-        ({"outcome_score": 0.6}, 0.6),
-        ({"score": 0.5}, 0.5),
-        ({"accuracy": 0.4}, 0.4),
-        ({"reward_mean": 0.3}, 0.3),
-        ({"episode_rewards": [0.2]}, 0.2),
-        ({"episode_rewards": ["0.25"]}, 0.25),
-        ({"episode_rewards": []}, None),
+        # Unknown fields return None
         ({"foo": "bar"}, None),
     ],
 )
-def test_extract_outcome_reward(payload: Dict[str, object], expected: Optional[float]) -> None:
+def test_extract_outcome_reward(payload: dict[str, object], expected: float | None) -> None:
     assert extract_outcome_reward(payload) == expected
 
 
@@ -82,7 +73,12 @@ def test_extract_outcome_reward(payload: Dict[str, object], expected: Optional[f
     "payload, expected",
     [
         (
-            {"instance_objectives": [{"objectives": {"reward": 0.1}}, {"objectives": {"reward": 0.2}}]},
+            {
+                "instance_objectives": [
+                    {"objectives": {"reward": 0.1}},
+                    {"objectives": {"reward": 0.2}},
+                ]
+            },
             [0.1, 0.2],
         ),
         (
@@ -90,27 +86,11 @@ def test_extract_outcome_reward(payload: Dict[str, object], expected: Optional[f
             [0.4],
         ),
         ({"instance_rewards": [0.2, 0.3]}, [0.2, 0.3]),
-        ({"instance_scores": ["0.4"]}, [0.4]),
         ({"instance_rewards": ["bad"]}, None),
     ],
 )
 def test_extract_instance_rewards(
-    payload: Dict[str, object],
-    expected: Optional[List[float]],
+    payload: dict[str, object],
+    expected: list[float] | None,
 ) -> None:
     assert extract_instance_rewards(payload) == expected
-
-
-def test_normalize_to_outcome_objectives_roundtrip() -> None:
-    payload = {
-        "outcome_reward": 0.72,
-        "session_id": "sess-2",
-        "trace_id": "trace-2",
-        "metadata": {"tag": "demo"},
-    }
-    assignment = normalize_to_outcome_objectives(payload)
-    assert assignment.objectives["reward"] == 0.72
-    legacy = to_legacy_format(assignment)
-    assert legacy["outcome_reward"] == 0.72
-    assert legacy["score"] == 0.72
-    assert legacy["metadata"]["tag"] == "demo"

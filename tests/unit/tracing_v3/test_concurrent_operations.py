@@ -8,26 +8,25 @@ These tests should PASS with Turso's multi-writer MVCC.
 """
 
 import asyncio
-import os
+import contextlib
 import shutil
 import tempfile
 import time
 import uuid
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
-
-from ..abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
     EnvironmentEvent,
     LMCAISEvent,
     RuntimeEvent,
     TimeRecord,
 )
-from ..config import CONFIG
-from ..session_tracer import SessionTracer
-from ..turso.daemon import SqldDaemon
-from ..turso.native_manager import NativeLibsqlTraceManager
-
+from synth_ai.core.tracing_v3.config import CONFIG
+from synth_ai.core.tracing_v3.session_tracer import SessionTracer
+from synth_ai.core.tracing_v3.turso.daemon import SqldDaemon
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 
 if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
     pytest.skip(
@@ -40,7 +39,7 @@ if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is
 # `Operation not permitted` errors when the daemon launches. If we detect that
 # condition, skip the module instead of failing all tests.
 with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
-    _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
+    _probe_daemon = SqldDaemon(db_path=str(Path(_probe_dir) / "probe.db"), http_port=0)
     try:
         _probe_daemon.start()
     except RuntimeError as exc:  # pragma: no cover - environment dependent
@@ -51,10 +50,8 @@ with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
             )
         raise
     finally:
-        try:
+        with contextlib.suppress(Exception):
             _probe_daemon.stop()
-        except Exception:
-            pass
 
 
 @pytest.mark.asyncio
@@ -65,7 +62,7 @@ class TestConcurrentOperations:
     async def sqld_daemon(self):
         """Start sqld daemon for concurrent tests."""
         # Create a unique database path
-        db_path = os.path.join(tempfile.gettempdir(), f"test_sqld_{uuid.uuid4().hex}.db")
+        db_path = str(Path(tempfile.gettempdir()) / f"test_sqld_{uuid.uuid4().hex}.db")
         http_port = 9100 + int(uuid.uuid4().hex[:4], 16) % 500  # Random port 9100-9600
 
         daemon = SqldDaemon(db_path=db_path, http_port=http_port)
@@ -75,7 +72,7 @@ class TestConcurrentOperations:
         await asyncio.sleep(2)
 
         # Initialize schema once before tests
-        actual_db_file = os.path.join(db_path, "dbs", "default", "data")
+        actual_db_file = str(Path(db_path) / "dbs" / "default" / "data")
         db_url = f"sqlite+aiosqlite:///{actual_db_file}"
 
         manager = NativeLibsqlTraceManager(db_url=db_url)
@@ -88,22 +85,19 @@ class TestConcurrentOperations:
         # Wait a bit for daemon to fully stop before cleanup
         await asyncio.sleep(0.5)
         # Clean up the database file if it exists
-        if os.path.exists(db_path):
-            try:
-                os.unlink(db_path)
-            except PermissionError:
-                pass  # File might still be locked on some systems
+        with contextlib.suppress(PermissionError, FileNotFoundError):
+            Path(db_path).unlink()
 
     @pytest_asyncio.fixture
-    async def db_url(self, sqld_daemon):
+    async def db_url(self, sqld_daemon) -> str:
         """Get the database URL for the running daemon."""
         # Return the actual SQLite file path inside sqld's directory structure
         # sqld creates: {db_path}/dbs/default/data
-        actual_db_file = os.path.join(sqld_daemon.db_path, "dbs", "default", "data")
+        actual_db_file = str(Path(sqld_daemon.db_path) / "dbs" / "default" / "data")
         return f"sqlite+aiosqlite:///{actual_db_file}"
 
     @pytest.mark.fast
-    async def test_concurrent_session_insertion_no_race_condition(self, db_url):
+    async def test_concurrent_session_insertion_no_race_condition(self, db_url) -> None:
         """
         Test that concurrent session insertions work without race conditions.
 
@@ -180,7 +174,7 @@ class TestConcurrentOperations:
         await manager.close()
 
     @pytest.mark.fast
-    async def test_async_concurrent_operations(self, db_url):
+    async def test_async_concurrent_operations(self, db_url) -> None:
         """Test various concurrent async operations."""
         num_workers = 20
 
@@ -262,7 +256,7 @@ class TestConcurrentOperations:
         await manager.close()
 
     @pytest.mark.fast
-    async def test_experiment_linking_concurrent(self, db_url):
+    async def test_experiment_linking_concurrent(self, db_url) -> None:
         """Test concurrent experiment creation and session linking."""
         num_experiments = 5
         sessions_per_experiment = 10
@@ -338,7 +332,7 @@ class TestConcurrentOperations:
         await manager.close()
 
     @pytest.mark.fast
-    async def test_high_concurrency_stress(self, db_url):
+    async def test_high_concurrency_stress(self, db_url) -> None:
         """Stress test with high concurrency."""
         num_workers = 50
         operations_per_worker = 20
@@ -395,7 +389,7 @@ class TestConcurrentOperations:
         await manager.close()
 
     @pytest.mark.fast
-    async def test_duplicate_session_handling(self, db_url):
+    async def test_duplicate_session_handling(self, db_url) -> None:
         """Test handling of duplicate session IDs (should use OR IGNORE)."""
         session_id = "duplicate_test_session"
         num_attempts = 10

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
-
 from synth_ai.sdk.graphs.verifier_schemas import CalibrationExampleInput
 
 
-def _build_trace(event_count: int) -> Dict[str, Any]:
+def _build_trace(event_count: int) -> dict[str, Any]:
     return {"event_history": [{"type": "step"} for _ in range(event_count)]}
 
 

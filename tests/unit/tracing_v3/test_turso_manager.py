@@ -5,28 +5,26 @@ Async version of test_duckdb_manager.py for tracing v3.
 """
 
 import json
-import os
 import shutil
 import tempfile
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
-
-from ..abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
     EnvironmentEvent,
     LMCAISEvent,
     RuntimeEvent,
     TimeRecord,
 )
-from ..config import CONFIG
-from ..db_config import DatabaseConfig, set_default_db_config
-from ..session_tracer import SessionTracer
+from synth_ai.core.tracing_v3.config import CONFIG
+from synth_ai.core.tracing_v3.db_config import DatabaseConfig, set_default_db_config
+from synth_ai.core.tracing_v3.session_tracer import SessionTracer
 
 # Import the utilities and components we want to test
-from ..turso.native_manager import NativeLibsqlTraceManager
-from ..utils import calculate_cost, detect_provider, json_dumps
-
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.core.tracing_v3.utils import calculate_cost, detect_provider, json_dumps
 
 if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
     pytest.skip(
@@ -34,10 +32,12 @@ if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is
         allow_module_level=True,
     )
 
-from ..turso.daemon import SqldDaemon
+import contextlib
+
+from synth_ai.core.tracing_v3.turso.daemon import SqldDaemon
 
 with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
-    _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
+    _probe_daemon = SqldDaemon(db_path=str(Path(_probe_dir) / "probe.db"), http_port=0)
     try:
         _probe_daemon.start()
     except RuntimeError as exc:  # pragma: no cover - environment dependent
@@ -48,10 +48,8 @@ with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
             )
         raise
     finally:
-        try:
+        with contextlib.suppress(Exception):
             _probe_daemon.stop()
-        except Exception:
-            pass
 
 
 @pytest.fixture(autouse=True)
@@ -71,7 +69,7 @@ def _isolate_db_config(tmp_path, monkeypatch):
 class TestConversionUtilities:
     """Test the conversion utilities for Turso/SQLite compatibility."""
 
-    async def test_json_dumps_datetime(self):
+    async def test_json_dumps_datetime(self) -> None:
         """Test JSON serialization with datetime objects."""
         dt = datetime(2023, 1, 15, 12, 30, 45, 123456)
         data = {"timestamp": dt, "value": "test"}
@@ -82,7 +80,7 @@ class TestConversionUtilities:
         assert parsed["value"] == "test"
         assert parsed["timestamp"] == "2023-01-15 12:30:45.123456"
 
-    async def test_json_dumps_complex_object(self):
+    async def test_json_dumps_complex_object(self) -> None:
         """Test JSON serialization with complex objects."""
         data = {
             "datetime": datetime(2023, 1, 15, 12, 30, 45),
@@ -99,17 +97,17 @@ class TestConversionUtilities:
         assert parsed["dict"]["nested"] == "value"
         assert "2023-01-15" in parsed["datetime"]
 
-    async def test_json_dumps_none(self):
+    async def test_json_dumps_none(self) -> None:
         """Test JSON serialization with None."""
         result = json_dumps(None)
         assert result == "null"
 
-    async def test_json_dumps_empty_dict(self):
+    async def test_json_dumps_empty_dict(self) -> None:
         """Test JSON serialization with empty dict."""
         result = json_dumps({})
         assert result == "{}"
 
-    async def test_detect_provider(self):
+    async def test_detect_provider(self) -> None:
         """Test LLM provider detection."""
         assert detect_provider("gpt-4") == "openai"
         assert detect_provider("claude-3-opus") == "anthropic"
@@ -118,7 +116,7 @@ class TestConversionUtilities:
         assert detect_provider("unknown-model") == "unknown"
         assert detect_provider(None) == "unknown"
 
-    async def test_calculate_cost(self):
+    async def test_calculate_cost(self) -> None:
         """Test cost calculation."""
         # Test known model
         cost = calculate_cost("gpt-4", 1000, 500)
@@ -137,7 +135,7 @@ class TestNativeTraceManager:
     @pytest_asyncio.fixture
     async def sqld_daemon(self):
         """Use the centralized database configuration."""
-        from ..db_config import get_default_db_config
+        from synth_ai.core.tracing_v3.db_config import get_default_db_config
 
         config = get_default_db_config()
 
@@ -154,7 +152,7 @@ class TestNativeTraceManager:
     async def db_manager(self, sqld_daemon):
         """Create a NativeLibsqlTraceManager instance using centralized config."""
 
-        from ..db_config import get_default_db_config
+        from synth_ai.core.tracing_v3.db_config import get_default_db_config
 
         config = get_default_db_config()
         db_url = config.database_url
@@ -166,7 +164,7 @@ class TestNativeTraceManager:
         await manager.close()
 
     @pytest.mark.fast
-    async def test_init_schema(self, db_manager):
+    async def test_init_schema(self, db_manager) -> None:
         """Test schema initialization."""
         # Schema should already be initialized by fixture
         # Try a simple query to verify
@@ -179,7 +177,7 @@ class TestNativeTraceManager:
             assert table in table_names
 
     @pytest.mark.fast
-    async def test_insert_session_trace_basic(self, db_manager):
+    async def test_insert_session_trace_basic(self, db_manager) -> None:
         """Test basic session trace insertion."""
         # Create a simple session trace
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
@@ -206,7 +204,7 @@ class TestNativeTraceManager:
         assert df.iloc[0]["session_id"] == session_id
 
     @pytest.mark.fast
-    async def test_insert_session_trace_with_events(self, db_manager):
+    async def test_insert_session_trace_with_events(self, db_manager) -> None:
         """Test session trace insertion with events."""
         # Create session tracer
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
@@ -250,7 +248,7 @@ class TestNativeTraceManager:
         assert "environment" in event_types
 
     @pytest.mark.fast
-    async def test_insert_session_trace_with_lm_events(self, db_manager):
+    async def test_insert_session_trace_with_lm_events(self, db_manager) -> None:
         """Test session trace insertion with LM events."""
         # Create session tracer
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
@@ -292,7 +290,7 @@ class TestNativeTraceManager:
         assert row["cost_usd"] == 1  # Stored as cents (0.01 USD = 1 cent)
 
     @pytest.mark.fast
-    async def test_batch_insert_sessions(self, db_manager):
+    async def test_batch_insert_sessions(self, db_manager) -> None:
         """Test batch insert functionality."""
         # Create multiple session traces
         traces = []
@@ -311,7 +309,7 @@ class TestNativeTraceManager:
             traces.append(trace)
 
         # Batch insert
-        inserted_ids = await db_manager.batch_insert_sessions(traces)
+        await db_manager.batch_insert_sessions(traces)
 
         # Verify all sessions were inserted
         for session_id in session_ids:
@@ -322,7 +320,7 @@ class TestNativeTraceManager:
             assert df.iloc[0]["session_id"] == session_id
 
     @pytest.mark.fast
-    async def test_query_traces(self, db_manager):
+    async def test_query_traces(self, db_manager) -> None:
         """Test query functionality."""
         # Insert some test data
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
@@ -343,11 +341,11 @@ class TestNativeTraceManager:
         assert df.iloc[0]["session_id"] == session_id
 
     @pytest.mark.fast
-    async def test_get_model_usage(self, db_manager):
+    async def test_get_model_usage(self, db_manager) -> None:
         """Test model usage statistics."""
         # Insert test data with LM events
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
-        session_id = await session_tracer.start_session()
+        await session_tracer.start_session()
 
         await session_tracer.start_timestep("step_1")
         lm_event = LMCAISEvent(
@@ -376,7 +374,7 @@ class TestNativeTraceManager:
             assert gpt4_rows.iloc[0]["total_input_tokens"] >= 100
 
     @pytest.mark.fast
-    async def test_get_session_trace(self, db_manager):
+    async def test_get_session_trace(self, db_manager) -> None:
         """Test retrieving a specific session."""
         # Insert test data
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
@@ -397,7 +395,7 @@ class TestNativeTraceManager:
         assert len(session_data["timesteps"]) == 1
 
     @pytest.mark.fast
-    async def test_delete_session(self, db_manager):
+    async def test_delete_session(self, db_manager) -> None:
         """Test session deletion."""
         # Insert test data
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
@@ -420,7 +418,7 @@ class TestNativeTraceManager:
         assert session_data is None
 
     @pytest.mark.fast
-    async def test_experiment_management(self, db_manager):
+    async def test_experiment_management(self, db_manager) -> None:
         """Test experiment creation and linking."""
         # Use a unique experiment ID to avoid conflicts
         import uuid
@@ -458,7 +456,7 @@ class TestIntegrationScenarios:
     @pytest_asyncio.fixture
     async def sqld_daemon(self):
         """Use the centralized database configuration for integration tests."""
-        from ..db_config import get_default_db_config
+        from synth_ai.core.tracing_v3.db_config import get_default_db_config
 
         config = get_default_db_config()
 
@@ -475,7 +473,7 @@ class TestIntegrationScenarios:
     async def db_manager(self, sqld_daemon):
         """Create a NativeLibsqlTraceManager instance using centralized config."""
 
-        from ..db_config import get_default_db_config
+        from synth_ai.core.tracing_v3.db_config import get_default_db_config
 
         config = get_default_db_config()
         db_url = config.database_url
@@ -487,7 +485,7 @@ class TestIntegrationScenarios:
         await manager.close()
 
     @pytest.mark.fast
-    async def test_crafter_session_trace(self, db_manager):
+    async def test_crafter_session_trace(self, db_manager) -> None:
         """Test inserting a realistic Crafter session trace."""
         # Create a realistic session trace
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
@@ -570,7 +568,7 @@ class TestIntegrationScenarios:
         assert event_types.count("runtime") == 3
 
     @pytest.mark.fast
-    async def test_large_session_trace(self, db_manager):
+    async def test_large_session_trace(self, db_manager) -> None:
         """Test handling of large session traces."""
         # Create a large session trace
         session_tracer = SessionTracer(db_url="sqlite+aiosqlite:///:memory:", auto_save=False)
