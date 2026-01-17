@@ -14,7 +14,10 @@ Provides both sync and async clients:
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import Any, List, Literal, Mapping, TypedDict
 
 import httpx
@@ -23,10 +26,70 @@ from synth_ai.core.http import AsyncHttpClient, HTTPError
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
 from synth_ai.sdk.graphs.verifier_schemas import (
     CalibrationExampleInput,
+    EvidenceItem,
     GoldExampleInput,
+    VerifierScoreResponse,
 )
 
 GraphKind = Literal["zero_shot", "graphgen", "registered"]
+
+# Default evidence output directory
+DEFAULT_EVIDENCE_DIR = Path(".synth_ai_evidence")
+
+
+def save_evidence_locally(
+    output: dict[str, Any],
+    *,
+    evidence_dir: Path | str | None = None,
+    prefix: str = "verifier",
+) -> Path | None:
+    """Save evidence from verifier output to a local JSON file.
+
+    Args:
+        output: Verifier output dict containing 'evidence' field
+        evidence_dir: Directory to save evidence (default: .synth_ai_evidence)
+        prefix: Filename prefix (default: "verifier")
+
+    Returns:
+        Path to saved evidence file, or None if no evidence found
+    """
+    evidence = output.get("evidence", [])
+    if not evidence:
+        return None
+
+    # Use default directory if not specified
+    save_dir = Path(evidence_dir) if evidence_dir else DEFAULT_EVIDENCE_DIR
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{prefix}_evidence_{timestamp}.json"
+    filepath = save_dir / filename
+
+    # Parse evidence items if they're dicts
+    evidence_items = []
+    for item in evidence:
+        if isinstance(item, dict):
+            evidence_items.append(EvidenceItem.model_validate(item).model_dump())
+        elif isinstance(item, EvidenceItem):
+            evidence_items.append(item.model_dump())
+        else:
+            evidence_items.append(item)
+
+    # Save with metadata
+    evidence_data = {
+        "timestamp": datetime.now().isoformat(),
+        "evidence_count": len(evidence_items),
+        "evidence": evidence_items,
+        # Include outcome if present
+        "outcome_review": output.get("outcome_review"),
+        "event_totals": output.get("event_totals"),
+    }
+
+    with open(filepath, "w") as f:
+        json.dump(evidence_data, f, indent=2, default=str)
+
+    return filepath
 
 
 class GraphTarget(TypedDict, total=False):
@@ -385,7 +448,7 @@ class GraphCompletionsAsyncClient:
     def _select_graph_shape(self, session_trace: Mapping[str, Any]) -> str:
         """Auto-select graph shape based on trace size.
 
-        Returns one of: "single", "mapreduce", "rlm"
+        Returns one of: "single", "rlm"
         """
         # Estimate token count
         trace_str = json.dumps(normalize_for_json(session_trace))
@@ -393,10 +456,7 @@ class GraphCompletionsAsyncClient:
 
         if estimated_tokens < 50_000:
             return "single"
-        elif estimated_tokens < 500_000:
-            return "mapreduce"
-        else:
-            return "rlm"
+        return "rlm"
 
     async def complete(
         self,
@@ -429,8 +489,10 @@ class GraphCompletionsAsyncClient:
         system_prompt: str | None = None,
         user_prompt: str | None = None,
         verifier_shape: str | None = None,
+        rlm_impl: Literal["v1", "v2"] | None = None,
         options: Mapping[str, Any] | None = None,
         model: str | None = None,
+        save_evidence: bool | Path | str = False,
     ) -> dict[str, Any]:
         """Verify trace using rubric criteria.
 
@@ -439,19 +501,36 @@ class GraphCompletionsAsyncClient:
             rubric: Rubric with event/outcome criteria
             system_prompt: Optional custom system prompt
             user_prompt: Optional custom user prompt
-            verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
+            verifier_shape: "single" or "rlm" (auto-detects if None)
+            rlm_impl: Optional RLM implementation ("v1" or "v2") when verifier_shape="rlm" (defaults to v1)
             options: Optional execution options (event, outcome, etc.)
             model: Optional model override
+            save_evidence: If True, save evidence to default dir; if Path/str, save to that dir
 
         Returns:
-            Verification result with event_reviews, outcome_review, etc.
+            Verification result with event_reviews, outcome_review, evidence, etc.
+
+        Raises:
+            ValueError: If verifier_shape is not supported or rlm_impl is invalid for the shape.
         """
         # Auto-select graph shape based on trace size
         if verifier_shape is None:
             verifier_shape = self._select_graph_shape(session_trace)
 
-        # Use composable naming: zero_shot_verifier_{gold_output_format}_{graph_shape}
-        graph_id = f"zero_shot_verifier_rubric_{verifier_shape}"
+        if verifier_shape not in {"single", "rlm"}:
+            raise ValueError(
+                "Unsupported verifier_shape. Use 'single' or 'rlm' with verify_with_rubric."
+            )
+
+        if verifier_shape == "single":
+            graph_id = "zero_shot_verifier_rubric_single"
+            if rlm_impl is not None:
+                raise ValueError("rlm_impl is only valid when verifier_shape='rlm'.")
+        else:
+            if rlm_impl == "v2":
+                graph_id = "zero_shot_verifier_rubric_rlm_v2"
+            else:
+                graph_id = "zero_shot_verifier_rubric_rlm"
 
         input_data: dict[str, Any] = {
             "trace": normalize_for_json(session_trace),
@@ -468,7 +547,16 @@ class GraphCompletionsAsyncClient:
             job_id=graph_id,
             model=model,
         )
-        return result.get("output", result)
+        output = result.get("output", result)
+
+        # Save evidence locally if requested
+        if save_evidence:
+            evidence_dir = save_evidence if isinstance(save_evidence, (Path, str)) else None
+            evidence_path = save_evidence_locally(output, evidence_dir=evidence_dir, prefix="rubric")
+            if evidence_path:
+                output["_evidence_saved_to"] = str(evidence_path)
+
+        return output
 
     async def verify_fewshot(
         self,
@@ -482,29 +570,22 @@ class GraphCompletionsAsyncClient:
         verifier_shape: str | None = None,
         options: Mapping[str, Any] | None = None,
         model: str | None = None,
+        save_evidence: bool | Path | str = False,
     ) -> dict[str, Any]:
-        """Verify trace using few-shot calibration examples.
-
-        Args:
-            session_trace: V3/V4 trace format (validated using SessionTraceInput)
-            calibration_examples: List of calibration examples with:
-                - session_trace: V3/V4 trace format
-                - event_rewards: List[float] (0.0-1.0), one per event
-                - outcome_reward: float (0.0-1.0)
-            expected_score: Optional expected score for the trace being evaluated
-            expected_rubric: Optional rubric/ground truth for the trace being evaluated
-            system_prompt: Optional custom system prompt
-            user_prompt: Optional custom user prompt
-            verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
-            options: Optional execution options
-            model: Optional model override
-
-        Returns:
-            Verification result with event_reviews, outcome_review, etc.
+        """Deprecated. Use verify_with_rubric instead.
 
         Raises:
-            ValueError: If calibration_examples are invalid (validated client-side)
+            ValueError: Always raised because this method is deprecated.
         """
+        warnings.warn(
+            "verify_fewshot is deprecated and no longer supported. Use verify_with_rubric instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise ValueError(
+            "verify_fewshot is deprecated and no longer supported. Use verify_with_rubric instead."
+        )
+
         # Validate calibration_examples client-side before sending to server
         validated_examples = []
         for idx, example in enumerate(calibration_examples):
@@ -542,7 +623,16 @@ class GraphCompletionsAsyncClient:
             job_id=graph_id,
             model=model,
         )
-        return result.get("output", result)
+        output = result.get("output", result)
+
+        # Save evidence locally if requested
+        if save_evidence:
+            evidence_dir = save_evidence if isinstance(save_evidence, (Path, str)) else None
+            evidence_path = save_evidence_locally(output, evidence_dir=evidence_dir, prefix="fewshot")
+            if evidence_path:
+                output["_evidence_saved_to"] = str(evidence_path)
+
+        return output
 
     async def verify_contrastive(
         self,
@@ -557,33 +647,22 @@ class GraphCompletionsAsyncClient:
         verifier_shape: str | None = None,
         options: Mapping[str, Any] | None = None,
         model: str | None = None,
+        save_evidence: bool | Path | str = False,
     ) -> dict[str, Any]:
-        """Verify verifier judgment by comparing to gold-standard examples.
-
-        NOTE: Contrastive mode evaluates a VERIFIER's judgment, not a trace directly.
-        It asks: "Is this verifier's judgment consistent with how gold examples were scored?"
-
-        Args:
-            session_trace: V3/V4 trace format (the trace being evaluated)
-            gold_examples: List of gold examples with:
-                - summary: str (required, non-empty)
-                - gold_score: float (0.0-1.0, required)
-                - gold_reasoning: str (required, non-empty)
-            candidate_score: Verifier's predicted score for this trace (0.0-1.0, what we're evaluating)
-            candidate_reasoning: Verifier's reasoning for this score (what we're evaluating)
-            expected_rubric: Optional rubric/ground truth for this trace
-            system_prompt: Optional custom system prompt
-            user_prompt: Optional custom user prompt
-            verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
-            options: Optional execution options
-            model: Optional model override
-
-        Returns:
-            Verification result with event_reviews, outcome_review, etc.
+        """Deprecated. Use verify_with_rubric instead.
 
         Raises:
-            ValueError: If gold_examples or candidate_score/reasoning are invalid (validated client-side)
+            ValueError: Always raised because this method is deprecated.
         """
+        warnings.warn(
+            "verify_contrastive is deprecated and no longer supported. Use verify_with_rubric instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise ValueError(
+            "verify_contrastive is deprecated and no longer supported. Use verify_with_rubric instead."
+        )
+
         # Validate gold_examples client-side before sending to server
         validated_gold_examples = []
         for idx, example in enumerate(gold_examples):
@@ -637,7 +716,16 @@ class GraphCompletionsAsyncClient:
             job_id=graph_id,
             model=model,
         )
-        return result.get("output", result)
+        output = result.get("output", result)
+
+        # Save evidence locally if requested
+        if save_evidence:
+            evidence_dir = save_evidence if isinstance(save_evidence, (Path, str)) else None
+            evidence_path = save_evidence_locally(output, evidence_dir=evidence_dir, prefix="contrastive")
+            if evidence_path:
+                output["_evidence_saved_to"] = str(evidence_path)
+
+        return output
 
     async def verify_with_prompts(
         self,
@@ -646,6 +734,7 @@ class GraphCompletionsAsyncClient:
         system_prompt: str,
         user_prompt: str,
         verifier_shape: str | None = None,
+        rlm_impl: Literal["v1", "v2"] | None = None,
         options: Mapping[str, Any] | None = None,
         model: str | None = None,
     ) -> dict[str, Any]:
@@ -655,19 +744,36 @@ class GraphCompletionsAsyncClient:
             session_trace: V3/V4 trace format
             system_prompt: Custom system prompt (required)
             user_prompt: Custom user prompt (required)
-            verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
+            verifier_shape: "single" or "rlm" (auto-detects if None)
+            rlm_impl: Optional RLM implementation ("v1" or "v2") when verifier_shape="rlm" (defaults to v1)
             options: Optional execution options
             model: Optional model override
 
         Returns:
             Verification result
+
+        Raises:
+            ValueError: If verifier_shape is not supported or rlm_impl is invalid for the shape.
         """
         if verifier_shape is None:
             verifier_shape = self._select_graph_shape(session_trace)
 
-        # For custom prompts, use rubric single graph but with custom prompts
+        if verifier_shape not in {"single", "rlm"}:
+            raise ValueError(
+                "Unsupported verifier_shape. Use 'single' or 'rlm' with verify_with_prompts."
+            )
+
+        # For custom prompts, use rubric graphs but with custom prompts
         # The graph will use the prompts instead of rubric
-        graph_id = f"zero_shot_verifier_rubric_{verifier_shape}"
+        if verifier_shape == "single":
+            graph_id = "zero_shot_verifier_rubric_single"
+            if rlm_impl is not None:
+                raise ValueError("rlm_impl is only valid when verifier_shape='rlm'.")
+        else:
+            if rlm_impl == "v2":
+                graph_id = "zero_shot_verifier_rubric_rlm_v2"
+            else:
+                graph_id = "zero_shot_verifier_rubric_rlm"
 
         input_data: dict[str, Any] = {
             "trace": normalize_for_json(session_trace),

@@ -6,9 +6,17 @@ EngineBench evaluates coding agents on Pokemon TCG card implementations in Rust.
 
 1. **Environment variables** (in `.env` or exported):
    ```bash
-   OPENAI_API_KEY=sk-...          # OpenAI API key
-   DAYTONA_API_KEY=dtn_...        # Daytona sandbox API key
+   # Required
    SYNTH_API_KEY=sk_live_...      # Synth API key
+
+   # For OpenCode/Codex agents
+   OPENAI_API_KEY=sk-...          # OpenAI API key
+
+   # For Daytona sandboxes (optional - can run locally without)
+   DAYTONA_API_KEY=dtn_...        # Daytona sandbox API key
+
+   # For Claude Code agent (optional - interceptor provides API key)
+   CLAUDE_BIN=/path/to/claude     # Path to Claude Code binary (auto-detected)
    ```
 
 2. **Install dependencies**:
@@ -131,17 +139,49 @@ uv run python demos/engine_bench/run_eval.py \
 
 ## Agent Options
 
-| Agent | Description |
-|-------|-------------|
-| `codex` | OpenAI Codex CLI (`@openai/codex`) |
-| `opencode` | OpenCode CLI (`opencode.ai`) |
+| Agent | Description | API Key Required |
+|-------|-------------|------------------|
+| `opencode` | OpenCode CLI (`opencode.ai`) | `OPENAI_API_KEY` |
+| `codex` | OpenAI Codex CLI (`@openai/codex`) | `OPENAI_API_KEY` |
+| `claude_code` | Claude Code CLI (Anthropic) | `ANTHROPIC_API_KEY` or via interceptor |
+
+### Claude Code Setup
+
+Claude Code requires the Claude Code CLI installed locally. LLM calls are routed through the Synth interceptor (Anthropic Messages API compatible).
+
+**Prerequisites:**
+1. Install Claude Code: https://claude.ai/download
+2. Ensure `claude` is on your PATH, or set `CLAUDE_BIN` to the binary path
+
+**Running with Claude Code:**
+```bash
+# Local mode (recommended for development)
+uv run python demos/engine_bench/run_eval.py \
+  --local --seeds 1 --model claude-3-5-haiku-20241022 --agent claude_code --timeout 300
+
+# With Daytona sandboxes (requires tunnel)
+INTERCEPTOR_TUNNEL_URL=https://xxx.trycloudflare.com \
+USE_DAYTONA_SANDBOXES=1 \
+uv run python demos/engine_bench/run_eval.py \
+  --seeds 1 --model claude-3-5-sonnet-20241022 --agent claude_code --timeout 300
+```
+
+**Supported Claude models:**
+- `claude-3-5-haiku-20241022` - Fast, cost-effective
+- `claude-3-5-sonnet-20241022` - Better quality
+- `claude-sonnet-4-5-20250929` - Latest Sonnet
 
 ## Model Options
 
-Any OpenAI model works. Recommended:
+**For OpenCode/Codex (OpenAI models):**
 - `gpt-4o-mini` - Fast, cheap, good for testing
 - `gpt-4o` - Better quality
 - `codex-5.1-mini` - Codex-optimized model
+
+**For Claude Code (Anthropic models):**
+- `claude-3-5-haiku-20241022` - Fast, cost-effective
+- `claude-3-5-sonnet-20241022` - Balanced speed/quality
+- `claude-sonnet-4-5-20250929` - Latest capabilities
 
 ## How It Works
 
@@ -157,11 +197,13 @@ Any OpenAI model works. Recommended:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | OpenAI API key for agent LLM calls |
-| `DAYTONA_API_KEY` | Yes | Daytona API key for sandbox provisioning |
+| `OPENAI_API_KEY` | For OpenCode/Codex | OpenAI API key for agent LLM calls |
+| `ANTHROPIC_API_KEY` | For Claude Code (direct) | Anthropic API key (not needed when using interceptor) |
+| `DAYTONA_API_KEY` | For Daytona mode | Daytona API key for sandbox provisioning |
 | `SYNTH_API_KEY` | Yes | Synth API key for backend auth |
-| `USE_DAYTONA_SANDBOXES` | Yes | Set to `1` to enable Daytona sandboxes |
+| `USE_DAYTONA_SANDBOXES` | For Daytona mode | Set to `1` to enable Daytona sandboxes |
 | `INTERCEPTOR_TUNNEL_URL` | Prod | URL where Daytona sandbox can reach the interceptor |
+| `CLAUDE_BIN` | Optional | Path to Claude Code binary (auto-detected if not set) |
 
 ## CLI Arguments Reference
 
@@ -170,7 +212,7 @@ Any OpenAI model works. Recommended:
 | `--local` | - | Use local backend (localhost:8000) |
 | `--seeds N` | 1 | Number of random instances to evaluate |
 | `--model` | gpt-4o-mini | Model for agent to use |
-| `--agent` | opencode | Agent type: `codex` or `opencode` |
+| `--agent` | opencode | Agent type: `opencode`, `codex`, or `claude_code` |
 | `--timeout` | 180 | Timeout per rollout in seconds |
 | `--port` | 8017 | Port for local task app |
 | `--task-app-url` | - | Public URL for task app (tunnel URL) |
@@ -378,3 +420,7 @@ uv run python demos/engine_bench/run_eval.py \
 - [EngineBench Repository](https://github.com/JoshuaPurtell/engine-bench)
 - [Synth Documentation](https://docs.usesynth.ai)
 - [Daytona SDK](https://www.daytona.io/docs)
+
+
+export INTERCEPTOR_TUNNEL_URL="XYZ"
+USE_DAYTONA_SANDBOXES=1 uv run python demos/engine_bench/run_eval.py --local --seeds 1 --agent codex --model gpt-5-nano --timeout 180

@@ -251,20 +251,20 @@ def main() -> int:
     print(f"wall_time_s: {wall_s:.1f}")
 
     if result.succeeded:
-        print(f"mean_score (reward): {result.mean_score}")
+        print(f"mean_reward: {result.mean_reward}")
         print(f"total_cost_usd: {result.total_cost_usd}")
         print(f"total_tokens: {result.total_tokens}")
         print(f"completed: {result.num_completed}/{result.num_total}")
         print("\nPer-seed:")
         for r in result.seed_results:
             seed = r.get("seed")
-            score = r.get("score")
+            reward = r.get("reward") or r.get("outcome_reward") or r.get("reward_mean") or r.get("score")
             cost = r.get("cost_usd")
             toks = r.get("tokens")
             lat = r.get("latency_ms")
             err = r.get("error")
             print(
-                f"- seed={seed} score={score} cost_usd={cost} tokens={toks} latency_ms={lat} error={err}"
+                f"- seed={seed} reward={reward} cost_usd={cost} tokens={toks} latency_ms={lat} error={err}"
             )
         return 0
 
