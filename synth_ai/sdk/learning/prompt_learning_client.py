@@ -223,27 +223,29 @@ class PromptLearningClient:
             event_type = event.get("type", "")
             event_data = event.get("data", {})
 
-            # Best prompt event
-            if event_type == "prompt.learning.best.prompt":
+            # Best prompt event (canonical)
+            if event_type == "learning.policy.gepa.candidate.new_best":
                 result.best_prompt = event_data.get("best_prompt")
                 best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
                 if best_score is not None:
                     result.best_score = best_score
 
-            # Top-K prompt content events
-            elif event_type == "prompt.learning.top.prompt.content":
-                result.top_prompts.append(
-                    {
-                        "rank": event_data.get("rank"),
-                        "train_accuracy": event_data.get("train_accuracy"),
-                        "val_accuracy": event_data.get("val_accuracy"),
-                        "template": event_data.get("template"),
-                        "full_text": event_data.get("full_text"),
-                    }
-                )
+            # Candidate evaluated events may contain top-K prompt content
+            elif event_type == "learning.policy.gepa.candidate.evaluated":
+                # Check if this is a top prompt content event (has rank)
+                if event_data.get("rank") is not None:
+                    result.top_prompts.append(
+                        {
+                            "rank": event_data.get("rank"),
+                            "train_accuracy": event_data.get("train_accuracy"),
+                            "val_accuracy": event_data.get("val_accuracy"),
+                            "template": event_data.get("template"),
+                            "full_text": event_data.get("full_text"),
+                        }
+                    )
 
-            # Final results event (contains all candidates)
-            elif event_type == "prompt.learning.final.results":
+            # Job completed event (contains all candidates) - canonical
+            elif event_type == "learning.policy.gepa.job.completed":
                 result.optimized_candidates = event_data.get("optimized_candidates", [])
                 result.attempted_candidates = event_data.get("attempted_candidates", [])
                 result.version_tree = event_data.get("version_tree")
@@ -265,8 +267,8 @@ class PromptLearningClient:
                             if rank is not None and accuracy is not None:
                                 validation_by_rank[rank] = accuracy
 
-            # Validation results - build map by rank
-            elif event_type == "prompt.learning.validation.scored":
+            # Validation results - build map by rank (canonical)
+            elif event_type == "learning.policy.gepa.validation.completed":
                 result.validation_results.append(event_data)
                 # Try to extract rank and accuracy for mapping
                 rank = event_data.get("rank")
@@ -274,15 +276,8 @@ class PromptLearningClient:
                 if rank is not None and accuracy is not None:
                     validation_by_rank[rank] = accuracy
 
-            # Completion event (fallback for best_score)
-            elif event_type == "prompt.learning.gepa.complete":
-                if result.best_score is None:
-                    best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
-                    if best_score is not None:
-                        result.best_score = best_score
-
-            # MIPRO completion event - extract best_score
-            elif event_type == "mipro.job.completed":
+            # MIPRO completion event - extract best_score (canonical)
+            elif event_type == "learning.policy.mipro.job.completed":
                 if result.best_score is None:
                     # Prefer unified best_score field, fallback to best_full_score or best_minibatch_score
                     result.best_score = _extract_reward_value(

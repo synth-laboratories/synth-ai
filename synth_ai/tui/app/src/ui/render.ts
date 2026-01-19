@@ -26,7 +26,7 @@ export function renderApp(ctx: AppContext): void {
         const shortId = job.job_id.slice(-8)
         const reward = job.best_reward == null ? "-" : job.best_reward.toFixed(4)
         const label =
-          job.training_type || (job.job_source === "learning" ? "eval" : "prompt")
+          job.job_type || (job.job_source === "learning" ? "eval" : "prompt")
         const envName = extractEnvName(job)
         const currentYear = new Date().getFullYear()
         let dateStr = ""

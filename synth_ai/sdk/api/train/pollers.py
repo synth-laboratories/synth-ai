@@ -85,20 +85,6 @@ class JobPoller:
         return PollOutcome(status=status, payload=info)
 
 
-class RLJobPoller(JobPoller):
-    def poll_job(self, job_id: str) -> PollOutcome:
-        ctx: dict[str, Any] = {"job_id": job_id, "job_type": "rl"}
-        log_info("RLJobPoller.poll_job invoked", ctx=ctx)
-        return super().poll(f"/rl/jobs/{job_id}")
-
-
-class SFTJobPoller(JobPoller):
-    def poll_job(self, job_id: str) -> PollOutcome:
-        ctx: dict[str, Any] = {"job_id": job_id, "job_type": "sft"}
-        log_info("SFTJobPoller.poll_job invoked", ctx=ctx)
-        return super().poll(f"/learning/jobs/{job_id}")
-
-
 class PromptLearningJobPoller(JobPoller):
     """Poller for prompt learning jobs (GEPA)."""
 
@@ -153,8 +139,7 @@ class EvalJobPoller(JobPoller):
 
 __all__ = [
     "PollOutcome",
-    "RLJobPoller",
-    "SFTJobPoller",
+    "JobPoller",
     "PromptLearningJobPoller",
     "EvalJobPoller",
 ]

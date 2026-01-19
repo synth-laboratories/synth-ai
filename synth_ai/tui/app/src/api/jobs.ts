@@ -101,7 +101,7 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
     ({
       job_id: jobId,
       status: "loading",
-      training_type: null,
+      job_type: null,
       created_at: null,
       started_at: null,
       finished_at: null,
@@ -160,7 +160,7 @@ export async function selectJob(ctx: AppContext, jobId: string): Promise<void> {
   
   // Auto-fetch metrics for GEPA jobs
   if (token === appState.jobSelectToken && snapshot.selectedJob) {
-    const isGepa = snapshot.selectedJob.training_type === "gepa" || snapshot.selectedJob.training_type === "graph_gepa"
+    const isGepa = snapshot.selectedJob.job_type === "gepa" || snapshot.selectedJob.job_type === "graph_gepa"
     if (isGepa) {
       // Small delay to ensure job data is fully loaded
       await new Promise(resolve => setTimeout(resolve, 100))

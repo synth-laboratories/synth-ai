@@ -1,7 +1,7 @@
 export type JobSummary = {
   job_id: string
   status: string
-  training_type?: string | null
+  job_type?: string | null
   job_source?: "prompt-learning" | "learning" | "eval" | null
   created_at?: string | null
   started_at?: string | null
@@ -62,12 +62,12 @@ export function extractEvents(
   return { events, nextSeq }
 }
 
-/** Check if a job is an eval job (by source or training_type) */
+/** Check if a job is an eval job (by source or job_type) */
 export function isEvalJob(job: JobSummary | null): boolean {
   if (!job) return false
   return (
     job.job_source === "eval" ||
-    job.training_type === "eval" ||
+    job.job_type === "eval" ||
     job.job_id.startsWith("eval_")
   )
 }
@@ -81,9 +81,9 @@ export function coerceJob(
   // Extract training type from multiple possible locations
   let trainingType =
     payload?.algorithm ||
-    payload?.training_type ||
+    payload?.job_type ||
     meta?.algorithm ||
-    meta?.training_type ||
+    meta?.job_type ||
     meta?.prompt_initial_snapshot?.raw_config?.prompt_learning?.algorithm ||
     meta?.config?.algorithm ||
     null
@@ -98,8 +98,8 @@ export function coerceJob(
   return {
     job_id: jobId,
     status: String(payload?.status || "unknown"),
-    // API uses 'algorithm' field, not 'training_type'
-    training_type: trainingType,
+    // API uses 'algorithm' field, not 'job_type'
+    job_type: trainingType,
     job_source: resolvedSource,
     created_at: payload?.created_at || null,
     started_at: payload?.started_at || null,

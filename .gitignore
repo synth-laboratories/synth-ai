@@ -21,6 +21,8 @@ private_tests
 .ruff_cache
 .pytest_cache
 .claude
+.opencode
+.uv-cache
 
 # DuckDB files
 *.duckdb
@@ -211,3 +213,22 @@ examples/blog_posts/**/task_specific/*/results/
 demos/web-design/hf_dataset/
 demos/web-design/task_images/
 demos/web-design/generated_pages/
+
+# Plans directory
+plans/
+
+# Root-level npm/bun artifacts
+/package.json
+/package-lock.json
+/bun.lock
+
+# Pytest configs (tests removed)
+pytest.ini
+pytest.*.ini
+
+# Misc temp artifacts
+engine_bench_eval_timing.json
+greptile.json
+
+# Coding agents workspace
+coding_agents/

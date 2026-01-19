@@ -18,7 +18,7 @@ function getRelevantDate(job: JobSummary): string {
 
 function getJobTypeLabel(job: JobSummary): string {
   // Return a human-readable job type
-  const type = job.training_type || job.job_source || "job"
+  const type = job.job_type || job.job_source || "job"
   
   // Map known types to readable labels
   switch (type.toLowerCase()) {

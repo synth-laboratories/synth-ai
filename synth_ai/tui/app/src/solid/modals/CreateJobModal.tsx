@@ -42,7 +42,7 @@ type Step =
 const CREATE_NEW_OPTION = "+ Create new LocalAPI file"
 const CWD_OPTION_PREFIX = "CWD: "
 
-const TRAINING_TYPES = [
+const JOB_TYPES = [
   { id: "eval" as const, label: "Evaluation", description: "Run evaluation on your LocalAPI" },
   { id: "prompt_learning" as const, label: "Prompt Learning", description: "Optimize prompts for better performance" },
   { id: "learning" as const, label: "Learning", description: "Train and optimize models" },
@@ -54,7 +54,7 @@ export function CreateJobModal(props: CreateJobModalProps) {
   const [selectedTypeIndex, setSelectedTypeIndex] = createSignal(0)
   const [selectedDirIndex, setSelectedDirIndex] = createSignal(0)
   const [selectedFile, setSelectedFile] = createSignal<string | null>(null)
-  const [selectedType, setSelectedType] = createSignal<typeof TRAINING_TYPES[number] | null>(null)
+  const [selectedType, setSelectedType] = createSignal<typeof JOB_TYPES[number] | null>(null)
   const [createdFilePath, setCreatedFilePath] = createSignal<string | null>(null)
   const [isDeploying, setIsDeploying] = createSignal(false)
   const [deployError, setDeployError] = createSignal<string | null>(null)
@@ -209,7 +209,7 @@ export function CreateJobModal(props: CreateJobModalProps) {
       } else if (currentStep === "selectDirectory") {
         setSelectedDirIndex(i => Math.min(i + 1, directoryOptions().length - 1))
       } else if (currentStep === "selectType") {
-        setSelectedTypeIndex(i => Math.min(i + 1, TRAINING_TYPES.length - 1))
+        setSelectedTypeIndex(i => Math.min(i + 1, JOB_TYPES.length - 1))
       } else if (currentStep === "confirm") {
         setConfirmIndex(i => Math.min(i + 1, 1))
       }
@@ -260,7 +260,7 @@ export function CreateJobModal(props: CreateJobModalProps) {
       }
       
       if (currentStep === "selectType") {
-        setSelectedType(TRAINING_TYPES[selectedTypeIndex()])
+        setSelectedType(JOB_TYPES[selectedTypeIndex()])
         // Start deployment
         void handleDeploy()
         return true
@@ -425,7 +425,7 @@ export function CreateJobModal(props: CreateJobModalProps) {
             Select job type for: {toDisplayPath(effectiveFilePath() ?? "")}
           </text>
           <box height={1} />
-          <For each={TRAINING_TYPES}>
+          <For each={JOB_TYPES}>
             {(type, idx) => {
               const isSelected = idx() === selectedTypeIndex()
               return (

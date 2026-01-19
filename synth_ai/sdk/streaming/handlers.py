@@ -391,16 +391,21 @@ class GraphGenHandler(StreamHandler):
         if not event_type:
             return
 
-        if event_type.startswith("graph_evolve."):
+        # Detect child job type from canonical event format
+        if event_type.startswith("learning.graph."):
             self.child_job_type = "graph_evolve"
-        elif "gepa" in event_type or event_type.startswith("prompt.learning"):
+        elif (
+            "gepa" in event_type
+            or "mipro" in event_type
+            or event_type.startswith("learning.policy.")
+        ):
             self.child_job_type = "prompt_learning"
-        elif event_type.startswith("rl.") or ".rl." in event_type:
+        elif ".rl." in event_type:
             self.child_job_type = "rl"
-        elif event_type.startswith("sft.") or ".sft." in event_type:
+        elif ".sft." in event_type:
             self.child_job_type = "sft"
         else:
-            # Fall back to the first segment as a hint (e.g., "graphgen.child_type")
+            # Fall back to the first segment as a hint
             parts = event_type.split(".")
             if parts:
                 self.child_job_type = parts[0]
@@ -428,42 +433,44 @@ class GraphGenHandler(StreamHandler):
         event_type = message.data.get("type", "") or ""
         event_type_lower = event_type.lower()
 
-        # Never filter graph_evolve events - they're important for GraphGen jobs
-        if event_type.startswith("graph_evolve."):
+        # Never filter graph learning events - they're important for GraphGen jobs
+        if event_type.startswith("learning.graph."):
             return False
 
-        # Only filter prompt-learning style events; leave other job types untouched.
-        if not any(key in event_type_lower for key in ("prompt.learning", "gepa")):
+        # Only filter policy learning events; leave other job types untouched.
+        if not any(key in event_type_lower for key in ("learning.policy.", "gepa", "mipro")):
             return False
 
+        # Canonical important events
         important_events = {
-            "prompt.learning.created",
-            "prompt.learning.gepa.start",
-            "prompt.learning.gepa.complete",
-            "prompt.learning.mipro.optimization.exhausted",
-            "prompt.learning.trial.results",
-            "prompt.learning.progress",
-            "prompt.learning.gepa.new_best",
-            "prompt.learning.validation.summary",
-            "prompt.learning.candidate.evaluated",
-            "prompt.learning.candidate.evaluation.started",
-            # GraphGen/graph_evolve important events
-            "graph_evolve.job_started",
-            "graph_evolve.generation_started",
-            "graph_evolve.generation_completed",
-            "graph_evolve.candidate_evaluated",
-            "graph_evolve.archive_updated",
-            "graph_evolve.job_completed",
-            "graph_evolve.job_failed",
+            # GEPA lifecycle
+            "learning.policy.gepa.job.queued",
+            "learning.policy.gepa.job.started",
+            "learning.policy.gepa.job.completed",
+            "learning.policy.gepa.job.progress",
+            "learning.policy.gepa.rollout.completed",
+            "learning.policy.gepa.candidate.new_best",
+            "learning.policy.gepa.validation.completed",
+            "learning.policy.gepa.candidate.evaluated",
+            "learning.policy.gepa.candidate.started",
+            # MIPRO lifecycle
+            "learning.policy.mipro.job.started",
+            "learning.policy.mipro.job.completed",
+            # Graph learning events
+            "learning.graph.gepa.job.started",
+            "learning.graph.gepa.generation.started",
+            "learning.graph.gepa.generation.completed",
+            "learning.graph.gepa.candidate.evaluated",
+            "learning.graph.gepa.archive.updated",
+            "learning.graph.gepa.job.completed",
+            "learning.graph.gepa.job.failed",
         }
         if event_type in important_events:
             return False
 
         verbose_patterns = [
             "gepa.transformation.proposed",
-            "gepa.proposal.scored",
-            "prompt.learning.proposal.scored",
-            "prompt.learning.stream.connected",
+            "gepa.candidate.evaluated",  # High volume during optimization
         ]
         return any(pattern in event_type_lower for pattern in verbose_patterns)
 
@@ -993,75 +1000,74 @@ class PromptLearningHandler(StreamHandler):
             # if event_type == "gepa.transformation.proposed":
             #     return
 
-            # Handle trial results for optimization curve tracking
-            if event_type == "prompt.learning.trial.results":
+            # Handle trial results for optimization curve tracking (canonical)
+            if event_type == "learning.policy.gepa.rollout.completed":
                 self._handle_trial_results(message.data)
                 # Continue to default display
 
-            # Handle validation summary
-            if event_type == "prompt.learning.validation.summary" and self.show_validation:
+            # Handle validation summary (canonical)
+            if event_type == "learning.policy.gepa.validation.completed" and self.show_validation:
                 self._handle_validation_summary(message.data)
                 # Continue to default display
 
-            # Handle progress events
-            if event_type == "prompt.learning.progress":
+            # Handle progress events (canonical)
+            if event_type == "learning.policy.gepa.job.progress":
                 self._handle_progress(message.data)
                 # Continue to default display
 
-            # Handle MIPRO-specific events for progress tracking
-            if event_type == "mipro.iteration.start":
+            # Handle MIPRO-specific events for progress tracking (canonical)
+            if event_type == "learning.policy.mipro.iteration.started":
                 self._handle_mipro_iteration_start(message.data)
                 # Continue to default display
 
-            if event_type == "mipro.iteration.complete":
+            if event_type == "learning.policy.mipro.iteration.completed":
                 self._handle_mipro_iteration_complete(message.data)
                 # Continue to default display
 
-            if event_type == "mipro.fulleval.complete":
+            if event_type == "learning.policy.mipro.job.completed":
                 self._handle_mipro_fulleval_complete(message.data)
                 # Continue to default display
 
-            if event_type == "mipro.optimization.exhausted":
+            if event_type == "learning.policy.mipro.job.failed":
                 # Graceful conclusion - show final progress
                 self._emit_mipro_progress()
                 # Continue to default display
 
-            if event_type == "mipro.new_incumbent":
+            if event_type == "learning.policy.mipro.candidate.new_best":
                 self._handle_mipro_new_incumbent(message.data)
                 # Continue to default display
 
-            # Handle rollouts start event
-            if event_type == "prompt.learning.rollouts.start":
+            # Handle rollouts start event (canonical)
+            if event_type == "learning.policy.gepa.rollout.started":
                 self._handle_rollouts_start(message.data)
                 # Continue to default display
 
-            # Handle GEPA new best event
-            if event_type == "prompt.learning.gepa.new_best":
+            # Handle GEPA new best event (canonical)
+            if event_type == "learning.policy.gepa.candidate.new_best":
                 self._handle_gepa_new_best(message.data)
                 # Continue to default display
 
-            # Handle phase changed event
-            if event_type == "prompt.learning.phase.changed":
+            # Handle phase changed event (canonical)
+            if event_type == "learning.policy.gepa.phase.started":
                 self._handle_phase_changed(message.data)
                 # Continue to default display
 
-            # Handle stream connected event (connection lifecycle)
-            if event_type == "prompt.learning.stream.connected":
+            # Handle stream connected event (connection lifecycle) - now uses job.started
+            if event_type == "learning.policy.gepa.job.started":
                 self._handle_stream_connected(message.data)
                 # Continue to default display
 
-            # Handle proposal scored events (transformations) - show by default
-            if event_type == "prompt.learning.proposal.scored":
+            # Handle candidate evaluated events (canonical)
+            if event_type == "learning.policy.gepa.candidate.evaluated":
                 self._handle_proposal_scored(message.data)
                 # Continue to default display
 
             # Show verbose transformation events by default - they're useful
             # Only skip if explicitly disabled via show_transformations=False
             # verbose_event_types = [
-            #     "prompt.learning.proposal.scored",
-            #     "prompt.learning.eval.summary",
-            #     "prompt.learning.validation.scored",
-            #     "prompt.learning.final.results",
+            #     "learning.policy.gepa.candidate.evaluated",
+            #     "learning.policy.gepa.validation.completed",
+            #     "learning.policy.gepa.job.completed",
             # ]
             # if event_type in verbose_event_types and not self.show_transformations:
             #     return
@@ -2078,20 +2084,21 @@ class EvalHandler(StreamHandler):
             msg = message.data.get("message") or ""
             data = message.data.get("data") or {}
 
-            if event_type == "eval.job.started":
+            # Canonical eval event names
+            if event_type == "eval.policy.job.started":
                 seed_count = data.get("seed_count", 0)
                 self.total_seeds = seed_count
                 click.echo(f"[{timestamp}] Eval started: {seed_count} seeds")
                 return
 
-            if event_type == "eval.job.progress":
+            if event_type == "eval.policy.job.progress":
                 completed = data.get("completed", 0)
                 total = data.get("total", self.total_seeds)
                 self.completed_seeds = completed
                 click.echo(f"[{timestamp}] Progress: {completed}/{total} seeds completed")
                 return
 
-            if event_type == "eval.seed.completed":
+            if event_type == "eval.policy.seed.completed":
                 seed = data.get("seed")
                 reward = data.get("reward")
                 if reward is not None:
@@ -2100,7 +2107,7 @@ class EvalHandler(StreamHandler):
                     click.echo(f"[{timestamp}] Seed {seed} completed")
                 return
 
-            if event_type == "eval.job.completed":
+            if event_type == "eval.policy.job.completed":
                 mean_reward = data.get("mean_reward")
                 error = data.get("error")
                 if error:
@@ -2112,7 +2119,7 @@ class EvalHandler(StreamHandler):
                     click.echo(f"[{timestamp}] Eval completed")
                 return
 
-            if event_type == "eval.job.failed":
+            if event_type == "eval.policy.job.failed":
                 error = data.get("error") or msg
                 click.echo(f"[{timestamp}] Eval failed: {error}")
                 return

@@ -115,7 +115,7 @@ export function JobsDetail(props: JobsDetailProps) {
   const resultsText = createMemo(() => formatResults(props.snapshot))
   const isGepa = createMemo(() => {
     const job = props.snapshot.selectedJob
-    return job?.training_type === "gepa" || job?.training_type === "graph_gepa"
+    return job?.job_type === "gepa" || job?.job_type === "graph_gepa"
   })
   const metricPointsCount = createMemo(() => {
     const m: any = props.snapshot.metrics || {}

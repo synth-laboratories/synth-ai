@@ -93,7 +93,7 @@ export function formatLearningDetails(job: JobSummary): string {
   const lines = [
     `Job: ${job.job_id}`,
     `Status: ${job.status}`,
-    `Type: ${job.training_type || "learning"}`,
+    `Type: ${job.job_type || "learning"}`,
     `Env: ${envName || "-"}`,
     "",
     "═══ Progress ═══",
@@ -137,7 +137,7 @@ export function formatPromptLearningDetails(snapshot: Snapshot, job: JobSummary)
   const lines = [
     `Job: ${job.job_id}`,
     `Status: ${job.status}`,
-    `Type: ${job.training_type || "prompt-learning"}`,
+    `Type: ${job.job_type || "prompt-learning"}`,
     `Env: ${envName || "-"}`,
     `Started: ${formatTimestamp(job.started_at)}`,
     `Finished: ${formatTimestamp(job.finished_at)}`,

@@ -1,37 +1,6 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
-
-from synth_ai.sdk.learning.sft import SFTDataError, parse_jsonl_line
-
-
-def validate_training_jsonl(path: str | Path, *, sample_lines: int = 50) -> None:
-    p = Path(path)
-    if not p.exists():
-        raise FileNotFoundError(str(p))
-
-    max_samples = max(1, sample_lines)
-    non_empty_lines = 0
-
-    with p.open("r", encoding="utf-8") as fh:
-        for lineno, raw_line in enumerate(fh, start=1):
-            stripped = raw_line.strip()
-            if not stripped:
-                continue
-            non_empty_lines += 1
-            if non_empty_lines > max_samples:
-                break
-            try:
-                parse_jsonl_line(stripped, min_messages=2)
-            except json.JSONDecodeError as exc:
-                raise ValueError(f"invalid json on line {lineno}: {exc}") from exc
-            except SFTDataError as exc:
-                raise ValueError(f"line {lineno}: {exc}") from exc
-
-    if non_empty_lines == 0:
-        raise ValueError("empty JSONL")
 
 
 def validate_task_app_url(url: str, *, name: str = "TASK_APP_BASE_URL") -> None:
@@ -50,3 +19,40 @@ def validate_trainer_cfg_rl(trainer: dict[str, Any]) -> None:
         raise ValueError("trainer.batch_size must be >= 1")
     if gs < 2:
         raise ValueError("trainer.group_size must be >= 2")
+
+
+def validate_training_jsonl(path: str, *, sample_lines: int = 50) -> None:
+    """Validate training JSONL file.
+
+    Note: Full SFT validation has been moved to the research repo.
+    This is a basic JSON structure check only.
+    """
+    import json
+    from pathlib import Path
+
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(str(p))
+
+    max_samples = max(1, sample_lines)
+    non_empty_lines = 0
+
+    with p.open("r", encoding="utf-8") as fh:
+        for lineno, raw_line in enumerate(fh, start=1):
+            stripped = raw_line.strip()
+            if not stripped:
+                continue
+            non_empty_lines += 1
+            if non_empty_lines > max_samples:
+                break
+            try:
+                data = json.loads(stripped)
+                if not isinstance(data, dict):
+                    raise ValueError(f"line {lineno}: expected JSON object")
+                if "messages" not in data:
+                    raise ValueError(f"line {lineno}: missing 'messages' field")
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"invalid json on line {lineno}: {exc}") from exc
+
+    if non_empty_lines == 0:
+        raise ValueError("empty JSONL")

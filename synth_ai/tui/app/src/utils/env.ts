@@ -37,3 +37,8 @@ export function escapeEnvValue(value: string): string {
   const safe = value ?? ""
   return `"${safe.replace(/\\/g, "\\\\").replace(/\"/g, '\\"')}"`
 }
+
+/** Stub - env key scanning was removed. Returns empty array. */
+export async function scanEnvKeys(_scanRoot?: string): Promise<Array<{ key: string; sources: string[]; varNames: string[] }>> {
+  return []
+}

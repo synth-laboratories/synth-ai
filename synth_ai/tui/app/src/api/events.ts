@@ -89,7 +89,7 @@ function extractGEPAMetricsFromEvents(ctx: AppContext, events: JobEvent[]): void
   const job = snapshot.selectedJob
   if (!job) return
   
-  const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa"
+  const isGepa = job.job_type === "gepa" || job.job_type === "graph_gepa"
   if (!isGepa) return
   
   // Only extract if metrics endpoint returned empty
@@ -104,8 +104,8 @@ function extractGEPAMetricsFromEvents(ctx: AppContext, events: JobEvent[]): void
     const data = isRecord(event.data) ? event.data : null
     if (!data) continue
     
-    // Extract from prompt.learning.gepa.progress events
-    if (event.type === "prompt.learning.gepa.progress") {
+    // Extract from GEPA progress events (canonical format)
+    if (event.type === "learning.policy.gepa.job.progress") {
       const step = num(data.generation) ?? num(data.candidates_evaluated) ?? 0
       if (typeof data.frontier_density === "number") {
         metricPoints.push({
@@ -202,7 +202,7 @@ function updateCandidatesFromEvents(ctx: AppContext, events: JobEvent[]): void {
   }
 
   for (const event of events) {
-    if (event.type === "prompt.learning.gepa.frontier_updated") {
+    if (event.type === "learning.policy.gepa.frontier.updated") {
       const data = isRecord(event.data) ? event.data : null
       const frontier = Array.isArray(data?.frontier) ? data?.frontier : []
       const frontierScores = isRecord(data?.frontier_scores) ? data?.frontier_scores : null
@@ -244,7 +244,7 @@ export async function refreshEvents(
   const token = appState.eventsToken
 
   try {
-    const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa"
+    const isGepa = job.job_type === "gepa" || job.job_type === "graph_gepa"
     const paths =
       isEvalJob(job)
         ? [

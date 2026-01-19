@@ -641,7 +641,7 @@ class GraphGenJob:
         self,
         *,
         timeout: float = 3600.0,
-        interval: float = 5.0,
+        interval: float = 15.0,
         handlers: Optional[Sequence[Any]] = None,
         on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> Dict[str, Any]:

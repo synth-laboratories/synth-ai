@@ -18,6 +18,9 @@ export const config = {
   jobLimit: parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10),
   settingsFilePath: process.env.SYNTH_TUI_SETTINGS_FILE || path.join(process.env.HOME || process.cwd(), ".synth-ai", "tui-settings"),
   jobFilterVisibleCount: 6,
+  // Env key scanning config (feature removed, stubs for compatibility)
+  envKeyScanRoot: process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd(),
+  envKeyVisibleCount: 6,
 }
 
 // Polling state

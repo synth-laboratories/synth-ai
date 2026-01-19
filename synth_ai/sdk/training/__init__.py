@@ -1,25 +1,18 @@
-"""Training SDK - prompt learning, SFT, RL, and GraphGen jobs.
+"""Training SDK - prompt learning and GraphGen jobs.
 
 This module provides high-level APIs for running training jobs:
 - PromptLearningJob: GEPA prompt optimization
-- SFTJob: Supervised fine-tuning
-- RLJob: Reinforcement learning (GSPO, GRPO, PPO, etc.)
 - GraphGenJob: Graph Opt (simplified workflows API)
 
+Note: SFT and RL training APIs have been moved to the research repo.
+
 Example:
-    from synth_ai.sdk.training import PromptLearningJob, RLJob, GraphGenJob
-    from synth_ai.sdk.task.in_process import InProcessTaskApp
+    from synth_ai.sdk.training import PromptLearningJob, GraphGenJob
 
     # Prompt optimization
     job = PromptLearningJob.from_config("config.toml")
     job.submit()
     result = job.poll_until_complete()
-
-    # RL training with in-process task app
-    async with InProcessTaskApp(task_app_path="my_task_app.py", port=8114) as task_app:
-        rl_job = RLJob.from_config("rl_config.toml", task_app_url=task_app.url)
-        rl_job.submit()
-        rl_result = rl_job.poll_until_complete()
 
     # GraphGen workflow optimization (no task app needed)
     graphgen_job = GraphGenJob.from_dataset("my_tasks.json", rollout_budget=100)
@@ -42,29 +35,18 @@ from synth_ai.sdk.api.train.graphgen_models import (
     parse_graphgen_taskset,
 )
 
-# Pollers and utilities
-from synth_ai.sdk.api.train.pollers import EvalJobPoller, JobPoller, PollOutcome, RLJobPoller
-
 # Re-export from existing locations
 from synth_ai.sdk.api.train.prompt_learning import (
     PromptLearningJob,
     PromptLearningJobConfig,
     PromptLearningJobPoller,
 )
-from synth_ai.sdk.api.train.rl import RLJob, RLJobConfig
-from synth_ai.sdk.api.train.sft import SFTJob
 
 __all__ = [
     # Prompt Learning
     "PromptLearningJob",
     "PromptLearningJobConfig",
     "PromptLearningJobPoller",
-    # RL
-    "RLJob",
-    "RLJobConfig",
-    "RLJobPoller",
-    # SFT
-    "SFTJob",
     # GraphGen (preferred names)
     "GraphGenJobConfig",
     "GraphGenTaskSet",
@@ -86,8 +68,4 @@ __all__ = [
     "GraphGenVerifierConfig",
     "load_graphgen_taskset",
     "parse_graphgen_taskset",
-    # Utils
-    "JobPoller",
-    "PollOutcome",
-    "EvalJobPoller",
 ]

@@ -817,7 +817,7 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
                 env_key = None
 
         if env_key is None:
-            from synth_ai.sdk.learning.rl.secrets import mint_environment_api_key
+            from synth_ai.sdk.localapi.auth import mint_environment_api_key
 
             env_key = mint_environment_api_key()
             persist_env_api_key(env_key)
@@ -850,14 +850,14 @@ def deploy(app: str | None = None, name: str | None = None) -> int:
             if choice.startswith("y"):
                 try:
                     print(f"[deploy] Uploading ENVIRONMENT_API_KEY to {non_api_base} …")
-                    from synth_ai.sdk.learning.rl.env_keys import setup_environment_api_key
+                    from synth_ai.sdk.localapi.auth import setup_environment_api_key
 
                     setup_environment_api_key(non_api_base, synth_key, token=env_key)
                     print("[deploy] Backend sealed-box upload complete.")
                 except Exception as upload_err:
                     print(f"[deploy] Failed to upload ENVIRONMENT_API_KEY: {upload_err}")
                     print(
-                        'Hint: run `uvx python -c "from synth_ai.sdk.learning.rl.env_keys import setup_environment_api_key as s;'
+                        'Hint: run `uvx python -c "from synth_ai.sdk.localapi.auth import setup_environment_api_key as s;'
                         " s('<backend>', '<synth_api_key>')\"` once the backend is reachable."
                     )
 

@@ -20,39 +20,42 @@ from .handlers import StreamHandler
 from .types import StreamMessage, StreamType
 
 TERMINAL_STATUSES = {"succeeded", "failed", "cancelled", "canceled", "completed"}
+
+# Terminal success events - canonical format only
+# Format: <activity>.<target>.<algorithm?>.<entity>.<action>
 TERMINAL_EVENT_SUCCESS = {
-    "sft.job.completed",
-    "rl.train.completed",
-    "rl.job.completed",
-    "context.learning.job.completed",
-    "workflow.completed",
-    "training.completed",
-    # GraphGen / Graph Evolve events
-    "optimization_completed",
-    "graphgen.completed",
-    "graph_evolve.completed",
-    # GEPA / Prompt Learning events
-    "prompt.learning.gepa.complete",
-    "gepa.complete",
-    # Eval job events
-    "eval.job.completed",
+    # Eval events
+    "eval.policy.job.completed",
+    "eval.verifier.rlm.job.completed",
+    # Learning events
+    "learning.policy.gepa.job.completed",
+    "learning.policy.mipro.job.completed",
+    "learning.policy.rl.job.completed",
+    "learning.policy.sft.job.completed",
+    "learning.graph.gepa.job.completed",
+    # Completions events
+    "completions.policy.job.completed",
+    "completions.graph.job.completed",
+    "completions.verifier.rlm.job.completed",
+    "completions.rlm.job.completed",
 }
+
+# Terminal failure events - canonical format only
 TERMINAL_EVENT_FAILURE = {
-    "sft.job.failed",
-    "rl.train.failed",
-    "rl.job.failed",
-    "context.learning.job.failed",
-    "workflow.failed",
-    "training.failed",
-    # GraphGen / Graph Evolve events
-    "optimization_failed",
-    "graphgen.failed",
-    "graph_evolve.failed",
-    # GEPA / Prompt Learning events
-    "prompt.learning.gepa.failed",
-    "gepa.failed",
-    # Eval job events
-    "eval.job.failed",
+    # Eval events
+    "eval.policy.job.failed",
+    "eval.verifier.rlm.job.failed",
+    # Learning events
+    "learning.policy.gepa.job.failed",
+    "learning.policy.mipro.job.failed",
+    "learning.policy.rl.job.failed",
+    "learning.policy.sft.job.failed",
+    "learning.graph.gepa.job.failed",
+    # Completions events
+    "completions.policy.job.failed",
+    "completions.graph.job.failed",
+    "completions.verifier.rlm.job.failed",
+    "completions.rlm.job.failed",
 }
 
 

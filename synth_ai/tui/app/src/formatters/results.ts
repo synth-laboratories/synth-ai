@@ -367,7 +367,7 @@ export function extractCandidateStages(bestCandidate: Record<string, any>): Arra
 export function formatResults(snapshot: Snapshot): string {
   const job: any = snapshot.selectedJob
   if (!job) return "Results: -"
-  if (job.job_source === "eval" || job.training_type === "eval") {
+  if (job.job_source === "eval" || job.job_type === "eval") {
     return formatEvalResults(snapshot)
   }
 

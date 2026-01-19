@@ -47,13 +47,16 @@ try:
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load HTTP client") from exc
 
+# SFT module import is optional (moved to research repo)
 try:
     _sft_config_module = cast(Any, importlib.import_module("synth_ai.sdk.learning.sft.config"))
     prepare_sft_job_payload = cast(
         Callable[..., dict[str, Any]], _sft_config_module.prepare_sft_job_payload
     )
-except Exception as exc:  # pragma: no cover - critical dependency
-    raise RuntimeError("Unable to load SFT configuration helpers") from exc
+    _SFT_AVAILABLE = True
+except Exception:  # pragma: no cover - SFT moved to research repo
+    prepare_sft_job_payload = None  # type: ignore[assignment]
+    _SFT_AVAILABLE = False
 
 
 class FilesApi:
@@ -118,12 +121,16 @@ class SftJobsApi:
         metadata: dict[str, Any] | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        payload = prepare_sft_job_payload(
+        if not _SFT_AVAILABLE:
+            raise RuntimeError(
+                "SFT job creation requires the research repo. Install synth_ai.sdk.learning.sft."
+            )
+        payload = prepare_sft_job_payload(  # type: ignore[misc]
             model=model,
             training_file=training_file,
             hyperparameters=hyperparameters,
             metadata=metadata,
-            training_type=None,
+            job_type=None,
             validation_file=validation_file,
             suffix=suffix,
             integrations=integrations,

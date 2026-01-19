@@ -1,4 +1,7 @@
-"""Typed training config loaders for RL, SFT, and Prompt Learning jobs."""
+"""Typed training config loaders for Prompt Learning jobs.
+
+Note: RL and SFT config loaders have been moved to the research repo.
+"""
 
 from .prompt_learning import (
     GEPAConfig,
@@ -8,58 +11,18 @@ from .prompt_learning import (
     PromptLearningVerifierConfig,
     PromptPatternConfig,
 )
-from .rl import (
-    EvaluationConfig,
-    ModelConfig,
-    RewardsConfig,
-    RLConfig,
-    RLServicesConfig,
-    RLTrainingConfig,
-    RolloutConfig,
-    RubricConfig,
-    VerifierConfig,
-    VerifierOptionsConfig,
-    WeightSyncConfig,
-)
-from .sft import (
-    HyperparametersConfig,
-    HyperparametersParallelism,
-    JobConfig,
-    SFTConfig,
-    SFTDataConfig,
-    TrainingConfig,
-    TrainingValidationConfig,
-)
 from .shared import AlgorithmConfig, ComputeConfig, LoraConfig, PolicyConfig, TopologyConfig
 
 __all__ = [
     "AlgorithmConfig",
     "ComputeConfig",
-    "EvaluationConfig",
     "GEPAConfig",
-    "HyperparametersConfig",
-    "HyperparametersParallelism",
-    "JobConfig",
     "PromptLearningVerifierConfig",
-    "VerifierConfig",
-    "VerifierOptionsConfig",
     "LoraConfig",
     "MessagePatternConfig",
-    "ModelConfig",
     "PolicyConfig",
     "PromptLearningConfig",
     "PromptLearningPolicyConfig",
     "PromptPatternConfig",
-    "RewardsConfig",
-    "RLConfig",
-    "RLServicesConfig",
-    "RLTrainingConfig",
-    "RolloutConfig",
-    "RubricConfig",
-    "SFTConfig",
-    "SFTDataConfig",
     "TopologyConfig",
-    "TrainingConfig",
-    "TrainingValidationConfig",
-    "WeightSyncConfig",
 ]

@@ -43,7 +43,7 @@ export function createConfigModal(ctx: AppContext): ModalController & {
     const lines: string[] = []
     lines.push(`Job: ${job.job_id}`)
     lines.push(`Status: ${job.status}`)
-    lines.push(`Type: ${job.training_type || "-"}`)
+    lines.push(`Type: ${job.job_type || "-"}`)
     lines.push(`Source: ${job.job_source || "unknown"}`)
     lines.push("")
 
@@ -61,14 +61,14 @@ export function createConfigModal(ctx: AppContext): ModalController & {
         lines.push("Loading job configuration...")
         lines.push("")
         lines.push("Modal will auto-update when loaded.")
-      } else if (!job.training_type) {
+      } else if (!job.job_type) {
         lines.push("Loading job configuration...")
         lines.push("")
         lines.push("Press 'i' again after job details finish loading.")
       } else {
         lines.push("No metadata available for this job.")
         lines.push("")
-        lines.push(`(job_source: ${job.job_source}, training_type: ${job.training_type})`)
+        lines.push(`(job_source: ${job.job_source}, job_type: ${job.job_type})`)
       }
       return lines.join("\n")
     }

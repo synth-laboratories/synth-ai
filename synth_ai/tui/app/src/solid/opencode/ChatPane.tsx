@@ -372,10 +372,12 @@ export function ChatPane(props: ChatPaneProps) {
       renderer.requestRender()
     } else if (event.type === "session.error") {
       if (event.properties.sessionID !== sessionId) return
+      const errProp = event.properties.error
+      const errMsg = typeof errProp === "string" ? errProp : (errProp as any)?.message || "OpenCode session error"
       setState((s) => ({
         ...s,
         isLoading: false,
-        error: event.properties.error || "OpenCode session error",
+        error: errMsg,
       }))
       renderer.requestRender()
     } else if (event.type === "session.idle") {

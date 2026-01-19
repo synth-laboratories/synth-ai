@@ -24,7 +24,7 @@ describe("tui_data extraction", () => {
     expect(jobs[0]).toMatchObject({
       job_id: "pl_123",
       status: "succeeded",
-      training_type: "gepa",
+      job_type: "gepa",
       job_source: "prompt-learning",
       best_reward: 0.7,
     })
@@ -32,7 +32,7 @@ describe("tui_data extraction", () => {
 
   test("coerceJob marks eval jobs and preserves source", () => {
     const job = coerceJob({ job_id: "eval_abcd", status: "completed" }, "learning")
-    expect(job.training_type).toBe("eval")
+    expect(job.job_type).toBe("eval")
     expect(job.job_source).toBe("eval")
   })
 

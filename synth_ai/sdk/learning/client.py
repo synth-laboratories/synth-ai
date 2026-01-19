@@ -9,10 +9,15 @@ from synth_ai.sdk.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,
 )
-from synth_ai.sdk.learning.sft.config import prepare_sft_job_payload
 
 
 class LearningClient:
+    """Client for learning/training jobs.
+
+    Note: SFT-specific job creation has been moved to the research repo.
+    Use this client for general learning job operations.
+    """
+
     def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
@@ -37,45 +42,32 @@ class LearningClient:
     async def create_job(
         self,
         *,
-        training_type: str,
+        job_type: str,
         model: str,
         training_file_id: str,
         hyperparameters: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         validation_file: str | None = None,
     ) -> dict[str, Any]:
-        lower_type = (training_type or "").strip().lower()
-        require_base = (
-            lower_type.startswith("sft")
-            or lower_type.startswith("fft")
-            or lower_type.startswith("qft")
-        )
+        """Create a learning job.
+
+        Note: For SFT-specific jobs with full validation, use the research repo's SFT client.
+        """
         try:
-            normalized_model = normalize_model_identifier(
-                model, allow_finetuned_prefixes=not require_base
-            )
+            normalized_model = normalize_model_identifier(model, allow_finetuned_prefixes=True)
         except UnsupportedModelError as exc:
             raise ValueError(str(exc)) from exc
 
-        if lower_type.startswith("sft") or lower_type in {"fft", "qft"}:
-            body = prepare_sft_job_payload(
-                model=model,
-                training_file=training_file_id,
-                hyperparameters=hyperparameters,
-                metadata=metadata,
-                training_type=training_type or "sft_offline",
-                validation_file=validation_file,
-                training_file_field="training_file_id",
-                require_training_file=True,
-            )
-        else:
-            body = {
-                "training_type": training_type,
-                "model": normalized_model,
-                "training_file_id": training_file_id,
-                "hyperparameters": hyperparameters or {},
-                "metadata": metadata or {},
-            }
+        body: dict[str, Any] = {
+            "job_type": job_type,
+            "model": normalized_model,
+            "training_file_id": training_file_id,
+            "hyperparameters": hyperparameters or {},
+            "metadata": metadata or {},
+        }
+        if validation_file:
+            body["validation_file"] = validation_file
+
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json("/api/learning/jobs", json=body)
 

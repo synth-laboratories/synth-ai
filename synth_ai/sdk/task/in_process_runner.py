@@ -1,4 +1,4 @@
-"""SDK helper for running prompt-learning and RL jobs against a tunneled task app.
+"""SDK helper for running prompt-learning jobs against a tunneled task app.
 
 This module keeps everything in-process:
 1) Spins up a FastAPI task app via InProcessTaskApp
@@ -6,6 +6,8 @@ This module keeps everything in-process:
 3) Applies dot-notation overrides (task_app_url, budgets, seeds, models)
 4) Submits jobs to the remote backend using SDK clients
 5) Optionally polls until completion and returns a structured result
+
+Note: RL job support has been moved to the research repo.
 
 Tunnel Modes:
 - "quick" (default): Creates Cloudflare quick tunnel - works for local development
@@ -30,11 +32,10 @@ from synth_ai.core.telemetry import log_info
 from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.api.train.rl import RLJob
 from synth_ai.sdk.api.train.utils import ensure_api_base
 from synth_ai.sdk.task.in_process import InProcessTaskApp
 
-BackendMode = Literal["prompt_learning", "rl"]
+BackendMode = Literal["prompt_learning"]
 
 
 @dataclass
@@ -259,18 +260,10 @@ async def run_in_process_job(
                 allow_experimental=allow_experimental,
                 overrides=merged_overrides,
             )
-        elif job_type == "rl":
-            job = RLJob.from_config(
-                config_path=config_path,
-                backend_url=backend_api_base,
-                api_key=resolved_api_key,
-                task_app_url=task_url,
-                task_app_api_key=resolved_task_app_key,
-                allow_experimental=allow_experimental,
-                overrides=merged_overrides,
-            )
         else:
-            raise ValueError(f"Unknown job_type: {job_type}")
+            raise ValueError(
+                f"Unknown job_type: {job_type}. Note: RL support has been moved to the research repo."
+            )
 
         # Skip job's health check if we already skipped above (DNS verified by backend or tunnel verification disabled)
         if should_skip_health_check:

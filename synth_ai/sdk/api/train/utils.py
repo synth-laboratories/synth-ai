@@ -19,8 +19,10 @@ try:
     collect_sft_jsonl_errors = cast(
         Callable[..., list[dict[str, Any]]], sft_module.collect_sft_jsonl_errors
     )
-except Exception as exc:  # pragma: no cover - critical dependency
-    raise RuntimeError("Unable to load SFT JSONL helpers") from exc
+    _SFT_AVAILABLE = True
+except Exception:  # pragma: no cover - SFT moved to research repo
+    collect_sft_jsonl_errors = None  # type: ignore[assignment]
+    _SFT_AVAILABLE = False
 
 from synth_ai.core.ssl import SSLConfig
 
@@ -164,10 +166,16 @@ def fmt_duration(seconds: float) -> str:
 
 
 def validate_sft_jsonl(path: Path, *, max_errors: int = 20) -> None:
+    """Validate SFT JSONL file. Requires SFT module (moved to research repo)."""
+    if not _SFT_AVAILABLE:
+        raise TrainError(
+            "SFT validation requires the research repo. Install synth_ai.sdk.learning.sft."
+        )
+
     if not path.exists():
         raise TrainError(f"Dataset not found: {path}")
 
-    issues = collect_sft_jsonl_errors(path, min_messages=1, max_errors=max_errors)
+    issues = collect_sft_jsonl_errors(path, min_messages=1, max_errors=max_errors)  # type: ignore[misc]
     if not issues:
         return
 
