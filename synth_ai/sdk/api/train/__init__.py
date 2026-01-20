@@ -1,4 +1,4 @@
-"""Training API for Prompt Learning (MIPRO/GEPA), GraphGen, and Context Learning.
+"""Training API for Prompt Learning (MIPRO/GEPA) and Graph Evolve.
 
 This module provides both CLI and SDK interfaces for training jobs.
 
@@ -17,16 +17,10 @@ Note: SFT and RL training APIs have been moved to the research repo.
 """
 
 # Re-export high-level SDK classes
-from .context_learning import (
-    ContextLearningJob,
-    ContextLearningJobConfig,
-)
-from .graphgen import (
-    GraphGenJob,
-)
-from .graphgen_models import (
-    GraphGenJobConfig,
-    GraphGenTaskSet,
+from .graph_evolve import (
+    GraphEvolveJob,
+    GraphEvolveJobConfig,
+    GraphEvolveTaskSet,
 )
 from .prompt_learning import (
     PromptLearningJob,
@@ -39,11 +33,8 @@ __all__ = [
     "PromptLearningJob",
     "PromptLearningJobConfig",
     "PromptLearningJobPoller",
-    # SDK - Context Learning
-    "ContextLearningJob",
-    "ContextLearningJobConfig",
-    # SDK - GraphGen
-    "GraphGenJob",
-    "GraphGenJobConfig",
-    "GraphGenTaskSet",
+    # SDK - Graph Evolve
+    "GraphEvolveJob",
+    "GraphEvolveJobConfig",
+    "GraphEvolveTaskSet",
 ]

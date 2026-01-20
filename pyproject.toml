@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.5.4.dev20260117"
+version = "0.5.4.dev20260120"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
@@ -42,7 +42,6 @@ dependencies = [
     "httpx>=0.28.1", # CLI preflights and HTTP clients (pulls httpcore)
     "modal>=1.1.4,<2.0.0",
     "docker>=7.0.0",
-    "mcp>=1.21.0",
     "ruff>=0.12.9",
     "tomli_w>=1.0.0",
     "dspy>=3.0.4",
@@ -52,12 +51,14 @@ dependencies = [
     # Dataset loading - used by many task apps (banking77, math, hotpotqa, etc.)
     "datasets>=4.0.0",
     "daytona-sdk>=0.130.0",
+    "jsonschema>=4.23.0",
 ]
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
 
 [project.optional-dependencies]
+schemas = []
 dev = [
     "build>=1.2.2.post1",
     "twine>=4.0.0",
@@ -136,16 +137,6 @@ include-package-data = true
 "synth_ai" = [
     "demos/demo_task_apps/math/config.toml",
     "demos/demo_task_apps/math/deploy_task_app.sh",
-    "_tui/dist/*",
-    "tui/app/package.json",
-    "tui/app/package.dist.json",
-    "tui/app/bunfig.toml",
-    "tui/app/tsconfig.json",
-    "tui/app/tsconfig.typecheck.json",
-    "tui/app/src/**/*.ts",
-    "tui/app/src/**/*.tsx",
-    # OpenCode: ship bundled config + packaged skills so users can install them via CLI
-    "tui/opencode_config/**/*",
     "skills/**/*",
 ]
 

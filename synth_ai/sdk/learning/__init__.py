@@ -4,31 +4,6 @@ if TYPE_CHECKING:
     from synth_ai.sdk.task import task_app_health, validate_task_app_url
 
 from .client import LearningClient
-from .context_learning_client import (
-    ContextLearningClient,
-)
-from .context_learning_client import (
-    create_job as create_context_learning_job,
-)
-from .context_learning_client import (
-    get_best_script as get_context_learning_best_script,
-)
-from .context_learning_client import (
-    get_job_status as get_context_learning_status,
-)
-from .context_learning_client import (
-    run_job as run_context_learning_job,
-)
-from .context_learning_types import (
-    AlgorithmConfig,
-    BestScriptResult,
-    ContextLearningEvent,
-    ContextLearningJobConfig,
-    ContextLearningJobStatus,
-    ContextLearningMetric,
-    ContextLearningResults,
-    EnvironmentConfig,
-)
 from .health import backend_health, balance_autumn_normalized, pricing_preflight
 from .jobs import JobHandle, JobsApiResolver
 from .pattern_discovery import (
@@ -56,20 +31,6 @@ __all__ = [
     "PatternDiscoveryClient",
     "PatternDiscoveryRequest",
     "get_eval_patterns",
-    # Context Learning
-    "ContextLearningClient",
-    "ContextLearningJobConfig",
-    "ContextLearningJobStatus",
-    "ContextLearningEvent",
-    "ContextLearningMetric",
-    "ContextLearningResults",
-    "BestScriptResult",
-    "EnvironmentConfig",
-    "AlgorithmConfig",
-    "create_context_learning_job",
-    "get_context_learning_status",
-    "get_context_learning_best_script",
-    "run_context_learning_job",
     # Utilities
     "validate_training_jsonl",
     "validate_trainer_cfg_rl",

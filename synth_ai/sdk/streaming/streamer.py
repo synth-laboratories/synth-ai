@@ -101,17 +101,6 @@ class StreamEndpoints:
             ),
         )
 
-    @classmethod
-    def context_learning(cls, job_id: str) -> StreamEndpoints:
-        """Endpoints for context learning jobs."""
-        base = f"/context-learning/jobs/{job_id}"
-        return cls(
-            status=base,
-            events=f"{base}/events",
-            metrics=f"{base}/metrics",
-            timeline=None,
-        )
-
     @property
     def events_stream_url(self) -> str | None:
         """Get the SSE streaming URL for events if available."""
@@ -140,20 +129,26 @@ class StreamEndpoints:
         )
 
     @classmethod
-    def graphgen(cls, job_id: str) -> StreamEndpoints:
-        """Endpoints for GraphGen workflow optimization jobs.
+    def graph_evolve(cls, job_id: str) -> StreamEndpoints:
+        """Endpoints for Graph Evolve workflow optimization jobs.
 
-        GraphGen jobs use /api/graphgen/jobs/{job_id} endpoints.
-        The backend handles GraphGen -> graph_evolve job ID resolution internally using job_relationships.
-        No fallbacks needed - GraphGen endpoints resolve everything.
+        Prefer /api/graph_evolve/jobs/{job_id} with legacy /api/graphgen fallbacks.
         """
-        base = f"/graphgen/jobs/{job_id}"
+        base = f"/graph_evolve/jobs/{job_id}"
         return cls(
             status=base,
             events=f"{base}/events",
             metrics=f"{base}/metrics",
             timeline=None,
+            status_fallbacks=(f"/graphgen/jobs/{job_id}",),
+            event_fallbacks=(f"/graphgen/jobs/{job_id}/events",),
+            metric_fallbacks=(f"/graphgen/jobs/{job_id}/metrics",),
         )
+
+    @classmethod
+    def graphgen(cls, job_id: str) -> StreamEndpoints:
+        """Legacy alias for Graph Evolve stream endpoints."""
+        return cls.graph_evolve(job_id)
 
     @classmethod
     def eval(cls, job_id: str) -> StreamEndpoints:

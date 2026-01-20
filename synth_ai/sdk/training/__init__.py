@@ -1,35 +1,39 @@
-"""Training SDK - prompt learning and GraphGen jobs.
+"""Training SDK - prompt learning and Graph Evolve jobs.
 
 This module provides high-level APIs for running training jobs:
 - PromptLearningJob: GEPA prompt optimization
-- GraphGenJob: Graph Opt (simplified workflows API)
+- GraphEvolveJob: Graph Opt (simplified workflows API)
 
 Note: SFT and RL training APIs have been moved to the research repo.
 
 Example:
-    from synth_ai.sdk.training import PromptLearningJob, GraphGenJob
+    from synth_ai.sdk.training import PromptLearningJob, GraphEvolveJob
 
     # Prompt optimization
     job = PromptLearningJob.from_config("config.toml")
     job.submit()
     result = job.poll_until_complete()
 
-    # GraphGen workflow optimization (no task app needed)
-    graphgen_job = GraphGenJob.from_dataset("my_tasks.json", rollout_budget=100)
-    graphgen_job.submit()
-    result = graphgen_job.stream_until_complete()
+    # Graph Evolve workflow optimization (no task app needed)
+    graph_job = GraphEvolveJob.from_dataset("my_tasks.json", rollout_budget=100)
+    graph_job.submit()
+    result = graph_job.stream_until_complete()
 """
 
 from __future__ import annotations
 
-# GraphGen (Graph Opt)
-from synth_ai.sdk.api.train.graphgen import GraphGenJob, GraphGenJobResult, GraphGenSubmitResult
+# Graph Evolve (Graph Opt)
+from synth_ai.sdk.api.train.graph_evolve import (
+    GraphEvolveGoldOutput,
+    GraphEvolveJob,
+    GraphEvolveJobConfig,
+    GraphEvolveJobResult,
+    GraphEvolveSubmitResult,
+    GraphEvolveTask,
+    GraphEvolveTaskSet,
+)
 from synth_ai.sdk.api.train.graphgen_models import (
-    GraphGenGoldOutput,
-    GraphGenJobConfig,
     GraphGenRubric,
-    GraphGenTask,
-    GraphGenTaskSet,
     GraphGenVerifierConfig,
     load_graphgen_taskset,
     parse_graphgen_taskset,
@@ -47,23 +51,14 @@ __all__ = [
     "PromptLearningJob",
     "PromptLearningJobConfig",
     "PromptLearningJobPoller",
-    # GraphGen (preferred names)
-    "GraphGenJobConfig",
-    "GraphGenTaskSet",
-    "GraphGenTask",
-    "GraphGenGoldOutput",
-    "GraphGenRubric",
-    "GraphGenVerifierConfig",
-    "load_graphgen_taskset",
-    "parse_graphgen_taskset",
-    # GraphGen (legacy aliases)
-    "GraphGenJob",
-    "GraphGenJobConfig",
-    "GraphGenJobResult",
-    "GraphGenSubmitResult",
-    "GraphGenTaskSet",
-    "GraphGenTask",
-    "GraphGenGoldOutput",
+    # Graph Evolve
+    "GraphEvolveJob",
+    "GraphEvolveJobConfig",
+    "GraphEvolveJobResult",
+    "GraphEvolveSubmitResult",
+    "GraphEvolveTaskSet",
+    "GraphEvolveTask",
+    "GraphEvolveGoldOutput",
     "GraphGenRubric",
     "GraphGenVerifierConfig",
     "load_graphgen_taskset",

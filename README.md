@@ -152,15 +152,15 @@ resp = await client.run(
 )
 ```
 
-## GraphGen: Train Custom Verifier Graphs
+## Graph Evolve: Train Custom Verifier Graphs
 
-Train custom verifier graphs using GraphGen. See the [Image Style Matching demo](demos/image_style_matching/) for a complete GraphGen example:
+Train custom verifier graphs using Graph Evolve. See the [Image Style Matching demo](demos/image_style_matching/) for a complete Graph Evolve example:
 
 ```python
-from synth_ai.sdk.api.train.graphgen import GraphGenJob
+from synth_ai.sdk.api.train.graph_evolve import GraphEvolveJob
 
 # Train a verifier graph
-verifier_job = GraphGenJob.from_dataset(
+verifier_job = GraphEvolveJob.from_dataset(
     dataset="verifier_dataset.json",
     graph_type="verifier",
     policy_models=["gpt-4.1"],
@@ -175,5 +175,5 @@ verification = verifier_job.run_verifier(
     trace=my_trace,
     context={"rubric": my_rubric},
 )
-print(f"Score: {verification.score}, Reasoning: {verification.reasoning}")
+print(f"Reward: {verification.reward}, Reasoning: {verification.reasoning}")
 ```

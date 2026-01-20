@@ -1,0 +1,2063 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Synth AI Job Events",
+    "version": "1.0.0"
+  },
+  "components": {
+    "schemas": {
+      "job_started_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "job.started"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "job_type": {
+                    "type": "string"
+                  },
+                  "algorithm": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "job_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "job.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  },
+                  "best_candidate_id": {
+                    "type": "string"
+                  },
+                  "best_score": {
+                    "type": "number"
+                  },
+                  "total_candidates": {
+                    "type": "integer"
+                  },
+                  "total_cost_usd": {
+                    "type": "number"
+                  },
+                  "duration_s": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "job_failed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "job.failed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "error_type": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "candidate_added_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "candidate.added"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "candidate_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "in_progress"
+                    ]
+                  },
+                  "version_id": {
+                    "type": "string"
+                  },
+                  "parent_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "generation": {
+                    "type": "integer"
+                  },
+                  "mutation_type": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "candidate_id",
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "candidate_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "candidate.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "candidate_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "completed",
+                      "rejected",
+                      "accepted"
+                    ]
+                  },
+                  "reward": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "candidate_id",
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "candidate_evaluated_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "candidate.evaluated"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "candidate_id": {
+                    "type": "string"
+                  },
+                  "reward": {
+                    "type": "number"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "completed",
+                      "failed"
+                    ]
+                  },
+                  "version_id": {
+                    "type": "string"
+                  },
+                  "parent_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "generation": {
+                    "type": "integer"
+                  },
+                  "mutation_type": {
+                    "type": "string"
+                  },
+                  "is_pareto": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "candidate_id",
+                  "reward",
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "gepa_generation_started_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "gepa:generation.started"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "generation": {
+                    "type": "integer"
+                  },
+                  "candidates_proposed": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "generation"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "gepa_generation_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "gepa:generation.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "generation": {
+                    "type": "integer"
+                  },
+                  "candidates_proposed": {
+                    "type": "integer"
+                  },
+                  "candidates_accepted": {
+                    "type": "integer"
+                  },
+                  "best_score": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "generation"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "gepa_frontier_updated_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "gepa:frontier.updated"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "frontier_size": {
+                    "type": "integer"
+                  },
+                  "best_score": {
+                    "type": "number"
+                  },
+                  "baseline_score": {
+                    "type": "number"
+                  },
+                  "added": {
+                    "type": "array"
+                  },
+                  "removed": {
+                    "type": "array"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "mipro_trial_started_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "mipro:trial.started"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "trial_num": {
+                    "type": "integer"
+                  },
+                  "iteration": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "trial_num",
+                  "iteration"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "mipro_trial_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "mipro:trial.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "trial_num": {
+                    "type": "integer"
+                  },
+                  "iteration": {
+                    "type": "integer"
+                  },
+                  "candidate_id": {
+                    "type": "string"
+                  },
+                  "reward": {
+                    "type": "number"
+                  },
+                  "rank": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "trial_num",
+                  "iteration"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "mipro_iteration_started_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "mipro:iteration.started"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "iteration": {
+                    "type": "integer"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "iteration"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "mipro_iteration_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "mipro:iteration.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "iteration": {
+                    "type": "integer"
+                  },
+                  "best_score": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "iteration"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "gepa_candidate_evaluated_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "candidate.evaluated"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "candidate_id": {
+                    "type": "string"
+                  },
+                  "reward": {
+                    "type": "number"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "completed",
+                      "failed"
+                    ]
+                  },
+                  "version_id": {
+                    "type": "string"
+                  },
+                  "parent_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "generation": {
+                    "type": "integer"
+                  },
+                  "mutation_type": {
+                    "type": "string"
+                  },
+                  "is_pareto": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": true,
+                "required": [
+                  "candidate_id",
+                  "reward",
+                  "status"
+                ]
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "graph_completion_started_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "graph:completion.started"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "graph_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "graph_completion_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "graph:completion.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "graph_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "best_score": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "graph_completion_rollout_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "graph:completion.rollout.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "rollout_id": {
+                    "type": "string"
+                  },
+                  "reward": {
+                    "type": "number"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "graph_completion_rlm_v1_rollout_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "graph:completion.rollout.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "rollout_id": {
+                    "type": "string"
+                  },
+                  "reward": {
+                    "type": "number"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "graph_completion_rlm_v2_rollout_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "graph:completion.rollout.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "rollout_id": {
+                    "type": "string"
+                  },
+                  "reward": {
+                    "type": "number"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "eval_policy_started_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "eval:policy.started"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "policy_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "eval_policy_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "eval:policy.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "policy_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "eval_policy_failed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "eval:policy.failed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "policy_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "eval_verifier_started_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "eval:verifier.started"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "verifier_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "eval_verifier_completed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "eval:verifier.completed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "verifier_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      },
+      "eval_verifier_failed_event": {
+        "allOf": [
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "required": [
+              "job_id",
+              "seq",
+              "ts",
+              "type",
+              "level",
+              "message"
+            ],
+            "properties": {
+              "job_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "ts": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "type": {
+                "type": "string"
+              },
+              "level": {
+                "type": "string",
+                "enum": [
+                  "info",
+                  "warn",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "data": {
+                "type": "object"
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "eval:verifier.failed"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "verifier_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

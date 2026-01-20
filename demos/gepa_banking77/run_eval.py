@@ -15,14 +15,15 @@ import httpx
 from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
+from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port, TunneledLocalAPI, TunnelBackend
 
 # Parse args early
 parser = argparse.ArgumentParser(description="Run Banking77 eval job")
@@ -44,7 +45,7 @@ if LOCAL_MODE:
     print("LOCAL MODE - using localhost:8000 backend")
     print("=" * 60)
 else:
-    SYNTH_API_BASE = PROD_BASE_URL
+    SYNTH_API_BASE = BACKEND_URL_BASE
     print(f"PROD MODE - using {SYNTH_API_BASE}")
 
 os.environ["SYNTH_API_BASE"] = SYNTH_API_BASE
@@ -152,38 +153,32 @@ async def classify_banking77_query(
 
     if inference_url:
         print(f"\n{'=' * 60}")
-        print("[DEBUG] classify_banking77_query calling inference_url:")
-        print(f"  URL: {inference_url}")
+        print("[DEBUG] classify_banking77_query using OpenAI SDK with base_url:")
+        print(f"  base_url: {inference_url}")
         print(f"  Model: {model}")
         print(f"{'=' * 60}\n")
 
-        headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["X-API-Key"] = api_key
-        payload = {
-            "model": model,
-            "messages": messages,
-            "tools": [TOOL_SCHEMA],
-            "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(inference_url, json=payload, headers=headers)
-
-        print(f"[DEBUG] Response status: {response.status_code}")
-
-        if response.status_code != 200:
-            try:
-                error_json = response.json()
-                error_msg = str(error_json.get("error", {}).get("message", error_json))
-            except Exception:
-                error_msg = response.text[:500]
-            print(f"[DEBUG] Error response: {error_msg}")
-            raise RuntimeError(f"Proxy error ({response.status_code}): {error_msg}")
-
-        data = response.json()
-        tool_call = (data.get("choices") or [])[0].get("message", {}).get("tool_calls", [])[0]
-        args_raw = tool_call.get("function", {}).get("arguments")
+        # Use OpenAI SDK with custom base_url - SDK will append /chat/completions
+        # Pass Synth API key via X-API-Key header (interceptor auth), not Authorization
+        # (Authorization: Bearer with Synth key would be rejected by OpenAI passthrough)
+        # CRITICAL: Override User-Agent to bypass Cloudflare WAF blocking OpenAI SDK requests
+        default_headers = {
+            "X-API-Key": api_key,
+            "User-Agent": "synth-ai/1.0",  # Cloudflare blocks "OpenAI/Python" User-Agent
+        } if api_key else {"User-Agent": "synth-ai/1.0"}
+        client = AsyncOpenAI(
+            base_url=inference_url,
+            api_key="synth-interceptor",  # Dummy - interceptor uses its own key
+            default_headers=default_headers,
+        )
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=[TOOL_SCHEMA],
+            tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
+        )
+        tool_call = response.choices[0].message.tool_calls[0]
+        args_raw = tool_call.function.arguments
     else:
         print("[DEBUG] Using OpenAI SDK directly (no inference_url)")
         client = AsyncOpenAI(api_key=api_key) if api_key else AsyncOpenAI()
@@ -332,7 +327,19 @@ async def main():
     wait_for_health_check_sync("localhost", port, ENVIRONMENT_API_KEY, timeout=30.0)
     print(f"Task app ready on port {port}")
 
-    task_app_url = f"http://{LOCAL_HOST}:{port}"
+    # Provision tunnel if not in local mode
+    tunnel = None
+    if LOCAL_MODE:
+        task_app_url = f"http://{LOCAL_HOST}:{port}"
+    else:
+        print("\nProvisioning Cloudflare tunnel...")
+        tunnel = await TunneledLocalAPI.create(
+            local_port=port,
+            backend=TunnelBackend.CloudflareManagedTunnel,
+            backend_url=SYNTH_API_BASE,
+            progress=True,
+        )
+        task_app_url = tunnel.url
     print(f"Task app URL: {task_app_url}")
 
     # Create eval job
@@ -367,7 +374,7 @@ async def main():
         print("EVAL RESULT")
         print("=" * 60)
         print(f"Status: {result.status}")
-        print(f"Mean score: {result.mean_score}")
+        print(f"Mean reward: {result.mean_reward}")
         print(f"Error: {result.error}")
         if result.seed_results:
             print(f"Seed results: {len(result.seed_results)}")
@@ -378,6 +385,11 @@ async def main():
         import traceback
 
         traceback.print_exc()
+    finally:
+        # Cleanup tunnel
+        if tunnel:
+            print("\nClosing tunnel...")
+            tunnel.close()
 
     print("\nDone!")
 

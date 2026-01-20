@@ -1,4 +1,5 @@
 import contextlib
+import os
 import time
 import webbrowser
 from dataclasses import dataclass
@@ -8,8 +9,8 @@ from requests import RequestException
 
 from synth_ai.core.urls import FRONTEND_URL_BASE
 
-INIT_URL = FRONTEND_URL_BASE + "/api/sdk/handshake/init"
-TOKEN_URL = FRONTEND_URL_BASE + "/api/sdk/handshake/token"
+INIT_URL = FRONTEND_URL_BASE + "/api/auth/device/init"
+TOKEN_URL = FRONTEND_URL_BASE + "/api/auth/device/token"
 POLL_INTERVAL = 3
 
 
@@ -89,13 +90,23 @@ def fetch_credentials_from_web_browser() -> dict:
         raise TimeoutError("Handshake timed out before credentials were returned.")
 
     print(f"Connected to {FRONTEND_URL_BASE}")
-    credentials = data.get("keys")
-    if not isinstance(credentials, dict):
-        credentials = {}
+    synth_key = str(data.get("synth_api_key") or "").strip()
+    legacy_keys = data.get("keys") if isinstance(data, dict) else {}
+    if not isinstance(legacy_keys, dict):
+        legacy_keys = {}
+
+    env_key = str(
+        data.get("environment_api_key")
+        or legacy_keys.get("rl_env")
+        or legacy_keys.get("environment_api_key")
+        or ""
+    ).strip()
+    if not synth_key:
+        synth_key = str(legacy_keys.get("synth") or "").strip()
 
     return {
-        "SYNTH_API_KEY": str(credentials.get("synth") or "").strip(),
-        "ENVIRONMENT_API_KEY": str(credentials.get("rl_env") or "").strip(),
+        "SYNTH_API_KEY": synth_key,
+        "ENVIRONMENT_API_KEY": env_key,
     }
 
 
@@ -106,10 +117,16 @@ def store_credentials(credentials, config_path=None):
     from synth_ai.core.env import mask_str, write_env_var_to_json
     from synth_ai.core.paths import SYNTH_USER_CONFIG_PATH
 
-    required = {"SYNTH_API_KEY", "ENVIRONMENT_API_KEY"}
+    required = {"SYNTH_API_KEY"}
     missing = [k for k in required if not credentials.get(k)]
     if missing:
         raise ValueError(f"Missing credential values: {', '.join(missing)}")
+
+    if not credentials.get("ENVIRONMENT_API_KEY"):
+        print(
+            "ENVIRONMENT_API_KEY not provided by device auth. "
+            "Set it manually if you plan to deploy or run task apps."
+        )
 
     resolved_path = config_path or str(SYNTH_USER_CONFIG_PATH)
     for k, v in credentials.items():
@@ -127,6 +144,7 @@ def run_setup(source="web", skip_confirm=False, confirm_callback=None):
         confirm_callback: Optional callable for confirmation, returns bool
     """
     from synth_ai.core.env import resolve_env_var
+    from synth_ai.core.user_config import load_user_env
 
     credentials = {}
     if source == "local":
@@ -142,5 +160,10 @@ def run_setup(source="web", skip_confirm=False, confirm_callback=None):
         ):
             return
         credentials = fetch_credentials_from_web_browser()
+        load_user_env(override=False)
+        if not credentials.get("ENVIRONMENT_API_KEY"):
+            env_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+            if env_key:
+                credentials["ENVIRONMENT_API_KEY"] = env_key
 
     store_credentials(credentials)

@@ -23,6 +23,9 @@ private_tests
 .claude
 .opencode
 .uv-cache
+.cursorrules
+AGENTS.md
+**/AGENTS.md
 
 # DuckDB files
 *.duckdb
@@ -44,6 +47,9 @@ synth_ai/environments/examples/crafter_classic/agent_demos/traces/
 synth_ai/environments/examples/crafter_custom/agent_demos/traces/
 !tests/artifacts/traces/
 !tests/artifacts/traces/**
+
+# Root data folder (local artifacts)
+/data/
 
 # Test traces
 test_traces/

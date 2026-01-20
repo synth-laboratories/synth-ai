@@ -1,32 +1,33 @@
-"""First-class SDK API for GraphGen (Automated Design of Agentic Systems).
+"""First-class SDK API for Graph Evolve (Automated Design of Agentic Systems).
 
-GraphGen is a simplified "Workflows API" for prompt optimization that:
-- Uses a simple JSON dataset format (GraphGenTaskSet) instead of TOML configs
+Graph Evolve is a simplified workflows API for prompt optimization that:
+- Uses a simple JSON dataset format (GraphEvolveTaskSet) instead of TOML configs
 - Auto-generates task apps from the dataset (no user-managed task apps)
 - Has built-in judge configurations (rubric, contrastive, gold_examples)
 - Wraps GEPA internally for the actual optimization
 
 Example CLI usage:
-    uvx synth-ai train --type adas --dataset my_tasks.json --poll
+    uvx synth-ai train --type graph_evolve --dataset my_tasks.json --poll
 
 Example SDK usage:
-    from synth_ai.sdk.api.train.graphgen import GraphGenJob
-    from synth_ai.sdk.api.train.graphgen_models import GraphGenTaskSet, GraphGenTask
+    from synth_ai.sdk.api.train.graph_evolve import GraphEvolveJob
+    from synth_ai.sdk.api.train.graphgen_models import GraphEvolveTaskSet as GraphEvolveTaskSet
+    from synth_ai.sdk.api.train.graphgen_models import GraphEvolveTask as GraphEvolveTask
 
     # From a dataset file
-    job = GraphGenJob.from_dataset("my_tasks.json")
+    job = GraphEvolveJob.from_dataset("my_tasks.json")
     job.submit()
     result = job.stream_until_complete()
-    print(f"Best score: {result.get('best_score')}")
+    print(f"Best reward: {result.get('best_reward')}")
 
     # Or programmatically
-    dataset = GraphGenTaskSet(
-        metadata=GraphGenTaskSetMetadata(name="My Tasks"),
+    dataset = GraphEvolveTaskSet(
+        metadata=GraphEvolveTaskSetMetadata(name="My Tasks"),
         initial_prompt="You are a helpful assistant...",
-        tasks=[GraphGenTask(id="t1", input={"question": "What is 2+2?"})],
-        gold_outputs=[GraphGenGoldOutput(output={"answer": "4"}, task_id="t1")],
+        tasks=[GraphEvolveTask(id="t1", input={"question": "What is 2+2?"})],
+        gold_outputs=[GraphEvolveGoldOutput(output={"answer": "4"}, task_id="t1")],
     )
-    job = GraphGenJob.from_dataset(dataset, policy_models="gpt-4o-mini")
+    job = GraphEvolveJob.from_dataset(dataset, policy_models="gpt-4o-mini")
     job.submit()
 """
 
@@ -42,61 +43,73 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Sequence
 from synth_ai.core.telemetry import log_info
 
 from .graphgen_models import (
-    GraphGenJobConfig,
-    GraphGenTaskSet,
-    load_graphgen_taskset,
-    parse_graphgen_taskset,
+    GraphGenJobConfig as GraphEvolveJobConfig,
+)
+from .graphgen_models import (
+    GraphGenTask as GraphEvolveTask,
+)
+from .graphgen_models import (
+    GraphGenTaskSet as GraphEvolveTaskSet,
+)
+from .graphgen_models import (
+    GraphGenTaskSetMetadata as GraphEvolveTaskSetMetadata,
+)
+from .graphgen_models import (
+    load_graphgen_taskset as load_graph_evolve_taskset,
+)
+from .graphgen_models import (
+    parse_graphgen_taskset as parse_graph_evolve_taskset,
 )
 from .utils import ensure_api_base, http_get, http_post
 
 
 @dataclass
-class GraphGenJobResult:
-    """Result from an GraphGen job."""
+class GraphEvolveJobResult:
+    """Result from a Graph Evolve job."""
 
-    graphgen_job_id: str
+    graph_evolve_job_id: str
     status: str
     best_score: Optional[float] = None
     best_snapshot_id: Optional[str] = None
     error: Optional[str] = None
     dataset_name: Optional[str] = None
     task_count: Optional[int] = None
-    graph_evolve_job_id: Optional[str] = None
+    legacy_graphgen_job_id: Optional[str] = None
 
 
 @dataclass
-class GraphGenSubmitResult:
-    """Result from submitting an GraphGen job."""
+class GraphEvolveSubmitResult:
+    """Result from submitting a Graph Evolve job."""
 
-    graphgen_job_id: str
+    graph_evolve_job_id: str
     status: str
     dataset_name: str
     task_count: int
     rollout_budget: int
     policy_models: List[str]
     judge_mode: str
-    graph_evolve_job_id: Optional[str] = None
+    legacy_graphgen_job_id: Optional[str] = None
 
 
-class GraphGenJob:
-    """High-level SDK class for running GraphGen workflow optimization jobs.
+class GraphEvolveJob:
+    """High-level SDK class for running Graph Evolve workflow optimization jobs.
 
-    GraphGen (Automated Design of Agentic Systems) provides a simplified API for
+    Graph Evolve (Automated Design of Agentic Systems) provides a simplified API for
     graph/workflow optimization that doesn't require users to manage task apps.
 
     Key differences from PromptLearningJob:
-    - Uses JSON dataset format (GraphGenTaskSet) instead of TOML configs
-    - No task app management required - GraphGen builds it internally
+    - Uses JSON dataset format (GraphEvolveTaskSet) instead of TOML configs
+    - No task app management required - Graph Evolve builds it internally
     - Built-in judge modes (rubric, contrastive, gold_examples)
     - Graph-first: trains multi-node workflows by default (Graph-GEPA)
     - Public graph downloads are redacted `.txt` exports only
     - Simpler configuration with sensible defaults
 
     Example:
-        >>> from synth_ai.sdk.api.train.adas import GraphGenJob
+        >>> from synth_ai.sdk.api.train.graph_evolve import GraphEvolveJob
         >>>
         >>> # Create job from dataset file
-        >>> job = GraphGenJob.from_dataset(
+        >>> job = GraphEvolveJob.from_dataset(
         ...     dataset="my_tasks.json",
         ...     policy_models="gpt-4o-mini",
         ...     rollout_budget=100,
@@ -105,7 +118,7 @@ class GraphGenJob:
         >>> # Submit and stream
         >>> job.submit()
         >>> result = job.stream_until_complete(timeout=3600.0)
-        >>> print(f"Best score: {result.get('best_score')}")
+        >>> print(f"Best reward: {result.get('best_reward')}")
         >>>
         >>> # Download public graph export
         >>> export_txt = job.download_graph_txt()
@@ -118,17 +131,17 @@ class GraphGenJob:
     def __init__(
         self,
         *,
-        dataset: GraphGenTaskSet,
-        config: GraphGenJobConfig,
+        dataset: GraphEvolveTaskSet,
+        config: GraphEvolveJobConfig,
         backend_url: str,
         api_key: str,
         auto_start: bool = True,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize an GraphGen job.
+        """Initialize an GraphEvolve job.
 
         Args:
-            dataset: The GraphGenTaskSet containing tasks and evaluation config
+            dataset: The GraphEvolveTaskSet containing tasks and evaluation config
             config: Job configuration (policy model, budget, etc.)
             backend_url: Backend API URL
             api_key: Synth API key
@@ -142,14 +155,14 @@ class GraphGenJob:
         self.auto_start = auto_start
         self.metadata = metadata or {}
 
-        self._graphgen_job_id: Optional[str] = None
         self._graph_evolve_job_id: Optional[str] = None
-        self._submit_result: Optional[GraphGenSubmitResult] = None
+        self._legacy_graphgen_job_id: Optional[str] = None
+        self._submit_result: Optional[GraphEvolveSubmitResult] = None
 
     @classmethod
     def from_dataset(
         cls,
-        dataset: str | Path | Dict[str, Any] | GraphGenTaskSet,
+        dataset: str | Path | Dict[str, Any] | GraphEvolveTaskSet,
         *,
         policy_models: str | List[str],
         rollout_budget: int = 100,
@@ -166,11 +179,11 @@ class GraphGenJob:
         api_key: Optional[str] = None,
         auto_start: bool = True,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> GraphGenJob:
-        """Create an GraphGen job from a dataset.
+    ) -> GraphEvolveJob:
+        """Create an GraphEvolve job from a dataset.
 
         Args:
-            dataset: Dataset as file path, dict, or GraphGenTaskSet object
+            dataset: Dataset as file path, dict, or GraphEvolveTaskSet object
             policy_models: Model(s) to use for policy inference. Can be a single string
                 (will be converted to a one-element list) or a list of strings.
             rollout_budget: Total number of rollouts for optimization
@@ -193,37 +206,37 @@ class GraphGenJob:
             metadata: Additional metadata for the job
 
         Returns:
-            GraphGenJob instance
+            GraphEvolveJob instance
 
         Example:
             >>> # From file with single model
-            >>> job = GraphGenJob.from_dataset("tasks.json", policy_models="gpt-4o-mini")
+            >>> job = GraphEvolveJob.from_dataset("tasks.json", policy_models="gpt-4o-mini")
             >>>
             >>> # From file with multiple models
-            >>> job = GraphGenJob.from_dataset("tasks.json", policy_models=["gpt-4o-mini", "gpt-4.1-mini"])
+            >>> job = GraphEvolveJob.from_dataset("tasks.json", policy_models=["gpt-4o-mini", "gpt-4.1-mini"])
             >>>
             >>> # From dict
-            >>> job = GraphGenJob.from_dataset({
+            >>> job = GraphEvolveJob.from_dataset({
             ...     "metadata": {"name": "My Tasks"},
             ...     "initial_prompt": "You are helpful.",
             ...     "tasks": [{"id": "t1", "input": {"q": "Hi"}}],
             ... })
             >>>
-            >>> # From GraphGenTaskSet object
-            >>> job = GraphGenJob.from_dataset(my_taskset, policy_models=["gpt-4o"])
+            >>> # From GraphEvolveTaskSet object
+            >>> job = GraphEvolveJob.from_dataset(my_taskset, policy_models=["gpt-4o"])
         """
         from synth_ai.core.urls import BACKEND_URL_API
 
         # Parse dataset
         if isinstance(dataset, (str, Path)):
-            parsed_dataset = load_graphgen_taskset(dataset)
+            parsed_dataset = load_graph_evolve_taskset(dataset)
         elif isinstance(dataset, dict):
-            parsed_dataset = parse_graphgen_taskset(dataset)
-        elif isinstance(dataset, GraphGenTaskSet):
+            parsed_dataset = parse_graph_evolve_taskset(dataset)
+        elif isinstance(dataset, GraphEvolveTaskSet):
             parsed_dataset = dataset
         else:
             raise TypeError(
-                f"dataset must be a file path, dict, or GraphGenTaskSet, got {type(dataset)}"
+                f"dataset must be a file path, dict, or GraphEvolveTaskSet, got {type(dataset)}"
             )
 
         # Resolve backend URL
@@ -253,7 +266,7 @@ class GraphGenJob:
         # Convert graph_type string to GraphType enum if provided, otherwise use default
         graph_type_enum = GraphType(graph_type) if graph_type else GraphType.POLICY
 
-        config = GraphGenJobConfig(
+        config = GraphEvolveJobConfig(
             policy_models=policy_models_list,
             rollout_budget=rollout_budget,
             proposer_effort=proposer_effort,
@@ -282,16 +295,17 @@ class GraphGenJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> GraphGenJob:
-        """Resume an existing GraphGen job by ID.
+    ) -> GraphEvolveJob:
+        """Resume an existing GraphEvolve job by ID.
 
         Args:
-            job_id: GraphGen job ID ("graphgen_*") or underlying GEPA job ID ("pl_*")
+            job_id: Graph Evolve job ID ("graph_evolve_*"), legacy GraphGen job ID
+                ("graphgen_*"), or underlying GEPA job ID ("pl_*")
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
 
         Returns:
-            GraphGenJob instance for the existing job
+            GraphEvolveJob instance for the existing job
         """
         from synth_ai.core.urls import BACKEND_URL_API
 
@@ -309,16 +323,15 @@ class GraphGenJob:
 
         # Create minimal instance - dataset will be fetched from backend if needed
         # For now, create a placeholder dataset
-        from .graphgen_models import GraphGenTask, GraphGenTaskSetMetadata
 
-        placeholder_dataset = GraphGenTaskSet(
-            metadata=GraphGenTaskSetMetadata(name="(resumed job)"),
-            tasks=[GraphGenTask(id="placeholder", input={})],
+        placeholder_dataset = GraphEvolveTaskSet(
+            metadata=GraphEvolveTaskSetMetadata(name="(resumed job)"),
+            tasks=[GraphEvolveTask(id="placeholder", input={})],
         )
 
         job = cls(
             dataset=placeholder_dataset,
-            config=GraphGenJobConfig(
+            config=GraphEvolveJobConfig(
                 policy_models=["(resumed)"]
             ),  # Placeholder, will be fetched from backend
             backend_url=backend_url,
@@ -326,14 +339,15 @@ class GraphGenJob:
             auto_start=False,
         )
 
-        # Accept GraphGen/GraphGen or graph_evolve/GEPA job IDs - backend handles resolution internally
-        valid_prefixes = ("graphgen_", "graphgen_", "graph_evolve_", "graph_evolve_", "pl_")
+        # Accept Graph Evolve, legacy GraphGen, or GEPA job IDs.
+        valid_prefixes = ("graph_evolve_", "graphgen_", "pl_")
         if not any(job_id.startswith(p) for p in valid_prefixes):
             raise ValueError(
                 f"Unsupported job ID format: {job_id!r}. Expected one of: {valid_prefixes}"
             )
-        job._graphgen_job_id = job_id
-        if job_id.startswith("pl_"):
+        if job_id.startswith("graphgen_"):
+            job._legacy_graphgen_job_id = job_id
+        else:
             job._graph_evolve_job_id = job_id
         return job
 
@@ -343,22 +357,36 @@ class GraphGenJob:
         graph_evolve_job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> GraphGenJob:
-        """Alias for resuming an GraphGen job from a GEPA job ID."""
+    ) -> GraphEvolveJob:
+        """Alias for resuming a Graph Evolve job from a GEPA job ID."""
         return cls.from_job_id(graph_evolve_job_id, backend_url=backend_url, api_key=api_key)
 
     @property
     def job_id(self) -> Optional[str]:
-        """Get the GraphGen job ID (None if not yet submitted)."""
-        return self._graphgen_job_id
-
-    @property
-    def graph_evolve_job_id(self) -> Optional[str]:
-        """Get the underlying GEPA job ID if known."""
+        """Get the Graph Evolve job ID (None if not yet submitted)."""
         if self._graph_evolve_job_id:
             return self._graph_evolve_job_id
         if self._submit_result and self._submit_result.graph_evolve_job_id:
             return self._submit_result.graph_evolve_job_id
+        return self._legacy_graphgen_job_id
+
+    @property
+    def graph_evolve_job_id(self) -> Optional[str]:
+        """Get the underlying GEPA job ID if known."""
+        if self._graph_evolve_job_id and self._graph_evolve_job_id.startswith("pl_"):
+            return self._graph_evolve_job_id
+        if self._submit_result and self._submit_result.graph_evolve_job_id:
+            if self._submit_result.graph_evolve_job_id.startswith("pl_"):
+                return self._submit_result.graph_evolve_job_id
+        return None
+
+    @property
+    def legacy_graphgen_job_id(self) -> Optional[str]:
+        """Get the legacy GraphGen job ID if known."""
+        if self._legacy_graphgen_job_id:
+            return self._legacy_graphgen_job_id
+        if self._submit_result and self._submit_result.legacy_graphgen_job_id:
+            return self._submit_result.legacy_graphgen_job_id
         return None
 
     def _build_payload(self) -> Dict[str, Any]:
@@ -379,7 +407,7 @@ class GraphGenJob:
         feedback_sample_size = metadata.pop("feedback_sample_size", None)
 
         # Build dataset dict and ensure it has an initial_prompt to satisfy legacy backend validation
-        # GraphGen is graph-first and doesn't really use this, so we use a placeholder or problem_spec
+        # GraphEvolve is graph-first and doesn't really use this, so we use a placeholder or problem_spec
         dataset_dict = self.dataset.model_dump(mode="json", exclude_none=False)
         if "initial_prompt" not in dataset_dict:
             dataset_dict["initial_prompt"] = (
@@ -432,11 +460,11 @@ class GraphGenJob:
 
         return payload
 
-    def submit(self) -> GraphGenSubmitResult:
+    def submit(self) -> GraphEvolveSubmitResult:
         """Submit the job to the backend.
 
         Returns:
-            GraphGenSubmitResult with job IDs and initial status
+            GraphEvolveSubmitResult with job IDs and initial status
 
         Raises:
             RuntimeError: If job submission fails
@@ -444,18 +472,19 @@ class GraphGenJob:
         from .graphgen_validators import validate_graphgen_job_config
 
         ctx: Dict[str, Any] = {"dataset_name": self.dataset.metadata.name}
-        log_info("GraphGenJob.submit invoked", ctx=ctx)
+        log_info("GraphEvolveJob.submit invoked", ctx=ctx)
 
-        if self._graphgen_job_id:
-            raise RuntimeError(f"Job already submitted: {self._graphgen_job_id}")
+        if self._graph_evolve_job_id or self._legacy_graphgen_job_id:
+            raise RuntimeError(f"Job already submitted: {self.job_id}")
 
         # Validate config + dataset before expensive API call.
         validate_graphgen_job_config(self.config, self.dataset)
 
         payload = self._build_payload()
 
-        # Submit job - use /graphgen/jobs endpoint (legacy: /adas/jobs)
-        create_url = f"{self.backend_url}/graphgen/jobs"
+        # Submit job - prefer /graph_evolve/jobs with fallback to legacy /graphgen/jobs
+        create_url = f"{self.backend_url}/graph_evolve/jobs"
+        legacy_url = f"{self.backend_url}/graphgen/jobs"
 
         # Debug: print payload for troubleshooting
 
@@ -466,7 +495,7 @@ class GraphGenJob:
             else "..."
         }
         log_info(
-            f"Submitting GraphGen job payload (excluding dataset): {json.dumps(debug_payload, indent=2)}"
+            f"Submitting GraphEvolve job payload (excluding dataset): {json.dumps(debug_payload, indent=2)}"
         )
         headers = {
             "X-API-Key": self.api_key,
@@ -476,17 +505,20 @@ class GraphGenJob:
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.debug(f"Submitting GraphGen job to: {create_url}")
+        logger.debug(f"Submitting Graph Evolve job to: {create_url}")
 
         resp = http_post(create_url, headers=headers, json_body=payload, timeout=180.0)
+        if resp.status_code == 404:
+            logger.debug("Graph Evolve endpoint not found, retrying legacy GraphGen endpoint.")
+            resp = http_post(legacy_url, headers=headers, json_body=payload, timeout=180.0)
 
         if resp.status_code not in (200, 201):
             error_msg = f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"
             if resp.status_code == 404:
                 error_msg += (
                     f"\n\nPossible causes:"
-                    f"\n1. Backend route /api/graphgen/jobs not registered"
-                    f"\n2. GraphGen feature may not be enabled on this backend"
+                    f"\n1. Backend route /api/graph_evolve/jobs not registered"
+                    f"\n2. Graph Evolve feature may not be enabled on this backend"
                     f"\n3. Verify backend is running at: {self.backend_url}"
                 )
             raise RuntimeError(error_msg)
@@ -496,12 +528,11 @@ class GraphGenJob:
         except Exception as e:
             raise RuntimeError(f"Failed to parse response: {e}") from e
 
-        self._graphgen_job_id = js.get("graphgen_job_id")
-
-        if not self._graphgen_job_id:
-            raise RuntimeError("Response missing graphgen_job_id")
-
         self._graph_evolve_job_id = js.get("graph_evolve_job_id")
+        self._legacy_graphgen_job_id = js.get("graphgen_job_id")
+
+        if not self._graph_evolve_job_id and not self._legacy_graphgen_job_id:
+            raise RuntimeError("Response missing graph_evolve_job_id")
 
         # Get judge_mode from response or fallback to dataset verifier_config
         judge_mode = js.get("judge_mode")
@@ -520,19 +551,19 @@ class GraphGenJob:
             else:
                 policy_models_response = self.config.policy_models
 
-        self._submit_result = GraphGenSubmitResult(
-            graphgen_job_id=self._graphgen_job_id,
+        self._submit_result = GraphEvolveSubmitResult(
+            graph_evolve_job_id=self.job_id or "",
             status=js.get("status", "queued"),
             dataset_name=js.get("dataset_name", self.dataset.metadata.name),
             task_count=js.get("task_count", len(self.dataset.tasks)),
             rollout_budget=js.get("rollout_budget", self.config.rollout_budget),
             policy_models=policy_models_response,
             judge_mode=judge_mode,
-            graph_evolve_job_id=self._graph_evolve_job_id,
+            legacy_graphgen_job_id=self._legacy_graphgen_job_id,
         )
 
-        ctx["graphgen_job_id"] = self._graphgen_job_id
-        log_info("GraphGenJob.submit completed", ctx=ctx)
+        ctx["graph_evolve_job_id"] = self.job_id
+        log_info("GraphEvolveJob.submit completed", ctx=ctx)
 
         return self._submit_result
 
@@ -548,12 +579,15 @@ class GraphGenJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}"
+        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}"
         headers = {
             "X-API-Key": self.api_key,
         }
 
         resp = http_get(url, headers=headers, timeout=30.0)
+        if resp.status_code == 404:
+            legacy_url = f"{self.backend_url}/graphgen/jobs/{self.job_id}"
+            resp = http_get(legacy_url, headers=headers, timeout=30.0)
 
         if resp.status_code != 200:
             raise RuntimeError(f"Failed to get job status: {resp.status_code} - {resp.text[:500]}")
@@ -565,20 +599,23 @@ class GraphGenJob:
         return data
 
     def start(self) -> Dict[str, Any]:
-        """Start a queued GraphGen job.
+        """Start a queued GraphEvolve job.
 
         This is only needed if the job was created with auto_start=False or ended up queued.
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/start"
+        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/start"
         headers = {
             "X-API-Key": self.api_key,
             "Content-Type": "application/json",
         }
 
         resp = http_post(url, headers=headers, json_body=None, timeout=60.0)
+        if resp.status_code == 404:
+            legacy_url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/start"
+            resp = http_post(legacy_url, headers=headers, json_body=None, timeout=60.0)
         if resp.status_code != 200:
             raise RuntimeError(f"Failed to start job: {resp.status_code} - {resp.text[:500]}")
         data = resp.json()
@@ -587,18 +624,22 @@ class GraphGenJob:
         return data
 
     def get_events(self, *, since_seq: int = 0, limit: int = 1000) -> Dict[str, Any]:
-        """Fetch events for this GraphGen job.
+        """Fetch events for this GraphEvolve job.
 
         Returns backend envelope: {"events": [...], "has_more": bool, "next_seq": int}.
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        base = f"{self.backend_url}/graphgen/jobs/{self.job_id}/events"
+        base = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/events"
         url = f"{base}?since_seq={since_seq}&limit={limit}"
         headers = {"X-API-Key": self.api_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
+        if resp.status_code == 404:
+            legacy_base = f"{self.backend_url}/graphgen/jobs/{self.job_id}/events"
+            legacy_url = f"{legacy_base}?since_seq={since_seq}&limit={limit}"
+            resp = http_get(legacy_url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
             raise RuntimeError(f"Failed to get events: {resp.status_code} - {resp.text[:500]}")
         return resp.json()
@@ -611,9 +652,9 @@ class GraphGenJob:
         limit: int = 500,
         run_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Fetch metrics for this GraphGen job.
+        """Fetch metrics for this Graph Evolve job.
 
-        Mirrors GET /api/graphgen/jobs/{job_id}/metrics.
+        Mirrors GET /api/graph_evolve/jobs/{job_id}/metrics.
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -629,10 +670,13 @@ class GraphGenJob:
             params["run_id"] = run_id
 
         qs = urlencode(params)
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/metrics?{qs}"
+        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/metrics?{qs}"
         headers = {"X-API-Key": self.api_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
+        if resp.status_code == 404:
+            legacy_url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/metrics?{qs}"
+            resp = http_get(legacy_url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
             raise RuntimeError(f"Failed to get metrics: {resp.status_code} - {resp.text[:500]}")
         return resp.json()
@@ -664,7 +708,7 @@ class GraphGenJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
         from synth_ai.sdk.streaming import (
-            GraphGenHandler,
+            GraphEvolveHandler,
             JobStreamer,
             StreamConfig,
             StreamEndpoints,
@@ -680,15 +724,15 @@ class GraphGenJob:
 
         # Use provided handlers or default CLI handler
         if handlers is None:
-            handlers = [GraphGenHandler()]
+            handlers = [GraphEvolveHandler()]
 
-        # Create streamer with GraphGen endpoints
-        # Backend handles GraphGen → GEPA resolution internally via job_relationships table
+        # Create streamer with GraphEvolve endpoints
+        # Backend handles GraphEvolve → GEPA resolution internally via job_relationships table
         streamer = JobStreamer(
             base_url=self.backend_url,
             api_key=self.api_key,
-            job_id=self.job_id,  # Only GraphGen job ID - backend resolves to GEPA internally
-            endpoints=StreamEndpoints.graphgen(self.job_id),
+            job_id=self.job_id,  # Only GraphEvolve job ID - backend resolves to GEPA internally
+            endpoints=StreamEndpoints.graph_evolve(self.job_id),
             config=config,
             handlers=list(handlers),
             interval_seconds=interval,
@@ -715,12 +759,15 @@ class GraphGenJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/download"
+        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/download"
         headers = {
             "X-API-Key": self.api_key,
         }
 
         resp = http_get(url, headers=headers, timeout=30.0)
+        if resp.status_code == 404:
+            legacy_url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/download"
+            resp = http_get(legacy_url, headers=headers, timeout=30.0)
 
         if resp.status_code != 200:
             raise RuntimeError(f"Failed to download prompt: {resp.status_code} - {resp.text[:500]}")
@@ -731,18 +778,21 @@ class GraphGenJob:
     def download_graph_txt(self) -> str:
         """Download a PUBLIC (redacted) graph export for a completed job.
 
-        Graph-first GraphGen jobs produce multi-node graphs. The internal graph
+        Graph-first GraphEvolve jobs produce multi-node graphs. The internal graph
         YAML/spec is proprietary and never exposed. This helper downloads the
         `.txt` export from:
-            GET /api/graphgen/jobs/{job_id}/graph.txt
+            GET /api/graph_evolve/jobs/{job_id}/graph.txt
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/graph.txt"
+        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/graph.txt"
         headers = {"X-API-Key": self.api_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
+        if resp.status_code == 404:
+            legacy_url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/graph.txt"
+            resp = http_get(legacy_url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
             raise RuntimeError(
                 f"Failed to download graph export: {resp.status_code} - {resp.text[:500]}"
@@ -876,9 +926,110 @@ class GraphGenJob:
 
         return resp.json()
 
+    def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Cancel a running GraphEvolve job.
+
+        Sends a cancellation request to the backend. The job will stop
+        at the next checkpoint and emit a cancelled status event.
+
+        Args:
+            reason: Optional reason for cancellation (recorded in job metadata)
+
+        Returns:
+            Dict with cancellation status:
+            - job_id: The job ID
+            - status: "succeeded", "partial", or "failed"
+            - message: Human-readable status message
+            - attempt_id: ID of the cancel attempt (for debugging)
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+            HTTPStatusError: If the cancellation request fails
+
+        Example:
+            >>> job.submit()
+            >>> # Later...
+            >>> result = job.cancel(reason="No longer needed")
+            >>> print(result["message"])
+            "Temporal workflow cancelled successfully."
+        """
+        if not self.job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        # Use the unified jobs cancel endpoint
+        url = f"{self.backend_url}/jobs/{self.job_id}/cancel"
+        headers = {
+            "X-API-Key": self.api_key,
+            "Content-Type": "application/json",
+        }
+
+        payload: Dict[str, Any] = {}
+        if reason:
+            payload["reason"] = reason
+
+        resp = http_post(url, headers=headers, json_body=payload, timeout=30.0)
+        resp.raise_for_status()
+        return resp.json()
+
+    def query_workflow_state(self) -> Dict[str, Any]:
+        """Query the Temporal workflow state for instant polling.
+
+        This queries the workflow directly using its @workflow.query handler,
+        providing instant state without database lookups. Useful for real-time
+        progress monitoring.
+
+        Returns:
+            Dict with workflow state:
+            - job_id: The job ID
+            - workflow_state: State from the query handler (or None if unavailable)
+                - job_id: Job identifier
+                - run_id: Current run ID
+                - status: Current status (pending, running, succeeded, failed, cancelled)
+                - progress: Human-readable progress string
+                - phase: Current graph optimization phase
+                - error: Error message if failed
+            - query_name: Name of the query that was executed
+            - error: Error message if query failed (workflow may have completed)
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+
+        Example:
+            >>> state = job.query_workflow_state()
+            >>> if state["workflow_state"]:
+            ...     print(f"Status: {state['workflow_state']['status']}")
+            ...     print(f"Progress: {state['workflow_state']['progress']}")
+            >>> else:
+            ...     print(f"Query failed: {state.get('error')}")
+        """
+        if not self.job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        # Use unified /jobs endpoint for workflow state query
+        url = f"{self.backend_url}/jobs/{self.job_id}/workflow-state"
+        headers = {
+            "X-API-Key": self.api_key,
+            "Content-Type": "application/json",
+        }
+
+        resp = http_get(url, headers=headers, timeout=10.0)
+        if resp.status_code != 200:
+            return {
+                "job_id": self.job_id,
+                "workflow_state": None,
+                "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
+            }
+        return resp.json()
+
+
+# Legacy aliases (GraphGen naming)
+GraphGenJob = GraphEvolveJob
+GraphGenJobResult = GraphEvolveJobResult
+GraphGenSubmitResult = GraphEvolveSubmitResult
+
 
 __all__ = [
-    "GraphGenJob",
-    "GraphGenJobResult",
-    "GraphGenSubmitResult",
+    "GraphEvolveJob",
+    "GraphEvolveJobResult",
+    "GraphEvolveSubmitResult",
 ]

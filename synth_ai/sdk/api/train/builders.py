@@ -134,7 +134,8 @@ def build_prompt_learning_payload(
     assert final_task_url is not None  # required=True guarantees non-None
 
     # Get task_app_api_key from config or environment
-    config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
+    # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
+    config_api_key = (getattr(pl_cfg, "task_app_api_key", None) or "").strip() or None
     cli_api_key = overrides.get("task_app_api_key")
     env_api_key = ensure_localapi_auth()
     task_app_api_key = ConfigResolver.resolve(
@@ -160,11 +161,10 @@ def build_prompt_learning_payload(
             f"pl_cfg.mipro.online_pool is None! pl_cfg.mipro keys: {dir(pl_cfg.mipro) if pl_cfg.mipro else 'N/A'}"
         )
 
-    # Ensure task_app_url and task_app_api_key are set
+    # Ensure task_app_url is set (task_app_api_key is resolved by backend from ENVIRONMENT_API_KEY)
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         pl_section["task_app_url"] = final_task_url
-        pl_section["task_app_api_key"] = task_app_api_key
 
         # GEPA: Extract train_seeds from nested structure for backwards compatibility
         # Backend checks for train_seeds at top level before parsing nested structure
@@ -335,7 +335,6 @@ def build_prompt_learning_payload(
     else:
         config_dict["prompt_learning"] = {
             "task_app_url": final_task_url,
-            "task_app_api_key": task_app_api_key,
         }
 
     # Build payload matching backend API format
@@ -362,9 +361,9 @@ def build_prompt_learning_payload(
 
     # CRITICAL: Merge overrides into config_dict BEFORE sending to backend
     # This ensures early validation in backend sees merged values
-    # Use the same _deep_update logic from experiment_queue/config_utils.py
+    # Use the same deep_update logic used throughout core utilities.
     if config_overrides:
-        from synth_ai.core.experiment_queue.config_utils import _deep_update
+        from synth_ai.core.dict_utils import deep_update as _deep_update
 
         _deep_update(config_dict, config_overrides)
 
@@ -760,7 +759,8 @@ def build_prompt_learning_payload_from_mapping(
     assert final_task_url is not None
 
     # Get task_app_api_key from config or environment
-    config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
+    # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
+    config_api_key = (getattr(pl_cfg, "task_app_api_key", None) or "").strip() or None
     cli_api_key = overrides.get("task_app_api_key")
     env_api_key = ensure_localapi_auth()
     task_app_api_key = ConfigResolver.resolve(
@@ -774,11 +774,10 @@ def build_prompt_learning_payload_from_mapping(
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
 
-    # Ensure task_app_url and task_app_api_key are set
+    # Ensure task_app_url is set (task_app_api_key is resolved by backend from ENVIRONMENT_API_KEY)
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         pl_section["task_app_url"] = final_task_url
-        pl_section["task_app_api_key"] = task_app_api_key
 
         # GEPA: Extract train_seeds from nested structure
         if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:
@@ -795,7 +794,6 @@ def build_prompt_learning_payload_from_mapping(
     else:
         config_dict["prompt_learning"] = {
             "task_app_url": final_task_url,
-            "task_app_api_key": task_app_api_key,
         }
 
     # Build payload matching backend API format
@@ -808,7 +806,7 @@ def build_prompt_learning_payload_from_mapping(
 
     # Merge overrides into config_dict
     if config_overrides:
-        from synth_ai.core.experiment_queue.config_utils import _deep_update
+        from synth_ai.core.dict_utils import deep_update as _deep_update
 
         _deep_update(config_dict, config_overrides)
 

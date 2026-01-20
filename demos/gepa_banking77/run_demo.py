@@ -18,7 +18,8 @@ import httpx
 from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.core.env import mint_demo_api_key
+from synth_ai.core.urls import BACKEND_URL_BASE as PROD_BASE_URL
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
@@ -86,7 +87,8 @@ if LOCAL_MODE:
     print("RUNNING IN LOCAL MODE")
     print("=" * 60)
 else:
-    SYNTH_API_BASE = PROD_BASE_URL
+    # Use dev backend for testing
+    SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api-dev.usesynth.ai")
     TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
     LOCAL_API_PORT = 8001
     OPTIMIZED_LOCAL_API_PORT = 8002
@@ -248,30 +250,26 @@ async def classify_banking77_query(
     ]
 
     if inference_url:
-        url = normalize_inference_url(inference_url)
-        headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["X-API-Key"] = api_key
-        payload = {
-            "model": model,
-            "messages": messages,
-            "tools": [TOOL_SCHEMA],
-            "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-        if response.status_code != 200:
-            try:
-                error_json = response.json()
-                error_msg = str(error_json.get("error", {}).get("message", error_json))
-            except Exception:
-                error_msg = response.text[:500]
-            raise RuntimeError(f"Proxy error ({response.status_code}): {error_msg}")
-
-        data = response.json()
-        tool_call = (data.get("choices") or [])[0].get("message", {}).get("tool_calls", [])[0]
-        args_raw = tool_call.get("function", {}).get("arguments")
+        # Use OpenAI SDK with custom base_url - SDK will append /chat/completions
+        # Pass Synth API key via X-API-Key header (interceptor auth), not Authorization
+        # CRITICAL: Override User-Agent to bypass Cloudflare WAF blocking OpenAI SDK requests
+        default_headers = {
+            "X-API-Key": api_key,
+            "User-Agent": "synth-ai/1.0",  # Cloudflare blocks "OpenAI/Python" User-Agent
+        } if api_key else {"User-Agent": "synth-ai/1.0"}
+        client = AsyncOpenAI(
+            base_url=inference_url,
+            api_key="synth-interceptor",  # Dummy - interceptor uses its own key
+            default_headers=default_headers,
+        )
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=[TOOL_SCHEMA],
+            tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
+        )
+        tool_call = response.choices[0].message.tool_calls[0]
+        args_raw = tool_call.function.arguments
     else:
         client = AsyncOpenAI(api_key=api_key) if api_key else AsyncOpenAI()
         response = await client.chat.completions.create(
@@ -458,6 +456,7 @@ async def main():
         baseline_tunnel = await TunneledLocalAPI.create(
             local_port=baseline_port,
             backend=TUNNEL_BACKEND,
+            backend_url=SYNTH_API_BASE,
             progress=True,
         )
         baseline_local_api_url = baseline_tunnel.url
@@ -1012,6 +1011,7 @@ async def main():
             optimized_tunnel = await TunneledLocalAPI.create(
                 local_port=optimized_port,
                 backend=TUNNEL_BACKEND,
+                backend_url=SYNTH_API_BASE,
                 progress=True,
             )
             optimized_local_api_url = optimized_tunnel.url

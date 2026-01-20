@@ -128,14 +128,13 @@ def materialize_tui_opencode_config_dir(
     force: bool = True,
     include_packaged_skills: Iterable[str] | None = None,
 ) -> Path:
-    """Create a writable OPENCODE_CONFIG_DIR for the Synth TUI.
+    """Create a writable OPENCODE_CONFIG_DIR for OpenCode.
 
     Why: the package directory inside site-packages can be read-only, but OpenCode config
     often needs to be a normal filesystem directory that we can extend (e.g., include skills).
 
-    This function copies:
-    - Synth TUI's bundled OpenCode config: synth_ai/tui/opencode_config/**
-    - Selected packaged skills from synth_ai/skills/opencode/skill/** (default: all)
+    Note: The TUI is now distributed separately via Homebrew and has its own bundled
+    opencode_config. This function now only copies packaged skills from synth_ai/skills.
     """
 
     if dest_dir is None:
@@ -148,12 +147,9 @@ def materialize_tui_opencode_config_dir(
         # We overwrite on copy anyway, so this is mostly to ensure directories exist.
         pass
 
-    # 1) Copy base TUI OpenCode config
-    base_src = files(_SYNTH_PACKAGE).joinpath("tui", "opencode_config")
-    if base_src.is_dir():
-        _copy_resource_tree(src=base_src, dest=dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
 
-    # 2) Copy packaged skills into <dest>/skill/<name>/SKILL.md (additive)
+    # Copy packaged skills into <dest>/skill/<name>/SKILL.md (additive)
     skill_root = _packaged_opencode_skill_root()
     if skill_root.is_dir():
         names = list_packaged_opencode_skill_names()

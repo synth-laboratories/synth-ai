@@ -63,7 +63,7 @@ pre-commit:
         - typescript
         - typecheck
       glob:
-        - "synth_ai/tui/app/*.ts"
-        - "synth_ai/tui/app/**/*.ts"
-      root: synth_ai/tui/app
+        - "tui/app/*.ts"
+        - "tui/app/**/*.ts"
+      root: tui/app
       run: bun run typecheck

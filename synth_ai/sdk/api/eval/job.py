@@ -839,5 +839,94 @@ class EvalJob:
 
             return output_path
 
+    def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Cancel a running eval job.
+
+        Sends a cancellation request to the backend. The job will stop
+        at the next checkpoint and emit a cancelled status event.
+
+        Args:
+            reason: Optional reason for cancellation (recorded in job metadata)
+
+        Returns:
+            Dict with cancellation status:
+            - job_id: The job ID
+            - status: "succeeded", "partial", or "failed"
+            - message: Human-readable status message
+            - attempt_id: ID of the cancel attempt (for debugging)
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+            httpx.HTTPStatusError: If the cancellation request fails
+
+        Example:
+            >>> job.submit()
+            >>> # Later...
+            >>> result = job.cancel(reason="No longer needed")
+            >>> print(result["message"])
+            "Temporal workflow cancelled successfully."
+        """
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        url = f"{self._base_url()}/eval/jobs/{self._job_id}/cancel"
+        payload: Dict[str, Any] = {}
+        if reason:
+            payload["reason"] = reason
+
+        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
+            resp = client.post(url, headers=self._headers(), json=payload)
+            resp.raise_for_status()
+            return resp.json()
+
+    def query_workflow_state(self) -> Dict[str, Any]:
+        """Query the Temporal workflow state for instant polling.
+
+        This queries the workflow directly using its @workflow.query handler,
+        providing instant state without database lookups. Useful for real-time
+        progress monitoring.
+
+        Returns:
+            Dict with workflow state:
+            - job_id: The job ID
+            - workflow_state: State from the query handler (or None if unavailable)
+                - job_id: Job identifier
+                - run_id: Current run ID
+                - status: Current status (pending, running, succeeded, failed, cancelled)
+                - progress: Human-readable progress string
+                - error: Error message if failed
+            - query_name: Name of the query that was executed
+            - error: Error message if query failed (workflow may have completed)
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+
+        Example:
+            >>> state = job.query_workflow_state()
+            >>> if state["workflow_state"]:
+            ...     print(f"Status: {state['workflow_state']['status']}")
+            ...     print(f"Progress: {state['workflow_state']['progress']}")
+            >>> else:
+            ...     print(f"Query failed: {state.get('error')}")
+        """
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        # Use unified /jobs endpoint for workflow state query
+        base = (self.config.backend_url or BACKEND_URL_BASE).rstrip("/")
+        if not base.endswith("/api"):
+            base = f"{base}/api"
+        url = f"{base}/jobs/{self._job_id}/workflow-state"
+
+        with httpx.Client(timeout=httpx.Timeout(10.0)) as client:
+            resp = client.get(url, headers=self._headers())
+            if resp.status_code != 200:
+                return {
+                    "job_id": self._job_id,
+                    "workflow_state": None,
+                    "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
+                }
+            return resp.json()
+
 
 __all__ = ["EvalJob", "EvalJobConfig", "EvalResult", "EvalStatus"]

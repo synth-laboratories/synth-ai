@@ -1,0 +1,31 @@
+- PlanetScale now supports PostgreSQL. Treat PlanetScale as Postgres for schema, SQL, and migrations.
+
+## CRITICAL: Log Review Protocol
+
+**NEVER GUESS AT ISSUES. ALWAYS REVIEW LOGS FIRST.**
+
+When debugging production/deployment issues:
+
+1. **MANDATORY**: Before making ANY code changes to fix an issue, you MUST:
+   - Access and review actual deployment logs (Railway: `railway logs -n 200 --service <service>`)
+   - Identify the EXACT error message from the logs
+   - Understand the root cause from the logs, not from assumptions
+
+2. **FORBIDDEN**: You must NEVER:
+   - Make code changes based on guesses about what might be wrong
+   - Assume an issue is caused by X without log evidence
+   - Modify valid working code to "fix" a guessed problem
+   - Run tests repeatedly hoping something works without understanding why it failed
+
+3. **When running tests/demos that fail**:
+   - STOP immediately
+   - Check the relevant service logs (api-dev, worker-dev, infra-api-dev)
+   - Find the actual error in the logs
+   - Only then propose/make a fix based on the real error
+
+4. **Railway CLI access**:
+   - `railway service status --all` - list all services
+   - `railway logs -n 200 --service <name>` - get recent logs
+   - Always verify you can access logs before debugging deployment issues
+
+This rule exists because guessing at fixes has caused valid code to be broken. Log-driven debugging is mandatory.
