@@ -27,7 +27,14 @@ bun run build
 ## Install via Homebrew
 
 ```bash
-brew install --formula https://github.com/synth-laboratories/synth-ai/raw/main/Formula/synth-ai-tui.rb
+brew tap synth-laboratories/tap
+brew install synth-ai-tui
+```
+
+Or in one command:
+
+```bash
+brew install synth-laboratories/tap/synth-ai-tui
 ```
 
 Then run:
@@ -35,6 +42,8 @@ Then run:
 ```bash
 synth-ai-tui
 ```
+
+The first run will install JavaScript dependencies (~5 seconds).
 
 ## Entry point
 

@@ -39,10 +39,22 @@ Serverless Posttraining APIs for Developers
 
 ## Getting Started
 
+### SDK (Python)
+
+```bash
+pip install synth-ai
+# or
+uv add synth-ai
 ```
-uv add
-uv run synth-ai tui
+
+### TUI (Homebrew)
+
+```bash
+brew install synth-laboratories/tap/synth-ai-tui
+synth-ai-tui
 ```
+
+The TUI provides a visual interface for managing jobs, viewing events, and monitoring optimization runs.
 
 ## OpenCode Skills (Synth API)
 
@@ -62,7 +74,7 @@ uvx synth-ai skill install synth-api --dir ~/custom/opencode/skill
 Run the TUI integration tests:
 
 ```bash
-cd synth_ai/_tui
+cd tui/app
 bun test
 ```
 
