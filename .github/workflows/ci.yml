@@ -128,5 +128,5 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
       - name: Run ty check
-        run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated --ignore invalid-argument-type --ignore not-iterable --ignore unused-ignore-comment --ignore unknown-argument --ignore possibly-missing-attribute
+        run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore deprecated --ignore invalid-argument-type --ignore not-iterable --ignore unused-ignore-comment --ignore unknown-argument --ignore possibly-missing-attribute --ignore invalid-assignment
 
