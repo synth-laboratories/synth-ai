@@ -90,10 +90,20 @@ def run_prompt_learning_tui(
     # Default OpenCode working directory to launch CWD unless user explicitly overrides.
     env.setdefault("OPENCODE_WORKING_DIR", launch_cwd)
 
-    # Point OpenCode to the config directory bundled with the TUI
-    opencode_config_dir = Path(__file__).resolve().parent / "opencode_config"
-    if opencode_config_dir.exists():
-        env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
+    # Point OpenCode to a writable, materialized config directory (skills, AGENTS.md, etc.)
+    # We avoid pointing directly at site-packages to keep things robust across install methods.
+    try:
+        from synth_ai.sdk.opencode_skills import materialize_tui_opencode_config_dir
+
+        tui_opencode_config_dir = materialize_tui_opencode_config_dir(
+            include_packaged_skills=["synth-api"]
+        )
+        env.setdefault("OPENCODE_CONFIG_DIR", str(tui_opencode_config_dir))
+    except Exception:
+        # Fallback to the in-package config directory (best-effort)
+        opencode_config_dir = Path(__file__).resolve().parent / "opencode_config"
+        if opencode_config_dir.exists():
+            env.setdefault("OPENCODE_CONFIG_DIR", str(opencode_config_dir))
 
     result = subprocess.run([runtime, str(entry)], env=env, cwd=tui_root)
     # Exit silently regardless of how the TUI process ended
