@@ -23,9 +23,11 @@ from .job import (
     PolicyOptimizationJobConfig,
     PolicyOptimizationResult,
 )
+from .mipro_online_session import MiproOnlineSession
 
 __all__ = [
     "PolicyOptimizationJob",
     "PolicyOptimizationJobConfig",
     "PolicyOptimizationResult",
+    "MiproOnlineSession",
 ]

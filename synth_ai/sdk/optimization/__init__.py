@@ -47,6 +47,7 @@ from .policy import (
     PolicyOptimizationJob,
     PolicyOptimizationJobConfig,
     PolicyOptimizationResult,
+    MiproOnlineSession,
 )
 
 __all__ = [
@@ -54,6 +55,7 @@ __all__ = [
     "PolicyOptimizationJob",
     "PolicyOptimizationJobConfig",
     "PolicyOptimizationResult",
+    "MiproOnlineSession",
     # Graph optimization
     "GraphOptimizationJob",
     "GraphOptimizationJobConfig",
