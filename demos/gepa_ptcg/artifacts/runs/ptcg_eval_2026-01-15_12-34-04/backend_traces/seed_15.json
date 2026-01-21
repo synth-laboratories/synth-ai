@@ -1,9 +1,0 @@
-{
-  "metadata": {
-    "seed": 15,
-    "rollout_duration_seconds": 0.14496841601794586
-  },
-  "session_id": "session-unknown",
-  "event_history": [],
-  "markov_blanket_message_history": []
-}

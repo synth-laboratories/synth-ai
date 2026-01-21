@@ -27,6 +27,26 @@ private_tests
 AGENTS.md
 **/AGENTS.md
 
+# Redis dumps
+*.rdb
+dump.rdb
+
+# Benchmark/timing artifacts
+*_timing.json
+engine_bench_eval_timing.json
+
+# Tool configs
+greptile.json
+
+# Demo artifacts and results (keep demo code, not output)
+**/artifacts/
+**/results/
+**/runs/
+**/backend_traces/
+
+# Rust build artifacts
+synth_ai_rs/target/
+
 # DuckDB files
 *.duckdb
 *.duckdb.wal
