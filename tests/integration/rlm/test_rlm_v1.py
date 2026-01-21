@@ -103,6 +103,7 @@ weight = 1.0
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@pytest.mark.timeout(300)  # RLM can take minutes to complete
 async def test_rlm_v1_basic_completion(graph_client):
     """Test that RLM v1 can process a basic query and return a reward."""
     context = create_test_context(size_chars=5_000)
@@ -177,6 +178,7 @@ async def test_rlm_v1_basic_completion(graph_client):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@pytest.mark.timeout(180)  # RLM can take minutes to complete
 async def test_rlm_v1_handles_empty_context(graph_client):
     """Test that RLM v1 handles empty/minimal context gracefully."""
     rubric = get_test_rubric()
