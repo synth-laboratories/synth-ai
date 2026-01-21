@@ -1,12 +1,10 @@
 # Synth
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
-[![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-[![PyPI Main](https://img.shields.io/badge/main-0.5.4.dev20260116-blue)](https://pypi.org/project/synth-ai/0.5.4.dev20260116/)
-[![PyPI Nightly](https://img.shields.io/badge/nightly-0.5.4.dev20260116-orange)](https://pypi.org/project/synth-ai/0.5.4.dev20260116/)
+[![PyPI](https://img.shields.io/pypi/v/synth-ai?label=pypi%20stable)](https://pypi.org/project/synth-ai/)
+[![PyPI Dev](https://img.shields.io/pypi/v/synth-ai?include_prereleases&label=pypi%20dev&color=orange)](https://pypi.org/project/synth-ai/#history)
+[![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
-![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
 
 Serverless Posttraining APIs for Developers
 
