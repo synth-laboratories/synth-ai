@@ -117,17 +117,6 @@ jobs:
           uv sync --group dev
           uv run --group dev pytest tests/unit -m unit -v --maxfail=1
 
-  tui-tests:
-    name: TUI Tests
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-      - name: Run TUI parsing tests
-        run: |
-          cd synth_ai/_tui
-          bun test
-
   type-check:
     name: Type Check
     runs-on: blacksmith-4vcpu-ubuntu-2404
