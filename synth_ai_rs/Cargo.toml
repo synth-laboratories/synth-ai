@@ -1,6 +1,6 @@
 [package]
 name = "synth-ai"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 description = "Rust SDK for Synth AI - serverless post-training APIs"
