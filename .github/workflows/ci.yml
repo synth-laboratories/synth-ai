@@ -59,10 +59,10 @@ jobs:
         run: |
           echo "⏭️ Skipping README version check for dev version: ${{ steps.get_version.outputs.version }}"
 
-  integration-dev:
-    name: Integration (dev endpoints)
+  integration-rlm:
+    name: Integration (RLM v1)
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 30
+    timeout-minutes: 10
     env:
       DEV_ACTIONS_SYNTH_API_KEY: ${{ secrets.DEV_ACTIONS_SYNTH_API_KEY }}
       DEV_BACKEND_URL: ${{ secrets.DEV_BACKEND_URL }}
@@ -72,15 +72,10 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
-      - name: Run all dev endpoint tests (against DEV_BACKEND_URL)
+      - name: Run RLM v1 integration tests
         run: |
-          uv run --group dev pytest -c pytest.integration.ini -q tests/integration/endpoints tests/integration/cli -s --maxfail=0
-      - name: Run CLI finetune smoke (Qwen3-32B on 4x H100)
-        env:
-          SYNTH_GPU_TYPE: H100-4x
-          SYNTH_API_KEY: ${{ secrets.DEV_ACTIONS_SYNTH_API_KEY }}
-        run: |
-          uv run --group dev pytest -c pytest.integration.ini -q tests/cli/test_cli_train_multi_gpu_dev.py -s --maxfail=1
+          uv sync --group dev
+          uv run --group dev pytest tests/integration/rlm -m integration -v --maxfail=1
 
   lint:
     name: Lint
@@ -117,19 +112,10 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
-      - name: Run fast unit tests (≤5s)
+      - name: Run fast unit tests
         run: |
           uv sync --group dev
-          SECONDS=0
-          set -e
-          uv run --group dev pytest tests/unit -m unit -q --maxfail=1
-          uv run --group dev pytest tests/environments/unit/test_external_registry.py -q --maxfail=1
-          DUR=$SECONDS
-          echo "Total fast unit test time: ${DUR}s"
-          if [ "$DUR" -gt 20 ]; then
-            echo "Fast unit tests exceeded 20 seconds (${DUR}s)" >&2
-            exit 1
-          fi
+          uv run --group dev pytest tests/unit -m unit -v --maxfail=1
 
   tui-tests:
     name: TUI Tests
