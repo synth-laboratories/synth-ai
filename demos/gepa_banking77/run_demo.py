@@ -18,18 +18,19 @@ import httpx
 from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
-from synth_ai.core.env import mint_demo_api_key
-from synth_ai.core.urls import BACKEND_URL_BASE as PROD_BASE_URL
+from synth_ai.core.utils.env import mint_demo_api_key
+from synth_ai.core.utils.urls import BACKEND_URL_BASE as PROD_BASE_URL
 from synth_ai.data.enums import SuccessStatus
-from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
-from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
+from synth_ai.sdk.eval.job import EvalJob, EvalJobConfig, EvalResult
+from synth_ai.sdk.optimization._impl.prompt_learning import PromptLearningJob
+from synth_ai.sdk.optimization._impl.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.task import normalize_inference_url, run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-from synth_ai.sdk.tunnels import (
+from synth_ai.sdk.localapi._impl.validators import normalize_inference_url
+from synth_ai.sdk.localapi._impl.server import run_server_background
+from synth_ai.sdk.localapi._impl.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.localapi._impl.trace_correlation_helpers import extract_trace_correlation_id
+from synth_ai.core.tunnels import (
     PortConflictBehavior,
     TunnelBackend,
     TunneledLocalAPI,
@@ -252,11 +253,7 @@ async def classify_banking77_query(
     if inference_url:
         # Use OpenAI SDK with custom base_url - SDK will append /chat/completions
         # Pass Synth API key via X-API-Key header (interceptor auth), not Authorization
-        # CRITICAL: Override User-Agent to bypass Cloudflare WAF blocking OpenAI SDK requests
-        default_headers = {
-            "X-API-Key": api_key,
-            "User-Agent": "synth-ai/1.0",  # Cloudflare blocks "OpenAI/Python" User-Agent
-        } if api_key else {"User-Agent": "synth-ai/1.0"}
+        default_headers = {"X-API-Key": api_key} if api_key else {}
         client = AsyncOpenAI(
             base_url=inference_url,
             api_key="synth-interceptor",  # Dummy - interceptor uses its own key
