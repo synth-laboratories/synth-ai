@@ -26,7 +26,14 @@ jobs:
           VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/' | tr -d '"')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Found version: $VERSION"
+          # Check if this is a dev version
+          if [[ "$VERSION" == *".dev"* ]]; then
+            echo "is_dev=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_dev=false" >> $GITHUB_OUTPUT
+          fi
       - name: Check README version matches
+        if: steps.get_version.outputs.is_dev == 'false'
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
           README_BADGE=$(grep -o 'PyPI-.*-orange' README.md | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "")
@@ -47,6 +54,10 @@ jobs:
           fi
 
           echo "✅ README version matches pyproject.toml ($VERSION)"
+      - name: Skip README check for dev versions
+        if: steps.get_version.outputs.is_dev == 'true'
+        run: |
+          echo "⏭️ Skipping README version check for dev version: ${{ steps.get_version.outputs.version }}"
 
   integration-dev:
     name: Integration (dev endpoints)
