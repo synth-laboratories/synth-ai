@@ -1,0 +1,76 @@
+# Publish Rust crate to crates.io using Trusted Publishing
+# See: https://crates.io/docs/trusted-publishing
+#
+# Prerequisites:
+#   1. First release must be published manually: cd synth_ai_rs && cargo publish
+#   2. Configure trusted publishing on crates.io:
+#      - Go to https://crates.io/crates/synth-ai/settings
+#      - Add trusted publisher: synth-laboratories/synth-ai
+#      - Workflow: publish-crate.yml
+#      - Environment: crates-io (optional but recommended)
+
+name: Publish Crate
+
+on:
+  push:
+    tags:
+      - 'rs-v[0-9]+.[0-9]+.[0-9]+'  # e.g., rs-v0.1.0, rs-v1.0.0
+
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC trusted publishing
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    environment: crates-io  # Optional: add deployment protection rules
+    defaults:
+      run:
+        working-directory: synth_ai_rs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/rs-v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Verify Cargo.toml version matches tag
+        run: |
+          CARGO_VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          TAG_VERSION=${{ steps.version.outputs.version }}
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "ERROR: Cargo.toml version ($CARGO_VERSION) doesn't match tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version verified: $CARGO_VERSION"
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Check package
+        run: cargo package --allow-dirty
+
+      - name: Get crates.io token (Trusted Publishing)
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
+      - name: Publish to crates.io
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+      - name: Summary
+        run: |
+          echo "## Published synth-ai ${{ steps.version.outputs.version }} to crates.io" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Install with:" >> $GITHUB_STEP_SUMMARY
+          echo '```toml' >> $GITHUB_STEP_SUMMARY
+          echo 'synth-ai = "${{ steps.version.outputs.version }}"' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
