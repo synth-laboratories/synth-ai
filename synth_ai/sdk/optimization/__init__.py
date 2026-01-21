@@ -44,10 +44,10 @@ from .graph import (
 )
 from .job import JobLifecycle, JobStatus
 from .policy import (
+    MiproOnlineSession,
     PolicyOptimizationJob,
     PolicyOptimizationJobConfig,
     PolicyOptimizationResult,
-    MiproOnlineSession,
 )
 
 __all__ = [

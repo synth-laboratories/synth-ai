@@ -292,11 +292,11 @@ def require_cloudflared() -> Path:
 
     extra = ""
     if platform.system() == "Darwin":
-        extra = "Try `brew install cloudflare/cloudflare/cloudflared`."
+        extra = " Try `brew install cloudflare/cloudflare/cloudflared`."
     elif platform.system() == "Linux":
-        extra = "See Cloudflare docs for Linux packages."
+        extra = " See Cloudflare docs for Linux packages."
     raise click.ClickException(
-        f"Cloudflared CLI missing. Install via Homebrew or follow {CLOUDFLARE_DOCS_URL}."
+        f"Cloudflared CLI missing. Install via Homebrew or follow {CLOUDFLARE_DOCS_URL}.{extra}"
     )
 
 

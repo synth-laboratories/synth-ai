@@ -344,9 +344,12 @@ class GraphEvolveJob:
         """Get the underlying GEPA job ID if known."""
         if self._graph_evolve_job_id and self._graph_evolve_job_id.startswith("pl_"):
             return self._graph_evolve_job_id
-        if self._submit_result and self._submit_result.graph_evolve_job_id:
-            if self._submit_result.graph_evolve_job_id.startswith("pl_"):
-                return self._submit_result.graph_evolve_job_id
+        if (
+            self._submit_result
+            and self._submit_result.graph_evolve_job_id
+            and self._submit_result.graph_evolve_job_id.startswith("pl_")
+        ):
+            return self._submit_result.graph_evolve_job_id
         return None
 
     @property

@@ -478,47 +478,49 @@ class GraphCompletionsAsyncClient:
         }
 
         timeout = aiohttp.ClientTimeout(total=None, connect=30.0)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, headers=headers, json=payload) as resp:
-                if resp.status >= 400:
-                    text = await resp.text()
-                    if resp.status in (400, 422):
-                        raise ValueError(f"graph_completions_validation_error: {text[:500]}")
-                    if resp.status in (401, 403):
-                        raise PermissionError(f"graph_completions_auth_error: {text[:500]}")
-                    if resp.status == 404:
-                        raise FileNotFoundError(f"graph_completions_not_found: {text[:500]}")
-                    if resp.status == 429:
-                        raise Exception("graph_completions_rate_limited")
-                    raise Exception(f"graph_completions_error: {resp.status} {text[:500]}")
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.post(url, headers=headers, json=payload) as resp,
+        ):
+            if resp.status >= 400:
+                text = await resp.text()
+                if resp.status in (400, 422):
+                    raise ValueError(f"graph_completions_validation_error: {text[:500]}")
+                if resp.status in (401, 403):
+                    raise PermissionError(f"graph_completions_auth_error: {text[:500]}")
+                if resp.status == 404:
+                    raise FileNotFoundError(f"graph_completions_not_found: {text[:500]}")
+                if resp.status == 429:
+                    raise Exception("graph_completions_rate_limited")
+                raise Exception(f"graph_completions_error: {resp.status} {text[:500]}")
 
-                async for line in resp.content:
-                    decoded = line.decode(errors="ignore").strip()
-                    if not decoded or decoded.startswith(":"):
-                        continue
-                    if not decoded.startswith("data:"):
-                        continue
-                    data = decoded[5:].strip()
-                    if not data:
-                        continue
-                    try:
-                        event = json.loads(data)
-                        yield event
-                        # Check for terminal event
-                        event_type = (
-                            event.get("event", {}).get("event_type")
-                            if isinstance(event, dict)
-                            else None
-                        )
-                        if event_type in {
-                            "run_succeeded",
-                            "run_failed",
-                            "run_cancelled",
-                            "output_validation_failed",
-                        }:
-                            return
-                    except json.JSONDecodeError:
-                        continue
+            async for line in resp.content:
+                decoded = line.decode(errors="ignore").strip()
+                if not decoded or decoded.startswith(":"):
+                    continue
+                if not decoded.startswith("data:"):
+                    continue
+                data = decoded[5:].strip()
+                if not data:
+                    continue
+                try:
+                    event = json.loads(data)
+                    yield event
+                    # Check for terminal event
+                    event_type = (
+                        event.get("event", {}).get("event_type")
+                        if isinstance(event, dict)
+                        else None
+                    )
+                    if event_type in {
+                        "run_succeeded",
+                        "run_failed",
+                        "run_cancelled",
+                        "output_validation_failed",
+                    }:
+                        return
+                except json.JSONDecodeError:
+                    continue
 
     async def run_output(
         self,
