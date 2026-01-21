@@ -1,10 +1,10 @@
 """Synth AI Data Layer.
 
 This module provides pure data types with no IO dependencies.
-Contains actual data schemas for traces and rewards.
+Contains actual data schemas for traces, rewards, rubrics, and LLM calls.
 
 Data vs SDK distinction:
-- data/: Pure data records (traces, rewards) - actual data
+- data/: Pure data records (traces, rewards, rubrics, llm_calls) - actual data
 - sdk/: API abstractions (jobs, training, graphs) - SDK interfaces
 
 Dependency rule: data/ imports nothing from synth_ai except typing helpers.
@@ -13,11 +13,12 @@ Dependency rule: data/ imports nothing from synth_ai except typing helpers.
 from __future__ import annotations
 
 # Artifact data types
-from synth_ai.data.artifacts import (
-    # Context override types
+from synth_ai.data.artifacts import Artifact
+
+# Context override types (coding agent context)
+from synth_ai.data.coding_agent_context import (
     ApplicationErrorType,
     ApplicationStatus,
-    Artifact,
     ContextOverride,
     ContextOverrideStatus,
     FolderMode,
@@ -37,13 +38,11 @@ from synth_ai.data.enums import (
     ObjectiveDirection,
     ObjectiveKey,
     OptimizationMode,
-    PromptLearningMethod,
+    OutputMode,
     ProviderName,
     RewardScope,
     RewardSource,
     RewardType,
-    RLMethod,
-    SFTMethod,
     SuccessStatus,
     TrainingType,
     VerifierMode,
@@ -56,6 +55,18 @@ from synth_ai.data.judgements import (
     RubricAssignment,
 )
 
+# LLM call record data types
+from synth_ai.data.llm_calls import (
+    LLMCallRecord,
+    LLMChunk,
+    LLMContentPart,
+    LLMMessage,
+    LLMRequestParams,
+    LLMUsage,
+    ToolCallResult,
+    ToolCallSpec,
+)
+
 # Objective definitions
 from synth_ai.data.objectives import (
     OBJECTIVE_REGISTRY,
@@ -64,15 +75,6 @@ from synth_ai.data.objectives import (
     ObjectiveSpec,
     OutcomeObjectiveAssignment,
     RewardObservation,
-)
-
-# Objective compatibility helpers
-from synth_ai.data.objectives_compat import (
-    extract_instance_rewards,
-    extract_outcome_reward,
-    normalize_to_event_objectives,
-    normalize_to_outcome_objectives,
-    to_legacy_format,
 )
 
 # Reward data types
@@ -84,7 +86,13 @@ from synth_ai.data.rewards import (
     RewardAggregates,
 )
 
-# Trace data types (re-exports from tracing_v3)
+# Rubric definitions (user input structures)
+from synth_ai.data.rubrics import (
+    Criterion,
+    Rubric,
+)
+
+# Trace data types
 from synth_ai.data.traces import (
     BaseEvent,
     EnvironmentEvent,
@@ -102,9 +110,6 @@ __all__ = [
     "JobType",
     "JobStatus",
     "SuccessStatus",
-    "PromptLearningMethod",
-    "RLMethod",
-    "SFTMethod",
     "InferenceMode",
     "ProviderName",
     "RewardSource",
@@ -118,26 +123,25 @@ __all__ = [
     "TrainingType",
     "AdaptiveCurriculumLevel",
     "AdaptiveBatchLevel",
+    "OutputMode",
+    # Objectives
     "ObjectiveSpec",
     "OBJECTIVE_REGISTRY",
     "RewardObservation",
     "OutcomeObjectiveAssignment",
     "EventObjectiveAssignment",
     "InstanceObjectiveAssignment",
+    # Judgements
     "CriterionScoreData",
     "RubricAssignment",
     "Judgement",
-    "extract_outcome_reward",
-    "extract_instance_rewards",
-    "normalize_to_outcome_objectives",
-    "normalize_to_event_objectives",
-    "to_legacy_format",
     # Reward data
     "OutcomeRewardRecord",
     "EventRewardRecord",
     "RewardAggregates",
     "CalibrationExample",
     "GoldExample",
+    # Artifacts
     "Artifact",
     # Context override types
     "ContextOverride",
@@ -158,4 +162,16 @@ __all__ = [
     "SessionEventMarkovBlanketMessage",
     "SessionMessageContent",
     "TimeRecord",
+    # LLM call records
+    "LLMUsage",
+    "LLMRequestParams",
+    "LLMContentPart",
+    "LLMMessage",
+    "ToolCallSpec",
+    "ToolCallResult",
+    "LLMChunk",
+    "LLMCallRecord",
+    # Rubrics
+    "Criterion",
+    "Rubric",
 ]

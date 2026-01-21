@@ -31,28 +31,6 @@ class JobStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class PromptLearningMethod(str, Enum):
-    """Prompt optimization algorithms."""
-
-    GEPA = "gepa"
-
-
-class RLMethod(str, Enum):
-    """Reinforcement learning training algorithms."""
-
-    PPO = "ppo"
-    GRPO = "grpo"
-    REINFORCE = "reinforce"
-
-
-class SFTMethod(str, Enum):
-    """Supervised fine-tuning approaches."""
-
-    FULL = "full"
-    LORA = "lora"
-    QLORA = "qlora"
-
-
 class InferenceMode(str, Enum):
     """Inference modes for policy evaluation."""
 
@@ -191,6 +169,19 @@ class SuccessStatus(str, Enum):
     FAILURE = "failure"  # Generic infra failure
 
 
+class OutputMode(str, Enum):
+    """Controls how the policy expects model outputs.
+
+    - TOOL_CALLS: Use function/tool calling (default, current behavior)
+    - TEXT: Plain text in message.content
+    - STRUCTURED: JSON via response_format (OpenAI json_schema, Groq json_object, Gemini responseSchema)
+    """
+
+    TOOL_CALLS = "tool_calls"
+    TEXT = "text"
+    STRUCTURED = "structured"
+
+
 # Legacy: list of model names for CLI validation
 SYNTH_MODEL_NAMES: list[str] = [m.value for m in SynthModelName]
 
@@ -199,9 +190,6 @@ __all__ = [
     "JobType",
     "JobStatus",
     "SuccessStatus",
-    "PromptLearningMethod",
-    "RLMethod",
-    "SFTMethod",
     "InferenceMode",
     "ProviderName",
     "RewardSource",
@@ -217,5 +205,6 @@ __all__ = [
     "AdaptiveBatchLevel",
     "SynthModelName",
     "SuccessStatus",
+    "OutputMode",
     "SYNTH_MODEL_NAMES",
 ]
