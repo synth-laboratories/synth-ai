@@ -26,11 +26,8 @@ Example:
 
 from typing import Any
 
-from synth_ai.core.http import AsyncHttpClient
-from synth_ai.sdk.api.models.supported import (
-    UnsupportedModelError,
-    normalize_model_identifier,
-)
+from synth_ai.sdk.shared import AsyncHttpClient
+from synth_ai.sdk.shared.models import UnsupportedModelError, normalize_model_identifier
 
 
 class InferenceClient:
