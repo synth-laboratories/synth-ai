@@ -8,10 +8,33 @@ Environment variables:
     DEV_ACTIONS_SYNTH_API_KEY: API key (from CI secrets)
 """
 
+import asyncio
 import os
 import time
 
 import pytest
+
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 5
+
+
+async def run_with_retry(coro_func, *args, **kwargs):
+    """Run an async function with retries for transient errors."""
+    last_error = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            return await coro_func(*args, **kwargs)
+        except Exception as e:
+            last_error = e
+            error_str = str(e)
+            # Only retry on transient errors
+            if "transient" in error_str or "500" in error_str or "502" in error_str:
+                if attempt < MAX_RETRIES - 1:
+                    await asyncio.sleep(RETRY_DELAY_SECONDS * (attempt + 1))
+                    continue
+            raise
+    raise last_error
+
 
 # Skip if required env vars not set
 pytestmark = pytest.mark.skipif(
@@ -114,7 +137,8 @@ async def test_rlm_v1_basic_completion(graph_client):
         },
     }
 
-    result = await graph_client.run(
+    result = await run_with_retry(
+        graph_client.run,
         input_data=input_data,
         job_id="zero_shot_verifier_rubric_rlm",
         model="gpt-4.1-mini",
@@ -185,7 +209,8 @@ async def test_rlm_v1_handles_empty_context(graph_client):
         },
     }
 
-    result = await graph_client.run(
+    result = await run_with_retry(
+        graph_client.run,
         input_data=input_data,
         job_id="zero_shot_verifier_rubric_rlm",
         model="gpt-4.1-mini",
