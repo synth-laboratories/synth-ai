@@ -63,6 +63,7 @@ jobs:
     name: Integration (RLM v1)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
+    continue-on-error: true  # Don't block CI on backend issues
     env:
       DEV_ACTIONS_SYNTH_API_KEY: ${{ secrets.DEV_ACTIONS_SYNTH_API_KEY }}
       DEV_BACKEND_URL: ${{ secrets.DEV_BACKEND_URL }}
