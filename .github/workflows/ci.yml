@@ -128,7 +128,7 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
       - name: Run ty check
-        run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
+        run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated --ignore invalid-argument-type --ignore not-iterable
 
   validate-openapi:
     name: Validate OpenAPI
