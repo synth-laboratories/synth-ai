@@ -7,7 +7,6 @@
 #      - Go to https://crates.io/crates/synth-ai/settings
 #      - Add trusted publisher: synth-laboratories/synth-ai
 #      - Workflow: publish-crate.yml
-#      - Environment: crates-io (optional but recommended)
 
 name: Publish Crate
 
@@ -24,7 +23,7 @@ jobs:
   publish:
     name: Publish to crates.io
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    environment: crates-io  # Optional: add deployment protection rules
+    # environment: crates-io  # Uncomment to add deployment protection rules
     defaults:
       run:
         working-directory: synth_ai_rs
