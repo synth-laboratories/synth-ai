@@ -456,7 +456,10 @@ async def call_chat_completion_api(
 
 def add_health_endpoints(app: FastAPI) -> None:
     """Add standard /health and /health/rollout endpoints."""
-    from synth_ai.sdk.task.auth import is_api_key_header_authorized, normalize_environment_api_key
+    from synth_ai.sdk.localapi._impl.auth import (
+        is_api_key_header_authorized,
+        normalize_environment_api_key,
+    )
 
     def _log_env_key_prefix(source: str, env_key: str | None) -> str | None:
         if not env_key:

@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from synth_ai.core.http import AsyncHttpClient
+from synth_ai.sdk.shared import AsyncHttpClient
 
 logger = logging.getLogger(__name__)
 

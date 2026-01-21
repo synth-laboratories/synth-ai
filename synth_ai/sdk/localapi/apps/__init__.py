@@ -1,6 +1,6 @@
 """Registry for LocalAPI apps exposed via the shared FastAPI harness.
 
-Prefer this module over synth_ai.sdk.task.apps moving forward.
+Prefer this module over synth_ai.sdk.localapi._impl.apps moving forward.
 """
 
 from __future__ import annotations
@@ -168,7 +168,7 @@ def discover_task_apps_from_cwd() -> None:
 
 def __getattr__(name: str):
     if name == "TaskAppConfig":
-        from synth_ai.sdk.task.server import TaskAppConfig
+        from synth_ai.sdk.localapi._impl.server import TaskAppConfig
 
         return TaskAppConfig
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

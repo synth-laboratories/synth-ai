@@ -9,9 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from synth_ai.core.env import get_api_key
 from synth_ai.core.errors import ConfigError
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.env import get_api_key
+from synth_ai.core.utils.urls import BACKEND_URL_BASE
 
 
 @dataclass

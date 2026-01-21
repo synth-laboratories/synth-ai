@@ -310,7 +310,6 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
             "proxy_models",
             "initial_prompt",
             "auto_discover_patterns",
-            "free_tier",
             "use_byok",
         },
         context="prompt_learning minimal",
@@ -377,7 +376,6 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
         "proxy_models": minimal.get("proxy_models"),
         "initial_prompt": minimal.get("initial_prompt"),
         "auto_discover_patterns": minimal.get("auto_discover_patterns"),
-        "free_tier": minimal.get("free_tier"),
         "use_byok": minimal.get("use_byok"),
         "gepa": {
             "env_name": minimal.get("env_name", "default"),

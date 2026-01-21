@@ -1,0 +1,14 @@
+[package]
+name = "synth-ai"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Rust SDK for Synth AI - serverless post-training APIs"
+repository = "https://github.com/synth-laboratories/synth-ai/tree/main/synth_ai_rs"
+homepage = "https://usesynth.ai"
+documentation = "https://docs.rs/synth-ai"
+readme = "README.md"
+keywords = ["ai", "llm", "prompt-optimization", "machine-learning", "sdk"]
+categories = ["api-bindings", "asynchronous"]
+
+[dependencies]

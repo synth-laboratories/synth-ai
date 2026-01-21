@@ -216,7 +216,7 @@ export function createUsageModal(ctx: AppContext): UsageModalController {
 
       setData(data)
     } catch (err: any) {
-      // Fallback to free tier on error
+      // Fallback to free plan on error
       const fallbackData: UsageData = {
         plan_type: "free",
         status: "active",

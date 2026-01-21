@@ -15,20 +15,22 @@ from __future__ import annotations
 
 import json
 import warnings
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Literal, Mapping, TypedDict
 
+import aiohttp
 import httpx
 
-from synth_ai.core.http import AsyncHttpClient, HTTPError
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
 from synth_ai.sdk.graphs.verifier_schemas import (
     CalibrationExampleInput,
     EvidenceItem,
     GoldExampleInput,
 )
+from synth_ai.sdk.shared import AsyncHttpClient, HTTPError
 
 GraphKind = Literal["zero_shot", "graphgen", "registered"]
 
@@ -425,6 +427,98 @@ class GraphCompletionsAsyncClient:
             if status >= 500:
                 raise Exception("graph_completions_transient_error") from err
             raise
+
+    async def run_stream(
+        self,
+        *,
+        input_data: Mapping[str, Any],
+        job_id: str | None = None,
+        graph: GraphTarget | None = None,
+        model: str | None = None,
+        prompt_snapshot_id: str | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Run graph completion with SSE streaming.
+
+        Yields events as they arrive from the backend. Terminal events have
+        event_type in {"run_succeeded", "run_failed", "run_cancelled"}.
+
+        Args:
+            input_data: Input data for the graph
+            job_id: GraphGen job ID or graph name
+            graph: Alternative graph target specification
+            model: Optional model override
+            prompt_snapshot_id: Specific snapshot to use
+
+        Yields:
+            dict: SSE event payloads with event data
+
+        Example:
+            ```python
+            async for event in client.run_stream(job_id="...", input_data={...}):
+                event_type = event.get("event", {}).get("event_type")
+                print(f"Event: {event_type}")
+                if event_type == "run_succeeded":
+                    print(f"Output: {event.get('event', {}).get('output')}")
+            ```
+        """
+        payload: dict[str, Any] = {
+            "job_id": self._resolve_job_id(job_id=job_id, graph=graph),
+            "input": normalize_for_json(dict(input_data)),
+        }
+        if model:
+            payload["model"] = model
+        if prompt_snapshot_id:
+            payload["prompt_snapshot_id"] = prompt_snapshot_id
+
+        url = f"{self._base}/api/graphs/completions?stream=true"
+        headers = {
+            "X-API-Key": self._key,
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        }
+
+        timeout = aiohttp.ClientTimeout(total=None, connect=30.0)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=headers, json=payload) as resp:
+                if resp.status >= 400:
+                    text = await resp.text()
+                    if resp.status in (400, 422):
+                        raise ValueError(f"graph_completions_validation_error: {text[:500]}")
+                    if resp.status in (401, 403):
+                        raise PermissionError(f"graph_completions_auth_error: {text[:500]}")
+                    if resp.status == 404:
+                        raise FileNotFoundError(f"graph_completions_not_found: {text[:500]}")
+                    if resp.status == 429:
+                        raise Exception("graph_completions_rate_limited")
+                    raise Exception(f"graph_completions_error: {resp.status} {text[:500]}")
+
+                async for line in resp.content:
+                    decoded = line.decode(errors="ignore").strip()
+                    if not decoded or decoded.startswith(":"):
+                        continue
+                    if not decoded.startswith("data:"):
+                        continue
+                    data = decoded[5:].strip()
+                    if not data:
+                        continue
+                    try:
+                        event = json.loads(data)
+                        yield event
+                        # Check for terminal event
+                        event_type = (
+                            event.get("event", {}).get("event_type")
+                            if isinstance(event, dict)
+                            else None
+                        )
+                        if event_type in {
+                            "run_succeeded",
+                            "run_failed",
+                            "run_cancelled",
+                            "output_validation_failed",
+                        }:
+                            return
+                    except json.JSONDecodeError:
+                        continue
 
     async def run_output(
         self,

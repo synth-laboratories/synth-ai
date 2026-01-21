@@ -161,11 +161,7 @@ async def classify_banking77_query(
         # Use OpenAI SDK with custom base_url - SDK will append /chat/completions
         # Pass Synth API key via X-API-Key header (interceptor auth), not Authorization
         # (Authorization: Bearer with Synth key would be rejected by OpenAI passthrough)
-        # CRITICAL: Override User-Agent to bypass Cloudflare WAF blocking OpenAI SDK requests
-        default_headers = {
-            "X-API-Key": api_key,
-            "User-Agent": "synth-ai/1.0",  # Cloudflare blocks "OpenAI/Python" User-Agent
-        } if api_key else {"User-Agent": "synth-ai/1.0"}
+        default_headers = {"X-API-Key": api_key} if api_key else {}
         client = AsyncOpenAI(
             base_url=inference_url,
             api_key="synth-interceptor",  # Dummy - interceptor uses its own key

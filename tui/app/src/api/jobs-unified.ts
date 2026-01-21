@@ -8,7 +8,7 @@ import { apiGetV1 } from "./client"
 
 export interface JobRecord {
   id: string
-  type: "research" | "graphgen" | "eval" | "gepa" | "unknown"
+  type: "graphgen" | "eval" | "gepa" | "unknown"
   status: string
   previous_status?: string
   updated_at: string
@@ -37,7 +37,6 @@ export async function fetchRecentJobs(
 
   // Define endpoints to query
   const endpoints = [
-    { path: "/research-agent/jobs", type: "research" as const },
     { path: "/graphgen/jobs", type: "graphgen" as const },
     { path: "/prompt-learning/jobs", type: "gepa" as const },
   ]

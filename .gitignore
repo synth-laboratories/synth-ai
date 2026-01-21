@@ -159,7 +159,8 @@ examples/agora_ex/
 !docs/*.md
 !docs/**/*.md
 !synth_ai/tui/opencode_config/**/*.md
-!synth_ai/skills/**/*.md
+!contracts/**/*.md
+!skills/**/*.md
 
 # Re-ignore Python caches and bytecode even under bandit force-include
 synth_ai/environments/examples/bandit/**/__pycache__/
@@ -237,4 +238,4 @@ engine_bench_eval_timing.json
 greptile.json
 
 # Coding agents workspace
-coding_agents/
+coding_agents/synth_ai_rs/target/

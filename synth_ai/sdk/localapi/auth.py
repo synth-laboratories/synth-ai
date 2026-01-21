@@ -8,8 +8,8 @@ import os
 import secrets
 from typing import Any
 
-from synth_ai.core.urls import BACKEND_URL_BASE
-from synth_ai.core.user_config import load_user_env, update_user_config
+from synth_ai.core.config.user import load_user_env, update_user_config
+from synth_ai.core.utils.urls import BACKEND_URL_BASE
 
 ENVIRONMENT_API_KEY_NAME = "ENVIRONMENT_API_KEY"
 DEV_ENVIRONMENT_API_KEY_NAME = "DEV_ENVIRONMENT_API_KEY"

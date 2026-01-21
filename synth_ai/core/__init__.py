@@ -5,7 +5,6 @@ This module provides internal plumbing that SDK and CLI can share:
 - HTTP client utilities
 - Error types
 - Logging
-- Pricing
 - Config base classes
 
 Dependency rules:
@@ -16,9 +15,6 @@ Dependency rules:
 
 # Config base classes
 from synth_ai.core.config import BaseJobConfig, ConfigValidator
-
-# Environment utilities
-from synth_ai.core.env import get_api_key, mask_value
 
 # Error types
 from synth_ai.core.errors import (
@@ -33,9 +29,6 @@ from synth_ai.core.errors import (
     ValidationError,
 )
 
-# HTTP utilities
-from synth_ai.core.http import AsyncHttpClient, sleep
-
 # Logging
 from synth_ai.core.logging import (
     SDK_LOGGER_NAME,
@@ -44,14 +37,9 @@ from synth_ai.core.logging import (
     suppress_noisy_loggers,
 )
 
-# Pricing
-from synth_ai.core.pricing import (
-    MODEL_PRICES,
-    TokenRates,
-    estimate_cost,
-    get_token_rates,
-)
-from synth_ai.core.urls import BACKEND_URL_BASE
+# Environment utilities
+from synth_ai.core.utils.env import get_api_key, mask_value
+from synth_ai.core.utils.urls import BACKEND_URL_BASE
 
 __all__ = [
     # Errors
@@ -68,19 +56,11 @@ __all__ = [
     "get_api_key",
     "mask_value",
     "BACKEND_URL_BASE",
-    # HTTP
-    "AsyncHttpClient",
-    "sleep",
     # Logging
     "get_logger",
     "configure_logging",
     "suppress_noisy_loggers",
     "SDK_LOGGER_NAME",
-    # Pricing
-    "TokenRates",
-    "MODEL_PRICES",
-    "get_token_rates",
-    "estimate_cost",
     # Config
     "BaseJobConfig",
     "ConfigValidator",

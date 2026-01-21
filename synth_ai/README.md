@@ -2,6 +2,21 @@
 
 Root package for Synth AI SDK, CLI, and supporting infrastructure.
 
+## Quick Start
+
+```python
+# SDK classes are available directly from synth_ai
+from synth_ai import (
+    PolicyOptimizationJob,
+    EvalJob,
+    InProcessTaskApp,
+    VerifierClient,
+)
+
+# Data types are available from synth_ai.data
+from synth_ai.data import SessionTrace, Rubric, Criterion
+```
+
 ## Package Structure
 
 ```

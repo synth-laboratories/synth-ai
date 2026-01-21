@@ -13,8 +13,11 @@ from pathlib import Path
 from typing import Any, Dict
 
 import httpx
-from synth_ai.products.graph_evolve import GraphOptimizationClient, GraphOptimizationConfig
-from synth_ai.products.graph_evolve.config import (
+from synth_ai.sdk.api.train.graph_optimization import (
+    GraphOptimizationClient,
+    GraphOptimizationConfig,
+)
+from synth_ai.sdk.api.train.graph_optimization_config import (
     EvolutionConfig,
     LimitsConfig,
     ProposerConfig,

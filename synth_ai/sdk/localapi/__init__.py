@@ -1,6 +1,6 @@
 """LocalAPI SDK surface.
 
-Prefer this module over synth_ai.sdk.task.* moving forward. The task namespace
+Prefer this module over synth_ai.sdk.localapi._impl.* moving forward. The task namespace
 remains for backward compatibility while the naming transition completes.
 """
 
@@ -12,8 +12,7 @@ from .auth import ensure_localapi_auth
 # template.py imports from sdk.task, which may transitively import localapi
 
 if TYPE_CHECKING:
-    from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
-    from synth_ai.sdk.task import (
+    from synth_ai.sdk.localapi._impl import (
         InProcessTaskApp,
         LocalAPIClient,
         LocalAPIConfig,
@@ -22,6 +21,7 @@ if TYPE_CHECKING:
         create_task_app,
         run_task_app,
     )
+    from synth_ai.sdk.optimization._impl.local_api import LocalAPIHealth, check_local_api_health
 
     from .template import build_template_config, create_template_app
 
@@ -29,10 +29,8 @@ if TYPE_CHECKING:
     create_local_api = create_task_app
     run_local_api = run_task_app
 
-# Lazy imports for sdk.task symbols to avoid circular dependency
-# The chain is: sdk.task -> in_process_runner -> prompt_learning -> localapi.auth
-# When auth is imported, this __init__.py runs, so we must defer sdk.task imports
-_TASK_IMPORTS = {
+# Lazy imports for _impl symbols to avoid circular dependency
+_IMPL_IMPORTS = {
     "InProcessTaskApp",
     "LocalAPIClient",
     "LocalAPIConfig",
@@ -51,12 +49,12 @@ _LOCAL_IMPORTS = {
 
 
 def __getattr__(name: str) -> Any:
-    if name in _TASK_IMPORTS:
-        from synth_ai.sdk import task
+    if name in _IMPL_IMPORTS:
+        from synth_ai.sdk.localapi import _impl
 
-        return getattr(task, name)
+        return getattr(_impl, name)
     if name in _TRAIN_IMPORTS:
-        from synth_ai.sdk.api.train import local_api as _local_api
+        from synth_ai.sdk.optimization._impl import local_api as _local_api
 
         return getattr(_local_api, name)
     if name in _LOCAL_IMPORTS:
@@ -64,11 +62,11 @@ def __getattr__(name: str) -> Any:
 
         return getattr(_rollouts, name)
     if name == "create_local_api":
-        from synth_ai.sdk.task import create_task_app
+        from synth_ai.sdk.localapi._impl import create_task_app
 
         return create_task_app
     if name == "run_local_api":
-        from synth_ai.sdk.task import run_task_app
+        from synth_ai.sdk.localapi._impl import run_task_app
 
         return run_task_app
     if name in ("build_template_config", "create_template_app"):
