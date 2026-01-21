@@ -22,6 +22,9 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Dict, Optional
 
+# Import comprehensive enums from types module
+from .types import CandidateStatus, JobStatus
+
 
 class EventLevel(str, Enum):
     """Event severity level."""
@@ -49,26 +52,6 @@ class JobEventType(str, Enum):
     CANDIDATE_ADDED = "candidate.added"
     CANDIDATE_EVALUATED = "candidate.evaluated"
     CANDIDATE_COMPLETED = "candidate.completed"
-
-
-class CandidateStatus(str, Enum):
-    """Status of a candidate in its lifecycle."""
-
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    REJECTED = "rejected"
-    ACCEPTED = "accepted"
-
-
-class JobStatus(str, Enum):
-    """Status of a job in its lifecycle."""
-
-    QUEUED = "queued"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
 
 
 @dataclass
