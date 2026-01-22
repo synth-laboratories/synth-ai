@@ -27,7 +27,7 @@ Example usage:
 
 from __future__ import annotations
 
-from .events import (
+from synth_ai.sdk.shared.orchestration.events import (
     BaseJobEvent,
     CandidateEvent,
     JobEvent,
@@ -37,6 +37,7 @@ from .events import (
     is_terminal_event,
     parse_event,
 )
+
 from .graph import (
     GraphOptimizationJob,
     GraphOptimizationJobConfig,

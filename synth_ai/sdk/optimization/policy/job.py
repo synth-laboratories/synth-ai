@@ -14,13 +14,15 @@ Algorithms:
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.optimization.models import PolicyJobStatus as JobStatus
+from synth_ai.sdk.optimization.models import PolicyOptimizationResult
 
 if TYPE_CHECKING:
     from synth_ai.core.streaming import StreamHandler
@@ -39,102 +41,6 @@ class Algorithm(str, Enum):
             return cls(value.lower())
         except ValueError:
             return cls.GEPA  # Default to GEPA
-
-
-class JobStatus(str, Enum):
-    """Status of a policy optimization job."""
-
-    PENDING = "pending"
-    QUEUED = "queued"
-    RUNNING = "running"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-    @classmethod
-    def from_string(cls, status: str) -> JobStatus:
-        """Convert string to JobStatus, defaulting to PENDING for unknown values."""
-        try:
-            return cls(status.lower())
-        except ValueError:
-            return cls.PENDING
-
-    @property
-    def is_terminal(self) -> bool:
-        """Whether this status is terminal (job won't change further)."""
-        return self in (JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED)
-
-    @property
-    def is_success(self) -> bool:
-        """Whether this status indicates success."""
-        return self == JobStatus.SUCCEEDED
-
-
-@dataclass
-class PolicyOptimizationResult:
-    """Typed result from a policy optimization job.
-
-    Provides clean accessors for common fields instead of raw dict access.
-
-    Example:
-        >>> result = job.poll_until_complete()
-        >>> if result.succeeded:
-        ...     print(f"Best score: {result.best_score}")
-        ...     print(f"Best prompt: {result.best_prompt[:100]}...")
-        >>> else:
-        ...     print(f"Failed: {result.error}")
-    """
-
-    job_id: str
-    status: JobStatus
-    algorithm: Algorithm = Algorithm.GEPA
-    best_score: Optional[float] = None
-    best_prompt: Optional[str] = None
-    error: Optional[str] = None
-    raw: Dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_response(cls, job_id: str, data: Dict[str, Any]) -> PolicyOptimizationResult:
-        """Create result from API response dict."""
-        status_str = data.get("status", "pending")
-        status = JobStatus.from_string(status_str)
-
-        # Extract algorithm
-        algorithm_str = data.get("algorithm", "gepa")
-        algorithm = Algorithm.from_string(algorithm_str)
-
-        # Extract best score from various field names (backward compat)
-        best_score = (
-            data.get("best_score")
-            or data.get("best_reward")
-            or data.get("best_train_score")
-            or data.get("best_train_reward")
-        )
-
-        return cls(
-            job_id=job_id,
-            status=status,
-            algorithm=algorithm,
-            best_score=best_score,
-            best_prompt=data.get("best_prompt"),
-            error=data.get("error"),
-            raw=data,
-        )
-
-    @property
-    def succeeded(self) -> bool:
-        """Whether the job succeeded."""
-        return self.status.is_success
-
-    @property
-    def failed(self) -> bool:
-        """Whether the job failed."""
-        return self.status == JobStatus.FAILED
-
-    @property
-    def is_terminal(self) -> bool:
-        """Whether the job has reached a terminal state."""
-        return self.status.is_terminal
 
 
 @dataclass
@@ -472,7 +378,7 @@ class PolicyOptimizationJob:
         Will be removed when backend supports /api/policy-optimization endpoints.
         """
         if self._delegate is None:
-            from synth_ai.sdk.optimization._impl.prompt_learning import (
+            from synth_ai.sdk.optimization.clients.jobs import (
                 PromptLearningJob,
                 PromptLearningJobConfig,
             )
@@ -590,8 +496,8 @@ class PolicyOptimizationJob:
         # Convert PromptLearningResult to PolicyOptimizationResult
         return PolicyOptimizationResult(
             job_id=pl_result.job_id,
-            status=JobStatus.from_string(pl_result.status.value),
-            algorithm=self._algorithm,
+            status=pl_result.status,
+            algorithm=str(self._algorithm),
             best_score=pl_result.best_score,
             best_prompt=pl_result.best_prompt,
             error=pl_result.error,
@@ -637,8 +543,8 @@ class PolicyOptimizationJob:
         # Convert PromptLearningResult to PolicyOptimizationResult
         return PolicyOptimizationResult(
             job_id=pl_result.job_id,
-            status=JobStatus.from_string(pl_result.status.value),
-            algorithm=self._algorithm,
+            status=pl_result.status,
+            algorithm=str(self._algorithm),
             best_score=pl_result.best_score,
             best_prompt=pl_result.best_prompt,
             error=pl_result.error,

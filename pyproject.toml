@@ -235,4 +235,5 @@ dev = [
     "papermill>=2.6.0",
     "nest_asyncio>=1.6.0",
     "nbstripout>=0.8.2",
+    "ipykernel>=7.1.0",
 ]

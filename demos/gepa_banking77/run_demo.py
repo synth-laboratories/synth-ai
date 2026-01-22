@@ -22,8 +22,8 @@ from synth_ai.core.utils.env import mint_demo_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE as PROD_BASE_URL
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.eval.job import EvalJob, EvalJobConfig, EvalResult
-from synth_ai.sdk.optimization._impl.prompt_learning import PromptLearningJob
-from synth_ai.sdk.optimization._impl.learning.prompt_learning_client import PromptLearningClient
+from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
+from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi._impl.validators import normalize_inference_url

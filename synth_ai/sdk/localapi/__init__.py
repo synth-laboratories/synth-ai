@@ -21,7 +21,7 @@ if TYPE_CHECKING:
         create_task_app,
         run_task_app,
     )
-    from synth_ai.sdk.optimization._impl.local_api import LocalAPIHealth, check_local_api_health
+    from synth_ai.sdk.optimization.internal.local_api import LocalAPIHealth, check_local_api_health
 
     from .template import build_template_config, create_template_app
 
@@ -54,7 +54,7 @@ def __getattr__(name: str) -> Any:
 
         return getattr(_impl, name)
     if name in _TRAIN_IMPORTS:
-        from synth_ai.sdk.optimization._impl import local_api as _local_api
+        from synth_ai.sdk.optimization.internal import local_api as _local_api
 
         return getattr(_local_api, name)
     if name in _LOCAL_IMPORTS:

@@ -58,9 +58,9 @@ parser.add_argument(
 parser.add_argument(
     "--initial-graph-id",
     type=str,
-    default="zero_shot_verifier_rubric_rlm_v2",
+    default="zero_shot_verifier_rubric_single",
     help=(
-        "Preset graph ID to optimize (default: zero_shot_verifier_rubric_rlm_v2). "
+        "Preset graph ID to optimize (default: zero_shot_verifier_rubric_single). "
         "Graph Evolve now requires a preset starter graph."
     ),
 )

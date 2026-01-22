@@ -9,8 +9,6 @@ New imports should use:
 
 from __future__ import annotations
 
-import warnings
-
 # Re-export everything from the new canonical location
 from synth_ai.sdk.shared.orchestration.events import (
     BASE_EVENT_SCHEMAS,
@@ -81,11 +79,3 @@ __all__ = [
     "validate_event_strict",
     "validate_typed_event",
 ]
-
-# Issue deprecation warning on import
-warnings.warn(
-    "synth_ai.sdk.optimization.events is deprecated. "
-    "Use synth_ai.sdk.shared.orchestration.events instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)

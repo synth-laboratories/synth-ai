@@ -5,7 +5,7 @@ formats used across algorithms. The extraction functions handle:
 
 - Multi-stage genome (Dict[str, StageGene] with instruction_lines)
 - Single-stage transformation (text_replacements grouped by role)
-- Messages (templates)
+- Messages (patterns)
 """
 
 from __future__ import annotations
@@ -108,7 +108,7 @@ def extract_stages_from_candidate(
     Handles:
     - Multi-stage genome (Dict[str, StageGene] with instruction_lines)
     - Single-stage transformation (text_replacements grouped by role)
-    - Messages (templates)
+    - Messages (patterns)
 
     Args:
         candidate: Candidate dictionary (from attempted_candidates or optimized_candidates)
@@ -227,10 +227,15 @@ def extract_stages_from_candidate(
                 )
 
     # --------------------------------------------------------
-    # 3. Fallback: Try messages (templates)
+    # 3. Fallback: Try messages (patterns)
     # --------------------------------------------------------
     if not stages:
-        messages = candidate.get("messages") or obj.get("messages", [])
+        messages = []
+        pattern = candidate.get("pattern") or obj.get("pattern")
+        if isinstance(pattern, dict):
+            messages = pattern.get("messages", []) or []
+        if not messages:
+            messages = candidate.get("messages") or obj.get("messages", [])
         # Also check transformation["messages"]
         if not messages and isinstance(candidate.get("transformation"), dict):
             transformation = candidate.get("transformation", {})
@@ -334,7 +339,7 @@ def extract_program_candidate_content(candidate: Dict[str, Any]) -> str:
 
     Handles multiple candidate structures (shared across algorithms):
     - Transformations with text_replacements
-    - Templates with messages
+    - Patterns with messages
     - Raw prompt_text field
 
     Args:
@@ -343,10 +348,23 @@ def extract_program_candidate_content(candidate: Dict[str, Any]) -> str:
     Returns:
         Extracted program/candidate content string
     """
-    # Check for template at top level or nested
+    # Check for pattern at top level or nested
+    pattern = candidate.get("pattern") or candidate.get("object", {}).get("pattern")
+    if isinstance(pattern, dict):
+        pattern_messages = pattern.get("messages", [])
+        if pattern_messages:
+            result_parts = []
+            for message in pattern_messages[:5]:
+                if isinstance(message, dict):
+                    role = message.get("role", message.get("name", "system"))
+                    content = message.get("pattern") or message.get("content") or ""
+                    if content:
+                        result_parts.append(f"[{role.upper()}]: {content}")
+            if result_parts:
+                return "\n".join(result_parts)
+    # Legacy template key (sections)
     template = candidate.get("template") or candidate.get("object", {}).get("template")
     if isinstance(template, dict):
-        # Try to extract from template sections
         template_sections = template.get("sections", [])
         if template_sections:
             result_parts = []
@@ -400,9 +418,14 @@ def extract_program_candidate_content(candidate: Dict[str, Any]) -> str:
                 if new_text:
                     result_parts.append(f"[{role.upper()}]: {new_text}")
 
-    # Try messages (templates)
+    # Try messages (patterns)
     if not result_parts:
-        messages = candidate.get("messages") or obj.get("messages", [])
+        messages = []
+        pattern = candidate.get("pattern") or obj.get("pattern")
+        if isinstance(pattern, dict):
+            messages = pattern.get("messages", []) or []
+        if not messages:
+            messages = candidate.get("messages") or obj.get("messages", [])
         if not messages and isinstance(candidate.get("transformation"), dict):
             transformation = candidate.get("transformation", {})
             messages = transformation.get("messages", [])
@@ -414,7 +437,7 @@ def extract_program_candidate_content(candidate: Dict[str, Any]) -> str:
                     if content:
                         result_parts.append(f"[{role.upper()}]: {content}")
 
-    # Try sections (GraphGen template format)
+    # Try sections (GraphGen legacy template format)
     if not result_parts:
         sections = obj.get("sections", [])
         if not sections:

@@ -72,7 +72,7 @@ def check_terminal_event_typed(event_data: dict[str, Any]) -> tuple[bool, str | 
         - is_terminal: True if this is a terminal event
         - status: "succeeded", "failed", or None if not terminal
     """
-    from synth_ai.sdk.optimization.events import (
+    from synth_ai.sdk.shared.orchestration.events import (
         is_failure_event,
         is_success_event,
         is_terminal_event,

@@ -40,6 +40,29 @@ class JobStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+    @classmethod
+    def from_string(cls, status: str) -> JobStatus:
+        normalized = status.strip().lower().replace(" ", "_")
+        if normalized in ("success", "succeeded", "completed", "complete"):
+            return cls.COMPLETED
+        if normalized in ("cancelled", "canceled", "cancel"):
+            return cls.CANCELLED
+        if normalized in ("failed", "failure", "error"):
+            return cls.FAILED
+        if normalized in ("running", "in_progress"):
+            return cls.IN_PROGRESS
+        if normalized in ("queued", "pending"):
+            return cls.PENDING
+        return cls.PENDING
+
+    @property
+    def is_terminal(self) -> bool:
+        return self in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED)
+
+    @property
+    def is_success(self) -> bool:
+        return self == JobStatus.COMPLETED
+
 
 @dataclass
 class JobLifecycle:

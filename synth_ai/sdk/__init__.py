@@ -48,21 +48,21 @@ if TYPE_CHECKING:
         GraphOptimizationJob,
         PolicyOptimizationJob,
     )
-    from synth_ai.sdk.optimization._impl.graphgen_models import (
+    from synth_ai.sdk.optimization.internal.graphgen_models import (
         GraphGenGoldOutput as GraphEvolveGoldOutput,
     )
-    from synth_ai.sdk.optimization._impl.graphgen_models import (
+    from synth_ai.sdk.optimization.internal.graphgen_models import (
         GraphGenJobConfig as GraphEvolveJobConfig,
     )
-    from synth_ai.sdk.optimization._impl.graphgen_models import (
+    from synth_ai.sdk.optimization.internal.graphgen_models import (
         GraphGenRubric,
         GraphGenVerifierConfig,
         load_graphgen_taskset,
     )
-    from synth_ai.sdk.optimization._impl.graphgen_models import (
+    from synth_ai.sdk.optimization.internal.graphgen_models import (
         GraphGenTask as GraphEvolveTask,
     )
-    from synth_ai.sdk.optimization._impl.graphgen_models import (
+    from synth_ai.sdk.optimization.internal.graphgen_models import (
         GraphGenTaskSet as GraphEvolveTaskSet,
     )
 
@@ -156,26 +156,26 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "run_in_process_job": ("synth_ai.sdk.localapi._impl", "run_in_process_job"),
     "run_in_process_job_sync": ("synth_ai.sdk.localapi._impl", "run_in_process_job_sync"),
     "GraphEvolveGoldOutput": (
-        "synth_ai.sdk.optimization._impl.graphgen_models",
+        "synth_ai.sdk.optimization.internal.graphgen_models",
         "GraphGenGoldOutput",
     ),
     "GraphEvolveJob": ("synth_ai.sdk.optimization", "GraphOptimizationJob"),
     "GraphEvolveJobConfig": (
-        "synth_ai.sdk.optimization._impl.graphgen_models",
+        "synth_ai.sdk.optimization.internal.graphgen_models",
         "GraphGenJobConfig",
     ),
-    "GraphEvolveTask": ("synth_ai.sdk.optimization._impl.graphgen_models", "GraphGenTask"),
-    "GraphEvolveTaskSet": ("synth_ai.sdk.optimization._impl.graphgen_models", "GraphGenTaskSet"),
-    "GraphGenRubric": ("synth_ai.sdk.optimization._impl.graphgen_models", "GraphGenRubric"),
+    "GraphEvolveTask": ("synth_ai.sdk.optimization.internal.graphgen_models", "GraphGenTask"),
+    "GraphEvolveTaskSet": ("synth_ai.sdk.optimization.internal.graphgen_models", "GraphGenTaskSet"),
+    "GraphGenRubric": ("synth_ai.sdk.optimization.internal.graphgen_models", "GraphGenRubric"),
     "GraphGenVerifierConfig": (
-        "synth_ai.sdk.optimization._impl.graphgen_models",
+        "synth_ai.sdk.optimization.internal.graphgen_models",
         "GraphGenVerifierConfig",
     ),
     "GraphOptimizationJob": ("synth_ai.sdk.optimization", "GraphOptimizationJob"),
     "PolicyOptimizationJob": ("synth_ai.sdk.optimization", "PolicyOptimizationJob"),
     "PromptLearningJob": ("synth_ai.sdk.optimization", "PolicyOptimizationJob"),
     "load_graphgen_taskset": (
-        "synth_ai.sdk.optimization._impl.graphgen_models",
+        "synth_ai.sdk.optimization.internal.graphgen_models",
         "load_graphgen_taskset",
     ),
     "cleanup_all": ("synth_ai.core.tunnels", "cleanup_all"),

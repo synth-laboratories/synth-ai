@@ -89,8 +89,8 @@ function extractCandidateId(candidate: Record<string, any>, fallback: string): s
   return (
     candidate.candidate_id ||
     candidate.version_id ||
-    candidate.template_id ||
     candidate.id ||
+    candidate.template_id ||
     fallback
   )
 }
@@ -319,24 +319,34 @@ export function extractBestCandidate(
   if (!snapshotPayload) return null
   return (
     (isRecord(snapshotPayload.best_candidate) && snapshotPayload.best_candidate) ||
-    (isRecord(snapshotPayload.best_candidate_template) && snapshotPayload.best_candidate_template) ||
     (isRecord(snapshotPayload.best_candidate_pattern) && snapshotPayload.best_candidate_pattern) ||
+    (isRecord(snapshotPayload.best_candidate_template) && snapshotPayload.best_candidate_template) ||
     (isRecord(snapshotPayload.best_prompt) && snapshotPayload.best_prompt) ||
-    (isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template) ||
     (isRecord(snapshotPayload.best_prompt_pattern) && snapshotPayload.best_prompt_pattern) ||
+    (isRecord(snapshotPayload.best_prompt_template) && snapshotPayload.best_prompt_template) ||
     null
   )
 }
 
 export function extractBestCandidateText(snapshotPayload: Record<string, any>): string | null {
   if (!snapshotPayload) return null
-  const bestCandidateMessages =
+  let bestCandidateMessages =
     snapshotPayload.best_candidate_messages ?? snapshotPayload.best_prompt_messages
+  if (!bestCandidateMessages) {
+    const pattern =
+      snapshotPayload.best_candidate_pattern ??
+      snapshotPayload.best_prompt_pattern ??
+      snapshotPayload.best_candidate ??
+      snapshotPayload.best_prompt
+    if (isRecord(pattern) && Array.isArray(pattern.messages)) {
+      bestCandidateMessages = pattern.messages
+    }
+  }
   if (Array.isArray(bestCandidateMessages) && bestCandidateMessages.length > 0) {
     return bestCandidateMessages
       .map((msg: any) => {
         const role = msg?.role || "unknown"
-        const content = msg?.content || ""
+        const content = msg?.content || msg?.pattern || ""
         return `[${role}] ${content}`
       })
       .join("\n")
@@ -352,8 +362,15 @@ export function extractBestCandidateText(snapshotPayload: Record<string, any>): 
 
 export function extractCandidateStages(bestCandidate: Record<string, any>): Array<Record<string, any>> {
   if (!bestCandidate) return []
-  const stages =
+  let stages =
     bestCandidate.stages || bestCandidate.sections || bestCandidate.prompt_sections || []
+  if (!stages && isRecord(bestCandidate.pattern) && Array.isArray(bestCandidate.pattern.messages)) {
+    stages = bestCandidate.pattern.messages.map((msg: any) => ({
+      role: msg?.role || "system",
+      content: msg?.content || msg?.pattern || "",
+      name: msg?.name,
+    }))
+  }
   if (Array.isArray(stages)) return stages
   if (isRecord(stages)) {
     return Object.entries(stages).map(([id, value]) => {
@@ -390,7 +407,7 @@ export function formatResults(snapshot: Snapshot): string {
     const bestCandidate = extractBestCandidate(snapshot.bestSnapshot as any)
     const bestCandidateText = extractBestCandidateText(snapshot.bestSnapshot as any)
     if (bestCandidate) {
-      const candidateId = bestCandidate.id || bestCandidate.template_id
+      const candidateId = extractCandidateId(bestCandidate, bestCandidate.id || "-")
       const candidateName = bestCandidate.name
       const candidateLabel = [candidateName, candidateId].filter(Boolean).join(" ")
       if (candidateLabel) lines.push(`Best candidate: ${candidateLabel}`)
@@ -575,7 +592,7 @@ export function formatResultsExpanded(snapshot: Snapshot): string | null {
       (snapshot.bestSnapshot as any).best_prompt_messages
 
     if (bestCandidate && typeof bestCandidate === "object") {
-      const candidateId = (bestCandidate as any).id || (bestCandidate as any).template_id
+      const candidateId = extractCandidateId(bestCandidate as any, (bestCandidate as any).id || "-")
       const candidateName = (bestCandidate as any).name
       if (candidateName) lines.push(`Candidate Name: ${candidateName}`)
       if (candidateId) lines.push(`Candidate ID: ${candidateId}`)

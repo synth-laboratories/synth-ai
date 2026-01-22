@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
-from synth_ai.sdk.optimization._impl.utils import ensure_api_base
+from synth_ai.sdk.optimization.utils import ensure_api_base, run_sync
 from synth_ai.sdk.shared import AsyncHttpClient
 
 
@@ -30,6 +29,62 @@ class MiproOnlineSession:
     timeout: float = 30.0
 
     @classmethod
+    async def create_async(
+        cls,
+        *,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        config: Optional[Dict[str, Any] | str | Path] = None,
+        config_name: Optional[str] = None,
+        config_path: Optional[str | Path] = None,
+        config_body: Optional[Dict[str, Any]] = None,
+        overrides: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        timeout: float = 30.0,
+    ) -> MiproOnlineSession:
+        """Create a new online MIPRO session (async)."""
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+
+        body = _build_session_payload(
+            config=config,
+            config_name=config_name,
+            config_path=config_path,
+            config_body=config_body,
+            overrides=overrides,
+            metadata=metadata,
+            session_id=session_id,
+            correlation_id=correlation_id,
+            agent_id=agent_id,
+        )
+
+        async with AsyncHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.post_json(
+                "/prompt-learning/online/mipro/sessions",
+                json=body,
+            )
+
+        if not isinstance(response, dict):
+            raise ValueError("Invalid response from MIPRO session create")
+        session_id = str(response.get("session_id") or "")
+        if not session_id:
+            raise ValueError("Missing session_id in response")
+
+        return cls(
+            session_id=session_id,
+            backend_url=base_url,
+            api_key=key,
+            correlation_id=(response.get("correlation_id") or correlation_id or agent_id),
+            proxy_url=_coerce_str(response.get("proxy_url")),
+            online_url=_coerce_str(response.get("online_url")),
+            chat_completions_url=_coerce_str(response.get("chat_completions_url")),
+            timeout=timeout,
+        )
+
+    @classmethod
     def create(
         cls,
         *,
@@ -47,49 +102,52 @@ class MiproOnlineSession:
         timeout: float = 30.0,
     ) -> MiproOnlineSession:
         """Create a new online MIPRO session."""
+        return _run_async(
+            cls.create_async(
+                backend_url=backend_url,
+                api_key=api_key,
+                config=config,
+                config_name=config_name,
+                config_path=config_path,
+                config_body=config_body,
+                overrides=overrides,
+                metadata=metadata,
+                session_id=session_id,
+                correlation_id=correlation_id,
+                agent_id=agent_id,
+                timeout=timeout,
+            )
+        )
+
+    @classmethod
+    async def get_online_url_async(
+        cls,
+        session_id: str,
+        *,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        timeout: float = 30.0,
+    ) -> str:
+        """Fetch the stable online URL for a session (async)."""
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        params = {}
+        if correlation_id:
+            params["correlation_id"] = correlation_id
 
-        body = _build_session_payload(
-            config=config,
-            config_name=config_name,
-            config_path=config_path,
-            config_body=config_body,
-            overrides=overrides,
-            metadata=metadata,
-            session_id=session_id,
-            correlation_id=correlation_id,
-            agent_id=agent_id,
-        )
+        async with AsyncHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.get(
+                f"/prompt-learning/online/mipro/sessions/{session_id}/prompt",
+                params=params or None,
+            )
 
-        async def _create() -> Dict[str, Any]:
-            async with AsyncHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-                return await http.post_json(
-                    "/prompt-learning/online/mipro/sessions",
-                    json=body,
-                )
-
-        response = _run_async(_create())
         if not isinstance(response, dict):
-            raise ValueError("Invalid response from MIPRO session create")
-        session_id = str(response.get("session_id") or "")
-        if not session_id:
-            raise ValueError("Missing session_id in response")
-
-        return cls(
-            session_id=session_id,
-            backend_url=base_url,
-            api_key=key,
-            correlation_id=(
-                response.get("correlation_id")
-                or correlation_id
-                or agent_id
-            ),
-            proxy_url=_coerce_str(response.get("proxy_url")),
-            online_url=_coerce_str(response.get("online_url")),
-            chat_completions_url=_coerce_str(response.get("chat_completions_url")),
-            timeout=timeout,
-        )
+            raise ValueError("Invalid response from MIPRO prompt endpoint")
+        online_url = response.get("online_url")
+        if not online_url:
+            raise ValueError("Missing online_url in response")
+        return str(online_url)
 
     @classmethod
     def get_online_url(
@@ -102,41 +160,29 @@ class MiproOnlineSession:
         timeout: float = 30.0,
     ) -> str:
         """Fetch the stable online URL for a session."""
-        base_url = _resolve_backend_url(backend_url)
-        key = _resolve_api_key(api_key)
-        params = {}
-        if correlation_id:
-            params["correlation_id"] = correlation_id
+        return _run_async(
+            cls.get_online_url_async(
+                session_id,
+                backend_url=backend_url,
+                api_key=api_key,
+                correlation_id=correlation_id,
+                timeout=timeout,
+            )
+        )
 
-        async def _fetch() -> Dict[str, Any]:
-            async with AsyncHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-                return await http.get(
-                    f"/prompt-learning/online/mipro/sessions/{session_id}/prompt",
-                    params=params or None,
-                )
-
-        response = _run_async(_fetch())
-        if not isinstance(response, dict):
-            raise ValueError("Invalid response from MIPRO prompt endpoint")
-        online_url = response.get("online_url")
-        if not online_url:
-            raise ValueError("Missing online_url in response")
-        return str(online_url)
+    async def status_async(self) -> Dict[str, Any]:
+        """Return session status payload (async)."""
+        async with AsyncHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            result = await http.get(f"/prompt-learning/online/mipro/sessions/{self.session_id}")
+        return dict(result) if isinstance(result, dict) else {}
 
     def status(self) -> Dict[str, Any]:
         """Return session status payload."""
-        async def _fetch() -> Dict[str, Any]:
-            async with AsyncHttpClient(
-                ensure_api_base(self.backend_url),
-                self.api_key,
-                timeout=self.timeout,
-            ) as http:
-                return await http.get(
-                    f"/prompt-learning/online/mipro/sessions/{self.session_id}"
-                )
-
-        result = _run_async(_fetch())
-        return dict(result) if isinstance(result, dict) else {}
+        return _run_async(self.status_async())
 
     def pause(self) -> Dict[str, Any]:
         return self._post_action("pause")
@@ -147,7 +193,7 @@ class MiproOnlineSession:
     def cancel(self) -> Dict[str, Any]:
         return self._post_action("cancel")
 
-    def update_reward(
+    async def update_reward_async(
         self,
         *,
         reward_info: Dict[str, Any],
@@ -159,7 +205,7 @@ class MiproOnlineSession:
         trace_ref: Optional[str] = None,
         stop: Optional[bool] = None,
     ) -> Dict[str, Any]:
-        """Update reward info for a rollout (trace materialized server-side)."""
+        """Update reward info for a rollout (trace materialized server-side) (async)."""
         payload: Dict[str, Any] = {
             "reward_info": reward_info,
         }
@@ -178,56 +224,80 @@ class MiproOnlineSession:
         if stop is not None:
             payload["stop"] = stop
 
-        async def _post() -> Dict[str, Any]:
-            async with AsyncHttpClient(
-                ensure_api_base(self.backend_url),
-                self.api_key,
-                timeout=self.timeout,
-            ) as http:
-                return await http.post_json(
-                    f"/prompt-learning/online/mipro/sessions/{self.session_id}/reward",
-                    json=payload,
-                )
-
-        result = _run_async(_post())
+        async with AsyncHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            result = await http.post_json(
+                f"/prompt-learning/online/mipro/sessions/{self.session_id}/reward",
+                json=payload,
+            )
         return dict(result) if isinstance(result, dict) else {}
 
-    def get_prompt_urls(
+    def update_reward(
+        self,
+        *,
+        reward_info: Dict[str, Any],
+        artifact: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
+        rollout_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        trace_ref: Optional[str] = None,
+        stop: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Update reward info for a rollout (trace materialized server-side)."""
+        return _run_async(
+            self.update_reward_async(
+                reward_info=reward_info,
+                artifact=artifact,
+                metadata=metadata,
+                correlation_id=correlation_id,
+                rollout_id=rollout_id,
+                candidate_id=candidate_id,
+                trace_ref=trace_ref,
+                stop=stop,
+            )
+        )
+
+    async def get_prompt_urls_async(
         self, *, correlation_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Return proxy URLs (responses + chat completions)."""
+        """Return proxy URLs (responses + chat completions) (async)."""
         params = {}
         if correlation_id or self.correlation_id:
             params["correlation_id"] = correlation_id or self.correlation_id
 
-        async def _fetch() -> Dict[str, Any]:
-            async with AsyncHttpClient(
-                ensure_api_base(self.backend_url),
-                self.api_key,
-                timeout=self.timeout,
-            ) as http:
-                return await http.get(
-                    f"/prompt-learning/online/mipro/sessions/{self.session_id}/prompt",
-                    params=params or None,
-                )
+        async with AsyncHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            result = await http.get(
+                f"/prompt-learning/online/mipro/sessions/{self.session_id}/prompt",
+                params=params or None,
+            )
+        return dict(result) if isinstance(result, dict) else {}
 
-        result = _run_async(_fetch())
+    def get_prompt_urls(self, *, correlation_id: Optional[str] = None) -> Dict[str, Any]:
+        """Return proxy URLs (responses + chat completions)."""
+        return _run_async(self.get_prompt_urls_async(correlation_id=correlation_id))
+
+    async def _post_action_async(self, action: str) -> Dict[str, Any]:
+        async with AsyncHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            result = await http.post_json(
+                f"/prompt-learning/online/mipro/sessions/{self.session_id}/{action}",
+                json={},
+            )
         return dict(result) if isinstance(result, dict) else {}
 
     def _post_action(self, action: str) -> Dict[str, Any]:
-        async def _post() -> Dict[str, Any]:
-            async with AsyncHttpClient(
-                ensure_api_base(self.backend_url),
-                self.api_key,
-                timeout=self.timeout,
-            ) as http:
-                return await http.post_json(
-                    f"/prompt-learning/online/mipro/sessions/{self.session_id}/{action}",
-                    json={},
-                )
-
-        result = _run_async(_post())
-        return dict(result) if isinstance(result, dict) else {}
+        return _run_async(self._post_action_async(action))
 
 
 def _resolve_backend_url(backend_url: Optional[str]) -> str:
@@ -239,9 +309,7 @@ def _resolve_api_key(api_key: Optional[str]) -> str:
         return api_key
     env_key = os.getenv("SYNTH_API_KEY")
     if not env_key:
-        raise ValueError(
-            "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
-        )
+        raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY env var)")
     return env_key
 
 
@@ -298,19 +366,7 @@ def _coerce_str(value: Any) -> Optional[str]:
 
 
 def _run_async(coro: Any) -> Any:
-    try:
-        asyncio.get_running_loop()
-        try:
-            import nest_asyncio  # type: ignore[unresolved-import]
-
-            nest_asyncio.apply()
-            return asyncio.run(coro)
-        except ImportError as exc:
-            raise RuntimeError(
-                "MiproOnlineSession cannot be called from an async context without nest_asyncio."
-            ) from exc
-    except RuntimeError:
-        return asyncio.run(coro)
+    return run_sync(coro, label="MiproOnlineSession (use async methods in async contexts)")
 
 
 __all__ = ["MiproOnlineSession"]
