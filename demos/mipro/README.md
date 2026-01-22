@@ -115,33 +115,7 @@ Online state: best_candidate_id=baseline version=X candidates=N
 | `MIPRO_PROXY_MODELS` | `0` | `1` to enable proxy-aware hi/lo model evaluation |
 | `MIPRO_INCLUDE_TASK_APP_KEY` | auto | `1` to include task app API key in config |
 
-## Architecture
-
-### Offline Mode
-```
-Client -> Python Backend -> Rust Backend (MIPRO executor)
-                                 |
-                                 v
-                            Task App (Banking77)
-```
-
-### Online Mode
-```
-Client -> Python Backend -> Rust Backend (job creation)
-   |                              |
-   |                              v
-   |                        MIPRO System (state management)
-   |                              |
-   v                              v
-Task App <-- LLM calls --> MIPRO Proxy (candidate selection + forwarding)
-```
-
 ## Troubleshooting
-
-### 502 Bad Gateway
-- Check that both Python and Rust backends are healthy
-- Verify `DATABASE_URL` is set on Railway services
-- Check Railway logs for panic messages
 
 ### DNS Resolution Errors (Online Mode)
 - Cloudflare quick tunnels are ephemeral; retry if DNS fails
@@ -149,4 +123,3 @@ Task App <-- LLM calls --> MIPRO Proxy (candidate selection + forwarding)
 
 ### Missing API Key
 - Ensure `SYNTH_API_KEY` is exported in your shell
-- Verify the key exists in the database for the target environment
