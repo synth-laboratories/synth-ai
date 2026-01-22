@@ -15,7 +15,7 @@ import click
 from .types import StreamMessage, StreamType
 
 if TYPE_CHECKING:
-    from synth_ai.sdk.optimization.events import BaseJobEvent, CandidateEvent, JobEvent
+    from synth_ai.sdk.shared.orchestration.events import BaseJobEvent, CandidateEvent, JobEvent
 
 
 def _mask_sensitive_urls(text: str) -> str:
@@ -117,7 +117,7 @@ class OptimizationStreamHandler(StreamHandler):
             typed_event = message.typed_event()
             if typed_event is not None:
                 # Import here to avoid circular dependency at module load
-                from synth_ai.sdk.optimization.events import CandidateEvent, JobEvent
+                from synth_ai.sdk.shared.orchestration.events import CandidateEvent, JobEvent
 
                 if isinstance(typed_event, CandidateEvent):
                     self.handle_candidate_event(message, typed_event)

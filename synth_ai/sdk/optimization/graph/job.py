@@ -17,12 +17,14 @@ Two construction modes:
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Sequence
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.sdk.optimization.models import GraphJobStatus as JobStatus
+from synth_ai.sdk.optimization.models import GraphOptimizationResult
 
 if TYPE_CHECKING:
     from synth_ai.core.streaming import StreamHandler
@@ -40,97 +42,6 @@ class Algorithm(str, Enum):
             return cls(value.lower())
         except ValueError:
             return cls.GRAPH_GEPA
-
-
-class JobStatus(str, Enum):
-    """Status of a graph optimization job."""
-
-    PENDING = "pending"
-    QUEUED = "queued"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    SUCCEEDED = "succeeded"  # Alias
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-    @classmethod
-    def from_string(cls, status: str) -> JobStatus:
-        """Convert string to JobStatus, defaulting to PENDING for unknown values."""
-        try:
-            return cls(status.lower())
-        except ValueError:
-            return cls.PENDING
-
-    @property
-    def is_terminal(self) -> bool:
-        """Whether this status is terminal (job won't change further)."""
-        return self in (
-            JobStatus.COMPLETED,
-            JobStatus.SUCCEEDED,
-            JobStatus.FAILED,
-            JobStatus.CANCELLED,
-        )
-
-    @property
-    def is_success(self) -> bool:
-        """Whether this status indicates success."""
-        return self in (JobStatus.COMPLETED, JobStatus.SUCCEEDED)
-
-
-@dataclass
-class GraphOptimizationResult:
-    """Typed result from a graph optimization job.
-
-    Provides clean accessors for common fields instead of raw dict access.
-    """
-
-    job_id: str
-    status: JobStatus
-    algorithm: Algorithm = Algorithm.GRAPH_GEPA
-    best_score: Optional[float] = None
-    best_yaml: Optional[str] = None
-    best_snapshot_id: Optional[str] = None
-    generations_completed: Optional[int] = None
-    total_candidates_evaluated: Optional[int] = None
-    duration_seconds: Optional[float] = None
-    error: Optional[str] = None
-    raw: Dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def from_response(cls, job_id: str, data: Dict[str, Any]) -> GraphOptimizationResult:
-        """Create result from API response dict."""
-        status_str = data.get("status", "pending")
-        status = JobStatus.from_string(status_str)
-        best_score = data.get("best_score") or data.get("best_reward")
-
-        return cls(
-            job_id=job_id,
-            status=status,
-            algorithm=Algorithm.GRAPH_GEPA,
-            best_score=best_score,
-            best_yaml=data.get("best_yaml"),
-            best_snapshot_id=data.get("best_snapshot_id"),
-            generations_completed=data.get("generations_completed"),
-            total_candidates_evaluated=data.get("total_candidates_evaluated"),
-            duration_seconds=data.get("duration_seconds"),
-            error=data.get("error"),
-            raw=data,
-        )
-
-    @property
-    def succeeded(self) -> bool:
-        """Whether the job succeeded."""
-        return self.status.is_success
-
-    @property
-    def failed(self) -> bool:
-        """Whether the job failed."""
-        return self.status == JobStatus.FAILED
-
-    @property
-    def is_terminal(self) -> bool:
-        """Whether the job has reached a terminal state."""
-        return self.status.is_terminal
 
 
 @dataclass
@@ -261,8 +172,8 @@ class GraphOptimizationJob:
         )
 
         # Create delegate using old GraphOptimizationJob
-        from synth_ai.sdk.optimization._impl.graph_optimization import (
-            GraphOptimizationJob as LegacyGraphOptimizationJob,
+        from synth_ai.sdk.optimization.clients.jobs import (
+            InternalGraphOptimizationJob as LegacyGraphOptimizationJob,
         )
 
         delegate = LegacyGraphOptimizationJob.from_config(
@@ -308,8 +219,8 @@ class GraphOptimizationJob:
         )
 
         # Create delegate using old GraphOptimizationJob
-        from synth_ai.sdk.optimization._impl.graph_optimization import (
-            GraphOptimizationJob as LegacyGraphOptimizationJob,
+        from synth_ai.sdk.optimization.clients.jobs import (
+            InternalGraphOptimizationJob as LegacyGraphOptimizationJob,
         )
 
         delegate = LegacyGraphOptimizationJob.from_dict(
@@ -398,7 +309,7 @@ class GraphOptimizationJob:
         )
 
         # Create delegate using GraphEvolveJob
-        from synth_ai.sdk.optimization._impl.graphgen import GraphEvolveJob
+        from synth_ai.sdk.optimization.clients.jobs import GraphEvolveJob
 
         delegate = GraphEvolveJob.from_dataset(
             dataset=dataset,
@@ -454,7 +365,7 @@ class GraphOptimizationJob:
         )
 
         # Use GraphEvolveJob for resume (it handles all job ID types)
-        from synth_ai.sdk.optimization._impl.graphgen import GraphEvolveJob
+        from synth_ai.sdk.optimization.clients.jobs import GraphEvolveJob
 
         delegate = GraphEvolveJob.from_job_id(
             job_id=job_id,
@@ -551,8 +462,8 @@ class GraphOptimizationJob:
             )
             return GraphOptimizationResult(
                 job_id=result.job_id,
-                status=JobStatus.from_string(result.status.value),
-                algorithm=self._algorithm,
+                status=result.status,
+                algorithm=str(self._algorithm),
                 best_score=result.best_score,
                 best_yaml=result.best_yaml,
                 best_snapshot_id=result.best_snapshot_id,
@@ -568,11 +479,17 @@ class GraphOptimizationJob:
 
             start_time = time.time()
             last_data: Dict[str, Any] = {}
+            error_count = 0
+            max_errors = 5
+            import logging
+
+            logger = logging.getLogger(__name__)
 
             while time.time() - start_time < timeout:
                 try:
                     status_data = self.get_status()
                     last_data = status_data
+                    error_count = 0
                     status = JobStatus.from_string(status_data.get("status", "pending"))
 
                     if progress:
@@ -583,18 +500,35 @@ class GraphOptimizationJob:
                         print(f"[poll] {msg}")
 
                     if status.is_terminal:
-                        return GraphOptimizationResult.from_response(self.job_id or "", last_data)
+                        return GraphOptimizationResult.from_response(
+                            self.job_id or "", last_data, algorithm=str(self._algorithm)
+                        )
 
                 except Exception as exc:
+                    error_count += 1
                     if progress:
-                        print(f"[poll] error: {exc}")
+                        print(f"[poll] error {error_count}/{max_errors}: {exc}")
+                    else:
+                        logger.warning(
+                            "Polling error %s/%s for job %s: %s",
+                            error_count,
+                            max_errors,
+                            self.job_id,
+                            exc,
+                        )
+                    if error_count >= max_errors:
+                        raise RuntimeError(
+                            f"Polling failed after {error_count} consecutive errors."
+                        ) from exc
 
                 time.sleep(interval)
 
             if progress:
                 print(f"[poll] timeout after {timeout:.0f}s")
 
-            return GraphOptimizationResult.from_response(self.job_id or "", last_data)
+            return GraphOptimizationResult.from_response(
+                self.job_id or "", last_data, algorithm=str(self._algorithm)
+            )
 
     def stream_until_complete(
         self,
@@ -628,8 +562,8 @@ class GraphOptimizationJob:
             )
             return GraphOptimizationResult(
                 job_id=result.job_id,
-                status=JobStatus.from_string(result.status.value),
-                algorithm=self._algorithm,
+                status=result.status,
+                algorithm=str(self._algorithm),
                 best_score=result.best_score,
                 best_yaml=result.best_yaml,
                 best_snapshot_id=result.best_snapshot_id,
@@ -646,7 +580,9 @@ class GraphOptimizationJob:
                 handlers=handlers,
                 on_event=on_event,
             )
-            return GraphOptimizationResult.from_response(self.job_id or "", final_status)
+            return GraphOptimizationResult.from_response(
+                self.job_id or "", final_status, algorithm=str(self._algorithm)
+            )
 
     def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Cancel a running job.

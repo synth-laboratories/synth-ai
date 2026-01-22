@@ -6,7 +6,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from synth_ai.sdk.optimization.events import BaseJobEvent
+    from synth_ai.sdk.shared.orchestration.events import BaseJobEvent
 
 
 class StreamType(Enum):
@@ -68,7 +68,7 @@ class StreamMessage:
 
         if self._typed_event is None:
             # Lazy import to avoid circular dependencies
-            from synth_ai.sdk.optimization.events import parse_event
+            from synth_ai.sdk.shared.orchestration.events import parse_event
 
             self._typed_event = parse_event(self.data, self.job_id)
 

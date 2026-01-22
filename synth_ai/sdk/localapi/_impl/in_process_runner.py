@@ -30,9 +30,9 @@ from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 from synth_ai.core.utils.dict import deep_update as _deep_update
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi._impl.in_process import InProcessTaskApp
-from synth_ai.sdk.optimization._impl.local_api import LocalAPIHealth, check_local_api_health
-from synth_ai.sdk.optimization._impl.prompt_learning import PromptLearningJob
-from synth_ai.sdk.optimization._impl.utils import ensure_api_base
+from synth_ai.sdk.optimization.internal.local_api import LocalAPIHealth, check_local_api_health
+from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
+from synth_ai.sdk.optimization.internal.utils import ensure_api_base
 
 BackendMode = Literal["prompt_learning"]
 
@@ -237,9 +237,7 @@ async def run_in_process_job(
         # Common overrides: task URL + API key injected in both dot and flat forms
         task_overrides = {
             "task_url": task_url,
-            "task_app_api_key": resolved_task_app_key,
             "prompt_learning.task_app_url": task_url,
-            "prompt_learning.task_app_api_key": resolved_task_app_key,
         }
         merged_overrides = merge_dot_overrides(overrides, task_overrides)
 
