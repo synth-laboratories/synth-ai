@@ -171,9 +171,10 @@ class PromptExtractor:
 
         for section in template.sections:
             if section.content:
-                text_parts.append(section.content)
-                if not text_parts:  # Use first section's role
+                # Capture first section's role before appending
+                if not text_parts:
                     role = section.role
+                text_parts.append(section.content)
 
         if not text_parts:
             return None
@@ -299,10 +300,10 @@ class PromptExtractor:
             sec_role = section.get("role", "system")
 
             if sec_content:
-                text_parts.append(sec_content)
-                # Use first section's role
+                # Capture first section's role before appending
                 if not text_parts:
                     role = sec_role
+                text_parts.append(sec_content)
 
         if not text_parts:
             return None
