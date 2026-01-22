@@ -135,6 +135,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 "synth_ai" = [
+    "config/supported_models.json",
     "demos/demo_task_apps/math/config.toml",
     "demos/demo_task_apps/math/deploy_task_app.sh",
 ]

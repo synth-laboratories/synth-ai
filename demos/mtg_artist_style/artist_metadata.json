@@ -1,0 +1,3696 @@
+{
+  "artists": {
+    "seb_mckinnon": {
+      "name": "Seb McKinnon",
+      "style_description": "Moody, gothic, painterly surrealism with ethereal atmosphere and dark fantasy themes",
+      "num_cards": 20
+    },
+    "rebecca_guay": {
+      "name": "Rebecca Guay",
+      "style_description": "Delicate watercolor and ink work with storybook and pre-Raphaelite aesthetics",
+      "num_cards": 20
+    },
+    "terese_nielsen": {
+      "name": "Terese Nielsen",
+      "style_description": "Saturated colors, iconic compositions with high-contrast fantasy lighting",
+      "num_cards": 20
+    },
+    "john_avon": {
+      "name": "John Avon",
+      "style_description": "Luminous landscapes with atmospheric depth - you can smell the air",
+      "num_cards": 20
+    },
+    "nils_hamm": {
+      "name": "Nils Hamm",
+      "style_description": "Eerie, atmospheric realism with strong mood design and unsettling undertones",
+      "num_cards": 20
+    },
+    "rk_post": {
+      "name": "rk post",
+      "style_description": "Dark fantasy with sharp silhouettes and metal-album energy",
+      "num_cards": 20
+    },
+    "kev_walker": {
+      "name": "Kev Walker",
+      "style_description": "Gritty, dynamic figures with bold brushwork - classic modern Magic look",
+      "num_cards": 20
+    },
+    "ron_spencer": {
+      "name": "Ron Spencer",
+      "style_description": "Grotesque horror creature work with extremely identifiable organic textures",
+      "num_cards": 20
+    },
+    "mark_tedin": {
+      "name": "Mark Tedin",
+      "style_description": "Old-school surreal alien fantasy with early-Magic signature feel and cosmic weirdness",
+      "num_cards": 20
+    },
+    "quinton_hoover": {
+      "name": "Quinton Hoover",
+      "style_description": "Loose, expressive brushwork with dreamy character pieces and soft edges",
+      "num_cards": 20
+    },
+    "zoltan_boros": {
+      "name": "Zoltan Boros",
+      "style_description": "Dramatic realism with big cinematic scenes and dynamic lighting",
+      "num_cards": 20
+    },
+    "steve_argyle": {
+      "name": "Steve Argyle",
+      "style_description": "Polished character portraits with crisp fantasy illustration and vibrant colors",
+      "num_cards": 20
+    },
+    "wayne_reynolds": {
+      "name": "Wayne Reynolds",
+      "style_description": "Dense linework with kinetic busy compositions and explosive action",
+      "num_cards": 20
+    },
+    "aleksi_briclot": {
+      "name": "Aleksi Briclot",
+      "style_description": "Sleek, cinematic concept-art style with dramatic poses and rich atmosphere",
+      "num_cards": 20
+    },
+    "magali_villeneuve": {
+      "name": "Magali Villeneuve",
+      "style_description": "Ultra-detailed elegant high-fantasy realism with exquisite character rendering",
+      "num_cards": 20
+    },
+    "drew_tucker": {
+      "name": "Drew Tucker",
+      "style_description": "Abstract experimental texture-heavy fantasy with unconventional compositions",
+      "num_cards": 20
+    },
+    "dan_frazier": {
+      "name": "Dan Frazier",
+      "style_description": "Clean iconic artifact and iconography look with graphic design sensibility",
+      "num_cards": 20
+    },
+    "chippy": {
+      "name": "Chippy",
+      "style_description": "Stylized bold shapes with slightly cartoon satirical edge and strong silhouettes",
+      "num_cards": 20
+    }
+  },
+  "cards": [
+    {
+      "card_name": "Forest",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Dominaria United",
+      "image_path": "gold_images/seb_mckinnon/forest_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmu/274/forest?utm_source=api",
+      "oracle_text": "({T}: Add {G}.)",
+      "type_line": "Basic Land \u2014 Forest"
+    },
+    {
+      "card_name": "Mountain",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Dominaria United",
+      "image_path": "gold_images/seb_mckinnon/mountain_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmu/272/mountain?utm_source=api",
+      "oracle_text": "({T}: Add {R}.)",
+      "type_line": "Basic Land \u2014 Mountain"
+    },
+    {
+      "card_name": "Swamp",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Dominaria United",
+      "image_path": "gold_images/seb_mckinnon/swamp_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmu/268/swamp?utm_source=api",
+      "oracle_text": "({T}: Add {B}.)",
+      "type_line": "Basic Land \u2014 Swamp"
+    },
+    {
+      "card_name": "Island",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Dominaria United",
+      "image_path": "gold_images/seb_mckinnon/island_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmu/265/island?utm_source=api",
+      "oracle_text": "({T}: Add {U}.)",
+      "type_line": "Basic Land \u2014 Island"
+    },
+    {
+      "card_name": "Plains",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Dominaria United",
+      "image_path": "gold_images/seb_mckinnon/plains_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmu/263/plains?utm_source=api",
+      "oracle_text": "({T}: Add {W}.)",
+      "type_line": "Basic Land \u2014 Plains"
+    },
+    {
+      "card_name": "Farewell",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Kamigawa: Neon Dynasty",
+      "image_path": "gold_images/seb_mckinnon/farewell_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/neo/436/farewell?utm_source=api",
+      "oracle_text": "Choose one or more \u2014\n\u2022 Exile all artifacts.\n\u2022 Exile all creatures.\n\u2022 Exile all enchantments.\n\u2022 Exile all graveyards.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Svyelun of Sea and Sky",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Modern Horizons 2",
+      "image_path": "gold_images/seb_mckinnon/svyelun_of_sea_and_sky_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh2/69/svyelun-of-sea-and-sky?utm_source=api",
+      "oracle_text": "Svyelun has indestructible as long as you control at least two other Merfolk.\nWhenever Svyelun attacks, draw a card.\nOther Merfolk you control have ward {1}. (Whenever another Merfolk you control becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)",
+      "type_line": "Legendary Creature \u2014 Merfolk God"
+    },
+    {
+      "card_name": "Blood Crypt",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/seb_mckinnon/blood_crypt_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/125/blood-crypt?utm_source=api",
+      "oracle_text": "({T}: Add {B} or {R}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+      "type_line": "Land \u2014 Swamp Mountain"
+    },
+    {
+      "card_name": "Harness Infinity",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Strixhaven: School of Mages",
+      "image_path": "gold_images/seb_mckinnon/harness_infinity_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/stx/191/harness-infinity?utm_source=api",
+      "oracle_text": "Exchange your hand and graveyard.\nExile Harness Infinity.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Swamp",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/seb_mckinnon/swamp_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/539/swamp?utm_source=api",
+      "oracle_text": "({T}: Add {B}.)",
+      "type_line": "Basic Land \u2014 Swamp"
+    },
+    {
+      "card_name": "Enchanted Evening",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/seb_mckinnon/enchanted_evening_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/122/enchanted-evening?utm_source=api",
+      "oracle_text": "All permanents are enchantments in addition to their other types.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Damnation",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/seb_mckinnon/damnation_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/121/damnation?utm_source=api",
+      "oracle_text": "Destroy all creatures. They can't be regenerated.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Sower of Temptation",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/seb_mckinnon/sower_of_temptation_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/120/sower-of-temptation?utm_source=api",
+      "oracle_text": "Flying\nWhen this creature enters, gain control of target creature for as long as this creature remains on the battlefield.",
+      "type_line": "Creature \u2014 Faerie Wizard"
+    },
+    {
+      "card_name": "Swamp",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/seb_mckinnon/swamp_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/119/swamp?utm_source=api",
+      "oracle_text": "({T}: Add {B}.)",
+      "type_line": "Basic Land \u2014 Swamp"
+    },
+    {
+      "card_name": "Promise of Tomorrow",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Commander Legends",
+      "image_path": "gold_images/seb_mckinnon/promise_of_tomorrow_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmr/622/promise-of-tomorrow?utm_source=api",
+      "oracle_text": "Whenever a creature you control dies, exile it.\nAt the beginning of each end step, if you control no creatures, sacrifice this enchantment and return all cards exiled with it to the battlefield under your control.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Feast of Succession",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Commander Legends",
+      "image_path": "gold_images/seb_mckinnon/feast_of_succession_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmr/127/feast-of-succession?utm_source=api",
+      "oracle_text": "All creatures get -4/-4 until end of turn. You become the monarch.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "The Prismatic Piper",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Commander Legends",
+      "image_path": "gold_images/seb_mckinnon/the_prismatic_piper_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmr/1/the-prismatic-piper?utm_source=api",
+      "oracle_text": "If The Prismatic Piper is your commander, choose a color before the game begins. The Prismatic Piper is the chosen color.\nPartner (You can have two commanders if both have partner.)",
+      "type_line": "Legendary Creature \u2014 Shapeshifter"
+    },
+    {
+      "card_name": "Misty Rainforest",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Secret Lair: Ultimate Edition",
+      "image_path": "gold_images/seb_mckinnon/misty_rainforest_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/slu/5/misty-rainforest?utm_source=api",
+      "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Mythos of Brokkos",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Ikoria: Lair of Behemoths",
+      "image_path": "gold_images/seb_mckinnon/mythos_of_brokkos_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/iko/168/mythos-of-brokkos?utm_source=api",
+      "oracle_text": "If {U}{B} was spent to cast this spell, search your library for a card, put that card into your graveyard, then shuffle.\nReturn up to two permanent cards from your graveyard to your hand.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Mythos of Vadrok",
+      "artist": "Seb McKinnon",
+      "artist_key": "seb_mckinnon",
+      "set_name": "Ikoria: Lair of Behemoths",
+      "image_path": "gold_images/seb_mckinnon/mythos_of_vadrok_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/iko/127/mythos-of-vadrok?utm_source=api",
+      "oracle_text": "Mythos of Vadrok deals 5 damage divided as you choose among any number of target creatures and/or planeswalkers. If {W}{U} was spent to cast this spell, until your next turn, those permanents can't attack or block and their activated abilities can't be activated.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Bitterbloom Bearer",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/rebecca_guay/bitterbloom_bearer_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/352/bitterbloom-bearer?utm_source=api",
+      "oracle_text": "Flash\nFlying\nAt the beginning of your upkeep, you lose 1 life and create a 1/1 blue and black Faerie creature token with flying.",
+      "type_line": "Creature \u2014 Faerie Rogue"
+    },
+    {
+      "card_name": "Muddle the Mixture",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/rebecca_guay/muddle_the_mixture_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1254/muddle-the-mixture?utm_source=api",
+      "oracle_text": "Counter target instant or sorcery spell.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Stoneforge Mystic",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/rebecca_guay/stoneforge_mystic_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1253/stoneforge-mystic?utm_source=api",
+      "oracle_text": "When this creature enters, you may search your library for an Equipment card, reveal it, put it into your hand, then shuffle.\n{1}{W}, {T}: You may put an Equipment card from your hand onto the battlefield.",
+      "type_line": "Creature \u2014 Kor Artificer"
+    },
+    {
+      "card_name": "Serra the Benevolent",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/rebecca_guay/serra_the_benevolent_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1252/serra-the-benevolent?utm_source=api",
+      "oracle_text": "+2: Creatures you control with flying get +1/+1 until end of turn.\n\u22123: Create a 4/4 white Angel creature token with flying and vigilance.\n\u22126: You get an emblem with \"If you control a creature, damage that would reduce your life total to less than 1 reduces it to 1 instead.\"",
+      "type_line": "Legendary Planeswalker \u2014 Serra"
+    },
+    {
+      "card_name": "Cleansing Nova",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/rebecca_guay/cleansing_nova_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1251/cleansing-nova?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Destroy all creatures.\n\u2022 Destroy all artifacts and enchantments.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Cleansing Nova",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/rebecca_guay/cleansing_nova_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/730/cleansing-nova?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Destroy all creatures.\n\u2022 Destroy all artifacts and enchantments.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Elspeth, Sun's Champion",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Secret Lair Countdown",
+      "image_path": "gold_images/rebecca_guay/elspeth__sun_s_champion_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/slc/2013/elspeth-suns-champion?utm_source=api",
+      "oracle_text": "+1: Create three 1/1 white Soldier creature tokens.\n\u22123: Destroy all creatures with power 4 or greater.\n\u22127: You get an emblem with \"Creatures you control get +2/+2 and have flying.\"",
+      "type_line": "Legendary Planeswalker \u2014 Elspeth"
+    },
+    {
+      "card_name": "Mother of Runes",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/rebecca_guay/mother_of_runes_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/297/mother-of-runes?utm_source=api",
+      "oracle_text": "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+      "type_line": "Creature \u2014 Human Cleric"
+    },
+    {
+      "card_name": "Plains",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Commander 2017",
+      "image_path": "gold_images/rebecca_guay/plains_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/c17/295/plains?utm_source=api",
+      "oracle_text": "({T}: Add {W}.)",
+      "type_line": "Basic Land \u2014 Plains"
+    },
+    {
+      "card_name": "Forest",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Commander 2016",
+      "image_path": "gold_images/rebecca_guay/forest_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/c16/349/forest?utm_source=api",
+      "oracle_text": "({T}: Add {G}.)",
+      "type_line": "Basic Land \u2014 Forest"
+    },
+    {
+      "card_name": "Mountain",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Commander 2016",
+      "image_path": "gold_images/rebecca_guay/mountain_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/c16/346/mountain?utm_source=api",
+      "oracle_text": "({T}: Add {R}.)",
+      "type_line": "Basic Land \u2014 Mountain"
+    },
+    {
+      "card_name": "Swamp",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Commander 2016",
+      "image_path": "gold_images/rebecca_guay/swamp_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/c16/343/swamp?utm_source=api",
+      "oracle_text": "({T}: Add {B}.)",
+      "type_line": "Basic Land \u2014 Swamp"
+    },
+    {
+      "card_name": "Island",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Commander 2016",
+      "image_path": "gold_images/rebecca_guay/island_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/c16/340/island?utm_source=api",
+      "oracle_text": "({T}: Add {U}.)",
+      "type_line": "Basic Land \u2014 Island"
+    },
+    {
+      "card_name": "Serra Angel",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "From the Vault: Angels",
+      "image_path": "gold_images/rebecca_guay/serra_angel_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/v15/14/serra-angel?utm_source=api",
+      "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+      "type_line": "Creature \u2014 Angel"
+    },
+    {
+      "card_name": "Channel",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "From the Vault: Exiled",
+      "image_path": "gold_images/rebecca_guay/channel_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/v09/3/channel?utm_source=api",
+      "oracle_text": "Until end of turn, any time you could activate a mana ability, you may pay 1 life. If you do, add {C}.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Regenerate",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Magic 2010",
+      "image_path": "gold_images/rebecca_guay/regenerate_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/m10/202/regenerate?utm_source=api",
+      "oracle_text": "Regenerate target creature. (The next time that creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Path to Exile",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "DCI Promos",
+      "image_path": "gold_images/rebecca_guay/path_to_exile_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dci/24/path-to-exile?utm_source=api",
+      "oracle_text": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Wilderness Hypnotist",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Eventide",
+      "image_path": "gold_images/rebecca_guay/wilderness_hypnotist_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/eve/32/wilderness-hypnotist?utm_source=api",
+      "oracle_text": "{T}: Target red or green creature gets -2/-0 until end of turn.",
+      "type_line": "Creature \u2014 Merfolk Wizard"
+    },
+    {
+      "card_name": "Oona's Grace",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Eventide",
+      "image_path": "gold_images/rebecca_guay/oona_s_grace_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/eve/27/oonas-grace?utm_source=api",
+      "oracle_text": "Target player draws a card.\nRetrace (You may cast this card from your graveyard by discarding a land card in addition to paying its other costs.)",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Heartmender",
+      "artist": "Rebecca Guay",
+      "artist_key": "rebecca_guay",
+      "set_name": "Shadowmoor",
+      "image_path": "gold_images/rebecca_guay/heartmender_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/shm/228/heartmender?utm_source=api",
+      "oracle_text": "At the beginning of your upkeep, remove a -1/-1 counter from each creature you control.\nPersist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+      "type_line": "Creature \u2014 Elemental"
+    },
+    {
+      "card_name": "Echo of Eons",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Modern Horizons",
+      "image_path": "gold_images/terese_nielsen/echo_of_eons_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh1/46/echo-of-eons?utm_source=api",
+      "oracle_text": "Each player shuffles their hand and graveyard into their library, then draws seven cards.\nFlashback {2}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Pattern of Rebirth",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Ultimate Masters",
+      "image_path": "gold_images/terese_nielsen/pattern_of_rebirth_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/uma/176/pattern-of-rebirth?utm_source=api",
+      "oracle_text": "Enchant creature\nWhen enchanted creature dies, that creature's controller may search their library for a creature card, put that card onto the battlefield, then shuffle.",
+      "type_line": "Enchantment \u2014 Aura"
+    },
+    {
+      "card_name": "Fecundity",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Ultimate Masters",
+      "image_path": "gold_images/terese_nielsen/fecundity_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/uma/165/fecundity?utm_source=api",
+      "oracle_text": "Whenever a creature dies, that creature's controller may draw a card.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Back to Basics",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Ultimate Masters",
+      "image_path": "gold_images/terese_nielsen/back_to_basics_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/uma/46/back-to-basics?utm_source=api",
+      "oracle_text": "Nonbasic lands don't untap during their controllers' untap steps.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Nissa, Vital Force",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "San Diego Comic-Con 2018",
+      "image_path": "gold_images/terese_nielsen/nissa__vital_force_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ps18/163/nissa-vital-force?utm_source=api",
+      "oracle_text": "+1: Untap target land you control. Until your next turn, it becomes a 5/5 Elemental creature with haste. It's still a land.\n\u22123: Return target permanent card from your graveyard to your hand.\n\u22126: You get an emblem with \"Whenever a land you control enters, you may draw a card.\"",
+      "type_line": "Legendary Planeswalker \u2014 Nissa"
+    },
+    {
+      "card_name": "Chandra, Torch of Defiance",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "San Diego Comic-Con 2018",
+      "image_path": "gold_images/terese_nielsen/chandra__torch_of_defiance_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ps18/110/chandra-torch-of-defiance?utm_source=api",
+      "oracle_text": "+1: Exile the top card of your library. You may cast that card. If you don't, Chandra deals 2 damage to each opponent.\n+1: Add {R}{R}.\n\u22123: Chandra deals 4 damage to target creature.\n\u22127: You get an emblem with \"Whenever you cast a spell, this emblem deals 5 damage to any target.\"",
+      "type_line": "Legendary Planeswalker \u2014 Chandra"
+    },
+    {
+      "card_name": "Liliana, Untouched by Death",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "San Diego Comic-Con 2018",
+      "image_path": "gold_images/terese_nielsen/liliana__untouched_by_death_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ps18/106/liliana-untouched-by-death?utm_source=api",
+      "oracle_text": "+1: Mill three cards. If at least one Zombie card is milled this way, each opponent loses 2 life and you gain 2 life.\n\u22122: Target creature gets -X/-X until end of turn, where X is the number of Zombies you control.\n\u22123: You may cast Zombie spells from your graveyard this turn.",
+      "type_line": "Legendary Planeswalker \u2014 Liliana"
+    },
+    {
+      "card_name": "Jace, Cunning Castaway",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "San Diego Comic-Con 2018",
+      "image_path": "gold_images/terese_nielsen/jace__cunning_castaway_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ps18/60/jace-cunning-castaway?utm_source=api",
+      "oracle_text": "+1: Whenever one or more creatures you control deal combat damage to a player this turn, draw a card, then discard a card.\n\u22122: Create a 2/2 blue Illusion creature token with \"When this token becomes the target of a spell, sacrifice it.\"\n\u22125: Create two tokens that are copies of Jace, except they're not legendary.",
+      "type_line": "Legendary Planeswalker \u2014 Jace"
+    },
+    {
+      "card_name": "Gideon of the Trials",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "San Diego Comic-Con 2018",
+      "image_path": "gold_images/terese_nielsen/gideon_of_the_trials_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ps18/14/gideon-of-the-trials?utm_source=api",
+      "oracle_text": "+1: Until your next turn, prevent all damage target permanent would deal.\n0: Until end of turn, Gideon becomes a 4/4 Human Soldier creature with indestructible that's still a planeswalker. Prevent all damage that would be dealt to him this turn.\n0: You get an emblem with \"As long as you control a Gideon planeswalker, you can't lose the game and your opponents can't win the game.\"",
+      "type_line": "Legendary Planeswalker \u2014 Gideon"
+    },
+    {
+      "card_name": "Urza, Academy Headmaster",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Unstable",
+      "image_path": "gold_images/terese_nielsen/urza__academy_headmaster_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ust/136/urza-academy-headmaster?utm_source=api",
+      "oracle_text": "+1: Head to AskUrza.com and click +1.\n\u22121: Head to AskUrza.com and click -1.\n\u22126: Head to AskUrza.com and click -6.",
+      "type_line": "Legendary Planeswalker \u2014 Urza"
+    },
+    {
+      "card_name": "Ajani's Aid",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Aether Revolt",
+      "image_path": "gold_images/terese_nielsen/ajani_s_aid_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/aer/188/ajanis-aid?utm_source=api",
+      "oracle_text": "When this enchantment enters, you may search your library and/or graveyard for a card named Ajani, Valiant Protector, reveal it, and put it into your hand. If you search your library this way, shuffle.\nSacrifice this enchantment: Prevent all combat damage a creature of your choice would deal this turn.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Galvanic Bombardment",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Eldritch Moon",
+      "image_path": "gold_images/terese_nielsen/galvanic_bombardment_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/emn/129/galvanic-bombardment?utm_source=api",
+      "oracle_text": "Galvanic Bombardment deals X damage to target creature, where X is 2 plus the number of cards named Galvanic Bombardment in your graveyard.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Sigardian Priest",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Eldritch Moon",
+      "image_path": "gold_images/terese_nielsen/sigardian_priest_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/emn/42/sigardian-priest?utm_source=api",
+      "oracle_text": "{1}, {T}: Tap target non-Human creature.",
+      "type_line": "Creature \u2014 Human Cleric"
+    },
+    {
+      "card_name": "Force of Will",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Eternal Masters",
+      "image_path": "gold_images/terese_nielsen/force_of_will_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ema/49/force-of-will?utm_source=api",
+      "oracle_text": "You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Control Magic",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Eternal Masters",
+      "image_path": "gold_images/terese_nielsen/control_magic_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ema/42/control-magic?utm_source=api",
+      "oracle_text": "Enchant creature\nYou control enchanted creature.",
+      "type_line": "Enchantment \u2014 Aura"
+    },
+    {
+      "card_name": "Akroma, Angel of Wrath",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "From the Vault: Angels",
+      "image_path": "gold_images/terese_nielsen/akroma__angel_of_wrath_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/v15/2/akroma-angel-of-wrath?utm_source=api",
+      "oracle_text": "Flying, first strike, vigilance, trample, haste, protection from black and from red",
+      "type_line": "Legendary Creature \u2014 Angel"
+    },
+    {
+      "card_name": "Akroma, Angel of Fury",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "From the Vault: Angels",
+      "image_path": "gold_images/terese_nielsen/akroma__angel_of_fury_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/v15/1/akroma-angel-of-fury?utm_source=api",
+      "oracle_text": "This spell can't be countered.\nFlying, trample, protection from white and from blue\n{R}: Akroma gets +1/+0 until end of turn.\nMorph {3}{R}{R}{R} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+      "type_line": "Legendary Creature \u2014 Angel"
+    },
+    {
+      "card_name": "Plains",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Tempest Remastered",
+      "image_path": "gold_images/terese_nielsen/plains_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tpr/251/plains?utm_source=api",
+      "oracle_text": "({T}: Add {W}.)",
+      "type_line": "Basic Land \u2014 Plains"
+    },
+    {
+      "card_name": "Mother of Runes",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Duel Decks: Elspeth vs. Kiora",
+      "image_path": "gold_images/terese_nielsen/mother_of_runes_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ddo/20/mother-of-runes?utm_source=api",
+      "oracle_text": "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+      "type_line": "Creature \u2014 Human Cleric"
+    },
+    {
+      "card_name": "Nyx-Fleece Ram",
+      "artist": "Terese Nielsen",
+      "artist_key": "terese_nielsen",
+      "set_name": "Journey into Nyx",
+      "image_path": "gold_images/terese_nielsen/nyx-fleece_ram_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/jou/18/nyx-fleece-ram?utm_source=api",
+      "oracle_text": "At the beginning of your upkeep, you gain 1 life.",
+      "type_line": "Enchantment Creature \u2014 Sheep"
+    },
+    {
+      "card_name": "Forest",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Promo",
+      "image_path": "gold_images/john_avon/forest_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/slp/35/forest?utm_source=api",
+      "oracle_text": "({T}: Add {G}.)",
+      "type_line": "Basic Land \u2014 Forest"
+    },
+    {
+      "card_name": "Mountain",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Promo",
+      "image_path": "gold_images/john_avon/mountain_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/slp/34/mountain?utm_source=api",
+      "oracle_text": "({T}: Add {R}.)",
+      "type_line": "Basic Land \u2014 Mountain"
+    },
+    {
+      "card_name": "Swamp",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Promo",
+      "image_path": "gold_images/john_avon/swamp_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/slp/33/swamp?utm_source=api",
+      "oracle_text": "({T}: Add {B}.)",
+      "type_line": "Basic Land \u2014 Swamp"
+    },
+    {
+      "card_name": "Plains",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/john_avon/plains_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/277/plains?utm_source=api",
+      "oracle_text": "({T}: Add {W}.)",
+      "type_line": "Basic Land \u2014 Plains"
+    },
+    {
+      "card_name": "Island",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Promo",
+      "image_path": "gold_images/john_avon/island_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/slp/32/island?utm_source=api",
+      "oracle_text": "({T}: Add {U}.)",
+      "type_line": "Basic Land \u2014 Island"
+    },
+    {
+      "card_name": "Plains",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Promo",
+      "image_path": "gold_images/john_avon/plains_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/slp/31/plains?utm_source=api",
+      "oracle_text": "({T}: Add {W}.)",
+      "type_line": "Basic Land \u2014 Plains"
+    },
+    {
+      "card_name": "Cyberman",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Doctor Who Tokens",
+      "image_path": "gold_images/john_avon/cyberman_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/twho/24/cyberman?utm_source=api",
+      "oracle_text": "(You can cover a face-down creature that has become a Cyberman with this reminder card. It's a 2/2 Cyberman artifact creature.)",
+      "type_line": "Artifact Creature \u2014 Cyberman"
+    },
+    {
+      "card_name": "Progenitus",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/john_avon/progenitus_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1163/progenitus?utm_source=api",
+      "oracle_text": "Protection from everything\nIf Progenitus would be put into a graveyard from anywhere, reveal Progenitus and shuffle it into its owner's library instead.",
+      "type_line": "Legendary Creature \u2014 Hydra Avatar"
+    },
+    {
+      "card_name": "Brainstorm",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/john_avon/brainstorm_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1162/brainstorm?utm_source=api",
+      "oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Serra Angel",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/john_avon/serra_angel_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1161/serra-angel?utm_source=api",
+      "oracle_text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)",
+      "type_line": "Creature \u2014 Angel"
+    },
+    {
+      "card_name": "Emrakul, the Promised End",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/john_avon/emrakul__the_promised_end_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1160/emrakul-the-promised-end?utm_source=api",
+      "oracle_text": "This spell costs {1} less to cast for each card type among cards in your graveyard.\nWhen you cast this spell, you gain control of target opponent during that player's next turn. After that turn, that player takes an extra turn.\nFlying, trample, protection from instants",
+      "type_line": "Legendary Creature \u2014 Eldrazi"
+    },
+    {
+      "card_name": "Brainstorm",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/john_avon/brainstorm_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/723/brainstorm?utm_source=api",
+      "oracle_text": "Draw three cards, then put two cards from your hand on top of your library in any order.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Opal Palace",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/john_avon/opal_palace_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/422/opal-palace?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color in your commander's color identity. If you spend this mana to cast your commander, it enters with a number of additional +1/+1 counters on it equal to the number of times it's been cast from the command zone this game.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Megaflora Jungle",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "March of the Machine Commander",
+      "image_path": "gold_images/john_avon/megaflora_jungle_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/moc/57/megaflora-jungle?utm_source=api",
+      "oracle_text": "Each creature with mana value 2 or less gets +2/+2.\nWhenever chaos ensues, create a 1/1 green Insect creature token with flying named Butterfly.",
+      "type_line": "Plane \u2014 Gargantikar"
+    },
+    {
+      "card_name": "Runechanter's Pike",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "The Brothers' War Retro Artifacts",
+      "image_path": "gold_images/john_avon/runechanter_s_pike_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/brr/111/runechanters-pike?utm_source=api",
+      "oracle_text": "Equipped creature has first strike and gets +X/+0, where X is the number of instant and sorcery cards in your graveyard.\nEquip {2}",
+      "type_line": "Artifact \u2014 Equipment"
+    },
+    {
+      "card_name": "Steam Vents",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/john_avon/steam_vents_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/129/steam-vents?utm_source=api",
+      "oracle_text": "({T}: Add {U} or {R}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+      "type_line": "Land \u2014 Island Mountain"
+    },
+    {
+      "card_name": "Academy Ruins",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Double Masters",
+      "image_path": "gold_images/john_avon/academy_ruins_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2xm/369/academy-ruins?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{1}{U}, {T}: Put target artifact card from your graveyard on top of your library.",
+      "type_line": "Legendary Land"
+    },
+    {
+      "card_name": "Arid Mesa",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Secret Lair: Ultimate Edition",
+      "image_path": "gold_images/john_avon/arid_mesa_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/slu/4/arid-mesa?utm_source=api",
+      "oracle_text": "{T}, Pay 1 life, Sacrifice this land: Search your library for a Mountain or Plains card, put it onto the battlefield, then shuffle.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Island",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Unsanctioned",
+      "image_path": "gold_images/john_avon/island_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/und/89/island?utm_source=api",
+      "oracle_text": "({T}: Add {U}.)",
+      "type_line": "Basic Land \u2014 Island"
+    },
+    {
+      "card_name": "Island",
+      "artist": "John Avon",
+      "artist_key": "john_avon",
+      "set_name": "Throne of Eldraine",
+      "image_path": "gold_images/john_avon/island_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/eld/254/island?utm_source=api",
+      "oracle_text": "({T}: Add {U}.)",
+      "type_line": "Basic Land \u2014 Island"
+    },
+    {
+      "card_name": "Glister Bairn",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/nils_hamm/glister_bairn_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/227/glister-bairn?utm_source=api",
+      "oracle_text": "Vivid \u2014 At the beginning of combat on your turn, another target creature you control gets +X/+X until end of turn, where X is the number of colors among permanents you control.",
+      "type_line": "Creature \u2014 Ouphe"
+    },
+    {
+      "card_name": "Bloom Tender",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/nils_hamm/bloom_tender_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/166/bloom-tender?utm_source=api",
+      "oracle_text": "Vivid \u2014 {T}: For each color among permanents you control, add one mana of that color.",
+      "type_line": "Creature \u2014 Elf Druid"
+    },
+    {
+      "card_name": "Shimmercreep",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/nils_hamm/shimmercreep_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/120/shimmercreep?utm_source=api",
+      "oracle_text": "Menace (This creature can't be blocked except by two or more creatures.)\nVivid \u2014 When this creature enters, each opponent loses X life and you gain X life, where X is the number of colors among permanents you control.",
+      "type_line": "Creature \u2014 Elemental"
+    },
+    {
+      "card_name": "Rooftop Percher",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/nils_hamm/rooftop_percher_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/2/rooftop-percher?utm_source=api",
+      "oracle_text": "Changeling (This card is every creature type.)\nFlying\nWhen this creature enters, exile up to two target cards from graveyards. You gain 3 life.",
+      "type_line": "Creature \u2014 Shapeshifter"
+    },
+    {
+      "card_name": "With Great Power...",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Through the Omenpaths",
+      "image_path": "gold_images/nils_hamm/with_great_power____04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/om1/4/with-great-power?utm_source=api",
+      "oracle_text": "Enchant creature you control\nEnchanted creature gets +2/+2 for each Aura and Equipment attached to it.\nAll damage that would be dealt to you is dealt to enchanted creature instead.",
+      "type_line": "Enchantment \u2014 Aura"
+    },
+    {
+      "card_name": "Broken Wings",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Aetherdrift",
+      "image_path": "gold_images/nils_hamm/broken_wings_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dft/156/broken-wings?utm_source=api",
+      "oracle_text": "Destroy target artifact, enchantment, or creature with flying.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Cultivator Colossus",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Innistrad Remastered",
+      "image_path": "gold_images/nils_hamm/cultivator_colossus_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/inr/317/cultivator-colossus?utm_source=api",
+      "oracle_text": "Trample\nCultivator Colossus's power and toughness are each equal to the number of lands you control.\nWhen this creature enters, you may put a land card from your hand onto the battlefield tapped. If you do, draw a card and repeat this process.",
+      "type_line": "Creature \u2014 Plant Beast"
+    },
+    {
+      "card_name": "Undead",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Foundations Front Cards",
+      "image_path": "gold_images/nils_hamm/undead_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ffdn/6/undead?utm_source=api",
+      "oracle_text": "(Theme color: {B})",
+      "type_line": "Card"
+    },
+    {
+      "card_name": "Curator Beastie",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Duskmourn: House of Horror Commander",
+      "image_path": "gold_images/nils_hamm/curator_beastie_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dsc/30/curator-beastie?utm_source=api",
+      "oracle_text": "Reach\nColorless creatures you control enter with two additional +1/+1 counters on them.\nWhenever this creature enters or attacks, manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)",
+      "type_line": "Creature \u2014 Beast"
+    },
+    {
+      "card_name": "The Gitrog Monster",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Bloomburrow Commander",
+      "image_path": "gold_images/nils_hamm/the_gitrog_monster_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/blc/88/the-gitrog-monster?utm_source=api",
+      "oracle_text": "Deathtouch\nAt the beginning of your upkeep, sacrifice The Gitrog Monster unless you sacrifice a land.\nYou may play an additional land on each of your turns.\nWhenever one or more land cards are put into your graveyard from anywhere, draw a card.",
+      "type_line": "Legendary Creature \u2014 Frog Horror"
+    },
+    {
+      "card_name": "Parting Gust",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Bloomburrow",
+      "image_path": "gold_images/nils_hamm/parting_gust_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/blb/24/parting-gust?utm_source=api",
+      "oracle_text": "Gift a tapped Fish (You may promise an opponent a gift as you cast this spell. If you do, they create a tapped 1/1 blue Fish creature token before its other effects.)\nExile target nontoken creature. If the gift wasn't promised, return that card to the battlefield under its owner's control with a +1/+1 counter on it at the beginning of the next end step.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Sowing Mycospawn",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Modern Horizons 3",
+      "image_path": "gold_images/nils_hamm/sowing_mycospawn_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh3/340/sowing-mycospawn?utm_source=api",
+      "oracle_text": "Devoid (This card has no color.)\nKicker {1}{C} (You may pay an additional {1}{C} as you cast this spell.)\nWhen you cast this spell, search your library for a land card, put it onto the battlefield, then shuffle.\nWhen you cast this spell, if it was kicked, exile target land.",
+      "type_line": "Creature \u2014 Eldrazi Fungus"
+    },
+    {
+      "card_name": "Strix Serenade",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Modern Horizons 3",
+      "image_path": "gold_images/nils_hamm/strix_serenade_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh3/327/strix-serenade?utm_source=api",
+      "oracle_text": "Counter target artifact, creature, or planeswalker spell. Its controller creates a 2/2 blue Bird creature token with flying.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Final Act",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Modern Horizons 3 Commander",
+      "image_path": "gold_images/nils_hamm/final_act_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/m3c/104/final-act?utm_source=api",
+      "oracle_text": "Choose one or more \u2014\n\u2022 Destroy all creatures.\n\u2022 Destroy all planeswalkers.\n\u2022 Destroy all battles.\n\u2022 Exile all graveyards.\n\u2022 Each opponent loses all counters.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Mistral Charger",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Ravnica Remastered",
+      "image_path": "gold_images/nils_hamm/mistral_charger_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/rvr/24/mistral-charger?utm_source=api",
+      "oracle_text": "Flying",
+      "type_line": "Creature \u2014 Pegasus"
+    },
+    {
+      "card_name": "Souls of the Lost",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "The Lost Caverns of Ixalan",
+      "image_path": "gold_images/nils_hamm/souls_of_the_lost_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/lci/121/souls-of-the-lost?utm_source=api",
+      "oracle_text": "As an additional cost to cast this spell, discard a card or sacrifice a permanent.\nFathomless descent \u2014 Souls of the Lost's power is equal to the number of permanent cards in your graveyard and its toughness is equal to that number plus 1.",
+      "type_line": "Creature \u2014 Spirit"
+    },
+    {
+      "card_name": "Kor Spiritdancer",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Wilds of Eldraine Commander",
+      "image_path": "gold_images/nils_hamm/kor_spiritdancer_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/woc/69/kor-spiritdancer?utm_source=api",
+      "oracle_text": "This creature gets +2/+2 for each Aura attached to it.\nWhenever you cast an Aura spell, you may draw a card.",
+      "type_line": "Creature \u2014 Kor Wizard"
+    },
+    {
+      "card_name": "Virtue of Courage // Embereth Blaze",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Wilds of Eldraine",
+      "image_path": "gold_images/nils_hamm/virtue_of_courage____embereth_blaze_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/woe/282/virtue-of-courage-embereth-blaze?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Enchantment // Instant \u2014 Adventure"
+    },
+    {
+      "card_name": "Horned Loch-Whale // Lagoon Breach",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "Wilds of Eldraine",
+      "image_path": "gold_images/nils_hamm/horned_loch-whale____lagoon_breach_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/woe/278/horned-loch-whale-lagoon-breach?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Creature \u2014 Whale // Instant \u2014 Adventure"
+    },
+    {
+      "card_name": "Ral's Reinforcements",
+      "artist": "Nils Hamm",
+      "artist_key": "nils_hamm",
+      "set_name": "March of the Machine",
+      "image_path": "gold_images/nils_hamm/ral_s_reinforcements_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mom/158/rals-reinforcements?utm_source=api",
+      "oracle_text": "Create two 1/1 blue and red Elemental creature tokens.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Secret Identity",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Marvel's Spider-Man",
+      "image_path": "gold_images/rk_post/secret_identity_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/spm/43/secret-identity?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Conceal \u2014 Until end of turn, target creature you control becomes a Citizen with base power and toughness 1/1 and gains hexproof.\n\u2022 Reveal \u2014 Until end of turn, target creature you control becomes a Hero with base power and toughness 3/4 and gains flying and vigilance.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Sita Varma, Masked Racer",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Aetherdrift",
+      "image_path": "gold_images/rk_post/sita_varma__masked_racer_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dft/368/sita-varma-masked-racer?utm_source=api",
+      "oracle_text": "Exhaust \u2014 {X}{G}{G}{U}: Put X +1/+1 counters on Sita Varma. Then you may have the base power and toughness of each other creature you control become equal to Sita Varma's power until end of turn. (Activate each exhaust ability only once.)",
+      "type_line": "Legendary Creature \u2014 Human Rogue"
+    },
+    {
+      "card_name": "Lightning Bolt",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Legacy Championship",
+      "image_path": "gold_images/rk_post/lightning_bolt_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/olgc/2023/lightning-bolt?utm_source=api",
+      "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Counterspell",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/rk_post/counterspell_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/630/counterspell?utm_source=api",
+      "oracle_text": "Counter target spell.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Worldgorger Dragon",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Dominaria Remastered",
+      "image_path": "gold_images/rk_post/worldgorger_dragon_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmr/437/worldgorger-dragon?utm_source=api",
+      "oracle_text": "Flying, trample\nWhen this creature enters, exile all other permanents you control.\nWhen this creature leaves the battlefield, return the exiled cards to the battlefield under their owners' control.",
+      "type_line": "Creature \u2014 Nightmare Dragon"
+    },
+    {
+      "card_name": "Karn, Living Legacy",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Dominaria United",
+      "image_path": "gold_images/rk_post/karn__living_legacy_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmu/372/karn-living-legacy?utm_source=api",
+      "oracle_text": "+1: Create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")\n\u22121: Pay any amount of mana. Look at that many cards from the top of your library, then put one of those cards into your hand and the rest on the bottom of your library in a random order.\n\u22127: You get an emblem with \"Tap an untapped artifact you control: This emblem deals 1 damage to any target.\"",
+      "type_line": "Legendary Planeswalker \u2014 Karn"
+    },
+    {
+      "card_name": "Inquisition of Kozilek",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Double Masters 2022",
+      "image_path": "gold_images/rk_post/inquisition_of_kozilek_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2x2/355/inquisition-of-kozilek?utm_source=api",
+      "oracle_text": "Target player reveals their hand. You choose a nonland card from it with mana value 3 or less. That player discards that card.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Kami of Restless Shadows",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Kamigawa: Neon Dynasty",
+      "image_path": "gold_images/rk_post/kami_of_restless_shadows_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/neo/104/kami-of-restless-shadows?utm_source=api",
+      "oracle_text": "When this creature enters, choose one \u2014\n\u2022 Return up to one target Ninja or Rogue creature card from your graveyard to your hand.\n\u2022 Put target creature card from your graveyard on top of your library.",
+      "type_line": "Creature \u2014 Spirit"
+    },
+    {
+      "card_name": "Batterskull",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Double Masters",
+      "image_path": "gold_images/rk_post/batterskull_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2xm/356/batterskull?utm_source=api",
+      "oracle_text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +4/+4 and has vigilance and lifelink.\n{3}: Return this Equipment to its owner's hand.\nEquip {5}",
+      "type_line": "Artifact \u2014 Equipment"
+    },
+    {
+      "card_name": "Thought Vessel",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Commander 2015",
+      "image_path": "gold_images/rk_post/thought_vessel_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/c15/55/thought-vessel?utm_source=api",
+      "oracle_text": "You have no maximum hand size.\n{T}: Add {C}.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Overseer of the Damned",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Commander 2014",
+      "image_path": "gold_images/rk_post/overseer_of_the_damned_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/c14/28/overseer-of-the-damned?utm_source=api",
+      "oracle_text": "Flying\nWhen this creature enters, you may destroy target creature.\nWhenever a nontoken creature an opponent controls dies, create a tapped 2/2 black Zombie creature token.",
+      "type_line": "Creature \u2014 Demon"
+    },
+    {
+      "card_name": "Magister of Worth",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Conspiracy Promos",
+      "image_path": "gold_images/rk_post/magister_of_worth_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/pcns/48%E2%98%85/magister-of-worth?utm_source=api",
+      "oracle_text": "Flying\nWill of the council \u2014 When this creature enters, starting with you, each player votes for grace or condemnation. If grace gets more votes, each player returns each creature card from their graveyard to the battlefield. If condemnation gets more votes or the vote is tied, destroy all creatures other than this creature.",
+      "type_line": "Creature \u2014 Angel"
+    },
+    {
+      "card_name": "Burning Earth",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Magic 2014",
+      "image_path": "gold_images/rk_post/burning_earth_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/m14/130/burning-earth?utm_source=api",
+      "oracle_text": "Whenever a player taps a nonbasic land for mana, this enchantment deals 1 damage to that player.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "The Zephyr Maze",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Planechase 2012 Planes",
+      "image_path": "gold_images/rk_post/the_zephyr_maze_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/opc2/40/the-zephyr-maze?utm_source=api",
+      "oracle_text": "Creatures with flying get +2/+0.\nCreatures without flying get -2/-0.\nWhenever chaos ensues, target creature gains flying until end of turn.",
+      "type_line": "Plane \u2014 Kyneth"
+    },
+    {
+      "card_name": "Time Distortion",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Planechase 2012 Planes",
+      "image_path": "gold_images/rk_post/time_distortion_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/opc2/8/time-distortion?utm_source=api",
+      "oracle_text": "When you encounter Time Distortion, reverse the game's turn order. (For example, if play had proceeded clockwise around the table, it now goes counterclockwise. Then planeswalk away from this phenomenon.)",
+      "type_line": "Phenomenon"
+    },
+    {
+      "card_name": "Concentrate",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Planechase 2012",
+      "image_path": "gold_images/rk_post/concentrate_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/pc2/16/concentrate?utm_source=api",
+      "oracle_text": "Draw three cards.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Armored Warhorse",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Magic 2012",
+      "image_path": "gold_images/rk_post/armored_warhorse_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/m12/7/armored-warhorse?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Creature \u2014 Horse"
+    },
+    {
+      "card_name": "Victory's Herald",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Mirrodin Besieged",
+      "image_path": "gold_images/rk_post/victory_s_herald_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mbs/18/victorys-herald?utm_source=api",
+      "oracle_text": "Flying\nWhenever this creature attacks, attacking creatures gain flying and lifelink until end of turn.",
+      "type_line": "Creature \u2014 Angel"
+    },
+    {
+      "card_name": "Snow Mercy",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "Happy Holidays",
+      "image_path": "gold_images/rk_post/snow_mercy_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/hho/10/snow-mercy?utm_source=api",
+      "oracle_text": "Whenever a creature deals damage to you, put a globe counter on it.\n{T}, {Q}, {T}, {Q}, {T}: Tap all creatures with globe counters on them.",
+      "type_line": "Snow Enchantment"
+    },
+    {
+      "card_name": "Memnite",
+      "artist": "rk post",
+      "artist_key": "rk_post",
+      "set_name": "DCI Promos",
+      "image_path": "gold_images/rk_post/memnite_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dci/61/memnite?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Artifact Creature \u2014 Construct"
+    },
+    {
+      "card_name": "Deceit",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/kev_walker/deceit_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/293/deceit?utm_source=api",
+      "oracle_text": "When this creature enters, if {U}{U} was spent to cast it, return up to one other target nonland permanent to its owner's hand.\nWhen this creature enters, if {B}{B} was spent to cast it, target opponent reveals their hand. You choose a nonland card from it. That player discards that card.\nEvoke {U/B}{U/B}",
+      "type_line": "Creature \u2014 Elemental Incarnation"
+    },
+    {
+      "card_name": "Wildvine Pummeler",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/kev_walker/wildvine_pummeler_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/203/wildvine-pummeler?utm_source=api",
+      "oracle_text": "Vivid \u2014 This spell costs {1} less to cast for each color among permanents you control.\nReach, trample",
+      "type_line": "Creature \u2014 Giant Berserker"
+    },
+    {
+      "card_name": "Venomized Cat",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Through the Omenpaths",
+      "image_path": "gold_images/kev_walker/venomized_cat_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/om1/50/venomized-cat?utm_source=api",
+      "oracle_text": "Deathtouch\nWhen this creature enters, mill two cards. (Put the top two cards of your library into your graveyard.)",
+      "type_line": "Creature \u2014 Symbiote Cat Villain"
+    },
+    {
+      "card_name": "Famished Worldsire",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Edge of Eternities",
+      "image_path": "gold_images/kev_walker/famished_worldsire_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/eoe/182/famished-worldsire?utm_source=api",
+      "oracle_text": "Ward {3}\nDevour land 3 (As this creature enters, you may sacrifice any number of lands. It enters with three times that many +1/+1 counters on it.)\nWhen this creature enters, look at the top X cards of your library, where X is this creature's power. Put any number of land cards from among them onto the battlefield tapped, then shuffle.",
+      "type_line": "Creature \u2014 Leviathan"
+    },
+    {
+      "card_name": "Wastewood Verge",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Aetherdrift",
+      "image_path": "gold_images/kev_walker/wastewood_verge_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dft/374/wastewood-verge?utm_source=api",
+      "oracle_text": "{T}: Add {G}.\n{T}: Add {B}. Activate only if you control a Swamp or a Forest.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Crackling Cyclops",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Foundations",
+      "image_path": "gold_images/kev_walker/crackling_cyclops_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fdn/83/crackling-cyclops?utm_source=api",
+      "oracle_text": "Whenever you cast a noncreature spell, this creature gets +3/+0 until end of turn.",
+      "type_line": "Creature \u2014 Cyclops Wizard"
+    },
+    {
+      "card_name": "Savor",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Bloomburrow",
+      "image_path": "gold_images/kev_walker/savor_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/blb/109/savor?utm_source=api",
+      "oracle_text": "Target creature gets -2/-2 until end of turn. Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Cogwork Progenitor",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Alchemy: Ixalan",
+      "image_path": "gold_images/kev_walker/cogwork_progenitor_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ylci/1/cogwork-progenitor?utm_source=api",
+      "oracle_text": "At the beginning of your end step, you may exile another artifact you control or an artifact card in your graveyard. If you do, seek an artifact card. That card perpetually has base power and toughness 1/1 and becomes a Gnome creature in addition to its other types.",
+      "type_line": "Artifact Creature \u2014 Gnome"
+    },
+    {
+      "card_name": "Pugnacious Hammerskull",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "The Lost Caverns of Ixalan",
+      "image_path": "gold_images/kev_walker/pugnacious_hammerskull_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/lci/208/pugnacious-hammerskull?utm_source=api",
+      "oracle_text": "Whenever this creature attacks while you don't control another Dinosaur, put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+      "type_line": "Creature \u2014 Dinosaur"
+    },
+    {
+      "card_name": "Fleshbag Marauder",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/kev_walker/fleshbag_marauder_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/725/fleshbag-marauder?utm_source=api",
+      "oracle_text": "When this creature enters, each player sacrifices a creature of their choice.",
+      "type_line": "Creature \u2014 Zombie Warrior"
+    },
+    {
+      "card_name": "It That Betrays",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/kev_walker/it_that_betrays_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1176/it-that-betrays?utm_source=api",
+      "oracle_text": "Annihilator 2 (Whenever this creature attacks, defending player sacrifices two permanents of their choice.)\nWhenever an opponent sacrifices a nontoken permanent, put that card onto the battlefield under your control.",
+      "type_line": "Creature \u2014 Eldrazi"
+    },
+    {
+      "card_name": "Fleshbag Marauder",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/kev_walker/fleshbag_marauder_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1175/fleshbag-marauder?utm_source=api",
+      "oracle_text": "When this creature enters, each player sacrifices a creature of their choice.",
+      "type_line": "Creature \u2014 Zombie Warrior"
+    },
+    {
+      "card_name": "Carnage Tyrant",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/kev_walker/carnage_tyrant_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1174/carnage-tyrant?utm_source=api",
+      "oracle_text": "This spell can't be countered.\nTrample, hexproof",
+      "type_line": "Creature \u2014 Dinosaur"
+    },
+    {
+      "card_name": "Faeburrow Elder",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/kev_walker/faeburrow_elder_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1173/faeburrow-elder?utm_source=api",
+      "oracle_text": "Vigilance\nThis creature gets +1/+1 for each color among permanents you control.\n{T}: For each color among permanents you control, add one mana of that color.",
+      "type_line": "Creature \u2014 Treefolk Druid"
+    },
+    {
+      "card_name": "Devouring Sugarmaw // Have for Dinner",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Wilds of Eldraine",
+      "image_path": "gold_images/kev_walker/devouring_sugarmaw____have_for_dinner_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/woe/288/devouring-sugarmaw-have-for-dinner?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Creature \u2014 Horror // Instant \u2014 Adventure"
+    },
+    {
+      "card_name": "Cruel Somnophage // Can't Wake Up",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Wilds of Eldraine",
+      "image_path": "gold_images/kev_walker/cruel_somnophage____can_t_wake_up_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/woe/286/cruel-somnophage-cant-wake-up?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Creature \u2014 Nightmare // Sorcery \u2014 Adventure"
+    },
+    {
+      "card_name": "Beluna Grandsquall // Seek Thrills",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Wilds of Eldraine",
+      "image_path": "gold_images/kev_walker/beluna_grandsquall____seek_thrills_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/woe/285/beluna-grandsquall-seek-thrills?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Legendary Creature \u2014 Giant Noble // Instant \u2014 Adventure"
+    },
+    {
+      "card_name": "Regal Behemoth",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/kev_walker/regal_behemoth_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/651/regal-behemoth?utm_source=api",
+      "oracle_text": "Trample\nWhen this creature enters, you become the monarch.\nWhenever you tap a land for mana while you're the monarch, add an additional one mana of any color.",
+      "type_line": "Creature \u2014 Dinosaur"
+    },
+    {
+      "card_name": "Grave Pact",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/kev_walker/grave_pact_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/639/grave-pact?utm_source=api",
+      "oracle_text": "Whenever a creature you control dies, each other player sacrifices a creature of their choice.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Dune Mover",
+      "artist": "Kev Walker",
+      "artist_key": "kev_walker",
+      "set_name": "Phyrexia: All Will Be One",
+      "image_path": "gold_images/kev_walker/dune_mover_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/one/226/dune-mover?utm_source=api",
+      "oracle_text": "Toxic 1 (Players dealt combat damage by this creature also get a poison counter.)\nWhen this creature enters, you may search your library for a basic land card, reveal it, then shuffle and put that card on top.",
+      "type_line": "Artifact Creature \u2014 Phyrexian Golem"
+    },
+    {
+      "card_name": "Foraging Wickermaw",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/ron_spencer/foraging_wickermaw_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/256/foraging-wickermaw?utm_source=api",
+      "oracle_text": "When this creature enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\n{1}: Add one mana of any color. This creature becomes that color until end of turn. Activate only once each turn.",
+      "type_line": "Artifact Creature \u2014 Scarecrow"
+    },
+    {
+      "card_name": "Shadow Urchin",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/ron_spencer/shadow_urchin_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/242/shadow-urchin?utm_source=api",
+      "oracle_text": "Whenever this creature attacks, blight 1. (Put a -1/-1 counter on a creature you control.)\nWhenever a creature you control with one or more counters on it dies, exile that many cards from the top of your library. Until your next end step, you may play those cards.",
+      "type_line": "Creature \u2014 Ouphe"
+    },
+    {
+      "card_name": "Shinestriker",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/ron_spencer/shinestriker_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/68/shinestriker?utm_source=api",
+      "oracle_text": "Flying\nVivid \u2014 When this creature enters, draw cards equal to the number of colors among permanents you control.",
+      "type_line": "Creature \u2014 Elemental"
+    },
+    {
+      "card_name": "Keep Out",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/ron_spencer/keep_out_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/19/keep-out?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Keep Out deals 4 damage to target tapped creature.\n\u2022 Destroy target enchantment.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Harmonious Grovestrider",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Edge of Eternities",
+      "image_path": "gold_images/ron_spencer/harmonious_grovestrider_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/eoe/189/harmonious-grovestrider?utm_source=api",
+      "oracle_text": "Ward {2} (Whenever this creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nHarmonious Grovestrider's power and toughness are each equal to the number of lands you control.",
+      "type_line": "Creature \u2014 Beast"
+    },
+    {
+      "card_name": "Forest",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/ron_spencer/forest_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/291/forest?utm_source=api",
+      "oracle_text": "({T}: Add {G}.)",
+      "type_line": "Basic Land \u2014 Forest"
+    },
+    {
+      "card_name": "Mountain",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/ron_spencer/mountain_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/290/mountain?utm_source=api",
+      "oracle_text": "({T}: Add {R}.)",
+      "type_line": "Basic Land \u2014 Mountain"
+    },
+    {
+      "card_name": "Swamp",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/ron_spencer/swamp_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/289/swamp?utm_source=api",
+      "oracle_text": "({T}: Add {B}.)",
+      "type_line": "Basic Land \u2014 Swamp"
+    },
+    {
+      "card_name": "Island",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/ron_spencer/island_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/288/island?utm_source=api",
+      "oracle_text": "({T}: Add {U}.)",
+      "type_line": "Basic Land \u2014 Island"
+    },
+    {
+      "card_name": "Plains",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/ron_spencer/plains_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/287/plains?utm_source=api",
+      "oracle_text": "({T}: Add {W}.)",
+      "type_line": "Basic Land \u2014 Plains"
+    },
+    {
+      "card_name": "Wastes",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Love Your LGS 2025",
+      "image_path": "gold_images/ron_spencer/wastes_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/plg25/2/wastes?utm_source=api",
+      "oracle_text": "{T}: Add {C}.",
+      "type_line": "Basic Land"
+    },
+    {
+      "card_name": "Rampaging Aetherhood",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Aetherdrift Commander",
+      "image_path": "gold_images/ron_spencer/rampaging_aetherhood_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/drc/15/rampaging-aetherhood?utm_source=api",
+      "oracle_text": "Trample, ward {2}\nAt the beginning of your upkeep, you get an amount of {E} (energy counters) equal to this creature's power. Then you may pay one or more {E}. If you do, put that many +1/+1 counters on this creature.",
+      "type_line": "Creature \u2014 Snake Hydra"
+    },
+    {
+      "card_name": "Swamp",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Aetherdrift",
+      "image_path": "gold_images/ron_spencer/swamp_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dft/284/swamp?utm_source=api",
+      "oracle_text": "({T}: Add {B}.)",
+      "type_line": "Basic Land \u2014 Swamp"
+    },
+    {
+      "card_name": "Bloodfell Caves",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Aetherdrift",
+      "image_path": "gold_images/ron_spencer/bloodfell_caves_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dft/251/bloodfell-caves?utm_source=api",
+      "oracle_text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {B} or {R}.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Mimeoplasm, Revered One",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Aetherdrift",
+      "image_path": "gold_images/ron_spencer/mimeoplasm__revered_one_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dft/214/mimeoplasm-revered-one?utm_source=api",
+      "oracle_text": "As Mimeoplasm enters, exile up to X creature cards from your graveyard. It enters with three +1/+1 counters on it for each creature card exiled this way.\n{2}: Mimeoplasm becomes a copy of target creature card exiled with it, except it's 0/0 and has this ability.",
+      "type_line": "Legendary Creature \u2014 Ooze"
+    },
+    {
+      "card_name": "Disrupt Decorum",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/ron_spencer/disrupt_decorum_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/1067/disrupt-decorum?utm_source=api",
+      "oracle_text": "Goad all creatures you don't control. (Until your next turn, those creatures attack each combat if able and attack a player other than you if able.)",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Deadly Rollick",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/ron_spencer/deadly_rollick_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/695/deadly-rollick?utm_source=api",
+      "oracle_text": "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Kodama's Reach",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/ron_spencer/kodama_s_reach_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/649/kodamas-reach?utm_source=api",
+      "oracle_text": "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+      "type_line": "Sorcery \u2014 Arcane"
+    },
+    {
+      "card_name": "Flametongue Kavu",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Dominaria Remastered",
+      "image_path": "gold_images/ron_spencer/flametongue_kavu_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmr/432/flametongue-kavu?utm_source=api",
+      "oracle_text": "When this creature enters, it deals 4 damage to target creature.",
+      "type_line": "Creature \u2014 Kavu"
+    },
+    {
+      "card_name": "No Mercy",
+      "artist": "Ron Spencer",
+      "artist_key": "ron_spencer",
+      "set_name": "Dominaria Remastered",
+      "image_path": "gold_images/ron_spencer/no_mercy_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmr/427/no-mercy?utm_source=api",
+      "oracle_text": "Whenever a creature deals damage to you, destroy it.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Bleachbone Verge",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Aetherdrift",
+      "image_path": "gold_images/mark_tedin/bleachbone_verge_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dft/250/bleachbone-verge?utm_source=api",
+      "oracle_text": "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Emrakul, the World Anew",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Modern Horizons 3",
+      "image_path": "gold_images/mark_tedin/emrakul__the_world_anew_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh3/381/emrakul-the-world-anew?utm_source=api",
+      "oracle_text": "When you cast this spell, gain control of all creatures target player controls.\nFlying, protection from spells and from permanents that were cast this turn\nWhen Emrakul leaves the battlefield, sacrifice all creatures you control.\nMadness\u2014Pay six {C}.",
+      "type_line": "Legendary Creature \u2014 Eldrazi"
+    },
+    {
+      "card_name": "Volcanic Island",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Legacy Championship",
+      "image_path": "gold_images/mark_tedin/volcanic_island_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/olgc/2023A/volcanic-island?utm_source=api",
+      "oracle_text": "({T}: Add {U} or {R}.)",
+      "type_line": "Land \u2014 Island Mountain"
+    },
+    {
+      "card_name": "The Dalek Emperor",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Doctor Who",
+      "image_path": "gold_images/mark_tedin/the_dalek_emperor_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/who/120/the-dalek-emperor?utm_source=api",
+      "oracle_text": "Affinity for Daleks (This spell costs {1} less to cast for each Dalek you control.)\nOther Daleks you control have haste.\nAt the beginning of combat on your turn, each opponent faces a villainous choice \u2014 That player sacrifices a creature of their choice, or you create a 3/3 black Dalek artifact creature token with menace.",
+      "type_line": "Legendary Artifact Creature \u2014 Dalek"
+    },
+    {
+      "card_name": "Maze of Ith",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Dominaria Remastered",
+      "image_path": "gold_images/mark_tedin/maze_of_ith_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmr/456/maze-of-ith?utm_source=api",
+      "oracle_text": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Denizen of the Deep",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Dominaria Remastered",
+      "image_path": "gold_images/mark_tedin/denizen_of_the_deep_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmr/417/denizen-of-the-deep?utm_source=api",
+      "oracle_text": "When this creature enters, return each other creature you control to its owner's hand.",
+      "type_line": "Creature \u2014 Serpent"
+    },
+    {
+      "card_name": "Clue",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "30th Anniversary Tokens",
+      "image_path": "gold_images/mark_tedin/clue_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/t30a/11/clue?utm_source=api",
+      "oracle_text": "{2}, Sacrifice this token: Draw a card.",
+      "type_line": "Token Artifact \u2014 Clue"
+    },
+    {
+      "card_name": "Hexavus",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "The Brothers' War Commander",
+      "image_path": "gold_images/mark_tedin/hexavus_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/brc/14/hexavus?utm_source=api",
+      "oracle_text": "Flying\nThis creature enters with six +1/+1 counters on it.\n{1}, Remove a +1/+1 counter from this creature: Put a flying counter on another target creature.\n{1}, Remove a counter from another creature you control: Put a +1/+1 counter on this creature.",
+      "type_line": "Artifact Creature \u2014 Construct"
+    },
+    {
+      "card_name": "Defense Grid",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "The Brothers' War Retro Artifacts",
+      "image_path": "gold_images/mark_tedin/defense_grid_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/brr/76/defense-grid?utm_source=api",
+      "oracle_text": "Each spell costs {3} more to cast except during its controller's turn.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Sulfurous Springs",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Dominaria United",
+      "image_path": "gold_images/mark_tedin/sulfurous_springs_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmu/381/sulfurous-springs?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {R}. This land deals 1 damage to you.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "The Mimeoplasm",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Double Masters 2022",
+      "image_path": "gold_images/mark_tedin/the_mimeoplasm_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2x2/383/the-mimeoplasm?utm_source=api",
+      "oracle_text": "As The Mimeoplasm enters, you may exile two creature cards from graveyards. If you do, it enters as a copy of one of those cards with a number of additional +1/+1 counters on it equal to the power of the other card.",
+      "type_line": "Legendary Creature \u2014 Ooze"
+    },
+    {
+      "card_name": "Imperial Seal",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Double Masters 2022",
+      "image_path": "gold_images/mark_tedin/imperial_seal_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2x2/354/imperial-seal?utm_source=api",
+      "oracle_text": "Search your library for a card, then shuffle and put that card on top. You lose 2 life.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Wasteland",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Legacy Championship",
+      "image_path": "gold_images/mark_tedin/wasteland_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/olgc/2021A/wasteland?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}, Sacrifice this land: Destroy target nonbasic land.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Despark",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Strixhaven Mystical Archive",
+      "image_path": "gold_images/mark_tedin/despark_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sta/59/despark?utm_source=api",
+      "oracle_text": "Exile target permanent with mana value 4 or greater.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Swords to Plowshares",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Strixhaven Mystical Archive",
+      "image_path": "gold_images/mark_tedin/swords_to_plowshares_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sta/10/swords-to-plowshares?utm_source=api",
+      "oracle_text": "Exile target creature. Its controller gains life equal to its power.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Assembly-Worker",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Time Spiral Remastered Tokens",
+      "image_path": "gold_images/mark_tedin/assembly-worker_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ttsr/14/assembly-worker?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Token Artifact Creature \u2014 Assembly-Worker"
+    },
+    {
+      "card_name": "Urza's Tower",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Double Masters",
+      "image_path": "gold_images/mark_tedin/urza_s_tower_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2xm/372/urzas-tower?utm_source=api",
+      "oracle_text": "{T}: Add {C}. If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C} instead.",
+      "type_line": "Land \u2014 Urza's Tower"
+    },
+    {
+      "card_name": "Urza's Power Plant",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Double Masters",
+      "image_path": "gold_images/mark_tedin/urza_s_power_plant_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2xm/371/urzas-power-plant?utm_source=api",
+      "oracle_text": "{T}: Add {C}. If you control an Urza's Mine and an Urza's Tower, add {C}{C} instead.",
+      "type_line": "Land \u2014 Urza's Power-Plant"
+    },
+    {
+      "card_name": "Urza's Mine",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Double Masters",
+      "image_path": "gold_images/mark_tedin/urza_s_mine_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2xm/370/urzas-mine?utm_source=api",
+      "oracle_text": "{T}: Add {C}. If you control an Urza's Power-Plant and an Urza's Tower, add {C}{C} instead.",
+      "type_line": "Land \u2014 Urza's Mine"
+    },
+    {
+      "card_name": "Karn Liberated",
+      "artist": "Mark Tedin",
+      "artist_key": "mark_tedin",
+      "set_name": "Double Masters",
+      "image_path": "gold_images/mark_tedin/karn_liberated_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/2xm/333/karn-liberated?utm_source=api",
+      "oracle_text": "+4: Target player exiles a card from their hand.\n\u22123: Exile target permanent.\n\u221214: Restart the game, leaving in exile all non-Aura permanent cards exiled with Karn. Then put those cards onto the battlefield under your control.",
+      "type_line": "Legendary Planeswalker \u2014 Karn"
+    },
+    {
+      "card_name": "Stonybrook Schoolmaster",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Morningtide",
+      "image_path": "gold_images/quinton_hoover/stonybrook_schoolmaster_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mor/25/stonybrook-schoolmaster?utm_source=api",
+      "oracle_text": "Whenever this creature becomes tapped, you may create a 1/1 blue Merfolk Wizard creature token.",
+      "type_line": "Creature \u2014 Merfolk Wizard"
+    },
+    {
+      "card_name": "Kithkin Zephyrnaut",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Morningtide",
+      "image_path": "gold_images/quinton_hoover/kithkin_zephyrnaut_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mor/16/kithkin-zephyrnaut?utm_source=api",
+      "oracle_text": "Kinship \u2014 At the beginning of your upkeep, you may look at the top card of your library. If it shares a creature type with this creature, you may reveal it. If you do, this creature gets +2/+2 and gains flying and vigilance until end of turn.",
+      "type_line": "Creature \u2014 Kithkin Soldier"
+    },
+    {
+      "card_name": "Leaf Gilder",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Lorwyn",
+      "image_path": "gold_images/quinton_hoover/leaf_gilder_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/lrw/227/leaf-gilder?utm_source=api",
+      "oracle_text": "{T}: Add {G}.",
+      "type_line": "Creature \u2014 Elf Druid"
+    },
+    {
+      "card_name": "Plover Knights",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Lorwyn",
+      "image_path": "gold_images/quinton_hoover/plover_knights_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/lrw/35/plover-knights?utm_source=api",
+      "oracle_text": "Flying, first strike",
+      "type_line": "Creature \u2014 Kithkin Knight"
+    },
+    {
+      "card_name": "Vesuvan Shapeshifter",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Time Spiral",
+      "image_path": "gold_images/quinton_hoover/vesuvan_shapeshifter_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tsp/90/vesuvan-shapeshifter?utm_source=api",
+      "oracle_text": "As this creature enters or is turned face up, you may choose another creature on the battlefield. If you do, until this creature is turned face down, it becomes a copy of that creature, except it has \"At the beginning of your upkeep, you may turn this creature face down.\"\nMorph {1}{U}",
+      "type_line": "Creature \u2014 Shapeshifter"
+    },
+    {
+      "card_name": "Children of Korlis",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Time Spiral",
+      "image_path": "gold_images/quinton_hoover/children_of_korlis_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tsp/8/children-of-korlis?utm_source=api",
+      "oracle_text": "Sacrifice this creature: You gain life equal to the life you've lost this turn. (Damage causes loss of life.)",
+      "type_line": "Creature \u2014 Human Rebel Cleric"
+    },
+    {
+      "card_name": "Amrou Seekers",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Time Spiral",
+      "image_path": "gold_images/quinton_hoover/amrou_seekers_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tsp/2/amrou-seekers?utm_source=api",
+      "oracle_text": "This creature can't be blocked except by artifact creatures and/or white creatures.",
+      "type_line": "Creature \u2014 Kithkin Rebel"
+    },
+    {
+      "card_name": "Amrou Scout",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Time Spiral",
+      "image_path": "gold_images/quinton_hoover/amrou_scout_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tsp/1/amrou-scout?utm_source=api",
+      "oracle_text": "{4}, {T}: Search your library for a Rebel permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
+      "type_line": "Creature \u2014 Kithkin Rebel Scout"
+    },
+    {
+      "card_name": "\"Ach! Hans, Run!\"",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Unhinged",
+      "image_path": "gold_images/quinton_hoover/_ach__hans__run___08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/unh/116/ach!-hans-run!?utm_source=api",
+      "oracle_text": "At the beginning of your upkeep, you may say \"Ach! Hans, run! It's the . . .\" and the name of a creature card. If you do, search your library for a card with that name, put it onto the battlefield, then shuffle. That creature gains haste. Exile it at the beginning of the next end step.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Emcee",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Unhinged",
+      "image_path": "gold_images/quinton_hoover/emcee_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/unh/9/emcee?utm_source=api",
+      "oracle_text": "Whenever another creature enters, you may stand up and say in a deep, booming voice, \"Presenting . . . \" and that creature's name. If you do, put a +1/+1 counter on that creature.",
+      "type_line": "Creature \u2014 Human Rogue"
+    },
+    {
+      "card_name": "Yavimaya Ancients",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Deckmasters",
+      "image_path": "gold_images/quinton_hoover/yavimaya_ancients_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dkm/31a/yavimaya-ancients?utm_source=api",
+      "oracle_text": "{G}: This creature gets +1/-2 until end of turn.",
+      "type_line": "Creature \u2014 Treefolk"
+    },
+    {
+      "card_name": "Wandering Stream",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Invasion",
+      "image_path": "gold_images/quinton_hoover/wandering_stream_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/inv/224/wandering-stream?utm_source=api",
+      "oracle_text": "Domain \u2014 You gain 2 life for each basic land type among lands you control.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Firebrand Ranger",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Invasion",
+      "image_path": "gold_images/quinton_hoover/firebrand_ranger_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/inv/143/firebrand-ranger?utm_source=api",
+      "oracle_text": "{G}, {T}: You may put a basic land card from your hand onto the battlefield.",
+      "type_line": "Creature \u2014 Human Soldier Ranger"
+    },
+    {
+      "card_name": "Outbreak",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Prophecy",
+      "image_path": "gold_images/quinton_hoover/outbreak_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/pcy/71/outbreak?utm_source=api",
+      "oracle_text": "You may discard a Swamp card rather than pay this spell's mana cost.\nChoose a creature type. All creatures of that type get -1/-1 until end of turn.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Forest",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Starter 1999",
+      "image_path": "gold_images/quinton_hoover/forest_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/s99/171/forest?utm_source=api",
+      "oracle_text": "({T}: Add {G}.)",
+      "type_line": "Basic Land \u2014 Forest"
+    },
+    {
+      "card_name": "Pyromancy",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Urza's Legacy",
+      "image_path": "gold_images/quinton_hoover/pyromancy_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ulg/88/pyromancy?utm_source=api",
+      "oracle_text": "{3}, Discard a card at random: This enchantment deals damage to any target equal to the mana value of the discarded card.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Tragic Poet",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Urza's Legacy",
+      "image_path": "gold_images/quinton_hoover/tragic_poet_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ulg/24/tragic-poet?utm_source=api",
+      "oracle_text": "{T}, Sacrifice this creature: Return target enchantment card from your graveyard to your hand.",
+      "type_line": "Creature \u2014 Human"
+    },
+    {
+      "card_name": "Incoming!",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Unglued",
+      "image_path": "gold_images/quinton_hoover/incoming__17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ugl/64/incoming!?utm_source=api",
+      "oracle_text": "Each player searches their library for any number of artifact, creature, enchantment, and/or land cards, puts them onto the battlefield, then shuffles.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Goblin Tutor",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Unglued",
+      "image_path": "gold_images/quinton_hoover/goblin_tutor_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ugl/45/goblin-tutor?utm_source=api",
+      "oracle_text": "Roll a six-sided die. If you roll a 1, Goblin Tutor has no effect. Otherwise, search your library for the indicated card, reveal it, put it into your hand, then shuffle.\n2 \u2014 A card named Goblin Tutor\n3 \u2014 An enchantment\n4 \u2014 An artifact\n5 \u2014 A creature\n6 \u2014 An instant or sorcery",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Denied!",
+      "artist": "Quinton Hoover",
+      "artist_key": "quinton_hoover",
+      "set_name": "Unglued",
+      "image_path": "gold_images/quinton_hoover/denied__19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ugl/22/denied!?utm_source=api",
+      "oracle_text": "Choose a card name, then target spell's controller reveals their hand. If a card with the chosen name is revealed this way, counter that spell.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Super-Skrull",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Marvel Super Heroes",
+      "image_path": "gold_images/zoltan_boros/super-skrull_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/msh/115/super-skrull?utm_source=api",
+      "oracle_text": "Flying\n{2}{W}: Create a 0/4 colorless Wall creature token with defender.\n{3}{G}: Super-Skrull gets +4/+4 until end of turn.\n{4}{R}: Super-Skrull deals 4 damage to target creature.\n{5}{U}: Target player draws four cards.",
+      "type_line": "Legendary Creature \u2014 Skrull Shapeshifter Villain"
+    },
+    {
+      "card_name": "Donatello, Mutant Mechanic",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Teenage Mutant Ninja Turtles",
+      "image_path": "gold_images/zoltan_boros/donatello__mutant_mechanic_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tmt/36/donatello-mutant-mechanic?utm_source=api",
+      "oracle_text": "{T}: Put three +1/+1 counters on target artifact you control. If it isn't a creature, it becomes a 0/0 Robot creature in addition to its other types. Activate only as a sorcery.\nWhenever an artifact you control is put into a graveyard from the battlefield, if it had counters on it, put those counters on up to one target artifact or creature you control.",
+      "type_line": "Legendary Creature \u2014 Mutant Ninja Turtle"
+    },
+    {
+      "card_name": "Plains",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/zoltan_boros/plains_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/269/plains?utm_source=api",
+      "oracle_text": "({T}: Add {W}.)",
+      "type_line": "Basic Land \u2014 Plains"
+    },
+    {
+      "card_name": "Tam, Mindful First-Year",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/zoltan_boros/tam__mindful_first-year_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/245/tam-mindful-first-year?utm_source=api",
+      "oracle_text": "Each other creature you control has hexproof from each of its colors.\n{T}: Target creature you control becomes all colors until end of turn.",
+      "type_line": "Legendary Creature \u2014 Gorgon Wizard"
+    },
+    {
+      "card_name": "Illusion Spinners",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/zoltan_boros/illusion_spinners_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/55/illusion-spinners?utm_source=api",
+      "oracle_text": "You may cast this spell as though it had flash if you control a Faerie.\nFlying\nThis creature has hexproof as long as it's untapped. (It can't be the target of spells or abilities your opponents control.)",
+      "type_line": "Creature \u2014 Faerie Wizard"
+    },
+    {
+      "card_name": "Festering Thicket",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Lorwyn Eclipsed Commander",
+      "image_path": "gold_images/zoltan_boros/festering_thicket_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecc/61/festering-thicket?utm_source=api",
+      "oracle_text": "({T}: Add {B} or {G}.)\nThis land enters tapped.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+      "type_line": "Land \u2014 Swamp Forest"
+    },
+    {
+      "card_name": "Cosmic Spider-Man",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Marvel's Spider-Man",
+      "image_path": "gold_images/zoltan_boros/cosmic_spider-man_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/spm/127/cosmic-spider-man?utm_source=api",
+      "oracle_text": "Flying, first strike, trample, lifelink, haste\nAt the beginning of combat on your turn, other Spiders you control gain flying, first strike, trample, lifelink, and haste until end of turn.",
+      "type_line": "Legendary Creature \u2014 Spider Human Hero"
+    },
+    {
+      "card_name": "Guy in the Chair",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Marvel's Spider-Man",
+      "image_path": "gold_images/zoltan_boros/guy_in_the_chair_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/spm/102/guy-in-the-chair?utm_source=api",
+      "oracle_text": "{T}: Add one mana of any color.\nWeb Support \u2014 {2}{G}, {T}: Put a +1/+1 counter on target Spider. Activate only as a sorcery.",
+      "type_line": "Creature \u2014 Human Advisor"
+    },
+    {
+      "card_name": "Spectacular Tactics",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Marvel's Spider-Man",
+      "image_path": "gold_images/zoltan_boros/spectacular_tactics_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/spm/15/spectacular-tactics?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Put a +1/+1 counter on target creature you control. It gains hexproof until end of turn.\n\u2022 Destroy target creature with power 4 or greater.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Daily Bugle Reporters",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Marvel's Spider-Man",
+      "image_path": "gold_images/zoltan_boros/daily_bugle_reporters_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/spm/6/daily-bugle-reporters?utm_source=api",
+      "oracle_text": "When this creature enters, choose one \u2014\n\u2022 Puff Piece \u2014 Put a +1/+1 counter on each of up to two target creatures.\n\u2022 Investigative Journalism \u2014 Return target creature card with mana value 2 or less from your graveyard to your hand.",
+      "type_line": "Creature \u2014 Human Citizen"
+    },
+    {
+      "card_name": "Impact Tremors",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/zoltan_boros/impact_tremors_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1999/impact-tremors?utm_source=api",
+      "oracle_text": "Whenever a creature you control enters, this enchantment deals 1 damage to each opponent.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Dragon Typhoon",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Alchemy: Tarkir",
+      "image_path": "gold_images/zoltan_boros/dragon_typhoon_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ytdm/12/dragon-typhoon?utm_source=api",
+      "oracle_text": "Whenever you cast a Dragon or noncreature spell, draft a card from Dragon Typhoon's spellbook and put it onto the battlefield.\nChannel \u2014 {2}{R}{R}, Discard this card: Create a 4/4 red Dragon creature token with flying.",
+      "type_line": "Kindred Enchantment \u2014 Dragon"
+    },
+    {
+      "card_name": "Felothar the Steadfast",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Tarkir: Dragonstorm Commander",
+      "image_path": "gold_images/zoltan_boros/felothar_the_steadfast_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdc/4/felothar-the-steadfast?utm_source=api",
+      "oracle_text": "Each creature you control assigns combat damage equal to its toughness rather than its power.\nCreatures you control can attack as though they didn't have defender.\n{3}, {T}, Sacrifice another creature: Draw cards equal to the sacrificed creature's toughness, then discard cards equal to its power.",
+      "type_line": "Legendary Creature \u2014 Human Warrior"
+    },
+    {
+      "card_name": "Highspire Bell-Ringer",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/zoltan_boros/highspire_bell-ringer_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/47/highspire-bell-ringer?utm_source=api",
+      "oracle_text": "Flying\nThe second spell you cast each turn costs {1} less to cast.",
+      "type_line": "Creature \u2014 Djinn Monk"
+    },
+    {
+      "card_name": "Blood Feud",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Foundations Jumpstart",
+      "image_path": "gold_images/zoltan_boros/blood_feud_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/j25/130/blood-feud?utm_source=api",
+      "oracle_text": "Target creature fights another target creature. (Each deals damage equal to its power to the other.)",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Archmage of Runes",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Foundations",
+      "image_path": "gold_images/zoltan_boros/archmage_of_runes_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fdn/372/archmage-of-runes?utm_source=api",
+      "oracle_text": "Instant and sorcery spells you cast cost {1} less to cast.\nWhenever you cast an instant or sorcery spell, draw a card.",
+      "type_line": "Creature \u2014 Giant Wizard"
+    },
+    {
+      "card_name": "Hero's Downfall",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Foundations",
+      "image_path": "gold_images/zoltan_boros/hero_s_downfall_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fdn/319/heros-downfall?utm_source=api",
+      "oracle_text": "Destroy target creature or planeswalker.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Drake Hatcher",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Foundations",
+      "image_path": "gold_images/zoltan_boros/drake_hatcher_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fdn/306/drake-hatcher?utm_source=api",
+      "oracle_text": "Vigilance, prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nWhenever this creature deals combat damage to a player, put that many incubation counters on it.\nRemove three incubation counters from this creature: Create a 2/2 blue Drake creature token with flying.",
+      "type_line": "Creature \u2014 Human Wizard"
+    },
+    {
+      "card_name": "Elvish Regrower",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Foundations",
+      "image_path": "gold_images/zoltan_boros/elvish_regrower_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fdn/104/elvish-regrower?utm_source=api",
+      "oracle_text": "When this creature enters, return target permanent card from your graveyard to your hand.",
+      "type_line": "Creature \u2014 Elf Druid"
+    },
+    {
+      "card_name": "Kellan, Planar Trailblazer",
+      "artist": "Zoltan Boros",
+      "artist_key": "zoltan_boros",
+      "set_name": "Foundations",
+      "image_path": "gold_images/zoltan_boros/kellan__planar_trailblazer_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fdn/91/kellan-planar-trailblazer?utm_source=api",
+      "oracle_text": "{1}{R}: If Kellan is a Scout, it becomes a Human Faerie Detective and gains \"Whenever Kellan deals combat damage to a player, exile the top card of your library. You may play that card this turn.\"\n{2}{R}: If Kellan is a Detective, it becomes a 3/2 Human Faerie Rogue and gains double strike.",
+      "type_line": "Legendary Creature \u2014 Human Faerie Scout"
+    },
+    {
+      "card_name": "Mary Jane Watson",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Marvel's Spider-Man",
+      "image_path": "gold_images/steve_argyle/mary_jane_watson_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/spm/134/mary-jane-watson?utm_source=api",
+      "oracle_text": "Whenever a Spider you control enters, draw a card. This ability triggers only once each turn.",
+      "type_line": "Legendary Creature \u2014 Human Performer"
+    },
+    {
+      "card_name": "Arachne, Psionic Weaver",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Marvel's Spider-Man",
+      "image_path": "gold_images/steve_argyle/arachne__psionic_weaver_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/spm/2/arachne-psionic-weaver?utm_source=api",
+      "oracle_text": "Web-slinging {W} (You may cast this spell for {W} if you also return a tapped creature you control to its owner's hand.)\nAs Arachne enters, look at an opponent's hand, then choose a card type other than creature.\nSpells of the chosen type cost {1} more to cast.",
+      "type_line": "Legendary Creature \u2014 Spider Human Hero"
+    },
+    {
+      "card_name": "Teferi's Protection",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/steve_argyle/teferi_s_protection_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1691/teferis-protection?utm_source=api",
+      "oracle_text": "Until your next turn, your life total can't change and you gain protection from everything. All permanents you control phase out. (While they're phased out, they're treated as though they don't exist. They phase in before you untap during your untap step.)\nExile Teferi's Protection.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Feed the Swarm",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Doctor Who",
+      "image_path": "gold_images/steve_argyle/feed_the_swarm_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/who/812/feed-the-swarm?utm_source=api",
+      "oracle_text": "Destroy target creature or enchantment an opponent controls. You lose life equal to that permanent's mana value.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Delete",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Doctor Who",
+      "image_path": "gold_images/steve_argyle/delete_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/who/81/delete?utm_source=api",
+      "oracle_text": "Delete deals X damage to each nonartifact creature and each player.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Drone",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Phyrexia: All Will Be One Tokens",
+      "image_path": "gold_images/steve_argyle/drone_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tone/8/drone?utm_source=api",
+      "oracle_text": "Deathtouch\nWhen this creature leaves the battlefield, each opponent loses 2 life and you gain 2 life.",
+      "type_line": "Token Artifact Creature \u2014 Drone"
+    },
+    {
+      "card_name": "Fireslinger",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Jumpstart 2022",
+      "image_path": "gold_images/steve_argyle/fireslinger_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/j22/130/fireslinger?utm_source=api",
+      "oracle_text": "{T}: This creature deals 1 damage to any target and 1 damage to you.",
+      "type_line": "Creature \u2014 Human Wizard"
+    },
+    {
+      "card_name": "Disciple of Caelus Nin",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "The Brothers' War Commander",
+      "image_path": "gold_images/steve_argyle/disciple_of_caelus_nin_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/brc/41/disciple-of-caelus-nin?utm_source=api",
+      "oracle_text": "When this creature enters, starting with you, each player chooses up to five permanents they control. All permanents other than this creature that weren't chosen this way phase out.\nPermanents can't phase in.",
+      "type_line": "Creature \u2014 Human Wizard"
+    },
+    {
+      "card_name": "Mind Stone",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Warhammer 40,000 Commander",
+      "image_path": "gold_images/steve_argyle/mind_stone_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/40k/244/mind-stone?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Fell the Mighty",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Warhammer 40,000 Commander",
+      "image_path": "gold_images/steve_argyle/fell_the_mighty_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/40k/186/fell-the-mighty?utm_source=api",
+      "oracle_text": "Destroy all creatures with power greater than target creature's power.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Bastion Protector",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Warhammer 40,000 Commander",
+      "image_path": "gold_images/steve_argyle/bastion_protector_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/40k/182/bastion-protector?utm_source=api",
+      "oracle_text": "Commander creatures you control get +2/+2 and have indestructible.",
+      "type_line": "Creature \u2014 Human Soldier"
+    },
+    {
+      "card_name": "Assault Intercessor",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Warhammer 40,000 Commander",
+      "image_path": "gold_images/steve_argyle/assault_intercessor_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/40k/104/assault-intercessor?utm_source=api",
+      "oracle_text": "First strike, menace\nChainsword \u2014 Whenever a creature an opponent controls dies, that player loses 2 life.",
+      "type_line": "Creature \u2014 Astartes Warrior"
+    },
+    {
+      "card_name": "Riveteers Charm",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Streets of New Capenna",
+      "image_path": "gold_images/steve_argyle/riveteers_charm_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/snc/217/riveteers-charm?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Target opponent sacrifices a creature or planeswalker they control with the greatest mana value among creatures and planeswalkers they control.\n\u2022 Exile the top three cards of your library. Until your next end step, you may play those cards.\n\u2022 Exile target player's graveyard.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Obscura Charm",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Streets of New Capenna",
+      "image_path": "gold_images/steve_argyle/obscura_charm_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/snc/208/obscura-charm?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Return target multicolored permanent card with mana value 3 or less from your graveyard to the battlefield tapped.\n\u2022 Counter target instant or sorcery spell.\n\u2022 Destroy target creature or planeswalker with mana value 3 or less.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Maestros Charm",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Streets of New Capenna",
+      "image_path": "gold_images/steve_argyle/maestros_charm_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/snc/199/maestros-charm?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Look at the top five cards of your library. Put one of those cards into your hand and the rest into your graveyard.\n\u2022 Each opponent loses 3 life and you gain 3 life.\n\u2022 Maestros Charm deals 5 damage to target creature or planeswalker.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Cabaretti Charm",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Streets of New Capenna",
+      "image_path": "gold_images/steve_argyle/cabaretti_charm_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/snc/173/cabaretti-charm?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Cabaretti Charm deals damage equal to the number of creatures you control to target creature or planeswalker.\n\u2022 Creatures you control get +1/+1 and gain trample until end of turn.\n\u2022 Create two 1/1 green and white Citizen creature tokens.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Brokers Charm",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Streets of New Capenna",
+      "image_path": "gold_images/steve_argyle/brokers_charm_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/snc/171/brokers-charm?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Target creature you control gets +1/+0 until end of turn. It deals damage equal to its power to target creature or planeswalker an opponent controls.\n\u2022 Destroy target enchantment.\n\u2022 Draw two cards.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Rob the Archives",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Streets of New Capenna",
+      "image_path": "gold_images/steve_argyle/rob_the_archives_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/snc/122/rob-the-archives?utm_source=api",
+      "oracle_text": "Casualty 1 (As you cast this spell, you may sacrifice a creature with power 1 or greater. When you do, copy this spell.)\nExile the top two cards of your library. You may play those cards this turn.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Soulstealer Axe",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Alchemy: Innistrad",
+      "image_path": "gold_images/steve_argyle/soulstealer_axe_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ymid/60/soulstealer-axe?utm_source=api",
+      "oracle_text": "Equipped creature has trample.\nWhenever equipped creature deals combat damage to a player, seek a card with mana value equal to that damage.\nEquip {2}",
+      "type_line": "Artifact \u2014 Equipment"
+    },
+    {
+      "card_name": "Absorb Energy",
+      "artist": "Steve Argyle",
+      "artist_key": "steve_argyle",
+      "set_name": "Alchemy: Innistrad",
+      "image_path": "gold_images/steve_argyle/absorb_energy_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ymid/12/absorb-energy?utm_source=api",
+      "oracle_text": "Counter target spell. Cards in your hand that share a card type with that spell perpetually gain \"This spell costs {1} less to cast.\"",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Catharsis",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/wayne_reynolds/catharsis_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/292/catharsis?utm_source=api",
+      "oracle_text": "When this creature enters, if {W}{W} was spent to cast it, create two 1/1 green and white Kithkin creature tokens.\nWhen this creature enters, if {R}{R} was spent to cast it, creatures you control get +1/+1 and gain haste until end of turn.\nEvoke {R/W}{R/W} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+      "type_line": "Creature \u2014 Elemental Incarnation"
+    },
+    {
+      "card_name": "Mutable Explorer",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/wayne_reynolds/mutable_explorer_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/186/mutable-explorer?utm_source=api",
+      "oracle_text": "Changeling (This card is every creature type.)\nWhen this creature enters, create a tapped Mutavault token. (It's a land with \"{T}: Add {C}\" and \"{1}: This token becomes a 2/2 creature with all creature types until end of turn. It's still a land.\")",
+      "type_line": "Creature \u2014 Shapeshifter"
+    },
+    {
+      "card_name": "Mirrorform",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/wayne_reynolds/mirrorform_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/59/mirrorform?utm_source=api",
+      "oracle_text": "Each nonland permanent you control becomes a copy of target non-Aura permanent.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Wisecrack",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Marvel's Spider-Man",
+      "image_path": "gold_images/wayne_reynolds/wisecrack_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/spm/98/wisecrack?utm_source=api",
+      "oracle_text": "Target creature deals damage equal to its power to itself. If that creature is attacking, Wisecrack deals 2 damage to that creature's controller.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Slickshot Show-Off",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Store Championships",
+      "image_path": "gold_images/wayne_reynolds/slickshot_show-off_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sch/43/slickshot-show-off?utm_source=api",
+      "oracle_text": "Flying, haste\nWhenever you cast a noncreature spell, this creature gets +2/+0 until end of turn.\nPlot {1}{R} (You may pay {1}{R} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)",
+      "type_line": "Creature \u2014 Bird Wizard"
+    },
+    {
+      "card_name": "Redshift, Rocketeer Chief",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Aetherdrift",
+      "image_path": "gold_images/wayne_reynolds/redshift__rocketeer_chief_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dft/218/redshift-rocketeer-chief?utm_source=api",
+      "oracle_text": "Vigilance\n{T}: Add X mana of any one color, where X is Redshift's power. Spend this mana only to activate abilities.\nExhaust \u2014 {10}{R}{G}: Put any number of permanent cards from your hand onto the battlefield. (Activate each exhaust ability only once.)",
+      "type_line": "Legendary Creature \u2014 Goblin Pilot"
+    },
+    {
+      "card_name": "Searslicer Goblin",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Foundations",
+      "image_path": "gold_images/wayne_reynolds/searslicer_goblin_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fdn/93/searslicer-goblin?utm_source=api",
+      "oracle_text": "Raid \u2014 At the beginning of your end step, if you attacked this turn, create a 1/1 red Goblin creature token.",
+      "type_line": "Creature \u2014 Goblin Warrior"
+    },
+    {
+      "card_name": "Ponder",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/wayne_reynolds/ponder_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1783/ponder?utm_source=api",
+      "oracle_text": "Look at the top three cards of your library, then put them back in any order. You may shuffle.\nDraw a card.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Cindering Cutthroat",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Bloomburrow",
+      "image_path": "gold_images/wayne_reynolds/cindering_cutthroat_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/blb/208/cindering-cutthroat?utm_source=api",
+      "oracle_text": "This creature enters with a +1/+1 counter on it if an opponent lost life this turn.\n{1}{B/R}: This creature gains menace until end of turn. (It can't be blocked except by two or more creatures.)",
+      "type_line": "Creature \u2014 Lizard Assassin"
+    },
+    {
+      "card_name": "Loan Shark",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Outlaws of Thunder Junction",
+      "image_path": "gold_images/wayne_reynolds/loan_shark_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/otj/55/loan-shark?utm_source=api",
+      "oracle_text": "When this creature enters, if you've cast two or more spells this turn, draw a card.\nPlot {3}{U} (You may pay {3}{U} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)",
+      "type_line": "Creature \u2014 Shark Rogue"
+    },
+    {
+      "card_name": "Conspiracy Unraveler",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Murders at Karlov Manor",
+      "image_path": "gold_images/wayne_reynolds/conspiracy_unraveler_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mkm/47/conspiracy-unraveler?utm_source=api",
+      "oracle_text": "Flying\nYou may collect evidence 10 rather than pay the mana cost for spells you cast. (To collect evidence 10, exile cards with total mana value 10 or greater from your graveyard.)",
+      "type_line": "Creature \u2014 Sphinx Detective"
+    },
+    {
+      "card_name": "Discerning Financier",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Wilds of Eldraine",
+      "image_path": "gold_images/wayne_reynolds/discerning_financier_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/woe/10/discerning-financier?utm_source=api",
+      "oracle_text": "At the beginning of your upkeep, if an opponent controls more lands than you, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\n{2}{W}: Choose another player. That player gains control of target Treasure you control. You draw a card.",
+      "type_line": "Creature \u2014 Human Noble"
+    },
+    {
+      "card_name": "Death-Rattle Oni",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "March of the Machine: The Aftermath",
+      "image_path": "gold_images/wayne_reynolds/death-rattle_oni_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mat/113/death-rattle-oni?utm_source=api",
+      "oracle_text": "Flash\nThis spell costs {2} less to cast for each creature that died this turn.\nWhen this creature enters, destroy all other creatures that were dealt damage this turn.",
+      "type_line": "Creature \u2014 Demon Spirit"
+    },
+    {
+      "card_name": "Inga and Esika",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "March of the Machine",
+      "image_path": "gold_images/wayne_reynolds/inga_and_esika_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mom/229/inga-and-esika?utm_source=api",
+      "oracle_text": "Creatures you control have vigilance and \"{T}: Add one mana of any color. Spend this mana only to cast a creature spell.\"\nWhenever you cast a creature spell, if three or more mana from creatures was spent to cast it, draw a card.",
+      "type_line": "Legendary Creature \u2014 Human God"
+    },
+    {
+      "card_name": "Patchplate Resolute",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Alchemy: The Brothers' War",
+      "image_path": "gold_images/wayne_reynolds/patchplate_resolute_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ybro/28/patchplate-resolute?utm_source=api",
+      "oracle_text": "When Patchplate Resolute enters or leaves the battlefield, you get a one-time boon with \"When you cast a creature spell, that creature enters with an additional +1/+1 counter on it.\"\nUnearth {1}{W}",
+      "type_line": "Artifact Creature \u2014 Soldier"
+    },
+    {
+      "card_name": "Perennial Behemoth",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "The Brothers' War",
+      "image_path": "gold_images/wayne_reynolds/perennial_behemoth_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/bro/202/perennial-behemoth?utm_source=api",
+      "oracle_text": "You may play lands from your graveyard.\nUnearth {G}{G} ({G}{G}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+      "type_line": "Artifact Creature \u2014 Beast"
+    },
+    {
+      "card_name": "Goring Warplow",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "The Brothers' War",
+      "image_path": "gold_images/wayne_reynolds/goring_warplow_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/bro/120/goring-warplow?utm_source=api",
+      "oracle_text": "Prototype {1}{B} \u2014 1/1 (You may cast this spell with different mana cost, color, and size. It keeps its abilities and types.)\nDeathtouch",
+      "type_line": "Artifact Creature \u2014 Construct"
+    },
+    {
+      "card_name": "Bortuk Bonerattle",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Dominaria United",
+      "image_path": "gold_images/wayne_reynolds/bortuk_bonerattle_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmu/197/bortuk-bonerattle?utm_source=api",
+      "oracle_text": "Domain \u2014 When Bortuk Bonerattle enters, if you cast it, choose target creature card in your graveyard. Return that card to the battlefield if its mana value is less than or equal to the number of basic land types among lands you control. Otherwise, put it into your hand.",
+      "type_line": "Legendary Creature \u2014 Troll Shaman"
+    },
+    {
+      "card_name": "Gut, Zealous Fanatic",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Alchemy Horizons: Baldur's Gate",
+      "image_path": "gold_images/wayne_reynolds/gut__zealous_fanatic_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/hbg/13w/gut-zealous-fanatic?utm_source=api",
+      "oracle_text": "When this creature specializes, create two tokens that are copies of a creature card exiled with this creature, except they're 2/2 and have haste. Sacrifice them at the beginning of your next end step.",
+      "type_line": "Legendary Creature \u2014 Goblin Shaman"
+    },
+    {
+      "card_name": "Gut, Devious Fanatic",
+      "artist": "Wayne Reynolds",
+      "artist_key": "wayne_reynolds",
+      "set_name": "Alchemy Horizons: Baldur's Gate",
+      "image_path": "gold_images/wayne_reynolds/gut__devious_fanatic_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/hbg/13u/gut-devious-fanatic?utm_source=api",
+      "oracle_text": "When this creature specializes, create a token that's a copy of a creature card exiled with this creature, except it's 3/3 and has flying and haste. Sacrifice it at the beginning of your next end step.",
+      "type_line": "Legendary Creature \u2014 Goblin Shaman"
+    },
+    {
+      "card_name": "Sulfuric Vortex",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/sulfuric_vortex_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/2210/sulfuric-vortex?utm_source=api",
+      "oracle_text": "At the beginning of each player's upkeep, this enchantment deals 2 damage to that player.\nIf a player would gain life, that player gains no life instead.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Radiant Strike",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Edge of Eternities",
+      "image_path": "gold_images/aleksi_briclot/radiant_strike_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/eoe/29/radiant-strike?utm_source=api",
+      "oracle_text": "Destroy target artifact or tapped creature. You gain 3 life.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Eldrazi Temple",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/eldrazi_temple_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1154/eldrazi-temple?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {C}{C}. Spend this mana only to cast colorless Eldrazi spells or activate abilities of colorless Eldrazi.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Reality Smasher",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/reality_smasher_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1153/reality-smasher?utm_source=api",
+      "oracle_text": "({C} represents colorless mana.)\nTrample, haste\nWhenever this creature becomes the target of a spell an opponent controls, counter that spell unless its controller discards a card.",
+      "type_line": "Creature \u2014 Eldrazi"
+    },
+    {
+      "card_name": "Inquisition of Kozilek",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/inquisition_of_kozilek_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1152/inquisition-of-kozilek?utm_source=api",
+      "oracle_text": "Target player reveals their hand. You choose a nonland card from it with mana value 3 or less. That player discards that card.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Thought-Knot Seer",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/thought-knot_seer_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1151/thought-knot-seer?utm_source=api",
+      "oracle_text": "({C} represents colorless mana.)\nWhen this creature enters, target opponent reveals their hand. You choose a nonland card from it and exile that card.\nWhen this creature leaves the battlefield, target opponent draws a card.",
+      "type_line": "Creature \u2014 Eldrazi"
+    },
+    {
+      "card_name": "Thought-Knot Seer",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/thought-knot_seer_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/720/thought-knot-seer?utm_source=api",
+      "oracle_text": "({C} represents colorless mana.)\nWhen this creature enters, target opponent reveals their hand. You choose a nonland card from it and exile that card.\nWhen this creature leaves the battlefield, target opponent draws a card.",
+      "type_line": "Creature \u2014 Eldrazi"
+    },
+    {
+      "card_name": "Wulfgar of Icewind Dale",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Forgotten Realms Commander",
+      "image_path": "gold_images/aleksi_briclot/wulfgar_of_icewind_dale_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/afc/56/wulfgar-of-icewind-dale?utm_source=api",
+      "oracle_text": "Melee (Whenever this creature attacks, it gets +1/+1 until end of turn for each opponent you attacked this combat.)\nIf a creature you control attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.",
+      "type_line": "Legendary Creature \u2014 Human Barbarian"
+    },
+    {
+      "card_name": "Clattering Skeletons",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Adventures in the Forgotten Realms",
+      "image_path": "gold_images/aleksi_briclot/clattering_skeletons_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/afr/93/clattering-skeletons?utm_source=api",
+      "oracle_text": "When this creature dies, venture into the dungeon. (Enter the first room or advance to the next room.)",
+      "type_line": "Creature \u2014 Skeleton"
+    },
+    {
+      "card_name": "Asmodeus the Archfiend",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Adventures in the Forgotten Realms",
+      "image_path": "gold_images/aleksi_briclot/asmodeus_the_archfiend_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/afr/88/asmodeus-the-archfiend?utm_source=api",
+      "oracle_text": "Binding Contract \u2014 If you would draw a card, exile the top card of your library face down instead.\n{B}{B}{B}: Draw seven cards.\n{B}: Return all cards exiled with Asmodeus to their owner's hand and you lose that much life.",
+      "type_line": "Legendary Creature \u2014 Devil God"
+    },
+    {
+      "card_name": "Geyadrone Dihada",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Modern Horizons 2",
+      "image_path": "gold_images/aleksi_briclot/geyadrone_dihada_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh2/305/geyadrone-dihada?utm_source=api",
+      "oracle_text": "Protection from permanents with corruption counters on them\n+1: Each opponent loses 2 life and you gain 2 life. Put a corruption counter on up to one other target creature or planeswalker.\n\u22123: Gain control of target creature or planeswalker until end of turn. Untap it and put a corruption counter on it. It gains haste until end of turn.\n\u22127: Gain control of each permanent with a corruption counter on it.",
+      "type_line": "Legendary Planeswalker \u2014 Dihada"
+    },
+    {
+      "card_name": "Breya's Apprentice",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Modern Horizons 2",
+      "image_path": "gold_images/aleksi_briclot/breya_s_apprentice_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh2/117/breyas-apprentice?utm_source=api",
+      "oracle_text": "When this creature enters, create a 1/1 colorless Thopter artifact creature token with flying.\n{T}, Sacrifice an artifact: Choose one \u2014\n\u2022 Exile the top card of your library. Until the end of your next turn, you may play that card.\n\u2022 Target creature gets +2/+0 until end of turn.",
+      "type_line": "Artifact Creature \u2014 Human Artificer"
+    },
+    {
+      "card_name": "Breeding Pool",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/breeding_pool_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/132/breeding-pool?utm_source=api",
+      "oracle_text": "({T}: Add {G} or {U}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+      "type_line": "Land \u2014 Forest Island"
+    },
+    {
+      "card_name": "Ich-Tekik, Salvage Splicer",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Commander Legends",
+      "image_path": "gold_images/aleksi_briclot/ich-tekik__salvage_splicer_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmr/580/ich-tekik-salvage-splicer?utm_source=api",
+      "oracle_text": "When Ich-Tekik enters, create a 3/3 colorless Phyrexian Golem artifact creature token.\nWhenever an artifact is put into a graveyard from the battlefield, put a +1/+1 counter on Ich-Tekik and a +1/+1 counter on each Golem you control.\nPartner (You can have two commanders if both have partner.)",
+      "type_line": "Legendary Creature \u2014 Phyrexian Human Artificer"
+    },
+    {
+      "card_name": "Shatterskull Minotaur",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Zendikar Rising",
+      "image_path": "gold_images/aleksi_briclot/shatterskull_minotaur_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/znr/160/shatterskull-minotaur?utm_source=api",
+      "oracle_text": "This spell costs {1} less to cast for each creature in your party. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)\nHaste",
+      "type_line": "Creature \u2014 Minotaur Warrior"
+    },
+    {
+      "card_name": "Samut, Tyrant Smasher",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/samut__tyrant_smasher_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/535/samut-tyrant-smasher?utm_source=api",
+      "oracle_text": "Creatures you control have haste.\n\u22121: Target creature gets +2/+1 and gains haste until end of turn. Scry 1.",
+      "type_line": "Legendary Planeswalker \u2014 Samut"
+    },
+    {
+      "card_name": "Storm Herald",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Theros Beyond Death",
+      "image_path": "gold_images/aleksi_briclot/storm_herald_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/thb/156/storm-herald?utm_source=api",
+      "oracle_text": "Haste\nWhen this creature enters, return any number of Aura cards from your graveyard to the battlefield attached to creatures you control. Exile those Auras at the beginning of your next end step. If those Auras would leave the battlefield, exile them instead of putting them anywhere else.",
+      "type_line": "Creature \u2014 Human Shaman"
+    },
+    {
+      "card_name": "Purphoros's Intervention",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Theros Beyond Death",
+      "image_path": "gold_images/aleksi_briclot/purphoros_s_intervention_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/thb/151/purphoross-intervention?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Create an X/1 red Elemental creature token with trample and haste. Sacrifice it at the beginning of the next end step.\n\u2022 Purphoros's Intervention deals twice X damage to target creature or planeswalker.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Heliod's Punishment",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Theros Beyond Death",
+      "image_path": "gold_images/aleksi_briclot/heliod_s_punishment_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/thb/21/heliods-punishment?utm_source=api",
+      "oracle_text": "Enchant creature\nThis Aura enters with four task counters on it.\nEnchanted creature can't attack or block. It loses all abilities and has \"{T}: Remove a task counter from Heliod's Punishment. Then if it has no task counters on it, destroy Heliod's Punishment.\"",
+      "type_line": "Enchantment \u2014 Aura"
+    },
+    {
+      "card_name": "Nahiri, Storm of Stone",
+      "artist": "Aleksi Briclot",
+      "artist_key": "aleksi_briclot",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/aleksi_briclot/nahiri__storm_of_stone_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/533/nahiri-storm-of-stone?utm_source=api",
+      "oracle_text": "During your turn, creatures you control have first strike and equip abilities you activate cost {1} less to activate.\n\u2212X: Nahiri deals X damage to target tapped creature.",
+      "type_line": "Legendary Planeswalker \u2014 Nahiri"
+    },
+    {
+      "card_name": "Kratos, God of War",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/magali_villeneuve/kratos__god_of_war_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/2207/kratos-god-of-war?utm_source=api",
+      "oracle_text": "Double strike\nAll creatures have haste.\nAt the beginning of each player's end step, Kratos deals damage to that player equal to the number of creatures that player controls that didn't attack this turn.",
+      "type_line": "Legendary Creature \u2014 God Warrior"
+    },
+    {
+      "card_name": "Heliod, Sun-Crowned",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/magali_villeneuve/heliod__sun-crowned_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/2165/heliod-sun-crowned?utm_source=api",
+      "oracle_text": "Indestructible\nAs long as your devotion to white is less than five, Heliod isn't a creature.\nWhenever you gain life, put a +1/+1 counter on target creature or enchantment you control.\n{1}{W}: Another target creature gains lifelink until end of turn.",
+      "type_line": "Legendary Enchantment Creature \u2014 God"
+    },
+    {
+      "card_name": "Tezzeret, Cruel Captain",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Edge of Eternities",
+      "image_path": "gold_images/magali_villeneuve/tezzeret__cruel_captain_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/eoe/287/tezzeret-cruel-captain?utm_source=api",
+      "oracle_text": "Whenever an artifact you control enters, put a loyalty counter on Tezzeret.\n0: Untap target artifact or creature. If it's an artifact creature, put a +1/+1 counter on it.\n\u22123: Search your library for an artifact card with mana value 1 or less, reveal it, put it into your hand, then shuffle.\n\u22127: You get an emblem with \"At the beginning of combat on your turn, put three +1/+1 counters on target artifact you control. If it's not a creature, it becomes a 0/0 Robot artifact creature.\"",
+      "type_line": "Legendary Planeswalker \u2014 Tezzeret"
+    },
+    {
+      "card_name": "Harmonize",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Final Fantasy Commander",
+      "image_path": "gold_images/magali_villeneuve/harmonize_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fic/308/harmonize?utm_source=api",
+      "oracle_text": "Draw three cards.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Emet-Selch of the Third Seat",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Final Fantasy Commander",
+      "image_path": "gold_images/magali_villeneuve/emet-selch_of_the_third_seat_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fic/81/emet-selch-of-the-third-seat?utm_source=api",
+      "oracle_text": "Spells you cast from your graveyard cost {2} less to cast.\nWhenever one or more opponents lose life, you may cast target instant or sorcery card from your graveyard. If that spell would be put into your graveyard, exile it instead. Do this only once each turn.",
+      "type_line": "Legendary Creature \u2014 Elder Wizard"
+    },
+    {
+      "card_name": "Elena, Turk Recruit",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Final Fantasy Commander",
+      "image_path": "gold_images/magali_villeneuve/elena__turk_recruit_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fic/18/elena-turk-recruit?utm_source=api",
+      "oracle_text": "When Elena enters, return target non-Assassin historic card from your graveyard to your hand. (Artifacts, legendaries, and Sagas are historic.)\nWhenever you cast a historic spell, put a +1/+1 counter on Elena.",
+      "type_line": "Legendary Creature \u2014 Human Assassin"
+    },
+    {
+      "card_name": "Y'shtola, Night's Blessed",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Final Fantasy Commander",
+      "image_path": "gold_images/magali_villeneuve/y_shtola__night_s_blessed_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fic/7/yshtola-nights-blessed?utm_source=api",
+      "oracle_text": "Vigilance\nAt the beginning of each end step, if a player lost 4 or more life this turn, you draw a card.\nWhenever you cast a noncreature spell with mana value 3 or greater, Y'shtola deals 2 damage to each opponent and you gain 2 life.",
+      "type_line": "Legendary Creature \u2014 Cat Warlock"
+    },
+    {
+      "card_name": "Sephiroth, Planet's Heir",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Final Fantasy",
+      "image_path": "gold_images/magali_villeneuve/sephiroth__planet_s_heir_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fin/553/sephiroth-planets-heir?utm_source=api",
+      "oracle_text": "Vigilance (Attacking doesn't cause this creature to tap.)\nWhen Sephiroth enters, creatures your opponents control get -2/-2 until end of turn.\nWhenever a creature an opponent controls dies, put a +1/+1 counter on Sephiroth.",
+      "type_line": "Legendary Creature \u2014 Human Avatar Soldier"
+    },
+    {
+      "card_name": "Cloud, Planet's Champion",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Final Fantasy",
+      "image_path": "gold_images/magali_villeneuve/cloud__planet_s_champion_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fin/552/cloud-planets-champion?utm_source=api",
+      "oracle_text": "During your turn, as long as Cloud is equipped, it has double strike and indestructible. (This creature deals both first-strike and regular combat damage. Damage and effects that say \"destroy\" don't destroy this creature.)\nEquip abilities you activate that target Cloud cost {2} less to activate.",
+      "type_line": "Legendary Creature \u2014 Human Soldier Mercenary"
+    },
+    {
+      "card_name": "Cid, Timeless Artificer",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Final Fantasy",
+      "image_path": "gold_images/magali_villeneuve/cid__timeless_artificer_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fin/420/cid-timeless-artificer?utm_source=api",
+      "oracle_text": "Artifact creatures and Heroes you control get +1/+1 for each Artificer you control and each Artificer card in your graveyard.\nA deck can have any number of cards named Cid, Timeless Artificer.\nCycling {W}{U} ({W}{U}, Discard this card: Draw a card.)",
+      "type_line": "Legendary Creature \u2014 Human Artificer"
+    },
+    {
+      "card_name": "White Auracite",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Final Fantasy",
+      "image_path": "gold_images/magali_villeneuve/white_auracite_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fin/41/white-auracite?utm_source=api",
+      "oracle_text": "When this artifact enters, exile target nonland permanent an opponent controls until this artifact leaves the battlefield.\n{T}: Add {W}.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Damn",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/magali_villeneuve/damn_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1870/damn?utm_source=api",
+      "oracle_text": "Destroy target creature. A creature destroyed this way can't be regenerated.\nOverload {2}{W}{W} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Umezawa's Jitte",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/magali_villeneuve/umezawa_s_jitte_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1865/umezawas-jitte?utm_source=api",
+      "oracle_text": "Whenever equipped creature deals combat damage, put two charge counters on Umezawa's Jitte.\nRemove a charge counter from Umezawa's Jitte: Choose one \u2014\n\u2022 Equipped creature gets +2/+2 until end of turn.\n\u2022 Target creature gets -1/-1 until end of turn.\n\u2022 You gain 2 life.\nEquip {2}",
+      "type_line": "Legendary Artifact \u2014 Equipment"
+    },
+    {
+      "card_name": "Craterhoof Behemoth",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/magali_villeneuve/craterhoof_behemoth_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/404/craterhoof-behemoth?utm_source=api",
+      "oracle_text": "Haste\nWhen this creature enters, creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.",
+      "type_line": "Creature \u2014 Beast"
+    },
+    {
+      "card_name": "Craterhoof Behemoth",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/magali_villeneuve/craterhoof_behemoth_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/138/craterhoof-behemoth?utm_source=api",
+      "oracle_text": "Haste\nWhen this creature enters, creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.",
+      "type_line": "Creature \u2014 Beast"
+    },
+    {
+      "card_name": "Nissa, Worldsoul Speaker",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Aetherdrift Commander",
+      "image_path": "gold_images/magali_villeneuve/nissa__worldsoul_speaker_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/drc/13/nissa-worldsoul-speaker?utm_source=api",
+      "oracle_text": "Landfall \u2014 Whenever a land you control enters, you get {E}{E} (two energy counters).\nYou may pay eight {E} rather than pay the mana cost for permanent spells you cast.",
+      "type_line": "Legendary Creature \u2014 Elf Druid"
+    },
+    {
+      "card_name": "Pharika, God of Affliction",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Pioneer Masters",
+      "image_path": "gold_images/magali_villeneuve/pharika__god_of_affliction_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/pio/315/pharika-god-of-affliction?utm_source=api",
+      "oracle_text": "Indestructible\nAs long as your devotion to black and green is less than seven, Pharika isn't a creature.\n{B}{G}: Exile target creature card from a graveyard. Its owner creates a 1/1 black and green Snake enchantment creature token with deathtouch.",
+      "type_line": "Legendary Enchantment Creature \u2014 God"
+    },
+    {
+      "card_name": "Wizards",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Foundations Jumpstart Front Cards",
+      "image_path": "gold_images/magali_villeneuve/wizards_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fj25/18/wizards?utm_source=api",
+      "oracle_text": "(Theme color: {U})",
+      "type_line": "Card"
+    },
+    {
+      "card_name": "Kiora, the Rising Tide",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Foundations",
+      "image_path": "gold_images/magali_villeneuve/kiora__the_rising_tide_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/fdn/309/kiora-the-rising-tide?utm_source=api",
+      "oracle_text": "When Kiora enters, draw two cards, then discard two cards.\nThreshold \u2014 Whenever Kiora attacks, if there are seven or more cards in your graveyard, you may create Scion of the Deep, a legendary 8/8 blue Octopus creature token.",
+      "type_line": "Legendary Creature \u2014 Merfolk Noble"
+    },
+    {
+      "card_name": "Storm, Force of Nature",
+      "artist": "Magali Villeneuve",
+      "artist_key": "magali_villeneuve",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/magali_villeneuve/storm__force_of_nature_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1742/storm-force-of-nature?utm_source=api",
+      "oracle_text": "Flying, vigilance\nCeaseless Tempest \u2014 Whenever Storm deals combat damage to a player, the next instant or sorcery spell you cast this turn has storm. (When you cast it, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+      "type_line": "Legendary Creature \u2014 Mutant Hero"
+    },
+    {
+      "card_name": "Stalactite Dagger",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/drew_tucker/stalactite_dagger_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/261/stalactite-dagger?utm_source=api",
+      "oracle_text": "When this Equipment enters, create a 1/1 colorless Shapeshifter creature token with changeling. (It's every creature type.)\nEquipped creature gets +1/+1 and is all creature types.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+      "type_line": "Artifact \u2014 Equipment"
+    },
+    {
+      "card_name": "Soul Immolation",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/drew_tucker/soul_immolation_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/156/soul-immolation?utm_source=api",
+      "oracle_text": "As an additional cost to cast this spell, blight X. X can't be greater than the greatest toughness among creatures you control. (Put X -1/-1 counters on a creature you control.)\nSoul Immolation deals X damage to each opponent and each creature they control.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Blossombind",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/drew_tucker/blossombind_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/45/blossombind?utm_source=api",
+      "oracle_text": "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature can't become untapped and can't have counters put on it.",
+      "type_line": "Enchantment \u2014 Aura"
+    },
+    {
+      "card_name": "Evershrike's Gift",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/drew_tucker/evershrike_s_gift_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/15/evershrikes-gift?utm_source=api",
+      "oracle_text": "Enchant creature\nEnchanted creature gets +1/+0 and has flying.\n{1}{W}, Blight 2: Return this card from your graveyard to your hand. Activate only as a sorcery. (To blight 2, put two -1/-1 counters on a creature you control.)",
+      "type_line": "Enchantment \u2014 Aura"
+    },
+    {
+      "card_name": "Birthing Ritual",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Modern Horizons 3",
+      "image_path": "gold_images/drew_tucker/birthing_ritual_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh3/146/birthing-ritual?utm_source=api",
+      "oracle_text": "At the beginning of your end step, if you control a creature, look at the top seven cards of your library. Then you may sacrifice a creature. If you do, you may put a creature card with mana value X or less from among those cards onto the battlefield, where X is 1 plus the sacrificed creature's mana value. Put the rest on the bottom of your library in a random order.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Unfathomable Truths",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Modern Horizons 3",
+      "image_path": "gold_images/drew_tucker/unfathomable_truths_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mh3/77/unfathomable-truths?utm_source=api",
+      "oracle_text": "Devoid (This card has no color.)\nDraw three cards and create a 0/1 colorless Eldrazi Spawn creature token with \"Sacrifice this token: Add {C}.\"",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Smoldering Marsh",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Doctor Who",
+      "image_path": "gold_images/drew_tucker/smoldering_marsh_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/who/898/smoldering-marsh?utm_source=api",
+      "oracle_text": "({T}: Add {B} or {R}.)\nThis land enters tapped unless you control two or more basic lands.",
+      "type_line": "Land \u2014 Swamp Mountain"
+    },
+    {
+      "card_name": "Mondassian Colony Ship",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Doctor Who",
+      "image_path": "gold_images/drew_tucker/mondassian_colony_ship_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/who/590/mondassian-colony-ship?utm_source=api",
+      "oracle_text": "Whenever a creature attacks, it gets +1/+1 until end of turn for each other creature its controller controls that shares a creature type with it.\nWhenever chaos ensues, turn target creature face down. It becomes a 2/2 Cyberman artifact creature.",
+      "type_line": "Plane \u2014 Spacecraft"
+    },
+    {
+      "card_name": "Sheltered Thicket",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Doctor Who",
+      "image_path": "gold_images/drew_tucker/sheltered_thicket_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/who/514/sheltered-thicket?utm_source=api",
+      "oracle_text": "({T}: Add {R} or {G}.)\nThis land enters tapped.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+      "type_line": "Land \u2014 Mountain Forest"
+    },
+    {
+      "card_name": "Myriad Landscape",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/drew_tucker/myriad_landscape_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/660/myriad-landscape?utm_source=api",
+      "oracle_text": "This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle.",
+      "type_line": "Land"
+    },
+    {
+      "card_name": "Arcane Signet",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Commander Masters",
+      "image_path": "gold_images/drew_tucker/arcane_signet_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/cmm/653/arcane-signet?utm_source=api",
+      "oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Decimate",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Dominaria Remastered",
+      "image_path": "gold_images/drew_tucker/decimate_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmr/444/decimate?utm_source=api",
+      "oracle_text": "Destroy target artifact, target creature, target enchantment, and target land. (You can't cast this spell unless you have legal choices for all its targets.)",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Oversold Cemetery",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Dominaria Remastered",
+      "image_path": "gold_images/drew_tucker/oversold_cemetery_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dmr/428/oversold-cemetery?utm_source=api",
+      "oracle_text": "At the beginning of your upkeep, if you have four or more creature cards in your graveyard, you may return target creature card from your graveyard to your hand.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Leechridden Swamp",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Jumpstart 2022",
+      "image_path": "gold_images/drew_tucker/leechridden_swamp_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/j22/137/leechridden-swamp?utm_source=api",
+      "oracle_text": "({T}: Add {B}.)\nThis land enters tapped.\n{B}, {T}: Each opponent loses 1 life. Activate only if you control two or more black permanents.",
+      "type_line": "Land \u2014 Swamp"
+    },
+    {
+      "card_name": "Aftershock",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Jumpstart 2022",
+      "image_path": "gold_images/drew_tucker/aftershock_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/j22/129/aftershock?utm_source=api",
+      "oracle_text": "Destroy target artifact, creature, or land. Aftershock deals 3 damage to you.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Instruments of War",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Jumpstart 2022",
+      "image_path": "gold_images/drew_tucker/instruments_of_war_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/j22/50/instruments-of-war?utm_source=api",
+      "oracle_text": "Flash\nAs this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Infernal Idol",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Jumpstart 2022",
+      "image_path": "gold_images/drew_tucker/infernal_idol_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/j22/49/infernal-idol?utm_source=api",
+      "oracle_text": "{T}: Add {B}.\n{1}{B}{B}, {T}, Sacrifice this artifact: You draw two cards and you lose 2 life.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Soul Read",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Jumpstart 2022",
+      "image_path": "gold_images/drew_tucker/soul_read_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/j22/17/soul-read?utm_source=api",
+      "oracle_text": "Choose one \u2014\n\u2022 Counter target spell unless its controller pays {4}.\n\u2022 Draw two cards.",
+      "type_line": "Instant"
+    },
+    {
+      "card_name": "Forest",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/drew_tucker/forest_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1194/forest?utm_source=api",
+      "oracle_text": "({T}: Add {G}.)",
+      "type_line": "Basic Land \u2014 Forest"
+    },
+    {
+      "card_name": "Scrap",
+      "artist": "Drew Tucker",
+      "artist_key": "drew_tucker",
+      "set_name": "The Brothers' War Commander Tokens",
+      "image_path": "gold_images/drew_tucker/scrap_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tbrc/12/scrap?utm_source=api",
+      "oracle_text": "",
+      "type_line": "Token Artifact"
+    },
+    {
+      "card_name": "Puca's Eye",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/dan_frazier/puca_s_eye_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/259/pucas-eye?utm_source=api",
+      "oracle_text": "When this artifact enters, draw a card, then choose a color. This artifact becomes the chosen color.\n{3}, {T}: Draw a card. Activate only if there are five colors among permanents you control.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Mirrormind Crown",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Lorwyn Eclipsed",
+      "image_path": "gold_images/dan_frazier/mirrormind_crown_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/ecl/258/mirrormind-crown?utm_source=api",
+      "oracle_text": "As long as this Equipment is attached to a creature, the first time you would create one or more tokens each turn, you may instead create that many tokens that are copies of equipped creature.\nEquip {2}",
+      "type_line": "Artifact \u2014 Equipment"
+    },
+    {
+      "card_name": "Mox Jasper",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Tarkir: Dragonstorm",
+      "image_path": "gold_images/dan_frazier/mox_jasper_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/tdm/419/mox-jasper?utm_source=api",
+      "oracle_text": "{T}: Add one mana of any color. Activate only if you control a Dragon.",
+      "type_line": "Legendary Artifact"
+    },
+    {
+      "card_name": "Mox Poison",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Mystery Booster 2",
+      "image_path": "gold_images/dan_frazier/mox_poison_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mb2/608/mox-poison?utm_source=api",
+      "oracle_text": "{T}: Add one mana of any color. You get two poison counters.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Mox Tantalite",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/mox_tantalite_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1073/mox-tantalite?utm_source=api",
+      "oracle_text": "Suspend 3\u2014{0} (Rather than cast this card from your hand, pay {0} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)\n{T}: Add one mana of any color.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Sol Ring",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/sol_ring_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1074/sol-ring?utm_source=api",
+      "oracle_text": "{T}: Add {C}{C}.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Mox Opal",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/mox_opal_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1072/mox-opal?utm_source=api",
+      "oracle_text": "Metalcraft \u2014 {T}: Add one mana of any color. Activate only if you control three or more artifacts.",
+      "type_line": "Legendary Artifact"
+    },
+    {
+      "card_name": "Treasure",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "30th Anniversary Tokens",
+      "image_path": "gold_images/dan_frazier/treasure_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/t30a/14/treasure?utm_source=api",
+      "oracle_text": "{T}, Sacrifice this token: Add one mana of any color.",
+      "type_line": "Token Artifact \u2014 Treasure"
+    },
+    {
+      "card_name": "Treasure",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "30th Anniversary Tokens",
+      "image_path": "gold_images/dan_frazier/treasure_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/t30a/13/treasure?utm_source=api",
+      "oracle_text": "{T}, Sacrifice this token: Add one mana of any color.",
+      "type_line": "Token Artifact \u2014 Treasure"
+    },
+    {
+      "card_name": "Talisman of Curiosity",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_curiosity_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1061/talisman-of-curiosity?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {G} or {U}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Conviction",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_conviction_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1060/talisman-of-conviction?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {R} or {W}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Resilience",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_resilience_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1059/talisman-of-resilience?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {G}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Creativity",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_creativity_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1058/talisman-of-creativity?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {U} or {R}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Hierarchy",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_hierarchy_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1057/talisman-of-hierarchy?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {W} or {B}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Unity",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_unity_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1056/talisman-of-unity?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {G} or {W}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Impulse",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_impulse_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1055/talisman-of-impulse?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {R} or {G}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Indulgence",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_indulgence_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1054/talisman-of-indulgence?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {B} or {R}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Dominance",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_dominance_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1053/talisman-of-dominance?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {U} or {B}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Talisman of Progress",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/talisman_of_progress_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/1052/talisman-of-progress?utm_source=api",
+      "oracle_text": "{T}: Add {C}.\n{T}: Add {W} or {U}. This artifact deals 1 damage to you.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Fellwar Stone",
+      "artist": "Dan Frazier",
+      "artist_key": "dan_frazier",
+      "set_name": "Secret Lair Drop",
+      "image_path": "gold_images/dan_frazier/fellwar_stone_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/sld/708/fellwar-stone?utm_source=api",
+      "oracle_text": "{T}: Add one mana of any color that a land an opponent controls could produce.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Spellskite",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Modern Masters 2015",
+      "image_path": "gold_images/chippy/spellskite_00.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mm2/230/spellskite?utm_source=api",
+      "oracle_text": "{U/P}: Change a target of target spell or ability to this creature. ({U/P} can be paid with either {U} or 2 life.)",
+      "type_line": "Artifact Creature \u2014 Phyrexian Horror"
+    },
+    {
+      "card_name": "Sunspire Gatekeepers",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Dragon's Maze",
+      "image_path": "gold_images/chippy/sunspire_gatekeepers_01.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dgm/9/sunspire-gatekeepers?utm_source=api",
+      "oracle_text": "When this creature enters, if you control two or more Gates, create a 2/2 white Knight creature token with vigilance.",
+      "type_line": "Creature \u2014 Human Soldier"
+    },
+    {
+      "card_name": "Rubblebelt Raiders",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Gatecrash",
+      "image_path": "gold_images/chippy/rubblebelt_raiders_02.jpg",
+      "scryfall_uri": "https://scryfall.com/card/gtc/224/rubblebelt-raiders?utm_source=api",
+      "oracle_text": "Whenever this creature attacks, put a +1/+1 counter on it for each attacking creature you control.",
+      "type_line": "Creature \u2014 Human Warrior"
+    },
+    {
+      "card_name": "Trostani, Selesnya's Voice",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Return to Ravnica",
+      "image_path": "gold_images/chippy/trostani__selesnya_s_voice_03.jpg",
+      "scryfall_uri": "https://scryfall.com/card/rtr/206/trostani-selesnyas-voice?utm_source=api",
+      "oracle_text": "Whenever another creature you control enters, you gain life equal to that creature's toughness.\n{1}{G}{W}, {T}: Populate. (Create a token that's a copy of a creature token you control.)",
+      "type_line": "Legendary Creature \u2014 Dryad"
+    },
+    {
+      "card_name": "Talon Gates",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Planechase 2012 Planes",
+      "image_path": "gold_images/chippy/talon_gates_04.jpg",
+      "scryfall_uri": "https://scryfall.com/card/opc2/36/talon-gates?utm_source=api",
+      "oracle_text": "Any time you could cast a sorcery, you may exile a nonland card from your hand with X time counters on it, where X is its mana value. If the exiled card doesn't have suspend, it gains suspend. (At the beginning of its owner's upkeep, they remove a time counter. When the last is removed, the player may cast it without paying its mana cost. If it's a creature, it has haste.)\nWhenever chaos ensues, remove two time counters from each suspended card you own.",
+      "type_line": "Plane \u2014 Dominaria"
+    },
+    {
+      "card_name": "Chancellor of the Forge",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "New Phyrexia",
+      "image_path": "gold_images/chippy/chancellor_of_the_forge_05.jpg",
+      "scryfall_uri": "https://scryfall.com/card/nph/81/chancellor-of-the-forge?utm_source=api",
+      "oracle_text": "You may reveal this card from your opening hand. If you do, at the beginning of the first upkeep, create a 1/1 red Phyrexian Goblin creature token with haste.\nWhen this creature enters, create X 1/1 red Phyrexian Goblin creature tokens with haste, where X is the number of creatures you control.",
+      "type_line": "Creature \u2014 Phyrexian Giant"
+    },
+    {
+      "card_name": "Mortis Dogs",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "New Phyrexia",
+      "image_path": "gold_images/chippy/mortis_dogs_06.jpg",
+      "scryfall_uri": "https://scryfall.com/card/nph/66/mortis-dogs?utm_source=api",
+      "oracle_text": "Whenever this creature attacks, it gets +2/+0 until end of turn.\nWhen this creature dies, target player loses life equal to its power.",
+      "type_line": "Creature \u2014 Phyrexian Dog"
+    },
+    {
+      "card_name": "Gitaxian Probe",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "New Phyrexia",
+      "image_path": "gold_images/chippy/gitaxian_probe_07.jpg",
+      "scryfall_uri": "https://scryfall.com/card/nph/35/gitaxian-probe?utm_source=api",
+      "oracle_text": "({U/P} can be paid with either {U} or 2 life.)\nLook at target player's hand.\nDraw a card.",
+      "type_line": "Sorcery"
+    },
+    {
+      "card_name": "Master Splicer",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "New Phyrexia",
+      "image_path": "gold_images/chippy/master_splicer_08.jpg",
+      "scryfall_uri": "https://scryfall.com/card/nph/16/master-splicer?utm_source=api",
+      "oracle_text": "When this creature enters, create a 3/3 colorless Phyrexian Golem artifact creature token.\nGolems you control get +1/+1.",
+      "type_line": "Creature \u2014 Phyrexian Human Artificer"
+    },
+    {
+      "card_name": "Signal Pest",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "DCI Promos",
+      "image_path": "gold_images/chippy/signal_pest_09.jpg",
+      "scryfall_uri": "https://scryfall.com/card/dci/66/signal-pest?utm_source=api",
+      "oracle_text": "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nThis creature can't be blocked except by creatures with flying or reach.",
+      "type_line": "Artifact Creature \u2014 Pest"
+    },
+    {
+      "card_name": "Bonehoard",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Mirrodin Besieged",
+      "image_path": "gold_images/chippy/bonehoard_10.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mbs/100/bonehoard?utm_source=api",
+      "oracle_text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +X/+X, where X is the number of creature cards in all graveyards.\nEquip {2}",
+      "type_line": "Artifact \u2014 Equipment"
+    },
+    {
+      "card_name": "Goblin Wardriver",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Mirrodin Besieged",
+      "image_path": "gold_images/chippy/goblin_wardriver_11.jpg",
+      "scryfall_uri": "https://scryfall.com/card/mbs/64/goblin-wardriver?utm_source=api",
+      "oracle_text": "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)",
+      "type_line": "Creature \u2014 Goblin Warrior"
+    },
+    {
+      "card_name": "Precursor Golem",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Scars of Mirrodin",
+      "image_path": "gold_images/chippy/precursor_golem_12.jpg",
+      "scryfall_uri": "https://scryfall.com/card/som/194/precursor-golem?utm_source=api",
+      "oracle_text": "When this creature enters, create two 3/3 colorless Golem artifact creature tokens.\nWhenever a player casts an instant or sorcery spell that targets only a single Golem, that player copies that spell for each other Golem that spell could target. Each copy targets a different one of those Golems.",
+      "type_line": "Artifact Creature \u2014 Golem"
+    },
+    {
+      "card_name": "Skithiryx, the Blight Dragon",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Scars of Mirrodin",
+      "image_path": "gold_images/chippy/skithiryx__the_blight_dragon_13.jpg",
+      "scryfall_uri": "https://scryfall.com/card/som/79/skithiryx-the-blight-dragon?utm_source=api",
+      "oracle_text": "Flying\nInfect (This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)\n{B}: Skithiryx gains haste until end of turn.\n{B}{B}: Regenerate Skithiryx.",
+      "type_line": "Legendary Creature \u2014 Phyrexian Dragon Skeleton"
+    },
+    {
+      "card_name": "Darkslick Drake",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Scars of Mirrodin",
+      "image_path": "gold_images/chippy/darkslick_drake_14.jpg",
+      "scryfall_uri": "https://scryfall.com/card/som/30/darkslick-drake?utm_source=api",
+      "oracle_text": "Flying\nWhen this creature dies, draw a card.",
+      "type_line": "Creature \u2014 Phyrexian Drake"
+    },
+    {
+      "card_name": "Isochron Scepter",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "From the Vault: Relics",
+      "image_path": "gold_images/chippy/isochron_scepter_15.jpg",
+      "scryfall_uri": "https://scryfall.com/card/v10/3/isochron-scepter?utm_source=api",
+      "oracle_text": "Imprint \u2014 When this artifact enters, you may exile an instant card with mana value 2 or less from your hand.\n{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Wild Evocation",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Magic 2011",
+      "image_path": "gold_images/chippy/wild_evocation_16.jpg",
+      "scryfall_uri": "https://scryfall.com/card/m11/160/wild-evocation?utm_source=api",
+      "oracle_text": "At the beginning of each player's upkeep, that player reveals a card at random from their hand. If it's a land card, the player puts it onto the battlefield. Otherwise, the player casts it without paying its mana cost if able.",
+      "type_line": "Enchantment"
+    },
+    {
+      "card_name": "Angelheart Vial",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Rise of the Eldrazi",
+      "image_path": "gold_images/chippy/angelheart_vial_17.jpg",
+      "scryfall_uri": "https://scryfall.com/card/roe/215/angelheart-vial?utm_source=api",
+      "oracle_text": "Whenever you're dealt damage, you may put that many charge counters on this artifact.\n{2}, {T}, Remove four charge counters from this artifact: You gain 2 life and draw a card.",
+      "type_line": "Artifact"
+    },
+    {
+      "card_name": "Sarkhan the Mad",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Rise of the Eldrazi",
+      "image_path": "gold_images/chippy/sarkhan_the_mad_18.jpg",
+      "scryfall_uri": "https://scryfall.com/card/roe/214/sarkhan-the-mad?utm_source=api",
+      "oracle_text": "0: Reveal the top card of your library and put it into your hand. Sarkhan deals damage to himself equal to that card's mana value.\n\u22122: Target creature's controller sacrifices it, then that player creates a 5/5 red Dragon creature token with flying.\n\u22124: Each Dragon creature you control deals damage equal to its power to target player or planeswalker.",
+      "type_line": "Legendary Planeswalker \u2014 Sarkhan"
+    },
+    {
+      "card_name": "Gigantomancer",
+      "artist": "Chippy",
+      "artist_key": "chippy",
+      "set_name": "Rise of the Eldrazi",
+      "image_path": "gold_images/chippy/gigantomancer_19.jpg",
+      "scryfall_uri": "https://scryfall.com/card/roe/184/gigantomancer?utm_source=api",
+      "oracle_text": "{1}: Target creature you control has base power and toughness 7/7 until end of turn.",
+      "type_line": "Creature \u2014 Human Shaman"
+    }
+  ]
+}

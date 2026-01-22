@@ -1,12 +1,13 @@
 """SDK-side validation for training configs - catch errors BEFORE sending to backend."""
 
-import re
 import warnings
 from pathlib import Path
 from typing import Any, List, Tuple
 
 import click
 import toml
+
+from synth_ai.config.supported_models import get_supported_models
 
 # Import unknown field validation from shared validation helpers
 from synth_ai.sdk.optimization._impl.validation.prompt_learning_validation import (
@@ -21,48 +22,21 @@ class ConfigValidationError(Exception):
 
 
 # Supported models for prompt learning (GEPA & MIPRO)
-# NOTE: gpt-5-pro is explicitly EXCLUDED - too expensive for prompt learning
-OPENAI_SUPPORTED_MODELS = {
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gpt-4.1",
-    "gpt-4.1-mini",
-    "gpt-4.1-nano",
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    # OpenAI Image Generation Models
-    "gpt-image-1.5",
-    "gpt-image-1",
-    "gpt-image-1-mini",
-    "chatgpt-image-latest",
-    # Explicitly EXCLUDED: "gpt-5-pro" - too expensive
-}
+_SUPPORTED_MODELS_CONFIG = get_supported_models()
+_PROMPT_OPT_CONFIG = _SUPPORTED_MODELS_CONFIG["prompt_optimization"]
 
-# Groq supported models - patterns and exact matches
+OPENAI_SUPPORTED_MODELS = set(_PROMPT_OPT_CONFIG["openai"]["models"]) | set(
+    _PROMPT_OPT_CONFIG["openai_image"]["models"]
+)
+
+# Groq supported models - explicit enumeration only
 # Models can be in format "model-name" or "provider/model-name" (e.g., "openai/gpt-oss-20b")
-GROQ_SUPPORTED_PATTERNS = [
-    re.compile(r"^(openai/)?gpt-oss-\d+b"),  # e.g., gpt-oss-20b, openai/gpt-oss-120b
-    re.compile(r"^(llama-3\.3-70b|groq/llama-3\.3-70b)"),  # e.g., llama-3.3-70b-versatile
-    re.compile(r"^(qwen.*32b|groq/qwen.*32b)"),  # e.g., qwen-32b, qwen3-32b, groq/qwen3-32b
-]
-
-GROQ_EXACT_MATCHES = {
-    "llama-3.3-70b",
-    "llama-3.1-8b-instant",
-    "qwen-32b",
-    "qwen3-32b",
-}
+GROQ_SUPPORTED_MODELS = set(_PROMPT_OPT_CONFIG["groq"]["models"])
 
 # Google/Gemini supported models
-GOOGLE_SUPPORTED_MODELS = {
-    "gemini-2.5-pro",
-    "gemini-2.5-pro-gt200k",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash-image",  # Image generation model
-    "gemini-3-pro-image-preview",  # Gemini 3 pro image generation model
-}
+GOOGLE_SUPPORTED_MODELS = set(_PROMPT_OPT_CONFIG["google"]["models"]) | set(
+    _PROMPT_OPT_CONFIG["google_image"]["models"]
+)
 
 
 def _is_supported_openai_model(model: str) -> bool:
@@ -82,12 +56,8 @@ def _is_supported_groq_model(model: str) -> bool:
     if "/" in model_lower:
         model_lower = model_lower.split("/", 1)[1]
 
-    # Check exact matches first
-    if model_lower in {m.lower() for m in GROQ_EXACT_MATCHES}:
-        return True
-
-    # Check patterns (patterns already handle provider prefix)
-    return any(pattern.match(model.lower().strip()) for pattern in GROQ_SUPPORTED_PATTERNS)
+    # Explicit enumeration only (no patterns)
+    return model_lower in {m.lower() for m in GROQ_SUPPORTED_MODELS}
 
 
 def _is_supported_google_model(model: str) -> bool:

@@ -38,6 +38,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
+from synth_ai.config.supported_models import get_supported_models
 from synth_ai.data.enums import GraphType, RewardSource, RewardType, VerifierMode
 
 # =============================================================================
@@ -413,50 +414,16 @@ class GraphGenTaskSet(BaseModel):
         return [gold for gold in self.gold_outputs if gold.task_id is None]
 
 
-# Supported policy models (same as prompt opt)
-SUPPORTED_POLICY_MODELS = {
-    # Groq (fast, free tier friendly)
-    "llama-3.1-8b-instant",
-    "llama-3.3-70b-versatile",
-    "llama-3.1-70b-versatile",
-    # OpenAI
-    "gpt-4o-mini",
-    "gpt-4o",
-    "gpt-4-turbo",
-    # OpenAI - GPT-4.1 series
-    "gpt-4.1",
-    "gpt-4.1-mini",
-    "gpt-4.1-nano",
-    # Gemini
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-    "gemini-2.0-flash",
-    "gemini-2.5-flash-image",  # Nano Banana - image generation model
-    "gemini-3-pro-image-preview",  # Gemini 3 pro image generation model
-    # OpenAI Image Generation Models
-    "gpt-image-1.5",
-    "gpt-image-1",
-    "gpt-image-1-mini",
-    "chatgpt-image-latest",
-    # Claude
-    "claude-3-5-sonnet-latest",
-    "claude-3-5-haiku-latest",
-}
+# Supported models (single source of truth)
+_SUPPORTED_MODELS_CONFIG = get_supported_models()
+_GRAPH_OPT_CONFIG = _SUPPORTED_MODELS_CONFIG["graph_opt"]
 
-# Supported verifier models
-SUPPORTED_VERIFIER_MODELS = {
-    # Groq (fast, cheap)
-    "llama-3.3-70b-versatile",
-    "llama-3.1-70b-versatile",
-    # OpenAI (higher quality)
-    "gpt-4o-mini",
-    "gpt-4o",
-}
+SUPPORTED_POLICY_MODELS = set(_GRAPH_OPT_CONFIG["policy_models"])
+SUPPORTED_VERIFIER_MODELS = set(_GRAPH_OPT_CONFIG["verifier_models"])
 
-# Default models
-DEFAULT_POLICY_MODEL = "gpt-4o-mini"
-DEFAULT_VERIFIER_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_VERIFIER_PROVIDER = "groq"
+DEFAULT_POLICY_MODEL = _GRAPH_OPT_CONFIG["defaults"]["policy_model"]
+DEFAULT_VERIFIER_MODEL = _GRAPH_OPT_CONFIG["defaults"]["verifier_model"]
+DEFAULT_VERIFIER_PROVIDER = _GRAPH_OPT_CONFIG["defaults"]["verifier_provider"]
 
 
 class EventInput(BaseModel):

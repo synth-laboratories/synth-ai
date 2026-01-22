@@ -358,7 +358,7 @@ class GraphOptimizationJob:
             problem_spec: Detailed problem specification for the graph proposer
             target_llm_calls: Target number of LLM calls for the graph (1-10)
             graph_type: Type of graph to train ("policy", "verifier", or "rlm")
-            initial_graph_id: Optional graph ID to warm-start optimization from
+            initial_graph_id: Preset graph ID to optimize (required)
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             auto_start: Whether to start the job immediately
@@ -385,6 +385,12 @@ class GraphOptimizationJob:
                 raise ValueError(
                     "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
+
+        if not initial_graph_id:
+            raise ValueError(
+                "initial_graph_id is required for Graph Optimization jobs. "
+                "De-novo graph generation is disabled."
+            )
 
         config = GraphOptimizationJobConfig(
             backend_url=backend_url,

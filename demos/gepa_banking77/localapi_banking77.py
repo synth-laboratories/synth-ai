@@ -259,7 +259,7 @@ async def call_llm(
     inference_url: str,
     model: str = "gpt-4.1-nano",
     api_key: str | None = None,
-) -> str:
+) -> tuple[str, str | None, dict, list[dict[str, str]]]:
     """Call the LLM via the inference URL provided by Synth, using tool calling."""
     available_intents = format_available_intents(DATASET.label_names)
     if os.getenv("BANKING77_DEBUG_INTENTS") == "1":
@@ -322,8 +322,8 @@ async def call_llm(
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
     intent = args.get("intent") or ""
     
-    # Return intent and candidate_id (if available)
-    return intent, candidate_id
+    # Return intent, candidate_id, and response payload for trace usage
+    return intent, candidate_id, data, messages
 
 
 # =============================================================================
@@ -353,7 +353,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         raise ValueError("No inference_url provided in policy config")
 
     llm_start = time.perf_counter()
-    predicted_intent, candidate_id = await call_llm(
+    predicted_intent, candidate_id, llm_response, llm_messages = await call_llm(
         query=sample["text"],
         inference_url=inference_url,
         model=policy_config.get("model", "gpt-4.1-nano"),
@@ -400,9 +400,17 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     if candidate_id:
         metadata["mipro_candidate_id"] = candidate_id
 
+    trace_payload = {
+        "inference": {
+            "messages": llm_messages,
+            "response": llm_response,
+        }
+    }
+
     return RolloutResponse(
         reward_info=reward_info,
-        trace=None,
+        trace=trace_payload,
+        metadata=metadata,
         trace_correlation_id=trace_correlation_id,
         inference_url=str(inference_url or ""),
         success_status=SuccessStatus.SUCCESS,

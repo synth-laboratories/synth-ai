@@ -166,9 +166,8 @@ class GraphEvolveJob:
             target_llm_calls: Target number of LLM calls for the graph (1-10).
                 Controls how many LLM nodes the graph should use. Defaults to 5.
             graph_type: Type of graph to train - "policy" (default), "verifier", or "rlm"
-            initial_graph_id: Optional graph ID to warm-start optimization from.
-                If provided, skips initial graph generation and starts evolution from this graph.
-                Useful for starting from a known good graph (e.g., map-reduce verifier).
+            initial_graph_id: Preset graph ID to optimize. Required.
+                Graph Evolve now runs prompt-only GEPA on a fixed graph.
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             auto_start: Whether to start the job immediately
@@ -219,6 +218,12 @@ class GraphEvolveJob:
                 raise ValueError(
                     "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
+
+        if not initial_graph_id:
+            raise ValueError(
+                "initial_graph_id is required for Graph Evolve. "
+                "De-novo graph generation is disabled."
+            )
 
         # Normalize policy_models: convert single string to list
         if isinstance(policy_models, str):
@@ -451,8 +456,8 @@ class GraphEvolveJob:
 
         payload = self._build_payload()
 
-        # Submit job - prefer /graph_evolve/jobs with fallback to legacy /graphgen/jobs
-        create_url = f"{self.backend_url}/graph_evolve/jobs"
+        # Submit job - prefer /graph-evolve/jobs with fallback to legacy /graphgen/jobs
+        create_url = f"{self.backend_url}/graph-evolve/jobs"
         legacy_url = f"{self.backend_url}/graphgen/jobs"
 
         # Debug: print payload for troubleshooting
@@ -483,7 +488,7 @@ class GraphEvolveJob:
             if resp.status_code == 404:
                 error_msg += (
                     f"\n\nPossible causes:"
-                    f"\n1. Backend route /api/graph_evolve/jobs not registered"
+                    f"\n1. Backend route /api/graph-evolve/jobs not registered"
                     f"\n2. Graph Evolve feature may not be enabled on this backend"
                     f"\n3. Verify backend is running at: {self.backend_url}"
                 )
@@ -542,7 +547,7 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}"
+        url = f"{self.backend_url}/graph-evolve/jobs/{self.job_id}"
         headers = {
             "X-API-Key": self.api_key,
         }
@@ -569,7 +574,7 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/start"
+        url = f"{self.backend_url}/graph-evolve/jobs/{self.job_id}/start"
         headers = {
             "X-API-Key": self.api_key,
             "Content-Type": "application/json",
@@ -594,7 +599,7 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        base = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/events"
+        base = f"{self.backend_url}/graph-evolve/jobs/{self.job_id}/events"
         url = f"{base}?since_seq={since_seq}&limit={limit}"
         headers = {"X-API-Key": self.api_key}
 
@@ -617,7 +622,7 @@ class GraphEvolveJob:
     ) -> Dict[str, Any]:
         """Fetch metrics for this Graph Evolve job.
 
-        Mirrors GET /api/graph_evolve/jobs/{job_id}/metrics.
+        Mirrors GET /api/graph-evolve/jobs/{job_id}/metrics.
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -633,7 +638,7 @@ class GraphEvolveJob:
             params["run_id"] = run_id
 
         qs = urlencode(params)
-        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/metrics?{qs}"
+        url = f"{self.backend_url}/graph-evolve/jobs/{self.job_id}/metrics?{qs}"
         headers = {"X-API-Key": self.api_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
@@ -722,7 +727,7 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/download"
+        url = f"{self.backend_url}/graph-evolve/jobs/{self.job_id}/download"
         headers = {
             "X-API-Key": self.api_key,
         }
@@ -744,12 +749,12 @@ class GraphEvolveJob:
         Graph-first GraphEvolve jobs produce multi-node graphs. The internal graph
         YAML/spec is proprietary and never exposed. This helper downloads the
         `.txt` export from:
-            GET /api/graph_evolve/jobs/{job_id}/graph.txt
+            GET /api/graph-evolve/jobs/{job_id}/graph.txt
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/graph_evolve/jobs/{self.job_id}/graph.txt"
+        url = f"{self.backend_url}/graph-evolve/jobs/{self.job_id}/graph.txt"
         headers = {"X-API-Key": self.api_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
