@@ -1,6 +1,8 @@
 # MIPRO Demos
 
-Minimal offline and online MIPRO examples using the Banking77 classification task.
+Minimal offline and online [MIPRO](https://arxiv.org/abs/2406.11695) (Multi-prompt Instruction PRoposal Optimizer) examples using the Banking77 classification task.
+
+MIPRO optimizes Language Model (LM) programs by improving free-form instructions and few-shot demonstrations without requiring module-level labels or gradients.
 
 ## Quick Start
 

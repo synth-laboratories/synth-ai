@@ -1,5 +1,45 @@
 #!/usr/bin/env python3
-"""Shared helpers for MIPRO demos (online + offline)."""
+"""Shared helpers for MIPRO demos (online + offline).
+
+This module provides utility functions for running MIPRO (Multi-prompt Instruction
+PRoposal Optimizer) in both online and offline modes.
+
+MIPRO (https://arxiv.org/abs/2406.11695) is an algorithm for optimizing Language
+Model (LM) programs by improving free-form instructions and few-shot demonstrations
+without requiring module-level labels or gradients. It combines:
+    - **Instruction Proposal**: Program- and data-aware techniques for proposing
+      effective instructions
+    - **Surrogate Modeling**: Stochastic mini-batch evaluation for learning a
+      surrogate model of the objective
+    - **Meta-Optimization**: Refining how LMs construct proposals over time
+
+Key concepts:
+    - **Online MIPRO**: User drives rollouts locally. No tunneling or ENVIRONMENT_API_KEY
+      required since the backend never calls the task app.
+    - **Offline MIPRO**: Backend orchestrates all rollouts. Requires tunneling to expose
+      local task app and ENVIRONMENT_API_KEY for authentication.
+
+Example usage (online mode)::
+
+    from demos.mipro.utils import (
+        build_mipro_config,
+        create_job,
+        run_rollout,
+        push_status,
+    )
+
+    # Create job config (no task_app_api_key needed for online)
+    config = build_mipro_config(
+        task_app_url="http://localhost:8016",
+        task_app_api_key=None,  # Not needed for online mode
+        mode="online",
+        seeds=range(20),
+    )
+
+    # Create job and run rollouts locally
+    job_id = create_job(backend_url, api_key, config)
+    # ... run rollouts through proxy URL ...
+"""
 
 from __future__ import annotations
 
@@ -22,6 +62,24 @@ from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 def wait_for_health_check_sync(
     host: str, port: int, api_key: str, timeout: float = 30.0
 ) -> None:
+    """Wait for task app health endpoint to become available.
+
+    Polls the /health endpoint of the task app until it returns a successful
+    response or the timeout is exceeded.
+
+    Args:
+        host: Hostname of the task app (e.g., "localhost").
+        port: Port number the task app is running on.
+        api_key: Environment API key for authentication.
+        timeout: Maximum time in seconds to wait. Defaults to 30.0.
+
+    Raises:
+        RuntimeError: If health check fails after timeout.
+
+    Example::
+
+        wait_for_health_check_sync("localhost", 8016, env_key, timeout=30.0)
+    """
     health_url = f"http://{host}:{port}/health"
     headers = {"X-API-Key": api_key} if api_key else {}
     start = time.time()
@@ -42,6 +100,22 @@ def wait_for_health_check_sync(
 
 
 def resolve_backend_url() -> str:
+    """Resolve the backend URL to use for MIPRO jobs.
+
+    Resolution order:
+        1. SYNTH_BACKEND_URL environment variable if set
+        2. Localhost on ports 8000 or 8001 if a backend is running there
+        3. Default Synth backend URL (BACKEND_URL_BASE)
+
+    Returns:
+        Backend URL without trailing slash.
+
+    Example::
+
+        backend_url = resolve_backend_url()
+        # Returns "http://localhost:8000" if local backend is running,
+        # otherwise returns the configured or default URL.
+    """
     env_url = (os.environ.get("SYNTH_BACKEND_URL") or "").strip()
     if env_url:
         return env_url.rstrip("/")
@@ -62,6 +136,14 @@ def resolve_backend_url() -> str:
 
 
 def is_local_backend(backend_url: str | None) -> bool:
+    """Check if the backend URL points to a local server.
+
+    Args:
+        backend_url: The backend URL to check.
+
+    Returns:
+        True if the URL contains "localhost" or "127.0.0.1", False otherwise.
+    """
     if not backend_url:
         return False
     lowered = backend_url.lower()
@@ -136,6 +218,33 @@ def start_local_api(
     local_port: int,
     backend_url: str | None,
 ) -> tuple[str, str, int]:
+    """Start the Banking77 task app as a local API server.
+
+    This function:
+        1. Ensures ENVIRONMENT_API_KEY is set (generates one if needed)
+        2. Acquires an available port (finding a new one if the requested port is in use)
+        3. Starts the Banking77 task app in the background
+        4. Waits for the health check to pass
+
+    Args:
+        local_host: Hostname to bind the server to.
+        local_port: Preferred port to run the server on.
+        backend_url: Backend URL (used to determine if env key should be uploaded).
+
+    Returns:
+        Tuple of (task_app_url, env_key, actual_port):
+            - task_app_url: Full URL of the running task app
+            - env_key: The ENVIRONMENT_API_KEY being used
+            - actual_port: The port the server is running on (may differ from requested)
+
+    Example::
+
+        task_app_url, env_key, port = start_local_api(
+            local_host="localhost",
+            local_port=8016,
+            backend_url="https://api-dev.usesynth.ai",
+        )
+    """
     env_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
     if not env_key:
         upload = should_upload_env_key(backend_url)
@@ -159,6 +268,20 @@ def start_local_api(
 
 
 def should_include_task_app_key(backend_url: str | None) -> bool:
+    """Determine if task_app_api_key should be included in the config.
+
+    For certain local backend configurations, the task_app_api_key must be
+    included directly in the config rather than fetched from the database.
+
+    Args:
+        backend_url: The backend URL being used.
+
+    Returns:
+        True if task_app_api_key should be included in config.
+
+    Note:
+        Can be overridden with MIPRO_INCLUDE_TASK_APP_KEY environment variable.
+    """
     override = os.environ.get("MIPRO_INCLUDE_TASK_APP_KEY")
     if override and override.strip().lower() in {"1", "true", "yes", "on"}:
         return True
@@ -172,6 +295,18 @@ def should_include_task_app_key(backend_url: str | None) -> bool:
 
 
 def should_upload_env_key(backend_url: str | None) -> bool:
+    """Determine if ENVIRONMENT_API_KEY should be uploaded to the backend.
+
+    For remote backends, the env key must be registered in the database so the
+    backend can authenticate requests to the task app. For certain local
+    configurations, this is not needed.
+
+    Args:
+        backend_url: The backend URL being used.
+
+    Returns:
+        True if the env key should be uploaded to the backend.
+    """
     if not backend_url:
         return False
     lowered = backend_url.lower()
@@ -184,6 +319,18 @@ def should_upload_env_key(backend_url: str | None) -> bool:
 
 
 def build_initial_prompt() -> Dict[str, Any]:
+    """Build the initial prompt template for Banking77 classification.
+
+    Creates a prompt pattern with system and user messages for classifying
+    customer queries into banking intents.
+
+    Returns:
+        Dict containing the prompt pattern with:
+            - id: Unique identifier for the pattern
+            - name: Human-readable name
+            - messages: List of message templates with placeholders
+            - wildcards: Mapping of placeholder names to requirements
+    """
     user_prompt = (
         "Customer Query: {query}\n\n"
         "Available Intents:\n{available_intents}\n\n"
@@ -211,6 +358,48 @@ def build_mipro_config(
     mode: str,
     seeds: Iterable[int],
 ) -> Dict[str, Any]:
+    """Build a MIPRO job configuration.
+
+    Creates a complete configuration for either online or offline MIPRO optimization.
+
+    Args:
+        task_app_url: URL of the task app (e.g., "http://localhost:8016").
+            For online mode, this is used locally; backend never calls it.
+        task_app_api_key: ENVIRONMENT_API_KEY for task app authentication.
+            **Not needed for online mode** - pass None.
+            Required for offline mode (backend needs it to call task app).
+        mode: Either "online" or "offline".
+            - "online": User drives rollouts locally through proxy URL.
+            - "offline": Backend orchestrates all rollouts.
+        seeds: Iterable of seed integers for training examples.
+
+    Returns:
+        Configuration dict ready to pass to create_job().
+
+    Example (online mode)::
+
+        config = build_mipro_config(
+            task_app_url="http://localhost:8016",
+            task_app_api_key=None,  # Not needed for online
+            mode="online",
+            seeds=range(20),
+        )
+
+    Example (offline mode)::
+
+        config = build_mipro_config(
+            task_app_url="https://xxx.trycloudflare.com",
+            task_app_api_key="sk_env_xxx",  # Required for offline
+            mode="offline",
+            seeds=range(50),
+        )
+
+    Environment variables:
+        BANKING77_POLICY_MODEL: Model for policy (default: gpt-4.1-nano)
+        BANKING77_POLICY_PROVIDER: Provider for policy (default: openai)
+        BANKING77_PROPOSER_MODEL: Model for proposer (default: same as policy)
+        BANKING77_PROPOSER_PROVIDER: Provider for proposer (default: same as policy)
+    """
     seed_list = list(seeds)
     default_val_seeds = [seed + 50 for seed in seed_list]
     policy_model = os.environ.get("BANKING77_POLICY_MODEL", "gpt-4.1-nano")
@@ -274,6 +463,27 @@ def build_mipro_config(
 
 
 def create_job(backend_url: str, api_key: str, config_body: Dict[str, Any]) -> str:
+    """Create a MIPRO job on the backend.
+
+    Submits a new MIPRO optimization job and returns the job ID.
+
+    Args:
+        backend_url: Backend base URL (e.g., "https://api-dev.usesynth.ai").
+        api_key: Synth API key (SYNTH_API_KEY) for authentication.
+        config_body: Job configuration from build_mipro_config().
+
+    Returns:
+        Job ID string (e.g., "pl_xxxxxxxxxxxxxxxx").
+
+    Raises:
+        httpx.HTTPStatusError: If job creation fails.
+        RuntimeError: If response is missing job_id.
+
+    Example::
+
+        job_id = create_job(backend_url, api_key, config)
+        print(f"Created job: {job_id}")
+    """
     headers = {"Authorization": f"Bearer {api_key}"}
     response = httpx.post(
         f"{backend_url}/api/prompt-learning/online/jobs",
@@ -295,6 +505,26 @@ def create_job(backend_url: str, api_key: str, config_body: Dict[str, Any]) -> s
 def get_job_detail(
     backend_url: str, api_key: str, job_id: str, *, include_metadata: bool = True
 ) -> Dict[str, Any]:
+    """Get details for a MIPRO job.
+
+    For online MIPRO, the metadata contains the mipro_system_id and mipro_proxy_url
+    needed to drive rollouts.
+
+    Args:
+        backend_url: Backend base URL.
+        api_key: Synth API key for authentication.
+        job_id: Job ID returned from create_job().
+        include_metadata: Whether to include metadata (contains proxy URL).
+
+    Returns:
+        Job detail dict including status, metadata, etc.
+
+    Example::
+
+        detail = get_job_detail(backend_url, api_key, job_id)
+        system_id = detail["metadata"]["mipro_system_id"]
+        proxy_url = detail["metadata"]["mipro_proxy_url"]
+    """
     headers = {"Authorization": f"Bearer {api_key}"}
     response = httpx.get(
         f"{backend_url}/api/prompt-learning/online/jobs/{job_id}",
@@ -311,6 +541,27 @@ def get_job_detail(
 
 
 def get_system_state(backend_url: str, api_key: str, system_id: str) -> Dict[str, Any]:
+    """Get the current state of a MIPRO system.
+
+    The state includes all candidates, their scores, and the current best candidate.
+
+    Args:
+        backend_url: Backend base URL.
+        api_key: Synth API key for authentication.
+        system_id: MIPRO system ID from job metadata.
+
+    Returns:
+        System state dict containing:
+            - best_candidate_id: ID of the best performing candidate
+            - version: Current version number
+            - candidates: Dict of all candidates and their data
+
+    Example::
+
+        state = get_system_state(backend_url, api_key, system_id)
+        best_id = state["best_candidate_id"]
+        print(f"Best candidate: {best_id}")
+    """
     headers = {"Authorization": f"Bearer {api_key}"}
     response = httpx.get(
         f"{backend_url}/api/prompt-learning/online/mipro/systems/{system_id}/state",
@@ -322,6 +573,25 @@ def get_system_state(backend_url: str, api_key: str, system_id: str) -> Dict[str
 
 
 def extract_candidate_text(state: Dict[str, Any], candidate_id: str | None) -> str | None:
+    """Extract the prompt text from a candidate in the system state.
+
+    Searches through various locations in the candidate data to find the
+    optimized prompt text (instruction text, deltas, or baseline messages).
+
+    Args:
+        state: System state from get_system_state().
+        candidate_id: ID of the candidate to extract text from.
+
+    Returns:
+        The prompt text string, or None if not found.
+
+    Example::
+
+        state = get_system_state(backend_url, api_key, system_id)
+        text = extract_candidate_text(state, state["best_candidate_id"])
+        if text:
+            print(f"Best prompt:\\n{text}")
+    """
     if not candidate_id:
         return None
     candidates = state.get("candidates", {}) if isinstance(state, dict) else {}
@@ -373,6 +643,29 @@ def poll_job(
     timeout: float = 600.0,
     interval: float = 2.0,
 ) -> Dict[str, Any]:
+    """Poll a job until completion (for offline MIPRO).
+
+    Continuously checks job status until it reaches "succeeded" or "failed".
+    Primarily used for offline mode where the backend orchestrates rollouts.
+
+    Args:
+        backend_url: Backend base URL.
+        api_key: Synth API key for authentication.
+        job_id: Job ID to poll.
+        timeout: Maximum time to wait in seconds. Defaults to 600.0 (10 minutes).
+        interval: Time between polls in seconds. Defaults to 2.0.
+
+    Returns:
+        Final job detail dict when job completes.
+
+    Raises:
+        TimeoutError: If job doesn't complete within timeout.
+
+    Example::
+
+        detail = poll_job(backend_url, api_key, job_id, timeout=300.0)
+        print(f"Job finished with status: {detail['status']}")
+    """
     start = time.time()
     while time.time() - start < timeout:
         detail = get_job_detail(backend_url, api_key, job_id, include_metadata=True)
@@ -392,6 +685,38 @@ def run_rollout(
     model: str,
     rollout_id: str,
 ) -> tuple[float, str | None]:
+    """Execute a single rollout for online MIPRO.
+
+    Sends a rollout request to the local task app. The task app makes LLM calls
+    through the proxy URL, which injects the selected candidate's prompt.
+
+    Args:
+        task_app_url: Local task app URL (e.g., "http://localhost:8016").
+        env_key: ENVIRONMENT_API_KEY for task app authentication.
+        seed: Seed value determining which example to use.
+        inference_url: Proxy URL for LLM calls (includes rollout_id).
+            Format: "{proxy_url}/{rollout_id}/chat/completions"
+        model: Model name for inference (e.g., "gpt-4.1-nano").
+        rollout_id: Unique identifier for this rollout.
+
+    Returns:
+        Tuple of (reward, candidate_id):
+            - reward: Float reward value (0.0 to 1.0 for accuracy)
+            - candidate_id: ID of the candidate that was used (or None)
+
+    Example::
+
+        inference_url = f"{proxy_url}/{rollout_id}/chat/completions"
+        reward, candidate_id = run_rollout(
+            task_app_url="http://localhost:8016",
+            env_key=env_key,
+            seed=0,
+            inference_url=inference_url,
+            model="gpt-4.1-nano",
+            rollout_id="trace_rollout_0_abc123",
+        )
+        print(f"Reward: {reward}, Candidate: {candidate_id}")
+    """
     rollout_start = time.perf_counter()
     payload = {
         "trace_correlation_id": rollout_id,
@@ -442,6 +767,35 @@ def push_status(
     reward: float,
     candidate_id: str | None,
 ) -> None:
+    """Report rollout results to the backend for online MIPRO.
+
+    After completing a rollout locally, call this to report the reward back
+    to the backend. The backend uses these rewards to update candidate scores
+    and potentially generate new candidates.
+
+    This sends two status updates:
+        1. "reward" status with the reward value
+        2. "done" status to mark the rollout complete
+
+    Args:
+        backend_url: Backend base URL.
+        api_key: Synth API key for authentication.
+        system_id: MIPRO system ID from job metadata.
+        rollout_id: Rollout ID used in run_rollout().
+        reward: Reward value from the rollout (0.0 to 1.0).
+        candidate_id: ID of the candidate that was used (from run_rollout()).
+
+    Example::
+
+        push_status(
+            backend_url=backend_url,
+            api_key=api_key,
+            system_id=system_id,
+            rollout_id=rollout_id,
+            reward=1.0,
+            candidate_id="baseline",
+        )
+    """
     headers = {"Authorization": f"Bearer {api_key}"}
     status_start = time.perf_counter()
     reward_payload = {
@@ -477,4 +831,19 @@ def push_status(
 
 
 def new_rollout_id(seed: int) -> str:
+    """Generate a unique rollout ID for online MIPRO.
+
+    Creates an ID that includes the seed for debuggability and a random
+    suffix for uniqueness.
+
+    Args:
+        seed: Seed value for this rollout.
+
+    Returns:
+        Unique rollout ID string (e.g., "trace_rollout_0_a1b2c3").
+
+    Example::
+
+        rollout_id = new_rollout_id(0)  # "trace_rollout_0_abc123"
+    """
     return f"trace_rollout_{seed}_{uuid.uuid4().hex[:6]}"
