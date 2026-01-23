@@ -286,10 +286,14 @@ async def run_graph_evolve():
             headers=headers,
             json=request_body,
         )
+        resp_data = response.json()
+        print(f"Response ({response.status_code}): {resp_data}")
         if response.status_code != 200:
             print(f"Error {response.status_code}: {response.text}")
             response.raise_for_status()
-        job_id = response.json()["job_id"]
+        job_id = resp_data.get("job_id") or resp_data.get("graphgen_job_id")
+        if not job_id:
+            raise ValueError(f"No job_id in response: {resp_data}")
         print(f"Job ID: {job_id}")
 
     # Poll for completion
