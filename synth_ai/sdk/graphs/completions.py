@@ -25,6 +25,10 @@ import aiohttp
 import httpx
 
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
+from synth_ai.sdk.graphs.trace_upload import (
+    AUTO_UPLOAD_THRESHOLD_BYTES,
+    TraceUploaderAsync,
+)
 from synth_ai.sdk.graphs.verifier_schemas import (
     CalibrationExampleInput,
     EvidenceItem,
@@ -306,13 +310,68 @@ class GraphCompletionsAsyncClient:
         # Run inference on a GraphGen job
         result = await client.run(job_id="graphgen_xxx", input_data={"query": "hello"})
         print(result["output"])
+
+        # With auto-upload for large traces (recommended for verifier calls)
+        client = GraphCompletionsAsyncClient(base_url, api_key, auto_upload_traces=True)
+        result = await client.verify_with_rubric(session_trace=large_trace, rubric=rubric)
         ```
     """
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 60.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        *,
+        timeout: float = 60.0,
+        auto_upload_traces: bool = False,
+        auto_upload_threshold: int = AUTO_UPLOAD_THRESHOLD_BYTES,
+    ) -> None:
+        """Initialize the graph completions client.
+
+        Args:
+            base_url: Graph service base URL
+            api_key: API key for authentication
+            timeout: Request timeout in seconds (default: 60s)
+            auto_upload_traces: If True, automatically upload large traces via
+                presigned URLs to avoid timeout issues. Recommended for verifier calls.
+            auto_upload_threshold: Size threshold in bytes for auto-upload (default: 100KB)
+        """
         self._base = base_url.rstrip("/")
         self._key = api_key
         self._timeout = timeout
+        self._auto_upload_traces = auto_upload_traces
+        self._auto_upload_threshold = auto_upload_threshold
+        self._trace_uploader: TraceUploaderAsync | None = None
+
+    def _get_trace_uploader(self) -> TraceUploaderAsync:
+        """Get or create the trace uploader instance."""
+        if self._trace_uploader is None:
+            self._trace_uploader = TraceUploaderAsync(
+                self._base,
+                self._key,
+                timeout=self._timeout,
+                auto_upload_threshold=self._auto_upload_threshold,
+            )
+        return self._trace_uploader
+
+    async def _maybe_upload_trace(
+        self, trace: Mapping[str, Any]
+    ) -> tuple[Mapping[str, Any] | None, str | None]:
+        """Upload trace if auto-upload is enabled and trace is large.
+
+        Returns:
+            Tuple of (trace_content, trace_ref) - one will be None
+        """
+        if not self._auto_upload_traces:
+            return trace, None
+
+        uploader = self._get_trace_uploader()
+        if not uploader.should_upload(trace):
+            return trace, None
+
+        # Upload and return ref
+        trace_ref = await uploader.upload_trace(trace)
+        return None, trace_ref
 
     async def list_graphs(
         self,
@@ -579,7 +638,7 @@ class GraphCompletionsAsyncClient:
     async def verify_with_rubric(
         self,
         *,
-        session_trace: Mapping[str, Any],
+        session_trace: Mapping[str, Any] | str,
         rubric: Mapping[str, Any],
         system_prompt: str | None = None,
         user_prompt: str | None = None,
@@ -592,7 +651,9 @@ class GraphCompletionsAsyncClient:
         """Verify trace using rubric criteria.
 
         Args:
-            session_trace: V3/V4 trace format
+            session_trace: V3/V4 trace format, or a trace_ref string (e.g., "trace:trace_abc123")
+                If auto_upload_traces=True and the trace is large, it will be automatically
+                uploaded via presigned URL.
             rubric: Rubric with event/outcome criteria
             system_prompt: Optional custom system prompt
             user_prompt: Optional custom user prompt
@@ -608,9 +669,15 @@ class GraphCompletionsAsyncClient:
         Raises:
             ValueError: If verifier_shape is not supported or rlm_impl is invalid for the shape.
         """
-        # Auto-select graph shape based on trace size
+        # Handle trace_ref string (already uploaded trace)
+        is_trace_ref = isinstance(session_trace, str) and (
+            session_trace.startswith("trace:") or session_trace.startswith("trace_")
+        )
+
+        # Auto-select graph shape based on trace size (only if we have actual trace data)
         if verifier_shape is None:
-            verifier_shape = self._select_graph_shape(session_trace)
+            # Default to RLM for uploaded traces (they're typically large)
+            verifier_shape = "rlm" if is_trace_ref else self._select_graph_shape(session_trace)
 
         if verifier_shape not in {"single", "rlm"}:
             raise ValueError(
@@ -628,10 +695,22 @@ class GraphCompletionsAsyncClient:
                 graph_id = "zero_shot_verifier_rubric_rlm"
 
         input_data: dict[str, Any] = {
-            "trace": normalize_for_json(session_trace),
             "rubric": normalize_for_json(rubric),
             "options": dict(options or {}),
         }
+
+        # Handle trace - either as ref, auto-upload, or inline
+        if is_trace_ref:
+            # Already a trace reference
+            input_data["trace_ref"] = session_trace
+        else:
+            # Check if we should auto-upload
+            trace_content, trace_ref = await self._maybe_upload_trace(session_trace)
+            if trace_ref:
+                input_data["trace_ref"] = trace_ref
+            else:
+                input_data["trace_content"] = normalize_for_json(trace_content)
+
         if system_prompt:
             input_data["system_prompt"] = system_prompt
         if user_prompt:
