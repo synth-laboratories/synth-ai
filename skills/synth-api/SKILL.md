@@ -22,7 +22,7 @@ Reference demo: `demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb`
 - **Local API**: Your task app runs locally and exposes `/rollout` + `/task_info`.
 - **Tunnel**: Cloudflare Quick Tunnel makes the local app reachable by Synth.
 - **GEPA**: Prompt optimizer that mutates prompts to maximize reward.
-- **Eval jobs**: Formal evaluation on held‑out seeds after optimization.
+- **Eval jobs**: Formal evaluation on held-out seeds after optimization.
 
 ## Quick SDK health check
 
@@ -213,4 +213,3 @@ print(resp.json())
 - **Auth**: Confirm `SYNTH_API_KEY` is set and valid.
 - **Task app shape**: Ensure `/task_info` and `/rollout` return valid `RolloutResponse`.
 - **Polling errors**: If a poll fails, re‑query `/api/prompt-learning/online/jobs/{job_id}` to confirm job status.
-
