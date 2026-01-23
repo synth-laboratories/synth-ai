@@ -980,6 +980,7 @@ class GraphCompletionsAsyncClient:
         user_prompt: str | None = None,
         model: str = "gpt-4o-mini",
         provider: str = "openai",
+        rlm_impl: Literal["v1", "v2"] | None = None,
         options: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Zero-shot RLM inference for large-context tasks.
@@ -991,12 +992,21 @@ class GraphCompletionsAsyncClient:
             user_prompt: Optional custom user prompt
             model: Model to use (must be RLM-capable, default: gpt-4o-mini)
             provider: Provider name (default: openai)
+            rlm_impl: RLM implementation version ("v1" or "v2"). v1 is single-agent,
+                v2 adds multi-agent coordination and AgentFS. Defaults to v1.
             options: Optional execution options (max_iterations, max_cost_usd, etc.)
 
         Returns:
             RLM inference result with output, usage, metadata
         """
-        graph_id = "zero_shot_rlm_single"
+        # Select graph based on rlm_impl
+        if rlm_impl == "v2":
+            graph_id = "zero_shot_rlm_single_v2"
+        elif rlm_impl == "v1":
+            graph_id = "zero_shot_rlm_single_v1"
+        else:
+            # Default to the original graph (which uses v1)
+            graph_id = "zero_shot_rlm_single"
 
         input_data: dict[str, Any] = {
             "query": query,
