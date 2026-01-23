@@ -572,9 +572,13 @@ async def run_gepa() -> tuple[str, Any]:
         task_app_url = f"http://{LOCAL_TASK_HOST}:{LOCAL_TASK_PORT}"
     else:
         print("Provisioning Cloudflare tunnel...")
+        # Use managed tunnels (stable, no rate limiting) when API_KEY is available
+        backend = TunnelBackend.CloudflareManagedTunnel if API_KEY else TunnelBackend.CloudflareQuickTunnel
+        print(f"  Backend: {backend.value}")
         tunnel = await TunneledLocalAPI.create(
             local_port=LOCAL_TASK_PORT,
-            backend=TunnelBackend.CloudflareQuickTunnel,
+            backend=backend,
+            api_key=API_KEY,  # For managed tunnels
             env_api_key=ENVIRONMENT_API_KEY,
             progress=True,
         )

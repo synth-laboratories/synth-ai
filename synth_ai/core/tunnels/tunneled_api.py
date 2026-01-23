@@ -270,6 +270,12 @@ class TunneledLocalAPI:
         if progress:
             print(f"Tunnel ready: {url}")
 
+        # Wait for system DNS to propagate (we verified with explicit resolvers,
+        # but subsequent SDK calls use system DNS which may lag behind)
+        import asyncio
+
+        await asyncio.sleep(3)
+
         return cls(
             url=url,
             hostname=hostname,
@@ -308,6 +314,12 @@ class TunneledLocalAPI:
 
         if progress:
             print(f"Tunnel ready: {url}")
+
+        # Wait for system DNS to propagate (we verified with explicit resolvers,
+        # but subsequent SDK calls use system DNS which may lag behind)
+        import asyncio
+
+        await asyncio.sleep(3)
 
         return cls(
             url=url,
