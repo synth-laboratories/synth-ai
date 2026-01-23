@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.6.2"
+version = "0.6.3"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
@@ -12,14 +12,9 @@ dependencies = [
     "requests>=2.32.3",
     "tqdm>=4.66.4",
     "typing_extensions>=4.0.0",
-    # AI/LLM providers
+    # AI/LLM providers (only OpenAI required - others are optional via [providers])
     "rich>=13.9.0",
     "openai>=1.99.0",
-    "anthropic>=0.42.0",
-    # Tracing and observability
-    # Storage and caching
-    "groq>=0.30.0",
-    "google-genai>=1.26.0",
     # Environment framework - basic dependencies
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",
@@ -42,6 +37,12 @@ synth-ai = "synth_ai.cli:cli"
 
 [project.optional-dependencies]
 schemas = []
+providers = [
+    # Optional LLM providers (lazy-loaded when used)
+    "anthropic>=0.42.0",
+    "groq>=0.30.0",
+    "google-genai>=1.26.0",
+]
 dev = [
     "build>=1.2.2.post1",
     "twine>=4.0.0",
@@ -67,6 +68,10 @@ swe = [
     "swebench>=2.3.0",
 ]
 all = [
+    # Include providers
+    "anthropic>=0.42.0",
+    "groq>=0.30.0",
+    "google-genai>=1.26.0",
     # Include research and swe dependencies in all
     "crafter>=1.8.3",
     "datasets>=4.0.0",
