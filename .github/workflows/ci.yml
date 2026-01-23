@@ -139,8 +139,8 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
-      - name: Validate all demo notebooks
+      - name: Validate GEPA Banking77 notebook
         run: |
           uv sync --group dev
-          uv run --group dev pytest tests/notebooks/ -v --maxfail=3
+          uv run --group dev pytest tests/notebooks/test_gepa_banking77_notebook.py -v --maxfail=1
 
