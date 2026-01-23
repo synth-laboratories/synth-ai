@@ -26,18 +26,11 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
-from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
-from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment_api_key
-from synth_ai.sdk.task import run_server_background
-from synth_ai.sdk.tunnels import (
-    TunneledLocalAPI,
-    TunnelBackend,
-    cleanup_all,
-    find_available_port,
-    is_port_available,
-    kill_port,
-)
+from synth_ai.sdk import PromptLearningJob, cleanup_all, find_available_port, is_port_available, kill_port
+from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
+from synth_ai.sdk.localapi.auth import mint_environment_api_key, setup_environment_api_key
+from synth_ai.sdk.localapi._impl.server import run_server_background
+from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
 
 parser = argparse.ArgumentParser(description="Run MTG artist GEPA prompt optimization")
 parser.add_argument(
@@ -85,7 +78,14 @@ def _load_env_file(path: Path) -> None:
 _load_env_file(synth_root / ".env")
 
 USE_LOCAL_BACKEND = args.local
-SYNTH_API_BASE = "http://127.0.0.1:8000" if USE_LOCAL_BACKEND else "https://api.usesynth.ai"
+# Respect SYNTH_API_BASE from environment if set
+_env_base = os.environ.get("SYNTH_API_BASE", "").strip()
+if USE_LOCAL_BACKEND:
+    SYNTH_API_BASE = "http://127.0.0.1:8000"
+elif _env_base:
+    SYNTH_API_BASE = _env_base
+else:
+    SYNTH_API_BASE = "https://api.usesynth.ai"
 os.environ["BACKEND_BASE_URL"] = SYNTH_API_BASE
 
 
@@ -546,7 +546,7 @@ def _make_gepa_config(task_app_url: str) -> dict[str, Any]:
             },
             "gepa": {
                 "env_name": f"mtg-artist-{ARTIST_KEY}",
-                "evaluation": {"seeds": list(range(6)), "validation_seeds": list(range(6, 8))},
+                "evaluation": {"seeds": list(range(13)), "validation_seeds": list(range(13, 15))},
                 "rollout": {"budget": 30, "max_concurrent": 2, "minibatch_size": 2},
                 "mutation": {"rate": 0.3},
                 "population": {
@@ -587,7 +587,7 @@ async def run_gepa() -> tuple[str, Any]:
     job = PromptLearningJob.from_dict(
         config_dict=config_body,
         backend_url=SYNTH_API_BASE,
-        task_app_api_key=ENVIRONMENT_API_KEY,
+        localapi_api_key=ENVIRONMENT_API_KEY,
     )
 
     job_id = job.submit()
