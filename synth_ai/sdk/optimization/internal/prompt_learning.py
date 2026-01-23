@@ -556,6 +556,19 @@ class PromptLearningJob:
             with contextlib.suppress(Exception):
                 on_event(final_status)
 
+        # SSE final_status may not have full results - fetch them if job succeeded
+        status_str = str(final_status.get("status", "")).lower()
+        if status_str in ("succeeded", "completed", "success"):
+            with contextlib.suppress(Exception):
+                full_results = await self.get_results_async()
+                # Merge full results into final_status
+                final_status.update(
+                    {
+                        "best_prompt": full_results.get("best_prompt"),
+                        "best_score": full_results.get("best_score"),
+                    }
+                )
+
         return PromptLearningResult.from_response(self._job_id, final_status)
 
     def stream_until_complete(
