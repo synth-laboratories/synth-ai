@@ -64,6 +64,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .backend_client import LeaseClient, get_lease_client
+
 # New: process tracking with atexit cleanup
 from .cleanup import cleanup_all, track_process, tracked_processes
 
@@ -93,6 +95,27 @@ from .cloudflare import (
     verify_tunnel_dns_resolution,
     wait_for_health_check,
 )
+from .connector import TunnelConnector, ensure_connector_running
+from .errors import (
+    ConnectorError,
+    ConnectorNotInstalledError,
+    GatewayError,
+    LeaseError,
+    LeaseExpiredError,
+    LocalAppError,
+    TunnelAPIError,
+    TunnelConfigurationError,
+    TunnelError,
+)
+from .gateway import TunnelGateway, ensure_gateway_running
+
+# NEW: Lease-based tunnel system (recommended for production)
+from .manager import (
+    TunnelManager,
+    get_manager,
+    open_tunnel,
+    quick_open,
+)
 
 # New: port management utilities (was private in in_process.py)
 from .ports import (
@@ -106,6 +129,14 @@ from .ports import (
 
 # New: high-level tunnel abstraction
 from .tunneled_api import TunnelBackend, TunneledLocalAPI
+from .types import (
+    ConnectorState,
+    Diagnostics,
+    GatewayState,
+    LeaseInfo,
+    LeaseState,
+    TunnelHandle,
+)
 
 
 # Convenience function for creating tunnels from apps
@@ -161,7 +192,36 @@ __all__ = [
     "TunneledLocalAPI",
     "TunnelBackend",
     "create_tunneled_api",
-    # Tunnel lifecycle
+    # NEW: Lease-based system (RECOMMENDED for production)
+    "TunnelManager",
+    "get_manager",
+    "open_tunnel",
+    "quick_open",
+    "TunnelHandle",
+    "LeaseInfo",
+    "LeaseState",
+    "Diagnostics",
+    # NEW: Gateway and Connector
+    "TunnelGateway",
+    "ensure_gateway_running",
+    "TunnelConnector",
+    "ensure_connector_running",
+    "ConnectorState",
+    "GatewayState",
+    # NEW: Lease client
+    "LeaseClient",
+    "get_lease_client",
+    # NEW: Errors
+    "TunnelError",
+    "TunnelConfigurationError",
+    "TunnelAPIError",
+    "LeaseError",
+    "LeaseExpiredError",
+    "ConnectorError",
+    "ConnectorNotInstalledError",
+    "GatewayError",
+    "LocalAppError",
+    # Legacy: Tunnel lifecycle
     "rotate_tunnel",
     "create_tunnel",
     "open_managed_tunnel",
@@ -178,7 +238,7 @@ __all__ = [
     # Discovery
     "fetch_managed_tunnels",
     "ManagedTunnelRecord",
-    # Health checks (NEW)
+    # Health checks
     "HealthResult",
     "check_tunnel_health",
     "check_tunnel_health_sync",

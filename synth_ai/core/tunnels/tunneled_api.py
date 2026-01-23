@@ -48,11 +48,18 @@ class TunnelBackend(str, Enum):
     """Supported tunnel backends for exposing local APIs.
 
     Attributes:
-        CloudflareManagedTunnel: Managed tunnel via Synth backend.
+        CloudflareManagedLease: NEW - Lease-based managed tunnel (RECOMMENDED).
+            - Stable hostnames that persist across sessions
+            - Fast reconnection (~1-5s after first run)
+            - Automatic tunnel reuse without reprovisioning
+            - Requires Synth API key
+            - Best for production use
+
+        CloudflareManagedTunnel: Legacy managed tunnel via Synth backend.
+            - Creates new tunnel each time (slower)
             - Stable subdomains (e.g., task-1234-5678.usesynth.ai)
             - Requires Synth API key
-            - Associated with your organization
-            - Best for production jobs
+            - Use CloudflareManagedLease instead for better performance
 
         CloudflareQuickTunnel: Anonymous tunnel via trycloudflare.com.
             - Random subdomains that change each time
@@ -66,7 +73,8 @@ class TunnelBackend(str, Enum):
             - Best for local backend development
     """
 
-    CloudflareManagedTunnel = "cloudflare_managed"
+    CloudflareManagedLease = "cloudflare_managed_lease"  # NEW - recommended
+    CloudflareManagedTunnel = "cloudflare_managed"  # Legacy
     CloudflareQuickTunnel = "cloudflare_quick"
     Localhost = "localhost"
 
@@ -110,6 +118,9 @@ class TunneledLocalAPI:
     process: Optional[subprocess.Popen] = None
     tunnel_token: Optional[str] = field(default=None, repr=False)
     _raw: dict[str, Any] = field(default_factory=dict, repr=False)
+    # New lease-based fields
+    _lease_id: Optional[str] = field(default=None, repr=False)
+    _manager: Any = field(default=None, repr=False)  # TunnelManager instance
 
     @classmethod
     async def create(
@@ -182,7 +193,17 @@ class TunneledLocalAPI:
                 synth_api_key=api_key,
             )
 
-        if backend == TunnelBackend.CloudflareManagedTunnel:
+        if backend == TunnelBackend.CloudflareManagedLease:
+            # NEW: Use the lease-based system for faster, reusable tunnels
+            return await cls._create_managed_lease(
+                local_port=local_port,
+                api_key=api_key,
+                backend_url=backend_url,
+                verify_dns=verify_dns,
+                progress=progress,
+            )
+        elif backend == TunnelBackend.CloudflareManagedTunnel:
+            # Legacy: rotate-based system (slower, but backwards compatible)
             return await cls._create_managed(
                 local_port=local_port,
                 api_key=api_key,
@@ -287,6 +308,56 @@ class TunneledLocalAPI:
         )
 
     @classmethod
+    async def _create_managed_lease(
+        cls,
+        local_port: int,
+        api_key: Optional[str],
+        backend_url: Optional[str],
+        verify_dns: bool,
+        progress: bool,
+    ) -> TunneledLocalAPI:
+        """Internal: Create a lease-based managed tunnel (NEW system).
+
+        This uses the new lease-based architecture which:
+        1. Reuses existing tunnels instead of creating new ones each time
+        2. Uses a local gateway for route management
+        3. Keeps cloudflared warm between sessions
+        4. Results in ~1-5s reconnection after first run (vs ~15-25s with legacy)
+        """
+        from .manager import get_manager
+
+        if not api_key:
+            raise ValueError(
+                "api_key is required for CloudflareManagedLease. "
+                "Use CloudflareQuickTunnel for anonymous tunnels."
+            )
+
+        manager = get_manager(api_key=api_key, backend_url=backend_url)
+
+        handle = await manager.open(
+            local_port=local_port,
+            verify_local=False,  # Don't verify local since we might not have app yet
+            verify_public=verify_dns,
+            progress=progress,
+        )
+
+        return cls(
+            url=handle.url,
+            hostname=handle.hostname,
+            local_port=local_port,
+            backend=TunnelBackend.CloudflareManagedLease,
+            process=None,  # Managed by connector module
+            tunnel_token=handle.lease.tunnel_token,
+            _raw={
+                "lease_id": handle.lease.lease_id,
+                "route_prefix": handle.lease.route_prefix,
+                "expires_at": handle.lease.expires_at.isoformat(),
+            },
+            _lease_id=handle.lease.lease_id,
+            _manager=manager,
+        )
+
+    @classmethod
     async def _create_quick(
         cls,
         local_port: int,
@@ -337,9 +408,25 @@ class TunneledLocalAPI:
         This is called automatically when the process exits (via atexit),
         but you can call it explicitly for earlier cleanup.
         """
-        from .cloudflare import stop_tunnel
+        if self._lease_id and self._manager:
+            # Lease-based tunnel: use async close
+            import asyncio
 
-        if self.process:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Schedule close in the running loop
+                    asyncio.create_task(self._manager.close(self._lease_id))
+                else:
+                    loop.run_until_complete(self._manager.close(self._lease_id))
+            except Exception:
+                pass  # Best effort cleanup
+            self._lease_id = None
+            self._manager = None
+        elif self.process:
+            # Legacy tunnel: stop cloudflared process
+            from .cloudflare import stop_tunnel
+
             stop_tunnel(self.process)
             self.process = None
 
