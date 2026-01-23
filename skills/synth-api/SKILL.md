@@ -17,6 +17,46 @@ Reference demo: `demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb`
 - `SYNTH_API_KEY`: your API key (or mint a demo key if using a demo workflow)
 - `SYNTH_BACKEND_URL` (optional): backend base URL, default `https://api.usesynth.ai`
 
+## Auth + API keys
+
+Synth uses two keys:
+
+- `SYNTH_API_KEY` authenticates your SDK/CLI calls to the Synth backend.
+- `ENVIRONMENT_API_KEY` authenticates backend-to-task-app requests (sent as `X-API-Key` or `Authorization: Bearer ...`).
+
+### Mint a demo Synth API key (optional)
+
+Demo keys are short‑lived (default 4 hours) and are great for notebooks or quick starts.
+
+```python
+import os
+
+from synth_ai.core.utils.env import mint_demo_api_key
+
+SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
+SYNTH_API_KEY = os.environ.get("SYNTH_API_KEY") or mint_demo_api_key(SYNTH_API_BASE)
+os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
+```
+
+### Mint + upload an Environment API key
+
+Your task app should use the same `ENVIRONMENT_API_KEY` that the backend stores for your org.
+The helper below generates a key locally and uploads it to the backend using your `SYNTH_API_KEY`.
+
+```python
+import os
+
+from synth_ai.sdk.localapi.auth import mint_environment_api_key, setup_environment_api_key
+
+SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
+SYNTH_API_KEY = os.environ["SYNTH_API_KEY"]
+
+ENVIRONMENT_API_KEY = mint_environment_api_key()
+os.environ["ENVIRONMENT_API_KEY"] = ENVIRONMENT_API_KEY
+
+setup_environment_api_key(SYNTH_API_BASE, SYNTH_API_KEY, token=ENVIRONMENT_API_KEY)
+```
+
 ## Core concepts
 
 - **Local API**: Your task app runs locally and exposes `/rollout` + `/task_info`.
@@ -97,6 +137,9 @@ def create_banking77_local_api(system_prompt: str):
 ## 2) Expose the Local API with a Cloudflare tunnel
 
 Use the built‑in tunnel helper to auto‑start the server and provision a URL.
+The helper spins up your local server, creates a public `trycloudflare.com` URL,
+and forwards requests from the public URL to your local port. Keep the process
+running while Synth calls your task app.
 
 ```python
 from synth_ai.core.tunnels import TunnelBackend, TunneledLocalAPI
@@ -114,7 +157,8 @@ print("Local API URL:", LOCAL_API_URL)
 
 ## 3) Run GEPA (prompt optimization)
 
-Use a GEPA config body or a config file. Example config body:
+GEPA mutates prompt candidates and evaluates them via rollouts. Use a GEPA config body
+or a config file. Example config body:
 
 ```python
 from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
@@ -159,6 +203,9 @@ print(result.status.value)
 ```
 
 ## 4) Run Eval jobs (held‑out seeds)
+
+Eval jobs score a fixed set of held‑out seeds for a final report once optimization
+finishes.
 
 ```python
 from synth_ai.sdk.eval.job import EvalJob, EvalJobConfig
