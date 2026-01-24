@@ -90,6 +90,7 @@ if LOCAL_MODE:
 else:
     # Use dev backend for testing
     SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api-dev.usesynth.ai")
+    # Using legacy tunnel while debugging new lease-based system
     TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
     LOCAL_API_PORT = 8001
     OPTIMIZED_LOCAL_API_PORT = 8002

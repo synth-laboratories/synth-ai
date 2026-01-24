@@ -287,13 +287,13 @@ class TunnelManager:
         from .cloudflare import verify_tunnel_dns_resolution
 
         # Use existing verification logic which handles DNS + HTTP
-        success = await verify_tunnel_dns_resolution(
-            url,
-            max_wait_seconds=timeout,
-            poll_interval=2.0,
-        )
-        if not success:
-            logger.warning("[MANAGER] Public URL verification timed out: %s", url)
+        try:
+            await verify_tunnel_dns_resolution(
+                url,
+                timeout_seconds=timeout,
+            )
+        except Exception as e:
+            logger.warning("[MANAGER] Public URL verification failed: %s - %s", url, e)
             # Don't fail - the tunnel may still work
 
     async def _heartbeat_loop(self, lease_id: str) -> None:
