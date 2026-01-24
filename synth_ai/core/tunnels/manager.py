@@ -423,12 +423,13 @@ class TunnelManager:
                     return  # Don't fail - tunnel may still work
 
                 try:
-                    # Use resolved IP if available to bypass DNS lag
+                    # Use resolved IP if available to bypass DNS lag.
+                    # Ensure SNI uses the hostname to avoid TLS handshake failures.
                     if resolved_ip:
-                        # Override Host header for correct routing
                         resp = await client.get(
                             f"https://{resolved_ip}{route_prefix}/__synth/ready",
                             headers={"Host": hostname},
+                            extensions={"sni_hostname": hostname},
                         )
                     else:
                         resp = await client.get(ready_url)
@@ -445,6 +446,11 @@ class TunnelManager:
 
                 except httpx.ConnectError as e:
                     last_error = f"connect_error: {e}"
+                except httpx.HTTPError as e:
+                    last_error = f"http_error: {e}"
+                    # Fallback to hostname-based verification if IP+SNI still fails.
+                    if "tls" in str(e).lower() or "handshake" in str(e).lower():
+                        resolved_ip = None
                 except Exception as e:
                     last_error = f"error: {e}"
 
