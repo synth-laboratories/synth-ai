@@ -316,6 +316,20 @@ class PromptLearningClient:
                     if best_score is not None:
                         result.best_score = best_score
 
+                # Extract rollout and proposal metrics
+                # These may come from event_data directly or from nested state dict
+                result.total_rollouts = (
+                    event_data.get("total_rollouts")
+                    or event_data.get("state", {}).get("total_rollouts")
+                    or 0
+                )
+                # trials_tried is the number of proposal/mutation calls
+                result.total_proposal_calls = (
+                    event_data.get("trials_tried")
+                    or event_data.get("state", {}).get("total_trials")
+                    or 0
+                )
+
                 # Extract validation results from validation field if present
                 validation_data = event_data.get("validation")
                 if isinstance(validation_data, list):
