@@ -770,7 +770,8 @@ async def main():
     # Cell 9: Evaluation
     eval_seeds = list(range(100, 120))
 
-    def run_eval_job(local_api_url: str, seeds: list[int], mode: str) -> EvalResult:
+    async def run_eval_job(local_api_url: str, seeds: list[int], mode: str) -> EvalResult:
+        """Run eval job with event-based real-time progress tracking."""
         config = EvalJobConfig(
             local_api_url=local_api_url,
             backend_url=SYNTH_API_BASE,
@@ -789,7 +790,78 @@ async def main():
         job = EvalJob(config)
         job_id = job.submit()
         print(f"  {mode} eval job: {job_id}")
-        return job.poll_until_complete(timeout=600.0, interval=2.0, progress=True)
+
+        # Custom event-based polling for real-time progress
+        start_time = time.time()
+        last_event_seq = 0
+        completed_seeds: set[int] = set()
+        total_seeds = len(seeds)
+        timeout = 600.0
+        interval = 3.0
+
+        while True:
+            elapsed = time.time() - start_time
+            if elapsed >= timeout:
+                print(f"[{int(elapsed // 60):02d}:{int(elapsed % 60):02d}] timeout", flush=True)
+                break
+
+            # Get job status
+            try:
+                status_data = job.get_status()
+                status = status_data.get("status", "pending")
+            except Exception as e:
+                print(f"  [error getting status: {e}]", flush=True)
+                await asyncio.sleep(interval)
+                continue
+
+            # Fetch events for real-time progress
+            try:
+                response = httpx.get(
+                    f"{SYNTH_API_BASE}/api/eval/jobs/{job_id}/events",
+                    params={"since_seq": last_event_seq, "limit": 100},
+                    headers={"X-API-Key": API_KEY},
+                    timeout=10.0,
+                )
+                if response.status_code == 200:
+                    events = response.json()
+                    if isinstance(events, list):
+                        for event in events:
+                            event_seq = event.get("seq", 0)
+                            if event_seq > last_event_seq:
+                                last_event_seq = event_seq
+                            event_type = event.get("type", "")
+                            # Track completed/failed seeds from events
+                            if event_type in ("eval.policy.seed.completed", "eval.policy.seed.failed"):
+                                data = event.get("data", {})
+                                seed = data.get("seed")
+                                if seed is not None:
+                                    completed_seeds.add(seed)
+            except Exception:
+                pass
+
+            # Print progress with event-based count
+            mins, secs = divmod(int(elapsed), 60)
+            completed_count = len(completed_seeds)
+
+            if status in ("completed", "failed", "cancelled"):
+                # Get final results
+                try:
+                    results_data = status_data.get("results", {})
+                    mean_reward = results_data.get("mean_reward")
+                    if mean_reward is not None:
+                        print(f"[{mins:02d}:{secs:02d}] {status} | mean_reward: {mean_reward:.2f}", flush=True)
+                    else:
+                        print(f"[{mins:02d}:{secs:02d}] {status}", flush=True)
+                except Exception:
+                    print(f"[{mins:02d}:{secs:02d}] {status}", flush=True)
+                break
+            else:
+                print(f"[{mins:02d}:{secs:02d}] {status} | {completed_count}/{total_seeds} completed", flush=True)
+
+            await asyncio.sleep(interval)
+
+        # Return final result using SDK method
+        return job.poll_until_complete(timeout=10.0, interval=1.0, progress=False)
 
     def extract_system_prompt(prompt_results) -> str:
         """Extract system prompt from prompt results, handling multiple formats."""
@@ -993,7 +1065,7 @@ async def main():
 
         print("\nRunning BASELINE eval job...")
         eval_start = time.time()
-        baseline_result = run_eval_job(
+        baseline_result = await run_eval_job(
             local_api_url=baseline_local_api_url, seeds=eval_seeds, mode="baseline"
         )
         timings["baseline_eval"] = time.time() - eval_start
@@ -1030,7 +1102,7 @@ async def main():
 
         print("\nRunning OPTIMIZED eval job...")
         eval_start = time.time()
-        optimized_result = run_eval_job(
+        optimized_result = await run_eval_job(
             local_api_url=optimized_local_api_url, seeds=eval_seeds, mode="optimized"
         )
         timings["optimized_eval"] = time.time() - eval_start
