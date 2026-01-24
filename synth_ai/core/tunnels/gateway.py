@@ -293,28 +293,23 @@ class TunnelGateway:
                 return
 
             # Route-specific ready endpoint: /{route_prefix}/__synth/ready
-            # Returns 200 only if target app is reachable
+            # Returns 200 if target app is reachable (TCP connect + HTTP response)
+            # Note: We don't forward auth headers - this is a local trusted health check.
+            # The SDK's API key (sk_live_...) differs from the task app's env key (sk_env_...).
             if path.endswith("/__synth/ready"):
                 route_prefix = path.rsplit("/__synth/ready", 1)[0]
                 if route_prefix in self._routes:
                     target_host, target_port = self._routes[route_prefix]
-                    # Extract API key from incoming request to forward to health probe
-                    probe_headers: dict[str, str] = {}
-                    for header_name, header_value in scope.get("headers", []):
-                        name_lower = header_name.decode("latin-1").lower()
-                        if name_lower in ("x-api-key", "x-api-keys", "authorization"):
-                            probe_headers[header_name.decode("latin-1")] = header_value.decode(
-                                "latin-1"
-                            )
-                    # Probe the target app
+                    # Probe the target app's root endpoint (no auth required)
+                    # We use GET / instead of /health because /health requires auth
+                    # and the gateway doesn't have the task app's environment key.
                     try:
                         async with httpx.AsyncClient(
                             timeout=httpx.Timeout(5.0, connect=2.0),
                             trust_env=False,
                         ) as client:
-                            resp = await client.get(
-                                f"http://{target_host}:{target_port}/health", headers=probe_headers
-                            )
+                            resp = await client.get(f"http://{target_host}:{target_port}/")
+                            # Accept any non-5xx response - this verifies the app is running
                             if resp.status_code < 500:
                                 await send(
                                     {
