@@ -318,17 +318,18 @@ class PromptLearningClient:
 
                 # Extract rollout and proposal metrics
                 # These may come from event_data directly or from nested state dict
-                result.total_rollouts = (
-                    event_data.get("total_rollouts")
-                    or event_data.get("state", {}).get("total_rollouts")
-                    or 0
+                # Only update if we find non-zero values (preserve from earlier events)
+                new_rollouts = event_data.get("total_rollouts") or event_data.get("state", {}).get(
+                    "total_rollouts"
                 )
+                if new_rollouts:
+                    result.total_rollouts = new_rollouts
                 # trials_tried is the number of proposal/mutation calls
-                result.total_proposal_calls = (
-                    event_data.get("trials_tried")
-                    or event_data.get("state", {}).get("total_trials")
-                    or 0
+                new_proposals = event_data.get("trials_tried") or event_data.get("state", {}).get(
+                    "total_trials"
                 )
+                if new_proposals:
+                    result.total_proposal_calls = new_proposals
 
                 # Extract validation results from validation field if present
                 validation_data = event_data.get("validation")
