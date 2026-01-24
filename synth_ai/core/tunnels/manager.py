@@ -407,6 +407,10 @@ class TunnelManager:
             logger.debug("[MANAGER] DNS resolution failed for %s: %s", hostname, e)
             resolved_ip = None
 
+        headers = {}
+        if self._api_key:
+            headers["X-API-Key"] = self._api_key
+
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(10.0, connect=5.0),
             verify=True,
@@ -428,11 +432,11 @@ class TunnelManager:
                     if resolved_ip:
                         resp = await client.get(
                             f"https://{resolved_ip}{route_prefix}/__synth/ready",
-                            headers={"Host": hostname},
+                            headers={**headers, "Host": hostname},
                             extensions={"sni_hostname": hostname},
                         )
                     else:
-                        resp = await client.get(ready_url)
+                        resp = await client.get(ready_url, headers=headers)
 
                     if resp.status_code == 200:
                         logger.debug("[MANAGER] Public readiness verified: %s", ready_url)
