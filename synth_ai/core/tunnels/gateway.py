@@ -298,13 +298,23 @@ class TunnelGateway:
                 route_prefix = path.rsplit("/__synth/ready", 1)[0]
                 if route_prefix in self._routes:
                     target_host, target_port = self._routes[route_prefix]
+                    # Extract API key from incoming request to forward to health probe
+                    probe_headers: dict[str, str] = {}
+                    for header_name, header_value in scope.get("headers", []):
+                        name_lower = header_name.decode("latin-1").lower()
+                        if name_lower in ("x-api-key", "x-api-keys", "authorization"):
+                            probe_headers[header_name.decode("latin-1")] = header_value.decode(
+                                "latin-1"
+                            )
                     # Probe the target app
                     try:
                         async with httpx.AsyncClient(
                             timeout=httpx.Timeout(5.0, connect=2.0),
                             trust_env=False,
                         ) as client:
-                            resp = await client.get(f"http://{target_host}:{target_port}/health")
+                            resp = await client.get(
+                                f"http://{target_host}:{target_port}/health", headers=probe_headers
+                            )
                             if resp.status_code < 500:
                                 await send(
                                     {
