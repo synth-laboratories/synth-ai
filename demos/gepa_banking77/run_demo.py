@@ -90,8 +90,8 @@ if LOCAL_MODE:
 else:
     # Use dev backend for testing
     SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api-dev.usesynth.ai")
-    # Using legacy tunnel while debugging new lease-based system
-    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
+    # Use the new lease-based tunnel system for faster reconnection
+    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedLease
     LOCAL_API_PORT = 8001
     OPTIMIZED_LOCAL_API_PORT = 8002
 
@@ -581,12 +581,15 @@ async def main():
                     return f"outstanding={outstanding}/{total_pareto_seeds}"
 
                 # GEPA-specific events (from backend logs)
-                if event_type == "prompt.learning.gepa.rollouts_limit_progress":
-                    # Extract rollout count from message like "Rollout progress: 20 rollouts executed"
-                    if "rollouts executed" in message:
-                        print(f"\n  {message}")
+                # Event types use "learning.policy.gepa.*" prefix
+                if event_type == "learning.policy.gepa.job.progress":
+                    # Show progress updates
+                    print(f"\n  {message}", flush=True)
 
-                elif event_type == "prompt.learning.gepa.candidate.evaluated":
+                elif event_type == "learning.policy.gepa.rollout.started":
+                    print(f"  {message}", flush=True)
+
+                elif event_type == "learning.policy.gepa.candidate.evaluated":
                     # Message format: "Candidate trans_00001 evaluated (accepted=True) acc=0.500"
                     if "evaluated" in message:
                         # Extract candidate ID and accuracy
@@ -624,17 +627,15 @@ async def main():
                             if isinstance(objectives, dict):
                                 print(f"    objectives: {objectives}")
 
-                elif event_type == "prompt.learning.gepa.proposal.completed":
-                    # Message format: "Proposal generated in 11.23s (evaluation will start next)"
-                    if "Proposal generated" in message:
-                        print(f"  {message}")
+                elif event_type == "learning.policy.gepa.phase.started":
+                    # Phase transitions
+                    print(f"\n  {message}", flush=True)
 
-                elif event_type == "prompt.learning.gepa.generation.start":
-                    # Message format: "Generation 1/2 starting"
-                    if "Generation" in message:
-                        print(f"\n  {message}")
+                elif event_type == "learning.policy.gepa.generation.started":
+                    # Generation start
+                    print(f"\n  {message}", flush=True)
 
-                elif event_type == "prompt.learning.gepa.progress":
+                elif event_type == "learning.policy.gepa.frontier.updated":
                     frontier_density = data.get("frontier_density")
                     frontier_size = data.get("frontier_size") or data.get("archive_size")
                     total_seeds_solved = data.get("total_seeds_solved")
@@ -659,7 +660,7 @@ async def main():
                     else:
                         print(f"\n  GEPA progress (raw): {data}")
 
-                elif event_type == "prompt.learning.gepa.archive.frontier_improved":
+                elif event_type == "learning.policy.gepa.archive.updated":
                     frontier_density = data.get("frontier_density")
                     frontier_size = data.get("archive_size")
                     total_seeds_solved = data.get("total_seeds_solved")
@@ -684,42 +685,16 @@ async def main():
                     else:
                         print(f"\n  Frontier improved (raw): {data}")
 
-                elif event_type == "prompt.learning.gepa.generation.complete":
-                    frontier_density = data.get("frontier_density")
-                    frontier_size = data.get("archive_size")
-                    total_seeds_solved = data.get("total_seeds_solved")
-                    pareto_growth = format_pareto_growth(data.get("pareto_growth"))
-                    seeds_outstanding = format_seeds_outstanding(total_seeds_solved)
-                    best_reward = data.get("best_reward")
-                    details = []
-                    if best_reward is not None:
-                        details.append(f"best={best_reward:.3f}")
-                    if frontier_density is not None:
-                        details.append(f"density={frontier_density:.3f}")
-                    if frontier_size is not None:
-                        details.append(f"frontier={frontier_size}")
-                    if total_seeds_solved is not None:
-                        details.append(f"total_seeds={total_seeds_solved}")
-                    if seeds_outstanding:
-                        details.append(seeds_outstanding)
-                    if pareto_growth:
-                        details.append(f"growth[{pareto_growth}]")
-                    if details:
-                        print(f"\n  Generation complete metrics: {' | '.join(details)}")
-                    else:
-                        print(f"\n  Generation complete metrics (raw): {data}")
+                elif event_type == "learning.policy.gepa.job.started":
+                    print(f"  {message}", flush=True)
 
-                elif event_type == "prompt.learning.candidate.evaluation.started":
-                    # Message format: "Evaluating candidate trans_00004... (10 seeds)"
-                    if "Evaluating candidate" in message:
-                        print(f"  {message}")
+                elif event_type == "learning.policy.gepa.job.queued":
+                    print(f"  {message}", flush=True)
 
-                # Legacy/fallback event types
-                elif event_type == "prompt.learning.progress":
-                    rollouts = data.get("rollouts_completed", 0)
-                    total = data.get("rollouts_total", 0)
-                    if rollouts > 0:
-                        print(f"\n  Progress: {rollouts}/{total} rollouts completed")
+                # Catch-all for other GEPA events to ensure visibility
+                elif event_type.startswith("learning.policy.gepa."):
+                    if message:
+                        print(f"  [{event_type.split('.')[-1]}] {message}", flush=True)
 
         except Exception:
             # Silently ignore event fetching errors to avoid polluting output
