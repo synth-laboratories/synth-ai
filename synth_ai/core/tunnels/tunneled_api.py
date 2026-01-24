@@ -38,10 +38,14 @@ See Also:
 
 from __future__ import annotations
 
+import logging
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class TunnelBackend(str, Enum):
@@ -326,22 +330,40 @@ class TunneledLocalAPI:
         """
         from .manager import get_manager
 
+        logger.info(
+            "[TUNNELED_API] _create_managed_lease: port=%d verify_dns=%s",
+            local_port,
+            verify_dns,
+        )
+
         if not api_key:
             raise ValueError(
                 "api_key is required for CloudflareManagedLease. "
                 "Use CloudflareQuickTunnel for anonymous tunnels."
             )
 
+        logger.info("[TUNNELED_API] Getting manager instance")
         manager = get_manager(api_key=api_key, backend_url=backend_url)
 
+        logger.info("[TUNNELED_API] Calling manager.open()")
         handle = await manager.open(
             local_port=local_port,
             verify_local=False,  # Don't verify local since we might not have app yet
             verify_public=verify_dns,
             progress=progress,
         )
+        logger.info(
+            "[TUNNELED_API] manager.open() returned: url=%s lease_id=%s",
+            handle.url,
+            handle.lease.lease_id[:8],
+        )
 
-        return cls(
+        # Flush stdout/stderr to ensure output is visible
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        logger.info("[TUNNELED_API] Creating TunneledLocalAPI instance")
+        result = cls(
             url=handle.url,
             hostname=handle.hostname,
             local_port=local_port,
@@ -356,6 +378,8 @@ class TunneledLocalAPI:
             _lease_id=handle.lease.lease_id,
             _manager=manager,
         )
+        logger.info("[TUNNELED_API] _create_managed_lease complete, returning")
+        return result
 
     @classmethod
     async def _create_quick(
@@ -408,27 +432,45 @@ class TunneledLocalAPI:
         This is called automatically when the process exits (via atexit),
         but you can call it explicitly for earlier cleanup.
         """
+        logger.info("[TUNNELED_API] close() called")
         if self._lease_id and self._manager:
             # Lease-based tunnel: use async close
             import asyncio
 
+            logger.info(
+                "[TUNNELED_API] Closing lease-based tunnel: lease_id=%s",
+                self._lease_id[:8] if self._lease_id else "None",
+            )
             try:
                 loop = asyncio.get_event_loop()
+                logger.debug(
+                    "[TUNNELED_API] Event loop running=%s",
+                    loop.is_running(),
+                )
                 if loop.is_running():
                     # Schedule close in the running loop
-                    asyncio.create_task(self._manager.close(self._lease_id))
+                    logger.info("[TUNNELED_API] Scheduling async close via create_task")
+                    asyncio.create_task(
+                        self._manager.close(self._lease_id),
+                        name=f"close-lease-{self._lease_id[:8]}",
+                    )
                 else:
+                    logger.info("[TUNNELED_API] Running sync close via run_until_complete")
                     loop.run_until_complete(self._manager.close(self._lease_id))
-            except Exception:
-                pass  # Best effort cleanup
+                logger.info("[TUNNELED_API] Close scheduled/completed")
+            except Exception as e:
+                logger.warning("[TUNNELED_API] Close failed: %s", e)
             self._lease_id = None
             self._manager = None
         elif self.process:
             # Legacy tunnel: stop cloudflared process
             from .cloudflare import stop_tunnel
 
+            logger.info("[TUNNELED_API] Stopping legacy tunnel process")
             stop_tunnel(self.process)
             self.process = None
+        else:
+            logger.debug("[TUNNELED_API] close() - nothing to close")
 
     def __enter__(self) -> TunneledLocalAPI:
         """Context manager entry (for sync use after async creation)."""

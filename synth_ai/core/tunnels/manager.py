@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -161,18 +162,51 @@ class TunnelManager:
         if self._closed:
             raise TunnelError("Manager is closed")
 
-        def status(msg: str) -> None:
+        # Slow path threshold - show extra progress after this many seconds
+        slow_threshold = 5.0
+        _slow_message_shown = False
+
+        def status(msg: str, hint: str | None = None) -> None:
+            """Show status message, with optional hint for slow paths."""
+            nonlocal _slow_message_shown
             if progress:
-                print(f"  {msg}")
+                import sys
+
+                print(f"  {msg}", flush=True)
+                sys.stderr.flush()
             if on_status:
                 on_status(msg)
             logger.info("[MANAGER] %s", msg)
+
+            # Show hint if provided and we haven't shown a slow message yet
+            if hint and not _slow_message_shown:
+                elapsed = time.monotonic() - start_time
+                if elapsed > slow_threshold:
+                    _slow_message_shown = True
+                    if progress:
+                        print(f"    (hint: {hint})", flush=True)
+
+        start_time = time.monotonic()
+
+        def log_step(event: str, **fields: Any) -> None:
+            elapsed = time.monotonic() - start_time
+            payload = " ".join(f"{k}={v}" for k, v in fields.items())
+            logger.debug("[MANAGER] step=%s elapsed=%.3fs %s", event, elapsed, payload)
+
+        def slow_path_hint() -> None:
+            """Show a hint if we're on the slow path."""
+            nonlocal _slow_message_shown
+            elapsed = time.monotonic() - start_time
+            if elapsed > slow_threshold and not _slow_message_shown and progress:
+                _slow_message_shown = True
+                print("    (taking longer than usual - use TUNNEL_DEBUG=1 for details)", flush=True)
 
         client = await self._get_client()
         gateway = get_gateway()
         connector = get_connector()
 
         status("Creating tunnel lease...")
+        log_step("lease_create_start")
 
         # 1. Create lease
         lease = await client.create_lease(
@@ -182,35 +216,74 @@ class TunnelManager:
             app_name=app_name,
             requested_ttl_seconds=ttl_seconds,
         )
+        log_step(
+            "lease_create_ok",
+            lease_id=lease.lease_id,
+            hostname=lease.hostname,
+            route_prefix=lease.route_prefix,
+        )
 
         try:
             # 2. Start gateway if needed
             if not gateway.is_running:
                 status("Starting local gateway...")
+                log_step("gateway_start")
                 await ensure_gateway_running(lease.gateway_port, force=True)
+                log_step("gateway_started", port=lease.gateway_port)
 
             # 3. Configure gateway route
             gateway.add_route(lease.route_prefix, local_host, local_port)
+            log_step(
+                "gateway_route_added", route=lease.route_prefix, target=f"{local_host}:{local_port}"
+            )
 
             # 4. Verify local app is ready (optional)
             if verify_local:
-                status(f"Waiting for local app on port {local_port}...")
+                status(
+                    f"Waiting for local app on port {local_port}...",
+                    hint=f"ensure your app is listening on {local_host}:{local_port}",
+                )
+                log_step(
+                    "local_verify_start", target=f"{local_host}:{local_port}", timeout=local_timeout
+                )
                 await self._verify_local_ready(local_host, local_port, local_timeout)
+                log_step("local_verify_ok")
 
             # 5. Start connector if needed
             if not connector.is_connected:
-                status("Connecting to Cloudflare edge...")
+                status(
+                    "Connecting to Cloudflare edge...",
+                    hint="first connection may take 10-20s",
+                )
+                log_step("connector_start")
                 await ensure_connector_running(lease.tunnel_token)
+                log_step("connector_connected", connected=connector.is_connected)
             else:
                 status("Reusing existing connection...")
+                log_step("connector_reuse")
 
             # Register lease with connector
             connector.register_lease(lease.lease_id)
+            log_step("lease_registered", lease_id=lease.lease_id)
 
-            # 6. Verify public URL is accessible (optional)
+            # 6. Verify public URL via /__synth/ready endpoint (optional)
             if verify_public:
-                status("Verifying public URL...")
-                await self._verify_public_ready(lease.public_url, public_timeout)
+                status(
+                    "Verifying public URL...",
+                    hint="DNS propagation may take a few seconds",
+                )
+                log_step(
+                    "public_verify_start",
+                    hostname=lease.hostname,
+                    route=lease.route_prefix,
+                    timeout=public_timeout,
+                )
+                await self._verify_public_ready(
+                    hostname=lease.hostname,
+                    route_prefix=lease.route_prefix,
+                    timeout=public_timeout,
+                )
+                log_step("public_verify_done")
 
             # 7. Send initial heartbeat
             await client.heartbeat(
@@ -219,6 +292,7 @@ class TunnelManager:
                 gateway_ready=gateway.is_running,
                 local_ready=True,
             )
+            log_step("heartbeat_sent", lease_id=lease.lease_id)
 
             # Update lease state
             lease.state = LeaseState.ACTIVE
@@ -235,13 +309,40 @@ class TunnelManager:
 
             # Store handle
             self._active_handles[lease.lease_id] = handle
+            log_step("handle_stored", lease_id=lease.lease_id)
 
             # 8. Start heartbeat task
-            self._heartbeat_tasks[lease.lease_id] = asyncio.create_task(
-                self._heartbeat_loop(lease.lease_id)
-            )
+            log_step("heartbeat_task_creating", lease_id=lease.lease_id)
+            try:
+                task = asyncio.create_task(
+                    self._heartbeat_loop(lease.lease_id),
+                    name=f"heartbeat-{lease.lease_id[:8]}",
+                )
+                self._heartbeat_tasks[lease.lease_id] = task
+                log_step(
+                    "heartbeat_task_created",
+                    lease_id=lease.lease_id,
+                    task_name=task.get_name(),
+                    task_done=task.done(),
+                )
+            except Exception as e:
+                log_step("heartbeat_task_create_failed", error=str(e))
+                raise
 
             status(f"Public URL: {lease.public_url}")
+            log_step("open_complete", lease_id=lease.lease_id)
+
+            # Detailed return tracing
+            log_step("preparing_return", handle_url=handle.url)
+            logger.info(
+                "[MANAGER] TRACE: About to return handle. "
+                "If you see this but not 'returned' in caller, hang is in return/await."
+            )
+            import sys
+
+            sys.stdout.flush()
+            sys.stderr.flush()
+
             return handle
 
         except Exception:
@@ -261,7 +362,11 @@ class TunnelManager:
         start = asyncio.get_event_loop().time()
         url = f"http://{host}:{port}/health"
 
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        # Ignore proxy env vars for local health checks to avoid hangs.
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(5.0, connect=2.0),
+            trust_env=False,
+        ) as client:
             while True:
                 elapsed = asyncio.get_event_loop().time() - start
                 if elapsed >= timeout:
@@ -280,35 +385,105 @@ class TunnelManager:
 
     async def _verify_public_ready(
         self,
-        url: str,
+        hostname: str,
+        route_prefix: str,
         timeout: float,
     ) -> None:
-        """Verify public URL is accessible through the tunnel."""
-        from .cloudflare import verify_tunnel_dns_resolution
+        """Verify public URL is accessible through the tunnel via /__synth/ready.
 
-        # Use existing verification logic which handles DNS + HTTP
+        This endpoint returns 200 only if the gateway can reach the target app,
+        providing true end-to-end verification.
+        """
+        from .cloudflare import resolve_hostname_with_explicit_resolvers
+
+        ready_url = f"https://{hostname}{route_prefix}/__synth/ready"
+        start = asyncio.get_event_loop().time()
+        last_error: str | None = None
+
+        # Resolve hostname to IP to bypass system DNS lag
         try:
-            await verify_tunnel_dns_resolution(
-                url,
-                timeout_seconds=timeout,
-            )
+            resolved_ip = await resolve_hostname_with_explicit_resolvers(hostname)
         except Exception as e:
-            logger.warning("[MANAGER] Public URL verification failed: %s - %s", url, e)
-            # Don't fail - the tunnel may still work
+            logger.debug("[MANAGER] DNS resolution failed for %s: %s", hostname, e)
+            resolved_ip = None
+
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(10.0, connect=5.0),
+            verify=True,
+        ) as client:
+            while True:
+                elapsed = asyncio.get_event_loop().time() - start
+                if elapsed >= timeout:
+                    logger.warning(
+                        "[MANAGER] Public readiness timeout after %.1fs: %s (last error: %s)",
+                        timeout,
+                        ready_url,
+                        last_error,
+                    )
+                    return  # Don't fail - tunnel may still work
+
+                try:
+                    # Use resolved IP if available to bypass DNS lag
+                    if resolved_ip:
+                        # Override Host header for correct routing
+                        resp = await client.get(
+                            f"https://{resolved_ip}{route_prefix}/__synth/ready",
+                            headers={"Host": hostname},
+                        )
+                    else:
+                        resp = await client.get(ready_url)
+
+                    if resp.status_code == 200:
+                        logger.debug("[MANAGER] Public readiness verified: %s", ready_url)
+                        return
+                    elif resp.status_code == 503:
+                        last_error = "target_unreachable (503)"
+                    elif resp.status_code == 404:
+                        last_error = "route_not_found (404)"
+                    else:
+                        last_error = f"status={resp.status_code}"
+
+                except httpx.ConnectError as e:
+                    last_error = f"connect_error: {e}"
+                except Exception as e:
+                    last_error = f"error: {e}"
+
+                logger.debug("[MANAGER] Public readiness retry: %s (%s)", ready_url, last_error)
+                await asyncio.sleep(1.0)
 
     async def _heartbeat_loop(self, lease_id: str) -> None:
         """Send periodic heartbeats for a lease."""
-        client = await self._get_client()
-        connector = get_connector()
-        gateway = get_gateway()
+        logger.info(
+            "[MANAGER] HEARTBEAT_LOOP: Starting for lease_id=%s (task scheduled)",
+            lease_id[:8],
+        )
+        try:
+            client = await self._get_client()
+            logger.debug("[MANAGER] HEARTBEAT_LOOP: Got client")
+            connector = get_connector()
+            logger.debug("[MANAGER] HEARTBEAT_LOOP: Got connector")
+            gateway = get_gateway()
+            logger.debug("[MANAGER] HEARTBEAT_LOOP: Got gateway, entering loop")
+        except Exception as e:
+            logger.error("[MANAGER] HEARTBEAT_LOOP: Setup failed: %s", e)
+            raise
 
+        iteration = 0
         while lease_id in self._active_handles:
             try:
+                iteration += 1
+                logger.debug(
+                    "[MANAGER] HEARTBEAT_LOOP: iteration=%d sleeping for %ds",
+                    iteration,
+                    HEARTBEAT_INTERVAL,
+                )
                 await asyncio.sleep(HEARTBEAT_INTERVAL)
 
                 if lease_id not in self._active_handles:
+                    logger.debug("[MANAGER] HEARTBEAT_LOOP: Lease removed, exiting")
                     break
 
+                logger.debug("[MANAGER] HEARTBEAT_LOOP: Sending heartbeat")
                 action, next_interval = await client.heartbeat(
                     lease_id,
                     connected_to_edge=connector.is_connected,
@@ -326,7 +501,11 @@ class TunnelManager:
                 logger.warning("[MANAGER] Heartbeat failed: %s", e)
 
     async def close(self, lease_id: str) -> None:
-        """Close a specific tunnel.
+        """Close a specific tunnel lease.
+
+        Note: This only closes the lease, not the underlying connector or
+        gateway. Use shutdown() or the context manager when completely
+        done with tunnels to ensure clean exit.
 
         Args:
             lease_id: The lease ID to close
@@ -368,13 +547,29 @@ class TunnelManager:
             await self.close(lease_id)
 
     async def shutdown(self) -> None:
-        """Shutdown the manager and all resources."""
+        """Shutdown the manager and all resources.
+
+        This stops the connector (cloudflared), gateway, and releases
+        all leases. Call this when completely done with tunnels.
+        """
         self._closed = True
         await self.close_all()
+
+        # Stop global connector and gateway
+        connector = get_connector()
+        gateway = get_gateway()
+
+        logger.debug("[MANAGER] Stopping connector...")
+        await connector.stop()
+
+        logger.debug("[MANAGER] Stopping gateway...")
+        await gateway.stop()
 
         if self._client:
             await self._client.close()
             self._client = None
+
+        logger.debug("[MANAGER] Shutdown complete")
 
     async def __aenter__(self) -> TunnelManager:
         return self

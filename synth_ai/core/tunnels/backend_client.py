@@ -90,10 +90,13 @@ class LeaseClient:
         params: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Make an API request."""
+        import time
+
         client = await self._get_client()
         url = f"/api/v1/tunnels{path}"
 
-        logger.debug("[LEASE_CLIENT] %s %s", method, url)
+        logger.debug("[LEASE_CLIENT] --> %s %s", method, url)
+        start_time = time.monotonic()
 
         try:
             response = await client.request(
@@ -102,12 +105,35 @@ class LeaseClient:
                 json=json,
                 params=params,
             )
+            elapsed = time.monotonic() - start_time
+            logger.debug(
+                "[LEASE_CLIENT] <-- %s %s status=%d elapsed=%.3fs",
+                method,
+                url,
+                response.status_code,
+                elapsed,
+            )
         except httpx.TimeoutException as e:
+            elapsed = time.monotonic() - start_time
+            logger.error(
+                "[LEASE_CLIENT] <-- %s %s TIMEOUT elapsed=%.3fs",
+                method,
+                url,
+                elapsed,
+            )
             raise TunnelAPIError(
                 f"Request timed out: {method} {url}",
                 hint="The backend may be slow. Try again.",
             ) from e
         except httpx.RequestError as e:
+            elapsed = time.monotonic() - start_time
+            logger.error(
+                "[LEASE_CLIENT] <-- %s %s ERROR=%s elapsed=%.3fs",
+                method,
+                url,
+                type(e).__name__,
+                elapsed,
+            )
             raise TunnelAPIError(
                 f"Request failed: {method} {url}: {e}",
                 hint="Check your network connection.",
@@ -170,7 +196,7 @@ class LeaseClient:
             },
         )
 
-        logger.info(
+        logger.debug(
             "[LEASE_CLIENT] Created lease: lease_id=%s hostname=%s route=%s",
             data["lease_id"][:8],
             data["hostname"],
@@ -235,7 +261,7 @@ class LeaseClient:
             lease_id: The lease ID to release
         """
         await self._request("POST", f"/lease/{lease_id}/release")
-        logger.info("[LEASE_CLIENT] Released lease: lease_id=%s", lease_id[:8])
+        logger.debug("[LEASE_CLIENT] Released lease: lease_id=%s", lease_id[:8])
 
     async def list_leases(
         self,

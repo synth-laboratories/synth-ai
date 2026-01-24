@@ -94,6 +94,8 @@ class TunnelConnector:
         self._lock = threading.Lock()
         self._output_lines: list[str] = []
         self._output_reader_task: Optional[asyncio.Task[Any]] = None
+        self._stdout_task: Optional[asyncio.Task[Any]] = None
+        self._stderr_task: Optional[asyncio.Task[Any]] = None
 
     @property
     def status(self) -> ConnectorStatus:
@@ -209,28 +211,57 @@ class TunnelConnector:
     async def _read_output(self) -> None:
         """Read output from cloudflared process."""
         if not self._process:
+            logger.debug("[CONNECTOR] _read_output: No process, returning")
             return
 
+        logger.debug("[CONNECTOR] _read_output: Setting up stream readers")
+
         async def read_stream(stream: Any, name: str) -> None:
-            while True:
-                try:
-                    line = await asyncio.get_event_loop().run_in_executor(None, stream.readline)
-                    if not line:
+            logger.debug("[CONNECTOR] read_stream(%s): Starting", name)
+            line_count = 0
+            try:
+                loop = asyncio.get_running_loop()
+                while True:
+                    try:
+                        line = await loop.run_in_executor(None, stream.readline)
+                        if not line:
+                            logger.debug(
+                                "[CONNECTOR] read_stream(%s): EOF after %d lines",
+                                name,
+                                line_count,
+                            )
+                            break
+                        line_count += 1
+                        decoded = line.decode("utf-8", errors="replace").strip()
+                        if decoded:
+                            self._output_lines.append(decoded)
+                            # Keep only last 100 lines
+                            if len(self._output_lines) > 100:
+                                self._output_lines = self._output_lines[-100:]
+                            logger.debug("[CONNECTOR] %s: %s", name, decoded)
+                    except Exception as e:
+                        logger.debug(
+                            "[CONNECTOR] read_stream(%s): Exception after %d lines: %s",
+                            name,
+                            line_count,
+                            e,
+                        )
                         break
-                    decoded = line.decode("utf-8", errors="replace").strip()
-                    if decoded:
-                        self._output_lines.append(decoded)
-                        # Keep only last 100 lines
-                        if len(self._output_lines) > 100:
-                            self._output_lines = self._output_lines[-100:]
-                        logger.debug("[CONNECTOR] %s: %s", name, decoded)
-                except Exception:
-                    break
+            finally:
+                logger.debug("[CONNECTOR] read_stream(%s): Exiting", name)
 
         if self._process.stdout:
-            asyncio.create_task(read_stream(self._process.stdout, "stdout"))
+            self._stdout_task = asyncio.create_task(
+                read_stream(self._process.stdout, "stdout"),
+                name="connector-stdout-reader",
+            )
+            logger.debug("[CONNECTOR] Created stdout reader task: %s", self._stdout_task.get_name())
         if self._process.stderr:
-            asyncio.create_task(read_stream(self._process.stderr, "stderr"))
+            self._stderr_task = asyncio.create_task(
+                read_stream(self._process.stderr, "stderr"),
+                name="connector-stderr-reader",
+            )
+            logger.debug("[CONNECTOR] Created stderr reader task: %s", self._stderr_task.get_name())
 
     async def _wait_for_connection(self, timeout: float) -> None:
         """Wait for cloudflared to connect to the edge."""
@@ -291,13 +322,29 @@ class TunnelConnector:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._output_reader_task
             self._output_reader_task = None
+        if self._stdout_task:
+            self._stdout_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._stdout_task
+            self._stdout_task = None
+        if self._stderr_task:
+            self._stderr_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._stderr_task
+            self._stderr_task = None
 
         if self._process:
             try:
+                logger.debug(
+                    "[CONNECTOR] Terminating cloudflared process pid=%d", self._process.pid
+                )
                 self._process.terminate()
                 # Wait briefly for graceful shutdown
-                await asyncio.get_event_loop().run_in_executor(None, self._process.wait, 2.0)
-            except Exception:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, self._process.wait, 2.0)
+                logger.debug("[CONNECTOR] Process terminated gracefully")
+            except Exception as e:
+                logger.debug("[CONNECTOR] Graceful termination failed: %s, killing", e)
                 with contextlib.suppress(Exception):
                     self._process.kill()
             self._process = None

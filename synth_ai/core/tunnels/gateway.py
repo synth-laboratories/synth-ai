@@ -13,7 +13,6 @@ Cloudflare configuration changes.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import threading
 from typing import Any, Callable, Optional
@@ -58,7 +57,8 @@ class TunnelGateway:
         self._routes: dict[str, tuple[str, int]] = {}
         self._state = GatewayState.STOPPED
         self._server: Optional[Any] = None
-        self._server_task: Optional[asyncio.Task[Any]] = None
+        self._server_thread: Optional[threading.Thread] = None
+        self._server_loop: Optional[asyncio.AbstractEventLoop] = None
         self._error: Optional[str] = None
         self._lock = threading.Lock()
 
@@ -180,11 +180,41 @@ class TunnelGateway:
             )
             server = uvicorn.Server(config)
 
-            # Run in background
+            # Run uvicorn in a separate thread with its own event loop
+            # This prevents deadlocks when sync code (e.g., subprocess.run) blocks the main thread
             self._server = server
-            self._server_task = asyncio.create_task(server.serve())
 
-            # Wait a bit for startup
+            def run_server() -> None:
+                logger.debug("[GATEWAY] Thread starting, creating new event loop")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                self._server_loop = loop
+                logger.debug("[GATEWAY] Thread event loop created, starting uvicorn.serve()")
+                try:
+                    loop.run_until_complete(server.serve())
+                    logger.debug("[GATEWAY] Thread: uvicorn.serve() completed normally")
+                except Exception as e:
+                    logger.error("[GATEWAY] Thread: uvicorn.serve() failed: %s", e)
+                finally:
+                    logger.debug("[GATEWAY] Thread: Closing event loop")
+                    loop.close()
+                    logger.debug("[GATEWAY] Thread: Event loop closed, thread exiting")
+
+            logger.debug("[GATEWAY] Creating daemon thread for uvicorn server")
+            self._server_thread = threading.Thread(
+                target=run_server,
+                daemon=True,
+                name="gateway-uvicorn",
+            )
+            self._server_thread.start()
+            logger.debug(
+                "[GATEWAY] Thread started: name=%s daemon=%s alive=%s",
+                self._server_thread.name,
+                self._server_thread.daemon,
+                self._server_thread.is_alive(),
+            )
+
+            # Wait for startup
             await asyncio.sleep(0.3)
 
             if not is_port_available(self.port):
@@ -210,16 +240,13 @@ class TunnelGateway:
 
         if self._server:
             self._server.should_exit = True
-            if self._server_task:
-                try:
-                    await asyncio.wait_for(self._server_task, timeout=5.0)
-                except TimeoutError:
-                    self._server_task.cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await self._server_task
+            if self._server_thread and self._server_thread.is_alive():
+                # Wait for thread to finish (uvicorn will exit when should_exit=True)
+                self._server_thread.join(timeout=5.0)
 
         self._server = None
-        self._server_task = None
+        self._server_thread = None
+        self._server_loop = None
         self._state = GatewayState.STOPPED
         self._routes.clear()
         logger.info("[GATEWAY] Stopped")
@@ -248,7 +275,7 @@ class TunnelGateway:
             path = scope.get("path", "/")
             method = scope.get("method", "GET")
 
-            # Special endpoint for gateway health
+            # Special endpoint for gateway health (gateway itself only)
             if path == "/__synth/gateway/health":
                 await send(
                     {
@@ -261,6 +288,67 @@ class TunnelGateway:
                     {
                         "type": "http.response.body",
                         "body": b'{"status":"ok","gateway":"running"}',
+                    }
+                )
+                return
+
+            # Route-specific ready endpoint: /{route_prefix}/__synth/ready
+            # Returns 200 only if target app is reachable
+            if path.endswith("/__synth/ready"):
+                route_prefix = path.rsplit("/__synth/ready", 1)[0]
+                if route_prefix in self._routes:
+                    target_host, target_port = self._routes[route_prefix]
+                    # Probe the target app
+                    try:
+                        async with httpx.AsyncClient(
+                            timeout=httpx.Timeout(5.0, connect=2.0),
+                            trust_env=False,
+                        ) as client:
+                            resp = await client.get(f"http://{target_host}:{target_port}/health")
+                            if resp.status_code < 500:
+                                await send(
+                                    {
+                                        "type": "http.response.start",
+                                        "status": 200,
+                                        "headers": [(b"content-type", b"application/json")],
+                                    }
+                                )
+                                await send(
+                                    {
+                                        "type": "http.response.body",
+                                        "body": f'{{"status":"ok","route":"{route_prefix}","target":"{target_host}:{target_port}"}}'.encode(),
+                                    }
+                                )
+                                return
+                    except Exception as e:
+                        logger.debug("[GATEWAY] Ready probe failed for %s: %s", route_prefix, e)
+                    # Target not reachable
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": 503,
+                            "headers": [(b"content-type", b"application/json")],
+                        }
+                    )
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": f'{{"status":"unavailable","route":"{route_prefix}","error":"target_unreachable"}}'.encode(),
+                        }
+                    )
+                    return
+                # Route not found
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 404,
+                        "headers": [(b"content-type", b"application/json")],
+                    }
+                )
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": b'{"status":"not_found","error":"route_not_found"}',
                     }
                 )
                 return
