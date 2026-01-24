@@ -44,6 +44,7 @@ if TYPE_CHECKING:
         run_in_process_job,
         run_in_process_job_sync,
     )
+    from synth_ai.sdk.ontology import OntologyClient
     from synth_ai.sdk.optimization import (
         GraphOptimizationJob,
         PolicyOptimizationJob,
@@ -120,6 +121,8 @@ __all__ = [
     "GraphTarget",
     # Inference
     "InferenceClient",
+    # Ontology
+    "OntologyClient",
     # Auth helpers
     "get_or_mint_synth_api_key",
     # Tunnels
@@ -145,6 +148,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "VerifierClient": ("synth_ai.sdk.graphs", "VerifierClient"),
     "VerifierOptions": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierOptions"),
     "VerifierScoreResponse": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreResponse"),
+    "OntologyClient": ("synth_ai.sdk.ontology", "OntologyClient"),
     "InProcessJobResult": ("synth_ai.sdk.localapi._impl", "InProcessJobResult"),
     "InProcessTaskApp": ("synth_ai.sdk.localapi", "InProcessTaskApp"),
     "LocalAPIClient": ("synth_ai.sdk.localapi", "LocalAPIClient"),

@@ -19,6 +19,7 @@ directly from this module:
         # Clients
         VerifierClient,
         InferenceClient,
+        OntologyClient,
     )
 
 For data types, import from synth_ai.data:
@@ -82,6 +83,7 @@ if TYPE_CHECKING:
         TaskAppConfig,
         create_task_app,
     )
+    from synth_ai.sdk.ontology import OntologyClient
     from synth_ai.sdk.optimization import GraphOptimizationJob, PolicyOptimizationJob
 
     # Legacy aliases
@@ -110,6 +112,7 @@ __all__ = [
     "GraphCompletionsClient",
     "GraphTarget",
     "InferenceClient",
+    "OntologyClient",
     # Verifier schemas
     "VerifierScoreRequest",
     "VerifierScoreResponse",
@@ -141,6 +144,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "GraphCompletionsClient": ("synth_ai.sdk.graphs", "GraphCompletionsClient"),
     "GraphTarget": ("synth_ai.sdk.graphs", "GraphTarget"),
     "InferenceClient": ("synth_ai.sdk.inference", "InferenceClient"),
+    "OntologyClient": ("synth_ai.sdk.ontology", "OntologyClient"),
     # Verifier schemas
     "VerifierScoreRequest": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreRequest"),
     "VerifierScoreResponse": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreResponse"),
