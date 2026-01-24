@@ -18,6 +18,8 @@ recursive-exclude synth_ai **/tests/*
 
 # Remove large data files from package
 recursive-exclude synth_ai *.json
+# But include the required config file (after exclude, so it overrides)
+include synth_ai/config/supported_models.json
 recursive-exclude synth_ai *.db
 recursive-exclude synth_ai *.duckdb
 recursive-exclude synth_ai *.sqlite

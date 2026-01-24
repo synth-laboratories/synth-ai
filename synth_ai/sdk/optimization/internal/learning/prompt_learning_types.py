@@ -76,6 +76,7 @@ class Candidate:
     tool_call_rate: float = 0.0
     instance_scores: List[float] = field(default_factory=list)
     object: Optional[Dict[str, Any]] = None
+    seed_scores: Optional[List[Dict[str, Any]]] = None  # Per-seed scores: [{seed, score}, ...]
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Candidate:
@@ -88,6 +89,7 @@ class Candidate:
             tool_call_rate=data.get("tool_call_rate", 0.0),
             instance_scores=data.get("instance_scores", []),
             object=data.get("object"),
+            seed_scores=data.get("seed_scores"),
         )
 
 
@@ -224,6 +226,8 @@ class PromptResults:
     optimized_candidates: List[Dict[str, Any]] = field(default_factory=list)
     attempted_candidates: List[Dict[str, Any]] = field(default_factory=list)
     validation_results: List[Dict[str, Any]] = field(default_factory=list)
+    total_rollouts: int = 0  # Total number of rollouts (metric evaluations)
+    total_proposal_calls: int = 0  # Total number of proposal/mutation calls (LLM reflection calls)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> PromptResults:
@@ -236,4 +240,6 @@ class PromptResults:
             optimized_candidates=data.get("optimized_candidates", []),
             attempted_candidates=data.get("attempted_candidates", []),
             validation_results=data.get("validation_results", []),
+            total_rollouts=data.get("total_rollouts", 0),
+            total_proposal_calls=data.get("total_proposal_calls", 0),
         )

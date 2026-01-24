@@ -21,7 +21,9 @@ if TYPE_CHECKING:
 class EvidenceItem(BaseModel):
     """Evidence item recorded during RLM evaluation via add_evidence tool."""
 
-    description: str = Field(..., description="Brief description of what this evidence demonstrates")
+    description: str = Field(
+        ..., description="Brief description of what this evidence demonstrates"
+    )
     evidence_snippet: str = Field(..., description="The actual evidence text from the trace")
     iteration: Optional[int] = Field(None, description="RLM iteration when evidence was recorded")
 
@@ -300,8 +302,8 @@ class GoldExampleInput(BaseModel):
     """
 
     summary: str = Field(..., min_length=1, description="Summary of the trace being evaluated")
-    gold_score: Annotated[float, Field(ge=0.0, le=1.0)] = Field(
-        ..., description="Gold-standard score (0.0-1.0)"
+    gold_reward: Annotated[float, Field(ge=0.0, le=1.0)] = Field(
+        ..., description="Gold-standard reward (0.0-1.0)"
     )
     gold_reasoning: str = Field(
         ..., min_length=1, description="Gold-standard reasoning/explanation"

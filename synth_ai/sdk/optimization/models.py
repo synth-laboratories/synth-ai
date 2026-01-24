@@ -17,6 +17,69 @@ def _normalize_status(status: str) -> str:
     return status.strip().lower().replace(" ", "_")
 
 
+def _extract_system_prompt_from_dict(prompt: Dict[str, Any]) -> Optional[str]:
+    """Extract system prompt from a structured prompt dict."""
+    # Try messages format (most common for GEPA)
+    messages = prompt.get("messages", [])
+    for msg in messages:
+        if isinstance(msg, dict) and msg.get("role") == "system":
+            return msg.get("pattern") or msg.get("content")
+
+    # Try sections format (legacy)
+    sections = prompt.get("sections", [])
+    for sec in sections:
+        if isinstance(sec, dict) and sec.get("role") == "system":
+            return sec.get("content") or sec.get("pattern")
+
+    # Try text_replacements format (transformation)
+    text_replacements = prompt.get("text_replacements", [])
+    for tr in text_replacements:
+        if isinstance(tr, dict) and tr.get("apply_to_role") == "system":
+            return tr.get("new_text")
+
+    return None
+
+
+def _extract_system_prompt(
+    best_prompt: Optional[str | Dict[str, Any]],
+    raw: Dict[str, Any],
+) -> Optional[str]:
+    """Extract system prompt from result data, trying multiple sources."""
+    # Direct string
+    if isinstance(best_prompt, str) and best_prompt:
+        return best_prompt
+
+    # Structured dict
+    if isinstance(best_prompt, dict):
+        result = _extract_system_prompt_from_dict(best_prompt)
+        if result:
+            return result
+
+    # Try raw response fields
+    raw_best = raw.get("best_prompt")
+    if isinstance(raw_best, str) and raw_best:
+        return raw_best
+    if isinstance(raw_best, dict):
+        result = _extract_system_prompt_from_dict(raw_best)
+        if result:
+            return result
+
+    # Try candidates in raw data
+    for key in ("optimized_candidates", "frontier", "candidates", "archive"):
+        candidates = raw.get(key, [])
+        if isinstance(candidates, list):
+            for cand in candidates:
+                if not isinstance(cand, dict):
+                    continue
+                pattern = cand.get("pattern") or cand.get("object", {}).get("pattern")
+                if isinstance(pattern, dict):
+                    result = _extract_system_prompt_from_dict(pattern)
+                    if result:
+                        return result
+
+    return None
+
+
 class PolicyJobStatus(str, Enum):
     """Status of a policy optimization job."""
 
@@ -158,7 +221,7 @@ class PromptLearningResult:
     job_id: str
     status: PolicyJobStatus
     best_score: Optional[float] = None
-    best_prompt: Optional[str] = None
+    best_prompt: Optional[str | Dict[str, Any]] = None
     error: Optional[str] = None
     raw: Dict[str, Any] = field(default_factory=dict)
 
@@ -195,6 +258,17 @@ class PromptLearningResult:
     @property
     def is_terminal(self) -> bool:
         return self.status.is_terminal
+
+    def get_system_prompt(self) -> Optional[str]:
+        """Extract the optimized system prompt text.
+
+        Handles various prompt formats (pattern, template, transformation)
+        and returns the system prompt as a clean string.
+
+        Returns:
+            System prompt text, or None if extraction fails
+        """
+        return _extract_system_prompt(self.best_prompt, self.raw)
 
 
 @dataclass
