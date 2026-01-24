@@ -6,12 +6,10 @@ to expose local APIs to the internet.
 Example:
     from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
 
-    # Managed tunnel (stable subdomain, requires API key)
+    # Default: Lease-based managed tunnel (fast, reusable)
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
-        backend=TunnelBackend.CloudflareManagedTunnel,
         api_key="sk_live_...",
-        env_api_key="env_key_...",
     )
 
     # Quick tunnel (random subdomain, no API key needed)
@@ -103,15 +101,13 @@ class TunneledLocalAPI:
         process: The cloudflared subprocess (for advanced use)
 
     Example:
-        >>> from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
+        >>> from synth_ai.core.tunnels import TunneledLocalAPI
         >>> tunnel = await TunneledLocalAPI.create(
         ...     local_port=8001,
-        ...     backend=TunnelBackend.CloudflareManagedTunnel,
         ...     api_key="sk_live_...",
-        ...     env_api_key="env_key_...",
         ... )
         >>> print(tunnel.url)
-        https://task-1234-5678.usesynth.ai
+        https://mt-xxxx.usesynth.ai/s/abc123
         >>> tunnel.close()
     """
 
@@ -130,7 +126,7 @@ class TunneledLocalAPI:
     async def create(
         cls,
         local_port: int,
-        backend: TunnelBackend = TunnelBackend.CloudflareManagedTunnel,
+        backend: TunnelBackend = TunnelBackend.CloudflareManagedLease,
         *,
         api_key: Optional[str] = None,
         env_api_key: Optional[str] = None,
@@ -149,8 +145,9 @@ class TunneledLocalAPI:
 
         Args:
             local_port: Local port to tunnel (e.g., 8001)
-            backend: Tunnel backend to use. Defaults to CloudflareManagedTunnel.
-                - CloudflareManagedTunnel: Stable subdomain, requires api_key
+            backend: Tunnel backend to use. Defaults to CloudflareManagedLease.
+                - CloudflareManagedLease: Fast, reusable tunnels (recommended)
+                - CloudflareManagedTunnel: Legacy managed tunnel (slower)
                 - CloudflareQuickTunnel: Random subdomain, no api_key needed
             api_key: Synth API key for authentication (required for managed tunnels).
                 If not provided, will be read from SYNTH_API_KEY environment variable.
@@ -485,7 +482,7 @@ class TunneledLocalAPI:
         cls,
         app: Any,
         local_port: int | None = None,
-        backend: TunnelBackend = TunnelBackend.CloudflareManagedTunnel,
+        backend: TunnelBackend = TunnelBackend.CloudflareManagedLease,
         *,
         api_key: Optional[str] = None,
         backend_url: Optional[str] = None,
