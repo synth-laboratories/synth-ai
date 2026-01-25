@@ -292,6 +292,11 @@ def _run_opencode(
     }
     config_path = workspace_path / "opencode.json"
     config_path.write_text(json.dumps(opencode_config, indent=2))
+    
+    # Set OPENCODE_CONFIG_CONTENT for highest priority (inline config)
+    # This ensures OpenCode uses our config regardless of other config sources
+    env["OPENCODE_CONFIG_CONTENT"] = json.dumps(opencode_config)
+    env["OPENCODE_CONFIG"] = str(config_path)
 
     # OpenCode CLI: use 'run' subcommand with message directly
     cmd = [
