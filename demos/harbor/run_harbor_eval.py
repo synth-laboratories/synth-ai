@@ -75,9 +75,6 @@ async def run_rollout(
         Rollout response
     """
     trace_correlation_id = f"harbor-eval-{uuid.uuid4().hex[:12]}"
-    
-    # Append correlation ID to inference URL so traces are captured
-    inference_url_with_cid = f"{inference_url}?cid={trace_correlation_id}"
 
     request_body = {
         "deployment_id": deployment_id,
@@ -92,7 +89,7 @@ async def run_rollout(
                 }
             ]
         },
-        "inference_url": inference_url_with_cid,
+        "inference_url": inference_url,
         "limits": {
             "timeout_s": timeout_s,
         },
@@ -288,7 +285,11 @@ async def main():
     # Generate seeds
     seeds = list(range(args.seed_start, args.seed_start + args.seeds))
 
-    # Build inference URL (uses backend interceptor)
+    # Build inference URL
+    # NOTE: This uses the simple inference proxy, NOT the trace-capturing interceptor.
+    # For trace capture, Harbor would need to use the interceptor URL pattern:
+    #   {base}/api/interceptor/v1/{trial_id}/{correlation_id}/chat/completions
+    # which requires trial registration with the prompt registry.
     inference_url = f"{args.backend_url}/api/inference/v1/chat/completions"
 
     print("=" * 60)
