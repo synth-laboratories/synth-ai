@@ -266,6 +266,7 @@ class JobStreamer:
         http_cm = self._http or AsyncHttpClient(
             self.base_url, self.api_key, timeout=self.http_timeout
         )
+        start_time = time.time()
         async with http_cm as http:
             # Use SSE streaming exclusively for events (prompt learning jobs)
             # SSE provides real-time event delivery from Redis, avoiding empty polling responses
@@ -344,6 +345,35 @@ class JobStreamer:
                     status_task.cancel()
                     with contextlib.suppress(Exception):
                         await asyncio.gather(sse_task, status_task, return_exceptions=True)
+                # If SSE ended before terminal status, fall back to polling
+                if not self._terminal_seen:
+                    print(
+                        "[SDK] SSE stream ended before terminal status; continuing with status polling.",
+                        flush=True,
+                    )
+                while not self._terminal_seen:
+                    if (
+                        self.timeout_seconds is not None
+                        and time.time() - start_time > self.timeout_seconds
+                    ):
+                        print(
+                            "[SDK] Stream timeout reached while waiting for terminal status.",
+                            flush=True,
+                        )
+                        break
+                    status = await self._refresh_status(http)
+                    if status:
+                        print(
+                            f"[SDK] Status polling: {status} (elapsed={time.time() - start_time:.1f}s)",
+                            flush=True,
+                        )
+                    metric_messages = await self._poll_metrics(http)
+                    timeline_messages = await self._poll_timeline(http)
+                    self._dispatch(metric_messages + timeline_messages)
+                    if status and status.lower() in TERMINAL_STATUSES:
+                        self._terminal_seen = True
+                        break
+                    await self._sleep(self.interval_seconds)
             else:
                 # No SSE endpoint available - use polling for events
                 while True:
@@ -382,13 +412,28 @@ class JobStreamer:
         return {"job_id": self.job_id, "status": final_status}
 
     async def _stream_events_sse(self, sse_url: str) -> AsyncIterator[StreamMessage]:
-        """Stream events via Server-Sent Events (SSE)."""
+        """Stream events via Server-Sent Events (SSE).
+
+        The backend SSE stream will:
+        1. Send events as they occur
+        2. Detect terminal events (job.completed, job.failed) and exit cleanly
+        3. Periodically check job status and exit if terminal
+        4. Send sse.stream.ended event and [DONE] signal when finished
+        """
         url = f"{self.base_url.rstrip('/')}/{sse_url.lstrip('/')}"
+
+        # Get last sequence number for reconnection support
+        last_seq = self._last_seq_by_stream.get(sse_url, 0)
+
         headers = {
             "Accept": "text/event-stream",
             "Cache-Control": "no-cache",
             "authorization": f"Bearer {self.api_key}",
         }
+
+        # Include Last-Event-ID header for reconnection
+        if last_seq > 0:
+            headers["Last-Event-ID"] = str(last_seq)
 
         # Create a separate session for SSE (long-lived connection)
         timeout = aiohttp.ClientTimeout(total=None)  # No timeout for SSE
@@ -445,7 +490,12 @@ class JobStreamer:
                         elif event_line.startswith("data:"):
                             data_str = event_line[5:].strip()
                             if data_str == "[DONE]":
-                                print("[DEBUG] SSE stream received [DONE]", file=sys.stderr)
+                                print(
+                                    "[DEBUG] SSE stream received [DONE] - stream completed gracefully",
+                                    file=sys.stderr,
+                                )
+                                # Stream ended gracefully - if we already saw terminal event,
+                                # the job is complete. Otherwise, we'll fall back to polling.
                                 return
                             try:
                                 event_data = json.loads(data_str)
@@ -466,6 +516,18 @@ class JobStreamer:
                         )
 
                     if event_data and "type" in event_data:
+                        event_type = str(event_data.get("type", "")).lower()
+
+                        # Handle stream lifecycle events from backend
+                        if event_type == "sse.stream.ended":
+                            # Backend signaled stream end - this is a graceful termination
+                            print(
+                                "[DEBUG] SSE stream received sse.stream.ended event",
+                                file=sys.stderr,
+                            )
+                            # Don't yield this event, just return
+                            return
+
                         # Convert SSE event to StreamMessage
                         event_job_id = event_data.get("job_id") or self.job_id
                         msg = StreamMessage.from_event(event_job_id, event_data)
@@ -484,13 +546,34 @@ class JobStreamer:
                                 pass
 
                         # Check for terminal events
-                        event_type = str(event_data.get("type", "")).lower()
                         if event_type in TERMINAL_EVENT_SUCCESS:
                             self._terminal_seen = True
                             self._terminal_event_status = "succeeded"
+                            print(
+                                f"[DEBUG] Terminal success event detected: {event_type}",
+                                file=sys.stderr,
+                            )
                         elif event_type in TERMINAL_EVENT_FAILURE:
                             self._terminal_seen = True
                             self._terminal_event_status = "failed"
+                            print(
+                                f"[DEBUG] Terminal failure event detected: {event_type}",
+                                file=sys.stderr,
+                            )
+
+                        # Also check event data for status (synthetic events from status check)
+                        event_status = str(event_data.get("data", {}).get("status", "")).lower()
+                        if event_status in TERMINAL_STATUSES and not self._terminal_seen:
+                            self._terminal_seen = True
+                            self._terminal_event_status = (
+                                "succeeded"
+                                if event_status in ("succeeded", "completed")
+                                else "failed"
+                            )
+                            print(
+                                f"[DEBUG] Terminal status detected in event data: {event_status}",
+                                file=sys.stderr,
+                            )
 
                         yield msg
 

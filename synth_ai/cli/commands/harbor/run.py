@@ -89,8 +89,11 @@ def run(
 
             try:
                 # Build rollout request in TaskApp format
+                run_id = f"harbor-cli-{deployment_id[:8]}"
+                trace_id = f"{run_id}-s{s}"
                 payload = {
-                    "trace_correlation_id": f"harbor-cli-{deployment_id[:8]}-s{s}",
+                    "run_id": run_id,
+                    "trace_correlation_id": trace_id,
                     "env": {
                         "seed": s,
                         "env_name": "harbor",

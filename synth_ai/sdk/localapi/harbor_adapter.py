@@ -122,8 +122,8 @@ class HarborExecutionBackend:
     def _transform_request(self, request: RolloutRequest) -> dict[str, Any]:
         """Transform RolloutRequest to Harbor API format.
 
-        Harbor's /rollout endpoint expects TaskApp format which is
-        compatible with RolloutRequest, so minimal transformation needed.
+        Harbor's /rollout endpoint expects TaskApp format which includes
+        a run_id field for GEPA/MIPRO compatibility.
 
         Args:
             request: RolloutRequest from the task app
@@ -131,9 +131,13 @@ class HarborExecutionBackend:
         Returns:
             Dictionary payload for Harbor API
         """
-        # Harbor expects the full RolloutRequest structure
-        # The endpoint handles transformation internally
-        return request.model_dump(mode="json", exclude_none=True)
+        payload = request.model_dump(mode="json", exclude_none=True)
+        # Harbor endpoint requires run_id for GEPA/MIPRO compatibility
+        # Derive from trace_correlation_id if not present
+        if "run_id" not in payload:
+            # Use deployment ID as run_id prefix for grouping
+            payload["run_id"] = f"harbor-{self.deployment_ref.deployment_id[:8]}"
+        return payload
 
     def _transform_response(
         self, harbor_response: dict[str, Any], original_request: RolloutRequest
