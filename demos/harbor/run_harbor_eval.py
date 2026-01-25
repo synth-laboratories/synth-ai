@@ -62,16 +62,19 @@ def run_harbor_eval(
     if not api_key:
         raise ValueError("SYNTH_API_KEY not set")
     
-    # Build the task app URL pointing to Harbor's task app format endpoint
-    # This is the GEPA-compatible endpoint that accepts policy.config.inference_url
-    task_app_url = f"{backend_url}/api/harbor/deployments/{deployment_id}/rollout"
+    # Build the task app URL pointing to Harbor's deployment base
+    # The eval system appends "/rollout" automatically, so we provide the deployment base
+    # Full endpoint: /api/harbor/deployments/{id}/rollout
+    task_app_url = f"{backend_url}/api/harbor/deployments/{deployment_id}"
     
     # Create eval job config
+    # NOTE: Harbor's task app endpoint uses the same Synth API key for auth,
+    # NOT an environment key. Pass the api_key explicitly as task_app_api_key.
     config = EvalJobConfig(
         task_app_url=task_app_url,
         backend_url=backend_url,
         api_key=api_key,
-        task_app_api_key=api_key,  # Harbor uses same API key
+        task_app_api_key=api_key,  # Harbor requires the actual Synth API key
         app_id=f"harbor-{deployment_id[:8]}",
         env_name="enginebench",
         seeds=seeds,
@@ -79,8 +82,8 @@ def run_harbor_eval(
             "model": model,
             "provider": provider,
         },
-        max_concurrent=max_concurrent,
-        timeout_s=timeout_s,
+        concurrency=max_concurrent,
+        timeout=float(timeout_s),
     )
     
     # Create and submit job
