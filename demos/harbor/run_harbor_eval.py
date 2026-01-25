@@ -75,6 +75,9 @@ async def run_rollout(
         Rollout response
     """
     trace_correlation_id = f"harbor-eval-{uuid.uuid4().hex[:12]}"
+    
+    # Append correlation ID to inference URL so traces are captured
+    inference_url_with_cid = f"{inference_url}?cid={trace_correlation_id}"
 
     request_body = {
         "deployment_id": deployment_id,
@@ -89,7 +92,7 @@ async def run_rollout(
                 }
             ]
         },
-        "inference_url": inference_url,
+        "inference_url": inference_url_with_cid,
         "limits": {
             "timeout_s": timeout_s,
         },
