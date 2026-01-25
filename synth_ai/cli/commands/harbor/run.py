@@ -102,6 +102,8 @@ def run(
                     "policy": {
                         "config": {
                             "model": model,
+                            "inference_url": "https://api.openai.com/v1",
+                            "provider": "openai",
                         },
                     },
                 }
