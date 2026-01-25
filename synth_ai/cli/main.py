@@ -2,6 +2,7 @@
 
 import click
 
+from synth_ai.cli.commands.harbor import harbor
 from synth_ai.cli.setup import setup
 
 
@@ -24,3 +25,4 @@ def cli(ctx):
 
 
 cli.add_command(setup)
+cli.add_command(harbor)

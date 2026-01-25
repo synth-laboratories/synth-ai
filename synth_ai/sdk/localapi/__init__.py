@@ -23,6 +23,15 @@ if TYPE_CHECKING:
     )
     from synth_ai.sdk.optimization.internal.local_api import LocalAPIHealth, check_local_api_health
 
+    from .harbor_adapter import (
+        HarborExecutionBackend,
+        HarborExecutionError,
+        create_harbor_rollout_executor,
+    )
+    from .harbor_provider import (
+        HarborInstanceProvider,
+        create_harbor_instance_provider,
+    )
     from .template import build_template_config, create_template_app
 
     # Type aliases for Pyright
@@ -46,6 +55,13 @@ _TRAIN_IMPORTS = {
 _LOCAL_IMPORTS = {
     "RolloutResponseBuilder",
 }
+_HARBOR_IMPORTS = {
+    "HarborExecutionBackend",
+    "HarborExecutionError",
+    "create_harbor_rollout_executor",
+    "HarborInstanceProvider",
+    "create_harbor_instance_provider",
+}
 
 
 def __getattr__(name: str) -> Any:
@@ -61,6 +77,20 @@ def __getattr__(name: str) -> Any:
         from . import rollouts as _rollouts
 
         return getattr(_rollouts, name)
+    if name in _HARBOR_IMPORTS:
+        # Harbor adapter and provider imports
+        if name in (
+            "HarborExecutionBackend",
+            "HarborExecutionError",
+            "create_harbor_rollout_executor",
+        ):
+            from . import harbor_adapter as _harbor_adapter
+
+            return getattr(_harbor_adapter, name)
+        if name in ("HarborInstanceProvider", "create_harbor_instance_provider"):
+            from . import harbor_provider as _harbor_provider
+
+            return getattr(_harbor_provider, name)
     if name == "create_local_api":
         from synth_ai.sdk.localapi._impl import create_task_app
 
@@ -81,6 +111,7 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
+    # Core LocalAPI
     "LocalAPIClient",
     "LocalAPIConfig",
     "LocalAPIEndpoints",
@@ -96,4 +127,10 @@ __all__ = [
     "ensure_localapi_auth",
     "build_template_config",
     "create_template_app",
+    # Harbor integration
+    "HarborExecutionBackend",
+    "HarborExecutionError",
+    "create_harbor_rollout_executor",
+    "HarborInstanceProvider",
+    "create_harbor_instance_provider",
 ]
