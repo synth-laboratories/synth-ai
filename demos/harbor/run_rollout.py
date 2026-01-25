@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import shutil
+from urllib.parse import parse_qs, urlparse
 
 # EngineBench task definitions (Pokemon TCG cards to implement)
 TASKS = [
@@ -48,6 +49,44 @@ TASKS = [
     {"id": "moltres", "card": "Moltres", "set": "Fossil"},
     {"id": "snorlax", "card": "Snorlax", "set": "Jungle"},
 ]
+
+
+# =============================================================================
+# INTERCEPTOR URL HELPERS
+# =============================================================================
+
+
+def normalize_interceptor_base(inference_url: str) -> tuple[str, str | None]:
+    """Normalize interceptor base URL and extract correlation ID if present.
+    
+    Returns a base URL compatible with OpenAI SDK conventions:
+    - SDK expects baseURL like https://api.openai.com/v1
+    - SDK calls {baseURL}/chat/completions and {baseURL}/models
+    """
+    parsed = urlparse(inference_url)
+    base_path = parsed.path or ""
+    
+    # Strip endpoint suffix but KEEP /v1 prefix (OpenAI SDK convention)
+    for suffix in ["/chat/completions", "/responses"]:
+        if base_path.endswith(suffix):
+            base_path = base_path[: -len(suffix)]
+            break
+    
+    base = f"{parsed.scheme}://{parsed.netloc}{base_path}".rstrip("/")
+    cid_values = parse_qs(parsed.query).get("cid", [])
+    correlation_id = cid_values[0] if cid_values else None
+    return base, correlation_id
+
+
+def resolve_interceptor_api_key(
+    *, inference_url: str | None, interceptor_key: str | None, openai_key: str | None
+) -> str:
+    """Choose the API key for agent calls."""
+    if inference_url and interceptor_key:
+        return interceptor_key
+    if openai_key:
+        return openai_key
+    return interceptor_key or ""
 
 
 @dataclass
@@ -159,6 +198,7 @@ def run_agent(
     inference_url: str,
     timeout_s: int,
     agent_type: str = "opencode",
+    model: str = "gpt-4o-mini",
 ) -> Dict[str, Any]:
     """Run the coding agent on the task.
 
@@ -177,12 +217,13 @@ def run_agent(
     # Set up environment for agent
     env = os.environ.copy()
 
+    if not inference_url:
+        return {"success": False, "error": "inference_url is required for agent execution"}
+
     # CRITICAL: Route all LLM calls through inference_url
-    # Parse the inference URL to extract base and API key if present
-    if "/v1/" in inference_url:
-        base_url = inference_url.rsplit("/v1/", 1)[0] + "/v1"
-    else:
-        base_url = inference_url
+    base_url, correlation_id = normalize_interceptor_base(inference_url)
+    if correlation_id:
+        base_url = f"{base_url}/{correlation_id}"
 
     # Set OpenAI-compatible env vars to use interceptor
     env["OPENAI_BASE_URL"] = base_url
@@ -191,12 +232,25 @@ def run_agent(
     # For OpenCode
     env["OPENCODE_API_BASE"] = base_url
 
+    # Resolve API key (prefer Synth key when routing via interceptor)
+    interceptor_key = env.get("SYNTH_API_KEY") or env.get("INTERCEPTOR_API_KEY")
+    api_key = resolve_interceptor_api_key(
+        inference_url=inference_url,
+        interceptor_key=interceptor_key,
+        openai_key=env.get("OPENAI_API_KEY"),
+    )
+    if not api_key:
+        return {"success": False, "error": "No API key available for interceptor routing"}
+    env["OPENAI_API_KEY"] = api_key
+
     # Run the agent
     try:
         if agent_type == "opencode":
-            result = _run_opencode(prompt, workspace_path, env, timeout_s)
+            result = _run_opencode(prompt, workspace_path, env, timeout_s, base_url, api_key, model)
         elif agent_type == "codex":
-            result = _run_codex(prompt, workspace_path, env, timeout_s)
+            result = _run_codex(prompt, workspace_path, env, timeout_s, base_url, api_key, model)
+        elif agent_type == "claude_code":
+            result = _run_claude_code(prompt, workspace_path, env, timeout_s, base_url, api_key, model)
         else:
             result = {"success": False, "error": f"Unknown agent type: {agent_type}"}
     except subprocess.TimeoutExpired:
@@ -208,16 +262,47 @@ def run_agent(
     return result
 
 
-def _run_opencode(prompt: str, workspace_path: Path, env: Dict, timeout_s: int) -> Dict:
+def _run_opencode(
+    prompt: str,
+    workspace_path: Path,
+    env: Dict,
+    timeout_s: int,
+    base_url: str,
+    api_key: str,
+    model: str,
+) -> Dict:
     """Run OpenCode agent."""
-    # Write prompt to file
-    prompt_file = workspace_path / ".opencode_prompt.txt"
-    prompt_file.write_text(prompt)
+    # Write opencode.json to enforce interceptor routing
+    model_id = model.split("/", 1)[1] if "/" in model else model
+    model_with_provider = f"openai/{model_id}"
+    opencode_config = {
+        "$schema": "https://opencode.ai/config.json",
+        "model": model_with_provider,
+        "provider": {
+            "openai": {
+                "name": "OpenAI",
+                "npm": "@ai-sdk/openai",
+                "options": {
+                    "apiKey": api_key,
+                    "baseURL": base_url or "https://api.openai.com/v1",
+                },
+            }
+        },
+        "permission": {"*": "allow"},
+    }
+    config_path = workspace_path / "opencode.json"
+    config_path.write_text(json.dumps(opencode_config, indent=2))
+    
+    # Set OPENCODE_CONFIG_CONTENT for highest priority (inline config)
+    # This ensures OpenCode uses our config regardless of other config sources
+    env["OPENCODE_CONFIG_CONTENT"] = json.dumps(opencode_config)
+    env["OPENCODE_CONFIG"] = str(config_path)
 
+    # OpenCode CLI: use 'run' subcommand with message directly
     cmd = [
         "opencode",
-        "--prompt", str(prompt_file),
-        "--non-interactive",
+        "run",
+        prompt,
     ]
 
     proc = subprocess.run(
@@ -237,12 +322,103 @@ def _run_opencode(prompt: str, workspace_path: Path, env: Dict, timeout_s: int) 
     }
 
 
-def _run_codex(prompt: str, workspace_path: Path, env: Dict, timeout_s: int) -> Dict:
+def _run_codex(
+    prompt: str,
+    workspace_path: Path,
+    env: Dict,
+    timeout_s: int,
+    base_url: str,
+    api_key: str,
+    model: str,
+) -> Dict:
     """Run Codex agent."""
+    config_dir = Path.home() / ".codex"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_file = config_dir / "config.toml"
+    # Use wire_api = "chat" for chat completions API (instead of "responses")
+    # This uses the standard /v1/chat/completions endpoint
+    config_content = f"""# Auto-generated for Harbor runs
+
+model = "{model}"
+model_provider = "openai"
+
+[model_providers.openai]
+name = "OpenAI"
+base_url = "{base_url or "https://api.openai.com/v1"}"
+wire_api = "chat"
+env_key = "OPENAI_API_KEY"
+requires_openai_auth = false
+request_max_retries = 4
+stream_max_retries = 5
+stream_idle_timeout_ms = 300000
+
+[mcp]
+enabled = false
+"""
+    config_file.write_text(config_content)
+
     cmd = [
         "codex",
-        "--approval-mode", "full-auto",
-        "-m", prompt,
+        "exec",
+        "--yolo",
+        "--skip-git-repo-check",
+        "-m",
+        model,
+        prompt,
+    ]
+
+    env["OPENAI_API_KEY"] = api_key
+    env["OPENAI_MODEL"] = model
+    if base_url:
+        env["OPENAI_BASE_URL"] = base_url
+
+    proc = subprocess.run(
+        cmd,
+        cwd=workspace_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=timeout_s,
+    )
+
+    return {
+        "success": proc.returncode == 0,
+        "stdout": proc.stdout,
+        "stderr": proc.stderr,
+        "exit_code": proc.returncode,
+    }
+
+
+def _run_claude_code(
+    prompt: str,
+    workspace_path: Path,
+    env: Dict,
+    timeout_s: int,
+    base_url: str,
+    api_key: str,
+    model: str,
+) -> Dict:
+    """Run Claude Code agent."""
+    claude_bin = os.environ.get("CLAUDE_BIN") or shutil.which("claude")
+    if not claude_bin:
+        return {
+            "success": False,
+            "stderr": "claude binary not found. Install Claude Code or set CLAUDE_BIN.",
+            "stdout": "",
+        }
+
+    # Claude Code uses ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN
+    if base_url:
+        env["ANTHROPIC_BASE_URL"] = base_url
+        env["ANTHROPIC_AUTH_TOKEN"] = api_key
+
+    cmd = [
+        claude_bin,
+        "--print",
+        "--model",
+        model,
+        "--dangerously-skip-permissions",
+        prompt,
     ]
 
     proc = subprocess.run(
@@ -357,8 +533,9 @@ def run_rollout(input_data: Dict[str, Any]) -> Dict[str, Any]:
             # Build prompt
             prompt = build_prompt(task, rollout_input.prompt_template)
 
-            # Get agent type from params
-            agent_type = rollout_input.params.get("agent", "opencode")
+            # Get agent type/model from params or prompt template
+            agent_type = rollout_input.params.get("agent") or rollout_input.params.get("agent_type") or "opencode"
+            model = rollout_input.params.get("model") or rollout_input.prompt_template.get("model") or "gpt-4o-mini"
 
             # Run agent
             agent_result = run_agent(
@@ -367,27 +544,43 @@ def run_rollout(input_data: Dict[str, Any]) -> Dict[str, Any]:
                 inference_url=rollout_input.inference_url,
                 timeout_s=rollout_input.limits.get("timeout_s", 300),
                 agent_type=agent_type,
+                model=model,
             )
 
             # Evaluate result
             eval_metrics = evaluate_result(repo_path)
 
-            # Build result
+            # Build result with debugging info
+            details = {
+                "task_id": task["id"],
+                "card": task["card"],
+                "compilation": eval_metrics.get("compilation", False),
+                "tests_passed": eval_metrics.get("tests_passed", 0),
+                "tests_total": eval_metrics.get("tests_total", 0),
+                "agent_duration_s": agent_result.get("duration_s", 0),
+            }
+
+            # Include agent output for debugging (truncated)
+            if agent_result.get("stdout"):
+                details["agent_stdout"] = agent_result["stdout"][:8000]
+            if agent_result.get("stderr"):
+                details["agent_stderr"] = agent_result["stderr"][:8000]
+            if agent_result.get("exit_code") is not None:
+                details["agent_exit_code"] = agent_result["exit_code"]
+
+            # Build error message if agent failed
+            error_msg = agent_result.get("error")
+            if not agent_result.get("success") and not error_msg:
+                error_msg = f"Agent exited with code {agent_result.get('exit_code', 'unknown')}"
+
             result = RolloutResult(
                 trace_correlation_id=rollout_input.trace_correlation_id,
                 metrics={
                     "reward_mean": eval_metrics["reward_mean"],
-                    "details": {
-                        "task_id": task["id"],
-                        "card": task["card"],
-                        "compilation": eval_metrics.get("compilation", False),
-                        "tests_passed": eval_metrics.get("tests_passed", 0),
-                        "tests_total": eval_metrics.get("tests_total", 0),
-                        "agent_duration_s": agent_result.get("duration_s", 0),
-                    },
+                    "details": details,
                 },
                 success=eval_metrics["reward_mean"] > 0,
-                error=agent_result.get("error"),
+                error=error_msg if not agent_result.get("success") else None,
             )
 
         except Exception as e:
