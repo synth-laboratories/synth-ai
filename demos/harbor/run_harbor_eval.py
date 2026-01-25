@@ -131,6 +131,7 @@ async def run_eval(
     timeout_s: int = 600,
     concurrency: int = 1,
     agent_type: str = "opencode",
+    model: str = "gpt-4o-mini",
 ) -> Dict[str, Any]:
     """Run evaluation across multiple seeds.
 
@@ -142,6 +143,7 @@ async def run_eval(
         timeout_s: Timeout per rollout
         concurrency: Max concurrent rollouts
         agent_type: Agent type for params
+        model: Model name for LLM calls
 
     Returns:
         Evaluation results
@@ -158,7 +160,7 @@ async def run_eval(
                 seed=seed,
                 inference_url=inference_url,
                 timeout_s=timeout_s,
-                params={"agent": agent_type},
+                params={"agent": agent_type, "model": model},
             )
             reward = result.get("metrics", {}).get("reward_mean", 0.0)
             success = result.get("success", False)
@@ -236,8 +238,8 @@ async def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4.1-mini",
-        help="Model to use via interceptor (default: gpt-4.1-mini)",
+        default="gpt-4o-mini",
+        help="Model to use via interceptor (default: gpt-4o-mini)",
     )
     parser.add_argument(
         "--agent",
@@ -310,6 +312,7 @@ async def main():
             timeout_s=args.timeout,
             concurrency=args.concurrency,
             agent_type=args.agent,
+            model=args.model,
         )
 
         total_time = time.time() - start_time

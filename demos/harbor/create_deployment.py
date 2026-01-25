@@ -92,6 +92,8 @@ async def create_deployment(
     print(f"  Build context size: {len(context_tar)} bytes (base64)")
 
     # Create deployment request
+    # NOTE: Don't set SYNTH_API_KEY here - the executor injects it at runtime
+    # This ensures the API key matches the requesting org and rotates automatically
     request_body = {
         "name": name,
         "description": description or f"EngineBench deployment with {agent_type} agent",
@@ -104,7 +106,7 @@ async def create_deployment(
             "memory_mb": 8192,
             "disk_mb": 20480,
         },
-        "env_vars": {},  # No LLM keys - inference_url is injected
+        "env_vars": {},  # No LLM keys - executor injects SYNTH_API_KEY at runtime
         "metadata": {
             "agent_type": agent_type,
             "benchmark": "engine-bench",
@@ -201,7 +203,7 @@ async def main():
         "--agent",
         type=str,
         default="opencode",
-        choices=["opencode", "codex"],
+        choices=["opencode", "codex", "claude_code"],
         help="Agent type (default: opencode)",
     )
     parser.add_argument(

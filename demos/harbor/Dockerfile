@@ -30,8 +30,11 @@ ENV PATH="/root/.cargo/bin:$PATH"
 RUN npm install -g @openai/codex
 
 # Install OpenCode CLI
-RUN curl -fsSL https://opencode.ai/install | bash || true
+RUN curl -fsSL https://opencode.ai/install | bash
 ENV PATH="/root/.opencode/bin:$PATH"
+
+# Install Claude Code CLI (Anthropic)
+RUN npm install -g @anthropic-ai/claude-code
 
 # Install uv for fast Python package management
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -52,7 +55,7 @@ RUN mkdir -p /root/.codex /root/.opencode /app /tmp
 
 WORKDIR /app
 
-# Copy runner script
+# Copy runner script - version 2 (v1 URL fix)
 COPY run_rollout.py /app/run_rollout.py
 RUN chmod +x /app/run_rollout.py
 
@@ -63,8 +66,9 @@ RUN echo '#!/bin/bash\npython3 /app/run_rollout.py "$@"' > /usr/local/bin/run_ro
 # Verify setup
 RUN python3 -c "import json, subprocess; print('Python deps OK')"
 RUN rustc --version && cargo --version
-RUN codex --version || echo "Codex installed"
-RUN opencode --version || echo "OpenCode installed"
+RUN codex --version
+RUN opencode --version
+RUN claude --version
 RUN node --version
 
 # Default command shows help
