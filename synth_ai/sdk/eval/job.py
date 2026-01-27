@@ -29,6 +29,7 @@ See Also:
     - `synth_ai.sdk.optimization`: Similar pattern for optimization jobs
 """
 
+import contextlib
 import os
 import time
 from dataclasses import dataclass, field
@@ -727,7 +728,20 @@ class EvalJob:
         )
 
         # Run streaming
-        final_status = asyncio.run(streamer.stream_until_terminal())
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # Already in an async context - create a new thread to run the coroutine
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, streamer.stream_until_terminal())
+                final_status = future.result()
+        else:
+            final_status = asyncio.run(streamer.stream_until_terminal())
 
         # Callback for custom handling
         if on_event and isinstance(final_status, dict):
@@ -744,6 +758,184 @@ class EvalJob:
                 pass
 
         return EvalResult.from_response(self._job_id, final_status)
+
+    async def stream_sse_until_complete_async(
+        self,
+        *,
+        timeout: float = 1200.0,
+        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+        progress: bool = True,
+    ) -> EvalResult:
+        """Stream job events via SSE until completion (async version).
+
+        This provides real-time event streaming instead of polling,
+        reducing latency and providing instant updates.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 1200 = 20 minutes)
+            on_event: Optional callback called on each event
+            progress: If True, print progress updates
+
+        Returns:
+            EvalResult with typed status, mean_reward, seed_results, etc.
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+        """
+        import json
+
+        import aiohttp
+
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        job_id = self._job_id
+        base_url = self._base_url()
+        sse_url = f"{base_url}/eval/jobs/{job_id}/events/stream"
+
+        headers = {
+            "Accept": "text/event-stream",
+            "Authorization": f"Bearer {self.config.api_key}",
+        }
+
+        start_time = time.time()
+        completed = 0
+        total = len(self.config.seeds)
+        last_status = "pending"
+        terminal_events = {
+            "eval.policy.job.completed",
+            "eval.policy.job.failed",
+            "job.completed",
+            "job.failed",
+        }
+
+        if progress:
+            print(f"[DEBUG] SSE stream connecting to {sse_url}")
+
+        try:
+            async with (
+                aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session,
+                session.get(sse_url, headers=headers) as resp,
+            ):
+                if resp.status != 200:
+                    if progress:
+                        print(f"[DEBUG] SSE stream failed: status={resp.status}")
+                    # Fall back to polling
+                    return self.poll_until_complete(
+                        timeout=timeout, progress=progress, on_event=on_event
+                    )
+
+                if progress:
+                    print(f"[DEBUG] SSE stream connected, status={resp.status}")
+
+                async for raw_line in resp.content:
+                    elapsed = time.time() - start_time
+                    if elapsed >= timeout:
+                        if progress:
+                            print(f"[stream] timeout after {timeout:.0f}s")
+                        break
+
+                    line = raw_line.decode(errors="ignore").strip()
+                    if not line or line.startswith(":"):
+                        continue
+                    if not line.startswith("data:"):
+                        continue
+
+                    data_str = line[5:].strip()
+                    try:
+                        event = json.loads(data_str)
+                    except Exception:
+                        continue
+
+                    # Call event handler
+                    if on_event:
+                        with contextlib.suppress(Exception):
+                            on_event(event)
+
+                    # Extract progress info
+                    event_type = event.get("type", "")
+                    event_data = event.get("data", {})
+
+                    # Track completion progress
+                    if "completed" in event_data:
+                        completed = event_data.get("completed", completed)
+                    if "total" in event_data:
+                        total = event_data.get("total", total)
+                    if event_type in ("eval.policy.seed.completed", "seed.completed"):
+                        completed += 1
+
+                    # Progress output
+                    if progress:
+                        mins, secs = divmod(int(elapsed), 60)
+                        msg = event.get("message", event_type)
+                        print(f"[{mins:02d}:{secs:02d}] {event_type}: {msg} | {completed}/{total}")
+
+                    # Check for terminal event
+                    if event_type in terminal_events:
+                        last_status = "completed" if "completed" in event_type else "failed"
+                        break
+
+        except Exception as exc:
+            if progress:
+                print(f"[stream] SSE error: {exc}, falling back to polling")
+            # Fall back to polling on SSE failure
+            return self.poll_until_complete(timeout=timeout, progress=progress, on_event=on_event)
+
+        # Fetch full results
+        try:
+            final_results = self.get_results()
+            return EvalResult.from_response(job_id, final_results)
+        except Exception:
+            return EvalResult.from_response(job_id, {"status": last_status, "job_id": job_id})
+
+    def stream_sse_until_complete(
+        self,
+        *,
+        timeout: float = 1200.0,
+        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+        progress: bool = True,
+    ) -> EvalResult:
+        """Stream job events via SSE until completion (sync wrapper).
+
+        This provides real-time event streaming instead of polling.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 1200 = 20 minutes)
+            on_event: Optional callback called on each event
+            progress: If True, print progress updates
+
+        Returns:
+            EvalResult with typed status, mean_reward, seed_results, etc.
+        """
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # Already in an async context - create a new thread to run the coroutine
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.stream_sse_until_complete_async(
+                        timeout=timeout,
+                        on_event=on_event,
+                        progress=progress,
+                    ),
+                )
+                return future.result()
+        else:
+            return asyncio.run(
+                self.stream_sse_until_complete_async(
+                    timeout=timeout,
+                    on_event=on_event,
+                    progress=progress,
+                )
+            )
 
     def get_results(self) -> Dict[str, Any]:
         """Get detailed job results.
