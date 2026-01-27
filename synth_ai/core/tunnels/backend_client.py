@@ -2,12 +2,18 @@
 
 This module provides a typed client for communicating with the backend's
 lease-based tunnel API.
+
+.. deprecated::
+    This module is deprecated. Use `TunneledLocalAPI` instead, which uses
+    the Rust core internally for better performance and reliability.
+    Direct lease management will be removed in a future version.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import warnings
 from datetime import datetime
 from typing import Any, Optional
 
@@ -47,7 +53,16 @@ class LeaseClient:
             api_key: Synth API key for authentication
             backend_url: Backend URL (defaults to production)
             timeout: Request timeout in seconds
+
+        .. deprecated::
+            Use TunneledLocalAPI instead for tunnel management.
         """
+        warnings.warn(
+            "LeaseClient is deprecated. Use TunneledLocalAPI instead, which uses "
+            "the Rust core internally for better performance and reliability.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.api_key = api_key
         self.backend_url = (
             backend_url or os.getenv("SYNTH_BACKEND_URL", DEFAULT_BACKEND_URL)

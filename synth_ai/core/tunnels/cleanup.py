@@ -19,14 +19,20 @@ from __future__ import annotations
 
 import atexit
 import subprocess
-from typing import List
+from typing import List, Protocol
+
+class _Terminable(Protocol):
+    def terminate(self) -> None: ...
+    def kill(self) -> None: ...
+    def poll(self) -> int | None: ...
+
 
 # Global state - tracked processes for cleanup
-_tracked: List[subprocess.Popen] = []
+_tracked: List[_Terminable] = []
 _cleanup_registered = False
 
 
-def tracked_processes() -> List[subprocess.Popen]:
+def tracked_processes() -> List[_Terminable]:
     """Return list of currently tracked processes (read-only copy).
 
     Returns:
@@ -35,7 +41,7 @@ def tracked_processes() -> List[subprocess.Popen]:
     return list(_tracked)
 
 
-def track_process(proc: subprocess.Popen) -> subprocess.Popen:
+def track_process(proc: _Terminable) -> _Terminable:
     """Track a cloudflared process for automatic cleanup on exit.
 
     Args:
@@ -74,10 +80,13 @@ def cleanup_all() -> None:
             if proc.poll() is None:  # Still running
                 proc.terminate()
                 try:
-                    proc.wait(timeout=5)
-                except subprocess.TimeoutExpired:
+                    if hasattr(proc, "wait"):
+                        try:
+                            proc.wait(timeout=5)  # type: ignore[call-arg]
+                        except TypeError:
+                            proc.wait(5)  # type: ignore[call-arg]
+                except Exception:
                     proc.kill()
-                    proc.wait()
         except Exception:
             pass  # Best effort cleanup
     _tracked.clear()

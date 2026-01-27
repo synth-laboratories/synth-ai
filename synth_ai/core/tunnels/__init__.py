@@ -65,37 +65,7 @@ from __future__ import annotations
 from typing import Any
 
 from .backend_client import LeaseClient, get_lease_client
-
-# New: process tracking with atexit cleanup
 from .cleanup import cleanup_all, track_process, tracked_processes
-
-# Re-export from cloudflare.py (no wrappers - these are the actual functions)
-from .cloudflare import (
-    # Health checks (NEW)
-    HealthResult,
-    ManagedTunnelRecord,
-    check_all_tunnels_health,
-    check_all_tunnels_health_sync,
-    check_tunnel_health,
-    check_tunnel_health_sync,
-    # Tunnel lifecycle
-    create_tunnel,
-    # Installation
-    ensure_cloudflared_installed,
-    # Discovery
-    fetch_managed_tunnels,
-    get_cloudflared_path,
-    open_managed_tunnel,
-    open_quick_tunnel,
-    open_quick_tunnel_with_dns_verification,
-    require_cloudflared,
-    rotate_tunnel,
-    stop_tunnel,
-    # Verification
-    verify_tunnel_dns_resolution,
-    wait_for_health_check,
-)
-from .connector import TunnelConnector, ensure_connector_running
 from .errors import (
     ConnectorError,
     ConnectorNotInstalledError,
@@ -107,24 +77,24 @@ from .errors import (
     TunnelConfigurationError,
     TunnelError,
 )
-from .gateway import TunnelGateway, ensure_gateway_running
-
-# NEW: Lease-based tunnel system (recommended for production)
-from .manager import (
-    TunnelManager,
-    get_manager,
-    open_tunnel,
-    quick_open,
-)
-
-# New: port management utilities (was private in in_process.py)
-from .ports import (
-    PortConflictBehavior,
-    PortInUseError,
+from .ports import PortConflictBehavior, PortInUseError
+from .rust import (
     acquire_port,
+    create_tunnel,
+    ensure_cloudflared_installed,
     find_available_port,
+    get_cloudflared_path,
     is_port_available,
     kill_port,
+    open_managed_tunnel,
+    open_managed_tunnel_with_connection_wait,
+    open_quick_tunnel,
+    open_quick_tunnel_with_dns_verification,
+    require_cloudflared,
+    rotate_tunnel,
+    stop_tunnel,
+    verify_tunnel_dns_resolution,
+    wait_for_health_check,
 )
 
 # New: high-level tunnel abstraction
@@ -192,20 +162,11 @@ __all__ = [
     "TunneledLocalAPI",
     "TunnelBackend",
     "create_tunneled_api",
-    # NEW: Lease-based system (RECOMMENDED for production)
-    "TunnelManager",
-    "get_manager",
-    "open_tunnel",
-    "quick_open",
+    # Lease-based system types
     "TunnelHandle",
     "LeaseInfo",
     "LeaseState",
     "Diagnostics",
-    # NEW: Gateway and Connector
-    "TunnelGateway",
-    "ensure_gateway_running",
-    "TunnelConnector",
-    "ensure_connector_running",
     "ConnectorState",
     "GatewayState",
     # NEW: Lease client
@@ -225,6 +186,7 @@ __all__ = [
     "rotate_tunnel",
     "create_tunnel",
     "open_managed_tunnel",
+    "open_managed_tunnel_with_connection_wait",
     "open_quick_tunnel",
     "open_quick_tunnel_with_dns_verification",
     "stop_tunnel",
@@ -235,15 +197,6 @@ __all__ = [
     "require_cloudflared",
     "ensure_cloudflared_installed",
     "get_cloudflared_path",
-    # Discovery
-    "fetch_managed_tunnels",
-    "ManagedTunnelRecord",
-    # Health checks
-    "HealthResult",
-    "check_tunnel_health",
-    "check_tunnel_health_sync",
-    "check_all_tunnels_health",
-    "check_all_tunnels_health_sync",
     # Process tracking
     "track_process",
     "cleanup_all",

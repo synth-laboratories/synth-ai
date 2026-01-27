@@ -41,6 +41,26 @@ def normalize_base_url(url: str) -> str:
     return normalized
 
 
+def normalize_backend_base(url: str) -> str:
+    """Normalize backend base URL via the Rust core when available."""
+    try:
+        import synth_ai_py
+
+        return synth_ai_py.normalize_backend_base(url)
+    except Exception:
+        return normalize_base_url(url)
+
+
+def normalize_inference_base(url: str) -> str:
+    """Normalize inference base URL via the Rust core when available."""
+    try:
+        import synth_ai_py
+
+        return synth_ai_py.normalize_inference_base(url)
+    except Exception:
+        return url.strip().rstrip("/")
+
+
 def local_backend_url(host: str = "localhost", port: int = 8000) -> str:
     return f"http://{host}:{port}"
 
