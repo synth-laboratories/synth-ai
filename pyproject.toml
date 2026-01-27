@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.7.1"
+version = "0.8.0"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
@@ -91,8 +91,15 @@ Repository = "https://github.com/synth-laboratories/synth-ai"
 Issues = "https://github.com/synth-laboratories/synth-ai/issues"
 
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.6"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "synth_ai_py"
+python-source = "."
+python-packages = ["synth_ai"]
+bindings = "pyo3"
+manifest-path = "synth_ai_py/Cargo.toml"
 
 [tool.setuptools.packages.find]
 include = ["synth_ai*"]

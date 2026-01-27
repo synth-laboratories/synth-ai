@@ -26,6 +26,8 @@ from synth_ai.core.utils.urls import (
     BACKEND_URL_BASE,
     FRONTEND_URL_BASE,
     normalize_base_url,
+    normalize_backend_base,
+    normalize_inference_base,
 )
 
 __all__ = [
@@ -56,4 +58,6 @@ __all__ = [
     "BACKEND_URL_BASE",
     "FRONTEND_URL_BASE",
     "normalize_base_url",
+    "normalize_backend_base",
+    "normalize_inference_base",
 ]

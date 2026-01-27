@@ -1,10 +1,10 @@
 [package]
 name = "synth-ai"
-version = "0.1.1"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "Rust SDK for Synth AI - serverless post-training APIs"
-repository = "https://github.com/synth-laboratories/synth-ai/tree/main/synth_ai_rs"
+repository = "https://github.com/synth-laboratories/synth-ai"
 homepage = "https://usesynth.ai"
 documentation = "https://docs.rs/synth-ai"
 readme = "README.md"
@@ -12,3 +12,9 @@ keywords = ["ai", "llm", "prompt-optimization", "machine-learning", "sdk"]
 categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
+synth-ai-core = { path = "../synth_ai_core", version = "0.2.0" }
+synth_ai_core_types = { path = "../synth_ai_core_types", version = "0.2.0" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.37", features = ["rt", "macros"] }
+thiserror = "1.0"
