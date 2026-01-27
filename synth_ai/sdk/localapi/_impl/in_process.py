@@ -15,7 +15,7 @@ import httpx
 import uvicorn
 from uvicorn._types import ASGIApplication
 
-from synth_ai.core.tunnels.cloudflare import (
+from synth_ai.core.tunnels.rust import (
     create_tunnel,
     ensure_cloudflared_installed,
     open_managed_tunnel,

@@ -36,6 +36,7 @@ See Also:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import subprocess
 import sys
@@ -115,12 +116,13 @@ class TunneledLocalAPI:
     hostname: str
     local_port: int
     backend: TunnelBackend
-    process: Optional[subprocess.Popen] = None
+    process: Optional[Any] = None
     tunnel_token: Optional[str] = field(default=None, repr=False)
     _raw: dict[str, Any] = field(default_factory=dict, repr=False)
     # New lease-based fields
     _lease_id: Optional[str] = field(default=None, repr=False)
-    _manager: Any = field(default=None, repr=False)  # TunnelManager instance
+    _manager: Any = field(default=None, repr=False)  # Reserved for future use
+    _handle: Any = field(default=None, repr=False)  # Rust handle for lease-based tunnels
 
     @classmethod
     async def create(
@@ -172,7 +174,6 @@ class TunneledLocalAPI:
             api_key = os.environ.get("SYNTH_API_KEY")
 
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-
         from .cleanup import track_process
 
         if backend == TunnelBackend.Localhost:
@@ -195,7 +196,6 @@ class TunneledLocalAPI:
             )
 
         if backend == TunnelBackend.CloudflareManagedLease:
-            # NEW: Use the lease-based system for faster, reusable tunnels
             return await cls._create_managed_lease(
                 local_port=local_port,
                 api_key=api_key,
@@ -204,7 +204,6 @@ class TunneledLocalAPI:
                 progress=progress,
             )
         elif backend == TunnelBackend.CloudflareManagedTunnel:
-            # Legacy: rotate-based system (slower, but backwards compatible)
             return await cls._create_managed(
                 local_port=local_port,
                 api_key=api_key,
@@ -236,11 +235,7 @@ class TunneledLocalAPI:
         track_process,
     ) -> TunneledLocalAPI:
         """Internal: Create a managed tunnel via Synth backend."""
-        from .cloudflare import (
-            open_managed_tunnel_with_connection_wait,
-            rotate_tunnel,
-            verify_tunnel_dns_resolution,
-        )
+        import synth_ai_py
 
         if not api_key:
             raise ValueError(
@@ -252,10 +247,8 @@ class TunneledLocalAPI:
         if progress:
             print(f"Provisioning managed tunnel for port {local_port}...")
 
-        tunnel_data = await rotate_tunnel(
-            api_key,
-            local_port,
-            backend_url=backend_url,
+        tunnel_data = await asyncio.to_thread(
+            synth_ai_py.rotate_tunnel, api_key, local_port, backend_url
         )
 
         hostname = tunnel_data["hostname"]
@@ -268,9 +261,8 @@ class TunneledLocalAPI:
             print(f"Starting cloudflared for {hostname}...")
             print("Waiting for cloudflared to connect to Cloudflare edge...")
 
-        proc = await open_managed_tunnel_with_connection_wait(
-            tunnel_token,
-            timeout_seconds=30.0,
+        proc = await asyncio.to_thread(
+            synth_ai_py.open_managed_tunnel_with_connection_wait, tunnel_token, 30.0
         )
         track_process(proc)
 
@@ -282,11 +274,11 @@ class TunneledLocalAPI:
                 if progress:
                     print("Verifying DNS propagation...")
 
-                await verify_tunnel_dns_resolution(
+                await asyncio.to_thread(
+                    synth_ai_py.verify_tunnel_dns_resolution,
                     url,
-                    name="tunnel",
-                    timeout_seconds=60.0,  # Reduced from 90s since cloudflared is already connected
-                    api_key=env_api_key,
+                    60.0,
+                    env_api_key,
                 )
 
         if progress:
@@ -325,13 +317,7 @@ class TunneledLocalAPI:
         3. Keeps cloudflared warm between sessions
         4. Results in ~1-5s reconnection after first run (vs ~15-25s with legacy)
         """
-        from .manager import get_manager
-
-        logger.info(
-            "[TUNNELED_API] _create_managed_lease: port=%d verify_dns=%s",
-            local_port,
-            verify_dns,
-        )
+        import synth_ai_py
 
         if not api_key:
             raise ValueError(
@@ -339,20 +325,15 @@ class TunneledLocalAPI:
                 "Use CloudflareQuickTunnel for anonymous tunnels."
             )
 
-        logger.info("[TUNNELED_API] Getting manager instance")
-        manager = get_manager(api_key=api_key, backend_url=backend_url)
-
-        logger.info("[TUNNELED_API] Calling manager.open()")
-        handle = await manager.open(
-            local_port=local_port,
-            verify_local=False,  # Don't verify local since we might not have app yet
-            verify_public=verify_dns,
-            progress=progress,
-        )
-        logger.info(
-            "[TUNNELED_API] manager.open() returned: url=%s lease_id=%s",
-            handle.url,
-            handle.lease.lease_id[:8],
+        handle = await asyncio.to_thread(
+            synth_ai_py.tunnel_open,
+            "cloudflare_managed_lease",
+            local_port,
+            api_key,
+            backend_url,
+            False,
+            verify_dns,
+            progress,
         )
 
         # Flush stdout/stderr to ensure output is visible
@@ -366,14 +347,13 @@ class TunneledLocalAPI:
             local_port=local_port,
             backend=TunnelBackend.CloudflareManagedLease,
             process=None,  # Managed by connector module
-            tunnel_token=handle.lease.tunnel_token,
+            tunnel_token=None,
             _raw={
-                "lease_id": handle.lease.lease_id,
-                "route_prefix": handle.lease.route_prefix,
-                "expires_at": handle.lease.expires_at.isoformat(),
+                "lease_id": getattr(handle, "lease_id", None),
             },
-            _lease_id=handle.lease.lease_id,
-            _manager=manager,
+            _lease_id=getattr(handle, "lease_id", None),
+            _manager=None,
+            _handle=handle,
         )
         logger.info("[TUNNELED_API] _create_managed_lease complete, returning")
         return result
@@ -387,16 +367,17 @@ class TunneledLocalAPI:
         track_process,
     ) -> TunneledLocalAPI:
         """Internal: Create a quick (anonymous) tunnel via trycloudflare.com."""
-        from .cloudflare import (
-            open_quick_tunnel_with_dns_verification,
-        )
+        import synth_ai_py
 
         if progress:
             print(f"Starting quick tunnel for port {local_port}...")
 
-        url, proc = await open_quick_tunnel_with_dns_verification(
-            port=local_port,
-            api_key=env_api_key,
+        url, proc = await asyncio.to_thread(
+            synth_ai_py.open_quick_tunnel_with_dns_verification,
+            local_port,
+            10.0,
+            True,
+            env_api_key,
         )
 
         track_process(proc)
@@ -430,41 +411,23 @@ class TunneledLocalAPI:
         but you can call it explicitly for earlier cleanup.
         """
         logger.info("[TUNNELED_API] close() called")
-        if self._lease_id and self._manager:
-            # Lease-based tunnel: use async close
-            import asyncio
-
-            logger.info(
-                "[TUNNELED_API] Closing lease-based tunnel: lease_id=%s",
-                self._lease_id[:8] if self._lease_id else "None",
-            )
+        if self._handle:
             try:
-                loop = asyncio.get_event_loop()
-                logger.debug(
-                    "[TUNNELED_API] Event loop running=%s",
-                    loop.is_running(),
-                )
-                if loop.is_running():
-                    # Schedule close in the running loop
-                    logger.info("[TUNNELED_API] Scheduling async close via create_task")
-                    asyncio.create_task(
-                        self._manager.close(self._lease_id),
-                        name=f"close-lease-{self._lease_id[:8]}",
-                    )
-                else:
-                    logger.info("[TUNNELED_API] Running sync close via run_until_complete")
-                    loop.run_until_complete(self._manager.close(self._lease_id))
-                logger.info("[TUNNELED_API] Close scheduled/completed")
+                self._handle.close()
             except Exception as e:
                 logger.warning("[TUNNELED_API] Close failed: %s", e)
+            self._handle = None
             self._lease_id = None
-            self._manager = None
         elif self.process:
-            # Legacy tunnel: stop cloudflared process
-            from .cloudflare import stop_tunnel
+            try:
+                import synth_ai_py
 
-            logger.info("[TUNNELED_API] Stopping legacy tunnel process")
-            stop_tunnel(self.process)
+                synth_ai_py.stop_tunnel(self.process)
+            except Exception:
+                try:
+                    self.process.terminate()
+                except Exception:
+                    pass
             self.process = None
         else:
             logger.debug("[TUNNELED_API] close() - nothing to close")
@@ -520,8 +483,8 @@ class TunneledLocalAPI:
 
         from synth_ai.sdk.localapi._impl.server import run_server_background
 
-        from .cloudflare import wait_for_health_check
-        from .ports import find_available_port, kill_port
+        from .rust import wait_for_health_check
+        from .rust import find_available_port, kill_port
 
         if api_key is None:
             api_key = os.environ.get("SYNTH_API_KEY") or None
