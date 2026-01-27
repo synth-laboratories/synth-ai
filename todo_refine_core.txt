@@ -1,0 +1,122 @@
+TODO: Consolidate duplicated “core” logic so Python reads from Rust core
+
+Goal
+- Move duplicated logic into Rust core and expose it through `synth_ai_py`, keeping Python as thin orchestration + compatibility. Replace Python implementations with Rust-backed calls where feasible.
+
+Notes
+- Rust core lives in `synth_ai_core/` with modules: api, auth, config, data, errors, events, http, jobs, localapi, orchestration, polling, streaming, tracing, tunnels, urls.
+- Python core lives in `synth_ai/core/` and is still widely imported by the Python SDK.
+
+Detailed duplication map (Rust ↔ Python)
+
+1) URLs and base normalization
+- Rust: `synth_ai_core/src/urls.rs`
+- Python: `synth_ai/core/utils/urls.py`
+- Status: Python already delegates normalize_* to Rust (when `synth_ai_py` is present), but still owns base constants and helper joins.
+- Consolidate:
+  - Move URL constants + join/normalize helpers into Rust and expose via `synth_ai_py`.
+  - Update Python to call Rust for `join_url`, base constants, and backend/health/me/demo URL helpers.
+
+2) Tunnels lifecycle + cloudflared management
+- Rust: `synth_ai_core/src/tunnels/*` (cloudflared, gateway, manager, ports, connector, lease_client)
+- Python: `synth_ai/core/tunnels/*` (orchestration + wrappers)
+- Status: Python already calls Rust-backed helpers via `synth_ai/core/tunnels/rust.py` + `synth_ai_py` for most low-level ops.
+- Duplication to consolidate:
+  - Port utilities: `synth_ai/core/tunnels/ports.py` ↔ `synth_ai_core/src/tunnels/ports.rs`
+  - Tunnel state/types/errors: `synth_ai/core/tunnels/types.py`, `synth_ai/core/tunnels/errors.py` ↔ `synth_ai_core/src/tunnels/types.rs`, `synth_ai_core/src/tunnels/errors.rs`
+  - Backend API client + lease mgmt: `synth_ai/core/tunnels/backend_client.py` ↔ `synth_ai_core/src/tunnels/lease_client.rs`
+  - Gateway/connector logic still in Rust but Python carries high‑level helpers in `tunneled_api.py`.
+- Consolidate:
+  - Expose Rust errors/types/ports through `synth_ai_py` and remove Python equivalents.
+  - Keep `tunneled_api.py` as thin orchestration wrapper calling into Rust handles.
+
+3) Streaming / SSE and job progress
+- Rust: `synth_ai_core/src/streaming/*`, `synth_ai_core/src/orchestration/streaming.rs`, `synth_ai_core/src/events.rs`
+- Python: `synth_ai/core/streaming/*`
+- Status: Python streaming is still used by SDK jobs.
+- Consolidate:
+  - Bind Rust stream handlers (StreamConfig/StreamEndpoints/JobStreamer) to Python via `synth_ai_py`.
+  - Replace Python streaming classes with Rust-backed implementations.
+
+4) Tracing + storage (libsql)
+- Rust: `synth_ai_core/src/tracing/*`
+- Python: `synth_ai/core/tracing_v3/*`
+- Status: Python tracing used by graph uploads + localapi tracing helpers.
+- Consolidate:
+  - Expose Rust tracing models + storage API to Python via `synth_ai_py`.
+  - Migrate Python `tracing_v3` to wrappers, keep compatibility re-exports.
+
+5) Auth + API key management
+- Rust: `synth_ai_core/src/auth.rs`
+- Python: `synth_ai/core/auth/*`
+- Status: Python handles API key minting, device auth, storage, setup flows.
+- Consolidate:
+  - Move key minting + storage to Rust core; expose via `synth_ai_py`.
+  - Keep Python only for UX (web flow, prompts), but delegate storage + token parsing to Rust.
+
+6) Config + environment resolution
+- Rust: `synth_ai_core/src/config.rs`
+- Python: `synth_ai/core/config/*`
+- Status: Python config used by SDK builders + localapi.
+- Consolidate:
+  - Rust owns config resolution (env/paths) and exposes Config objects.
+  - Python `config` becomes thin wrappers.
+
+7) Errors and typed exceptions
+- Rust: `synth_ai_core/src/errors.rs`
+- Python: `synth_ai/core/errors.py` + core/tunnels errors
+- Status: duplicated error taxonomy and message formatting.
+- Consolidate:
+  - Expose Rust error types in Python and map to Python exceptions consistently.
+  - Remove duplicate Python error enums/structs where Rust already defines them.
+
+8) Local API client
+- Rust: `synth_ai_core/src/localapi/*`
+- Python: `synth_ai/sdk/localapi/*` uses Python network code
+- Consolidate:
+  - Expose Rust localapi client + types to Python.
+  - Replace Python HTTP + response models with Rust-backed implementations.
+
+9) Polling + events
+- Rust: `synth_ai_core/src/polling.rs`, `synth_ai_core/src/events.rs`
+- Python: scattered event polling in SDK (e.g., prompt learning client)
+- Status: Python still does polling logic and event parsing.
+- Consolidate:
+  - Bind Rust event polling to Python and update SDK to call it.
+  - Align event models with Rust enums + serialization.
+
+10) Data models (rubrics, objectives, judgements, artifacts, etc.)
+- Rust: `synth_ai_core/src/data/*`
+- Python: Python data models in SDK/data (not fully listed here)
+- Status: duplicated schema definitions and serialization.
+- Consolidate:
+  - Expose Rust data models to Python via `synth_ai_py`.
+  - Replace Python data classes/enums with Rust-backed models.
+
+11) HTTP client / API client
+- Rust: `synth_ai_core/src/http.rs`, `synth_ai_core/src/api/*`
+- Python: SDK uses Python HTTP client logic in multiple places
+- Consolidate:
+  - Expose Rust API client in `synth_ai_py` and route Python SDK network calls through it.
+
+12) Job orchestration
+- Rust: `synth_ai_core/src/jobs.rs`, `synth_ai_core/src/orchestration/*`
+- Python: SDK job/prompt-learning pipeline still in Python
+- Consolidate:
+  - Bind Rust orchestration layer and replace Python job orchestration where feasible.
+
+Python modules that remain “pure Python” after consolidation
+- CLI UX, user prompts, and backward-compat shims.
+- Thin wrappers in `synth_ai/core/*` that delegate to `synth_ai_py`.
+
+Suggested migration order (lowest risk → highest)
+1) URLs + port utilities (small, low risk)
+2) Tunnel errors/types + backend client wrapper
+3) Streaming handlers
+4) Event polling
+5) Tracing
+6) Auth + config
+7) Data models
+8) Local API client
+9) Full orchestration and jobs
+
