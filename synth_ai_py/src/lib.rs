@@ -57,7 +57,9 @@ impl ProcessHandle {
 
     #[pyo3(signature = (timeout_s=None))]
     fn wait(&self, timeout_s: Option<f64>) -> PyResult<Option<i32>> {
-        let mut registry = PROCESS_REGISTRY.lock().unwrap();
+        let mut registry = PROCESS_REGISTRY
+            .lock()
+            .map_err(|_| PyValueError::new_err("process registry lock poisoned"))?;
         let proc = registry
             .get_mut(&self.id)
             .ok_or_else(|| PyValueError::new_err("process not found"))?;

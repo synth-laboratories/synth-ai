@@ -29,6 +29,12 @@ impl ManagedProcess {
     async fn stop(&mut self) {
         let _ = self.child.start_kill();
         let _ = self.child.wait().await;
+        if let Some(task) = self.stdout_task.take() {
+            task.abort();
+        }
+        if let Some(task) = self.stderr_task.take() {
+            task.abort();
+        }
     }
 }
 
@@ -41,7 +47,7 @@ pub fn track_process(proc: ManagedProcess) {
 pub async fn cleanup_all() {
     let mut procs = TRACKED.lock();
     for proc in procs.iter_mut() {
-        let _ = proc.child.start_kill();
+        proc.stop().await;
     }
     procs.clear();
 }
@@ -172,31 +178,31 @@ async fn spawn_process(args: &[String]) -> Result<ManagedProcess, TunnelError> {
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
     let logs = Arc::new(Mutex::new(VecDeque::with_capacity(200)));
+    let mut stdout_task = None;
+    let mut stderr_task = None;
     if let Some(out) = stdout {
         let logs = logs.clone();
-        let task = tokio::spawn(async move {
+        stdout_task = Some(tokio::spawn(async move {
             let mut lines = BufReader::new(out).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 push_log(&logs, &line);
             }
-        });
-        let _ = task;
+        }));
     }
     if let Some(err) = stderr {
         let logs = logs.clone();
-        let task = tokio::spawn(async move {
+        stderr_task = Some(tokio::spawn(async move {
             let mut lines = BufReader::new(err).lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 push_log(&logs, &line);
             }
-        });
-        let _ = task;
+        }));
     }
     Ok(ManagedProcess {
         child,
         logs,
-        stdout_task: None,
-        stderr_task: None,
+        stdout_task,
+        stderr_task,
     })
 }
 
@@ -275,7 +281,6 @@ pub async fn open_managed_tunnel_with_connection_wait(
     let patterns = [
         Regex::new("Registered tunnel connection").unwrap(),
         Regex::new("Connection .* registered").unwrap(),
-        Regex::new("registered").unwrap(),
     ];
     loop {
         if Instant::now() > deadline {

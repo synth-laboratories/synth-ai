@@ -18,7 +18,6 @@ static CONNECT_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     vec![
         Regex::new("Registered tunnel connection").unwrap(),
         Regex::new("Connection .* registered").unwrap(),
-        Regex::new("registered").unwrap(),
     ]
 });
 
@@ -192,10 +191,13 @@ impl TunnelConnector {
 
     fn start_idle_timer(&mut self) {
         let timeout = self.idle_timeout;
-        let logs = self.logs.clone();
         self.idle_task = Some(tokio::spawn(async move {
             tokio::time::sleep(timeout).await;
-            let _ = logs;
+            let connector = get_connector();
+            let mut guard = connector.lock();
+            if guard.active_leases.is_empty() {
+                let _ = guard.stop().await;
+            }
         }));
     }
 }
