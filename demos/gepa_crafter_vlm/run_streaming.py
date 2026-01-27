@@ -19,6 +19,7 @@ from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi.helpers import extract_api_key
+from synth_ai.sdk.localapi._impl.http_pool import get_shared_http_client
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
 from synth_ai.sdk.tunnels import wait_for_health_check
@@ -94,7 +95,7 @@ def create_task_app(system_prompt: str):
         api_key = extract_api_key(fastapi_request, policy_config) or OPENAI_API_KEY
         if not api_key:
             raise ValueError("No API key available")
-        client = AsyncOpenAI(api_key=api_key)
+        client = AsyncOpenAI(api_key=api_key, http_client=get_shared_http_client())
 
         history = []
         episode_rewards = []
@@ -220,7 +221,7 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
         image_only_mode=True,
     )
 
-    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=OPENAI_API_KEY, http_client=get_shared_http_client())
     history = []
     episode_rewards = []
 

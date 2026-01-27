@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 from pydantic import BaseModel
 
+from synth_ai.core.rust_core.http import RustCoreHttpClient
 from .contracts import RolloutRequest, RolloutResponse, TaskInfo
 from .json import to_jsonable
 
@@ -37,7 +38,7 @@ class TaskAppClient:
         self.api_key = api_key
         self.timeout = timeout
         self.retries = max(1, retries)
-        self._client: httpx.AsyncClient | None = None
+        self._client: RustCoreHttpClient | None = None
         self.env = _TaskAppEnvironmentClient(self)
 
     async def __aenter__(self) -> TaskAppClient:
@@ -47,13 +48,16 @@ class TaskAppClient:
     async def __aexit__(self, exc_type, exc, tb) -> None:
         await self.aclose()
 
-    async def _ensure_client(self) -> httpx.AsyncClient:
+    async def _ensure_client(self) -> RustCoreHttpClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(
+            self._client = RustCoreHttpClient(
                 base_url=self.base_url,
-                timeout=httpx.Timeout(self.timeout),
-                follow_redirects=True,
+                api_key=self.api_key or "",
+                timeout=self.timeout,
+                shared=True,
+                use_api_base=False,
             )
+            await self._client.__aenter__()
         return self._client
 
     def _headers(self) -> dict[str, str]:
@@ -80,7 +84,7 @@ class TaskAppClient:
 
     async def aclose(self) -> None:
         if self._client is not None:
-            await self._client.aclose()
+            await self._client.__aexit__(None, None, None)
             self._client = None
 
     async def _request(
@@ -97,12 +101,13 @@ class TaskAppClient:
         last_exc: Exception | None = None
         for attempt in range(self.retries):
             try:
-                response = await client.request(
+                response = await client.request_raw(
                     method,
                     path,
                     headers=headers,
                     params=params,
-                    json=payload,
+                    json_payload=payload,
+                    timeout=self.timeout,
                 )
                 response.raise_for_status()
                 return response

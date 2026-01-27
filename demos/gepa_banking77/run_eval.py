@@ -21,6 +21,7 @@ from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.localapi._impl.http_pool import get_shared_http_client
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port, TunneledLocalAPI, TunnelBackend
@@ -166,6 +167,7 @@ async def classify_banking77_query(
             base_url=inference_url,
             api_key="synth-interceptor",  # Dummy - interceptor uses its own key
             default_headers=default_headers,
+            http_client=get_shared_http_client(),
         )
         response = await client.chat.completions.create(
             model=model,

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
+from synth_ai.sdk.localapi._impl.http_pool import get_shared_http_client
 
 # Setup - add directory to path and change to it for local imports
 _THIS_DIR = Path(__file__).parent
@@ -75,7 +76,7 @@ async def run_local_rollout(system_prompt: str, seed: int, max_turns: int = 15) 
         image_only_mode=True,
     )
 
-    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=OPENAI_API_KEY, http_client=get_shared_http_client())
     history = []
     episode_rewards = []
     turns_completed = 0

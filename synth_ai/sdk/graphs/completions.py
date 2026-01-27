@@ -7,7 +7,7 @@ including policy graphs, verifier graphs, and Reasoning Language Models (RLM).
 
 Provides both sync and async clients:
 - GraphCompletionsSyncClient: Synchronous client using httpx
-- GraphCompletionsAsyncClient: Asynchronous client using AsyncHttpClient
+- GraphCompletionsAsyncClient: Asynchronous client using RustCoreHttpClient
 - GraphCompletionsClient: Alias for GraphCompletionsAsyncClient (backward compat)
 """
 
@@ -21,7 +21,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Literal, Mapping, TypedDict
 
-import aiohttp
 import httpx
 
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
@@ -34,7 +33,8 @@ from synth_ai.sdk.graphs.verifier_schemas import (
     EvidenceItem,
     GoldExampleInput,
 )
-from synth_ai.sdk.shared import AsyncHttpClient, HTTPError
+from synth_ai.core.errors import HTTPError
+from synth_ai.core.rust_core.http import RustCoreHttpClient
 
 GraphKind = Literal["zero_shot", "graphgen", "registered"]
 
@@ -410,7 +410,7 @@ class GraphCompletionsAsyncClient:
             params["kind"] = kind
 
         try:
-            async with AsyncHttpClient(self._base, self._key, timeout=self._timeout) as http:
+            async with RustCoreHttpClient(self._base, self._key, timeout=self._timeout) as http:
                 js = await http.get_json("/graph-evolve/graphs", params=params)
                 if not isinstance(js, dict):
                     return {"graphs": [], "total": 0}
@@ -468,7 +468,7 @@ class GraphCompletionsAsyncClient:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
         try:
-            async with AsyncHttpClient(self._base, self._key, timeout=self._timeout) as http:
+            async with RustCoreHttpClient(self._base, self._key, timeout=self._timeout) as http:
                 js = await http.post_json("/api/graphs/completions", json=payload)
                 if not isinstance(js, dict):
                     raise ValueError("graph_completions_invalid_response_shape")
@@ -536,50 +536,40 @@ class GraphCompletionsAsyncClient:
             "Accept": "text/event-stream",
         }
 
-        timeout = aiohttp.ClientTimeout(total=None, connect=30.0)
-        async with (
-            aiohttp.ClientSession(timeout=timeout) as session,
-            session.post(url, headers=headers, json=payload) as resp,
-        ):
-            if resp.status >= 400:
-                text = await resp.text()
-                if resp.status in (400, 422):
-                    raise ValueError(f"graph_completions_validation_error: {text[:500]}")
-                if resp.status in (401, 403):
-                    raise PermissionError(f"graph_completions_auth_error: {text[:500]}")
-                if resp.status == 404:
-                    raise FileNotFoundError(f"graph_completions_not_found: {text[:500]}")
-                if resp.status == 429:
-                    raise Exception("graph_completions_rate_limited")
-                raise Exception(f"graph_completions_error: {resp.status} {text[:500]}")
+        from synth_ai.core.rust_core.sse import stream_sse_events
 
-            async for line in resp.content:
-                decoded = line.decode(errors="ignore").strip()
-                if not decoded or decoded.startswith(":"):
-                    continue
-                if not decoded.startswith("data:"):
-                    continue
-                data = decoded[5:].strip()
-                if not data:
-                    continue
-                try:
-                    event = json.loads(data)
-                    yield event
-                    # Check for terminal event
-                    event_type = (
-                        event.get("event", {}).get("event_type")
-                        if isinstance(event, dict)
-                        else None
-                    )
-                    if event_type in {
-                        "run_succeeded",
-                        "run_failed",
-                        "run_cancelled",
-                        "output_validation_failed",
-                    }:
-                        return
-                except json.JSONDecodeError:
-                    continue
+        try:
+            async for event in stream_sse_events(
+                url,
+                headers=headers,
+                method="POST",
+                json_payload=payload,
+                timeout=None,
+            ):
+                yield event
+                event_type = (
+                    event.get("event", {}).get("event_type") if isinstance(event, dict) else None
+                )
+                if event_type in {
+                    "run_succeeded",
+                    "run_failed",
+                    "run_cancelled",
+                    "output_validation_failed",
+                }:
+                    return
+        except HTTPError as err:
+            status = int(getattr(err, "status", 0) or 0)
+            detail = getattr(err, "detail", None) or ""
+            text = str(detail)[:500]
+            if status in (400, 422):
+                raise ValueError(f"graph_completions_validation_error: {text}") from err
+            if status in (401, 403):
+                raise PermissionError(f"graph_completions_auth_error: {text}") from err
+            if status == 404:
+                raise FileNotFoundError(f"graph_completions_not_found: {text}") from err
+            if status == 429:
+                raise Exception("graph_completions_rate_limited") from err
+            raise Exception(f"graph_completions_error: {status} {text}") from err
 
     async def run_output(
         self,

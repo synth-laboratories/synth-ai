@@ -782,9 +782,7 @@ class EvalJob:
         Raises:
             RuntimeError: If job hasn't been submitted yet
         """
-        import json
-
-        import aiohttp
+        from synth_ai.core.rust_core.sse import stream_sse_events
 
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -813,72 +811,48 @@ class EvalJob:
             print(f"[DEBUG] SSE stream connecting to {sse_url}")
 
         try:
-            async with (
-                aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session,
-                session.get(sse_url, headers=headers) as resp,
+            async for event in stream_sse_events(
+                sse_url,
+                headers=headers,
+                timeout=timeout,
             ):
-                if resp.status != 200:
+                elapsed = time.time() - start_time
+                if elapsed >= timeout:
                     if progress:
-                        print(f"[DEBUG] SSE stream failed: status={resp.status}")
-                    # Fall back to polling
-                    return self.poll_until_complete(
-                        timeout=timeout, progress=progress, on_event=on_event
-                    )
+                        print(f"[stream] timeout after {timeout:.0f}s")
+                    break
 
+                # Call event handler
+                if on_event:
+                    with contextlib.suppress(Exception):
+                        on_event(event)
+
+                # Extract progress info
+                event_type = event.get("type", "")
+                event_data = event.get("data", {})
+
+                # Track completion progress
+                if "completed" in event_data:
+                    completed = event_data.get("completed", completed)
+                if "total" in event_data:
+                    total = event_data.get("total", total)
+                if event_type in ("eval.policy.seed.completed", "seed.completed"):
+                    completed += 1
+
+                # Progress output
                 if progress:
-                    print(f"[DEBUG] SSE stream connected, status={resp.status}")
+                    mins, secs = divmod(int(elapsed), 60)
+                    msg = event.get("message", event_type)
+                    print(f"[{mins:02d}:{secs:02d}] {event_type}: {msg} | {completed}/{total}")
 
-                async for raw_line in resp.content:
-                    elapsed = time.time() - start_time
-                    if elapsed >= timeout:
-                        if progress:
-                            print(f"[stream] timeout after {timeout:.0f}s")
-                        break
-
-                    line = raw_line.decode(errors="ignore").strip()
-                    if not line or line.startswith(":"):
-                        continue
-                    if not line.startswith("data:"):
-                        continue
-
-                    data_str = line[5:].strip()
-                    try:
-                        event = json.loads(data_str)
-                    except Exception:
-                        continue
-
-                    # Call event handler
-                    if on_event:
-                        with contextlib.suppress(Exception):
-                            on_event(event)
-
-                    # Extract progress info
-                    event_type = event.get("type", "")
-                    event_data = event.get("data", {})
-
-                    # Track completion progress
-                    if "completed" in event_data:
-                        completed = event_data.get("completed", completed)
-                    if "total" in event_data:
-                        total = event_data.get("total", total)
-                    if event_type in ("eval.policy.seed.completed", "seed.completed"):
-                        completed += 1
-
-                    # Progress output
-                    if progress:
-                        mins, secs = divmod(int(elapsed), 60)
-                        msg = event.get("message", event_type)
-                        print(f"[{mins:02d}:{secs:02d}] {event_type}: {msg} | {completed}/{total}")
-
-                    # Check for terminal event
-                    if event_type in terminal_events:
-                        last_status = "completed" if "completed" in event_type else "failed"
-                        break
+                # Check for terminal event
+                if event_type in terminal_events:
+                    last_status = "completed" if "completed" in event_type else "failed"
+                    break
 
         except Exception as exc:
             if progress:
                 print(f"[stream] SSE error: {exc}, falling back to polling")
-            # Fall back to polling on SSE failure
             return self.poll_until_complete(timeout=timeout, progress=progress, on_event=on_event)
 
         # Fetch full results

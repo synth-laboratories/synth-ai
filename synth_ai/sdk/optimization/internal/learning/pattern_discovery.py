@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from synth_ai.core.utils.env import get_api_key, get_backend_url
-from synth_ai.sdk.shared import AsyncHttpClient
+from synth_ai.core.rust_core.http import RustCoreHttpClient
 
 
 @dataclass
@@ -57,7 +57,7 @@ class PatternDiscoveryClient:
         self._timeout = timeout
 
     async def discover(self, request: PatternDiscoveryRequest) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json(
                 "/api/prompt-learning/patterns/discover",
                 json=request.to_payload(),
@@ -80,7 +80,7 @@ async def get_eval_patterns(
     if api_key is None:
         api_key = get_api_key("SYNTH_API_KEY", required=True)
 
-    async with AsyncHttpClient(base_url, api_key, timeout=timeout) as http:
+    async with RustCoreHttpClient(base_url, api_key, timeout=timeout) as http:
         data = await http.get_json(f"/api/eval/jobs/{job_id}/results")
     summary = data.get("summary") if isinstance(data, dict) else None
     if isinstance(summary, dict):

@@ -14,6 +14,8 @@ from typing import Any, cast
 
 import requests
 
+from synth_ai.core.rust_core.urls import ensure_api_base as _ensure_api_base
+
 try:
     sft_module = cast(Any, importlib.import_module("synth_ai.sdk.learning.sft"))
     collect_sft_jsonl_errors = cast(
@@ -245,10 +247,7 @@ def limit_jsonl_examples(src: Path, limit: int) -> Path:
 
 
 def ensure_api_base(base: str) -> str:
-    base = base.rstrip("/")
-    if not base.endswith("/api"):
-        base = f"{base}/api"
-    return base
+    return _ensure_api_base(base)
 
 
 def preview_json(data: Any, limit: int = 600) -> str:

@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.optimization.utils import ensure_api_base, run_sync
-from synth_ai.sdk.shared import AsyncHttpClient
+from synth_ai.core.rust_core.http import RustCoreHttpClient
 
 
 @dataclass
@@ -61,7 +61,7 @@ class MiproOnlineSession:
             agent_id=agent_id,
         )
 
-        async with AsyncHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
             response = await http.post_json(
                 "/prompt-learning/online/mipro/sessions",
                 json=body,
@@ -136,7 +136,7 @@ class MiproOnlineSession:
         if correlation_id:
             params["correlation_id"] = correlation_id
 
-        async with AsyncHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
             response = await http.get(
                 f"/prompt-learning/online/mipro/sessions/{session_id}/prompt",
                 params=params or None,
@@ -172,7 +172,7 @@ class MiproOnlineSession:
 
     async def status_async(self) -> Dict[str, Any]:
         """Return session status payload (async)."""
-        async with AsyncHttpClient(
+        async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
@@ -224,7 +224,7 @@ class MiproOnlineSession:
         if stop is not None:
             payload["stop"] = stop
 
-        async with AsyncHttpClient(
+        async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
@@ -269,7 +269,7 @@ class MiproOnlineSession:
         if correlation_id or self.correlation_id:
             params["correlation_id"] = correlation_id or self.correlation_id
 
-        async with AsyncHttpClient(
+        async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
@@ -285,7 +285,7 @@ class MiproOnlineSession:
         return _run_async(self.get_prompt_urls_async(correlation_id=correlation_id))
 
     async def _post_action_async(self, action: str) -> Dict[str, Any]:
-        async with AsyncHttpClient(
+        async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,

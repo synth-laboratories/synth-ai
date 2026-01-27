@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-import json
-import time
 from collections.abc import Callable
-from contextlib import suppress
+import time
 
-import aiohttp
-
-
-def _api_base(b: str) -> str:
-    b = (b or "").rstrip("/")
-    return b if b.endswith("/api") else f"{b}/api"
+from synth_ai.core.rust_core.sse import stream_sse_events
+from synth_ai.core.rust_core.urls import ensure_api_base
 
 
 async def stream_events(
@@ -24,34 +18,21 @@ async def stream_events(
     if seconds <= 0:
         return
     headers = {"Accept": "text/event-stream", "Authorization": f"Bearer {api_key}"}
+    api_base = ensure_api_base(base_url)
     candidates = [
-        f"{_api_base(base_url)}/rl/jobs/{job_id}/events?since_seq=0",
-        f"{_api_base(base_url)}/learning/jobs/{job_id}/events?since_seq=0",
+        f"{api_base}/rl/jobs/{job_id}/events?since_seq=0",
+        f"{api_base}/learning/jobs/{job_id}/events?since_seq=0",
     ]
     for url in candidates:
         try:
-            async with (
-                aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None)) as session,
-                session.get(url, headers=headers) as resp,
-            ):
-                if resp.status != 200:
-                    continue
-                start_t = time.time()
-                async for raw in resp.content:
-                    line = raw.decode(errors="ignore").strip()
-                    if not line or line.startswith(":"):
-                        continue
-                    if not line.startswith("data:"):
-                        continue
-                    data = line[5:].strip()
+            start_t = time.time()
+            async for obj in stream_sse_events(url, headers=headers, timeout=None):
+                if on_event:
                     try:
-                        obj = json.loads(data)
+                        on_event(obj)
                     except Exception:
-                        continue
-                    if on_event:
-                        with suppress(Exception):
-                            on_event(obj)
-                    if (time.time() - start_t) >= seconds:
-                        return
+                        pass
+                if (time.time() - start_t) >= seconds:
+                    return
         except Exception:
             continue

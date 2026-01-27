@@ -10,9 +10,9 @@ import time
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Iterable, Sequence
 
-import aiohttp
+from synth_ai.core.rust_core.sse import stream_sse_events
 
-from synth_ai.sdk.shared import AsyncHttpClient, sleep
+from synth_ai.core.rust_core.http import RustCoreHttpClient, sleep
 
 from .config import StreamConfig
 from .handlers import StreamHandler
@@ -217,7 +217,7 @@ class JobStreamer:
         interval_seconds: float = 2.0,
         timeout_seconds: float | None = None,
         http_timeout: float = 60.0,
-        http_client: AsyncHttpClient | None = None,
+        http_client: RustCoreHttpClient | None = None,
         sleep_fn=sleep,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -263,7 +263,7 @@ class JobStreamer:
 
     async def stream_until_terminal(self) -> dict[str, Any]:
         """Stream configured endpoints until the job reaches a terminal state."""
-        http_cm = self._http or AsyncHttpClient(
+        http_cm = self._http or RustCoreHttpClient(
             self.base_url, self.api_key, timeout=self.http_timeout
         )
         start_time = time.time()
@@ -435,149 +435,77 @@ class JobStreamer:
         if last_seq > 0:
             headers["Last-Event-ID"] = str(last_seq)
 
-        # Create a separate session for SSE (long-lived connection)
-        timeout = aiohttp.ClientTimeout(total=None)  # No timeout for SSE
-        async with (
-            aiohttp.ClientSession(headers=headers, timeout=timeout) as session,
-            session.get(url) as resp,
-        ):
-            if resp.status != 200:
-                raise Exception(f"SSE endpoint returned {resp.status}: {await resp.text()}")
+        print(f"[DEBUG] SSE stream connecting to {url}", file=sys.stderr)
+        event_count = 0
+        start_time = time.time()
+        no_events_warning_printed = False
 
-            print(f"[DEBUG] SSE stream connected to {url}, status={resp.status}", file=sys.stderr)
-            buffer = ""
-            event_count = 0
-            last_event_time = time.time()
-            no_events_warning_printed = False
-
-            # Read SSE stream in chunks and parse events
-            async for chunk in resp.content.iter_chunked(8192):
-                current_time = time.time()
-
-                # Warn if no events received for 10 seconds (events should be streaming)
-                if (
-                    event_count == 1
-                    and current_time - last_event_time > 10
-                    and not no_events_warning_printed
-                ):
+        async for event_data in stream_sse_events(url, headers=headers, timeout=None):
+            if not event_data:
+                continue
+            if event_count == 0 and not no_events_warning_printed:
+                elapsed = time.time() - start_time
+                if elapsed > 10:
                     print(
                         "[DEBUG] WARNING: No events received via SSE for 10s after connection. Backend may not be publishing to Redis (check SSE_USE_REDIS env var).",
                         file=sys.stderr,
                     )
                     no_events_warning_printed = True
+            event_count += 1
+            print(
+                f"[DEBUG] Parsed SSE event #{event_count}: type={event_data.get('type')}, seq={event_data.get('seq')}",
+                file=sys.stderr,
+            )
 
-                buffer += chunk.decode("utf-8", errors="ignore")
+            event_type = str(event_data.get("type", "")).lower()
+            if event_type == "sse.stream.ended":
+                print("[DEBUG] SSE stream received sse.stream.ended event", file=sys.stderr)
+                return
 
-                # SSE events are separated by double newlines
-                while "\n\n" in buffer:
-                    event_block, buffer = buffer.split("\n\n", 1)
-                    event_block = event_block.strip()
+            event_job_id = event_data.get("job_id") or self.job_id
+            msg = StreamMessage.from_event(event_job_id, event_data)
 
-                    if not event_block:
-                        continue
+            seq = event_data.get("seq")
+            if seq is not None:
+                try:
+                    seq_int = int(seq)
+                    if (
+                        sse_url not in self._last_seq_by_stream
+                        or seq_int > self._last_seq_by_stream[sse_url]
+                    ):
+                        self._last_seq_by_stream[sse_url] = seq_int
+                except (TypeError, ValueError):
+                    pass
 
-                    event_data = {}
+            if event_type in TERMINAL_EVENT_SUCCESS:
+                self._terminal_seen = True
+                self._terminal_event_status = "succeeded"
+                print(
+                    f"[DEBUG] Terminal success event detected: {event_type}",
+                    file=sys.stderr,
+                )
+            elif event_type in TERMINAL_EVENT_FAILURE:
+                self._terminal_seen = True
+                self._terminal_event_status = "failed"
+                print(
+                    f"[DEBUG] Terminal failure event detected: {event_type}",
+                    file=sys.stderr,
+                )
 
-                    # Parse SSE event block line by line
-                    for event_line in event_block.split("\n"):
-                        event_line = event_line.strip()
-                        if not event_line or event_line.startswith(":"):
-                            continue  # Skip comments/empty lines
-                        if event_line.startswith("id:"):
-                            pass  # SSE event id (not currently used)
-                        elif event_line.startswith("event:"):
-                            pass  # SSE event type (not currently used)
-                        elif event_line.startswith("data:"):
-                            data_str = event_line[5:].strip()
-                            if data_str == "[DONE]":
-                                print(
-                                    "[DEBUG] SSE stream received [DONE] - stream completed gracefully",
-                                    file=sys.stderr,
-                                )
-                                # Stream ended gracefully - if we already saw terminal event,
-                                # the job is complete. Otherwise, we'll fall back to polling.
-                                return
-                            try:
-                                event_data = json.loads(data_str)
-                            except json.JSONDecodeError as e:
-                                print(
-                                    f"[DEBUG] Failed to parse SSE data: {e}, data={data_str[:200]}",
-                                    file=sys.stderr,
-                                )
-                                continue
+            event_status = str(event_data.get("data", {}).get("status", "")).lower()
+            if event_status in TERMINAL_STATUSES and not self._terminal_seen:
+                self._terminal_seen = True
+                self._terminal_event_status = (
+                    "succeeded" if event_status in ("succeeded", "completed") else "failed"
+                )
+                print(
+                    f"[DEBUG] Terminal status detected in event data: {event_status}",
+                    file=sys.stderr,
+                )
 
-                    # Debug: log what we parsed
-                    if event_data:
-                        event_count += 1
-                        last_event_time = time.time()
-                        print(
-                            f"[DEBUG] Parsed SSE event #{event_count}: type={event_data.get('type')}, seq={event_data.get('seq')}",
-                            file=sys.stderr,
-                        )
+            yield msg
 
-                    if event_data and "type" in event_data:
-                        event_type = str(event_data.get("type", "")).lower()
-
-                        # Handle stream lifecycle events from backend
-                        if event_type == "sse.stream.ended":
-                            # Backend signaled stream end - this is a graceful termination
-                            print(
-                                "[DEBUG] SSE stream received sse.stream.ended event",
-                                file=sys.stderr,
-                            )
-                            # Don't yield this event, just return
-                            return
-
-                        # Convert SSE event to StreamMessage
-                        event_job_id = event_data.get("job_id") or self.job_id
-                        msg = StreamMessage.from_event(event_job_id, event_data)
-
-                        # Update sequence tracking
-                        seq = event_data.get("seq")
-                        if seq is not None:
-                            try:
-                                seq_int = int(seq)
-                                if (
-                                    sse_url not in self._last_seq_by_stream
-                                    or seq_int > self._last_seq_by_stream[sse_url]
-                                ):
-                                    self._last_seq_by_stream[sse_url] = seq_int
-                            except (TypeError, ValueError):
-                                pass
-
-                        # Check for terminal events
-                        if event_type in TERMINAL_EVENT_SUCCESS:
-                            self._terminal_seen = True
-                            self._terminal_event_status = "succeeded"
-                            print(
-                                f"[DEBUG] Terminal success event detected: {event_type}",
-                                file=sys.stderr,
-                            )
-                        elif event_type in TERMINAL_EVENT_FAILURE:
-                            self._terminal_seen = True
-                            self._terminal_event_status = "failed"
-                            print(
-                                f"[DEBUG] Terminal failure event detected: {event_type}",
-                                file=sys.stderr,
-                            )
-
-                        # Also check event data for status (synthetic events from status check)
-                        event_status = str(event_data.get("data", {}).get("status", "")).lower()
-                        if event_status in TERMINAL_STATUSES and not self._terminal_seen:
-                            self._terminal_seen = True
-                            self._terminal_event_status = (
-                                "succeeded"
-                                if event_status in ("succeeded", "completed")
-                                else "failed"
-                            )
-                            print(
-                                f"[DEBUG] Terminal status detected in event data: {event_status}",
-                                file=sys.stderr,
-                            )
-
-                        yield msg
-
-    async def _refresh_status(self, http: AsyncHttpClient) -> str:
+    async def _refresh_status(self, http: RustCoreHttpClient) -> str:
         status_payload = await self._poll_status(http)
         if status_payload:
             self._last_status_payload = status_payload
@@ -590,7 +518,7 @@ class JobStreamer:
             return status
         return self._last_status_value or ""
 
-    async def _poll_status(self, http: AsyncHttpClient) -> dict[str, Any] | None:
+    async def _poll_status(self, http: RustCoreHttpClient) -> dict[str, Any] | None:
         if StreamType.STATUS not in self.config.enabled_streams or not self._status_paths:
             return None
 
@@ -616,7 +544,7 @@ class JobStreamer:
             logger.debug(f"Status polling failed for all paths: {last_error}")
         return None
 
-    async def _poll_events(self, http: AsyncHttpClient) -> list[StreamMessage]:
+    async def _poll_events(self, http: RustCoreHttpClient) -> list[StreamMessage]:
         if StreamType.EVENTS not in self.config.enabled_streams or not self._event_paths:
             return []
         messages: list[StreamMessage] = []
@@ -741,7 +669,7 @@ class JobStreamer:
                     return messages
         return messages
 
-    async def _poll_metrics(self, http: AsyncHttpClient) -> list[StreamMessage]:
+    async def _poll_metrics(self, http: RustCoreHttpClient) -> list[StreamMessage]:
         if StreamType.METRICS not in self.config.enabled_streams or not self._metric_paths:
             return []
         messages: list[StreamMessage] = []
@@ -770,7 +698,7 @@ class JobStreamer:
                 messages.append(StreamMessage.from_metric(metric_job_id, point))
         return messages
 
-    async def _poll_timeline(self, http: AsyncHttpClient) -> list[StreamMessage]:
+    async def _poll_timeline(self, http: RustCoreHttpClient) -> list[StreamMessage]:
         if StreamType.TIMELINE not in self.config.enabled_streams or not self._timeline_paths:
             return []
         messages: list[StreamMessage] = []

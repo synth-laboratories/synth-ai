@@ -88,6 +88,6 @@ impl EvalJob {
         let path = format!("/eval/jobs/{}/events/stream", self.job_id);
         let url = self.client.api_base() + &path;
         let headers = self.client.auth_headers(AuthStyle::Both);
-        stream_sse(self.client.http(), url, headers).await
+        stream_sse(url, headers).await
     }
 }

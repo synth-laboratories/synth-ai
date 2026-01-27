@@ -5,6 +5,8 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Sequence
 
+from .http_pool import get_shared_http_client
+
 
 class InferenceAPIClient:
     """Async client that normalizes chat completion calls across providers."""
@@ -26,7 +28,7 @@ class InferenceAPIClient:
             if not api_key:
                 raise RuntimeError("OPENAI_API_KEY must be set for meta-model proposals")
 
-            kwargs: Dict[str, Any] = {"api_key": api_key}
+            kwargs: Dict[str, Any] = {"api_key": api_key, "http_client": get_shared_http_client()}
             if self.inference_url:
                 kwargs["base_url"] = self.inference_url
             self._client = AsyncOpenAI(**kwargs)
@@ -41,7 +43,7 @@ class InferenceAPIClient:
             if not api_key:
                 raise RuntimeError("GROQ_API_KEY must be set for meta-model proposals")
 
-            kwargs: Dict[str, Any] = {"api_key": api_key}
+            kwargs: Dict[str, Any] = {"api_key": api_key, "http_client": get_shared_http_client()}
             if self.inference_url:
                 kwargs["base_url"] = self.inference_url
             self._client = AsyncGroq(**kwargs)

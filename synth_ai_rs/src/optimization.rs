@@ -157,10 +157,10 @@ impl PolicyOptimizationJob {
             self.job_id
         );
         let headers = self.client.auth_headers(AuthStyle::Both);
-        match stream_sse(self.client.http(), primary, headers.clone()).await {
+        match stream_sse(primary, headers.clone()).await {
             Ok(stream) => Ok(stream),
             Err(SynthError::Api { status: 404, .. }) => {
-                stream_sse(self.client.http(), fallback, headers).await
+                stream_sse(fallback, headers).await
             }
             Err(err) => Err(err),
         }

@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 from synth_ai.sdk.optimization.internal.utils import run_sync
-from synth_ai.sdk.shared import AsyncHttpClient
+from synth_ai.core.rust_core.http import RustCoreHttpClient
 
 from .prompt_learning_types import PromptResults
 
@@ -132,7 +132,7 @@ class PromptLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.get(f"/api/prompt-learning/online/jobs/{job_id}")
 
     async def get_events(
@@ -153,7 +153,7 @@ class PromptLearningClient:
         """
         _validate_job_id(job_id)
         params = {"since_seq": since_seq, "limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/prompt-learning/online/jobs/{job_id}/events", params=params)
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]

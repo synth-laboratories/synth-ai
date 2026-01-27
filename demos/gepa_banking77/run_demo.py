@@ -26,6 +26,7 @@ from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
 from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.localapi._impl.http_pool import get_shared_http_client
 from synth_ai.sdk.localapi._impl.validators import normalize_inference_url
 from synth_ai.sdk.localapi._impl.server import run_server_background
 from synth_ai.sdk.localapi._impl.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
@@ -259,6 +260,7 @@ async def classify_banking77_query(
             base_url=inference_url,
             api_key="synth-interceptor",  # Dummy - interceptor uses its own key
             default_headers=default_headers,
+            http_client=get_shared_http_client(),
         )
         response = await client.chat.completions.create(
             model=model,

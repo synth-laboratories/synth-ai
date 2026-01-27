@@ -26,7 +26,7 @@ Example:
 
 from typing import Any
 
-from synth_ai.sdk.shared import AsyncHttpClient
+from synth_ai.core.rust_core.http import RustCoreHttpClient
 from synth_ai.sdk.shared.models import UnsupportedModelError, normalize_model_identifier
 
 
@@ -118,6 +118,6 @@ class InferenceClient:
         # Backend now expects an explicit thinking_budget; provide a sensible default if omitted
         if "thinking_budget" not in body:
             body["thinking_budget"] = 256
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             # Route through backend inference proxy to Modal
             return await http.post_json("/api/inference/v1/chat/completions", json=body)
