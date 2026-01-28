@@ -368,7 +368,17 @@ async def run_single_rollout(
     action_sequence: List[str] = []
     
     for turn in range(max_turns):
-        messages = build_messages(system_prompt, observation, history)
+        # Build messages: system + history + current observation
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(history)
+        
+        # Add current observation image
+        image_url = observation.get("observation_image_data_url")
+        if image_url:
+            messages.append({
+                "role": "user",
+                "content": [{"type": "image_url", "image_url": {"url": image_url}}]
+            })
         
         try:
             actions, response_data = await call_llm_via_proxy(
@@ -379,21 +389,86 @@ async def run_single_rollout(
             actions = ["noop"]
             response_data = {}
         
-        # Execute actions
-        for action_str in actions[:5]:
-            normalized = normalize_action_name(action_str) or "noop"
-            action_sequence.append(normalized)
-            action_int = ACTION_STRING_TO_INT.get(normalized, 0)
-            observation = await env.step(action_int)
-            episode_rewards.append(float(observation.get("reward", 0.0)))
-            
-            if observation.get("terminated") or observation.get("truncated"):
-                break
+        # Extract tool_calls from response (with real IDs)
+        tool_calls = []
+        try:
+            tool_calls = response_data.get("choices", [{}])[0].get("message", {}).get("tool_calls", [])
+        except (KeyError, IndexError):
+            pass
         
-        # Update history
-        history.append({"role": "assistant", "content": "", "tool_calls": response_data.get("choices", [{}])[0].get("message", {}).get("tool_calls", [])})
-        history.append({"role": "tool", "tool_call_id": "0", "content": json.dumps({"actions": actions[:5], "done": observation.get("terminated") or observation.get("truncated")})})
+        # Execute actions and collect results
+        next_observation = observation
+        tool_responses: List[Dict[str, Any]] = []
         
+        if tool_calls:
+            for tc in tool_calls:
+                tool_call_id = tc.get("id") or tc.get("tool_call_id")
+                
+                # Parse actions from this tool call
+                actions_for_tc = []
+                try:
+                    args = json.loads(tc.get("function", {}).get("arguments", "{}"))
+                    raw_actions = args.get("actions_list", [])
+                    actions_for_tc = [str(a) for a in raw_actions if str(a).strip()][:5]
+                except Exception:
+                    pass
+                if not actions_for_tc:
+                    actions_for_tc = ["noop"]
+                
+                # Execute actions
+                action_results = []
+                for action_str in actions_for_tc:
+                    normalized = normalize_action_name(action_str) or "noop"
+                    action_sequence.append(normalized)
+                    action_int = ACTION_STRING_TO_INT.get(normalized, 0)
+                    next_observation = await env.step(action_int)
+                    reward = next_observation.get("reward", 0.0)
+                    episode_rewards.append(float(reward))
+                    action_results.append({
+                        "action": normalized,
+                        "reward": reward,
+                        "terminated": next_observation.get("terminated"),
+                        "truncated": next_observation.get("truncated"),
+                    })
+                    if next_observation.get("terminated") or next_observation.get("truncated"):
+                        break
+                
+                if tool_call_id:
+                    tool_responses.append({
+                        "tool_call_id": tool_call_id,
+                        "actions": [r["action"] for r in action_results],
+                        "results": action_results,
+                    })
+                
+                if next_observation.get("terminated") or next_observation.get("truncated"):
+                    break
+        else:
+            # No tool calls - just step with noop
+            next_observation = await env.step(0)
+            episode_rewards.append(float(next_observation.get("reward", 0.0)))
+            action_sequence.append("noop")
+        
+        # Update history with assistant message (only if tool_calls present)
+        if tool_calls:
+            history.append({
+                "role": "assistant",
+                "content": response_data.get("choices", [{}])[0].get("message", {}).get("content") or "",
+                "tool_calls": tool_calls,
+            })
+            # Add tool responses
+            for tr in tool_responses:
+                history.append({
+                    "role": "tool",
+                    "tool_call_id": tr["tool_call_id"],
+                    "content": json.dumps({
+                        "actions": tr["actions"],
+                        "results": tr["results"],
+                        "terminated": next_observation.get("terminated"),
+                        "truncated": next_observation.get("truncated"),
+                    }),
+                })
+        
+        observation = next_observation
         if observation.get("terminated") or observation.get("truncated"):
             break
     
