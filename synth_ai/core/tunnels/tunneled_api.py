@@ -134,6 +134,7 @@ class TunneledLocalAPI:
         backend_url: Optional[str] = None,
         verify_dns: bool = True,
         progress: bool = False,
+        reason: str | None = None,
     ) -> TunneledLocalAPI:
         """Create a tunnel to expose a local API.
 
