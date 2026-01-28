@@ -8,7 +8,7 @@
 
 Serverless Posttraining APIs for Developers
 
-Synth is available as a Python package (`pip install synth-ai`) and a beta Rust crate (`cargo add synth-ai`).
+Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`), or hit our serverless endpoints in any language
 
 <p align="center">
   <picture align="center">
@@ -128,6 +128,58 @@ print(f"Best score: {result.best_score}")
 
 See the [Banking77 demo notebook](demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb) for a complete example with local task apps.
 
+## Online MIPRO (SDK, Ontology Enabled)
+
+Run online MIPRO so rollouts call a proxy URL and rewards stream back to the optimizer. Enable ontology by setting `MIPRO_ONT_ENABLED=1` and `HELIX_URL` on the backend, then follow the [Banking77 online MIPRO notes](demos/mipro_banking77/online_mipro_explained.txt).
+
+```python
+import os
+from synth_ai.sdk.optimization.policy import MiproOnlineSession
+
+# Use the demo config shape from demos/mipro_banking77
+mipro_config = {...}
+
+session = MiproOnlineSession.create(
+    config_body=mipro_config,
+    api_key=os.environ["SYNTH_API_KEY"],
+)
+urls = session.get_prompt_urls()
+proxy_url = urls["online_url"]
+
+# Use proxy_url in your rollout loop, then report rewards
+session.update_reward(
+    reward_info={"score": 0.9},
+    rollout_id="rollout_001",
+    candidate_id="candidate_abc",
+)
+```
+
+## Graph Evolve: Optimize RLM-Based Verifier Graphs
+
+Train a verifier graph with an RLM backbone for long-context evaluation. See the [Image Style Matching demo](demos/image_style_matching/) for a complete Graph Evolve example:
+
+```python
+from synth_ai.sdk.api.train.graph_evolve import GraphEvolveJob
+
+# Train an RLM-based verifier graph
+verifier_job = GraphEvolveJob.from_dataset(
+    dataset="verifier_dataset.json",
+    graph_type="rlm",
+    policy_models=["gpt-4.1"],
+    proposer_effort="medium",  # Use "medium" (gpt-4.1) or "high" (gpt-5.2)
+    rollout_budget=200,
+)
+verifier_job.submit()
+result = verifier_job.stream_until_complete(timeout=3600.0)
+
+# Run inference with trained verifier
+verification = verifier_job.run_verifier(
+    trace=my_trace,
+    context={"rubric": my_rubric},
+)
+print(f"Reward: {verification.reward}, Reasoning: {verification.reasoning}")
+```
+
 ## Zero-Shot Verifiers (SDK)
 
 Run a built-in verifier graph with rubric criteria passed at runtime. See the [Crafter VLM demo](demos/gepa_crafter_vlm/) for verifier optimization:
@@ -168,30 +220,4 @@ resp = await client.run(
     graph={"kind": "zero_shot", "verifier_shape": "mapreduce", "verifier_mode": "rubric"},
     input_data={"trace": {"session_id": "s", "session_time_steps": []}, "rubric": {"event": [], "outcome": []}},
 )
-```
-
-## Graph Evolve: Train Custom Verifier Graphs
-
-Train custom verifier graphs using Graph Evolve. See the [Image Style Matching demo](demos/image_style_matching/) for a complete Graph Evolve example:
-
-```python
-from synth_ai.sdk.api.train.graph_evolve import GraphEvolveJob
-
-# Train a verifier graph
-verifier_job = GraphEvolveJob.from_dataset(
-    dataset="verifier_dataset.json",
-    graph_type="verifier",
-    policy_models=["gpt-4.1"],
-    proposer_effort="medium",  # Use "medium" (gpt-4.1) or "high" (gpt-5.2)
-    rollout_budget=200,
-)
-verifier_job.submit()
-result = verifier_job.stream_until_complete(timeout=3600.0)
-
-# Run inference with trained verifier
-verification = verifier_job.run_verifier(
-    trace=my_trace,
-    context={"rubric": my_rubric},
-)
-print(f"Reward: {verification.reward}, Reasoning: {verification.reasoning}")
 ```
