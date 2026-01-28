@@ -8,6 +8,7 @@ from synth_ai.sdk.optimization.internal.graphgen_models import (  # noqa: F401
     GraphGenRubric,
     GraphGenTask,
     GraphGenTaskSet,
+    GraphGenTaskSetMetadata,
     GraphGenVerifierConfig,
 )
 
@@ -16,6 +17,7 @@ __all__ = [
     "GraphGenJobConfig",
     "GraphGenRubric",
     "GraphGenTask",
+    "GraphGenTaskSetMetadata",
     "GraphGenTaskSet",
     "GraphGenVerifierConfig",
 ]
