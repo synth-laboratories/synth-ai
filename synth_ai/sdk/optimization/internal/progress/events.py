@@ -12,6 +12,19 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.progress.events.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "parse_optimization_event"):
+        raise RuntimeError(
+            "Rust core optimization event parser required; synth_ai_py is unavailable."
+        )
+    return synth_ai_py
+
 
 def _coerce_float(value: Any) -> float | None:
     if value is None or isinstance(value, bool):
@@ -241,72 +254,64 @@ class EventParser:
         Returns:
             Typed ParsedEvent subclass based on event category
         """
-        event_type_raw = event.get("type", "")
-        event_type = cls.normalize_type(event_type_raw)
-        data = event.get("data", {}) if isinstance(event.get("data"), dict) else {}
-        seq = event.get("seq")
-        timestamp_ms = event.get("timestamp_ms")
+        rust = _require_rust()
+        parsed = rust.parse_optimization_event(event)
+        if isinstance(parsed, dict):
+            return cls._from_rust(parsed)
 
-        category = cls.get_category(event_type)
+        event_type = cls.normalize_type(event.get("type", ""))
+        data = event.get("data", {}) if isinstance(event.get("data"), dict) else {}
+        return ParsedEvent(
+            event_type=event_type,
+            category=EventCategory.UNKNOWN,
+            data=data,
+            seq=event.get("seq"),
+            timestamp_ms=event.get("timestamp_ms"),
+        )
+
+    @staticmethod
+    def _from_rust(parsed: dict[str, Any]) -> ParsedEvent:
+        event_type = parsed.get("event_type") or ""
+        data = parsed.get("data") if isinstance(parsed.get("data"), dict) else {}
+        seq = parsed.get("seq")
+        timestamp_ms = parsed.get("timestamp_ms")
+        category_raw = parsed.get("category", EventCategory.UNKNOWN.value)
+        try:
+            category = EventCategory(category_raw)
+        except ValueError:
+            category = EventCategory.UNKNOWN
 
         if category == EventCategory.BASELINE:
-            objectives = data.get("objectives")
-            reward_value = None
-            if isinstance(objectives, dict):
-                reward_value = objectives.get("reward")
-            instance_objectives = data.get("instance_objectives")
-            if not isinstance(instance_objectives, list):
-                instance_objectives = None
-            instance_scores = _extract_instance_rewards(data)
             return BaselineEvent(
                 event_type=event_type,
                 category=category,
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                accuracy=reward_value
-                if reward_value is not None
-                else data.get("accuracy")
-                or data.get("baseline_score")
-                or data.get("baseline_accuracy"),
-                objectives=objectives if isinstance(objectives, dict) else None,
-                instance_scores=instance_scores,
-                instance_objectives=instance_objectives,
-                prompt=data.get("prompt"),
+                accuracy=parsed.get("accuracy"),
+                objectives=parsed.get("objectives"),
+                instance_scores=parsed.get("instance_scores"),
+                instance_objectives=parsed.get("instance_objectives"),
+                prompt=parsed.get("prompt"),
             )
 
         if category == EventCategory.CANDIDATE:
-            candidate_data = (
-                data.get("program_candidate")
-                if isinstance(data.get("program_candidate"), dict)
-                else data
-            )
-            objectives = candidate_data.get("objectives")
-            reward_value = None
-            if isinstance(objectives, dict):
-                reward_value = objectives.get("reward")
-            instance_objectives = candidate_data.get("instance_objectives")
-            if not isinstance(instance_objectives, list):
-                instance_objectives = None
-            instance_scores = _extract_instance_rewards(candidate_data)
             return CandidateEvent(
                 event_type=event_type,
                 category=category,
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                candidate_id=data.get("version_id") or data.get("candidate_id") or "",
-                accuracy=reward_value
-                if reward_value is not None
-                else candidate_data.get("accuracy") or candidate_data.get("score"),
-                objectives=objectives if isinstance(objectives, dict) else None,
-                accepted=data.get("accepted", False),
-                generation=data.get("generation"),
-                parent_id=data.get("parent_id"),
-                is_pareto=data.get("is_pareto", False),
-                instance_scores=instance_scores,
-                instance_objectives=instance_objectives,
-                mutation_type=data.get("mutation_type") or data.get("operator"),
+                candidate_id=parsed.get("candidate_id") or "",
+                accuracy=parsed.get("accuracy"),
+                objectives=parsed.get("objectives"),
+                accepted=parsed.get("accepted", False),
+                generation=parsed.get("generation"),
+                parent_id=parsed.get("parent_id"),
+                is_pareto=parsed.get("is_pareto", False),
+                instance_scores=parsed.get("instance_scores"),
+                instance_objectives=parsed.get("instance_objectives"),
+                mutation_type=parsed.get("mutation_type"),
             )
 
         if category == EventCategory.FRONTIER:
@@ -316,13 +321,13 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                frontier=data.get("frontier"),
-                added=data.get("added"),
-                removed=data.get("removed"),
-                frontier_size=data.get("frontier_size", len(data.get("frontier", []))),
-                best_score=data.get("best_score"),
-                frontier_scores=data.get("frontier_scores"),
-                frontier_objectives=data.get("frontier_objectives"),
+                frontier=parsed.get("frontier"),
+                added=parsed.get("added"),
+                removed=parsed.get("removed"),
+                frontier_size=parsed.get("frontier_size", 0),
+                best_score=parsed.get("best_score"),
+                frontier_scores=parsed.get("frontier_scores"),
+                frontier_objectives=parsed.get("frontier_objectives"),
             )
 
         if category == EventCategory.PROGRESS:
@@ -332,13 +337,11 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                rollouts_completed=data.get("rollouts_completed")
-                or data.get("rollouts_executed")
-                or 0,
-                rollouts_total=data.get("rollouts_total") or data.get("total_rollouts"),
-                trials_completed=data.get("trials_completed") or 0,
-                best_score=data.get("best_score"),
-                baseline_score=data.get("baseline_score"),
+                rollouts_completed=parsed.get("rollouts_completed", 0),
+                rollouts_total=parsed.get("rollouts_total"),
+                trials_completed=parsed.get("trials_completed", 0),
+                best_score=parsed.get("best_score"),
+                baseline_score=parsed.get("baseline_score"),
             )
 
         if category == EventCategory.GENERATION:
@@ -348,10 +351,10 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                generation=data.get("generation", 0),
-                best_accuracy=data.get("best_accuracy", 0.0),
-                candidates_proposed=data.get("candidates_proposed", 0),
-                candidates_accepted=data.get("candidates_accepted", 0),
+                generation=parsed.get("generation", 0),
+                best_accuracy=parsed.get("best_accuracy", 0.0),
+                candidates_proposed=parsed.get("candidates_proposed", 0),
+                candidates_accepted=parsed.get("candidates_accepted", 0),
             )
 
         if category == EventCategory.COMPLETE:
@@ -361,10 +364,10 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                best_score=data.get("best_score"),
-                baseline_score=data.get("baseline_score"),
-                finish_reason=data.get("finish_reason") or data.get("reason_terminated"),
-                total_candidates=data.get("total_candidates", 0),
+                best_score=parsed.get("best_score"),
+                baseline_score=parsed.get("baseline_score"),
+                finish_reason=parsed.get("finish_reason"),
+                total_candidates=parsed.get("total_candidates", 0),
             )
 
         if category == EventCategory.TERMINATION:
@@ -374,7 +377,7 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                reason=data.get("reason", "unknown"),
+                reason=parsed.get("reason", "unknown"),
             )
 
         if category == EventCategory.USAGE:
@@ -384,12 +387,11 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                total_usd=data.get("total_usd", 0.0),
-                tokens_usd=data.get("usd_tokens", 0.0),
-                sandbox_usd=data.get("sandbox_usd", 0.0),
+                total_usd=parsed.get("total_usd", 0.0),
+                tokens_usd=parsed.get("tokens_usd", 0.0),
+                sandbox_usd=parsed.get("sandbox_usd", 0.0),
             )
 
-        # Default: generic ParsedEvent
         return ParsedEvent(
             event_type=event_type,
             category=category,

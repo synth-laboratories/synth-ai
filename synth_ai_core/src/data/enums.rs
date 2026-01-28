@@ -79,6 +79,7 @@ pub enum InferenceMode {
     Standard,
     Batched,
     Streaming,
+    SynthHosted,
 }
 
 impl Default for InferenceMode {
@@ -219,6 +220,9 @@ pub enum GraphType {
     Parallel,
     Conditional,
     Loop,
+    Policy,
+    Verifier,
+    Rlm,
 }
 
 impl Default for GraphType {
@@ -234,6 +238,9 @@ pub enum OptimizationMode {
     Online,
     Offline,
     Hybrid,
+    Auto,
+    GraphOnly,
+    PromptOnly,
 }
 
 impl Default for OptimizationMode {
@@ -250,6 +257,8 @@ pub enum VerifierMode {
     Rubric,
     Criteria,
     Custom,
+    Contrastive,
+    GoldExamples,
 }
 
 impl Default for VerifierMode {
@@ -267,6 +276,10 @@ pub enum TrainingType {
     Dpo,
     Ppo,
     Grpo,
+    Gepa,
+    GraphEvolve,
+    Graphgen,
+    Gspo,
 }
 
 impl Default for TrainingType {
@@ -283,6 +296,14 @@ pub enum AdaptiveCurriculumLevel {
     Medium,
     Hard,
     Expert,
+    #[serde(alias = "NONE")]
+    None,
+    #[serde(alias = "LOW")]
+    Low,
+    #[serde(alias = "MODERATE")]
+    Moderate,
+    #[serde(alias = "HIGH")]
+    High,
 }
 
 impl Default for AdaptiveCurriculumLevel {
@@ -299,6 +320,22 @@ pub enum AdaptiveBatchLevel {
     Medium,
     Large,
     Auto,
+    #[serde(alias = "NONE")]
+    None,
+    #[serde(alias = "LOW")]
+    Low,
+    #[serde(alias = "MODERATE")]
+    Moderate,
+    #[serde(alias = "HIGH")]
+    High,
+}
+
+/// Synth-hosted model names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SynthModelName {
+    SynthSmall,
+    SynthMedium,
 }
 
 impl Default for AdaptiveBatchLevel {

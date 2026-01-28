@@ -6,7 +6,6 @@ import os
 import subprocess
 import tempfile
 import time
-import tomllib
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +24,11 @@ try:
 except Exception:  # pragma: no cover - SFT moved to research repo
     collect_sft_jsonl_errors = None  # type: ignore[assignment]
     _SFT_AVAILABLE = False
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for optimization utils.") from exc
 
 from synth_ai.sdk.optimization.internal.ssl import SSLConfig
 
@@ -55,12 +59,14 @@ def run_sync(coro: Any, *, allow_nested: bool = False, label: str = "async call"
 
 def load_toml(path: Path) -> dict[str, Any]:
     try:
-        with path.open("rb") as fh:
-            return tomllib.load(fh)
+        payload = synth_ai_py.load_toml(str(path))
     except FileNotFoundError as exc:  # pragma: no cover - guarded by CLI
         raise TrainError(f"Config not found: {path}") from exc
-    except tomllib.TOMLDecodeError as exc:  # pragma: no cover - malformed input
+    except Exception as exc:  # pragma: no cover - malformed input
         raise TrainError(f"Failed to parse TOML: {path}\n{exc}") from exc
+    if isinstance(payload, dict):
+        return payload
+    return dict(payload)
 
 
 def mask_value(value: str | None) -> str:

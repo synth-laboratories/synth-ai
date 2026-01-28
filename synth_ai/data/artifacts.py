@@ -6,10 +6,16 @@ They are stored separately from traces and linked via trace_correlation_id.
 
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
+
+try:
+    from . import rust as _rust_data
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.artifacts.") from exc
 
 # Re-export context override types for backward compatibility
 from synth_ai.data.coding_agent_context import (
@@ -74,6 +80,21 @@ class Artifact(BaseModel):
                 f"Artifact size {size} bytes exceeds maximum {max_size_bytes} bytes. "
                 f"Content type: {self.content_type}"
             )
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Artifact:
+        if _rust_data is not None:
+            with contextlib.suppress(Exception):
+                data = _rust_data.normalize_artifact(data)  # noqa: F811
+        return cls.model_validate(data)
+
+
+try:  # Require Rust-backed class
+    import synth_ai_py as _rust_models  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.artifacts.") from exc
+
+Artifact = _rust_models.Artifact  # noqa: F811
 
 
 __all__ = [

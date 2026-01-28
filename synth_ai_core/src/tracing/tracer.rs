@@ -16,7 +16,7 @@ use super::models::{
     EventReward, MarkovBlanketMessage, MessageContent, OutcomeReward, SessionTimeStep,
     SessionTrace, TimeRecord, TracingEvent,
 };
-use super::storage::TraceStorage;
+use super::storage::{QueryParams, TraceStorage};
 
 /// Session tracer for recording traces.
 ///
@@ -188,6 +188,15 @@ impl SessionTracer {
             .await
             .as_ref()
             .map(|s| s.session_id.clone())
+    }
+
+    /// Execute a raw SQL query against the underlying storage.
+    pub async fn query(
+        &self,
+        sql: &str,
+        params: QueryParams,
+    ) -> Result<Vec<Value>, TracingError> {
+        self.storage.query(sql, params).await
     }
 
     // ========================================================================

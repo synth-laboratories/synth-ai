@@ -1,9 +1,7 @@
 """Bridge layer for Rust core functionality.
 
-This module provides Python-facing wrappers that mirror the Rust core APIs.
-Today it uses Python/httpx as a compatibility layer, but the surface area is
-intentionally aligned with the Rust core so it can be swapped to a real bridge
-when available.
+This module provides Python-facing wrappers that mirror the Rust core APIs
+and delegate directly to the Rust bindings.
 """
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient, http_request

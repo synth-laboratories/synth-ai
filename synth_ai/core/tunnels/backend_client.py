@@ -11,16 +11,20 @@ lease-based tunnel API.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import warnings
 from datetime import datetime
 from typing import Any, Optional
 
-import httpx
-
-from .errors import LeaseNotFoundError, TunnelAPIError
+from .errors import TunnelAPIError
 from .types import LeaseInfo, LeaseState
+
+try:
+    import synth_ai_py  # type: ignore
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for tunnel leases.") from exc
 
 logger = logging.getLogger(__name__)
 
@@ -68,27 +72,11 @@ class LeaseClient:
             backend_url or os.getenv("SYNTH_BACKEND_URL", DEFAULT_BACKEND_URL)
         ).rstrip("/")
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create the HTTP client."""
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                base_url=self.backend_url,
-                timeout=self.timeout,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "User-Agent": "synth-ai-sdk/1.0",
-                },
-            )
-        return self._client
+        self._rust = synth_ai_py.LeaseClient(self.api_key, self.backend_url, int(self.timeout))
 
     async def close(self) -> None:
         """Close the HTTP client."""
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
+        return
 
     async def __aenter__(self) -> LeaseClient:
         return self
@@ -96,81 +84,45 @@ class LeaseClient:
     async def __aexit__(self, *args: Any) -> None:
         await self.close()
 
-    async def _request(
-        self,
-        method: str,
-        path: str,
-        *,
-        json: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
-    ) -> dict[str, Any]:
-        """Make an API request."""
-        import time
-
-        client = await self._get_client()
-        url = f"/api/v1/tunnels{path}"
-
-        logger.debug("[LEASE_CLIENT] --> %s %s", method, url)
-        start_time = time.monotonic()
-
-        try:
-            response = await client.request(
-                method,
-                url,
-                json=json,
-                params=params,
-            )
-            elapsed = time.monotonic() - start_time
-            logger.debug(
-                "[LEASE_CLIENT] <-- %s %s status=%d elapsed=%.3fs",
-                method,
-                url,
-                response.status_code,
-                elapsed,
-            )
-        except httpx.TimeoutException as e:
-            elapsed = time.monotonic() - start_time
-            logger.error(
-                "[LEASE_CLIENT] <-- %s %s TIMEOUT elapsed=%.3fs",
-                method,
-                url,
-                elapsed,
-            )
-            raise TunnelAPIError(
-                f"Request timed out: {method} {url}",
-                hint="The backend may be slow. Try again.",
-            ) from e
-        except httpx.RequestError as e:
-            elapsed = time.monotonic() - start_time
-            logger.error(
-                "[LEASE_CLIENT] <-- %s %s ERROR=%s elapsed=%.3fs",
-                method,
-                url,
-                type(e).__name__,
-                elapsed,
-            )
-            raise TunnelAPIError(
-                f"Request failed: {method} {url}: {e}",
-                hint="Check your network connection.",
-            ) from e
-
-        if response.status_code == 404:
-            raise LeaseNotFoundError(path.split("/")[-1] if "/" in path else "unknown")
-
-        if response.status_code >= 400:
+    def _coerce_lease_info(self, lease: Any) -> LeaseInfo:
+        if isinstance(lease, LeaseInfo):
+            return lease
+        data = None
+        if hasattr(lease, "to_dict"):
+            data = lease.to_dict()
+        elif isinstance(lease, dict):
+            data = lease
+        if not isinstance(data, dict):
+            raise TunnelAPIError("Invalid lease payload returned from rust client.")
+        state_value = data.get("state")
+        if isinstance(state_value, LeaseState):
+            state = state_value
+        else:
             try:
-                body = response.json()
-                detail = body.get("detail", response.text)
+                state = LeaseState(str(state_value))
             except Exception:
-                detail = response.text
-
-            raise TunnelAPIError(
-                f"API error: {detail}",
-                status_code=response.status_code,
-                response_body=response.text,
-            )
-
-        return response.json()
+                state = LeaseState.PENDING
+        expires_raw = data.get("expires_at") or ""
+        if isinstance(expires_raw, str):
+            expires_at = datetime.fromisoformat(expires_raw.replace("Z", "+00:00"))
+        else:
+            expires_at = datetime.utcnow()
+        return LeaseInfo(
+            lease_id=str(data.get("lease_id") or ""),
+            managed_tunnel_id=str(data.get("managed_tunnel_id") or ""),
+            hostname=str(data.get("hostname") or ""),
+            route_prefix=str(data.get("route_prefix") or ""),
+            public_url=str(data.get("public_url") or ""),
+            local_host=str(data.get("local_host") or ""),
+            local_port=int(data.get("local_port") or 0),
+            expires_at=expires_at,
+            tunnel_token=str(data.get("tunnel_token") or ""),
+            access_client_id=data.get("access_client_id"),
+            access_client_secret=data.get("access_client_secret"),
+            gateway_port=int(data.get("gateway_port") or 8016),
+            state=state,
+            diagnostics_hint=str(data.get("diagnostics_hint") or ""),
+        )
 
     async def create_lease(
         self,
@@ -197,43 +149,17 @@ class LeaseClient:
         Returns:
             LeaseInfo with tunnel details and token
         """
-        data = await self._request(
-            "POST",
-            "/lease",
-            json={
-                "client_instance_id": client_instance_id,
-                "local_host": local_host,
-                "local_port": local_port,
-                "app_name": app_name,
-                "requested_ttl_seconds": requested_ttl_seconds,
-                "reuse_connector": reuse_connector,
-                "idempotency_key": idempotency_key,
-            },
+        lease = await asyncio.to_thread(
+            self._rust.create_lease,
+            client_instance_id,
+            local_host,
+            local_port,
+            app_name,
+            requested_ttl_seconds,
+            reuse_connector,
+            idempotency_key,
         )
-
-        logger.debug(
-            "[LEASE_CLIENT] Created lease: lease_id=%s hostname=%s route=%s",
-            data["lease_id"][:8],
-            data["hostname"],
-            data["route_prefix"],
-        )
-
-        return LeaseInfo(
-            lease_id=data["lease_id"],
-            managed_tunnel_id=data["managed_tunnel_id"],
-            hostname=data["hostname"],
-            route_prefix=data["route_prefix"],
-            public_url=data["public_url"],
-            local_host=local_host,
-            local_port=local_port,
-            expires_at=datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00")),
-            tunnel_token=data["tunnel_token"],
-            access_client_id=data.get("access_client_id"),
-            access_client_secret=data.get("access_client_secret"),
-            gateway_port=data.get("gateway_port", 8016),
-            state=LeaseState.PENDING,
-            diagnostics_hint=data.get("diagnostics_hint", ""),
-        )
+        return self._coerce_lease_info(lease)
 
     async def heartbeat(
         self,
@@ -256,18 +182,14 @@ class LeaseClient:
         Returns:
             Tuple of (action, next_heartbeat_seconds)
         """
-        data = await self._request(
-            "POST",
-            f"/lease/{lease_id}/heartbeat",
-            json={
-                "connected_to_edge": connected_to_edge,
-                "gateway_ready": gateway_ready,
-                "local_ready": local_ready,
-                "last_error": last_error[:1000] if last_error else None,
-            },
+        return await asyncio.to_thread(
+            self._rust.heartbeat,
+            lease_id,
+            connected_to_edge,
+            gateway_ready,
+            local_ready,
+            last_error,
         )
-
-        return data.get("action", "none"), data.get("next_heartbeat_seconds", 30)
 
     async def release(self, lease_id: str) -> None:
         """Release an active lease.
@@ -275,7 +197,7 @@ class LeaseClient:
         Args:
             lease_id: The lease ID to release
         """
-        await self._request("POST", f"/lease/{lease_id}/release")
+        await asyncio.to_thread(self._rust.release, lease_id)
         logger.debug("[LEASE_CLIENT] Released lease: lease_id=%s", lease_id[:8])
 
     async def list_leases(
@@ -295,31 +217,12 @@ class LeaseClient:
         Returns:
             List of lease info (without tokens)
         """
-        params: dict[str, Any] = {}
-        if client_instance_id:
-            params["client_instance_id"] = client_instance_id
-        if include_expired:
-            params["include_expired"] = "true"
-
-        data = await self._request("GET", "/lease", params=params)
-
-        return [
-            LeaseInfo(
-                lease_id=item["lease_id"],
-                managed_tunnel_id=item["managed_tunnel_id"],
-                hostname=item["hostname"],
-                route_prefix=item["route_prefix"],
-                public_url=item["public_url"],
-                local_host="127.0.0.1",  # Not returned in list
-                local_port=0,  # Not returned in list
-                expires_at=datetime.fromisoformat(item["expires_at"].replace("Z", "+00:00")),
-                tunnel_token="",  # Not returned in list
-                gateway_port=item.get("gateway_port", 8016),
-                state=LeaseState.ACTIVE,  # Assumed active if listed
-                diagnostics_hint=item.get("diagnostics_hint", ""),
-            )
-            for item in data
-        ]
+        leases = await asyncio.to_thread(
+            self._rust.list_leases,
+            client_instance_id,
+            include_expired,
+        )
+        return [self._coerce_lease_info(item) for item in leases]
 
 
 def get_lease_client(

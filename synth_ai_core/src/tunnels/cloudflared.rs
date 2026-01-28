@@ -1,7 +1,8 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
@@ -38,15 +39,27 @@ impl ManagedProcess {
     }
 }
 
-static TRACKED: Lazy<Mutex<Vec<ManagedProcess>>> = Lazy::new(|| Mutex::new(Vec::new()));
+static TRACKED: Lazy<Mutex<HashMap<usize, ManagedProcess>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
 
-pub fn track_process(proc: ManagedProcess) {
-    TRACKED.lock().push(proc);
+pub fn track_process(proc: ManagedProcess) -> usize {
+    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+    TRACKED.lock().insert(id, proc);
+    id
+}
+
+pub async fn stop_tracked(id: usize) -> Result<(), TunnelError> {
+    let mut guard = TRACKED.lock();
+    if let Some(mut proc) = guard.remove(&id) {
+        proc.stop().await;
+        return Ok(());
+    }
+    Err(TunnelError::process(format!("process id {id} not found")))
 }
 
 pub async fn cleanup_all() {
     let mut procs = TRACKED.lock();
-    for proc in procs.iter_mut() {
+    for (_, proc) in procs.iter_mut() {
         proc.stop().await;
     }
     procs.clear();
@@ -474,7 +487,7 @@ pub async fn verify_tunnel_dns_resolution(
         }
         let ip = resolve_hostname_with_explicit_resolvers(hostname).await?;
         let port = if parsed.scheme() == "http" { 80 } else { 443 };
-        let mut builder = reqwest::Client::builder()
+        let builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
             .danger_accept_invalid_certs(true)
             .resolve(hostname, (ip, port).into());

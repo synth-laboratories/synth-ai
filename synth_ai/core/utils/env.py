@@ -10,13 +10,15 @@ import json
 import os
 from pathlib import Path
 
-import httpx
-
-from synth_ai.core.config.user import load_user_env
 from synth_ai.core.errors import AuthenticationError
 from synth_ai.core.utils.paths import SYNTH_HOME_DIR
 from synth_ai.core.utils.secure_files import write_private_json
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for env utilities.") from exc
 
 
 def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | None:
@@ -32,7 +34,7 @@ def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | 
     Raises:
         AuthenticationError: If required and not found
     """
-    value = os.environ.get(env_key)
+    value = synth_ai_py.get_api_key(env_key)
     if not value and required:
         raise AuthenticationError(
             f"Missing required API key: {env_key}\n"
@@ -58,7 +60,7 @@ def mask_value(value: str, visible_chars: int = 4) -> str:
 
 
 def get_synth_and_env_keys() -> tuple[str, str]:
-    load_user_env(override=False)
+    synth_ai_py.auth_load_user_env()
     synth_api_key = os.environ.get("SYNTH_API_KEY")
     env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
     if not synth_api_key:
@@ -80,7 +82,7 @@ def get_backend_url() -> str:
 
 
 def mask_str(input: str, position: int = 3) -> str:
-    return input[:position] + "..." + input[-position:] if len(input) > position * 2 else "***"
+    return synth_ai_py.mask_str(input)
 
 
 def ensure_env_var(key: str, expected_value: str) -> None:
@@ -102,7 +104,7 @@ def resolve_env_var(key: str, override_process_env: bool = False) -> str:
         click.echo(f"Using {key}={mask_str(env_value)} from process environment")
         return env_value
 
-    applied = load_user_env(override=override_process_env)
+    applied = synth_ai_py.auth_load_user_env()
     config_value = applied.get(key)
 
     if override_process_env and config_value is not None:
@@ -189,29 +191,7 @@ def mint_demo_api_key(
     Raises:
         RuntimeError: If the request fails or returns invalid response
     """
-    if backend_url is None:
-        backend_url = BACKEND_URL_BASE
-
-    url = f"{backend_url}/api/demo/keys"
-
-    try:
-        resp = httpx.post(
-            url,
-            json={"ttl_hours": ttl_hours},
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        api_key = data.get("api_key")
-        if not api_key or not isinstance(api_key, str):
-            raise RuntimeError(f"Invalid response from demo key endpoint: {data}")
-
-        return api_key
-    except httpx.HTTPError as e:
-        raise RuntimeError(f"Failed to mint demo API key: {e}") from e
-    except Exception as e:
-        raise RuntimeError(f"Unexpected error minting demo API key: {e}") from e
+    return synth_ai_py.mint_demo_key(backend_url, ttl_hours)
 
 
 __all__ = [

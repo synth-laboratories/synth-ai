@@ -4,8 +4,10 @@
 //! optional dev headers (X-User-ID, X-Org-ID), and proper error handling.
 
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::multipart::{Form, Part};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::env;
 use std::time::Duration;
 use thiserror::Error;
@@ -44,6 +46,31 @@ pub enum HttpError {
 
     #[error("json parse error: {0}")]
     JsonParse(String),
+}
+
+/// Multipart file payload.
+#[derive(Debug, Clone)]
+pub struct MultipartFile {
+    pub field: String,
+    pub filename: String,
+    pub bytes: Vec<u8>,
+    pub content_type: Option<String>,
+}
+
+impl MultipartFile {
+    pub fn new(
+        field: impl Into<String>,
+        filename: impl Into<String>,
+        bytes: Vec<u8>,
+        content_type: Option<String>,
+    ) -> Self {
+        Self {
+            field: field.into(),
+            filename: filename.into(),
+            bytes,
+            content_type,
+        }
+    }
 }
 
 impl HttpError {
@@ -194,6 +221,31 @@ impl HttpClient {
         self.get(path, params).await
     }
 
+    /// Make a GET request returning raw bytes.
+    pub async fn get_bytes(
+        &self,
+        path: &str,
+        params: Option<&[(&str, &str)]>,
+    ) -> Result<Vec<u8>, HttpError> {
+        let url = self.abs_url(path);
+        let mut req = self.client.get(&url);
+
+        if let Some(p) = params {
+            req = req.query(p);
+        }
+
+        let resp = req.send().await?;
+        let status = resp.status().as_u16();
+        let bytes = resp.bytes().await.map_err(HttpError::Request)?;
+
+        if (200..300).contains(&status) {
+            return Ok(bytes.to_vec());
+        }
+
+        let snippet = String::from_utf8_lossy(&bytes).chars().take(200).collect::<String>();
+        Err(HttpError::from_response(status, &url, Some(&snippet)))
+    }
+
     /// Make a POST request with JSON body.
     ///
     /// # Arguments
@@ -228,6 +280,40 @@ impl HttpClient {
         Err(HttpError::from_response(status, &url, body.as_deref()))
     }
 
+    /// Make a POST request with multipart form data, returning JSON or text.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - API path
+    /// * `data` - Form fields (text)
+    /// * `files` - File fields with payload bytes
+    pub async fn post_multipart(
+        &self,
+        path: &str,
+        data: &HashMap<String, String>,
+        files: &[MultipartFile],
+    ) -> Result<Value, HttpError> {
+        let url = self.abs_url(path);
+        let mut form = Form::new();
+
+        for (k, v) in data {
+            form = form.text(k.clone(), v.clone());
+        }
+
+        for file in files {
+            let mut part = Part::bytes(file.bytes.clone()).file_name(file.filename.clone());
+            if let Some(ct) = &file.content_type {
+                part = part
+                    .mime_str(ct)
+                    .map_err(|e| HttpError::InvalidUrl(format!("invalid mime type: {}", e)))?;
+            }
+            form = form.part(file.field.clone(), part);
+        }
+
+        let resp = self.client.post(&url).multipart(form).send().await?;
+        self.handle_response_value(resp, &url).await
+    }
+
     /// Handle HTTP response, returning parsed JSON or error.
     async fn handle_response<T: DeserializeOwned>(
         &self,
@@ -243,6 +329,24 @@ impl HttpClient {
         } else {
             Err(HttpError::from_response(status, url, Some(&text)))
         }
+    }
+
+    async fn handle_response_value(
+        &self,
+        resp: reqwest::Response,
+        url: &str,
+    ) -> Result<Value, HttpError> {
+        let status = resp.status().as_u16();
+        let text = resp.text().await.unwrap_or_default();
+
+        if (200..300).contains(&status) {
+            if let Ok(parsed) = serde_json::from_str::<Value>(&text) {
+                return Ok(parsed);
+            }
+            return Ok(Value::String(text));
+        }
+
+        Err(HttpError::from_response(status, url, Some(&text)))
     }
 }
 

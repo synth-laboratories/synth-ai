@@ -168,4 +168,74 @@ impl LeaseClient {
             .await?;
         Ok(())
     }
+
+    pub async fn list_leases(
+        &self,
+        client_instance_id: Option<&str>,
+        include_expired: bool,
+    ) -> Result<Vec<LeaseInfo>, TunnelError> {
+        let mut params: Vec<(String, String)> = Vec::new();
+        if let Some(id) = client_instance_id {
+            params.push(("client_instance_id".to_string(), id.to_string()));
+        }
+        if include_expired {
+            params.push(("include_expired".to_string(), "true".to_string()));
+        }
+
+        let data = self
+            .request(reqwest::Method::GET, "/lease", None, Some(params))
+            .await?;
+
+        let items = data
+            .as_array()
+            .ok_or_else(|| TunnelError::api("invalid lease list payload".to_string()))?;
+
+        #[derive(Deserialize)]
+        struct LeaseListItem {
+            lease_id: String,
+            managed_tunnel_id: String,
+            hostname: String,
+            route_prefix: String,
+            public_url: String,
+            expires_at: String,
+            gateway_port: Option<u16>,
+            diagnostics_hint: Option<String>,
+            state: Option<String>,
+        }
+
+        let mut out = Vec::with_capacity(items.len());
+        for item in items {
+            let payload: LeaseListItem = serde_json::from_value(item.clone()).map_err(|e| {
+                TunnelError::api(format!("invalid lease list entry: {e}"))
+            })?;
+            let expires_at = DateTime::parse_from_rfc3339(&payload.expires_at)
+                .map_err(|e| TunnelError::api(format!("invalid expires_at: {e}")))?
+                .with_timezone(&Utc);
+            let state = match payload.state.as_deref() {
+                Some("expired") => LeaseState::Expired,
+                Some("released") => LeaseState::Released,
+                Some("failed") => LeaseState::Failed,
+                Some("pending") => LeaseState::Pending,
+                _ => LeaseState::Active,
+            };
+            out.push(LeaseInfo {
+                lease_id: payload.lease_id,
+                managed_tunnel_id: payload.managed_tunnel_id,
+                hostname: payload.hostname,
+                route_prefix: payload.route_prefix,
+                public_url: payload.public_url,
+                local_host: "127.0.0.1".to_string(),
+                local_port: 0,
+                expires_at,
+                tunnel_token: "".to_string(),
+                access_client_id: None,
+                access_client_secret: None,
+                gateway_port: payload.gateway_port.unwrap_or(8016),
+                state,
+                diagnostics_hint: payload.diagnostics_hint.unwrap_or_default(),
+            });
+        }
+
+        Ok(out)
+    }
 }

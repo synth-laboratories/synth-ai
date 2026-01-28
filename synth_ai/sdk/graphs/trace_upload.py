@@ -24,23 +24,28 @@ Example:
 
 from __future__ import annotations
 
-import json
-import logging
+import asyncio
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-import aiohttp
-import httpx
-
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
 
-logger = logging.getLogger(__name__)
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for sdk.graphs.trace_upload.") from exc
 
 # Size threshold for automatic upload (100KB)
 AUTO_UPLOAD_THRESHOLD_BYTES = 100 * 1024
 
 # Maximum trace size allowed (50MB)
 MAX_TRACE_SIZE_BYTES = 50 * 1024 * 1024
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None:
+        raise RuntimeError("synth_ai_py is required for trace upload. Install rust bindings.")
+    return synth_ai_py
 
 
 @dataclass
@@ -109,6 +114,8 @@ class TraceUploaderSync:
         self._key = api_key
         self._timeout = timeout
         self._auto_upload_threshold = auto_upload_threshold
+        rust = _require_rust()
+        self._rust_client = rust.TraceUploadClient(self._base, self._key, int(timeout))
 
     def should_upload(self, trace: Mapping[str, Any]) -> bool:
         """Check if a trace should be uploaded via presigned URL.
@@ -119,8 +126,9 @@ class TraceUploaderSync:
         Returns:
             True if the trace is large enough to warrant upload
         """
-        trace_json = json.dumps(normalize_for_json(trace))
-        return len(trace_json) > self._auto_upload_threshold
+        return bool(
+            self._rust_client.should_upload(normalize_for_json(trace), self._auto_upload_threshold)
+        )
 
     def get_trace_size(self, trace: Mapping[str, Any]) -> int:
         """Get the serialized size of a trace in bytes.
@@ -131,7 +139,7 @@ class TraceUploaderSync:
         Returns:
             Size in bytes when serialized to JSON
         """
-        return len(json.dumps(normalize_for_json(trace)))
+        return int(self._rust_client.trace_size(normalize_for_json(trace)))
 
     def create_upload_url(
         self,
@@ -151,30 +159,15 @@ class TraceUploaderSync:
         Raises:
             TraceUploadError: If the request fails
         """
-        url = f"{self._base}/v1/traces/upload-url"
-        headers = {"X-API-Key": self._key, "Content-Type": "application/json"}
-
-        payload: dict[str, Any] = {"content_type": content_type}
-        if expires_in_seconds is not None:
-            payload["expires_in_seconds"] = expires_in_seconds
-
-        with httpx.Client(timeout=self._timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
-
-            if resp.status_code == 503:
-                raise TraceUploadError("Trace upload not configured. S3 bucket may not be set up.")
-            if resp.status_code >= 400:
-                raise TraceUploadError(f"Failed to create upload URL: {resp.text[:500]}")
-
-            data = resp.json()
-            return UploadUrlResponse(
-                trace_id=data["trace_id"],
-                trace_ref=data["trace_ref"],
-                upload_url=data["upload_url"],
-                expires_in_seconds=data["expires_in_seconds"],
-                storage_key=data["storage_key"],
-                max_size_bytes=data.get("max_size_bytes", MAX_TRACE_SIZE_BYTES),
-            )
+        data = self._rust_client.create_upload_url(content_type, expires_in_seconds)
+        return UploadUrlResponse(
+            trace_id=data["trace_id"],
+            trace_ref=data["trace_ref"],
+            upload_url=data["upload_url"],
+            expires_in_seconds=data["expires_in_seconds"],
+            storage_key=data["storage_key"],
+            max_size_bytes=data.get("max_size_bytes", MAX_TRACE_SIZE_BYTES),
+        )
 
     def upload_trace(
         self,
@@ -199,36 +192,9 @@ class TraceUploaderSync:
         Raises:
             TraceUploadError: If upload fails
         """
-        # Serialize trace
-        trace_json = json.dumps(normalize_for_json(trace))
-        trace_bytes = trace_json.encode("utf-8")
-
-        # Check size
-        if len(trace_bytes) > MAX_TRACE_SIZE_BYTES:
-            raise TraceUploadError(
-                f"Trace too large: {len(trace_bytes)} bytes (max: {MAX_TRACE_SIZE_BYTES})"
-            )
-
-        # Get upload URL
-        upload_info = self.create_upload_url(expires_in_seconds=expires_in_seconds)
-
-        logger.debug(f"Uploading trace {upload_info.trace_id} ({len(trace_bytes)} bytes)")
-
-        # Upload to S3 via presigned URL
-        with httpx.Client(timeout=self._timeout) as client:
-            resp = client.put(
-                upload_info.upload_url,
-                content=trace_bytes,
-                headers={"Content-Type": "application/json"},
-            )
-
-            if resp.status_code >= 400:
-                raise TraceUploadError(
-                    f"Failed to upload trace to storage: {resp.status_code} {resp.text[:500]}"
-                )
-
-        logger.info(f"Uploaded trace {upload_info.trace_ref} ({len(trace_bytes)} bytes)")
-        return upload_info.trace_ref
+        return self._rust_client.upload_trace(
+            normalize_for_json(trace), "application/json", expires_in_seconds
+        )
 
 
 class TraceUploaderAsync:
@@ -268,6 +234,8 @@ class TraceUploaderAsync:
         self._key = api_key
         self._timeout = timeout
         self._auto_upload_threshold = auto_upload_threshold
+        rust = _require_rust()
+        self._rust_client = rust.TraceUploadClient(self._base, self._key, int(timeout))
 
     def should_upload(self, trace: Mapping[str, Any]) -> bool:
         """Check if a trace should be uploaded via presigned URL.
@@ -278,8 +246,9 @@ class TraceUploaderAsync:
         Returns:
             True if the trace is large enough to warrant upload
         """
-        trace_json = json.dumps(normalize_for_json(trace))
-        return len(trace_json) > self._auto_upload_threshold
+        return bool(
+            self._rust_client.should_upload(normalize_for_json(trace), self._auto_upload_threshold)
+        )
 
     def get_trace_size(self, trace: Mapping[str, Any]) -> int:
         """Get the serialized size of a trace in bytes.
@@ -290,7 +259,7 @@ class TraceUploaderAsync:
         Returns:
             Size in bytes when serialized to JSON
         """
-        return len(json.dumps(normalize_for_json(trace)))
+        return int(self._rust_client.trace_size(normalize_for_json(trace)))
 
     async def create_upload_url(
         self,
@@ -310,33 +279,17 @@ class TraceUploaderAsync:
         Raises:
             TraceUploadError: If the request fails
         """
-        url = f"{self._base}/v1/traces/upload-url"
-        headers = {"X-API-Key": self._key, "Content-Type": "application/json"}
-
-        payload: dict[str, Any] = {"content_type": content_type}
-        if expires_in_seconds is not None:
-            payload["expires_in_seconds"] = expires_in_seconds
-
-        timeout = aiohttp.ClientTimeout(total=self._timeout)
-        async with (
-            aiohttp.ClientSession(timeout=timeout) as session,
-            session.post(url, headers=headers, json=payload) as resp,
-        ):
-            if resp.status == 503:
-                raise TraceUploadError("Trace upload not configured. S3 bucket may not be set up.")
-            if resp.status >= 400:
-                text = await resp.text()
-                raise TraceUploadError(f"Failed to create upload URL: {text[:500]}")
-
-            data = await resp.json()
-            return UploadUrlResponse(
-                trace_id=data["trace_id"],
-                trace_ref=data["trace_ref"],
-                upload_url=data["upload_url"],
-                expires_in_seconds=data["expires_in_seconds"],
-                storage_key=data["storage_key"],
-                max_size_bytes=data.get("max_size_bytes", MAX_TRACE_SIZE_BYTES),
-            )
+        data = await asyncio.to_thread(
+            self._rust_client.create_upload_url, content_type, expires_in_seconds
+        )
+        return UploadUrlResponse(
+            trace_id=data["trace_id"],
+            trace_ref=data["trace_ref"],
+            upload_url=data["upload_url"],
+            expires_in_seconds=data["expires_in_seconds"],
+            storage_key=data["storage_key"],
+            max_size_bytes=data.get("max_size_bytes", MAX_TRACE_SIZE_BYTES),
+        )
 
     async def upload_trace(
         self,
@@ -361,39 +314,12 @@ class TraceUploaderAsync:
         Raises:
             TraceUploadError: If upload fails
         """
-        # Serialize trace
-        trace_json = json.dumps(normalize_for_json(trace))
-        trace_bytes = trace_json.encode("utf-8")
-
-        # Check size
-        if len(trace_bytes) > MAX_TRACE_SIZE_BYTES:
-            raise TraceUploadError(
-                f"Trace too large: {len(trace_bytes)} bytes (max: {MAX_TRACE_SIZE_BYTES})"
-            )
-
-        # Get upload URL
-        upload_info = await self.create_upload_url(expires_in_seconds=expires_in_seconds)
-
-        logger.debug(f"Uploading trace {upload_info.trace_id} ({len(trace_bytes)} bytes)")
-
-        # Upload to S3 via presigned URL
-        timeout = aiohttp.ClientTimeout(total=self._timeout)
-        async with (
-            aiohttp.ClientSession(timeout=timeout) as session,
-            session.put(
-                upload_info.upload_url,
-                data=trace_bytes,
-                headers={"Content-Type": "application/json"},
-            ) as resp,
-        ):
-            if resp.status >= 400:
-                text = await resp.text()
-                raise TraceUploadError(
-                    f"Failed to upload trace to storage: {resp.status} {text[:500]}"
-                )
-
-        logger.info(f"Uploaded trace {upload_info.trace_ref} ({len(trace_bytes)} bytes)")
-        return upload_info.trace_ref
+        return await asyncio.to_thread(
+            self._rust_client.upload_trace,
+            normalize_for_json(trace),
+            "application/json",
+            expires_in_seconds,
+        )
 
 
 # Aliases for convenience

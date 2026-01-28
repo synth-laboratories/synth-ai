@@ -89,6 +89,7 @@ from synth_ai.data.rewards import (
 # Rubric definitions (user input structures)
 from synth_ai.data.rubrics import (
     Criterion,
+    CriterionExample,
     Rubric,
 )
 
@@ -104,6 +105,48 @@ from synth_ai.data.traces import (
     SessionTrace,
     TimeRecord,
 )
+
+try:  # Require Rust-backed data models
+    import synth_ai_py as _rust_data  # type: ignore
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for synth_ai.data.") from exc
+
+CriterionExample = _rust_data.CriterionExample  # noqa: F811
+Criterion = _rust_data.Criterion  # noqa: F811
+Rubric = _rust_data.Rubric  # noqa: F811
+CriterionScoreData = _rust_data.CriterionScoreData  # noqa: F811
+RubricAssignment = _rust_data.RubricAssignment  # noqa: F811
+Judgement = _rust_data.Judgement  # noqa: F811
+ObjectiveSpec = _rust_data.ObjectiveSpec  # noqa: F811
+RewardObservation = _rust_data.RewardObservation  # noqa: F811
+OutcomeObjectiveAssignment = _rust_data.OutcomeObjectiveAssignment  # noqa: F811
+EventObjectiveAssignment = _rust_data.EventObjectiveAssignment  # noqa: F811
+InstanceObjectiveAssignment = _rust_data.InstanceObjectiveAssignment  # noqa: F811
+OutcomeRewardRecord = _rust_data.OutcomeRewardRecord  # noqa: F811
+EventRewardRecord = _rust_data.EventRewardRecord  # noqa: F811
+RewardAggregates = _rust_data.RewardAggregates  # noqa: F811
+CalibrationExample = _rust_data.CalibrationExample  # noqa: F811
+GoldExample = _rust_data.GoldExample  # noqa: F811
+Artifact = _rust_data.Artifact  # noqa: F811
+ContextOverride = _rust_data.ContextOverride  # noqa: F811
+ContextOverrideStatus = _rust_data.ContextOverrideStatus  # noqa: F811
+SessionTrace = _rust_data.SessionTrace  # noqa: F811
+SessionTimeStep = _rust_data.SessionTimeStep  # noqa: F811
+BaseEvent = _rust_data.TracingEvent  # noqa: F811
+RuntimeEvent = _rust_data.RuntimeEvent  # noqa: F811
+EnvironmentEvent = _rust_data.EnvironmentEvent  # noqa: F811
+LMCAISEvent = _rust_data.LMCAISEvent  # noqa: F811
+SessionEventMarkovBlanketMessage = _rust_data.SessionEventMarkovBlanketMessage  # noqa: F811
+SessionMessageContent = _rust_data.SessionMessageContent  # noqa: F811
+TimeRecord = _rust_data.TimeRecord  # noqa: F811
+LLMUsage = _rust_data.LLMUsage  # noqa: F811
+LLMRequestParams = _rust_data.LLMRequestParams  # noqa: F811
+LLMContentPart = _rust_data.LLMContentPart  # noqa: F811
+LLMMessage = _rust_data.LLMMessage  # noqa: F811
+ToolCallSpec = _rust_data.ToolCallSpec  # noqa: F811
+ToolCallResult = _rust_data.ToolCallResult  # noqa: F811
+LLMChunk = _rust_data.LLMChunk  # noqa: F811
+LLMCallRecord = _rust_data.LLMCallRecord  # noqa: F811
 
 __all__ = [
     # Enums
@@ -172,6 +215,7 @@ __all__ = [
     "LLMChunk",
     "LLMCallRecord",
     # Rubrics
+    "CriterionExample",
     "Criterion",
     "Rubric",
 ]

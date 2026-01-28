@@ -5,7 +5,9 @@ Public API: Use `synth_ai.sdk.optimization.PolicyOptimizationJob` instead.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
@@ -21,13 +23,22 @@ from .builders import (
 )
 from .local_api import check_local_api_health
 from .pollers import JobPoller, PollOutcome
-from .prompt_learning_polling import poll_prompt_learning_until_complete
 from .prompt_learning_service import (
     cancel_prompt_learning_job,
     query_prompt_learning_workflow_state,
-    submit_prompt_learning_job,
 )
 from .utils import ensure_api_base, run_sync
+
+try:
+    import synth_ai_py  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.prompt_learning.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "PromptLearningJob"):
+        raise RuntimeError("Rust core PromptLearningJob required; synth_ai_py is unavailable.")
+    return synth_ai_py
 
 
 @dataclass
@@ -174,6 +185,27 @@ class PromptLearningJob:
         self._job_id = job_id
         self._build_result: Optional[PromptLearningBuildResult] = None
         self._skip_health_check = skip_health_check
+        self._rust_job: Any | None = None
+
+        rust = _require_rust()
+        if job_id:
+            self._rust_job = rust.PromptLearningJob.from_job_id(
+                job_id, self.config.api_key, self.config.backend_url
+            )
+
+    def _ensure_rust_job(self, config_payload: Optional[Dict[str, Any]] = None) -> Any | None:
+        rust = _require_rust()
+        if self._rust_job is not None:
+            return self._rust_job
+        if self._job_id:
+            self._rust_job = rust.PromptLearningJob.from_job_id(
+                self._job_id, self.config.api_key, self.config.backend_url
+            )
+        elif config_payload is not None:
+            self._rust_job = rust.PromptLearningJob.from_dict(
+                config_payload, self.config.api_key, self.config.backend_url
+            )
+        return self._rust_job
 
     @classmethod
     def from_config(
@@ -426,16 +458,10 @@ class PromptLearningJob:
         logger = logging.getLogger(__name__)
         logger.debug("Submitting job to: %s", self.config.backend_url)
 
-        js = submit_prompt_learning_job(
-            backend_url=self.config.backend_url,
-            api_key=self.config.api_key,
-            payload=build.payload,
-        )
-
-        job_id = js.get("job_id") or js.get("id")
+        rust_job = self._ensure_rust_job(config_payload=build.payload)
+        job_id = rust_job.submit()
         if not job_id:
             raise RuntimeError("Response missing job ID")
-
         self._job_id = job_id
         return job_id
 
@@ -449,16 +475,8 @@ class PromptLearningJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import (
-            PromptLearningClient,
-        )
-
-        client = PromptLearningClient(
-            ensure_api_base(self.config.backend_url),
-            self.config.api_key,
-            timeout=30.0,
-        )
-        result = await client.get_job(self._job_id)  # type: ignore[arg-type]  # We check None above
+        rust_job = self._ensure_rust_job()
+        result = await asyncio.to_thread(rust_job.get_status)
         return dict(result) if isinstance(result, dict) else {}
 
     def get_status(self) -> Dict[str, Any]:
@@ -471,10 +489,9 @@ class PromptLearningJob:
             RuntimeError: If job hasn't been submitted yet
             ValueError: If job ID format is invalid
         """
-        return run_sync(
-            self.get_status_async(),
-            label="get_status() (use get_status_async in async contexts)",
-        )
+        rust_job = self._ensure_rust_job()
+        result = rust_job.get_status()
+        return dict(result) if isinstance(result, dict) else {}
 
     def poll_until_complete(
         self,
@@ -514,16 +531,76 @@ class PromptLearningJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        return poll_prompt_learning_until_complete(
-            backend_url=self.config.backend_url,
-            api_key=self.config.api_key,
-            job_id=self._job_id,
-            timeout=timeout,
-            interval=interval,
-            progress=progress,
-            on_status=on_status,
-            request_timeout=request_timeout,
-        )
+        rust_job = self._ensure_rust_job()
+        if not progress and on_status is None:
+            result = rust_job.poll_until_complete(timeout, interval)
+            payload = dict(result) if isinstance(result, dict) else {}
+            return PromptLearningResult.from_response(self._job_id, payload)
+
+        import logging
+
+        logger = logging.getLogger(__name__)
+        start_time = time.time()
+        last_data: Dict[str, Any] = {}
+        error_count = 0
+        max_errors = 5
+
+        while time.time() - start_time <= timeout:
+            try:
+                payload = rust_job.get_status()
+                last_data = dict(payload) if isinstance(payload, dict) else {}
+                error_count = 0
+
+                if progress:
+                    elapsed = time.time() - start_time
+                    mins, secs = divmod(int(elapsed), 60)
+                    best_score = (
+                        last_data.get("best_score")
+                        or last_data.get("best_reward")
+                        or last_data.get("best_train_score")
+                        or last_data.get("best_train_reward")
+                    )
+                    score_str = (
+                        f"score: {best_score:.2f}" if best_score is not None else "score: --"
+                    )
+                    iteration = last_data.get("iteration") or last_data.get("current_iteration")
+                    iter_str = f" | iter: {iteration}" if iteration is not None else ""
+                    status_str = str(last_data.get("status", "pending"))
+                    logger.info(
+                        "[%02d:%02d] %s | %s%s",
+                        mins,
+                        secs,
+                        status_str,
+                        score_str,
+                        iter_str,
+                    )
+
+                if on_status:
+                    on_status(last_data)
+
+                result = PromptLearningResult.from_response(self._job_id, last_data)
+                if result.is_terminal:
+                    return result
+            except Exception as exc:
+                error_count += 1
+                logger.warning(
+                    "Polling error %s/%s for job %s: %s",
+                    error_count,
+                    max_errors,
+                    self._job_id,
+                    exc,
+                )
+                if error_count >= max_errors:
+                    raise RuntimeError(
+                        f"Polling failed after {error_count} consecutive errors."
+                    ) from exc
+
+            time.sleep(interval)
+
+        if progress:
+            logger.warning("Polling timeout after %.0fs for job %s", timeout, self._job_id)
+
+        return PromptLearningResult.from_response(self._job_id, last_data)
 
     async def stream_until_complete_async(
         self,
@@ -538,6 +615,15 @@ class PromptLearningJob:
 
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        rust_job = self._ensure_rust_job()
+        if rust_job is not None and handlers is None:
+            result = await asyncio.to_thread(rust_job.stream_until_complete, timeout)
+            payload = dict(result) if isinstance(result, dict) else {}
+            if on_event and isinstance(payload, dict):
+                with contextlib.suppress(Exception):
+                    on_event(payload)
+            return PromptLearningResult.from_response(self._job_id, payload)
 
         from .prompt_learning_streaming import build_prompt_learning_streamer
 
@@ -600,46 +686,32 @@ class PromptLearningJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import (
-            PromptLearningClient,
-        )
-
-        client = PromptLearningClient(
-            ensure_api_base(self.config.backend_url),
-            self.config.api_key,
-        )
-        results = await client.get_prompts(self._job_id)  # type: ignore[arg-type]  # We check None above
-
-        return {
-            "best_prompt": results.best_prompt,
-            "best_score": results.best_score,
-            "top_prompts": results.top_prompts,
-            "optimized_candidates": results.optimized_candidates,
-            "attempted_candidates": results.attempted_candidates,
-            "validation_results": results.validation_results,
-        }
+        rust_job = self._ensure_rust_job()
+        result = await asyncio.to_thread(rust_job.get_results)
+        return dict(result) if isinstance(result, dict) else {}
 
     def get_results(self) -> Dict[str, Any]:
         """Get job results (prompts, scores, etc.)."""
-        return run_sync(
-            self.get_results_async(),
-            label="get_results() (use get_results_async in async contexts)",
-        )
+        rust_job = self._ensure_rust_job()
+        result = rust_job.get_results()
+        return dict(result) if isinstance(result, dict) else {}
 
     async def get_best_prompt_text_async(self, rank: int = 1) -> Optional[str]:
         """Get the text of the best prompt by rank (async)."""
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+        if rank < 1:
+            raise ValueError(f"Rank must be >= 1, got: {rank}")
 
-        from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import (
-            PromptLearningClient,
-        )
-
-        client = PromptLearningClient(
-            ensure_api_base(self.config.backend_url),
-            self.config.api_key,
-        )
-        return await client.get_prompt_text(self._job_id, rank=rank)  # type: ignore[arg-type]  # We check None above
+        results = await self.get_results_async()
+        top_prompts = results.get("top_prompts") or []
+        if isinstance(top_prompts, list):
+            for prompt_info in top_prompts:
+                if not isinstance(prompt_info, dict):
+                    continue
+                if prompt_info.get("rank") == rank:
+                    return prompt_info.get("full_text") or prompt_info.get("prompt")
+        return None
 
     def get_best_prompt_text(self, rank: int = 1) -> Optional[str]:
         """Get the text of the best prompt by rank."""

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -13,6 +14,11 @@ from synth_ai.data.enums import (
     RewardType,
 )
 
+try:
+    from . import rust as _rust_data
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.objectives.") from exc
+
 
 @dataclass(frozen=True)
 class ObjectiveSpec:
@@ -22,6 +28,16 @@ class ObjectiveSpec:
     direction: ObjectiveDirection
     units: Optional[str] = None
     description: Optional[str] = None
+    target: Optional[float] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ObjectiveSpec:
+        if _rust_data is not None:
+            with contextlib.suppress(Exception):
+                data = _rust_data.normalize_objective_spec(data)  # noqa: F811
+        return cls(**data)
 
 
 OBJECTIVE_REGISTRY: Dict[ObjectiveKey, ObjectiveSpec] = {
@@ -56,7 +72,15 @@ class RewardObservation:
     source: RewardSource = RewardSource.TASK_APP
     objective_key: ObjectiveKey = ObjectiveKey.REWARD
     event_id: Optional[str | int] = None
+    turn_number: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> RewardObservation:
+        if _rust_data is not None:
+            with contextlib.suppress(Exception):
+                data = _rust_data.normalize_reward_observation(data)  # noqa: F811
+        return cls(**data)
 
 
 @dataclass
@@ -68,6 +92,10 @@ class OutcomeObjectiveAssignment:
     trace_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    @classmethod
+    def from_dict(cls, data: dict) -> OutcomeObjectiveAssignment:
+        return cls(**data)
+
 
 @dataclass
 class EventObjectiveAssignment:
@@ -75,7 +103,12 @@ class EventObjectiveAssignment:
 
     event_id: str | int
     objectives: Dict[str, float]
+    turn_number: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> EventObjectiveAssignment:
+        return cls(**data)
 
 
 @dataclass
@@ -84,7 +117,24 @@ class InstanceObjectiveAssignment:
 
     instance_id: str | int
     objectives: Dict[str, float]
+    split: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> InstanceObjectiveAssignment:
+        return cls(**data)
+
+
+try:  # Require Rust-backed classes
+    import synth_ai_py as _rust_models  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.objectives.") from exc
+
+ObjectiveSpec = _rust_models.ObjectiveSpec  # noqa: F811
+RewardObservation = _rust_models.RewardObservation  # noqa: F811
+OutcomeObjectiveAssignment = _rust_models.OutcomeObjectiveAssignment  # noqa: F811
+EventObjectiveAssignment = _rust_models.EventObjectiveAssignment  # noqa: F811
+InstanceObjectiveAssignment = _rust_models.InstanceObjectiveAssignment  # noqa: F811
 
 
 __all__ = [

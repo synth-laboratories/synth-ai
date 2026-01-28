@@ -14,12 +14,15 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::utils;
 
 /// Default config directory name
 pub const CONFIG_DIR: &str = ".synth-ai";
 
 /// Default config file name
 pub const CONFIG_FILE: &str = "user_config.json";
+/// Default localapi config file name
+pub const LOCALAPI_CONFIG_FILE: &str = "localapi_config.json";
 
 /// Default environment variable for API key
 pub const ENV_API_KEY: &str = "SYNTH_API_KEY";
@@ -43,6 +46,49 @@ pub fn get_config_dir() -> PathBuf {
 /// Get the default config file path (~/.synth-ai/user_config.json).
 pub fn get_config_path() -> PathBuf {
     get_config_dir().join(CONFIG_FILE)
+}
+
+/// Get the default localapi config file path (~/.synth-ai/localapi_config.json).
+pub fn get_localapi_config_path() -> PathBuf {
+    get_config_dir().join(LOCALAPI_CONFIG_FILE)
+}
+
+/// Load full user config JSON (not just string credentials).
+pub fn load_user_config() -> Result<HashMap<String, Value>, CoreError> {
+    let path = get_config_path();
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    let content = fs::read_to_string(&path)
+        .map_err(|e| CoreError::Config(format!("failed to read config: {}", e)))?;
+    let value: Value = serde_json::from_str(&content)
+        .map_err(|e| CoreError::Config(format!("invalid config JSON: {}", e)))?;
+    let mut result = HashMap::new();
+    if let Value::Object(map) = value {
+        for (k, v) in map {
+            result.insert(k, v);
+        }
+    }
+    Ok(result)
+}
+
+/// Save full user config JSON.
+pub fn save_user_config(config: &HashMap<String, Value>) -> Result<(), CoreError> {
+    let path = get_config_path();
+    let value = Value::Object(config.clone().into_iter().collect());
+    utils::write_private_json(&path, &value)
+        .map_err(|e| CoreError::Config(format!("failed to write config: {}", e)))?;
+    Ok(())
+}
+
+/// Update user config with provided values.
+pub fn update_user_config(updates: &HashMap<String, Value>) -> Result<HashMap<String, Value>, CoreError> {
+    let mut current = load_user_config()?;
+    for (k, v) in updates {
+        current.insert(k.clone(), v.clone());
+    }
+    save_user_config(&current)?;
+    Ok(current)
 }
 
 /// Get API key from environment variable.
@@ -433,11 +479,98 @@ pub fn mask_str(s: &str) -> String {
 ///
 /// Map of variable names to values that were set.
 pub fn load_user_env() -> Result<HashMap<String, String>, CoreError> {
-    let creds = load_credentials(None)?;
-    for (k, v) in &creds {
-        env::set_var(k, v);
+    load_user_env_with(true)
+}
+
+/// Load credentials from config and localapi config, setting env vars.
+pub fn load_user_env_with(override_env: bool) -> Result<HashMap<String, String>, CoreError> {
+    let mut applied: HashMap<String, String> = HashMap::new();
+
+    let mut apply = |mapping: &HashMap<String, Value>| {
+        for (k, v) in mapping {
+            if v.is_null() {
+                continue;
+            }
+            let value = if let Some(s) = v.as_str() {
+                s.to_string()
+            } else {
+                v.to_string()
+            };
+            if override_env || env::var(k).is_err() {
+                env::set_var(k, &value);
+            }
+            applied.insert(k.clone(), value);
+        }
+    };
+
+    let config = load_user_config()?;
+    apply(&config);
+
+    // Load localapi config (task app entries)
+    let localapi_path = get_localapi_config_path();
+    if localapi_path.exists() {
+        let raw = fs::read_to_string(&localapi_path)
+            .map_err(|e| CoreError::Config(format!("failed to read localapi config: {}", e)))?;
+        if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(&raw) {
+            if let Some(Value::Object(apps)) = map.get("apps") {
+                if let Some(entry) = select_task_app_entry(apps) {
+                    if let Some(Value::Object(modal)) = entry.get("modal") {
+                        let mut modal_map = HashMap::new();
+                        if let Some(v) = modal.get("base_url") {
+                            modal_map.insert("TASK_APP_BASE_URL".to_string(), v.clone());
+                        }
+                        if let Some(v) = modal.get("app_name") {
+                            modal_map.insert("TASK_APP_NAME".to_string(), v.clone());
+                        }
+                        if let Some(v) = modal.get("secret_name") {
+                            modal_map.insert("TASK_APP_SECRET_NAME".to_string(), v.clone());
+                        }
+                        apply(&modal_map);
+                    }
+                    if let Some(Value::Object(secrets)) = entry.get("secrets") {
+                        let mut secrets_map = HashMap::new();
+                        if let Some(v) = secrets.get("environment_api_key") {
+                            secrets_map.insert("ENVIRONMENT_API_KEY".to_string(), v.clone());
+                            secrets_map.insert("DEV_ENVIRONMENT_API_KEY".to_string(), v.clone());
+                        }
+                        apply(&secrets_map);
+                    }
+                }
+            }
+        }
     }
-    Ok(creds)
+
+    Ok(applied)
+}
+
+fn select_task_app_entry(apps: &serde_json::Map<String, Value>) -> Option<&serde_json::Map<String, Value>> {
+    if apps.is_empty() {
+        return None;
+    }
+
+    if let Ok(cwd) = env::current_dir() {
+        let cwd_str = cwd.to_string_lossy().to_string();
+        if let Some(Value::Object(entry)) = apps.get(&cwd_str) {
+            return Some(entry);
+        }
+    }
+
+    let mut best: Option<&serde_json::Map<String, Value>> = None;
+    let mut best_ts = String::new();
+    for (_key, entry) in apps {
+        if let Value::Object(map) = entry {
+            let ts = map
+                .get("last_used")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if ts > best_ts {
+                best_ts = ts;
+                best = Some(map);
+            }
+        }
+    }
+    best
 }
 
 /// Write content to a file atomically using temp file + rename.

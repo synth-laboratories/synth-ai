@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore[import-not-found]
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for graph optimization config parsing.") from exc
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -573,8 +573,9 @@ class GraphOptimizationConfig(BaseModel):
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
 
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
+        data = synth_ai_py.load_toml(str(path))
+        if not isinstance(data, dict):
+            data = dict(data)
 
         # Extract graph_optimization section
         if "graph_optimization" not in data:

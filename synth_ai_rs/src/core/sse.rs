@@ -1,42 +1,31 @@
-use eventsource_stream::Eventsource;
 use futures_util::{Stream, StreamExt};
 use reqwest::header::HeaderMap;
-use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
-use crate::core::http::shared_client;
-use crate::types::{Result, SynthError};
+use synth_ai_core::sse::{stream_sse as core_stream_sse, SseEvent};
+use synth_ai_core::CoreError;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SseEvent {
-    pub event: String,
-    pub data: String,
-    pub id: String,
-    pub retry: Option<std::time::Duration>,
-}
+use crate::types::{Result, SynthError};
 
 pub type SseStream = Pin<Box<dyn Stream<Item = Result<SseEvent>> + Send>>;
 
-pub async fn stream_sse(url: String, headers: HeaderMap) -> Result<SseStream> {
-    let resp = shared_client().get(url).headers(headers).send().await?;
-    let status = resp.status();
-    if !status.is_success() {
-        let body = resp.text().await.unwrap_or_default();
-        return Err(SynthError::Api {
-            status: status.as_u16(),
-            body,
-        });
+fn map_core_error(err: CoreError) -> SynthError {
+    match err {
+        CoreError::HttpResponse(info) => SynthError::Api {
+            status: info.status,
+            body: info.body_snippet.unwrap_or_default(),
+        },
+        CoreError::Http(err) => SynthError::Http(err),
+        CoreError::Protocol(msg) => SynthError::Sse(msg),
+        CoreError::Timeout(msg) => SynthError::Sse(msg),
+        other => SynthError::UnexpectedResponse(other.to_string()),
     }
+}
 
-    let stream = resp.bytes_stream().eventsource().map(|item| match item {
-        Ok(evt) => Ok(SseEvent {
-            event: evt.event,
-            data: evt.data,
-            id: evt.id,
-            retry: evt.retry,
-        }),
-        Err(err) => Err(SynthError::Sse(err.to_string())),
-    });
-
-    Ok(Box::pin(stream))
+pub async fn stream_sse(url: String, headers: HeaderMap) -> Result<SseStream> {
+    let stream = core_stream_sse(url, headers)
+        .await
+        .map_err(map_core_error)?;
+    let mapped = stream.map(|item| item.map_err(map_core_error));
+    Ok(Box::pin(mapped))
 }

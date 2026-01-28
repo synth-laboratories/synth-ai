@@ -7,7 +7,9 @@ use crate::http::HttpClient;
 use crate::CoreError;
 
 use super::eval::EvalClient;
+use super::graph_evolve::GraphEvolveClient;
 use super::graphs::GraphsClient;
+use super::inference::InferenceClient;
 use super::jobs::JobsClient;
 
 /// Default backend URL.
@@ -169,6 +171,20 @@ impl SynthClient {
     /// ```
     pub fn graphs(&self) -> GraphsClient<'_> {
         GraphsClient::new(self)
+    }
+
+    /// Get a Graph Evolve API client.
+    ///
+    /// Use this for Graph Evolve / GraphGen optimization endpoints.
+    pub fn graph_evolve(&self) -> GraphEvolveClient<'_> {
+        GraphEvolveClient::new(self)
+    }
+
+    /// Get an Inference API client.
+    ///
+    /// Use this for chat completions via the inference proxy.
+    pub fn inference(&self) -> InferenceClient<'_> {
+        InferenceClient::new(&self.http)
     }
 }
 

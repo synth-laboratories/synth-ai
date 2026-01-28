@@ -4,6 +4,7 @@
 //! optimization jobs.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -37,6 +38,52 @@ impl TokenUsage {
             cached_tokens: 0,
         }
     }
+}
+
+/// Stage information for multi-stage prompts.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct StageInfo {
+    /// Instruction text
+    pub instruction: String,
+    /// Optional rules/constraints
+    #[serde(default)]
+    pub rules: HashMap<String, Value>,
+    /// Optional temperature override
+    #[serde(default)]
+    pub temperature: Option<f64>,
+    /// Optional prompt variants
+    #[serde(default)]
+    pub prompts: Option<Vec<String>>,
+}
+
+/// Seed metadata for evaluated seeds.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SeedInfo {
+    pub seed: i64,
+    #[serde(default)]
+    pub query: String,
+    #[serde(default)]
+    pub expected: String,
+    #[serde(default)]
+    pub predicted: Option<String>,
+    #[serde(default)]
+    pub correct: Option<bool>,
+    #[serde(default)]
+    pub score: Option<f64>,
+}
+
+/// Rollout sample details.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RolloutSample {
+    pub seed: i64,
+    #[serde(default)]
+    pub query: String,
+    #[serde(default)]
+    pub expected: String,
+    #[serde(default)]
+    pub predicted: String,
+    #[serde(default)]
+    pub correct: bool,
 }
 
 /// Information about a single candidate.
@@ -83,6 +130,42 @@ pub struct CandidateInfo {
     /// Timestamp in milliseconds
     #[serde(default)]
     pub timestamp_ms: Option<i64>,
+    /// First-class program stages
+    #[serde(default)]
+    pub stages: HashMap<String, StageInfo>,
+    /// Prompt summary for compatibility
+    #[serde(default)]
+    pub prompt_summary: Option<String>,
+    /// Mutation params
+    #[serde(default)]
+    pub mutation_params: Option<HashMap<String, Value>>,
+    /// Transformation details
+    #[serde(default)]
+    pub transformation: Option<HashMap<String, Value>>,
+    /// Seed scores
+    #[serde(default)]
+    pub seed_scores: Vec<Value>,
+    /// Seeds evaluated
+    #[serde(default)]
+    pub seeds_evaluated: Vec<i64>,
+    /// Seed metadata
+    #[serde(default)]
+    pub seed_info: Vec<SeedInfo>,
+    /// Rollout samples
+    #[serde(default)]
+    pub rollout_sample: Vec<RolloutSample>,
+    /// Evaluation duration in ms
+    #[serde(default)]
+    pub evaluation_duration_ms: Option<i64>,
+    /// Minibatch scores
+    #[serde(default)]
+    pub minibatch_scores: Vec<f64>,
+    /// Skip reason
+    #[serde(default)]
+    pub skip_reason: Option<String>,
+    /// Raw event data for debugging
+    #[serde(default)]
+    pub raw_data: HashMap<String, Value>,
 }
 
 impl Default for CandidateInfo {
@@ -102,6 +185,18 @@ impl Default for CandidateInfo {
             cost_usd: None,
             timestamp: 0.0,
             timestamp_ms: None,
+            stages: HashMap::new(),
+            prompt_summary: None,
+            mutation_params: None,
+            transformation: None,
+            seed_scores: Vec::new(),
+            seeds_evaluated: Vec::new(),
+            seed_info: Vec::new(),
+            rollout_sample: Vec::new(),
+            evaluation_duration_ms: None,
+            minibatch_scores: Vec::new(),
+            skip_reason: None,
+            raw_data: HashMap::new(),
         }
     }
 }
@@ -120,6 +215,18 @@ pub struct BaselineInfo {
     /// Per-instance scores
     #[serde(default)]
     pub instance_scores: Vec<f64>,
+    /// Per-instance objectives
+    #[serde(default)]
+    pub instance_objectives: Option<Vec<HashMap<String, f64>>>,
+    /// Seeds evaluated
+    #[serde(default)]
+    pub seeds_evaluated: Vec<i64>,
+    /// Prompt configuration (if provided)
+    #[serde(default)]
+    pub prompt: Option<Value>,
+    /// Rollout samples (if provided)
+    #[serde(default)]
+    pub rollout_sample: Vec<RolloutSample>,
 }
 
 /// Frontier update record.
@@ -139,6 +246,9 @@ pub struct FrontierUpdate {
     /// Scores by candidate
     #[serde(default)]
     pub frontier_scores: HashMap<String, f64>,
+    /// Objective scores by candidate (if provided)
+    #[serde(default)]
+    pub frontier_objectives: Option<Vec<HashMap<String, f64>>>,
     /// Frontier size
     #[serde(default)]
     pub frontier_size: i32,
@@ -148,6 +258,12 @@ pub struct FrontierUpdate {
     /// Generation number
     #[serde(default)]
     pub generation: Option<i32>,
+    /// Baseline score (if provided)
+    #[serde(default)]
+    pub baseline_score: Option<f64>,
+    /// Timestamp in milliseconds (if provided)
+    #[serde(default)]
+    pub timestamp_ms: Option<i64>,
 }
 
 /// Overall GEPA progress state.
@@ -247,6 +363,18 @@ pub struct GenerationInfo {
     pub candidates_proposed: i32,
     /// Candidates accepted
     pub candidates_accepted: i32,
+    /// Frontier size
+    #[serde(default)]
+    pub frontier_size: i32,
+    /// Child candidates
+    #[serde(default)]
+    pub children: Vec<Value>,
+    /// Generation duration ms
+    #[serde(default)]
+    pub duration_ms: Option<f64>,
+    /// Timestamp seconds
+    #[serde(default)]
+    pub timestamp: f64,
 }
 
 impl Default for ProgressTracker {
@@ -256,6 +384,35 @@ impl Default for ProgressTracker {
 }
 
 impl ProgressTracker {
+    fn extract_instance_rewards(value: &Value) -> Option<Vec<f64>> {
+        let instance_objectives = value.get("instance_objectives")?.as_array()?;
+        if instance_objectives.is_empty() {
+            return None;
+        }
+        let mut values = Vec::with_capacity(instance_objectives.len());
+        for item in instance_objectives {
+            let reward_val = if let Some(obj) = item.as_object() {
+                if let Some(objectives) = obj.get("objectives").and_then(|v| v.as_object()) {
+                    objectives
+                        .get("reward")
+                        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                } else {
+                    obj.get("reward")
+                        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                }
+            } else {
+                None
+            };
+            let reward_val = reward_val?;
+            values.push(reward_val);
+        }
+        if values.is_empty() {
+            None
+        } else {
+            Some(values)
+        }
+    }
+
     /// Create a new progress tracker.
     pub fn new() -> Self {
         Self {
@@ -332,6 +489,24 @@ impl ProgressTracker {
             objectives: data.objectives,
             val_accuracy: None,
             instance_scores: data.instance_scores.unwrap_or_default(),
+            instance_objectives: data.instance_objectives,
+            seeds_evaluated: event
+                .data
+                .get("seeds_evaluated")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
+                .unwrap_or_default(),
+            prompt: event.data.get("prompt").cloned(),
+            rollout_sample: event
+                .data
+                .get("rollout_sample")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|item| serde_json::from_value::<RolloutSample>(item.clone()).ok())
+                        .collect()
+                })
+                .unwrap_or_default(),
         });
 
         if let Some(acc) = data.accuracy {
@@ -348,7 +523,111 @@ impl ProgressTracker {
     fn handle_candidate(&mut self, event: &ParsedEvent) {
         let data = EventParser::parse_candidate(event);
 
-        let candidate = CandidateInfo {
+        let is_baseline = event
+            .data
+            .get("is_baseline")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+            || data.parent_id.is_none();
+
+        let mut merged_data = event.data.as_object().cloned().unwrap_or_default();
+        if let Some(program_candidate) = event.data.get("program_candidate").and_then(|v| v.as_object()) {
+            for (k, v) in program_candidate {
+                merged_data.insert(k.clone(), v.clone());
+            }
+        }
+        let merged_value = Value::Object(merged_data.clone());
+
+        if is_baseline && self.baseline.is_none() {
+            let candidate_view = merged_data.clone();
+            let candidate_value = Value::Object(candidate_view.clone());
+
+            let objectives = candidate_view
+                .get("objectives")
+                .and_then(|v| v.as_object())
+                .and_then(|map| {
+                    let mut out = HashMap::new();
+                    for (k, v) in map {
+                        let val = v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()));
+                        let val = match val {
+                            Some(val) => val,
+                            None => return None,
+                        };
+                        out.insert(k.clone(), val);
+                    }
+                    Some(out)
+                });
+
+            let accuracy = objectives
+                .as_ref()
+                .and_then(|m| m.get("reward").copied())
+                .or_else(|| candidate_view.get("accuracy").and_then(|v| v.as_f64()))
+                .or_else(|| candidate_view.get("score").and_then(|v| v.as_f64()));
+
+            let instance_scores = candidate_view
+                .get("instance_scores")
+                .and_then(|v| v.as_array())
+                .and_then(|arr| {
+                    let mut out = Vec::with_capacity(arr.len());
+                    for item in arr {
+                        let val = item.as_f64().or_else(|| item.as_str().and_then(|s| s.parse().ok()))?;
+                        out.push(val);
+                    }
+                    Some(out)
+                })
+                .or_else(|| Self::extract_instance_rewards(&candidate_value))
+                .unwrap_or_default();
+
+            let instance_objectives = candidate_view
+                .get("instance_objectives")
+                .and_then(|v| v.as_array())
+                .and_then(|arr| {
+                    let mut out = Vec::with_capacity(arr.len());
+                    for item in arr {
+                        let obj = item.as_object()?;
+                        let mut map = HashMap::new();
+                        for (k, v) in obj {
+                            let val = v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))?;
+                            map.insert(k.clone(), val);
+                        }
+                        out.push(map);
+                    }
+                    Some(out)
+                });
+
+            self.baseline = Some(BaselineInfo {
+                accuracy,
+                objectives,
+                val_accuracy: None,
+                instance_scores,
+                instance_objectives,
+                seeds_evaluated: merged_data
+                    .get("seeds_evaluated")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
+                    .unwrap_or_default(),
+                prompt: candidate_view.get("prompt").cloned(),
+                rollout_sample: candidate_view
+                    .get("rollout_sample")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|item| serde_json::from_value::<RolloutSample>(item.clone()).ok())
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+            });
+
+            if let Some(acc) = accuracy {
+                self.progress.baseline_score = Some(acc);
+            }
+        }
+
+        if self.candidates_by_id.contains_key(&data.candidate_id) {
+            return;
+        }
+
+        let mut candidate = CandidateInfo {
             candidate_id: data.candidate_id.clone(),
             accuracy: data.accuracy,
             objectives: data.objectives,
@@ -363,7 +642,137 @@ impl ProgressTracker {
             cost_usd: None,
             timestamp: self.progress.elapsed_seconds,
             timestamp_ms: event.timestamp_ms,
+            stages: HashMap::new(),
+            prompt_summary: None,
+            mutation_params: None,
+            transformation: None,
+            seed_scores: Vec::new(),
+            seeds_evaluated: Vec::new(),
+            seed_info: Vec::new(),
+            rollout_sample: Vec::new(),
+            evaluation_duration_ms: None,
+            minibatch_scores: Vec::new(),
+            skip_reason: None,
+            raw_data: HashMap::new(),
         };
+
+        candidate.seeds_evaluated = merged_data
+            .get("seeds_evaluated")
+            .and_then(|v| v.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
+            .unwrap_or_default();
+
+        if let Some(val) = merged_data.get("val_accuracy").and_then(|v| v.as_f64()) {
+            candidate.val_accuracy = Some(val);
+        } else if let Some(val) = merged_data.get("full_score").and_then(|v| v.as_f64()) {
+            candidate.val_accuracy = Some(val);
+        }
+
+        if let Some(val) = merged_data.get("train_accuracy").and_then(|v| v.as_f64()) {
+            candidate.train_accuracy = Some(val);
+        } else if let Some(val) = merged_data.get("minibatch_score").and_then(|v| v.as_f64()) {
+            candidate.train_accuracy = Some(val);
+        }
+
+        if let Some(cost) = merged_data.get("cost_usd").and_then(|v| v.as_f64()) {
+            candidate.cost_usd = Some(cost);
+        }
+
+        if let Some(duration) = merged_data
+            .get("evaluation_duration_ms")
+            .and_then(|v| v.as_i64())
+        {
+            candidate.evaluation_duration_ms = Some(duration);
+        }
+
+        if let Some(scores) = merged_data.get("minibatch_scores").and_then(|v| v.as_array()) {
+            candidate.minibatch_scores = scores
+                .iter()
+                .filter_map(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                .collect();
+        } else if let Some(score) = merged_data.get("minibatch_score").and_then(|v| v.as_f64()) {
+            candidate.minibatch_scores = vec![score];
+        }
+
+        if let Some(reason) = merged_data.get("skip_reason").and_then(|v| v.as_str()) {
+            candidate.skip_reason = Some(reason.to_string());
+        }
+
+        if let Some(scores) = merged_data.get("seed_scores").and_then(|v| v.as_array()) {
+            candidate.seed_scores = scores.clone();
+        }
+
+        if let Some(info) = merged_data.get("seed_info").and_then(|v| v.as_array()) {
+            let mut seed_info = Vec::with_capacity(info.len());
+            for item in info {
+                if let Ok(parsed) = serde_json::from_value::<SeedInfo>(item.clone()) {
+                    seed_info.push(parsed);
+                }
+            }
+            candidate.seed_info = seed_info;
+        }
+
+        if let Some(samples) = merged_data.get("rollout_sample").and_then(|v| v.as_array()) {
+            let mut rollout_sample = Vec::with_capacity(samples.len());
+            for item in samples {
+                if let Ok(parsed) = serde_json::from_value::<RolloutSample>(item.clone()) {
+                    rollout_sample.push(parsed);
+                }
+            }
+            candidate.rollout_sample = rollout_sample;
+        }
+
+        if let Some(token_usage) = merged_data.get("token_usage") {
+            if let Ok(parsed) = serde_json::from_value::<TokenUsage>(token_usage.clone()) {
+                candidate.token_usage = Some(parsed);
+            }
+        }
+
+        if let Some(mutation_params) = merged_data.get("mutation_params").and_then(|v| v.as_object()) {
+            candidate.mutation_params = Some(mutation_params.clone().into_iter().collect());
+        }
+
+        if let Some(transformation) = merged_data.get("transformation").and_then(|v| v.as_object()) {
+            candidate.transformation = Some(transformation.clone().into_iter().collect());
+        }
+
+        if let Some(stages) = merged_data.get("stages").and_then(|v| v.as_object()) {
+            let mut stage_map = HashMap::new();
+            for (key, value) in stages {
+                if let Ok(stage) = serde_json::from_value::<StageInfo>(value.clone()) {
+                    stage_map.insert(key.clone(), stage);
+                }
+            }
+            candidate.stages = stage_map;
+        }
+
+        if candidate.prompt_summary.is_none() {
+            if let Some(summary) = merged_data
+                .get("prompt_summary")
+                .and_then(|v| v.as_str())
+                .or_else(|| merged_data.get("prompt_text").and_then(|v| v.as_str()))
+            {
+                candidate.prompt_summary = Some(summary.to_string());
+            } else if !candidate.stages.is_empty() {
+                let mut parts = Vec::new();
+                let mut stage_ids: Vec<_> = candidate.stages.keys().collect();
+                stage_ids.sort();
+                for stage_id in stage_ids {
+                    if let Some(stage) = candidate.stages.get(stage_id) {
+                        if !stage.instruction.is_empty() {
+                            parts.push(format!("[{}]: {}", stage_id.to_uppercase(), stage.instruction));
+                        }
+                    }
+                }
+                if !parts.is_empty() {
+                    candidate.prompt_summary = Some(parts.join("\n"));
+                }
+            }
+        }
+
+        if let Some(raw) = merged_value.as_object() {
+            candidate.raw_data = raw.clone().into_iter().collect();
+        }
 
         // Update best score
         if let Some(acc) = data.accuracy {
@@ -396,9 +805,12 @@ impl ProgressTracker {
             removed: data.removed,
             frontier: data.frontier,
             frontier_scores: data.frontier_scores.unwrap_or_default(),
+            frontier_objectives: data.frontier_objectives,
             frontier_size: data.frontier_size,
             optimistic_score: data.best_score,
-            generation: None,
+            generation: event.data.get("generation").and_then(|v| v.as_i64()).map(|v| v as i32),
+            baseline_score: event.data.get("baseline_score").and_then(|v| v.as_f64()),
+            timestamp_ms: event.timestamp_ms,
         };
         self.frontier_history.push(update);
     }
@@ -441,6 +853,27 @@ impl ProgressTracker {
             best_accuracy: data.best_accuracy,
             candidates_proposed: data.candidates_proposed,
             candidates_accepted: data.candidates_accepted,
+            frontier_size: event
+                .data
+                .get("frontier_size")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32)
+                .unwrap_or(0),
+            children: event
+                .data
+                .get("children")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default(),
+            duration_ms: event
+                .data
+                .get("duration_ms")
+                .and_then(|v| v.as_f64()),
+            timestamp: event
+                .data
+                .get("timestamp")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(self.progress.elapsed_seconds),
         };
         self.generation_history.push(info);
     }

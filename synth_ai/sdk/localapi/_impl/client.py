@@ -6,15 +6,23 @@ Public API: Use `synth_ai.sdk.localapi.client` instead.
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
-import httpx
 from pydantic import BaseModel
 
-from synth_ai.core.rust_core.http import RustCoreHttpClient
 from .contracts import RolloutRequest, RolloutResponse, TaskInfo
 from .json import to_jsonable
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for sdk.localapi.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None:
+        raise RuntimeError("synth_ai_py is required for LocalAPI. Install rust bindings.")
+    return synth_ai_py
 
 
 def _prepare_payload(payload: Any) -> Any:
@@ -38,116 +46,51 @@ class TaskAppClient:
         self.api_key = api_key
         self.timeout = timeout
         self.retries = max(1, retries)
-        self._client: RustCoreHttpClient | None = None
+        self._rust_client: Any = None
         self.env = _TaskAppEnvironmentClient(self)
+        rust = _require_rust()
+        self._rust_client = rust.TaskAppClient(self.base_url, self.api_key, int(timeout))
 
     async def __aenter__(self) -> TaskAppClient:
-        await self._ensure_client()
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         await self.aclose()
 
-    async def _ensure_client(self) -> RustCoreHttpClient:
-        if self._client is None:
-            self._client = RustCoreHttpClient(
-                base_url=self.base_url,
-                api_key=self.api_key or "",
-                timeout=self.timeout,
-                shared=True,
-                use_api_base=False,
-            )
-            await self._client.__aenter__()
-        return self._client
-
-    def _headers(self) -> dict[str, str]:
-        headers: dict[str, str] = {}
-        # Primary key
-        primary = (self.api_key or "").strip()
-        if primary:
-            headers["X-API-Key"] = primary
-            # Also set Authorization for clients that read bearer tokens
-            headers.setdefault("Authorization", f"Bearer {primary}")
-        # Include ALL available environment keys via CSV in X-API-Keys
-        keys: list[str] = []
-        if primary:
-            keys.append(primary)
-        aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
-        if aliases:
-            for part in aliases.split(","):
-                trimmed = part.strip()
-                if trimmed and trimmed not in keys:
-                    keys.append(trimmed)
-        if keys:
-            headers["X-API-Keys"] = ",".join(keys)
-        return headers
-
     async def aclose(self) -> None:
-        if self._client is not None:
-            await self._client.__aexit__(None, None, None)
-            self._client = None
-
-    async def _request(
-        self,
-        method: str,
-        path: str,
-        *,
-        params: dict[str, Any] | list[tuple[str, Any]] | None = None,
-        json_payload: Any = None,
-    ) -> httpx.Response:
-        client = await self._ensure_client()
-        payload = _prepare_payload(json_payload)
-        headers = self._headers()
-        last_exc: Exception | None = None
-        for attempt in range(self.retries):
-            try:
-                response = await client.request_raw(
-                    method,
-                    path,
-                    headers=headers,
-                    params=params,
-                    json_payload=payload,
-                    timeout=self.timeout,
-                )
-                response.raise_for_status()
-                return response
-            except httpx.HTTPStatusError as exc:
-                if 500 <= exc.response.status_code < 600 and attempt + 1 < self.retries:
-                    await asyncio.sleep(0.1 * (attempt + 1))
-                    last_exc = exc
-                    continue
-                raise
-            except httpx.HTTPError as exc:
-                last_exc = exc
-                if attempt + 1 >= self.retries:
-                    raise
-                await asyncio.sleep(0.1 * (attempt + 1))
-        if last_exc:  # pragma: no cover - defensive
-            raise last_exc
-        raise RuntimeError("Unreachable code in TaskAppClient._request")
+        return
 
     async def health(self) -> dict[str, Any]:
-        response = await self._request("GET", "/health")
-        return response.json()
+        return await asyncio.to_thread(self._rust_client.health)
 
     async def info(self) -> dict[str, Any]:
-        response = await self._request("GET", "/info")
-        return response.json()
+        return await asyncio.to_thread(self._rust_client.info)
 
     async def task_info(self, seeds: list[int] | None = None) -> TaskInfo | list[TaskInfo]:
-        params: list[tuple[str, Any]] | None = None
-        if seeds:
-            params = [("seed", seed) for seed in seeds]
-        response = await self._request("GET", "/task_info", params=params)
-        data = response.json()
-        if isinstance(data, list):
-            return [TaskInfo.model_validate(item) for item in data]
-        return TaskInfo.model_validate(data)
+        result = await asyncio.to_thread(self._rust_client.task_info, seeds)
+        if isinstance(result, list):
+            return [TaskInfo.model_validate(item) for item in result]
+        return TaskInfo.model_validate(result)
 
     async def rollout(self, request: RolloutRequest) -> RolloutResponse:
-        response = await self._request("POST", "/rollout", json_payload=request)
-        data = response.json()
-        return RolloutResponse.model_validate(data)
+        payload = _prepare_payload(request)
+        result = await asyncio.to_thread(self._rust_client.rollout, payload)
+        return RolloutResponse.model_validate(result)
+
+    async def done(self) -> dict[str, Any]:
+        return await asyncio.to_thread(self._rust_client.done)
+
+    async def get(self, path: str) -> dict[str, Any]:
+        return await asyncio.to_thread(self._rust_client.get, path)
+
+    async def post(self, path: str, body: Any) -> dict[str, Any]:
+        payload = _prepare_payload(body)
+        return await asyncio.to_thread(self._rust_client.post, path, payload)
+
+    async def wait_for_healthy(self, timeout_seconds: float, poll_interval_seconds: float) -> None:
+        await asyncio.to_thread(
+            self._rust_client.wait_for_healthy, timeout_seconds, poll_interval_seconds
+        )
 
 
 class LocalAPIClient(TaskAppClient):
@@ -156,24 +99,22 @@ class LocalAPIClient(TaskAppClient):
 
 class _TaskAppEnvironmentClient:
     def __init__(self, client: TaskAppClient) -> None:
-        self._client = client
+        self._rust_env = client._rust_client.env()
 
     async def initialize(self, env_name: str, payload: dict[str, Any]) -> dict[str, Any]:
-        response = await self._client._request(
-            "POST", f"/env/{env_name}/initialize", json_payload=payload
-        )
-        return response.json()
+        payload_value = _prepare_payload(payload)
+        return await asyncio.to_thread(self._rust_env.initialize, env_name, payload_value)
 
     async def step(self, env_name: str, payload: dict[str, Any]) -> dict[str, Any]:
-        response = await self._client._request(
-            "POST", f"/env/{env_name}/step", json_payload=payload
-        )
-        return response.json()
+        payload_value = _prepare_payload(payload)
+        return await asyncio.to_thread(self._rust_env.step, env_name, payload_value)
 
     async def terminate(
         self, env_name: str, payload: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        response = await self._client._request(
-            "POST", f"/env/{env_name}/terminate", json_payload=payload or {}
-        )
-        return response.json()
+        payload_value = _prepare_payload(payload or {})
+        return await asyncio.to_thread(self._rust_env.terminate, env_name, payload_value)
+
+    async def reset(self, env_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+        payload_value = _prepare_payload(payload)
+        return await asyncio.to_thread(self._rust_env.reset, env_name, payload_value)

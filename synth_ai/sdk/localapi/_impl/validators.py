@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
-from urllib.parse import urlparse, urlunparse
 
 import click
 import httpx
+import synth_ai_py
 
 from synth_ai.sdk.localapi._impl.contracts import TaskAppEndpoints  # type: ignore[attr-defined]
 
@@ -31,50 +30,8 @@ def validate_rollout_response_for_rl(
     Raises:
         ValueError: If critical fields are missing (unless warn_only=True)
     """
-    issues = []
 
-    trace_block = response_data.get("trace")
-    event_history = None
-    if isinstance(trace_block, dict):
-        event_history = trace_block.get("event_history")
-        if not event_history and isinstance(trace_block.get("session_trace"), dict):
-            event_history = trace_block["session_trace"].get("event_history")
-
-    has_event_history = isinstance(event_history, list) and len(event_history) > 0
-
-    trace_correlation_id = response_data.get("trace_correlation_id")
-    if not trace_correlation_id and isinstance(trace_block, dict):
-        trace_meta = trace_block.get("metadata")
-        if isinstance(trace_meta, dict):
-            trace_correlation_id = trace_meta.get("trace_correlation_id")
-
-    if not trace_correlation_id:
-        issues.append(
-            "Missing trace_correlation_id (top-level or trace.metadata). "
-            "RL trainer requires this to link traces."
-        )
-
-    if not has_event_history:
-        issues.append(
-            "trace.event_history is missing or empty. "
-            "Return a v3/v4 trace or provide inference_url for hydration."
-        )
-
-    # Check top-level inference_url only when trace is missing/empty
-    inference_url = response_data.get("inference_url")
-    if not has_event_history:
-        if not inference_url:
-            issues.append(
-                "inference_url is missing. "
-                "RL trainer needs this to hydrate traces when event_history is absent."
-            )
-        elif not isinstance(inference_url, str):
-            issues.append(f"inference_url must be a string, got: {type(inference_url).__name__}")
-        elif "?cid=" not in inference_url:
-            issues.append(
-                f"inference_url should contain '?cid=' for trace correlation. "
-                f"Got: {inference_url[:80]}..."
-            )
+    issues = synth_ai_py.localapi_validate_rollout_response_for_rl(response_data)
 
     if issues and not warn_only:
         error_msg = "Task app response validation failed for RL training:\n" + "\n".join(
@@ -88,146 +45,40 @@ def validate_rollout_response_for_rl(
 def normalize_inference_url(
     url: str | None, *, default: str = "https://api.openai.com/v1/chat/completions"
 ) -> str:
-    """Normalize an inference URL to include the /v1/chat/completions path.
+    """Normalize an inference URL to include the /v1/chat/completions path."""
 
-    This utility ensures inference URLs have the correct path structure for OpenAI-compatible
-    chat completions endpoints, while preserving query parameters (e.g., ?cid=trace_123)
-    that may be added for tracing.
-
-    Args:
-        url: The inference URL to normalize (may be None or incomplete)
-        default: Default URL to use if url is None/empty
-
-    Returns:
-        Normalized URL with proper path and preserved query parameters
-
-    Examples:
-        >>> normalize_inference_url("https://api.groq.com")
-        'https://api.groq.com/v1/chat/completions'
-
-        >>> normalize_inference_url("https://modal.host?cid=trace_123")
-        'https://modal.host/v1/chat/completions?cid=trace_123'
-
-        >>> normalize_inference_url("https://api.openai.com/v1")
-        'https://api.openai.com/v1/chat/completions'
-
-        >>> normalize_inference_url("https://api.groq.com/openai/v1/chat/completions")
-        'https://api.groq.com/openai/v1/chat/completions'
-    """
-    candidate = (url or default).strip()
-    if not candidate:
-        candidate = default
-
-    parsed = urlparse(candidate)
-    path = (parsed.path or "").rstrip("/")
-    query = parsed.query or ""
-
-    # Repair malformed URLs where the completions path ended up in the query string.
-    # Example: https://host?cid=trace/v1/chat/completions  ->  https://host/v1/chat/completions?cid=trace
-    if query and "/" in query:
-        base_query, remainder = query.split("/", 1)
-        remainder_path = remainder
-        extra_query = ""
-        for separator in ("&", "?"):
-            idx = remainder_path.find(separator)
-            if idx != -1:
-                extra_query = remainder_path[idx + 1 :]
-                remainder_path = remainder_path[:idx]
-                break
-
-        query_path = "/" + remainder_path.lstrip("/")
-        merged_query_parts: list[str] = []
-        if base_query:
-            merged_query_parts.append(base_query)
-        if extra_query:
-            merged_query_parts.append(extra_query)
-        merged_query = "&".join(part for part in merged_query_parts if part)
-
-        if query_path and query_path != "/":
-            combined_path = f"{path.rstrip('/')}{query_path}" if path else query_path
-        else:
-            combined_path = path
-
-        parsed = parsed._replace(path=combined_path or "", query=merged_query)
-        path = (parsed.path or "").rstrip("/")
-        query = parsed.query or ""
-
-    # Check if path already ends with a completions endpoint
-    if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
-        final_query = parsed.query or ""
-        if final_query and "/" in final_query:
-            parsed = parsed._replace(query=final_query.split("/", 1)[0])
-        result = urlunparse(parsed)
-        return str(result)
-
-    # Determine what to append based on existing path
-    if "/v1/" in path and not path.endswith("/v1") or path.endswith("/v1"):
-        new_path = f"{path}/chat/completions"
-    elif path.endswith("/chat"):
-        new_path = f"{path}/completions"
-    else:
-        new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
-
-    parsed = parsed._replace(path=new_path)
-    final_query = parsed.query or ""
-    if final_query and "/" in final_query:
-        parsed = parsed._replace(query=final_query.split("/", 1)[0])
-
-    result = urlunparse(parsed)
-    return str(result)
+    return synth_ai_py.localapi_normalize_inference_url(url, default)
 
 
 def validate_task_app_url(url: str | None) -> str:
-    """Validate and normalize a task app URL.
+    """Validate and normalize a task app URL."""
 
-    Args:
-        url: URL to validate
-
-    Returns:
-        Normalized URL
-
-    Raises:
-        ValueError: If URL is invalid
-    """
     if not url:
         raise ValueError("Task app URL is required")
-
-    url = url.strip().rstrip("/")
-
-    # Basic URL validation
-    url_pattern = re.compile(
-        r"^https?://"  # http:// or https://
-        r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...
-        r"localhost|"  # localhost...
-        r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
-        r"(?::\d+)?"  # optional port
-        r"(?:/?|[/?]\S+)$",
-        re.IGNORECASE,
-    )
-
-    if not url_pattern.match(url):
-        raise ValueError(f"Invalid task app URL: {url}")
-
-    return url
+    return synth_ai_py.localapi_validate_task_app_url(url)
 
 
 def _print_success(msg: str) -> None:
     """Print success message in green."""
+
     click.echo(click.style(f"✓ {msg}", fg="green"))
 
 
 def _print_error(msg: str) -> None:
     """Print error message in red."""
+
     click.echo(click.style(f"✗ {msg}", fg="red"), err=True)
 
 
 def _print_warning(msg: str) -> None:
     """Print warning message in yellow."""
+
     click.echo(click.style(f"⚠ {msg}", fg="yellow"))
 
 
 def _print_info(msg: str) -> None:
     """Print info message."""
+
     click.echo(f"  {msg}")
 
 

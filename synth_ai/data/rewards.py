@@ -1,5 +1,6 @@
 """Reward data structures.
 
+import contextlib
 This module defines pure data types for representing rewards in training
 and evaluation contexts. These are actual data records, not API abstractions.
 
@@ -43,11 +44,17 @@ See Also:
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Optional
 
 from synth_ai.data.enums import RewardSource, RewardType
+
+try:
+    from . import rust as _rust_data
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.rewards.") from exc
 
 
 @dataclass
@@ -89,6 +96,13 @@ class OutcomeRewardRecord:
     metadata: Dict[str, Any] = field(default_factory=dict)
     annotation: Dict[str, Any] = field(default_factory=dict)
     created_at: Optional[datetime] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> OutcomeRewardRecord:
+        if _rust_data is not None:
+            with contextlib.suppress(Exception):
+                data = _rust_data.normalize_outcome_reward_record(data)  # noqa: F811
+        return cls(**data)
 
 
 @dataclass
@@ -135,6 +149,13 @@ class EventRewardRecord:
     source: Optional[RewardSource] = None
     annotation: Dict[str, Any] = field(default_factory=dict)
     created_at: Optional[datetime] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> EventRewardRecord:
+        if _rust_data is not None:
+            with contextlib.suppress(Exception):
+                data = _rust_data.normalize_event_reward_record(data)  # noqa: F811
+        return cls(**data)
 
 
 @dataclass
@@ -223,6 +244,18 @@ class GoldExample:
 
         # Convert to float for consistency
         self.gold_score = float(self.gold_score)
+
+
+try:  # Require Rust-backed classes
+    import synth_ai_py as _rust_models  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.rewards.") from exc
+
+OutcomeRewardRecord = _rust_models.OutcomeRewardRecord  # noqa: F811
+EventRewardRecord = _rust_models.EventRewardRecord  # noqa: F811
+RewardAggregates = _rust_models.RewardAggregates  # noqa: F811
+CalibrationExample = _rust_models.CalibrationExample  # noqa: F811
+GoldExample = _rust_models.GoldExample  # noqa: F811
 
 
 __all__ = [

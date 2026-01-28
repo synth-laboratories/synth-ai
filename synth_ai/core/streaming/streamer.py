@@ -10,9 +10,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Iterable, Sequence
 
-from synth_ai.core.rust_core.sse import stream_sse_events
-
 from synth_ai.core.rust_core.http import RustCoreHttpClient, sleep
+from synth_ai.core.rust_core.sse import stream_sse_events
 
 from .config import StreamConfig
 from .handlers import StreamHandler
@@ -72,27 +71,21 @@ def check_terminal_event_typed(event_data: dict[str, Any]) -> tuple[bool, str | 
         - is_terminal: True if this is a terminal event
         - status: "succeeded", "failed", or None if not terminal
     """
-    from synth_ai.sdk.shared.orchestration.events import (
-        is_failure_event,
-        is_success_event,
-        is_terminal_event,
-        parse_event,
-    )
+    try:
+        import synth_ai_py
+    except Exception as exc:
+        raise RuntimeError("synth_ai_py is required for streaming event parsing.") from exc
 
-    event = parse_event(event_data)
-    if event is None:
-        return False, None
-
-    if not is_terminal_event(event):
-        return False, None
-
-    if is_success_event(event):
+    parsed = synth_ai_py.parse_orchestration_event(event_data)
+    category = (parsed or {}).get("category")
+    if category in {"complete", "termination"}:
+        event_type = str(event_data.get("type") or "").lower()
+        if "fail" in event_type:
+            return True, "failed"
+        if "cancel" in event_type:
+            return True, "cancelled"
         return True, "succeeded"
-    elif is_failure_event(event):
-        return True, "failed"
-    else:
-        # Cancelled
-        return True, "cancelled"
+    return False, None
 
 
 @dataclass(slots=True)

@@ -31,15 +31,37 @@ Example:
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from synth_ai.config.supported_models import get_supported_models
 from synth_ai.data.enums import GraphType, RewardSource, RewardType, VerifierMode
+
+try:
+    import synth_ai_py  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.graphgen_models.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None:
+        raise RuntimeError("Rust core graphgen models required; synth_ai_py is unavailable.")
+    required = (
+        "graph_opt_supported_models",
+        "validate_graphgen_taskset",
+        "parse_graphgen_taskset",
+        "load_graphgen_taskset",
+        "detect_model_provider",
+    )
+    missing = [name for name in required if not hasattr(synth_ai_py, name)]
+    if missing:
+        raise RuntimeError(
+            f"Rust core graphgen models required; missing bindings: {', '.join(missing)}"
+        )
+    return synth_ai_py
+
 
 # =============================================================================
 # Output Configuration (Improvement 1)
@@ -123,33 +145,7 @@ class GraphGenTaskSetMetadata(BaseModel):
         ),
     )
 
-    @field_validator("select_output", mode="before")
-    @classmethod
-    def validate_select_output(cls, v: Any) -> Optional[str | List[str]]:
-        """Validate select_output is a string or list of strings."""
-        if v is None:
-            return None
-        if isinstance(v, str):
-            return v
-        if isinstance(v, list):
-            if all(isinstance(item, str) for item in v):
-                return v
-            raise ValueError("select_output list must contain only strings")
-        raise ValueError(
-            f"select_output must be a string or list of strings, got {type(v).__name__}"
-        )
-
-    @field_validator("output_config", mode="before")
-    @classmethod
-    def validate_output_config(cls, v: Any) -> Optional[OutputConfig]:
-        """Convert dict to OutputConfig for backward compatibility."""
-        if v is None:
-            return None
-        if isinstance(v, OutputConfig):
-            return v
-        if isinstance(v, dict):
-            return OutputConfig.model_validate(v)
-        raise ValueError(f"output_config must be a dict or OutputConfig, got {type(v).__name__}")
+    pass
 
 
 class GraphGenRubricCriterion(BaseModel):
@@ -301,81 +297,13 @@ class GraphGenTaskSet(BaseModel):
         ),
     )
 
-    @field_validator("tasks")
-    @classmethod
-    def validate_unique_task_ids(cls, v: List[GraphGenTask]) -> List[GraphGenTask]:
-        """Ensure all task IDs are unique."""
-        ids = [task.id for task in v]
-        if len(ids) != len(set(ids)):
-            duplicates = [id for id in ids if ids.count(id) > 1]
-            raise ValueError(f"Duplicate task IDs found: {set(duplicates)}")
-        return v
-
-    # Improvement 2: Added ValidationInfo type hint
-    @field_validator("gold_outputs")
-    @classmethod
-    def validate_gold_output_task_ids(
-        cls, v: List[GraphGenGoldOutput], info: ValidationInfo
-    ) -> List[GraphGenGoldOutput]:
-        """Ensure gold output task_ids reference valid tasks.
-
-        Args:
-            v: The list of gold outputs being validated.
-            info: Pydantic ValidationInfo providing access to other fields via info.data.
-
-        Returns:
-            The validated list of gold outputs.
-
-        Raises:
-            ValueError: If a gold output references a non-existent task ID.
-        """
-        tasks = info.data.get("tasks", [])
-        if tasks:
-            # Improvement 8: Handle both GraphGenTask objects and raw dicts during validation
-            valid_task_ids: set[str] = set()
-            for task in tasks:
-                if isinstance(task, GraphGenTask):
-                    valid_task_ids.add(task.id)
-                elif isinstance(task, dict):
-                    # During validation, tasks might still be raw dicts
-                    task_id = task.get("id")
-                    if task_id:
-                        valid_task_ids.add(task_id)
-
-            for gold in v:
-                if gold.task_id and gold.task_id not in valid_task_ids:
-                    raise ValueError(f"Gold output references invalid task_id: {gold.task_id}")
-        return v
-
-    # Improvement 3: Validator for select_output type
-    @field_validator("select_output", mode="before")
-    @classmethod
-    def validate_select_output(cls, v: Any) -> Optional[str | List[str]]:
-        """Validate select_output is a string or list of strings."""
-        if v is None:
-            return None
-        if isinstance(v, str):
-            return v
-        if isinstance(v, list):
-            if all(isinstance(item, str) for item in v):
-                return v
-            raise ValueError("select_output list must contain only strings")
-        raise ValueError(
-            f"select_output must be a string or list of strings, got {type(v).__name__}"
-        )
-
-    # Improvement 1: Validator for backward-compatible OutputConfig
-    @field_validator("output_config", mode="before")
-    @classmethod
-    def validate_output_config(cls, v: Any) -> Optional[OutputConfig]:
-        """Convert dict to OutputConfig for backward compatibility."""
-        if v is None:
-            return None
-        if isinstance(v, OutputConfig):
-            return v
-        if isinstance(v, dict):
-            return OutputConfig.model_validate(v)
-        raise ValueError(f"output_config must be a dict or OutputConfig, got {type(v).__name__}")
+    @model_validator(mode="after")
+    def _rust_validate(self) -> GraphGenTaskSet:
+        rust = _require_rust()
+        errors = rust.validate_graphgen_taskset(self.model_dump(mode="json", exclude_none=False))
+        if errors:
+            raise ValueError(f"Invalid GraphGenTaskSet: {errors}")
+        return self
 
     def get_task_by_id(self, task_id: str) -> Optional[GraphGenTask]:
         """Get a task by its ID."""
@@ -415,8 +343,7 @@ class GraphGenTaskSet(BaseModel):
 
 
 # Supported models (single source of truth)
-_SUPPORTED_MODELS_CONFIG = get_supported_models()
-_GRAPH_OPT_CONFIG = _SUPPORTED_MODELS_CONFIG["graph_opt"]
+_GRAPH_OPT_CONFIG = _require_rust().graph_opt_supported_models()
 
 SUPPORTED_POLICY_MODELS = set(_GRAPH_OPT_CONFIG["policy_models"])
 SUPPORTED_VERIFIER_MODELS = set(_GRAPH_OPT_CONFIG["verifier_models"])
@@ -831,18 +758,8 @@ class GraphGenJobConfig(BaseModel):
 
 def _detect_provider(model: str) -> str:
     """Detect provider from model name."""
-    model_lower = model.lower()
-    if model_lower.startswith("gpt-") or model_lower.startswith("o1"):
-        return "openai"
-    elif model_lower.startswith("gemini"):
-        return "google"
-    elif model_lower.startswith("claude"):
-        return "anthropic"
-    elif "llama" in model_lower or "mixtral" in model_lower:
-        return "groq"
-    else:
-        # Default to OpenAI for unknown models
-        return "openai"
+    rust = _require_rust()
+    return rust.detect_model_provider(model)
 
 
 def parse_graphgen_taskset(data: Dict[str, Any]) -> GraphGenTaskSet:
@@ -857,8 +774,10 @@ def parse_graphgen_taskset(data: Dict[str, Any]) -> GraphGenTaskSet:
     Raises:
         ValueError: If validation fails
     """
+    rust = _require_rust()
     try:
-        return GraphGenTaskSet.model_validate(data)
+        parsed = rust.parse_graphgen_taskset(data)
+        return GraphGenTaskSet.model_validate(parsed)
     except Exception as e:
         raise ValueError(f"Invalid GraphGenTaskSet format: {e}") from e
 
@@ -876,14 +795,12 @@ def load_graphgen_taskset(path: str | Path) -> GraphGenTaskSet:
         FileNotFoundError: If file doesn't exist
         ValueError: If validation fails
     """
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Dataset file not found: {path}")
-
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-
-    return parse_graphgen_taskset(data)
+    rust = _require_rust()
+    try:
+        parsed = rust.load_graphgen_taskset(str(path))
+    except Exception as e:
+        raise ValueError(f"Invalid GraphGenTaskSet format: {e}") from e
+    return GraphGenTaskSet.model_validate(parsed)
 
 
 # GraphGen aliases (preferred names)

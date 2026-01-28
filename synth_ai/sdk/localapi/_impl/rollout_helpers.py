@@ -2,7 +2,9 @@
 
 from typing import Any
 
-from synth_ai.sdk.localapi._impl.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
+import synth_ai_py
+
+from synth_ai.sdk.localapi._impl.contracts import RolloutRequest, RolloutResponse
 
 
 def build_rollout_response(
@@ -16,45 +18,20 @@ def build_rollout_response(
     status_detail: str | None = None,
     **kwargs,
 ) -> RolloutResponse:
-    """Build a RolloutResponse from a RolloutRequest.
+    """Build a RolloutResponse from a RolloutRequest."""
 
-    This helper ensures that trace_correlation_id is properly echoed from
-    the request, which is required for trace hydration to work.
-
-    Supports flexible evaluation modes for verifiers (v3/v4 traces):
-    - trace + artifact: Full evaluation with execution trace AND outputs
-    - trace only: Evaluate based on execution trace alone
-    - artifact only: Evaluate based on outputs alone
-
-    Args:
-        request: The original rollout request (contains trace_correlation_id)
-        outcome_reward: The reward for this rollout
-        inference_url: The inference URL used (optional, extracted from policy_config if not provided)
-        trace: Optional v3/v4 SessionTrace payload
-        artifact: Optional list of artifacts (code files, outputs, etc.)
-        policy_config: Optional - only needed if inference_url not provided
-        **kwargs: Additional reward_info kwargs (event_rewards, etc.)
-
-    Returns:
-        RolloutResponse with trace_correlation_id echoed from request
-
-    Example:
-        >>> response = build_rollout_response(
-        ...     request=request,
-        ...     outcome_reward=0.95,
-        ...     inference_url=request.policy.config.get("inference_url"),
-        ... )
-    """
-    # Extract inference URL from policy_config if not provided
-    if inference_url is None and policy_config:
-        inference_url = policy_config.get("inference_url")
-
-    return RolloutResponse(
-        trace_correlation_id=request.trace_correlation_id,
-        reward_info=RolloutMetrics(outcome_reward=outcome_reward, **kwargs),
-        trace=trace,
-        inference_url=str(inference_url or ""),
-        artifact=artifact,
-        success_status=success_status,
-        status_detail=status_detail,
+    payload = synth_ai_py.localapi_build_rollout_response(
+        request,
+        outcome_reward,
+        inference_url,
+        trace,
+        policy_config,
+        artifact,
+        success_status,
+        status_detail,
+        kwargs if kwargs else None,
     )
+    # Ensure we return the contract type
+    if isinstance(payload, RolloutResponse):
+        return payload
+    return RolloutResponse(**payload)

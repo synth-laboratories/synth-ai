@@ -84,9 +84,9 @@ from .config import TursoConfig
 from .llm_call_record_helpers import BaseLMResponse
 
 try:
-    from .session_tracer import SessionTracer
-except Exception:  # pragma: no cover - optional tracing dependency guard
-    SessionTracer = None  # type: ignore[assignment]
+    from .rust_tracer import SessionTracer
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for tracing.") from exc
 
 __all__ = [
     "SessionTracer",

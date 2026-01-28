@@ -1,50 +1,19 @@
-"""Utilities for filtering noisy logs from stdout/stderr."""
+"""Utilities for filtering noisy logs from stdout/stderr (Rust-backed)."""
 
 from __future__ import annotations
 
-import re
 import sys
 from typing import TextIO
 
-# Patterns for noisy logs that should be filtered out
-# Using simple substring matching for better performance and broader matching
-_NOISY_LOG_SUBSTRINGS = [
-    "codex_otel::otel_event_manager",
-    "event.kind=response.reasoning_summary_text.delta",
-    'event.name="codex.sse_event"',
-    "codex_otel",
-]
-
-# Compiled regex patterns for more complex matching
-_NOISY_LOG_PATTERNS = [
-    # Filter all codex_otel verbose SSE event logs (most aggressive - catches everything from this module)
-    re.compile(r".*codex_otel::otel_event_manager.*", re.IGNORECASE),
-    # Filter reasoning summary delta events
-    re.compile(r".*event\.kind=response\.reasoning_summary_text\.delta.*", re.IGNORECASE),
-    # Filter any codex.sse_event logs
-    re.compile(r'.*event\.name="codex\.sse_event".*', re.IGNORECASE),
-    # Also catch logs that start with timestamp and have codex_otel
-    re.compile(r"^\d{4}-\d{2}-\d{2}T.*codex_otel.*", re.IGNORECASE),
-]
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for utils.log_filter.") from exc
 
 
 def should_filter_log_line(line: str) -> bool:
-    """Check if a log line should be filtered out.
-
-    Filters out noisy logs like verbose codex_otel SSE event logs.
-    Uses both substring matching (faster) and regex (more precise).
-    """
-    if not line.strip():
-        return False
-
-    # Fast substring check first
-    line_lower = line.lower()
-    for substr in _NOISY_LOG_SUBSTRINGS:
-        if substr.lower() in line_lower:
-            return True
-
-    # Fallback to regex for edge cases
-    return any(pattern.search(line) for pattern in _NOISY_LOG_PATTERNS)
+    """Check if a log line should be filtered out."""
+    return synth_ai_py.should_filter_log_line(line)
 
 
 class FilteredStream:
