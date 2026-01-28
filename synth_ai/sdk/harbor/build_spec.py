@@ -165,8 +165,8 @@ class HarborBuildSpec:
         Raises:
             FileNotFoundError: If Dockerfile or context_dir doesn't exist
         """
-        dockerfile = self.context_dir / self.dockerfile_path
-        if not dockerfile.exists() and not self.dockerfile_path.exists():
+        dockerfile = Path(self.context_dir) / self.dockerfile_path
+        if not dockerfile.exists() and not Path(self.dockerfile_path).exists():
             raise FileNotFoundError(
                 f"Dockerfile not found: {self.dockerfile_path} (also checked: {dockerfile})"
             )
@@ -187,13 +187,13 @@ class HarborBuildSpec:
             FileNotFoundError: If Dockerfile doesn't exist
         """
         # Try relative to context_dir first
-        dockerfile = self.context_dir / self.dockerfile_path
+        dockerfile = Path(self.context_dir) / self.dockerfile_path
         if dockerfile.exists():
             return dockerfile.read_text()
 
         # Try as absolute path
-        if self.dockerfile_path.exists():
-            return self.dockerfile_path.read_text()
+        if Path(self.dockerfile_path).exists():
+            return Path(self.dockerfile_path).read_text()
 
         raise FileNotFoundError(f"Dockerfile not found: {self.dockerfile_path}")
 

@@ -26,7 +26,7 @@ import fnmatch
 import io
 import tarfile
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .build_spec import HarborBuildSpec
@@ -137,7 +137,7 @@ class HarborPackager:
         """
         return [rel_path for _, rel_path in self._collect_files()]
 
-    def get_package_info(self) -> dict[str, any]:
+    def get_package_info(self) -> dict[str, Any]:
         """Get information about the package without creating it.
 
         Returns:

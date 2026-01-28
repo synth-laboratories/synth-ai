@@ -838,9 +838,8 @@ class InProcessTaskApp:
                 logger.info("force_new_tunnel=True, rotating tunnel (delete+create)")
                 try:
                     rotated = await rotate_tunnel(
-                        synth_api_key=synth_api_key,
+                        api_key=synth_api_key,
                         port=self.port,
-                        reason="force_new_tunnel=True",
                     )
                     named_host = rotated.get("hostname")
                     tunnel_token = rotated.get("tunnel_token")
@@ -869,7 +868,7 @@ class InProcessTaskApp:
                     # Generate subdomain from port or use default
                     subdomain = f"task-app-{self.port}"
                     new_tunnel = await create_tunnel(
-                        synth_api_key=synth_api_key,
+                        api_key=synth_api_key,
                         port=self.port,
                         subdomain=subdomain,
                     )
@@ -961,9 +960,8 @@ class InProcessTaskApp:
 
                     try:
                         rotated = await rotate_tunnel(
-                            synth_api_key=synth_api_key,
+                            api_key=synth_api_key,
                             port=self.port,
-                            reason=f"Tunnel {named_host} failed to connect",
                         )
                         named_host = rotated.get("hostname")
                         tunnel_token = rotated.get("tunnel_token")
