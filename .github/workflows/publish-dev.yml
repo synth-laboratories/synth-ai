@@ -9,17 +9,16 @@ permissions:
   id-token: write
 
 jobs:
-  check-and-publish:
+  check-version:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    environment:
-      name: pypi
-      url: https://pypi.org/project/synth-ai/
+    outputs:
+      needs_publish: ${{ steps.check.outputs.needs_publish }}
+      version: ${{ steps.local.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: astral-sh/setup-uv@v4
 
       - name: Get local version
         id: local
@@ -48,26 +47,84 @@ jobs:
             echo "Versions match: $LOCAL - skipping publish"
           fi
 
-      - name: Build distributions
-        if: steps.check.outputs.needs_publish == 'true'
-        run: |
-          uvx --from build pyproject-build
+  build-linux:
+    needs: check-version
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          manylinux: auto
+          command: build
+          args: --release -o dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux
+          path: dist/*.whl
 
-      - name: Twine check
-        if: steps.check.outputs.needs_publish == 'true'
-        run: |
-          uvx --from twine twine check dist/*
+  build-macos:
+    needs: check-version
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release -o dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos
+          path: dist/*.whl
+
+  build-sdist:
+    needs: check-version
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: -o dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  publish:
+    needs: [check-version, build-linux, build-macos, build-sdist]
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    environment:
+      name: pypi
+      url: https://pypi.org/project/synth-ai/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Publish to PyPI (trusted publishing)
-        if: steps.check.outputs.needs_publish == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  create-release:
+    needs: [check-version, publish]
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Create GitHub release (for dev versions)
-        if: steps.check.outputs.needs_publish == 'true' && contains(steps.local.outputs.version, '.dev')
+        if: contains(needs.check-version.outputs.version, '.dev')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.local.outputs.version }}
-          name: synth-ai ${{ steps.local.outputs.version }}
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: synth-ai ${{ needs.check-version.outputs.version }}
           prerelease: true
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
@@ -76,11 +133,11 @@ jobs:
             dist/*.tar.gz
 
       - name: Create GitHub release (for stable versions)
-        if: steps.check.outputs.needs_publish == 'true' && !contains(steps.local.outputs.version, '.dev')
+        if: ${{ !contains(needs.check-version.outputs.version, '.dev') }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.local.outputs.version }}
-          name: synth-ai ${{ steps.local.outputs.version }}
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: synth-ai ${{ needs.check-version.outputs.version }}
           prerelease: false
           target_commitish: ${{ github.sha }}
           generate_release_notes: true

@@ -40,12 +40,17 @@ We create 4 progressive data splits where each is a superset of the previous:
 
 *(Results will be populated after running the comparison)*
 
-| Split | Cold Start | Warm Start | MIPRO Continual | Best Method |
-|-------|------------|------------|-----------------|-------------|
-| Split 1 (2 intents) | - | - | - | - |
-| Split 2 (7 intents) | - | - | - | - |
-| Split 3 (27 intents) | - | - | - | - |
-| Split 4 (77 intents) | - | - | - | - |
+| Split | Intents | Cold Start | Warm Start | MIPRO Continual | Best Method |
+|-------|---------|------------|------------|-----------------|-------------|
+| Split 1 | 2 | - | - | - | - |
+| Split 2 | 7 | - | - | - | - |
+| Split 3 | 27 | - | - | - | - |
+| Split 4 | 77 | - | - | - | - |
+
+### Key Metrics
+- **Cold Start**: GEPA initialized with baseline prompt at each split
+- **Warm Start**: GEPA initialized with previous split's best prompt
+- **MIPRO Continual**: Online learning that persists across all splits
 
 ## Usage
 
@@ -87,3 +92,33 @@ export SYNTH_API_KEY=sk_live_...
 - `run_mipro_continual.py` - MIPRO continual learning
 - `run_comparison.py` - Full comparison runner
 - `analyze_results.py` - Results analysis and table generation
+- `test_data_splits.py` - Test script to verify data splits
+
+## Verify Setup
+
+Test the data splits are working correctly:
+```bash
+uv run python test_data_splits.py
+```
+
+Expected output:
+```
+Banking77 Progressive Data Splits
+============================================================
+
+Split 1: 2 intents
+  Train samples: 235
+  Test samples: 80
+
+Split 2: 7 intents
+  Train samples: 855
+  Test samples: 280
+
+Split 3: 27 intents
+  Train samples: 3282
+  Test samples: 1080
+
+Split 4: 77 intents
+  Train samples: 10003
+  Test samples: 3080
+```
