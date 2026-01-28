@@ -29,6 +29,7 @@ See Also:
     - `synth_ai.sdk.optimization`: Similar pattern for optimization jobs
 """
 
+import contextlib
 import os
 import time
 from dataclasses import dataclass, field
@@ -36,10 +37,30 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-import httpx
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for sdk.eval.") from exc
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None:
+        raise RuntimeError("synth_ai_py is required for eval jobs. Install rust bindings.")
+    return synth_ai_py
+
+
+def _infer_provider(model: str | None) -> str | None:
+    if not model:
+        return None
+    lowered = model.lower()
+    if lowered.startswith("gpt") or "openai" in lowered:
+        return "openai"
+    if lowered.startswith("claude") or "anthropic" in lowered:
+        return "anthropic"
+    return None
 
 
 class EvalStatus(str, Enum):
@@ -219,6 +240,8 @@ class EvalJobConfig:
             raise ValueError("api_key is required")
         if not self.seeds:
             raise ValueError("seeds list is required and cannot be empty")
+        if not self.env_name:
+            self.env_name = "default"
 
         # Get task_app_api_key from environment if not provided
         if not self.task_app_api_key:
@@ -285,6 +308,8 @@ class EvalJob:
         """
         self.config = config
         self._job_id = job_id
+        self._rust = _require_rust()
+        self._client = self._rust.SynthClient(self.config.api_key, self.config.backend_url)
 
     @classmethod
     def from_config(
@@ -324,14 +349,18 @@ class EvalJob:
             ...     seeds=[0, 1, 2],  # Override seeds
             ... )
         """
-        import tomllib
+        try:
+            import synth_ai_py
+        except Exception as exc:  # pragma: no cover - rust bindings required
+            raise RuntimeError("synth_ai_py is required for eval config parsing.") from exc
 
         config_path_obj = Path(config_path)
         if not config_path_obj.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
 
-        with open(config_path_obj, "rb") as f:
-            toml_data = tomllib.load(f)
+        toml_data = synth_ai_py.load_toml(str(config_path_obj))
+        if not isinstance(toml_data, dict):
+            toml_data = dict(toml_data)
 
         # Extract eval section (supports both [eval] and [prompt_learning] formats)
         eval_config = toml_data.get("eval", {})
@@ -435,13 +464,6 @@ class EvalJob:
             base = f"{base}/api"
         return base
 
-    def _headers(self) -> Dict[str, str]:
-        """Get headers for API calls."""
-        return {
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json",
-        }
-
     def submit(self) -> str:
         """Submit the job to the backend.
 
@@ -467,6 +489,10 @@ class EvalJob:
 
         # Build job request payload
         policy = dict(self.config.policy_config)
+        if "provider" not in policy:
+            inferred = _infer_provider(policy.get("model"))
+            if inferred:
+                policy["provider"] = inferred
 
         job_request = {
             "task_app_url": self.config.task_app_url,
@@ -481,24 +507,9 @@ class EvalJob:
             "timeout": self.config.timeout,
         }
 
-        # Submit synchronously using httpx
-        url = f"{self._base_url()}/eval/jobs"
-
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
-            resp = client.post(url, json=job_request, headers=self._headers())
-
-            if resp.status_code not in (200, 201):
-                raise RuntimeError(
-                    f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"
-                )
-
-            job_data = resp.json()
-            job_id = job_data.get("job_id")
-            if not job_id:
-                raise RuntimeError(f"No job_id in response: {job_data}")
-
-            self._job_id = job_id
-            return job_id
+        job_id = self._client.submit_eval(job_request)
+        self._job_id = job_id
+        return job_id
 
     @property
     def job_id(self) -> Optional[str]:
@@ -529,15 +540,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}"
-
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
-            resp = client.get(url, headers=self._headers())
-
-            if resp.status_code != 200:
-                raise RuntimeError(f"Failed to get status: {resp.status_code} {resp.text}")
-
-            return resp.json()
+        return self._client.get_eval_status(self._job_id)
 
     def poll_until_complete(
         self,
@@ -727,7 +730,20 @@ class EvalJob:
         )
 
         # Run streaming
-        final_status = asyncio.run(streamer.stream_until_terminal())
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # Already in an async context - create a new thread to run the coroutine
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, streamer.stream_until_terminal())
+                final_status = future.result()
+        else:
+            final_status = asyncio.run(streamer.stream_until_terminal())
 
         # Callback for custom handling
         if on_event and isinstance(final_status, dict):
@@ -744,6 +760,158 @@ class EvalJob:
                 pass
 
         return EvalResult.from_response(self._job_id, final_status)
+
+    async def stream_sse_until_complete_async(
+        self,
+        *,
+        timeout: float = 1200.0,
+        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+        progress: bool = True,
+    ) -> EvalResult:
+        """Stream job events via SSE until completion (async version).
+
+        This provides real-time event streaming instead of polling,
+        reducing latency and providing instant updates.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 1200 = 20 minutes)
+            on_event: Optional callback called on each event
+            progress: If True, print progress updates
+
+        Returns:
+            EvalResult with typed status, mean_reward, seed_results, etc.
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+        """
+        from synth_ai.core.rust_core.sse import stream_sse_events
+
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        job_id = self._job_id
+        base_url = self._base_url()
+        sse_url = f"{base_url}/eval/jobs/{job_id}/events/stream"
+
+        headers = {
+            "Accept": "text/event-stream",
+            "Authorization": f"Bearer {self.config.api_key}",
+        }
+
+        start_time = time.time()
+        completed = 0
+        total = len(self.config.seeds)
+        last_status = "pending"
+        terminal_events = {
+            "eval.policy.job.completed",
+            "eval.policy.job.failed",
+            "job.completed",
+            "job.failed",
+        }
+
+        if progress:
+            print(f"[DEBUG] SSE stream connecting to {sse_url}")
+
+        try:
+            async for event in stream_sse_events(
+                sse_url,
+                headers=headers,
+                timeout=timeout,
+            ):
+                elapsed = time.time() - start_time
+                if elapsed >= timeout:
+                    if progress:
+                        print(f"[stream] timeout after {timeout:.0f}s")
+                    break
+
+                # Call event handler
+                if on_event:
+                    with contextlib.suppress(Exception):
+                        on_event(event)
+
+                # Extract progress info
+                event_type = event.get("type", "")
+                event_data = event.get("data", {})
+
+                # Track completion progress
+                if "completed" in event_data:
+                    completed = event_data.get("completed", completed)
+                if "total" in event_data:
+                    total = event_data.get("total", total)
+                if event_type in ("eval.policy.seed.completed", "seed.completed"):
+                    completed += 1
+
+                # Progress output
+                if progress:
+                    mins, secs = divmod(int(elapsed), 60)
+                    msg = event.get("message", event_type)
+                    print(f"[{mins:02d}:{secs:02d}] {event_type}: {msg} | {completed}/{total}")
+
+                # Check for terminal event
+                if event_type in terminal_events:
+                    last_status = "completed" if "completed" in event_type else "failed"
+                    break
+
+        except Exception as exc:
+            if progress:
+                print(f"[stream] SSE error: {exc}, falling back to polling")
+            return self.poll_until_complete(timeout=timeout, progress=progress, on_event=on_event)
+
+        # Fetch full results
+        try:
+            final_results = self.get_results()
+            return EvalResult.from_response(job_id, final_results)
+        except Exception:
+            return EvalResult.from_response(job_id, {"status": last_status, "job_id": job_id})
+
+    def stream_sse_until_complete(
+        self,
+        *,
+        timeout: float = 1200.0,
+        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+        progress: bool = True,
+    ) -> EvalResult:
+        """Stream job events via SSE until completion (sync wrapper).
+
+        This provides real-time event streaming instead of polling.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 1200 = 20 minutes)
+            on_event: Optional callback called on each event
+            progress: If True, print progress updates
+
+        Returns:
+            EvalResult with typed status, mean_reward, seed_results, etc.
+        """
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # Already in an async context - create a new thread to run the coroutine
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.stream_sse_until_complete_async(
+                        timeout=timeout,
+                        on_event=on_event,
+                        progress=progress,
+                    ),
+                )
+                return future.result()
+        else:
+            return asyncio.run(
+                self.stream_sse_until_complete_async(
+                    timeout=timeout,
+                    on_event=on_event,
+                    progress=progress,
+                )
+            )
 
     def get_results(self) -> Dict[str, Any]:
         """Get detailed job results.
@@ -780,15 +948,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}/results"
-
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
-            resp = client.get(url, headers=self._headers())
-
-            if resp.status_code != 200:
-                raise RuntimeError(f"Failed to get results: {resp.status_code} {resp.text}")
-
-            return resp.json()
+        return self._client.get_eval_results(self._job_id)
 
     def download_traces(self, output_dir: str | Path) -> Path:
         """Download traces for the job to a directory.
@@ -816,21 +976,13 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}/traces"
         output_path = Path(output_dir)
 
-        with httpx.Client(timeout=httpx.Timeout(60.0)) as client:
-            resp = client.get(url, headers=self._headers())
-
-            if resp.status_code != 200:
-                raise RuntimeError(f"Failed to download traces: {resp.status_code} {resp.text}")
-
-            output_path.mkdir(parents=True, exist_ok=True)
-
-            with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-                zf.extractall(output_path)
-
-            return output_path
+        payload = self._client.download_eval_traces(self._job_id)
+        output_path.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(io.BytesIO(payload)) as zf:
+            zf.extractall(output_path)
+        return output_path
 
     def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Cancel a running eval job.
@@ -850,7 +1002,7 @@ class EvalJob:
 
         Raises:
             RuntimeError: If job hasn't been submitted yet
-            httpx.HTTPStatusError: If the cancellation request fails
+            RuntimeError: If the cancellation request fails
 
         Example:
             >>> job.submit()
@@ -862,15 +1014,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}/cancel"
-        payload: Dict[str, Any] = {}
-        if reason:
-            payload["reason"] = reason
-
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
-            resp = client.post(url, headers=self._headers(), json=payload)
-            resp.raise_for_status()
-            return resp.json()
+        return self._client.cancel_eval(self._job_id, reason)
 
     def query_workflow_state(self) -> Dict[str, Any]:
         """Query the Temporal workflow state for instant polling.
@@ -905,21 +1049,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        # Use unified /jobs endpoint for workflow state query
-        base = (self.config.backend_url or BACKEND_URL_BASE).rstrip("/")
-        if not base.endswith("/api"):
-            base = f"{base}/api"
-        url = f"{base}/jobs/{self._job_id}/workflow-state"
-
-        with httpx.Client(timeout=httpx.Timeout(10.0)) as client:
-            resp = client.get(url, headers=self._headers())
-            if resp.status_code != 200:
-                return {
-                    "job_id": self._job_id,
-                    "workflow_state": None,
-                    "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
-                }
-            return resp.json()
+        return self._client.query_eval_workflow_state(self._job_id)
 
 
 __all__ = ["EvalJob", "EvalJobConfig", "EvalResult", "EvalStatus"]

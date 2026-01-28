@@ -128,6 +128,8 @@ class RolloutRequest(BaseModel):
     synth_base_url: str | None = None
 
     # Context overrides for unified optimization
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
+
     context_overrides: list[ContextOverride] | None = Field(
         default=None,
         description="Optional context overrides (AGENTS.md, skills, preflight scripts, env vars) "
@@ -269,6 +271,8 @@ class RolloutResponse(BaseModel):
     )
 
     # Context override application results (unified optimization)
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
+
     override_application_results: list[ContextOverrideStatus] | None = Field(
         default=None,
         description="Structured results of context override application. "

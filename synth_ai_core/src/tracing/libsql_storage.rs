@@ -4,7 +4,7 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use libsql::{params, Builder, Connection, Database};
+use libsql::{params, Builder, Connection, Database, Value as LibsqlValue};
 use serde_json::Value;
 use tokio::sync::Mutex;
 
@@ -12,7 +12,7 @@ use super::error::TracingError;
 use super::models::{
     EventReward, MarkovBlanketMessage, OutcomeReward, SessionTimeStep, SessionTrace, TracingEvent,
 };
-use super::storage::{StorageConfig, TraceStorage};
+use super::storage::{QueryParams, StorageConfig, TraceStorage};
 
 /// SQL statements for schema creation.
 const SCHEMA_SQL: &str = r#"
@@ -110,7 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_event_rewards_session ON event_rewards(session_id
 
 /// libsql-based trace storage.
 pub struct LibsqlTraceStorage {
-    db: Database,
+    _db: Database,
     conn: Mutex<Connection>,
     config: StorageConfig,
     initialized: Mutex<bool>,
@@ -136,7 +136,7 @@ impl LibsqlTraceStorage {
         let conn = db.connect()?;
 
         let storage = Self {
-            db,
+            _db: db,
             conn: Mutex::new(conn),
             config,
             initialized: Mutex::new(false),
@@ -171,6 +171,41 @@ impl LibsqlTraceStorage {
     /// Helper to convert cost_usd to cost_cents for storage.
     fn cost_to_cents(cost_usd: Option<f64>) -> Option<i64> {
         cost_usd.map(|c| (c * 100.0).round() as i64)
+    }
+}
+
+fn json_to_libsql(value: &Value) -> LibsqlValue {
+    match value {
+        Value::Null => LibsqlValue::Null,
+        Value::Bool(v) => LibsqlValue::Integer(if *v { 1 } else { 0 }),
+        Value::Number(num) => {
+            if let Some(i) = num.as_i64() {
+                LibsqlValue::Integer(i)
+            } else if let Some(f) = num.as_f64() {
+                LibsqlValue::Real(f)
+            } else {
+                LibsqlValue::Null
+            }
+        }
+        Value::String(s) => LibsqlValue::Text(s.clone()),
+        Value::Array(_) | Value::Object(_) => {
+            LibsqlValue::Text(value.to_string())
+        }
+    }
+}
+
+fn libsql_to_json(value: LibsqlValue) -> Value {
+    match value {
+        LibsqlValue::Null => Value::Null,
+        LibsqlValue::Integer(i) => Value::Number(i.into()),
+        LibsqlValue::Real(f) => {
+            serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(Value::Null)
+        }
+        LibsqlValue::Text(s) => Value::String(s),
+        LibsqlValue::Blob(blob) => {
+            let arr = blob.into_iter().map(|b| Value::Number(b.into())).collect();
+            Value::Array(arr)
+        }
     }
 }
 
@@ -610,19 +645,36 @@ impl TraceStorage for LibsqlTraceStorage {
         Ok(row.get(0)?)
     }
 
-    async fn query(&self, sql: &str, _params: Vec<Value>) -> Result<Vec<Value>, TracingError> {
+    async fn query(&self, sql: &str, params: QueryParams) -> Result<Vec<Value>, TracingError> {
         let conn = self.conn.lock().await;
 
-        let mut rows = conn.query(sql, ()).await?;
+        let mut rows = match params {
+            QueryParams::None => conn.query(sql, ()).await?,
+            QueryParams::Positional(values) => {
+                let params = values.into_iter().map(|v| json_to_libsql(&v)).collect::<Vec<_>>();
+                conn.query(sql, params).await?
+            }
+            QueryParams::Named(values) => {
+                let params = values
+                    .into_iter()
+                    .map(|(k, v)| (k, json_to_libsql(&v)))
+                    .collect::<Vec<_>>();
+                conn.query(sql, params).await?
+            }
+        };
         let mut results = Vec::new();
 
-        while let Some(_row) = rows.next().await? {
-            // Convert row to JSON value
-            // This is a simplified implementation - full implementation would
-            // handle all column types properly
-            let obj = serde_json::Map::new();
-            // Note: libsql doesn't provide column names easily in this API
-            // This would need more work for a full implementation
+        while let Some(row) = rows.next().await? {
+            let mut obj = serde_json::Map::new();
+            let column_count = row.column_count();
+            for idx in 0..column_count {
+                let name = row
+                    .column_name(idx)
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| format!("col_{idx}"));
+                let value = row.get_value(idx)?;
+                obj.insert(name, libsql_to_json(value));
+            }
             results.push(Value::Object(obj));
         }
 

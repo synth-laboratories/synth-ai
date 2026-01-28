@@ -29,6 +29,7 @@ from .contracts import (
 from .datasets import TaskDatasetRegistry, TaskDatasetSpec
 from .errors import error_payload, http_exception, json_error_response
 from .health import task_app_health
+from .http_pool import get_shared_http_client, reset_shared_http_client
 from .in_process import InProcessTaskApp
 from .inference_api import InferenceAPIClient
 from .json import to_jsonable
@@ -181,4 +182,6 @@ __all__ = [
     "include_trace_correlation_id_in_response",
     "validate_trace_correlation_id",
     "verify_trace_correlation_id_in_response",
+    "get_shared_http_client",
+    "reset_shared_http_client",
 ]

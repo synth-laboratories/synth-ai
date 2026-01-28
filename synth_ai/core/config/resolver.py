@@ -2,6 +2,11 @@ from typing import Optional, overload
 
 import click
 
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for config resolution.") from exc
+
 
 def _get_required_value(*args, **kwargs):
     """Lazy import to avoid circular dependency."""
@@ -51,34 +56,32 @@ class ConfigResolver:
         docs_url: Optional[str] = None,
     ) -> Optional[str]:
         """Resolve value with CLI > ENV > CONFIG > DEFAULT precedence."""
-
-        def _clean(value: Optional[str]) -> Optional[str]:
-            if value is None:
-                return None
-            stripped = value.strip()
-            return stripped if stripped else None
-
-        cli_clean = _clean(cli_value)
-        env_clean = _clean(env_value)
-        config_clean = _clean(config_value)
-        default_clean = _clean(default)
-
-        if cli_clean and config_clean and cli_clean != config_clean:
+        payload = synth_ai_py.resolve_config_value(
+            cli_value,
+            env_value,
+            config_value,
+            default,
+        )
+        if isinstance(payload, dict) and payload.get("cli_overrides_config"):
             click.secho(
                 f"⚠️  {name}: CLI flag overrides config file "
-                f"(using {cli_clean}, ignoring {config_clean})",
+                f"(using {payload.get('cli_value')}, ignoring {payload.get('config_value')})",
                 err=True,
                 fg="yellow",
             )
 
-        resolved = cli_clean or env_clean or config_clean or default_clean
-        if required:
+        resolved = None
+        if isinstance(payload, dict):
+            resolved = payload.get("value")
+
+        if required and resolved is None:
             return _get_required_value(
                 name,
-                cli_value=cli_clean,
-                env_value=env_clean,
-                config_value=config_clean,
-                default=default_clean,
+                cli_value=cli_value,
+                env_value=env_value,
+                config_value=config_value,
+                default=default,
                 docs_url=docs_url,
             )
+
         return resolved

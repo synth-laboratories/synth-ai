@@ -11,7 +11,100 @@ use serde_json::Value;
 use crate::errors::CoreError;
 use crate::http::HttpClient;
 
-use super::events::{EventParser, ParsedEvent};
+use super::events::{EventCategory, EventParser, ParsedEvent};
+
+/// Format a duration for human-readable logging.
+fn format_duration(d: Duration) -> String {
+    let secs = d.as_secs();
+    if secs < 60 {
+        format!("{}s", secs)
+    } else if secs < 3600 {
+        format!("{}m{}s", secs / 60, secs % 60)
+    } else {
+        format!("{}h{}m", secs / 3600, (secs % 3600) / 60)
+    }
+}
+
+/// Log an event summary based on its category.
+pub fn log_event_summary(event: &ParsedEvent) {
+    let path = EventParser::parse_path(&event.event_type);
+    if let (Some(entity), Some(action)) = (path.entity.as_deref(), path.action.as_deref()) {
+        eprintln!(
+            "[STREAM] Event path: {}.{} (alg={:?} detail={:?})",
+            entity,
+            action,
+            path.algorithm,
+            path.detail
+        );
+    }
+    match event.category {
+        EventCategory::Baseline => {
+            let baseline = EventParser::parse_baseline(event);
+            eprintln!(
+                "[STREAM] Baseline: accuracy={:.3?}",
+                baseline.accuracy
+            );
+        }
+        EventCategory::Candidate => {
+            let candidate = EventParser::parse_candidate(event);
+            eprintln!(
+                "[STREAM] Candidate {}: accuracy={:.3?} accepted={} gen={:?}",
+                candidate.candidate_id,
+                candidate.accuracy,
+                candidate.accepted,
+                candidate.generation
+            );
+        }
+        EventCategory::Frontier => {
+            let frontier = EventParser::parse_frontier(event);
+            eprintln!(
+                "[STREAM] Frontier updated: size={} best={:.3?}",
+                frontier.frontier_size, frontier.best_score
+            );
+        }
+        EventCategory::Progress => {
+            let progress = EventParser::parse_progress(event);
+            eprintln!(
+                "[STREAM] Progress: rollouts={}/{:?} best={:.3?}",
+                progress.rollouts_completed, progress.rollouts_total, progress.best_score
+            );
+        }
+        EventCategory::Generation => {
+            let gen = EventParser::parse_generation(event);
+            eprintln!(
+                "[STREAM] Generation {}: best_acc={:.3} proposed={} accepted={}",
+                gen.generation, gen.best_accuracy, gen.candidates_proposed, gen.candidates_accepted
+            );
+        }
+        EventCategory::Validation => {
+            eprintln!("[STREAM] Validation event: {:?}", event.event_type);
+        }
+        EventCategory::Complete => {
+            let complete = EventParser::parse_complete(event);
+            eprintln!(
+                "[STREAM] COMPLETE: best={:.3?} baseline={:.3?} reason={:?}",
+                complete.best_score, complete.baseline_score, complete.finish_reason
+            );
+        }
+        EventCategory::Termination => {
+            let term = EventParser::parse_termination(event);
+            eprintln!("[STREAM] TERMINATION: reason={}", term.reason);
+        }
+        EventCategory::Usage => {
+            let usage = EventParser::parse_usage(event);
+            eprintln!(
+                "[STREAM] Usage: total=${:.4} tokens=${:.4} sandbox=${:.4}",
+                usage.total_usd, usage.tokens_usd, usage.sandbox_usd
+            );
+        }
+        EventCategory::Throughput => {
+            eprintln!("[STREAM] Throughput event");
+        }
+        EventCategory::Unknown => {
+            eprintln!("[STREAM] Unknown event: {}", event.event_type);
+        }
+    }
+}
 
 /// Event stream for polling job events.
 pub struct EventStream {
@@ -87,11 +180,19 @@ impl EventStream {
             ("limit", &params[1].1),
         ];
 
+        eprintln!(
+            "[STREAM] poll_events: job={} since_seq={} limit={}",
+            self.job_id, self.last_seq, self.max_events_per_poll
+        );
+
         let response: Value = self
             .client
             .get(&url, Some(params_slice))
             .await
-            .map_err(|e| CoreError::Internal(format!("failed to fetch events: {}", e)))?;
+            .map_err(|e| {
+                eprintln!("[STREAM] ERROR: poll_events failed: {}", e);
+                CoreError::Internal(format!("failed to fetch events: {}", e))
+            })?;
 
         // Parse events array
         let events_array = response
@@ -99,6 +200,11 @@ impl EventStream {
             .and_then(|v| v.as_array())
             .cloned()
             .unwrap_or_default();
+
+        eprintln!(
+            "[STREAM] poll_events: received {} raw events",
+            events_array.len()
+        );
 
         let mut parsed_events = Vec::new();
 
@@ -130,6 +236,14 @@ impl EventStream {
             parsed_events.push(parsed);
         }
 
+        if !parsed_events.is_empty() {
+            eprintln!(
+                "[STREAM] poll_events: returning {} new events (last_seq={})",
+                parsed_events.len(),
+                self.last_seq
+            );
+        }
+
         Ok(parsed_events)
     }
 
@@ -154,10 +268,26 @@ impl EventStream {
     {
         let start = Instant::now();
         let mut last_event_time = Instant::now();
+        let mut poll_count = 0u64;
+        let mut total_events = 0u64;
+
+        eprintln!(
+            "[STREAM] stream_until: starting job={} timeout={} poll_interval={}",
+            self.job_id,
+            format_duration(timeout),
+            format_duration(poll_interval)
+        );
 
         loop {
+            let elapsed = start.elapsed();
+
             // Check timeout
-            if start.elapsed() > timeout {
+            if elapsed > timeout {
+                eprintln!(
+                    "[STREAM] TIMEOUT: elapsed={} total_events={}",
+                    format_duration(elapsed),
+                    total_events
+                );
                 return Err(CoreError::Timeout(format!(
                     "event stream timed out after {:.0} seconds",
                     timeout.as_secs_f64()
@@ -166,7 +296,24 @@ impl EventStream {
 
             // Check terminal condition
             if is_terminal() {
+                eprintln!(
+                    "[STREAM] Terminal condition reached: elapsed={} total_events={}",
+                    format_duration(elapsed),
+                    total_events
+                );
                 return Ok(());
+            }
+
+            poll_count += 1;
+            
+            // Log every 10 polls or when significant time has passed
+            if poll_count % 10 == 0 {
+                eprintln!(
+                    "[STREAM] Streaming: elapsed={} polls={} events={}",
+                    format_duration(elapsed),
+                    poll_count,
+                    total_events
+                );
             }
 
             // Poll events
@@ -174,21 +321,41 @@ impl EventStream {
                 Ok(events) => {
                     if !events.is_empty() {
                         last_event_time = Instant::now();
+                        total_events += events.len() as u64;
+                        eprintln!(
+                            "[STREAM] Received {} events (total={})",
+                            events.len(),
+                            total_events
+                        );
                     }
 
                     for event in &events {
+                        // Log each event summary
+                        log_event_summary(event);
+                        
                         on_event(event);
 
                         // Check for terminal events
                         if event.category.is_terminal() {
+                            eprintln!(
+                                "[STREAM] Terminal event received: {} (elapsed={})",
+                                event.event_type,
+                                format_duration(elapsed)
+                            );
                             return Ok(());
                         }
                     }
                 }
                 Err(e) => {
-                    // Log error but continue streaming
+                    let since_last = last_event_time.elapsed();
+                    eprintln!(
+                        "[STREAM] Poll error ({}s since last event): {}",
+                        since_last.as_secs(),
+                        e
+                    );
                     // Allow some grace period for transient errors
-                    if last_event_time.elapsed() > Duration::from_secs(120) {
+                    if since_last > Duration::from_secs(120) {
+                        eprintln!("[STREAM] ERROR: Too long since last event, giving up");
                         return Err(e);
                     }
                 }

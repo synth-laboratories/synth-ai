@@ -14,7 +14,12 @@ from .handlers import (
     RichHandler,
     StreamHandler,
 )
-from .streamer import JobStreamer, StreamEndpoints
+
+try:
+    from .rust_streamer import JobStreamer
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for streaming.") from exc
+from .streamer import StreamEndpoints
 from .types import StreamMessage, StreamType
 
 __all__ = [

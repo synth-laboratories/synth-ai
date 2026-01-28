@@ -111,6 +111,7 @@ impl JobStreamer {
 
         let client = self.create_client()?;
         let mut all_messages = vec![];
+        let mut total_events: usize = 0;
 
         for endpoint in self.endpoints.all_event_endpoints() {
             // Add since_seq parameter if we have one
@@ -122,7 +123,11 @@ impl JobStreamer {
 
             match client.get::<Value>(&url, None).await {
                 Ok(response) => {
-                    if let Some(events) = response.get("events").and_then(|v| v.as_array()) {
+                    let events_list = response
+                        .get("events")
+                        .and_then(|v| v.as_array())
+                        .or_else(|| response.as_array());
+                    if let Some(events) = events_list {
                         for event in events {
                             if self.config.should_include_event(event) {
                                 let seq = event.get("seq").and_then(|v| v.as_i64());
@@ -135,6 +140,12 @@ impl JobStreamer {
 
                                 self.dispatch_message(&msg);
                                 all_messages.push(msg);
+                                total_events += 1;
+                                if let Some(max_events) = self.config.max_events_per_poll {
+                                    if total_events >= max_events {
+                                        return Ok(all_messages);
+                                    }
+                                }
                             }
                         }
                     }
@@ -161,10 +172,24 @@ impl JobStreamer {
         let client = self.create_client()?;
         let mut all_messages = vec![];
 
-        if let Some(ref endpoint) = self.endpoints.metrics {
+        let metric_endpoints = self.endpoints.all_metric_endpoints();
+        if metric_endpoints.is_empty() {
+            return Ok(all_messages);
+        }
+
+        for endpoint in metric_endpoints {
             match client.get::<Value>(endpoint, None).await {
                 Ok(response) => {
-                    if let Some(metrics) = response.get("metrics").and_then(|v| v.as_array()) {
+                    let mut metrics: Option<&Vec<Value>> = None;
+                    if let Some(items) = response.get("points").and_then(|v| v.as_array()) {
+                        metrics = Some(items);
+                    } else if let Some(items) = response.get("metrics").and_then(|v| v.as_array()) {
+                        metrics = Some(items);
+                    } else if let Some(items) = response.as_array() {
+                        metrics = Some(items);
+                    }
+
+                    if let Some(metrics) = metrics {
                         for metric in metrics {
                             if self.config.should_include_metric(metric) {
                                 let step = metric.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
@@ -174,11 +199,70 @@ impl JobStreamer {
                             }
                         }
                     }
+                    break; // Success, don't try fallbacks
                 }
                 Err(e) => {
-                    if e.status() != Some(404) {
-                        return Err(e.into());
+                    if let Some(404) = e.status() {
+                        continue;
                     }
+                    return Err(e.into());
+                }
+            }
+        }
+
+        Ok(all_messages)
+    }
+
+    /// Poll timeline once.
+    pub async fn poll_timeline(&mut self) -> Result<Vec<StreamMessage>, CoreError> {
+        if !self.config.is_stream_enabled(StreamType::Timeline) {
+            return Ok(vec![]);
+        }
+
+        let client = self.create_client()?;
+        let mut all_messages = vec![];
+        let timeline_endpoints = self.endpoints.all_timeline_endpoints();
+        if timeline_endpoints.is_empty() {
+            return Ok(all_messages);
+        }
+
+        for endpoint in timeline_endpoints {
+            match client.get::<Value>(endpoint, None).await {
+                Ok(response) => {
+                    let mut entries: Option<&Vec<Value>> = None;
+                    if let Some(items) = response.get("events").and_then(|v| v.as_array()) {
+                        entries = Some(items);
+                    } else if let Some(items) = response.get("timeline").and_then(|v| v.as_array()) {
+                        entries = Some(items);
+                    } else if let Some(items) = response.as_array() {
+                        entries = Some(items);
+                    }
+
+                    if let Some(entries) = entries {
+                        for entry in entries {
+                            if !self.config.should_include_timeline(entry) {
+                                continue;
+                            }
+                            let phase = entry
+                                .get("phase")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            let job_id = entry
+                                .get("job_id")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or(&self.job_id);
+                            let msg = StreamMessage::timeline(job_id, phase, entry.clone());
+                            self.dispatch_message(&msg);
+                            all_messages.push(msg);
+                        }
+                    }
+                    break; // Success, don't try fallbacks
+                }
+                Err(e) => {
+                    if let Some(404) = e.status() {
+                        continue;
+                    }
+                    return Err(e.into());
                 }
             }
         }
@@ -214,6 +298,7 @@ impl JobStreamer {
 
             // Poll metrics (less frequently)
             let _ = self.poll_metrics().await?;
+            let _ = self.poll_timeline().await?;
 
             // Wait before next poll
             tokio::time::sleep(tokio::time::Duration::from_secs_f64(
@@ -257,6 +342,7 @@ impl JobStreamer {
 
             let _ = self.poll_events().await?;
             let _ = self.poll_metrics().await?;
+            let _ = self.poll_timeline().await?;
 
             tokio::time::sleep(tokio::time::Duration::from_secs_f64(
                 self.config.poll_interval_seconds,

@@ -8,6 +8,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for tracing_v3.utils.") from exc
+
 
 def iso_now() -> str:
     """Get current timezone.utc time as ISO format string."""
@@ -40,46 +45,12 @@ def generate_experiment_id(name: str) -> str:
 
 def detect_provider(model_name: str | None) -> str:
     """Detect LLM provider from model name."""
-    if not model_name:
-        return "unknown"
-
-    model_lower = model_name.lower()
-
-    if any(
-        x in model_lower for x in ["gpt-", "text-davinci", "text-curie", "text-babbage", "text-ada"]
-    ):
-        return "openai"
-    elif any(x in model_lower for x in ["claude", "anthropic"]):
-        return "anthropic"
-    elif any(x in model_lower for x in ["palm", "gemini", "bard"]):
-        return "google"
-    elif "azure" in model_lower:
-        return "azure"
-    elif any(x in model_lower for x in ["llama", "mistral", "mixtral", "local"]):
-        return "local"
-    else:
-        return "unknown"
+    return synth_ai_py.tracing_detect_provider(model_name)
 
 
 def calculate_cost(model_name: str, input_tokens: int, output_tokens: int) -> float | None:
     """Calculate cost in USD based on model and token counts."""
-    # This is a simplified version - in production you'd want a proper pricing table
-    pricing = {
-        "gpt-4": {"input": 0.03, "output": 0.06},  # per 1K tokens
-        "gpt-4-turbo": {"input": 0.01, "output": 0.03},
-        "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
-        "claude-3-opus": {"input": 0.015, "output": 0.075},
-        "claude-3-sonnet": {"input": 0.003, "output": 0.015},
-        "claude-3-haiku": {"input": 0.00025, "output": 0.00125},
-    }
-
-    for model_prefix, prices in pricing.items():
-        if model_prefix in model_name.lower():
-            input_cost = (input_tokens / 1000) * prices["input"]
-            output_cost = (output_tokens / 1000) * prices["output"]
-            return input_cost + output_cost
-
-    return None
+    return synth_ai_py.tracing_calculate_cost(model_name, input_tokens, output_tokens)
 
 
 def truncate_content(content: str, max_length: int = 10000) -> str:

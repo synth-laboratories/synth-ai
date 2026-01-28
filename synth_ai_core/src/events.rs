@@ -1,6 +1,8 @@
 use serde_json::Value;
+use std::time::Duration;
 
 use crate::config::{BackendAuth, CoreConfig};
+use crate::shared_client::{DEFAULT_POOL_SIZE, DEFAULT_CONNECT_TIMEOUT_SECS};
 use crate::CoreError;
 use synth_ai_core_types::{CoreEvent, EventPollResponse};
 
@@ -107,6 +109,11 @@ pub async fn poll_events(
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_millis(config.timeout_ms))
         .user_agent(config.user_agent.clone())
+        .pool_max_idle_per_host(DEFAULT_POOL_SIZE)
+        .pool_idle_timeout(Duration::from_secs(90))
+        .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
+        .tcp_keepalive(Duration::from_secs(60))
+        .tcp_nodelay(true)
         .build()?;
 
     let base = config.backend_base_url.trim_end_matches('/');

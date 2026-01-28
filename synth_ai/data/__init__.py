@@ -8,9 +8,29 @@ Data vs SDK distinction:
 - sdk/: API abstractions (jobs, training, graphs) - SDK interfaces
 
 Dependency rule: data/ imports nothing from synth_ai except typing helpers.
+
+Rust-backed types:
+    For performance-critical code, equivalent Rust types are available via
+    `synth_ai_py` (the PyO3 bindings). These provide the same data structures
+    with Rust-backed serialization/deserialization:
+
+    ```python
+    # Python dataclasses (this module) - user-friendly, documented
+    from synth_ai.data import SessionTrace, LLMCallRecord
+
+    # Rust-backed types (synth_ai_py) - for performance
+    from synth_ai_py import SessionTrace, LLMCallRecord
+    ```
+
+    The Rust types support `from_dict()` and `to_dict()` methods for
+    interoperability with the Python dataclasses.
 """
 
 from __future__ import annotations
+
+# Trace data types
+import inspect
+from typing import Any
 
 # Artifact data types
 from synth_ai.data.artifacts import Artifact
@@ -89,10 +109,9 @@ from synth_ai.data.rewards import (
 # Rubric definitions (user input structures)
 from synth_ai.data.rubrics import (
     Criterion,
+    CriterionExample,
     Rubric,
 )
-
-# Trace data types
 from synth_ai.data.traces import (
     BaseEvent,
     EnvironmentEvent,
@@ -104,6 +123,66 @@ from synth_ai.data.traces import (
     SessionTrace,
     TimeRecord,
 )
+
+try:  # Require Rust-backed data models
+    import synth_ai_py as _rust_data  # type: ignore
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for synth_ai.data.") from exc
+
+_RUST_EXPORTS = [
+    "CriterionExample",
+    "Criterion",
+    "Rubric",
+    "CriterionScoreData",
+    "RubricAssignment",
+    "Judgement",
+    "ObjectiveSpec",
+    "RewardObservation",
+    "OutcomeObjectiveAssignment",
+    "EventObjectiveAssignment",
+    "InstanceObjectiveAssignment",
+    "OutcomeRewardRecord",
+    "EventRewardRecord",
+    "RewardAggregates",
+    "CalibrationExample",
+    "GoldExample",
+    "Artifact",
+    "ContextOverride",
+    "ContextOverrideStatus",
+    "SessionTrace",
+    "SessionTimeStep",
+    "TracingEvent",
+    "RuntimeEvent",
+    "EnvironmentEvent",
+    "LMCAISEvent",
+    "SessionEventMarkovBlanketMessage",
+    "SessionMessageContent",
+    "TimeRecord",
+    "LLMUsage",
+    "LLMRequestParams",
+    "LLMContentPart",
+    "LLMMessage",
+    "ToolCallSpec",
+    "ToolCallResult",
+    "LLMChunk",
+    "LLMCallRecord",
+]
+
+
+def _is_constructible(cls: Any) -> bool:
+    try:
+        sig = inspect.signature(cls)
+    except Exception:
+        return False
+    return bool(sig.parameters)
+
+
+for _name in _RUST_EXPORTS:
+    if not hasattr(_rust_data, _name):
+        continue
+    _cls = getattr(_rust_data, _name)
+    if _is_constructible(_cls):
+        globals()[_name if _name != "TracingEvent" else "BaseEvent"] = _cls
 
 __all__ = [
     # Enums
@@ -172,6 +251,8 @@ __all__ = [
     "LLMChunk",
     "LLMCallRecord",
     # Rubrics
+    "CriterionExample",
     "Criterion",
     "Rubric",
+    "CriterionExample",
 ]

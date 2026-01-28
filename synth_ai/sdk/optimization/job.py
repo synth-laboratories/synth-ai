@@ -30,6 +30,29 @@ from typing import Any, Dict, List, Optional
 
 from .events import JobEventType
 
+try:
+    import synth_ai_py  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.job.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "job_status_from_str"):
+        raise RuntimeError("Rust core job lifecycle required; synth_ai_py is unavailable.")
+    return synth_ai_py
+
+
+def _map_rust_status(status: str) -> JobStatus:
+    mapping = {
+        "pending": JobStatus.PENDING,
+        "queued": JobStatus.PENDING,
+        "running": JobStatus.IN_PROGRESS,
+        "succeeded": JobStatus.COMPLETED,
+        "failed": JobStatus.FAILED,
+        "cancelled": JobStatus.CANCELLED,
+    }
+    return mapping.get(status, JobStatus.PENDING)
+
 
 class JobStatus(str, Enum):
     """Job lifecycle status values."""
@@ -42,6 +65,10 @@ class JobStatus(str, Enum):
 
     @classmethod
     def from_string(cls, status: str) -> JobStatus:
+        rust = _require_rust()
+        rust_status = rust.job_status_from_str(status)
+        if isinstance(rust_status, str):
+            return _map_rust_status(rust_status)
         normalized = status.strip().lower().replace(" ", "_")
         if normalized in ("success", "succeeded", "completed", "complete"):
             return cls.COMPLETED
@@ -86,6 +113,13 @@ class JobLifecycle:
     started_at: Optional[float] = None
     ended_at: Optional[float] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    _rust: Any | None = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        rust = _require_rust()
+        self._rust = rust.JobLifecycle(self.job_id)
+        if hasattr(self._rust, "status"):
+            self.status = _map_rust_status(self._rust.status)
 
     def _emit(
         self,
@@ -135,6 +169,16 @@ class JobLifecycle:
         Raises:
             ValueError: If job is not in PENDING status
         """
+        if self._rust is not None:
+            event = self._rust.start(data, message)
+            if isinstance(event, dict):
+                self.events.append(event)
+                timestamp = event.get("timestamp")
+                if isinstance(timestamp, (int, float)):
+                    self.started_at = float(timestamp)
+            self.status = JobStatus.IN_PROGRESS
+            return event
+
         if self.status != JobStatus.PENDING:
             raise ValueError(f"Cannot start job in {self.status} status")
 
@@ -164,6 +208,18 @@ class JobLifecycle:
         Raises:
             ValueError: If job is not in IN_PROGRESS status
         """
+        if self._rust is not None:
+            event = self._rust.complete(data, message)
+            if isinstance(event, dict):
+                self.events.append(event)
+                timestamp = event.get("timestamp")
+                if isinstance(timestamp, (int, float)):
+                    self.ended_at = float(timestamp)
+                    if self.started_at is None:
+                        self.started_at = self.ended_at
+            self.status = JobStatus.COMPLETED
+            return event
+
         if self.status != JobStatus.IN_PROGRESS:
             raise ValueError(f"Cannot complete job in {self.status} status")
 
@@ -200,6 +256,18 @@ class JobLifecycle:
         Raises:
             ValueError: If job is not in IN_PROGRESS status
         """
+        if self._rust is not None:
+            event = self._rust.fail(error, data)
+            if isinstance(event, dict):
+                self.events.append(event)
+                timestamp = event.get("timestamp")
+                if isinstance(timestamp, (int, float)):
+                    self.ended_at = float(timestamp)
+                    if self.started_at is None:
+                        self.started_at = self.ended_at
+            self.status = JobStatus.FAILED
+            return event
+
         if self.status != JobStatus.IN_PROGRESS:
             raise ValueError(f"Cannot fail job in {self.status} status")
 
@@ -235,6 +303,18 @@ class JobLifecycle:
         Raises:
             ValueError: If job is already in a terminal status
         """
+        if self._rust is not None:
+            event = self._rust.cancel(message)
+            if isinstance(event, dict):
+                self.events.append(event)
+                timestamp = event.get("timestamp")
+                if isinstance(timestamp, (int, float)):
+                    self.ended_at = float(timestamp)
+                    if self.started_at is None:
+                        self.started_at = self.ended_at
+            self.status = JobStatus.CANCELLED
+            return event
+
         if self.status in {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}:
             raise ValueError(f"Cannot cancel job in {self.status} status")
 
@@ -322,6 +402,13 @@ class JobLifecycle:
     @property
     def elapsed_seconds(self) -> Optional[float]:
         """Get elapsed time in seconds (None if not started)."""
+        if self._rust is not None:
+            try:
+                elapsed = self._rust.elapsed_seconds
+                if isinstance(elapsed, (int, float)):
+                    return float(elapsed)
+            except Exception:
+                pass
         if self.started_at is None:
             return None
         end = self.ended_at or time.time()

@@ -306,6 +306,16 @@ async def call_llm(
         # Extract candidate_id from proxy response headers for MIPRO
         candidate_id = response.headers.get("x-mipro-candidate-id")
         
+        # Log all MIPRO-related headers for debugging
+        mipro_headers = {k: v for k, v in response.headers.items() if "mipro" in k.lower()}
+        if mipro_headers:
+            print(f"[MIPRO] Received headers: {mipro_headers}", flush=True)
+        else:
+            print(f"[MIPRO] WARNING: No x-mipro-* headers in response. Check proxy is returning them.", flush=True)
+        
+        if candidate_id:
+            print(f"[MIPRO] candidate_id from header: {candidate_id}", flush=True)
+        
         data = response.json()
         choices = data.get("choices", [])
         if not choices:

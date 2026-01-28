@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore[import-not-found]
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for graph optimization config parsing.") from exc
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -573,8 +573,9 @@ class GraphOptimizationConfig(BaseModel):
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
 
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
+        data = synth_ai_py.load_toml(str(path))
+        if not isinstance(data, dict):
+            data = dict(data)
 
         # Extract graph_optimization section
         if "graph_optimization" not in data:
@@ -603,6 +604,7 @@ class GraphOptimizationConfig(BaseModel):
             "graph_type": self.graph_type.value,
             "graph_structure": self.graph_structure.value,
             "allowed_policy_models": self.allowed_policy_models,
+            "policy_models": self.allowed_policy_models,
             "dataset_config": self.dataset_config,
             "verifier_mode": self.verifier_mode,
             "verifier_model": self.verifier_model,
@@ -620,8 +622,7 @@ class GraphOptimizationConfig(BaseModel):
         if self.patterns:
             request["patterns"] = self.patterns.to_api_dict()
 
-        if self.initial_graph_id:
-            request["initial_graph_id"] = self.initial_graph_id
+        request["initial_graph_id"] = self.initial_graph_id or "single"
 
         # Inline dataset upload (for verifier calibration, custom datasets)
         if self.dataset:

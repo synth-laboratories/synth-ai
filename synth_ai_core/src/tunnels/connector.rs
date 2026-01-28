@@ -154,15 +154,11 @@ impl TunnelConnector {
     }
 
     pub async fn stop(&mut self) -> Result<(), TunnelError> {
-        self.cancel_idle_timer();
-        if let Some(proc) = &mut self.process {
+        let mut proc_opt = self.prepare_stop();
+        if let Some(proc) = &mut proc_opt {
             let _ = proc.start_kill();
             let _ = proc.wait().await;
         }
-        self.process = None;
-        self.state = ConnectorState::Stopped;
-        self.current_token = None;
-        self.active_leases.clear();
         Ok(())
     }
 
@@ -194,11 +190,27 @@ impl TunnelConnector {
         self.idle_task = Some(tokio::spawn(async move {
             tokio::time::sleep(timeout).await;
             let connector = get_connector();
-            let mut guard = connector.lock();
-            if guard.active_leases.is_empty() {
-                let _ = guard.stop().await;
+            let mut proc_opt = None;
+            {
+                let mut guard = connector.lock();
+                if guard.active_leases.is_empty() {
+                    proc_opt = guard.prepare_stop();
+                }
+            }
+            if let Some(mut proc) = proc_opt {
+                let _ = proc.start_kill();
+                let _ = proc.wait().await;
             }
         }));
+    }
+
+    fn prepare_stop(&mut self) -> Option<Child> {
+        self.cancel_idle_timer();
+        let proc = self.process.take();
+        self.state = ConnectorState::Stopped;
+        self.current_token = None;
+        self.active_leases.clear();
+        proc
     }
 }
 

@@ -15,6 +15,17 @@ from typing import Any, Callable, Dict, List, Optional
 
 from .base import BASE_EVENT_SCHEMAS
 
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for orchestration.events.registry.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "orchestration_merge_event_schema"):
+        raise RuntimeError("Rust core schema merging required; synth_ai_py is unavailable.")
+    return synth_ai_py
+
 
 class EventSchemaRegistry:
     """Registry for managing algorithm-specific event schemas.
@@ -122,48 +133,9 @@ class EventSchemaRegistry:
         algorithm: str,
         event_type: str,
     ) -> Dict[str, Any]:
-        """Merge a base schema with an algorithm extension.
-
-        The merge strategy:
-        1. Copy the base schema
-        2. Update metadata ($id, title, description) for algorithm context
-        3. Merge data.properties from extension into base
-        4. Merge required fields from extension
-        """
-        merged = copy.deepcopy(base)
-
-        # Update metadata
-        merged["$id"] = (
-            f"https://synth.ai/schemas/events/{algorithm}/{event_type.replace('.', '-')}.json"
-        )
-        merged["title"] = (
-            f"{algorithm.upper()}{event_type.replace('.', ' ').title().replace(' ', '')}Event"
-        )
-        if "description" in extension:
-            merged["description"] = extension["description"]
-
-        # Find the data properties object in the allOf structure
-        if "allOf" in merged:
-            for item in merged["allOf"]:
-                if "properties" in item and "data" in item["properties"]:
-                    data_props = item["properties"]["data"]
-                    if "properties" not in data_props:
-                        data_props["properties"] = {}
-
-                    # Merge extension properties into data.properties
-                    if "properties" in extension:
-                        data_props["properties"].update(extension["properties"])
-
-                    # Merge required fields
-                    if "required" in extension:
-                        existing_required = data_props.get("required", [])
-                        data_props["required"] = list(
-                            set(existing_required + extension["required"])
-                        )
-
-                    break
-
-        return merged
+        """Merge a base schema with an algorithm extension (Rust-backed)."""
+        rust = _require_rust()
+        return rust.orchestration_merge_event_schema(base, extension, algorithm, event_type)
 
     def list_event_types(self, include_algorithm_prefixed: bool = True) -> List[str]:
         """List all registered event types.

@@ -1,16 +1,12 @@
 from typing import Any
 
-from synth_ai.sdk.shared import AsyncHttpClient
-
-
-def _api_base(b: str) -> str:
-    b = (b or "").rstrip("/")
-    return b if b.endswith("/api") else f"{b}/api"
+from synth_ai.core.rust_core.http import RustCoreHttpClient
+from synth_ai.core.rust_core.urls import ensure_api_base
 
 
 async def backend_health(base_url: str, api_key: str) -> dict[str, Any]:
-    async with AsyncHttpClient(base_url, api_key, timeout=15.0) as http:
-        js = await http.get(f"{_api_base(base_url)}/health")
+    async with RustCoreHttpClient(base_url, api_key, timeout=15.0) as http:
+        js = await http.get(f"{ensure_api_base(base_url)}/health")
     return {"ok": True, "raw": js}
 
 
@@ -36,12 +32,15 @@ async def pricing_preflight(
         "estimated_seconds": float(estimated_seconds or 0.0),
         "container_count": int(container_count or 1),
     }
-    async with AsyncHttpClient(base_url, api_key, timeout=30.0) as http:
-        js = await http.post_json(f"{_api_base(base_url)}/v1/pricing/preflight", json=body)
+    async with RustCoreHttpClient(base_url, api_key, timeout=30.0) as http:
+        js = await http.post_json(
+            f"{ensure_api_base(base_url)}/v1/pricing/preflight",
+            json=body,
+        )
     return js if isinstance(js, dict) else {"raw": js}
 
 
 async def balance_autumn_normalized(base_url: str, api_key: str) -> dict[str, Any]:
-    async with AsyncHttpClient(base_url, api_key, timeout=30.0) as http:
-        js = await http.get(f"{_api_base(base_url)}/v1/balance/autumn-normalized")
+    async with RustCoreHttpClient(base_url, api_key, timeout=30.0) as http:
+        js = await http.get(f"{ensure_api_base(base_url)}/v1/balance/autumn-normalized")
     return js if isinstance(js, dict) else {"raw": js}

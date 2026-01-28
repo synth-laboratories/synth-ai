@@ -34,6 +34,11 @@ except Exception:  # pragma: no cover - SFT moved to research repo
     prepare_sft_job_payload = None  # type: ignore[assignment]
     _SFT_AVAILABLE = False
 
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.builders.") from exc
+
 from synth_ai.core.config.resolver import ConfigResolver  # noqa: E402
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
 
@@ -172,6 +177,23 @@ def build_prompt_learning_payload(
                 "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
             )
 
+    env_api_key = ensure_localapi_auth()
+
+    # Build config dict for backend
+    config_dict = pl_cfg.to_dict()
+
+    if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
+        raise click.ClickException(
+            "Rust core payload builder unavailable. synth_ai_py is required; no Python fallback."
+        )
+    try:
+        payload, resolved_task_url = synth_ai_py.build_prompt_learning_payload(
+            config_dict, task_url, overrides
+        )
+        return PromptLearningBuildResult(payload=payload, task_url=resolved_task_url)
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+
     cli_task_url = overrides.get("task_url") or task_url
     env_task_url = os.environ.get("TASK_APP_URL")
     config_task_url = (pl_cfg.task_app_url or "").strip() or None
@@ -206,7 +228,6 @@ def build_prompt_learning_payload(
     # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
     config_api_key = (getattr(pl_cfg, "task_app_api_key", None) or "").strip() or None
     cli_api_key = overrides.get("task_app_api_key")
-    env_api_key = ensure_localapi_auth()
     _task_app_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
         "task_app_api_key",
         cli_value=cli_api_key,
@@ -214,9 +235,6 @@ def build_prompt_learning_payload(
         config_value=config_api_key,
         required=True,
     )
-
-    # Build config dict for backend
-    config_dict = pl_cfg.to_dict()
 
     # Ensure task_app_url is set (task_app_api_key is resolved by backend from ENVIRONMENT_API_KEY)
     pl_section = config_dict.get("prompt_learning", {})
@@ -449,6 +467,23 @@ def build_prompt_learning_payload_from_mapping(
                 "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
             )
 
+    env_api_key = ensure_localapi_auth()
+
+    # Build config dict for backend
+    config_dict = pl_cfg.to_dict()
+
+    if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
+        raise click.ClickException(
+            "Rust core payload builder unavailable. synth_ai_py is required; no Python fallback."
+        )
+    try:
+        payload, resolved_task_url = synth_ai_py.build_prompt_learning_payload(
+            config_dict, task_url, overrides
+        )
+        return PromptLearningBuildResult(payload=payload, task_url=resolved_task_url)
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+
     cli_task_url = overrides.get("task_url") or task_url
     env_task_url = os.environ.get("TASK_APP_URL")
     config_task_url = (pl_cfg.task_app_url or "").strip() or None
@@ -478,7 +513,6 @@ def build_prompt_learning_payload_from_mapping(
     # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
     config_api_key = (getattr(pl_cfg, "task_app_api_key", None) or "").strip() or None
     cli_api_key = overrides.get("task_app_api_key")
-    env_api_key = ensure_localapi_auth()
     _task_app_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
         "task_app_api_key",
         cli_value=cli_api_key,
@@ -486,9 +520,6 @@ def build_prompt_learning_payload_from_mapping(
         config_value=config_api_key,
         required=True,
     )
-
-    # Build config dict for backend
-    config_dict = pl_cfg.to_dict()
 
     # Ensure task_app_url is set (task_app_api_key is resolved by backend from ENVIRONMENT_API_KEY)
     pl_section = config_dict.get("prompt_learning", {})

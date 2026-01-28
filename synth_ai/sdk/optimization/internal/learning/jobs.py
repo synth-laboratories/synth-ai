@@ -3,19 +3,15 @@ from collections.abc import Callable
 from contextlib import suppress
 from typing import Any
 
-from synth_ai.sdk.shared import AsyncHttpClient, sleep
+from synth_ai.core.rust_core.http import RustCoreHttpClient, sleep
+from synth_ai.core.rust_core.urls import ensure_api_base
 
 from .constants import TERMINAL_EVENT_FAILURE, TERMINAL_EVENT_SUCCESS, TERMINAL_STATUSES
 
 
-def _api_base(b: str) -> str:
-    b = (b or "").rstrip("/")
-    return b if b.endswith("/api") else f"{b}/api"
-
-
 class JobsApiResolver:
     def __init__(self, base_url: str, *, strict: bool) -> None:
-        self._base = _api_base(base_url)
+        self._base = ensure_api_base(base_url)
         self._strict = strict
 
     def status_urls(self, job_id: str) -> list[str]:
@@ -76,7 +72,7 @@ class JobHandle:
         resolver = JobsApiResolver(self.base_url, strict=self.strict)
         detected_fine_tuned_model: str | None = None
 
-        async with AsyncHttpClient(self.base_url, self.api_key, timeout=self.timeout) as http:
+        async with RustCoreHttpClient(self.base_url, self.api_key, timeout=self.timeout) as http:
             while True:
                 # Status
                 status_data: dict[str, Any] | None = None

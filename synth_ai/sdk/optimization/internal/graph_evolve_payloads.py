@@ -4,15 +4,27 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+try:
+    import synth_ai_py  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.graph_evolve_payloads.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "build_graph_evolve_inference_payload"):
+        raise RuntimeError(
+            "Rust core graph evolve payload helpers required; synth_ai_py is unavailable."
+        )
+    return synth_ai_py
+
 
 def resolve_snapshot_id(
     *,
     prompt_snapshot_id: Optional[str],
     graph_snapshot_id: Optional[str],
 ) -> Optional[str]:
-    if prompt_snapshot_id and graph_snapshot_id:
-        raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
-    return graph_snapshot_id or prompt_snapshot_id
+    rust = _require_rust()
+    return rust.resolve_graph_evolve_snapshot_id(prompt_snapshot_id, graph_snapshot_id)
 
 
 def build_graph_record_payload(
@@ -21,14 +33,10 @@ def build_graph_record_payload(
     prompt_snapshot_id: Optional[str],
     graph_snapshot_id: Optional[str],
 ) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {"job_id": job_id}
-    snapshot_id = resolve_snapshot_id(
-        prompt_snapshot_id=prompt_snapshot_id,
-        graph_snapshot_id=graph_snapshot_id,
+    rust = _require_rust()
+    return rust.build_graph_evolve_graph_record_payload(
+        job_id, prompt_snapshot_id, graph_snapshot_id
     )
-    if snapshot_id:
-        payload["prompt_snapshot_id"] = snapshot_id
-    return payload
 
 
 def build_inference_payload(
@@ -39,16 +47,10 @@ def build_inference_payload(
     prompt_snapshot_id: Optional[str],
     graph_snapshot_id: Optional[str],
 ) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {"job_id": job_id, "input": input_data}
-    if model:
-        payload["model"] = model
-    snapshot_id = resolve_snapshot_id(
-        prompt_snapshot_id=prompt_snapshot_id,
-        graph_snapshot_id=graph_snapshot_id,
+    rust = _require_rust()
+    return rust.build_graph_evolve_inference_payload(
+        job_id, input_data, model, prompt_snapshot_id, graph_snapshot_id
     )
-    if snapshot_id:
-        payload["prompt_snapshot_id"] = snapshot_id
-    return payload
 
 
 __all__ = [

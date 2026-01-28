@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import httpx
 import libsql
 from sqlalchemy.engine import make_url
 
@@ -417,11 +416,20 @@ class NativeLibsqlTraceManager(TraceStorage):
                             else:
                                 health_url = f"http://{host_port}/health"
                             try:
-                                async with httpx.AsyncClient(timeout=httpx.Timeout(1.0)) as client:
-                                    resp = await client.get(health_url)
-                                if resp.status_code != 200:
+                                import urllib.request
+
+                                async def _check_health() -> int:
+                                    def _do_request() -> int:
+                                        req = urllib.request.Request(health_url, method="GET")
+                                        with urllib.request.urlopen(req, timeout=1.0) as resp:
+                                            return int(getattr(resp, "status", 200))
+
+                                    return await asyncio.to_thread(_do_request)
+
+                                status = await _check_health()
+                                if status != 200:
                                     raise RuntimeError(
-                                        f"Tracing backend unhealthy at {health_url} (status={resp.status_code})"
+                                        f"Tracing backend unhealthy at {health_url} (status={status})"
                                     )
                             except Exception as exc:  # pragma: no cover - network env dependent
                                 raise RuntimeError(

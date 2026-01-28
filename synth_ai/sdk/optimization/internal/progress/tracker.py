@@ -13,6 +13,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, TextIO
 
+try:  # Optional rust bindings
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional
+    _synth_ai_py = None
+
 from .dataclasses import BaselineInfo, CandidateInfo, GEPAProgress
 from .emitter import GEPAProgressEmitter
 from .events import (
@@ -87,6 +92,7 @@ class GEPAProgressTracker:
     _log_file: TextIO | None = field(default=None, repr=False)
     _log_path: Path | None = field(default=None, repr=False)
     _baseline_printed: bool = field(default=False, init=False)
+    _rust_tracker: Any = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         """Initialize progress bars if using tqdm mode."""
@@ -96,6 +102,12 @@ class GEPAProgressTracker:
             max_trials=self.max_trials,
             job_id=self.job_id,
         )
+
+        if _synth_ai_py is not None:
+            try:
+                self._rust_tracker = _synth_ai_py.ProgressTracker()  # type: ignore[attr-defined]
+            except Exception:
+                self._rust_tracker = None
 
         if self.display_mode == DisplayMode.TQDM:
             self._init_tqdm()
@@ -246,6 +258,8 @@ GEPA Optimization Progress - {self.env_name}
             event: Raw SSE event dict with 'type' and 'data' keys
         """
         parsed = self.emitter.update(event)
+        self._update_rust_tracker(event)
+        self._sync_progress_from_rust()
         self._log_event(event)
         self._update_progress_bars()
 
@@ -266,6 +280,53 @@ GEPA Optimization Progress - {self.env_name}
             self._handle_termination(parsed)
         elif isinstance(parsed, UsageEvent):
             self._handle_usage(parsed)
+
+    def _update_rust_tracker(self, event: dict[str, Any]) -> None:
+        if self._rust_tracker is None:
+            return
+        try:
+            self._rust_tracker.update(event)
+        except Exception:
+            self._rust_tracker = None
+
+    def _sync_progress_from_rust(self) -> None:
+        if self._rust_tracker is None:
+            return
+        try:
+            progress = self._rust_tracker.progress()
+        except Exception:
+            return
+        if not isinstance(progress, dict):
+            return
+
+        self.emitter.progress.phase = progress.get("phase", self.emitter.progress.phase)
+        self.emitter.progress.rollouts_completed = progress.get(
+            "rollouts_completed", self.emitter.progress.rollouts_completed
+        )
+        self.emitter.progress.rollouts_total = progress.get(
+            "rollouts_total", self.emitter.progress.rollouts_total
+        )
+        self.emitter.progress.generations_completed = progress.get(
+            "generations_completed", self.emitter.progress.generations_completed
+        )
+        self.emitter.progress.candidates_evaluated = progress.get(
+            "candidates_evaluated", self.emitter.progress.candidates_evaluated
+        )
+        self.emitter.progress.best_score = progress.get(
+            "best_score", self.emitter.progress.best_score
+        )
+        self.emitter.progress.baseline_score = progress.get(
+            "baseline_score", self.emitter.progress.baseline_score
+        )
+        self.emitter.progress.elapsed_seconds = progress.get(
+            "elapsed_seconds", self.emitter.progress.elapsed_seconds
+        )
+        self.emitter.progress.eta_seconds = progress.get(
+            "eta_seconds", self.emitter.progress.eta_seconds
+        )
+        self.emitter.progress.finish_reason = progress.get(
+            "finish_reason", self.emitter.progress.finish_reason
+        )
 
     def _handle_baseline(self, event: BaselineEvent) -> None:
         """Handle baseline evaluation event."""

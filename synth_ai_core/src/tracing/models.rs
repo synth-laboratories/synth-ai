@@ -254,11 +254,54 @@ pub struct LLMUsage {
     #[serde(default)]
     pub reasoning_tokens: Option<i32>,
     #[serde(default)]
+    pub reasoning_input_tokens: Option<i32>,
+    #[serde(default)]
+    pub reasoning_output_tokens: Option<i32>,
+    #[serde(default)]
     pub cache_read_tokens: Option<i32>,
     #[serde(default)]
     pub cache_write_tokens: Option<i32>,
     #[serde(default)]
+    pub billable_input_tokens: Option<i32>,
+    #[serde(default)]
+    pub billable_output_tokens: Option<i32>,
+    #[serde(default)]
     pub cost_usd: Option<f64>,
+}
+
+/// Provider request parameters.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LLMRequestParams {
+    #[serde(default)]
+    pub temperature: Option<f64>,
+    #[serde(default)]
+    pub top_p: Option<f64>,
+    #[serde(default)]
+    pub max_tokens: Option<i32>,
+    #[serde(default)]
+    pub stop: Option<Vec<String>>,
+    #[serde(default)]
+    pub top_k: Option<i32>,
+    #[serde(default)]
+    pub presence_penalty: Option<f64>,
+    #[serde(default)]
+    pub frequency_penalty: Option<f64>,
+    #[serde(default)]
+    pub repetition_penalty: Option<f64>,
+    #[serde(default)]
+    pub seed: Option<i32>,
+    #[serde(default)]
+    pub n: Option<i32>,
+    #[serde(default)]
+    pub best_of: Option<i32>,
+    #[serde(default)]
+    pub response_format: Option<Value>,
+    #[serde(default)]
+    pub json_mode: Option<bool>,
+    #[serde(default)]
+    pub tool_config: Option<Value>,
+    #[serde(default)]
+    pub raw_params: HashMap<String, Value>,
 }
 
 /// LLM message content part.
@@ -276,6 +319,26 @@ pub struct LLMContentPart {
     /// MIME type for media
     #[serde(default)]
     pub mime_type: Option<String>,
+    #[serde(default)]
+    pub uri: Option<String>,
+    #[serde(default)]
+    pub base64_data: Option<String>,
+    #[serde(default)]
+    pub size_bytes: Option<i64>,
+    #[serde(default)]
+    pub sha256: Option<String>,
+    #[serde(default)]
+    pub width: Option<i32>,
+    #[serde(default)]
+    pub height: Option<i32>,
+    #[serde(default)]
+    pub duration_ms: Option<i32>,
+    #[serde(default)]
+    pub sample_rate: Option<i32>,
+    #[serde(default)]
+    pub channels: Option<i32>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 impl LLMContentPart {
@@ -286,6 +349,16 @@ impl LLMContentPart {
             text: Some(text.into()),
             data: None,
             mime_type: None,
+            uri: None,
+            base64_data: None,
+            size_bytes: None,
+            sha256: None,
+            width: None,
+            height: None,
+            duration_ms: None,
+            sample_rate: None,
+            channels: None,
+            language: None,
         }
     }
 }
@@ -334,12 +407,21 @@ pub struct ToolCallSpec {
     pub name: String,
     /// Arguments as JSON string
     pub arguments_json: String,
+    /// Parsed arguments (optional)
+    #[serde(default)]
+    pub arguments: Option<Value>,
     /// Call ID
     #[serde(default)]
     pub call_id: Option<String>,
     /// Index in batch
     #[serde(default)]
     pub index: Option<i32>,
+    /// Parent call ID
+    #[serde(default)]
+    pub parent_call_id: Option<String>,
+    /// Additional metadata
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
 }
 
 /// Tool call result.
@@ -360,9 +442,37 @@ pub struct ToolCallResult {
     /// Error message
     #[serde(default)]
     pub error_message: Option<String>,
+    /// Start timestamp
+    #[serde(default)]
+    pub started_at: Option<DateTime<Utc>>,
+    /// Completion timestamp
+    #[serde(default)]
+    pub completed_at: Option<DateTime<Utc>>,
     /// Duration in milliseconds
     #[serde(default)]
     pub duration_ms: Option<i32>,
+    /// Additional metadata
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
+}
+
+/// Optional streaming chunk representation.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LLMChunk {
+    pub sequence_index: i32,
+    pub received_at: DateTime<Utc>,
+    #[serde(default)]
+    pub event_type: Option<String>,
+    #[serde(default)]
+    pub choice_index: Option<i32>,
+    #[serde(default)]
+    pub raw_json: Option<String>,
+    #[serde(default)]
+    pub delta_text: Option<String>,
+    #[serde(default)]
+    pub delta: Option<Value>,
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
 }
 
 /// Normalized LLM call record.
@@ -376,7 +486,11 @@ pub struct LLMCallRecord {
     #[serde(default)]
     pub provider: Option<String>,
     /// Model name
+    #[serde(default)]
     pub model_name: String,
+    /// Schema version
+    #[serde(default)]
+    pub schema_version: Option<String>,
     /// Call start time
     #[serde(default)]
     pub started_at: Option<DateTime<Utc>>,
@@ -386,12 +500,27 @@ pub struct LLMCallRecord {
     /// Latency in milliseconds
     #[serde(default)]
     pub latency_ms: Option<i32>,
+    /// Provider request parameters
+    #[serde(default)]
+    pub request_params: LLMRequestParams,
     /// Input messages
     #[serde(default)]
     pub input_messages: Vec<LLMMessage>,
+    /// Input text (completions-style)
+    #[serde(default)]
+    pub input_text: Option<String>,
+    /// Tool choice
+    #[serde(default)]
+    pub tool_choice: Option<String>,
     /// Output messages
     #[serde(default)]
     pub output_messages: Vec<LLMMessage>,
+    /// Output choices (n>1)
+    #[serde(default)]
+    pub outputs: Vec<LLMMessage>,
+    /// Output text (completions-style)
+    #[serde(default)]
+    pub output_text: Option<String>,
     /// Tool calls in response
     #[serde(default)]
     pub output_tool_calls: Vec<ToolCallSpec>,
@@ -404,9 +533,45 @@ pub struct LLMCallRecord {
     /// Finish reason
     #[serde(default)]
     pub finish_reason: Option<String>,
+    /// Choice index
+    #[serde(default)]
+    pub choice_index: Option<i32>,
+    /// Streaming chunks
+    #[serde(default)]
+    pub chunks: Option<Vec<LLMChunk>>,
+    /// Raw request JSON
+    #[serde(default)]
+    pub request_raw_json: Option<String>,
+    /// Raw response JSON
+    #[serde(default)]
+    pub response_raw_json: Option<String>,
     /// Additional metadata
     #[serde(default)]
     pub metadata: HashMap<String, Value>,
+    /// Provider request ID
+    #[serde(default)]
+    pub provider_request_id: Option<String>,
+    /// Request server timing info
+    #[serde(default)]
+    pub request_server_timing: Option<Value>,
+    /// Outcome status
+    #[serde(default)]
+    pub outcome: Option<String>,
+    /// Error details
+    #[serde(default)]
+    pub error: Option<Value>,
+    /// Token trace info
+    #[serde(default)]
+    pub token_traces: Option<Vec<Value>>,
+    /// Safety metadata
+    #[serde(default)]
+    pub safety: Option<Value>,
+    /// Refusal metadata
+    #[serde(default)]
+    pub refusal: Option<Value>,
+    /// Redactions
+    #[serde(default)]
+    pub redactions: Option<Vec<Value>>,
 }
 
 // ============================================================================

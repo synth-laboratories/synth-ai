@@ -1,7 +1,8 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
@@ -12,6 +13,7 @@ use tokio::process::Child;
 use tokio::task::JoinHandle;
 
 use crate::tunnels::errors::TunnelError;
+use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 
 static URL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"https://[a-z0-9-]+\\.trycloudflare\\.com").unwrap());
 
@@ -38,15 +40,27 @@ impl ManagedProcess {
     }
 }
 
-static TRACKED: Lazy<Mutex<Vec<ManagedProcess>>> = Lazy::new(|| Mutex::new(Vec::new()));
+static TRACKED: Lazy<Mutex<HashMap<usize, ManagedProcess>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
 
-pub fn track_process(proc: ManagedProcess) {
-    TRACKED.lock().push(proc);
+pub fn track_process(proc: ManagedProcess) -> usize {
+    let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+    TRACKED.lock().insert(id, proc);
+    id
+}
+
+pub async fn stop_tracked(id: usize) -> Result<(), TunnelError> {
+    let mut guard = TRACKED.lock();
+    if let Some(mut proc) = guard.remove(&id) {
+        proc.stop().await;
+        return Ok(());
+    }
+    Err(TunnelError::process(format!("process id {id} not found")))
 }
 
 pub async fn cleanup_all() {
     let mut procs = TRACKED.lock();
-    for proc in procs.iter_mut() {
+    for (_, proc) in procs.iter_mut() {
         proc.stop().await;
     }
     procs.clear();
@@ -321,6 +335,8 @@ pub async fn rotate_tunnel(
     let url = format!("{base}/api/v1/tunnels/rotate");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(180))
+        .pool_max_idle_per_host(20)
+        .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
         .build()
         .map_err(|e| TunnelError::api(e.to_string()))?;
     let resp = client
@@ -359,6 +375,8 @@ pub async fn create_tunnel(
     let url = "https://api.usesynth.ai/api/v1/tunnels/";
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(180))
+        .pool_max_idle_per_host(20)
+        .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
         .build()
         .map_err(|e| TunnelError::api(e.to_string()))?;
     let resp = client
@@ -390,6 +408,8 @@ pub async fn wait_for_health_check(
     let url = format!("http://{host}:{port}/health");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
+        .pool_max_idle_per_host(10)
+        .connect_timeout(Duration::from_secs(5))
         .no_proxy()
         .build()
         .map_err(|e| TunnelError::local(e.to_string()))?;
@@ -474,8 +494,10 @@ pub async fn verify_tunnel_dns_resolution(
         }
         let ip = resolve_hostname_with_explicit_resolvers(hostname).await?;
         let port = if parsed.scheme() == "http" { 80 } else { 443 };
-        let mut builder = reqwest::Client::builder()
+        let builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
+            .pool_max_idle_per_host(10)
+            .connect_timeout(Duration::from_secs(5))
             .danger_accept_invalid_certs(true)
             .resolve(hostname, (ip, port).into());
         let client = builder

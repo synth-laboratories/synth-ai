@@ -2,8 +2,13 @@
 
 import os
 
-from synth_ai.core.utils.env import mask_str, write_env_var_to_json
+from synth_ai.core.utils.env import mask_str
 from synth_ai.core.utils.paths import SYNTH_USER_CONFIG_PATH
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for credential storage.") from exc
 
 
 def store_credentials(credentials, config_path=None):
@@ -20,7 +25,10 @@ def store_credentials(credentials, config_path=None):
         )
 
     resolved_path = config_path or str(SYNTH_USER_CONFIG_PATH)
+    if hasattr(synth_ai_py, "auth_store_credentials_atomic"):
+        synth_ai_py.auth_store_credentials_atomic(credentials, resolved_path)
+    else:
+        synth_ai_py.auth_store_credentials(credentials, resolved_path)
     for k, v in credentials.items():
-        write_env_var_to_json(k, v, resolved_path)
         os.environ[k] = v
         print(f"Loaded {k}={mask_str(v)} to process environment")

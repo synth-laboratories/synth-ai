@@ -76,6 +76,7 @@ pub mod libsql_storage;
 pub mod models;
 pub mod storage;
 pub mod tracer;
+pub mod utils;
 
 // Re-export main types for convenience
 pub use error::TracingError;
@@ -83,9 +84,10 @@ pub use hooks::{HookCallback, HookContext, HookEvent, HookManager};
 pub use libsql_storage::LibsqlTraceStorage;
 pub use models::{
     BaseEventFields, EnvironmentEvent, EventReward, EventType, LLMCallRecord, LLMContentPart,
-    LLMMessage, LLMUsage, LMCAISEvent, MarkovBlanketMessage, MessageContent, OutcomeReward,
-    RuntimeEvent, SessionTimeStep, SessionTrace, TimeRecord, ToolCallResult, ToolCallSpec,
-    TracingEvent,
+    LLMMessage, LLMRequestParams, LLMUsage, LLMChunk, LMCAISEvent, MarkovBlanketMessage,
+    MessageContent, OutcomeReward, RuntimeEvent, SessionTimeStep, SessionTrace, TimeRecord,
+    ToolCallResult, ToolCallSpec, TracingEvent,
 };
-pub use storage::{StorageConfig, TraceStorage};
+pub use storage::{QueryParams, StorageConfig, TraceStorage};
 pub use tracer::SessionTracer;
+pub use utils::{calculate_cost, detect_provider};

@@ -4,7 +4,8 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any, TypedDict
 
-from synth_ai.sdk.shared import AsyncHttpClient, HTTPError, sleep
+from synth_ai.core.errors import HTTPError
+from synth_ai.core.rust_core.http import RustCoreHttpClient, sleep
 from synth_ai.sdk.shared.models import UnsupportedModelError, normalize_model_identifier
 
 
@@ -23,7 +24,7 @@ class LearningClient:
     async def upload_training_file(self, path: str | Path, *, purpose: str = "fine-tune") -> str:
         p = Path(path)
         content = p.read_bytes()
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             data = {"purpose": purpose}
             files = {"file": (p.name, content, _infer_content_type(p.name))}
             js = await http.post_multipart("/api/learning/files", data=data, files=files)
@@ -65,22 +66,22 @@ class LearningClient:
         if validation_file:
             body["validation_file"] = validation_file
 
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json("/api/learning/jobs", json=body)
 
     async def start_job(self, job_id: str) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json(f"/api/learning/jobs/{job_id}/start", json={})
 
     async def get_job(self, job_id: str) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.get(f"/api/learning/jobs/{job_id}")
 
     async def get_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
     ) -> list[dict[str, Any]]:
         params = {"since_seq": since_seq, "limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/learning/jobs/{job_id}/events", params=params)
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
@@ -107,7 +108,7 @@ class LearningClient:
                 stacklevel=2,
             )
             params["run_id"] = run_id
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/learning/jobs/{job_id}/metrics", params=params)
         if isinstance(js, dict) and isinstance(js.get("points"), list):
             return js["points"]
@@ -115,7 +116,7 @@ class LearningClient:
 
     async def get_timeline(self, job_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
         params = {"limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/learning/jobs/{job_id}/timeline", params=params)
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
@@ -163,7 +164,7 @@ class LearningClient:
             "estimated_seconds": float(estimated_seconds or 0.0),
             "container_count": int(container_count or 1),
         }
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.post_json("/api/v1/pricing/preflight", json=body)
         if not isinstance(js, dict):
             raise HTTPError(
@@ -175,7 +176,7 @@ class LearningClient:
         return js
 
     async def balance_autumn_normalized(self) -> dict[str, Any]:
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get("/api/v1/balance/autumn-normalized")
         if not isinstance(js, dict):
             raise HTTPError(
@@ -201,7 +202,7 @@ class LearningClient(LearningClient):  # type: ignore[misc]
 
         Calls backend route `/api/learning/models` and returns a compact list.
         """
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get("/api/learning/models")
         if isinstance(js, dict) and isinstance(js.get("data"), list):
             out: list[FineTunedModelInfo] = []

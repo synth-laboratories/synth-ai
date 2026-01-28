@@ -243,6 +243,45 @@ impl EventObjectiveAssignment {
     }
 }
 
+/// Assignment of objectives to a specific instance (dataset example).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstanceObjectiveAssignment {
+    /// Instance ID or seed.
+    pub instance_id: String,
+    /// Map of objective key to value.
+    pub objectives: HashMap<String, f64>,
+    /// Optional dataset split.
+    #[serde(default)]
+    pub split: Option<String>,
+    /// Additional metadata.
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
+}
+
+impl InstanceObjectiveAssignment {
+    /// Create a new instance objective assignment.
+    pub fn new(instance_id: impl Into<String>) -> Self {
+        Self {
+            instance_id: instance_id.into(),
+            objectives: HashMap::new(),
+            split: None,
+            metadata: HashMap::new(),
+        }
+    }
+
+    /// Add an objective value.
+    pub fn with_objective(mut self, key: impl Into<String>, value: f64) -> Self {
+        self.objectives.insert(key.into(), value);
+        self
+    }
+
+    /// Set the dataset split.
+    pub fn with_split(mut self, split: impl Into<String>) -> Self {
+        self.split = Some(split.into());
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

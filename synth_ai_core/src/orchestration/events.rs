@@ -35,10 +35,44 @@ pub enum EventCategory {
     Unknown,
 }
 
+/// Terminal status derived from terminal events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum TerminalStatus {
+    Succeeded,
+    Failed,
+    Cancelled,
+}
+
+/// Parsed event path segments for logging/debugging.
+#[derive(Debug, Clone, Default)]
+pub struct EventPath {
+    pub entity: Option<String>,
+    pub action: Option<String>,
+    pub algorithm: Option<String>,
+    pub detail: Option<String>,
+}
+
 impl EventCategory {
     /// Check if this is a terminal event category.
     pub fn is_terminal(&self) -> bool {
         matches!(self, EventCategory::Complete | EventCategory::Termination)
+    }
+
+    /// Get the category as a string.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EventCategory::Baseline => "baseline",
+            EventCategory::Candidate => "candidate",
+            EventCategory::Frontier => "frontier",
+            EventCategory::Progress => "progress",
+            EventCategory::Generation => "generation",
+            EventCategory::Throughput => "throughput",
+            EventCategory::Termination => "termination",
+            EventCategory::Complete => "complete",
+            EventCategory::Validation => "validation",
+            EventCategory::Usage => "usage",
+            EventCategory::Unknown => "unknown",
+        }
     }
 }
 
@@ -71,6 +105,9 @@ pub struct BaselineEvent {
     /// Per-instance scores
     #[serde(default)]
     pub instance_scores: Option<Vec<f64>>,
+    /// Per-instance objectives
+    #[serde(default)]
+    pub instance_objectives: Option<Vec<HashMap<String, f64>>>,
     /// Prompt configuration
     #[serde(default)]
     pub prompt: Option<Value>,
@@ -106,6 +143,9 @@ pub struct CandidateEvent {
     /// Per-instance scores
     #[serde(default)]
     pub instance_scores: Option<Vec<f64>>,
+    /// Per-instance objectives
+    #[serde(default)]
+    pub instance_objectives: Option<Vec<HashMap<String, f64>>>,
 }
 
 /// Frontier update event data.
@@ -129,6 +169,9 @@ pub struct FrontierEvent {
     /// Scores by candidate ID
     #[serde(default)]
     pub frontier_scores: Option<HashMap<String, f64>>,
+    /// Objective scores by candidate (if provided)
+    #[serde(default)]
+    pub frontier_objectives: Option<Vec<HashMap<String, f64>>>,
 }
 
 /// Progress event data.
@@ -256,12 +299,157 @@ impl EventParser {
         event_type.replace("[MASKED]", "gepa")
     }
 
+    /// Parse an event type into path segments for logging.
+    pub fn parse_path(event_type: &str) -> EventPath {
+        let normalized = Self::normalize_type(event_type);
+        let parts: Vec<&str> = normalized.split('.').collect();
+        let entity = parts.get(0).map(|s| s.to_string());
+        let action = parts.get(1).map(|s| s.to_string());
+        let algorithm = parts.get(2).map(|s| s.to_string());
+        let detail = if parts.len() > 3 {
+            Some(parts[3..].join("."))
+        } else {
+            None
+        };
+        EventPath {
+            entity,
+            action,
+            algorithm,
+            detail,
+        }
+    }
+
+    /// Map a terminal event type to a terminal status.
+    pub fn terminal_status(event_type: &str) -> Option<TerminalStatus> {
+        let normalized = Self::normalize_type(event_type).to_lowercase();
+        if normalized.contains("cancel") {
+            return Some(TerminalStatus::Cancelled);
+        }
+        if normalized.contains("fail") || normalized.contains("error") {
+            return Some(TerminalStatus::Failed);
+        }
+        if normalized.contains("complete") || normalized.contains("succeed") {
+            return Some(TerminalStatus::Succeeded);
+        }
+        None
+    }
+
+    fn coerce_f64(value: Option<&Value>) -> Option<f64> {
+        match value {
+            Some(Value::Number(num)) => num.as_f64(),
+            Some(Value::String(s)) => s.parse::<f64>().ok(),
+            _ => None,
+        }
+    }
+
+    fn coerce_i32(value: Option<&Value>) -> Option<i32> {
+        match value {
+            Some(Value::Number(num)) => num.as_i64().and_then(|v| i32::try_from(v).ok()),
+            Some(Value::String(s)) => s.parse::<i32>().ok(),
+            _ => None,
+        }
+    }
+
+    fn coerce_bool(value: Option<&Value>) -> Option<bool> {
+        match value {
+            Some(Value::Bool(b)) => Some(*b),
+            Some(Value::String(s)) => s.parse::<bool>().ok(),
+            _ => None,
+        }
+    }
+
+    fn coerce_string(value: Option<&Value>) -> Option<String> {
+        match value {
+            Some(Value::String(s)) => Some(s.clone()),
+            Some(Value::Number(num)) => Some(num.to_string()),
+            _ => None,
+        }
+    }
+
+    fn parse_f64_map(value: Option<&Value>) -> Option<HashMap<String, f64>> {
+        let obj = value?.as_object()?;
+        if obj.is_empty() {
+            return None;
+        }
+        let mut map = HashMap::new();
+        for (k, v) in obj {
+            if let Some(val) = Self::coerce_f64(Some(v)) {
+                map.insert(k.clone(), val);
+            } else {
+                return None;
+            }
+        }
+        Some(map)
+    }
+
+    fn parse_vec_f64_map(value: Option<&Value>) -> Option<Vec<HashMap<String, f64>>> {
+        let arr = value?.as_array()?;
+        if arr.is_empty() {
+            return None;
+        }
+        let mut out = Vec::with_capacity(arr.len());
+        for item in arr {
+            let map = Self::parse_f64_map(Some(item))?;
+            out.push(map);
+        }
+        Some(out)
+    }
+
+    fn parse_vec_string(value: Option<&Value>) -> Option<Vec<String>> {
+        let arr = value?.as_array()?;
+        if arr.is_empty() {
+            return None;
+        }
+        let mut out = Vec::with_capacity(arr.len());
+        for item in arr {
+            let s = match item {
+                Value::String(s) => s.clone(),
+                Value::Number(n) => n.to_string(),
+                _ => return None,
+            };
+            out.push(s);
+        }
+        Some(out)
+    }
+
+    fn extract_instance_rewards(data: &Value) -> Option<Vec<f64>> {
+        let instance_objectives = data.get("instance_objectives")?.as_array()?;
+        if instance_objectives.is_empty() {
+            return None;
+        }
+        let mut values = Vec::with_capacity(instance_objectives.len());
+        for item in instance_objectives {
+            let reward_val = if let Some(obj) = item.as_object() {
+                if let Some(objectives) = obj.get("objectives").and_then(|v| v.as_object()) {
+                    Self::coerce_f64(objectives.get("reward"))
+                } else {
+                    Self::coerce_f64(obj.get("reward"))
+                }
+            } else {
+                None
+            };
+            let reward_val = reward_val?;
+            values.push(reward_val);
+        }
+        if values.is_empty() {
+            None
+        } else {
+            Some(values)
+        }
+    }
+
     /// Get the category for an event type string.
     pub fn get_category(event_type: &str) -> EventCategory {
         let normalized = Self::normalize_type(event_type);
         let lower = normalized.to_lowercase();
 
-        // Check patterns in order of specificity
+        // Generation.complete should be matched before generic .complete
+        for pattern in Self::GENERATION_PATTERNS {
+            if lower.contains(pattern) {
+                return EventCategory::Generation;
+            }
+        }
+
         for pattern in Self::BASELINE_PATTERNS {
             if lower.contains(pattern) {
                 return EventCategory::Baseline;
@@ -280,30 +468,6 @@ impl EventParser {
             }
         }
 
-        for pattern in Self::GENERATION_PATTERNS {
-            if lower.contains(pattern) {
-                return EventCategory::Generation;
-            }
-        }
-
-        for pattern in Self::COMPLETE_PATTERNS {
-            if lower.contains(pattern) {
-                return EventCategory::Complete;
-            }
-        }
-
-        for pattern in Self::TERMINATION_PATTERNS {
-            if lower.contains(pattern) {
-                return EventCategory::Termination;
-            }
-        }
-
-        for pattern in Self::VALIDATION_PATTERNS {
-            if lower.contains(pattern) {
-                return EventCategory::Validation;
-            }
-        }
-
         for pattern in Self::PROGRESS_PATTERNS {
             if lower.contains(pattern) {
                 return EventCategory::Progress;
@@ -313,6 +477,24 @@ impl EventParser {
         for pattern in Self::THROUGHPUT_PATTERNS {
             if lower.contains(pattern) {
                 return EventCategory::Throughput;
+            }
+        }
+
+        for pattern in Self::TERMINATION_PATTERNS {
+            if lower.contains(pattern) {
+                return EventCategory::Termination;
+            }
+        }
+
+        for pattern in Self::COMPLETE_PATTERNS {
+            if lower.contains(pattern) {
+                return EventCategory::Complete;
+            }
+        }
+
+        for pattern in Self::VALIDATION_PATTERNS {
+            if lower.contains(pattern) {
+                return EventCategory::Validation;
             }
         }
 
@@ -327,12 +509,8 @@ impl EventParser {
 
     /// Parse a raw event JSON into a ParsedEvent.
     pub fn parse(event: &Value) -> ParsedEvent {
-        let event_type = event
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
+        let raw_type = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        let event_type = Self::normalize_type(raw_type);
         let category = Self::get_category(&event_type);
 
         let seq = event.get("seq").and_then(|v| v.as_i64());
@@ -341,7 +519,6 @@ impl EventParser {
             .get("timestamp_ms")
             .and_then(|v| v.as_i64())
             .or_else(|| {
-                // Try parsing ISO timestamp
                 event.get("ts").and_then(|v| v.as_str()).and_then(|ts| {
                     chrono::DateTime::parse_from_rfc3339(ts)
                         .ok()
@@ -349,12 +526,16 @@ impl EventParser {
                 })
             });
 
-        let data = event.get("data").cloned().unwrap_or(Value::Null);
+        let data = event
+            .get("data")
+            .and_then(|v| v.as_object())
+            .cloned()
+            .unwrap_or_default();
 
         ParsedEvent {
             event_type,
             category,
-            data,
+            data: Value::Object(data),
             seq,
             timestamp_ms,
         }
@@ -362,42 +543,140 @@ impl EventParser {
 
     /// Parse baseline event data from a ParsedEvent.
     pub fn parse_baseline(event: &ParsedEvent) -> BaselineEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let data = event.data.as_object().cloned().unwrap_or_default();
+        let data_value = Value::Object(data.clone());
+
+        let objectives = Self::parse_f64_map(data.get("objectives"));
+        let reward_value = objectives.as_ref().and_then(|m| m.get("reward").copied());
+        let accuracy = reward_value
+            .or_else(|| Self::coerce_f64(data.get("accuracy")))
+            .or_else(|| Self::coerce_f64(data.get("baseline_score")))
+            .or_else(|| Self::coerce_f64(data.get("baseline_accuracy")));
+
+        let instance_objectives = Self::parse_vec_f64_map(data.get("instance_objectives"));
+        let instance_scores = Self::extract_instance_rewards(&data_value);
+        let prompt = data.get("prompt").cloned();
+
+        BaselineEvent {
+            accuracy,
+            objectives,
+            instance_scores,
+            instance_objectives,
+            prompt,
+        }
     }
 
     /// Parse candidate event data from a ParsedEvent.
     pub fn parse_candidate(event: &ParsedEvent) -> CandidateEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let data = event.data.as_object().cloned().unwrap_or_default();
+        let candidate_data = data
+            .get("program_candidate")
+            .and_then(|v| v.as_object())
+            .cloned();
+        let candidate_view = candidate_data.as_ref().unwrap_or(&data);
+        let candidate_value = Value::Object(candidate_view.clone());
+
+        let objectives = Self::parse_f64_map(candidate_view.get("objectives"));
+        let reward_value = objectives.as_ref().and_then(|m| m.get("reward").copied());
+        let accuracy = reward_value
+            .or_else(|| Self::coerce_f64(candidate_view.get("accuracy")))
+            .or_else(|| Self::coerce_f64(candidate_view.get("score")));
+
+        let instance_objectives = Self::parse_vec_f64_map(candidate_view.get("instance_objectives"));
+        let instance_scores = Self::extract_instance_rewards(&candidate_value);
+
+        CandidateEvent {
+            candidate_id: Self::coerce_string(data.get("version_id"))
+                .or_else(|| Self::coerce_string(data.get("candidate_id")))
+                .unwrap_or_default(),
+            accuracy,
+            objectives,
+            accepted: Self::coerce_bool(data.get("accepted")).unwrap_or(false),
+            generation: Self::coerce_i32(data.get("generation")),
+            parent_id: Self::coerce_string(data.get("parent_id")),
+            is_pareto: Self::coerce_bool(data.get("is_pareto")).unwrap_or(false),
+            mutation_type: Self::coerce_string(data.get("mutation_type"))
+                .or_else(|| Self::coerce_string(data.get("operator"))),
+            instance_scores,
+            instance_objectives,
+        }
     }
 
     /// Parse frontier event data from a ParsedEvent.
     pub fn parse_frontier(event: &ParsedEvent) -> FrontierEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let data = event.data.as_object().cloned().unwrap_or_default();
+        let frontier = Self::parse_vec_string(data.get("frontier"));
+
+        FrontierEvent {
+            frontier: frontier.clone().unwrap_or_default(),
+            added: Self::parse_vec_string(data.get("added")).unwrap_or_default(),
+            removed: Self::parse_vec_string(data.get("removed")).unwrap_or_default(),
+            frontier_size: Self::coerce_i32(data.get("frontier_size"))
+                .unwrap_or_else(|| frontier.as_ref().map(|v| v.len() as i32).unwrap_or(0)),
+            best_score: Self::coerce_f64(data.get("best_score")),
+            frontier_scores: Self::parse_f64_map(data.get("frontier_scores")),
+            frontier_objectives: Self::parse_vec_f64_map(data.get("frontier_objectives")),
+        }
     }
 
     /// Parse progress event data from a ParsedEvent.
     pub fn parse_progress(event: &ParsedEvent) -> ProgressEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let data = event.data.as_object().cloned().unwrap_or_default();
+
+        ProgressEvent {
+            rollouts_completed: Self::coerce_i32(data.get("rollouts_completed"))
+                .or_else(|| Self::coerce_i32(data.get("rollouts_executed")))
+                .unwrap_or(0),
+            rollouts_total: Self::coerce_i32(data.get("rollouts_total"))
+                .or_else(|| Self::coerce_i32(data.get("total_rollouts"))),
+            trials_completed: Self::coerce_i32(data.get("trials_completed")).unwrap_or(0),
+            best_score: Self::coerce_f64(data.get("best_score")),
+            baseline_score: Self::coerce_f64(data.get("baseline_score")),
+        }
     }
 
     /// Parse generation event data from a ParsedEvent.
     pub fn parse_generation(event: &ParsedEvent) -> GenerationEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let data = event.data.as_object().cloned().unwrap_or_default();
+
+        GenerationEvent {
+            generation: Self::coerce_i32(data.get("generation")).unwrap_or(0),
+            best_accuracy: Self::coerce_f64(data.get("best_accuracy")).unwrap_or(0.0),
+            candidates_proposed: Self::coerce_i32(data.get("candidates_proposed")).unwrap_or(0),
+            candidates_accepted: Self::coerce_i32(data.get("candidates_accepted")).unwrap_or(0),
+        }
     }
 
     /// Parse complete event data from a ParsedEvent.
     pub fn parse_complete(event: &ParsedEvent) -> CompleteEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let data = event.data.as_object().cloned().unwrap_or_default();
+
+        CompleteEvent {
+            best_score: Self::coerce_f64(data.get("best_score")),
+            baseline_score: Self::coerce_f64(data.get("baseline_score")),
+            finish_reason: Self::coerce_string(data.get("finish_reason"))
+                .or_else(|| Self::coerce_string(data.get("reason_terminated"))),
+            total_candidates: Self::coerce_i32(data.get("total_candidates")).unwrap_or(0),
+        }
     }
 
     /// Parse termination event data from a ParsedEvent.
     pub fn parse_termination(event: &ParsedEvent) -> TerminationEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let data = event.data.as_object().cloned().unwrap_or_default();
+        TerminationEvent {
+            reason: Self::coerce_string(data.get("reason")).unwrap_or_else(|| "unknown".to_string()),
+        }
     }
 
     /// Parse usage event data from a ParsedEvent.
     pub fn parse_usage(event: &ParsedEvent) -> UsageEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let data = event.data.as_object().cloned().unwrap_or_default();
+
+        UsageEvent {
+            total_usd: Self::coerce_f64(data.get("total_usd")).unwrap_or(0.0),
+            tokens_usd: Self::coerce_f64(data.get("usd_tokens")).unwrap_or(0.0),
+            sandbox_usd: Self::coerce_f64(data.get("sandbox_usd")).unwrap_or(0.0),
+        }
     }
 }
 

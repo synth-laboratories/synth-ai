@@ -27,6 +27,7 @@
 
 use std::env;
 use std::time::Duration;
+use serde_json::Value;
 use thiserror::Error;
 
 // Re-export core for advanced usage
@@ -38,25 +39,39 @@ pub use synth_ai_core::{
     // API types
     SynthClient as CoreClient,
     api::{PolicyJobStatus, EvalJobStatus, GepaJobRequest, MiproJobRequest, EvalJobRequest},
-    api::{GraphCompletionRequest, GraphCompletionResponse, VerifierOptions, VerifierResponse},
+    api::{GraphCompletionRequest, GraphCompletionResponse, GraphInfo, ListGraphsResponse, RlmOptions, VerifierOptions, VerifierResponse},
+    api::GraphEvolveClient,
     api::PromptLearningResult,
     // Orchestration
     orchestration::{PromptLearningJob, PromptResults, RankedPrompt},
     orchestration::{GEPAProgress, ProgressTracker, CandidateInfo},
+    graph_evolve::GraphEvolveJob,
+    verifier::VerifierClient,
     // Streaming
     StreamType, StreamMessage, StreamConfig, StreamEndpoints,
-    StreamHandler, JobStreamer,
+    StreamHandler, CallbackHandler, BufferedHandler, JsonHandler, JobStreamer,
     // Data types
-    JobType, Rubric, Criterion, ObjectiveSpec,
-    Artifact, ContextOverride,
+    JobType, Rubric, Criterion, ObjectiveSpec, RewardObservation,
+    OutcomeObjectiveAssignment, EventObjectiveAssignment, InstanceObjectiveAssignment,
+    RubricAssignment, CriterionScoreData, Judgement, SynthModelName,
+    OutcomeRewardRecord, EventRewardRecord, RewardAggregates, CalibrationExample, GoldExample,
+    Artifact, ContextOverride, ContextOverrideStatus, ApplicationStatus, ApplicationErrorType,
     // Tracing
-    SessionTracer, TracingEvent,
+    SessionTracer, TracingEvent, SessionTrace, SessionTimeStep, TimeRecord,
+    MessageContent, MarkovBlanketMessage,
+    LLMCallRecord, LLMMessage, LLMUsage, LLMRequestParams, LLMChunk, LLMContentPart,
+    ToolCallSpec, ToolCallResult,
+    tracing::LibsqlTraceStorage,
     // Tunnels
     tunnels::types::{TunnelBackend, TunnelHandle},
     tunnels::open_tunnel,
     tunnels::errors::TunnelError,
     // Errors
     CoreError,
+    // Local API
+    localapi::TaskAppClient,
+    // Trace upload
+    TraceUploadInfo, TraceUploader, AUTO_UPLOAD_THRESHOLD_BYTES, MAX_TRACE_SIZE_BYTES,
 };
 
 /// SDK version.
@@ -204,6 +219,7 @@ impl Synth {
             port,
             Some(self.api_key.clone()),
             Some(self.base_url.clone()),
+            None,
             false,
             true,
             false,
@@ -275,6 +291,15 @@ impl Synth {
             .map_err(Error::Core)
     }
 
+    /// List registered graphs.
+    pub async fn list_graphs(&self, kind: Option<&str>, limit: Option<i32>) -> Result<ListGraphsResponse> {
+        self.client
+            .graphs()
+            .list_graphs(kind, limit)
+            .await
+            .map_err(Error::Core)
+    }
+
     /// Run verifier on a trace.
     pub async fn verify(
         &self,
@@ -287,6 +312,111 @@ impl Synth {
             .verify(trace, rubric, options)
             .await
             .map_err(Error::Core)
+    }
+
+    /// Run RLM (Retrieval-augmented LM) inference.
+    pub async fn rlm_inference(
+        &self,
+        query: &str,
+        context: Value,
+        options: Option<RlmOptions>,
+    ) -> Result<Value> {
+        self.client
+            .graphs()
+            .rlm_inference(query, context, options)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// Create a Graph Evolve client for advanced operations.
+    pub fn graph_evolve(&self) -> GraphEvolveClient<'_> {
+        self.client.graph_evolve()
+    }
+
+    /// Create a Graph Evolve job from a payload.
+    pub fn graph_evolve_job_from_payload(&self, payload: Value) -> Result<GraphEvolveJob> {
+        GraphEvolveJob::from_payload(payload, Some(&self.api_key), Some(&self.base_url))
+            .map_err(Error::Core)
+    }
+
+    /// Reconnect to a Graph Evolve job by ID.
+    pub fn graph_evolve_job_from_id(&self, job_id: &str) -> Result<GraphEvolveJob> {
+        GraphEvolveJob::from_job_id(job_id, Some(&self.api_key), Some(&self.base_url))
+            .map_err(Error::Core)
+    }
+
+    /// Get a verifier client wrapper.
+    pub fn verifier(&self) -> VerifierClient<'_> {
+        VerifierClient::new(&self.client)
+    }
+
+    /// Verify a trace against a rubric with default options.
+    pub async fn verify_rubric(&self, trace: Value, rubric: Value) -> Result<VerifierResponse> {
+        self.verifier().verify(trace, rubric, None).await.map_err(Error::Core)
+    }
+
+    /// Stream a graph completion via SSE.
+    pub async fn stream_graph_completion(
+        &self,
+        request: GraphCompletionRequest,
+        timeout: Option<Duration>,
+    ) -> Result<synth_ai_core::sse::SseStream> {
+        self.client
+            .graphs()
+            .stream_completion(request, timeout)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// Create a LocalAPI task app client.
+    pub fn task_app_client(&self, base_url: &str, api_key: Option<&str>) -> TaskAppClient {
+        let key = api_key.unwrap_or(self.api_key.as_str());
+        TaskAppClient::new(base_url, Some(key))
+    }
+
+    /// Fetch detailed eval results.
+    pub async fn eval_results(&self, job_id: &str) -> Result<Value> {
+        self.client
+            .eval()
+            .get_results(job_id)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// Download eval traces as ZIP bytes.
+    pub async fn download_eval_traces(&self, job_id: &str) -> Result<Vec<u8>> {
+        self.client
+            .eval()
+            .download_traces(job_id)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// Create a trace uploader for large traces.
+    pub fn trace_uploader(&self) -> Result<TraceUploader> {
+        TraceUploader::new(&self.api_key, Some(&self.base_url)).map_err(Error::Core)
+    }
+
+    /// Upload a trace and return its trace_ref.
+    pub async fn upload_trace(&self, trace: Value, expires_in_seconds: Option<i64>) -> Result<String> {
+        let uploader = self.trace_uploader()?;
+        uploader.upload_trace(&trace, expires_in_seconds).await.map_err(Error::Core)
+    }
+
+    /// Stream job events with a callback and return final status.
+    pub async fn stream_job_with_callback<F>(
+        &self,
+        job_id: &str,
+        endpoints: StreamEndpoints,
+        callback: F,
+    ) -> Result<Value>
+    where
+        F: Fn(&StreamMessage) + Send + Sync + 'static,
+    {
+        let mut streamer = JobStreamer::new(&self.base_url, &self.api_key, job_id)
+            .with_endpoints(endpoints);
+        streamer.add_handler(CallbackHandler::new(callback));
+        streamer.stream_until_terminal().await.map_err(Error::Core)
     }
 }
 
@@ -495,12 +625,16 @@ impl EvalBuilder {
             .map_err(Error::Core)?;
 
         let request = EvalJobRequest {
+            app_id: None,
             task_app_url,
             task_app_api_key: None,
             env_name: "default".to_string(),
+            env_config: None,
+            verifier_config: None,
             seeds: self.seeds,
             policy: synth_ai_core::api::PolicyConfig::default(),
             max_concurrent: None,
+            timeout: None,
         };
 
         let job_id = client

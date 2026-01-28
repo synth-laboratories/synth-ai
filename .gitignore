@@ -47,6 +47,7 @@ greptile.json
 # Rust build artifacts
 target/
 synth_ai_rs/target/
+demos/**/target/
 
 # DuckDB files
 *.duckdb

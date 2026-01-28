@@ -291,6 +291,9 @@ impl Default for MiproJobRequest {
 /// Request to submit an evaluation job.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvalJobRequest {
+    /// Optional app identifier.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_id: Option<String>,
     /// Task app URL.
     pub task_app_url: String,
     /// Optional API key for the task app.
@@ -298,6 +301,12 @@ pub struct EvalJobRequest {
     pub task_app_api_key: Option<String>,
     /// Environment name.
     pub env_name: String,
+    /// Optional environment configuration payload.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env_config: Option<Value>,
+    /// Optional verifier configuration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verifier_config: Option<Value>,
     /// Seeds to evaluate.
     pub seeds: Vec<i64>,
     /// Policy configuration.
@@ -305,17 +314,24 @@ pub struct EvalJobRequest {
     /// Maximum concurrent evaluations.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_concurrent: Option<i32>,
+    /// Optional timeout in seconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<f64>,
 }
 
 impl Default for EvalJobRequest {
     fn default() -> Self {
         Self {
+            app_id: None,
             task_app_url: String::new(),
             task_app_api_key: None,
             env_name: "default".to_string(),
+            env_config: None,
+            verifier_config: None,
             seeds: vec![],
             policy: PolicyConfig::default(),
             max_concurrent: None,
+            timeout: None,
         }
     }
 }
@@ -393,6 +409,9 @@ pub struct GraphCompletionRequest {
     /// Optional model override.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// Optional prompt snapshot ID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_snapshot_id: Option<String>,
     /// Whether to stream the response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
@@ -423,6 +442,9 @@ pub struct GraphCompletionResponse {
     /// Cache status (hit/miss).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_status: Option<String>,
+    /// Optional latency in milliseconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latency_ms: Option<f64>,
 }
 
 /// Options for verifier inference.

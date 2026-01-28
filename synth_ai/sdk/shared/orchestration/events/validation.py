@@ -13,6 +13,17 @@ from typing import Any, Dict, List, Optional
 from .base import BASE_JOB_EVENT_SCHEMA, BaseJobEvent
 from .registry import get_registry
 
+try:
+    import synth_ai_py  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for orchestration.events.validation.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "validate_base_event"):
+        raise RuntimeError("Rust core event validation required; synth_ai_py is unavailable.")
+    return synth_ai_py
+
 
 @dataclass
 class ValidationError:
@@ -47,61 +58,6 @@ class ValidationResult:
         return cls(valid=False, errors=errors, event_type=event_type)
 
 
-def _validate_required_fields(
-    data: Dict[str, Any], required: List[str], path: str = ""
-) -> List[ValidationError]:
-    """Validate that required fields are present."""
-    errors = []
-    for field in required:
-        if field not in data:
-            errors.append(
-                ValidationError(
-                    path=f"{path}.{field}" if path else field,
-                    message=f"Required field '{field}' is missing",
-                )
-            )
-    return errors
-
-
-def _validate_field_type(value: Any, expected_type: str, path: str) -> Optional[ValidationError]:
-    """Validate a field's type against JSON Schema type."""
-    type_checks = {
-        "string": lambda v: isinstance(v, str),
-        "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
-        "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
-        "boolean": lambda v: isinstance(v, bool),
-        "object": lambda v: isinstance(v, dict),
-        "array": lambda v: isinstance(v, list),
-        "null": lambda v: v is None,
-    }
-
-    # Handle union types like ["string", "null"]
-    if isinstance(expected_type, list):
-        for t in expected_type:
-            check = type_checks.get(t)
-            if check and check(value):
-                return None
-        return ValidationError(
-            path=path, message=f"Expected one of {expected_type}, got {type(value).__name__}"
-        )
-
-    check = type_checks.get(expected_type)
-    if check and not check(value):
-        return ValidationError(
-            path=path, message=f"Expected {expected_type}, got {type(value).__name__}"
-        )
-    return None
-
-
-def _validate_enum(value: Any, enum_values: List[Any], path: str) -> Optional[ValidationError]:
-    """Validate a value against an enum constraint."""
-    if value not in enum_values:
-        return ValidationError(
-            path=path, message=f"Value '{value}' not in allowed values: {enum_values}"
-        )
-    return None
-
-
 def validate_base_event(event: Dict[str, Any]) -> ValidationResult:
     """Validate an event against the base job event schema.
 
@@ -114,54 +70,30 @@ def validate_base_event(event: Dict[str, Any]) -> ValidationResult:
     Returns:
         ValidationResult with valid=True if event passes validation
     """
-    errors: List[ValidationError] = []
-    event_type = event.get("type")
-
-    # Check required fields
-    required = ["job_id", "seq", "ts", "type", "level", "message"]
-    errors.extend(_validate_required_fields(event, required))
-
-    if errors:
-        return ValidationResult.failure(errors, event_type)
-
-    # Type checks for present fields
-    type_checks = [
-        ("job_id", "string"),
-        ("seq", "integer"),
-        ("ts", "string"),
-        ("type", "string"),
-        ("level", "string"),
-        ("message", "string"),
-    ]
-
-    for field, expected_type in type_checks:
-        if field in event:
-            error = _validate_field_type(event[field], expected_type, field)
-            if error:
-                errors.append(error)
-
-    # Validate level enum
-    if "level" in event:
-        error = _validate_enum(event["level"], ["info", "warn", "error"], "level")
-        if error:
-            errors.append(error)
-
-    # Validate data is object if present
-    if "data" in event and event["data"] is not None:
-        error = _validate_field_type(event["data"], "object", "data")
-        if error:
-            errors.append(error)
-
-    # Validate run_id is string or null if present
-    if "run_id" in event and event["run_id"] is not None:
-        error = _validate_field_type(event["run_id"], "string", "run_id")
-        if error:
-            errors.append(error)
-
-    if errors:
-        return ValidationResult.failure(errors, event_type)
-
-    return ValidationResult.success(event_type)
+    rust = _require_rust()
+    result = rust.validate_base_event(event)
+    errors = []
+    if isinstance(result, dict):
+        for err in result.get("errors", []) or []:
+            if isinstance(err, dict):
+                errors.append(
+                    ValidationError(
+                        path=err.get("path", ""),
+                        message=err.get("message", ""),
+                        schema_path=err.get("schema_path"),
+                    )
+                )
+            else:
+                errors.append(ValidationError(path="", message=str(err)))
+        return ValidationResult(
+            valid=bool(result.get("valid")),
+            errors=errors,
+            event_type=result.get("event_type"),
+        )
+    return ValidationResult.failure(
+        [ValidationError(path="", message="invalid validation response")],
+        event.get("type"),
+    )
 
 
 def validate_event(event: Dict[str, Any], event_type: Optional[str] = None) -> ValidationResult:

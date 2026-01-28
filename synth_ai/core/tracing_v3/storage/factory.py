@@ -1,8 +1,14 @@
 """Factory for creating storage instances."""
 
-from ..turso.native_manager import NativeLibsqlTraceManager
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from .base import TraceStorage
 from .config import StorageBackend, StorageConfig
+
+if TYPE_CHECKING:
+    pass
 
 
 def create_storage(config: StorageConfig | None = None) -> TraceStorage:
@@ -27,6 +33,9 @@ def create_storage(config: StorageConfig | None = None) -> TraceStorage:
     # Both TURSO_NATIVE and SQLITE use NativeLibsqlTraceManager
     # because libsql.connect() handles both remote and local file databases
     if config.backend in (StorageBackend.TURSO_NATIVE, StorageBackend.SQLITE):
+        # Lazy import to avoid circular dependency
+        from ..turso.native_manager import NativeLibsqlTraceManager
+
         backend_config = config.get_backend_config()
         return NativeLibsqlTraceManager(
             db_url=connection_string,

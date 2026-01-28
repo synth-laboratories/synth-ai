@@ -1,0 +1,107 @@
+{
+  "AdaptiveBatchLevel": {
+    "HIGH": "HIGH",
+    "LOW": "LOW",
+    "MODERATE": "MODERATE",
+    "NONE": "NONE"
+  },
+  "AdaptiveCurriculumLevel": {
+    "HIGH": "HIGH",
+    "LOW": "LOW",
+    "MODERATE": "MODERATE",
+    "NONE": "NONE"
+  },
+  "GraphType": {
+    "POLICY": "policy",
+    "RLM": "rlm",
+    "VERIFIER": "verifier"
+  },
+  "InferenceMode": {
+    "SYNTH_HOSTED": "synth_hosted"
+  },
+  "JobStatus": {
+    "CANCELLED": "cancelled",
+    "FAILED": "failed",
+    "PENDING": "pending",
+    "QUEUED": "queued",
+    "RUNNING": "running",
+    "SUCCEEDED": "succeeded"
+  },
+  "JobType": {
+    "EVAL": "eval",
+    "GSPO": "gspo",
+    "PROMPT_LEARNING": "prompt_learning",
+    "RESEARCH_AGENT": "research_agent",
+    "RL": "rl",
+    "SFT": "sft"
+  },
+  "ObjectiveDirection": {
+    "MAXIMIZE": "maximize",
+    "MINIMIZE": "minimize"
+  },
+  "ObjectiveKey": {
+    "COST_USD": "cost_usd",
+    "LATENCY_MS": "latency_ms",
+    "REWARD": "reward"
+  },
+  "OptimizationMode": {
+    "AUTO": "auto",
+    "GRAPH_ONLY": "graph_only",
+    "PROMPT_ONLY": "prompt_only"
+  },
+  "OutputMode": {
+    "STRUCTURED": "structured",
+    "TEXT": "text",
+    "TOOL_CALLS": "tool_calls"
+  },
+  "ProviderName": {
+    "ANTHROPIC": "anthropic",
+    "GOOGLE": "google",
+    "GROQ": "groq",
+    "OPENAI": "openai"
+  },
+  "RewardScope": {
+    "EVENT": "event",
+    "OUTCOME": "outcome"
+  },
+  "RewardSource": {
+    "FUSED": "fused",
+    "TASK_APP": "task_app",
+    "VERIFIER": "verifier"
+  },
+  "RewardType": {
+    "ACHIEVEMENT": "achievement",
+    "ACHIEVEMENT_DELTA": "achievement_delta",
+    "EVALUATOR": "evaluator",
+    "HUMAN": "human",
+    "PENALTY": "penalty",
+    "SHAPED": "shaped",
+    "SPARSE": "sparse",
+    "UNIQUE_ACHIEVEMENT_DELTA": "unique_achievement_delta"
+  },
+  "SuccessStatus": {
+    "APPLY_FAILED": "apply_failed",
+    "FAILURE": "failure",
+    "NETWORK_ERROR": "network_error",
+    "RUNTIME_ERROR": "runtime_error",
+    "SUCCESS": "success",
+    "TIMEOUT": "timeout"
+  },
+  "SynthModelName": {
+    "SYNTH_MEDIUM": "synth-medium",
+    "SYNTH_SMALL": "synth-small"
+  },
+  "TrainingType": {
+    "GEPA": "gepa",
+    "GRAPHGEN": "graphgen",
+    "GRAPH_EVOLVE": "graph_evolve",
+    "GSPO": "gspo",
+    "RL": "rl",
+    "SFT": "sft"
+  },
+  "VerifierMode": {
+    "CONTRASTIVE": "contrastive",
+    "GOLD_EXAMPLES": "gold_examples",
+    "RUBRIC": "rubric"
+  }
+}

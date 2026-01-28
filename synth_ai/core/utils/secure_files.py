@@ -1,48 +1,23 @@
 from __future__ import annotations
 
-import contextlib
-import json
-import logging
-import os
-import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
-logger = logging.getLogger(__name__)
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for utils.secure_files.") from exc
 
 PRIVATE_DIR_MODE = 0o700
 PRIVATE_FILE_MODE = 0o600
 
 
-def _safe_chmod(path: str | Path, mode: int) -> None:
-    try:
-        os.chmod(path, mode)
-    except OSError as e:
-        logger.warning("Failed to set permissions %o on %s: %s", mode, path, e)
-
-
 def ensure_private_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
-    _safe_chmod(path, PRIVATE_DIR_MODE)
+    synth_ai_py.ensure_private_dir(str(path))
 
 
 def write_private_text(path: Path, content: str, *, mode: int = PRIVATE_FILE_MODE) -> None:
-    ensure_private_dir(path.parent)
-    tmp_path: str | None = None
-    try:
-        fd, tmp_path = tempfile.mkstemp(prefix=f"{path.name}.", dir=str(path.parent))
-        _safe_chmod(tmp_path, mode)  # Set permissions BEFORE writing sensitive data
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_path, path)
-        tmp_path = None
-        _safe_chmod(path, mode)
-    finally:
-        if tmp_path:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp_path)
+    synth_ai_py.write_private_text(str(path), content, mode)
 
 
 def write_private_json(
@@ -52,5 +27,5 @@ def write_private_json(
     indent: int = 2,
     sort_keys: bool = True,
 ) -> None:
-    payload = json.dumps(dict(data), indent=indent, sort_keys=sort_keys) + "\n"
-    write_private_text(path, payload)
+    payload = dict(data)
+    synth_ai_py.write_private_json(str(path), payload)
