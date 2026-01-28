@@ -604,6 +604,7 @@ class GraphOptimizationConfig(BaseModel):
             "graph_type": self.graph_type.value,
             "graph_structure": self.graph_structure.value,
             "allowed_policy_models": self.allowed_policy_models,
+            "policy_models": self.allowed_policy_models,
             "dataset_config": self.dataset_config,
             "verifier_mode": self.verifier_mode,
             "verifier_model": self.verifier_model,
