@@ -52,6 +52,17 @@ def _require_rust() -> Any:
     return synth_ai_py
 
 
+def _infer_provider(model: str | None) -> str | None:
+    if not model:
+        return None
+    lowered = model.lower()
+    if lowered.startswith("gpt") or "openai" in lowered:
+        return "openai"
+    if lowered.startswith("claude") or "anthropic" in lowered:
+        return "anthropic"
+    return None
+
+
 class EvalStatus(str, Enum):
     """Status of an evaluation job."""
 
@@ -478,6 +489,10 @@ class EvalJob:
 
         # Build job request payload
         policy = dict(self.config.policy_config)
+        if "provider" not in policy:
+            inferred = _infer_provider(policy.get("model"))
+            if inferred:
+                policy["provider"] = inferred
 
         job_request = {
             "task_app_url": self.config.task_app_url,
