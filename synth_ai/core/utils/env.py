@@ -15,6 +15,9 @@ from synth_ai.core.utils.paths import SYNTH_HOME_DIR
 from synth_ai.core.utils.secure_files import write_private_json
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 
+# Backward-compatible alias for older callers.
+PROD_BASE_URL = BACKEND_URL_BASE
+
 try:
     import synth_ai_py
 except Exception as exc:  # pragma: no cover - rust bindings required
@@ -217,4 +220,6 @@ __all__ = [
     "ensure_env_var",
     "resolve_env_var",
     "write_env_var_to_json",
+    "get_backend_url",
+    "PROD_BASE_URL",
 ]
