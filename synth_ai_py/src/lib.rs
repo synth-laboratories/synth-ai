@@ -3298,7 +3298,19 @@ fn kwargs_to_value(_py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<
 }
 
 fn value_from_pyobject(py: Python, obj: PyObject) -> PyResult<Value> {
-    pythonize::depythonize(obj.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))
+    let bound = obj.bind(py);
+    if let Ok(value) = pythonize::depythonize(bound.clone()) {
+        return Ok(value);
+    }
+    for name in ["model_dump", "to_dict", "dict"] {
+        if let Ok(attr) = bound.getattr(name) {
+            if attr.is_callable() {
+                let out = attr.call0()?;
+                return pythonize::depythonize(out).map_err(|e| PyValueError::new_err(e.to_string()));
+            }
+        }
+    }
+    pythonize::depythonize(bound).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 fn value_to_pyobject(py: Python, value: &Value) -> PyResult<PyObject> {
