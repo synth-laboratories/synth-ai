@@ -8,6 +8,8 @@
 
 Serverless Posttraining APIs for Developers
 
+Synth is available as a Python package (`pip install synth-ai`) and a beta Rust crate (`cargo add synth-ai`).
+
 <p align="center">
   <picture align="center">
     <source media="(prefers-color-scheme: dark)" srcset="assets/langprobe_v2_dark.png">
@@ -43,6 +45,12 @@ Serverless Posttraining APIs for Developers
 pip install synth-ai
 # or
 uv add synth-ai
+```
+
+### SDK (Rust - Beta)
+
+```bash
+cargo add synth-ai
 ```
 
 ### TUI (Homebrew)
