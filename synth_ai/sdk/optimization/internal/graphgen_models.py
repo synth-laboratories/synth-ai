@@ -773,6 +773,11 @@ class GraphGenJobConfig(BaseModel):
             return _detect_provider(self.policy_models[0])
         return "openai"  # Default fallback
 
+    @property
+    def policy_model(self) -> Optional[str]:
+        """Backward-compatible single policy model accessor."""
+        return self.policy_models[0] if self.policy_models else None
+
 
 def _detect_provider(model: str) -> str:
     """Detect provider from model name."""
