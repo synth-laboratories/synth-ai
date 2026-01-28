@@ -14,6 +14,7 @@ from synth_ai.core.tunnels import (  # noqa: F401
     find_available_port,
     is_port_available,
     kill_port,
+    open_quick_tunnel_with_dns_verification,
     track_process,
     tracked_processes,
     wait_for_health_check,
@@ -28,6 +29,7 @@ __all__ = [
     "find_available_port",
     "is_port_available",
     "kill_port",
+    "open_quick_tunnel_with_dns_verification",
     "track_process",
     "tracked_processes",
     "wait_for_health_check",
@@ -50,6 +52,9 @@ _submodules: dict[str, dict[str, object]] = {
         "cleanup_all": cleanup_all,
         "track_process": track_process,
         "tracked_processes": tracked_processes,
+    },
+    "synth_ai.sdk.tunnels.rust": {
+        "open_quick_tunnel_with_dns_verification": open_quick_tunnel_with_dns_verification,
     },
 }
 
