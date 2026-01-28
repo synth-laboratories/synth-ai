@@ -32,7 +32,7 @@ def main():
 
     # Use local backend if LOCAL_BACKEND is set
     if os.environ.get("LOCAL_BACKEND", "").lower() in ("1", "true", "yes"):
-        parameters["BACKEND_URL"] = "http://127.0.0.1:8000/api"
+        parameters["BACKEND_URL"] = "http://127.0.0.1:8000"
 
     # Pass API key if set
     if os.environ.get("SYNTH_API_KEY"):
