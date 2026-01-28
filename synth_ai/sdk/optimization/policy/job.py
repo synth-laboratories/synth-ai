@@ -8,7 +8,15 @@ Backend endpoint: `/api/policy-optimization/online/jobs`
 
 Algorithms:
 - gepa: Genetic Evolutionary Prompt Algorithm (default)
-- mipro: Multi-step Instruction Optimization
+  - Evolutionary algorithm for optimizing prompts through population-based search
+  - Uses mutation, crossover, and selection to evolve prompt candidates
+  - Supports both online and offline optimization modes
+
+- mipro: Multi-prompt Instruction Proposal Optimizer
+  - Systematic instruction proposal and evaluation algorithm
+  - Generates new prompt instructions based on reward feedback
+  - Supports online mode where you drive rollouts locally
+  - Backend provides proxy URL for prompt candidate selection
 """
 
 from __future__ import annotations
@@ -29,14 +37,29 @@ if TYPE_CHECKING:
 
 
 class Algorithm(str, Enum):
-    """Supported policy optimization algorithms."""
+    """Supported policy optimization algorithms.
+
+    Attributes:
+        GEPA: Genetic Evolutionary Prompt Algorithm - Evolutionary population-based search
+        MIPRO: Multi-prompt Instruction Proposal Optimizer - Systematic instruction proposal
+    """
 
     GEPA = "gepa"
+    """Genetic Evolutionary Prompt Algorithm - Evolutionary population-based search."""
+
     MIPRO = "mipro"
+    """Multi-prompt Instruction Proposal Optimizer - Systematic instruction proposal."""
 
     @classmethod
     def from_string(cls, value: str) -> Algorithm:
-        """Convert string to Algorithm enum."""
+        """Convert string to Algorithm enum.
+
+        Args:
+            value: Algorithm name (case-insensitive)
+
+        Returns:
+            Algorithm enum value, defaults to GEPA if invalid
+        """
         try:
             return cls(value.lower())
         except ValueError:
@@ -71,7 +94,7 @@ class PolicyOptimizationJobConfig:
         ...     api_key="sk_live_...",
         ... )
 
-    Example (programmatic):
+    Example (programmatic with GEPA):
         >>> config = PolicyOptimizationJobConfig(
         ...     config_dict={
         ...         "policy_optimization": {
@@ -79,6 +102,25 @@ class PolicyOptimizationJobConfig:
         ...             "localapi_url": "https://tunnel.example.com",
         ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
         ...             "gepa": {...},
+        ...         }
+        ...     },
+        ...     backend_url="https://api.usesynth.ai",
+        ...     api_key="sk_live_...",
+        ... )
+
+    Example (programmatic with MIPRO):
+        >>> config = PolicyOptimizationJobConfig(
+        ...     config_dict={
+        ...         "policy_optimization": {
+        ...             "algorithm": "mipro",
+        ...             "task_app_url": "https://your-task-app.example.com",
+        ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+        ...             "mipro": {
+        ...                 "mode": "online",
+        ...                 "bootstrap_train_seeds": [0, 1, 2, 3, 4],
+        ...                 "val_seeds": [100, 101, 102],
+        ...                 "proposer": {"model": "gpt-4o-mini", "provider": "openai"},
+        ...             },
         ...         }
         ...     },
         ...     backend_url="https://api.usesynth.ai",
@@ -148,13 +190,26 @@ class PolicyOptimizationJob:
     This is the canonical class for policy optimization, replacing
     `PromptLearningJob`. It supports both GEPA and MIPRO algorithms.
 
-    Example:
+    **GEPA** (Genetic Evolutionary Prompt Algorithm):
+        - Evolutionary algorithm using population-based search
+        - Optimizes prompts through mutation, crossover, and selection
+        - Supports both online and offline optimization modes
+        - Best for: Comprehensive search across prompt space
+
+    **MIPRO** (Multi-prompt Instruction Proposal Optimizer):
+        - Systematic instruction proposal and evaluation
+        - Generates new prompt instructions based on reward feedback
+        - Online mode: You drive rollouts, backend provides prompt candidates
+        - Best for: Iterative refinement with real-time prompt evolution
+
+    Example (GEPA):
         >>> from synth_ai.sdk.optimization.policy import PolicyOptimizationJob
         >>>
         >>> # Create job from config
         >>> job = PolicyOptimizationJob.from_config(
-        ...     config_path="my_config.toml",
-        ...     api_key=os.environ["SYNTH_API_KEY"]
+        ...     config_path="gepa_config.toml",
+        ...     api_key=os.environ["SYNTH_API_KEY"],
+        ...     algorithm="gepa"
         ... )
         >>>
         >>> # Submit job
@@ -164,13 +219,27 @@ class PolicyOptimizationJob:
         >>> # Stream until complete (recommended)
         >>> result = job.stream_until_complete()
         >>> print(f"Best score: {result.best_score}")
+
+    Example (MIPRO):
+        >>> from synth_ai.sdk.optimization.policy import PolicyOptimizationJob
         >>>
-        >>> # Or poll manually
+        >>> # Create MIPRO job from config
+        >>> job = PolicyOptimizationJob.from_config(
+        ...     config_path="mipro_config.toml",
+        ...     api_key=os.environ["SYNTH_API_KEY"],
+        ...     algorithm="mipro"
+        ... )
+        >>>
+        >>> # Submit job
+        >>> job_id = job.submit()
+        >>>
+        >>> # Poll until complete
         >>> result = job.poll_until_complete(timeout=3600.0)
+        >>> print(f"Best score: {result.best_score}")
 
     Attributes:
         job_id: The job ID (None until submitted)
-        algorithm: The optimization algorithm being used
+        algorithm: The optimization algorithm being used (GEPA or MIPRO)
     """
 
     def __init__(
@@ -281,7 +350,7 @@ class PolicyOptimizationJob:
         Returns:
             PolicyOptimizationJob instance
 
-        Example:
+        Example (GEPA):
             >>> job = PolicyOptimizationJob.from_dict(
             ...     config_dict={
             ...         "policy_optimization": {
@@ -289,6 +358,24 @@ class PolicyOptimizationJob:
             ...             "localapi_url": "https://tunnel.example.com",
             ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
             ...             "gepa": {...},
+            ...         }
+            ...     },
+            ...     api_key="sk_live_...",
+            ... )
+
+        Example (MIPRO):
+            >>> job = PolicyOptimizationJob.from_dict(
+            ...     config_dict={
+            ...         "policy_optimization": {
+            ...             "algorithm": "mipro",
+            ...             "task_app_url": "https://your-task-app.example.com",
+            ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+            ...             "mipro": {
+            ...                 "mode": "online",
+            ...                 "bootstrap_train_seeds": [0, 1, 2, 3, 4],
+            ...                 "val_seeds": [100, 101, 102],
+            ...                 "proposer": {"model": "gpt-4o-mini", "provider": "openai"},
+            ...             },
             ...         }
             ...     },
             ...     api_key="sk_live_...",

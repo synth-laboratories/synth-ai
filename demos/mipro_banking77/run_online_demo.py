@@ -66,7 +66,7 @@ def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: floa
 def resolve_backend_url() -> str:
     """Resolve the backend URL to use for MIPRO jobs."""
     # Check environment variables first
-    for env_var in ("SYNTH_BACKEND_URL", "RUST_BACKEND_URL"):
+    for env_var in ("SYNTH_URL", "SYNTH_BACKEND_URL", "RUST_BACKEND_URL"):
         env_url = (os.environ.get(env_var) or "").strip()
         if env_url:
             return env_url.rstrip("/")

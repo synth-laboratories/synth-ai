@@ -1,4 +1,35 @@
-"""MIPRO online session SDK wrapper."""
+"""MIPRO online session SDK wrapper.
+
+This module provides the `MiproOnlineSession` class for managing online MIPRO
+optimization sessions. In online mode, you drive rollouts locally while the
+backend provides prompt candidates through proxy URLs.
+
+Online MIPRO workflow:
+1. Create a session with your MIPRO configuration
+2. Get proxy URLs for prompt selection
+3. Run rollouts locally, calling the proxy URL for each LLM call
+4. Report rewards back to the session
+5. Backend generates new prompt proposals based on rewards
+
+Example:
+    >>> from synth_ai.sdk.optimization.policy import MiproOnlineSession
+    >>>
+    >>> # Create session
+    >>> session = MiproOnlineSession.create(
+    ...     config_path="mipro_config.toml",
+    ...     api_key=os.environ["SYNTH_API_KEY"]
+    ... )
+    >>>
+    >>> # Get proxy URL for prompt selection
+    >>> urls = session.get_prompt_urls()
+    >>> proxy_url = urls["online_url"]
+    >>>
+    >>> # Run rollout: call proxy_url with your task input
+    >>> # Proxy selects best prompt candidate and returns LLM response
+    >>>
+    >>> # Report reward
+    >>> session.update_reward(reward_info={"score": 0.85})
+"""
 
 from __future__ import annotations
 
@@ -7,26 +38,67 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from synth_ai.core.rust_core.http import RustCoreHttpClient
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.optimization.utils import ensure_api_base, run_sync
-from synth_ai.core.rust_core.http import RustCoreHttpClient
 
 
 @dataclass
 class MiproOnlineSession:
-    """Client wrapper for online MIPRO sessions.
+    """Client wrapper for online MIPRO optimization sessions.
 
-    Create a session once, then fetch stable online URLs and post rewards.
+    Manages a single MIPRO online optimization session. In online mode, you
+    control the rollout loop locally while the backend provides prompt candidates
+    through proxy URLs. This allows real-time prompt evolution as you report
+    rewards.
+
+    Key features:
+    - **Proxy URLs**: Backend provides URLs that select prompt candidates
+    - **Reward reporting**: Report rewards after each rollout
+    - **Session management**: Pause, resume, or cancel optimization
+    - **Real-time evolution**: Prompts evolve as rewards are reported
+
+    Attributes:
+        session_id: Unique session identifier
+        backend_url: Backend API base URL
+        api_key: Synth API key for authentication
+        correlation_id: Optional correlation ID for tracking
+        proxy_url: Proxy URL for prompt selection (deprecated, use online_url)
+        online_url: Stable proxy URL for prompt selection
+        chat_completions_url: URL for chat completions endpoint
+        timeout: HTTP request timeout in seconds
+
+    Example:
+        >>> session = MiproOnlineSession.create(
+        ...     config_path="mipro_config.toml",
+        ...     api_key="sk_live_..."
+        ... )
+        >>>
+        >>> # Get proxy URL
+        >>> urls = session.get_prompt_urls()
+        >>> proxy_url = urls["online_url"]
+        >>>
+        >>> # Use proxy_url in your rollout loop
+        >>> # Report rewards as you go
+        >>> session.update_reward(reward_info={"score": 0.9})
     """
 
     session_id: str
+    """Unique session identifier."""
     backend_url: str
+    """Backend API base URL."""
     api_key: str
+    """Synth API key for authentication."""
     correlation_id: Optional[str] = None
+    """Optional correlation ID for tracking rollouts."""
     proxy_url: Optional[str] = None
+    """Proxy URL for prompt selection (deprecated, use online_url)."""
     online_url: Optional[str] = None
+    """Stable proxy URL for prompt selection."""
     chat_completions_url: Optional[str] = None
+    """URL for chat completions endpoint."""
     timeout: float = 30.0
+    """HTTP request timeout in seconds."""
 
     @classmethod
     async def create_async(
@@ -45,7 +117,35 @@ class MiproOnlineSession:
         agent_id: Optional[str] = None,
         timeout: float = 30.0,
     ) -> MiproOnlineSession:
-        """Create a new online MIPRO session (async)."""
+        """Create a new online MIPRO session (async).
+
+        Creates a new MIPRO online optimization session. The session provides
+        proxy URLs that select prompt candidates for your rollouts.
+
+        Args:
+            backend_url: Backend API URL (defaults to production)
+            api_key: Synth API key (defaults to SYNTH_API_KEY env var)
+            config: MIPRO config dict, file path, or Path object
+            config_name: Name of config to load from backend
+            config_path: Path to TOML config file
+            config_body: Config dictionary
+            overrides: Config overrides to apply
+            metadata: Optional session metadata
+            session_id: Optional session ID (for resuming)
+            correlation_id: Optional correlation ID for tracking
+            agent_id: Optional agent ID (used as correlation_id if provided)
+            timeout: HTTP request timeout in seconds
+
+        Returns:
+            MiproOnlineSession instance with proxy URLs populated
+
+        Raises:
+            ValueError: If config is invalid or response is malformed
+            FileNotFoundError: If config_path doesn't exist
+
+        Note:
+            Provide exactly one of: config, config_body, config_name, or config_path
+        """
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
 
@@ -101,7 +201,14 @@ class MiproOnlineSession:
         agent_id: Optional[str] = None,
         timeout: float = 30.0,
     ) -> MiproOnlineSession:
-        """Create a new online MIPRO session."""
+        """Create a new online MIPRO session (synchronous wrapper).
+
+        Synchronous wrapper around `create_async`. See `create_async` for
+        detailed parameter documentation.
+
+        Returns:
+            MiproOnlineSession instance
+        """
         return _run_async(
             cls.create_async(
                 backend_url=backend_url,
@@ -129,7 +236,24 @@ class MiproOnlineSession:
         correlation_id: Optional[str] = None,
         timeout: float = 30.0,
     ) -> str:
-        """Fetch the stable online URL for a session (async)."""
+        """Fetch the stable online URL for a session (async).
+
+        Retrieves the proxy URL for prompt selection without creating a full
+        session object. Useful for resuming sessions or getting URLs independently.
+
+        Args:
+            session_id: Existing session ID
+            backend_url: Backend API URL (defaults to production)
+            api_key: Synth API key (defaults to SYNTH_API_KEY env var)
+            correlation_id: Optional correlation ID
+            timeout: HTTP request timeout in seconds
+
+        Returns:
+            Proxy URL string for prompt selection
+
+        Raises:
+            ValueError: If response is invalid or missing online_url
+        """
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
         params = {}
@@ -159,7 +283,14 @@ class MiproOnlineSession:
         correlation_id: Optional[str] = None,
         timeout: float = 30.0,
     ) -> str:
-        """Fetch the stable online URL for a session."""
+        """Fetch the stable online URL for a session (synchronous wrapper).
+
+        Synchronous wrapper around `get_online_url_async`. See that method for
+        detailed parameter documentation.
+
+        Returns:
+            Proxy URL string for prompt selection
+        """
         return _run_async(
             cls.get_online_url_async(
                 session_id,
@@ -171,7 +302,14 @@ class MiproOnlineSession:
         )
 
     async def status_async(self) -> Dict[str, Any]:
-        """Return session status payload (async)."""
+        """Get current session status (async).
+
+        Retrieves the current status of the MIPRO session including optimization
+        progress, current candidates, and session metadata.
+
+        Returns:
+            Dictionary with session status information
+        """
         async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
@@ -181,16 +319,45 @@ class MiproOnlineSession:
         return dict(result) if isinstance(result, dict) else {}
 
     def status(self) -> Dict[str, Any]:
-        """Return session status payload."""
+        """Get current session status (synchronous wrapper).
+
+        Synchronous wrapper around `status_async`.
+
+        Returns:
+            Dictionary with session status information
+        """
         return _run_async(self.status_async())
 
     def pause(self) -> Dict[str, Any]:
+        """Pause the optimization session.
+
+        Temporarily pauses prompt proposal generation. Rollouts can continue
+        but no new proposals will be generated until resumed.
+
+        Returns:
+            Dictionary with pause status
+        """
         return self._post_action("pause")
 
     def resume(self) -> Dict[str, Any]:
+        """Resume a paused optimization session.
+
+        Resumes prompt proposal generation after a pause.
+
+        Returns:
+            Dictionary with resume status
+        """
         return self._post_action("resume")
 
     def cancel(self) -> Dict[str, Any]:
+        """Cancel the optimization session.
+
+        Permanently cancels the session. No further proposals will be generated
+        and the session cannot be resumed.
+
+        Returns:
+            Dictionary with cancellation status
+        """
         return self._post_action("cancel")
 
     async def update_reward_async(
@@ -205,7 +372,32 @@ class MiproOnlineSession:
         trace_ref: Optional[str] = None,
         stop: Optional[bool] = None,
     ) -> Dict[str, Any]:
-        """Update reward info for a rollout (trace materialized server-side) (async)."""
+        """Report reward for a rollout (async).
+
+        Reports the reward/score for a completed rollout. This feedback is used
+        by the backend to generate new prompt proposals. Call this after each
+        rollout completes.
+
+        Args:
+            reward_info: Reward information (must include "score" key)
+            artifact: Optional artifact data from the rollout
+            metadata: Optional metadata about the rollout
+            correlation_id: Optional correlation ID (overrides session default)
+            rollout_id: Optional rollout identifier
+            candidate_id: Optional candidate prompt identifier
+            trace_ref: Optional trace reference
+            stop: Optional flag to stop optimization
+
+        Returns:
+            Dictionary with reward acknowledgment
+
+        Example:
+            >>> session.update_reward_async(
+            ...     reward_info={"score": 0.85, "correct": True},
+            ...     rollout_id="rollout_123",
+            ...     metadata={"task": "classification"}
+            ... )
+        """
         payload: Dict[str, Any] = {
             "reward_info": reward_info,
         }
@@ -247,7 +439,14 @@ class MiproOnlineSession:
         trace_ref: Optional[str] = None,
         stop: Optional[bool] = None,
     ) -> Dict[str, Any]:
-        """Update reward info for a rollout (trace materialized server-side)."""
+        """Report reward for a rollout (synchronous wrapper).
+
+        Synchronous wrapper around `update_reward_async`. See that method for
+        detailed parameter documentation.
+
+        Returns:
+            Dictionary with reward acknowledgment
+        """
         return _run_async(
             self.update_reward_async(
                 reward_info=reward_info,
@@ -264,7 +463,23 @@ class MiproOnlineSession:
     async def get_prompt_urls_async(
         self, *, correlation_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Return proxy URLs (responses + chat completions) (async)."""
+        """Get proxy URLs for prompt selection (async).
+
+        Retrieves the proxy URLs that select prompt candidates for your rollouts.
+        These URLs should be called with your task inputs - the backend will
+        select the best prompt candidate and return the LLM response.
+
+        Args:
+            correlation_id: Optional correlation ID (overrides session default)
+
+        Returns:
+            Dictionary with "online_url" and optionally "chat_completions_url"
+
+        Example:
+            >>> urls = await session.get_prompt_urls_async()
+            >>> proxy_url = urls["online_url"]
+            >>> # Use proxy_url in your rollout loop
+        """
         params = {}
         if correlation_id or self.correlation_id:
             params["correlation_id"] = correlation_id or self.correlation_id
@@ -281,7 +496,14 @@ class MiproOnlineSession:
         return dict(result) if isinstance(result, dict) else {}
 
     def get_prompt_urls(self, *, correlation_id: Optional[str] = None) -> Dict[str, Any]:
-        """Return proxy URLs (responses + chat completions)."""
+        """Get proxy URLs for prompt selection (synchronous wrapper).
+
+        Synchronous wrapper around `get_prompt_urls_async`. See that method for
+        detailed parameter documentation.
+
+        Returns:
+            Dictionary with proxy URLs
+        """
         return _run_async(self.get_prompt_urls_async(correlation_id=correlation_id))
 
     async def _post_action_async(self, action: str) -> Dict[str, Any]:
