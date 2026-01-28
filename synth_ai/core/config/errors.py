@@ -2,6 +2,11 @@ from typing import List, Optional, Sequence, Tuple
 
 import click
 
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for config errors.") from exc
+
 
 def format_error_message(
     summary: str,
@@ -44,19 +49,15 @@ def get_required_value(
     docs_url: Optional[str] = None,
 ) -> str:
     """Resolve a required value or raise a UsageError with actionable guidance."""
-
-    def _normalized(value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        stripped = value.strip()
-        return stripped if stripped else None
-
-    resolved = (
-        _normalized(cli_value)
-        or _normalized(env_value)
-        or _normalized(config_value)
-        or _normalized(default)
+    payload = synth_ai_py.resolve_config_value(
+        cli_value,
+        env_value,
+        config_value,
+        default,
     )
+    resolved = None
+    if isinstance(payload, dict):
+        resolved = payload.get("value")
     if resolved is not None:
         return resolved
 

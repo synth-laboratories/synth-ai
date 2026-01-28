@@ -130,9 +130,6 @@ pub struct LMCAISEvent {
     /// Provider (e.g., "openai", "anthropic")
     #[serde(default)]
     pub provider: Option<String>,
-    /// API format (e.g., "responses", "chat", "anthropic")
-    #[serde(default)]
-    pub api_format: Option<String>,
     /// Input/prompt tokens
     #[serde(default)]
     pub input_tokens: Option<i32>,
@@ -292,7 +289,7 @@ pub struct LLMRequestParams {
     #[serde(default)]
     pub repetition_penalty: Option<f64>,
     #[serde(default)]
-    pub seed: Option<i64>,
+    pub seed: Option<i32>,
     #[serde(default)]
     pub n: Option<i32>,
     #[serde(default)]
@@ -322,34 +319,24 @@ pub struct LLMContentPart {
     /// MIME type for media
     #[serde(default)]
     pub mime_type: Option<String>,
-    /// Blob URI (if content is external)
     #[serde(default)]
     pub uri: Option<String>,
-    /// Base64-encoded data
     #[serde(default)]
     pub base64_data: Option<String>,
-    /// Size in bytes
     #[serde(default)]
     pub size_bytes: Option<i64>,
-    /// SHA-256 hash
     #[serde(default)]
     pub sha256: Option<String>,
-    /// Width (for images/video)
     #[serde(default)]
     pub width: Option<i32>,
-    /// Height (for images/video)
     #[serde(default)]
     pub height: Option<i32>,
-    /// Duration in milliseconds
     #[serde(default)]
     pub duration_ms: Option<i32>,
-    /// Audio sample rate
     #[serde(default)]
     pub sample_rate: Option<i32>,
-    /// Audio channels
     #[serde(default)]
     pub channels: Option<i32>,
-    /// Language code
     #[serde(default)]
     pub language: Option<String>,
 }
@@ -360,7 +347,18 @@ impl LLMContentPart {
         Self {
             content_type: "text".to_string(),
             text: Some(text.into()),
-            ..Default::default()
+            data: None,
+            mime_type: None,
+            uri: None,
+            base64_data: None,
+            size_bytes: None,
+            sha256: None,
+            width: None,
+            height: None,
+            duration_ms: None,
+            sample_rate: None,
+            channels: None,
+            language: None,
         }
     }
 }
@@ -408,9 +406,8 @@ pub struct ToolCallSpec {
     /// Tool/function name
     pub name: String,
     /// Arguments as JSON string
-    #[serde(default)]
     pub arguments_json: String,
-    /// Parsed arguments
+    /// Parsed arguments (optional)
     #[serde(default)]
     pub arguments: Option<Value>,
     /// Call ID
@@ -445,10 +442,10 @@ pub struct ToolCallResult {
     /// Error message
     #[serde(default)]
     pub error_message: Option<String>,
-    /// Start time
+    /// Start timestamp
     #[serde(default)]
     pub started_at: Option<DateTime<Utc>>,
-    /// Completion time
+    /// Completion timestamp
     #[serde(default)]
     pub completed_at: Option<DateTime<Utc>>,
     /// Duration in milliseconds
@@ -460,7 +457,7 @@ pub struct ToolCallResult {
 }
 
 /// Optional streaming chunk representation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LLMChunk {
     pub sequence_index: i32,
     pub received_at: DateTime<Utc>,
@@ -492,8 +489,8 @@ pub struct LLMCallRecord {
     #[serde(default)]
     pub model_name: String,
     /// Schema version
-    #[serde(default = "default_schema_version")]
-    pub schema_version: String,
+    #[serde(default)]
+    pub schema_version: Option<String>,
     /// Call start time
     #[serde(default)]
     pub started_at: Option<DateTime<Utc>>,
@@ -503,7 +500,7 @@ pub struct LLMCallRecord {
     /// Latency in milliseconds
     #[serde(default)]
     pub latency_ms: Option<i32>,
-    /// Request parameters
+    /// Provider request parameters
     #[serde(default)]
     pub request_params: LLMRequestParams,
     /// Input messages
@@ -512,13 +509,13 @@ pub struct LLMCallRecord {
     /// Input text (completions-style)
     #[serde(default)]
     pub input_text: Option<String>,
-    /// Tool choice (auto/none/specific)
+    /// Tool choice
     #[serde(default)]
     pub tool_choice: Option<String>,
     /// Output messages
     #[serde(default)]
     pub output_messages: Vec<LLMMessage>,
-    /// Additional outputs (for n>1)
+    /// Output choices (n>1)
     #[serde(default)]
     pub outputs: Vec<LLMMessage>,
     /// Output text (completions-style)
@@ -548,22 +545,22 @@ pub struct LLMCallRecord {
     /// Raw response JSON
     #[serde(default)]
     pub response_raw_json: Option<String>,
-    /// Provider request ID
-    #[serde(default)]
-    pub provider_request_id: Option<String>,
-    /// Server timing info
-    #[serde(default)]
-    pub request_server_timing: Option<Value>,
     /// Additional metadata
     #[serde(default)]
     pub metadata: HashMap<String, Value>,
-    /// Outcome (success/error/timeout/cancelled)
+    /// Provider request ID
+    #[serde(default)]
+    pub provider_request_id: Option<String>,
+    /// Request server timing info
+    #[serde(default)]
+    pub request_server_timing: Option<Value>,
+    /// Outcome status
     #[serde(default)]
     pub outcome: Option<String>,
     /// Error details
     #[serde(default)]
     pub error: Option<Value>,
-    /// Token-level traces
+    /// Token trace info
     #[serde(default)]
     pub token_traces: Option<Vec<Value>>,
     /// Safety metadata
@@ -572,13 +569,9 @@ pub struct LLMCallRecord {
     /// Refusal metadata
     #[serde(default)]
     pub refusal: Option<Value>,
-    /// Redactions metadata
+    /// Redactions
     #[serde(default)]
     pub redactions: Option<Vec<Value>>,
-}
-
-fn default_schema_version() -> String {
-    "1.0".to_string()
 }
 
 // ============================================================================
@@ -665,9 +658,6 @@ pub struct SessionTrace {
     /// Session-level metadata
     #[serde(default)]
     pub metadata: HashMap<String, Value>,
-    /// Optional structured metadata entries
-    #[serde(default)]
-    pub session_metadata: Option<Vec<HashMap<String, Value>>>,
 }
 
 impl SessionTrace {
@@ -680,7 +670,6 @@ impl SessionTrace {
             event_history: Vec::new(),
             markov_blanket_message_history: Vec::new(),
             metadata: HashMap::new(),
-            session_metadata: None,
         }
     }
 

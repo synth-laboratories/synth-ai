@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use tokio::task::JoinHandle;
@@ -12,11 +10,8 @@ use crate::tunnels::cloudflared::resolve_hostname_with_explicit_resolvers;
 use crate::tunnels::errors::TunnelError;
 use crate::tunnels::gateway::get_gateway;
 use crate::tunnels::lease_client::LeaseClient;
-use crate::tunnels::types::{
-    ConnectorStatus, GatewayStatus, LeaseInfo, LeaseState, TunnelBackend, TunnelHandle,
-};
-use crate::tunnels::{connector::get_connector, cloudflared, gateway};
-use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
+use crate::tunnels::types::{LeaseInfo, LeaseState, TunnelBackend, TunnelHandle};
+use crate::tunnels::{connector::get_connector, cloudflared};
 
 const DEFAULT_LOCAL_READY_TIMEOUT: f64 = 30.0;
 const DEFAULT_PUBLIC_READY_TIMEOUT: f64 = 60.0;
@@ -88,6 +83,7 @@ impl TunnelManager {
         verify_local: bool,
         verify_public: bool,
         _progress: bool,
+        public_api_key: Option<String>,
     ) -> Result<TunnelHandle, TunnelError> {
         // Capture values before borrowing self mutably
         let client_instance_id = self.client_instance_id.clone();
@@ -118,7 +114,7 @@ impl TunnelManager {
             cloudflared::wait_for_health_check(
                 local_host,
                 local_port,
-                None,
+                public_api_key.clone(),
                 DEFAULT_LOCAL_READY_TIMEOUT,
             )
             .await?;
@@ -135,7 +131,7 @@ impl TunnelManager {
         }
 
         if verify_public {
-            verify_public_ready(&lease, api_key).await?;
+            verify_public_ready(&lease, public_api_key.or(api_key)).await?;
         }
 
         // Heartbeat once
@@ -157,6 +153,7 @@ impl TunnelManager {
             connector: Some(connector_status),
             gateway: Some(gateway_status),
             backend: TunnelBackend::CloudflareManagedLease,
+            process_id: None,
         };
         self.active_handles.insert(lease.lease_id.clone(), handle.clone());
         let lease_id = lease.lease_id.clone();
@@ -184,9 +181,8 @@ impl TunnelManager {
                 get_gateway().lock().remove_route(&lease.route_prefix);
             }
         }
-        // Skip the blocking release call - lease will expire via TTL.
-        // The backend release endpoint is slow (~10s) and blocking on it
-        // provides no benefit since TTL cleanup handles orphaned leases.
+        let client = self.client().await?;
+        let _ = client.release(lease_id).await;
         {
             let connector = get_connector();
             connector.lock().unregister_lease(lease_id);
@@ -204,8 +200,6 @@ async fn verify_public_ready(lease: &LeaseInfo, api_key: Option<String>) -> Resu
     while std::time::Instant::now() < deadline {
         let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
-            .pool_max_idle_per_host(10)
-            .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
             .danger_accept_invalid_certs(true);
         if let Some(ip) = resolved_ip {
             builder = builder.resolve(hostname, (ip, 443).into());

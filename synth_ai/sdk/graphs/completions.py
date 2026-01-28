@@ -6,13 +6,14 @@ This module provides the client for running inference on trained graphs,
 including policy graphs, verifier graphs, and Reasoning Language Models (RLM).
 
 Provides both sync and async clients:
-- GraphCompletionsSyncClient: Synchronous client using Rust bindings
-- GraphCompletionsAsyncClient: Asynchronous client using RustCoreHttpClient
+- GraphCompletionsSyncClient: Synchronous client using Rust core bindings
+- GraphCompletionsAsyncClient: Asynchronous client using Rust core bindings
 - GraphCompletionsClient: Alias for GraphCompletionsAsyncClient (backward compat)
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import warnings
 from collections.abc import AsyncIterator
@@ -21,13 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Literal, Mapping, TypedDict
 
-try:
-    import synth_ai_py as _synth_ai_py
-except Exception:  # pragma: no cover - optional rust bindings
-    _synth_ai_py = None
-
 from synth_ai.core.errors import HTTPError
-from synth_ai.core.rust_core.http import RustCoreHttpClient
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
 from synth_ai.sdk.graphs.trace_upload import (
     AUTO_UPLOAD_THRESHOLD_BYTES,
@@ -38,6 +33,18 @@ from synth_ai.sdk.graphs.verifier_schemas import (
     EvidenceItem,
     GoldExampleInput,
 )
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for sdk.graphs.completions.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None:
+        raise RuntimeError("synth_ai_py is required for graph completions. Install rust bindings.")
+    return synth_ai_py
+
 
 GraphKind = Literal["zero_shot", "graphgen", "registered"]
 
@@ -159,7 +166,7 @@ class GraphCompletionResponse:
 
 
 class GraphCompletionsSyncClient:
-    """Synchronous client for graph completions using Rust bindings.
+    """Synchronous client for graph completions using Rust core bindings.
 
     Example:
         ```python
@@ -178,29 +185,10 @@ class GraphCompletionsSyncClient:
         self._base = base_url.rstrip("/")
         self._key = api_key
         self._timeout = timeout
+        self._rust = _require_rust()
 
     def _resolve_job_id(self, *, job_id: str | None, graph: GraphTarget | None) -> str:
-        if job_id:
-            return job_id
-        if not graph:
-            raise ValueError("graph_completions_missing_job_id")
-        if graph.get("job_id"):
-            return str(graph["job_id"])
-        kind = graph.get("kind")
-        if kind == "zero_shot":
-            verifier_shape = graph.get("verifier_shape") or graph.get("graph_name")
-            if not verifier_shape:
-                raise ValueError("graph_completions_missing_verifier_shape")
-            return str(verifier_shape)
-        if kind == "graphgen":
-            graphgen_job_id = graph.get("graphgen_job_id")
-            if not graphgen_job_id:
-                raise ValueError("graph_completions_missing_graphgen_job_id")
-            return str(graphgen_job_id)
-        graph_name = graph.get("graph_name")
-        if graph_name:
-            return str(graph_name)
-        raise ValueError("graph_completions_missing_graph_target")
+        return self._rust.resolve_graph_job_id(job_id, graph)
 
     def run(
         self,
@@ -234,30 +222,11 @@ class GraphCompletionsSyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        from synth_ai.core.rust_core.urls import ensure_api_base
-
-        api_base = ensure_api_base(self._base)
-        url = f"{api_base}/graphs/completions"
-        if _synth_ai_py is None:
-            raise RuntimeError("synth_ai_py is not available for graph completions")
-        try:
-            client = _synth_ai_py.HttpClient(self._base, self._key, int(timeout or self._timeout))
-            data = client.post_json(url, payload)
-        except Exception as exc:
-            message = str(exc)
-            if "400" in message or "422" in message:
-                raise ValueError(f"graph_completions_validation_error: {message[:500]}") from exc
-            if "401" in message or "403" in message:
-                raise PermissionError(f"graph_completions_auth_error: {message[:500]}") from exc
-            if "404" in message:
-                raise FileNotFoundError(f"graph_completions_not_found: {message[:500]}") from exc
-            if "429" in message:
-                raise Exception("graph_completions_rate_limited") from exc
-            raise
-
-        if not isinstance(data, dict):
-            raise RuntimeError("graph_completions_invalid_response")
-        return GraphCompletionResponse.from_dict(data)
+        client = self._rust.SynthClient(self._key, self._base)
+        result = client.graph_complete(payload)
+        if not isinstance(result, dict):
+            raise ValueError("graph_completions_invalid_response_shape")
+        return GraphCompletionResponse.from_dict(result)
 
     def run_output(
         self,
@@ -352,6 +321,7 @@ class GraphCompletionsAsyncClient:
         self._auto_upload_traces = auto_upload_traces
         self._auto_upload_threshold = auto_upload_threshold
         self._trace_uploader: TraceUploaderAsync | None = None
+        self._rust = _require_rust()
 
     def _get_trace_uploader(self) -> TraceUploaderAsync:
         """Get or create the trace uploader instance."""
@@ -419,45 +389,17 @@ class GraphCompletionsAsyncClient:
         if kind:
             params["kind"] = kind
 
-        try:
-            async with RustCoreHttpClient(self._base, self._key, timeout=self._timeout) as http:
-                js = await http.get_json("/graph-evolve/graphs", params=params)
-                if not isinstance(js, dict):
-                    return {"graphs": [], "total": 0}
-                return {
-                    "graphs": js.get("graphs", []),
-                    "total": js.get("total", 0),
-                }
-        except HTTPError as err:
-            status = int(getattr(err, "status", 0) or 0)
-            if status in (401, 403):
-                raise PermissionError(f"list_graphs_auth_error: {err.detail}") from err
-            if status >= 500:
-                raise Exception("list_graphs_transient_error") from err
-            raise
+        client = self._rust.SynthClient(self._key, self._base)
+        js = await asyncio.to_thread(client.list_graphs, kind, limit)
+        if not isinstance(js, dict):
+            return {"graphs": [], "total": 0}
+        return {
+            "graphs": js.get("graphs", []),
+            "total": js.get("total", 0),
+        }
 
     def _resolve_job_id(self, *, job_id: str | None, graph: GraphTarget | None) -> str:
-        if job_id:
-            return job_id
-        if not graph:
-            raise ValueError("graph_completions_missing_job_id")
-        if graph.get("job_id"):
-            return str(graph["job_id"])
-        kind = graph.get("kind")
-        if kind == "zero_shot":
-            verifier_shape = graph.get("verifier_shape") or graph.get("graph_name")
-            if not verifier_shape:
-                raise ValueError("graph_completions_missing_verifier_shape")
-            return str(verifier_shape)
-        if kind == "graphgen":
-            graphgen_job_id = graph.get("graphgen_job_id")
-            if not graphgen_job_id:
-                raise ValueError("graph_completions_missing_graphgen_job_id")
-            return str(graphgen_job_id)
-        graph_name = graph.get("graph_name")
-        if graph_name:
-            return str(graph_name)
-        raise ValueError("graph_completions_missing_graph_target")
+        return self._rust.resolve_graph_job_id(job_id, graph)
 
     async def run(
         self,
@@ -477,25 +419,11 @@ class GraphCompletionsAsyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        try:
-            async with RustCoreHttpClient(self._base, self._key, timeout=self._timeout) as http:
-                js = await http.post_json("/api/graphs/completions", json=payload)
-                if not isinstance(js, dict):
-                    raise ValueError("graph_completions_invalid_response_shape")
-                return js
-        except HTTPError as err:
-            status = int(getattr(err, "status", 0) or 0)
-            if status in (400, 422):
-                raise ValueError(f"graph_completions_validation_error: {err.detail}") from err
-            if status in (401, 403):
-                raise PermissionError(f"graph_completions_auth_error: {err.detail}") from err
-            if status == 404:
-                raise FileNotFoundError(f"graph_completions_not_found: {err.detail}") from err
-            if status == 429:
-                raise Exception("graph_completions_rate_limited") from err
-            if status >= 500:
-                raise Exception("graph_completions_transient_error") from err
-            raise
+        client = self._rust.SynthClient(self._key, self._base)
+        result = await asyncio.to_thread(client.graph_complete, payload)
+        if not isinstance(result, dict):
+            raise ValueError("graph_completions_invalid_response_shape")
+        return result
 
     async def run_stream(
         self,
@@ -539,13 +467,9 @@ class GraphCompletionsAsyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        from synth_ai.core.rust_core.urls import ensure_api_base
-
-        api_base = ensure_api_base(self._base)
-        url = f"{api_base}/graphs/completions?stream=true"
+        url = f"{self._base}/api/graphs/completions?stream=true"
         headers = {
             "X-API-Key": self._key,
-            "Authorization": f"Bearer {self._key}",
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
         }
@@ -678,56 +602,31 @@ class GraphCompletionsAsyncClient:
             session_trace.startswith("trace:") or session_trace.startswith("trace_")
         )
 
-        # Auto-select graph shape based on trace size (only if we have actual trace data)
-        if verifier_shape is None:
-            # Default to RLM for uploaded traces (they're typically large)
-            verifier_shape = "rlm" if is_trace_ref else self._select_graph_shape(session_trace)
+        trace_ref = None
+        trace_content: Mapping[str, Any] | None = None
 
-        if verifier_shape not in {"single", "rlm"}:
-            raise ValueError(
-                "Unsupported verifier_shape. Use 'single' or 'rlm' with verify_with_rubric."
-            )
-
-        if verifier_shape == "single":
-            graph_id = "zero_shot_verifier_rubric_single"
-            if rlm_impl is not None:
-                raise ValueError("rlm_impl is only valid when verifier_shape='rlm'.")
-        else:
-            if rlm_impl == "v2":
-                graph_id = "zero_shot_verifier_rubric_rlm_v2"
-            else:
-                graph_id = "zero_shot_verifier_rubric_rlm"
-
-        input_data: dict[str, Any] = {
-            "rubric": normalize_for_json(rubric),
-            "options": dict(options or {}),
-        }
-
-        # Handle trace - either as ref, auto-upload, or inline
         if is_trace_ref:
-            # Already a trace reference
-            input_data["trace_ref"] = session_trace
+            trace_ref = session_trace
         else:
-            # Check if we should auto-upload
             trace_content, trace_ref = await self._maybe_upload_trace(session_trace)
-            if trace_ref:
-                input_data["trace_ref"] = trace_ref
-            else:
-                input_data["trace_content"] = normalize_for_json(trace_content)
+            if trace_ref is None:
+                trace_content = normalize_for_json(trace_content)
 
-        if system_prompt:
-            input_data["system_prompt"] = system_prompt
-        if user_prompt:
-            input_data["user_prompt"] = user_prompt
-
-        result = await self.run(
-            input_data=input_data,
-            job_id=graph_id,
+        request = self._rust.build_verifier_request(
+            rubric=normalize_for_json(rubric),
+            trace_content=trace_content,
+            trace_ref=trace_ref,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            options=dict(options or {}) if options is not None else None,
             model=model,
+            verifier_shape=verifier_shape,
+            rlm_impl=rlm_impl,
         )
-        output = result.get("output", result)
+        client = self._rust.SynthClient(self._key, self._base)
+        result = await asyncio.to_thread(client.graph_complete, request)
+        output = result.get("output", result) if isinstance(result, dict) else result
 
-        # Save evidence locally if requested
         if save_evidence:
             evidence_dir = save_evidence if isinstance(save_evidence, (Path, str)) else None
             evidence_path = save_evidence_locally(

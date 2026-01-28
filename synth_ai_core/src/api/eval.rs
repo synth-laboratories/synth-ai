@@ -195,19 +195,47 @@ impl<'a> EvalClient<'a> {
     /// # Arguments
     ///
     /// * `job_id` - The job ID to cancel
-    pub async fn cancel(&self, job_id: &str) -> Result<(), CoreError> {
+    /// * `reason` - Optional cancellation reason
+    pub async fn cancel(&self, job_id: &str, reason: Option<String>) -> Result<Value, CoreError> {
         let path = format!("{}/{}/cancel", EVAL_ENDPOINT, job_id);
-        let body = serde_json::to_value(&CancelRequest { reason: None })
+        let body = serde_json::to_value(&CancelRequest { reason })
             .unwrap_or(Value::Object(serde_json::Map::new()));
 
-        let _: Value = self
-            .client
+        self.client
             .http
             .post_json(&path, &body)
             .await
-            .map_err(map_http_error)?;
+            .map_err(map_http_error)
+    }
 
-        Ok(())
+    /// Get detailed eval results for a job.
+    pub async fn get_results(&self, job_id: &str) -> Result<Value, CoreError> {
+        let path = format!("{}/{}/results", EVAL_ENDPOINT, job_id);
+        self.client
+            .http
+            .get_json(&path, None)
+            .await
+            .map_err(map_http_error)
+    }
+
+    /// Download traces for a job as a ZIP payload.
+    pub async fn download_traces(&self, job_id: &str) -> Result<Vec<u8>, CoreError> {
+        let path = format!("{}/{}/traces", EVAL_ENDPOINT, job_id);
+        self.client
+            .http
+            .get_bytes(&path, None)
+            .await
+            .map_err(map_http_error)
+    }
+
+    /// Query workflow state for an eval job.
+    pub async fn query_workflow_state(&self, job_id: &str) -> Result<Value, CoreError> {
+        let path = format!("/api/jobs/{}/workflow-state", job_id);
+        self.client
+            .http
+            .get_json(&path, None)
+            .await
+            .map_err(map_http_error)
     }
 
     /// List recent eval jobs.

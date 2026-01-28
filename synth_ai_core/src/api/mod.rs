@@ -32,6 +32,7 @@ pub mod client;
 pub mod jobs;
 pub mod eval;
 pub mod graphs;
+pub mod inference;
 pub mod graph_evolve;
 
 // Re-export main types for convenience
@@ -55,8 +56,6 @@ pub use types::{
     // Graph types
     GraphCompletionRequest,
     GraphCompletionResponse,
-    GraphInfo,
-    ListGraphsResponse,
     VerifierOptions,
     VerifierResponse,
     RlmOptions,
@@ -64,5 +63,6 @@ pub use types::{
 };
 pub use jobs::JobsClient;
 pub use eval::EvalClient;
-pub use graphs::GraphsClient;
+pub use graphs::{GraphsClient, build_verifier_request, resolve_graph_job_id};
+pub use inference::InferenceClient;
 pub use graph_evolve::GraphEvolveClient;

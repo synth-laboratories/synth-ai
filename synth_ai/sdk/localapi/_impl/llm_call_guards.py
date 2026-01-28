@@ -1,58 +1,19 @@
-"""Guards to detect and warn about direct LLM provider calls that bypass trace capture.
-
-When LocalAPIs call LLM providers directly (api.openai.com, api.anthropic.com, etc.)
-instead of using the inference_url from policy_config, traces aren't captured by
-the interceptor, breaking trace hydration.
-
-This module provides runtime guards that detect such calls and warn developers.
-"""
+"""Guards to detect and warn about direct LLM provider calls that bypass trace capture."""
 
 import warnings
-from typing import Set
-from urllib.parse import urlparse
 
-# Known LLM provider domains that should be accessed via interceptor
-LLM_PROVIDER_DOMAINS: Set[str] = {
-    "api.openai.com",
-    "api.anthropic.com",
-    "api.groq.com",
-    "generativelanguage.googleapis.com",  # Google Gemini
-    "api.cohere.ai",
-    "api.together.xyz",
-    "api.perplexity.ai",
-}
+import synth_ai_py
 
 
 def check_url_for_direct_provider_call(url: str) -> bool:
-    """Check if a URL is a direct call to an LLM provider.
+    """Check if a URL is a direct call to an LLM provider."""
 
-    Args:
-        url: The URL being called
-
-    Returns:
-        True if this is a direct provider call (should warn), False otherwise
-    """
-    try:
-        parsed = urlparse(str(url))
-        hostname = parsed.hostname or ""
-
-        # Check against known provider domains
-        for provider_domain in LLM_PROVIDER_DOMAINS:
-            if hostname == provider_domain or hostname.endswith(f".{provider_domain}"):
-                return True
-
-        return False
-    except Exception:
-        return False
+    return synth_ai_py.localapi_check_url_for_direct_provider_call(str(url))
 
 
 def warn_if_direct_provider_call(url: str, stacklevel: int = 2) -> None:
-    """Warn if URL is a direct call to an LLM provider.
+    """Warn if URL is a direct call to an LLM provider."""
 
-    Args:
-        url: The URL being called
-        stacklevel: Stack level for warning (default: 2)
-    """
     if check_url_for_direct_provider_call(url):
         warnings.warn(
             f"Direct call to LLM provider detected: {url}\n"
@@ -65,19 +26,12 @@ def warn_if_direct_provider_call(url: str, stacklevel: int = 2) -> None:
 
 
 def install_httpx_guard() -> None:
-    """Install guard on httpx.AsyncClient to detect direct provider calls.
-
-    This monkey-patches httpx.AsyncClient.post to warn when URLs point
-    directly to LLM providers instead of through the interceptor.
-
-    Call this once at module initialization in your LocalAPI.
-    """
+    """Install guard on httpx.AsyncClient to detect direct provider calls."""
     try:
         import importlib
 
         httpx = importlib.import_module("httpx")
 
-        # Check if already patched
         if hasattr(httpx.AsyncClient.post, "_synth_guarded"):
             return
 
@@ -89,24 +43,15 @@ def install_httpx_guard() -> None:
 
         _guarded_post._synth_guarded = True  # type: ignore
         httpx.AsyncClient.post = _guarded_post  # type: ignore
-
     except ImportError:
-        # httpx not installed, skip
         pass
 
 
 def install_requests_guard() -> None:
-    """Install guard on requests to detect direct provider calls.
-
-    This monkey-patches requests.post to warn when URLs point directly
-    to LLM providers instead of through the interceptor.
-
-    Call this once at module initialization in your LocalAPI.
-    """
+    """Install guard on requests to detect direct provider calls."""
     try:
         import requests
 
-        # Check if already patched
         if hasattr(requests.post, "_synth_guarded"):
             return
 
@@ -118,24 +63,15 @@ def install_requests_guard() -> None:
 
         _guarded_post._synth_guarded = True  # type: ignore
         requests.post = _guarded_post  # type: ignore
-
     except ImportError:
-        # requests not installed, skip
         pass
 
 
 def install_openai_guard() -> None:
-    """Install guard on OpenAI client to detect direct instantiation.
-
-    This warns when OpenAI client is instantiated directly instead of
-    using the inference_url pattern.
-
-    Call this once at module initialization in your LocalAPI.
-    """
+    """Install guard on OpenAI client to detect direct instantiation."""
     try:
         import openai
 
-        # Check if already patched
         if hasattr(openai.OpenAI.__init__, "_synth_guarded"):
             return
 
@@ -153,24 +89,15 @@ def install_openai_guard() -> None:
 
         _guarded_init._synth_guarded = True  # type: ignore
         openai.OpenAI.__init__ = _guarded_init  # type: ignore
-
     except ImportError:
-        # openai not installed, skip
         pass
 
 
 def install_anthropic_guard() -> None:
-    """Install guard on Anthropic client to detect direct instantiation.
-
-    This warns when Anthropic client is instantiated directly instead of
-    using the inference_url pattern.
-
-    Call this once at module initialization in your LocalAPI.
-    """
+    """Install guard on Anthropic client to detect direct instantiation."""
     try:
         import anthropic
 
-        # Check if already patched
         if hasattr(anthropic.Anthropic.__init__, "_synth_guarded"):
             return
 
@@ -188,27 +115,12 @@ def install_anthropic_guard() -> None:
 
         _guarded_init._synth_guarded = True  # type: ignore
         anthropic.Anthropic.__init__ = _guarded_init  # type: ignore
-
     except ImportError:
-        # anthropic not installed, skip
         pass
 
 
 def install_all_guards() -> None:
-    """Install all available guards for detecting direct LLM calls.
-
-    This is a convenience function that installs guards on:
-    - httpx.AsyncClient.post (for direct HTTP calls)
-    - requests.post (for direct HTTP calls)
-    - openai.OpenAI.__init__ (for direct OpenAI client usage)
-    - anthropic.Anthropic.__init__ (for direct Anthropic client usage)
-
-    Usage:
-        from synth_ai.sdk.localapi._impl.llm_call_guards import install_all_guards
-        install_all_guards()
-
-    Safe to call multiple times - guards won't be installed twice.
-    """
+    """Install all available guards for detecting direct LLM calls."""
     install_httpx_guard()
     install_requests_guard()
     install_openai_guard()

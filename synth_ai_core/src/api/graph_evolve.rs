@@ -1,14 +1,18 @@
 //! Graph Evolve API client.
 //!
-//! This module provides methods for submitting and monitoring Graph Evolve jobs,
-//! with fallbacks to legacy GraphGen endpoints where applicable.
+//! Provides helpers for the Graph Evolve / GraphGen optimization endpoints.
 
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::http::HttpError;
 use crate::CoreError;
 
 use super::client::SynthClient;
+
+const GRAPH_EVOLVE_ENDPOINT: &str = "/api/graph-evolve/jobs";
+const GRAPHGEN_LEGACY_ENDPOINT: &str = "/api/graphgen/jobs";
+const GRAPHGEN_COMPLETIONS_ENDPOINT: &str = "/api/graphgen/graph/completions";
+const GRAPHGEN_RECORD_ENDPOINT: &str = "/api/graphgen/graph/record";
 
 /// Graph Evolve API client.
 pub struct GraphEvolveClient<'a> {
@@ -16,7 +20,6 @@ pub struct GraphEvolveClient<'a> {
 }
 
 impl<'a> GraphEvolveClient<'a> {
-    /// Create a new Graph Evolve client.
     pub(crate) fn new(client: &'a SynthClient) -> Self {
         Self { client }
     }
@@ -25,21 +28,22 @@ impl<'a> GraphEvolveClient<'a> {
         &self,
         primary: &str,
         legacy: Option<&str>,
+        params: Option<&[(&str, &str)]>,
     ) -> Result<Value, CoreError> {
-        match self.client.http.get::<Value>(primary, None).await {
+        match self.client.http.get_json(primary, params).await {
             Ok(value) => Ok(value),
-            Err(e) => {
-                if let Some(404) = e.status() {
-                    if let Some(legacy_path) = legacy {
+            Err(err) => {
+                if err.status() == Some(404) {
+                    if let Some(legacy) = legacy {
                         return self
                             .client
                             .http
-                            .get::<Value>(legacy_path, None)
+                            .get_json(legacy, params)
                             .await
                             .map_err(map_http_error);
                     }
                 }
-                Err(map_http_error(e))
+                Err(map_http_error(err))
             }
         }
     }
@@ -52,45 +56,63 @@ impl<'a> GraphEvolveClient<'a> {
     ) -> Result<Value, CoreError> {
         match self.client.http.post_json(primary, payload).await {
             Ok(value) => Ok(value),
-            Err(e) => {
-                if let Some(404) = e.status() {
-                    if let Some(legacy_path) = legacy {
+            Err(err) => {
+                if err.status() == Some(404) {
+                    if let Some(legacy) = legacy {
                         return self
                             .client
                             .http
-                            .post_json(legacy_path, payload)
+                            .post_json(legacy, payload)
                             .await
                             .map_err(map_http_error);
                     }
                 }
-                Err(map_http_error(e))
+                Err(map_http_error(err))
+            }
+        }
+    }
+
+    async fn get_bytes_with_fallback(
+        &self,
+        primary: &str,
+        legacy: Option<&str>,
+    ) -> Result<Vec<u8>, CoreError> {
+        match self.client.http.get_bytes(primary, None).await {
+            Ok(bytes) => Ok(bytes),
+            Err(err) => {
+                if err.status() == Some(404) {
+                    if let Some(legacy) = legacy {
+                        return self
+                            .client
+                            .http
+                            .get_bytes(legacy, None)
+                            .await
+                            .map_err(map_http_error);
+                    }
+                }
+                Err(map_http_error(err))
             }
         }
     }
 
     /// Submit a Graph Evolve job.
     pub async fn submit_job(&self, payload: Value) -> Result<Value, CoreError> {
-        self.post_with_fallback(
-            "/api/graph-evolve/jobs",
-            Some("/api/graphgen/jobs"),
-            &payload,
-        )
-        .await
+        self.post_with_fallback(GRAPH_EVOLVE_ENDPOINT, Some(GRAPHGEN_LEGACY_ENDPOINT), &payload)
+            .await
     }
 
     /// Get job status.
     pub async fn get_status(&self, job_id: &str) -> Result<Value, CoreError> {
-        let primary = format!("/api/graph-evolve/jobs/{job_id}");
-        let legacy = format!("/api/graphgen/jobs/{job_id}");
-        self.get_with_fallback(&primary, Some(&legacy)).await
+        let primary = format!("{}/{}", GRAPH_EVOLVE_ENDPOINT, job_id);
+        let legacy = format!("{}/{}", GRAPHGEN_LEGACY_ENDPOINT, job_id);
+        self.get_with_fallback(&primary, Some(&legacy), None).await
     }
 
-    /// Start a queued job.
+    /// Start a job.
     pub async fn start_job(&self, job_id: &str) -> Result<Value, CoreError> {
-        let primary = format!("/api/graph-evolve/jobs/{job_id}/start");
-        let legacy = format!("/api/graphgen/jobs/{job_id}/start");
-        self.post_with_fallback(&primary, Some(&legacy), &Value::Null)
-            .await
+        let primary = format!("{}/{}/start", GRAPH_EVOLVE_ENDPOINT, job_id);
+        let legacy = format!("{}/{}/start", GRAPHGEN_LEGACY_ENDPOINT, job_id);
+        self.post_with_fallback(&primary, Some(&legacy), &Value::Null).await
     }
 
     /// Get job events.
@@ -100,74 +122,71 @@ impl<'a> GraphEvolveClient<'a> {
         since_seq: i64,
         limit: i64,
     ) -> Result<Value, CoreError> {
-        let primary = format!(
-            "/api/graph-evolve/jobs/{job_id}/events?since_seq={since_seq}&limit={limit}"
-        );
-        let legacy = format!(
-            "/api/graphgen/jobs/{job_id}/events?since_seq={since_seq}&limit={limit}"
-        );
-        self.get_with_fallback(&primary, Some(&legacy)).await
+        let primary = format!("{}/{}/events", GRAPH_EVOLVE_ENDPOINT, job_id);
+        let legacy = format!("{}/{}/events", GRAPHGEN_LEGACY_ENDPOINT, job_id);
+        let since = since_seq.to_string();
+        let limit_s = limit.to_string();
+        let params = [("since_seq", since.as_str()), ("limit", limit_s.as_str())];
+        self.get_with_fallback(&primary, Some(&legacy), Some(&params))
+            .await
     }
 
     /// Get job metrics.
-    pub async fn get_metrics(&self, job_id: &str, query: &str) -> Result<Value, CoreError> {
-        let primary = format!("/api/graph-evolve/jobs/{job_id}/metrics?{query}");
-        let legacy = format!("/api/graphgen/jobs/{job_id}/metrics?{query}");
-        self.get_with_fallback(&primary, Some(&legacy)).await
-    }
-
-    /// Download prompt artifacts.
-    pub async fn download_prompt(&self, job_id: &str) -> Result<Value, CoreError> {
-        let primary = format!("/api/graph-evolve/jobs/{job_id}/download");
-        let legacy = format!("/api/graphgen/jobs/{job_id}/download");
-        self.get_with_fallback(&primary, Some(&legacy)).await
-    }
-
-    /// Download graph text export.
-    pub async fn download_graph_txt(&self, job_id: &str) -> Result<String, CoreError> {
-        let primary = format!("/api/graph-evolve/jobs/{job_id}/graph.txt");
-        let legacy = format!("/api/graphgen/jobs/{job_id}/graph.txt");
-
-        let bytes = match self.client.http.get_bytes(&primary, None).await {
-            Ok(data) => data,
-            Err(e) => {
-                if let Some(404) = e.status() {
-                    self.client
-                        .http
-                        .get_bytes(&legacy, None)
-                        .await
-                        .map_err(map_http_error)?
-                } else {
-                    return Err(map_http_error(e));
-                }
-            }
+    pub async fn get_metrics(
+        &self,
+        job_id: &str,
+        query_string: &str,
+    ) -> Result<Value, CoreError> {
+        let query = query_string.trim_start_matches('?');
+        let primary = if query.is_empty() {
+            format!("{}/{}/metrics", GRAPH_EVOLVE_ENDPOINT, job_id)
+        } else {
+            format!("{}/{}/metrics?{}", GRAPH_EVOLVE_ENDPOINT, job_id, query)
         };
-
-        String::from_utf8(bytes)
-            .map_err(|e| CoreError::Internal(format!("invalid utf-8 in graph export: {e}")))
+        let legacy = if query.is_empty() {
+            format!("{}/{}/metrics", GRAPHGEN_LEGACY_ENDPOINT, job_id)
+        } else {
+            format!("{}/{}/metrics?{}", GRAPHGEN_LEGACY_ENDPOINT, job_id, query)
+        };
+        self.get_with_fallback(&primary, Some(&legacy), None).await
     }
 
-    /// Run inference against a graph.
+    /// Download best prompt (JSON).
+    pub async fn download_prompt(&self, job_id: &str) -> Result<Value, CoreError> {
+        let primary = format!("{}/{}/download", GRAPH_EVOLVE_ENDPOINT, job_id);
+        let legacy = format!("{}/{}/download", GRAPHGEN_LEGACY_ENDPOINT, job_id);
+        self.get_with_fallback(&primary, Some(&legacy), None).await
+    }
+
+    /// Download redacted graph export (text).
+    pub async fn download_graph_txt(&self, job_id: &str) -> Result<String, CoreError> {
+        let primary = format!("{}/{}/graph.txt", GRAPH_EVOLVE_ENDPOINT, job_id);
+        let legacy = format!("{}/{}/graph.txt", GRAPHGEN_LEGACY_ENDPOINT, job_id);
+        let bytes = self.get_bytes_with_fallback(&primary, Some(&legacy)).await?;
+        Ok(String::from_utf8_lossy(&bytes).to_string())
+    }
+
+    /// Run inference using a graph.
     pub async fn run_inference(&self, payload: Value) -> Result<Value, CoreError> {
         self.client
             .http
-            .post_json("/api/graphgen/graph/completions", &payload)
+            .post_json(GRAPHGEN_COMPLETIONS_ENDPOINT, &payload)
             .await
             .map_err(map_http_error)
     }
 
-    /// Fetch graph record.
+    /// Fetch a graph record snapshot.
     pub async fn get_graph_record(&self, payload: Value) -> Result<Value, CoreError> {
         self.client
             .http
-            .post_json("/api/graphgen/graph/record", &payload)
+            .post_json(GRAPHGEN_RECORD_ENDPOINT, &payload)
             .await
             .map_err(map_http_error)
     }
 
-    /// Cancel a running job.
+    /// Cancel a job.
     pub async fn cancel_job(&self, job_id: &str, payload: Value) -> Result<Value, CoreError> {
-        let path = format!("/api/jobs/{job_id}/cancel");
+        let path = format!("/api/jobs/{}/cancel", job_id);
         self.client
             .http
             .post_json(&path, &payload)
@@ -175,14 +194,23 @@ impl<'a> GraphEvolveClient<'a> {
             .map_err(map_http_error)
     }
 
-    /// Query workflow state.
+    /// Query workflow state directly.
     pub async fn query_workflow_state(&self, job_id: &str) -> Result<Value, CoreError> {
-        let path = format!("/api/jobs/{job_id}/workflow-state");
-        self.client
-            .http
-            .get(&path, None)
-            .await
-            .map_err(map_http_error)
+        let path = format!("/api/jobs/{}/workflow-state", job_id);
+        match self.client.http.get_json(&path, None).await {
+            Ok(value) => Ok(value),
+            Err(err) => {
+                let status = err
+                    .status()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                Ok(json!({
+                    "job_id": job_id,
+                    "workflow_state": Value::Null,
+                    "error": format!("HTTP {}: {}", status, err),
+                }))
+            }
+        }
     }
 }
 
@@ -215,4 +243,3 @@ fn map_http_error(e: HttpError) -> CoreError {
         _ => CoreError::Internal(format!("{}", e)),
     }
 }
-

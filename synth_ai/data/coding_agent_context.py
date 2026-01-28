@@ -7,11 +7,17 @@ preflight scripts, environment variables, and application status reporting.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
+
+try:
+    from . import rust as _rust_data
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.coding_agent_context.") from exc
 
 # =============================================================================
 # Context Override Enums
@@ -184,6 +190,13 @@ class ContextOverride(BaseModel):
             result["override_id"] = self.override_id
         return result
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> ContextOverride:
+        if _rust_data is not None:
+            with contextlib.suppress(Exception):
+                data = _rust_data.normalize_context_override(data)  # noqa: F811
+        return cls.model_validate(data)
+
 
 class OverrideApplicationError(BaseModel):
     """Error details for a failed override application.
@@ -274,6 +287,16 @@ class ContextOverrideStatus(BaseModel):
         if self.env_vars:
             result["env_vars"] = self.env_vars
         return result
+
+
+try:  # Require Rust-backed classes
+    import synth_ai_py as _rust_models  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.coding_agent_context.") from exc
+
+with contextlib.suppress(AttributeError):
+    ContextOverride = _rust_models.ContextOverride  # noqa: F811
+    ContextOverrideStatus = _rust_models.ContextOverrideStatus  # noqa: F811
 
 
 __all__ = [

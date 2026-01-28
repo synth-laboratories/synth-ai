@@ -5,56 +5,24 @@ from __future__ import annotations
 import contextlib
 import importlib
 import inspect
-import os
 import socket
 from collections.abc import Callable, Sequence
 from typing import Any
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse
 
+import synth_ai_py
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 
 def normalize_chat_completion_url(url: str) -> str:
     """Normalize inference URL to include /chat/completions path."""
-    u = (url or "").rstrip("/")
-    if not u:
-        return "/chat/completions"
-
-    parsed = urlparse(u)
-    path = parsed.path.rstrip("/")
-    query = parsed.query
-    fragment = parsed.fragment
-
-    if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
-        return u
-
-    if "/v1/" in path and not path.endswith("/v1"):
-        new_path = f"{path}/chat/completions"
-        return urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
-
-    if path.endswith("/v1"):
-        new_path = f"{path}/chat/completions"
-    elif path.endswith("/completions"):
-        new_path = path.rsplit("/", 1)[0] + "/chat/completions"
-    else:
-        new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
-
-    return urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
+    return synth_ai_py.localapi_normalize_chat_completion_url(url)
 
 
 def get_default_max_completion_tokens(model_name: str) -> int:
     """Get default max_completion_tokens based on model name."""
-    model_lower = model_name.lower()
-    if "gpt-5" in model_lower or "gpt5" in model_lower:
-        return 2048
-    if "gpt-4" in model_lower or "gpt4" in model_lower:
-        return 4096
-    if "o1" in model_lower or "o3" in model_lower:
-        return 16384
-    if "claude" in model_lower:
-        return 4096
-    return 512
+    return int(synth_ai_py.localapi_get_default_max_completion_tokens(model_name))
 
 
 def get_current_module_source() -> str | None:
@@ -160,31 +128,8 @@ def extract_api_key(
     default_env_keys: dict[str, str] | None = None,
 ) -> str | None:
     """Extract API key from request headers or environment based on inference URL."""
-    default_env_keys = default_env_keys or {
-        "api.groq.com": "GROQ_API_KEY",
-        "api.openai.com": "OPENAI_API_KEY",
-    }
-
-    inference_url_raw = policy_config.get("inference_url")
-    api_base_raw = policy_config.get("api_base")
-    base_url_raw = policy_config.get("base_url")
-    route_base = (
-        (str(inference_url_raw).strip() if inference_url_raw else "")
-        or (str(api_base_raw).strip() if api_base_raw else "")
-        or (str(base_url_raw).strip() if base_url_raw else "")
-    )
-    lowered = route_base.lower()
-    for host, env_var in default_env_keys.items():
-        if host in lowered:
-            return os.getenv(env_var)
-
-    api_key = request.headers.get("X-API-Key") or request.headers.get("x-api-key")
-    if api_key:
-        return api_key
-    auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
-    if auth_header:
-        return auth_header.replace("Bearer ", "").strip()
-    return None
+    headers = dict(request.headers) if request else {}
+    return synth_ai_py.localapi_extract_api_key(headers, policy_config, default_env_keys)
 
 
 def parse_tool_calls_from_response(
@@ -192,30 +137,7 @@ def parse_tool_calls_from_response(
     expected_tool_name: str | None = None,
 ) -> list[dict[str, Any]]:
     """Parse tool calls from chat completion response."""
-    if not isinstance(response_json, dict):
-        return []
-    choices = response_json.get("choices") or []
-    if not choices:
-        return []
-    message = (choices[0] or {}).get("message", {}) if choices else {}
-    tool_calls_raw = message.get("tool_calls", []) or []
-    tool_calls: list[dict[str, Any]] = []
-    for call in tool_calls_raw:
-        function_block = (call or {}).get("function", {}) or {}
-        name = function_block.get("name", "")
-        if expected_tool_name and name and name != expected_tool_name:
-            raise ValueError(f"Unexpected tool name: {name}")
-        tool_calls.append(
-            {
-                "id": (call or {}).get("id", ""),
-                "type": (call or {}).get("type", "function"),
-                "function": {
-                    "name": name,
-                    "arguments": function_block.get("arguments", "{}"),
-                },
-            }
-        )
-    return tool_calls
+    return synth_ai_py.localapi_parse_tool_calls_from_response(response_json, expected_tool_name)
 
 
 async def call_chat_completion_api(

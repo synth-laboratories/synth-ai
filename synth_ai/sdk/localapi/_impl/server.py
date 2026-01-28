@@ -17,7 +17,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from starlette.middleware import Middleware
 
 from .auth import normalize_environment_api_key, require_api_key_dependency
@@ -65,6 +65,8 @@ class RubricBundle(BaseModel):
     for rubric definitions. It is intentionally a Pydantic model so FastAPI can emit an
     OpenAPI schema that non-Python clients (Rust/TypeScript/etc.) can generate from.
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     outcome: Rubric | None = None
     events: Rubric | None = None

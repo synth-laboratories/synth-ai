@@ -24,13 +24,16 @@ num_generations = 5
 
 from __future__ import annotations
 
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
-from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet, load_graphgen_taskset
-from .graphgen_validators import GraphGenValidationError, validate_graphgen_job_config
+from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.graph_validators.") from exc
 
 
 @dataclass(slots=True)
@@ -60,118 +63,90 @@ def validate_graph_job_section(
     base_dir: Optional[Path] = None,
 ) -> GraphTomlResult:
     """Validate a `[graph]` TOML section and return normalized config."""
-    errors: List[Dict[str, Any]] = []
-
-    if not isinstance(section, dict):
+    if synth_ai_py is None or not hasattr(synth_ai_py, "validate_graph_job_section"):
         raise GraphTomlValidationError(
-            "Graph config must be a TOML table",
-            [{"field": "graph", "error": "graph section must be a table"}],
-        )
-
-    dataset_ref = section.get("dataset_path") or section.get("dataset")
-    if not dataset_ref or not isinstance(dataset_ref, str):
-        errors.append(
-            {
-                "field": "graph.dataset",
-                "error": "dataset (path) is required",
-                "suggestion": 'Set graph.dataset = "my_tasks.json"',
-            }
-        )
-        dataset_path = None
-        dataset = None
-    else:
-        dataset_path = Path(dataset_ref).expanduser()
-        if base_dir and not dataset_path.is_absolute():
-            dataset_path = (base_dir / dataset_path).resolve()
-        try:
-            dataset = load_graphgen_taskset(dataset_path)
-        except FileNotFoundError:
-            errors.append(
+            "Graph TOML validation failed",
+            [
                 {
-                    "field": "graph.dataset",
-                    "error": f"Dataset file not found: {dataset_path}",
+                    "field": "validation",
+                    "error": "Rust core validation required; synth_ai_py unavailable",
                 }
-            )
-            dataset = None
-        except ValueError as e:
-            errors.append(
-                {
-                    "field": "graph.dataset",
-                    "error": f"Invalid GraphGenTaskSet JSON: {e}",
-                }
-            )
-            dataset = None
-
-    # Support both policy_models (list) and policy_model (single) for backward compatibility
-    policy_models_raw = (
-        section.get("policy_models") or section.get("policy_model") or section.get("model")
-    )
-    if policy_models_raw is None:
-        errors.append({"field": "policy_models", "error": "policy_models is required"})
-        policy_models_list = []
-    elif isinstance(policy_models_raw, list):
-        policy_models_list = [str(m) for m in policy_models_raw]
-    else:
-        policy_models_list = [str(policy_models_raw)]
-
-    rollout_budget = section.get("rollout_budget") or section.get("budget")
-    proposer_effort = section.get("proposer_effort") or section.get("effort")
-
-    try:
-        config = GraphGenJobConfig(
-            policy_models=policy_models_list,
-            policy_provider=section.get("policy_provider"),
-            rollout_budget=int(rollout_budget) if rollout_budget is not None else 100,
-            proposer_effort=cast(Literal["low", "medium", "high"], str(proposer_effort))
-            if proposer_effort is not None
-            else "medium",
-            verifier_model=section.get("verifier_model"),
-            verifier_provider=section.get("verifier_provider"),
-            population_size=section.get("population_size", 4),
-            num_generations=section.get("num_generations"),
+            ],
         )
-    except Exception as e:
-        errors.append({"field": "graph", "error": f"Invalid graph config fields: {e}"})
-        config = GraphGenJobConfig()
 
-    auto_start = bool(section.get("auto_start", True))
-    metadata = cast(
-        Dict[str, Any], section.get("metadata") if isinstance(section.get("metadata"), dict) else {}
+    result = synth_ai_py.validate_graph_job_section(
+        section,
+        str(base_dir) if base_dir else None,
     )
-    initial_prompt = section.get("initial_prompt")
-
-    if dataset is not None:
-        try:
-            validate_graphgen_job_config(config, dataset)
-        except GraphGenValidationError as e:
-            errors.extend(e.errors)
-
+    errors = result.get("errors", [])
     if errors:
         raise GraphTomlValidationError("Graph TOML validation failed", errors)
 
-    if dataset_path is None or dataset is None:
+    payload = result.get("result") or {}
+    dataset_path = payload.get("dataset_path")
+    dataset = payload.get("dataset")
+    config = payload.get("config")
+    auto_start = payload.get("auto_start", True)
+    metadata = payload.get("metadata", {})
+    initial_prompt = payload.get("initial_prompt")
+
+    if dataset_path is None or dataset is None or config is None:
         raise GraphTomlValidationError(
             "Graph TOML validation failed",
             [{"field": "dataset", "error": "Dataset is required"}],
         )
+
     return GraphTomlResult(
-        dataset_path=dataset_path,
-        dataset=dataset,
-        config=config,
-        auto_start=auto_start,
-        metadata=metadata,
+        dataset_path=Path(dataset_path),
+        dataset=GraphGenTaskSet.model_validate(dataset),
+        config=GraphGenJobConfig.model_validate(config),
+        auto_start=bool(auto_start),
+        metadata=cast(Dict[str, Any], metadata),
         initial_prompt=str(initial_prompt) if initial_prompt is not None else None,
     )
 
 
 def load_graph_job_toml(path: str | Path) -> GraphTomlResult:
     """Load and validate a graph job TOML file."""
-    path = Path(path).expanduser().resolve()
-    with open(path, "rb") as f:
-        cfg = tomllib.load(f)
+    if synth_ai_py is None or not hasattr(synth_ai_py, "load_graph_job_toml"):
+        raise GraphTomlValidationError(
+            "Graph TOML validation failed",
+            [
+                {
+                    "field": "validation",
+                    "error": "Rust core validation required; synth_ai_py unavailable",
+                }
+            ],
+        )
 
-    section = cfg.get("graph") or {}
-    return validate_graph_job_section(section, base_dir=path.parent)
+    path = Path(path).expanduser().resolve()
+    result = synth_ai_py.load_graph_job_toml(str(path))
+    errors = result.get("errors", [])
+    if errors:
+        raise GraphTomlValidationError("Graph TOML validation failed", errors)
+
+    payload = result.get("result") or {}
+    dataset_path = payload.get("dataset_path")
+    dataset = payload.get("dataset")
+    config = payload.get("config")
+    auto_start = payload.get("auto_start", True)
+    metadata = payload.get("metadata", {})
+    initial_prompt = payload.get("initial_prompt")
+
+    if dataset_path is None or dataset is None or config is None:
+        raise GraphTomlValidationError(
+            "Graph TOML validation failed",
+            [{"field": "dataset", "error": "Dataset is required"}],
+        )
+
+    return GraphTomlResult(
+        dataset_path=Path(dataset_path),
+        dataset=GraphGenTaskSet.model_validate(dataset),
+        config=GraphGenJobConfig.model_validate(config),
+        auto_start=bool(auto_start),
+        metadata=cast(Dict[str, Any], metadata),
+        initial_prompt=str(initial_prompt) if initial_prompt is not None else None,
+    )
 
 
 def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
@@ -183,61 +158,21 @@ def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
       - optional verifier_model/verifier_provider
       - optional metadata (population_size/num_generations)
     """
-    errors: List[Dict[str, Any]] = []
-
-    dataset_raw = payload.get("dataset")
-    dataset: Optional[GraphGenTaskSet]
-    if isinstance(dataset_raw, GraphGenTaskSet):
-        dataset = dataset_raw
-    elif isinstance(dataset_raw, dict):
-        try:
-            dataset = GraphGenTaskSet.model_validate(dataset_raw)
-        except Exception as e:
-            errors.append({"field": "dataset", "error": f"Invalid GraphGenTaskSet: {e}"})
-            dataset = None
-    else:
-        errors.append({"field": "dataset", "error": "dataset must be a dict"})
-        dataset = None
-
-    metadata = cast(
-        Dict[str, Any], payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
-    )
-
-    # Support both policy_models (list) and policy_model (single) for backward compatibility
-    policy_models_raw = payload.get("policy_models") or payload.get("policy_model")
-    if policy_models_raw is None:
-        errors.append({"field": "policy_models", "error": "policy_models is required"})
-        policy_models_list: list[str] = []
-    elif isinstance(policy_models_raw, list):
-        policy_models_list = [str(m) for m in policy_models_raw]
-    else:
-        policy_models_list = [str(policy_models_raw)]
-
-    try:
-        config = GraphGenJobConfig(
-            policy_models=policy_models_list,
-            policy_provider=payload.get("policy_provider"),
-            rollout_budget=int(payload.get("rollout_budget") or 100),
-            proposer_effort=cast(
-                Literal["low", "medium", "high"], str(payload.get("proposer_effort") or "medium")
-            ),
-            verifier_model=payload.get("verifier_model"),
-            verifier_provider=payload.get("verifier_provider"),
-            population_size=metadata.get("population_size", 4),
-            num_generations=metadata.get("num_generations"),
+    if synth_ai_py is None or not hasattr(synth_ai_py, "validate_graph_job_payload"):
+        raise GraphTomlValidationError(
+            "Graph job validation failed",
+            [
+                {
+                    "field": "validation",
+                    "error": "Rust core validation required; synth_ai_py unavailable",
+                }
+            ],
         )
-    except Exception as e:
-        errors.append({"field": "config", "error": f"Invalid config fields: {e}"})
-        config = GraphGenJobConfig()
 
-    if dataset is not None:
-        try:
-            validate_graphgen_job_config(config, dataset)
-        except GraphGenValidationError as e:
-            errors.extend(e.errors)
-
+    errors = synth_ai_py.validate_graph_job_payload(payload)
     if errors:
         raise GraphTomlValidationError("Graph job validation failed", errors)
+    return
 
 
 __all__ = [

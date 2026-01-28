@@ -27,12 +27,18 @@ Example:
 import asyncio
 from typing import Any
 
-try:
-    import synth_ai_py as _synth_ai_py
-except Exception:  # pragma: no cover - optional rust bindings
-    _synth_ai_py = None
-from synth_ai.core.rust_core.urls import ensure_api_base
 from synth_ai.sdk.shared.models import UnsupportedModelError, normalize_model_identifier
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for sdk.inference.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "SynthClient"):
+        raise RuntimeError("Rust core inference client required; synth_ai_py is unavailable.")
+    return synth_ai_py
 
 
 class InferenceClient:
@@ -123,12 +129,6 @@ class InferenceClient:
         # Backend now expects an explicit thinking_budget; provide a sensible default if omitted
         if "thinking_budget" not in body:
             body["thinking_budget"] = 256
-        if _synth_ai_py is None:
-            raise RuntimeError("synth_ai_py is not available for inference")
-        api_base = ensure_api_base(self._base_url)
-        client = _synth_ai_py.HttpClient(api_base, self._api_key, int(self._timeout))
-        return await asyncio.to_thread(
-            client.post_json,
-            f"{api_base}/inference/v1/chat/completions",
-            body,
-        )
+        rust = _require_rust()
+        client = rust.SynthClient(self._api_key, self._base_url)
+        return await asyncio.to_thread(client.inference_chat_completion, body)

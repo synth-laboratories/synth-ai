@@ -1,77 +1,138 @@
+from __future__ import annotations
+
 import os
+from urllib.parse import urlparse, urlunparse
 
-# Base URL for all backends
-BACKEND_URL_BASE = os.getenv("SYNTH_BACKEND_URL") or "https://api.usesynth.ai"
-
-# API URL (base + /api suffix) for endpoints that expect this format
-BACKEND_URL_API = BACKEND_URL_BASE + "/api"
-
-# Synth Research API base (supports OpenAI, Anthropic, and custom formats)
-# Real routes: /api/synth-research/chat/completions, /api/synth-research/messages
-# V1 routes: /api/synth-research/v1/chat/completions, /api/synth-research/v1/messages
-BACKEND_URL_SYNTH_RESEARCH_BASE = BACKEND_URL_BASE + "/api/synth-research"
-
-# Provider-specific URLs (for SDKs that expect standard paths)
-BACKEND_URL_SYNTH_RESEARCH_OPENAI = (
-    BACKEND_URL_SYNTH_RESEARCH_BASE + "/v1"
-)  # For OpenAI SDKs (appends /chat/completions)
-BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC = (
-    BACKEND_URL_SYNTH_RESEARCH_BASE  # For Anthropic SDKs (appends /v1/messages)
-)
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for URL utilities.") from exc
 
 
-FRONTEND_URL_BASE = os.getenv("SYNTH_FRONTEND_URL") or "https://usesynth.ai"
+def _env_or_default(key: str, default: str) -> str:
+    value = os.getenv(key)
+    return value if value and value.strip() else default
+
+
+def _maybe_call(name: str, default: str) -> str:
+    fn = getattr(synth_ai_py, name, None)
+    if callable(fn):
+        return fn()
+    return default
+
+
+def _strip_terminal_segment(path: str, segment: str) -> str:
+    trimmed = path.rstrip("/")
+    if trimmed.endswith(segment):
+        return trimmed[: -len(segment)].rstrip("/")
+    return trimmed
+
+
+def _normalize_backend_base_py(url: str) -> str:
+    parsed = urlparse(url)
+    path = parsed.path
+    path = _strip_terminal_segment(path, "/v1")
+    path = _strip_terminal_segment(path, "/api")
+    normalized = parsed._replace(path=path.rstrip("/"), query="", fragment="")
+    return urlunparse(normalized)
+
+
+def _normalize_inference_base_py(url: str) -> str:
+    parsed = urlparse(url)
+    path = parsed.path.rstrip("/")
+    for suffix in ("/chat/completions", "/completions", "/chat"):
+        if path.endswith(suffix):
+            path = _strip_terminal_segment(path, suffix)
+            break
+    normalized = parsed._replace(path=path.rstrip("/"), fragment="")
+    return urlunparse(normalized)
 
 
 def join_url(base_url: str, path: str) -> str:
+    fn = getattr(synth_ai_py, "join_url", None)
+    if callable(fn):
+        return fn(base_url, path)
     base = base_url.rstrip("/")
     if not path:
         return base
-    if not path.startswith("/"):
-        path = f"/{path}"
-    return f"{base}{path}"
+    if path.startswith("/"):
+        return f"{base}{path}"
+    return f"{base}/{path}"
+
+
+def _join_url_default(base_url: str, path: str) -> str:
+    base = base_url.rstrip("/")
+    if not path:
+        return base
+    if path.startswith("/"):
+        return f"{base}{path}"
+    return f"{base}/{path}"
+
+
+BACKEND_URL_BASE = _maybe_call(
+    "backend_url_base",
+    _env_or_default("SYNTH_BACKEND_URL", "https://api.usesynth.ai"),
+)
+BACKEND_URL_API = _maybe_call("backend_url_api", _join_url_default(BACKEND_URL_BASE, "/api"))
+BACKEND_URL_SYNTH_RESEARCH_BASE = _maybe_call(
+    "backend_url_synth_research_base",
+    _join_url_default(BACKEND_URL_BASE, "/api/synth-research"),
+)
+BACKEND_URL_SYNTH_RESEARCH_OPENAI = _maybe_call(
+    "backend_url_synth_research_openai",
+    _join_url_default(BACKEND_URL_SYNTH_RESEARCH_BASE, "/v1"),
+)
+BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC = _maybe_call(
+    "backend_url_synth_research_anthropic", BACKEND_URL_SYNTH_RESEARCH_BASE
+)
+FRONTEND_URL_BASE = _maybe_call(
+    "frontend_url_base", _env_or_default("SYNTH_FRONTEND_URL", "https://usesynth.ai")
+)
 
 
 def normalize_base_url(url: str) -> str:
-    normalized = url.strip().rstrip("/")
-    if normalized.endswith("/api"):
-        normalized = normalized[: -len("/api")]
-    if normalized.endswith("/v1"):
-        normalized = normalized[: -len("/v1")]
-    return normalized
+    return normalize_backend_base(url)
 
 
 def normalize_backend_base(url: str) -> str:
     """Normalize backend base URL via the Rust core when available."""
-    try:
-        import synth_ai_py
-
-        return synth_ai_py.normalize_backend_base(url)
-    except Exception:
-        return normalize_base_url(url)
+    fn = getattr(synth_ai_py, "normalize_backend_base", None)
+    if callable(fn):
+        return fn(url)
+    return _normalize_backend_base_py(url)
 
 
 def normalize_inference_base(url: str) -> str:
     """Normalize inference base URL via the Rust core when available."""
-    try:
-        import synth_ai_py
-
-        return synth_ai_py.normalize_inference_base(url)
-    except Exception:
-        return url.strip().rstrip("/")
+    fn = getattr(synth_ai_py, "normalize_inference_base", None)
+    if callable(fn):
+        return fn(url)
+    return _normalize_inference_base_py(url)
 
 
 def local_backend_url(host: str = "localhost", port: int = 8000) -> str:
+    fn = getattr(synth_ai_py, "local_backend_url", None)
+    if callable(fn):
+        return fn(host, port)
     return f"http://{host}:{port}"
 
 
 def backend_health_url(base_url: str) -> str:
+    fn = getattr(synth_ai_py, "backend_health_url", None)
+    if callable(fn):
+        return fn(base_url)
     return join_url(base_url, "/health")
 
 
 def backend_me_url(base_url: str) -> str:
+    fn = getattr(synth_ai_py, "backend_me_url", None)
+    if callable(fn):
+        return fn(base_url)
     return join_url(base_url, "/api/v1/me")
 
 
 def backend_demo_keys_url(base_url: str) -> str:
+    fn = getattr(synth_ai_py, "backend_demo_keys_url", None)
+    if callable(fn):
+        return fn(base_url)
     return join_url(base_url, "/api/demo/keys")

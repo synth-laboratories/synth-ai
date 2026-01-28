@@ -1,5 +1,6 @@
 """Unified abstractions for recording LLM API calls (inputs and results).
 
+import contextlib
 These records normalize different provider API shapes (Chat Completions,
 Completions, Responses) into a single schema suitable for storage and
 analysis, and are intended to be attached to LMCAISEvent(s) as a list of
@@ -22,9 +23,15 @@ Design goals:
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
+
+try:
+    from . import rust as _rust_data
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.llm_calls.") from exc
 
 
 @dataclass
@@ -220,6 +227,29 @@ class LLMCallRecord:
     refusal: dict[str, Any] | None = None
     # Privacy/redactions
     redactions: list[dict[str, Any]] | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> LLMCallRecord:
+        if _rust_data is not None:
+            with contextlib.suppress(Exception):
+                data = _rust_data.normalize_llm_call_record(data)  # noqa: F811
+        return cls(**data)
+
+
+try:  # Require Rust-backed classes
+    import synth_ai_py as _rust_models  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.llm_calls.") from exc
+
+with contextlib.suppress(AttributeError):
+    LLMUsage = _rust_models.LLMUsage  # noqa: F811
+    LLMRequestParams = _rust_models.LLMRequestParams  # noqa: F811
+    LLMContentPart = _rust_models.LLMContentPart  # noqa: F811
+    LLMMessage = _rust_models.LLMMessage  # noqa: F811
+    ToolCallSpec = _rust_models.ToolCallSpec  # noqa: F811
+    ToolCallResult = _rust_models.ToolCallResult  # noqa: F811
+    LLMChunk = _rust_models.LLMChunk  # noqa: F811
+    LLMCallRecord = _rust_models.LLMCallRecord  # noqa: F811
 
 
 __all__ = [

@@ -37,8 +37,8 @@ See Also:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
@@ -174,8 +174,6 @@ class TunneledLocalAPI:
 
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
-        from .cleanup import track_process
-
         if backend == TunnelBackend.Localhost:
             url = f"http://localhost:{local_port}"
             return cls(
@@ -195,209 +193,65 @@ class TunneledLocalAPI:
                 synth_api_key=api_key,
             )
 
-        if backend == TunnelBackend.CloudflareManagedLease:
-            return await cls._create_managed_lease(
-                local_port=local_port,
-                api_key=api_key,
-                backend_url=backend_url,
-                verify_dns=verify_dns,
-                progress=progress,
-            )
-        elif backend == TunnelBackend.CloudflareManagedTunnel:
-            return await cls._create_managed(
-                local_port=local_port,
-                api_key=api_key,
-                env_api_key=env_api_key,
-                backend_url=backend_url,
-                verify_dns=verify_dns,
-                progress=progress,
-                track_process=track_process,
-            )
-        elif backend == TunnelBackend.CloudflareQuickTunnel:
-            return await cls._create_quick(
-                local_port=local_port,
-                env_api_key=env_api_key,
-                progress=progress,
-                track_process=track_process,
-            )
-        else:
-            raise ValueError(f"Unsupported tunnel backend: {backend}")
+        return await cls._create_via_rust(
+            local_port=local_port,
+            backend=backend,
+            api_key=api_key,
+            env_api_key=env_api_key,
+            backend_url=backend_url,
+            verify_dns=verify_dns,
+            progress=progress,
+        )
 
     @classmethod
-    async def _create_managed(
+    async def _create_via_rust(
         cls,
         local_port: int,
+        backend: TunnelBackend,
         api_key: Optional[str],
         env_api_key: Optional[str],
         backend_url: Optional[str],
         verify_dns: bool,
         progress: bool,
-        track_process,
     ) -> TunneledLocalAPI:
-        """Internal: Create a managed tunnel via Synth backend."""
+        """Internal: Create a tunnel using Rust core."""
         import synth_ai_py
 
-        if not api_key:
-            raise ValueError(
-                "api_key is required for CloudflareManagedTunnel. "
-                "Use CloudflareQuickTunnel for anonymous tunnels."
-            )
-
-        # Step 1: Provision tunnel from backend
-        if progress:
-            print(f"Provisioning managed tunnel for port {local_port}...")
-
-        tunnel_data = await asyncio.to_thread(
-            synth_ai_py.rotate_tunnel, api_key, local_port, backend_url
-        )
-
-        hostname = tunnel_data["hostname"]
-        tunnel_token = tunnel_data["tunnel_token"]
-        url = f"https://{hostname}"
-
-        # Step 2: Start cloudflared and WAIT for it to connect
-        # This is critical - DNS only resolves after cloudflared connects to Cloudflare's edge
-        if progress:
-            print(f"Starting cloudflared for {hostname}...")
-            print("Waiting for cloudflared to connect to Cloudflare edge...")
-
-        proc = await asyncio.to_thread(
-            synth_ai_py.open_managed_tunnel_with_connection_wait, tunnel_token, 30.0
-        )
-        track_process(proc)
-
-        # Step 3: Verify DNS resolution and connectivity (if requested)
-        # DNS should now resolve quickly since cloudflared is connected
-        if verify_dns:
-            dns_verified = tunnel_data.get("dns_verified", False)
-            if not dns_verified:
-                if progress:
-                    print("Verifying DNS propagation...")
-
-                await asyncio.to_thread(
-                    synth_ai_py.verify_tunnel_dns_resolution,
-                    url,
-                    60.0,
-                    env_api_key,
-                )
-
-        if progress:
-            print(f"Tunnel ready: {url}")
-
-        # Wait for system DNS to propagate (we verified with explicit resolvers,
-        # but subsequent SDK calls use system DNS which may lag behind)
-        await asyncio.sleep(3)
-
-        return cls(
-            url=url,
-            hostname=hostname,
-            local_port=local_port,
-            backend=TunnelBackend.CloudflareManagedTunnel,
-            process=proc,
-            tunnel_token=tunnel_token,
-            _raw=tunnel_data,
-        )
-
-    @classmethod
-    async def _create_managed_lease(
-        cls,
-        local_port: int,
-        api_key: Optional[str],
-        backend_url: Optional[str],
-        verify_dns: bool,
-        progress: bool,
-    ) -> TunneledLocalAPI:
-        """Internal: Create a lease-based managed tunnel (NEW system).
-
-        This uses the new lease-based architecture which:
-        1. Reuses existing tunnels instead of creating new ones each time
-        2. Uses a local gateway for route management
-        3. Keeps cloudflared warm between sessions
-        4. Results in ~1-5s reconnection after first run (vs ~15-25s with legacy)
-        """
-        import synth_ai_py
-
-        if not api_key:
-            raise ValueError(
-                "api_key is required for CloudflareManagedLease. "
-                "Use CloudflareQuickTunnel for anonymous tunnels."
-            )
+        backend_map = {
+            TunnelBackend.CloudflareManagedLease: "cloudflare_managed_lease",
+            TunnelBackend.CloudflareManagedTunnel: "cloudflare_managed",
+            TunnelBackend.CloudflareQuickTunnel: "cloudflare_quick",
+        }
+        backend_key = backend_map.get(backend)
+        if backend_key is None:
+            raise ValueError(f"Unsupported tunnel backend: {backend}")
 
         handle = await asyncio.to_thread(
             synth_ai_py.tunnel_open,
-            "cloudflare_managed_lease",
+            backend_key,
             local_port,
             api_key,
             backend_url,
+            env_api_key,
             False,
             verify_dns,
             progress,
         )
 
-        # Flush stdout/stderr to ensure output is visible
-        sys.stdout.flush()
-        sys.stderr.flush()
-
-        logger.info("[TUNNELED_API] Creating TunneledLocalAPI instance")
-        result = cls(
+        return cls(
             url=handle.url,
             hostname=handle.hostname,
             local_port=local_port,
-            backend=TunnelBackend.CloudflareManagedLease,
-            process=None,  # Managed by connector module
+            backend=backend,
+            process=None,
             tunnel_token=None,
             _raw={
                 "lease_id": getattr(handle, "lease_id", None),
+                "process_id": getattr(handle, "process_id", None),
             },
             _lease_id=getattr(handle, "lease_id", None),
             _manager=None,
             _handle=handle,
-        )
-        logger.info("[TUNNELED_API] _create_managed_lease complete, returning")
-        return result
-
-    @classmethod
-    async def _create_quick(
-        cls,
-        local_port: int,
-        env_api_key: Optional[str],
-        progress: bool,
-        track_process,
-    ) -> TunneledLocalAPI:
-        """Internal: Create a quick (anonymous) tunnel via trycloudflare.com."""
-        import synth_ai_py
-
-        if progress:
-            print(f"Starting quick tunnel for port {local_port}...")
-
-        url, proc = await asyncio.to_thread(
-            synth_ai_py.open_quick_tunnel_with_dns_verification,
-            local_port,
-            10.0,
-            True,
-            env_api_key,
-        )
-
-        track_process(proc)
-
-        # Extract hostname from URL
-        hostname = url.replace("https://", "").replace("http://", "").rstrip("/")
-
-        if progress:
-            print(f"Tunnel ready: {url}")
-
-        # Wait for system DNS to propagate (we verified with explicit resolvers,
-        # but subsequent SDK calls use system DNS which may lag behind)
-        await asyncio.sleep(3)
-
-        return cls(
-            url=url,
-            hostname=hostname,
-            local_port=local_port,
-            backend=TunnelBackend.CloudflareQuickTunnel,
-            process=proc,
-            tunnel_token=None,
-            _raw={},
         )
 
     def close(self) -> None:
@@ -415,8 +269,6 @@ class TunneledLocalAPI:
             self._handle = None
             self._lease_id = None
         elif self.process:
-            import contextlib
-
             try:
                 import synth_ai_py
 

@@ -5,11 +5,15 @@ Catch common configuration and dataset issues before calling the backend.
 
 from __future__ import annotations
 
-import difflib
 import warnings
 from typing import Any, Dict, List, Set
 
 from .graphgen_models import SUPPORTED_POLICY_MODELS, GraphGenJobConfig, GraphGenTaskSet
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.graphgen_validators.") from exc
 
 
 class GraphGenValidationError(Exception):
@@ -26,7 +30,10 @@ def _find_similar_models(
     supported_models: Set[str],
     max_suggestions: int = 3,
 ) -> List[str]:
+    # Used only by Python fallback path.
     try:
+        import difflib
+
         return difflib.get_close_matches(
             model_name,
             sorted(supported_models),
@@ -39,6 +46,27 @@ def _find_similar_models(
 
 def validate_graphgen_job_config(config: GraphGenJobConfig, dataset: GraphGenTaskSet) -> None:
     """Validate an GraphGen job config + dataset before submission."""
+    if synth_ai_py is None or not hasattr(synth_ai_py, "validate_graphgen_job_config"):
+        raise GraphGenValidationError(
+            "GraphGen job configuration validation failed",
+            [
+                {
+                    "field": "validation",
+                    "error": "Rust core validation required; synth_ai_py unavailable",
+                }
+            ],
+        )
+    result = synth_ai_py.validate_graphgen_job_config(
+        config.model_dump(mode="python"),
+        dataset.model_dump(mode="python"),
+    )
+    for warning in result.get("warnings", []):
+        warnings.warn(warning, stacklevel=2)
+    errors = result.get("errors", [])
+    if errors:
+        raise GraphGenValidationError("GraphGen job configuration validation failed", errors)
+    return
+
     errors: List[Dict[str, Any]] = []
 
     # Policy models

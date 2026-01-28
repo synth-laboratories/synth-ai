@@ -1,0 +1,678 @@
+{
+  "BASE_EVENT_SCHEMAS": {
+    "base": {
+      "$id": "https://synth.ai/schemas/events/base-job-event.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false,
+      "description": "Base event structure for all job-related events",
+      "properties": {
+        "data": {
+          "additionalProperties": true,
+          "description": "Event-specific payload data",
+          "type": "object"
+        },
+        "job_id": {
+          "description": "Unique identifier for the job",
+          "type": "string"
+        },
+        "level": {
+          "description": "Event severity level",
+          "enum": [
+            "info",
+            "warn",
+            "error"
+          ],
+          "type": "string"
+        },
+        "message": {
+          "description": "Human-readable event description",
+          "type": "string"
+        },
+        "run_id": {
+          "description": "Optional run identifier for grouping related events",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "seq": {
+          "description": "Monotonically increasing sequence number within a job",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ts": {
+          "description": "ISO 8601 timestamp of when the event occurred",
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "description": "Event type identifier (e.g., 'job.started', 'gepa:candidate.evaluated')",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "seq",
+        "ts",
+        "type",
+        "level",
+        "message"
+      ],
+      "title": "BaseJobEvent",
+      "type": "object"
+    },
+    "candidate.added": {
+      "$id": "https://synth.ai/schemas/events/candidate-added.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "allOf": [
+        {
+          "$ref": "base-job-event.json"
+        },
+        {
+          "properties": {
+            "data": {
+              "properties": {
+                "candidate_id": {
+                  "type": "string"
+                },
+                "generation": {
+                  "type": "integer"
+                },
+                "mutation_type": {
+                  "type": "string"
+                },
+                "parent_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "in_progress"
+                  ],
+                  "type": "string"
+                },
+                "version_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "candidate_id",
+                "status"
+              ],
+              "type": "object"
+            },
+            "type": {
+              "const": "candidate.added"
+            }
+          }
+        }
+      ],
+      "description": "Event emitted when a new candidate is created",
+      "title": "CandidateAddedEvent"
+    },
+    "candidate.completed": {
+      "$id": "https://synth.ai/schemas/events/candidate-completed.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "allOf": [
+        {
+          "$ref": "base-job-event.json"
+        },
+        {
+          "properties": {
+            "data": {
+              "properties": {
+                "candidate_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "completed",
+                    "rejected",
+                    "accepted"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "candidate_id",
+                "status"
+              ],
+              "type": "object"
+            },
+            "type": {
+              "const": "candidate.completed"
+            }
+          }
+        }
+      ],
+      "description": "Event emitted when a candidate lifecycle is complete",
+      "title": "CandidateCompletedEvent"
+    },
+    "candidate.evaluated": {
+      "$id": "https://synth.ai/schemas/events/candidate-evaluated.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "allOf": [
+        {
+          "$ref": "base-job-event.json"
+        },
+        {
+          "properties": {
+            "data": {
+              "properties": {
+                "candidate_id": {
+                  "type": "string"
+                },
+                "generation": {
+                  "type": "integer"
+                },
+                "is_pareto": {
+                  "type": "boolean"
+                },
+                "mutation_type": {
+                  "type": "string"
+                },
+                "parent_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reward": {
+                  "type": "number"
+                },
+                "status": {
+                  "enum": [
+                    "completed",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                "version_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "candidate_id",
+                "reward"
+              ],
+              "type": "object"
+            },
+            "type": {
+              "const": "candidate.evaluated"
+            }
+          }
+        }
+      ],
+      "description": "Event emitted when a candidate has been evaluated",
+      "title": "CandidateEvaluatedEvent"
+    },
+    "job.completed": {
+      "$id": "https://synth.ai/schemas/events/job-completed.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "allOf": [
+        {
+          "$ref": "base-job-event.json"
+        },
+        {
+          "properties": {
+            "data": {
+              "properties": {
+                "best_candidate_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "best_score": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "duration_s": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "completed"
+                  ],
+                  "type": "string"
+                },
+                "total_candidates": {
+                  "type": "integer"
+                },
+                "total_cost_usd": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            },
+            "type": {
+              "const": "job.completed"
+            }
+          }
+        }
+      ],
+      "description": "Event emitted when a job completes successfully",
+      "title": "JobCompletedEvent"
+    },
+    "job.failed": {
+      "$id": "https://synth.ai/schemas/events/job-failed.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "allOf": [
+        {
+          "$ref": "base-job-event.json"
+        },
+        {
+          "properties": {
+            "data": {
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "error_type": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "failed"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "level": {
+              "const": "error"
+            },
+            "type": {
+              "const": "job.failed"
+            }
+          }
+        }
+      ],
+      "description": "Event emitted when a job fails",
+      "title": "JobFailedEvent"
+    },
+    "job.started": {
+      "$id": "https://synth.ai/schemas/events/job-started.json",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "allOf": [
+        {
+          "$ref": "base-job-event.json"
+        },
+        {
+          "properties": {
+            "data": {
+              "properties": {
+                "algorithm": {
+                  "type": "string"
+                },
+                "job_type": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "in_progress"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": {
+              "const": "job.started"
+            }
+          }
+        }
+      ],
+      "description": "Event emitted when a job starts execution",
+      "title": "JobStartedEvent"
+    }
+  },
+  "BASE_JOB_EVENT_SCHEMA": {
+    "$id": "https://synth.ai/schemas/events/base-job-event.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "description": "Base event structure for all job-related events",
+    "properties": {
+      "data": {
+        "additionalProperties": true,
+        "description": "Event-specific payload data",
+        "type": "object"
+      },
+      "job_id": {
+        "description": "Unique identifier for the job",
+        "type": "string"
+      },
+      "level": {
+        "description": "Event severity level",
+        "enum": [
+          "info",
+          "warn",
+          "error"
+        ],
+        "type": "string"
+      },
+      "message": {
+        "description": "Human-readable event description",
+        "type": "string"
+      },
+      "run_id": {
+        "description": "Optional run identifier for grouping related events",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "seq": {
+        "description": "Monotonically increasing sequence number within a job",
+        "minimum": 0,
+        "type": "integer"
+      },
+      "ts": {
+        "description": "ISO 8601 timestamp of when the event occurred",
+        "format": "date-time",
+        "type": "string"
+      },
+      "type": {
+        "description": "Event type identifier (e.g., 'job.started', 'gepa:candidate.evaluated')",
+        "type": "string"
+      }
+    },
+    "required": [
+      "job_id",
+      "seq",
+      "ts",
+      "type",
+      "level",
+      "message"
+    ],
+    "title": "BaseJobEvent",
+    "type": "object"
+  },
+  "CANDIDATE_ADDED_EVENT_SCHEMA": {
+    "$id": "https://synth.ai/schemas/events/candidate-added.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "allOf": [
+      {
+        "$ref": "base-job-event.json"
+      },
+      {
+        "properties": {
+          "data": {
+            "properties": {
+              "candidate_id": {
+                "type": "string"
+              },
+              "generation": {
+                "type": "integer"
+              },
+              "mutation_type": {
+                "type": "string"
+              },
+              "parent_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "in_progress"
+                ],
+                "type": "string"
+              },
+              "version_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "candidate_id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "candidate.added"
+          }
+        }
+      }
+    ],
+    "description": "Event emitted when a new candidate is created",
+    "title": "CandidateAddedEvent"
+  },
+  "CANDIDATE_COMPLETED_EVENT_SCHEMA": {
+    "$id": "https://synth.ai/schemas/events/candidate-completed.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "allOf": [
+      {
+        "$ref": "base-job-event.json"
+      },
+      {
+        "properties": {
+          "data": {
+            "properties": {
+              "candidate_id": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "completed",
+                  "rejected",
+                  "accepted"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "candidate_id",
+              "status"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "candidate.completed"
+          }
+        }
+      }
+    ],
+    "description": "Event emitted when a candidate lifecycle is complete",
+    "title": "CandidateCompletedEvent"
+  },
+  "CANDIDATE_EVALUATED_EVENT_SCHEMA": {
+    "$id": "https://synth.ai/schemas/events/candidate-evaluated.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "allOf": [
+      {
+        "$ref": "base-job-event.json"
+      },
+      {
+        "properties": {
+          "data": {
+            "properties": {
+              "candidate_id": {
+                "type": "string"
+              },
+              "generation": {
+                "type": "integer"
+              },
+              "is_pareto": {
+                "type": "boolean"
+              },
+              "mutation_type": {
+                "type": "string"
+              },
+              "parent_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reward": {
+                "type": "number"
+              },
+              "status": {
+                "enum": [
+                  "completed",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              "version_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "candidate_id",
+              "reward"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "const": "candidate.evaluated"
+          }
+        }
+      }
+    ],
+    "description": "Event emitted when a candidate has been evaluated",
+    "title": "CandidateEvaluatedEvent"
+  },
+  "JOB_COMPLETED_EVENT_SCHEMA": {
+    "$id": "https://synth.ai/schemas/events/job-completed.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "allOf": [
+      {
+        "$ref": "base-job-event.json"
+      },
+      {
+        "properties": {
+          "data": {
+            "properties": {
+              "best_candidate_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "best_score": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "duration_s": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "completed"
+                ],
+                "type": "string"
+              },
+              "total_candidates": {
+                "type": "integer"
+              },
+              "total_cost_usd": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "type": {
+            "const": "job.completed"
+          }
+        }
+      }
+    ],
+    "description": "Event emitted when a job completes successfully",
+    "title": "JobCompletedEvent"
+  },
+  "JOB_FAILED_EVENT_SCHEMA": {
+    "$id": "https://synth.ai/schemas/events/job-failed.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "allOf": [
+      {
+        "$ref": "base-job-event.json"
+      },
+      {
+        "properties": {
+          "data": {
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "error_type": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "failed"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "level": {
+            "const": "error"
+          },
+          "type": {
+            "const": "job.failed"
+          }
+        }
+      }
+    ],
+    "description": "Event emitted when a job fails",
+    "title": "JobFailedEvent"
+  },
+  "JOB_STARTED_EVENT_SCHEMA": {
+    "$id": "https://synth.ai/schemas/events/job-started.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "allOf": [
+      {
+        "$ref": "base-job-event.json"
+      },
+      {
+        "properties": {
+          "data": {
+            "properties": {
+              "algorithm": {
+                "type": "string"
+              },
+              "job_type": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "in_progress"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "type": {
+            "const": "job.started"
+          }
+        }
+      }
+    ],
+    "description": "Event emitted when a job starts execution",
+    "title": "JobStartedEvent"
+  }
+}

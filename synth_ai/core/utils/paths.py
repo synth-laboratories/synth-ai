@@ -2,47 +2,40 @@ from __future__ import annotations
 
 import contextlib
 import os
-import shutil
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SYNTH_HOME_DIR = Path.home() / ".synth-ai"
-SYNTH_USER_CONFIG_PATH = SYNTH_HOME_DIR / "user_config.json"
-SYNTH_LOCALAPI_CONFIG_PATH = SYNTH_HOME_DIR / "localapi_config.json"
-SYNTH_BIN_DIR = SYNTH_HOME_DIR / "bin"
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for utils.paths.") from exc
+
+REPO_ROOT = Path(synth_ai_py.repo_root() or Path.cwd())
+SYNTH_HOME_DIR = Path(synth_ai_py.synth_home_dir())
+SYNTH_USER_CONFIG_PATH = Path(synth_ai_py.synth_user_config_path())
+SYNTH_LOCALAPI_CONFIG_PATH = Path(synth_ai_py.synth_localapi_config_path())
+SYNTH_BIN_DIR = Path(synth_ai_py.synth_bin_dir())
 
 
 def is_file_type(path: Path, type: str) -> bool:
-    if not type.startswith("."):
-        type = "." + type
-    return path.is_file() and path.suffix == type
+    return synth_ai_py.is_file_type(str(path), type)
 
 
 def validate_file_type(path: Path, type: str) -> None:
-    if not is_file_type(path, type):
-        raise ValueError(f"{path} is not a {type} file")
-    return None
+    synth_ai_py.validate_file_type(str(path), type)
 
 
 def is_hidden_path(path: Path, root: Path) -> bool:
-    try:
-        relative = path.relative_to(root)
-    except ValueError:
-        relative = path
-    return any(part.startswith(".") for part in relative.parts)
+    return synth_ai_py.is_hidden_path(str(path), str(root))
 
 
 def get_bin_path(name: str) -> Path | None:
-    path = shutil.which(name)
+    path = synth_ai_py.get_bin_path(name)
     return Path(path) if path else None
 
 
 def get_home_config_file_paths(dir_name: str, file_extension: str = "json") -> list[Path]:
-    dir = Path.home() / dir_name
-    if not dir.exists():
-        return []
-    return [path for path in dir.glob(f"*.{file_extension}") if path.is_file()]
+    return [Path(p) for p in synth_ai_py.get_home_config_file_paths(dir_name, file_extension)]
 
 
 def find_config_path(
@@ -50,50 +43,21 @@ def find_config_path(
     home_subdir: str,
     filename: str,
 ) -> Path | None:
-    home_candidate = Path.home() / home_subdir / filename
-    if home_candidate.exists():
-        return home_candidate
-    local_candidate = Path(bin).parent / home_subdir / filename
-    if local_candidate.exists():
-        return local_candidate
-    return None
+    path = synth_ai_py.find_config_path(str(bin), home_subdir, filename)
+    return Path(path) if path else None
 
 
 def configure_import_paths(app: Path, repo_root: Path | None = REPO_ROOT) -> None:
-    app_dir = app.parent.resolve()
-
-    initial_dirs: list[Path] = [app_dir]
-    if (app_dir / "__init__.py").exists():
-        initial_dirs.append(app_dir.parent.resolve())
-    if repo_root:
-        initial_dirs.append(repo_root)
-
-    unique_dirs: list[str] = []
-    for dir in initial_dirs:
-        dir_str = str(dir)
-        if dir_str and dir_str not in unique_dirs:
-            unique_dirs.append(dir_str)
-
-    existing_pythonpath_dirs = os.environ.get("PYTHONPATH")
-    if existing_pythonpath_dirs:
-        for segment in existing_pythonpath_dirs.split(os.pathsep):
-            if segment and segment not in unique_dirs:
-                unique_dirs.append(segment)
-
-    os.environ["PYTHONPATH"] = os.pathsep.join(unique_dirs)
-
-    for dir in reversed(unique_dirs):
+    paths = synth_ai_py.compute_import_paths(str(app), str(repo_root) if repo_root else None)
+    os.environ["PYTHONPATH"] = os.pathsep.join(paths)
+    for dir in reversed(paths):
         if dir and dir not in sys.path:
             sys.path.insert(0, dir)
 
 
 @contextlib.contextmanager
 def temporary_import_paths(app: Path, repo_root: Path | None = REPO_ROOT):
-    """Temporarily configure PYTHONPATH/sys.path for loading a task app from a file path.
-
-    Prefer this context manager over calling `configure_import_paths` directly when you
-    only need the paths for the duration of a single import/load operation.
-    """
+    """Temporarily configure PYTHONPATH/sys.path for loading a task app from a file path."""
     original_sys_path = sys.path.copy()
     original_pythonpath = os.environ.get("PYTHONPATH")
     configure_import_paths(app, repo_root)
@@ -108,10 +72,7 @@ def temporary_import_paths(app: Path, repo_root: Path | None = REPO_ROOT):
 
 
 def cleanup_paths(*, file: Path, dir: Path) -> None:
-    if not file.is_relative_to(dir):
-        raise ValueError(f"{file} is not inside {dir}")
-    file.unlink(missing_ok=True)
-    shutil.rmtree(dir, ignore_errors=True)
+    synth_ai_py.cleanup_paths(str(file), str(dir))
 
 
 def print_paths_formatted(entries: list[tuple]) -> None:

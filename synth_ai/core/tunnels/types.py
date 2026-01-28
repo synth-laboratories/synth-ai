@@ -5,6 +5,7 @@ This module defines the core data types used by the lease-based tunnel system.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -169,3 +170,16 @@ class Diagnostics:
             "last_error": self.last_error,
             "logs": self.logs[-50:],  # Last 50 log entries
         }
+
+
+try:  # Prefer Rust-backed classes when available
+    import synth_ai_py as _rust_models  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for tunnel models.") from exc
+
+with contextlib.suppress(AttributeError):
+    LeaseInfo = _rust_models.LeaseInfo  # noqa: F811
+    ConnectorStatus = _rust_models.ConnectorStatus  # noqa: F811
+    GatewayStatus = _rust_models.GatewayStatus  # noqa: F811
+    Diagnostics = _rust_models.Diagnostics  # noqa: F811
+    TunnelHandle = _rust_models.TunnelHandle  # noqa: F811

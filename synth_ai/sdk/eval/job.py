@@ -38,12 +38,18 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 try:
-    import synth_ai_py as _synth_ai_py
-except Exception:  # pragma: no cover - optional rust bindings
-    _synth_ai_py = None
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for sdk.eval.") from exc
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None:
+        raise RuntimeError("synth_ai_py is required for eval jobs. Install rust bindings.")
+    return synth_ai_py
 
 
 class EvalStatus(str, Enum):
@@ -223,6 +229,8 @@ class EvalJobConfig:
             raise ValueError("api_key is required")
         if not self.seeds:
             raise ValueError("seeds list is required and cannot be empty")
+        if not self.env_name:
+            self.env_name = "default"
 
         # Get task_app_api_key from environment if not provided
         if not self.task_app_api_key:
@@ -289,6 +297,8 @@ class EvalJob:
         """
         self.config = config
         self._job_id = job_id
+        self._rust = _require_rust()
+        self._client = self._rust.SynthClient(self.config.api_key, self.config.backend_url)
 
     @classmethod
     def from_config(
@@ -328,14 +338,18 @@ class EvalJob:
             ...     seeds=[0, 1, 2],  # Override seeds
             ... )
         """
-        import tomllib
+        try:
+            import synth_ai_py
+        except Exception as exc:  # pragma: no cover - rust bindings required
+            raise RuntimeError("synth_ai_py is required for eval config parsing.") from exc
 
         config_path_obj = Path(config_path)
         if not config_path_obj.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
 
-        with open(config_path_obj, "rb") as f:
-            toml_data = tomllib.load(f)
+        toml_data = synth_ai_py.load_toml(str(config_path_obj))
+        if not isinstance(toml_data, dict):
+            toml_data = dict(toml_data)
 
         # Extract eval section (supports both [eval] and [prompt_learning] formats)
         eval_config = toml_data.get("eval", {})
@@ -439,13 +453,6 @@ class EvalJob:
             base = f"{base}/api"
         return base
 
-    def _headers(self) -> Dict[str, str]:
-        """Get headers for API calls."""
-        return {
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json",
-        }
-
     def submit(self) -> str:
         """Submit the job to the backend.
 
@@ -485,19 +492,7 @@ class EvalJob:
             "timeout": self.config.timeout,
         }
 
-        url = f"{self._base_url()}/eval/jobs"
-        if _synth_ai_py is None:
-            raise RuntimeError("synth_ai_py is not available for eval submissions")
-        try:
-            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 30)
-            job_data = client.post_json(url, job_request)
-        except Exception as exc:
-            raise RuntimeError(f"Job submission failed: {exc}") from exc
-
-        job_id = job_data.get("job_id") if isinstance(job_data, dict) else None
-        if not job_id:
-            raise RuntimeError(f"No job_id in response: {job_data}")
-
+        job_id = self._client.submit_eval(job_request)
         self._job_id = job_id
         return job_id
 
@@ -530,15 +525,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}"
-
-        if _synth_ai_py is None:
-            raise RuntimeError("synth_ai_py is not available for eval status")
-        try:
-            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 30)
-            return client.get_json(url, None)
-        except Exception as exc:
-            raise RuntimeError(f"Failed to get status: {exc}") from exc
+        return self._client.get_eval_status(self._job_id)
 
     def poll_until_complete(
         self,
@@ -794,7 +781,6 @@ class EvalJob:
         headers = {
             "Accept": "text/event-stream",
             "Authorization": f"Bearer {self.config.api_key}",
-            "X-API-Key": self.config.api_key,
         }
 
         start_time = time.time()
@@ -855,15 +841,6 @@ class EvalJob:
             if progress:
                 print(f"[stream] SSE error: {exc}, falling back to polling")
             return self.poll_until_complete(timeout=timeout, progress=progress, on_event=on_event)
-
-        # Check if we got a terminal event - if not, stream ended prematurely (connection dropped)
-        if last_status == "pending":
-            remaining_timeout = max(timeout - (time.time() - start_time), 60.0)
-            if progress:
-                print(
-                    f"[stream] SSE ended without terminal event ({completed}/{total} seeds), falling back to polling"
-                )
-            return self.poll_until_complete(timeout=remaining_timeout, progress=progress)
 
         # Fetch full results
         try:
@@ -956,14 +933,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}/results"
-        if _synth_ai_py is None:
-            raise RuntimeError("synth_ai_py is not available for eval results")
-        try:
-            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 30)
-            return client.get_json(url, None)
-        except Exception as exc:
-            raise RuntimeError(f"Failed to get results: {exc}") from exc
+        return self._client.get_eval_results(self._job_id)
 
     def download_traces(self, output_dir: str | Path) -> Path:
         """Download traces for the job to a directory.
@@ -991,21 +961,12 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}/traces"
         output_path = Path(output_dir)
 
-        if _synth_ai_py is None:
-            raise RuntimeError("synth_ai_py is not available for trace download")
-        try:
-            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 60)
-            content = client.get_bytes(url, None)
-        except Exception as exc:
-            raise RuntimeError(f"Failed to download traces: {exc}") from exc
-
+        payload = self._client.download_eval_traces(self._job_id)
         output_path.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        with zipfile.ZipFile(io.BytesIO(payload)) as zf:
             zf.extractall(output_path)
-
         return output_path
 
     def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
@@ -1038,18 +999,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self._base_url()}/eval/jobs/{self._job_id}/cancel"
-        payload: Dict[str, Any] = {}
-        if reason:
-            payload["reason"] = reason
-
-        if _synth_ai_py is None:
-            raise RuntimeError("synth_ai_py is not available for eval cancel")
-        try:
-            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 30)
-            return client.post_json(url, payload)
-        except Exception as exc:
-            raise RuntimeError(f"Eval cancel failed: {exc}") from exc
+        return self._client.cancel_eval(self._job_id, reason)
 
     def query_workflow_state(self) -> Dict[str, Any]:
         """Query the Temporal workflow state for instant polling.
@@ -1084,27 +1034,7 @@ class EvalJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        # Use unified /jobs endpoint for workflow state query
-        base = (self.config.backend_url or BACKEND_URL_BASE).rstrip("/")
-        if not base.endswith("/api"):
-            base = f"{base}/api"
-        url = f"{base}/jobs/{self._job_id}/workflow-state"
-
-        if _synth_ai_py is None:
-            return {
-                "job_id": self._job_id,
-                "workflow_state": None,
-                "error": "synth_ai_py is not available for workflow state",
-            }
-        try:
-            client = _synth_ai_py.HttpClient(base, self.config.api_key, 10)
-            return client.get_json(url, None)
-        except Exception as exc:
-            return {
-                "job_id": self._job_id,
-                "workflow_state": None,
-                "error": str(exc)[:200],
-            }
+        return self._client.query_eval_workflow_state(self._job_id)
 
 
 __all__ = ["EvalJob", "EvalJobConfig", "EvalResult", "EvalStatus"]

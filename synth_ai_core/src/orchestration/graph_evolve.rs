@@ -32,10 +32,6 @@ fn as_i64(value: Option<&Value>) -> Option<i64> {
     value.and_then(|v| v.as_i64())
 }
 
-fn as_str(value: Option<&Value>) -> Option<&str> {
-    value.and_then(|v| v.as_str())
-}
-
 fn ensure_task_list(dataset: &Map<String, Value>) -> Result<(), CoreError> {
     match dataset.get("tasks") {
         Some(Value::Array(tasks)) if !tasks.is_empty() => Ok(()),
@@ -363,4 +359,190 @@ pub fn build_graph_evolve_placeholder_dataset() -> Value {
         "metadata": {"name": "(resumed job)"},
         "tasks": [{"id": "placeholder", "input": {}}]
     })
+}
+
+// =============================================================================
+// Graph Evolve job orchestration
+// =============================================================================
+
+use crate::api::SynthClient;
+
+/// High-level Graph Evolve job orchestration.
+pub struct GraphEvolveJob {
+    client: SynthClient,
+    job_id: Option<String>,
+    legacy_graphgen_job_id: Option<String>,
+    payload: Option<Value>,
+}
+
+impl GraphEvolveJob {
+    /// Create a job from a payload.
+    pub fn from_payload(
+        payload: Value,
+        api_key: Option<&str>,
+        base_url: Option<&str>,
+    ) -> Result<Self, CoreError> {
+        let api_key = match api_key {
+            Some(k) => k.to_string(),
+            None => crate::auth::get_api_key(None).ok_or_else(|| {
+                CoreError::Authentication("SYNTH_API_KEY not found".to_string())
+            })?,
+        };
+
+        let client = SynthClient::new(&api_key, base_url)?;
+
+        Ok(Self {
+            client,
+            job_id: None,
+            legacy_graphgen_job_id: None,
+            payload: Some(payload),
+        })
+    }
+
+    /// Reconnect to an existing job by ID.
+    pub fn from_job_id(
+        job_id: &str,
+        api_key: Option<&str>,
+        base_url: Option<&str>,
+    ) -> Result<Self, CoreError> {
+        let api_key = match api_key {
+            Some(k) => k.to_string(),
+            None => crate::auth::get_api_key(None).ok_or_else(|| {
+                CoreError::Authentication("SYNTH_API_KEY not found".to_string())
+            })?,
+        };
+
+        let client = SynthClient::new(&api_key, base_url)?;
+
+        let mut job = Self {
+            client,
+            job_id: Some(job_id.to_string()),
+            legacy_graphgen_job_id: None,
+            payload: None,
+        };
+
+        if job_id.starts_with("graphgen_") {
+            job.legacy_graphgen_job_id = Some(job_id.to_string());
+        }
+
+        Ok(job)
+    }
+
+    /// Get the job ID (primary or legacy).
+    pub fn job_id(&self) -> Option<&str> {
+        if let Some(id) = self.job_id.as_deref() {
+            return Some(id);
+        }
+        self.legacy_graphgen_job_id.as_deref()
+    }
+
+    /// Get the legacy GraphGen job ID, if known.
+    pub fn legacy_job_id(&self) -> Option<&str> {
+        self.legacy_graphgen_job_id.as_deref()
+    }
+
+    fn require_job_id(&self) -> Result<&str, CoreError> {
+        self.job_id()
+            .ok_or_else(|| CoreError::Validation("job not submitted yet".to_string()))
+    }
+
+    /// Submit the job and return the backend response.
+    pub async fn submit(&mut self) -> Result<Value, CoreError> {
+        if self.job_id.is_some() || self.legacy_graphgen_job_id.is_some() {
+            return Err(CoreError::Validation(
+                "job already submitted".to_string(),
+            ));
+        }
+        let payload = self
+            .payload
+            .as_ref()
+            .ok_or_else(|| CoreError::Validation("payload missing".to_string()))?;
+        let response = self
+            .client
+            .graph_evolve()
+            .submit_job(payload.clone())
+            .await?;
+
+        if let Some(id) = response
+            .get("graph_evolve_job_id")
+            .and_then(|v| v.as_str())
+        {
+            self.job_id = Some(id.to_string());
+        }
+        if let Some(id) = response
+            .get("graphgen_job_id")
+            .and_then(|v| v.as_str())
+        {
+            self.legacy_graphgen_job_id = Some(id.to_string());
+            if self.job_id.is_none() {
+                self.job_id = Some(id.to_string());
+            }
+        }
+
+        Ok(response)
+    }
+
+    /// Get current job status.
+    pub async fn get_status(&self) -> Result<Value, CoreError> {
+        let job_id = self.require_job_id()?;
+        self.client.graph_evolve().get_status(job_id).await
+    }
+
+    /// Start a queued job.
+    pub async fn start(&self) -> Result<Value, CoreError> {
+        let job_id = self.require_job_id()?;
+        self.client.graph_evolve().start_job(job_id).await
+    }
+
+    /// Fetch events for the job.
+    pub async fn get_events(&self, since_seq: i64, limit: i64) -> Result<Value, CoreError> {
+        let job_id = self.require_job_id()?;
+        self.client
+            .graph_evolve()
+            .get_events(job_id, since_seq, limit)
+            .await
+    }
+
+    /// Fetch metrics for the job.
+    pub async fn get_metrics(&self, query_string: &str) -> Result<Value, CoreError> {
+        let job_id = self.require_job_id()?;
+        self.client
+            .graph_evolve()
+            .get_metrics(job_id, query_string)
+            .await
+    }
+
+    /// Download prompt (JSON response).
+    pub async fn download_prompt(&self) -> Result<Value, CoreError> {
+        let job_id = self.require_job_id()?;
+        self.client.graph_evolve().download_prompt(job_id).await
+    }
+
+    /// Download redacted graph export.
+    pub async fn download_graph_txt(&self) -> Result<String, CoreError> {
+        let job_id = self.require_job_id()?;
+        self.client.graph_evolve().download_graph_txt(job_id).await
+    }
+
+    /// Run inference using the optimized graph.
+    pub async fn run_inference(&self, payload: Value) -> Result<Value, CoreError> {
+        self.client.graph_evolve().run_inference(payload).await
+    }
+
+    /// Fetch a graph record snapshot.
+    pub async fn get_graph_record(&self, payload: Value) -> Result<Value, CoreError> {
+        self.client.graph_evolve().get_graph_record(payload).await
+    }
+
+    /// Cancel the job.
+    pub async fn cancel(&self, payload: Value) -> Result<Value, CoreError> {
+        let job_id = self.require_job_id()?;
+        self.client.graph_evolve().cancel_job(job_id, payload).await
+    }
+
+    /// Query workflow state.
+    pub async fn query_workflow_state(&self) -> Result<Value, CoreError> {
+        let job_id = self.require_job_id()?;
+        self.client.graph_evolve().query_workflow_state(job_id).await
+    }
 }

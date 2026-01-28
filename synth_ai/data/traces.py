@@ -82,9 +82,15 @@ See Also:
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+
+try:
+    from . import rust as _rust_data
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.traces.") from exc
 
 from synth_ai.data.llm_calls import LLMCallRecord
 
@@ -348,6 +354,33 @@ class SessionTrace:
             JSON serialization or database storage.
         """
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SessionTrace:
+        if _rust_data is not None:
+            with contextlib.suppress(Exception):
+                data = _rust_data.normalize_trace(data)  # noqa: F811
+        return cls(**data)
+
+
+try:  # Require Rust-backed classes
+    import synth_ai_py as _rust_models  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for data.traces.") from exc
+
+try:
+    TimeRecord = _rust_models.TimeRecord  # noqa: F811
+    SessionMessageContent = _rust_models.SessionMessageContent  # noqa: F811
+    SessionEventMarkovBlanketMessage = _rust_models.SessionEventMarkovBlanketMessage  # noqa: F811
+    BaseEvent = _rust_models.TracingEvent  # noqa: F811
+    RuntimeEvent = _rust_models.RuntimeEvent  # noqa: F811
+    EnvironmentEvent = _rust_models.EnvironmentEvent  # noqa: F811
+    LMCAISEvent = _rust_models.LMCAISEvent  # noqa: F811
+    SessionTimeStep = _rust_models.SessionTimeStep  # noqa: F811
+    SessionTrace = _rust_models.SessionTrace  # noqa: F811
+except AttributeError:
+    # Keep Python dataclasses if Rust bindings are missing fields.
+    pass
 
 
 __all__ = [

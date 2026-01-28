@@ -60,6 +60,10 @@ pub enum ProviderName {
     Groq,
     Google,
     Anthropic,
+    Together,
+    Fireworks,
+    Bedrock,
+    Azure,
 }
 
 impl Default for ProviderName {
@@ -68,16 +72,19 @@ impl Default for ProviderName {
     }
 }
 
-/// Inference mode for policy evaluation.
+/// Inference mode for model calls.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InferenceMode {
+    Standard,
+    Batched,
+    Streaming,
     SynthHosted,
 }
 
 impl Default for InferenceMode {
     fn default() -> Self {
-        Self::SynthHosted
+        Self::Standard
     }
 }
 
@@ -88,6 +95,10 @@ pub enum RewardSource {
     TaskApp,
     Verifier,
     Fused,
+    Environment,
+    Runner,
+    Evaluator,
+    Human,
 }
 
 impl Default for RewardSource {
@@ -112,7 +123,7 @@ pub enum RewardType {
 
 impl Default for RewardType {
     fn default() -> Self {
-        Self::Shaped
+        Self::Sparse
     }
 }
 
@@ -137,6 +148,8 @@ pub enum ObjectiveKey {
     Reward,
     LatencyMs,
     CostUsd,
+    TokensTotal,
+    TurnsCount,
 }
 
 impl Default for ObjectiveKey {
@@ -170,7 +183,7 @@ pub enum OutputMode {
 
 impl Default for OutputMode {
     fn default() -> Self {
-        Self::ToolCalls
+        Self::Text
     }
 }
 
@@ -199,10 +212,14 @@ impl Default for SuccessStatus {
     }
 }
 
-/// Type of graph in optimization.
+/// Type of graph in graph optimization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GraphType {
+    Sequential,
+    Parallel,
+    Conditional,
+    Loop,
     Policy,
     Verifier,
     Rlm,
@@ -210,7 +227,7 @@ pub enum GraphType {
 
 impl Default for GraphType {
     fn default() -> Self {
-        Self::Policy
+        Self::Sequential
     }
 }
 
@@ -218,6 +235,9 @@ impl Default for GraphType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OptimizationMode {
+    Online,
+    Offline,
+    Hybrid,
     Auto,
     GraphOnly,
     PromptOnly,
@@ -225,7 +245,7 @@ pub enum OptimizationMode {
 
 impl Default for OptimizationMode {
     fn default() -> Self {
-        Self::Auto
+        Self::Online
     }
 }
 
@@ -233,14 +253,17 @@ impl Default for OptimizationMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VerifierMode {
+    Binary,
     Rubric,
+    Criteria,
+    Custom,
     Contrastive,
     GoldExamples,
 }
 
 impl Default for VerifierMode {
     fn default() -> Self {
-        Self::Rubric
+        Self::Binary
     }
 }
 
@@ -249,10 +272,13 @@ impl Default for VerifierMode {
 #[serde(rename_all = "snake_case")]
 pub enum TrainingType {
     Sft,
+    Rl,
+    Dpo,
+    Ppo,
+    Grpo,
     Gepa,
     GraphEvolve,
     Graphgen,
-    Rl,
     Gspo,
 }
 
@@ -264,47 +290,57 @@ impl Default for TrainingType {
 
 /// Adaptive curriculum difficulty level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "snake_case")]
 pub enum AdaptiveCurriculumLevel {
+    Easy,
+    Medium,
+    Hard,
+    Expert,
+    #[serde(alias = "NONE")]
     None,
+    #[serde(alias = "LOW")]
     Low,
+    #[serde(alias = "MODERATE")]
     Moderate,
+    #[serde(alias = "HIGH")]
     High,
 }
 
 impl Default for AdaptiveCurriculumLevel {
     fn default() -> Self {
-        Self::None
+        Self::Medium
     }
 }
 
 /// Adaptive batch sizing level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "snake_case")]
 pub enum AdaptiveBatchLevel {
+    Small,
+    Medium,
+    Large,
+    Auto,
+    #[serde(alias = "NONE")]
     None,
+    #[serde(alias = "LOW")]
     Low,
+    #[serde(alias = "MODERATE")]
     Moderate,
+    #[serde(alias = "HIGH")]
     High,
-}
-
-impl Default for AdaptiveBatchLevel {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 /// Synth-hosted model names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "snake_case")]
 pub enum SynthModelName {
     SynthSmall,
     SynthMedium,
 }
 
-impl Default for SynthModelName {
+impl Default for AdaptiveBatchLevel {
     fn default() -> Self {
-        Self::SynthSmall
+        Self::Auto
     }
 }
 

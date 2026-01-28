@@ -1,21 +1,17 @@
 import asyncio
 import importlib
 import json
+import logging
 import os
 import subprocess
 import tempfile
 import time
-import tomllib
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlparse
 
-try:
-    import synth_ai_py as _synth_ai_py
-except Exception:  # pragma: no cover - optional rust bindings
-    _synth_ai_py = None
+import requests
 
 from synth_ai.core.rust_core.urls import ensure_api_base as _ensure_api_base
 
@@ -29,6 +25,12 @@ except Exception:  # pragma: no cover - SFT moved to research repo
     collect_sft_jsonl_errors = None  # type: ignore[assignment]
     _SFT_AVAILABLE = False
 
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for optimization utils.") from exc
+
+from synth_ai.sdk.optimization.internal.ssl import SSLConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -57,12 +59,14 @@ def run_sync(coro: Any, *, allow_nested: bool = False, label: str = "async call"
 
 def load_toml(path: Path) -> dict[str, Any]:
     try:
-        with path.open("rb") as fh:
-            return tomllib.load(fh)
+        payload = synth_ai_py.load_toml(str(path))
     except FileNotFoundError as exc:  # pragma: no cover - guarded by CLI
         raise TrainError(f"Config not found: {path}") from exc
-    except tomllib.TOMLDecodeError as exc:  # pragma: no cover - malformed input
+    except Exception as exc:  # pragma: no cover - malformed input
         raise TrainError(f"Failed to parse TOML: {path}\n{exc}") from exc
+    if isinstance(payload, dict):
+        return payload
+    return dict(payload)
 
 
 def mask_value(value: str | None) -> str:
@@ -105,99 +109,76 @@ def http_post(
     headers: Mapping[str, str] | None = None,
     json_body: Any | None = None,
     timeout: float = 60.0,
-) -> Any:
-    if _synth_ai_py is None:
-        raise RuntimeError("synth_ai_py is required for HTTP requests")
-    return _rust_request("POST", url, headers=headers, body=json_body, timeout=timeout)
+) -> requests.Response:
+    try:
+        resp = requests.post(
+            url,
+            headers=dict(headers or {}),
+            json=json_body,
+            timeout=timeout,
+            verify=SSLConfig.get_verify_setting(),
+        )
+        return resp
+    except Exception:
+        logging.getLogger(__name__).exception("HTTP POST failed: %s", url)
+        raise
 
 
-def http_get(url: str, *, headers: Mapping[str, str] | None = None, timeout: float = 30.0) -> Any:
-    if _synth_ai_py is None:
-        raise RuntimeError("synth_ai_py is required for HTTP requests")
-    return _rust_request("GET", url, headers=headers, body=None, timeout=timeout)
+def http_get(
+    url: str, *, headers: Mapping[str, str] | None = None, timeout: float = 30.0
+) -> requests.Response:
+    try:
+        resp = requests.get(
+            url,
+            headers=dict(headers or {}),
+            timeout=timeout,
+            verify=SSLConfig.get_verify_setting(),
+        )
+        return resp
+    except Exception:
+        logging.getLogger(__name__).exception("HTTP GET failed: %s", url)
+        raise
 
 
 def http_delete(
     url: str, *, headers: Mapping[str, str] | None = None, timeout: float = 30.0
-) -> Any:
-    if _synth_ai_py is None:
-        raise RuntimeError("synth_ai_py is required for HTTP requests")
-    return _rust_request("DELETE", url, headers=headers, body=None, timeout=timeout)
+) -> requests.Response:
+    try:
+        resp = requests.delete(
+            url,
+            headers=dict(headers or {}),
+            timeout=timeout,
+            verify=SSLConfig.get_verify_setting(),
+        )
+        return resp
+    except Exception:
+        logging.getLogger(__name__).exception("HTTP DELETE failed: %s", url)
+        raise
 
 
 def post_multipart(
     url: str, *, api_key: str, file_field: str, file_path: Path, purpose: str = "fine-tune"
-) -> Any:
-    if _synth_ai_py is None:
-        raise RuntimeError("synth_ai_py is required for HTTP requests")
+) -> requests.Response:
+    headers = {"Authorization": f"Bearer {api_key}"}
     files = {file_field: (file_path.name, file_path.read_bytes(), "application/jsonl")}
     data = {"purpose": purpose}
-    return _rust_request(
-        "POST_MULTIPART",
-        url,
-        headers={"Authorization": f"Bearer {api_key}"},
-        body={"data": data, "files": files},
-        timeout=300,
-    )
-
-
-class _RustResponse:
-    def __init__(self, status_code: int, payload: Any, text: str) -> None:
-        self.status_code = status_code
-        self._payload = payload
-        self.text = text
-
-    @property
-    def ok(self) -> bool:
-        return 200 <= self.status_code < 300
-
-    def json(self) -> Any:
-        return self._payload
-
-
-def _rust_request(
-    method: str,
-    url: str,
-    *,
-    headers: Mapping[str, str] | None,
-    body: dict[str, Any] | None,
-    timeout: float,
-) -> _RustResponse:
-    api_key = ""
-    if headers:
-        auth = headers.get("Authorization") or headers.get("authorization") or ""
-        if auth.lower().startswith("bearer "):
-            api_key = auth[7:].strip()
-        api_key = headers.get("X-API-Key") or headers.get("x-api-key") or api_key
-
-    parsed = urlparse(url)
-    base_url = f"{parsed.scheme}://{parsed.netloc}"
-    client = _synth_ai_py.HttpClient(base_url, api_key, int(timeout))
     try:
-        if method == "GET":
-            payload = client.get_json(url, None)
-            return _RustResponse(200, payload, "")
-        if method == "DELETE":
-            client.delete(url)
-            return _RustResponse(204, {}, "")
-        if method == "POST_MULTIPART":
-            payload = client.post_multipart(url, body["data"], body["files"])
-            return _RustResponse(200, payload, "")
-        payload = client.post_json(url, body or {})
-        return _RustResponse(200, payload, "")
-    except Exception as exc:
-        message = str(exc)
-        status = 0
-        if message.startswith("HTTP "):
-            try:
-                status = int(message.split(" ", 2)[1])
-            except Exception:
-                status = 0
-        return _RustResponse(status or 500, {}, message)
+        resp = requests.post(
+            url,
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=300,
+            verify=SSLConfig.get_verify_setting(),
+        )
+        return resp
+    except Exception:
+        logging.getLogger(__name__).exception("HTTP multipart POST failed: %s", url)
+        raise
 
 
 def parse_json_response(
-    response: Any,
+    response: requests.Response,
     *,
     context: str,
     expect_dict: bool = True,

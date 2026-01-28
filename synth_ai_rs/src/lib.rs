@@ -219,6 +219,7 @@ impl Synth {
             port,
             Some(self.api_key.clone()),
             Some(self.base_url.clone()),
+            None,
             false,
             true,
             false,
@@ -624,12 +625,16 @@ impl EvalBuilder {
             .map_err(Error::Core)?;
 
         let request = EvalJobRequest {
+            app_id: None,
             task_app_url,
             task_app_api_key: None,
             env_name: "default".to_string(),
+            env_config: None,
+            verifier_config: None,
             seeds: self.seeds,
             policy: synth_ai_core::api::PolicyConfig::default(),
             max_concurrent: None,
+            timeout: None,
         };
 
         let job_id = client

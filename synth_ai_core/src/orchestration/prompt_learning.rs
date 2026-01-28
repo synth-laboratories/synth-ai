@@ -482,10 +482,6 @@ impl PromptLearningJob {
     ///
     /// This fetches events to extract the best prompts.
     pub async fn get_results(&self) -> Result<PromptResults, CoreError> {
-        let job_id = self.job_id.as_ref().ok_or_else(|| {
-            CoreError::Validation("job not submitted yet".to_string())
-        })?;
-
         // Get final status for best_prompt
         let status = self.get_status().await?;
 

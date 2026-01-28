@@ -73,6 +73,7 @@ pub struct TunnelHandle {
     pub connector: Option<ConnectorStatus>,
     pub gateway: Option<GatewayStatus>,
     pub backend: TunnelBackend,
+    pub process_id: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

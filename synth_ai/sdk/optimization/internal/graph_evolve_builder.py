@@ -14,31 +14,36 @@ from .graphgen_models import (
     GraphGenJobConfig as GraphEvolveJobConfig,
 )
 from .graphgen_models import (
-    GraphGenTask as GraphEvolveTask,
-)
-from .graphgen_models import (
     GraphGenTaskSet as GraphEvolveTaskSet,
 )
-from .graphgen_models import (
-    GraphGenTaskSetMetadata as GraphEvolveTaskSetMetadata,
-)
-from .graphgen_models import (
-    load_graphgen_taskset as load_graph_evolve_taskset,
-)
-from .graphgen_models import (
-    parse_graphgen_taskset as parse_graph_evolve_taskset,
-)
+
+try:
+    import synth_ai_py  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.graph_evolve_builder.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "build_graph_evolve_config"):
+        raise RuntimeError("Rust core graph evolve builders required; synth_ai_py is unavailable.")
+    return synth_ai_py
 
 
 def parse_graph_evolve_dataset(
     dataset: str | Path | Dict[str, Any] | GraphEvolveTaskSet,
 ) -> GraphEvolveTaskSet:
+    rust = _require_rust()
     if isinstance(dataset, (str, Path)):
-        return load_graph_evolve_taskset(dataset)
+        parsed = rust.load_graph_evolve_dataset(str(dataset))
+        return GraphEvolveTaskSet.model_validate(parsed)
     if isinstance(dataset, dict):
-        return parse_graph_evolve_taskset(dataset)
+        parsed = rust.parse_graph_evolve_dataset(dataset)
+        return GraphEvolveTaskSet.model_validate(parsed)
     if isinstance(dataset, GraphEvolveTaskSet):
-        return dataset
+        parsed = rust.parse_graph_evolve_dataset(
+            dataset.model_dump(mode="json", exclude_none=False)
+        )
+        return GraphEvolveTaskSet.model_validate(parsed)
     raise TypeError(
         f"dataset must be a file path, dict, or GraphEvolveTaskSet, got {type(dataset)}"
     )
@@ -62,10 +67,9 @@ def resolve_graph_evolve_credentials(
 
 
 def normalize_policy_models(policy_models: str | List[str]) -> List[str]:
+    rust = _require_rust()
     policy_models_list = [policy_models] if isinstance(policy_models, str) else list(policy_models)
-    if not policy_models_list:
-        raise ValueError("policy_models must contain at least one model")
-    return policy_models_list
+    return list(rust.normalize_graph_evolve_policy_models(policy_models_list))
 
 
 def build_graph_evolve_config(
@@ -82,33 +86,28 @@ def build_graph_evolve_config(
     graph_type: Optional[Literal["policy", "verifier", "rlm"]],
     initial_graph_id: Optional[str],
 ) -> GraphEvolveJobConfig:
-    if not initial_graph_id:
-        raise ValueError(
-            "initial_graph_id is required for Graph Evolve. De-novo graph generation is disabled."
-        )
-
-    graph_type_enum = GraphType(graph_type) if graph_type else GraphType.POLICY
-
-    return GraphEvolveJobConfig(
-        policy_models=policy_models,
-        rollout_budget=rollout_budget,
-        proposer_effort=proposer_effort,
-        verifier_model=judge_model,
-        verifier_provider=judge_provider,
-        population_size=population_size,
-        num_generations=num_generations,
-        problem_spec=problem_spec,
-        target_llm_calls=target_llm_calls,
-        graph_type=graph_type_enum,
-        initial_graph_id=initial_graph_id,
+    rust = _require_rust()
+    graph_type_value = graph_type.value if isinstance(graph_type, GraphType) else graph_type
+    config = rust.build_graph_evolve_config(
+        policy_models,
+        rollout_budget,
+        proposer_effort,
+        judge_model,
+        judge_provider,
+        population_size,
+        num_generations,
+        problem_spec,
+        target_llm_calls,
+        graph_type_value,
+        initial_graph_id,
     )
+    return GraphEvolveJobConfig.model_validate(config)
 
 
 def build_placeholder_dataset() -> GraphEvolveTaskSet:
-    return GraphEvolveTaskSet(
-        metadata=GraphEvolveTaskSetMetadata(name="(resumed job)"),
-        tasks=[GraphEvolveTask(id="placeholder", input={})],
-    )
+    rust = _require_rust()
+    payload = rust.build_graph_evolve_placeholder_dataset()
+    return GraphEvolveTaskSet.model_validate(payload)
 
 
 __all__ = [

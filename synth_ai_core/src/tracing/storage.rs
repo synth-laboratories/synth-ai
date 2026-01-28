@@ -120,10 +120,49 @@ pub trait TraceStorage: Send + Sync {
     // ========================================================================
 
     /// Execute a raw SQL query and return results as JSON values.
-    async fn query(&self, sql: &str, params: Vec<Value>) -> Result<Vec<Value>, TracingError>;
+    async fn query(&self, sql: &str, params: QueryParams) -> Result<Vec<Value>, TracingError>;
 
     /// Update session counts (num_timesteps, num_events, num_messages).
     async fn update_session_counts(&self, session_id: &str) -> Result<(), TracingError>;
+}
+
+/// Query parameters for trace storage queries.
+#[derive(Debug, Clone, Default)]
+pub enum QueryParams {
+    /// No parameters provided.
+    #[default]
+    None,
+    /// Positional parameters (e.g., ?1, ?2).
+    Positional(Vec<Value>),
+    /// Named parameters (e.g., :session_id).
+    Named(Vec<(String, Value)>),
+}
+
+impl QueryParams {
+    /// Returns true if there are no parameters.
+    pub fn is_empty(&self) -> bool {
+        matches!(self, QueryParams::None)
+    }
+}
+
+impl From<Vec<Value>> for QueryParams {
+    fn from(values: Vec<Value>) -> Self {
+        if values.is_empty() {
+            QueryParams::None
+        } else {
+            QueryParams::Positional(values)
+        }
+    }
+}
+
+impl From<Vec<(String, Value)>> for QueryParams {
+    fn from(values: Vec<(String, Value)>) -> Self {
+        if values.is_empty() {
+            QueryParams::None
+        } else {
+            QueryParams::Named(values)
+        }
+    }
 }
 
 /// Storage configuration.

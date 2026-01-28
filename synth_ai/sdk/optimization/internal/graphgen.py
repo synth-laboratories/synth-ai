@@ -17,27 +17,20 @@ from .graph_evolve_builder import (
     resolve_graph_evolve_credentials,
 )
 from .graph_evolve_payloads import build_graph_record_payload, build_inference_payload
-from .graph_evolve_service import (
-    cancel_graph_evolve_job,
-    download_graph_evolve_graph_txt,
-    download_graph_evolve_prompt,
-    get_graph_evolve_events,
-    get_graph_evolve_graph_record,
-    get_graph_evolve_metrics,
-    get_graph_evolve_status,
-    query_graph_evolve_workflow_state,
-    run_graph_evolve_inference,
-    start_graph_evolve_job,
-    submit_graph_evolve_job,
-)
 from .graphgen_models import GraphGenJobConfig as GraphEvolveJobConfig
 from .graphgen_models import GraphGenTaskSet as GraphEvolveTaskSet
 from .utils import ensure_api_base, run_sync
 
 try:
-    import synth_ai_py as _synth_ai_py
-except Exception:  # pragma: no cover - optional rust bindings
-    _synth_ai_py = None
+    import synth_ai_py  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.graphgen.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "GraphEvolveJob"):
+        raise RuntimeError("Rust core GraphEvolveJob required; synth_ai_py is unavailable.")
+    return synth_ai_py
 
 
 @dataclass
@@ -135,7 +128,7 @@ class GraphEvolveJob:
         self._graph_evolve_job_id: Optional[str] = None
         self._legacy_graphgen_job_id: Optional[str] = None
         self._submit_result: Optional[GraphEvolveSubmitResult] = None
-        self._rust_job = None
+        self._rust_job: Any | None = None
 
     @classmethod
     def from_dataset(
@@ -277,16 +270,7 @@ class GraphEvolveJob:
             job._legacy_graphgen_job_id = job_id
         else:
             job._graph_evolve_job_id = job_id
-
-        if _synth_ai_py is not None:
-            try:
-                job._rust_job = _synth_ai_py.GraphEvolveJob.from_job_id(
-                    job_id,
-                    api_key,
-                    job.backend_url,
-                )
-            except Exception:
-                job._rust_job = None
+        job._rust_job = _require_rust().GraphEvolveJob.from_job_id(job_id, api_key, backend_url)
         return job
 
     @classmethod
@@ -332,74 +316,35 @@ class GraphEvolveJob:
 
     def _build_payload(self) -> Dict[str, Any]:
         """Build the job creation payload."""
-        # Merge config num_generations into metadata if provided
-        metadata = dict(self.metadata) if self.metadata else {}
-        if self.config.num_generations is not None:
-            metadata["num_generations"] = self.config.num_generations
-        if self.config.population_size != 4:  # Only include if non-default
-            metadata["population_size"] = self.config.population_size
-        if self.config.num_parents != 2:
-            metadata["num_parents"] = self.config.num_parents
-        if self.config.evaluation_seeds is not None:
-            metadata["evaluation_seeds"] = self.config.evaluation_seeds
-
-        # Extract eval/feedback sample sizes from metadata as direct fields
-        eval_sample_size = metadata.pop("eval_sample_size", None)
-        feedback_sample_size = metadata.pop("feedback_sample_size", None)
-
-        # Build dataset dict and ensure it has an initial_prompt to satisfy legacy backend validation
-        # GraphEvolve is graph-first and doesn't really use this, so we use a placeholder or problem_spec
-        dataset_dict = self.dataset.model_dump(mode="json", exclude_none=False)
-        if "initial_prompt" not in dataset_dict:
-            dataset_dict["initial_prompt"] = (
-                self.config.problem_spec or "Optimizing prompt graph..."
+        if synth_ai_py is None or not hasattr(synth_ai_py, "build_graph_evolve_payload"):
+            raise RuntimeError(
+                "Rust core Graph Evolve payload builder required; synth_ai_py is unavailable."
             )
 
-        # Ensure verifier_config is properly included
-        if (
-            "verifier_config" not in dataset_dict or dataset_dict.get("verifier_config") is None
-        ) and self.dataset.verifier_config:
-            # Fallback: create verifier_config from dataset's verifier_config
-            dataset_dict["verifier_config"] = self.dataset.verifier_config.model_dump(mode="json")
+        dataset_dict = self.dataset.model_dump(mode="json", exclude_none=False)
+        config_dict = self.config.model_dump(mode="json", exclude_none=False)
+        return synth_ai_py.build_graph_evolve_payload(
+            dataset_dict,
+            config_dict,
+            dict(self.metadata) if self.metadata else None,
+            self.auto_start,
+        )
 
-        payload: Dict[str, Any] = {
-            "dataset": dataset_dict,
-            "initial_prompt": None,  # Top-level initial_prompt is ignored in favor of dataset.initial_prompt
-            "policy_models": self.config.policy_models,
-            "policy_provider": self.config.policy_provider,
-            "rollout_budget": self.config.rollout_budget,
-            "proposer_effort": self.config.proposer_effort,
-            "judge_model": getattr(self.config, "verifier_model", None),
-            "judge_provider": getattr(self.config, "verifier_provider", None),
-            "problem_spec": self.config.problem_spec,
-            "target_llm_calls": self.config.target_llm_calls,
-            "eval_sample_size": eval_sample_size,
-            "feedback_sample_size": feedback_sample_size,
-            "metadata": metadata,
-            "auto_start": self.auto_start,
-        }
-
-        # Add initial_graph_id if provided
-        if self.config.initial_graph_id:
-            payload["initial_graph_id"] = self.config.initial_graph_id
-
-        # Strip unset optional fields so we don't send nulls to strict backends.
-        if payload.get("eval_sample_size") is None:
-            payload.pop("eval_sample_size", None)
-        if payload.get("feedback_sample_size") is None:
-            payload.pop("feedback_sample_size", None)
-        if payload.get("policy_provider") is None:
-            payload.pop("policy_provider", None)
-        if payload.get("judge_model") is None:
-            payload.pop("judge_model", None)
-        if payload.get("judge_provider") is None:
-            payload.pop("judge_provider", None)
-        if payload.get("problem_spec") is None:
-            payload.pop("problem_spec", None)
-        if payload.get("target_llm_calls") is None:
-            payload.pop("target_llm_calls", None)
-
-        return payload
+    def _ensure_rust_job(self, payload: Optional[Dict[str, Any]] = None) -> Any:
+        rust = _require_rust()
+        if self._rust_job is not None:
+            return self._rust_job
+        if self.job_id:
+            self._rust_job = rust.GraphEvolveJob.from_job_id(
+                self.job_id, self.api_key, self.backend_url
+            )
+        elif payload is not None:
+            self._rust_job = rust.GraphEvolveJob.from_payload(
+                payload, self.api_key, self.backend_url
+            )
+        else:
+            raise RuntimeError("Rust GraphEvolveJob requires a payload or job_id.")
+        return self._rust_job
 
     def submit(self) -> GraphEvolveSubmitResult:
         """Submit the job to the backend.
@@ -425,11 +370,8 @@ class GraphEvolveJob:
         logger = logging.getLogger(__name__)
         logger.debug("Submitting Graph Evolve job to: %s", self.backend_url)
 
-        js = submit_graph_evolve_job(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            payload=payload,
-        )
+        rust_job = self._ensure_rust_job(payload=payload)
+        js = rust_job.submit()
 
         self._graph_evolve_job_id = js.get("graph_evolve_job_id")
         self._legacy_graphgen_job_id = js.get("graphgen_job_id")
@@ -465,16 +407,6 @@ class GraphEvolveJob:
             legacy_graphgen_job_id=self._legacy_graphgen_job_id,
         )
 
-        if _synth_ai_py is not None and self.job_id:
-            try:
-                self._rust_job = _synth_ai_py.GraphEvolveJob.from_job_id(
-                    self.job_id,
-                    self.api_key,
-                    self.backend_url,
-                )
-            except Exception:
-                self._rust_job = None
-
         return self._submit_result
 
     def get_status(self) -> Dict[str, Any]:
@@ -489,14 +421,8 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        if self._rust_job is not None:
-            data = self._rust_job.get_status()
-        else:
-            data = get_graph_evolve_status(
-                backend_url=self.backend_url,
-                api_key=self.api_key,
-                job_id=self.job_id,
-            )
+        rust_job = self._ensure_rust_job()
+        data = rust_job.get_status()
         gepa_id = data.get("graph_evolve_job_id")
         if gepa_id:
             self._graph_evolve_job_id = gepa_id
@@ -510,14 +436,8 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        if self._rust_job is not None:
-            data = self._rust_job.start()
-        else:
-            data = start_graph_evolve_job(
-                backend_url=self.backend_url,
-                api_key=self.api_key,
-                job_id=self.job_id,
-            )
+        rust_job = self._ensure_rust_job()
+        data = rust_job.start()
         if self._submit_result and "status" in data:
             self._submit_result.status = data.get("status", self._submit_result.status)
         return data
@@ -530,16 +450,8 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        if self._rust_job is not None:
-            return self._rust_job.get_events(since_seq, limit)
-
-        return get_graph_evolve_events(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            job_id=self.job_id,
-            since_seq=since_seq,
-            limit=limit,
-        )
+        rust_job = self._ensure_rust_job()
+        return rust_job.get_events(since_seq, limit)
 
     def get_metrics(
         self,
@@ -567,15 +479,8 @@ class GraphEvolveJob:
             params["run_id"] = run_id
 
         qs = urlencode(params)
-        if self._rust_job is not None:
-            return self._rust_job.get_metrics(qs)
-
-        return get_graph_evolve_metrics(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            job_id=self.job_id,
-            query_string=qs,
-        )
+        rust_job = self._ensure_rust_job()
+        return rust_job.get_metrics(qs)
 
     async def stream_until_complete_async(
         self,
@@ -645,14 +550,8 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        if self._rust_job is not None:
-            data = self._rust_job.download_prompt()
-        else:
-            data = download_graph_evolve_prompt(
-                backend_url=self.backend_url,
-                api_key=self.api_key,
-                job_id=self.job_id,
-            )
+        rust_job = self._ensure_rust_job()
+        data = rust_job.download_prompt()
         return data.get("prompt", "")
 
     def download_graph_txt(self) -> str:
@@ -666,14 +565,8 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        if self._rust_job is not None:
-            return self._rust_job.download_graph_txt()
-
-        return download_graph_evolve_graph_txt(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            job_id=self.job_id,
-        )
+        rust_job = self._ensure_rust_job()
+        return rust_job.download_graph_txt()
 
     def run_inference(
         self,
@@ -710,14 +603,8 @@ class GraphEvolveJob:
             graph_snapshot_id=graph_snapshot_id,
         )
 
-        if self._rust_job is not None:
-            return self._rust_job.run_inference(payload)
-
-        return run_graph_evolve_inference(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            payload=payload,
-        )
+        rust_job = self._ensure_rust_job()
+        return rust_job.run_inference(payload)
 
     def run_inference_output(
         self,
@@ -774,14 +661,8 @@ class GraphEvolveJob:
             graph_snapshot_id=graph_snapshot_id,
         )
 
-        if self._rust_job is not None:
-            return self._rust_job.get_graph_record(payload)
-
-        return get_graph_evolve_graph_record(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            payload=payload,
-        )
+        rust_job = self._ensure_rust_job()
+        return rust_job.get_graph_record(payload)
 
     def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Cancel a running GraphEvolve job.
@@ -816,15 +697,8 @@ class GraphEvolveJob:
         payload: Dict[str, Any] = {}
         if reason:
             payload["reason"] = reason
-        if self._rust_job is not None:
-            return self._rust_job.cancel(reason)
-
-        return cancel_graph_evolve_job(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            job_id=self.job_id,
-            payload=payload,
-        )
+        rust_job = self._ensure_rust_job()
+        return rust_job.cancel(payload)
 
     def query_workflow_state(self) -> Dict[str, Any]:
         """Query the Temporal workflow state for instant polling.
@@ -860,14 +734,8 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        if self._rust_job is not None:
-            return self._rust_job.query_workflow_state()
-
-        return query_graph_evolve_workflow_state(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            job_id=self.job_id,
-        )
+        rust_job = self._ensure_rust_job()
+        return rust_job.query_workflow_state()
 
 
 # Legacy aliases (GraphGen naming)

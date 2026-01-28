@@ -6,7 +6,14 @@ import json
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError(
+        "synth_ai_py is required for optimization.graph_optimization_converters."
+    ) from exc
 
 # Known field prefix patterns for template detection (order matters - check longer patterns first)
 KNOWN_PREFIXES: list[tuple[str, str]] = [
@@ -251,85 +258,32 @@ def convert_openai_sft(
     max_examples: int | None = None,
 ) -> ConversionResult:
     """Convert OpenAI SFT format to Graph Opt dataset."""
-    all_warnings: list[ConversionWarning] = []
+    if synth_ai_py is None or not hasattr(synth_ai_py, "convert_openai_sft"):
+        raise ConversionError("Rust core converter required; synth_ai_py unavailable.")
 
-    if isinstance(source, (str, Path)):
-        examples, warnings = validate_sft_file(source)
-    else:
-        examples, warnings = validate_sft_examples(source)
-    all_warnings.extend(warnings)
+    payload = source
+    if isinstance(source, Path):
+        payload = str(source)
 
-    if max_examples is not None and len(examples) > max_examples:
-        examples = examples[:max_examples]
+    try:
+        result = synth_ai_py.convert_openai_sft(
+            payload, dataset_name, detect_template, max_examples
+        )
+    except Exception as exc:
+        raise ConversionError(str(exc)) from exc
+    warnings = [
+        ConversionWarning(w.get("message", ""), w.get("example_idx"))
+        for w in result.get("warnings", [])
+        if isinstance(w, dict)
+    ]
 
-    system_prompt = detect_system_prompt(examples)
-    unique_system_prompts = len(
-        {parse_sft_example(ex)[0] for ex in examples if parse_sft_example(ex)[0]}
+    return ConversionResult(
+        dataset=cast(dict[str, Any], result.get("dataset", {})),
+        warnings=warnings,
+        stats=cast(dict[str, Any], result.get("stats", {})),
     )
 
-    parsed = [parse_sft_example(ex) for ex in examples]
-    user_messages = [p[1] for p in parsed if p[1]]
-    assistant_messages = [p[2] for p in parsed]
-
-    template: str | None = None
-    field_names = ["user_message"]
-    if detect_template and user_messages:
-        template, field_names = infer_template(user_messages)
-
-    tasks: list[dict[str, Any]] = []
-    gold_outputs: list[dict[str, Any]] = []
-
-    for i, (parsed_ex, assistant) in enumerate(zip(parsed, assistant_messages, strict=False)):
-        _, user, _ = parsed_ex
-        if not user or not assistant:
-            continue
-
-        task_id = f"sft_{i:04d}"
-
-        if template and field_names != ["user_message"]:
-            input_dict = extract_fields(user, field_names)
-        else:
-            input_dict = {"user_message": user}
-
-        tasks.append({"task_id": task_id, "input": input_dict})
-        gold_outputs.append({"task_id": task_id, "output": {"response": assistant}, "score": 1.0})
-
-    metadata: dict[str, Any] = {
-        "name": dataset_name,
-        "task_description": system_prompt or "Complete the assistant response",
-        "source_format": "openai_sft",
-    }
-
-    if template:
-        metadata["detected_template"] = template
-        metadata["input_schema"] = {
-            "type": "object",
-            "properties": {f: {"type": "string"} for f in field_names},
-        }
-
-    stats = {
-        "total_examples": len(examples),
-        "skipped_examples": len(all_warnings),
-        "output_examples": len(tasks),
-        "template_detected": template is not None,
-        "detected_fields": field_names,
-        "unique_system_prompts": unique_system_prompts,
-    }
-
-    if unique_system_prompts > 1:
-        all_warnings.append(
-            ConversionWarning(
-                f"Found {unique_system_prompts} different system prompts; using most common"
-            )
-        )
-
-    dataset = {
-        "tasks": tasks,
-        "gold_outputs": gold_outputs,
-        "metadata": metadata,
-    }
-
-    return ConversionResult(dataset=dataset, warnings=all_warnings, stats=stats)
+    # Rust core handles conversion; no Python fallback.
 
 
 def preview_conversion(
@@ -337,15 +291,26 @@ def preview_conversion(
     num_examples: int = 3,
 ) -> dict[str, Any]:
     """Preview what conversion would produce without full processing."""
-    result = convert_openai_sft(source, max_examples=num_examples)
+    if synth_ai_py is None or not hasattr(synth_ai_py, "convert_openai_sft"):
+        raise ConversionError("Rust core converter required; synth_ai_py unavailable.")
+
+    payload = source
+    if isinstance(source, Path):
+        payload = str(source)
+    try:
+        result = synth_ai_py.convert_openai_sft(payload, "converted_sft", True, num_examples)
+    except Exception as exc:
+        raise ConversionError(str(exc)) from exc
 
     return {
-        "sample_tasks": result.dataset["tasks"],
-        "sample_gold_outputs": result.dataset["gold_outputs"],
-        "metadata": result.dataset["metadata"],
-        "stats": result.stats,
-        "warnings": [w.message for w in result.warnings],
+        "sample_tasks": result.get("dataset", {}).get("tasks", []),
+        "sample_gold_outputs": result.get("dataset", {}).get("gold_outputs", []),
+        "metadata": result.get("dataset", {}).get("metadata", {}),
+        "stats": result.get("stats", {}),
+        "warnings": [w.get("message") for w in result.get("warnings", []) if isinstance(w, dict)],
     }
+
+    # Rust core handles conversion; no Python fallback.
 
 
 __all__ = [

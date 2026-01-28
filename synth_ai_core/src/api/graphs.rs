@@ -3,24 +3,18 @@
 //! This module provides methods for graph completions and verifier inference.
 
 use serde_json::{json, Value};
-use std::time::Duration;
+use serde_json::Map;
 
 use crate::http::HttpError;
-use crate::sse::stream_sse_request;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::Method;
 use crate::CoreError;
 
 use super::client::SynthClient;
 use super::types::{
-    GraphCompletionRequest, GraphCompletionResponse, ListGraphsResponse, RlmOptions,
-    VerifierOptions, VerifierResponse,
+    GraphCompletionRequest, GraphCompletionResponse, RlmOptions, VerifierOptions, VerifierResponse,
 };
 
 /// API endpoint for graph completions.
 const GRAPHS_ENDPOINT: &str = "/api/graphs/completions";
-/// API endpoint for listing registered graphs.
-const GRAPH_LIST_ENDPOINT: &str = "/api/graph-evolve/graphs";
 
 /// Default verifier graph ID.
 pub const DEFAULT_VERIFIER: &str = "zero_shot_verifier_rubric_single";
@@ -78,71 +72,32 @@ impl<'a> GraphsClient<'a> {
             .map_err(map_http_error)
     }
 
-    /// List registered graphs for the organization.
-    pub async fn list_graphs(
-        &self,
-        kind: Option<&str>,
-        limit: Option<i32>,
-    ) -> Result<ListGraphsResponse, CoreError> {
-        let mut path = GRAPH_LIST_ENDPOINT.to_string();
-        let mut params: Vec<String> = Vec::new();
+    /// List graphs registered to the org.
+    pub async fn list_graphs(&self, kind: Option<&str>, limit: Option<i32>) -> Result<Value, CoreError> {
+        let mut params = Vec::new();
+        let limit_str;
+        if let Some(limit_val) = limit {
+            limit_str = limit_val.to_string();
+            params.push(("limit", limit_str.as_str()));
+        }
 
-        if let Some(kind) = kind {
-            params.push(format!("kind={}", kind));
+        let kind_val;
+        if let Some(kind_val_raw) = kind {
+            kind_val = kind_val_raw.to_string();
+            params.push(("kind", kind_val.as_str()));
         }
-        if let Some(limit) = limit {
-            params.push(format!("limit={}", limit));
-        }
-        if !params.is_empty() {
-            path.push('?');
-            path.push_str(&params.join("&"));
-        }
+
+        let params_ref: Option<&[(&str, &str)]> = if params.is_empty() {
+            None
+        } else {
+            Some(&params)
+        };
 
         self.client
             .http
-            .get::<ListGraphsResponse>(&path, None)
+            .get_json("/graph-evolve/graphs", params_ref)
             .await
             .map_err(map_http_error)
-    }
-
-    /// Stream a graph completion via SSE.
-    pub async fn stream_completion(
-        &self,
-        mut request: GraphCompletionRequest,
-        timeout: Option<Duration>,
-    ) -> Result<crate::sse::SseStream, CoreError> {
-        request.stream = Some(true);
-        let body = serde_json::to_value(&request)
-            .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
-
-        let base = self.client.base_url.trim_end_matches('/');
-        let api_base = if base.ends_with("/api") {
-            base.to_string()
-        } else {
-            format!("{}/api", base)
-        };
-        let url = format!("{}/graphs/completions?stream=true", api_base);
-        let api_key = self.client.http.api_key().to_string();
-        
-        let mut header_map = HeaderMap::new();
-        header_map.insert(
-            HeaderName::from_static("authorization"),
-            HeaderValue::try_from(format!("Bearer {}", api_key)).unwrap(),
-        );
-        header_map.insert(
-            HeaderName::from_static("x-api-key"),
-            HeaderValue::try_from(api_key).unwrap(),
-        );
-        header_map.insert(
-            HeaderName::from_static("content-type"),
-            HeaderValue::from_static("application/json"),
-        );
-        header_map.insert(
-            HeaderName::from_static("accept"),
-            HeaderValue::from_static("text/event-stream"),
-        );
-
-        stream_sse_request(url, Method::POST, header_map, Some(body), timeout).await
     }
 
     /// Execute a raw graph completion from a JSON value.
@@ -328,6 +283,168 @@ impl<'a> GraphsClient<'a> {
 
         Ok(response.output)
     }
+}
+
+/// Build a verifier graph completion request from SDK inputs.
+///
+/// This matches the Python SDK behavior for `verify_with_rubric`:
+/// - Uses trace_ref if provided, otherwise trace_content
+/// - Defaults to RLM for trace_ref, otherwise chooses by estimated size
+/// - Supports optional system/user prompts and options payload
+pub fn build_verifier_request(
+    trace_content: Option<Value>,
+    trace_ref: Option<String>,
+    rubric: Value,
+    system_prompt: Option<String>,
+    user_prompt: Option<String>,
+    options: Option<Value>,
+    model: Option<String>,
+    verifier_shape: Option<String>,
+    rlm_impl: Option<String>,
+) -> Result<GraphCompletionRequest, CoreError> {
+    let has_ref = trace_ref.as_ref().map(|s| !s.is_empty()).unwrap_or(false);
+    let has_content = trace_content.is_some();
+
+    if !has_ref && !has_content {
+        return Err(CoreError::Validation(
+            "trace_content or trace_ref is required".to_string(),
+        ));
+    }
+
+    let shape = match verifier_shape.as_deref() {
+        Some("single") => "single",
+        Some("rlm") => "rlm",
+        Some(other) => {
+            return Err(CoreError::Validation(format!(
+                "unsupported verifier_shape: {}",
+                other
+            )))
+        }
+        None => {
+            if has_ref {
+                "rlm"
+            } else {
+                let tokens = estimate_trace_tokens(trace_content.as_ref().unwrap())?;
+                if tokens < 50_000 { "single" } else { "rlm" }
+            }
+        }
+    };
+
+    let verifier_id = if shape == "single" {
+        if rlm_impl
+            .as_deref()
+            .map(|value| !value.is_empty())
+            .unwrap_or(false)
+        {
+            return Err(CoreError::Validation(
+                "rlm_impl is only valid when verifier_shape is 'rlm'".to_string(),
+            ));
+        }
+        DEFAULT_VERIFIER
+    } else if matches!(rlm_impl.as_deref(), Some("v2")) {
+        RLM_VERIFIER_V2
+    } else {
+        RLM_VERIFIER_V1
+    };
+
+    let mut input = Map::new();
+    input.insert("rubric".to_string(), rubric);
+    input.insert(
+        "options".to_string(),
+        options.unwrap_or_else(|| Value::Object(Map::new())),
+    );
+
+    if let Some(trace_ref) = trace_ref {
+        if !trace_ref.is_empty() {
+            input.insert("trace_ref".to_string(), Value::String(trace_ref));
+        }
+    }
+
+    if !input.contains_key("trace_ref") {
+        if let Some(trace_content) = trace_content {
+            input.insert("trace_content".to_string(), trace_content);
+        }
+    }
+
+    if let Some(system_prompt) = system_prompt {
+        input.insert("system_prompt".to_string(), Value::String(system_prompt));
+    }
+    if let Some(user_prompt) = user_prompt {
+        input.insert("user_prompt".to_string(), Value::String(user_prompt));
+    }
+
+    Ok(GraphCompletionRequest {
+        job_id: verifier_id.to_string(),
+        input: Value::Object(input),
+        model,
+        prompt_snapshot_id: None,
+        stream: Some(false),
+    })
+}
+
+fn estimate_trace_tokens(trace: &Value) -> Result<usize, CoreError> {
+    let payload = serde_json::to_string(trace)
+        .map_err(|e| CoreError::Validation(format!("failed to serialize trace: {}", e)))?;
+    Ok(payload.len() / 4)
+}
+
+/// Resolve a graph job ID from explicit job_id or graph target spec.
+///
+/// Mirrors the Python SDK logic for graph target resolution.
+pub fn resolve_graph_job_id(job_id: Option<String>, graph: Option<Value>) -> Result<String, CoreError> {
+    if let Some(job_id) = job_id {
+        if !job_id.trim().is_empty() {
+            return Ok(job_id);
+        }
+    }
+
+    let graph = graph.ok_or_else(|| {
+        CoreError::Validation("graph_completions_missing_job_id".to_string())
+    })?;
+
+    let graph_obj = graph.as_object().ok_or_else(|| {
+        CoreError::Validation("graph target must be an object".to_string())
+    })?;
+
+    if let Some(Value::String(job_id)) = graph_obj.get("job_id") {
+        if !job_id.trim().is_empty() {
+            return Ok(job_id.clone());
+        }
+    }
+
+    let kind = graph_obj.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+    if kind == "zero_shot" {
+        if let Some(shape) = graph_obj
+            .get("verifier_shape")
+            .and_then(|v| v.as_str())
+            .or_else(|| graph_obj.get("graph_name").and_then(|v| v.as_str()))
+        {
+            return Ok(shape.to_string());
+        }
+        return Err(CoreError::Validation(
+            "graph_completions_missing_verifier_shape".to_string(),
+        ));
+    }
+
+    if kind == "graphgen" {
+        if let Some(graphgen_job_id) = graph_obj
+            .get("graphgen_job_id")
+            .and_then(|v| v.as_str())
+        {
+            return Ok(graphgen_job_id.to_string());
+        }
+        return Err(CoreError::Validation(
+            "graph_completions_missing_graphgen_job_id".to_string(),
+        ));
+    }
+
+    if let Some(graph_name) = graph_obj.get("graph_name").and_then(|v| v.as_str()) {
+        return Ok(graph_name.to_string());
+    }
+
+    Err(CoreError::Validation(
+        "graph_completions_missing_graph_target".to_string(),
+    ))
 }
 
 /// Map HTTP errors to CoreError.

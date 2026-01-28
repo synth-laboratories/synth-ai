@@ -15,6 +15,7 @@ pub async fn open_tunnel(
     local_port: u16,
     api_key: Option<String>,
     backend_url: Option<String>,
+    local_api_key: Option<String>,
     verify_local: bool,
     verify_dns: bool,
     progress: bool,
@@ -30,13 +31,21 @@ pub async fn open_tunnel(
                 connector: None,
                 gateway: None,
                 backend,
+                process_id: None,
             })
         }
         TunnelBackend::CloudflareManagedLease => {
             let manager = manager::get_manager(api_key.clone(), backend_url.clone());
             let mut guard = manager.lock();
             guard
-                .open(local_port, "127.0.0.1", verify_local, verify_dns, progress)
+                .open(
+                    local_port,
+                    "127.0.0.1",
+                    verify_local,
+                    verify_dns,
+                    progress,
+                    local_api_key,
+                )
                 .await
         }
         TunnelBackend::CloudflareManaged => {
@@ -46,9 +55,9 @@ pub async fn open_tunnel(
             let token = data.tunnel_token.clone();
             let url = format!("https://{hostname}");
             let proc = cloudflared::open_managed_tunnel_with_connection_wait(&token, 30.0).await?;
-            cloudflared::track_process(proc);
+            let process_id = cloudflared::track_process(proc);
             if verify_dns {
-                cloudflared::verify_tunnel_dns_resolution(&url, "tunnel", 60.0, None).await?;
+                cloudflared::verify_tunnel_dns_resolution(&url, "tunnel", 60.0, local_api_key.clone()).await?;
             }
             Ok(TunnelHandle {
                 url,
@@ -58,6 +67,7 @@ pub async fn open_tunnel(
                 connector: None,
                 gateway: None,
                 backend,
+                process_id: Some(process_id),
             })
         }
         TunnelBackend::CloudflareQuick => {
@@ -65,10 +75,10 @@ pub async fn open_tunnel(
                 local_port,
                 10.0,
                 verify_dns,
-                None,
+                local_api_key.clone(),
             )
             .await?;
-            cloudflared::track_process(proc);
+            let process_id = cloudflared::track_process(proc);
             let hostname = url
                 .trim_start_matches("https://")
                 .trim_start_matches("http://")
@@ -82,6 +92,7 @@ pub async fn open_tunnel(
                 connector: None,
                 gateway: None,
                 backend,
+                process_id: Some(process_id),
             })
         }
     }

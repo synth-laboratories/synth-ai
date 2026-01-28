@@ -12,7 +12,6 @@ from typing import Any, AsyncIterator, Iterable, Sequence
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient, sleep
 from synth_ai.core.rust_core.sse import stream_sse_events
-from synth_ai.core.rust_core.urls import ensure_api_base
 
 from .config import StreamConfig
 from .handlers import StreamHandler
@@ -72,27 +71,21 @@ def check_terminal_event_typed(event_data: dict[str, Any]) -> tuple[bool, str | 
         - is_terminal: True if this is a terminal event
         - status: "succeeded", "failed", or None if not terminal
     """
-    from synth_ai.sdk.shared.orchestration.events import (
-        is_failure_event,
-        is_success_event,
-        is_terminal_event,
-        parse_event,
-    )
+    try:
+        import synth_ai_py
+    except Exception as exc:
+        raise RuntimeError("synth_ai_py is required for streaming event parsing.") from exc
 
-    event = parse_event(event_data)
-    if event is None:
-        return False, None
-
-    if not is_terminal_event(event):
-        return False, None
-
-    if is_success_event(event):
+    parsed = synth_ai_py.parse_orchestration_event(event_data)
+    category = (parsed or {}).get("category")
+    if category in {"complete", "termination"}:
+        event_type = str(event_data.get("type") or "").lower()
+        if "fail" in event_type:
+            return True, "failed"
+        if "cancel" in event_type:
+            return True, "cancelled"
         return True, "succeeded"
-    elif is_failure_event(event):
-        return True, "failed"
-    else:
-        # Cancelled
-        return True, "cancelled"
+    return False, None
 
 
 @dataclass(slots=True)
@@ -168,9 +161,9 @@ class StreamEndpoints:
     def graph_evolve(cls, job_id: str) -> StreamEndpoints:
         """Endpoints for Graph Evolve workflow optimization jobs.
 
-        Prefer /api/graph-evolve/jobs/{job_id} with legacy /api/graphgen fallbacks.
+        Prefer /api/graph_evolve/jobs/{job_id} with legacy /api/graphgen fallbacks.
         """
-        base = f"/graph-evolve/jobs/{job_id}"
+        base = f"/graph_evolve/jobs/{job_id}"
         return cls(
             status=base,
             events=f"{base}/events",
@@ -420,8 +413,7 @@ class JobStreamer:
         3. Periodically check job status and exit if terminal
         4. Send sse.stream.ended event and [DONE] signal when finished
         """
-        base = ensure_api_base(self.base_url).rstrip("/")
-        url = f"{base}/{sse_url.lstrip('/')}"
+        url = f"{self.base_url.rstrip('/')}/{sse_url.lstrip('/')}"
 
         # Get last sequence number for reconnection support
         last_seq = self._last_seq_by_stream.get(sse_url, 0)
@@ -429,8 +421,7 @@ class JobStreamer:
         headers = {
             "Accept": "text/event-stream",
             "Cache-Control": "no-cache",
-            "Authorization": f"Bearer {self.api_key}",
-            "X-API-Key": self.api_key,
+            "authorization": f"Bearer {self.api_key}",
         }
 
         # Include Last-Event-ID header for reconnection

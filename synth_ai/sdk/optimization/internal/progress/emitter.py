@@ -12,6 +12,10 @@ from .dataclasses import (
     FrontierUpdate,
     GenerationSummary,
     GEPAProgress,
+    RolloutSample,
+    SeedInfo,
+    StageInfo,
+    TokenUsage,
 )
 from .events import (
     BaselineEvent,
@@ -26,6 +30,17 @@ from .events import (
     TerminationEvent,
     UsageEvent,
 )
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for optimization.progress.emitter.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "ProgressTracker"):
+        raise RuntimeError("Rust core progress tracker required; synth_ai_py is unavailable.")
+    return synth_ai_py
 
 
 def _looks_like_validation(parsed: ParsedEvent) -> bool:
@@ -60,33 +75,87 @@ class GEPAProgressEmitter:
 
     _start_time: float = field(default_factory=time.time)
     _candidate_ids: set[str] = field(default_factory=set)
+    _rust_tracker: Any | None = field(default=None, init=False, repr=False)
 
     def update(self, event: dict[str, Any]) -> ParsedEvent:
         """Update state from a raw SSE event and return the parsed event."""
         self.raw_events.append(event)
+        rust = _require_rust()
         parsed = EventParser.parse(event)
-        self.progress.elapsed_seconds = time.time() - self._start_time
 
-        if isinstance(parsed, BaselineEvent):
-            self._apply_baseline(parsed)
-        elif isinstance(parsed, CandidateEvent):
-            self._apply_candidate(parsed)
-        elif isinstance(parsed, FrontierEvent):
-            self._apply_frontier(parsed)
-        elif isinstance(parsed, ProgressEvent):
-            self._apply_progress(parsed)
-        elif isinstance(parsed, GenerationEvent):
-            self._apply_generation(parsed)
-        elif isinstance(parsed, CompleteEvent):
-            self._apply_complete(parsed)
-        elif isinstance(parsed, TerminationEvent):
-            self._apply_termination(parsed)
-        elif isinstance(parsed, UsageEvent):
+        if self._rust_tracker is None:
+            self._rust_tracker = rust.ProgressTracker()
+
+        state = self._rust_tracker.update(event)
+        if isinstance(state, dict):
+            self._apply_rust_state(state)
+
+        if isinstance(parsed, UsageEvent):
             self._apply_usage(parsed)
-        elif _looks_like_validation(parsed):
-            self._apply_validation(parsed)
 
         return parsed
+
+    def _apply_rust_state(self, state: dict[str, Any]) -> None:
+        progress = state.get("progress") if isinstance(state.get("progress"), dict) else {}
+        self.progress = GEPAProgress(**progress)
+
+        baseline = state.get("baseline") if isinstance(state.get("baseline"), dict) else None
+        if baseline:
+            rollout = baseline.get("rollout_sample")
+            if isinstance(rollout, list):
+                baseline["rollout_sample"] = [
+                    RolloutSample.from_dict(item) for item in rollout if isinstance(item, dict)
+                ]
+            self.baseline = BaselineInfo(**baseline)
+        else:
+            self.baseline = None
+
+        candidates = state.get("candidates") if isinstance(state.get("candidates"), list) else []
+        parsed_candidates: list[CandidateInfo] = []
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+            stages = candidate.get("stages")
+            if isinstance(stages, dict):
+                stage_map: dict[str, StageInfo] = {}
+                for stage_id, stage in stages.items():
+                    if isinstance(stage, dict):
+                        stage_map[str(stage_id)] = StageInfo.from_dict(stage)
+                candidate["stages"] = stage_map
+            seed_info = candidate.get("seed_info")
+            if isinstance(seed_info, list):
+                candidate["seed_info"] = [
+                    SeedInfo.from_dict(item) for item in seed_info if isinstance(item, dict)
+                ]
+            rollout = candidate.get("rollout_sample")
+            if isinstance(rollout, list):
+                candidate["rollout_sample"] = [
+                    RolloutSample.from_dict(item) for item in rollout if isinstance(item, dict)
+                ]
+            token_usage = candidate.get("token_usage")
+            if isinstance(token_usage, dict):
+                candidate["token_usage"] = TokenUsage.from_dict(token_usage)
+            parsed = CandidateInfo(**candidate)
+            if self._rust_tracker is not None:
+                parsed.raw_data = {}
+            parsed_candidates.append(parsed)
+        self.candidates = parsed_candidates
+
+        frontier_updates = (
+            state.get("frontier_history") if isinstance(state.get("frontier_history"), list) else []
+        )
+        self.pareto_history = [
+            FrontierUpdate(**update) for update in frontier_updates if isinstance(update, dict)
+        ]
+
+        generations = (
+            state.get("generation_history")
+            if isinstance(state.get("generation_history"), list)
+            else []
+        )
+        self.generation_history = [
+            GenerationSummary(**gen) for gen in generations if isinstance(gen, dict)
+        ]
 
     def _apply_baseline(self, event: BaselineEvent) -> None:
         self.baseline = BaselineInfo(

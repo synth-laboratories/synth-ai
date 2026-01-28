@@ -122,6 +122,54 @@ from synth_ai.data.traces import (
     TimeRecord,
 )
 
+try:  # Require Rust-backed data models
+    import synth_ai_py as _rust_data  # type: ignore
+except Exception as exc:  # pragma: no cover - rust bindings required
+    raise RuntimeError("synth_ai_py is required for synth_ai.data.") from exc
+
+_RUST_EXPORTS = [
+    "CriterionExample",
+    "Criterion",
+    "Rubric",
+    "CriterionScoreData",
+    "RubricAssignment",
+    "Judgement",
+    "ObjectiveSpec",
+    "RewardObservation",
+    "OutcomeObjectiveAssignment",
+    "EventObjectiveAssignment",
+    "InstanceObjectiveAssignment",
+    "OutcomeRewardRecord",
+    "EventRewardRecord",
+    "RewardAggregates",
+    "CalibrationExample",
+    "GoldExample",
+    "Artifact",
+    "ContextOverride",
+    "ContextOverrideStatus",
+    "SessionTrace",
+    "SessionTimeStep",
+    "TracingEvent",
+    "RuntimeEvent",
+    "EnvironmentEvent",
+    "LMCAISEvent",
+    "SessionEventMarkovBlanketMessage",
+    "SessionMessageContent",
+    "TimeRecord",
+    "LLMUsage",
+    "LLMRequestParams",
+    "LLMContentPart",
+    "LLMMessage",
+    "ToolCallSpec",
+    "ToolCallResult",
+    "LLMChunk",
+    "LLMCallRecord",
+]
+
+for _name in _RUST_EXPORTS:
+    if hasattr(_rust_data, _name):
+        globals()[_name if _name != "TracingEvent" else "BaseEvent"] = getattr(_rust_data, _name)
+
 __all__ = [
     # Enums
     "JobType",
@@ -189,6 +237,7 @@ __all__ = [
     "LLMChunk",
     "LLMCallRecord",
     # Rubrics
+    "CriterionExample",
     "Criterion",
     "Rubric",
     "CriterionExample",

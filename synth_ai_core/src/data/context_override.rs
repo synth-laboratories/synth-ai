@@ -176,7 +176,8 @@ pub struct ContextOverrideStatus {
     #[serde(default)]
     pub override_id: Option<String>,
     /// Application status.
-    pub status: ApplicationStatus,
+    #[serde(rename = "overall_status", alias = "status")]
+    pub overall_status: ApplicationStatus,
     /// Error type if failed.
     #[serde(default)]
     pub error_type: Option<ApplicationErrorType>,
@@ -205,7 +206,7 @@ impl ContextOverrideStatus {
     pub fn success(override_id: Option<String>) -> Self {
         Self {
             override_id,
-            status: ApplicationStatus::Applied,
+            overall_status: ApplicationStatus::Applied,
             error_type: None,
             error_message: None,
             files_applied: Vec::new(),
@@ -220,7 +221,7 @@ impl ContextOverrideStatus {
     pub fn failure(override_id: Option<String>, error_type: ApplicationErrorType, message: impl Into<String>) -> Self {
         Self {
             override_id,
-            status: ApplicationStatus::Failed,
+            overall_status: ApplicationStatus::Failed,
             error_type: Some(error_type),
             error_message: Some(message.into()),
             files_applied: Vec::new(),
@@ -313,7 +314,7 @@ mod tests {
             .with_files_applied(vec!["file1.txt".to_string()])
             .with_duration(100);
 
-        assert!(status.status.is_success());
+        assert!(status.overall_status.is_success());
         assert_eq!(status.duration_ms, Some(100));
     }
 
@@ -325,7 +326,7 @@ mod tests {
             "Access denied",
         );
 
-        assert!(!status.status.is_success());
+        assert!(!status.overall_status.is_success());
         assert_eq!(status.error_type, Some(ApplicationErrorType::Permission));
     }
 
