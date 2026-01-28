@@ -269,7 +269,7 @@ def run_rollout(
     inference_url: str,
     model: str,
     rollout_id: str,
-) -> tuple[float, str | None]:
+) -> float:
     """Execute a single rollout for online MIPRO."""
     payload = {
         "trace_correlation_id": rollout_id,
@@ -297,14 +297,7 @@ def run_rollout(
     if reward is None:
         reward = (reward_info.get("outcome_objectives") or {}).get("reward", 0.0)
 
-    # Extract candidate_id
-    metadata = body.get("metadata", {}) if isinstance(body, dict) else {}
-    candidate_id = metadata.get("mipro_candidate_id")
-    if not candidate_id:
-        candidate_id = response.headers.get("x-mipro-candidate-id", "")
-    candidate_id = str(candidate_id) if candidate_id else None
-
-    return float(reward or 0.0), candidate_id
+    return float(reward or 0.0)
 
 
 def push_status(
@@ -314,8 +307,7 @@ def push_status(
     system_id: str,
     rollout_id: str,
     reward: float,
-    candidate_id: str | None,
-) -> None:
+) -> str:
     """Report rollout results to the backend for online MIPRO."""
     headers = {"Authorization": f"Bearer {api_key}"}
     
@@ -325,8 +317,6 @@ def push_status(
         "status": "reward",
         "reward": reward,
     }
-    if candidate_id:
-        reward_payload["candidate_id"] = candidate_id
     response = httpx.post(
         f"{backend_url}/api/prompt-learning/online/mipro/systems/{system_id}/status",
         json=reward_payload,
@@ -334,11 +324,16 @@ def push_status(
         timeout=30.0,
     )
     response.raise_for_status()
+    reward_response = response.json() if response.content else {}
+    candidate_id = reward_response.get("candidate_id")
+    if not candidate_id:
+        raise RuntimeError(
+            "Missing candidate_id in backend status response. "
+            "Backend must return candidate_id for MIPRO rollouts."
+        )
 
     # Send done status
     done_payload = {"rollout_id": rollout_id, "status": "done"}
-    if candidate_id:
-        done_payload["candidate_id"] = candidate_id
     response = httpx.post(
         f"{backend_url}/api/prompt-learning/online/mipro/systems/{system_id}/status",
         json=done_payload,
@@ -346,6 +341,7 @@ def push_status(
         timeout=30.0,
     )
     response.raise_for_status()
+    return str(candidate_id)
 
 
 def new_rollout_id(seed: int) -> str:
@@ -469,7 +465,7 @@ def main() -> None:
         inference_url = f"{proxy_url}/{rollout_id}/chat/completions"
         
         try:
-            reward, candidate_id = run_rollout(
+            reward = run_rollout(
                 task_app_url=task_app_url,
                 env_key=env_key,
                 seed=seed,
@@ -478,13 +474,6 @@ def main() -> None:
                 rollout_id=rollout_id,
             )
             
-            # Track candidate statistics
-            if candidate_id:
-                if candidate_id not in candidate_stats:
-                    candidate_stats[candidate_id] = {"count": 0, "total_reward": 0.0}
-                candidate_stats[candidate_id]["count"] += 1
-                candidate_stats[candidate_id]["total_reward"] += reward
-            
             if reward > 0:
                 correct_count += 1
             
@@ -492,23 +481,32 @@ def main() -> None:
                 "rollout_id": rollout_id,
                 "seed": seed,
                 "reward": reward,
-                "candidate_id": candidate_id,
             })
             
             # Push status to backend
-            push_status(
+            candidate_id = push_status(
                 backend_url=backend_url,
                 api_key=api_key,
                 system_id=system_id,
                 rollout_id=rollout_id,
                 reward=reward,
-                candidate_id=candidate_id,
             )
+            
+            # Track candidate statistics from backend
+            if candidate_id:
+                if candidate_id not in candidate_stats:
+                    candidate_stats[candidate_id] = {"count": 0, "total_reward": 0.0}
+                candidate_stats[candidate_id]["count"] += 1
+                candidate_stats[candidate_id]["total_reward"] += reward
             
             # Progress update every 10 rollouts
             if (i + 1) % 10 == 0:
                 running_acc = correct_count / (i + 1)
-                print(f"  Progress: {i+1}/{args.rollouts} | Running accuracy: {running_acc:.1%} | Candidate: {candidate_id or 'baseline'}")
+                print(
+                    f"  Progress: {i+1}/{args.rollouts} | "
+                    f"Running accuracy: {running_acc:.1%} | "
+                    f"Candidate: {candidate_id}"
+                )
                 
         except Exception as e:
             print(f"  Error on rollout {i}: {e}")
