@@ -535,7 +535,7 @@ class EvalJob:
         if _synth_ai_py is None:
             raise RuntimeError("synth_ai_py is not available for eval status")
         try:
-            client = _synth_ai_py.HttpClientPy(self._base_url(), self.config.api_key, 30)
+            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 30)
             return client.get_json(url, None)
         except Exception as exc:
             raise RuntimeError(f"Failed to get status: {exc}") from exc
@@ -960,7 +960,7 @@ class EvalJob:
         if _synth_ai_py is None:
             raise RuntimeError("synth_ai_py is not available for eval results")
         try:
-            client = _synth_ai_py.HttpClientPy(self._base_url(), self.config.api_key, 30)
+            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 30)
             return client.get_json(url, None)
         except Exception as exc:
             raise RuntimeError(f"Failed to get results: {exc}") from exc
@@ -997,7 +997,7 @@ class EvalJob:
         if _synth_ai_py is None:
             raise RuntimeError("synth_ai_py is not available for trace download")
         try:
-            client = _synth_ai_py.HttpClientPy(self._base_url(), self.config.api_key, 60)
+            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 60)
             content = client.get_bytes(url, None)
         except Exception as exc:
             raise RuntimeError(f"Failed to download traces: {exc}") from exc
@@ -1046,7 +1046,7 @@ class EvalJob:
         if _synth_ai_py is None:
             raise RuntimeError("synth_ai_py is not available for eval cancel")
         try:
-            client = _synth_ai_py.HttpClientPy(self._base_url(), self.config.api_key, 30)
+            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 30)
             return client.post_json(url, payload)
         except Exception as exc:
             raise RuntimeError(f"Eval cancel failed: {exc}") from exc
@@ -1097,7 +1097,7 @@ class EvalJob:
                 "error": "synth_ai_py is not available for workflow state",
             }
         try:
-            client = _synth_ai_py.HttpClientPy(base, self.config.api_key, 10)
+            client = _synth_ai_py.HttpClient(base, self.config.api_key, 10)
             return client.get_json(url, None)
         except Exception as exc:
             return {

@@ -126,7 +126,7 @@ class InferenceClient:
         if _synth_ai_py is None:
             raise RuntimeError("synth_ai_py is not available for inference")
         api_base = ensure_api_base(self._base_url)
-        client = _synth_ai_py.HttpClientPy(api_base, self._api_key, int(self._timeout))
+        client = _synth_ai_py.HttpClient(api_base, self._api_key, int(self._timeout))
         return await asyncio.to_thread(
             client.post_json,
             f"{api_base}/inference/v1/chat/completions",

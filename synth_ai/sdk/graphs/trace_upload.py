@@ -166,7 +166,7 @@ class TraceUploaderSync:
         if _synth_ai_py is None:
             raise TraceUploadError("synth_ai_py is required for trace upload URLs")
         try:
-            client = _synth_ai_py.HttpClientPy(self._base, self._key, int(self._timeout))  # type: ignore[attr-defined]
+            client = _synth_ai_py.HttpClient(self._base, self._key, int(self._timeout))  # type: ignore[attr-defined]
             data = client.post_json(url, payload)
         except Exception as exc:
             message = str(exc)
@@ -328,7 +328,7 @@ class TraceUploaderAsync:
         if _synth_ai_py is None:
             raise TraceUploadError("synth_ai_py is required for trace upload URLs")
         try:
-            client = _synth_ai_py.HttpClientPy(self._base, self._key, int(self._timeout))  # type: ignore[attr-defined]
+            client = _synth_ai_py.HttpClient(self._base, self._key, int(self._timeout))  # type: ignore[attr-defined]
             data = await asyncio.to_thread(client.post_json, url, payload)
         except Exception as exc:
             message = str(exc)

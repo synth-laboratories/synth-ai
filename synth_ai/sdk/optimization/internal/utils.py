@@ -172,7 +172,7 @@ def _rust_request(
 
     parsed = urlparse(url)
     base_url = f"{parsed.scheme}://{parsed.netloc}"
-    client = _synth_ai_py.HttpClientPy(base_url, api_key, int(timeout))
+    client = _synth_ai_py.HttpClient(base_url, api_key, int(timeout))
     try:
         if method == "GET":
             payload = client.get_json(url, None)

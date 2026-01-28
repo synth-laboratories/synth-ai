@@ -201,7 +201,7 @@ def mint_demo_api_key(
     url = f"{backend_url.rstrip('/')}/api/demo/keys"
 
     try:
-        client = _synth_ai_py.HttpClientPy(backend_url, "", int(timeout))
+        client = _synth_ai_py.HttpClient(backend_url, "", int(timeout))
         data = client.post_json(url, {"ttl_hours": ttl_hours})
         api_key = data.get("api_key") if isinstance(data, dict) else None
         if not api_key or not isinstance(api_key, str):
