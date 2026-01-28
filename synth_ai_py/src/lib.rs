@@ -199,6 +199,10 @@ fn map_http_err(err: synth_ai_core::http::HttpError) -> PyErr {
     HttpRequestError::new_err(err.to_string())
 }
 
+fn map_tunnel_err(_py: Python, err: TunnelError) -> PyErr {
+    ConfigError::new_err(err.to_string())
+}
+
 fn parse_param_pairs(py: Python, params: Option<PyObject>) -> PyResult<Option<Vec<(String, String)>>> {
     let Some(obj) = params else {
         return Ok(None);
