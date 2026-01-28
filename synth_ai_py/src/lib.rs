@@ -3288,9 +3288,11 @@ fn data_enum_values(py: Python) -> PyResult<PyObject> {
 // Data Model PyClasses (Rust-backed)
 // =============================================================================
 
-fn kwargs_to_value(_py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Value> {
+fn kwargs_to_value(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Value> {
     if let Some(dict) = kwargs {
-        pythonize::depythonize(dict.as_any())
+        let mut visited = HashSet::new();
+        let jsonable = to_jsonable_inner(py, dict.as_any(), &mut visited, 0)?;
+        pythonize::depythonize(jsonable.bind(py))
             .map_err(|e| PyValueError::new_err(e.to_string()))
     } else {
         Ok(Value::Object(serde_json::Map::new()))
