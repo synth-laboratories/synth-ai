@@ -309,6 +309,8 @@ class GraphGenTaskSet(BaseModel):
     @model_validator(mode="after")
     def _rust_validate(self) -> GraphGenTaskSet:
         rust = _require_rust()
+        if self.output_config is None:
+            self.output_config = OutputConfig()
         if rust is not None:
             errors = rust.validate_graphgen_taskset(
                 self.model_dump(mode="json", exclude_none=False)
