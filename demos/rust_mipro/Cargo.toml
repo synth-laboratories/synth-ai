@@ -13,3 +13,5 @@ tokio = { version = "1.36", features = ["macros", "rt-multi-thread", "time"] }
 url = "2.5"
 
 synth-ai = { path = "../../synth_ai_rs" }
+
+[workspace]
