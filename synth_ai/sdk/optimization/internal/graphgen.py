@@ -200,6 +200,8 @@ class GraphEvolveJob:
             backend_url=backend_url,
             api_key=api_key,
         )
+        if not initial_graph_id:
+            initial_graph_id = "single"
         policy_models_list = normalize_policy_models(policy_models)
         config = build_graph_evolve_config(
             policy_models=policy_models_list,
