@@ -621,8 +621,7 @@ class GraphOptimizationConfig(BaseModel):
         if self.patterns:
             request["patterns"] = self.patterns.to_api_dict()
 
-        if self.initial_graph_id:
-            request["initial_graph_id"] = self.initial_graph_id
+        request["initial_graph_id"] = self.initial_graph_id or "single"
 
         # Inline dataset upload (for verifier calibration, custom datasets)
         if self.dataset:
