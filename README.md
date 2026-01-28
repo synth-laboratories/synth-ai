@@ -210,14 +210,29 @@ async def run_verifier():
 asyncio.run(run_verifier())
 ```
 
-You can also call arbitrary graphs directly:
+You can also call arbitrary graphs directly with the Rust SDK:
 
-```python
-from synth_ai.sdk.graphs import GraphCompletionsClient
+```rust
+use serde_json::json;
+use synth_ai::{GraphCompletionRequest, Synth};
 
-client = GraphCompletionsClient(base_url="https://api.usesynth.ai", api_key="...")
-resp = await client.run(
-    graph={"kind": "zero_shot", "verifier_shape": "mapreduce", "verifier_mode": "rubric"},
-    input_data={"trace": {"session_id": "s", "session_time_steps": []}, "rubric": {"event": [], "outcome": []}},
-)
+#[tokio::main]
+async fn main() -> Result<(), synth_ai::Error> {
+    let synth = Synth::from_env()?;
+
+    let request = GraphCompletionRequest {
+        job_id: "zero_shot_verifier_rubric_single".to_string(),
+        input: json!({
+            "trace": {"session_id": "s", "session_time_steps": []},
+            "rubric": {"event": [], "outcome": []},
+        }),
+        model: None,
+        prompt_snapshot_id: None,
+        stream: None,
+    };
+
+    let resp = synth.complete(request).await?;
+    println!("Output: {:?}", resp.output);
+    Ok(())
+}
 ```
