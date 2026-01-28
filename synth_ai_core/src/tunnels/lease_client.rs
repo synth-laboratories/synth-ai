@@ -1,9 +1,11 @@
 use chrono::{DateTime, Utc};
 use reqwest::StatusCode;
 use serde::Deserialize;
+use std::time::Duration;
 
 use crate::tunnels::errors::TunnelError;
 use crate::tunnels::types::{LeaseInfo, LeaseState};
+use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 
 #[derive(Clone)]
 pub struct LeaseClient {
@@ -16,6 +18,8 @@ impl LeaseClient {
     pub fn new(api_key: String, backend_url: String, timeout_s: u64) -> Result<Self, TunnelError> {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(timeout_s))
+            .pool_max_idle_per_host(20)
+            .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
             .user_agent("synth-core/0.1")
             .build()
             .map_err(|e| TunnelError::api(e.to_string()))?;

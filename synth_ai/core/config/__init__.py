@@ -1,14 +1,9 @@
-"""Configuration base classes and utilities.
+"""Configuration utilities.
 
-This module provides base classes for job configs and common
-configuration patterns used across the SDK.
+This module provides configuration resolution and user config management.
 """
 
 from __future__ import annotations
 
-from .base import BaseJobConfig, ConfigValidator
-
-__all__ = [
-    "BaseJobConfig",
-    "ConfigValidator",
-]
+# Note: BaseJobConfig and expansion.py were removed (never used)
+# See research/synth-ai/python_legacy/core/config/ for archived code

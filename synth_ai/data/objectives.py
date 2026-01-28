@@ -22,6 +22,9 @@ class ObjectiveSpec:
     direction: ObjectiveDirection
     units: Optional[str] = None
     description: Optional[str] = None
+    target: Optional[float] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
 
 
 OBJECTIVE_REGISTRY: Dict[ObjectiveKey, ObjectiveSpec] = {
@@ -56,6 +59,7 @@ class RewardObservation:
     source: RewardSource = RewardSource.TASK_APP
     objective_key: ObjectiveKey = ObjectiveKey.REWARD
     event_id: Optional[str | int] = None
+    turn_number: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -75,6 +79,7 @@ class EventObjectiveAssignment:
 
     event_id: str | int
     objectives: Dict[str, float]
+    turn_number: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

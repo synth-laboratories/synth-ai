@@ -13,6 +13,8 @@ class CriterionScoreData:
     score: float
     reason: Optional[str] = None
     weight: float = 1.0
+    normalized_score: Optional[float] = None
+    passed: Optional[bool] = None
 
 
 @dataclass
@@ -23,6 +25,8 @@ class RubricAssignment:
     total: float = 0.0
     rubric_ref: Optional[str] = None
     summary: Optional[str] = None
+    all_required_passed: Optional[bool] = None
+    normalized_total: Optional[float] = None
 
 
 @dataclass
@@ -31,6 +35,10 @@ class Judgement:
 
     rubric_assignment: Optional[RubricAssignment] = None
     annotation: Dict[str, Any] = field(default_factory=dict)
+    passed: Optional[bool] = None
+    confidence: Optional[float] = None
+    source: Optional[str] = None
+    judged_at: Optional[str] = None
 
 
 __all__ = [

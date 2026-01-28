@@ -64,7 +64,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .backend_client import LeaseClient, get_lease_client
 from .cleanup import cleanup_all, track_process, tracked_processes
 from .errors import (
     ConnectorError,
@@ -169,10 +168,7 @@ __all__ = [
     "Diagnostics",
     "ConnectorState",
     "GatewayState",
-    # NEW: Lease client
-    "LeaseClient",
-    "get_lease_client",
-    # NEW: Errors
+    # Errors
     "TunnelError",
     "TunnelConfigurationError",
     "TunnelAPIError",

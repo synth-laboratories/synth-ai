@@ -57,6 +57,8 @@ class Artifact(BaseModel):
     sha256: Optional[str] = None
     storage: Optional[Dict[str, Any]] = None
     created_at: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
 
     def validate_size(self, max_size_bytes: int = 10 * 1024 * 1024) -> None:
         """Validate artifact size (client-side constraint).

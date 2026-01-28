@@ -24,6 +24,7 @@ Example:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
@@ -31,6 +32,11 @@ from typing import Any, Mapping
 
 import aiohttp
 import httpx
+
+try:
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional rust bindings
+    _synth_ai_py = None
 
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
 
@@ -152,29 +158,32 @@ class TraceUploaderSync:
             TraceUploadError: If the request fails
         """
         url = f"{self._base}/v1/traces/upload-url"
-        headers = {"X-API-Key": self._key, "Content-Type": "application/json"}
 
         payload: dict[str, Any] = {"content_type": content_type}
         if expires_in_seconds is not None:
             payload["expires_in_seconds"] = expires_in_seconds
 
-        with httpx.Client(timeout=self._timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
+        if _synth_ai_py is None:
+            raise TraceUploadError("synth_ai_py is required for trace upload URLs")
+        try:
+            client = _synth_ai_py.HttpClientPy(self._base, self._key, int(self._timeout))  # type: ignore[attr-defined]
+            data = client.post_json(url, payload)
+        except Exception as exc:
+            message = str(exc)
+            if "503" in message:
+                raise TraceUploadError(
+                    "Trace upload not configured. S3 bucket may not be set up."
+                ) from exc
+            raise TraceUploadError(f"Failed to create upload URL: {message[:500]}") from exc
 
-            if resp.status_code == 503:
-                raise TraceUploadError("Trace upload not configured. S3 bucket may not be set up.")
-            if resp.status_code >= 400:
-                raise TraceUploadError(f"Failed to create upload URL: {resp.text[:500]}")
-
-            data = resp.json()
-            return UploadUrlResponse(
-                trace_id=data["trace_id"],
-                trace_ref=data["trace_ref"],
-                upload_url=data["upload_url"],
-                expires_in_seconds=data["expires_in_seconds"],
-                storage_key=data["storage_key"],
-                max_size_bytes=data.get("max_size_bytes", MAX_TRACE_SIZE_BYTES),
-            )
+        return UploadUrlResponse(
+            trace_id=data["trace_id"],
+            trace_ref=data["trace_ref"],
+            upload_url=data["upload_url"],
+            expires_in_seconds=data["expires_in_seconds"],
+            storage_key=data["storage_key"],
+            max_size_bytes=data.get("max_size_bytes", MAX_TRACE_SIZE_BYTES),
+        )
 
     def upload_trace(
         self,
@@ -311,32 +320,32 @@ class TraceUploaderAsync:
             TraceUploadError: If the request fails
         """
         url = f"{self._base}/v1/traces/upload-url"
-        headers = {"X-API-Key": self._key, "Content-Type": "application/json"}
 
         payload: dict[str, Any] = {"content_type": content_type}
         if expires_in_seconds is not None:
             payload["expires_in_seconds"] = expires_in_seconds
 
-        timeout = aiohttp.ClientTimeout(total=self._timeout)
-        async with (
-            aiohttp.ClientSession(timeout=timeout) as session,
-            session.post(url, headers=headers, json=payload) as resp,
-        ):
-            if resp.status == 503:
-                raise TraceUploadError("Trace upload not configured. S3 bucket may not be set up.")
-            if resp.status >= 400:
-                text = await resp.text()
-                raise TraceUploadError(f"Failed to create upload URL: {text[:500]}")
+        if _synth_ai_py is None:
+            raise TraceUploadError("synth_ai_py is required for trace upload URLs")
+        try:
+            client = _synth_ai_py.HttpClientPy(self._base, self._key, int(self._timeout))  # type: ignore[attr-defined]
+            data = await asyncio.to_thread(client.post_json, url, payload)
+        except Exception as exc:
+            message = str(exc)
+            if "503" in message:
+                raise TraceUploadError(
+                    "Trace upload not configured. S3 bucket may not be set up."
+                ) from exc
+            raise TraceUploadError(f"Failed to create upload URL: {message[:500]}") from exc
 
-            data = await resp.json()
-            return UploadUrlResponse(
-                trace_id=data["trace_id"],
-                trace_ref=data["trace_ref"],
-                upload_url=data["upload_url"],
-                expires_in_seconds=data["expires_in_seconds"],
-                storage_key=data["storage_key"],
-                max_size_bytes=data.get("max_size_bytes", MAX_TRACE_SIZE_BYTES),
-            )
+        return UploadUrlResponse(
+            trace_id=data["trace_id"],
+            trace_ref=data["trace_ref"],
+            upload_url=data["upload_url"],
+            expires_in_seconds=data["expires_in_seconds"],
+            storage_key=data["storage_key"],
+            max_size_bytes=data.get("max_size_bytes", MAX_TRACE_SIZE_BYTES),
+        )
 
     async def upload_trace(
         self,

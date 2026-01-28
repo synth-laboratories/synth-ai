@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import re
 from typing import Any
+from urllib import error as _urlerror
+from urllib import request as _urlrequest
 from urllib.parse import urlparse, urlunparse
 
 import click
-import httpx
 
 from synth_ai.sdk.localapi._impl.contracts import TaskAppEndpoints  # type: ignore[attr-defined]
 
@@ -253,7 +256,6 @@ async def validate_task_app_endpoint(
     all_passed = True
     endpoints = TaskAppEndpoints()
 
-    # Set up headers
     headers = {}
     if api_key:
         headers["X-API-Key"] = api_key
@@ -262,174 +264,184 @@ async def validate_task_app_endpoint(
     click.echo(f"Validating Task App: {url}")
     click.echo(f"{'=' * 60}\n")
 
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        # 1. Check root endpoint
-        click.echo("1. Checking root endpoint...")
+    async def _request(
+        method: str, full_url: str, headers_in: dict[str, str] | None = None
+    ) -> tuple[int, str]:
+        def _do_request() -> tuple[int, str]:
+            req = _urlrequest.Request(full_url, headers=headers_in or {}, method=method)
+            try:
+                with _urlrequest.urlopen(req, timeout=30.0) as resp:
+                    status_code = int(getattr(resp, "status", 200))
+                    raw = resp.read().decode("utf-8", "replace")
+                    return status_code, raw
+            except _urlerror.HTTPError as exc:
+                raw = exc.read().decode("utf-8", "replace")
+                return exc.code, raw
+
+        return await asyncio.to_thread(_do_request)
+
+    async def _get_json(
+        full_url: str, headers_in: dict[str, str] | None = None
+    ) -> tuple[int, Any, str]:
+        status_code, raw = await _request("GET", full_url, headers_in)
         try:
-            resp = await client.get(f"{url}{endpoints.root}")
-            if resp.status_code == 200:
-                data = resp.json()
-                _print_success(f"Root endpoint responds (status: {data.get('status')})")
-                results["endpoints"]["root"] = {"passed": True, "data": data}
-                if verbose:
-                    _print_info(f"Service: {data.get('service', 'N/A')}")
-            else:
-                _print_error(f"Root endpoint returned {resp.status_code}")
-                results["endpoints"]["root"] = {"passed": False, "status": resp.status_code}
-                all_passed = False
-        except Exception as e:
-            _print_error(f"Root endpoint failed: {e}")
-            results["endpoints"]["root"] = {"passed": False, "error": str(e)}
+            data = json.loads(raw) if raw else {}
+        except Exception:
+            data = {}
+        return status_code, data, raw
+
+    # 1. Check root endpoint
+    click.echo("1. Checking root endpoint...")
+    try:
+        status_code, data, raw = await _get_json(f"{url}{endpoints.root}")
+        if status_code == 200:
+            _print_success(f"Root endpoint responds (status: {data.get('status')})")
+            results["endpoints"]["root"] = {"passed": True, "data": data}
+            if verbose:
+                _print_info(f"Service: {data.get('service', 'N/A')}")
+        else:
+            _print_error(f"Root endpoint returned {status_code}")
+            results["endpoints"]["root"] = {"passed": False, "status": status_code}
             all_passed = False
+    except Exception as e:
+        _print_error(f"Root endpoint failed: {e}")
+        results["endpoints"]["root"] = {"passed": False, "error": str(e)}
+        all_passed = False
 
-        # 2. Check health endpoint
-        click.echo("\n2. Checking health endpoint...")
-        try:
-            resp = await client.get(f"{url}{endpoints.health}", headers=headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                _print_success(f"Health endpoint responds (healthy: {data.get('healthy')})")
-                results["endpoints"]["health"] = {"passed": True, "data": data}
+    # 2. Check health endpoint
+    click.echo("\n2. Checking health endpoint...")
+    try:
+        status_code, data, raw = await _get_json(f"{url}{endpoints.health}", headers)
+        if status_code == 200:
+            _print_success(f"Health endpoint responds (healthy: {data.get('healthy')})")
+            results["endpoints"]["health"] = {"passed": True, "data": data}
 
-                # Check auth configuration
-                auth_info = data.get("auth", {})
-                if auth_info.get("required"):
-                    _print_info(f"Auth required: {auth_info.get('required')}")
-                    _print_info(f"Expected key prefix: {auth_info.get('expected_prefix', 'N/A')}")
+            auth_info = data.get("auth", {})
+            if auth_info.get("required"):
+                _print_info(f"Auth required: {auth_info.get('required')}")
+                _print_info(f"Expected key prefix: {auth_info.get('expected_prefix', 'N/A')}")
 
-                    if api_key:
-                        _print_success("API key provided and accepted")
-                        results["auth"]["provided"] = True
-                        results["auth"]["accepted"] = True
-                    else:
-                        _print_warning("No API key provided but may be required")
-                        results["auth"]["provided"] = False
-                        results["auth"]["required"] = True
-            else:
-                _print_error(f"Health endpoint returned {resp.status_code}")
-                results["endpoints"]["health"] = {"passed": False, "status": resp.status_code}
-                all_passed = False
-
-                if resp.status_code == 403:
-                    _print_error("Authentication failed - provide API key with --api-key")
-                    results["auth"]["error"] = "Authentication failed"
-
-        except Exception as e:
-            _print_error(f"Health endpoint failed: {e}")
-            results["endpoints"]["health"] = {"passed": False, "error": str(e)}
-            all_passed = False
-
-        # 3. Check info endpoint
-        click.echo("\n3. Checking info endpoint...")
-        try:
-            resp = await client.get(f"{url}{endpoints.info}", headers=headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                _print_success("Info endpoint responds")
-                results["endpoints"]["info"] = {"passed": True, "data": data}
-
-                if verbose:
-                    service = data.get("service", {})
-                    task_info = service.get("task", {})
-                    if isinstance(task_info, dict):
-                        _print_info(f"Task: {task_info.get('name', 'N/A')}")
-                    _print_info(f"Version: {service.get('version', 'N/A')}")
-
-                    dataset = data.get("dataset", {})
-                    if isinstance(dataset, dict):
-                        _print_info(f"Dataset: {dataset.get('id', 'N/A')}")
-            else:
-                _print_error(f"Info endpoint returned {resp.status_code}")
-                results["endpoints"]["info"] = {"passed": False, "status": resp.status_code}
-                all_passed = False
-        except Exception as e:
-            _print_error(f"Info endpoint failed: {e}")
-            results["endpoints"]["info"] = {"passed": False, "error": str(e)}
-            all_passed = False
-
-        # 4. Check task_info endpoint and instance count
-        click.echo("\n4. Checking task_info endpoint and instance availability...")
-        try:
-            # Get taskset descriptor first
-            resp = await client.get(f"{url}{endpoints.task_info}", headers=headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                _print_success("Task info endpoint responds")
-                results["endpoints"]["task_info"] = {"passed": True}
-
-                taskset = data.get("taskset", {})
-                if verbose and taskset:
-                    if isinstance(taskset, dict):
-                        _print_info(f"Taskset: {taskset.get('id', 'N/A')}")
-                    else:
-                        _print_info(f"Taskset: {taskset}")
-
-                # Try to get specific task instances (seeds 0-19)
-                # Fetch instances one by one to verify we can get at least min_instances
-                instances = []
-                for seed in range(min_instances + 5):  # Try a few extra
-                    try:
-                        resp_seed = await client.get(
-                            f"{url}{endpoints.task_info}",
-                            params={"seed": seed},
-                            headers=headers,
-                        )
-                        if resp_seed.status_code == 200:
-                            instance = resp_seed.json()
-                            instances.append(instance)
-                        else:
-                            break  # Stop if we hit an invalid seed
-                    except Exception:
-                        break
-
-                instance_count = len(instances)
-                results["task_instances"]["count"] = instance_count
-                results["task_instances"]["requested"] = min_instances
-
-                if instance_count >= min_instances:
-                    _print_success(
-                        f"Found {instance_count} task instances (≥ {min_instances} required)"
-                    )
-                    results["task_instances"]["passed"] = True
-
-                    if verbose and instances:
-                        sample = instances[0]
-                        task_info_sample = sample.get("task", {})
-                        if isinstance(task_info_sample, dict):
-                            _print_info(f"Sample task: {task_info_sample.get('name', 'N/A')}")
-                        _print_info(f"Environment: {sample.get('environment', 'N/A')}")
+                if api_key:
+                    _print_success("API key provided and accepted")
+                    results["auth"]["provided"] = True
+                    results["auth"]["accepted"] = True
                 else:
-                    _print_error(
-                        f"Only {instance_count} task instances available (need ≥ {min_instances})"
-                    )
-                    results["task_instances"]["passed"] = False
-                    all_passed = False
-            else:
-                _print_error(f"Task info endpoint returned {resp.status_code}")
-                results["endpoints"]["task_info"] = {"passed": False, "status": resp.status_code}
-                all_passed = False
-        except Exception as e:
-            _print_error(f"Task info endpoint failed: {e}")
-            results["endpoints"]["task_info"] = {"passed": False, "error": str(e)}
-            results["task_instances"]["passed"] = False
+                    _print_warning("No API key provided but may be required")
+                    results["auth"]["provided"] = False
+                    results["auth"]["required"] = True
+        else:
+            _print_error(f"Health endpoint returned {status_code}")
+            results["endpoints"]["health"] = {"passed": False, "status": status_code}
             all_passed = False
 
-        # 5. Check rollout endpoint structure (don't actually run a rollout)
-        click.echo("\n5. Checking rollout endpoint availability...")
-        try:
-            # Just check if it's registered (OPTIONS or a lightweight probe)
-            resp = await client.options(f"{url}{endpoints.rollout}", headers=headers)
-            # Many servers return 200 for OPTIONS, some return 405
-            if resp.status_code in (200, 204, 405):
-                _print_success("Rollout endpoint is registered")
-                results["endpoints"]["rollout"] = {"passed": True}
+            if status_code == 403:
+                _print_error("Authentication failed - provide API key with --api-key")
+                results["auth"]["error"] = "Authentication failed"
+
+    except Exception as e:
+        _print_error(f"Health endpoint failed: {e}")
+        results["endpoints"]["health"] = {"passed": False, "error": str(e)}
+        all_passed = False
+
+    # 3. Check info endpoint
+    click.echo("\n3. Checking info endpoint...")
+    try:
+        status_code, data, raw = await _get_json(f"{url}{endpoints.info}", headers)
+        if status_code == 200:
+            _print_success("Info endpoint responds")
+            results["endpoints"]["info"] = {"passed": True, "data": data}
+
+            if verbose:
+                service = data.get("service", {})
+                task_info = service.get("task", {})
+                if isinstance(task_info, dict):
+                    _print_info(f"Task: {task_info.get('name', 'N/A')}")
+                _print_info(f"Version: {service.get('version', 'N/A')}")
+
+                dataset = data.get("dataset", {})
+                if isinstance(dataset, dict):
+                    _print_info(f"Dataset: {dataset.get('id', 'N/A')}")
+        else:
+            _print_error(f"Info endpoint returned {status_code}")
+            results["endpoints"]["info"] = {"passed": False, "status": status_code}
+            all_passed = False
+    except Exception as e:
+        _print_error(f"Info endpoint failed: {e}")
+        results["endpoints"]["info"] = {"passed": False, "error": str(e)}
+        all_passed = False
+
+    # 4. Check task_info endpoint and instance count
+    click.echo("\n4. Checking task_info endpoint and instance availability...")
+    try:
+        status_code, data, raw = await _get_json(f"{url}{endpoints.task_info}", headers)
+        if status_code == 200:
+            _print_success("Task info endpoint responds")
+            results["endpoints"]["task_info"] = {"passed": True}
+
+            taskset = data.get("taskset", {})
+            if verbose and taskset:
+                if isinstance(taskset, dict):
+                    _print_info(f"Taskset: {taskset.get('id', 'N/A')}")
+                else:
+                    _print_info(f"Taskset: {taskset}")
+
+            instances = []
+            for seed in range(min_instances + 5):
+                try:
+                    seed_url = f"{url}{endpoints.task_info}?seed={seed}"
+                    status_code, seed_data, raw = await _get_json(seed_url, headers)
+                    if status_code == 200:
+                        instances.append(seed_data)
+                    else:
+                        break
+                except Exception:
+                    break
+
+            instance_count = len(instances)
+            results["task_instances"]["count"] = instance_count
+            results["task_instances"]["requested"] = min_instances
+
+            if instance_count >= min_instances:
+                _print_success(
+                    f"Found {instance_count} task instances (≥ {min_instances} required)"
+                )
+                results["task_instances"]["passed"] = True
+
+                if verbose and instances:
+                    sample = instances[0]
+                    task_info_sample = sample.get("task", {})
+                    if isinstance(task_info_sample, dict):
+                        _print_info(f"Sample task: {task_info_sample.get('name', 'N/A')}")
+                    _print_info(f"Environment: {sample.get('environment', 'N/A')}")
             else:
-                _print_warning(f"Rollout endpoint returned unexpected status: {resp.status_code}")
-                results["endpoints"]["rollout"] = {"passed": True, "note": "endpoint exists"}
-        except Exception as e:
-            # OPTIONS might not be supported, that's okay
-            _print_info(f"Rollout endpoint check skipped (OPTIONS not supported): {e}")
-            results["endpoints"]["rollout"] = {"passed": True, "note": "assumed present"}
+                _print_error(
+                    f"Only {instance_count} task instances available (need ≥ {min_instances})"
+                )
+                results["task_instances"]["passed"] = False
+                all_passed = False
+        else:
+            _print_error(f"Task info endpoint returned {status_code}")
+            results["endpoints"]["task_info"] = {"passed": False, "status": status_code}
+            all_passed = False
+    except Exception as e:
+        _print_error(f"Task info endpoint failed: {e}")
+        results["endpoints"]["task_info"] = {"passed": False, "error": str(e)}
+        results["task_instances"]["passed"] = False
+        all_passed = False
+
+    # 5. Check rollout endpoint structure (don't actually run a rollout)
+    click.echo("\n5. Checking rollout endpoint availability...")
+    try:
+        status_code, raw = await _request("OPTIONS", f"{url}{endpoints.rollout}", headers)
+        if status_code in (200, 204, 405):
+            _print_success("Rollout endpoint is registered")
+            results["endpoints"]["rollout"] = {"passed": True}
+        else:
+            _print_warning(f"Rollout endpoint returned unexpected status: {status_code}")
+            results["endpoints"]["rollout"] = {"passed": True, "note": "endpoint exists"}
+    except Exception as e:
+        _print_info(f"Rollout endpoint check skipped (OPTIONS not supported): {e}")
+        results["endpoints"]["rollout"] = {"passed": True, "note": "assumed present"}
 
     # Summary
     click.echo(f"\n{'=' * 60}")

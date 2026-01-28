@@ -393,6 +393,9 @@ pub struct GraphCompletionRequest {
     /// Optional model override.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
+    /// Optional prompt snapshot ID.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_snapshot_id: Option<String>,
     /// Whether to stream the response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
@@ -423,6 +426,38 @@ pub struct GraphCompletionResponse {
     /// Cache status (hit/miss).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_status: Option<String>,
+    /// Request latency in milliseconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latency_ms: Option<f64>,
+}
+
+/// Metadata for a registered graph.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphInfo {
+    /// Graph ID.
+    pub graph_id: String,
+    /// Graph name.
+    pub name: String,
+    /// Version number.
+    pub version: i32,
+    /// Kind ("policy", "verifier").
+    pub kind: String,
+    /// Best score (if available).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub best_score: Option<f64>,
+    /// Source job ID (if available).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<String>,
+    /// Creation timestamp.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+}
+
+/// Response from list_graphs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListGraphsResponse {
+    pub graphs: Vec<GraphInfo>,
+    pub total: i64,
 }
 
 /// Options for verifier inference.

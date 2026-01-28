@@ -8,6 +8,42 @@
 
 Serverless Posttraining APIs for Developers
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         USER CODE                                │
+├────────────────────────────┬────────────────────────────────────┤
+│      Python Users          │           Rust Users               │
+│   (pip install synth-ai)   │    (cargo add synth-ai)            │
+├────────────────────────────┼────────────────────────────────────┤
+│                            │                                     │
+│   synth_ai/ (Python SDK)   │      synth_ai_rs/ (Rust SDK)       │
+│   - High-level Python API  │      - High-level Rust API         │
+│   - Async/await support    │      - Builder patterns            │
+│   - Type hints             │      - Streaming support           │
+│                            │                                     │
+├────────────────────────────┼────────────────────────────────────┤
+│                            │                                     │
+│   synth_ai_py/ (PyO3)      │              │                     │
+│   - Python bindings        │              │                     │
+│   - Exposes Rust core      │              │                     │
+│                            │              │                     │
+├────────────────────────────┴──────────────┴─────────────────────┤
+│                                                                  │
+│                    synth_ai_core/ (Rust Core)                   │
+│                                                                  │
+│   - HTTP client (reqwest)     - SSE streaming                   │
+│   - Authentication            - URL normalization               │
+│   - Tunnels (cloudflared)     - Job orchestration               │
+│   - Tracing                   - Polling/backoff                 │
+│   - Data types                - API client                      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Design Principle:** All business logic lives in `synth_ai_core/`. Both the Rust SDK (`synth_ai_rs/`) and Python SDK (`synth_ai/` via `synth_ai_py/`) are thin wrappers that provide ergonomic, language-idiomatic APIs over the shared core.
+
 <p align="center">
   <picture align="center">
     <source media="(prefers-color-scheme: dark)" srcset="assets/langprobe_v2_dark.png">

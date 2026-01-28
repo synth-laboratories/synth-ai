@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
@@ -174,6 +173,7 @@ class TunneledLocalAPI:
             api_key = os.environ.get("SYNTH_API_KEY")
 
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+
         from .cleanup import track_process
 
         if backend == TunnelBackend.Localhost:
@@ -286,8 +286,6 @@ class TunneledLocalAPI:
 
         # Wait for system DNS to propagate (we verified with explicit resolvers,
         # but subsequent SDK calls use system DNS which may lag behind)
-        import asyncio
-
         await asyncio.sleep(3)
 
         return cls(
@@ -390,8 +388,6 @@ class TunneledLocalAPI:
 
         # Wait for system DNS to propagate (we verified with explicit resolvers,
         # but subsequent SDK calls use system DNS which may lag behind)
-        import asyncio
-
         await asyncio.sleep(3)
 
         return cls(
@@ -419,15 +415,15 @@ class TunneledLocalAPI:
             self._handle = None
             self._lease_id = None
         elif self.process:
+            import contextlib
+
             try:
                 import synth_ai_py
 
                 synth_ai_py.stop_tunnel(self.process)
             except Exception:
-                try:
+                with contextlib.suppress(Exception):
                     self.process.terminate()
-                except Exception:
-                    pass
             self.process = None
         else:
             logger.debug("[TUNNELED_API] close() - nothing to close")
@@ -483,8 +479,7 @@ class TunneledLocalAPI:
 
         from synth_ai.sdk.localapi._impl.server import run_server_background
 
-        from .rust import wait_for_health_check
-        from .rust import find_available_port, kill_port
+        from .rust import find_available_port, kill_port, wait_for_health_check
 
         if api_key is None:
             api_key = os.environ.get("SYNTH_API_KEY") or None

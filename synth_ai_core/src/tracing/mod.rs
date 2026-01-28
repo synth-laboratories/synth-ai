@@ -83,9 +83,9 @@ pub use hooks::{HookCallback, HookContext, HookEvent, HookManager};
 pub use libsql_storage::LibsqlTraceStorage;
 pub use models::{
     BaseEventFields, EnvironmentEvent, EventReward, EventType, LLMCallRecord, LLMContentPart,
-    LLMMessage, LLMUsage, LMCAISEvent, MarkovBlanketMessage, MessageContent, OutcomeReward,
-    RuntimeEvent, SessionTimeStep, SessionTrace, TimeRecord, ToolCallResult, ToolCallSpec,
-    TracingEvent,
+    LLMMessage, LLMUsage, LLMRequestParams, LLMChunk, LMCAISEvent, MarkovBlanketMessage,
+    MessageContent, OutcomeReward, RuntimeEvent, SessionTimeStep, SessionTrace, TimeRecord,
+    ToolCallResult, ToolCallSpec, TracingEvent,
 };
 pub use storage::{StorageConfig, TraceStorage};
 pub use tracer::SessionTracer;

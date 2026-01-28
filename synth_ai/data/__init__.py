@@ -8,6 +8,22 @@ Data vs SDK distinction:
 - sdk/: API abstractions (jobs, training, graphs) - SDK interfaces
 
 Dependency rule: data/ imports nothing from synth_ai except typing helpers.
+
+Rust-backed types:
+    For performance-critical code, equivalent Rust types are available via
+    `synth_ai_py` (the PyO3 bindings). These provide the same data structures
+    with Rust-backed serialization/deserialization:
+
+    ```python
+    # Python dataclasses (this module) - user-friendly, documented
+    from synth_ai.data import SessionTrace, LLMCallRecord
+
+    # Rust-backed types (synth_ai_py) - for performance
+    from synth_ai_py import SessionTrace, LLMCallRecord
+    ```
+
+    The Rust types support `from_dict()` and `to_dict()` methods for
+    interoperability with the Python dataclasses.
 """
 
 from __future__ import annotations
@@ -89,6 +105,7 @@ from synth_ai.data.rewards import (
 # Rubric definitions (user input structures)
 from synth_ai.data.rubrics import (
     Criterion,
+    CriterionExample,
     Rubric,
 )
 
@@ -174,4 +191,5 @@ __all__ = [
     # Rubrics
     "Criterion",
     "Rubric",
+    "CriterionExample",
 ]

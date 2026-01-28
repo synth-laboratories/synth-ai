@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import importlib
 import inspect
 import os
 import socket
@@ -118,15 +119,16 @@ def create_http_client_hooks(
 
     async def startup_http_client(app: Any) -> None:
         try:
-            import aiohttp
+            aiohttp = importlib.import_module("aiohttp")
 
             timeout_cfg = aiohttp.ClientTimeout(total=timeout)
             connector = aiohttp.TCPConnector(**connector_kwargs)
             app.state.http_client = aiohttp.ClientSession(timeout=timeout_cfg, connector=connector)
             _log("Created app-level aiohttp client session singleton")
-        except ImportError:
+        except Exception as aiohttp_exc:
+            _log(f"aiohttp unavailable ({aiohttp_exc}), trying httpx fallback")
             try:
-                import httpx
+                httpx = importlib.import_module("httpx")
 
                 limits = httpx_limits or httpx.Limits(
                     max_keepalive_connections=5, max_connections=10
@@ -136,9 +138,6 @@ def create_http_client_hooks(
             except Exception as exc:
                 _log(f"WARNING: Failed to create http client: {exc}")
                 app.state.http_client = None
-        except Exception as exc:
-            _log(f"WARNING: Failed to create aiohttp client: {exc}")
-            app.state.http_client = None
 
     async def shutdown_http_client(app: Any) -> None:
         http_client = getattr(app.state, "http_client", None)
@@ -330,8 +329,7 @@ async def call_chat_completion_api(
     try:
         is_aiohttp = False
         with contextlib.suppress(Exception):
-            import aiohttp
-
+            aiohttp = importlib.import_module("aiohttp")
             is_aiohttp = isinstance(http_client, aiohttp.ClientSession)
 
         if is_aiohttp:

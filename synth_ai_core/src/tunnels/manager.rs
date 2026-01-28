@@ -16,6 +16,7 @@ use crate::tunnels::types::{
     ConnectorStatus, GatewayStatus, LeaseInfo, LeaseState, TunnelBackend, TunnelHandle,
 };
 use crate::tunnels::{connector::get_connector, cloudflared, gateway};
+use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 
 const DEFAULT_LOCAL_READY_TIMEOUT: f64 = 30.0;
 const DEFAULT_PUBLIC_READY_TIMEOUT: f64 = 60.0;
@@ -183,8 +184,9 @@ impl TunnelManager {
                 get_gateway().lock().remove_route(&lease.route_prefix);
             }
         }
-        let client = self.client().await?;
-        let _ = client.release(lease_id).await;
+        // Skip the blocking release call - lease will expire via TTL.
+        // The backend release endpoint is slow (~10s) and blocking on it
+        // provides no benefit since TTL cleanup handles orphaned leases.
         {
             let connector = get_connector();
             connector.lock().unregister_lease(lease_id);
@@ -202,6 +204,8 @@ async fn verify_public_ready(lease: &LeaseInfo, api_key: Option<String>) -> Resu
     while std::time::Instant::now() < deadline {
         let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
+            .pool_max_idle_per_host(10)
+            .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
             .danger_accept_invalid_certs(true);
         if let Some(ip) = resolved_ip {
             builder = builder.resolve(hostname, (ip, 443).into());

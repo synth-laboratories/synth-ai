@@ -7,6 +7,7 @@
 //! - Device authentication flow (OAuth-style browser auth)
 
 use crate::errors::CoreError;
+use crate::shared_client::build_pooled_client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -199,10 +200,9 @@ pub async fn init_device_auth(frontend_url: Option<&str>) -> Result<DeviceAuthSe
     let base = frontend_url.unwrap_or(DEFAULT_FRONTEND_URL).trim_end_matches('/');
     let url = format!("{}/api/auth/device/init", base);
 
-    let client = reqwest::Client::new();
+    let client = build_pooled_client(Some(10));
     let resp = client
         .post(&url)
-        .timeout(Duration::from_secs(10))
         .send()
         .await
         .map_err(|e| CoreError::Authentication(format!("failed to reach init endpoint: {}", e)))?;
@@ -266,7 +266,7 @@ pub async fn poll_device_token(
     let timeout = Duration::from_secs(timeout_secs.unwrap_or(600));
     let start = std::time::Instant::now();
 
-    let client = reqwest::Client::new();
+    let client = build_pooled_client(Some(10));
 
     loop {
         if start.elapsed() >= timeout {
@@ -278,7 +278,6 @@ pub async fn poll_device_token(
         let resp = client
             .post(&url)
             .json(&serde_json::json!({ "device_code": device_code }))
-            .timeout(Duration::from_secs(10))
             .send()
             .await;
 
@@ -354,11 +353,10 @@ pub async fn mint_demo_key(backend_url: Option<&str>, ttl_hours: Option<u32>) ->
     let url = format!("{}/api/demo/keys", base);
     let ttl = ttl_hours.unwrap_or(4);
 
-    let client = reqwest::Client::new();
+    let client = build_pooled_client(Some(30));
     let resp = client
         .post(&url)
         .json(&serde_json::json!({ "ttl_hours": ttl }))
-        .timeout(Duration::from_secs(30))
         .send()
         .await
         .map_err(|e| CoreError::Authentication(format!("failed to mint demo key: {}", e)))?;

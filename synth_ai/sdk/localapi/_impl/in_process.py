@@ -1,6 +1,7 @@
 """In-process task app support for local development and demos."""
 
 import asyncio
+import importlib
 import logging
 import os
 import signal
@@ -11,7 +12,10 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
-import httpx
+try:
+    httpx = importlib.import_module("httpx")
+except Exception:  # pragma: no cover - optional dependency
+    httpx = None  # type: ignore[assignment]
 import uvicorn
 from uvicorn._types import ASGIApplication
 

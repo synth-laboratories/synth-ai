@@ -7,6 +7,7 @@ use crate::http::HttpClient;
 use crate::CoreError;
 
 use super::eval::EvalClient;
+use super::graph_evolve::GraphEvolveClient;
 use super::graphs::GraphsClient;
 use super::jobs::JobsClient;
 
@@ -169,6 +170,13 @@ impl SynthClient {
     /// ```
     pub fn graphs(&self) -> GraphsClient<'_> {
         GraphsClient::new(self)
+    }
+
+    /// Get a Graph Evolve API client.
+    ///
+    /// Use this to submit, poll, and download Graph Evolve jobs.
+    pub fn graph_evolve(&self) -> GraphEvolveClient<'_> {
+        GraphEvolveClient::new(self)
     }
 }
 

@@ -3,17 +3,24 @@
 //! This module provides methods for graph completions and verifier inference.
 
 use serde_json::{json, Value};
+use std::time::Duration;
 
 use crate::http::HttpError;
+use crate::sse::stream_sse_request;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::Method;
 use crate::CoreError;
 
 use super::client::SynthClient;
 use super::types::{
-    GraphCompletionRequest, GraphCompletionResponse, RlmOptions, VerifierOptions, VerifierResponse,
+    GraphCompletionRequest, GraphCompletionResponse, ListGraphsResponse, RlmOptions,
+    VerifierOptions, VerifierResponse,
 };
 
 /// API endpoint for graph completions.
 const GRAPHS_ENDPOINT: &str = "/api/graphs/completions";
+/// API endpoint for listing registered graphs.
+const GRAPH_LIST_ENDPOINT: &str = "/api/graph-evolve/graphs";
 
 /// Default verifier graph ID.
 pub const DEFAULT_VERIFIER: &str = "zero_shot_verifier_rubric_single";
@@ -69,6 +76,73 @@ impl<'a> GraphsClient<'a> {
             .post_json(GRAPHS_ENDPOINT, &body)
             .await
             .map_err(map_http_error)
+    }
+
+    /// List registered graphs for the organization.
+    pub async fn list_graphs(
+        &self,
+        kind: Option<&str>,
+        limit: Option<i32>,
+    ) -> Result<ListGraphsResponse, CoreError> {
+        let mut path = GRAPH_LIST_ENDPOINT.to_string();
+        let mut params: Vec<String> = Vec::new();
+
+        if let Some(kind) = kind {
+            params.push(format!("kind={}", kind));
+        }
+        if let Some(limit) = limit {
+            params.push(format!("limit={}", limit));
+        }
+        if !params.is_empty() {
+            path.push('?');
+            path.push_str(&params.join("&"));
+        }
+
+        self.client
+            .http
+            .get::<ListGraphsResponse>(&path, None)
+            .await
+            .map_err(map_http_error)
+    }
+
+    /// Stream a graph completion via SSE.
+    pub async fn stream_completion(
+        &self,
+        mut request: GraphCompletionRequest,
+        timeout: Option<Duration>,
+    ) -> Result<crate::sse::SseStream, CoreError> {
+        request.stream = Some(true);
+        let body = serde_json::to_value(&request)
+            .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
+
+        let base = self.client.base_url.trim_end_matches('/');
+        let api_base = if base.ends_with("/api") {
+            base.to_string()
+        } else {
+            format!("{}/api", base)
+        };
+        let url = format!("{}/graphs/completions?stream=true", api_base);
+        let api_key = self.client.http.api_key().to_string();
+        
+        let mut header_map = HeaderMap::new();
+        header_map.insert(
+            HeaderName::from_static("authorization"),
+            HeaderValue::try_from(format!("Bearer {}", api_key)).unwrap(),
+        );
+        header_map.insert(
+            HeaderName::from_static("x-api-key"),
+            HeaderValue::try_from(api_key).unwrap(),
+        );
+        header_map.insert(
+            HeaderName::from_static("content-type"),
+            HeaderValue::from_static("application/json"),
+        );
+        header_map.insert(
+            HeaderName::from_static("accept"),
+            HeaderValue::from_static("text/event-stream"),
+        );
+
+        stream_sse_request(url, Method::POST, header_map, Some(body), timeout).await
     }
 
     /// Execute a raw graph completion from a JSON value.
@@ -138,6 +212,7 @@ impl<'a> GraphsClient<'a> {
             job_id: verifier_id.to_string(),
             input,
             model: options.model.clone(),
+            prompt_snapshot_id: None,
             stream: Some(false),
         };
 
@@ -196,6 +271,7 @@ impl<'a> GraphsClient<'a> {
             job_id: rlm_id.to_string(),
             input,
             model: options.model,
+            prompt_snapshot_id: None,
             stream: Some(false),
         };
 
@@ -236,6 +312,7 @@ impl<'a> GraphsClient<'a> {
             job_id: job_id.to_string(),
             input,
             model: model.map(|s| s.to_string()),
+            prompt_snapshot_id: None,
             stream: Some(false),
         };
 

@@ -15,6 +15,10 @@ pub struct StreamEndpoints {
     pub status_fallbacks: Vec<String>,
     /// Fallback event endpoints.
     pub event_fallbacks: Vec<String>,
+    /// Fallback metrics endpoints.
+    pub metric_fallbacks: Vec<String>,
+    /// Fallback timeline endpoints.
+    pub timeline_fallbacks: Vec<String>,
 }
 
 impl StreamEndpoints {
@@ -28,6 +32,8 @@ impl StreamEndpoints {
             timeline: Some(format!("{}/timeline", base)),
             status_fallbacks: vec![],
             event_fallbacks: vec![],
+            metric_fallbacks: vec![],
+            timeline_fallbacks: vec![],
         }
     }
 
@@ -44,6 +50,8 @@ impl StreamEndpoints {
                 format!("/orchestration/jobs/{}", job_id),
             ],
             event_fallbacks: vec![format!("/learning/jobs/{}/events", job_id)],
+            metric_fallbacks: vec![],
+            timeline_fallbacks: vec![],
         }
     }
 
@@ -53,10 +61,33 @@ impl StreamEndpoints {
         Self {
             status: Some(base.clone()),
             events: Some(format!("{}/events", base)),
-            metrics: Some(format!("{}/metrics", base)),
+            metrics: None,
             timeline: None,
             status_fallbacks: vec![],
             event_fallbacks: vec![],
+            metric_fallbacks: vec![],
+            timeline_fallbacks: vec![],
+        }
+    }
+
+    /// Create endpoints for an RL job.
+    pub fn rl(job_id: &str) -> Self {
+        let base = format!("/rl/jobs/{}", job_id);
+        Self {
+            status: Some(base.clone()),
+            events: Some(format!("{}/events", base)),
+            metrics: Some(format!("{}/metrics", base)),
+            timeline: Some(format!("{}/timeline", base)),
+            status_fallbacks: vec![
+                format!("/learning/jobs/{}", job_id),
+                format!("/orchestration/jobs/{}", job_id),
+            ],
+            event_fallbacks: vec![
+                format!("/learning/jobs/{}/events", job_id),
+                format!("/orchestration/jobs/{}/events", job_id),
+            ],
+            metric_fallbacks: vec![format!("/learning/jobs/{}/metrics", job_id)],
+            timeline_fallbacks: vec![format!("/learning/jobs/{}/timeline", job_id)],
         }
     }
 
@@ -70,6 +101,8 @@ impl StreamEndpoints {
             timeline: None,
             status_fallbacks: vec![],
             event_fallbacks: vec![],
+            metric_fallbacks: vec![],
+            timeline_fallbacks: vec![],
         }
     }
 
@@ -83,7 +116,29 @@ impl StreamEndpoints {
             timeline: None,
             status_fallbacks: vec![],
             event_fallbacks: vec![],
+            metric_fallbacks: vec![],
+            timeline_fallbacks: vec![],
         }
+    }
+
+    /// Create endpoints for graph evolve jobs.
+    pub fn graph_evolve(job_id: &str) -> Self {
+        let base = format!("/graph-evolve/jobs/{}", job_id);
+        Self {
+            status: Some(base.clone()),
+            events: Some(format!("{}/events", base)),
+            metrics: Some(format!("{}/metrics", base)),
+            timeline: None,
+            status_fallbacks: vec![format!("/graphgen/jobs/{}", job_id)],
+            event_fallbacks: vec![format!("/graphgen/jobs/{}/events", job_id)],
+            metric_fallbacks: vec![format!("/graphgen/jobs/{}/metrics", job_id)],
+            timeline_fallbacks: vec![],
+        }
+    }
+
+    /// Legacy alias for graph evolve endpoints.
+    pub fn graphgen(job_id: &str) -> Self {
+        Self::graph_evolve(job_id)
     }
 
     /// Create custom endpoints.
@@ -100,6 +155,8 @@ impl StreamEndpoints {
             timeline,
             status_fallbacks: vec![],
             event_fallbacks: vec![],
+            metric_fallbacks: vec![],
+            timeline_fallbacks: vec![],
         }
     }
 
@@ -112,6 +169,18 @@ impl StreamEndpoints {
     /// Add an event fallback endpoint.
     pub fn with_event_fallback(mut self, endpoint: impl Into<String>) -> Self {
         self.event_fallbacks.push(endpoint.into());
+        self
+    }
+
+    /// Add a metrics fallback endpoint.
+    pub fn with_metric_fallback(mut self, endpoint: impl Into<String>) -> Self {
+        self.metric_fallbacks.push(endpoint.into());
+        self
+    }
+
+    /// Add a timeline fallback endpoint.
+    pub fn with_timeline_fallback(mut self, endpoint: impl Into<String>) -> Self {
+        self.timeline_fallbacks.push(endpoint.into());
         self
     }
 
@@ -143,6 +212,30 @@ impl StreamEndpoints {
         }
         endpoints
     }
+
+    /// Get all metrics endpoints to try (primary + fallbacks).
+    pub fn all_metric_endpoints(&self) -> Vec<&str> {
+        let mut endpoints = Vec::new();
+        if let Some(ref m) = self.metrics {
+            endpoints.push(m.as_str());
+        }
+        for fallback in &self.metric_fallbacks {
+            endpoints.push(fallback.as_str());
+        }
+        endpoints
+    }
+
+    /// Get all timeline endpoints to try (primary + fallbacks).
+    pub fn all_timeline_endpoints(&self) -> Vec<&str> {
+        let mut endpoints = Vec::new();
+        if let Some(ref t) = self.timeline {
+            endpoints.push(t.as_str());
+        }
+        for fallback in &self.timeline_fallbacks {
+            endpoints.push(fallback.as_str());
+        }
+        endpoints
+    }
 }
 
 impl Default for StreamEndpoints {
@@ -154,6 +247,8 @@ impl Default for StreamEndpoints {
             timeline: None,
             status_fallbacks: vec![],
             event_fallbacks: vec![],
+            metric_fallbacks: vec![],
+            timeline_fallbacks: vec![],
         }
     }
 }

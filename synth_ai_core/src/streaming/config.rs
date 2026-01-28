@@ -17,6 +17,10 @@ pub struct StreamConfig {
     pub event_levels: Option<HashSet<String>>,
     /// Filter metrics by name.
     pub metric_names: Option<HashSet<String>>,
+    /// Filter metrics by phase.
+    pub metric_phases: Option<HashSet<String>>,
+    /// Filter timeline entries by phase.
+    pub timeline_phases: Option<HashSet<String>>,
     /// Sampling rate (0.0-1.0) for events.
     pub sample_rate: f64,
     /// Maximum events to return per poll.
@@ -49,6 +53,8 @@ impl StreamConfig {
             event_types_exclude: None,
             event_levels: None,
             metric_names: None,
+            metric_phases: None,
+            timeline_phases: None,
             sample_rate: 1.0,
             max_events_per_poll: None,
             deduplicate: true,
@@ -82,6 +88,8 @@ impl StreamConfig {
             event_types_exclude: None,
             event_levels: None,
             metric_names: None,
+            metric_phases: None,
+            timeline_phases: None,
             sample_rate: 1.0,
             max_events_per_poll: None,
             deduplicate: true,
@@ -97,6 +105,8 @@ impl StreamConfig {
             event_types_exclude: None,
             event_levels: Some(["error", "warning"].iter().map(|s| s.to_string()).collect()),
             metric_names: None,
+            metric_phases: None,
+            timeline_phases: None,
             sample_rate: 1.0,
             max_events_per_poll: None,
             deduplicate: true,
@@ -112,6 +122,8 @@ impl StreamConfig {
             event_types_exclude: None,
             event_levels: None,
             metric_names: None,
+            metric_phases: None,
+            timeline_phases: None,
             sample_rate: 1.0,
             max_events_per_poll: None,
             deduplicate: true,
@@ -148,6 +160,18 @@ impl StreamConfig {
     /// Filter by event levels.
     pub fn with_levels(mut self, levels: Vec<&str>) -> Self {
         self.event_levels = Some(levels.into_iter().map(String::from).collect());
+        self
+    }
+
+    /// Filter metrics by phase.
+    pub fn with_metric_phases(mut self, phases: Vec<&str>) -> Self {
+        self.metric_phases = Some(phases.into_iter().map(String::from).collect());
+        self
+    }
+
+    /// Filter timeline entries by phase.
+    pub fn with_timeline_phases(mut self, phases: Vec<&str>) -> Self {
+        self.timeline_phases = Some(phases.into_iter().map(String::from).collect());
         self
     }
 
@@ -219,7 +243,23 @@ impl StreamConfig {
     pub fn should_include_metric(&self, metric: &Value) -> bool {
         if let Some(ref names) = self.metric_names {
             let name = metric.get("name").and_then(|v| v.as_str()).unwrap_or("");
-            return names.contains(name);
+            if !names.contains(name) {
+                return false;
+            }
+        }
+
+        if let Some(ref phases) = self.metric_phases {
+            let phase = metric.get("phase").and_then(|v| v.as_str()).unwrap_or("");
+            return phases.contains(phase);
+        }
+        true
+    }
+
+    /// Check if a timeline entry should be included based on filters.
+    pub fn should_include_timeline(&self, entry: &Value) -> bool {
+        if let Some(ref phases) = self.timeline_phases {
+            let phase = entry.get("phase").and_then(|v| v.as_str()).unwrap_or("");
+            return phases.contains(phase);
         }
         true
     }

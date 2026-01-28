@@ -59,6 +59,33 @@ pub struct ParsedEvent {
     pub timestamp_ms: Option<i64>,
 }
 
+/// Parsed event path with grammar-aware fields.
+#[derive(Debug, Clone, Default)]
+pub struct EventPath {
+    /// Original event type string
+    pub raw: String,
+    /// Top-level namespace (e.g., learning, eval, completions)
+    pub namespace: Option<String>,
+    /// Domain (e.g., policy, graph, verifier)
+    pub domain: Option<String>,
+    /// Algorithm (e.g., gepa, mipro, rl, sft)
+    pub algorithm: Option<String>,
+    /// Entity (e.g., job, candidate, rollout, generation, validation)
+    pub entity: Option<String>,
+    /// Action (e.g., started, completed, failed, updated)
+    pub action: Option<String>,
+    /// Remaining tail (if any)
+    pub detail: Option<String>,
+}
+
+/// Terminal status derived from event types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TerminalStatus {
+    Succeeded,
+    Failed,
+    Cancelled,
+}
+
 /// Baseline evaluation event data.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BaselineEvent {
@@ -216,7 +243,11 @@ impl EventParser {
 
     /// Patterns for candidate events
     const CANDIDATE_PATTERNS: &'static [&'static str] = &[
+        ".candidate.added",
+        ".candidate.started",
         ".candidate.evaluated",
+        ".candidate.completed",
+        ".candidate.new_best",
         ".proposal.scored",
         ".optimized.scored",
         ".candidate_scored",
@@ -226,12 +257,27 @@ impl EventParser {
     const FRONTIER_PATTERNS: &'static [&'static str] = &[".frontier_updated", ".frontier.updated"];
 
     /// Patterns for progress events
-    const PROGRESS_PATTERNS: &'static [&'static str] =
-        &[".progress", ".rollouts_limit_progress", ".rollouts.progress"];
+    const PROGRESS_PATTERNS: &'static [&'static str] = &[
+        ".progress",
+        ".job.progress",
+        ".phase.started",
+        ".phase.completed",
+        ".rollout",
+        ".rollouts",
+        ".rollouts_limit_progress",
+        ".rollouts.progress",
+        ".rollout.concurrency",
+        ".workflow.",
+        "workflow.",
+    ];
 
     /// Patterns for generation events
-    const GENERATION_PATTERNS: &'static [&'static str] =
-        &[".generation.complete", ".generation.completed"];
+    const GENERATION_PATTERNS: &'static [&'static str] = &[
+        ".generation.start",
+        ".generation.started",
+        ".generation.complete",
+        ".generation.completed",
+    ];
 
     /// Patterns for throughput events
     const THROUGHPUT_PATTERNS: &'static [&'static str] = &[".throughput"];
@@ -241,19 +287,101 @@ impl EventParser {
         &[".termination.triggered", ".termination"];
 
     /// Patterns for complete events
-    const COMPLETE_PATTERNS: &'static [&'static str] = &[".complete", ".completed", ".job.completed"];
+    const COMPLETE_PATTERNS: &'static [&'static str] =
+        &[".job.completed", ".completed", ".complete"];
 
     /// Patterns for validation events
-    const VALIDATION_PATTERNS: &'static [&'static str] =
-        &[".validation.scored", ".validation.completed"];
+    const VALIDATION_PATTERNS: &'static [&'static str] = &[
+        ".validation.started",
+        ".validation.scored",
+        ".validation.completed",
+        ".validation.failed",
+    ];
 
     /// Patterns for usage events
-    const USAGE_PATTERNS: &'static [&'static str] =
-        &[".usage.recorded", ".billing.sandboxes", ".billing.updated"];
+    const USAGE_PATTERNS: &'static [&'static str] = &[
+        ".usage.recorded",
+        ".billing.started",
+        ".billing.completed",
+        ".billing.sandboxes",
+        ".billing.updated",
+    ];
 
     /// Normalize event type by replacing [MASKED] with "gepa".
     pub fn normalize_type(event_type: &str) -> String {
         event_type.replace("[MASKED]", "gepa")
+    }
+
+    /// Parse event path into structured fields using the canonical grammar:
+    /// learning.policy.<algorithm>.<entity>.<action>[.<detail>...]
+    pub fn parse_path(event_type: &str) -> EventPath {
+        let normalized = Self::normalize_type(event_type);
+        let parts: Vec<&str> = normalized.split('.').filter(|p| !p.is_empty()).collect();
+        if parts.is_empty() {
+            return EventPath {
+                raw: normalized,
+                ..Default::default()
+            };
+        }
+
+        let mut path = EventPath {
+            raw: normalized.clone(),
+            ..Default::default()
+        };
+
+        // Common namespaces
+        let namespace = parts.get(0).map(|s| s.to_string());
+        path.namespace = namespace;
+
+        // Canonical learning/eval/completions paths
+        if parts.len() >= 4 && matches!(parts[0], "learning" | "eval" | "completions") {
+            path.domain = parts.get(1).map(|s| s.to_string());
+            if matches!(parts[2], "gepa" | "mipro" | "rl" | "sft" | "graph" | "graphgen") {
+                path.algorithm = Some(parts[2].to_string());
+                path.entity = parts.get(3).map(|s| s.to_string());
+                path.action = parts.get(4).map(|s| s.to_string());
+                if parts.len() > 5 {
+                    path.detail = Some(parts[5..].join("."));
+                }
+            } else {
+                path.entity = parts.get(2).map(|s| s.to_string());
+                path.action = parts.get(3).map(|s| s.to_string());
+                if parts.len() > 4 {
+                    path.detail = Some(parts[4..].join("."));
+                }
+            }
+            return path;
+        }
+
+        // Fallback for short paths like workflow.started or job.completed
+        if parts.len() >= 2 {
+            path.entity = parts.get(0).map(|s| s.to_string());
+            path.action = parts.get(1).map(|s| s.to_string());
+            if parts.len() > 2 {
+                path.detail = Some(parts[2..].join("."));
+            }
+        }
+
+        path
+    }
+
+    /// Infer terminal status from event type string.
+    pub fn terminal_status(event_type: &str) -> Option<TerminalStatus> {
+        let normalized = Self::normalize_type(event_type).to_lowercase();
+        if normalized.ends_with("job.completed") || normalized == "job.completed" {
+            return Some(TerminalStatus::Succeeded);
+        }
+        if normalized.ends_with("job.failed") || normalized == "job.failed" {
+            return Some(TerminalStatus::Failed);
+        }
+        if normalized.ends_with("job.cancelled")
+            || normalized.ends_with("job.canceled")
+            || normalized == "job.cancelled"
+            || normalized == "job.canceled"
+        {
+            return Some(TerminalStatus::Cancelled);
+        }
+        None
     }
 
     /// Get the category for an event type string.
@@ -362,12 +490,44 @@ impl EventParser {
 
     /// Parse baseline event data from a ParsedEvent.
     pub fn parse_baseline(event: &ParsedEvent) -> BaselineEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let mut parsed: BaselineEvent = serde_json::from_value(event.data.clone()).unwrap_or_default();
+        if parsed.accuracy.is_none() {
+            if let Value::Object(map) = &event.data {
+                if let Some(val) = map.get("train_accuracy").and_then(|v| v.as_f64()) {
+                    parsed.accuracy = Some(val);
+                } else if let Some(val) = map.get("score").and_then(|v| v.as_f64()) {
+                    parsed.accuracy = Some(val);
+                }
+            }
+        }
+        parsed
     }
 
     /// Parse candidate event data from a ParsedEvent.
     pub fn parse_candidate(event: &ParsedEvent) -> CandidateEvent {
-        serde_json::from_value(event.data.clone()).unwrap_or_default()
+        let mut candidate_payload = event.data.clone();
+        if let Value::Object(map) = &event.data {
+            if let Some(Value::Object(candidate)) = map.get("candidate") {
+                candidate_payload = Value::Object(candidate.clone());
+            } else if let Some(Value::Object(candidate)) = map.get("program_candidate") {
+                candidate_payload = Value::Object(candidate.clone());
+            } else if let Some(Value::Object(candidate)) = map.get("candidate_info") {
+                candidate_payload = Value::Object(candidate.clone());
+            }
+        }
+        let mut parsed: CandidateEvent = serde_json::from_value(candidate_payload.clone()).unwrap_or_default();
+        if parsed.accuracy.is_none() {
+            if let Value::Object(map) = candidate_payload {
+                if let Some(val) = map.get("train_accuracy").and_then(|v| v.as_f64()) {
+                    parsed.accuracy = Some(val);
+                } else if let Some(val) = map.get("score").and_then(|v| v.as_f64()) {
+                    parsed.accuracy = Some(val);
+                } else if let Some(val) = map.get("best_score").and_then(|v| v.as_f64()) {
+                    parsed.accuracy = Some(val);
+                }
+            }
+        }
+        parsed
     }
 
     /// Parse frontier event data from a ParsedEvent.

@@ -34,6 +34,11 @@ from .graphgen_models import GraphGenJobConfig as GraphEvolveJobConfig
 from .graphgen_models import GraphGenTaskSet as GraphEvolveTaskSet
 from .utils import ensure_api_base, run_sync
 
+try:
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional rust bindings
+    _synth_ai_py = None
+
 
 @dataclass
 class GraphEvolveJobResult:
@@ -130,6 +135,7 @@ class GraphEvolveJob:
         self._graph_evolve_job_id: Optional[str] = None
         self._legacy_graphgen_job_id: Optional[str] = None
         self._submit_result: Optional[GraphEvolveSubmitResult] = None
+        self._rust_job = None
 
     @classmethod
     def from_dataset(
@@ -271,6 +277,16 @@ class GraphEvolveJob:
             job._legacy_graphgen_job_id = job_id
         else:
             job._graph_evolve_job_id = job_id
+
+        if _synth_ai_py is not None:
+            try:
+                job._rust_job = _synth_ai_py.GraphEvolveJob.from_job_id(
+                    job_id,
+                    api_key,
+                    job.backend_url,
+                )
+            except Exception:
+                job._rust_job = None
         return job
 
     @classmethod
@@ -449,6 +465,16 @@ class GraphEvolveJob:
             legacy_graphgen_job_id=self._legacy_graphgen_job_id,
         )
 
+        if _synth_ai_py is not None and self.job_id:
+            try:
+                self._rust_job = _synth_ai_py.GraphEvolveJob.from_job_id(
+                    self.job_id,
+                    self.api_key,
+                    self.backend_url,
+                )
+            except Exception:
+                self._rust_job = None
+
         return self._submit_result
 
     def get_status(self) -> Dict[str, Any]:
@@ -463,11 +489,14 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        data = get_graph_evolve_status(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            job_id=self.job_id,
-        )
+        if self._rust_job is not None:
+            data = self._rust_job.get_status()
+        else:
+            data = get_graph_evolve_status(
+                backend_url=self.backend_url,
+                api_key=self.api_key,
+                job_id=self.job_id,
+            )
         gepa_id = data.get("graph_evolve_job_id")
         if gepa_id:
             self._graph_evolve_job_id = gepa_id
@@ -481,11 +510,14 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        data = start_graph_evolve_job(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            job_id=self.job_id,
-        )
+        if self._rust_job is not None:
+            data = self._rust_job.start()
+        else:
+            data = start_graph_evolve_job(
+                backend_url=self.backend_url,
+                api_key=self.api_key,
+                job_id=self.job_id,
+            )
         if self._submit_result and "status" in data:
             self._submit_result.status = data.get("status", self._submit_result.status)
         return data
@@ -497,6 +529,9 @@ class GraphEvolveJob:
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if self._rust_job is not None:
+            return self._rust_job.get_events(since_seq, limit)
 
         return get_graph_evolve_events(
             backend_url=self.backend_url,
@@ -532,6 +567,9 @@ class GraphEvolveJob:
             params["run_id"] = run_id
 
         qs = urlencode(params)
+        if self._rust_job is not None:
+            return self._rust_job.get_metrics(qs)
+
         return get_graph_evolve_metrics(
             backend_url=self.backend_url,
             api_key=self.api_key,
@@ -607,11 +645,14 @@ class GraphEvolveJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        data = download_graph_evolve_prompt(
-            backend_url=self.backend_url,
-            api_key=self.api_key,
-            job_id=self.job_id,
-        )
+        if self._rust_job is not None:
+            data = self._rust_job.download_prompt()
+        else:
+            data = download_graph_evolve_prompt(
+                backend_url=self.backend_url,
+                api_key=self.api_key,
+                job_id=self.job_id,
+            )
         return data.get("prompt", "")
 
     def download_graph_txt(self) -> str:
@@ -624,6 +665,9 @@ class GraphEvolveJob:
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if self._rust_job is not None:
+            return self._rust_job.download_graph_txt()
 
         return download_graph_evolve_graph_txt(
             backend_url=self.backend_url,
@@ -665,6 +709,9 @@ class GraphEvolveJob:
             prompt_snapshot_id=prompt_snapshot_id,
             graph_snapshot_id=graph_snapshot_id,
         )
+
+        if self._rust_job is not None:
+            return self._rust_job.run_inference(payload)
 
         return run_graph_evolve_inference(
             backend_url=self.backend_url,
@@ -727,6 +774,9 @@ class GraphEvolveJob:
             graph_snapshot_id=graph_snapshot_id,
         )
 
+        if self._rust_job is not None:
+            return self._rust_job.get_graph_record(payload)
+
         return get_graph_evolve_graph_record(
             backend_url=self.backend_url,
             api_key=self.api_key,
@@ -766,6 +816,9 @@ class GraphEvolveJob:
         payload: Dict[str, Any] = {}
         if reason:
             payload["reason"] = reason
+        if self._rust_job is not None:
+            return self._rust_job.cancel(reason)
+
         return cancel_graph_evolve_job(
             backend_url=self.backend_url,
             api_key=self.api_key,
@@ -806,6 +859,9 @@ class GraphEvolveJob:
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if self._rust_job is not None:
+            return self._rust_job.query_workflow_state()
 
         return query_graph_evolve_workflow_state(
             backend_url=self.backend_url,

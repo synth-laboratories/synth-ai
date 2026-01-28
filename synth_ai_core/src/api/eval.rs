@@ -95,6 +95,28 @@ impl<'a> EvalClient<'a> {
             .map_err(map_http_error)
     }
 
+    /// Get detailed eval results for a job.
+    ///
+    /// This includes per-seed metrics, tokens, costs, and errors.
+    pub async fn get_results(&self, job_id: &str) -> Result<Value, CoreError> {
+        let path = format!("{}/{}/results", EVAL_ENDPOINT, job_id);
+        self.client
+            .http
+            .get(&path, None)
+            .await
+            .map_err(map_http_error)
+    }
+
+    /// Download traces for an eval job as a ZIP archive.
+    pub async fn download_traces(&self, job_id: &str) -> Result<Vec<u8>, CoreError> {
+        let path = format!("{}/{}/traces", EVAL_ENDPOINT, job_id);
+        self.client
+            .http
+            .get_bytes(&path, None)
+            .await
+            .map_err(map_http_error)
+    }
+
     /// Poll an eval job until it reaches a terminal state.
     ///
     /// # Arguments

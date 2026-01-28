@@ -10,7 +10,10 @@ import json
 import os
 from pathlib import Path
 
-import httpx
+try:
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional rust bindings
+    _synth_ai_py = None
 
 from synth_ai.core.config.user import load_user_env
 from synth_ai.core.errors import AuthenticationError
@@ -192,26 +195,20 @@ def mint_demo_api_key(
     if backend_url is None:
         backend_url = BACKEND_URL_BASE
 
-    url = f"{backend_url}/api/demo/keys"
+    if _synth_ai_py is None:
+        raise RuntimeError("synth_ai_py is required for mint_demo_api_key")
+
+    url = f"{backend_url.rstrip('/')}/api/demo/keys"
 
     try:
-        resp = httpx.post(
-            url,
-            json={"ttl_hours": ttl_hours},
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        api_key = data.get("api_key")
+        client = _synth_ai_py.HttpClientPy(backend_url, "", int(timeout))
+        data = client.post_json(url, {"ttl_hours": ttl_hours})
+        api_key = data.get("api_key") if isinstance(data, dict) else None
         if not api_key or not isinstance(api_key, str):
             raise RuntimeError(f"Invalid response from demo key endpoint: {data}")
-
         return api_key
-    except httpx.HTTPError as e:
-        raise RuntimeError(f"Failed to mint demo API key: {e}") from e
     except Exception as e:
-        raise RuntimeError(f"Unexpected error minting demo API key: {e}") from e
+        raise RuntimeError(f"Failed to mint demo API key: {e}") from e
 
 
 __all__ = [

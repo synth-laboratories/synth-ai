@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, AsyncIterator, Dict, Optional
 
-import httpx
+from synth_ai.core.errors import HTTPError
+from synth_ai.core.rust_core.http import RustCoreHttpClient
+from synth_ai.core.rust_core.sse import stream_sse_events
+from synth_ai.core.rust_core.urls import ensure_api_base
 
 from .graph_optimization_config import GraphOptimizationConfig
 
@@ -44,25 +46,25 @@ class GraphOptimizationClient:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: Optional[RustCoreHttpClient] = None
 
     async def __aenter__(self) -> GraphOptimizationClient:
-        headers = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        self._client = httpx.AsyncClient(
+        self._client = RustCoreHttpClient(
             base_url=self.base_url,
-            headers=headers,
+            api_key=self.api_key or "",
             timeout=self.timeout,
+            shared=True,
+            use_api_base=True,
         )
+        await self._client.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         if self._client:
-            await self._client.aclose()
+            await self._client.__aexit__(exc_type, exc_val, exc_tb)
             self._client = None
 
-    def _ensure_client(self) -> httpx.AsyncClient:
+    def _ensure_client(self) -> RustCoreHttpClient:
         if self._client is None:
             raise RuntimeError(
                 "Client not initialized. Use 'async with GraphOptimizationClient(...) as client:'"
@@ -78,13 +80,8 @@ class GraphOptimizationClient:
         return prefixes.get(algorithm, f"/{algorithm.replace('_', '-')}")
 
     def _parse_json(
-        self, response: httpx.Response, *, context: str, expect_dict: bool = True
+        self, payload: Any, *, context: str, expect_dict: bool = True
     ) -> Dict[str, Any]:
-        try:
-            payload = response.json()
-        except Exception as exc:  # pragma: no cover - defensive
-            snippet = response.text[:200]
-            raise RuntimeError(f"{context} returned invalid JSON: {snippet}") from exc
         if expect_dict and not isinstance(payload, dict):
             raise RuntimeError(f"{context} returned unexpected JSON type: {type(payload).__name__}")
         return payload if isinstance(payload, dict) else {}
@@ -93,12 +90,11 @@ class GraphOptimizationClient:
         """Start a graph optimization job."""
         client = self._ensure_client()
         prefix = self._get_api_prefix(config.algorithm)
-        response = await client.post(
-            f"{prefix}/jobs",
-            json=config.to_request_dict(),
-        )
-        response.raise_for_status()
-        data = self._parse_json(response, context="Graph optimization submission")
+        try:
+            data = await client.post_json(f"{prefix}/jobs", json=config.to_request_dict())
+        except HTTPError as exc:
+            raise RuntimeError(f"Graph optimization submission failed: {exc}") from exc
+        data = self._parse_json(data, context="Graph optimization submission")
         job_id = data.get("job_id")
         if not job_id:
             raise RuntimeError(f"Job submission missing job_id: {data}")
@@ -107,23 +103,29 @@ class GraphOptimizationClient:
     async def get_status(self, job_id: str) -> Dict[str, Any]:
         """Get job status."""
         client = self._ensure_client()
-        response = await client.get(f"/graph-evolve/jobs/{job_id}/status")
-        response.raise_for_status()
-        return self._parse_json(response, context="Graph optimization status")
+        try:
+            data = await client.get(f"/graph-evolve/jobs/{job_id}/status")
+        except HTTPError as exc:
+            raise RuntimeError(f"Graph optimization status failed: {exc}") from exc
+        return self._parse_json(data, context="Graph optimization status")
 
     async def get_result(self, job_id: str) -> Dict[str, Any]:
         """Get job result."""
         client = self._ensure_client()
-        response = await client.get(f"/graph-evolve/jobs/{job_id}/result")
-        response.raise_for_status()
-        return self._parse_json(response, context="Graph optimization result")
+        try:
+            data = await client.get(f"/graph-evolve/jobs/{job_id}/result")
+        except HTTPError as exc:
+            raise RuntimeError(f"Graph optimization result failed: {exc}") from exc
+        return self._parse_json(data, context="Graph optimization result")
 
     async def cancel_job(self, job_id: str) -> Dict[str, Any]:
         """Cancel a running job."""
         client = self._ensure_client()
-        response = await client.delete(f"/graph-evolve/jobs/{job_id}")
-        response.raise_for_status()
-        return self._parse_json(response, context="Graph optimization cancel")
+        try:
+            data = await client.delete(f"/graph-evolve/jobs/{job_id}")
+        except HTTPError as exc:
+            raise RuntimeError(f"Graph optimization cancel failed: {exc}") from exc
+        return self._parse_json(data, context="Graph optimization cancel", expect_dict=False)
 
     async def stream_events(
         self,
@@ -131,24 +133,12 @@ class GraphOptimizationClient:
         timeout: float = 600.0,
     ) -> AsyncIterator[Dict[str, Any]]:
         """Stream events from a running job via SSE."""
-        client = self._ensure_client()
-
-        async with client.stream(
-            "GET",
-            f"/graph-evolve/jobs/{job_id}/events",
-            timeout=timeout,
-        ) as response:
-            response.raise_for_status()
-
-            async for line in response.aiter_lines():
-                line = line.strip()
-                if not line:
-                    continue
-                if line.startswith("data: "):
-                    data_str = line[6:]
-                    if data_str == "[DONE]":
-                        break
-                    try:
-                        yield json.loads(data_str)
-                    except json.JSONDecodeError:
-                        continue
+        base = ensure_api_base(self.base_url).rstrip("/")
+        url = f"{base}/graph-evolve/jobs/{job_id}/events/stream"
+        headers: dict[str, str] = {"Accept": "text/event-stream"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+            headers["X-API-Key"] = self.api_key
+        async for event in stream_sse_events(url, headers=headers, timeout=timeout):
+            if isinstance(event, dict):
+                yield event

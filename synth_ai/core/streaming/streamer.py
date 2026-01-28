@@ -10,9 +10,9 @@ import time
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Iterable, Sequence
 
-from synth_ai.core.rust_core.sse import stream_sse_events
-
 from synth_ai.core.rust_core.http import RustCoreHttpClient, sleep
+from synth_ai.core.rust_core.sse import stream_sse_events
+from synth_ai.core.rust_core.urls import ensure_api_base
 
 from .config import StreamConfig
 from .handlers import StreamHandler
@@ -168,9 +168,9 @@ class StreamEndpoints:
     def graph_evolve(cls, job_id: str) -> StreamEndpoints:
         """Endpoints for Graph Evolve workflow optimization jobs.
 
-        Prefer /api/graph_evolve/jobs/{job_id} with legacy /api/graphgen fallbacks.
+        Prefer /api/graph-evolve/jobs/{job_id} with legacy /api/graphgen fallbacks.
         """
-        base = f"/graph_evolve/jobs/{job_id}"
+        base = f"/graph-evolve/jobs/{job_id}"
         return cls(
             status=base,
             events=f"{base}/events",
@@ -420,7 +420,8 @@ class JobStreamer:
         3. Periodically check job status and exit if terminal
         4. Send sse.stream.ended event and [DONE] signal when finished
         """
-        url = f"{self.base_url.rstrip('/')}/{sse_url.lstrip('/')}"
+        base = ensure_api_base(self.base_url).rstrip("/")
+        url = f"{base}/{sse_url.lstrip('/')}"
 
         # Get last sequence number for reconnection support
         last_seq = self._last_seq_by_stream.get(sse_url, 0)
@@ -428,7 +429,8 @@ class JobStreamer:
         headers = {
             "Accept": "text/event-stream",
             "Cache-Control": "no-cache",
-            "authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
         }
 
         # Include Last-Event-ID header for reconnection

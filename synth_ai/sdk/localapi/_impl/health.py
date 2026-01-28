@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import urllib.error
+import urllib.request
 from typing import Any
-
-import aiohttp
 
 
 async def task_app_health(task_app_url: str) -> dict[str, Any]:
@@ -16,19 +17,22 @@ async def task_app_health(task_app_url: str) -> dict[str, Any]:
     - Returns {ok: bool, status?: int, error?: str}
     """
 
-    async def _try_request(session: aiohttp.ClientSession, method: str) -> dict[str, Any] | None:
-        request = getattr(session, method)
-        async with request(task_app_url, allow_redirects=True) as response:
-            if 200 <= response.status < 400:
-                return {"ok": True, "status": response.status}
+    def _sync_request(method: str) -> dict[str, Any] | None:
+        req = urllib.request.Request(task_app_url, method=method.upper())
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                status = response.getcode()
+                if 200 <= status < 400:
+                    return {"ok": True, "status": status}
+        except Exception:
+            return None
         return None
 
     try:
-        async with aiohttp.ClientSession() as session:
-            for method in ("head", "get"):
-                result = await _try_request(session, method)
-                if result is not None:
-                    return result
+        for method in ("head", "get"):
+            result = await asyncio.to_thread(_sync_request, method)
+            if result is not None:
+                return result
         return {"ok": False, "status": None}
     except Exception as e:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}

@@ -13,9 +13,10 @@ use crate::api::SynthClient;
 use crate::auth;
 use crate::errors::CoreError;
 
-use super::events::ParsedEvent;
+use super::events::{ParsedEvent, TerminalStatus};
+use crate::sse::stream_sse_events;
+use futures_util::StreamExt;
 use super::progress::ProgressTracker;
-use super::streaming::EventStream;
 
 /// Result from a prompt learning job.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -308,59 +309,160 @@ impl PromptLearningJob {
             CoreError::Validation("job not submitted yet".to_string())
         })?;
 
-        let mut stream = EventStream::new(
-            self.client.http().clone(),
-            self.client.base_url(),
-            job_id,
+        eprintln!(
+            "[PL] stream_until_complete: job={} timeout={:.0}s",
+            job_id, timeout_secs
         );
 
         let timeout = Duration::from_secs_f64(timeout_secs);
-        let poll_interval = Duration::from_secs(5);
+        let base_url = self.client.base_url().trim_end_matches('/').to_string();
+        let events_url = format!(
+            "{}/api/policy-optimization/online/jobs/{}/events/stream",
+            base_url, job_id
+        );
+        let api_key = self.client.http().api_key().to_string();
+        let headers = vec![
+            ("Accept".to_string(), "text/event-stream".to_string()),
+            ("Authorization".to_string(), format!("Bearer {}", api_key)),
+            ("X-API-Key".to_string(), api_key),
+        ];
 
         // Use Cell for interior mutability to satisfy borrow checker
         let terminal_reached = Cell::new(false);
+        let event_count = Cell::new(0u64);
+        let terminal_status = Cell::new(None);
 
         {
             let tracker = &mut self.tracker;
 
-            stream
-                .stream_until(
-                    |event| {
-                        // Update tracker
-                        tracker.update(event);
-
-                        // Call user callback
-                        if let Some(ref mut cb) = on_event {
-                            cb(event);
-                        }
-
-                        // Check for terminal
-                        if event.category.is_terminal() {
-                            terminal_reached.set(true);
-                        }
-                    },
-                    timeout,
-                    poll_interval,
-                    || terminal_reached.get(),
-                )
+            let mut stream = stream_sse_events(&events_url, "GET", headers, None, Some(timeout))
                 .await?;
+
+            while let Some(item) = stream.next().await {
+                let value = item?;
+                if value == serde_json::Value::String("[DONE]".to_string()) {
+                    break;
+                }
+
+                let parsed = super::events::EventParser::parse(&value);
+                let count = event_count.get() + 1;
+                event_count.set(count);
+
+                // Update tracker
+                tracker.update(&parsed);
+
+                // Log progress periodically
+                if count % 5 == 0 || parsed.category.is_terminal() {
+                    eprintln!(
+                        "[PL] Event #{}: type={} category={:?} | tracker: best={:.3} baseline={:?} candidates={} gens={}",
+                        count,
+                        parsed.event_type,
+                        parsed.category,
+                        tracker.best_score(),
+                        tracker.baseline_score(),
+                        tracker.progress.candidates_evaluated,
+                        tracker.progress.generations_completed,
+                    );
+                }
+
+                // Call user callback
+                if let Some(ref mut cb) = on_event {
+                    cb(&parsed);
+                }
+
+                // Check for terminal
+                if parsed.category.is_terminal() {
+                    eprintln!(
+                        "[PL] Terminal event received: {} (category={:?})",
+                        parsed.event_type, parsed.category
+                    );
+                    terminal_status
+                        .set(super::events::EventParser::terminal_status(&parsed.event_type));
+                    terminal_reached.set(true);
+                    break;
+                }
+            }
+        }
+
+        eprintln!(
+            "[PL] stream_until_complete: streaming finished, processed {} events",
+            event_count.get()
+        );
+
+        if !terminal_reached.get() {
+            return Err(CoreError::Timeout(
+                "stream ended without terminal event".to_string(),
+            ));
         }
 
         // Get final status (tracker borrow is dropped now)
-        let status_result = self.get_status().await?;
+        eprintln!("[PL] Fetching final job status...");
+        let status_result = match self.get_status().await {
+            Ok(result) => Some(result),
+            Err(err) => {
+                eprintln!(
+                    "[PL] Warning: failed to fetch final job status: {}",
+                    err
+                );
+                None
+            }
+        };
 
-        // Merge tracker data with status
-        Ok(PromptLearningResult {
-            job_id: status_result.job_id,
-            status: status_result.status,
-            best_score: status_result.best_score.or(Some(self.tracker.best_score())),
-            best_prompt: status_result.best_prompt,
+        let mut final_status = status_result
+            .as_ref()
+            .map(|result| result.status)
+            .unwrap_or(crate::api::types::PolicyJobStatus::Succeeded);
+        if !final_status.is_terminal() {
+            if let Some(status) = terminal_status.get() {
+                final_status = match status {
+                    TerminalStatus::Succeeded => crate::api::types::PolicyJobStatus::Succeeded,
+                    TerminalStatus::Failed => crate::api::types::PolicyJobStatus::Failed,
+                    TerminalStatus::Cancelled => crate::api::types::PolicyJobStatus::Cancelled,
+                };
+                eprintln!(
+                    "[PL] Final status override from terminal event: {:?}",
+                    final_status
+                );
+            }
+        }
+        eprintln!(
+            "[PL] Final status: status={:?} best_score={:?} error={:?}",
+            final_status,
+            status_result.as_ref().and_then(|result| result.best_score),
+            status_result.as_ref().and_then(|result| result.error.clone())
+        );
+
+        // Merge tracker data with status (fall back to tracker if status fetch failed)
+        let result = PromptLearningResult {
+            job_id: status_result
+                .as_ref()
+                .map(|result| result.job_id.clone())
+                .unwrap_or_else(|| job_id.to_string()),
+            status: final_status,
+            best_score: status_result
+                .as_ref()
+                .and_then(|result| result.best_score)
+                .or(Some(self.tracker.best_score())),
+            best_prompt: status_result
+                .as_ref()
+                .and_then(|result| result.best_prompt.clone()),
             baseline_score: self.tracker.baseline_score(),
             candidates_evaluated: self.tracker.progress.candidates_evaluated,
             generations_completed: self.tracker.progress.generations_completed,
-            error: status_result.error,
+            error: status_result.and_then(|result| result.error),
             raw: Value::Null,
-        })
+        };
+
+        eprintln!(
+            "[PL] RESULT: status={:?} best={:?} baseline={:?} candidates={} gens={}",
+            result.status,
+            result.best_score,
+            result.baseline_score,
+            result.candidates_evaluated,
+            result.generations_completed
+        );
+
+        Ok(result)
     }
 
     /// Cancel a running job.

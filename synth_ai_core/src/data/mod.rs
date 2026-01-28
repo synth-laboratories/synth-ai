@@ -13,6 +13,7 @@ pub mod context_override;
 pub mod enums;
 pub mod judgements;
 pub mod objectives;
+pub mod rewards;
 pub mod rubrics;
 
 // Re-export all public types
@@ -23,11 +24,15 @@ pub use context_override::{
 pub use enums::{
     AdaptiveBatchLevel, AdaptiveCurriculumLevel, GraphType, InferenceMode, JobStatus, JobType,
     ObjectiveDirection, ObjectiveKey, OptimizationMode, OutputMode, ProviderName, RewardScope,
-    RewardSource, RewardType, SuccessStatus, TrainingType, VerifierMode,
+    RewardSource, RewardType, SuccessStatus, TrainingType, VerifierMode, SynthModelName,
 };
 pub use judgements::{CriterionScoreData, Judgement, RubricAssignment};
 pub use objectives::{
-    EventObjectiveAssignment, ObjectiveSpec, OutcomeObjectiveAssignment, RewardObservation,
+    EventObjectiveAssignment, InstanceObjectiveAssignment, ObjectiveSpec,
+    OutcomeObjectiveAssignment, RewardObservation,
+};
+pub use rewards::{
+    CalibrationExample, EventRewardRecord, GoldExample, OutcomeRewardRecord, RewardAggregates,
 };
 pub use rubrics::{Criterion, CriterionExample, Rubric};
 

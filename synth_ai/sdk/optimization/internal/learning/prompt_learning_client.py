@@ -2,8 +2,8 @@
 
 from typing import Any, Dict, List, Optional
 
-from synth_ai.sdk.optimization.internal.utils import run_sync
 from synth_ai.core.rust_core.http import RustCoreHttpClient
+from synth_ai.sdk.optimization.internal.utils import run_sync
 
 from .prompt_learning_types import PromptResults
 
@@ -152,44 +152,12 @@ class PromptLearningClient:
             ValueError: If job_id format is invalid or response structure is unexpected
         """
         _validate_job_id(job_id)
-        import asyncio
-        import os
-
-        if os.getenv("SYNTH_USE_RUST_CORE", "").lower() in {"1", "true", "yes"}:
-            try:
-                import synth_ai_py
-
-                resp = await asyncio.to_thread(
-                    synth_ai_py.poll_events,
-                    "prompt_learning",
-                    job_id,
-                    self._base_url,
-                    self._api_key,
-                    since_seq,
-                    limit,
-                    int(self._timeout * 1000),
-                )
-                raw_events = resp.get("events") if isinstance(resp, dict) else []
-                events = []
-                for ev in raw_events or []:
-                    if not isinstance(ev, dict):
-                        continue
-                    events.append(
-                        {
-                            "seq": ev.get("seq", -1),
-                            "type": ev.get("type") or ev.get("event_type") or "unknown",
-                            "message": ev.get("message"),
-                            "data": ev.get("data_json") or ev.get("data") or ev,
-                            "ts": ev.get("ts"),
-                        }
-                    )
-                return events
-            except Exception:
-                pass
-
         params = {"since_seq": since_seq, "limit": limit}
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            js = await http.get(f"/api/prompt-learning/online/jobs/{job_id}/events", params=params)
+            js = await http.get(
+                f"/api/prompt-learning/online/jobs/{job_id}/events",
+                params=params,
+            )
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
         # Handle case where response is directly a list

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+import contextlib
 import time
+from collections.abc import Callable
 
 from synth_ai.core.rust_core.sse import stream_sse_events
 from synth_ai.core.rust_core.urls import ensure_api_base
@@ -17,7 +18,11 @@ async def stream_events(
 ) -> None:
     if seconds <= 0:
         return
-    headers = {"Accept": "text/event-stream", "Authorization": f"Bearer {api_key}"}
+    headers = {
+        "Accept": "text/event-stream",
+        "Authorization": f"Bearer {api_key}",
+        "X-API-Key": api_key,
+    }
     api_base = ensure_api_base(base_url)
     candidates = [
         f"{api_base}/rl/jobs/{job_id}/events?since_seq=0",
@@ -28,10 +33,8 @@ async def stream_events(
             start_t = time.time()
             async for obj in stream_sse_events(url, headers=headers, timeout=None):
                 if on_event:
-                    try:
+                    with contextlib.suppress(Exception):
                         on_event(obj)
-                    except Exception:
-                        pass
                 if (time.time() - start_t) >= seconds:
                     return
         except Exception:

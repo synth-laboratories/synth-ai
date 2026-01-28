@@ -193,10 +193,27 @@ impl TunnelConnector {
         let timeout = self.idle_timeout;
         self.idle_task = Some(tokio::spawn(async move {
             tokio::time::sleep(timeout).await;
-            let connector = get_connector();
-            let mut guard = connector.lock();
-            if guard.active_leases.is_empty() {
-                let _ = guard.stop().await;
+            // Check if we should stop (releases guard before await)
+            let should_stop = {
+                let guard = get_connector().lock();
+                guard.active_leases.is_empty()
+            };
+            if should_stop {
+                // Re-acquire and stop synchronously, then handle the async part
+                let process_to_wait = {
+                    let connector = get_connector();
+                    let mut guard = connector.lock();
+                    guard.cancel_idle_timer();
+                    let proc = guard.process.take();
+                    guard.state = ConnectorState::Stopped;
+                    guard.current_token = None;
+                    guard.active_leases.clear();
+                    proc
+                };
+                if let Some(mut proc) = process_to_wait {
+                    let _ = proc.start_kill();
+                    let _ = proc.wait().await;
+                }
             }
         }));
     }

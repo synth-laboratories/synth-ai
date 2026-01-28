@@ -30,16 +30,14 @@ Usage:
 from __future__ import annotations
 
 import atexit
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import httpx
+import importlib
+from typing import Any
 
 # Global shared HTTP client - lazily initialized
-_SHARED_HTTP_CLIENT: httpx.AsyncClient | None = None
+_SHARED_HTTP_CLIENT: Any | None = None
 
 
-def get_shared_http_client() -> httpx.AsyncClient:
+def get_shared_http_client() -> Any:
     """Get a shared httpx.AsyncClient configured for high concurrency.
 
     This client is designed to be passed to OpenAI/Anthropic SDK constructors
@@ -67,7 +65,7 @@ def get_shared_http_client() -> httpx.AsyncClient:
     global _SHARED_HTTP_CLIENT
 
     if _SHARED_HTTP_CLIENT is None:
-        import httpx
+        httpx = importlib.import_module("httpx")
 
         _SHARED_HTTP_CLIENT = httpx.AsyncClient(
             limits=httpx.Limits(

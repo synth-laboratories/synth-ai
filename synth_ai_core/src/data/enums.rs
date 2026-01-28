@@ -60,10 +60,6 @@ pub enum ProviderName {
     Groq,
     Google,
     Anthropic,
-    Together,
-    Fireworks,
-    Bedrock,
-    Azure,
 }
 
 impl Default for ProviderName {
@@ -72,18 +68,16 @@ impl Default for ProviderName {
     }
 }
 
-/// Inference mode for model calls.
+/// Inference mode for policy evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InferenceMode {
-    Standard,
-    Batched,
-    Streaming,
+    SynthHosted,
 }
 
 impl Default for InferenceMode {
     fn default() -> Self {
-        Self::Standard
+        Self::SynthHosted
     }
 }
 
@@ -94,10 +88,6 @@ pub enum RewardSource {
     TaskApp,
     Verifier,
     Fused,
-    Environment,
-    Runner,
-    Evaluator,
-    Human,
 }
 
 impl Default for RewardSource {
@@ -122,7 +112,7 @@ pub enum RewardType {
 
 impl Default for RewardType {
     fn default() -> Self {
-        Self::Sparse
+        Self::Shaped
     }
 }
 
@@ -147,8 +137,6 @@ pub enum ObjectiveKey {
     Reward,
     LatencyMs,
     CostUsd,
-    TokensTotal,
-    TurnsCount,
 }
 
 impl Default for ObjectiveKey {
@@ -182,7 +170,7 @@ pub enum OutputMode {
 
 impl Default for OutputMode {
     fn default() -> Self {
-        Self::Text
+        Self::ToolCalls
     }
 }
 
@@ -211,19 +199,18 @@ impl Default for SuccessStatus {
     }
 }
 
-/// Type of graph in graph optimization.
+/// Type of graph in optimization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GraphType {
-    Sequential,
-    Parallel,
-    Conditional,
-    Loop,
+    Policy,
+    Verifier,
+    Rlm,
 }
 
 impl Default for GraphType {
     fn default() -> Self {
-        Self::Sequential
+        Self::Policy
     }
 }
 
@@ -231,14 +218,14 @@ impl Default for GraphType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OptimizationMode {
-    Online,
-    Offline,
-    Hybrid,
+    Auto,
+    GraphOnly,
+    PromptOnly,
 }
 
 impl Default for OptimizationMode {
     fn default() -> Self {
-        Self::Online
+        Self::Auto
     }
 }
 
@@ -246,15 +233,14 @@ impl Default for OptimizationMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VerifierMode {
-    Binary,
     Rubric,
-    Criteria,
-    Custom,
+    Contrastive,
+    GoldExamples,
 }
 
 impl Default for VerifierMode {
     fn default() -> Self {
-        Self::Binary
+        Self::Rubric
     }
 }
 
@@ -263,10 +249,11 @@ impl Default for VerifierMode {
 #[serde(rename_all = "snake_case")]
 pub enum TrainingType {
     Sft,
+    Gepa,
+    GraphEvolve,
+    Graphgen,
     Rl,
-    Dpo,
-    Ppo,
-    Grpo,
+    Gspo,
 }
 
 impl Default for TrainingType {
@@ -277,33 +264,47 @@ impl Default for TrainingType {
 
 /// Adaptive curriculum difficulty level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AdaptiveCurriculumLevel {
-    Easy,
-    Medium,
-    Hard,
-    Expert,
+    None,
+    Low,
+    Moderate,
+    High,
 }
 
 impl Default for AdaptiveCurriculumLevel {
     fn default() -> Self {
-        Self::Medium
+        Self::None
     }
 }
 
 /// Adaptive batch sizing level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AdaptiveBatchLevel {
-    Small,
-    Medium,
-    Large,
-    Auto,
+    None,
+    Low,
+    Moderate,
+    High,
 }
 
 impl Default for AdaptiveBatchLevel {
     fn default() -> Self {
-        Self::Auto
+        Self::None
+    }
+}
+
+/// Synth-hosted model names.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SynthModelName {
+    SynthSmall,
+    SynthMedium,
+}
+
+impl Default for SynthModelName {
+    fn default() -> Self {
+        Self::SynthSmall
     }
 }
 

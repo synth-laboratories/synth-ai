@@ -18,16 +18,18 @@ Usage:
     4. Run with: ENVIRONMENT_API_KEY=<your-key> python your_localapi.py
 """
 
-import httpx
-from fastapi import Request
+import importlib
 
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.localapi._impl import (
+httpx = importlib.import_module("httpx")
+from fastapi import Request  # noqa: E402
+
+from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api  # noqa: E402
+from synth_ai.sdk.localapi._impl import (  # noqa: E402
     build_rollout_response,
     install_all_guards,
     normalize_inference_url,
 )
-from synth_ai.sdk.localapi._impl.contracts import (
+from synth_ai.sdk.localapi._impl.contracts import (  # noqa: E402
     RolloutRequest,
     RolloutResponse,
     TaskInfo,

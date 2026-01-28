@@ -5,6 +5,7 @@ Public API: Use `synth_ai.sdk.optimization.PolicyOptimizationJob` instead.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +29,11 @@ from .prompt_learning_service import (
     submit_prompt_learning_job,
 )
 from .utils import ensure_api_base, run_sync
+
+try:
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional rust bindings
+    _synth_ai_py = None
 
 
 @dataclass
@@ -174,6 +180,7 @@ class PromptLearningJob:
         self._job_id = job_id
         self._build_result: Optional[PromptLearningBuildResult] = None
         self._skip_health_check = skip_health_check
+        self._rust_job = None
 
     @classmethod
     def from_config(
@@ -355,7 +362,14 @@ class PromptLearningJob:
             api_key=api_key,
         )
 
-        return cls(config, job_id=job_id)
+        job = cls(config, job_id=job_id)
+        if _synth_ai_py is not None:
+            job._rust_job = _synth_ai_py.PromptLearningJob.from_job_id(
+                job_id,
+                api_key,
+                backend_url,
+            )
+        return job
 
     def _build_payload(self) -> PromptLearningBuildResult:
         """Build the job payload from config.
@@ -426,15 +440,22 @@ class PromptLearningJob:
         logger = logging.getLogger(__name__)
         logger.debug("Submitting job to: %s", self.config.backend_url)
 
-        js = submit_prompt_learning_job(
-            backend_url=self.config.backend_url,
-            api_key=self.config.api_key,
-            payload=build.payload,
-        )
-
-        job_id = js.get("job_id") or js.get("id")
-        if not job_id:
-            raise RuntimeError("Response missing job ID")
+        if _synth_ai_py is not None:
+            self._rust_job = _synth_ai_py.PromptLearningJob.from_dict(
+                build.payload,
+                self.config.api_key,
+                self.config.backend_url,
+            )
+            job_id = self._rust_job.submit()
+        else:
+            js = submit_prompt_learning_job(
+                backend_url=self.config.backend_url,
+                api_key=self.config.api_key,
+                payload=build.payload,
+            )
+            job_id = js.get("job_id") or js.get("id")
+            if not job_id:
+                raise RuntimeError("Response missing job ID")
 
         self._job_id = job_id
         return job_id
@@ -448,6 +469,9 @@ class PromptLearningJob:
         """Get current job status (async)."""
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if self._rust_job is not None:
+            return await asyncio.to_thread(self._rust_job.get_status)
 
         from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import (
             PromptLearningClient,
@@ -514,6 +538,12 @@ class PromptLearningJob:
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
+        if self._rust_job is not None:
+            result = self._rust_job.poll_until_complete(timeout, interval)
+            if isinstance(result, dict):
+                return PromptLearningResult.from_response(self._job_id, result)
+            return PromptLearningResult.from_response(self._job_id, dict(result))
+
         return poll_prompt_learning_until_complete(
             backend_url=self.config.backend_url,
             api_key=self.config.api_key,
@@ -538,6 +568,12 @@ class PromptLearningJob:
 
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if self._rust_job is not None:
+            result = await asyncio.to_thread(self._rust_job.stream_until_complete, timeout)
+            if isinstance(result, dict):
+                return PromptLearningResult.from_response(self._job_id, result)
+            return PromptLearningResult.from_response(self._job_id, dict(result))
 
         from .prompt_learning_streaming import build_prompt_learning_streamer
 
@@ -585,6 +621,12 @@ class PromptLearningJob:
         Note: on_event is invoked once with the final status payload; use handlers
         to receive per-event callbacks.
         """
+        if self._rust_job is not None:
+            result = self._rust_job.stream_until_complete(timeout)
+            if isinstance(result, dict):
+                return PromptLearningResult.from_response(self._job_id or "", result)
+            return PromptLearningResult.from_response(self._job_id or "", dict(result))
+
         return run_sync(
             self.stream_until_complete_async(
                 timeout=timeout,
@@ -599,6 +641,9 @@ class PromptLearningJob:
         """Get job results (prompts, scores, etc.) (async)."""
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if self._rust_job is not None:
+            return await asyncio.to_thread(self._rust_job.get_results)
 
         from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import (
             PromptLearningClient,
@@ -621,6 +666,9 @@ class PromptLearningJob:
 
     def get_results(self) -> Dict[str, Any]:
         """Get job results (prompts, scores, etc.)."""
+        if self._rust_job is not None:
+            return self._rust_job.get_results()
+
         return run_sync(
             self.get_results_async(),
             label="get_results() (use get_results_async in async contexts)",
@@ -678,6 +726,10 @@ class PromptLearningJob:
         """
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if self._rust_job is not None:
+            self._rust_job.cancel(reason)
+            return {"job_id": self._job_id, "status": "cancelled"}
 
         return cancel_prompt_learning_job(
             backend_url=self.config.backend_url,

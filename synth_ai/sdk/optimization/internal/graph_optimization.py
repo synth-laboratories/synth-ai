@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+from synth_ai.core.rust_core.urls import ensure_api_base
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.optimization.models import GraphJobStatus as JobStatus
 from synth_ai.sdk.optimization.models import GraphOptimizationResult
@@ -55,6 +56,7 @@ class GraphOptimizationJobConfig:
             raise ValueError("backend_url is required")
         if not self.api_key:
             raise ValueError("api_key is required")
+        self.backend_url = ensure_api_base(self.backend_url)
 
 
 class GraphOptimizationJob:
@@ -117,7 +119,10 @@ class GraphOptimizationJob:
         return self._job_id
 
     def _headers(self) -> Dict[str, str]:
-        return {"Authorization": f"Bearer {self.config.api_key}"}
+        return {
+            "Authorization": f"Bearer {self.config.api_key}",
+            "X-API-Key": self.config.api_key,
+        }
 
     def submit(self) -> str:
         """Submit the job and return job_id."""

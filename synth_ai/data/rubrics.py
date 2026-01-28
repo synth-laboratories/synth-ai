@@ -7,6 +7,16 @@ For OUTPUT/RESULT structures (scores after evaluation), see judgements.py.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class CriterionExample:
+    """Example for a criterion showing expected scores."""
+
+    content: str
+    expected_score: float
+    explanation: str | None = None
 
 
 @dataclass
@@ -27,10 +37,14 @@ class Criterion:
     description: str
     weight: float = 1.0
     required: bool = False
+    scale_max: float | None = None
+    examples: list[CriterionExample] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.weight <= 0:
             raise ValueError("criterion weight must be positive")
+        if self.scale_max is not None and self.scale_max <= 0:
+            raise ValueError("criterion scale_max must be positive")
 
 
 @dataclass
@@ -51,10 +65,11 @@ class Rubric:
     goal_text: str | None = None
     criteria: list[Criterion] = field(default_factory=list)
     aggregation: str = "weighted_sum"
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Validate aggregation
-        allowed = {"sum", "weighted_sum", "custom", "inherit"}
+        allowed = {"sum", "weighted_sum", "mean", "weighted_mean", "custom", "inherit"}
         if self.aggregation not in allowed:
             raise ValueError(f"aggregation must be one of {sorted(allowed)}")
 
@@ -67,6 +82,7 @@ class Rubric:
 
 
 __all__ = [
+    "CriterionExample",
     "Criterion",
     "Rubric",
 ]

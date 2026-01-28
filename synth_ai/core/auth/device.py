@@ -7,6 +7,11 @@ import time
 import webbrowser
 from dataclasses import dataclass
 
+try:
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional rust bindings
+    _synth_ai_py = None
+
 import requests
 from requests import RequestException
 
@@ -25,6 +30,21 @@ class AuthSession:
 
 
 def init_auth_session() -> AuthSession:
+    if _synth_ai_py is not None:
+        data = _synth_ai_py.init_device_auth(FRONTEND_URL_BASE)
+        device_code = str(data.get("device_code") or "").strip()
+        verification_uri = str(data.get("verification_uri") or "").strip()
+        expires_at = float(data.get("expires_at") or 0.0)
+        if not device_code or not verification_uri or not expires_at:
+            raise RuntimeError(
+                "Handshake init response missing device_code or verification_uri or expires_at."
+            )
+        return AuthSession(
+            device_code=device_code,
+            verification_uri=verification_uri,
+            expires_at=expires_at,
+        )
+
     try:
         res = requests.post(INIT_URL, timeout=10)
     except RequestException as exc:
@@ -56,6 +76,8 @@ def init_auth_session() -> AuthSession:
 
 
 def fetch_data(device_code: str) -> requests.Response | None:
+    if _synth_ai_py is not None:
+        return None
     try:
         return requests.post(
             TOKEN_URL,
@@ -74,8 +96,18 @@ def fetch_credentials_from_web_browser() -> dict:
     with contextlib.suppress(Exception):
         webbrowser.open(auth_session.verification_uri)
 
-    data = None
+    if _synth_ai_py is not None:
+        data = _synth_ai_py.poll_device_token(
+            FRONTEND_URL_BASE,
+            auth_session.device_code,
+            POLL_INTERVAL,
+            max(1, int(auth_session.expires_at - time.time())),
+        )
+    else:
+        data = None
     while time.time() <= auth_session.expires_at:
+        if _synth_ai_py is not None:
+            break
         res = fetch_data(auth_session.device_code)
         if not res:
             time.sleep(POLL_INTERVAL)

@@ -302,6 +302,7 @@ impl TraceStorage for LibsqlTraceStorage {
             event_history: Vec::new(), // Events loaded separately if needed
             markov_blanket_message_history: Vec::new(),
             metadata,
+            session_metadata: None,
         }))
     }
 

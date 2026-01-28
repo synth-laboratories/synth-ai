@@ -18,6 +18,7 @@ use tokio::task::JoinHandle;
 use crate::tunnels::errors::TunnelError;
 use crate::tunnels::ports::{is_port_available, kill_port};
 use crate::tunnels::types::{GatewayState, GatewayStatus};
+use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 
 pub struct TunnelGateway {
     port: u16,
@@ -155,6 +156,8 @@ async fn handle_req(
             let url = format!("http://{host}:{port}/");
             let client = reqwest::Client::builder()
                 .timeout(Duration::from_secs(5))
+                .pool_max_idle_per_host(20)
+                .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
                 .no_proxy()
                 .build()
                 .unwrap();
@@ -230,6 +233,8 @@ async fn handle_req(
     let body = req.into_body().collect().await?.to_bytes();
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(60))
+        .pool_max_idle_per_host(50)
+        .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
         .build()
         .unwrap();
     let mut builder = client.request(method, target_url);

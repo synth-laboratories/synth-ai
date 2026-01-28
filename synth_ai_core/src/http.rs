@@ -4,11 +4,14 @@
 //! optional dev headers (X-User-ID, X-Org-ID), and proper error handling.
 
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::multipart::{Form, Part};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::env;
 use std::time::Duration;
 use thiserror::Error;
+
+use crate::shared_client::{DEFAULT_POOL_SIZE, DEFAULT_CONNECT_TIMEOUT_SECS};
 
 /// HTTP error details.
 #[derive(Debug, Clone)]
@@ -33,7 +36,7 @@ impl std::fmt::Display for HttpErrorDetail {
 /// HTTP client errors.
 #[derive(Debug, Error)]
 pub enum HttpError {
-    #[error("request failed: {0}")]
+    #[error("request failed: {0} (is_connect={}, is_timeout={})", .0.is_connect(), .0.is_timeout())]
     Request(#[from] reqwest::Error),
 
     #[error("{0}")]
@@ -86,6 +89,15 @@ pub struct HttpClient {
     api_key: String,
 }
 
+/// File payload for multipart uploads.
+#[derive(Debug, Clone)]
+pub struct MultipartFile {
+    pub field: String,
+    pub filename: String,
+    pub content: Vec<u8>,
+    pub content_type: Option<String>,
+}
+
 impl HttpClient {
     /// Create a new HTTP client.
     ///
@@ -103,17 +115,22 @@ impl HttpClient {
     pub fn new(base_url: &str, api_key: &str, timeout_secs: u64) -> Result<Self, HttpError> {
         let mut headers = HeaderMap::new();
 
-        // Bearer token
-        let auth_value = format!("Bearer {}", api_key);
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&auth_value).map_err(|_| {
-                HttpError::InvalidUrl("invalid api key characters".to_string())
-            })?,
-        );
-
-        // Content-Type
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        // Only add auth headers if api_key is non-empty
+        if !api_key.is_empty() {
+            let auth_value = format!("Bearer {}", api_key);
+            headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&auth_value).map_err(|_| {
+                    HttpError::InvalidUrl("invalid api key characters".to_string())
+                })?,
+            );
+            headers.insert(
+                "X-API-Key",
+                HeaderValue::from_str(api_key).map_err(|_| {
+                    HttpError::InvalidUrl("invalid api key characters".to_string())
+                })?,
+            );
+        }
 
         // Optional dev headers
         if let Some(user_id) = env::var("SYNTH_USER_ID")
@@ -137,6 +154,11 @@ impl HttpClient {
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .timeout(Duration::from_secs(timeout_secs))
+            .pool_max_idle_per_host(DEFAULT_POOL_SIZE)
+            .pool_idle_timeout(Duration::from_secs(90))
+            .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
+            .tcp_keepalive(Duration::from_secs(60))
+            .tcp_nodelay(true)
             .build()
             .map_err(HttpError::Request)?;
 
@@ -145,6 +167,11 @@ impl HttpClient {
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key: api_key.to_string(),
         })
+    }
+
+    /// Get the API key used by this client.
+    pub(crate) fn api_key(&self) -> &str {
+        &self.api_key
     }
 
     /// Convert a relative path to an absolute URL.
@@ -185,6 +212,31 @@ impl HttpClient {
         self.handle_response(resp, &url).await
     }
 
+    /// Make a GET request and return raw bytes.
+    pub async fn get_bytes(
+        &self,
+        path: &str,
+        params: Option<&[(&str, &str)]>,
+    ) -> Result<Vec<u8>, HttpError> {
+        let url = self.abs_url(path);
+        let mut request = self.client.get(&url);
+        if let Some(params) = params {
+            request = request.query(params);
+        }
+        let resp = request.send().await?;
+        let status = resp.status();
+        if status.is_success() {
+            let bytes = resp.bytes().await?;
+            return Ok(bytes.to_vec());
+        }
+        let body = resp.text().await.unwrap_or_default();
+        Err(HttpError::from_response(
+            status.as_u16(),
+            &url,
+            if body.is_empty() { None } else { Some(&body) },
+        ))
+    }
+
     /// Make a GET request returning raw JSON Value.
     pub async fn get_json(
         &self,
@@ -207,6 +259,38 @@ impl HttpClient {
     ) -> Result<T, HttpError> {
         let url = self.abs_url(path);
         let resp = self.client.post(&url).json(body).send().await?;
+        self.handle_response(resp, &url).await
+    }
+
+    /// Make a POST request with multipart form data.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - API path
+    /// * `data` - Form fields
+    /// * `files` - File parts
+    pub async fn post_multipart<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        data: &[(String, String)],
+        files: &[MultipartFile],
+    ) -> Result<T, HttpError> {
+        let url = self.abs_url(path);
+        let mut form = Form::new();
+        for (key, value) in data {
+            form = form.text(key.clone(), value.clone());
+        }
+        for file in files {
+            let part = Part::bytes(file.content.clone()).file_name(file.filename.clone());
+            let part = match &file.content_type {
+                Some(ct) => part.mime_str(ct).unwrap_or_else(|_| {
+                    Part::bytes(file.content.clone()).file_name(file.filename.clone())
+                }),
+                None => part,
+            };
+            form = form.part(file.field.clone(), part);
+        }
+        let resp = self.client.post(&url).multipart(form).send().await?;
         self.handle_response(resp, &url).await
     }
 

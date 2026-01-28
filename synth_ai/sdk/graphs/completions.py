@@ -6,7 +6,7 @@ This module provides the client for running inference on trained graphs,
 including policy graphs, verifier graphs, and Reasoning Language Models (RLM).
 
 Provides both sync and async clients:
-- GraphCompletionsSyncClient: Synchronous client using httpx
+- GraphCompletionsSyncClient: Synchronous client using Rust bindings
 - GraphCompletionsAsyncClient: Asynchronous client using RustCoreHttpClient
 - GraphCompletionsClient: Alias for GraphCompletionsAsyncClient (backward compat)
 """
@@ -21,8 +21,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Literal, Mapping, TypedDict
 
-import httpx
+try:
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional rust bindings
+    _synth_ai_py = None
 
+from synth_ai.core.errors import HTTPError
+from synth_ai.core.rust_core.http import RustCoreHttpClient
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
 from synth_ai.sdk.graphs.trace_upload import (
     AUTO_UPLOAD_THRESHOLD_BYTES,
@@ -33,8 +38,6 @@ from synth_ai.sdk.graphs.verifier_schemas import (
     EvidenceItem,
     GoldExampleInput,
 )
-from synth_ai.core.errors import HTTPError
-from synth_ai.core.rust_core.http import RustCoreHttpClient
 
 GraphKind = Literal["zero_shot", "graphgen", "registered"]
 
@@ -156,7 +159,7 @@ class GraphCompletionResponse:
 
 
 class GraphCompletionsSyncClient:
-    """Synchronous client for graph completions using httpx.
+    """Synchronous client for graph completions using Rust bindings.
 
     Example:
         ```python
@@ -231,23 +234,30 @@ class GraphCompletionsSyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        url = f"{self._base}/api/graphs/completions"
-        headers = {"X-API-Key": self._key, "Content-Type": "application/json"}
+        from synth_ai.core.rust_core.urls import ensure_api_base
 
-        with httpx.Client(timeout=timeout or self._timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
+        api_base = ensure_api_base(self._base)
+        url = f"{api_base}/graphs/completions"
+        if _synth_ai_py is None:
+            raise RuntimeError("synth_ai_py is not available for graph completions")
+        try:
+            client = _synth_ai_py.HttpClient(self._base, self._key, int(timeout or self._timeout))
+            data = client.post_json(url, payload)
+        except Exception as exc:
+            message = str(exc)
+            if "400" in message or "422" in message:
+                raise ValueError(f"graph_completions_validation_error: {message[:500]}") from exc
+            if "401" in message or "403" in message:
+                raise PermissionError(f"graph_completions_auth_error: {message[:500]}") from exc
+            if "404" in message:
+                raise FileNotFoundError(f"graph_completions_not_found: {message[:500]}") from exc
+            if "429" in message:
+                raise Exception("graph_completions_rate_limited") from exc
+            raise
 
-            if resp.status_code == 400 or resp.status_code == 422:
-                raise ValueError(f"graph_completions_validation_error: {resp.text[:500]}")
-            if resp.status_code in (401, 403):
-                raise PermissionError(f"graph_completions_auth_error: {resp.text[:500]}")
-            if resp.status_code == 404:
-                raise FileNotFoundError(f"graph_completions_not_found: {resp.text[:500]}")
-            if resp.status_code == 429:
-                raise Exception("graph_completions_rate_limited")
-
-            resp.raise_for_status()
-            return GraphCompletionResponse.from_dict(resp.json())
+        if not isinstance(data, dict):
+            raise RuntimeError("graph_completions_invalid_response")
+        return GraphCompletionResponse.from_dict(data)
 
     def run_output(
         self,
@@ -529,9 +539,13 @@ class GraphCompletionsAsyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        url = f"{self._base}/api/graphs/completions?stream=true"
+        from synth_ai.core.rust_core.urls import ensure_api_base
+
+        api_base = ensure_api_base(self._base)
+        url = f"{api_base}/graphs/completions?stream=true"
         headers = {
             "X-API-Key": self._key,
+            "Authorization": f"Bearer {self._key}",
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
         }

@@ -37,7 +37,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-import httpx
+try:
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional rust bindings
+    _synth_ai_py = None
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
@@ -482,24 +485,21 @@ class EvalJob:
             "timeout": self.config.timeout,
         }
 
-        # Submit synchronously using httpx
         url = f"{self._base_url()}/eval/jobs"
+        if _synth_ai_py is None:
+            raise RuntimeError("synth_ai_py is not available for eval submissions")
+        try:
+            client = _synth_ai_py.HttpClient(self._base_url(), self.config.api_key, 30)
+            job_data = client.post_json(url, job_request)
+        except Exception as exc:
+            raise RuntimeError(f"Job submission failed: {exc}") from exc
 
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
-            resp = client.post(url, json=job_request, headers=self._headers())
+        job_id = job_data.get("job_id") if isinstance(job_data, dict) else None
+        if not job_id:
+            raise RuntimeError(f"No job_id in response: {job_data}")
 
-            if resp.status_code not in (200, 201):
-                raise RuntimeError(
-                    f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"
-                )
-
-            job_data = resp.json()
-            job_id = job_data.get("job_id")
-            if not job_id:
-                raise RuntimeError(f"No job_id in response: {job_data}")
-
-            self._job_id = job_id
-            return job_id
+        self._job_id = job_id
+        return job_id
 
     @property
     def job_id(self) -> Optional[str]:
@@ -532,13 +532,13 @@ class EvalJob:
 
         url = f"{self._base_url()}/eval/jobs/{self._job_id}"
 
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
-            resp = client.get(url, headers=self._headers())
-
-            if resp.status_code != 200:
-                raise RuntimeError(f"Failed to get status: {resp.status_code} {resp.text}")
-
-            return resp.json()
+        if _synth_ai_py is None:
+            raise RuntimeError("synth_ai_py is not available for eval status")
+        try:
+            client = _synth_ai_py.HttpClientPy(self._base_url(), self.config.api_key, 30)
+            return client.get_json(url, None)
+        except Exception as exc:
+            raise RuntimeError(f"Failed to get status: {exc}") from exc
 
     def poll_until_complete(
         self,
@@ -794,6 +794,7 @@ class EvalJob:
         headers = {
             "Accept": "text/event-stream",
             "Authorization": f"Bearer {self.config.api_key}",
+            "X-API-Key": self.config.api_key,
         }
 
         start_time = time.time()
@@ -854,6 +855,15 @@ class EvalJob:
             if progress:
                 print(f"[stream] SSE error: {exc}, falling back to polling")
             return self.poll_until_complete(timeout=timeout, progress=progress, on_event=on_event)
+
+        # Check if we got a terminal event - if not, stream ended prematurely (connection dropped)
+        if last_status == "pending":
+            remaining_timeout = max(timeout - (time.time() - start_time), 60.0)
+            if progress:
+                print(
+                    f"[stream] SSE ended without terminal event ({completed}/{total} seeds), falling back to polling"
+                )
+            return self.poll_until_complete(timeout=remaining_timeout, progress=progress)
 
         # Fetch full results
         try:
@@ -947,14 +957,13 @@ class EvalJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
         url = f"{self._base_url()}/eval/jobs/{self._job_id}/results"
-
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
-            resp = client.get(url, headers=self._headers())
-
-            if resp.status_code != 200:
-                raise RuntimeError(f"Failed to get results: {resp.status_code} {resp.text}")
-
-            return resp.json()
+        if _synth_ai_py is None:
+            raise RuntimeError("synth_ai_py is not available for eval results")
+        try:
+            client = _synth_ai_py.HttpClientPy(self._base_url(), self.config.api_key, 30)
+            return client.get_json(url, None)
+        except Exception as exc:
+            raise RuntimeError(f"Failed to get results: {exc}") from exc
 
     def download_traces(self, output_dir: str | Path) -> Path:
         """Download traces for the job to a directory.
@@ -985,18 +994,19 @@ class EvalJob:
         url = f"{self._base_url()}/eval/jobs/{self._job_id}/traces"
         output_path = Path(output_dir)
 
-        with httpx.Client(timeout=httpx.Timeout(60.0)) as client:
-            resp = client.get(url, headers=self._headers())
+        if _synth_ai_py is None:
+            raise RuntimeError("synth_ai_py is not available for trace download")
+        try:
+            client = _synth_ai_py.HttpClientPy(self._base_url(), self.config.api_key, 60)
+            content = client.get_bytes(url, None)
+        except Exception as exc:
+            raise RuntimeError(f"Failed to download traces: {exc}") from exc
 
-            if resp.status_code != 200:
-                raise RuntimeError(f"Failed to download traces: {resp.status_code} {resp.text}")
+        output_path.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            zf.extractall(output_path)
 
-            output_path.mkdir(parents=True, exist_ok=True)
-
-            with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
-                zf.extractall(output_path)
-
-            return output_path
+        return output_path
 
     def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Cancel a running eval job.
@@ -1016,7 +1026,7 @@ class EvalJob:
 
         Raises:
             RuntimeError: If job hasn't been submitted yet
-            httpx.HTTPStatusError: If the cancellation request fails
+            RuntimeError: If the cancellation request fails
 
         Example:
             >>> job.submit()
@@ -1033,10 +1043,13 @@ class EvalJob:
         if reason:
             payload["reason"] = reason
 
-        with httpx.Client(timeout=httpx.Timeout(30.0)) as client:
-            resp = client.post(url, headers=self._headers(), json=payload)
-            resp.raise_for_status()
-            return resp.json()
+        if _synth_ai_py is None:
+            raise RuntimeError("synth_ai_py is not available for eval cancel")
+        try:
+            client = _synth_ai_py.HttpClientPy(self._base_url(), self.config.api_key, 30)
+            return client.post_json(url, payload)
+        except Exception as exc:
+            raise RuntimeError(f"Eval cancel failed: {exc}") from exc
 
     def query_workflow_state(self) -> Dict[str, Any]:
         """Query the Temporal workflow state for instant polling.
@@ -1077,15 +1090,21 @@ class EvalJob:
             base = f"{base}/api"
         url = f"{base}/jobs/{self._job_id}/workflow-state"
 
-        with httpx.Client(timeout=httpx.Timeout(10.0)) as client:
-            resp = client.get(url, headers=self._headers())
-            if resp.status_code != 200:
-                return {
-                    "job_id": self._job_id,
-                    "workflow_state": None,
-                    "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
-                }
-            return resp.json()
+        if _synth_ai_py is None:
+            return {
+                "job_id": self._job_id,
+                "workflow_state": None,
+                "error": "synth_ai_py is not available for workflow state",
+            }
+        try:
+            client = _synth_ai_py.HttpClientPy(base, self.config.api_key, 10)
+            return client.get_json(url, None)
+        except Exception as exc:
+            return {
+                "job_id": self._job_id,
+                "workflow_state": None,
+                "error": str(exc)[:200],
+            }
 
 
 __all__ = ["EvalJob", "EvalJobConfig", "EvalResult", "EvalStatus"]

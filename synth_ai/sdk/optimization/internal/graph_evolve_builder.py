@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
+from synth_ai.core.rust_core.urls import ensure_api_base
 from synth_ai.core.utils.urls import BACKEND_URL_API
 from synth_ai.data.enums import GraphType
 
@@ -50,6 +51,7 @@ def resolve_graph_evolve_credentials(
 ) -> tuple[str, str]:
     if not backend_url:
         backend_url = BACKEND_URL_API
+    backend_url = ensure_api_base(backend_url)
     if not api_key:
         api_key = os.environ.get("SYNTH_API_KEY")
         if not api_key:

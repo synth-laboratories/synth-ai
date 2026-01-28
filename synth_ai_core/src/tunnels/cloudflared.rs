@@ -12,6 +12,7 @@ use tokio::process::Child;
 use tokio::task::JoinHandle;
 
 use crate::tunnels::errors::TunnelError;
+use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 
 static URL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"https://[a-z0-9-]+\\.trycloudflare\\.com").unwrap());
 
@@ -321,6 +322,8 @@ pub async fn rotate_tunnel(
     let url = format!("{base}/api/v1/tunnels/rotate");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(180))
+        .pool_max_idle_per_host(20)
+        .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
         .build()
         .map_err(|e| TunnelError::api(e.to_string()))?;
     let resp = client
@@ -359,6 +362,8 @@ pub async fn create_tunnel(
     let url = "https://api.usesynth.ai/api/v1/tunnels/";
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(180))
+        .pool_max_idle_per_host(20)
+        .connect_timeout(Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS))
         .build()
         .map_err(|e| TunnelError::api(e.to_string()))?;
     let resp = client
@@ -390,6 +395,8 @@ pub async fn wait_for_health_check(
     let url = format!("http://{host}:{port}/health");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
+        .pool_max_idle_per_host(10)
+        .connect_timeout(Duration::from_secs(5))
         .no_proxy()
         .build()
         .map_err(|e| TunnelError::local(e.to_string()))?;
@@ -476,6 +483,8 @@ pub async fn verify_tunnel_dns_resolution(
         let port = if parsed.scheme() == "http" { 80 } else { 443 };
         let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
+            .pool_max_idle_per_host(10)
+            .connect_timeout(Duration::from_secs(5))
             .danger_accept_invalid_certs(true)
             .resolve(hostname, (ip, port).into());
         let client = builder

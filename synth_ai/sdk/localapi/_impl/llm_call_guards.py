@@ -73,7 +73,9 @@ def install_httpx_guard() -> None:
     Call this once at module initialization in your LocalAPI.
     """
     try:
-        import httpx
+        import importlib
+
+        httpx = importlib.import_module("httpx")
 
         # Check if already patched
         if hasattr(httpx.AsyncClient.post, "_synth_guarded"):

@@ -30,7 +30,7 @@ pub mod prompt_learning;
 pub mod streaming;
 
 // Re-export main types
-pub use events::{EventCategory, EventParser, ParsedEvent};
+pub use events::{EventCategory, EventParser, EventPath, ParsedEvent, TerminalStatus};
 pub use progress::{CandidateInfo, GEPAProgress, ProgressTracker, TokenUsage};
 pub use prompt_learning::{PromptLearningJob, PromptLearningResult, PromptResults, RankedPrompt};
 pub use streaming::EventStream;

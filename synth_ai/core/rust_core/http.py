@@ -4,36 +4,13 @@ import asyncio
 import os
 from typing import Any
 
-import httpx
-
 from synth_ai.core.errors import HTTPError
 from synth_ai.core.rust_core.urls import ensure_api_base, normalize_base_url
 
-_SHARED_HTTP_CLIENT: httpx.AsyncClient | None = None
-
-
-def _build_shared_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(
-        limits=httpx.Limits(
-            max_connections=200,
-            max_keepalive_connections=200,
-            keepalive_expiry=30.0,
-        ),
-        timeout=httpx.Timeout(
-            connect=30.0,
-            read=300.0,
-            write=30.0,
-            pool=30.0,
-        ),
-        follow_redirects=False,
-    )
-
-
-def get_shared_http_client() -> httpx.AsyncClient:
-    global _SHARED_HTTP_CLIENT
-    if _SHARED_HTTP_CLIENT is None:
-        _SHARED_HTTP_CLIENT = _build_shared_client()
-    return _SHARED_HTTP_CLIENT
+try:
+    import synth_ai_py as _synth_ai_py
+except Exception:  # pragma: no cover - optional rust bindings
+    _synth_ai_py = None
 
 
 class RustCoreHttpClient:
@@ -53,18 +30,22 @@ class RustCoreHttpClient:
         self._timeout = timeout
         self._shared = shared
         self._use_api_base = use_api_base
-        self._client: httpx.AsyncClient | None = None
+        self._rust_client = None
 
     async def __aenter__(self) -> RustCoreHttpClient:
-        if self._client is None:
-            self._client = get_shared_http_client() if self._shared else _build_shared_client()
+        if _synth_ai_py is None:
+            raise RuntimeError("synth_ai_py is required for RustCoreHttpClient")
+        if self._rust_client is None:
+            self._rust_client = _synth_ai_py.HttpClient(
+                ensure_api_base(self._base_url) if self._use_api_base else self._base_url,
+                self._api_key or "",
+                int(self._timeout or 30.0),
+            )
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
-        if self._client is not None and not self._shared:
-            await self._client.aclose()
         if not self._shared:
-            self._client = None
+            self._rust_client = None
 
     def _abs(self, path: str) -> str:
         if path.startswith(("http://", "https://")):
@@ -87,11 +68,6 @@ class RustCoreHttpClient:
             headers["X-Org-ID"] = org_id
         return headers
 
-    def _ensure_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = get_shared_http_client() if self._shared else _build_shared_client()
-        return self._client
-
     async def request_raw(
         self,
         method: str,
@@ -103,28 +79,27 @@ class RustCoreHttpClient:
         data: dict[str, Any] | None = None,
         files: dict[str, tuple[str, bytes, str | None]] | None = None,
         timeout: float | None = None,
-    ) -> httpx.Response:
-        client = self._ensure_client()
-        url = self._abs(path)
-        merged_headers = {**self._headers(), **(headers or {})}
-        return await client.request(
-            method,
-            url,
-            params=params,
-            json=json_payload,
-            headers=merged_headers,
-            data=data,
-            files=files,
-            timeout=timeout or self._timeout,
-        )
+    ):
+        raise RuntimeError("request_raw is not supported in rust-backed client")
 
     async def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
-        resp = await self.request_raw("GET", path, params=params)
-        return await self._handle_response(resp)
+        if self._rust_client is None:
+            raise RuntimeError("synth_ai_py is required for RustCoreHttpClient")
+        try:
+            return await asyncio.to_thread(self._rust_client.get_json, self._abs(path), params)
+        except Exception as exc:
+            raise _wrap_rust_error(exc, self._abs(path)) from exc
+
+    async def get_json(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
+        return await self.get(path, params=params)
 
     async def post_json(self, path: str, *, json: dict[str, Any]) -> Any:
-        resp = await self.request_raw("POST", path, json_payload=json)
-        return await self._handle_response(resp)
+        if self._rust_client is None:
+            raise RuntimeError("synth_ai_py is required for RustCoreHttpClient")
+        try:
+            return await asyncio.to_thread(self._rust_client.post_json, self._abs(path), json)
+        except Exception as exc:
+            raise _wrap_rust_error(exc, self._abs(path)) from exc
 
     async def post_multipart(
         self,
@@ -133,39 +108,23 @@ class RustCoreHttpClient:
         data: dict[str, Any],
         files: dict[str, tuple[str, bytes, str | None]],
     ) -> Any:
-        resp = await self.request_raw("POST", path, data=data, files=files)
-        return await self._handle_response(resp)
+        if self._rust_client is None:
+            raise RuntimeError("synth_ai_py is required for RustCoreHttpClient")
+        try:
+            return await asyncio.to_thread(
+                self._rust_client.post_multipart, self._abs(path), data, files
+            )
+        except Exception as exc:
+            raise _wrap_rust_error(exc, self._abs(path)) from exc
 
     async def delete(self, path: str) -> Any:
-        resp = await self.request_raw("DELETE", path)
-        return await self._handle_response(resp)
-
-    async def _handle_response(self, resp: httpx.Response) -> Any:
-        text = resp.text
-        body_snippet = text[:200] if text else None
-
-        if 200 <= resp.status_code < 300:
-            ctype = resp.headers.get("content-type", "")
-            if "application/json" in ctype:
-                try:
-                    return resp.json()
-                except Exception:
-                    return text
-            return text
-
-        detail: Any | None = None
+        if self._rust_client is None:
+            raise RuntimeError("synth_ai_py is required for RustCoreHttpClient")
         try:
-            detail = resp.json()
-        except Exception:
-            detail = None
-
-        raise HTTPError(
-            status=resp.status_code,
-            url=str(resp.url),
-            message="request_failed",
-            body_snippet=body_snippet,
-            detail=detail,
-        )
+            await asyncio.to_thread(self._rust_client.delete, self._abs(path))
+            return None
+        except Exception as exc:
+            raise _wrap_rust_error(exc, self._abs(path)) from exc
 
 
 def http_request(
@@ -174,15 +133,54 @@ def http_request(
     headers: dict[str, str] | None = None,
     body: dict[str, Any] | None = None,
 ) -> tuple[int, dict[str, Any] | str]:
-    with httpx.Client(verify=False, timeout=30.0) as client:
-        resp = client.request(method, url, headers=headers, json=body)
-        if resp.headers.get("content-type", "").startswith("application/json"):
-            return resp.status_code, resp.json()
-        return resp.status_code, resp.text
+    """Make a simple HTTP request to any URL using Rust HTTP client."""
+    if _synth_ai_py is None:
+        raise RuntimeError("synth_ai_py is required for HTTP requests")
+    # Extract base URL (scheme + host + port) for client initialization
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    # Extract API key from headers if provided
+    api_key = ""
+    if headers:
+        api_key = (
+            headers.get("X-API-Key")
+            or headers.get("x-api-key")
+            or headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            or ""
+        )
+    client = _synth_ai_py.HttpClient(base, api_key, 30)
+    try:
+        if method.upper() == "GET":
+            return 200, client.get_json(url, None)
+        if method.upper() == "DELETE":
+            client.delete(url)
+            return 200, ""
+        return 200, client.post_json(url, body or {})
+    except Exception as exc:  # pragma: no cover - defensive
+        return 0, str(exc)
 
 
 async def sleep(seconds: float) -> None:
     await asyncio.sleep(seconds)
 
 
-__all__ = ["RustCoreHttpClient", "get_shared_http_client", "http_request", "sleep"]
+def _wrap_rust_error(exc: Exception, url: str) -> HTTPError:
+    message = str(exc)
+    status = 0
+    if message.startswith("HTTP "):
+        try:
+            status = int(message.split(" ", 2)[1])
+        except Exception:
+            status = 0
+    return HTTPError(
+        status=status,
+        url=url,
+        message="request_failed",
+        body_snippet=message[:200],
+        detail=message,
+    )
+
+
+__all__ = ["RustCoreHttpClient", "http_request", "sleep"]

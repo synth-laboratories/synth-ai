@@ -4,6 +4,7 @@
 
 use super::enums::{ObjectiveDirection, ObjectiveKey, RewardScope, RewardSource, RewardType};
 use serde::{Deserialize, Serialize};
+use serde::de::{self, Deserializer};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -108,7 +109,7 @@ pub struct RewardObservation {
     #[serde(default)]
     pub objective_key: ObjectiveKey,
     /// Optional event ID (for event-level rewards).
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_string_or_number_opt")]
     pub event_id: Option<String>,
     /// Optional turn number.
     #[serde(default)]
@@ -214,12 +215,26 @@ impl Default for OutcomeObjectiveAssignment {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventObjectiveAssignment {
     /// Event ID this assignment belongs to.
+    #[serde(deserialize_with = "deserialize_string_or_number")]
     pub event_id: String,
     /// Map of objective key to value.
     pub objectives: HashMap<String, f64>,
     /// Turn number.
     #[serde(default)]
     pub turn_number: Option<i32>,
+    /// Additional metadata.
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
+}
+
+/// Assignment of objectives to a single instance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstanceObjectiveAssignment {
+    /// Instance ID this assignment belongs to.
+    #[serde(deserialize_with = "deserialize_string_or_number")]
+    pub instance_id: String,
+    /// Map of objective key to value.
+    pub objectives: HashMap<String, f64>,
     /// Additional metadata.
     #[serde(default)]
     pub metadata: HashMap<String, Value>,
@@ -240,6 +255,37 @@ impl EventObjectiveAssignment {
     pub fn with_objective(mut self, key: impl Into<String>, value: f64) -> Self {
         self.objectives.insert(key.into(), value);
         self
+    }
+}
+
+fn deserialize_string_or_number<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: serde_json::Value = Deserialize::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::String(s) => Ok(s),
+        serde_json::Value::Number(n) => Ok(n.to_string()),
+        other => Err(de::Error::custom(format!(
+            "expected string or number, got {}",
+            other
+        ))),
+    }
+}
+
+fn deserialize_string_or_number_opt<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: Option<serde_json::Value> = Option::deserialize(deserializer)?;
+    match value {
+        None | Some(serde_json::Value::Null) => Ok(None),
+        Some(serde_json::Value::String(s)) => Ok(Some(s)),
+        Some(serde_json::Value::Number(n)) => Ok(Some(n.to_string())),
+        Some(other) => Err(de::Error::custom(format!(
+            "expected string or number, got {}",
+            other
+        ))),
     }
 }
 
