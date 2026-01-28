@@ -2230,9 +2230,10 @@ impl HttpClientPy {
         files: Option<PyObject>,
     ) -> PyResult<PyObject> {
         let data_map = parse_form_data(py, data)?;
+        let data_pairs: Vec<(String, String)> = data_map.into_iter().collect();
         let file_list = parse_multipart_files(py, files)?;
         let result: Value = RUNTIME.block_on(async {
-            self.inner.post_multipart(path, &data_map, &file_list).await
+            self.inner.post_multipart(path, &data_pairs, &file_list).await
         }).map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())

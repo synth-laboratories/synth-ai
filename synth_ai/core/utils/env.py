@@ -191,7 +191,21 @@ def mint_demo_api_key(
     Raises:
         RuntimeError: If the request fails or returns invalid response
     """
-    return synth_ai_py.mint_demo_key(backend_url, ttl_hours)
+    if hasattr(synth_ai_py, "mint_demo_key"):
+        return synth_ai_py.mint_demo_key(backend_url, ttl_hours)
+
+    import httpx
+
+    base = backend_url or BACKEND_URL_BASE
+    url = f"{base.rstrip('/')}/api/demo/keys"
+    resp = httpx.post(url, json={"ttl_hours": ttl_hours}, timeout=timeout)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Failed to mint demo key: {resp.status_code} {resp.text}")
+    payload = resp.json()
+    key = payload.get("api_key") or payload.get("key") or payload.get("token")
+    if not key:
+        raise RuntimeError("Demo key response missing api_key.")
+    return str(key)
 
 
 __all__ = [

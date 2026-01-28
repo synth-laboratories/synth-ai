@@ -24,6 +24,7 @@ pub mod localapi;
 pub mod models;
 pub mod orchestration;
 pub mod polling;
+pub mod shared_client;
 pub mod sse;
 pub mod streaming;
 pub mod tracing;

@@ -31,6 +31,20 @@ pub async fn stream_sse(url: String, headers: HeaderMap) -> Result<SseStream, Co
     stream_sse_request(url, Method::GET, headers, None, None).await
 }
 
+/// Stream SSE events with string method (compat wrapper).
+pub async fn stream_sse_events(
+    url: &str,
+    method: &str,
+    headers: HeaderMap,
+    body: Option<Value>,
+    timeout: Option<Duration>,
+) -> Result<SseStream, CoreError> {
+    let method = Method::from_bytes(method.as_bytes()).map_err(|e| {
+        CoreError::InvalidInput(format!("invalid HTTP method {}: {}", method, e))
+    })?;
+    stream_sse_request(url.to_string(), method, headers, body, timeout).await
+}
+
 /// Stream SSE events with full request control.
 pub async fn stream_sse_request(
     url: String,

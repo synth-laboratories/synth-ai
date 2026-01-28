@@ -35,6 +35,23 @@ pub enum EventCategory {
     Unknown,
 }
 
+/// Terminal status derived from terminal events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum TerminalStatus {
+    Succeeded,
+    Failed,
+    Cancelled,
+}
+
+/// Parsed event path segments for logging/debugging.
+#[derive(Debug, Clone, Default)]
+pub struct EventPath {
+    pub entity: Option<String>,
+    pub action: Option<String>,
+    pub algorithm: Option<String>,
+    pub detail: Option<String>,
+}
+
 impl EventCategory {
     /// Check if this is a terminal event category.
     pub fn is_terminal(&self) -> bool {
@@ -280,6 +297,41 @@ impl EventParser {
     /// Normalize event type by replacing [MASKED] with "gepa".
     pub fn normalize_type(event_type: &str) -> String {
         event_type.replace("[MASKED]", "gepa")
+    }
+
+    /// Parse an event type into path segments for logging.
+    pub fn parse_path(event_type: &str) -> EventPath {
+        let normalized = Self::normalize_type(event_type);
+        let parts: Vec<&str> = normalized.split('.').collect();
+        let entity = parts.get(0).map(|s| s.to_string());
+        let action = parts.get(1).map(|s| s.to_string());
+        let algorithm = parts.get(2).map(|s| s.to_string());
+        let detail = if parts.len() > 3 {
+            Some(parts[3..].join("."))
+        } else {
+            None
+        };
+        EventPath {
+            entity,
+            action,
+            algorithm,
+            detail,
+        }
+    }
+
+    /// Map a terminal event type to a terminal status.
+    pub fn terminal_status(event_type: &str) -> Option<TerminalStatus> {
+        let normalized = Self::normalize_type(event_type).to_lowercase();
+        if normalized.contains("cancel") {
+            return Some(TerminalStatus::Cancelled);
+        }
+        if normalized.contains("fail") || normalized.contains("error") {
+            return Some(TerminalStatus::Failed);
+        }
+        if normalized.contains("complete") || normalized.contains("succeed") {
+            return Some(TerminalStatus::Succeeded);
+        }
+        None
     }
 
     fn coerce_f64(value: Option<&Value>) -> Option<f64> {

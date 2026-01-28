@@ -7,6 +7,7 @@ For OUTPUT/RESULT structures (scores after evaluation), see judgements.py.
 from __future__ import annotations
 
 import contextlib
+import inspect
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -127,10 +128,20 @@ try:  # Require Rust-backed classes
 except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for data.rubrics.") from exc
 
+
+def _is_constructible(cls: Any) -> bool:
+    try:
+        sig = inspect.signature(cls)
+    except Exception:
+        return False
+    return bool(sig.parameters)
+
+
 with contextlib.suppress(AttributeError):
-    CriterionExample = _rust_models.CriterionExample  # noqa: F811
-    Criterion = _rust_models.Criterion  # noqa: F811
-    Rubric = _rust_models.Rubric  # noqa: F811
+    if _is_constructible(_rust_models.Criterion):
+        CriterionExample = _rust_models.CriterionExample  # noqa: F811
+        Criterion = _rust_models.Criterion  # noqa: F811
+        Rubric = _rust_models.Rubric  # noqa: F811
 
 
 __all__ = [

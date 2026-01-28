@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use reqwest::header::{HeaderMap, HeaderValue};
 
 use crate::api::types::PolicyJobStatus;
 use crate::api::SynthClient;
@@ -321,11 +322,21 @@ impl PromptLearningJob {
             base_url, job_id
         );
         let api_key = self.client.http().api_key().to_string();
-        let headers = vec![
-            ("Accept".to_string(), "text/event-stream".to_string()),
-            ("Authorization".to_string(), format!("Bearer {}", api_key)),
-            ("X-API-Key".to_string(), api_key),
-        ];
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "Accept",
+            HeaderValue::from_static("text/event-stream"),
+        );
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", api_key))
+                .map_err(|_| CoreError::Validation("invalid api key".to_string()))?,
+        );
+        headers.insert(
+            "X-API-Key",
+            HeaderValue::from_str(&api_key)
+                .map_err(|_| CoreError::Validation("invalid api key".to_string()))?,
+        );
 
         // Use Cell for interior mutability to satisfy borrow checker
         let terminal_reached = Cell::new(false);
@@ -339,12 +350,13 @@ impl PromptLearningJob {
                 .await?;
 
             while let Some(item) = stream.next().await {
-                let value = item?;
-                if value == serde_json::Value::String("[DONE]".to_string()) {
+                let event = item?;
+                if event.data.trim() == "[DONE]" {
                     break;
                 }
 
-                let parsed = super::events::EventParser::parse(&value);
+                let payload: Value = serde_json::from_str(&event.data).unwrap_or(Value::Null);
+                let parsed = super::events::EventParser::parse(&payload);
                 let count = event_count.get() + 1;
                 event_count.set(count);
 

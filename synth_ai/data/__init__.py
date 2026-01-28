@@ -28,6 +28,10 @@ Rust-backed types:
 
 from __future__ import annotations
 
+# Trace data types
+import inspect
+from typing import Any
+
 # Artifact data types
 from synth_ai.data.artifacts import Artifact
 
@@ -108,8 +112,6 @@ from synth_ai.data.rubrics import (
     CriterionExample,
     Rubric,
 )
-
-# Trace data types
 from synth_ai.data.traces import (
     BaseEvent,
     EnvironmentEvent,
@@ -166,9 +168,21 @@ _RUST_EXPORTS = [
     "LLMCallRecord",
 ]
 
+
+def _is_constructible(cls: Any) -> bool:
+    try:
+        sig = inspect.signature(cls)
+    except Exception:
+        return False
+    return bool(sig.parameters)
+
+
 for _name in _RUST_EXPORTS:
-    if hasattr(_rust_data, _name):
-        globals()[_name if _name != "TracingEvent" else "BaseEvent"] = getattr(_rust_data, _name)
+    if not hasattr(_rust_data, _name):
+        continue
+    _cls = getattr(_rust_data, _name)
+    if _is_constructible(_cls):
+        globals()[_name if _name != "TracingEvent" else "BaseEvent"] = _cls
 
 __all__ = [
     # Enums
