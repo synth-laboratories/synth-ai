@@ -135,7 +135,8 @@ class GraphEvolveJob:
         cls,
         dataset: str | Path | Dict[str, Any] | GraphEvolveTaskSet,
         *,
-        policy_models: str | List[str],
+        policy_models: str | List[str] | None = None,
+        policy_model: str | None = None,
         rollout_budget: int = 100,
         proposer_effort: Literal["low", "medium", "high"] = "medium",
         judge_model: Optional[str] = None,
@@ -200,6 +201,8 @@ class GraphEvolveJob:
             backend_url=backend_url,
             api_key=api_key,
         )
+        if policy_models is None:
+            policy_models = policy_model or "gpt-4o-mini"
         if not initial_graph_id:
             initial_graph_id = "single"
         policy_models_list = normalize_policy_models(policy_models)
