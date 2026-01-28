@@ -3301,14 +3301,15 @@ fn kwargs_to_value(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<V
 
 fn value_from_pyobject(py: Python, obj: PyObject) -> PyResult<Value> {
     let bound = obj.bind(py);
-    if let Ok(value) = pythonize::depythonize(bound.clone()) {
+    if let Ok(value) = pythonize::depythonize(&bound) {
         return Ok(value);
     }
     for name in ["model_dump", "to_dict", "dict"] {
         if let Ok(attr) = bound.getattr(name) {
             if attr.is_callable() {
                 let out = attr.call0()?;
-                return pythonize::depythonize(out).map_err(|e| PyValueError::new_err(e.to_string()));
+                return pythonize::depythonize(&out)
+                    .map_err(|e| PyValueError::new_err(e.to_string()));
             }
         }
     }
