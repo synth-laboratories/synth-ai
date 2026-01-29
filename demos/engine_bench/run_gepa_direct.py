@@ -11,6 +11,7 @@ This script:
 import argparse
 import asyncio
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from synth_ai.core.env import mint_demo_api_key
 from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.core.tunnels.tunneled_api import TunneledLocalAPI, TunnelBackend
 from synth_ai.sdk.tunnels import PortConflictBehavior, acquire_port
 
 try:
@@ -60,6 +62,7 @@ async def main() -> int:
     parser = argparse.ArgumentParser(description="Run EngineBench GEPA job (SDK)")
     parser.add_argument("--local", action="store_true", help="Use localhost backend")
     parser.add_argument("--local-host", type=str, default="localhost")
+    parser.add_argument("--no-tunnel", action="store_true", help="Skip tunnel, use localhost for task app (requires local Temporal worker)")
     parser.add_argument("--port", type=int, default=8020, help="Task app port")
     parser.add_argument(
         "--config",
@@ -97,8 +100,36 @@ async def main() -> int:
     port = acquire_port(args.port, on_conflict=PortConflictBehavior.FIND_NEW)
     run_server_background(app, port)
     _wait_for_health(args.local_host, port, env_key)
-    task_url = f"http://{args.local_host}:{port}"
+
+    # Use managed tunnel when talking to remote backend
+    tunnel = None
+    if args.local or args.no_tunnel:
+        task_url = f"http://{args.local_host}:{port}"
+    else:
+        print("Setting up managed tunnel...")
+        tunnel = await TunneledLocalAPI.create(
+            local_port=port,
+            backend=TunnelBackend.CloudflareManagedLease,
+            api_key=api_key,
+            env_api_key=env_key,
+            progress=True,
+        )
+        task_url = tunnel.url
     print(f"Task app ready: {task_url}")
+
+    # Start keepalive thread to prevent tunnel from going stale
+    keepalive_stop = threading.Event()
+    def _keepalive_loop(url: str, stop: threading.Event) -> None:
+        while not stop.wait(15.0):
+            try:
+                httpx.get(f"{url}/health", timeout=5.0)
+            except Exception:
+                pass
+    if tunnel is not None:
+        keepalive_thread = threading.Thread(
+            target=_keepalive_loop, args=(task_url, keepalive_stop), daemon=True
+        )
+        keepalive_thread.start()
 
     config_path = Path(__file__).parent / args.config
     config_dict = _load_config(config_path)
@@ -127,13 +158,18 @@ async def main() -> int:
 
     print("Polling for results...")
     result = job.poll_until_complete(timeout=7200.0, interval=15.0, progress=True)
+    keepalive_stop.set()
     print(f"Status: {result.status}")
     if result.failed:
         print(f"Job failed: {result.error}")
+        if tunnel is not None:
+            tunnel.close()
         return 1
 
     if result.best_score is not None:
         print(f"Best score: {result.best_score:.4f}")
+    if tunnel is not None:
+        tunnel.close()
     print("Done!")
     return 0
 

@@ -36,7 +36,7 @@ def poll_prompt_learning_until_complete(
 
     while elapsed <= timeout:
         try:
-            url = f"{base_url}/policy-optimization/online/jobs/{job_id}"
+            url = f"{base_url}/prompt-learning/online/jobs/{job_id}"
             resp = http_get(url, headers=headers, timeout=request_timeout)
             last_data = parse_json_response(resp, context="Prompt learning status")
             error_count = 0

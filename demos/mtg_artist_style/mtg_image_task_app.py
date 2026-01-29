@@ -14,6 +14,7 @@ from typing import Any, Iterable
 
 import httpx
 from synth_ai.sdk.localapi import create_local_api
+from synth_ai.sdk.localapi.helpers import extract_api_key, normalize_chat_completion_url
 from synth_ai.sdk.localapi._impl import (
     Criterion,
     LocalAPIConfig,
@@ -31,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 demo_dir = Path(__file__).resolve().parent
 DATA_PATH = demo_dir / "card_descriptions.json"
+
+_LOGGED_POLICY_KEYS = False
 
 APP_ID = "mtg_artist_style"
 APP_NAME = "MTG Artist Style Image Generation"
@@ -165,14 +168,49 @@ def create_mtg_task_app() -> Any:
         sample = dataset.sample(seed)
 
         policy_cfg = dict(request.policy.config or {})
+        policy_cfg.setdefault("model", "gemini-2.5-flash-image")
+        global _LOGGED_POLICY_KEYS
+        if not _LOGGED_POLICY_KEYS:
+            logger.info("Policy config keys: %s", list(policy_cfg.keys()))
+            logger.info("Policy inference_url: %s", policy_cfg.get("inference_url"))
+            _LOGGED_POLICY_KEYS = True
+        provider = str(
+            policy_cfg.get("provider")
+            or os.environ.get("MTG_POLICY_PROVIDER", "google")
+        ).lower()
         inference_url = str(policy_cfg.get("inference_url") or "")
-        if not inference_url:
-            raise ValueError("inference_url is required in policy config")
 
         env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
-        if not env_api_key:
+        synth_api_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
+        gemini_api_key = (
+            (os.environ.get("GEMINI_API_KEY") or "").strip()
+            or (os.environ.get("GOOGLE_API_KEY") or "").strip()
+        )
+        default_keys: dict[str, str] = {}
+        if env_api_key:
+            default_keys["ENVIRONMENT_API_KEY"] = env_api_key
+        if synth_api_key:
+            default_keys["SYNTH_API_KEY"] = synth_api_key
+        api_key = extract_api_key(
+            fastapi_request,
+            policy_cfg,
+            default_env_keys=default_keys or None,
+        )
+        if synth_api_key:
+            api_key = synth_api_key
+            logger.info("Using SYNTH_API_KEY for inference interceptor")
+        elif env_api_key:
+            api_key = env_api_key
+            logger.info("Using ENVIRONMENT_API_KEY for inference interceptor")
+        if provider != "google":
+            raise ValueError("MTG image demo requires provider=google (Gemini)")
+        if not inference_url:
+            raise ValueError("inference_url is required in policy config")
+        if not gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY (or GOOGLE_API_KEY) is required for Gemini")
+        if not api_key:
             raise RuntimeError(
-                "ENVIRONMENT_API_KEY is required in environment for calling inference interceptor"
+                "Missing API key for inference interceptor (ENVIRONMENT_API_KEY or request headers)."
             )
 
         prompt_sections = (request.env.config or {}).get("prompt_sections")
@@ -189,29 +227,37 @@ def create_mtg_task_app() -> Any:
                 {"role": "user", "content": _safe_format(DEFAULT_USER_PROMPT, values)}
             ]
 
-        model = str(policy_cfg.get("model") or "gemini-2.5-flash-image")
-        llm_response: dict[str, Any] = {}
+        endpoint = normalize_chat_completion_url(str(inference_url))
+        payload: dict[str, Any] = {
+            "model": policy_cfg["model"],
+            "messages": messages,
+            "temperature": policy_cfg.get("temperature", 0.7),
+        }
+        if "max_completion_tokens" in policy_cfg:
+            payload["max_completion_tokens"] = policy_cfg.get("max_completion_tokens")
+
         async with httpx.AsyncClient(timeout=180.0) as client:
-            resp = await client.post(
-                f"{inference_url.rstrip('/')}/chat/completions",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "temperature": policy_cfg.get("temperature", 0.7),
-                },
-                headers={
-                    "Authorization": f"Bearer {env_api_key}",
-                    "Content-Type": "application/json",
-                },
-            )
             try:
+                resp = await client.post(
+                    endpoint,
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "X-API-Key": api_key,
+                        "x-goog-api-key": gemini_api_key,
+                        "Content-Type": "application/json",
+                    },
+                )
                 resp.raise_for_status()
-            except httpx.HTTPStatusError:
+            except httpx.HTTPStatusError as exc:
                 logger.error(
                     "Interceptor error: status=%s body=%s",
-                    resp.status_code,
-                    resp.text,
+                    exc.response.status_code if exc.response else "unknown",
+                    exc.response.text if exc.response else "no-body",
                 )
+                raise
+            except Exception:
+                logger.exception("Interceptor call failed")
                 raise
             llm_response = resp.json()
 
@@ -231,6 +277,10 @@ def create_mtg_task_app() -> Any:
                 image_data_url = content
 
         if not image_data_url:
+            logger.error(
+                "No image data in policy response. message_content=%s",
+                (choices[0].get("message", {}).get("content") if choices else None),
+            )
             raise ValueError("No image data in policy model response")
 
         # Save generated image for inspection
@@ -284,4 +334,3 @@ def create_mtg_task_app() -> Any:
 
 
 app = create_mtg_task_app()
-

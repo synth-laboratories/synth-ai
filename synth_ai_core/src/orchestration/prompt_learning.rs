@@ -318,7 +318,7 @@ impl PromptLearningJob {
         let timeout = Duration::from_secs_f64(timeout_secs);
         let base_url = self.client.base_url().trim_end_matches('/').to_string();
         let events_url = format!(
-            "{}/api/policy-optimization/online/jobs/{}/events/stream",
+            "{}/api/prompt-learning/online/jobs/{}/events/stream",
             base_url, job_id
         );
         let api_key = self.client.http().api_key().to_string();

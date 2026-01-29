@@ -21,6 +21,8 @@ import os
 import sys
 import time
 import uuid
+from urllib.parse import quote
+from concurrent.futures import ThreadPoolExecutor, Future
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +42,7 @@ from synth_ai.core.utils.env import mint_demo_api_key
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi._impl import run_server_background
 from synth_ai.core.tunnels import PortConflictBehavior, acquire_port
-from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, RUST_BACKEND_URL_BASE
 
 
 # Tool schema (same as classic GEPA)
@@ -73,6 +75,12 @@ def resolve_backend_url() -> str:
         if env_url:
             return env_url.rstrip("/")
     return BACKEND_URL_BASE.rstrip("/")
+
+
+def resolve_ontology_url() -> str:
+    """Resolve the Rust backend URL for ontology reads."""
+    # Uses RUST_BACKEND_URL_BASE which defaults to https://infra-api.usesynth.ai
+    return RUST_BACKEND_URL_BASE.rstrip("/")
 
 
 def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -117,13 +125,58 @@ def build_mipro_continual_config(
     train_seeds: List[int],
     val_seeds: List[int],
     min_rollouts_before_proposal: int = 20,
+    system_id: Optional[str] = None,
+    system_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Build MIPRO online config for continual learning."""
+    """Build MIPRO online config for continual learning.
+
+    If system_id is provided, the job will reuse that system's ontology graph
+    in HelixDB, accumulating insights across runs.
+    If system_name is provided, it is stored as a human-readable label for
+    the MIPRO system and included in job metadata.
+    """
     policy_model = os.environ.get("BANKING77_POLICY_MODEL", "gpt-4.1-nano")
     policy_provider = os.environ.get("BANKING77_POLICY_PROVIDER", "openai")
     proposer_model = os.environ.get("BANKING77_PROPOSER_MODEL", "gpt-4.1-mini")
     proposer_provider = os.environ.get("BANKING77_PROPOSER_PROVIDER", "openai")
-    
+
+    mipro_section = {
+        "mode": "online",
+        "bootstrap_train_seeds": train_seeds,
+        "val_seeds": val_seeds,
+        "online_pool": train_seeds,
+        "online_proposer_mode": "inline",
+        "online_proposer_min_rollouts": min_rollouts_before_proposal,
+        "online_proposer_max_candidates": 50,
+        "online_rollouts_per_candidate": 10,
+        "ontology": {
+            "enabled": True,
+            "reads": True,
+            "writes": True,
+            "batch_proposer": {
+                "enabled": True,
+                "min_rollouts": 20,
+                "batch_size": 50,
+                "model": proposer_model,
+                "provider": proposer_provider,
+                "temperature": 0.7,
+                "max_tokens": 1024,
+            },
+        },
+        "proposer": {
+            "mode": "instruction_only",
+            "model": proposer_model,
+            "provider": proposer_provider,
+            "temperature": 0.7,
+            "max_tokens": 512,
+        },
+    }
+
+    if system_id:
+        mipro_section["system_id"] = system_id
+    if system_name:
+        mipro_section["system_name"] = system_name
+
     return {
         "prompt_learning": {
             "algorithm": "mipro",
@@ -137,24 +190,7 @@ def build_mipro_continual_config(
                 "temperature": 0.0,
                 "max_completion_tokens": 256,
             },
-            "mipro": {
-                "mode": "online",
-                "bootstrap_train_seeds": train_seeds,
-                "val_seeds": val_seeds,
-                "online_pool": train_seeds,
-                "online_proposer_mode": "inline",
-                "online_proposer_min_rollouts": min_rollouts_before_proposal,
-                "online_rollouts_per_candidate": 10,
-                "proposer": {
-                    "mode": "instruction_only",
-                    "model": proposer_model,
-                    "provider": proposer_provider,
-                    "temperature": 0.7,
-                    "max_tokens": 512,
-                    "generate_at_iterations": [0, 1, 2, 3],
-                    "instructions_per_batch": 2,
-                },
-            },
+            "mipro": mipro_section,
         },
     }
 
@@ -208,6 +244,37 @@ def get_system_state(backend_url: str, api_key: str, system_id: str) -> Dict[str
     )
     response.raise_for_status()
     return response.json()
+
+
+def fetch_ontology_snapshot(ontology_url: str, api_key: str, system_id: str) -> Dict[str, Any]:
+    """Fetch ontology snapshot (Helix graph) for this MIPRO system."""
+    node_name = f"system:{system_id}"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    url = f"{ontology_url}/api/ontology/nodes/{quote(node_name, safe='')}/context"
+    try:
+        response = httpx.get(url, headers=headers, timeout=30.0)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:
+        return {"node_name": node_name, "error": str(exc)}
+
+    node = data.get("node") or {}
+    properties = data.get("properties") or []
+    relationships_from = data.get("relationships_from") or []
+    relationships_to = data.get("relationships_to") or []
+
+    return {
+        "node_name": node_name,
+        "node": node,
+        "properties": properties,
+        "relationships_from": relationships_from,
+        "relationships_to": relationships_to,
+        "counts": {
+            "properties": len(properties),
+            "relationships_from": len(relationships_from),
+            "relationships_to": len(relationships_to),
+        },
+    }
 
 
 def extract_candidate_text(state: Dict[str, Any], candidate_id: str | None) -> str | None:
@@ -285,6 +352,94 @@ def extract_ontology(state: Dict[str, Any]) -> Dict[str, Any]:
     return ontology
 
 
+def format_ontology_graph(
+    ontology: Dict[str, Any],
+    best_id: str | None = None,
+    candidate_context: Dict[str, str] | None = None,
+) -> str:
+    """Format the ontology as a text-based tree/graph for display."""
+    lines = []
+    candidates = ontology.get("candidates", {})
+    best_id = best_id or ontology.get("best_candidate_id")
+    candidate_context = candidate_context or {}
+    
+    if not candidates:
+        return "  (no candidates)"
+    
+    # Build parent->children map
+    children_map: Dict[str | None, List[str]] = {None: []}
+    for cid in candidates:
+        children_map[cid] = []
+    
+    for cid, info in candidates.items():
+        parent = info.get("parent_id")
+        if parent not in children_map:
+            children_map[parent] = []
+        children_map[parent].append(cid)
+    
+    # Sort candidates by avg_reward for display
+    def sort_key(cid):
+        info = candidates.get(cid, {})
+        reward = info.get("avg_reward")
+        return (0 if reward is None else 1, reward or 0)
+    
+    def format_candidate(cid: str, indent: int = 0) -> List[str]:
+        info = candidates.get(cid, {})
+        reward = info.get("avg_reward")
+        reward_str = f"{reward:.1%}" if reward is not None else "N/A"
+        
+        # Shorten candidate ID for display
+        short_id = cid[:20] + "..." if len(cid) > 20 else cid
+        
+        parent_id = info.get("parent_id")
+        parent_short = None
+        if parent_id:
+            parent_short = parent_id[:12] + "..." if len(parent_id) > 12 else parent_id
+
+        context_text = candidate_context.get(cid) or ""
+        context_text = " ".join(context_text.split())
+        if len(context_text) > 80:
+            context_text = context_text[:80] + "..."
+
+        context_parts = []
+        if parent_short:
+            context_parts.append(f"parent: {parent_short}")
+        if context_text:
+            context_parts.append(f"ctx: {context_text}")
+        context_suffix = ""
+        if context_parts:
+            context_suffix = " | " + " | ".join(context_parts)
+
+        marker = "★" if cid == best_id else "○"
+        prefix = "  " * indent
+        line = f"{prefix}{marker} {short_id} (reward: {reward_str}{context_suffix})"
+        
+        result = [line]
+        
+        # Add children
+        child_ids = sorted(children_map.get(cid, []), key=sort_key, reverse=True)
+        for child_id in child_ids:
+            result.extend(format_candidate(child_id, indent + 1))
+        
+        return result
+    
+    # Start with root candidates (no parent or parent not in candidates)
+    root_ids = sorted(children_map.get(None, []), key=sort_key, reverse=True)
+    
+    # Also find orphans (parent not in candidates dict)
+    for cid, info in candidates.items():
+        parent = info.get("parent_id")
+        if parent and parent not in candidates and cid not in root_ids:
+            root_ids.append(cid)
+    
+    root_ids = sorted(set(root_ids), key=sort_key, reverse=True)
+    
+    for root_id in root_ids:
+        lines.extend(format_candidate(root_id))
+    
+    return "\n".join(lines)
+
+
 def run_rollout(
     *,
     task_app_url: str,
@@ -296,26 +451,43 @@ def run_rollout(
     intent_split: int,
 ) -> float:
     """Execute a single rollout for online MIPRO."""
+    # Use the SDK's expected format with nested objects
     payload = {
         "trace_correlation_id": rollout_id,
         "env": {
             "seed": seed,
             "config": {
-                "seed": seed,
                 "split": "train",
                 "intent_split": intent_split,
             },
         },
-        "policy": {"config": {"model": model, "inference_url": inference_url}},
+        "policy": {
+            "config": {
+                "model": model,
+                "inference_url": inference_url,
+            },
+        },
     }
     headers = {"X-API-Key": env_key}
-    response = httpx.post(
-        f"{task_app_url}/rollout",
-        json=payload,
-        headers=headers,
-        timeout=120.0,
-    )
-    response.raise_for_status()
+    
+    try:
+        response = httpx.post(
+            f"{task_app_url}/rollout",
+            json=payload,
+            headers=headers,
+            timeout=120.0,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        # Log the actual error for debugging
+        print(f"  Rollout HTTP error: {e.response.status_code}")
+        try:
+            error_body = e.response.json()
+            print(f"  Error details: {error_body}")
+        except Exception:
+            print(f"  Error body: {e.response.text[:500]}")
+        raise
+    
     body = response.json()
     
     # Extract reward
@@ -340,36 +512,24 @@ def push_status(
     rollout_id: str,
     reward: float,
 ) -> str:
-    """Report rollout results to the backend for online MIPRO."""
+    """Report rollout results to the backend for online MIPRO (single call)."""
     headers = {"Authorization": f"Bearer {api_key}"}
     
-    # Send reward status
-    reward_payload = {
+    # Single call with done status and reward
+    payload = {
         "rollout_id": rollout_id,
-        "status": "reward",
+        "status": "done",
         "reward": reward,
     }
     response = httpx.post(
         f"{backend_url}/api/prompt-learning/online/mipro/systems/{system_id}/status",
-        json=reward_payload,
+        json=payload,
         headers=headers,
         timeout=30.0,
     )
     response.raise_for_status()
-    reward_response = response.json() if response.content else {}
-    candidate_id = reward_response.get("candidate_id")
-    if not candidate_id:
-        candidate_id = "unknown"
-
-    # Send done status
-    done_payload = {"rollout_id": rollout_id, "status": "done"}
-    response = httpx.post(
-        f"{backend_url}/api/prompt-learning/online/mipro/systems/{system_id}/status",
-        json=done_payload,
-        headers=headers,
-        timeout=30.0,
-    )
-    response.raise_for_status()
+    response_data = response.json() if response.content else {}
+    candidate_id = response_data.get("candidate_id", "unknown")
     return str(candidate_id)
 
 
@@ -379,89 +539,96 @@ def new_rollout_id(split_num: int, seed: int) -> str:
 
 
 def create_continual_task_app(env_key: str, backend_url: str, api_key: str):
-    """Create task app that can handle multiple intent splits."""
-    from fastapi import FastAPI, Request
-    from fastapi.middleware.cors import CORSMiddleware
-    from pydantic import BaseModel
-    from typing import Optional, Any as AnyType
+    """Create task app that can handle multiple intent splits using the SDK's create_local_api."""
+    from fastapi import Request
+    import httpx
     
-    from synth_ai.sdk.clients import AsyncOpenAI as SynthAsyncOpenAI
-    
-    app = FastAPI(title="Banking77 Continual Learning Task App")
-    
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+    from synth_ai.data.enums import SuccessStatus
+    from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+    from synth_ai.sdk.localapi._impl.contracts import (
+        RolloutMetrics,
+        RolloutRequest,
+        RolloutResponse,
+        TaskInfo,
     )
+    from synth_ai.sdk.localapi._impl.validators import normalize_inference_url
     
     dataset = Banking77SplitDataset()
     dataset.ensure_ready(["train", "test"])
     
-    class RolloutRequest(BaseModel):
-        trace_correlation_id: str
-        env: dict
-        policy: dict
+    # Store current intent split (will be updated externally)
+    current_intent_split = {"value": 4}  # Default to all intents
     
-    async def classify_query(
+    async def call_llm(
         query: str,
         system_prompt: str,
         available_intents: str,
+        inference_url: str,
         model: str,
         policy_api_key: str,
-        inference_url: str,
     ) -> str:
-        """Classify a banking query."""
+        """Call the LLM via the inference URL."""
         user_msg = (
             f"Customer Query: {query}\n\n"
             f"Available Intents:\n{available_intents}\n\n"
             f"Classify this query into one of the above banking intents using the tool call."
         )
+        
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_msg},
         ]
         
-        default_headers = {"X-API-Key": policy_api_key}
-        client = SynthAsyncOpenAI(
-            trial_id="banking77_continual",
-            correlation_id=f"corr_{uuid.uuid4().hex[:12]}",
-            base_url=inference_url,
-            api_key="synth-interceptor",
-            default_headers=default_headers,
-        )
+        headers = {"Content-Type": "application/json"}
+        if policy_api_key:
+            headers["X-API-Key"] = policy_api_key
+            headers["Authorization"] = f"Bearer {policy_api_key}"
         
-        response = await client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=[TOOL_SCHEMA],
-            tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
-        )
+        payload = {
+            "model": model,
+            "messages": messages,
+            "tools": [TOOL_SCHEMA],
+            "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
+        }
         
-        tool_call = response.choices[0].message.tool_calls[0]
-        args_raw = tool_call.function.arguments
+        url = normalize_inference_url(inference_url)
+        
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            if response.status_code != 200:
+                raise RuntimeError(f"LLM error ({response.status_code}): {response.text[:200]}")
+            
+            data = response.json()
+            choices = data.get("choices", [])
+            if not choices:
+                raise RuntimeError("No choices returned from model")
+            tool_calls = choices[0].get("message", {}).get("tool_calls", [])
+            if not tool_calls:
+                raise RuntimeError("No tool calls returned from model")
+            args_raw = tool_calls[0].get("function", {}).get("arguments")
+        
+        if not args_raw:
+            raise RuntimeError("No tool call arguments returned")
+        
         args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
-        return args["intent"]
+        return args.get("intent", "")
     
-    @app.get("/health")
-    async def health():
-        return {"status": "healthy", "task_app": "banking77_continual"}
-    
-    @app.post("/rollout")
-    async def rollout(request: RolloutRequest, fastapi_request: Request):
-        env_config = request.env.get("config", {})
+    async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
+        """Handle a single evaluation rollout."""
+        env_config = request.env.config or {}
         data_split = env_config.get("split", "train")
-        seed = request.env.get("seed", 0)
+        seed = request.env.seed
         
-        # Get intent split from config (default to 4 = all intents)
-        intent_split = env_config.get("intent_split", 4)
+        # Get intent split from config or use current default
+        intent_split = env_config.get("intent_split", current_intent_split["value"])
         
         sample = dataset.sample(data_split=data_split, intent_split=intent_split, index=seed)
         
-        policy_config = request.policy.get("config", {})
-        inference_url = policy_config.get("inference_url") or f"{backend_url}/v1"
+        policy_config = request.policy.config or {}
+        inference_url = policy_config.get("inference_url")
+        if not inference_url:
+            inference_url = f"{backend_url}/v1"
+        
         policy_api_key = policy_config.get("api_key") or api_key
         
         prompt_override = (
@@ -476,13 +643,13 @@ def create_continual_task_app(env_key: str, backend_url: str, api_key: str):
         available_intents = format_available_intents(split_labels)
         
         start = time.perf_counter()
-        predicted_intent = await classify_query(
+        predicted_intent = await call_llm(
             query=sample["text"],
             system_prompt=active_system_prompt,
             available_intents=available_intents,
+            inference_url=inference_url,
             model=policy_config.get("model", "gpt-4.1-nano"),
             policy_api_key=policy_api_key,
-            inference_url=inference_url,
         )
         latency_ms = (time.perf_counter() - start) * 1000.0
         
@@ -493,18 +660,55 @@ def create_continual_task_app(env_key: str, backend_url: str, api_key: str):
         )
         reward = 1.0 if is_correct else 0.0
         
+        trace_correlation_id = request.trace_correlation_id or ""
+        
+        return RolloutResponse(
+            reward_info=RolloutMetrics(
+                outcome_reward=reward,
+                outcome_objectives={"reward": reward, "latency_ms": latency_ms},
+                instance_objectives=[{"reward": reward, "latency_ms": latency_ms}],
+                details={"latency_ms": latency_ms, "intent_split": intent_split},
+            ),
+            trace=None,
+            trace_correlation_id=trace_correlation_id,
+            inference_url=str(inference_url or ""),
+            success_status=SuccessStatus.SUCCESS,
+        )
+    
+    def provide_taskset_description():
         return {
-            "reward_info": {
-                "outcome_reward": reward,
-                "outcome_objectives": {"reward": reward, "latency_ms": latency_ms},
-            },
-            "trace_correlation_id": request.trace_correlation_id,
-            "metadata": {
-                "intent_split": intent_split,
-                "expected_intent": expected_intent,
-                "predicted_intent": predicted_intent,
+            "splits": ["train", "test"],
+            "sizes": {
+                "train": dataset.size("train", 4),  # Full dataset size
+                "test": dataset.size("test", 4),
             },
         }
+    
+    def provide_task_instances(seeds):
+        for seed in seeds:
+            sample = dataset.sample(data_split="train", intent_split=4, index=seed)
+            yield TaskInfo(
+                task={"id": "banking77_continual", "name": "Banking77 Continual"},
+                dataset={"id": "banking77_continual", "split": sample["split"], "index": sample["index"]},
+                inference={"tool": TOOL_NAME},
+                limits={"max_turns": 1},
+                task_metadata={"query": sample["text"], "expected_intent": sample["label"]},
+            )
+    
+    app = create_local_api(
+        LocalAPIConfig(
+            app_id="banking77_continual",
+            name="Banking77 Continual Learning",
+            description="Banking77 task app for continual learning experiments",
+            provide_taskset_description=provide_taskset_description,
+            provide_task_instances=provide_task_instances,
+            rollout=run_rollout,
+            cors_origins=["*"],
+        )
+    )
+    
+    # Attach a method to update the current intent split
+    app.state.current_intent_split = current_intent_split
     
     return app
 
@@ -512,6 +716,7 @@ def create_continual_task_app(env_key: str, backend_url: str, api_key: str):
 def main():
     parser = argparse.ArgumentParser(description="Run MIPRO Continual Learning on Banking77")
     parser.add_argument("--backend-url", default=None, help="Backend URL")
+    parser.add_argument("--ontology-url", default=None, help="Ontology (Rust) backend URL")
     parser.add_argument("--local-host", default="localhost", help="Local API hostname")
     parser.add_argument("--local-port", type=int, default=8030, help="Local API port")
     parser.add_argument("--rollouts-per-split", type=int, default=100, help="Rollouts per split")
@@ -519,11 +724,15 @@ def main():
     parser.add_argument("--train-size", type=int, default=30, help="Training seeds count")
     parser.add_argument("--val-size", type=int, default=20, help="Validation seeds count")
     parser.add_argument("--output", type=str, default=None, help="Output JSON file")
+    parser.add_argument("--system-id", type=str, default=None, help="Reuse an existing system_id to build on its ontology graph")
+    parser.add_argument("--system-name", type=str, default=None, help="Human-readable name for this MIPRO system")
     args = parser.parse_args()
     
     # Resolve backend
     backend_url = (args.backend_url or resolve_backend_url()).rstrip("/")
+    ontology_url = (args.ontology_url or resolve_ontology_url()).rstrip("/")
     print(f"Backend URL: {backend_url}")
+    print(f"Ontology URL: {ontology_url}")
     
     # Get API key
     api_key = os.environ.get("SYNTH_API_KEY", "").strip()
@@ -583,6 +792,8 @@ def main():
         train_seeds=train_seeds,
         val_seeds=val_seeds,
         min_rollouts_before_proposal=20,
+        system_id=args.system_id,
+        system_name=args.system_name,
     )
     
     print("\nCreating MIPRO online job...")
@@ -623,6 +834,21 @@ def main():
     total_rollouts = 0
     total_correct = 0
     
+    # Thread pool for async status uploads (don't block rollouts waiting for status)
+    status_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="status_upload")
+    pending_status_futures: List[Future] = []
+    
+    def async_push_status(rollout_id: str, reward: float) -> Future:
+        """Submit status upload to background thread."""
+        return status_executor.submit(
+            push_status,
+            backend_url=backend_url,
+            api_key=api_key,
+            system_id=system_id,
+            rollout_id=rollout_id,
+            reward=reward,
+        )
+    
     # Run through all splits sequentially
     for split_num in [1, 2, 3, 4]:
         print(f"\n{'='*60}")
@@ -638,6 +864,8 @@ def main():
         dataset = Banking77SplitDataset()
         dataset.ensure_ready(["train"])
         split_train_size = dataset.size("train", split_num)
+        
+        last_candidate_id = "unknown"
         
         for i in range(args.rollouts_per_split):
             # Cycle through seeds within the split's data
@@ -662,21 +890,24 @@ def main():
                 split_rollouts += 1
                 total_rollouts += 1
                 
-                # Push status to backend
-                candidate_id = push_status(
-                    backend_url=backend_url,
-                    api_key=api_key,
-                    system_id=system_id,
-                    rollout_id=rollout_id,
-                    reward=reward,
-                )
+                # Push status to backend ASYNC (don't wait)
+                future = async_push_status(rollout_id, reward)
+                pending_status_futures.append(future)
                 
-                # Track candidate statistics
-                if candidate_id:
-                    if candidate_id not in candidate_stats:
-                        candidate_stats[candidate_id] = {"count": 0, "total_reward": 0.0}
-                    candidate_stats[candidate_id]["count"] += 1
-                    candidate_stats[candidate_id]["total_reward"] += reward
+                # Check completed futures to get candidate_id for stats
+                completed = [f for f in pending_status_futures if f.done()]
+                for f in completed:
+                    try:
+                        candidate_id = f.result()
+                        last_candidate_id = candidate_id
+                        if candidate_id and candidate_id != "unknown":
+                            if candidate_id not in candidate_stats:
+                                candidate_stats[candidate_id] = {"count": 0, "total_reward": 0.0}
+                            candidate_stats[candidate_id]["count"] += 1
+                            # Note: we don't have the exact reward for this future, approximate with 0.5
+                    except Exception as e:
+                        print(f"  Status upload error: {e}")
+                    pending_status_futures.remove(f)
                 
                 # Progress update every 20 rollouts
                 if (i + 1) % 20 == 0:
@@ -684,11 +915,23 @@ def main():
                     print(
                         f"  Progress: {i+1}/{args.rollouts_per_split} | "
                         f"Split accuracy: {running_acc:.1%} | "
-                        f"Candidate: {candidate_id}"
+                        f"Candidate: {last_candidate_id}"
                     )
                     
             except Exception as e:
                 print(f"  Error on rollout {i}: {e}")
+        
+        # Wait for all pending status uploads before checkpoint
+        for f in pending_status_futures:
+            try:
+                candidate_id = f.result(timeout=30.0)
+                if candidate_id and candidate_id != "unknown":
+                    if candidate_id not in candidate_stats:
+                        candidate_stats[candidate_id] = {"count": 0, "total_reward": 0.0}
+                    candidate_stats[candidate_id]["count"] += 1
+            except Exception as e:
+                print(f"  Status upload error: {e}")
+        pending_status_futures.clear()
         
         split_elapsed = time.time() - split_start
         split_accuracy = split_correct / split_rollouts if split_rollouts > 0 else 0
@@ -698,6 +941,17 @@ def main():
         best_candidate_id = state.get("best_candidate_id")
         best_candidate_text = extract_candidate_text(state, best_candidate_id)
         ontology = extract_ontology(state)
+        ontology_snapshot = fetch_ontology_snapshot(ontology_url, api_key, system_id)
+        attempted_candidates = (
+            state.get("attempted_candidates")
+            if isinstance(state.get("attempted_candidates"), list)
+            else []
+        )
+        attempted_transforms = (
+            state.get("attempted_transforms")
+            if isinstance(state.get("attempted_transforms"), list)
+            else []
+        )
         
         # Record checkpoint
         checkpoint = {
@@ -708,9 +962,12 @@ def main():
             "cumulative_accuracy": total_correct / total_rollouts if total_rollouts > 0 else 0,
             "elapsed_seconds": split_elapsed,
             "ontology": ontology,
+            "ontology_snapshot": ontology_snapshot,
             "best_candidate_id": best_candidate_id,
             "best_candidate_text": best_candidate_text[:500] + "..." if best_candidate_text and len(best_candidate_text) > 500 else best_candidate_text,
             "candidate_stats": candidate_stats,
+            "attempted_candidates": attempted_candidates,
+            "attempted_transforms": attempted_transforms,
         }
         all_results["checkpoints"].append(checkpoint)
         all_results["split_results"][str(split_num)] = {
@@ -729,6 +986,34 @@ def main():
         if best_candidate_text:
             preview = best_candidate_text[:200] + "..." if len(best_candidate_text) > 200 else best_candidate_text
             print(f"    Best prompt: {preview}")
+        
+        # Print candidate graph
+        print(f"\n  Candidate Graph (Split {split_num}):")
+        graph_str = format_ontology_graph(ontology, best_candidate_id)
+        for line in graph_str.split("\n"):
+            print(f"    {line}")
+
+        # Print ontology snapshot summary (Helix graph)
+        snapshot_counts = (ontology_snapshot or {}).get("counts") or {}
+        if "error" in (ontology_snapshot or {}):
+            print(f"\n  Ontology Snapshot (Split {split_num}): ERROR - {ontology_snapshot['error']}")
+        else:
+            print(
+                f"\n  Ontology Snapshot (Split {split_num}): "
+                f"{snapshot_counts.get('properties', 0)} properties, "
+                f"{snapshot_counts.get('relationships_from', 0)} outgoing, "
+                f"{snapshot_counts.get('relationships_to', 0)} incoming"
+            )
+
+            print(f"\n  Ontology Graph (Split {split_num}) - Full:")
+            print(json.dumps(ontology_snapshot, indent=2))
+        
+        # Store graph in checkpoint for JSON output
+        checkpoint["ontology_graph"] = graph_str
+
+        if split_num != 4:
+            print("\nPausing 30s between splits...")
+            time.sleep(30)
     
     total_elapsed = time.time() - start_time
     all_results["total_elapsed_seconds"] = total_elapsed
@@ -759,6 +1044,12 @@ def main():
     print(f"  Total candidates: {final_ontology['num_candidates']}")
     print(f"  Total proposals: {final_ontology['proposal_seq']}")
     print(f"  Best candidate: {final_ontology['best_candidate_id']}")
+    if isinstance(final_state.get("attempted_candidates"), list):
+        all_results["attempted_candidates"] = final_state.get("attempted_candidates", [])
+    if isinstance(final_state.get("optimized_candidates"), list):
+        all_results["optimized_candidates"] = final_state.get("optimized_candidates", [])
+    if isinstance(final_state.get("attempted_transforms"), list):
+        all_results["attempted_transforms"] = final_state.get("attempted_transforms", [])
     
     # Save results
     if args.output:
@@ -768,6 +1059,9 @@ def main():
         results_dir.mkdir(exist_ok=True)
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         output_path = results_dir / f"mipro_continual_{timestamp}.json"
+    
+    # Cleanup thread pool
+    status_executor.shutdown(wait=True)
     
     with open(output_path, "w") as f:
         json.dump(all_results, f, indent=2)

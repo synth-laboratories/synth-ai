@@ -228,6 +228,11 @@ class PromptResults:
     validation_results: List[Dict[str, Any]] = field(default_factory=list)
     total_rollouts: int = 0  # Total number of rollouts (metric evaluations)
     total_proposal_calls: int = 0  # Total number of proposal/mutation calls (LLM reflection calls)
+    best_candidate: Optional[Dict[str, Any]] = None  # Best candidate payload (when available)
+    event_counts: Dict[str, int] = field(default_factory=dict)
+    event_history: List[Dict[str, Any]] = field(default_factory=list)
+    gepa: Dict[str, Any] = field(default_factory=dict)
+    mipro: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> PromptResults:
@@ -242,4 +247,9 @@ class PromptResults:
             validation_results=data.get("validation_results", []),
             total_rollouts=data.get("total_rollouts", 0),
             total_proposal_calls=data.get("total_proposal_calls", 0),
+            best_candidate=data.get("best_candidate"),
+            event_counts=data.get("event_counts", {}),
+            event_history=data.get("event_history", []),
+            gepa=data.get("gepa", {}),
+            mipro=data.get("mipro", {}),
         )

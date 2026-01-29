@@ -44,6 +44,7 @@ from data_splits import (
 from synth_ai.core.utils.env import mint_demo_api_key
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
+from synth_ai.sdk.optimization.models import PromptLearningResult
 from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
@@ -82,7 +83,7 @@ def resolve_backend_url() -> str:
         env_url = (os.environ.get(env_var) or "").strip()
         if env_url:
             return env_url.rstrip("/")
-    return "https://api-dev.usesynth.ai"
+    return "https://api.usesynth.ai"
 
 
 def wait_for_health_check_sync(host: str, port: int, api_key: str, timeout: float = 30.0) -> None:
@@ -274,6 +275,105 @@ def extract_system_prompt_from_result(prompt_results, fallback: str) -> str:
     return fallback
 
 
+async def evaluate_prompt_accuracy(
+    *,
+    prompt: str,
+    intent_split: int,
+    api_key: str,
+    backend_url: str,
+    model: str,
+    num_samples: int = 50,
+) -> float:
+    """Evaluate a prompt's accuracy on a validation set."""
+    import httpx
+    import random
+    
+    dataset = Banking77SplitDataset()
+    dataset.ensure_ready(["train", "test"])
+    
+    # Get test samples for this split
+    split_labels = dataset.get_split_labels(intent_split)
+    available_intents = format_available_intents(split_labels)
+    
+    # Sample random test indices
+    test_size = dataset.size("test", intent_split)
+    sample_indices = random.sample(range(test_size), min(num_samples, test_size))
+    
+    correct = 0
+    total = 0
+    
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        for idx in sample_indices:
+            sample = dataset.sample(data_split="test", intent_split=intent_split, index=idx)
+            
+            user_msg = (
+                f"Customer Query: {sample['text']}\n\n"
+                f"Available Intents:\n{available_intents}\n\n"
+                f"Classify this query into one of the above banking intents using the tool call."
+            )
+            
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": user_msg},
+            ]
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            }
+            
+            payload = {
+                "model": model,
+                "messages": messages,
+                "tools": [TOOL_SCHEMA],
+                "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
+            }
+            
+            try:
+                response = await client.post(
+                    f"{backend_url}/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                )
+                
+                if response.status_code != 200:
+                    continue
+                
+                data = response.json()
+                choices = data.get("choices", [])
+                if not choices:
+                    continue
+                    
+                tool_calls = choices[0].get("message", {}).get("tool_calls", [])
+                if not tool_calls:
+                    continue
+                    
+                args_raw = tool_calls[0].get("function", {}).get("arguments")
+                if not args_raw:
+                    continue
+                    
+                args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
+                predicted_intent = args.get("intent", "")
+                
+                expected_intent = sample["label"]
+                is_correct = (
+                    predicted_intent.lower().replace("_", " ").strip()
+                    == expected_intent.lower().replace("_", " ").strip()
+                )
+                
+                if is_correct:
+                    correct += 1
+                total += 1
+                
+            except Exception as e:
+                print(f"  Eval error: {e}")
+                continue
+    
+    accuracy = correct / total if total > 0 else 0.0
+    print(f"  Evaluation: {correct}/{total} = {accuracy:.1%}")
+    return accuracy
+
+
 async def run_gepa_on_split(
     *,
     intent_split: int,
@@ -325,8 +425,14 @@ async def run_gepa_on_split(
     )
     
     # Configure GEPA job
-    train_seeds = list(range(min(train_size, 50)))  # Cap at dataset size
+    # Need at least pareto_set_size + 3 (for feedback) seeds
+    effective_train_size = min(train_size, 50)
+    train_seeds = list(range(effective_train_size))
     val_seeds = list(range(50, 70))
+    
+    # pareto_set_size must be <= train_size - 3 (to leave room for feedback seeds)
+    max_pareto_size = max(1, effective_train_size - 3)
+    pareto_size = min(15, max_pareto_size)
     
     config_body = {
         "prompt_learning": {
@@ -367,7 +473,7 @@ async def run_gepa_on_split(
                     "num_generations": 3,
                     "children_per_generation": 2,
                 },
-                "archive": {"pareto_set_size": 15},
+                "archive": {"pareto_set_size": pareto_size},
                 "token": {"counting_model": "gpt-4"},
             },
         },
@@ -378,6 +484,7 @@ async def run_gepa_on_split(
     pl_job = PromptLearningJob.from_dict(
         config_dict=deepcopy(config_body),
         backend_url=backend_url,
+        api_key=api_key,
     )
     
     start_time = time.time()
@@ -385,10 +492,28 @@ async def run_gepa_on_split(
     print(f"Job ID: {job_id}")
     
     # Stream until complete
-    gepa_result = await pl_job.stream_until_complete_async(
-        timeout=1800.0,
-        interval=10.0,
-    )
+    try:
+        gepa_result = await pl_job.stream_until_complete_async(
+            timeout=1800.0,
+            interval=10.0,
+        )
+    except ValueError as exc:
+        if "stream ended without terminal event" not in str(exc):
+            raise
+        print("Stream ended early; falling back to polling job status...")
+        status_payload = await pl_job.get_status_async()
+        try:
+            results_payload = await pl_job.get_results_async()
+        except Exception:
+            results_payload = {}
+        if isinstance(results_payload, dict):
+            status_payload.update(
+                {
+                    "best_prompt": results_payload.get("best_prompt"),
+                    "best_score": results_payload.get("best_score"),
+                }
+            )
+        gepa_result = PromptLearningResult.from_response(job_id, status_payload)
     
     elapsed = time.time() - start_time
     print(f"\nJob completed in {elapsed:.1f}s - Status: {gepa_result.status.value}")
@@ -409,14 +534,17 @@ async def run_gepa_on_split(
         prompt_results = await pl_client.get_prompts(job_id)
         
         best_prompt = extract_system_prompt_from_result(prompt_results, initial_prompt)
-        best_reward = None
         
-        if isinstance(gepa_result.raw, dict):
-            best_reward = (
-                gepa_result.raw.get("best_reward")
-                or gepa_result.raw.get("best_avg_reward")
-                or gepa_result.raw.get("best_train_reward")
-            )
+        # Run post-hoc evaluation to get accuracy
+        print("Running post-hoc evaluation on validation set...")
+        best_reward = await evaluate_prompt_accuracy(
+            prompt=best_prompt,
+            intent_split=intent_split,
+            api_key=api_key,
+            backend_url=backend_url,
+            model=model,
+            num_samples=50,  # Evaluate on 50 samples
+        )
         
         result["best_prompt"] = best_prompt
         result["best_reward"] = best_reward

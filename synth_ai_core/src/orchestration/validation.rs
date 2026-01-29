@@ -57,6 +57,8 @@ const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "online_pool",
     "test_pool",
     "reference_pool",
+    "auto_discover_patterns",
+    "use_byok",
 ];
 
 const KNOWN_POLICY_FIELDS: &[&str] = &[
@@ -67,6 +69,9 @@ const KNOWN_POLICY_FIELDS: &[&str] = &[
     "temperature",
     "max_completion_tokens",
     "policy_name",
+    "config",
+    "context_override",
+    "timeout",
 ];
 
 const KNOWN_TERMINATION_CONFIG_FIELDS: &[&str] = &[
@@ -126,13 +131,19 @@ const KNOWN_GEPA_FIELDS: &[&str] = &[
     "token_counting_model",
     "enforce_pattern_token_limit",
     "max_spend_usd",
+    "unified_optimization",
+    "baseline_context_override",
+    "proposed_prompt_max_tokens",
+    "use_byok",
 ];
 
-const KNOWN_GEPA_ROLLOUT_FIELDS: &[&str] = &["budget", "max_concurrent", "minibatch_size"];
+const KNOWN_GEPA_ROLLOUT_FIELDS: &[&str] = &["budget", "max_concurrent", "minibatch_size", "timeout"];
 
 const KNOWN_GEPA_EVALUATION_FIELDS: &[&str] = &[
     "seeds",
+    "train_seeds",
     "validation_seeds",
+    "val_seeds",
     "test_pool",
     "validation_pool",
     "validation_top_k",

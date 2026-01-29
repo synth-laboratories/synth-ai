@@ -43,12 +43,17 @@ ENV PATH="/root/.local/bin:$PATH"
 # Install Python deps
 RUN uv pip install --system fastapi uvicorn httpx pydantic openai
 
-# Clone engine-bench repo (needed for cargo tests)
+# Clone engine-bench repo (needed for cargo tests + instance data)
 RUN git clone https://github.com/JoshuaPurtell/engine-bench.git /engine-bench
 
-# Pre-compile Rust deps (speeds up first cargo test)
+# Pre-download Rust dependencies (speeds up first cargo check/test)
 WORKDIR /engine-bench
+RUN cargo fetch
 RUN cargo build --release 2>/dev/null || true
+
+# Verify instance data is present
+RUN ls /engine-bench/data/instances/single/*.json | wc -l && \
+    echo "Instance data verified"
 
 # Pre-create config directories
 RUN mkdir -p /root/.codex /root/.opencode /app /tmp

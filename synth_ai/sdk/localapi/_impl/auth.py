@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from contextlib import suppress
 from typing import Any
@@ -22,7 +23,18 @@ def normalize_environment_api_key() -> str | None:
     Returns the resolved key (if any) so callers can branch on configuration.
     """
 
-    return synth_ai_py.localapi_normalize_environment_api_key()
+    fn = getattr(synth_ai_py, "localapi_normalize_environment_api_key", None)
+    if callable(fn):
+        return fn()
+    # Fallback: promote DEV_ENVIRONMENT_API_KEY to ENVIRONMENT_API_KEY if needed.
+    key = os.environ.get(_API_KEY_ENV, "").strip()
+    if key:
+        return key
+    dev_key = os.environ.get("DEV_ENVIRONMENT_API_KEY", "").strip()
+    if dev_key:
+        os.environ[_API_KEY_ENV] = dev_key
+        return dev_key
+    return None
 
 
 def allowed_environment_api_keys() -> set[str]:
@@ -33,7 +45,20 @@ def allowed_environment_api_keys() -> set[str]:
     - Any comma-separated aliases from ENVIRONMENT_API_KEY_ALIASES
     """
 
-    return set(synth_ai_py.localapi_allowed_environment_api_keys())
+    fn = getattr(synth_ai_py, "localapi_allowed_environment_api_keys", None)
+    if callable(fn):
+        return set(fn())
+    keys: set[str] = set()
+    primary = os.environ.get(_API_KEY_ENV, "").strip()
+    if primary:
+        keys.add(primary)
+    aliases_raw = os.environ.get("ENVIRONMENT_API_KEY_ALIASES", "")
+    if aliases_raw:
+        for part in aliases_raw.split(","):
+            candidate = part.strip()
+            if candidate:
+                keys.add(candidate)
+    return keys
 
 
 def _header_values(request: Any, header: str) -> Iterable[str]:
@@ -94,7 +119,11 @@ def is_api_key_header_authorized(request: Any) -> bool:
     """Return True if any header-provided key matches any allowed environment key."""
 
     header_values = _raw_header_values(request)
-    return synth_ai_py.localapi_is_api_key_header_authorized(header_values)
+    fn = getattr(synth_ai_py, "localapi_is_api_key_header_authorized", None)
+    if callable(fn):
+        return fn(header_values)
+    allowed = allowed_environment_api_keys()
+    return any(h in allowed for h in header_values if isinstance(h, str))
 
 
 def require_api_key_dependency(request: Any) -> None:
@@ -107,7 +136,13 @@ def require_api_key_dependency(request: Any) -> None:
         )
 
     header_values = _raw_header_values(request)
-    if not synth_ai_py.localapi_is_api_key_header_authorized(header_values):
+    fn = getattr(synth_ai_py, "localapi_is_api_key_header_authorized", None)
+    authorized = (
+        fn(header_values)
+        if callable(fn)
+        else any(h in allowed for h in header_values if isinstance(h, str))
+    )
+    if not authorized:
         candidates = _extract_candidates(request)
         with suppress(Exception):
             print(

@@ -11,13 +11,13 @@ import inspect
 import os
 from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_serializer
 from starlette.middleware import Middleware
 
 from .auth import normalize_environment_api_key, require_api_key_dependency
@@ -70,6 +70,16 @@ class RubricBundle(BaseModel):
 
     outcome: Rubric | None = None
     events: Rubric | None = None
+
+    @field_serializer("outcome", "events")
+    def _serialize_rubric(self, value: Rubric | None) -> Any:
+        if value is None:
+            return None
+        if is_dataclass(value):
+            return asdict(value)
+        if hasattr(value, "model_dump"):
+            return value.model_dump()
+        return value
 
 
 class _ServiceInfo(BaseModel):

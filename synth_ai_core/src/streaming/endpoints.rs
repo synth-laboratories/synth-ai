@@ -39,7 +39,7 @@ impl StreamEndpoints {
 
     /// Create endpoints for a prompt learning (GEPA) job.
     pub fn prompt_learning(job_id: &str) -> Self {
-        let base = format!("/policy-optimization/online/jobs/{}", job_id);
+        let base = format!("/prompt-learning/online/jobs/{}", job_id);
         Self {
             status: Some(base.clone()),
             events: Some(format!("{}/events", base)),
@@ -282,7 +282,7 @@ mod tests {
 
         assert_eq!(
             endpoints.status,
-            Some("/policy-optimization/online/jobs/job-456".to_string())
+            Some("/prompt-learning/online/jobs/job-456".to_string())
         );
         assert!(endpoints.timeline.is_none());
         assert_eq!(endpoints.status_fallbacks.len(), 2);

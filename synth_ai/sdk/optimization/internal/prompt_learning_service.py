@@ -18,7 +18,7 @@ def submit_prompt_learning_job(
     api_key: str,
     payload: Dict[str, Any],
 ) -> Dict[str, Any]:
-    create_url = f"{ensure_api_base(backend_url)}/policy-optimization/online/jobs"
+    create_url = f"{ensure_api_base(backend_url)}/prompt-learning/online/jobs"
 
     resp = http_post(create_url, headers=_headers(api_key), json_body=payload)
     if resp.status_code not in (200, 201):
@@ -26,7 +26,7 @@ def submit_prompt_learning_job(
         if resp.status_code == 404:
             error_msg += (
                 f"\n\nPossible causes:"
-                f"\n1. Backend route /api/policy-optimization/online/jobs not registered"
+                f"\n1. Backend route /api/prompt-learning/online/jobs not registered"
                 f"\n2. Backend server needs restart (lazy import may have failed)"
                 f"\n3. Check backend logs for: 'Failed to import prompt_learning_online_router'"
                 f"\n4. Verify backend is running at: {backend_url}"
@@ -42,7 +42,7 @@ def cancel_prompt_learning_job(
     job_id: str,
     reason: Optional[str] = None,
 ) -> Dict[str, Any]:
-    url = f"{ensure_api_base(backend_url)}/policy-optimization/online/jobs/{job_id}/cancel"
+    url = f"{ensure_api_base(backend_url)}/prompt-learning/online/jobs/{job_id}/cancel"
     payload: Dict[str, Any] = {}
     if reason:
         payload["reason"] = reason

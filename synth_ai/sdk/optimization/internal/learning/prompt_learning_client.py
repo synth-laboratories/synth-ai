@@ -87,6 +87,54 @@ def _convert_template_to_pattern(template: Dict[str, Any]) -> Optional[Dict[str,
     return {"messages": messages}
 
 
+def _extract_event_type(event: Dict[str, Any]) -> str:
+    event_type = event.get("type") or event.get("event_type")
+    if not event_type and isinstance(event.get("data"), dict):
+        event_type = event["data"].get("type") or event["data"].get("event_type")
+    return str(event_type or "")
+
+
+def _extract_event_data(event: Dict[str, Any]) -> Dict[str, Any]:
+    data = event.get("data")
+    if data is None:
+        data = event.get("payload") or event.get("data_json")
+    if not isinstance(data, dict):
+        return {}
+
+    # Unwrap nested envelope if data still looks like an event wrapper.
+    while (
+        isinstance(data, dict)
+        and "data" in data
+        and any(
+            key in data for key in ("type", "event_type", "message", "seq", "timestamp_ms", "ts")
+        )
+    ):
+        inner = data.get("data")
+        if not isinstance(inner, dict):
+            break
+        data = inner
+
+    return data
+
+
+def _append_event_bucket(
+    bucket: Dict[str, Any],
+    key: str,
+    event_type: str,
+    event_data: Dict[str, Any],
+) -> None:
+    if not event_data:
+        return
+    bucket.setdefault(key, []).append({"_event_type": event_type, **event_data})
+
+
+def _merge_candidate_payload(event_data: Dict[str, Any]) -> Dict[str, Any]:
+    program_candidate = event_data.get("program_candidate")
+    if isinstance(program_candidate, dict):
+        return {**event_data, **program_candidate}
+    return event_data
+
+
 class PromptLearningClient:
     """Client for interacting with prompt learning jobs and retrieving results."""
 
@@ -312,8 +360,23 @@ class PromptLearningClient:
 
         # Extract results from events
         for event in events:
-            event_type = event.get("type", "")
-            event_data = event.get("data", {})
+            event_type = _extract_event_type(event)
+            event_data = _extract_event_data(event)
+            if not event_type and isinstance(event_data, dict):
+                event_type = str(event_data.get("type") or event_data.get("event_type") or "")
+
+            if event_type:
+                result.event_counts[event_type] = result.event_counts.get(event_type, 0) + 1
+                result.event_history.append(
+                    {
+                        "type": event_type,
+                        "seq": event.get("seq"),
+                        "timestamp_ms": event.get("timestamp_ms"),
+                        "ts": event.get("ts"),
+                        "message": event.get("message"),
+                        "data": event_data,
+                    }
+                )
 
             # Best prompt event (canonical)
             if event_type == "learning.policy.gepa.candidate.new_best":
@@ -321,9 +384,18 @@ class PromptLearningClient:
                 best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
                 if best_score is not None:
                     result.best_score = best_score
+                best_candidate = (
+                    event_data.get("best_candidate")
+                    or event_data.get("candidate")
+                    or event_data.get("program_candidate")
+                )
+                if isinstance(best_candidate, dict):
+                    result.best_candidate = best_candidate
+                _append_event_bucket(result.gepa, "best_candidates", event_type, event_data)
 
             # Candidate evaluated events may contain top-K prompt content
             elif event_type == "learning.policy.gepa.candidate.evaluated":
+                candidate_view = _merge_candidate_payload(event_data)
                 # Check if this is a top prompt content event (has rank)
                 if event_data.get("rank") is not None:
                     pattern_payload = event_data.get("pattern")
@@ -331,15 +403,55 @@ class PromptLearningClient:
                         template_payload = event_data.get("template")
                         if isinstance(template_payload, dict):
                             pattern_payload = _convert_template_to_pattern(template_payload)
-                    result.top_prompts.append(
-                        {
-                            "rank": event_data.get("rank"),
-                            "train_accuracy": event_data.get("train_accuracy"),
-                            "val_accuracy": event_data.get("val_accuracy"),
-                            "pattern": pattern_payload,
-                            "full_text": event_data.get("full_text"),
-                        }
+                    prompt_entry: Dict[str, Any] = {
+                        "rank": event_data.get("rank"),
+                        "train_accuracy": candidate_view.get("train_accuracy"),
+                        "val_accuracy": candidate_view.get("val_accuracy"),
+                        "pattern": pattern_payload,
+                        "full_text": event_data.get("full_text"),
+                    }
+                    candidate_id = candidate_view.get("candidate_id") or candidate_view.get(
+                        "version_id"
                     )
+                    if candidate_id is not None:
+                        prompt_entry["candidate_id"] = candidate_id
+                    for key in (
+                        "parent_id",
+                        "generation",
+                        "accepted",
+                        "is_pareto",
+                        "mutation_type",
+                        "mutation_params",
+                        "prompt_summary",
+                        "prompt_text",
+                        "objectives",
+                        "instance_scores",
+                        "instance_objectives",
+                        "seed_scores",
+                        "seed_info",
+                        "rollout_sample",
+                        "token_usage",
+                        "cost_usd",
+                        "evaluation_duration_ms",
+                        "skip_reason",
+                        "stages",
+                        "seeds_evaluated",
+                        "full_score",
+                    ):
+                        value = candidate_view.get(key)
+                        if value is not None:
+                            prompt_entry[key] = value
+                    mutation_type = candidate_view.get("mutation_type") or candidate_view.get(
+                        "operator"
+                    )
+                    if mutation_type is not None:
+                        prompt_entry["mutation_type"] = mutation_type
+                    if candidate_view.get("minibatch_scores") is not None:
+                        prompt_entry["minibatch_scores"] = candidate_view.get("minibatch_scores")
+                    elif candidate_view.get("minibatch_score") is not None:
+                        prompt_entry["minibatch_scores"] = [candidate_view.get("minibatch_score")]
+                    result.top_prompts.append(prompt_entry)
+                _append_event_bucket(result.gepa, "candidates", event_type, candidate_view)
 
             # Job completed event (contains all candidates) - canonical
             elif event_type == "learning.policy.gepa.job.completed":
@@ -378,6 +490,9 @@ class PromptLearningClient:
                             accuracy = _extract_reward_value(val_item)
                             if rank is not None and accuracy is not None:
                                 validation_by_rank[rank] = accuracy
+                if isinstance(event_data.get("baseline"), dict):
+                    result.gepa["baseline"] = event_data.get("baseline")
+                _append_event_bucket(result.gepa, "job_completed", event_type, event_data)
 
             # Validation results - build map by rank (canonical)
             elif event_type == "learning.policy.gepa.validation.completed":
@@ -387,6 +502,17 @@ class PromptLearningClient:
                 accuracy = _extract_reward_value(event_data)
                 if rank is not None and accuracy is not None:
                     validation_by_rank[rank] = accuracy
+                _append_event_bucket(result.gepa, "validation", event_type, event_data)
+
+            elif event_type.startswith("learning.policy.gepa."):
+                if event_type.endswith(".baseline") or "baseline" in event_type:
+                    result.gepa["baseline"] = event_data
+                elif "frontier_updated" in event_type or "frontier.updated" in event_type:
+                    _append_event_bucket(result.gepa, "frontier_updates", event_type, event_data)
+                elif "generation.complete" in event_type or "generation.completed" in event_type:
+                    _append_event_bucket(result.gepa, "generations", event_type, event_data)
+                elif "progress" in event_type or "rollouts.progress" in event_type:
+                    _append_event_bucket(result.gepa, "progress_updates", event_type, event_data)
 
             # MIPRO completion event - extract best_score (canonical)
             elif event_type == "learning.policy.mipro.job.completed":
@@ -396,6 +522,39 @@ class PromptLearningClient:
                         event_data,
                         fallback_keys=["best_score", "best_full_score", "best_minibatch_score"],
                     )
+                if event_data.get("attempted_candidates") is not None:
+                    result.attempted_candidates = event_data.get("attempted_candidates", [])
+                if event_data.get("optimized_candidates") is not None:
+                    result.optimized_candidates = event_data.get("optimized_candidates", [])
+                result.mipro["job"] = {"_event_type": event_type, **event_data}
+
+            elif event_type.startswith("learning.policy.mipro."):
+                # Capture MIPRO iteration/trial/incumbent/budget events for inspection
+                if "iteration.started" in event_type or "iteration.completed" in event_type:
+                    _append_event_bucket(result.mipro, "iterations", event_type, event_data)
+                elif "trial.started" in event_type or "trial.completed" in event_type:
+                    _append_event_bucket(result.mipro, "trials", event_type, event_data)
+                elif "candidate.new_best" in event_type:
+                    _append_event_bucket(result.mipro, "incumbents", event_type, event_data)
+                    best_score = _extract_reward_value(
+                        event_data,
+                        fallback_keys=["best_score", "score", "full_score", "minibatch_score"],
+                    )
+                    if best_score is not None and (
+                        result.best_score is None or best_score > result.best_score
+                    ):
+                        result.best_score = best_score
+                    best_candidate = (
+                        event_data.get("best_candidate")
+                        or event_data.get("candidate")
+                        or event_data.get("program_candidate")
+                    )
+                    if isinstance(best_candidate, dict):
+                        result.best_candidate = best_candidate
+                elif "candidate.evaluated" in event_type:
+                    _append_event_bucket(result.mipro, "candidates", event_type, event_data)
+                elif "budget" in event_type:
+                    _append_event_bucket(result.mipro, "budget_updates", event_type, event_data)
 
         # If top_prompts is empty but we have optimized_candidates, extract from them
         if not result.top_prompts and result.optimized_candidates:
@@ -459,6 +618,34 @@ class PromptLearningClient:
                     "train_accuracy": train_accuracy,
                     "val_accuracy": val_accuracy,
                 }
+                for key in (
+                    "candidate_id",
+                    "version_id",
+                    "parent_id",
+                    "generation",
+                    "accepted",
+                    "is_pareto",
+                    "mutation_type",
+                    "mutation_params",
+                    "prompt_summary",
+                    "prompt_text",
+                    "objectives",
+                    "instance_scores",
+                    "instance_objectives",
+                    "seed_scores",
+                    "seed_info",
+                    "rollout_sample",
+                    "token_usage",
+                    "cost_usd",
+                    "evaluation_duration_ms",
+                    "skip_reason",
+                    "stages",
+                    "seeds_evaluated",
+                    "full_score",
+                ):
+                    value = cand.get(key)
+                    if value is not None:
+                        prompt_entry[key] = value
                 if pattern:
                     prompt_entry["pattern"] = pattern
                 if full_text:

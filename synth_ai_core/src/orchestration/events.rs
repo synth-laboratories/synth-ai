@@ -260,6 +260,7 @@ impl EventParser {
     /// Patterns for candidate events
     const CANDIDATE_PATTERNS: &'static [&'static str] = &[
         ".candidate.evaluated",
+        ".candidate.new_best",
         ".proposal.scored",
         ".optimized.scored",
         ".candidate_scored",
@@ -270,14 +271,24 @@ impl EventParser {
 
     /// Patterns for progress events
     const PROGRESS_PATTERNS: &'static [&'static str] =
-        &[".progress", ".rollouts_limit_progress", ".rollouts.progress"];
+        &[
+            ".progress",
+            ".rollouts_limit_progress",
+            ".rollouts.progress",
+            ".job.started",
+            ".trial.started",
+            ".trial.completed",
+            ".iteration.started",
+            ".iteration.completed",
+        ];
 
     /// Patterns for generation events
     const GENERATION_PATTERNS: &'static [&'static str] =
-        &[".generation.complete", ".generation.completed"];
+        &[".generation.complete", ".generation.completed", ".generation.started"];
 
     /// Patterns for throughput events
-    const THROUGHPUT_PATTERNS: &'static [&'static str] = &[".throughput"];
+    const THROUGHPUT_PATTERNS: &'static [&'static str] =
+        &[".throughput", ".rollout.concurrency", ".rollout_concurrency"];
 
     /// Patterns for termination events
     const TERMINATION_PATTERNS: &'static [&'static str] =
@@ -410,6 +421,20 @@ impl EventParser {
             out.push(s);
         }
         Some(out)
+    }
+
+    fn extract_reward_from_value(value: Option<&Value>) -> Option<f64> {
+        let value = value?;
+        match value {
+            Value::Number(num) => num.as_f64(),
+            Value::String(s) => s.parse::<f64>().ok(),
+            Value::Object(obj) => obj
+                .get("reward")
+                .and_then(|v| Self::coerce_f64(Some(v)))
+                .or_else(|| obj.get("accuracy").and_then(|v| Self::coerce_f64(Some(v))))
+                .or_else(|| obj.get("score").and_then(|v| Self::coerce_f64(Some(v)))),
+            _ => None,
+        }
     }
 
     fn extract_instance_rewards(data: &Value) -> Option<Vec<f64>> {
@@ -551,7 +576,13 @@ impl EventParser {
         let accuracy = reward_value
             .or_else(|| Self::coerce_f64(data.get("accuracy")))
             .or_else(|| Self::coerce_f64(data.get("baseline_score")))
-            .or_else(|| Self::coerce_f64(data.get("baseline_accuracy")));
+            .or_else(|| Self::coerce_f64(data.get("baseline_accuracy")))
+            .or_else(|| {
+                data.get("outcome_objectives")
+                    .and_then(|v| Self::extract_reward_from_value(Some(v)))
+            })
+            .or_else(|| data.get("outcome_reward").and_then(|v| Self::coerce_f64(Some(v))))
+            .or_else(|| data.get("score").and_then(|v| Self::extract_reward_from_value(Some(v))));
 
         let instance_objectives = Self::parse_vec_f64_map(data.get("instance_objectives"));
         let instance_scores = Self::extract_instance_rewards(&data_value);
@@ -580,7 +611,14 @@ impl EventParser {
         let reward_value = objectives.as_ref().and_then(|m| m.get("reward").copied());
         let accuracy = reward_value
             .or_else(|| Self::coerce_f64(candidate_view.get("accuracy")))
-            .or_else(|| Self::coerce_f64(candidate_view.get("score")));
+            .or_else(|| Self::coerce_f64(candidate_view.get("score")))
+            .or_else(|| Self::extract_reward_from_value(candidate_view.get("score")))
+            .or_else(|| {
+                candidate_view
+                    .get("outcome_objectives")
+                    .and_then(|v| Self::extract_reward_from_value(Some(v)))
+            })
+            .or_else(|| candidate_view.get("outcome_reward").and_then(|v| Self::coerce_f64(Some(v))));
 
         let instance_objectives = Self::parse_vec_f64_map(candidate_view.get("instance_objectives"));
         let instance_scores = Self::extract_instance_rewards(&candidate_value);
@@ -726,6 +764,22 @@ mod tests {
         assert_eq!(
             EventParser::get_category("unknown.event.type"),
             EventCategory::Unknown
+        );
+        assert_eq!(
+            EventParser::get_category("learning.policy.gepa.rollout.concurrency"),
+            EventCategory::Throughput
+        );
+        assert_eq!(
+            EventParser::get_category("learning.policy.gepa.candidate.new_best"),
+            EventCategory::Candidate
+        );
+        assert_eq!(
+            EventParser::get_category("learning.policy.gepa.job.started"),
+            EventCategory::Progress
+        );
+        assert_eq!(
+            EventParser::get_category("learning.policy.gepa.generation.started"),
+            EventCategory::Generation
         );
     }
 

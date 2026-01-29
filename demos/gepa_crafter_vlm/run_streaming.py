@@ -41,7 +41,7 @@ CrafterVLMReActPolicy = _crafter_logic.CrafterVLMReActPolicy
 normalize_action_name = _crafter_logic.normalize_action_name
 
 # Config
-SYNTH_API_BASE = "https://api.usesynth.ai"
+SYNTH_API_BASE = os.environ.get("SYNTH_API_BASE", "https://api.usesynth.ai")
 SYNTH_API_KEY = os.environ.get("SYNTH_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
@@ -494,7 +494,7 @@ async def main():
     log("Creating tunnel...")
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
-        backend=TunnelBackend.CloudflareManagedTunnel,
+        backend=TunnelBackend.CloudflareManagedLease,
         api_key=SYNTH_API_KEY,
         backend_url=SYNTH_API_BASE,
         progress=False,

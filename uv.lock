@@ -2324,6 +2324,18 @@ wheels = [
 ]
 
 [[package]]
+name = "openenv"
+version = "0.1.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/35/94/c47e8f7303452793a3519c8cbc1b31dfffdedd13aaed821958ab3f152927/openenv-0.1.13.tar.gz", hash = "sha256:726971d2289472c1c20261436bcccdf3edfcf0b201d16aec127815bd83bfcb3d", size = 5112, upload-time = "2020-12-16T11:49:39.777Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/7f/e6f4467528161b8f0eb2ec784f4bbcd1fa9ea7acad13c0fb18597013e83b/openenv-0.1.13-py3-none-any.whl", hash = "sha256:813249d7f526f40c6e8b325f705294761a5bc887b9144c3383fa2bae7baa7726", size = 12080, upload-time = "2020-12-16T11:49:38.816Z" },
+]
+
+[[package]]
 name = "opensimplex"
 version = "0.4.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3881,6 +3893,7 @@ dependencies = [
     { name = "nest-asyncio" },
     { name = "numpy" },
     { name = "openai" },
+    { name = "openenv" },
     { name = "pydantic" },
     { name = "pynacl" },
     { name = "requests" },
@@ -3983,6 +3996,7 @@ requires-dist = [
     { name = "nest-asyncio", marker = "extra == 'dev'", specifier = ">=1.6.0" },
     { name = "numpy", specifier = ">=2.2.3" },
     { name = "openai", specifier = ">=1.99.0" },
+    { name = "openenv", specifier = ">=0.1.13" },
     { name = "pandas", marker = "extra == 'analytics'", specifier = ">=2.2.3" },
     { name = "papermill", marker = "extra == 'dev'", specifier = ">=2.6.0" },
     { name = "pyboy", marker = "extra == 'all'", specifier = ">=2.6.0" },

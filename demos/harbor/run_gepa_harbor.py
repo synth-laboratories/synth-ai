@@ -27,12 +27,13 @@ async def run_gepa_with_harbor(
     num_generations: int = 2,
     population_size: int = 4,
     max_concurrent: int = 5,
+    rollout_timeout: int = 600,
 ):
     """Run GEPA optimization using Harbor for rollouts.
 
     This creates a GEPA job that uses the Harbor deployment for sandbox execution.
     """
-    seeds = seeds or [0, 1, 2, 3, 4]
+    seeds = seeds if seeds is not None else list(range(13))
 
     print("=" * 70)
     print("GEPA OPTIMIZATION WITH HARBOR")
@@ -43,6 +44,7 @@ async def run_gepa_with_harbor(
     print(f"Generations: {num_generations}")
     print(f"Population Size: {population_size}")
     print(f"Max Concurrent: {max_concurrent}")
+    print(f"Rollout Timeout: {rollout_timeout}s")
     print()
 
     # First, verify the deployment is ready
@@ -123,8 +125,11 @@ async def run_gepa_with_harbor(
                     "model": "gpt-4o-mini",
                     "provider": "openai",
                     "inference_mode": "synth_hosted",
+                    "timeout": rollout_timeout,
                     "context_override": {
                         "system_prompt": """You are an expert Rust developer implementing Pokemon TCG cards.
+
+CRITICAL: The stub file contains `todo!()` macros that YOU MUST REPLACE with working code.
 
 Your task: Implement card effects by editing Rust files with stub functions marked with TODO comments.
 
@@ -197,7 +202,7 @@ async def main():
     parser.add_argument(
         "--seeds",
         type=str,
-        default="0,1,2,3,4",
+        default=",".join(str(i) for i in range(13)),
         help="Comma-separated list of seeds",
     )
     parser.add_argument(
@@ -218,6 +223,12 @@ async def main():
         default=5,
         help="Max concurrent rollouts",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=600,
+        help="Rollout timeout in seconds",
+    )
     args = parser.parse_args()
 
     # Get API key
@@ -236,6 +247,7 @@ async def main():
         num_generations=args.generations,
         population_size=args.population,
         max_concurrent=args.concurrency,
+        rollout_timeout=args.timeout,
     )
 
     if result:

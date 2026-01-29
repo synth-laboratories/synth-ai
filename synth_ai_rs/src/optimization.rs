@@ -62,6 +62,11 @@ pub struct PromptLearningResults {
     pub optimized_candidates: Vec<Value>,
     pub attempted_candidates: Vec<Value>,
     pub validation_results: Vec<Value>,
+    pub best_candidate: Option<Value>,
+    pub event_counts: HashMap<String, i64>,
+    pub event_history: Vec<Value>,
+    pub gepa: HashMap<String, Value>,
+    pub mipro: HashMap<String, Value>,
 }
 
 #[derive(Clone)]
@@ -173,32 +178,90 @@ impl PromptLearningResults {
         let mut validation_by_rank: HashMap<i64, f64> = HashMap::new();
 
         for event in events {
-            let event_type = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
-            let data = event.get("data").and_then(|v| v.as_object());
-            if data.is_none() {
-                continue;
-            }
-            let data = data.unwrap();
+            let event_type = extract_event_type(event);
+            let data = match extract_event_data(event) {
+                Some(data) => data,
+                None => continue,
+            };
 
-            match event_type {
+            if !event_type.is_empty() {
+                *results.event_counts.entry(event_type.clone()).or_insert(0) += 1;
+                push_event_history(&mut results, &event_type, event, &data);
+            }
+
+            match event_type.as_str() {
                 "learning.policy.gepa.candidate.new_best" => {
                     results.best_prompt = data.get("best_prompt").cloned();
                     if results.best_score.is_none() {
                         results.best_score = extract_reward_value(data, &["best_score"]);
                     }
+                    if results.best_candidate.is_none() {
+                        results.best_candidate = data
+                            .get("best_candidate")
+                            .cloned()
+                            .or_else(|| data.get("candidate").cloned())
+                            .or_else(|| data.get("program_candidate").cloned());
+                    }
+                    append_event_bucket(&mut results.gepa, "best_candidates", &event_type, &data);
                 }
                 "learning.policy.gepa.candidate.evaluated" => {
+                    let candidate_view = merge_candidate_payload(data);
                     if let Some(rank) = data.get("rank").and_then(|v| v.as_i64()) {
                         let mut prompt_entry = Map::new();
                         prompt_entry.insert("rank".to_string(), json!(rank));
-                        prompt_entry.insert(
-                            "train_accuracy".to_string(),
-                            data.get("train_accuracy").cloned().unwrap_or(Value::Null),
-                        );
-                        prompt_entry.insert(
-                            "val_accuracy".to_string(),
-                            data.get("val_accuracy").cloned().unwrap_or(Value::Null),
-                        );
+                        if let Some(val) = candidate_view.get("train_accuracy") {
+                            prompt_entry.insert("train_accuracy".to_string(), val.clone());
+                        }
+                        if let Some(val) = candidate_view.get("val_accuracy") {
+                            prompt_entry.insert("val_accuracy".to_string(), val.clone());
+                        }
+                        if let Some(candidate_id) = candidate_view
+                            .get("candidate_id")
+                            .or_else(|| candidate_view.get("version_id"))
+                        {
+                            prompt_entry.insert("candidate_id".to_string(), candidate_id.clone());
+                        }
+                        for key in [
+                            "parent_id",
+                            "generation",
+                            "accepted",
+                            "is_pareto",
+                            "mutation_type",
+                            "mutation_params",
+                            "prompt_summary",
+                            "prompt_text",
+                            "objectives",
+                            "instance_scores",
+                            "instance_objectives",
+                            "seed_scores",
+                            "seed_info",
+                            "rollout_sample",
+                            "token_usage",
+                            "cost_usd",
+                            "evaluation_duration_ms",
+                            "skip_reason",
+                            "stages",
+                            "seeds_evaluated",
+                            "full_score",
+                        ] {
+                            if let Some(val) = candidate_view.get(key) {
+                                prompt_entry.insert(key.to_string(), val.clone());
+                            }
+                        }
+                        if let Some(mutation_type) = candidate_view
+                            .get("mutation_type")
+                            .or_else(|| candidate_view.get("operator"))
+                        {
+                            prompt_entry.insert("mutation_type".to_string(), mutation_type.clone());
+                        }
+                        if let Some(scores) = candidate_view.get("minibatch_scores") {
+                            prompt_entry.insert("minibatch_scores".to_string(), scores.clone());
+                        } else if let Some(score) = candidate_view.get("minibatch_score") {
+                            prompt_entry.insert(
+                                "minibatch_scores".to_string(),
+                                Value::Array(vec![score.clone()]),
+                            );
+                        }
                         if let Some(pattern) = data.get("pattern") {
                             prompt_entry.insert("pattern".to_string(), pattern.clone());
                             if let Some(text) = extract_full_text_from_pattern(pattern) {
@@ -214,6 +277,7 @@ impl PromptLearningResults {
                         }
                         results.top_prompts.push(Value::Object(prompt_entry));
                     }
+                    append_event_bucket(&mut results.gepa, "candidates", &event_type, &candidate_view);
                 }
                 "learning.policy.gepa.job.completed" => {
                     if let Some(cands) = data.get("optimized_candidates").and_then(|v| v.as_array())
@@ -243,6 +307,10 @@ impl PromptLearningResults {
                             }
                         }
                     }
+                    if let Some(Value::Object(baseline)) = data.get("baseline") {
+                        results.gepa.insert("baseline".to_string(), Value::Object(baseline.clone()));
+                    }
+                    append_event_bucket(&mut results.gepa, "job_completed", &event_type, &data);
                 }
                 "learning.policy.gepa.validation.completed" => {
                     results.validation_results.push(Value::Object(data.clone()));
@@ -252,6 +320,7 @@ impl PromptLearningResults {
                     ) {
                         validation_by_rank.insert(rank, score);
                     }
+                    append_event_bucket(&mut results.gepa, "validation", &event_type, &data);
                 }
                 "learning.policy.mipro.job.completed" => {
                     if results.best_score.is_none() {
@@ -259,6 +328,74 @@ impl PromptLearningResults {
                             data,
                             &["best_score", "best_full_score", "best_minibatch_score"],
                         );
+                    }
+                    if let Some(cands) = data.get("attempted_candidates").and_then(|v| v.as_array())
+                    {
+                        results.attempted_candidates = cands.clone();
+                    }
+                    if let Some(cands) = data.get("optimized_candidates").and_then(|v| v.as_array())
+                    {
+                        results.optimized_candidates = cands.clone();
+                    }
+                    let mut entry = Map::new();
+                    entry.insert(
+                        "_event_type".to_string(),
+                        Value::String(event_type.clone()),
+                    );
+                    for (k, v) in data.iter() {
+                        entry.insert(k.clone(), v.clone());
+                    }
+                    results.mipro.insert("job".to_string(), Value::Object(entry));
+                }
+                _ if event_type.starts_with("learning.policy.gepa.") => {
+                    if event_type.contains("baseline") {
+                        results
+                            .gepa
+                            .insert("baseline".to_string(), Value::Object(data.clone()));
+                    } else if event_type.contains("frontier_updated")
+                        || event_type.contains("frontier.updated")
+                    {
+                        append_event_bucket(&mut results.gepa, "frontier_updates", &event_type, &data);
+                    } else if event_type.contains("generation.complete")
+                        || event_type.contains("generation.completed")
+                    {
+                        append_event_bucket(&mut results.gepa, "generations", &event_type, &data);
+                    } else if event_type.contains("progress") {
+                        append_event_bucket(&mut results.gepa, "progress_updates", &event_type, &data);
+                    }
+                }
+                _ if event_type.starts_with("learning.policy.mipro.") => {
+                    if event_type.contains("iteration.started")
+                        || event_type.contains("iteration.completed")
+                    {
+                        append_event_bucket(&mut results.mipro, "iterations", &event_type, &data);
+                    } else if event_type.contains("trial.started")
+                        || event_type.contains("trial.completed")
+                    {
+                        append_event_bucket(&mut results.mipro, "trials", &event_type, &data);
+                    } else if event_type.contains("candidate.new_best") {
+                        append_event_bucket(&mut results.mipro, "incumbents", &event_type, &data);
+                        if let Some(score) = extract_reward_value(
+                            data,
+                            &["best_score", "score", "full_score", "minibatch_score"],
+                        ) {
+                            if results.best_score.is_none()
+                                || results.best_score.map(|s| score > s).unwrap_or(false)
+                            {
+                                results.best_score = Some(score);
+                            }
+                        }
+                        if results.best_candidate.is_none() {
+                            results.best_candidate = data
+                                .get("best_candidate")
+                                .cloned()
+                                .or_else(|| data.get("candidate").cloned())
+                                .or_else(|| data.get("program_candidate").cloned());
+                        }
+                    } else if event_type.contains("candidate.evaluated") {
+                        append_event_bucket(&mut results.mipro, "candidates", &event_type, &data);
+                    } else if event_type.contains("budget") {
+                        append_event_bucket(&mut results.mipro, "budget_updates", &event_type, &data);
                     }
                 }
                 _ => {}
@@ -288,6 +425,35 @@ impl PromptLearningResults {
                 }
                 if let Some(val) = validation_by_rank.get(&rank) {
                     prompt_entry.insert("val_accuracy".to_string(), json!(*val));
+                }
+                for key in [
+                    "candidate_id",
+                    "version_id",
+                    "parent_id",
+                    "generation",
+                    "accepted",
+                    "is_pareto",
+                    "mutation_type",
+                    "mutation_params",
+                    "prompt_summary",
+                    "prompt_text",
+                    "objectives",
+                    "instance_scores",
+                    "instance_objectives",
+                    "seed_scores",
+                    "seed_info",
+                    "rollout_sample",
+                    "token_usage",
+                    "cost_usd",
+                    "evaluation_duration_ms",
+                    "skip_reason",
+                    "stages",
+                    "seeds_evaluated",
+                    "full_score",
+                ] {
+                    if let Some(val) = cand_obj.get(key) {
+                        prompt_entry.insert(key.to_string(), val.clone());
+                    }
                 }
 
                 if let Some(pattern) = cand_obj.get("pattern") {
@@ -353,6 +519,121 @@ fn extract_reward_value(payload: &Map<String, Value>, fallback_keys: &[&str]) ->
         }
     }
     None
+}
+
+fn extract_event_type(event: &Value) -> String {
+    event
+        .get("type")
+        .and_then(|v| v.as_str())
+        .or_else(|| event.get("event_type").and_then(|v| v.as_str()))
+        .or_else(|| {
+            event
+                .get("data")
+                .and_then(|v| v.as_object())
+                .and_then(|obj| obj.get("type").and_then(|v| v.as_str()))
+        })
+        .or_else(|| {
+            event
+                .get("data")
+                .and_then(|v| v.as_object())
+                .and_then(|obj| obj.get("event_type").and_then(|v| v.as_str()))
+        })
+        .unwrap_or("")
+        .to_string()
+}
+
+fn extract_event_data(event: &Value) -> Option<Map<String, Value>> {
+    let mut data = event
+        .get("data")
+        .cloned()
+        .or_else(|| event.get("payload").cloned())
+        .or_else(|| event.get("data_json").cloned())?;
+    let mut data = match data {
+        Value::Object(obj) => obj,
+        _ => return None,
+    };
+
+    loop {
+        let looks_wrapped = data.contains_key("data")
+            && data.keys().any(|k| {
+                matches!(
+                    k.as_str(),
+                    "type" | "event_type" | "message" | "seq" | "timestamp_ms" | "ts"
+                )
+            });
+        if !looks_wrapped {
+            break;
+        }
+        let inner = data.get("data");
+        if let Some(Value::Object(inner_obj)) = inner {
+            data = inner_obj.clone();
+            continue;
+        }
+        break;
+    }
+
+    Some(data)
+}
+
+fn append_event_bucket(
+    bucket: &mut HashMap<String, Value>,
+    key: &str,
+    event_type: &str,
+    data: &Map<String, Value>,
+) {
+    if data.is_empty() {
+        return;
+    }
+    let mut entry = Map::new();
+    entry.insert(
+        "_event_type".to_string(),
+        Value::String(event_type.to_string()),
+    );
+    for (k, v) in data {
+        entry.insert(k.clone(), v.clone());
+    }
+    let slot = bucket
+        .entry(key.to_string())
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if let Value::Array(items) = slot {
+        items.push(Value::Object(entry));
+    }
+}
+
+fn push_event_history(
+    results: &mut PromptLearningResults,
+    event_type: &str,
+    event: &Value,
+    data: &Map<String, Value>,
+) {
+    let mut entry = Map::new();
+    if !event_type.is_empty() {
+        entry.insert("type".to_string(), Value::String(event_type.to_string()));
+    }
+    if let Some(seq) = event.get("seq") {
+        entry.insert("seq".to_string(), seq.clone());
+    }
+    if let Some(ts) = event.get("timestamp_ms") {
+        entry.insert("timestamp_ms".to_string(), ts.clone());
+    }
+    if let Some(ts) = event.get("ts") {
+        entry.insert("ts".to_string(), ts.clone());
+    }
+    if let Some(msg) = event.get("message") {
+        entry.insert("message".to_string(), msg.clone());
+    }
+    entry.insert("data".to_string(), Value::Object(data.clone()));
+    results.event_history.push(Value::Object(entry));
+}
+
+fn merge_candidate_payload(data: &Map<String, Value>) -> Map<String, Value> {
+    let mut merged = data.clone();
+    if let Some(Value::Object(program_candidate)) = data.get("program_candidate") {
+        for (k, v) in program_candidate {
+            merged.insert(k.clone(), v.clone());
+        }
+    }
+    merged
 }
 
 fn convert_template_to_pattern(template: &Value) -> Option<Value> {

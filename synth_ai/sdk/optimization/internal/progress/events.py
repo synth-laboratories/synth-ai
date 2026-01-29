@@ -188,14 +188,24 @@ class EventParser:
     BASELINE_PATTERNS = (".baseline",)
     CANDIDATE_PATTERNS = (
         ".candidate.evaluated",
+        ".candidate.new_best",
         ".proposal.scored",
         ".optimized.scored",
         ".candidate_scored",
     )
     FRONTIER_PATTERNS = (".frontier_updated",)
-    PROGRESS_PATTERNS = (".progress", ".rollouts_limit_progress")
-    GENERATION_PATTERNS = (".generation.complete",)
-    THROUGHPUT_PATTERNS = (".throughput",)
+    PROGRESS_PATTERNS = (
+        ".progress",
+        ".rollouts_limit_progress",
+        ".rollouts.progress",
+        ".job.started",
+        ".trial.started",
+        ".trial.completed",
+        ".iteration.started",
+        ".iteration.completed",
+    )
+    GENERATION_PATTERNS = (".generation.complete", ".generation.completed", ".generation.started")
+    THROUGHPUT_PATTERNS = (".throughput", ".rollout.concurrency", ".rollout_concurrency")
     TERMINATION_PATTERNS = (".termination.triggered",)
     COMPLETE_PATTERNS = (".complete",)  # But NOT .generation.complete
     VALIDATION_PATTERNS = (".validation.scored",)

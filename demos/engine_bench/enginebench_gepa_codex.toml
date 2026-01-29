@@ -23,8 +23,8 @@ env_name = "engine_bench"
 
 [prompt_learning.gepa.evaluation]
 # 15 training seeds, 10 validation seeds (need train > pareto_set_size + 3)
-seeds = [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]
-validation_seeds = [37, 38, 39, 40, 41, 42, 43, 44, 45, 46]
+seeds = [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34]
+validation_seeds = [35, 36, 37, 38, 39, 40, 41, 42, 43, 44]
 validation_pool = "validation"
 validation_top_k = 3
 
@@ -33,7 +33,7 @@ rate = 0.5
 
 [prompt_learning.gepa.population]
 initial_size = 4
-num_generations = 1
+num_generations = 2
 children_per_generation = 4
 crossover_rate = 0.5
 selection_pressure = 1.0
@@ -45,6 +45,7 @@ pareto_set_size = 10
 budget = 100
 max_concurrent = 6
 minibatch_size = 6
+timeout = 600
 
 # Enable unified optimization to vary all context artifacts
 [prompt_learning.gepa.unified_optimization]
@@ -56,6 +57,7 @@ mutable_artifacts = ["system_prompt", "agents_md", "codex_skills"]
 model = "gpt-5-nano"
 provider = "openai"
 inference_mode = "synth_hosted"
+timeout = 45
 
 # ==============================================================================
 # UNIFIED CONTEXT OVERRIDE - All artifacts that GEPA will optimize

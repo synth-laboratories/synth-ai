@@ -5,6 +5,8 @@ Usage:
     uv run python demos/gepa_banking77/run_demo.py           # Production mode (Cloudflare tunnels)
     uv run python demos/gepa_banking77/run_demo.py --local   # Local mode (localhost, no tunnels)
 """
+import sys
+print("Starting imports...", flush=True)
 
 import argparse
 import asyncio
@@ -38,6 +40,7 @@ from synth_ai.core.tunnels import (
     acquire_port,
     cleanup_all,
 )
+print("Imports done.", flush=True)
 
 # Parse args
 parser = argparse.ArgumentParser(description="Run Banking77 GEPA demo")
@@ -101,6 +104,7 @@ print(f"Tunnel backend: {TUNNEL_BACKEND.value}")
 print(f"Local API Ports: {LOCAL_API_PORT}, {OPTIMIZED_LOCAL_API_PORT}")
 
 # Check backend health
+print(f"Checking backend health at {SYNTH_API_BASE}/health...", flush=True)
 r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
@@ -355,11 +359,13 @@ def create_banking77_local_api(system_prompt: str):
         latency_ms = (time.perf_counter() - start) * 1000.0
 
         expected_intent = sample["label"]
-        is_correct = (
-            predicted_intent.lower().replace("_", " ").strip()
-            == expected_intent.lower().replace("_", " ").strip()
-        )
+        predicted_norm = predicted_intent.lower().replace("_", " ").strip()
+        expected_norm = expected_intent.lower().replace("_", " ").strip()
+        is_correct = predicted_norm == expected_norm
         reward = 1.0 if is_correct else 0.0
+        # Debug: log first few rollouts
+        if seed < 25:
+            print(f"[ROLLOUT DEBUG] seed={seed} predicted={predicted_norm!r} expected={expected_norm!r} reward={reward}", flush=True)
 
         policy_cfg_for_trace = {
             key: value
@@ -593,10 +599,28 @@ async def main():
 
                 elif event_type == "learning.policy.gepa.candidate.evaluated":
                     # Message format: "Candidate trans_00001 evaluated (accepted=True) acc=0.500"
-                    if "evaluated" in message:
-                        # Extract candidate ID and accuracy
-                        version_id = data.get("version_id", "")
-                        accuracy = data.get("accuracy") or data.get("acc")
+                    if "evaluated" in message or "completed" in message:
+                        # Extract candidate ID and accuracy (support old and new schemas)
+                        version_id = data.get("version_id") or data.get("candidate_id", "")
+                        # Try multiple field names for reward/accuracy
+                        # Note: can't use `or` chain because 0.0 is falsy
+                        accuracy = None
+                        for key in ["accuracy", "acc", "reward", "train_accuracy", "best_score"]:
+                            val = data.get(key)
+                            if val is not None:
+                                accuracy = val
+                                break
+                        # Also check nested score object
+                        if accuracy is None and isinstance(data.get("score"), dict):
+                            score = data["score"]
+                            for key in ["mean_reward", "reward", "accuracy"]:
+                                val = score.get(key)
+                                if val is not None:
+                                    accuracy = val
+                                    break
+                        # DEBUG: Print actual data to diagnose
+                        if accuracy == 0.0 or accuracy is None:
+                            print(f"  [DEBUG] data.reward={data.get('reward')!r} score={data.get('score')!r}", flush=True)
                         accepted = data.get("accepted", True)
 
                         # Parse accuracy from message if not in data (format: "acc=0.500")
@@ -694,8 +718,11 @@ async def main():
                     print(f"  {message}", flush=True)
 
                 # Catch-all for other GEPA events to ensure visibility
+                # Skip spammy concurrency events
                 elif event_type.startswith("learning.policy.gepa."):
-                    if message:
+                    if "concurrency" in event_type:
+                        pass  # Skip - these fire every 300ms and flood output
+                    elif message:
                         print(f"  [{event_type.split('.')[-1]}] {message}", flush=True)
 
         except Exception:
@@ -703,12 +730,21 @@ async def main():
             pass
 
     optimization_start = time.time()
-    gepa_result = pl_job.poll_until_complete(
-        timeout=3600.0,
-        interval=3.0,
-        progress=False,  # Disable basic progress output since we're showing detailed events
-        on_status=on_status_update,
-    )
+    try:
+        gepa_result = pl_job.poll_until_complete(
+            timeout=3600.0,
+            interval=3.0,
+            progress=False,  # Disable basic progress output since we're showing detailed events
+            on_status=on_status_update,
+        )
+    except KeyboardInterrupt:
+        print("\n\nInterrupted by user (Ctrl+C)")
+        raise
+    except Exception as e:
+        print(f"\n\nERROR during poll_until_complete: {type(e).__name__}: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        raise
     timings["optimization"] = time.time() - optimization_start
 
     print(f"\nFINAL: {gepa_result.status.value} ({format_duration(timings['optimization'])})")
@@ -1223,4 +1259,11 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n\nDemo interrupted by user.")
+    except Exception as e:
+        print(f"\n\nDemo failed with error: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()

@@ -8,9 +8,12 @@ import signal
 import socket
 import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any, Callable, Optional
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 try:
     httpx = importlib.import_module("httpx")
@@ -19,6 +22,7 @@ except Exception:  # pragma: no cover - optional dependency
 import uvicorn
 from uvicorn._types import ASGIApplication
 
+from synth_ai.core.tunnels.errors import LocalAppError
 from synth_ai.core.tunnels.rust import (
     create_tunnel,
     ensure_cloudflared_installed,
@@ -26,7 +30,6 @@ from synth_ai.core.tunnels.rust import (
     open_quick_tunnel_with_dns_verification,
     rotate_tunnel,
     stop_tunnel,
-    wait_for_health_check,
 )
 from synth_ai.core.utils.paths import REPO_ROOT
 from synth_ai.sdk.localapi._impl.apps_common import get_asgi_app, load_module
@@ -36,6 +39,44 @@ logger = logging.getLogger(__name__)
 
 # Global registry for signal handlers
 _registered_instances: set["InProcessTaskApp"] = set()
+
+
+async def _wait_for_local_health_check(
+    host: str,
+    port: int,
+    api_key: str | None,
+    timeout: float,
+    *,
+    poll_interval: float = 0.2,
+    request_timeout: float = 2.0,
+) -> None:
+    deadline = time.monotonic() + max(timeout, 0.0)
+    url = f"http://{host}:{port}/health"
+    headers: dict[str, str] = {}
+    if api_key:
+        headers["X-API-Key"] = api_key
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    def _probe() -> int:
+        req = Request(url, headers=headers)
+        try:
+            with urlopen(req, timeout=request_timeout) as resp:  # noqa: S310
+                return int(resp.status)
+        except HTTPError as exc:
+            return int(exc.code)
+        except URLError:
+            return 0
+
+    while time.monotonic() < deadline:
+        status = await asyncio.to_thread(_probe)
+        if status == 200:
+            return
+        await asyncio.sleep(poll_interval)
+
+    raise LocalAppError(
+        f"health check failed: {url} not ready after {timeout:.0f}s",
+        port=port,
+    )
 
 
 def _find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
@@ -729,9 +770,11 @@ class InProcessTaskApp:
 
         def serve():
             try:
-                self._uvicorn_server.run()  # type: ignore[attr-defined]
-            except Exception as exc:
-                logger.debug(f"Uvicorn server stopped: {exc}")
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(self._uvicorn_server.serve())  # type: ignore[attr-defined]
+            except Exception:
+                logger.exception("Uvicorn server stopped with error")
 
         self._server_thread = threading.Thread(
             target=serve,
@@ -743,8 +786,11 @@ class InProcessTaskApp:
         # 3. Wait for health check
         api_key = self.api_key or self._get_api_key()
         logger.debug(f"Waiting for health check on {self.host}:{self.port}")
-        await wait_for_health_check(
-            self.host, self.port, api_key, timeout=self.health_check_timeout
+        await _wait_for_local_health_check(
+            self.host,
+            self.port,
+            api_key,
+            timeout=self.health_check_timeout,
         )
         logger.debug(f"Health check passed for {self.host}:{self.port}")
 

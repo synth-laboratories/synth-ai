@@ -247,6 +247,7 @@ class RolloutResponse(BaseModel):
     )
     reward_info: RolloutMetrics = Field(
         ...,
+        alias="metrics",
         description="Reward and scoring information for this rollout.",
     )
     trace: dict[str, Any] | None = Field(
@@ -278,6 +279,11 @@ class RolloutResponse(BaseModel):
         description="Structured results of context override application. "
         "Reports per-target status (applied/failed/skipped) so GEPA can learn from failures.",
     )
+
+    def model_dump(self, **kwargs):
+        """Default to alias serialization for task app responses."""
+        kwargs.setdefault("by_alias", True)
+        return super().model_dump(**kwargs)
 
 
 class _ExtraAllowModel(BaseModel):

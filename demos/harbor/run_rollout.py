@@ -13,6 +13,8 @@ Or via stdin/stdout:
     echo '{"seed": 42, ...}' | run_rollout --stdio
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -26,8 +28,12 @@ from typing import Any, Dict, List, Optional
 import shutil
 from urllib.parse import parse_qs, urlparse
 
-# EngineBench task definitions (Pokemon TCG cards to implement)
-TASKS = [
+# =============================================================================
+# INSTANCE LOADING (dynamic from engine-bench repo, fallback to hardcoded)
+# =============================================================================
+
+# Default hardcoded tasks (fallback if instance files not found)
+_FALLBACK_TASKS = [
     {"id": "aerodactyl", "card": "Aerodactyl", "set": "Fossil"},
     {"id": "alakazam", "card": "Alakazam", "set": "Base"},
     {"id": "blastoise", "card": "Blastoise", "set": "Base"},
@@ -49,6 +55,83 @@ TASKS = [
     {"id": "moltres", "card": "Moltres", "set": "Fossil"},
     {"id": "snorlax", "card": "Snorlax", "set": "Jungle"},
 ]
+
+ENGINE_BENCH_DATA_DIR = Path("/engine-bench/data")
+
+
+def load_instance_ids() -> List[str]:
+    """Load available instance IDs from the engine-bench data directory."""
+    instances_dir = ENGINE_BENCH_DATA_DIR / "instances" / "single"
+    if not instances_dir.exists():
+        return []
+    return sorted([p.stem for p in instances_dir.glob("*.json")])
+
+
+def load_instance(instance_id: str) -> Dict[str, Any]:
+    """Load a full instance specification from disk."""
+    instance_path = ENGINE_BENCH_DATA_DIR / "instances" / "single" / f"{instance_id}.json"
+    if not instance_path.exists():
+        raise ValueError(f"Instance not found: {instance_id}")
+    return json.loads(instance_path.read_text())
+
+
+# Load instance IDs at module level (empty list if not in container)
+INSTANCE_IDS = load_instance_ids()
+
+# Legacy task list for backward compatibility
+TASKS = _FALLBACK_TASKS
+
+
+# =============================================================================
+# DEFAULT CONTEXT ARTIFACTS
+# =============================================================================
+
+DEFAULT_SYSTEM_PROMPT = """You are an expert Rust developer implementing Pokemon TCG cards.
+
+CRITICAL: The stub file contains `todo!()` macros that YOU MUST REPLACE with working code.
+
+Example - if you see:
+```rust
+pub fn grind_damage(attached_energy: u32) -> i32 { todo!() }
+```
+You must replace `todo!()` with the actual implementation.
+
+Your task: Implement card effects by editing Rust files with stub functions marked with TODO comments.
+
+Key patterns:
+- Use `def_id_matches(&card.def_id, "DF", NUMBER)` to identify cards
+- Implement attack modifiers in the `attack_override` function
+- Use `game.queue_prompt()` for user choices
+- Return `AttackOverrides::default()` if card doesn't apply
+
+Output requirements:
+1. EDIT files - replace TODO stubs with working code
+2. Make code compile (`cargo check`)
+3. Make tests pass (`cargo test`)"""
+
+DEFAULT_ARCHITECTURE_GUIDE = """# Pokemon TCG Engine Architecture
+
+## Core Concepts
+
+The engine uses a hook-based architecture where card implementations register themselves for specific game events.
+
+### Hook System
+
+Card effects are implemented by registering hooks for game events:
+- `attack_override`: Modify attack damage or effects
+- `defend_override`: Modify incoming damage
+- `poke_power`: Implement Pokemon Powers
+- `poke_body`: Implement Pokemon Bodies (passive effects)
+
+### Card Identification
+
+Cards are identified by their set prefix and number:
+- `def_id_matches(&card.def_id, "DF", 1)` matches Dragon Frontiers card #1
+- `def_id_matches(&card.def_id, "HP", 15)` matches Holon Phantoms card #15"""
+
+DEFAULT_REFERENCE_SNIPPETS = ""
+
+DEFAULT_HOOKS_DOCUMENTATION = ""
 
 
 # =============================================================================
@@ -129,7 +212,14 @@ class RolloutResult:
 
 
 def get_task_for_seed(seed: int) -> Dict[str, Any]:
-    """Get the task for a given seed (deterministic mapping)."""
+    """Get the task for a given seed (deterministic mapping).
+
+    If instance files are available (running inside container with /engine-bench),
+    loads the full instance spec. Otherwise falls back to hardcoded task list.
+    """
+    if INSTANCE_IDS:
+        instance_id = INSTANCE_IDS[seed % len(INSTANCE_IDS)]
+        return load_instance(instance_id)
     return TASKS[seed % len(TASKS)]
 
 
@@ -152,12 +242,43 @@ def setup_workspace(task: Dict[str, Any], workspace_path: Path) -> Path:
     return workspace_path / "engine-bench"
 
 
-def build_prompt(task: Dict[str, Any], prompt_template: Dict[str, Any]) -> str:
-    """Build the agent prompt from the task and template."""
-    card_name = task["card"]
-    card_set = task["set"]
+def build_prompt(
+    task: Dict[str, Any],
+    prompt_template: Dict[str, Any],
+    context_overrides: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Build the agent prompt from the task, template, and context overrides.
 
-    # Default prompt if no template sections
+    Supports two modes:
+    1. Legacy mode (hardcoded tasks): simple card name/set prompt
+    2. Instance mode (loaded from /engine-bench): full instance-aware prompt
+       matching localapi_engine_bench.py's build_prompt_with_context()
+
+    Context overrides (from GEPA) can replace the default system_prompt,
+    architecture_guide, reference_snippets, and hooks_documentation.
+    """
+    context_overrides = context_overrides or {}
+
+    # Extract context artifacts, falling back to defaults
+    system_prompt = context_overrides.get("system_prompt", DEFAULT_SYSTEM_PROMPT)
+    architecture_guide = context_overrides.get("architecture_guide", DEFAULT_ARCHITECTURE_GUIDE)
+    reference_snippets = context_overrides.get("reference_snippets", DEFAULT_REFERENCE_SNIPPETS)
+    hooks_documentation = context_overrides.get("hooks_documentation", DEFAULT_HOOKS_DOCUMENTATION)
+
+    # Instance mode: full instance spec loaded from /engine-bench
+    if "cards" in task:
+        return _build_instance_prompt(
+            task,
+            system_prompt=system_prompt,
+            architecture_guide=architecture_guide,
+            reference_snippets=reference_snippets,
+            hooks_documentation=hooks_documentation,
+        )
+
+    # Legacy mode: simple card name/set
+    card_name = task.get("card", "Unknown")
+    card_set = task.get("set", "Unknown")
+
     default_prompt = f"""
 Implement the Pokemon TCG card "{card_name}" from the {card_set} set in Rust.
 
@@ -173,7 +294,7 @@ Requirements:
 Start by reading the existing card implementations to understand the patterns.
 """
 
-    # Use template if provided
+    # Use template sections if provided
     if prompt_template and prompt_template.get("sections"):
         sections = sorted(
             prompt_template["sections"],
@@ -182,7 +303,6 @@ Start by reading the existing card implementations to understand the patterns.
         parts = []
         for section in sections:
             pattern = section.get("pattern", "")
-            # Replace placeholders
             content = pattern.replace("{task}", default_prompt)
             content = content.replace("{card_name}", card_name)
             content = content.replace("{card_set}", card_set)
@@ -190,6 +310,82 @@ Start by reading the existing card implementations to understand the patterns.
         return "\n\n".join(parts)
 
     return default_prompt
+
+
+def _build_instance_prompt(
+    instance: Dict[str, Any],
+    system_prompt: str,
+    architecture_guide: str,
+    reference_snippets: str,
+    hooks_documentation: str,
+) -> str:
+    """Build prompt from a full instance spec (matches localapi_engine_bench.py).
+
+    This uses the same unified context engineering approach as the local runner.
+    """
+    cards = instance.get("cards", [])
+    card_file = instance.get("card_file", "").replace("tcg_expansions/", "")
+    instance_id = instance.get("id", "")
+
+    expansion = instance.get("expansion", "dragon_frontiers")
+    expansion_name = "Holon Phantoms" if expansion == "holon_phantoms" else "Dragon Frontiers"
+
+    card_specs = "\n\n".join(
+        [f"### {card['name']}\n{json.dumps(card, indent=2)}" for card in cards]
+    )
+
+    tests = instance.get("tests", [])
+
+    def format_test(t):
+        desc = t.get("description")
+        if desc:
+            return f"- {t['name']}: {desc}"
+        return f"- {t['name']}: expected={t.get('expected', '?')}"
+
+    test_descriptions = (
+        "\n".join([format_test(t) for t in tests]) if tests else "- See card specification"
+    )
+
+    # Build unified prompt from context artifacts
+    prompt = f"""{system_prompt}
+
+---
+
+# EXPANSION: {expansion_name}
+
+## Cards to Implement
+{card_specs}
+
+## File to Edit
+`{card_file}` - This file contains stub functions with TODO comments.
+
+## Tests to Pass
+{test_descriptions}
+
+---
+
+{architecture_guide}
+"""
+
+    if reference_snippets:
+        prompt += f"\n---\n\n{reference_snippets}\n"
+
+    if hooks_documentation:
+        prompt += f"\n---\n\n{hooks_documentation}\n"
+
+    prompt += f"""
+---
+
+## Final Instructions
+1. READ the stub file at `{card_file}` using the `read` tool
+2. Use the architecture guide and reference snippets above as patterns
+3. USE THE `edit` OR `write` TOOL to modify `{card_file}` and replace the TODO stubs with working implementations
+4. Run `cargo check` using the `bash` tool to verify compilation
+5. Run `cargo test -- {instance_id.replace("-", "_")}` using the `bash` tool to run tests
+
+CRITICAL: You MUST use the `edit` or `write` tool to actually modify the file. Reading the file is not enough - you must write code!
+"""
+    return prompt
 
 
 def run_agent(
@@ -508,6 +704,47 @@ def evaluate_result(workspace_path: Path) -> Dict[str, Any]:
     return metrics
 
 
+def _extract_context_overrides(prompt_template: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract context_overrides from prompt_template.
+
+    The Harbor backend stores context_overrides inside prompt_template.
+    GEPA sends them as a list of override objects with file_artifacts.
+    We also support the legacy dict format (context_override with direct keys).
+    """
+    overrides: Dict[str, Any] = {}
+
+    # Check for context_overrides list (new format from GEPA)
+    ctx_overrides = prompt_template.get("context_overrides")
+    if ctx_overrides and isinstance(ctx_overrides, list):
+        for override in ctx_overrides:
+            file_artifacts = override.get("file_artifacts") or []
+            for artifact in file_artifacts:
+                artifact_type = artifact.get("type") or artifact.get("artifact_type", "")
+                content = artifact.get("content", "")
+                if artifact_type == "system_prompt" and content:
+                    overrides["system_prompt"] = content
+                elif artifact_type == "architecture_guide" and content:
+                    overrides["architecture_guide"] = content
+                elif artifact_type == "reference_snippets" and content:
+                    overrides["reference_snippets"] = content
+                elif artifact_type == "hooks_documentation" and content:
+                    overrides["hooks_documentation"] = content
+
+    # Check for legacy context_override dict (direct keys)
+    ctx_override = prompt_template.get("context_override")
+    if ctx_override and isinstance(ctx_override, dict):
+        for key in ("system_prompt", "architecture_guide", "reference_snippets", "hooks_documentation"):
+            if key in ctx_override and ctx_override[key]:
+                overrides.setdefault(key, ctx_override[key])
+
+    # Check for direct keys on prompt_template itself
+    for key in ("system_prompt", "architecture_guide", "reference_snippets", "hooks_documentation"):
+        if key in prompt_template and prompt_template[key]:
+            overrides.setdefault(key, prompt_template[key])
+
+    return overrides
+
+
 def run_rollout(input_data: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a single rollout.
 
@@ -518,6 +755,9 @@ def run_rollout(input_data: Dict[str, Any]) -> Dict[str, Any]:
         Rollout result payload
     """
     rollout_input = RolloutInput.from_dict(input_data)
+
+    # Extract context overrides from prompt_template (Harbor backend stores them there)
+    context_overrides = _extract_context_overrides(rollout_input.prompt_template)
 
     # Get task for this seed
     task = get_task_for_seed(rollout_input.seed)
@@ -530,8 +770,8 @@ def run_rollout(input_data: Dict[str, Any]) -> Dict[str, Any]:
             # Setup workspace
             repo_path = setup_workspace(task, workspace_path)
 
-            # Build prompt
-            prompt = build_prompt(task, rollout_input.prompt_template)
+            # Build prompt with context overrides from GEPA
+            prompt = build_prompt(task, rollout_input.prompt_template, context_overrides)
 
             # Get agent type/model from params or prompt template
             agent_type = rollout_input.params.get("agent") or rollout_input.params.get("agent_type") or "opencode"
@@ -551,9 +791,11 @@ def run_rollout(input_data: Dict[str, Any]) -> Dict[str, Any]:
             eval_metrics = evaluate_result(repo_path)
 
             # Build result with debugging info
+            task_id = task.get("id", "unknown")
+            task_card = task.get("card") or task.get("cards", [{}])[0].get("name", "unknown")
             details = {
-                "task_id": task["id"],
-                "card": task["card"],
+                "task_id": task_id,
+                "card": task_card,
                 "compilation": eval_metrics.get("compilation", False),
                 "tests_passed": eval_metrics.get("tests_passed", 0),
                 "tests_total": eval_metrics.get("tests_total", 0),

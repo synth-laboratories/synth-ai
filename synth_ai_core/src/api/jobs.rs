@@ -17,8 +17,8 @@ use super::types::{
     PromptLearningResult,
 };
 
-/// API endpoint for policy optimization jobs.
-const JOBS_ENDPOINT: &str = "/api/policy-optimization/online/jobs";
+/// API endpoint for prompt learning jobs.
+const JOBS_ENDPOINT: &str = "/api/prompt-learning/online/jobs";
 
 /// Jobs API client.
 ///
@@ -301,6 +301,6 @@ mod tests {
 
     #[test]
     fn test_jobs_endpoint() {
-        assert_eq!(JOBS_ENDPOINT, "/api/policy-optimization/online/jobs");
+        assert_eq!(JOBS_ENDPOINT, "/api/prompt-learning/online/jobs");
     }
 }

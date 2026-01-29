@@ -166,7 +166,7 @@ impl EventStream {
     /// Returns events since the last sequence number.
     pub async fn poll_events(&mut self) -> Result<Vec<ParsedEvent>, CoreError> {
         let url = format!(
-            "{}/api/policy-optimization/online/jobs/{}/events",
+            "{}/api/prompt-learning/online/jobs/{}/events",
             self.base_url, self.job_id
         );
 

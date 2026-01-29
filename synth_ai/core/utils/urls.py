@@ -88,6 +88,10 @@ BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC = _maybe_call(
 FRONTEND_URL_BASE = _maybe_call(
     "frontend_url_base", _env_or_default("SYNTH_FRONTEND_URL", "https://usesynth.ai")
 )
+RUST_BACKEND_URL_BASE = _maybe_call(
+    "rust_backend_url_base",
+    _env_or_default("SYNTH_RUST_BACKEND_URL", "https://infra-api.usesynth.ai"),
+)
 
 
 def normalize_base_url(url: str) -> str:

@@ -4,38 +4,83 @@ import contextlib
 import os
 import sys
 from pathlib import Path
+import shutil
 
 try:
     import synth_ai_py
 except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for utils.paths.") from exc
 
-REPO_ROOT = Path(synth_ai_py.repo_root() or Path.cwd())
-SYNTH_HOME_DIR = Path(synth_ai_py.synth_home_dir())
-SYNTH_USER_CONFIG_PATH = Path(synth_ai_py.synth_user_config_path())
-SYNTH_LOCALAPI_CONFIG_PATH = Path(synth_ai_py.synth_localapi_config_path())
-SYNTH_BIN_DIR = Path(synth_ai_py.synth_bin_dir())
+
+def _call_optional(name: str, *args, default=None):
+    fn = getattr(synth_ai_py, name, None)
+    if callable(fn):
+        try:
+            return fn(*args)
+        except Exception:
+            return default
+    return default
+
+
+_repo_root = _call_optional("repo_root")
+REPO_ROOT = Path(_repo_root or Path.cwd())
+SYNTH_HOME_DIR = Path(_call_optional("synth_home_dir", default=Path.home() / ".synth_ai"))
+SYNTH_USER_CONFIG_PATH = Path(
+    _call_optional("synth_user_config_path", default=SYNTH_HOME_DIR / "config.json")
+)
+SYNTH_LOCALAPI_CONFIG_PATH = Path(
+    _call_optional("synth_localapi_config_path", default=SYNTH_HOME_DIR / "localapi.json")
+)
+SYNTH_BIN_DIR = Path(_call_optional("synth_bin_dir", default=SYNTH_HOME_DIR / "bin"))
 
 
 def is_file_type(path: Path, type: str) -> bool:
-    return synth_ai_py.is_file_type(str(path), type)
+    fn = getattr(synth_ai_py, "is_file_type", None)
+    if callable(fn):
+        return fn(str(path), type)
+    return path.suffix.lstrip(".").lower() == type.lower()
 
 
 def validate_file_type(path: Path, type: str) -> None:
-    synth_ai_py.validate_file_type(str(path), type)
+    fn = getattr(synth_ai_py, "validate_file_type", None)
+    if callable(fn):
+        fn(str(path), type)
+        return
+    if not is_file_type(path, type):
+        raise ValueError(f"Invalid file type: expected .{type} got {path.suffix}")
 
 
 def is_hidden_path(path: Path, root: Path) -> bool:
-    return synth_ai_py.is_hidden_path(str(path), str(root))
+    fn = getattr(synth_ai_py, "is_hidden_path", None)
+    if callable(fn):
+        return fn(str(path), str(root))
+    try:
+        rel = path.resolve().relative_to(root.resolve())
+    except Exception:
+        rel = path
+    return any(part.startswith(".") for part in rel.parts)
 
 
 def get_bin_path(name: str) -> Path | None:
-    path = synth_ai_py.get_bin_path(name)
-    return Path(path) if path else None
+    fn = getattr(synth_ai_py, "get_bin_path", None)
+    if callable(fn):
+        path = fn(name)
+        return Path(path) if path else None
+    which = shutil.which(name)
+    if which:
+        return Path(which)
+    candidate = SYNTH_BIN_DIR / name
+    return candidate if candidate.exists() else None
 
 
 def get_home_config_file_paths(dir_name: str, file_extension: str = "json") -> list[Path]:
-    return [Path(p) for p in synth_ai_py.get_home_config_file_paths(dir_name, file_extension)]
+    fn = getattr(synth_ai_py, "get_home_config_file_paths", None)
+    if callable(fn):
+        return [Path(p) for p in fn(dir_name, file_extension)]
+    base = SYNTH_HOME_DIR / dir_name
+    if not base.exists():
+        return []
+    return sorted(base.glob(f"*.{file_extension}"))
 
 
 def find_config_path(
@@ -43,12 +88,22 @@ def find_config_path(
     home_subdir: str,
     filename: str,
 ) -> Path | None:
-    path = synth_ai_py.find_config_path(str(bin), home_subdir, filename)
-    return Path(path) if path else None
+    fn = getattr(synth_ai_py, "find_config_path", None)
+    if callable(fn):
+        path = fn(str(bin), home_subdir, filename)
+        return Path(path) if path else None
+    candidate = Path.home() / home_subdir / filename
+    return candidate if candidate.exists() else None
 
 
 def configure_import_paths(app: Path, repo_root: Path | None = REPO_ROOT) -> None:
-    paths = synth_ai_py.compute_import_paths(str(app), str(repo_root) if repo_root else None)
+    fn = getattr(synth_ai_py, "compute_import_paths", None)
+    if callable(fn):
+        paths = fn(str(app), str(repo_root) if repo_root else None)
+    else:
+        paths = [str(app.parent)]
+        if repo_root:
+            paths.append(str(repo_root))
     os.environ["PYTHONPATH"] = os.pathsep.join(paths)
     for dir in reversed(paths):
         if dir and dir not in sys.path:
@@ -72,7 +127,9 @@ def temporary_import_paths(app: Path, repo_root: Path | None = REPO_ROOT):
 
 
 def cleanup_paths(*, file: Path, dir: Path) -> None:
-    synth_ai_py.cleanup_paths(str(file), str(dir))
+    fn = getattr(synth_ai_py, "cleanup_paths", None)
+    if callable(fn):
+        fn(str(file), str(dir))
 
 
 def print_paths_formatted(entries: list[tuple]) -> None:

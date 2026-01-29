@@ -269,8 +269,13 @@ def run_rollout(
     inference_url: str,
     model: str,
     rollout_id: str,
-) -> float:
-    """Execute a single rollout for online MIPRO."""
+    capture_trace: bool = False,
+) -> tuple[float, dict | None]:
+    """Execute a single rollout for online MIPRO.
+
+    Returns:
+        Tuple of (reward, trace_data) where trace_data is None if capture_trace=False
+    """
     payload = {
         "trace_correlation_id": rollout_id,
         "env": {"seed": seed, "config": {"seed": seed, "split": "train"}},
@@ -285,7 +290,7 @@ def run_rollout(
     )
     response.raise_for_status()
     body = response.json()
-    
+
     # Extract reward
     reward_info = body.get("reward_info", {}) if isinstance(body, dict) else {}
     reward = reward_info.get("outcome_reward")
@@ -297,7 +302,21 @@ def run_rollout(
     if reward is None:
         reward = (reward_info.get("outcome_objectives") or {}).get("reward", 0.0)
 
-    return float(reward or 0.0)
+    # Extract trace data with input_messages
+    trace_data = None
+    if capture_trace:
+        trace_payload = body.get("trace", {})
+        inference_data = trace_payload.get("inference", {})
+        trace_data = {
+            "rollout_id": rollout_id,
+            "seed": seed,
+            "reward": float(reward or 0.0),
+            "input_messages": inference_data.get("messages", []),
+            "model_response": inference_data.get("response", {}),
+            "metadata": body.get("metadata", {}),
+        }
+
+    return float(reward or 0.0), trace_data
 
 
 def push_status(
@@ -363,8 +382,10 @@ def main() -> None:
     parser.add_argument("--val-size", type=int, default=20, help="Validation seeds count")
     parser.add_argument("--model", type=str, default="gpt-4.1-nano", help="Model to use for inference")
     parser.add_argument("--output", type=str, default=None, help="Output file for results (JSON)")
-    parser.add_argument("--min-proposal-rollouts", type=int, default=20, 
+    parser.add_argument("--min-proposal-rollouts", type=int, default=20,
                        help="Minimum rollouts before generating new proposals")
+    parser.add_argument("--save-traces", type=str, default=None,
+                       help="Directory to save V4 traces with input_messages")
     args = parser.parse_args()
 
     # Resolve backend URL
@@ -458,21 +479,27 @@ def main() -> None:
     rollout_results = []
     correct_count = 0
     candidate_stats: Dict[str, Dict[str, Any]] = {}
+    captured_traces = []  # For V4 trace saving
+    capture_traces = args.save_traces is not None
 
     for i in range(args.rollouts):
         seed = i % len(train_seeds)  # Cycle through seeds
         rollout_id = new_rollout_id(i)
         inference_url = f"{proxy_url}/{rollout_id}/chat/completions"
-        
+
         try:
-            reward = run_rollout(
+            reward, trace_data = run_rollout(
                 task_app_url=task_app_url,
                 env_key=env_key,
                 seed=seed,
                 inference_url=inference_url,
                 model=model,
                 rollout_id=rollout_id,
+                capture_trace=capture_traces,
             )
+
+            if trace_data:
+                captured_traces.append(trace_data)
             
             if reward > 0:
                 correct_count += 1
@@ -595,6 +622,42 @@ def main() -> None:
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to: {output_path}")
+
+    # Save V4 traces if requested
+    if args.save_traces and captured_traces:
+        traces_dir = Path(args.save_traces)
+        traces_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save individual trace files
+        trace_files = []
+        for idx, trace in enumerate(captured_traces):
+            trace_filename = f"trace_{idx:04d}_{trace['rollout_id']}.json"
+            trace_path = traces_dir / trace_filename
+            with open(trace_path, "w") as f:
+                json.dump(trace, f, indent=2)
+            trace_files.append(trace_filename)
+
+        # Save manifest
+        manifest = {
+            "experiment_id": f"banking77_{time.strftime('%Y%m%d_%H%M%S')}",
+            "environment": "banking77",
+            "model": model,
+            "total_rollouts": len(captured_traces),
+            "avg_reward": sum(t["reward"] for t in captured_traces) / len(captured_traces) if captured_traces else 0.0,
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "config": {
+                "rollouts": args.rollouts,
+                "train_size": args.train_size,
+                "val_size": args.val_size,
+            },
+            "trace_files": trace_files,
+        }
+        manifest_path = traces_dir / "manifest.json"
+        with open(manifest_path, "w") as f:
+            json.dump(manifest, f, indent=2)
+
+        print(f"\nSaved {len(captured_traces)} V4 traces to: {traces_dir}")
+        print(f"Manifest: {manifest_path}")
 
 
 if __name__ == "__main__":

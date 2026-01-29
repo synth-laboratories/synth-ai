@@ -75,7 +75,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/policy-optimization/online/jobs/{job_id}")
+        return super().poll(f"/api/prompt-learning/online/jobs/{job_id}")
 
 
 class EvalJobPoller(JobPoller):
