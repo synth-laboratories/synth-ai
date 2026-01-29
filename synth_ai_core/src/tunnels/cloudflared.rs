@@ -15,7 +15,7 @@ use tokio::task::JoinHandle;
 use crate::tunnels::errors::TunnelError;
 use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 
-static URL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"https://[a-z0-9-]+\\.trycloudflare\\.com").unwrap());
+static URL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"https://[a-z0-9-]+\.trycloudflare\.com").unwrap());
 
 const CLOUDFLARED_RELEASES: &str = "https://updatecloudflared.com/launcher";
 
@@ -486,13 +486,37 @@ pub async fn verify_tunnel_dns_resolution(
     let deadline = Instant::now() + Duration::from_secs_f64(timeout_seconds);
     let mut last_err: Option<String> = None;
     loop {
-        if Instant::now() > deadline {
+        let now = Instant::now();
+        if now > deadline {
             return Err(TunnelError::dns(format!(
                 "dns verification timeout: {} ({:?})",
                 hostname, last_err
             )));
         }
-        let ip = resolve_hostname_with_explicit_resolvers(hostname).await?;
+        // Don't fail immediately on DNS resolution errors - retry within timeout
+        let remaining = deadline.saturating_duration_since(now);
+        let resolve_timeout = std::cmp::min(Duration::from_secs(5), remaining);
+        let ip = match tokio::time::timeout(
+            resolve_timeout,
+            resolve_hostname_with_explicit_resolvers(hostname),
+        )
+        .await
+        {
+            Ok(Ok(ip)) => ip,
+            Ok(Err(e)) => {
+                last_err = Some(e.to_string());
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                continue;
+            }
+            Err(_) => {
+                last_err = Some(format!(
+                    "dns resolve timeout after {}s",
+                    resolve_timeout.as_secs_f64()
+                ));
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                continue;
+            }
+        };
         let port = if parsed.scheme() == "http" { 80 } else { 443 };
         let builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
