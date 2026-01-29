@@ -1,0 +1,16 @@
+[package]
+name = "rust_mipro_demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+axum = { version = "0.6", features = ["json", "macros"] }
+futures-util = "0.3"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+serde_json = "1.0"
+tokio = { version = "1.36", features = ["macros", "rt-multi-thread", "time"] }
+url = "2.5"
+
+
+[workspace]

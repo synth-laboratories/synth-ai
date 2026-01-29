@@ -22,7 +22,7 @@ pre-commit:
       glob:
         - "synth_ai/*.py"
         - "synth_ai/**/*.py"
-      run: python3 .lefthook/pre-commit/import_check.py {files}
+      run: uv run python .lefthook/pre-commit/import_check.py {files}
 
     # Python: Ruff linting with auto-fix (only on staged Python files that exist)
     python-ruff:
@@ -32,7 +32,7 @@ pre-commit:
       glob:
         - "*.py"
         - "**/*.py"
-      run: uv run ruff check --fix {files}
+      run: uv run ruff check --fix --force-exclude {files}
       stage_fixed: true
 
     # Python: Ruff format with auto-fix (only on staged Python files that exist)
@@ -43,7 +43,7 @@ pre-commit:
       glob:
         - "*.py"
         - "**/*.py"
-      run: uv run ruff format {files}
+      run: uv run ruff format --force-exclude {files}
       stage_fixed: true
 
     # Jupyter: Strip notebook outputs before commit
@@ -63,7 +63,7 @@ pre-commit:
         - typescript
         - typecheck
       glob:
-        - "synth_ai/tui/app/*.ts"
-        - "synth_ai/tui/app/**/*.ts"
-      root: synth_ai/tui/app
+        - "tui/app/*.ts"
+        - "tui/app/**/*.ts"
+      root: tui/app
       run: bun run typecheck

@@ -1,0 +1,46 @@
+# EngineBench GEPA via Harbor configuration
+# Usage: reference this config when running GEPA with Harbor deployments
+
+[prompt_learning]
+env_name = "engine_bench"
+algorithm = "gepa"
+
+[prompt_learning.policy]
+model = "gpt-4o-mini"
+provider = "openai"
+inference_mode = "synth_hosted"
+timeout = 600
+
+[prompt_learning.gepa]
+env_name = "engine_bench"
+
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+validation_seeds = [0, 1]
+validation_pool = "train"
+validation_top_k = 2
+
+[prompt_learning.gepa.mutation]
+rate = 0.5
+
+[prompt_learning.gepa.population]
+initial_size = 4
+num_generations = 2
+children_per_generation = 4
+crossover_rate = 0.5
+selection_pressure = 1.0
+
+[prompt_learning.gepa.archive]
+pareto_set_size = 5
+
+[prompt_learning.gepa.rollout]
+budget = 104  # 13 seeds * 4 population * 2 generations
+max_concurrent = 5
+minibatch_size = 2
+
+[prompt_learning.gepa.token]
+counting_model = "gpt-4"
+enforce_pattern_limit = false
+
+[prompt_learning.gepa.proposer]
+model = "claude-sonnet-4"

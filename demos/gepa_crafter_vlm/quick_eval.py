@@ -14,6 +14,7 @@ from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
 from synth_ai.sdk.auth import get_or_mint_synth_api_key
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.localapi._impl.http_pool import get_shared_http_client
 from synth_ai.sdk.task import TaskInfo, run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
 from synth_ai.sdk.tunnels import wait_for_health_check
@@ -85,7 +86,7 @@ def create_task_app(system_prompt: str):
         )
 
         api_key = policy_config.get("api_key") or OPENAI_API_KEY
-        client = AsyncOpenAI(api_key=api_key)
+        client = AsyncOpenAI(api_key=api_key, http_client=get_shared_http_client())
 
         history = []
         episode_rewards = []

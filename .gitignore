@@ -21,6 +21,33 @@ private_tests
 .ruff_cache
 .pytest_cache
 .claude
+.opencode
+.uv-cache
+.cursorrules
+AGENTS.md
+**/AGENTS.md
+
+# Redis dumps
+*.rdb
+dump.rdb
+
+# Benchmark/timing artifacts
+*_timing.json
+engine_bench_eval_timing.json
+
+# Tool configs
+greptile.json
+
+# Demo artifacts and results (keep demo code, not output)
+**/artifacts/
+**/results/
+**/runs/
+**/backend_traces/
+
+# Rust build artifacts
+target/
+synth_ai_rs/target/
+demos/**/target/
 
 # DuckDB files
 *.duckdb
@@ -42,6 +69,9 @@ synth_ai/environments/examples/crafter_classic/agent_demos/traces/
 synth_ai/environments/examples/crafter_custom/agent_demos/traces/
 !tests/artifacts/traces/
 !tests/artifacts/traces/**
+
+# Root data folder (local artifacts)
+/data/
 
 # Test traces
 test_traces/
@@ -147,7 +177,8 @@ examples/agora_ex/
 !docs/*.md
 !docs/**/*.md
 !synth_ai/tui/opencode_config/**/*.md
-!synth_ai/skills/**/*.md
+!contracts/**/*.md
+!skills/**/*.md
 
 # Re-ignore Python caches and bytecode even under bandit force-include
 synth_ai/environments/examples/bandit/**/__pycache__/
@@ -207,3 +238,22 @@ examples/blog_posts/**/task_specific/*/results/
 demos/web-design/hf_dataset/
 demos/web-design/task_images/
 demos/web-design/generated_pages/
+
+# Plans directory
+plans/
+
+# Root-level npm/bun artifacts
+/package.json
+/package-lock.json
+/bun.lock
+
+# Pytest configs (tests removed)
+pytest.ini
+pytest.*.ini
+
+# Misc temp artifacts
+engine_bench_eval_timing.json
+greptile.json
+
+# Coding agents workspace
+coding_agents/synth_ai_rs/target/

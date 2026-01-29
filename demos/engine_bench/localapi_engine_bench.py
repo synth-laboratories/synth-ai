@@ -40,6 +40,12 @@ from synth_ai.sdk.task.contracts import (
     RolloutResponse,
     TaskInfo,
 )
+from synth_ai.sdk.task.override_helpers import (
+    AgentType,
+    apply_context_overrides,
+    get_applied_env_vars,
+    get_agent_skills_path,
+)
 from synth_ai.sdk.task.rubrics.models import Criterion, Rubric
 from synth_ai.sdk.task.server import RubricBundle
 
@@ -123,6 +129,67 @@ def get_instance_by_seed(seed: int) -> str:
     if not INSTANCE_IDS:
         raise ValueError("No instances available")
     return INSTANCE_IDS[seed % len(INSTANCE_IDS)]
+
+
+# =============================================================================
+# DIFFICULTY-BASED SPLITS (easy/hard)
+# =============================================================================
+
+
+def _count_text(items: list[dict], key: str = "text") -> int:
+    return sum(1 for item in items if str(item.get(key, "")).strip())
+
+
+def _compute_difficulty_score(instance: dict[str, Any]) -> int:
+    tests = instance.get("tests", []) or []
+    cards = instance.get("cards", []) or []
+
+    abilities = sum(len(card.get("abilities", []) or []) for card in cards)
+    attacks = sum(len(card.get("attacks", []) or []) for card in cards)
+    ability_text = sum(_count_text(card.get("abilities", []) or []) for card in cards)
+    attack_text = sum(_count_text(card.get("attacks", []) or []) for card in cards)
+
+    stage_bonus = 0
+    for card in cards:
+        stage = str(card.get("stage", "")).lower()
+        if stage in ("stage1", "stage2", "stage 1", "stage 2"):
+            stage_bonus += 1
+
+    return int(len(tests) * 2 + abilities * 2 + attacks + ability_text + attack_text + stage_bonus)
+
+
+_DIFFICULTY_SPLITS: dict[str, list[str]] | None = None
+
+
+def _build_difficulty_splits() -> dict[str, list[str]]:
+    scored: list[tuple[str, int]] = []
+    for instance_id in INSTANCE_IDS:
+        instance = load_instance(instance_id)
+        scored.append((instance_id, _compute_difficulty_score(instance)))
+
+    scored.sort(key=lambda item: (item[1], item[0]))
+    cutoff = len(scored) // 2
+    if cutoff == 0:
+        cutoff = 1
+
+    easy_ids = [instance_id for instance_id, _ in scored[:cutoff]]
+    hard_ids = [instance_id for instance_id, _ in scored[cutoff:]]
+    return {"easy": easy_ids, "hard": hard_ids}
+
+
+def get_instance_by_difficulty_seed(seed: int, split_name: str) -> str:
+    """Get instance ID by seed within a difficulty split."""
+    global _DIFFICULTY_SPLITS
+    if _DIFFICULTY_SPLITS is None:
+        _DIFFICULTY_SPLITS = _build_difficulty_splits()
+
+    split = split_name.strip().lower()
+    if split not in _DIFFICULTY_SPLITS:
+        raise ValueError(f"Unknown difficulty_split: {split_name}. Use 'easy' or 'hard'.")
+    ids = _DIFFICULTY_SPLITS[split]
+    if not ids:
+        raise ValueError(f"No instances available for difficulty_split: {split_name}")
+    return ids[seed % len(ids)]
 
 
 # =============================================================================
@@ -643,6 +710,7 @@ async def run_opencode_agent(
     timeout: int = 300,
     inference_url: str | None = None,
     api_key: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run OpenCode agent on the sandbox.
 
@@ -763,6 +831,8 @@ async def run_opencode_agent(
 
     # Build environment for subprocess
     env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
     if actual_api_key and actual_api_key != "placeholder":
         env["OPENAI_API_KEY"] = actual_api_key
         print("  [OpenCode] OPENAI_API_KEY set in subprocess environment")
@@ -856,6 +926,7 @@ async def run_codex_agent(
     timeout: int = 300,
     inference_url: str | None = None,
     api_key: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run Codex CLI agent on the sandbox.
 
@@ -915,6 +986,8 @@ enabled = false
     ]
 
     env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
     env["OPENAI_API_KEY"] = resolve_interceptor_api_key(
         inference_url=inference_url,
         interceptor_key=api_key,
@@ -952,6 +1025,7 @@ async def run_claude_code_agent(
     timeout: int = 300,
     inference_url: str | None = None,
     api_key: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run Claude Code agent on the sandbox.
 
@@ -982,6 +1056,8 @@ async def run_claude_code_agent(
 
     # Build environment for Claude Code
     env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
 
     # Claude Code uses ANTHROPIC_BASE_URL and ANTHROPIC_AUTH_TOKEN for interceptor routing
     # (same pattern as the monorepo/demos/engine_bench/claude_code/run.sh wrapper)
@@ -1028,7 +1104,8 @@ async def run_claude_code_agent(
     cmd = [
         claude_bin,
         "--print",  # Non-interactive mode, outputs result
-        "--model", model,
+        "--model",
+        model,
         "--dangerously-skip-permissions",  # Allow all tool calls without prompting
         prompt,
     ]
@@ -1042,7 +1119,8 @@ async def run_claude_code_agent(
 
     try:
         print(
-            f"[ClaudeCode] ⚡⚡⚡ STARTING SUBPROCESS: cmd={cmd[:4]}... cwd={sandbox_dir}", flush=True
+            f"[ClaudeCode] ⚡⚡⚡ STARTING SUBPROCESS: cmd={cmd[:4]}... cwd={sandbox_dir}",
+            flush=True,
         )
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -1206,10 +1284,15 @@ def provide_taskset_description() -> dict:
     """Return metadata about the task set."""
     df_count = len([i for i in INSTANCE_IDS if i.startswith("df-")])
     hp_count = len([i for i in INSTANCE_IDS if i.startswith("hp-")])
+    difficulty_splits = _build_difficulty_splits()
     return {
         "id": APP_ID,
         "splits": ["df", "hp"],
         "sizes": {"df": df_count, "hp": hp_count, "total": len(INSTANCE_IDS)},
+        "difficulty_splits": {
+            "easy": len(difficulty_splits.get("easy", [])),
+            "hard": len(difficulty_splits.get("hard", [])),
+        },
     }
 
 
@@ -1267,11 +1350,18 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     seed = request.env.seed or 0
     env_config = request.env.config or {}
     policy_config = request.policy.config or {}
-    context_override = getattr(request, "context_override", None) or {}
+    legacy_override = getattr(request, "context_override", None) or {}
+    new_overrides = request.context_overrides
+    override_bundle_id = request.override_bundle_id
     start = time.perf_counter()
 
-    # Get instance - either from config or by seed
-    instance_id = env_config.get("instance_id") or get_instance_by_seed(seed)
+    # Get instance - either from config, difficulty split, or by seed
+    difficulty_split = env_config.get("difficulty_split")
+    instance_id = env_config.get("instance_id")
+    if not instance_id and difficulty_split:
+        instance_id = get_instance_by_difficulty_seed(seed, str(difficulty_split))
+    if not instance_id:
+        instance_id = get_instance_by_seed(seed)
     instance = load_instance(instance_id)
 
     model = policy_config.get("model", "gpt-4o-mini")
@@ -1316,14 +1406,14 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     )
 
     # UNIFIED CONTEXT ENGINEERING: Extract context artifacts (or use defaults)
-    system_prompt = context_override.get("system_prompt", DEFAULT_SYSTEM_PROMPT)
-    architecture_guide = context_override.get("architecture_guide", DEFAULT_ARCHITECTURE_GUIDE)
-    reference_snippets = context_override.get("reference_snippets", DEFAULT_REFERENCE_SNIPPETS)
-    hooks_documentation = context_override.get("hooks_documentation", DEFAULT_HOOKS_DOCUMENTATION)
+    system_prompt = legacy_override.get("system_prompt", DEFAULT_SYSTEM_PROMPT)
+    architecture_guide = legacy_override.get("architecture_guide", DEFAULT_ARCHITECTURE_GUIDE)
+    reference_snippets = legacy_override.get("reference_snippets", DEFAULT_REFERENCE_SNIPPETS)
+    hooks_documentation = legacy_override.get("hooks_documentation", DEFAULT_HOOKS_DOCUMENTATION)
 
     # Agent-specific file artifacts (for GEPA optimization of AGENTS.md, skills, etc.)
-    agents_md = context_override.get("agents_md")  # Optional: AGENTS.md content
-    codex_skills = context_override.get("codex_skills")  # Optional: .codex/skills.yaml content
+    agents_md = legacy_override.get("agents_md")  # Optional: AGENTS.md content
+    codex_skills = legacy_override.get("codex_skills")  # Optional: .codex/skills.yaml content
 
     print(f"\n{'=' * 60}", flush=True)
     print(f"[engine_bench] ⚡⚡⚡ Running rollout for {instance_id}", flush=True)
@@ -1388,11 +1478,13 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 agent_type=agent_type,  # "codex" or "opencode"
                 agents_md=agents_md,  # Optional: GEPA-optimized AGENTS.md
                 codex_skills=codex_skills,  # Optional: GEPA-optimized .codex/skills.yaml
+                context_overrides=new_overrides,
+                override_bundle_id=override_bundle_id,
             )
 
             # Print any errors from Daytona
             if not daytona_result.get("success"):
-                print(f"[engine_bench] ❌ Daytona rollout failed!")
+                print("[engine_bench] ❌ Daytona rollout failed!")
                 print(f"[engine_bench] Error: {daytona_result.get('error', 'unknown')}")
                 print(f"[engine_bench] Output: {daytona_result.get('output', '')[:2000]}")
 
@@ -1408,6 +1500,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                     outcome_reward=outcome_reward,
                     details={
                         "instance_id": instance_id,
+                        "difficulty_split": difficulty_split,
                         "passed": passed,
                         "total": total,
                         "latency_ms": int(elapsed * 1000),
@@ -1425,6 +1518,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                         metadata={"instance_id": instance_id},
                     ),
                 ],
+                override_application_results=daytona_result.get("override_application_results"),
             )
         except Exception as e:
             elapsed = time.perf_counter() - start
@@ -1432,7 +1526,11 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 trace_correlation_id=trace_correlation_id,
                 reward_info=RolloutMetrics(
                     outcome_reward=0.0,
-                    details={"error": str(e), "latency_ms": int(elapsed * 1000)},
+                    details={
+                        "error": str(e),
+                        "latency_ms": int(elapsed * 1000),
+                        "difficulty_split": difficulty_split,
+                    },
                 ),
                 success_status=SuccessStatus.FAILURE,
                 status_detail=f"Daytona error: {str(e)[:200]}",
@@ -1443,6 +1541,8 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     # =========================================================================
     # Create temp directory for sandbox
     agent_result: dict[str, Any] = {}
+    override_application_results = None
+    extra_env_vars: dict[str, str] = {}
     with tempfile.TemporaryDirectory() as work_dir:
         work_path = Path(work_dir)
 
@@ -1455,6 +1555,58 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         agents_md_path = sandbox_dir / "AGENTS.md"
         agents_md_path.write_text("# Agent Instructions\n\nSee the task prompt for instructions.\n")
         print(f"[engine_bench] ⚡⚡⚡ Created AGENTS.md hack file: {agents_md_path}", flush=True)
+
+        # Apply legacy AGENTS.md / codex_skills overrides (GEPA unified optimization)
+        if agents_md:
+            agents_md_path.write_text(agents_md)
+            print(
+                f"[engine_bench] Applied legacy AGENTS.md override ({len(agents_md)} chars)",
+                flush=True,
+            )
+        if codex_skills and agent_type == "codex":
+            skills_rel = Path(get_agent_skills_path("codex", global_=False))
+            skills_path = sandbox_dir / skills_rel
+            skills_path.parent.mkdir(parents=True, exist_ok=True)
+            skills_path.write_text(codex_skills)
+            print(
+                f"[engine_bench] Applied legacy codex_skills override ({len(codex_skills)} chars)",
+                flush=True,
+            )
+
+        # Apply new context overrides (AGENTS.md, skills, env vars, preflight scripts)
+        if new_overrides:
+            agent_enum = AgentType.CODEX if agent_type == "codex" else AgentType.OPENCODE
+            try:
+                override_application_results = await apply_context_overrides(
+                    overrides=new_overrides,
+                    workspace_dir=sandbox_dir,
+                    agent=agent_enum,
+                    allow_global=False,
+                    override_bundle_id=override_bundle_id,
+                )
+                extra_env_vars = get_applied_env_vars(new_overrides)
+            except Exception as exc:
+                from synth_ai.data.artifacts import (
+                    ApplicationErrorType,
+                    ApplicationStatus,
+                    ContextOverrideStatus,
+                    OverrideApplicationError,
+                )
+
+                override_application_results = [
+                    ContextOverrideStatus(
+                        override_id=override_bundle_id or "override_bundle",
+                        overall_status=ApplicationStatus.FAILED,
+                        errors=[
+                            OverrideApplicationError(
+                                error_type=ApplicationErrorType.RUNTIME,
+                                message=f"override application crashed: {exc}",
+                                target=None,
+                                details={},
+                            )
+                        ],
+                    )
+                ]
 
         # Build prompt with context artifacts (UNIFIED APPROACH)
         prompt = build_prompt_with_context(
@@ -1473,6 +1625,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 timeout=timeout,
                 inference_url=inference_url,
                 api_key=api_key,
+                extra_env=extra_env_vars,
             )
             if not agent_result["success"]:
                 print("  [Codex] FAILED")
@@ -1496,6 +1649,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 timeout=timeout,
                 inference_url=inference_url,
                 api_key=api_key,
+                extra_env=extra_env_vars,
             )
             print(
                 f"[engine_bench] ⚡⚡⚡ run_claude_code_agent RETURNED: success={agent_result.get('success')}",
@@ -1531,6 +1685,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                 timeout=timeout,
                 inference_url=inference_url,
                 api_key=api_key,
+                extra_env=extra_env_vars,
             )
             print(
                 f"[engine_bench] ⚡⚡⚡ run_opencode_agent RETURNED: success={agent_result.get('success')}",
@@ -1587,7 +1742,6 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                     "artifact_type": "final_code",
                 },
             )
-            artifact.validate_size(max_size_bytes=64 * 1024)
             artifact_list.append(artifact)
 
             # Artifact 2: Unified diff showing what the agent changed
@@ -1612,7 +1766,6 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                             "description": "Changes made by the agent (original stub -> final code)",
                         },
                     )
-                    diff_artifact.validate_size(max_size_bytes=64 * 1024)
                     artifact_list.append(diff_artifact)
                     print(
                         f"[engine_bench] Created diff artifact: {len(diff_content)} chars",
@@ -1630,7 +1783,6 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
                         "description": "Reference implementation for comparison",
                     },
                 )
-                gold_artifact.validate_size(max_size_bytes=64 * 1024)
                 artifact_list.append(gold_artifact)
                 print(
                     f"[engine_bench] Created gold reference artifact: {len(setup_result.gold_implementation)} chars",
@@ -1680,6 +1832,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
             outcome_reward=outcome_reward_value,
             details={
                 "instance_id": instance_id,
+                "difficulty_split": difficulty_split,
                 "compile_pass": compile_pass,
                 "tests_passed": tests_passed,
                 "tests_total": tests_total,
@@ -1695,6 +1848,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         trace=None,  # Let validation hydrate from interceptor
         artifact=artifact_list or None,
         success_status=SuccessStatus.SUCCESS,
+        override_application_results=override_application_results,
     )
 
 

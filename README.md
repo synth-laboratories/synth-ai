@@ -1,14 +1,13 @@
 # Synth
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
-[![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-[![PyPI Main](https://img.shields.io/badge/main-0.4.12-blue)](https://pypi.org/project/synth-ai/0.4.12/)
-[![PyPI Nightly](https://img.shields.io/badge/nightly-0.4.12-orange)](https://pypi.org/project/synth-ai/0.4.12/)
+[![PyPI](https://img.shields.io/badge/PyPI-0.7.5-orange)](https://pypi.org/project/synth-ai/)
+[![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
-![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
 
-Serverless Posttraining APIs for Developers
+Prompt Optimization
+
+Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`), or hit our serverless endpoints in any language
 
 <p align="center">
   <picture align="center">
@@ -39,10 +38,28 @@ Serverless Posttraining APIs for Developers
 
 ## Getting Started
 
+### SDK (Python)
+
+```bash
+pip install synth-ai==0.7.5
+# or
+uv add synth-ai
 ```
-uv add
-uv run synth-ai tui
+
+### SDK (Rust - Beta)
+
+```bash
+cargo add synth-ai
 ```
+
+### TUI (Homebrew)
+
+```bash
+brew install synth-laboratories/tap/synth-ai-tui
+synth-ai-tui
+```
+
+The TUI provides a visual interface for managing jobs, viewing events, and monitoring optimization runs.
 
 ## OpenCode Skills (Synth API)
 
@@ -62,7 +79,7 @@ uvx synth-ai skill install synth-api --dir ~/custom/opencode/skill
 Run the TUI integration tests:
 
 ```bash
-cd synth_ai/_tui
+cd tui/app
 bun test
 ```
 
@@ -71,6 +88,10 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 ## Documentation
 
 **[docs.usesynth.ai](https://docs.usesynth.ai)**
+
+## Community
+
+**[Join our Discord](https://discord.gg/VKxZqUhZ)**
 
 ## GEPA Prompt Optimization (SDK)
 
@@ -106,6 +127,58 @@ print(f"Best score: {result.best_score}")
 
 See the [Banking77 demo notebook](demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb) for a complete example with local task apps.
 
+## Online MIPRO (SDK, Ontology Enabled)
+
+Run online MIPRO so rollouts call a proxy URL and rewards stream back to the optimizer. Enable ontology by setting `MIPRO_ONT_ENABLED=1` and `HELIX_URL` on the backend, then follow the [Banking77 online MIPRO notes](demos/mipro_banking77/online_mipro_explained.txt).
+
+```python
+import os
+from synth_ai.sdk.optimization.policy import MiproOnlineSession
+
+# Use the demo config shape from demos/mipro_banking77
+mipro_config = {...}
+
+session = MiproOnlineSession.create(
+    config_body=mipro_config,
+    api_key=os.environ["SYNTH_API_KEY"],
+)
+urls = session.get_prompt_urls()
+proxy_url = urls["online_url"]
+
+# Use proxy_url in your rollout loop, then report rewards
+session.update_reward(
+    reward_info={"score": 0.9},
+    rollout_id="rollout_001",
+    candidate_id="candidate_abc",
+)
+```
+
+## Graph Evolve: Optimize RLM-Based Verifier Graphs
+
+Train a verifier graph with an RLM backbone for long-context evaluation. See the [Image Style Matching demo](demos/image_style_matching/) for a complete Graph Evolve example:
+
+```python
+from synth_ai.sdk.api.train.graph_evolve import GraphEvolveJob
+
+# Train an RLM-based verifier graph
+verifier_job = GraphEvolveJob.from_dataset(
+    dataset="verifier_dataset.json",
+    graph_type="rlm",
+    policy_models=["gpt-4.1"],
+    proposer_effort="medium",  # Use "medium" (gpt-4.1) or "high" (gpt-5.2)
+    rollout_budget=200,
+)
+verifier_job.submit()
+result = verifier_job.stream_until_complete(timeout=3600.0)
+
+# Run inference with trained verifier
+verification = verifier_job.run_verifier(
+    trace=my_trace,
+    context={"rubric": my_rubric},
+)
+print(f"Reward: {verification.reward}, Reasoning: {verification.reasoning}")
+```
+
 ## Zero-Shot Verifiers (SDK)
 
 Run a built-in verifier graph with rubric criteria passed at runtime. See the [Crafter VLM demo](demos/gepa_crafter_vlm/) for verifier optimization:
@@ -136,40 +209,29 @@ async def run_verifier():
 asyncio.run(run_verifier())
 ```
 
-You can also call arbitrary graphs directly:
+You can also call arbitrary graphs directly with the Rust SDK:
 
-```python
-from synth_ai.sdk.graphs import GraphCompletionsClient
+```rust
+use serde_json::json;
+use synth_ai::{GraphCompletionRequest, Synth};
 
-client = GraphCompletionsClient(base_url="https://api.usesynth.ai", api_key="...")
-resp = await client.run(
-    graph={"kind": "zero_shot", "verifier_shape": "mapreduce", "verifier_mode": "rubric"},
-    input_data={"trace": {"session_id": "s", "session_time_steps": []}, "rubric": {"event": [], "outcome": []}},
-)
-```
+#[tokio::main]
+async fn main() -> Result<(), synth_ai::Error> {
+    let synth = Synth::from_env()?;
 
-## GraphGen: Train Custom Verifier Graphs
+    let request = GraphCompletionRequest {
+        job_id: "zero_shot_verifier_rubric_single".to_string(),
+        input: json!({
+            "trace": {"session_id": "s", "session_time_steps": []},
+            "rubric": {"event": [], "outcome": []},
+        }),
+        model: None,
+        prompt_snapshot_id: None,
+        stream: None,
+    };
 
-Train custom verifier graphs using GraphGen. See the [Image Style Matching demo](demos/image_style_matching/) for a complete GraphGen example:
-
-```python
-from synth_ai.sdk.api.train.graphgen import GraphGenJob
-
-# Train a verifier graph
-verifier_job = GraphGenJob.from_dataset(
-    dataset="verifier_dataset.json",
-    graph_type="verifier",
-    policy_models=["gpt-4.1"],
-    proposer_effort="medium",  # Use "medium" (gpt-4.1) or "high" (gpt-5.2)
-    rollout_budget=200,
-)
-verifier_job.submit()
-result = verifier_job.stream_until_complete(timeout=3600.0)
-
-# Run inference with trained verifier
-verification = verifier_job.run_verifier(
-    trace=my_trace,
-    context={"rubric": my_rubric},
-)
-print(f"Score: {verification.score}, Reasoning: {verification.reasoning}")
+    let resp = synth.complete(request).await?;
+    println!("Output: {:?}", resp.output);
+    Ok(())
+}
 ```

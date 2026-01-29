@@ -1,6 +1,3 @@
-"""Synth AI SDK API."""
+"""Backward-compatible API namespace."""
 
-# Ontology client for accessing public graph data
-from . import ontology
-
-__all__ = ["ontology"]
+from __future__ import annotations

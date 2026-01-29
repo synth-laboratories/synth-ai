@@ -1,11 +1,11 @@
 """LocalAPI server config re-exports.
 
-Prefer this module over synth_ai.sdk.task.server.* moving forward.
+Prefer this module over synth_ai.sdk.localapi._impl.server.* moving forward.
 """
 
 from __future__ import annotations
 
-from synth_ai.sdk.task.server import (
+from synth_ai.sdk.localapi._impl.server import (
     LocalAPIConfig,
     ProxyConfig,
     RubricBundle,

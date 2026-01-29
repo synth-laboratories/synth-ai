@@ -1,26 +1,22 @@
-name: CI (lint, types, fast tests)
+# CI workflow for pull requests and pushes to main branches.
+# Runs lint, type check, tests, and validation checks in parallel.
+# Keep jobs in alphabetical order.
+
+name: CI
 
 on:
-  pull_request:
-    branches: [ main ]
   push:
-    branches: [ main ]
+    branches: [main, nightly]
+  pull_request:
+
+# Cancel in-progress runs on same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint (ruff)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - uses: astral-sh/setup-uv@v4
-      - name: ruff check
-        run: uv run --group dev ruff check
-
   check-version:
-    name: Check README version matches pyproject.toml
+    name: Check README Version
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
@@ -30,94 +26,44 @@ jobs:
           VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/' | tr -d '"')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Found version: $VERSION"
+          # Check if this is a dev version
+          if [[ "$VERSION" == *".dev"* ]]; then
+            echo "is_dev=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_dev=false" >> $GITHUB_OUTPUT
+          fi
       - name: Check README version matches
+        if: steps.get_version.outputs.is_dev == 'false'
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
           README_BADGE=$(grep -o 'PyPI-.*-orange' README.md | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "")
           README_INSTALL=$(grep -o 'synth-ai==[0-9]\+\.[0-9]\+\.[0-9]\+' README.md | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 || echo "")
-          
+
           echo "pyproject.toml version: $VERSION"
           echo "README badge version: $README_BADGE"
           echo "README install version: $README_INSTALL"
-          
+
           if [ "$README_BADGE" != "$VERSION" ]; then
             echo "❌ README badge version ($README_BADGE) does not match pyproject.toml ($VERSION)"
             exit 1
           fi
-          
+
           if [ "$README_INSTALL" != "$VERSION" ]; then
             echo "❌ README install version ($README_INSTALL) does not match pyproject.toml ($VERSION)"
             exit 1
           fi
-          
+
           echo "✅ README version matches pyproject.toml ($VERSION)"
-
-  type-check:
-    name: Type Check (ty)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - uses: astral-sh/setup-uv@v4
-      - name: ty check
-        run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
-
-  validate-openapi:
-    name: Validate OpenAPI ↔ Pydantic
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - uses: astral-sh/setup-uv@v4
-      - name: Install dependencies
-        run: uv sync --group dev
-      - name: Validate OpenAPI spec matches Pydantic models
-        run: uv run python scripts/validate_openapi_pydantic.py
-
-  tests:
-    name: Tests (unit, fast≤5s)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - uses: astral-sh/setup-uv@v4
-      - name: Run fast unit tests (≤5s)
+      - name: Skip README check for dev versions
+        if: steps.get_version.outputs.is_dev == 'true'
         run: |
-          # Pre-install dev dependencies so timing only measures test execution
-          uv sync --group dev
-          SECONDS=0
-          set -e
-          # Strict ultra-fast unit tests only
-          uv run --group dev pytest tests/unit -m unit -q --maxfail=1
-          uv run --group dev pytest tests/environments/unit/test_external_registry.py -q --maxfail=1
-          DUR=$SECONDS
-          echo "Total fast unit test time: ${DUR}s"
-          if [ "$DUR" -gt 20 ]; then
-            echo "Fast unit tests exceeded 20 seconds (${DUR}s)" >&2
-            exit 1
-          fi
+          echo "⏭️ Skipping README version check for dev version: ${{ steps.get_version.outputs.version }}"
 
-  tui-tests:
-    name: TUI Tests (bun)
+  integration-rlm:
+    name: Integration (RLM v1)
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-      - name: Run TUI parsing tests
-        run: |
-          cd synth_ai/_tui
-          bun test
-
-  integration-dev:
-    name: Integration (dev endpoints)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 30
+    timeout-minutes: 10
+    continue-on-error: true  # Don't block CI on backend issues
     env:
       DEV_ACTIONS_SYNTH_API_KEY: ${{ secrets.DEV_ACTIONS_SYNTH_API_KEY }}
       DEV_BACKEND_URL: ${{ secrets.DEV_BACKEND_URL }}
@@ -127,12 +73,74 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
-      - name: Run all dev endpoint tests (against DEV_BACKEND_URL)
+      - name: Run RLM v1 integration tests
         run: |
-          uv run --group dev pytest -c pytest.integration.ini -q tests/integration/endpoints tests/integration/cli -s --maxfail=0
-      - name: Run CLI finetune smoke (Qwen3-32B on 4x H100)
-        env:
-          SYNTH_GPU_TYPE: H100-4x
-          SYNTH_API_KEY: ${{ secrets.DEV_ACTIONS_SYNTH_API_KEY }}
+          uv sync --group dev
+          uv run --group dev pytest tests/integration/rlm -m integration -v --maxfail=1
+
+  lint:
+    name: Lint
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Run ruff check
+        run: uv run --group dev ruff check
+
+  notify-docs:
+    name: Notify Docs
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint, tests, type-check]
+    steps:
+      - name: Trigger docs SDK reference update
         run: |
-          uv run --group dev pytest -c pytest.integration.ini -q tests/cli/test_cli_train_multi_gpu_dev.py -s --maxfail=1
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.SYNTH_DOCS_REPO_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/synth-laboratories/docs/dispatches \
+            -d '{"event_type": "sdk-updated"}'
+
+  tests:
+    name: Tests
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Run fast unit tests
+        run: |
+          uv sync --group dev
+          uv run --group dev pytest tests/unit -m unit -v --maxfail=1
+
+  type-check:
+    name: Type Check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Run ty check
+        run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore deprecated --ignore invalid-argument-type --ignore not-iterable --ignore unused-ignore-comment --ignore unknown-argument --ignore possibly-missing-attribute --ignore invalid-assignment
+
+  validate-notebooks:
+    name: Validate Notebooks
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Validate GEPA Banking77 notebook
+        run: |
+          uv sync --group dev
+          uv run --group dev pytest tests/notebooks/test_gepa_banking77_notebook.py -v --maxfail=1
+

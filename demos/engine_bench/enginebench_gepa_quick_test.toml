@@ -1,0 +1,77 @@
+# Quick GEPA test - minimal config to complete within tunnel stability window
+# Tests 2 candidates on 13 seeds, 1 generation
+
+[prompt_learning]
+task_app_url = "http://localhost:8020"
+env_name = "engine_bench"
+algorithm = "gepa"
+
+[prompt_learning.initial_prompt]
+id = "enginebench_codex_unified"
+name = "EngineBench Codex Quick Test"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "{task_description}"
+order = 0
+
+[prompt_learning.initial_prompt.wildcards]
+task_description = "REQUIRED"
+
+[prompt_learning.gepa]
+env_name = "engine_bench"
+
+[prompt_learning.gepa.evaluation]
+seeds = [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34]
+validation_seeds = [35, 36, 37, 38, 39, 40, 41, 42, 43, 44]
+validation_pool = "validation"
+validation_top_k = 3
+
+[prompt_learning.gepa.mutation]
+rate = 0.5
+
+[prompt_learning.gepa.population]
+initial_size = 2
+num_generations = 1
+children_per_generation = 2
+crossover_rate = 0.5
+selection_pressure = 1.0
+
+[prompt_learning.gepa.archive]
+pareto_set_size = 10
+
+[prompt_learning.gepa.rollout]
+budget = 100
+max_concurrent = 6
+minibatch_size = 6
+timeout = 600
+
+[prompt_learning.policy]
+model = "gpt-5-nano"
+provider = "openai"
+inference_mode = "synth_hosted"
+timeout = 45
+
+[prompt_learning.policy.context_override]
+system_prompt = """You are an expert Rust developer implementing Pokemon TCG cards.
+
+CRITICAL: The stub file contains `todo!()` macros that YOU MUST REPLACE with working code.
+
+Example - if you see:
+```rust
+pub fn grind_damage(attached_energy: u32) -> i32 { todo!() }
+// ATTACK_1_TEXT: "Does 10 damage times the amount of Energy attached"
+```
+
+You MUST use the edit tool to change it to:
+```rust
+pub fn grind_damage(attached_energy: u32) -> i32 { (10 * attached_energy) as i32 }
+```
+
+REQUIRED WORKFLOW:
+1. Read the stub file ONCE to find the todo!() functions
+2. IMMEDIATELY use the edit tool to replace todo!() with working code
+3. Run `cargo check` to verify compilation
+4. Run `cargo test` to verify tests pass
+
+DO NOT read the file multiple times"""

@@ -1,7 +1,0 @@
-[eval]
-env_name = "banking77"
-seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-task_app_url = "http://localhost:8010"
-
-[policy]
-model = "gpt-4o-mini"

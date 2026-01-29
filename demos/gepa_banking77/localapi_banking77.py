@@ -7,6 +7,7 @@ and aggregates the scores.
 """
 
 import json
+import os
 import time
 
 import httpx
@@ -14,14 +15,14 @@ from datasets import load_dataset
 from fastapi import Request
 from synth_ai.data.enums import SuccessStatus
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.task import normalize_inference_url
-from synth_ai.sdk.task.contracts import (
+from synth_ai.sdk.localapi._impl.trace_correlation_helpers import extract_trace_correlation_id
+from synth_ai.sdk.localapi._impl.contracts import (
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
     TaskInfo,
 )
-from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
+from synth_ai.sdk.localapi._impl.validators import normalize_inference_url
 
 # =============================================================================
 # APP CONFIGURATION
@@ -258,9 +259,12 @@ async def call_llm(
     inference_url: str,
     model: str = "gpt-4.1-nano",
     api_key: str | None = None,
-) -> str:
+) -> tuple[str, str | None, dict, list[dict[str, str]]]:
     """Call the LLM via the inference URL provided by Synth, using tool calling."""
     available_intents = format_available_intents(DATASET.label_names)
+    if os.getenv("BANKING77_DEBUG_INTENTS") == "1":
+        preview = "\n".join(DATASET.label_names[:10])
+        print(f"[DEBUG] intents_count={len(DATASET.label_names)} intents_preview:\n{preview}")
     user_msg = (
         f"Customer Query: {query}\n\n"
         f"Available Intents:\n{available_intents}\n\n"
@@ -275,6 +279,7 @@ async def call_llm(
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["X-API-Key"] = api_key
+        headers["Authorization"] = f"Bearer {api_key}"
 
     payload = {
         "model": model,
@@ -284,8 +289,11 @@ async def call_llm(
     }
 
     url = normalize_inference_url(inference_url)
+    if os.getenv("BANKING77_DEBUG_INFERENCE_URL") == "1":
+        print(f"[DEBUG] inference_url={url}", flush=True)
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    timeout_seconds = float(os.getenv("BANKING77_LLM_TIMEOUT", "120"))
+    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
         response = await client.post(url, json=payload, headers=headers)
         if response.status_code != 200:
             try:
@@ -295,6 +303,19 @@ async def call_llm(
                 error_msg = response.text[:500]
             raise RuntimeError(f"Proxy error ({response.status_code}): {error_msg}")
 
+        # Extract candidate_id from proxy response headers for MIPRO
+        candidate_id = response.headers.get("x-mipro-candidate-id")
+        
+        # Log all MIPRO-related headers for debugging
+        mipro_headers = {k: v for k, v in response.headers.items() if "mipro" in k.lower()}
+        if mipro_headers:
+            print(f"[MIPRO] Received headers: {mipro_headers}", flush=True)
+        else:
+            print(f"[MIPRO] WARNING: No x-mipro-* headers in response. Check proxy is returning them.", flush=True)
+        
+        if candidate_id:
+            print(f"[MIPRO] candidate_id from header: {candidate_id}", flush=True)
+        
         data = response.json()
         choices = data.get("choices", [])
         if not choices:
@@ -309,7 +330,10 @@ async def call_llm(
         raise RuntimeError("No tool call arguments returned from model")
 
     args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
-    return args.get("intent") or ""
+    intent = args.get("intent") or ""
+    
+    # Return intent, candidate_id, and response payload for trace usage
+    return intent, candidate_id, data, messages
 
 
 # =============================================================================
@@ -338,16 +362,29 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     if not inference_url:
         raise ValueError("No inference_url provided in policy config")
 
-    start = time.perf_counter()
-    predicted_intent = await call_llm(
+    llm_start = time.perf_counter()
+    predicted_intent, candidate_id, llm_response, llm_messages = await call_llm(
         query=sample["text"],
         inference_url=inference_url,
         model=policy_config.get("model", "gpt-4.1-nano"),
         api_key=policy_config.get("api_key"),
     )
-    latency_ms = (time.perf_counter() - start) * 1000.0
+    llm_latency_ms = (time.perf_counter() - llm_start) * 1000.0
+    print(f"[TIMING] LLM call: {llm_latency_ms:.2}ms")
+    latency_ms = llm_latency_ms
 
     score = score_response(predicted_intent, sample)
+    if os.getenv("BANKING77_DEBUG_ROLLOUT") == "1":
+        print(
+            "[DEBUG] rollout_compare",
+            {
+                "seed": seed,
+                "text": sample.get("text", "")[:200],
+                "expected": sample.get("label"),
+                "predicted": predicted_intent,
+                "score": score,
+            },
+        )
 
     policy_cfg_for_trace = {
         key: value
@@ -358,15 +395,32 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
         policy_config=policy_cfg_for_trace,
         inference_url=str(inference_url or ""),
     )
+    if not trace_correlation_id:
+        trace_correlation_id = request.trace_correlation_id or ""
+
+    reward_info = RolloutMetrics(
+        outcome_reward=score,
+        outcome_objectives={"reward": score, "latency_ms": latency_ms},
+        instance_objectives=[{"reward": score, "latency_ms": latency_ms}],
+        details={"latency_ms": latency_ms},
+    )
+
+    # Include candidate_id in metadata if available (for MIPRO)
+    metadata = {}
+    if candidate_id:
+        metadata["mipro_candidate_id"] = candidate_id
+
+    trace_payload = {
+        "inference": {
+            "messages": llm_messages,
+            "response": llm_response,
+        }
+    }
 
     return RolloutResponse(
-        reward_info=RolloutMetrics(
-            outcome_reward=score,
-            outcome_objectives={"reward": score, "latency_ms": latency_ms},
-            instance_objectives=[{"reward": score, "latency_ms": latency_ms}],
-            details={"latency_ms": latency_ms},
-        ),
-        trace=None,
+        reward_info=reward_info,
+        trace=trace_payload,
+        metadata=metadata,
         trace_correlation_id=trace_correlation_id,
         inference_url=str(inference_url or ""),
         success_status=SuccessStatus.SUCCESS,

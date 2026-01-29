@@ -15,13 +15,12 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.task.server import RubricBundle
 from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
@@ -29,6 +28,7 @@ from synth_ai.sdk.task.contracts import (
     TaskInfo,
 )
 from synth_ai.sdk.task.rubrics import Criterion, Rubric
+from synth_ai.sdk.task.server import RubricBundle
 from synth_ai.sdk.task.validators import normalize_inference_url
 
 # ============================================================================
@@ -352,7 +352,7 @@ def _build_v4_trace_from_steps(
         event = {
             "type": "lm_call",
             "event_type": "lm_call",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "llm_request": {"messages": messages},
             "llm_response": llm_response,
             "api_format": "chat",
@@ -424,7 +424,7 @@ async def run_game(
     last_action_type: str | None = None
     last_obs_bench_count: int | None = None
     last_obs_game_state: str | None = None
-    
+
     # Track damage dealt/received
     p1_damage_dealt = 0
     p2_damage_dealt = 0
@@ -528,14 +528,13 @@ async def run_game(
 
         return "GameOver"
 
-
     while not game.is_game_over():
         # Get observation - handles AI turns automatically
         obs = game.run_until_agent_turn()
         prompt_text = getattr(obs, "prompt_text", None) or obs.game_state
         snapshot_json = getattr(obs, "prompt_json", None)
         if not snapshot_json:
-            print(f"[ptcg] WARNING: prompt_json is empty/None - tcg_py may need rebuilding")
+            print("[ptcg] WARNING: prompt_json is empty/None - tcg_py may need rebuilding")
         snapshot = None
         if snapshot_json:
             try:
@@ -548,9 +547,7 @@ async def run_game(
             snapshot_actions = snapshot.get("available_actions") or []
             for action in snapshot_actions:
                 if action.get("type") == "DeclareAttack":
-                    snapshot_attack_names = (
-                        action.get("options", {}).get("attack_names") or []
-                    )
+                    snapshot_attack_names = action.get("options", {}).get("attack_names") or []
                     break
             if not snapshot_attack_names:
                 snapshot_attack_names = [
@@ -562,7 +559,9 @@ async def run_game(
             if "Attack" in str(obs.available_actions):
                 print(f"[ptcg] DEBUG: snapshot_attack_names={snapshot_attack_names}")
                 if not snapshot_attack_names:
-                    print(f"[ptcg] DEBUG: Attack available but no names in snapshot. Snapshot keys: {list(snapshot.keys())}")
+                    print(
+                        f"[ptcg] DEBUG: Attack available but no names in snapshot. Snapshot keys: {list(snapshot.keys())}"
+                    )
                     print(f"[ptcg] DEBUG: available_actions: {snapshot_actions}")
                     print(f"[ptcg] DEBUG: attacks array: {snapshot.get('attacks', [])}")
 
@@ -590,19 +589,15 @@ async def run_game(
         last_obs_game_state = normalized_game_state
         # Pull internal game steps for debugging "winner=None" cases (often MaxSteps vs genuine loss).
         game_steps = getattr(game.get_result(), "steps", "?")
-        
+
         # Track damage from snapshot when available; fall back to text parsing.
         try:
             if snapshot is not None:
                 current_p1_hp = (
-                    snapshot.get("your_side", {})
-                    .get("active", {})
-                    .get("hp", [None, None])[0]
+                    snapshot.get("your_side", {}).get("active", {}).get("hp", [None, None])[0]
                 )
                 current_p2_hp = (
-                    snapshot.get("opponent_side", {})
-                    .get("active", {})
-                    .get("hp", [None, None])[0]
+                    snapshot.get("opponent_side", {}).get("active", {}).get("hp", [None, None])[0]
                 )
             else:
                 p1_hp_match = re.search(
@@ -617,16 +612,16 @@ async def run_game(
             # Calculate damage dealt (HP decreased, but only if same Pokemon)
             if last_p1_active_hp is not None and current_p1_hp is not None:
                 if current_p1_hp < last_p1_active_hp:
-                    p2_damage_dealt += (last_p1_active_hp - current_p1_hp)
+                    p2_damage_dealt += last_p1_active_hp - current_p1_hp
             if last_p2_active_hp is not None and current_p2_hp is not None:
                 if current_p2_hp < last_p2_active_hp:
-                    p1_damage_dealt += (last_p2_active_hp - current_p2_hp)
+                    p1_damage_dealt += last_p2_active_hp - current_p2_hp
 
             last_p1_active_hp = current_p1_hp
             last_p2_active_hp = current_p2_hp
         except Exception:
             pass
-        
+
         print(
             f"[ptcg] Decision {decision_steps}: player={obs.current_player}, phase={obs.phase}, "
             f"bench={bench}, prizes=({obs.my_prizes},{obs.opp_prizes}), actions={obs.available_actions}, "
@@ -657,7 +652,9 @@ async def run_game(
 
         # Skip if it's not P1's turn and there's no prompt to answer.
         if obs.current_player != "P1" and not obs.has_prompt:
-            print(f"[ptcg] WARNING: Not P1's turn (current_player={obs.current_player}), stepping...")
+            print(
+                f"[ptcg] WARNING: Not P1's turn (current_player={obs.current_player}), stepping..."
+            )
             print("[ptcg] No prompt available; skipping LLM call.")
             game.step()
             decision_steps += 1
@@ -697,7 +694,10 @@ async def run_game(
                     # Extract attack names explicitly for clarity
                     attack_names_text = ""
                     if snapshot_attack_names:
-                        attack_names_text = f"\n\nAVAILABLE ATTACKS (use EXACTLY one of these):\n" + "\n".join(f"  - {name}" for name in snapshot_attack_names)
+                        attack_names_text = (
+                            "\n\nAVAILABLE ATTACKS (use EXACTLY one of these):\n"
+                            + "\n".join(f"  - {name}" for name in snapshot_attack_names)
+                        )
                         print(f"[ptcg] Sending attack names to LLM: {snapshot_attack_names}")
                     user_prompt = (
                         f"{user_prompt}{attack_names_text}\n\nsnapshot_json:\n{snapshot_json}\n"
@@ -715,22 +715,22 @@ async def run_game(
                 # Submit action
                 try:
                     parsed_action, action_type, parse_error = _parse_action(action_json)
-                    
+
                     # Track HP before attack to measure damage
                     if action_type == "DeclareAttack":
                         p1_hp_before = last_p1_active_hp
                         p2_hp_before = last_p2_active_hp
-                    
+
                     game.submit_action(action_json)
                     print("[ptcg] Action OK")
-                    
+
                     # If attack was declared, check HP after to calculate damage
                     if action_type == "DeclareAttack":
                         # Get updated observation after attack
                         # Note: This is approximate - actual damage tracking would need game engine support
                         # For now, we'll track via HP changes in the next observation
                         pass
-                    
+
                     action_type = _parse_action_type(action_json)
                     last_action_type = action_type
                     trace_steps.append(
@@ -852,12 +852,17 @@ async def run_game(
         if error_messages:
             # Get most common error or first error
             from collections import Counter
+
             error_counts = Counter(error_messages)
             most_common_error = error_counts.most_common(1)[0][0]
             # Extract error type (e.g., "EnergyAlreadyAttached" from "Action failed: EnergyAlreadyAttached")
-            error_type = most_common_error.split(":")[-1].strip() if ":" in most_common_error else most_common_error
+            error_type = (
+                most_common_error.split(":")[-1].strip()
+                if ":" in most_common_error
+                else most_common_error
+            )
             error_desc = f"{errors} errors: {error_type}"
-        
+
         result_payload = {
             "winner": "P2",
             "turns": result.turns,
@@ -1009,7 +1014,7 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutR
                 "trace_id": request.trace_correlation_id,
                 "seed": seed,
                 "instance_id": instance_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "outcome_reward": reward,
                 "result": {k: v for k, v in result.items() if k != "trace_steps"},
                 "trace": trace,

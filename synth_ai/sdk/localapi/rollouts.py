@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutResponse
+from synth_ai.sdk.localapi._impl.contracts import RolloutMetrics, RolloutResponse
 
 
 class RolloutResponseBuilder:

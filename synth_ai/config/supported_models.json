@@ -1,0 +1,133 @@
+{
+  "prompt_optimization": {
+    "openai": {
+      "models": [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5-nano"
+      ],
+      "display_models": [
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5-nano",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-4o",
+        "gpt-4o-mini"
+      ],
+      "excluded_models": [
+        "gpt-5-pro"
+      ]
+    },
+    "openai_image": {
+      "models": [
+        "gpt-image-1.5",
+        "gpt-image-1",
+        "gpt-image-1-mini",
+        "chatgpt-image-latest"
+      ],
+      "display_models": [
+        "gpt-image-1.5",
+        "gpt-image-1",
+        "gpt-image-1-mini",
+        "chatgpt-image-latest"
+      ]
+    },
+    "groq": {
+      "models": [
+        "gpt-oss-20b",
+        "gpt-oss-120b",
+        "gpt-oss-20b-128k",
+        "gpt-oss-120b-128k",
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b-128k",
+        "openai/gpt-oss-120b-128k",
+        "llama-3.3-70b-versatile",
+        "meta/llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "meta/llama-3.1-8b-instant",
+        "llama-guard-4-12b",
+        "meta/llama-guard-4-12b",
+        "qwen-32b",
+        "qwen3-32b",
+        "qwen/qwen-32b",
+        "qwen/qwen3-32b",
+        "kimi-k2-0905",
+        "moonshotai/kimi-k2-0905"
+      ],
+      "display_models": [
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "meta/llama-3.3-70b-versatile",
+        "qwen/qwen3-32b",
+        "meta/llama-3.1-8b-instant"
+      ]
+    },
+    "google": {
+      "models": [
+        "gemini-2.5-pro",
+        "gemini-2.5-pro-gt200k",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite"
+      ],
+      "display_models": [
+        "gemini-2.5-pro",
+        "gemini-2.5-pro-gt200k",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite"
+      ]
+    },
+    "google_image": {
+      "models": [
+        "gemini-2.5-flash-image",
+        "gemini-3-pro-image-preview"
+      ],
+      "display_models": [
+        "gemini-2.5-flash-image",
+        "gemini-3-pro-image-preview"
+      ]
+    }
+  },
+  "graph_opt": {
+    "policy_models": [
+      "llama-3.1-8b-instant",
+      "llama-3.3-70b-versatile",
+      "llama-3.1-70b-versatile",
+      "gpt-4o-mini",
+      "gpt-4o",
+      "gpt-4-turbo",
+      "gpt-4.1",
+      "gpt-4.1-mini",
+      "gpt-4.1-nano",
+      "gemini-1.5-flash",
+      "gemini-1.5-pro",
+      "gemini-2.0-flash",
+      "gemini-2.5-flash-image",
+      "gemini-3-pro-image-preview",
+      "gpt-image-1.5",
+      "gpt-image-1",
+      "gpt-image-1-mini",
+      "chatgpt-image-latest",
+      "claude-3-5-sonnet-latest",
+      "claude-3-5-haiku-latest"
+    ],
+    "verifier_models": [
+      "llama-3.3-70b-versatile",
+      "llama-3.1-70b-versatile",
+      "gpt-4o-mini",
+      "gpt-4o"
+    ],
+    "defaults": {
+      "policy_model": "gpt-4o-mini",
+      "verifier_model": "llama-3.3-70b-versatile",
+      "verifier_provider": "groq"
+    }
+  }
+}

@@ -24,13 +24,21 @@ Example:
     >>> print(response["choices"][0]["message"]["content"])
 """
 
+import asyncio
 from typing import Any
 
-from synth_ai.core.http import AsyncHttpClient
-from synth_ai.sdk.api.models.supported import (
-    UnsupportedModelError,
-    normalize_model_identifier,
-)
+from synth_ai.sdk.shared.models import UnsupportedModelError, normalize_model_identifier
+
+try:
+    import synth_ai_py
+except Exception as exc:  # pragma: no cover
+    raise RuntimeError("synth_ai_py is required for sdk.inference.") from exc
+
+
+def _require_rust() -> Any:
+    if synth_ai_py is None or not hasattr(synth_ai_py, "SynthClient"):
+        raise RuntimeError("Rust core inference client required; synth_ai_py is unavailable.")
+    return synth_ai_py
 
 
 class InferenceClient:
@@ -121,6 +129,6 @@ class InferenceClient:
         # Backend now expects an explicit thinking_budget; provide a sensible default if omitted
         if "thinking_budget" not in body:
             body["thinking_budget"] = 256
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            # Route through backend inference proxy to Modal
-            return await http.post_json("/api/inference/v1/chat/completions", json=body)
+        rust = _require_rust()
+        client = rust.SynthClient(self._api_key, self._base_url)
+        return await asyncio.to_thread(client.inference_chat_completion, body)

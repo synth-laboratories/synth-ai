@@ -1,0 +1,187 @@
+"""Task namespace (legacy).
+
+Prefer synth_ai.sdk.localapi.* moving forward. This module remains for backward
+compatibility during the naming transition.
+"""
+
+from .auth import (
+    is_api_key_header_authorized,
+    normalize_environment_api_key,
+    require_api_key_dependency,
+)
+from .client import LocalAPIClient, TaskAppClient
+from .config import EvalConfig, FilterConfig
+from .contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
+    LocalAPIEndpoints,
+    RolloutEnvSpec,
+    RolloutMetrics,
+    RolloutPolicySpec,
+    RolloutRequest,
+    RolloutResponse,
+    RolloutSafetyConfig,
+    TaskAppEndpoints,
+    TaskDescriptor,
+    TaskInfo,
+)
+from .datasets import TaskDatasetRegistry, TaskDatasetSpec
+from .errors import error_payload, http_exception, json_error_response
+from .health import task_app_health
+from .http_pool import get_shared_http_client, reset_shared_http_client
+from .in_process import InProcessTaskApp
+from .inference_api import InferenceAPIClient
+from .json import to_jsonable
+from .llm_call_guards import (
+    install_all_guards,
+    install_anthropic_guard,
+    install_httpx_guard,
+    install_openai_guard,
+    install_requests_guard,
+    warn_if_direct_provider_call,
+)
+from .proxy import (
+    extract_message_text,
+    inject_system_hint,
+    parse_tool_call_from_text,
+    prepare_for_groq,
+    prepare_for_openai,
+    synthesize_tool_call_if_missing,
+)
+from .rollout_helpers import build_rollout_response
+from .rubrics import (
+    Criterion,
+    Rubric,
+    blend_rubrics,
+    evaluate_events_against_rubric,
+    evaluate_outcome_against_rubric,
+    load_rubric,
+)
+from .server import (
+    LocalAPIConfig,
+    ProxyConfig,
+    RubricBundle,
+    TaskAppConfig,
+    create_task_app,
+    run_server_background,
+    run_task_app,
+)
+from .trace_correlation_helpers import (
+    build_trace_payload,
+    build_trajectory_trace,
+    extract_trace_correlation_id,
+    include_event_history_in_response,
+    include_event_history_in_trajectories,
+    include_trace_correlation_id_in_response,
+    validate_trace_correlation_id,
+    verify_trace_correlation_id_in_response,
+)
+from .validators import (
+    normalize_inference_url,
+    validate_rollout_response_for_rl,
+    validate_task_app_endpoint,
+    validate_task_app_url,
+)
+from .vendors import (
+    get_groq_key_or_503,
+    get_openai_key_or_503,
+    normalize_vendor_keys,
+)
+
+_IN_PROCESS_RUNNER_IMPORTS = {
+    "InProcessJobResult",
+    "merge_dot_overrides",
+    "resolve_backend_api_base",
+    "run_in_process_job",
+    "run_in_process_job_sync",
+}
+
+
+def __getattr__(name: str):
+    if name in _IN_PROCESS_RUNNER_IMPORTS:
+        from . import in_process_runner
+
+        return getattr(in_process_runner, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = [
+    "build_rollout_response",
+    "install_all_guards",
+    "install_httpx_guard",
+    "install_requests_guard",
+    "install_openai_guard",
+    "install_anthropic_guard",
+    "warn_if_direct_provider_call",
+    "normalize_inference_url",
+    "validate_rollout_response_for_rl",
+    "validate_task_app_url",
+    "validate_task_app_endpoint",
+    "task_app_health",
+    "EvalConfig",
+    "FilterConfig",
+    "TaskAppEndpoints",
+    "LocalAPIEndpoints",
+    "RolloutEnvSpec",
+    "RolloutPolicySpec",
+    "RolloutSafetyConfig",
+    "RolloutRequest",
+    "RolloutResponse",
+    "RolloutMetrics",
+    "TaskDescriptor",
+    "DatasetInfo",
+    "InferenceInfo",
+    "LimitsInfo",
+    "TaskInfo",
+    "to_jsonable",
+    "normalize_environment_api_key",
+    "is_api_key_header_authorized",
+    "require_api_key_dependency",
+    "normalize_vendor_keys",
+    "get_openai_key_or_503",
+    "get_groq_key_or_503",
+    "prepare_for_openai",
+    "prepare_for_groq",
+    "inject_system_hint",
+    "extract_message_text",
+    "parse_tool_call_from_text",
+    "synthesize_tool_call_if_missing",
+    "TaskDatasetSpec",
+    "TaskDatasetRegistry",
+    "Criterion",
+    "Rubric",
+    "load_rubric",
+    "blend_rubrics",
+    "evaluate_events_against_rubric",
+    "evaluate_outcome_against_rubric",
+    "TaskAppClient",
+    "LocalAPIClient",
+    "error_payload",
+    "http_exception",
+    "json_error_response",
+    "run_task_app",
+    "run_server_background",
+    "create_task_app",
+    "RubricBundle",
+    "ProxyConfig",
+    "TaskAppConfig",
+    "LocalAPIConfig",
+    "InferenceAPIClient",
+    "InProcessTaskApp",
+    "InProcessJobResult",
+    "merge_dot_overrides",
+    "resolve_backend_api_base",
+    "run_in_process_job",
+    "run_in_process_job_sync",
+    "build_trajectory_trace",
+    "build_trace_payload",
+    "extract_trace_correlation_id",
+    "include_event_history_in_response",
+    "include_event_history_in_trajectories",
+    "include_trace_correlation_id_in_response",
+    "validate_trace_correlation_id",
+    "verify_trace_correlation_id_in_response",
+    "get_shared_http_client",
+    "reset_shared_http_client",
+]

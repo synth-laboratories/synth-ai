@@ -1,0 +1,81 @@
+# GEPA Prompt Learning for MTG artist style image generation
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_id = "mtg_artist_style"
+task_app_url = "http://127.0.0.1:8119"
+
+[prompt_learning.initial_prompt]
+id = "mtg_artist_style_prompt"
+name = "MTG Artist Style Prompt"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+order = 0
+pattern = """
+Generate a Magic: The Gathering card illustration that matches the target artist style.
+
+Card name: {card_name}
+Card description: {card_description}
+Target artist style: {target_artist_style}
+
+Do NOT mention the artist name in any text. Return only the image.
+"""
+
+[prompt_learning.initial_prompt.wildcards]
+card_name = "REQUIRED"
+card_description = "REQUIRED"
+target_artist_style = "REQUIRED"
+
+[prompt_learning.policy]
+model = "gemini-2.5-flash-image"
+provider = "google"
+inference_mode = "synth_hosted"
+temperature = 0.7
+max_completion_tokens = 4096
+
+[prompt_learning.env_config]
+artist_key = "seb_mckinnon"
+max_examples = 12
+
+[prompt_learning.gepa]
+env_name = "mtg_artist_style"
+
+[prompt_learning.gepa.rollout]
+budget = 13
+max_concurrent = 2
+minibatch_size = 2
+
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+validation_seeds = [13, 14]
+
+[prompt_learning.gepa.archive]
+pareto_set_size = 10
+
+[prompt_learning.gepa.mutation]
+rate = 0.3
+
+[prompt_learning.gepa.population]
+initial_size = 4
+num_generations = 3
+children_per_generation = 2
+
+[prompt_learning.gepa.token]
+counting_model = "gpt-4"
+
+[prompt_learning.verifier]
+enabled = true
+reward_source = "verifier"
+backend_base = "https://api-dev.usesynth.ai"
+backend_provider = "google"
+backend_model = "gemini-2.5-flash"
+verifier_graph_id = "zero_shot_verifier_rubric_single"
+backend_outcome_enabled = true
+backend_event_enabled = false
+concurrency = 4
+timeout = 240.0
+weight_env = 0.0
+weight_event = 0.0
+weight_outcome = 1.0
+

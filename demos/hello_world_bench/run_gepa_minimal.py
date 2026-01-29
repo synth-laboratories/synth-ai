@@ -14,7 +14,6 @@ import time
 from pathlib import Path
 
 import httpx
-
 from localapi_hello_world_bench import app
 from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
@@ -36,7 +35,9 @@ parser.add_argument(
 )
 parser.add_argument("--budget", type=int, help="Override rollout budget")
 parser.add_argument("--generations", type=int, help="Override number of generations")
-parser.add_argument("--agent", type=str, default="opencode", choices=["opencode", "codex"], help="Agent to use")
+parser.add_argument(
+    "--agent", type=str, default="opencode", choices=["opencode", "codex"], help="Agent to use"
+)
 args = parser.parse_args()
 
 # Auto-select config based on agent if not specified
@@ -99,7 +100,10 @@ async def main() -> None:
     # Apply overrides
     config_dict["prompt_learning"]["task_app_url"] = task_url
     config_dict["prompt_learning"]["policy"]["model"] = args.model
-    if "policy" in config_dict["prompt_learning"] and "config" in config_dict["prompt_learning"]["policy"]:
+    if (
+        "policy" in config_dict["prompt_learning"]
+        and "config" in config_dict["prompt_learning"]["policy"]
+    ):
         config_dict["prompt_learning"]["policy"]["config"]["timeout"] = args.timeout
 
     # Ensure policy config includes the timeout used by the task app
@@ -109,12 +113,18 @@ async def main() -> None:
     config_dict["prompt_learning"]["policy"]["config"]["agent"] = args.agent
 
     if args.budget is not None:
-        config_dict.setdefault("prompt_learning", {}).setdefault("gepa", {}).setdefault("rollout", {})
+        config_dict.setdefault("prompt_learning", {}).setdefault("gepa", {}).setdefault(
+            "rollout", {}
+        )
         config_dict["prompt_learning"]["gepa"]["rollout"]["budget"] = int(args.budget)
 
     if args.generations is not None:
-        config_dict.setdefault("prompt_learning", {}).setdefault("gepa", {}).setdefault("population", {})
-        config_dict["prompt_learning"]["gepa"]["population"]["num_generations"] = int(args.generations)
+        config_dict.setdefault("prompt_learning", {}).setdefault("gepa", {}).setdefault(
+            "population", {}
+        )
+        config_dict["prompt_learning"]["gepa"]["population"]["num_generations"] = int(
+            args.generations
+        )
 
     print("Submitting GEPA job...")
     job = PromptLearningJob.from_dict(
@@ -151,4 +161,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

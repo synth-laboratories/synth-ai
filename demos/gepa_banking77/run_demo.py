@@ -5,6 +5,8 @@ Usage:
     uv run python demos/gepa_banking77/run_demo.py           # Production mode (Cloudflare tunnels)
     uv run python demos/gepa_banking77/run_demo.py --local   # Local mode (localhost, no tunnels)
 """
+import sys
+print("Starting imports...", flush=True)
 
 import argparse
 import asyncio
@@ -18,23 +20,27 @@ import httpx
 from datasets import load_dataset
 from fastapi import Request
 from openai import AsyncOpenAI
-from synth_ai.core.env import PROD_BASE_URL, mint_demo_api_key
+from synth_ai.core.utils.env import mint_demo_api_key
+from synth_ai.core.utils.urls import BACKEND_URL_BASE as PROD_BASE_URL
 from synth_ai.data.enums import SuccessStatus
-from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig, EvalResult
-from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
+from synth_ai.sdk.eval.job import EvalJob, EvalJobConfig, EvalResult
+from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
+from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.task import normalize_inference_url, run_server_background
-from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
-from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
-from synth_ai.sdk.tunnels import (
+from synth_ai.sdk.localapi._impl.http_pool import get_shared_http_client
+from synth_ai.sdk.localapi._impl.validators import normalize_inference_url
+from synth_ai.sdk.localapi._impl.server import run_server_background
+from synth_ai.sdk.localapi._impl.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.localapi._impl.trace_correlation_helpers import extract_trace_correlation_id
+from synth_ai.core.tunnels import (
     PortConflictBehavior,
     TunnelBackend,
     TunneledLocalAPI,
     acquire_port,
     cleanup_all,
 )
+print("Imports done.", flush=True)
 
 # Parse args
 parser = argparse.ArgumentParser(description="Run Banking77 GEPA demo")
@@ -86,8 +92,10 @@ if LOCAL_MODE:
     print("RUNNING IN LOCAL MODE")
     print("=" * 60)
 else:
-    SYNTH_API_BASE = PROD_BASE_URL
-    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedTunnel
+    # Use dev backend for testing
+    SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api-dev.usesynth.ai")
+    # Use the new lease-based tunnel system for faster reconnection
+    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedLease
     LOCAL_API_PORT = 8001
     OPTIMIZED_LOCAL_API_PORT = 8002
 
@@ -96,6 +104,7 @@ print(f"Tunnel backend: {TUNNEL_BACKEND.value}")
 print(f"Local API Ports: {LOCAL_API_PORT}, {OPTIMIZED_LOCAL_API_PORT}")
 
 # Check backend health
+print(f"Checking backend health at {SYNTH_API_BASE}/health...", flush=True)
 r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
 if r.status_code == 200:
     print(f"Backend health: {r.json()}")
@@ -248,30 +257,23 @@ async def classify_banking77_query(
     ]
 
     if inference_url:
-        url = normalize_inference_url(inference_url)
-        headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["X-API-Key"] = api_key
-        payload = {
-            "model": model,
-            "messages": messages,
-            "tools": [TOOL_SCHEMA],
-            "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-        if response.status_code != 200:
-            try:
-                error_json = response.json()
-                error_msg = str(error_json.get("error", {}).get("message", error_json))
-            except Exception:
-                error_msg = response.text[:500]
-            raise RuntimeError(f"Proxy error ({response.status_code}): {error_msg}")
-
-        data = response.json()
-        tool_call = (data.get("choices") or [])[0].get("message", {}).get("tool_calls", [])[0]
-        args_raw = tool_call.get("function", {}).get("arguments")
+        # Use OpenAI SDK with custom base_url - SDK will append /chat/completions
+        # Pass Synth API key via X-API-Key header (interceptor auth), not Authorization
+        default_headers = {"X-API-Key": api_key} if api_key else {}
+        client = AsyncOpenAI(
+            base_url=inference_url,
+            api_key="synth-interceptor",  # Dummy - interceptor uses its own key
+            default_headers=default_headers,
+            http_client=get_shared_http_client(),
+        )
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            tools=[TOOL_SCHEMA],
+            tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
+        )
+        tool_call = response.choices[0].message.tool_calls[0]
+        args_raw = tool_call.function.arguments
     else:
         client = AsyncOpenAI(api_key=api_key) if api_key else AsyncOpenAI()
         response = await client.chat.completions.create(
@@ -357,11 +359,13 @@ def create_banking77_local_api(system_prompt: str):
         latency_ms = (time.perf_counter() - start) * 1000.0
 
         expected_intent = sample["label"]
-        is_correct = (
-            predicted_intent.lower().replace("_", " ").strip()
-            == expected_intent.lower().replace("_", " ").strip()
-        )
+        predicted_norm = predicted_intent.lower().replace("_", " ").strip()
+        expected_norm = expected_intent.lower().replace("_", " ").strip()
+        is_correct = predicted_norm == expected_norm
         reward = 1.0 if is_correct else 0.0
+        # Debug: log first few rollouts
+        if seed < 25:
+            print(f"[ROLLOUT DEBUG] seed={seed} predicted={predicted_norm!r} expected={expected_norm!r} reward={reward}", flush=True)
 
         policy_cfg_for_trace = {
             key: value
@@ -458,6 +462,7 @@ async def main():
         baseline_tunnel = await TunneledLocalAPI.create(
             local_port=baseline_port,
             backend=TUNNEL_BACKEND,
+            backend_url=SYNTH_API_BASE,
             progress=True,
         )
         baseline_local_api_url = baseline_tunnel.url
@@ -584,17 +589,38 @@ async def main():
                     return f"outstanding={outstanding}/{total_pareto_seeds}"
 
                 # GEPA-specific events (from backend logs)
-                if event_type == "prompt.learning.gepa.rollouts_limit_progress":
-                    # Extract rollout count from message like "Rollout progress: 20 rollouts executed"
-                    if "rollouts executed" in message:
-                        print(f"\n  {message}")
+                # Event types use "learning.policy.gepa.*" prefix
+                if event_type == "learning.policy.gepa.job.progress":
+                    # Show progress updates
+                    print(f"\n  {message}", flush=True)
 
-                elif event_type == "prompt.learning.gepa.candidate.evaluated":
+                elif event_type == "learning.policy.gepa.rollout.started":
+                    print(f"  {message}", flush=True)
+
+                elif event_type == "learning.policy.gepa.candidate.evaluated":
                     # Message format: "Candidate trans_00001 evaluated (accepted=True) acc=0.500"
-                    if "evaluated" in message:
-                        # Extract candidate ID and accuracy
-                        version_id = data.get("version_id", "")
-                        accuracy = data.get("accuracy") or data.get("acc")
+                    if "evaluated" in message or "completed" in message:
+                        # Extract candidate ID and accuracy (support old and new schemas)
+                        version_id = data.get("version_id") or data.get("candidate_id", "")
+                        # Try multiple field names for reward/accuracy
+                        # Note: can't use `or` chain because 0.0 is falsy
+                        accuracy = None
+                        for key in ["accuracy", "acc", "reward", "train_accuracy", "best_score"]:
+                            val = data.get(key)
+                            if val is not None:
+                                accuracy = val
+                                break
+                        # Also check nested score object
+                        if accuracy is None and isinstance(data.get("score"), dict):
+                            score = data["score"]
+                            for key in ["mean_reward", "reward", "accuracy"]:
+                                val = score.get(key)
+                                if val is not None:
+                                    accuracy = val
+                                    break
+                        # DEBUG: Print actual data to diagnose
+                        if accuracy == 0.0 or accuracy is None:
+                            print(f"  [DEBUG] data.reward={data.get('reward')!r} score={data.get('score')!r}", flush=True)
                         accepted = data.get("accepted", True)
 
                         # Parse accuracy from message if not in data (format: "acc=0.500")
@@ -627,17 +653,15 @@ async def main():
                             if isinstance(objectives, dict):
                                 print(f"    objectives: {objectives}")
 
-                elif event_type == "prompt.learning.gepa.proposal.completed":
-                    # Message format: "Proposal generated in 11.23s (evaluation will start next)"
-                    if "Proposal generated" in message:
-                        print(f"  {message}")
+                elif event_type == "learning.policy.gepa.phase.started":
+                    # Phase transitions
+                    print(f"\n  {message}", flush=True)
 
-                elif event_type == "prompt.learning.gepa.generation.start":
-                    # Message format: "Generation 1/2 starting"
-                    if "Generation" in message:
-                        print(f"\n  {message}")
+                elif event_type == "learning.policy.gepa.generation.started":
+                    # Generation start
+                    print(f"\n  {message}", flush=True)
 
-                elif event_type == "prompt.learning.gepa.progress":
+                elif event_type == "learning.policy.gepa.frontier.updated":
                     frontier_density = data.get("frontier_density")
                     frontier_size = data.get("frontier_size") or data.get("archive_size")
                     total_seeds_solved = data.get("total_seeds_solved")
@@ -662,7 +686,7 @@ async def main():
                     else:
                         print(f"\n  GEPA progress (raw): {data}")
 
-                elif event_type == "prompt.learning.gepa.archive.frontier_improved":
+                elif event_type == "learning.policy.gepa.archive.updated":
                     frontier_density = data.get("frontier_density")
                     frontier_size = data.get("archive_size")
                     total_seeds_solved = data.get("total_seeds_solved")
@@ -687,54 +711,40 @@ async def main():
                     else:
                         print(f"\n  Frontier improved (raw): {data}")
 
-                elif event_type == "prompt.learning.gepa.generation.complete":
-                    frontier_density = data.get("frontier_density")
-                    frontier_size = data.get("archive_size")
-                    total_seeds_solved = data.get("total_seeds_solved")
-                    pareto_growth = format_pareto_growth(data.get("pareto_growth"))
-                    seeds_outstanding = format_seeds_outstanding(total_seeds_solved)
-                    best_reward = data.get("best_reward")
-                    details = []
-                    if best_reward is not None:
-                        details.append(f"best={best_reward:.3f}")
-                    if frontier_density is not None:
-                        details.append(f"density={frontier_density:.3f}")
-                    if frontier_size is not None:
-                        details.append(f"frontier={frontier_size}")
-                    if total_seeds_solved is not None:
-                        details.append(f"total_seeds={total_seeds_solved}")
-                    if seeds_outstanding:
-                        details.append(seeds_outstanding)
-                    if pareto_growth:
-                        details.append(f"growth[{pareto_growth}]")
-                    if details:
-                        print(f"\n  Generation complete metrics: {' | '.join(details)}")
-                    else:
-                        print(f"\n  Generation complete metrics (raw): {data}")
+                elif event_type == "learning.policy.gepa.job.started":
+                    print(f"  {message}", flush=True)
 
-                elif event_type == "prompt.learning.candidate.evaluation.started":
-                    # Message format: "Evaluating candidate trans_00004... (10 seeds)"
-                    if "Evaluating candidate" in message:
-                        print(f"  {message}")
+                elif event_type == "learning.policy.gepa.job.queued":
+                    print(f"  {message}", flush=True)
 
-                # Legacy/fallback event types
-                elif event_type == "prompt.learning.progress":
-                    rollouts = data.get("rollouts_completed", 0)
-                    total = data.get("rollouts_total", 0)
-                    if rollouts > 0:
-                        print(f"\n  Progress: {rollouts}/{total} rollouts completed")
+                # Catch-all for other GEPA events to ensure visibility
+                # Skip spammy concurrency events
+                elif event_type.startswith("learning.policy.gepa."):
+                    if "concurrency" in event_type:
+                        pass  # Skip - these fire every 300ms and flood output
+                    elif message:
+                        print(f"  [{event_type.split('.')[-1]}] {message}", flush=True)
 
         except Exception:
             # Silently ignore event fetching errors to avoid polluting output
             pass
 
     optimization_start = time.time()
-    gepa_result = pl_job.poll_until_complete(
-        timeout=3600.0,
-        interval=3.0,
-        progress=False,  # Disable basic progress output since we're showing detailed events
-        on_status=on_status_update,
-    )
+    try:
+        gepa_result = pl_job.poll_until_complete(
+            timeout=3600.0,
+            interval=3.0,
+            progress=False,  # Disable basic progress output since we're showing detailed events
+            on_status=on_status_update,
+        )
+    except KeyboardInterrupt:
+        print("\n\nInterrupted by user (Ctrl+C)")
+        raise
+    except Exception as e:
+        print(f"\n\nERROR during poll_until_complete: {type(e).__name__}: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        raise
     timings["optimization"] = time.time() - optimization_start
 
     print(f"\nFINAL: {gepa_result.status.value} ({format_duration(timings['optimization'])})")
@@ -798,7 +808,8 @@ async def main():
     # Cell 9: Evaluation
     eval_seeds = list(range(100, 120))
 
-    def run_eval_job(local_api_url: str, seeds: list[int], mode: str) -> EvalResult:
+    async def run_eval_job(local_api_url: str, seeds: list[int], mode: str) -> EvalResult:
+        """Run eval job with event-based real-time progress tracking."""
         config = EvalJobConfig(
             local_api_url=local_api_url,
             backend_url=SYNTH_API_BASE,
@@ -817,7 +828,78 @@ async def main():
         job = EvalJob(config)
         job_id = job.submit()
         print(f"  {mode} eval job: {job_id}")
-        return job.poll_until_complete(timeout=600.0, interval=2.0, progress=True)
+
+        # Custom event-based polling for real-time progress
+        start_time = time.time()
+        last_event_seq = 0
+        completed_seeds: set[int] = set()
+        total_seeds = len(seeds)
+        timeout = 600.0
+        interval = 3.0
+
+        while True:
+            elapsed = time.time() - start_time
+            if elapsed >= timeout:
+                print(f"[{int(elapsed // 60):02d}:{int(elapsed % 60):02d}] timeout", flush=True)
+                break
+
+            # Get job status
+            try:
+                status_data = job.get_status()
+                status = status_data.get("status", "pending")
+            except Exception as e:
+                print(f"  [error getting status: {e}]", flush=True)
+                await asyncio.sleep(interval)
+                continue
+
+            # Fetch events for real-time progress
+            try:
+                response = httpx.get(
+                    f"{SYNTH_API_BASE}/api/eval/jobs/{job_id}/events",
+                    params={"since_seq": last_event_seq, "limit": 100},
+                    headers={"X-API-Key": API_KEY},
+                    timeout=10.0,
+                )
+                if response.status_code == 200:
+                    events = response.json()
+                    if isinstance(events, list):
+                        for event in events:
+                            event_seq = event.get("seq", 0)
+                            if event_seq > last_event_seq:
+                                last_event_seq = event_seq
+                            event_type = event.get("type", "")
+                            # Track completed/failed seeds from events
+                            if event_type in ("eval.policy.seed.completed", "eval.policy.seed.failed"):
+                                data = event.get("data", {})
+                                seed = data.get("seed")
+                                if seed is not None:
+                                    completed_seeds.add(seed)
+            except Exception:
+                pass
+
+            # Print progress with event-based count
+            mins, secs = divmod(int(elapsed), 60)
+            completed_count = len(completed_seeds)
+
+            if status in ("completed", "failed", "cancelled"):
+                # Get final results
+                try:
+                    results_data = status_data.get("results", {})
+                    mean_reward = results_data.get("mean_reward")
+                    if mean_reward is not None:
+                        print(f"[{mins:02d}:{secs:02d}] {status} | mean_reward: {mean_reward:.2f}", flush=True)
+                    else:
+                        print(f"[{mins:02d}:{secs:02d}] {status}", flush=True)
+                except Exception:
+                    print(f"[{mins:02d}:{secs:02d}] {status}", flush=True)
+                break
+            else:
+                print(f"[{mins:02d}:{secs:02d}] {status} | {completed_count}/{total_seeds} completed", flush=True)
+
+            await asyncio.sleep(interval)
+
+        # Return final result using SDK method
+        return job.poll_until_complete(timeout=10.0, interval=1.0, progress=False)
 
     def extract_system_prompt(prompt_results) -> str:
         """Extract system prompt from prompt results, handling multiple formats."""
@@ -1012,6 +1094,7 @@ async def main():
             optimized_tunnel = await TunneledLocalAPI.create(
                 local_port=optimized_port,
                 backend=TUNNEL_BACKEND,
+                backend_url=SYNTH_API_BASE,
                 progress=True,
             )
             optimized_local_api_url = optimized_tunnel.url
@@ -1020,7 +1103,7 @@ async def main():
 
         print("\nRunning BASELINE eval job...")
         eval_start = time.time()
-        baseline_result = run_eval_job(
+        baseline_result = await run_eval_job(
             local_api_url=baseline_local_api_url, seeds=eval_seeds, mode="baseline"
         )
         timings["baseline_eval"] = time.time() - eval_start
@@ -1057,7 +1140,7 @@ async def main():
 
         print("\nRunning OPTIMIZED eval job...")
         eval_start = time.time()
-        optimized_result = run_eval_job(
+        optimized_result = await run_eval_job(
             local_api_url=optimized_local_api_url, seeds=eval_seeds, mode="optimized"
         )
         timings["optimized_eval"] = time.time() - eval_start
@@ -1176,4 +1259,11 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n\nDemo interrupted by user.")
+    except Exception as e:
+        print(f"\n\nDemo failed with error: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()

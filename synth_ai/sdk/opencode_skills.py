@@ -17,6 +17,15 @@ from typing import Iterable
 _SYNTH_PACKAGE = "synth_ai"
 
 
+def _find_repo_root() -> Path | None:
+    """Find the repository root by looking for pyproject.toml."""
+    current = Path(__file__).resolve().parent
+    for parent in [current, *current.parents]:
+        if (parent / "pyproject.toml").exists() and (parent / "synth_ai").is_dir():
+            return parent
+    return None
+
+
 def _xdg_config_home() -> Path:
     xdg = (os.environ.get("XDG_CONFIG_HOME") or "").strip()
     return Path(xdg).expanduser() if xdg else (Path.home() / ".config")
@@ -39,6 +48,20 @@ def default_opencode_global_skills_dir() -> Path:
 
 
 def _packaged_opencode_skill_root():
+    """Find the packaged OpenCode skills root.
+
+    Checks two locations:
+    1. Top-level skills/opencode/skill/ (development/repo structure)
+    2. synth_ai/skills/opencode/skill/ (packaged wheel structure)
+    """
+    # Try top-level repo structure first (development mode)
+    repo_root = _find_repo_root()
+    if repo_root:
+        top_level = repo_root / "skills" / "opencode" / "skill"
+        if top_level.is_dir():
+            return top_level
+
+    # Fall back to packaged structure
     return files(_SYNTH_PACKAGE).joinpath("skills", "opencode", "skill")
 
 
@@ -111,7 +134,7 @@ def install_all_packaged_opencode_skills(
 
 
 def _copy_resource_tree(*, src, dest: Path) -> None:
-    # `src` is an importlib.resources Traversable. We avoid importing the protocol for 3.11 simplicity.
+    """Copy from an importlib.resources Traversable to a filesystem Path."""
     if src.is_dir():
         dest.mkdir(parents=True, exist_ok=True)
         for child in src.iterdir():
@@ -120,6 +143,38 @@ def _copy_resource_tree(*, src, dest: Path) -> None:
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(src.read_bytes())
+
+
+def _copy_path_tree(*, src: Path, dest: Path) -> None:
+    """Copy from a filesystem Path to another filesystem Path."""
+    import shutil
+
+    if src.is_dir():
+        dest.mkdir(parents=True, exist_ok=True)
+        for child in src.iterdir():
+            _copy_path_tree(src=child, dest=dest / child.name)
+        return
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+
+
+def _find_tui_opencode_config():
+    """Find the TUI OpenCode config directory.
+
+    Checks two locations:
+    1. Top-level tui/opencode_config/ (development/repo structure)
+    2. synth_ai/tui/opencode_config/ (packaged wheel structure)
+    """
+    # Try top-level repo structure first (development mode)
+    repo_root = _find_repo_root()
+    if repo_root:
+        top_level = repo_root / "tui" / "opencode_config"
+        if top_level.is_dir():
+            return top_level
+
+    # Fall back to packaged structure
+    return files(_SYNTH_PACKAGE).joinpath("tui", "opencode_config")
 
 
 def materialize_tui_opencode_config_dir(
@@ -134,8 +189,8 @@ def materialize_tui_opencode_config_dir(
     often needs to be a normal filesystem directory that we can extend (e.g., include skills).
 
     This function copies:
-    - Synth TUI's bundled OpenCode config: synth_ai/tui/opencode_config/**
-    - Selected packaged skills from synth_ai/skills/opencode/skill/** (default: all)
+    - Synth TUI's bundled OpenCode config: tui/opencode_config/** or synth_ai/tui/opencode_config/**
+    - Selected packaged skills from skills/opencode/skill/** or synth_ai/skills/opencode/skill/**
     """
 
     if dest_dir is None:
@@ -149,13 +204,28 @@ def materialize_tui_opencode_config_dir(
         pass
 
     # 1) Copy base TUI OpenCode config
-    base_src = files(_SYNTH_PACKAGE).joinpath("tui", "opencode_config")
-    if base_src.is_dir():
+    base_src = _find_tui_opencode_config()
+    if isinstance(base_src, Path):
+        # It's a filesystem Path (development mode)
+        _copy_path_tree(src=base_src, dest=dest_dir)
+    elif base_src.is_dir():
+        # It's an importlib Traversable (packaged mode)
         _copy_resource_tree(src=base_src, dest=dest_dir)
 
     # 2) Copy packaged skills into <dest>/skill/<name>/SKILL.md (additive)
     skill_root = _packaged_opencode_skill_root()
-    if skill_root.is_dir():
+    if isinstance(skill_root, Path) and skill_root.is_dir():
+        # Filesystem Path (development mode)
+        names = list_packaged_opencode_skill_names()
+        if include_packaged_skills is not None:
+            allow = set(include_packaged_skills)
+            names = [n for n in names if n in allow]
+        for name in names:
+            src = skill_root / name
+            if src.is_dir():
+                _copy_path_tree(src=src, dest=dest_dir / "skill" / name)
+    elif hasattr(skill_root, "is_dir") and skill_root.is_dir():
+        # Traversable (packaged mode)
         names = list_packaged_opencode_skill_names()
         if include_packaged_skills is not None:
             allow = set(include_packaged_skills)

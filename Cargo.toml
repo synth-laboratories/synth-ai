@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "synth_ai_core_types",
+    "synth_ai_core",
+    "synth_ai_py",
+    "synth_ai_rs",
+]
+resolver = "2"

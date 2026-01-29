@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import click
 
-from synth_ai.core.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.urls import BACKEND_URL_BASE
 
 DEFAULT_TIMEOUT = 30.0
 

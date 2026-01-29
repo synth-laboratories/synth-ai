@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 # Import directly from sdk.task to avoid circular import with localapi.__init__
-from synth_ai.sdk.task import LocalAPIConfig
-from synth_ai.sdk.task import create_task_app as create_local_api
+from synth_ai.sdk.localapi._impl import LocalAPIConfig
+from synth_ai.sdk.localapi._impl import create_task_app as create_local_api
 
 
 def build_template_config(
@@ -23,7 +23,11 @@ def build_template_config(
 
     This is a placeholder - real task apps should build their own config.
     """
-    from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse
+    from synth_ai.sdk.localapi._impl.contracts import (
+        RolloutMetrics,
+        RolloutRequest,
+        RolloutResponse,
+    )
 
     async def stub_rollout(request: RolloutRequest, http_request: Any) -> RolloutResponse:
         """Stub rollout that returns empty metrics."""

@@ -1,56 +1,130 @@
-name: Publish dev to TestPyPI
+name: Auto-publish to PyPI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  build-and-publish-dev:
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  check-version:
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      needs_publish: ${{ steps.check.outputs.needs_publish }}
+      version: ${{ steps.local.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - uses: astral-sh/setup-uv@v4
 
-      - name: Get version (must be .dev)
-        id: v
+      - name: Get local version
+        id: local
         run: |
-          python - <<'PY'
-          import tomllib, pathlib, os
-          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
-          v = data['project']['version']
-          print(f"version={v}")
-          if '.dev' not in v:
-              raise SystemExit('Not a dev version; skipping dev publish.')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"version={v}\n")
-          PY
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Local version: $VERSION"
 
-      - name: Build distributions
+      - name: Get PyPI version
+        id: pypi
         run: |
-          uvx --from build pyproject-build
+          PYPI_VERSION=$(curl -s https://pypi.org/pypi/synth-ai/json | python -c "import sys, json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "0.0.0")
+          echo "version=$PYPI_VERSION" >> $GITHUB_OUTPUT
+          echo "PyPI version: $PYPI_VERSION"
 
-      - name: Twine check
+      - name: Check if publish needed
+        id: check
         run: |
-          uvx --from twine twine check dist/*
+          LOCAL="${{ steps.local.outputs.version }}"
+          PYPI="${{ steps.pypi.outputs.version }}"
+          if [ "$LOCAL" != "$PYPI" ]; then
+            echo "needs_publish=true" >> $GITHUB_OUTPUT
+            echo "Version mismatch: local=$LOCAL, pypi=$PYPI - will publish"
+          else
+            echo "needs_publish=false" >> $GITHUB_OUTPUT
+            echo "Versions match: $LOCAL - skipping publish"
+          fi
 
-      - name: Publish to TestPyPI (trusted)
-        uses: pypa/gh-action-pypi-publish@release/v1
+  build-linux:
+    needs: check-version
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
         with:
-          repository-url: https://test.pypi.org/legacy/
+          manylinux: auto
+          command: build
+          args: --release -o dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux
+          path: dist/*.whl
 
-      - name: Create/Update GitHub prerelease
+  build-macos:
+    needs: check-version
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release -o dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos
+          path: dist/*.whl
+
+  build-sdist:
+    needs: check-version
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: -o dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  publish:
+    needs: [check-version, build-linux, build-macos, build-sdist]
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    environment:
+      name: pypi
+      url: https://pypi.org/project/synth-ai/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  create-release:
+    needs: [check-version, publish]
+    if: needs.check-version.outputs.needs_publish == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release (for dev versions)
+        if: contains(needs.check-version.outputs.version, '.dev')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.v.outputs.version }}
-          name: synth-ai ${{ steps.v.outputs.version }}
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: synth-ai ${{ needs.check-version.outputs.version }}
           prerelease: true
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
@@ -58,3 +132,15 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
 
+      - name: Create GitHub release (for stable versions)
+        if: ${{ !contains(needs.check-version.outputs.version, '.dev') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: synth-ai ${{ needs.check-version.outputs.version }}
+          prerelease: false
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz

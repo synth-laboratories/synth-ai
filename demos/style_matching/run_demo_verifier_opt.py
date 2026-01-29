@@ -2,6 +2,7 @@
 """Run the style-matching verifier optimization (Graph Evolve) only.
 
 Usage:
+    uv run python demos/style_matching/run_demo_verifier_opt.py --local
     uv run python demos/style_matching/run_demo_verifier_opt.py
 """
 
@@ -14,22 +15,23 @@ from pathlib import Path
 from typing import Any, Dict
 
 import httpx
-from synth_ai.core.urls import (
-    BACKEND_URL_BASE,
-    backend_health_url,
-    backend_me_url,
-    join_url,
+from synth_ai.sdk.api.train.graph_optimization import (
+    GraphOptimizationClient,
+    GraphOptimizationConfig,
 )
-from synth_ai.products.graph_evolve import GraphOptimizationClient, GraphOptimizationConfig
-from synth_ai.products.graph_evolve.config import (
+from synth_ai.sdk.api.train.graph_optimization_config import (
     EvolutionConfig,
     LimitsConfig,
     ProposerConfig,
     SeedsConfig,
 )
-from synth_ai.sdk.auth import get_or_mint_synth_api_key
 
 parser = argparse.ArgumentParser(description="Run style-matching verifier optimization")
+parser.add_argument(
+    "--local",
+    action="store_true",
+    help="Run in local mode: use localhost:8000 backend",
+)
 parser.add_argument(
     "--out",
     type=str,
@@ -38,7 +40,26 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-SYNTH_API_BASE = BACKEND_URL_BASE
+synth_root = Path(__file__).resolve().parents[2]
+
+
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line or line.lstrip().startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("' ")
+        if key:
+            os.environ[key] = value
+
+
+_load_env_file(synth_root / ".env")
+
+USE_LOCAL_BACKEND = args.local
+SYNTH_API_BASE = "http://127.0.0.1:8000" if USE_LOCAL_BACKEND else "https://api.usesynth.ai"
 os.environ["BACKEND_BASE_URL"] = SYNTH_API_BASE
 
 
@@ -47,7 +68,7 @@ def _validate_api_key(api_key: str) -> bool:
         return False
     headers = {"Authorization": f"Bearer {api_key}"}
     try:
-        resp = httpx.get(backend_me_url(SYNTH_API_BASE), headers=headers, timeout=10)
+        resp = httpx.get(f"{SYNTH_API_BASE}/api/v1/me", headers=headers, timeout=10)
     except Exception:
         return False
     return resp.status_code == 200
@@ -55,13 +76,22 @@ def _validate_api_key(api_key: str) -> bool:
 
 print(f"Backend: {SYNTH_API_BASE}")
 
-r = httpx.get(backend_health_url(SYNTH_API_BASE), timeout=30)
+r = httpx.get(f"{SYNTH_API_BASE}/health", timeout=30)
 if r.status_code != 200:
     raise RuntimeError(f"Backend not healthy: status {r.status_code}")
 print(f"Backend health: {r.json()}")
 
-API_KEY = get_or_mint_synth_api_key(backend_url=SYNTH_API_BASE, validator=_validate_api_key)
-print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+API_KEY = os.environ.get("SYNTH_API_KEY", "").strip()
+if not API_KEY or not _validate_api_key(API_KEY):
+    print("SYNTH_API_KEY missing or invalid for this backend; minting demo key...")
+    resp = httpx.post(f"{SYNTH_API_BASE}/api/demo/keys", json={"ttl_hours": 4}, timeout=30)
+    resp.raise_for_status()
+    API_KEY = resp.json()["api_key"]
+    print(f"Demo API Key: {API_KEY[:25]}...")
+else:
+    print(f"Using SYNTH_API_KEY: {API_KEY[:20]}...")
+
+os.environ["SYNTH_API_KEY"] = API_KEY
 
 VERIFIER_MODEL = "gpt-4.1-nano"
 
@@ -325,7 +355,7 @@ verifier_config = GraphOptimizationConfig(
 
 def _get_org_id() -> str:
     headers = {"Authorization": f"Bearer {API_KEY}"}
-    urls = [backend_me_url(SYNTH_API_BASE), join_url(SYNTH_API_BASE, "/me")]
+    urls = [f"{SYNTH_API_BASE}/api/v1/me", f"{SYNTH_API_BASE}/me"]
     for url in urls:
         resp = httpx.get(url, headers=headers, timeout=30)
         if resp.status_code == 404:
@@ -348,8 +378,7 @@ async def run_verifier_optimization() -> tuple[str, Dict[str, Any]]:
         for _ in range(900):
             try:
                 status_resp = await http.get(
-                    join_url(SYNTH_API_BASE, f"/graph-evolve/jobs/{job_id}/status"),
-                    headers=headers,
+                    f"{SYNTH_API_BASE}/graph-evolve/jobs/{job_id}/status", headers=headers
                 )
                 if status_resp.status_code == 404:
                     await asyncio.sleep(2.0)
@@ -358,8 +387,7 @@ async def run_verifier_optimization() -> tuple[str, Dict[str, Any]]:
                 status = status_resp.json().get("status")
                 if status in {"completed", "failed", "cancelled"}:
                     result_resp = await http.get(
-                        join_url(SYNTH_API_BASE, f"/graph-evolve/jobs/{job_id}/result"),
-                        headers=headers,
+                        f"{SYNTH_API_BASE}/graph-evolve/jobs/{job_id}/result", headers=headers
                     )
                     result_resp.raise_for_status()
                     return job_id, result_resp.json()
@@ -380,7 +408,7 @@ async def save_verifier_graph(job_id: str, org_id: str) -> str:
     }
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
-            join_url(SYNTH_API_BASE, f"/graph-evolve/jobs/{job_id}/save-graph"),
+            f"{SYNTH_API_BASE}/graph-evolve/jobs/{job_id}/save-graph",
             headers=headers,
             json=payload,
         )
@@ -406,7 +434,7 @@ async def main() -> None:
     graph_id = await save_verifier_graph(job_id, org_id)
     best_score = result.get("best_score")
 
-    artifacts_dir = Path(__file__).parent / "artifacts"
+    artifacts_dir = synth_root / "demos" / "style_matching" / "artifacts"
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     output_path = Path(args.out) if args.out else artifacts_dir / "verifier_opt.json"
 

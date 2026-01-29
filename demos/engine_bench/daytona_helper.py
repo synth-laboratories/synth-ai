@@ -17,6 +17,45 @@ from typing import Any, Optional
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 
+# =============================================================================
+# CONTEXT OVERRIDE HELPERS (Daytona)
+# =============================================================================
+
+
+def _normalize_override(override: Any) -> dict[str, Any]:
+    if isinstance(override, dict):
+        return override
+    if hasattr(override, "model_dump"):
+        return override.model_dump()
+    if hasattr(override, "dict"):
+        return override.dict()
+    return {}
+
+
+def _is_safe_relative_path(path: str) -> bool:
+    trimmed = path.strip()
+    if not trimmed:
+        return False
+    if trimmed.startswith(("/", "~")):
+        return False
+    if ".." in trimmed:
+        return False
+    return True
+
+
+def _shell_escape(value: str) -> str:
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
+def _format_env_vars(env_vars: Optional[dict[str, str]]) -> str:
+    if not env_vars:
+        return ""
+    parts = []
+    for key, value in env_vars.items():
+        parts.append(f"{key}={_shell_escape(str(value))}")
+    return " ".join(parts)
+
+
 def normalize_interceptor_base(inference_url: str) -> tuple[str, str | None]:
     """Normalize interceptor base URL for path-based routing.
 
@@ -573,6 +612,8 @@ class DaytonaRolloutRunner:
         agent_type: str = "codex",  # "codex" or "opencode"
         agents_md: Optional[str] = None,  # Optional: GEPA-optimized AGENTS.md
         codex_skills: Optional[str] = None,  # Optional: GEPA-optimized .codex/skills.yaml
+        context_overrides: Optional[list[Any]] = None,  # Optional: unified overrides
+        override_bundle_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """Run a complete rollout in a dedicated sandbox.
 
@@ -607,10 +648,21 @@ class DaytonaRolloutRunner:
             print(f"[DaytonaRollout:{instance_id}] Setting up instance...")
             await self._setup_instance(instance_id, instance_data)
 
-            # 3. Write prompt to file
+            # 3. Apply context overrides (files/env/preflight)
+            agents_md_override, codex_skills_override, extra_env_vars, override_results = (
+                await self._apply_context_overrides(context_overrides, override_bundle_id)
+            )
+
+            # Prefer overrides when provided
+            if agents_md_override:
+                agents_md = agents_md_override
+            if codex_skills_override:
+                codex_skills = codex_skills_override
+
+            # 4. Write prompt to file
             await self._write_file("/app/prompt.txt", prompt)
 
-            # 4. Run agent (codex or opencode)
+            # 5. Run agent (codex or opencode)
             print(
                 f"[DaytonaRollout:{instance_id}] Running {agent_type} agent (model={model}, timeout={timeout}s)..."
             )
@@ -621,6 +673,7 @@ class DaytonaRolloutRunner:
                     openai_api_key=openai_api_key,
                     inference_url=inference_url,
                     agents_md=agents_md,
+                    extra_env_vars=extra_env_vars,
                 )
             else:
                 agent_result = await self._run_codex_agent(
@@ -630,6 +683,7 @@ class DaytonaRolloutRunner:
                     inference_url=inference_url,
                     agents_md=agents_md,
                     codex_skills=codex_skills,
+                    extra_env_vars=extra_env_vars,
                 )
 
             if not agent_result.get("success"):
@@ -641,11 +695,11 @@ class DaytonaRolloutRunner:
                     "error": f"Agent failed: {agent_result.get('stderr', '')[:500]}",
                 }
 
-            # 5. Inject eval tests
+            # 6. Inject eval tests
             print(f"[DaytonaRollout:{instance_id}] Injecting eval tests...")
             await self._inject_eval_tests(instance_id)
 
-            # 6. Run cargo test
+            # 7. Run cargo test
             print(f"[DaytonaRollout:{instance_id}] Running cargo test...")
             test_result = await self._run_cargo_test(instance_id)
 
@@ -654,6 +708,8 @@ class DaytonaRolloutRunner:
                 f"[DaytonaRollout:{instance_id}] Complete in {total_time:.1f}s: {test_result['passed']}/{test_result['total']} tests"
             )
 
+            if override_results:
+                test_result["override_application_results"] = override_results
             return test_result
 
         except Exception as e:
@@ -758,6 +814,141 @@ class DaytonaRolloutRunner:
                 echo "pub mod {card_module};" >> /app/tcg_expansions/src/{expansion}/cards/mod.rs 2>/dev/null || true
             """)
 
+    async def _apply_context_overrides(
+        self,
+        overrides: Optional[list[Any]],
+        override_bundle_id: Optional[str] = None,
+    ) -> tuple[Optional[str], Optional[str], dict[str, str], list[dict[str, Any]] | None]:
+        """Apply unified context overrides inside the sandbox.
+
+        Returns: (agents_md_override, codex_skills_override, extra_env_vars, override_results)
+        """
+        if not overrides:
+            return None, None, {}, None
+
+        file_artifacts: dict[str, str] = {}
+        env_vars: dict[str, str] = {}
+        preflight_scripts: list[str] = []
+
+        for override in overrides:
+            data = _normalize_override(override)
+            file_artifacts.update(data.get("file_artifacts") or {})
+            env_vars.update(data.get("env_vars") or {})
+            script = data.get("preflight_script")
+            if isinstance(script, str) and script.strip():
+                preflight_scripts.append(script)
+
+        agents_md_override = file_artifacts.get("AGENTS.md")
+        codex_skills_override = file_artifacts.get(".codex/skills.yaml")
+
+        file_status: dict[str, dict[str, Any]] = {}
+        errors: list[dict[str, Any]] = []
+
+        # Write file artifacts into workspace
+        for rel_path, content in file_artifacts.items():
+            if not _is_safe_relative_path(rel_path):
+                file_status[rel_path] = {"status": "failed", "error": "unsafe_path"}
+                errors.append(
+                    {
+                        "error_type": "path_traversal",
+                        "message": f"Unsafe override path: {rel_path}",
+                        "target": rel_path,
+                    }
+                )
+                print(f"[DaytonaRollout] Skipping unsafe override path: {rel_path}")
+                continue
+            target_path = f"/app/tcg_expansions/{rel_path}"
+            parent = str(Path(target_path).parent)
+            await self._exec(f"mkdir -p {parent}", timeout=10)
+            try:
+                await self._write_file(target_path, content)
+                file_status[rel_path] = {
+                    "status": "applied",
+                    "bytes_written": len(content.encode("utf-8")),
+                }
+            except Exception as exc:
+                file_status[rel_path] = {"status": "failed", "error": str(exc)}
+                errors.append(
+                    {
+                        "error_type": "permission",
+                        "message": str(exc),
+                        "target": rel_path,
+                    }
+                )
+
+        # Validate env vars (basic)
+        valid_env_vars: dict[str, str] = {}
+        env_status: dict[str, dict[str, Any]] = {}
+        for key, value in env_vars.items():
+            if not key or not (key[0].isalpha() or key[0] == "_") or not key.replace("_", "").isalnum():
+                env_status[key] = {"status": "failed", "error": "invalid_name"}
+                errors.append(
+                    {
+                        "error_type": "validation",
+                        "message": f"Invalid env var name: {key}",
+                        "target": key,
+                    }
+                )
+                continue
+            valid_env_vars[key] = value
+            env_status[key] = {"status": "applied"}
+
+        # Run preflight scripts (best-effort)
+        preflight_result: dict[str, Any] | None = None
+        if preflight_scripts:
+            preflight_result = {"status": "applied"}
+        env_prefix = _format_env_vars(valid_env_vars)
+        for idx, script in enumerate(preflight_scripts):
+            if not script.lstrip().startswith("#!"):
+                preflight_result = {"status": "failed", "error": "missing_shebang"}
+                errors.append(
+                    {
+                        "error_type": "validation",
+                        "message": "Preflight script missing shebang",
+                        "target": f"preflight_{idx}",
+                    }
+                )
+                print("[DaytonaRollout] Skipping preflight (missing shebang)")
+                continue
+            script_path = f"/app/preflight_override_{idx}.sh"
+            await self._write_file(script_path, script)
+            await self._exec(f"chmod +x {script_path}", timeout=10)
+            cmd = f"{env_prefix} bash {script_path}".strip()
+            result = await self._exec(cmd, timeout=60)
+            if not result.get("success"):
+                preflight_result = {
+                    "status": "failed",
+                    "exit_code": result.get("exit_code"),
+                    "stderr": result.get("output"),
+                }
+                errors.append(
+                    {
+                        "error_type": "runtime",
+                        "message": "Preflight failed",
+                        "target": f"preflight_{idx}",
+                    }
+                )
+                print(f"[DaytonaRollout] Preflight failed: {result.get('output')}")
+
+        overall_status = "applied"
+        if errors and (file_status or env_status or preflight_result):
+            overall_status = "partial"
+        if errors and not (file_status or env_status or preflight_result):
+            overall_status = "failed"
+
+        override_results = [
+            {
+                "override_id": override_bundle_id or "override_bundle",
+                "overall_status": overall_status,
+                "errors": errors,
+                "file_artifacts": file_status,
+                "preflight_script": preflight_result,
+                "env_vars": env_status,
+            }
+        ]
+
+        return agents_md_override, codex_skills_override, valid_env_vars, override_results
+
     async def _run_codex_agent(
         self,
         *,
@@ -767,6 +958,7 @@ class DaytonaRolloutRunner:
         inference_url: Optional[str] = None,
         agents_md: Optional[str] = None,
         codex_skills: Optional[str] = None,
+        extra_env_vars: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         """Run codex agent in sandbox.
         
@@ -832,6 +1024,9 @@ enabled = false
 
         # Build env vars - OPENAI_BASE_URL is critical for codex to use interceptor
         env_vars = f'OPENAI_API_KEY="{openai_api_key}" OPENAI_MODEL="{model}"'
+        extra_env = _format_env_vars(extra_env_vars)
+        if extra_env:
+            env_vars = f"{env_vars} {extra_env}"
         if inference_url:
             env_vars += f' OPENAI_BASE_URL="{base_url}"'
             print(f"[DaytonaRollout] Setting OPENAI_BASE_URL={base_url}")
@@ -864,6 +1059,7 @@ codex exec --yolo --skip-git-repo-check -m {model} "$(cat /app/prompt.txt)"
         openai_api_key: str,
         inference_url: Optional[str] = None,
         agents_md: Optional[str] = None,
+        extra_env_vars: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         """Run opencode agent in sandbox.
         
@@ -931,9 +1127,13 @@ codex exec --yolo --skip-git-repo-check -m {model} "$(cat /app/prompt.txt)"
 
         # Run opencode using 'run' subcommand for non-interactive mode
         # Pass OPENAI_API_KEY in env (like local version does)
+        extra_env = _format_env_vars(extra_env_vars)
+        env_prefix = f'OPENAI_API_KEY="{openai_api_key}"'
+        if extra_env:
+            env_prefix = f"{env_prefix} {extra_env}"
         cmd = f'''
 cd /app/tcg_expansions && \
-OPENAI_API_KEY="{openai_api_key}" \
+{env_prefix} \
 /root/.opencode/bin/opencode run --format json --model {model_with_provider} "$(cat /app/prompt.txt)"
 '''
         result = await self._exec(cmd, timeout=timeout)
@@ -1041,6 +1241,8 @@ async def run_rollout_in_daytona(
     agent_type: str = "codex",  # "codex" or "opencode"
     agents_md: Optional[str] = None,  # Optional: GEPA-optimized AGENTS.md content
     codex_skills: Optional[str] = None,  # Optional: GEPA-optimized .codex/skills.yaml content
+    context_overrides: Optional[list[Any]] = None,  # Optional: unified overrides
+    override_bundle_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Convenience function to run a rollout in a Daytona sandbox.
 
@@ -1084,6 +1286,8 @@ async def run_rollout_in_daytona(
             inference_url=inference_url,
             agents_md=agents_md,
             codex_skills=codex_skills,
+            context_overrides=context_overrides,
+            override_bundle_id=override_bundle_id,
         )
         print(f"[DaytonaRollout] Rollout complete: success={result.get('success')} passed={result.get('passed')}/{result.get('total')}", flush=True)
         return result
