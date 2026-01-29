@@ -14,6 +14,11 @@ from synth_ai.sdk.optimization.internal.progress import (  # noqa: F401
     save_summary_json,
     save_summary_txt,
 )
+from synth_ai.sdk.optimization.progress.handlers import (  # noqa: F401
+    EvalStreamProgressHandler,
+    GEPAStreamProgressHandler,
+)
+from synth_ai.sdk.optimization.progress.time import ProgressClock, ProgressPrinter  # noqa: F401
 
 __all__ = [
     "DisplayMode",
@@ -26,4 +31,8 @@ __all__ = [
     "save_seed_analysis",
     "save_summary_json",
     "save_summary_txt",
+    "EvalStreamProgressHandler",
+    "GEPAStreamProgressHandler",
+    "ProgressClock",
+    "ProgressPrinter",
 ]
