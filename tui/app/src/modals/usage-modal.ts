@@ -12,7 +12,7 @@ import { appState, getFrontendUrl } from "../state/app-state"
 import { getAbortSignal } from "../lifecycle/shutdown"
 
 export interface UsageData {
-  plan_type: "free" | "pro" | "team" | "byok"
+  plan_type: "free" | "pro" | "team"
   status: "active" | "cancelled" | "past_due" | "trialing" | "inactive"
   access_tier?: string | null
   rollout_credits_balance_usd?: number | null
@@ -44,7 +44,6 @@ function formatPlanName(planType: string): string {
   switch (planType) {
     case "pro": return "Pro"
     case "team": return "Team"
-    case "byok": return "BYOK"
     case "free":
     default: return "Free"
   }
