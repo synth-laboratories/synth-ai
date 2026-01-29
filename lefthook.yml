@@ -57,6 +57,16 @@ pre-commit:
       run: uv run nbstripout {files}
       stage_fixed: true
 
+    # Demos: Auto-generate .ipynb from .py files with cell markers
+    demos-notebook-gen:
+      tags:
+        - jupyter
+        - generate
+      glob:
+        - "demos/**/*.py"
+      run: uv run python scripts/py_to_ipynb.py --force {files}
+      stage_fixed: true
+
     # TUI: TypeScript typecheck
     tui-typecheck:
       tags:
