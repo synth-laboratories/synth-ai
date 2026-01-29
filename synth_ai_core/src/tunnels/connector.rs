@@ -154,11 +154,15 @@ impl TunnelConnector {
     }
 
     pub async fn stop(&mut self) -> Result<(), TunnelError> {
-        let mut proc_opt = self.prepare_stop();
-        if let Some(proc) = &mut proc_opt {
+        self.cancel_idle_timer();
+        if let Some(proc) = &mut self.process {
             let _ = proc.start_kill();
             let _ = proc.wait().await;
         }
+        self.process = None;
+        self.state = ConnectorState::Stopped;
+        self.current_token = None;
+        self.active_leases.clear();
         Ok(())
     }
 
@@ -190,27 +194,33 @@ impl TunnelConnector {
         self.idle_task = Some(tokio::spawn(async move {
             tokio::time::sleep(timeout).await;
             let connector = get_connector();
-            let mut proc_opt = None;
-            {
+
+            // Take the process out while holding the lock briefly
+            // (parking_lot::MutexGuard is not Send, so we can't hold it across await)
+            let process_to_wait = {
                 let mut guard = connector.lock();
                 if guard.active_leases.is_empty() {
-                    proc_opt = guard.prepare_stop();
+                    if let Some(proc) = &mut guard.process {
+                        let _ = proc.start_kill();
+                    }
+                    guard.process.take()
+                } else {
+                    None
                 }
-            }
-            if let Some(mut proc) = proc_opt {
-                let _ = proc.start_kill();
+            };
+            // Lock is dropped here
+
+            // Wait for process outside the lock
+            if let Some(mut proc) = process_to_wait {
                 let _ = proc.wait().await;
+
+                // Re-acquire lock to update state
+                let mut guard = connector.lock();
+                guard.state = ConnectorState::Stopped;
+                guard.current_token = None;
+                guard.active_leases.clear();
             }
         }));
-    }
-
-    fn prepare_stop(&mut self) -> Option<Child> {
-        self.cancel_idle_timer();
-        let proc = self.process.take();
-        self.state = ConnectorState::Stopped;
-        self.current_token = None;
-        self.active_leases.clear();
-        proc
     }
 }
 

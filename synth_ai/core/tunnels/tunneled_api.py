@@ -227,6 +227,10 @@ class TunneledLocalAPI:
         if backend_key is None:
             raise ValueError(f"Unsupported tunnel backend: {backend}")
 
+        # Quick tunnels have unreliable DNS verification - skip it
+        if backend == TunnelBackend.CloudflareQuickTunnel:
+            verify_dns = False
+
         handle = await asyncio.to_thread(
             synth_ai_py.tunnel_open,
             backend_key,

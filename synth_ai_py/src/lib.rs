@@ -33,6 +33,7 @@ use synth_ai_core::tunnels::types::{
     TunnelHandle as RustTunnelHandle,
 };
 use synth_ai_core::tunnels::errors::TunnelError;
+use synth_ai_core::tunnels::manager as tunnel_manager;
 use synth_ai_core::urls::{
     make_local_api_url as core_make_local_api_url,
     normalize_backend_base as core_normalize_backend_base,
@@ -1262,6 +1263,16 @@ fn tunnel_open(
         }),
         Err(e) => Err(map_tunnel_err(py, e)),
     }
+}
+
+#[pyfunction]
+fn tunnel_close(lease_id: String) -> PyResult<()> {
+    let result = RUNTIME.block_on(async move {
+        let manager = tunnel_manager::get_manager(None, None);
+        let mut guard = manager.lock();
+        guard.close(&lease_id).await
+    });
+    result.map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 // =============================================================================
@@ -5783,6 +5794,7 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(verify_tunnel_dns_resolution, m)?)?;
     m.add_function(wrap_pyfunction!(wait_for_health_check, m)?)?;
     m.add_function(wrap_pyfunction!(tunnel_open, m)?)?;
+    m.add_function(wrap_pyfunction!(tunnel_close, m)?)?;
     m.add_function(wrap_pyfunction!(get_cloudflared_path, m)?)?;
     m.add_function(wrap_pyfunction!(ensure_cloudflared_installed, m)?)?;
     m.add_function(wrap_pyfunction!(require_cloudflared, m)?)?;

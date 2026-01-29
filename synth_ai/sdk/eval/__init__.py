@@ -29,5 +29,16 @@ See Also:
 """
 
 from .job import EvalJob, EvalJobConfig, EvalResult, EvalStatus
+from .utils import (
+    mean_reward_or_zero,
+    run_eval_slices,
+)
 
-__all__ = ["EvalJob", "EvalJobConfig", "EvalResult", "EvalStatus"]
+__all__ = [
+    "EvalJob",
+    "EvalJobConfig",
+    "EvalResult",
+    "EvalStatus",
+    "mean_reward_or_zero",
+    "run_eval_slices",
+]

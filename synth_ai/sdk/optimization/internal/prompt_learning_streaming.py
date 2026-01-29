@@ -21,6 +21,7 @@ def build_prompt_learning_streamer(
     handlers: Sequence[Any] | None,
     interval: float,
     timeout: float,
+    debug: bool = False,
 ) -> JobStreamer:
     config = StreamConfig(
         enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
@@ -40,6 +41,7 @@ def build_prompt_learning_streamer(
         handlers=list(handlers),
         interval_seconds=interval,
         timeout_seconds=timeout,
+        debug=debug,
     )
 
 

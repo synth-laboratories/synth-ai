@@ -83,7 +83,21 @@ async def wait_for_health_check(
     api_key: str | None = None,
     timeout: float = 30.0,
 ) -> None:
-    await asyncio.to_thread(synth_ai_py.wait_for_health_check, host, port, api_key, timeout)
+    # Use pure Python async to avoid GIL contention with uvicorn thread
+    import httpx
+
+    url = f"http://{host}:{port}/health"
+    deadline = asyncio.get_event_loop().time() + timeout
+    async with httpx.AsyncClient() as client:
+        while asyncio.get_event_loop().time() < deadline:
+            try:
+                resp = await client.get(url, timeout=2.0)
+                if resp.status_code == 200:
+                    return
+            except (httpx.RequestError, httpx.TimeoutException):
+                pass
+            await asyncio.sleep(0.5)
+    raise RuntimeError(f"health check failed: {url} not ready after {timeout}s")
 
 
 def is_port_available(port: int, host: str = "0.0.0.0") -> bool:

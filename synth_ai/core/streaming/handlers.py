@@ -82,6 +82,10 @@ class StreamHandler(ABC):
         """Predicate allowing handlers to filter messages before processing."""
         return True
 
+    def wants_event_backfill(self) -> bool:  # pragma: no cover - optional
+        """Whether the streamer should backfill events via polling."""
+        return False
+
     def flush(self) -> None:  # pragma: no cover - optional
         """Flush buffered output."""
         return None

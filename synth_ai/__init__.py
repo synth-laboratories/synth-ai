@@ -83,6 +83,7 @@ if TYPE_CHECKING:
         create_task_app,
     )
     from synth_ai.sdk.optimization import GraphOptimizationJob, PolicyOptimizationJob
+    from synth_ai.sdk.utils import confidence_band, split_seed_slices, stratified_seed_sample
 
     # Legacy aliases
     PromptLearningJob = PolicyOptimizationJob
@@ -118,6 +119,10 @@ __all__ = [
     "VerifierTracePayload",
     "ReviewPayload",
     "CriterionScorePayload",
+    # Utils
+    "confidence_band",
+    "split_seed_slices",
+    "stratified_seed_sample",
 ]
 
 # Lazy loading map: name -> (module, attribute)
@@ -149,6 +154,10 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "VerifierTracePayload": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierTracePayload"),
     "ReviewPayload": ("synth_ai.sdk.graphs.verifier_schemas", "ReviewPayload"),
     "CriterionScorePayload": ("synth_ai.sdk.graphs.verifier_schemas", "CriterionScorePayload"),
+    # Utils
+    "confidence_band": ("synth_ai.sdk.utils", "confidence_band"),
+    "split_seed_slices": ("synth_ai.sdk.utils", "split_seed_slices"),
+    "stratified_seed_sample": ("synth_ai.sdk.utils", "stratified_seed_sample"),
 }
 
 

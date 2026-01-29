@@ -19,6 +19,20 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for optimization.validators.") from exc
 
 
+def _sanitize_for_rust(obj: Any) -> Any:
+    """Convert numpy types to native Python types for Rust serialization."""
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_rust(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_rust(v) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(_sanitize_for_rust(v) for v in obj)
+    # Handle numpy integer types
+    if hasattr(obj, "item") and hasattr(obj, "dtype"):
+        return obj.item()
+    return obj
+
+
 class ConfigValidationError(Exception):
     """Raised when a training config is invalid."""
 
@@ -43,7 +57,8 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     except Exception:
         pass
 
-    errors = synth_ai_py.validate_prompt_learning_config_strict(config_data)
+    sanitized = _sanitize_for_rust(config_data)
+    errors = synth_ai_py.validate_prompt_learning_config_strict(sanitized)
     if errors:
         _raise_validation_errors(list(errors), config_path)
 
