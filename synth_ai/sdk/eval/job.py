@@ -131,6 +131,7 @@ class EvalResult:
         mean_reward = summary.get("mean_reward") or data.get("mean_reward")
         if mean_reward is None and isinstance(results_info, dict):
             mean_reward = results_info.get("mean_reward")
+
         total_tokens = summary.get("total_tokens") or data.get("total_tokens")
         total_cost_usd = summary.get("total_cost_usd") or data.get("total_cost_usd")
 
@@ -550,6 +551,7 @@ class EvalJob:
         progress: bool = False,
         progress_label: Optional[str] = None,
         on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
+        debug: bool = False,
     ) -> EvalResult:
         """Poll job until it reaches a terminal state, then return results.
 
@@ -561,6 +563,7 @@ class EvalJob:
             interval: Seconds between poll attempts (default: 1)
             progress: If True, print status updates during polling (useful for notebooks)
             on_status: Optional callback called on each status update (for custom progress handling)
+            debug: If True, print verbose debug information
 
         Returns:
             EvalResult with typed status, mean_reward, seed_results, etc.
@@ -660,6 +663,8 @@ class EvalJob:
 
                 # Check terminal state
                 if status.is_terminal:
+                    if debug:
+                        print(f"[DEBUG] terminal status={status.value}", flush=True)
                     # Fetch full results if completed
                     if status == EvalStatus.COMPLETED:
                         final_results = None
@@ -669,9 +674,13 @@ class EvalJob:
                         while True:
                             try:
                                 final_results = self.get_results()
+                                if debug:
+                                    print(f"[DEBUG] get_results returned: results type={type(final_results.get('results', 'MISSING'))}, len={len(final_results.get('results', [])) if isinstance(final_results.get('results'), list) else 'not-a-list'}", flush=True)
                                 break
                             except Exception as exc:
                                 last_error = exc
+                                if debug:
+                                    print(f"[DEBUG] get_results exception: {exc}", flush=True)
                                 if time.time() >= result_deadline:
                                     break
                                 time.sleep(1.0)
@@ -686,13 +695,13 @@ class EvalJob:
                                 try:
                                     fresh_status = self.get_status()
                                     status_results = fresh_status.get("results", {})
-                                    if progress:
-                                        print(f"[DEBUG] get_results empty, fresh_status.results={status_results}")
+                                    if debug:
+                                        print(f"[DEBUG] get_results empty, fresh_status.results type={type(status_results).__name__}, keys={list(status_results.keys()) if isinstance(status_results, dict) else 'N/A'}, mean_reward={status_results.get('mean_reward') if isinstance(status_results, dict) else 'N/A'}", flush=True)
                                     if isinstance(status_results, dict) and status_results.get("mean_reward") is not None:
                                         final_results = fresh_status
                                 except Exception as e:
-                                    if progress:
-                                        print(f"[DEBUG] fresh_status fetch failed: {e}")
+                                    if debug:
+                                        print(f"[DEBUG] fresh_status fetch failed: {e}", flush=True)
 
                             if printer is not None:
                                 mean_reward = (
@@ -721,7 +730,10 @@ class EvalJob:
                                     status="completed",
                                     mean_reward=mean_reward,
                                 )
-                            return EvalResult.from_response(job_id, final_results)
+                            eval_result = EvalResult.from_response(job_id, final_results)
+                            if debug:
+                                print(f"[DEBUG] Returning EvalResult: mean_reward={eval_result.mean_reward}, status={eval_result.status.value}", flush=True)
+                            return eval_result
 
                         # Fallback: use status payload if results endpoint isn't ready.
                         if printer is not None:
@@ -868,6 +880,7 @@ class EvalJob:
         timeout: float = 1200.0,
         on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
         progress: bool = True,
+        debug: bool = False,
     ) -> EvalResult:
         """Stream job events via SSE until completion (async version).
 
@@ -910,7 +923,7 @@ class EvalJob:
             "job.failed",
         }
 
-        if progress:
+        if debug:
             print(f"[DEBUG] SSE stream connecting to {sse_url}")
 
         try:
@@ -971,6 +984,7 @@ class EvalJob:
         timeout: float = 1200.0,
         on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
         progress: bool = True,
+        debug: bool = False,
     ) -> EvalResult:
         """Stream job events via SSE until completion (sync wrapper).
 
@@ -1002,6 +1016,7 @@ class EvalJob:
                         timeout=timeout,
                         on_event=on_event,
                         progress=progress,
+                        debug=debug,
                     ),
                 )
                 return future.result()
@@ -1011,6 +1026,7 @@ class EvalJob:
                     timeout=timeout,
                     on_event=on_event,
                     progress=progress,
+                    debug=debug,
                 )
             )
 
