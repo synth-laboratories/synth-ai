@@ -445,19 +445,9 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     async def root_head() -> Mapping[str, Any]:
         return to_jsonable({"status": "ok"})
 
-    @app.get("/health", dependencies=[Depends(auth_dependency)])
-    async def health(request: Request) -> Mapping[str, Any]:
-        # If we got here, auth_dependency already verified the key exactly matches
-        expected = normalize_environment_api_key()
-        return to_jsonable(
-            {
-                "healthy": True,
-                "auth": {
-                    "required": True,
-                    "expected_prefix": (expected[:6] + "...") if expected else "<unset>",
-                },
-            }
-        )
+    @app.get("/health")
+    async def health() -> Mapping[str, Any]:
+        return to_jsonable({"status": "ok", "healthy": True})
 
     @app.post("/done", dependencies=[Depends(auth_dependency)])
     async def done() -> Mapping[str, Any]:
