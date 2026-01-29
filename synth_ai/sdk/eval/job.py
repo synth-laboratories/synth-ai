@@ -686,10 +686,13 @@ class EvalJob:
                                 try:
                                     fresh_status = self.get_status()
                                     status_results = fresh_status.get("results", {})
+                                    if progress:
+                                        print(f"[DEBUG] get_results empty, fresh_status.results={status_results}")
                                     if isinstance(status_results, dict) and status_results.get("mean_reward") is not None:
                                         final_results = fresh_status
-                                except Exception:
-                                    pass
+                                except Exception as e:
+                                    if progress:
+                                        print(f"[DEBUG] fresh_status fetch failed: {e}")
 
                             if printer is not None:
                                 mean_reward = (
