@@ -546,8 +546,9 @@ class EvalJob:
         self,
         *,
         timeout: float = 1200.0,
-        interval: float = 15.0,
+        interval: float = 1.0,
         progress: bool = False,
+        progress_label: Optional[str] = None,
         on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> EvalResult:
         """Poll job until it reaches a terminal state, then return results.
@@ -557,7 +558,7 @@ class EvalJob:
 
         Args:
             timeout: Maximum seconds to wait (default: 1200 = 20 minutes)
-            interval: Seconds between poll attempts (default: 15)
+            interval: Seconds between poll attempts (default: 1)
             progress: If True, print status updates during polling (useful for notebooks)
             on_status: Optional callback called on each status update (for custom progress handling)
 
@@ -570,9 +571,9 @@ class EvalJob:
 
         Example:
             >>> result = job.poll_until_complete(progress=True)
-            [00:05] running | 3/10 completed
-            [00:10] running | 7/10 completed
-            [00:15] completed | mean_reward: 0.85
+                05s | [Eval] running | 3/10 completed
+                10s | [Eval] running | 7/10 completed
+                15s | [Eval] completed | mean_reward: 0.85
             >>> result.succeeded
             True
             >>> result.mean_reward
@@ -583,7 +584,25 @@ class EvalJob:
 
         job_id = self._job_id
         start_time = time.time()
+        printer = None
+        if (progress or progress_label) and on_status is None:
+            try:
+                from synth_ai.sdk.optimization.progress.handlers import EvalStatusPrinter
+
+                label = progress_label or "Eval"
+                total_seeds = len(self.config.seeds) if self.config.seeds else None
+                printer = EvalStatusPrinter(label=label, total_seeds=total_seeds)
+                on_status = printer.handle_status
+            except Exception:
+                printer = None
         last_data: Dict[str, Any] = {}
+
+        if printer is not None:
+            with contextlib.suppress(Exception):
+                printer.log_start(total=len(self.config.seeds) if self.config.seeds else None)
+
+        if interval > 0:
+            time.sleep(interval)
 
         while True:
             elapsed = time.time() - start_time
@@ -611,7 +630,7 @@ class EvalJob:
                 )
 
                 # Progress output
-                if progress:
+                if progress and printer is None:
                     mins, secs = divmod(int(elapsed), 60)
                     if status.is_terminal:
                         # Get final results for mean_reward
@@ -643,11 +662,88 @@ class EvalJob:
                 if status.is_terminal:
                     # Fetch full results if completed
                     if status == EvalStatus.COMPLETED:
-                        try:
-                            final_results = self.get_results()
+                        final_results = None
+                        last_error: Exception | None = None
+                        # Results may lag behind status; retry briefly before falling back.
+                        result_deadline = time.time() + min(10.0, max(0.0, timeout - elapsed))
+                        while True:
+                            try:
+                                final_results = self.get_results()
+                                break
+                            except Exception as exc:
+                                last_error = exc
+                                if time.time() >= result_deadline:
+                                    break
+                                time.sleep(1.0)
+
+                        if final_results is not None:
+                            # Check if get_results() returned empty data - if so, re-fetch status
+                            # to get results from job metadata (populated from events on completion)
+                            results_list = final_results.get("results", [])
+                            has_results = isinstance(results_list, list) and len(results_list) > 0
+                            if not has_results:
+                                # Re-fetch status to get updated metadata with results
+                                try:
+                                    fresh_status = self.get_status()
+                                    status_results = fresh_status.get("results", {})
+                                    if isinstance(status_results, dict) and status_results.get("mean_reward") is not None:
+                                        final_results = fresh_status
+                                except Exception:
+                                    pass
+
+                            if printer is not None:
+                                mean_reward = (
+                                    final_results.get("summary", {}).get("mean_reward")
+                                    or final_results.get("results", {}).get("mean_reward")
+                                )
+                                results_info = final_results.get("results", {})
+                                completed = 0
+                                total = len(self.config.seeds)
+                                if isinstance(results_info, dict):
+                                    completed = results_info.get("completed", completed)
+                                    total = results_info.get("total", total)
+                                    seed_results = results_info.get("seed_results")
+                                    if isinstance(seed_results, list):
+                                        completed = len(seed_results)
+                                        if results_info.get("total") is None:
+                                            total = len(seed_results)
+                                seed_results = final_results.get("seed_results")
+                                if isinstance(seed_results, list):
+                                    completed = len(seed_results)
+                                    if total is None:
+                                        total = len(seed_results)
+                                if (completed == 0) and total:
+                                    completed = total
+                                printer.log_terminal(
+                                    status="completed",
+                                    mean_reward=mean_reward,
+                                )
                             return EvalResult.from_response(job_id, final_results)
-                        except Exception:
-                            pass
+
+                        # Fallback: use status payload if results endpoint isn't ready.
+                        if printer is not None:
+                            results_info = status_data.get("results", {})
+                            mean_reward = None
+                            completed = None
+                            total = None
+                            if isinstance(results_info, dict):
+                                mean_reward = results_info.get("mean_reward")
+                                completed = results_info.get("completed")
+                                total = results_info.get("total")
+                                seed_results = results_info.get("seed_results")
+                                if isinstance(seed_results, list):
+                                    completed = len(seed_results)
+                                    if total is None:
+                                        total = len(seed_results)
+                            printer.log_terminal(
+                                status="completed",
+                                mean_reward=mean_reward,
+                            )
+                        if last_error is not None and progress:
+                            print(f"[poll] results fetch failed: {last_error}")
+                        return EvalResult.from_response(job_id, last_data)
+                    if printer is not None:
+                        printer.log_terminal(status=status.value, mean_reward=None)
                     return EvalResult.from_response(job_id, last_data)
 
             except Exception as exc:
@@ -717,7 +813,9 @@ class EvalJob:
 
         # Create streamer with eval endpoints
         # Note: base_url should NOT include /api prefix - JobStreamer adds it
-        base_url = self._base_url().replace("/api", "").rstrip("/")
+        base_url = self._base_url().rstrip("/")
+        if base_url.endswith("/api"):
+            base_url = base_url[: -len("/api")]
         streamer = JobStreamer(
             base_url=base_url,
             api_key=self.config.api_key,
