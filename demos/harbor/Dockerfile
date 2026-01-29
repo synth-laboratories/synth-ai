@@ -48,12 +48,12 @@ RUN git clone https://github.com/JoshuaPurtell/engine-bench.git /engine-bench
 
 # Pre-download Rust dependencies (speeds up first cargo check/test)
 WORKDIR /engine-bench
-RUN cargo fetch
+RUN cargo fetch 2>/dev/null || true
 RUN cargo build --release 2>/dev/null || true
 
-# Verify instance data is present
-RUN ls /engine-bench/data/instances/single/*.json | wc -l && \
-    echo "Instance data verified"
+# Verify instance data is present (non-fatal if data dir structure differs)
+RUN ls /engine-bench/data/instances/single/*.json 2>/dev/null | wc -l && \
+    echo "Instance data check complete"
 
 # Pre-create config directories
 RUN mkdir -p /root/.codex /root/.opencode /app /tmp

@@ -138,7 +138,7 @@ async def create_deployment(
 
 async def wait_for_deployment_ready(
     client: httpx.AsyncClient,
-    deployment_id: str,
+    deployment_name: str,
     timeout_s: int = 600,
     poll_interval_s: int = 10,
 ) -> dict:
@@ -146,20 +146,20 @@ async def wait_for_deployment_ready(
 
     Args:
         client: HTTP client
-        deployment_id: Deployment ID
+        deployment_name: Deployment name (routes use name, not ID)
         timeout_s: Maximum wait time
         poll_interval_s: Polling interval
 
     Returns:
         Deployment status response
     """
-    print(f"Waiting for deployment {deployment_id} to be ready...")
+    print(f"Waiting for deployment '{deployment_name}' to be ready...")
     start_time = time.time()
 
     while time.time() - start_time < timeout_s:
-        response = await client.get(f"/api/harbor/deployments/{deployment_id}/status")
+        response = await client.get(f"/api/harbor/deployments/{deployment_name}/status")
         if response.status_code != 200:
-            raise RuntimeError(f"Failed to get status: {response.status_code}")
+            raise RuntimeError(f"Failed to get status: {response.status_code} {response.text}")
 
         status = response.json()
         deployment_status = status["status"]
@@ -248,7 +248,7 @@ async def main():
                 deployments.append(deployment)
 
                 if args.wait:
-                    await wait_for_deployment_ready(client, deployment["id"])
+                    await wait_for_deployment_ready(client, deployment["name"])
 
             except Exception as e:
                 print(f"  ERROR: {e}")

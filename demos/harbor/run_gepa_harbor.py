@@ -6,7 +6,7 @@ It creates a GEPA job that uses Harbor deployments for sandbox execution.
 
 Usage:
     export SYNTH_API_KEY=sk_live_...
-    uv run python demos/harbor/run_gepa_harbor.py --deployment-id <id>
+    uv run python demos/harbor/run_gepa_harbor.py --deployment-name <name>
 """
 
 import argparse
@@ -20,7 +20,7 @@ import httpx
 
 
 async def run_gepa_with_harbor(
-    deployment_id: str,
+    deployment_name: str,
     api_key: str,
     backend_url: str = "https://api-dev.usesynth.ai",
     seeds: List[int] = None,
@@ -39,7 +39,7 @@ async def run_gepa_with_harbor(
     print("GEPA OPTIMIZATION WITH HARBOR")
     print("=" * 70)
     print(f"Backend: {backend_url}")
-    print(f"Deployment ID: {deployment_id}")
+    print(f"Deployment: {deployment_name}")
     print(f"Seeds: {seeds}")
     print(f"Generations: {num_generations}")
     print(f"Population Size: {population_size}")
@@ -50,7 +50,7 @@ async def run_gepa_with_harbor(
     # First, verify the deployment is ready
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(
-            f"{backend_url}/api/harbor/deployments/{deployment_id}/status",
+            f"{backend_url}/api/harbor/deployments/{deployment_name}/status",
             headers={"Authorization": f"Bearer {api_key}"}
         )
 
@@ -64,7 +64,7 @@ async def run_gepa_with_harbor(
             print(f"ERROR: Deployment is not ready (status: {status['status']})")
             return None
 
-        print(f"Deployment ready: {status['name']}")
+        print(f"Deployment ready: {status.get('deployment_name', deployment_name)}")
         print(f"Snapshot: {status.get('snapshot_id')}")
         print()
 
@@ -76,13 +76,13 @@ async def run_gepa_with_harbor(
         "config_body": {
             "prompt_learning": {
                 # Use deployment-specific URL so GEPA calls /deployments/{id}/rollout
-                "task_app_url": f"{backend_url}/api/harbor/deployments/{deployment_id}",
+                "task_app_url": f"{backend_url}/api/harbor/deployments/{deployment_name}",
                 "task_app_api_key": api_key,  # Use the user's API key for Harbor auth
                 "_backend_managed_task_app": True,  # Allow task_app_api_key for Harbor
                 "env_name": "engine_bench",
                 "algorithm": "gepa",
                 "harbor": {
-                    "deployment_id": deployment_id,
+                    "deployment_name": deployment_name,
                 },
                 "initial_prompt": {
                     "id": "enginebench_harbor",
@@ -188,10 +188,10 @@ Output requirements:
 async def main():
     parser = argparse.ArgumentParser(description="Run GEPA optimization with Harbor")
     parser.add_argument(
-        "--deployment-id",
+        "--deployment-name",
         type=str,
         required=True,
-        help="Harbor deployment ID to use for rollouts",
+        help="Harbor deployment name to use for rollouts",
     )
     parser.add_argument(
         "--backend-url",
@@ -240,7 +240,7 @@ async def main():
     seeds = [int(s.strip()) for s in args.seeds.split(",")]
 
     result = await run_gepa_with_harbor(
-        deployment_id=args.deployment_id,
+        deployment_name=args.deployment_name,
         api_key=api_key,
         backend_url=args.backend_url,
         seeds=seeds,
