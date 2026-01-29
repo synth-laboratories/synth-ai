@@ -609,8 +609,17 @@ class PromptLearningJob:
         interval: float = 15.0,
         handlers: Optional[Sequence[Any]] = None,
         on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+        debug: bool = False,
     ) -> PromptLearningResult:
-        """Stream job events until completion using SSE (async)."""
+        """Stream job events until completion using SSE (async).
+
+        Args:
+            timeout: Maximum time to wait for job completion.
+            interval: Polling interval when SSE is unavailable.
+            handlers: Stream handlers for processing events.
+            on_event: Callback for final status event.
+            debug: If True, print all events and terminal detection info.
+        """
         import contextlib
 
         if not self._job_id:
@@ -634,6 +643,7 @@ class PromptLearningJob:
             handlers=handlers,
             interval=interval,
             timeout=timeout,
+            debug=debug,
         )
 
         final_status = await streamer.stream_until_terminal()
@@ -642,18 +652,28 @@ class PromptLearningJob:
             with contextlib.suppress(Exception):
                 on_event(final_status)
 
+        # If handlers captured best prompt/score (e.g., GEPA), merge them in.
+        if isinstance(final_status, dict) and handlers:
+            for handler in handlers:
+                best_prompt = getattr(handler, "best_prompt", None)
+                best_score = getattr(handler, "best_score", None)
+                if best_prompt and not final_status.get("best_prompt"):
+                    final_status["best_prompt"] = best_prompt
+                if best_score is not None and not final_status.get("best_score"):
+                    final_status["best_score"] = best_score
+
         # SSE final_status may not have full results - fetch them if job succeeded
         status_str = str(final_status.get("status", "")).lower()
         if status_str in ("succeeded", "completed", "success"):
             with contextlib.suppress(Exception):
                 full_results = await self.get_results_async()
-                # Merge full results into final_status
-                final_status.update(
-                    {
-                        "best_prompt": full_results.get("best_prompt"),
-                        "best_score": full_results.get("best_score"),
-                    }
-                )
+                # Merge full results into final_status without clobbering handler-captured values.
+                best_prompt = full_results.get("best_prompt")
+                if best_prompt and not final_status.get("best_prompt"):
+                    final_status["best_prompt"] = best_prompt
+                best_score = full_results.get("best_score")
+                if best_score is not None and final_status.get("best_score") is None:
+                    final_status["best_score"] = best_score
 
         return PromptLearningResult.from_response(self._job_id, final_status)
 
@@ -664,6 +684,7 @@ class PromptLearningJob:
         interval: float = 15.0,
         handlers: Optional[Sequence[Any]] = None,
         on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+        debug: bool = False,
     ) -> PromptLearningResult:
         """Stream job events until completion using SSE.
 
@@ -677,6 +698,7 @@ class PromptLearningJob:
                 interval=interval,
                 handlers=handlers,
                 on_event=on_event,
+                debug=debug,
             ),
             label="stream_until_complete() (use stream_until_complete_async in async contexts)",
         )
