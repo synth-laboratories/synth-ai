@@ -17,7 +17,12 @@ from .config import StreamConfig
 from .handlers import StreamHandler
 from .types import StreamMessage, StreamType
 
+logger = logging.getLogger(__name__)
+
 TERMINAL_STATUSES = {"succeeded", "failed", "cancelled", "canceled", "completed"}
+TERMINAL_STATUS_GRACE_SECONDS = 6.0
+TERMINAL_HANDLER_GRACE_SECONDS = 8.0
+STALE_STATUS_TIMEOUT_SECONDS = 150.0  # 2.5 minutes with no progress = stale
 
 # Terminal success events - canonical format only
 # Format: <activity>.<target>.<algorithm?>.<entity>.<action>
@@ -55,6 +60,36 @@ TERMINAL_EVENT_FAILURE = {
     "completions.verifier.rlm.job.failed",
     "completions.rlm.job.failed",
 }
+
+
+def is_terminal_success_event(event_type: str) -> bool:
+    """Check if event_type indicates terminal success.
+
+    Uses both exact matching against TERMINAL_EVENT_SUCCESS and flexible
+    suffix matching for `job.completed` patterns.
+    """
+    event_type = event_type.lower()
+    if event_type in TERMINAL_EVENT_SUCCESS:
+        return True
+    # Flexible matching: any event ending with job.completed
+    if event_type.endswith("job.completed") or event_type.endswith(".job.completed"):
+        return True
+    return False
+
+
+def is_terminal_failure_event(event_type: str) -> bool:
+    """Check if event_type indicates terminal failure.
+
+    Uses both exact matching against TERMINAL_EVENT_FAILURE and flexible
+    suffix matching for `job.failed` patterns.
+    """
+    event_type = event_type.lower()
+    if event_type in TERMINAL_EVENT_FAILURE:
+        return True
+    # Flexible matching: any event ending with job.failed
+    if event_type.endswith("job.failed") or event_type.endswith(".job.failed"):
+        return True
+    return False
 
 
 def check_terminal_event_typed(event_data: dict[str, Any]) -> tuple[bool, str | None]:
@@ -161,17 +196,23 @@ class StreamEndpoints:
     def graph_evolve(cls, job_id: str) -> StreamEndpoints:
         """Endpoints for Graph Evolve workflow optimization jobs.
 
-        Prefer /api/graph_evolve/jobs/{job_id} with legacy /api/graphgen fallbacks.
+        Prefer /api/graph-evolve/jobs/{job_id} with legacy /api/graph_evolve and /api/graphgen fallbacks.
         """
-        base = f"/graph_evolve/jobs/{job_id}"
+        base = f"/graph-evolve/jobs/{job_id}"
         return cls(
             status=base,
             events=f"{base}/events",
             metrics=f"{base}/metrics",
             timeline=None,
-            status_fallbacks=(f"/graphgen/jobs/{job_id}",),
-            event_fallbacks=(f"/graphgen/jobs/{job_id}/events",),
-            metric_fallbacks=(f"/graphgen/jobs/{job_id}/metrics",),
+            status_fallbacks=(f"/graph_evolve/jobs/{job_id}", f"/graphgen/jobs/{job_id}"),
+            event_fallbacks=(
+                f"/graph_evolve/jobs/{job_id}/events",
+                f"/graphgen/jobs/{job_id}/events",
+            ),
+            metric_fallbacks=(
+                f"/graph_evolve/jobs/{job_id}/metrics",
+                f"/graphgen/jobs/{job_id}/metrics",
+            ),
         )
 
     @classmethod
@@ -212,6 +253,7 @@ class JobStreamer:
         http_timeout: float = 60.0,
         http_client: RustCoreHttpClient | None = None,
         sleep_fn=sleep,
+        debug: bool = False,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
@@ -224,6 +266,7 @@ class JobStreamer:
         self.http_timeout = http_timeout
         self._http = http_client
         self._sleep = sleep_fn
+        self.debug = debug
 
         status_sources: list[str | None] = [self.endpoints.status]
         status_sources.extend(self.endpoints.status_fallbacks)
@@ -248,6 +291,11 @@ class JobStreamer:
         self._last_status_value: str | None = None
         self._terminal_seen = False
         self._terminal_event_status: str | None = None
+        self._consecutive_terminal_status_polls = 0
+        self._terminal_status_seen_at: float | None = None
+        self._terminal_status_value: str | None = None
+        self._force_event_backfill = False
+        self._last_progress_time: float = time.time()  # Track last meaningful progress
 
         if not self.handlers:
             from .handlers import CLIHandler
@@ -284,22 +332,24 @@ class JobStreamer:
                         sse_done.set()
 
                 async def status_poller():
-                    """Periodically poll status while SSE stream is active."""
+                    """Periodically poll status while SSE stream is active.
+
+                    Note: Status polling can terminate the stream if the status
+                    endpoint reports a terminal state.
+                    """
                     while not sse_done.is_set() and not self._terminal_seen:
                         await asyncio.sleep(2.0)  # Check every 2 seconds
                         if self._terminal_seen or sse_done.is_set():
                             break
 
-                        status = await self._refresh_status(http)
+                        await self._refresh_status(http)
 
                         metric_messages = await self._poll_metrics(http)
                         timeline_messages = await self._poll_timeline(http)
                         self._dispatch(metric_messages + timeline_messages)
-
-                        # Check for terminal status
-                        if status and status.lower() in TERMINAL_STATUSES:
-                            self._terminal_seen = True
-                            break
+                        if self._force_event_backfill:
+                            event_messages = await self._poll_events(http)
+                            self._dispatch(event_messages)
 
                 # Start both tasks concurrently
                 sse_task = asyncio.create_task(sse_reader())
@@ -315,19 +365,35 @@ class JobStreamer:
                             # No event received, check if SSE is done or terminal
                             if sse_done.is_set() or self._terminal_seen:
                                 break
+                            # Check for stale status (no progress for too long)
+                            if time.time() - self._last_progress_time > STALE_STATUS_TIMEOUT_SECONDS:
+                                logger.warning(
+                                    "No progress for %.0f seconds - treating as stale/failed",
+                                    STALE_STATUS_TIMEOUT_SECONDS,
+                                )
+                                self._terminal_seen = True
+                                self._terminal_event_status = "failed"
+                                break
                             continue
 
                         # Handle exception from SSE reader
                         if isinstance(item, Exception):
                             raise item
 
+                        # Update progress time - we received an event
+                        self._last_progress_time = time.time()
+
                         # Process event
                         self._dispatch([item])
+                        self._update_backfill_from_handlers()
 
                         # Poll metrics/timeline after each event
                         metric_messages = await self._poll_metrics(http)
                         timeline_messages = await self._poll_timeline(http)
                         self._dispatch(metric_messages + timeline_messages)
+                        if self._force_event_backfill:
+                            event_messages = await self._poll_events(http)
+                            self._dispatch(event_messages)
 
                         # Check for terminal status
                         if self._terminal_seen:
@@ -340,58 +406,87 @@ class JobStreamer:
                         await asyncio.gather(sse_task, status_task, return_exceptions=True)
                 # If SSE ended before terminal status, fall back to polling
                 if not self._terminal_seen:
-                    print(
-                        "[SDK] SSE stream ended before terminal status; continuing with status polling.",
-                        flush=True,
+                    logger.debug(
+                        "SSE stream ended before terminal status; continuing with status polling."
                     )
                 while not self._terminal_seen:
                     if (
                         self.timeout_seconds is not None
                         and time.time() - start_time > self.timeout_seconds
                     ):
-                        print(
-                            "[SDK] Stream timeout reached while waiting for terminal status.",
-                            flush=True,
+                        logger.debug(
+                            "Stream timeout reached while waiting for terminal event."
                         )
                         break
                     status = await self._refresh_status(http)
                     if status:
-                        print(
-                            f"[SDK] Status polling: {status} (elapsed={time.time() - start_time:.1f}s)",
-                            flush=True,
+                        logger.debug(
+                            "Status polling: %s (elapsed=%.1fs)", status, time.time() - start_time
                         )
-                    metric_messages = await self._poll_metrics(http)
-                    timeline_messages = await self._poll_timeline(http)
-                    self._dispatch(metric_messages + timeline_messages)
-                    if status and status.lower() in TERMINAL_STATUSES:
-                        self._terminal_seen = True
-                        break
-                    await self._sleep(self.interval_seconds)
-            else:
-                # No SSE endpoint available - use polling for events
-                while True:
-                    status = await self._refresh_status(http)
-
-                    # Check status FIRST before polling events/metrics
-                    if status and status.lower() in TERMINAL_STATUSES:
-                        self._terminal_seen = True
-                        break
-                    if self._terminal_seen:
-                        break
-
+                    # Poll events - terminal events (job.completed) will set _terminal_seen
                     event_messages = await self._poll_events(http)
                     metric_messages = await self._poll_metrics(http)
                     timeline_messages = await self._poll_timeline(http)
 
-                    self._dispatch(event_messages + metric_messages + timeline_messages)
+                    # Update progress time if we received any messages
+                    all_messages = event_messages + metric_messages + timeline_messages
+                    if all_messages:
+                        self._last_progress_time = time.time()
 
-                    # Check again after polling (terminal events might have been received)
-                    if self._terminal_seen:
-                        break
-                    if status and status.lower() in TERMINAL_STATUSES:
+                    self._dispatch(all_messages)
+                    self._update_backfill_from_handlers()
+
+                    # Check for stale status (no progress for too long)
+                    if time.time() - self._last_progress_time > STALE_STATUS_TIMEOUT_SECONDS:
+                        logger.warning(
+                            "No progress for %.0f seconds - treating as stale/failed",
+                            STALE_STATUS_TIMEOUT_SECONDS,
+                        )
                         self._terminal_seen = True
+                        self._terminal_event_status = "failed"
                         break
 
+                    # _terminal_seen is set by _poll_events/_dispatch when terminal event received
+                    await self._sleep(self.interval_seconds)
+            else:
+                # No SSE endpoint available - use polling for events
+                # Terminal state is determined by terminal EVENTS, not status endpoint
+                while not self._terminal_seen:
+                    if (
+                        self.timeout_seconds is not None
+                        and time.time() - start_time > self.timeout_seconds
+                    ):
+                        logger.debug(
+                            "Stream timeout reached while waiting for terminal event."
+                        )
+                        break
+
+                    await self._refresh_status(http)
+
+                    # Poll events - terminal events (job.completed) will set _terminal_seen
+                    event_messages = await self._poll_events(http)
+                    metric_messages = await self._poll_metrics(http)
+                    timeline_messages = await self._poll_timeline(http)
+
+                    # Update progress time if we received any messages
+                    all_messages = event_messages + metric_messages + timeline_messages
+                    if all_messages:
+                        self._last_progress_time = time.time()
+
+                    self._dispatch(all_messages)
+                    self._update_backfill_from_handlers()
+
+                    # Check for stale status (no progress for too long)
+                    if time.time() - self._last_progress_time > STALE_STATUS_TIMEOUT_SECONDS:
+                        logger.warning(
+                            "No progress for %.0f seconds - treating as stale/failed",
+                            STALE_STATUS_TIMEOUT_SECONDS,
+                        )
+                        self._terminal_seen = True
+                        self._terminal_event_status = "failed"
+                        break
+
+                    # _terminal_seen is set by _poll_events/_dispatch when terminal event received
                     await self._sleep(self.interval_seconds)
 
         for handler in self.handlers:
@@ -399,6 +494,10 @@ class JobStreamer:
                 handler.flush()
 
         final_status = self._terminal_event_status or self._last_status_value or "unknown"
+        if self.debug:
+            print(f"[STREAM DEBUG] Stream exiting: terminal_seen={self._terminal_seen}, "
+                  f"terminal_event_status={self._terminal_event_status}, "
+                  f"last_status_value={self._last_status_value}, final={final_status}")
         if self._last_status_payload:
             self._last_status_payload["status"] = final_status
             return self._last_status_payload
@@ -428,32 +527,98 @@ class JobStreamer:
         if last_seq > 0:
             headers["Last-Event-ID"] = str(last_seq)
 
-        print(f"[DEBUG] SSE stream connecting to {url}", file=sys.stderr)
-        event_count = 0
-        start_time = time.time()
-        no_events_warning_printed = False
+        # Create a separate session for SSE (long-lived connection)
+        timeout = aiohttp.ClientTimeout(total=None)  # No timeout for SSE
+        async with (
+            aiohttp.ClientSession(headers=headers, timeout=timeout) as session,
+            session.get(url) as resp,
+        ):
+            if resp.status != 200:
+                raise Exception(f"SSE endpoint returned {resp.status}: {await resp.text()}")
 
-        async for event_data in stream_sse_events(url, headers=headers, timeout=None):
-            if not event_data:
-                continue
-            if event_count == 0 and not no_events_warning_printed:
-                elapsed = time.time() - start_time
-                if elapsed > 10:
+            print(f"[DEBUG] SSE stream connected to {url}, status={resp.status}", file=sys.stderr)
+            buffer = ""
+            event_count = 0
+            last_event_time = time.time()
+            no_events_warning_printed = False
+
+            # Read SSE stream in chunks and parse events
+            async for chunk in resp.content.iter_chunked(8192):
+                current_time = time.time()
+
+                # Warn if no events received for 10 seconds (events should be streaming)
+                if (
+                    event_count == 1
+                    and current_time - last_event_time > 10
+                    and not no_events_warning_printed
+                ):
                     print(
                         "[DEBUG] WARNING: No events received via SSE for 10s after connection. Backend may not be publishing to Redis (check SSE_USE_REDIS env var).",
                         file=sys.stderr,
                     )
                     no_events_warning_printed = True
-            event_count += 1
-            print(
-                f"[DEBUG] Parsed SSE event #{event_count}: type={event_data.get('type')}, seq={event_data.get('seq')}",
-                file=sys.stderr,
-            )
 
-            event_type = str(event_data.get("type", "")).lower()
-            if event_type == "sse.stream.ended":
-                print("[DEBUG] SSE stream received sse.stream.ended event", file=sys.stderr)
-                return
+                buffer += chunk.decode("utf-8", errors="ignore")
+
+                # SSE events are separated by double newlines
+                while "\n\n" in buffer:
+                    event_block, buffer = buffer.split("\n\n", 1)
+                    event_block = event_block.strip()
+
+                    if not event_block:
+                        continue
+
+                    event_data = {}
+
+                    # Parse SSE event block line by line
+                    for event_line in event_block.split("\n"):
+                        event_line = event_line.strip()
+                        if not event_line or event_line.startswith(":"):
+                            continue  # Skip comments/empty lines
+                        if event_line.startswith("id:"):
+                            pass  # SSE event id (not currently used)
+                        elif event_line.startswith("event:"):
+                            pass  # SSE event type (not currently used)
+                        elif event_line.startswith("data:"):
+                            data_str = event_line[5:].strip()
+                            if data_str == "[DONE]":
+                                print(
+                                    "[DEBUG] SSE stream received [DONE] - stream completed gracefully",
+                                    file=sys.stderr,
+                                )
+                                # Stream ended gracefully - if we already saw terminal event,
+                                # the job is complete. Otherwise, we'll fall back to polling.
+                                return
+                            try:
+                                event_data = json.loads(data_str)
+                            except json.JSONDecodeError as e:
+                                print(
+                                    f"[DEBUG] Failed to parse SSE data: {e}, data={data_str[:200]}",
+                                    file=sys.stderr,
+                                )
+                                continue
+
+                    # Debug: log what we parsed
+                    if event_data:
+                        event_count += 1
+                        last_event_time = time.time()
+                        print(
+                            f"[DEBUG] Parsed SSE event #{event_count}: type={event_data.get('type')}, seq={event_data.get('seq')}",
+                            file=sys.stderr,
+                        )
+
+                    if event_data and "type" in event_data:
+                        event_type = str(event_data.get("type", "")).lower()
+
+                        # Handle stream lifecycle events from backend
+                        if event_type == "sse.stream.ended":
+                            # Backend signaled stream end - this is a graceful termination
+                            print(
+                                "[DEBUG] SSE stream received sse.stream.ended event",
+                                file=sys.stderr,
+                            )
+                            # Don't yield this event, just return
+                            return
 
             event_job_id = event_data.get("job_id") or self.job_id
             msg = StreamMessage.from_event(event_job_id, event_data)
@@ -470,35 +635,39 @@ class JobStreamer:
                 except (TypeError, ValueError):
                     pass
 
-            if event_type in TERMINAL_EVENT_SUCCESS:
-                self._terminal_seen = True
-                self._terminal_event_status = "succeeded"
-                print(
-                    f"[DEBUG] Terminal success event detected: {event_type}",
-                    file=sys.stderr,
-                )
-            elif event_type in TERMINAL_EVENT_FAILURE:
-                self._terminal_seen = True
-                self._terminal_event_status = "failed"
-                print(
-                    f"[DEBUG] Terminal failure event detected: {event_type}",
-                    file=sys.stderr,
-                )
+                # Check for terminal events
+                if event_type in TERMINAL_EVENT_SUCCESS:
+                    self._terminal_seen = True
+                    self._terminal_event_status = "succeeded"
+                    print(
+                        f"[DEBUG] Terminal success event detected: {event_type}",
+                        file=sys.stderr,
+                    )
+                elif event_type in TERMINAL_EVENT_FAILURE:
+                    self._terminal_seen = True
+                    self._terminal_event_status = "failed"
+                    print(
+                        f"[DEBUG] Terminal failure event detected: {event_type}",
+                        file=sys.stderr,
+                    )
 
-            event_status = str(event_data.get("data", {}).get("status", "")).lower()
-            if event_status in TERMINAL_STATUSES and not self._terminal_seen:
-                self._terminal_seen = True
-                self._terminal_event_status = (
-                    "succeeded" if event_status in ("succeeded", "completed") else "failed"
-                )
-                print(
-                    f"[DEBUG] Terminal status detected in event data: {event_status}",
-                    file=sys.stderr,
-                )
+                # Also check event data for status (synthetic events from status check)
+                event_status = str(event_data.get("data", {}).get("status", "")).lower()
+                if event_status in TERMINAL_STATUSES and not self._terminal_seen:
+                    self._terminal_seen = True
+                    self._terminal_event_status = (
+                        "succeeded"
+                        if event_status in ("succeeded", "completed")
+                        else "failed"
+                    )
+                    print(
+                        f"[DEBUG] Terminal status detected in event data: {event_status}",
+                        file=sys.stderr,
+                    )
 
             yield msg
 
-    async def _refresh_status(self, http: RustCoreHttpClient) -> str:
+    async def _refresh_status(self, http: AsyncHttpClient) -> str:
         status_payload = await self._poll_status(http)
         if status_payload:
             self._last_status_payload = status_payload
@@ -506,8 +675,23 @@ class JobStreamer:
             if status:
                 self._last_status_value = status
                 if status in TERMINAL_STATUSES:
+                    # Treat status as authoritative for terminal state.
                     self._terminal_seen = True
-                    print(f"[SDK] Terminal status detected: {status}", flush=True)
+                    if status in {"failed", "cancelled", "canceled"}:
+                        self._terminal_event_status = "failed"
+                    else:
+                        self._terminal_event_status = "succeeded"
+                    if self.debug:
+                        print(
+                            f"[STREAM DEBUG] STATUS TERMINAL: {status}"
+                        )
+                    self._consecutive_terminal_status_polls = 0
+                    self._terminal_status_seen_at = None
+                    self._terminal_status_value = None
+                else:
+                    self._consecutive_terminal_status_polls = 0
+                    self._terminal_status_seen_at = None
+                    self._terminal_status_value = None
             return status
         return self._last_status_value or ""
 
@@ -529,6 +713,7 @@ class JobStreamer:
             if isinstance(data, dict):
                 message = StreamMessage.from_status(self.job_id, data)
                 self._dispatch([message])
+                self._update_backfill_from_handlers()
                 return data
 
         # If all paths failed, log the error for debugging
@@ -554,42 +739,39 @@ class JobStreamer:
             try:
                 data = await http.get(path, params=params)
                 # Debug: Always log what we got from API
-                print(
-                    f"[DEBUG] Polling {path} with since_seq={since}, limit={limit}",
-                    file=sys.stderr,
-                )
-                print(
-                    f"[DEBUG] Got response from {path}, type={type(data).__name__}, keys={list(data.keys()) if isinstance(data, dict) else 'not dict'}",
-                    file=sys.stderr,
+                logger.debug("Polling %s with since_seq=%s, limit=%s", path, since, limit)
+                logger.debug(
+                    "Got response from %s, type=%s, keys=%s",
+                    path,
+                    type(data).__name__,
+                    list(data.keys()) if isinstance(data, dict) else "not dict",
                 )
                 if isinstance(data, dict):
                     # Check for next_seq to see if we should update our tracking
                     if "next_seq" in data:
-                        print(
-                            f"[DEBUG] Response has next_seq={data.get('next_seq')}, current since={since}",
-                            file=sys.stderr,
+                        logger.debug(
+                            "Response has next_seq=%s, current since=%s",
+                            data.get("next_seq"),
+                            since,
                         )
                     # Show what keys are in the response
                     for key in data:
                         val = data[key]
                         if isinstance(val, list):
-                            print(
-                                f"[DEBUG] Response[{key}] is list with {len(val)} items",
-                                file=sys.stderr,
-                            )
+                            logger.debug("Response[%s] is list with %d items", key, len(val))
                             if len(val) > 0:
-                                print(
-                                    f"[DEBUG] First item in {key}: {list(val[0].keys()) if isinstance(val[0], dict) else type(val[0])}",
-                                    file=sys.stderr,
+                                logger.debug(
+                                    "First item in %s: %s",
+                                    key,
+                                    list(val[0].keys()) if isinstance(val[0], dict) else type(val[0]),
                                 )
                         elif isinstance(val, dict):
-                            print(
-                                f"[DEBUG] Response[{key}] is dict with keys: {list(val.keys())[:5]}",
-                                file=sys.stderr,
+                            logger.debug(
+                                "Response[%s] is dict with keys: %s", key, list(val.keys())[:5]
                             )
             except Exception as e:
                 error_str = str(e)
-                print(f"[DEBUG] Error polling {path}: {e}", file=sys.stderr)
+                logger.debug("Error polling %s: %s", path, e)
                 # Fail fast if we get 404 on GraphGen and fallback endpoints (indicates job ID mapping issue)
                 if (
                     "404" in error_str
@@ -609,10 +791,7 @@ class JobStreamer:
                 continue
             raw_events = _extract_list(data, "events")
             # Debug: Always log what we extracted
-            print(
-                f"[DEBUG] Extracted {len(raw_events)} events from {path} using _extract_list",
-                file=sys.stderr,
-            )
+            logger.debug("Extracted %d events from %s using _extract_list", len(raw_events), path)
             # Update last_seq using next_seq if available
             if isinstance(data, dict) and "next_seq" in data:
                 next_seq = data.get("next_seq")
@@ -621,16 +800,13 @@ class JobStreamer:
                         next_seq_int = int(next_seq)
                         if next_seq_int > since:
                             self._last_seq_by_stream[path] = next_seq_int
-                            print(
-                                f"[DEBUG] Updated last_seq for {path} to {next_seq_int}",
-                                file=sys.stderr,
-                            )
+                            logger.debug("Updated last_seq for %s to %d", path, next_seq_int)
                     except (TypeError, ValueError):
                         pass
             if raw_events and len(raw_events) > 0:
                 # Log first event type for debugging
                 first_event_type = raw_events[0].get("type", "unknown")
-                print(f"[DEBUG] First event type: {first_event_type}", file=sys.stderr)
+                logger.debug("First event type: %s", first_event_type)
             for event in raw_events:
                 seq_raw = event.get("seq")
                 try:
@@ -650,12 +826,16 @@ class JobStreamer:
                 event_job_id = event.get("job_id") or self.job_id
                 event_message = StreamMessage.from_event(event_job_id, event)
                 event_type = str(event.get("type") or "").lower()
-                if event_type in TERMINAL_EVENT_SUCCESS:
+                if is_terminal_success_event(event_type):
                     self._terminal_seen = True
                     self._terminal_event_status = "succeeded"
-                elif event_type in TERMINAL_EVENT_FAILURE:
+                    if self.debug:
+                        print(f"[STREAM DEBUG] POLL TERMINAL SUCCESS: {event_type}")
+                elif is_terminal_failure_event(event_type):
                     self._terminal_seen = True
                     self._terminal_event_status = "failed"
+                    if self.debug:
+                        print(f"[STREAM DEBUG] POLL TERMINAL FAILURE: {event_type}")
                 messages.append(event_message)
                 total += 1
                 if self.config.max_events_per_poll and total >= self.config.max_events_per_poll:
@@ -711,30 +891,81 @@ class JobStreamer:
                     self._terminal_seen = True
                     if phase in {"failed", "cancelled", "canceled"}:
                         self._terminal_event_status = "failed"
+                        if self.debug:
+                            print(f"[STREAM DEBUG] TIMELINE TERMINAL FAILURE: phase={phase}")
                     elif phase:
                         self._terminal_event_status = "succeeded"
+                        if self.debug:
+                            print(f"[STREAM DEBUG] TIMELINE TERMINAL SUCCESS: phase={phase}")
                 messages.append(StreamMessage.from_timeline(timeline_job_id, entry))
         return messages
 
     def _dispatch(self, messages: Iterable[StreamMessage]) -> None:
         message_list = list(messages)
         for message in message_list:
-            if self.config.deduplicate and message.key in self._seen_messages:
+            if message.stream_type == StreamType.EVENTS and message.data:
+                event_type = str(message.data.get("type") or "").lower()
+                if (
+                    event_type.startswith("learning.policy.gepa.")
+                    and message.data.get("run_id") is None
+                    and any(
+                        token in event_type
+                        for token in (
+                            "candidate.evaluated",
+                            "candidate_scored",
+                            "proposal.scored",
+                            "generation.started",
+                            "generation.completed",
+                        )
+                    )
+                ):
+                    if self.debug:
+                        print(f"[STREAM DEBUG] filtered GEPA event without run_id: {event_type}")
+                    continue
+            dedupe_keys = [message.key]
+            if message.stream_type == StreamType.EVENTS and message.data:
+                data = message.data.get("data")
+                if isinstance(data, dict) and data.get("source") == "status_check":
+                    continue
+            if (
+                self.config.deduplicate
+                and self.config.dedupe_events
+                and message.stream_type == StreamType.EVENTS
+                and message.data
+            ):
+                dedupe_keys.extend(_event_dedupe_keys(message.data))
+                fingerprint = _event_dedupe_fingerprint(message.data)
+                if fingerprint:
+                    fp_key = f"event:fp:{fingerprint}"
+                    if message.seq is None:
+                        dedupe_keys = [fp_key]
+                    else:
+                        dedupe_keys.append(fp_key)
+            if self.config.deduplicate and any(key in self._seen_messages for key in dedupe_keys):
                 continue
             if self.config.sample_rate < 1.0 and random.random() > self.config.sample_rate:
                 continue
             if self.config.deduplicate:
-                self._seen_messages.add(message.key)
+                self._seen_messages.update(dedupe_keys)
+
+            # Debug: print all events
+            if self.debug and message.stream_type == StreamType.EVENTS and message.data:
+                event_type = str(message.data.get("type", ""))
+                print(f"[STREAM DEBUG] event: {event_type}")
 
             # Check for terminal events in dispatch (belt-and-suspenders)
             if message.stream_type == StreamType.EVENTS and message.data:
                 event_type = str(message.data.get("type", "")).lower()
-                if event_type in TERMINAL_EVENT_SUCCESS:
+                if is_terminal_success_event(event_type):
                     self._terminal_seen = True
                     self._terminal_event_status = "succeeded"
-                elif event_type in TERMINAL_EVENT_FAILURE:
+                    if self.debug:
+                        print(f"[STREAM DEBUG] *** TERMINAL SUCCESS: {event_type} ***")
+                elif is_terminal_failure_event(event_type):
                     self._terminal_seen = True
                     self._terminal_event_status = "failed"
+                    if self.debug:
+                        print(f"[STREAM DEBUG] *** TERMINAL FAILURE: {event_type} ***")
 
             for handler in self.handlers:
                 try:
@@ -742,6 +973,27 @@ class JobStreamer:
                         handler.handle(message)
                 except Exception:
                     pass
+
+    def _update_backfill_from_handlers(self) -> None:
+        if self._force_event_backfill:
+            return
+        for handler in self.handlers:
+            wants = getattr(handler, "wants_event_backfill", None)
+            if callable(wants) and wants():
+                self._force_event_backfill = True
+                break
+        if self._terminal_seen:
+            return
+        for handler in self.handlers:
+            hint = getattr(handler, "terminal_hint_ready", None)
+            if callable(hint) and hint(grace_seconds=TERMINAL_HANDLER_GRACE_SECONDS):
+                self._terminal_seen = True
+                self._terminal_event_status = "succeeded"
+                if self.debug:
+                    print(
+                        f"[STREAM DEBUG] TERMINAL HINT: handler signaled completion after {TERMINAL_HANDLER_GRACE_SECONDS:.0f}s grace"
+                    )
+                break
 
 
 def _metric_cursor(point: dict[str, Any]) -> tuple[int | None, str]:
@@ -765,6 +1017,82 @@ def _metric_cursor(point: dict[str, Any]) -> tuple[int | None, str]:
         except Exception:
             fingerprint = repr(point)
     return step_value, fingerprint
+
+
+def _event_dedupe_keys(event_data: dict[str, Any]) -> list[str]:
+    event_type = str(event_data.get("type") or "").lower()
+    data = event_data.get("data") or {}
+    if not isinstance(data, dict):
+        data = {}
+
+    keys: list[str] = []
+    run_id = event_data.get("run_id") or data.get("run_id")
+
+    def _with_run(key: str) -> str:
+        return f"run:{run_id}:{key}" if run_id else key
+
+    event_id = data.get("event_id") or event_data.get("event_id")
+    if event_id:
+        keys.append(_with_run(f"event_id:{event_id}"))
+
+    if event_type.startswith("learning.policy.gepa."):
+        candidate_id = data.get("candidate_id") or data.get("version_id")
+        if not candidate_id and isinstance(data.get("program_candidate"), dict):
+            candidate_id = data.get("program_candidate", {}).get("candidate_id")
+        if candidate_id:
+            keys.append(_with_run(f"{event_type}:candidate:{candidate_id}"))
+        generation = data.get("generation")
+        if generation is not None and event_type.endswith((".generation.started", ".generation.completed")):
+            keys.append(_with_run(f"{event_type}:generation:{generation}"))
+
+    if event_type.endswith((".job.completed", ".job.failed", ".job.cancelled", ".job.canceled")):
+        keys.append(_with_run(f"{event_type}:terminal"))
+
+    return keys
+
+
+def _event_dedupe_fingerprint(event_data: dict[str, Any]) -> str:
+    drop_keys = {
+        "id",
+        "job_id",
+        "run_id",
+        "seq",
+        "created_at",
+        "updated_at",
+        "timestamp",
+        "inserted_at",
+        "emitted_at",
+    }
+    drop_data_keys = {
+        "event_id",
+        "created_at",
+        "updated_at",
+        "timestamp",
+        "timestamp_ms",
+        "inserted_at",
+        "emitted_at",
+        "run_id",
+        "workflow_id",
+        "workflow_run_id",
+        "activity_id",
+        "attempt",
+        "task_queue",
+    }
+
+    def scrub(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {k: scrub(v) for k, v in value.items() if k not in drop_data_keys}
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
+        return value
+
+    cleaned = {key: value for key, value in event_data.items() if key not in drop_keys}
+    if "data" in cleaned:
+        cleaned["data"] = scrub(cleaned["data"])
+    try:
+        return json.dumps(cleaned, sort_keys=True, default=str)
+    except Exception:
+        return repr(cleaned)
 
 
 def _extract_list(data: Any, field: str) -> list[dict[str, Any]]:
