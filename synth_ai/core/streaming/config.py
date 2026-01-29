@@ -20,6 +20,7 @@ class StreamConfig:
     sample_rate: float = 1.0
     max_events_per_poll: int | None = None
     deduplicate: bool = True
+    dedupe_events: bool = True
 
     @classmethod
     def default(cls) -> StreamConfig:
