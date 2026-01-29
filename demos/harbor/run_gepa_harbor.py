@@ -125,6 +125,7 @@ async def run_gepa_with_harbor(
                     "model": "gpt-4o-mini",
                     "provider": "openai",
                     "inference_mode": "synth_hosted",
+                    "inference_url": "https://api.openai.com/v1",
                     "timeout": rollout_timeout,
                     "context_override": {
                         "system_prompt": """You are an expert Rust developer implementing Pokemon TCG cards.
