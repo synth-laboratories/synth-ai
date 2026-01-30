@@ -241,7 +241,7 @@ TOOL_SCHEMA = {
         "description": "Return the predicted banking77 intent label.",
         "parameters": {
             "type": "object",
-            "properties": {"intent": {"type": "string"}},
+            "properties": {"intent": {"type": "string", "enum": BANKING77_LABELS}},
             "required": ["intent"],
         },
     },

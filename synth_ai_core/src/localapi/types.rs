@@ -306,6 +306,7 @@ pub struct RolloutResponse {
     /// Echo of the correlation ID.
     pub trace_correlation_id: String,
     /// Rollout metrics.
+    #[serde(alias = "metrics")]
     pub reward_info: RolloutMetrics,
     /// Full trace (optional).
     #[serde(default)]

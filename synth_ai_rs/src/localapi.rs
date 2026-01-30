@@ -164,6 +164,7 @@ pub struct RolloutMetrics {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RolloutResponse {
     pub trace_correlation_id: String,
+    #[serde(alias = "metrics")]
     pub reward_info: RolloutMetrics,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub trace: Option<Value>,

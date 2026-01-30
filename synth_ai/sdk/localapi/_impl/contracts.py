@@ -260,7 +260,7 @@ class RolloutResponse(BaseModel):
     )
     reward_info: RolloutMetrics = Field(
         ...,
-        alias="metrics",
+        validation_alias="metrics",
         description="Reward and scoring information for this rollout.",
     )
     trace: dict[str, Any] | None = Field(
