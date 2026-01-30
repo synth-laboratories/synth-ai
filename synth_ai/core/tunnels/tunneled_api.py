@@ -221,7 +221,6 @@ class TunneledLocalAPI:
                 client_instance_id=get_client_instance_id(),
                 local_host="127.0.0.1",
                 local_port=local_port,
-                capabilities={"max_inflight": 64},
             )
 
             # Step 2: Start Rust WS agent (runs in its own tokio runtime)
