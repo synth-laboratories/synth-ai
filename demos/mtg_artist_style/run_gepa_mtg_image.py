@@ -266,8 +266,11 @@ async def main() -> None:
             )
             print("Job status:", status)
             if result.succeeded:
-                if result.best_score is not None:
-                    print("Best score:", result.best_score)
+                best_score = getattr(result, "best_score", None)
+                if best_score is None:
+                    best_score = getattr(result, "best_reward", None)
+                if best_score is not None:
+                    print("Best score:", best_score)
             if result.failed:
                 print("Error:", result.error)
     finally:
