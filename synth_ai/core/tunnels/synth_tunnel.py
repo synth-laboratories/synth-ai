@@ -1,4 +1,22 @@
-"""SynthTunnel relay-based tunnel client and agent (SDK side)."""
+"""SynthTunnel relay-based tunnel client and agent (SDK side).
+
+SynthTunnel exposes a local task app to Synth's training infrastructure
+without requiring ``cloudflared`` or any external binary. Traffic flows
+through Synth's relay servers via a WebSocket agent that runs locally.
+
+Architecture::
+
+    Synth backend ──HTTP──▶ relay (st.usesynth.ai) ──WS──▶ local agent ──HTTP──▶ localhost:PORT
+
+The agent connects outbound (no inbound ports needed), receives requests
+over the WebSocket, forwards them to the local task app, and streams
+responses back. Up to 128 concurrent in-flight requests are supported,
+with a dynamic memory budget that automatically reduces concurrency when
+request/response payloads are large.
+
+For most users, use ``TunneledLocalAPI.create()`` instead of this module
+directly. This module is the low-level implementation.
+"""
 
 from __future__ import annotations
 
@@ -226,6 +244,10 @@ class SynthTunnelAgent:
         max_response_bytes = int(self.lease.limits.get("max_response_bytes", 200_000_000))
         sent_bytes = 0
 
+        print(
+            f"[SynthTunnel] _handle_request rid={ctx.rid} method={ctx.method} url={url} body_len={len(ctx.body)}",
+            flush=True,
+        )
         try:
             async with (
                 httpx.AsyncClient(timeout=timeout) as client,
@@ -236,6 +258,10 @@ class SynthTunnelAgent:
                     content=bytes(ctx.body),
                 ) as resp,
             ):
+                print(
+                    f"[SynthTunnel] local API responded rid={ctx.rid} status={resp.status_code}",
+                    flush=True,
+                )
                 await self._send(
                     ws,
                     {
@@ -274,6 +300,7 @@ class SynthTunnelAgent:
                     )
             await self._send(ws, {"type": "RESP_END", "lease_id": ctx.lease_id, "rid": ctx.rid})
         except Exception as exc:
+            print(f"[SynthTunnel] _handle_request FAILED rid={ctx.rid} error={exc}", flush=True)
             await self._send(
                 ws,
                 {
@@ -323,6 +350,11 @@ class SynthTunnelAgent:
                             if msg.type == aiohttp.WSMsgType.TEXT:
                                 payload = json.loads(msg.data)
                                 msg_type = payload.get("type")
+                                rid_log = payload.get("rid", "?")
+                                print(
+                                    f"[SynthTunnel] recv frame type={msg_type} rid={rid_log} len={len(msg.data)}",
+                                    flush=True,
+                                )
                                 if msg_type == "REQ_HEADERS":
                                     ctx = RequestContext(
                                         lease_id=str(payload.get("lease_id")),

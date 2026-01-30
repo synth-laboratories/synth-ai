@@ -9,6 +9,7 @@ and aggregates the scores.
 import json
 import os
 import time
+from typing import Any
 
 import httpx
 from datasets import load_dataset
@@ -30,6 +31,36 @@ from synth_ai.sdk.localapi._impl.validators import normalize_inference_url
 
 APP_ID = "banking77"
 APP_NAME = "Banking77 Intent Classification"
+
+_LOG_LEVELS = {"debug": 10, "info": 20, "warn": 30, "error": 40}
+_LOG_LEVEL = os.getenv("BANKING77_LOG_LEVEL", "info").lower()
+
+
+def _log(level: str, message: str, **fields: Any) -> None:
+    if _LOG_LEVELS.get(level, 20) < _LOG_LEVELS.get(_LOG_LEVEL, 20):
+        return
+    payload = {"level": level, "msg": message, **fields}
+    print(f"[BANKING77] {json.dumps(payload, ensure_ascii=True)}", flush=True)
+
+
+class RolloutError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        flags: list[str] | None = None,
+        details: dict[str, Any] | None = None,
+        status: SuccessStatus = SuccessStatus.RUNTIME_ERROR,
+    ) -> None:
+        super().__init__(message)
+        self.flags = flags or []
+        self.details = details or {}
+        self.status = status
+
+
+def _require(condition: bool, *, flag: str, message: str, **details: Any) -> None:
+    if not condition:
+        raise RolloutError(message, flags=[flag], details=details)
 
 
 # =============================================================================
@@ -137,10 +168,28 @@ class Banking77Dataset:
     def __init__(self):
         self._cache = {}
         self._label_names = None
+        self._last_error_by_split: dict[str, str] = {}
 
     def _load_split(self, split: str):
         if split not in self._cache:
-            ds = load_dataset("banking77", split=split, trust_remote_code=False)
+            try:
+                _log("info", "dataset_load_start", split=split)
+                ds = load_dataset("banking77", split=split, trust_remote_code=False)
+            except Exception as exc:
+                self._last_error_by_split[split] = str(exc)
+                _log("warn", "dataset_load_failed", split=split, error=str(exc))
+                try:
+                    ds = load_dataset(
+                        "banking77",
+                        split=split,
+                        trust_remote_code=False,
+                        download_mode="force_redownload",
+                    )
+                except Exception as exc2:
+                    self._last_error_by_split[split] = str(exc2)
+                    _log("error", "dataset_redownload_failed", split=split, error=str(exc2))
+                    raise
+            _log("info", "dataset_load_ok", split=split, rows=len(ds))
             self._cache[split] = ds
             if self._label_names is None and hasattr(ds.features.get("label"), "names"):
                 self._label_names = ds.features["label"].names
@@ -173,7 +222,12 @@ class Banking77Dataset:
 
 
 DATASET = Banking77Dataset()
-DATASET.ensure_ready(["train", "test"])
+DATASET_PREFETCH_ERROR: str | None = None
+try:
+    DATASET.ensure_ready(["train", "test"])
+except Exception as exc:
+    DATASET_PREFETCH_ERROR = str(exc)
+    _log("error", "dataset_prefetch_failed", error=str(exc))
 
 
 def format_available_intents(label_names: list) -> str:
@@ -288,20 +342,49 @@ async def call_llm(
         "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
     }
 
-    url = normalize_inference_url(inference_url)
+    try:
+        url = normalize_inference_url(inference_url)
+    except Exception as exc:
+        raise RolloutError(
+            "Invalid inference_url",
+            flags=["invalid_inference_url"],
+            details={"error": str(exc)},
+        ) from exc
+    _require(bool(url), flag="invalid_inference_url", message="Normalized inference_url is empty")
+    _log("info", "llm_request_start", model=model, inference_url=url)
     if os.getenv("BANKING77_DEBUG_INFERENCE_URL") == "1":
         print(f"[DEBUG] inference_url={url}", flush=True)
 
     timeout_seconds = float(os.getenv("BANKING77_LLM_TIMEOUT", "120"))
     async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-        response = await client.post(url, json=payload, headers=headers)
+        try:
+            response = await client.post(url, json=payload, headers=headers)
+        except httpx.TimeoutException as exc:
+            raise RolloutError(
+                "LLM request timed out",
+                flags=["llm_timeout"],
+                details={"timeout_s": timeout_seconds},
+                status=SuccessStatus.TIMEOUT,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise RolloutError(
+                "LLM request failed",
+                flags=["llm_request_error"],
+                details={"error": str(exc)},
+                status=SuccessStatus.NETWORK_ERROR,
+            ) from exc
         if response.status_code != 200:
             try:
                 error_json = response.json()
                 error_msg = str(error_json.get("error", {}).get("message", error_json))
             except Exception:
                 error_msg = response.text[:500]
-            raise RuntimeError(f"Proxy error ({response.status_code}): {error_msg}")
+            raise RolloutError(
+                f"Proxy error ({response.status_code}): {error_msg}",
+                flags=["llm_proxy_error"],
+                details={"status_code": response.status_code, "error": error_msg},
+                status=SuccessStatus.RUNTIME_ERROR,
+            )
 
         # Extract candidate_id from proxy response headers for MIPRO
         candidate_id = response.headers.get("x-mipro-candidate-id")
@@ -319,18 +402,37 @@ async def call_llm(
         data = response.json()
         choices = data.get("choices", [])
         if not choices:
-            raise RuntimeError("No choices returned from model")
+            raise RolloutError(
+                "No choices returned from model",
+                flags=["llm_no_choices"],
+                details={"response_keys": list(data.keys())},
+            )
         tool_calls = choices[0].get("message", {}).get("tool_calls", [])
         if not tool_calls:
-            raise RuntimeError("No tool calls returned from model")
+            raise RolloutError(
+                "No tool calls returned from model",
+                flags=["llm_no_tool_calls"],
+                details={"choice_keys": list(choices[0].keys())},
+            )
         tool_call = tool_calls[0]
         args_raw = tool_call.get("function", {}).get("arguments")
 
     if not args_raw:
-        raise RuntimeError("No tool call arguments returned from model")
+        raise RolloutError(
+            "No tool call arguments returned from model",
+            flags=["llm_no_tool_args"],
+        )
 
-    args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
+    try:
+        args = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
+    except json.JSONDecodeError as exc:
+        raise RolloutError(
+            "Tool call arguments are not valid JSON",
+            flags=["llm_bad_tool_args"],
+            details={"arguments_preview": str(args_raw)[:200]},
+        ) from exc
     intent = args.get("intent") or ""
+    _require(bool(intent), flag="empty_intent", message="Tool call returned empty intent")
     
     # Return intent, candidate_id, and response payload for trace usage
     return intent, candidate_id, data, messages
@@ -352,79 +454,145 @@ async def run_rollout(request: RolloutRequest, fastapi_request: Request) -> Roll
     Returns:
         RolloutResponse with the evaluation score
     """
-    split = request.env.config.get("split", "train")
-    seed = request.env.seed
-    sample = get_sample(seed, split=split)
+    trace_correlation_id = request.trace_correlation_id or ""
+    try:
+        _require(request.env is not None, flag="missing_env", message="request.env is required")
+        _require(request.policy is not None, flag="missing_policy", message="request.policy is required")
 
-    policy_config = request.policy.config or {}
-    inference_url = policy_config.get("inference_url")
-
-    if not inference_url:
-        raise ValueError("No inference_url provided in policy config")
-
-    llm_start = time.perf_counter()
-    predicted_intent, candidate_id, llm_response, llm_messages = await call_llm(
-        query=sample["text"],
-        inference_url=inference_url,
-        model=policy_config.get("model", "gpt-4.1-nano"),
-        api_key=policy_config.get("api_key"),
-    )
-    llm_latency_ms = (time.perf_counter() - llm_start) * 1000.0
-    print(f"[TIMING] LLM call: {llm_latency_ms:.2}ms")
-    latency_ms = llm_latency_ms
-
-    score = score_response(predicted_intent, sample)
-    if os.getenv("BANKING77_DEBUG_ROLLOUT") == "1":
-        print(
-            "[DEBUG] rollout_compare",
-            {
-                "seed": seed,
-                "text": sample.get("text", "")[:200],
-                "expected": sample.get("label"),
-                "predicted": predicted_intent,
-                "score": score,
-            },
+        split = request.env.config.get("split", "train") if request.env.config else "train"
+        _require(
+            split in {"train", "test"},
+            flag="invalid_split",
+            message="Unsupported dataset split",
+            split=split,
         )
 
-    policy_cfg_for_trace = {
-        key: value
-        for key, value in policy_config.items()
-        if key not in {"trace_correlation_id", "trace"}
-    }
-    trace_correlation_id = extract_trace_correlation_id(
-        policy_config=policy_cfg_for_trace,
-        inference_url=str(inference_url or ""),
-    )
-    if not trace_correlation_id:
-        trace_correlation_id = request.trace_correlation_id or ""
+        seed = request.env.seed
+        _require(seed is not None, flag="missing_seed", message="request.env.seed is required")
+        _require(isinstance(seed, int), flag="invalid_seed", message="seed must be an int", seed=seed)
+        assert isinstance(seed, int), "seed must be an int"
 
-    reward_info = RolloutMetrics(
-        outcome_reward=score,
-        outcome_objectives={"reward": score, "latency_ms": latency_ms},
-        instance_objectives=[{"reward": score, "latency_ms": latency_ms}],
-        details={"latency_ms": latency_ms},
-    )
+        _log("info", "rollout_start", trace_correlation_id=trace_correlation_id, split=split, seed=seed)
 
-    # Include candidate_id in metadata if available (for MIPRO)
-    metadata = {}
-    if candidate_id:
-        metadata["mipro_candidate_id"] = candidate_id
+        try:
+            DATASET.ensure_ready([split])
+        except Exception as exc:
+            raise RolloutError(
+                "Dataset load failed",
+                flags=["dataset_load_failed"],
+                details={
+                    "split": split,
+                    "error": str(exc),
+                    "last_error": DATASET._last_error_by_split.get(split),
+                    "prefetch_error": DATASET_PREFETCH_ERROR,
+                    "hf_cache": os.getenv("HF_DATASETS_CACHE"),
+                },
+            ) from exc
 
-    trace_payload = {
-        "inference": {
-            "messages": llm_messages,
-            "response": llm_response,
+        sample = get_sample(seed, split=split)
+        _require(bool(sample.get("text")), flag="missing_sample_text", message="Sample text missing")
+        _require(bool(sample.get("label")), flag="missing_sample_label", message="Sample label missing")
+
+        policy_config = request.policy.config or {}
+        inference_url = policy_config.get("inference_url")
+        _require(
+            bool(inference_url),
+            flag="missing_inference_url",
+            message="policy.config.inference_url is required",
+        )
+
+        llm_start = time.perf_counter()
+        predicted_intent, candidate_id, llm_response, llm_messages = await call_llm(
+            query=sample["text"],
+            inference_url=inference_url,
+            model=policy_config.get("model", "gpt-4.1-nano"),
+            api_key=policy_config.get("api_key"),
+        )
+        llm_latency_ms = (time.perf_counter() - llm_start) * 1000.0
+        _log("info", "llm_call_ok", latency_ms=round(llm_latency_ms, 2))
+        latency_ms = llm_latency_ms
+
+        score = score_response(predicted_intent, sample)
+        if os.getenv("BANKING77_DEBUG_ROLLOUT") == "1":
+            print(
+                "[DEBUG] rollout_compare",
+                {
+                    "seed": seed,
+                    "text": sample.get("text", "")[:200],
+                    "expected": sample.get("label"),
+                    "predicted": predicted_intent,
+                    "score": score,
+                },
+            )
+
+        policy_cfg_for_trace = {
+            key: value
+            for key, value in policy_config.items()
+            if key not in {"trace_correlation_id", "trace"}
         }
-    }
+        trace_correlation_id = extract_trace_correlation_id(
+            policy_config=policy_cfg_for_trace,
+            inference_url=str(inference_url or ""),
+        )
+        if not trace_correlation_id:
+            trace_correlation_id = request.trace_correlation_id or ""
 
-    return RolloutResponse(
-        reward_info=reward_info,
-        trace=trace_payload,
-        metadata=metadata,
-        trace_correlation_id=trace_correlation_id,
-        inference_url=str(inference_url or ""),
-        success_status=SuccessStatus.SUCCESS,
-    )
+        reward_info = RolloutMetrics(
+            outcome_reward=score,
+            outcome_objectives={"reward": score, "latency_ms": latency_ms},
+            instance_objectives=[{"reward": score, "latency_ms": latency_ms}],
+            details={"latency_ms": latency_ms, "error_flags": []},
+        )
+
+        # Include candidate_id in metadata if available (for MIPRO)
+        metadata = {}
+        if candidate_id:
+            metadata["mipro_candidate_id"] = candidate_id
+
+        trace_payload = {
+            "inference": {
+                "messages": llm_messages,
+                "response": llm_response,
+            }
+        }
+
+        return RolloutResponse(
+            reward_info=reward_info,
+            trace=trace_payload,
+            metadata=metadata,
+            trace_correlation_id=trace_correlation_id,
+            inference_url=str(inference_url or ""),
+            success_status=SuccessStatus.SUCCESS,
+        )
+    except RolloutError as exc:
+        _log("error", "rollout_failed", error=str(exc), flags=exc.flags, details=exc.details)
+        reward_info = RolloutMetrics(
+            outcome_reward=0.0,
+            details={"error_flags": exc.flags, **exc.details},
+        )
+        return RolloutResponse(
+            reward_info=reward_info,
+            trace_correlation_id=trace_correlation_id,
+            success_status=exc.status,
+            status_detail=str(exc),
+        )
+    except Exception as exc:
+        _log(
+            "error",
+            "rollout_failed_unexpected",
+            error=str(exc),
+            exception_type=type(exc).__name__,
+        )
+        reward_info = RolloutMetrics(
+            outcome_reward=0.0,
+            details={"error_flags": ["unexpected_error"], "exception_type": type(exc).__name__},
+        )
+        return RolloutResponse(
+            reward_info=reward_info,
+            trace_correlation_id=trace_correlation_id,
+            success_status=SuccessStatus.RUNTIME_ERROR,
+            status_detail=str(exc),
+        )
 
 
 # =============================================================================

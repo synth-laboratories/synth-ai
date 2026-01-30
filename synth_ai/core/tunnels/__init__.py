@@ -1,55 +1,72 @@
-"""Cloudflare tunnel helpers for exposing local APIs.
+"""Tunnel helpers for exposing local APIs to Synth's training infrastructure.
 
 This module provides high-level and low-level tunnel management for
-exposing local task apps to the internet via Cloudflare tunnels.
+exposing local task apps to the internet. Two tunnel backends are available:
 
-**Recommended:** Use `TunneledLocalAPI` for a clean, one-liner experience:
+- **SynthTunnel** (default, recommended): Relay-based HTTPS tunnel. Traffic
+  flows through Synth's relay servers via WebSocket. No ``cloudflared``
+  binary required. Supports up to 128 concurrent in-flight requests (with
+  dynamic memory-based budgeting for large payloads). Uses ``worker_token``
+  for authentication.
+
+- **Cloudflare**: Tunnels via Cloudflare's network. Requires the
+  ``cloudflared`` binary. Available in managed (stable subdomain) and
+  quick (random subdomain, no API key) variants. Uses ``task_app_api_key``
+  for authentication.
+
+**Recommended:** Use ``TunneledLocalAPI`` for a clean, one-liner experience:
 
     from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
 
-    # SynthTunnel (relay-based, default)
+    # SynthTunnel (relay-based, default — recommended)
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
-        backend=TunnelBackend.SynthTunnel,
         api_key="sk_live_...",
     )
+    print(tunnel.url)           # https://dev.st.usesynth.ai/s/rt_...
+    print(tunnel.worker_token)  # pass to job config
 
-    # Managed tunnel (stable subdomain, requires API key)
-    tunnel = await TunneledLocalAPI.create(
-        local_port=8001,
-        backend=TunnelBackend.CloudflareManagedTunnel,
-        api_key="sk_live_...",
-        env_api_key="env_key_...",
-        progress=True,  # Print status updates
-    )
-
-    # Quick tunnel (random subdomain, no API key needed)
+    # Cloudflare quick tunnel (no API key, random subdomain)
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
         backend=TunnelBackend.CloudflareQuickTunnel,
-        progress=True,
     )
 
-    # Localhost passthrough (no tunnel)
+    # Localhost passthrough (no tunnel, local dev only)
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
         backend=TunnelBackend.Localhost,
     )
 
-    print(f"Local API exposed at: {tunnel.url}")
+    tunnel.close()
 
-    # Use the URL for remote jobs (SynthTunnel requires worker token)
+**SynthTunnel vs Cloudflare — when to use which:**
+
++---------------------+----------------------------+----------------------------+
+| Concern             | SynthTunnel                | Cloudflare                 |
++---------------------+----------------------------+----------------------------+
+| Setup               | Zero config, no binary     | Requires ``cloudflared``   |
+| Concurrency         | 128 in-flight (dynamic)    | Cloudflare limits apply    |
+| Auth                | ``worker_token``           | ``task_app_api_key``       |
+| URL stability       | Per-lease (session-lived)  | Managed = stable subdomain |
+| Best for            | SDK jobs, GEPA, MiPRO      | Long-lived production apps |
++---------------------+----------------------------+----------------------------+
+
+**Using tunnels with optimization jobs:**
+
+    # SynthTunnel — pass worker_token
     job = PromptLearningJob.from_dict(
         config,
         task_app_url=tunnel.url,
         task_app_worker_token=tunnel.worker_token,
     )
 
-    # Clean up when done
-    tunnel.close()
-
-Note:
-    For Cloudflare tunnels, omit task_app_worker_token and use task_app_api_key as usual.
+    # Cloudflare — pass task_app_api_key instead
+    job = PromptLearningJob.from_dict(
+        config,
+        task_app_url=tunnel.url,
+        task_app_api_key=env_api_key,
+    )
 
 **Low-level:** For more control, use the individual functions:
 
@@ -59,15 +76,6 @@ Note:
         track_process,
         verify_tunnel_dns_resolution,
     )
-
-    # Get a managed tunnel from backend
-    tunnel = await rotate_tunnel(API_KEY, port=8001)
-
-    # Start cloudflared with the token
-    proc = track_process(open_managed_tunnel(tunnel['tunnel_token']))
-
-    # Verify the tunnel is ready
-    await verify_tunnel_dns_resolution(f"https://{tunnel['hostname']}")
 
 Note:
     Processes registered with track_process() are automatically cleaned up

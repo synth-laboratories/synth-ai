@@ -91,6 +91,49 @@ synth localapi deploy \
 Use the emitted `task_app_url` in training configs. Harbor auth uses `SYNTH_API_KEY`
 as the task app API key.
 
+## Tunnels
+
+Synth optimization jobs need HTTPS access to your local task app. Two tunnel backends are available:
+
+### SynthTunnel (Recommended)
+
+Relay-based tunnel — no external binary required, supports 128 concurrent requests:
+
+```python
+from synth_ai.core.tunnels import TunneledLocalAPI
+
+tunnel = await TunneledLocalAPI.create(local_port=8001, api_key="sk_live_...")
+print(tunnel.url)            # https://st.usesynth.ai/s/rt_...
+print(tunnel.worker_token)   # pass to job config
+```
+
+Use with optimization jobs:
+
+```python
+job = PromptLearningJob.from_dict(
+    config,
+    task_app_url=tunnel.url,
+    task_app_worker_token=tunnel.worker_token,
+)
+```
+
+### Cloudflare Quick Tunnel
+
+Anonymous tunnel via trycloudflare.com — no API key needed:
+
+```python
+from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
+
+tunnel = await TunneledLocalAPI.create(
+    local_port=8001,
+    backend=TunnelBackend.CloudflareQuickTunnel,
+)
+```
+
+Requires `cloudflared` installed (`brew install cloudflared`). Use `task_app_api_key` instead of `worker_token` when configuring jobs.
+
+See the [tunnels documentation](https://docs.usesynth.ai/sdk/tunnels) for the full comparison.
+
 ## Testing
 
 Run the TUI integration tests:

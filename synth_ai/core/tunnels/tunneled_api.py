@@ -1,41 +1,54 @@
 """High-level tunnel management for exposing local APIs.
 
-This module provides a clean abstraction for setting up SynthTunnel or
-Cloudflare tunnels to expose local APIs to the internet.
+This module provides a clean abstraction for setting up tunnels to expose
+local task apps to the internet for use with Synth optimization jobs.
 
-Example:
+Two backends are available:
+
+- **SynthTunnel** (default): Relay-based HTTPS tunnel via Synth's servers.
+  No ``cloudflared`` binary needed. Supports 128 concurrent in-flight
+  requests with dynamic memory-based budgeting. Uses ``worker_token``
+  for job authentication.
+
+- **Cloudflare**: Tunnel via Cloudflare's network. Requires ``cloudflared``.
+  Uses ``task_app_api_key`` for job authentication.
+
+Example — SynthTunnel (recommended):
+
+    from synth_ai.core.tunnels import TunneledLocalAPI
+
+    tunnel = await TunneledLocalAPI.create(local_port=8001, api_key="sk_live_...")
+    print(tunnel.url)            # https://dev.st.usesynth.ai/s/rt_...
+    print(tunnel.worker_token)   # pass this to your job config
+    tunnel.close()
+
+Example — Cloudflare quick tunnel:
+
     from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
 
-    # Default: SynthTunnel (relay-based, stable)
-    tunnel = await TunneledLocalAPI.create(
-        local_port=8001,
-        api_key="sk_live_...",
-    )
-
-    # Quick tunnel (random subdomain, no API key needed)
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
         backend=TunnelBackend.CloudflareQuickTunnel,
     )
+    print(tunnel.url)  # https://random-words.trycloudflare.com
+    tunnel.close()
 
-    print(f"Local API exposed at: {tunnel.url}")
+Using with optimization jobs::
 
-    # Use the URL for remote jobs (SynthTunnel requires worker token)
-    job = PromptLearningJob.from_dict(
-        config_dict={...},
+    # SynthTunnel
+    job = PromptLearningJob.from_dict(config,
         task_app_url=tunnel.url,
         task_app_worker_token=tunnel.worker_token,
     )
 
-    # Clean up when done
-    tunnel.close()
-
-Note:
-    For Cloudflare tunnels, omit task_app_worker_token and use task_app_api_key as usual.
+    # Cloudflare
+    job = PromptLearningJob.from_dict(config,
+        task_app_url=tunnel.url,
+        task_app_api_key=env_api_key,
+    )
 
 See Also:
-    - `synth_ai.core.tunnels`: Lower-level tunnel functions
-    - `synth_ai.core.tunnels.cloudflare`: Core tunnel implementation
+    - `synth_ai.core.tunnels`: Module-level docs with comparison table
 """
 
 from __future__ import annotations
@@ -53,34 +66,39 @@ logger = logging.getLogger(__name__)
 class TunnelBackend(str, Enum):
     """Supported tunnel backends for exposing local APIs.
 
+    **SynthTunnel vs Cloudflare:**
+
+    Use **SynthTunnel** (default) for optimization jobs (GEPA, MiPRO).
+    It requires no external binary, supports 128 concurrent in-flight
+    requests with dynamic memory budgeting, and authenticates via
+    ``worker_token``.
+
+    Use **Cloudflare** when you need a stable subdomain that persists
+    across sessions, or for quick anonymous testing without an API key.
+    Requires the ``cloudflared`` binary and authenticates via
+    ``task_app_api_key``.
+
     Attributes:
-        SynthTunnel: NEW - Relay-based tunnel (default).
-            - Relay-backed HTTPS endpoint (st.usesynth.ai)
-            - Worker-token auth, no inbound connectivity required
-            - Best for reliable local connectivity
-        CloudflareManagedLease: NEW - Lease-based managed tunnel (RECOMMENDED).
+        SynthTunnel: Relay-based HTTPS tunnel (default, recommended).
+            - No ``cloudflared`` binary required
+            - Up to 128 concurrent in-flight requests (dynamic cap)
+            - Authenticate jobs with ``worker_token``
+            - URLs: ``https://st.usesynth.ai/s/rt_...``
+
+        CloudflareManagedLease: Lease-based Cloudflare tunnel.
             - Stable hostnames that persist across sessions
             - Fast reconnection (~1-5s after first run)
-            - Automatic tunnel reuse without reprovisioning
-            - Requires Synth API key
-            - Best for production use
+            - Requires ``cloudflared`` and Synth API key
+            - Authenticate jobs with ``task_app_api_key``
 
-        CloudflareManagedTunnel: Legacy managed tunnel via Synth backend.
-            - Creates new tunnel each time (slower)
-            - Stable subdomains (e.g., task-1234-5678.usesynth.ai)
-            - Requires Synth API key
-            - Use CloudflareManagedLease instead for better performance
+        CloudflareManagedTunnel: Legacy managed tunnel (use ManagedLease instead).
 
-        CloudflareQuickTunnel: Anonymous tunnel via trycloudflare.com.
-            - Random subdomains that change each time
+        CloudflareQuickTunnel: Anonymous Cloudflare tunnel.
+            - Random subdomains via trycloudflare.com
             - No API key required
-            - Not associated with any organization
-            - Best for quick local testing
+            - Subject to Cloudflare rate limits
 
-        Localhost: No tunnel, use localhost directly.
-            - Uses http://localhost:{port}
-            - No API key required
-            - Best for local backend development
+        Localhost: No tunnel, use ``http://localhost:{port}`` directly.
     """
 
     SynthTunnel = "synthtunnel"
@@ -227,7 +245,7 @@ class TunneledLocalAPI:
             import synth_ai_py
 
             local_api_keys = _collect_local_api_keys(env_api_key)
-            max_inflight = int(lease.limits.get("max_inflight", 16))
+            max_inflight = int(lease.limits.get("max_inflight", 128))
             agent = await asyncio.to_thread(
                 synth_ai_py.synth_tunnel_start,
                 lease.agent_url,
