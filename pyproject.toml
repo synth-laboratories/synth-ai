@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.7.6"
+version = "0.7.7"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
@@ -104,6 +104,7 @@ manifest-path = "synth_ai_py/Cargo.toml"
 sdist-include = [
     "Cargo.toml",
     "Cargo.lock",
+    "LICENSE",
     "synth_ai_py/**",
     "synth_ai_core/**",
     "synth_ai_core_types/**",
