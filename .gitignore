@@ -43,6 +43,7 @@ greptile.json
 **/results/
 **/runs/
 **/backend_traces/
+**/generated_images/
 
 # Rust build artifacts
 target/
