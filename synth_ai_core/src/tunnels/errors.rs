@@ -18,6 +18,8 @@ pub enum TunnelError {
     Dns(String),
     #[error("process error: {0}")]
     Process(String),
+    #[error("websocket error: {0}")]
+    WebSocket(String),
 }
 
 impl TunnelError {
@@ -44,5 +46,8 @@ impl TunnelError {
     }
     pub fn process(msg: impl Into<String>) -> Self {
         TunnelError::Process(msg.into())
+    }
+    pub fn websocket(msg: impl Into<String>) -> Self {
+        TunnelError::WebSocket(msg.into())
     }
 }

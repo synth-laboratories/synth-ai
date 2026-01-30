@@ -5,6 +5,7 @@ pub mod gateway;
 pub mod lease_client;
 pub mod manager;
 pub mod ports;
+pub mod synth_tunnel;
 pub mod types;
 
 use crate::tunnels::errors::TunnelError;
@@ -69,6 +70,11 @@ pub async fn open_tunnel(
                 backend,
                 process_id: Some(process_id),
             })
+        }
+        TunnelBackend::SynthTunnel => {
+            return Err(TunnelError::config(
+                "SynthTunnel uses synth_tunnel::start_agent() directly; do not call open_tunnel()"
+            ));
         }
         TunnelBackend::CloudflareQuick => {
             let (url, proc) = cloudflared::open_quick_tunnel_with_dns_verification(

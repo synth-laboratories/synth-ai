@@ -96,4 +96,18 @@ pub enum TunnelBackend {
     CloudflareQuick,
     CloudflareManaged,
     CloudflareManagedLease,
+    SynthTunnel,
+}
+
+#[derive(Debug, Clone)]
+pub struct SynthTunnelConfig {
+    pub ws_url: String,
+    pub agent_token: String,
+    pub lease_id: String,
+    pub local_host: String,
+    pub local_port: u16,
+    pub public_url: String,
+    pub worker_token: String,
+    pub local_api_keys: Vec<String>,
+    pub max_inflight: usize,
 }

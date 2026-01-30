@@ -188,8 +188,6 @@ class TunneledLocalAPI:
 
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
-        from .synth_tunnel import hostname_from_url, open_synth_tunnel
-
         if backend == TunnelBackend.Localhost:
             url = f"http://localhost:{local_port}"
             return cls(
@@ -209,14 +207,41 @@ class TunneledLocalAPI:
                 env_api_key = os.environ.get("ENVIRONMENT_API_KEY") or os.environ.get(
                     "DEV_ENVIRONMENT_API_KEY"
                 )
-            session = await open_synth_tunnel(
+
+            # Step 1: Create lease via Python (simple HTTP POST, works fine)
+            from .synth_tunnel import (
+                SynthTunnelClient,
+                _collect_local_api_keys,
+                get_client_instance_id,
+                hostname_from_url,
+            )
+
+            client = SynthTunnelClient(api_key, backend_url=backend_url)
+            lease = await client.create_lease(
+                client_instance_id=get_client_instance_id(),
                 local_host="127.0.0.1",
                 local_port=local_port,
-                api_key=api_key,
-                backend_url=backend_url,
-                local_api_key=env_api_key,
             )
-            url = session.lease.public_url
+
+            # Step 2: Start Rust WS agent (runs in its own tokio runtime)
+            import synth_ai_py
+
+            local_api_keys = _collect_local_api_keys(env_api_key)
+            max_inflight = int(lease.limits.get("max_inflight", 16))
+            agent = await asyncio.to_thread(
+                synth_ai_py.synth_tunnel_start,
+                lease.agent_url,
+                lease.agent_token,
+                lease.lease_id,
+                "127.0.0.1",
+                local_port,
+                lease.public_url,
+                lease.worker_token,
+                local_api_keys,
+                max_inflight,
+            )
+
+            url = lease.public_url
             return cls(
                 url=url,
                 hostname=hostname_from_url(url),
@@ -224,16 +249,16 @@ class TunneledLocalAPI:
                 backend=backend,
                 process=None,
                 tunnel_token=None,
-                worker_token=session.lease.worker_token,
+                worker_token=lease.worker_token,
                 _raw={
-                    "lease_id": session.lease.lease_id,
-                    "route_token": session.lease.route_token,
-                    "agent_url": session.lease.agent_url,
+                    "lease_id": lease.lease_id,
+                    "route_token": lease.route_token,
+                    "agent_url": lease.agent_url,
                 },
-                _lease_id=session.lease.lease_id,
+                _lease_id=lease.lease_id,
                 _manager=None,
                 _handle=None,
-                _synth_session=session,
+                _synth_session={"agent": agent, "client": client, "lease": lease},
             )
 
         # Resolve env_api_key from environment if not provided
@@ -312,8 +337,29 @@ class TunneledLocalAPI:
         """
         logger.info("[TUNNELED_API] close() called")
         if self.backend == TunnelBackend.SynthTunnel and self._synth_session:
+            session = self._synth_session
             try:
-                self._synth_session.close()
+                # Stop Rust WS agent
+                if isinstance(session, dict):
+                    agent = session.get("agent")
+                    if agent is not None:
+                        agent.stop()
+                    # Close lease via Python client
+                    client = session.get("client")
+                    lease = session.get("lease")
+                    if client is not None and lease is not None:
+                        try:
+                            import asyncio
+
+                            loop = asyncio.get_running_loop()
+                            loop.create_task(client.close_lease(lease.lease_id))
+                        except RuntimeError:
+                            import asyncio
+
+                            asyncio.run(client.close_lease(lease.lease_id))
+                else:
+                    # Legacy SynthTunnelSession fallback
+                    session.close()
             except Exception as e:
                 logger.warning("[TUNNELED_API] SynthTunnel close failed: %s", e)
             self._synth_session = None

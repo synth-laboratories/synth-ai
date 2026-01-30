@@ -466,6 +466,7 @@ fn map_tunnel_err(py: Python, err: TunnelError) -> PyErr {
             TunnelError::LocalApp(msg) => ("LocalAppError", msg.clone()),
             TunnelError::Dns(msg) => ("TunnelError", msg.clone()),
             TunnelError::Process(msg) => ("TunnelError", msg.clone()),
+            TunnelError::WebSocket(msg) => ("TunnelError", msg.clone()),
         };
         if let Ok(cls) = errors.getattr(cls_name) {
             if let Ok(instance) = cls.call1((message,)) {
@@ -1259,6 +1260,62 @@ fn tunnel_open(
             backend: backend,
             lease_id: handle.lease.as_ref().map(|l| l.lease_id.clone()),
             process_id: handle.process_id,
+        }),
+        Err(e) => Err(map_tunnel_err(py, e)),
+    }
+}
+
+// =============================================================================
+// SynthTunnel — Rust WebSocket agent
+// =============================================================================
+
+use synth_ai_core::tunnels::synth_tunnel::{
+    start_agent as rust_start_agent, SynthTunnelAgentHandle,
+};
+use synth_ai_core::tunnels::types::SynthTunnelConfig;
+
+#[pyclass(name = "SynthTunnelAgent")]
+struct SynthTunnelAgentPy {
+    handle: Arc<SynthTunnelAgentHandle>,
+}
+
+#[pymethods]
+impl SynthTunnelAgentPy {
+    /// Non-async stop — safe to call from Python sync code.
+    fn stop(&self) {
+        self.handle.stop();
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (ws_url, agent_token, lease_id, local_host, local_port, public_url, worker_token, local_api_keys, max_inflight=16))]
+fn synth_tunnel_start(
+    py: Python,
+    ws_url: String,
+    agent_token: String,
+    lease_id: String,
+    local_host: String,
+    local_port: u16,
+    public_url: String,
+    worker_token: String,
+    local_api_keys: Vec<String>,
+    max_inflight: usize,
+) -> PyResult<SynthTunnelAgentPy> {
+    let config = SynthTunnelConfig {
+        ws_url,
+        agent_token,
+        lease_id,
+        local_host,
+        local_port,
+        public_url,
+        worker_token,
+        local_api_keys,
+        max_inflight,
+    };
+    let result = RUNTIME.block_on(rust_start_agent(config));
+    match result {
+        Ok(handle) => Ok(SynthTunnelAgentPy {
+            handle: Arc::new(handle),
         }),
         Err(e) => Err(map_tunnel_err(py, e)),
     }
@@ -5805,6 +5862,8 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(verify_tunnel_dns_resolution, m)?)?;
     m.add_function(wrap_pyfunction!(wait_for_health_check, m)?)?;
     m.add_function(wrap_pyfunction!(tunnel_open, m)?)?;
+    m.add_class::<SynthTunnelAgentPy>()?;
+    m.add_function(wrap_pyfunction!(synth_tunnel_start, m)?)?;
     m.add_function(wrap_pyfunction!(get_cloudflared_path, m)?)?;
     m.add_function(wrap_pyfunction!(ensure_cloudflared_installed, m)?)?;
     m.add_function(wrap_pyfunction!(require_cloudflared, m)?)?;
