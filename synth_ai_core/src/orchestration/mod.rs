@@ -17,6 +17,7 @@
 //!     }),
 //!     None,
 //!     None,
+//!     None,
 //! )?;
 //!
 //! let job_id = job.submit().await?;
@@ -46,6 +47,7 @@ pub use job_events::{parse_job_event, validate_base_event, ParsedJobEvent, Valid
 pub use progress::{CandidateInfo, GEPAProgress, ProgressTracker, TokenUsage};
 pub use event_extraction::{
     seed_score_entry,
+    seed_reward_entry,
     extract_stages_from_candidate,
     extract_program_candidate_content,
     normalize_transformation,

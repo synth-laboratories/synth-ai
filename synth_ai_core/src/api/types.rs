@@ -228,6 +228,9 @@ pub struct GepaJobRequest {
     pub algorithm: String,
     /// Task app URL (where the task app is running).
     pub task_app_url: String,
+    /// Optional SynthTunnel worker token (sent via header, not body).
+    #[serde(default, skip_serializing)]
+    pub task_app_worker_token: Option<String>,
     /// Optional API key for the task app.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_app_api_key: Option<String>,
@@ -246,6 +249,7 @@ impl Default for GepaJobRequest {
         Self {
             algorithm: default_gepa_algorithm(),
             task_app_url: String::new(),
+            task_app_worker_token: None,
             task_app_api_key: None,
             env_name: "default".to_string(),
             policy: PolicyConfig::default(),
@@ -262,6 +266,9 @@ pub struct MiproJobRequest {
     pub algorithm: String,
     /// Task app URL.
     pub task_app_url: String,
+    /// Optional SynthTunnel worker token (sent via header, not body).
+    #[serde(default, skip_serializing)]
+    pub task_app_worker_token: Option<String>,
     /// Optional API key for the task app.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_app_api_key: Option<String>,
@@ -280,6 +287,7 @@ impl Default for MiproJobRequest {
         Self {
             algorithm: default_mipro_algorithm(),
             task_app_url: String::new(),
+            task_app_worker_token: None,
             task_app_api_key: None,
             env_name: "default".to_string(),
             policy: PolicyConfig::default(),
@@ -296,6 +304,9 @@ pub struct EvalJobRequest {
     pub app_id: Option<String>,
     /// Task app URL.
     pub task_app_url: String,
+    /// Optional SynthTunnel worker token (sent via header, not body).
+    #[serde(default, skip_serializing)]
+    pub task_app_worker_token: Option<String>,
     /// Optional API key for the task app.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_app_api_key: Option<String>,
@@ -324,6 +335,7 @@ impl Default for EvalJobRequest {
         Self {
             app_id: None,
             task_app_url: String::new(),
+            task_app_worker_token: None,
             task_app_api_key: None,
             env_name: "default".to_string(),
             env_config: None,
@@ -354,9 +366,9 @@ pub struct PromptLearningResult {
     pub job_id: String,
     /// Current status.
     pub status: PolicyJobStatus,
-    /// Best score achieved (if available).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub best_score: Option<f64>,
+    /// Best reward achieved (if available).
+    #[serde(skip_serializing_if = "Option::is_none", alias = "best_score")]
+    pub best_reward: Option<f64>,
     /// Best prompt found (if available).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub best_prompt: Option<Value>,

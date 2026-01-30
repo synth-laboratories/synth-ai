@@ -278,6 +278,22 @@ impl HttpClient {
         self.handle_response(resp, &url).await
     }
 
+    /// Make a POST request with JSON body and extra headers.
+    pub async fn post_json_with_headers<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &Value,
+        extra_headers: Option<HeaderMap>,
+    ) -> Result<T, HttpError> {
+        let url = self.abs_url(path);
+        let mut request = self.client.post(&url).json(body);
+        if let Some(headers) = extra_headers {
+            request = request.headers(headers);
+        }
+        let resp = request.send().await?;
+        self.handle_response(resp, &url).await
+    }
+
     /// Make a POST request with multipart form data.
     ///
     /// # Arguments

@@ -4060,7 +4060,7 @@ fn validate_base_event(py: Python, payload: PyObject) -> PyResult<PyObject> {
 
 #[pyfunction]
 #[pyo3(signature = (seed, score=None))]
-fn orchestration_seed_score_entry(
+fn orchestration_seed_reward_entry(
     py: Python,
     seed: i64,
     score: Option<PyObject>,
@@ -4072,7 +4072,7 @@ fn orchestration_seed_score_entry(
         ),
         None => None,
     };
-    let value = core_seed_score_entry(seed, score_value.as_ref());
+    let value = core_seed_reward_entry(seed, score_value.as_ref());
     pythonize::pythonize(py, &value)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4341,7 +4341,7 @@ use synth_ai_core::orchestration::{
     load_graph_job_toml as core_load_graph_job_toml,
     validate_graph_job_payload as core_validate_graph_job_payload,
     convert_openai_sft as core_convert_openai_sft,
-    seed_score_entry as core_seed_score_entry,
+    seed_reward_entry as core_seed_reward_entry,
     extract_stages_from_candidate as core_extract_stages_from_candidate,
     extract_program_candidate_content as core_extract_program_candidate_content,
     normalize_transformation as core_normalize_transformation,
@@ -4412,12 +4412,23 @@ impl SynthClient {
         }).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    #[pyo3(signature = (request))]
-    fn submit_job_raw(&self, py: Python, request: PyObject) -> PyResult<String> {
+    #[pyo3(signature = (request, task_app_worker_token=None))]
+    fn submit_job_raw(
+        &self,
+        py: Python,
+        request: PyObject,
+        task_app_worker_token: Option<&str>,
+    ) -> PyResult<String> {
         let req: serde_json::Value = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
         RUNTIME.block_on(async {
-            self.inner.jobs().submit_raw(req).await
+            self.inner
+                .jobs()
+                .submit_raw_with_worker_token(
+                    req,
+                    task_app_worker_token.map(|s| s.to_string()),
+                )
+                .await
         }).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -4606,11 +4617,22 @@ struct PromptLearningJob {
 #[pymethods]
 impl PromptLearningJob {
     #[staticmethod]
-    #[pyo3(signature = (config, api_key=None, base_url=None))]
-    fn from_dict(py: Python, config: PyObject, api_key: Option<&str>, base_url: Option<&str>) -> PyResult<Self> {
+    #[pyo3(signature = (config, api_key=None, base_url=None, task_app_worker_token=None))]
+    fn from_dict(
+        py: Python,
+        config: PyObject,
+        api_key: Option<&str>,
+        base_url: Option<&str>,
+        task_app_worker_token: Option<&str>,
+    ) -> PyResult<Self> {
         let config_value: serde_json::Value = pythonize::depythonize(config.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid config: {}", e)))?;
-        let job = RustPromptLearningJob::from_dict(config_value, api_key, base_url)
+        let job = RustPromptLearningJob::from_dict(
+            config_value,
+            api_key,
+            base_url,
+            task_app_worker_token.map(|s| s.to_string()),
+        )
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: std::sync::Mutex::new(job) })
     }
@@ -6003,7 +6025,7 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_optimization_event, m)?)?;
     m.add_function(wrap_pyfunction!(parse_job_event, m)?)?;
     m.add_function(wrap_pyfunction!(validate_base_event, m)?)?;
-    m.add_function(wrap_pyfunction!(orchestration_seed_score_entry, m)?)?;
+    m.add_function(wrap_pyfunction!(orchestration_seed_reward_entry, m)?)?;
     m.add_function(wrap_pyfunction!(orchestration_extract_stages_from_candidate, m)?)?;
     m.add_function(wrap_pyfunction!(orchestration_extract_program_candidate_content, m)?)?;
     m.add_function(wrap_pyfunction!(orchestration_normalize_transformation, m)?)?;

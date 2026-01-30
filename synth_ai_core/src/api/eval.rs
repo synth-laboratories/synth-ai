@@ -5,6 +5,7 @@
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
+use reqwest::header::{HeaderMap, HeaderValue};
 
 use crate::http::HttpError;
 use crate::polling::{calculate_backoff, BackoffConfig};
@@ -13,7 +14,13 @@ use crate::CoreError;
 use super::client::SynthClient;
 use super::types::{CancelRequest, EvalJobRequest, EvalJobStatus, EvalResult, JobSubmitResponse};
 
-/// API endpoint for evaluation jobs.
+/// Canonical API endpoint root for job status/events.
+const JOBS_ROOT: &str = "/api/jobs";
+
+/// Canonical create endpoint for eval jobs.
+const EVAL_CREATE_ENDPOINT: &str = "/api/jobs/eval";
+
+/// Legacy API endpoint for eval-specific operations (status, results, traces, list).
 const EVAL_ENDPOINT: &str = "/api/eval/jobs";
 
 /// Eval API client.
@@ -51,15 +58,29 @@ impl<'a> EvalClient<'a> {
     /// }).await?;
     /// ```
     pub async fn submit(&self, request: EvalJobRequest) -> Result<String, CoreError> {
+        let worker_token = request.task_app_worker_token.clone();
         let body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
-
-        let response: JobSubmitResponse = self
-            .client
-            .http
-            .post_json(EVAL_ENDPOINT, &body)
-            .await
-            .map_err(map_http_error)?;
+        let response: JobSubmitResponse = if let Some(token) = worker_token {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "X-SynthTunnel-Worker-Token",
+                HeaderValue::from_str(&token).map_err(|_| {
+                    CoreError::Validation("invalid SynthTunnel worker token".to_string())
+                })?,
+            );
+            self.client
+                .http
+                .post_json_with_headers(EVAL_CREATE_ENDPOINT, &body, Some(headers))
+                .await
+                .map_err(map_http_error)?
+        } else {
+            self.client
+                .http
+                .post_json(EVAL_CREATE_ENDPOINT, &body)
+                .await
+                .map_err(map_http_error)?
+        };
 
         Ok(response.job_id)
     }
@@ -69,7 +90,7 @@ impl<'a> EvalClient<'a> {
         let response: JobSubmitResponse = self
             .client
             .http
-            .post_json(EVAL_ENDPOINT, &request)
+            .post_json(EVAL_CREATE_ENDPOINT, &request)
             .await
             .map_err(map_http_error)?;
 
@@ -86,8 +107,8 @@ impl<'a> EvalClient<'a> {
     ///
     /// The current eval result including status, mean reward, etc.
     pub async fn get_status(&self, job_id: &str) -> Result<EvalResult, CoreError> {
+        // TODO: migrate to /api/jobs/{id} once backend response shape is unified
         let path = format!("{}/{}", EVAL_ENDPOINT, job_id);
-
         self.client
             .http
             .get(&path, None)
@@ -197,7 +218,7 @@ impl<'a> EvalClient<'a> {
     /// * `job_id` - The job ID to cancel
     /// * `reason` - Optional cancellation reason
     pub async fn cancel(&self, job_id: &str, reason: Option<String>) -> Result<Value, CoreError> {
-        let path = format!("{}/{}/cancel", EVAL_ENDPOINT, job_id);
+        let path = format!("{}/{}/cancel", JOBS_ROOT, job_id);
         let body = serde_json::to_value(&CancelRequest { reason })
             .unwrap_or(Value::Object(serde_json::Map::new()));
 
@@ -293,6 +314,8 @@ mod tests {
 
     #[test]
     fn test_eval_endpoint() {
+        assert_eq!(EVAL_CREATE_ENDPOINT, "/api/jobs/eval");
         assert_eq!(EVAL_ENDPOINT, "/api/eval/jobs");
+        assert_eq!(JOBS_ROOT, "/api/jobs");
     }
 }

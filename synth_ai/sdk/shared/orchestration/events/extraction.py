@@ -53,11 +53,16 @@ def _maybe_to_dict(value: Any) -> Any:
 # =============================================================================
 
 
-def seed_score_entry(seed: int, score: Any) -> Dict[str, Any]:
-    """Create a properly formatted seed score entry."""
+def seed_reward_entry(seed: int, score: Any) -> Dict[str, Any]:
+    """Create a properly formatted seed reward entry."""
 
     rust = _require_rust()
-    return rust.orchestration_seed_score_entry(seed, score)
+    return rust.orchestration_seed_reward_entry(seed, score)
+
+
+def seed_score_entry(seed: int, score: Any) -> Dict[str, Any]:
+    """Deprecated: use seed_reward_entry instead."""
+    return seed_reward_entry(seed, score)
 
 
 # =============================================================================
@@ -154,6 +159,7 @@ def build_program_candidate(
 
 __all__ = [
     "StageExtractionError",
+    "seed_reward_entry",
     "seed_score_entry",
     "extract_stages_from_candidate",
     "extract_stages_required",

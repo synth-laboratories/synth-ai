@@ -42,7 +42,7 @@ try:
 except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for sdk.eval.") from exc
 
-from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_synthtunnel_url
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
 
@@ -188,6 +188,7 @@ class EvalJobConfig:
             Can also be set via SYNTH_API_KEY environment variable.
         task_app_api_key: API key for authenticating with the task app.
             Defaults to ENVIRONMENT_API_KEY env var if not provided. Alias: local_api_key
+        task_app_worker_token: SynthTunnel worker token for relay auth (required for st.usesynth.ai URLs).
         app_id: Task app identifier (optional, for logging/tracking).
         env_name: Environment name within the task app.
         seeds: List of seeds/indices to evaluate.
@@ -211,6 +212,7 @@ class EvalJobConfig:
     api_key: str = field(default="")
     backend_url: Optional[str] = field(default="")
     task_app_api_key: Optional[str] = None
+    task_app_worker_token: Optional[str] = field(default=None, repr=False)
     app_id: Optional[str] = None
     env_name: Optional[str] = None
     seeds: List[int] = field(default_factory=list)
@@ -243,12 +245,21 @@ class EvalJobConfig:
         if not self.env_name:
             self.env_name = "default"
 
-        # Get task_app_api_key from environment if not provided
-        if not self.task_app_api_key:
-            self.task_app_api_key = ensure_localapi_auth(
-                backend_base=self.backend_url,
-                synth_api_key=self.api_key,
-            )
+        if is_synthtunnel_url(self.task_app_url):
+            if not (self.task_app_worker_token or "").strip():
+                raise ValueError(
+                    "task_app_worker_token is required for SynthTunnel task_app_url. "
+                    "Pass tunnel.worker_token when submitting jobs."
+                )
+            # Do not send ENVIRONMENT_API_KEY to SynthTunnel gateway
+            self.task_app_api_key = None
+        else:
+            # Get task_app_api_key from environment if not provided
+            if not self.task_app_api_key:
+                self.task_app_api_key = ensure_localapi_auth(
+                    backend_base=self.backend_url,
+                    synth_api_key=self.api_key,
+                )
 
 
 class EvalJob:
@@ -318,6 +329,7 @@ class EvalJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         task_app_api_key: Optional[str] = None,
+        task_app_worker_token: Optional[str] = None,
         task_app_url: Optional[str] = None,
         seeds: Optional[List[int]] = None,
     ) -> "EvalJob":
@@ -331,6 +343,7 @@ class EvalJob:
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY)
+            task_app_worker_token: SynthTunnel worker token for relay auth
             task_app_url: Override task app URL from config
             seeds: Override seeds list from config
 
@@ -402,6 +415,7 @@ class EvalJob:
             backend_url=backend_url,
             api_key=api_key,
             task_app_api_key=task_app_api_key,
+            task_app_worker_token=task_app_worker_token,
             app_id=eval_config.get("app_id"),
             env_name=eval_config.get("env_name"),
             seeds=list(final_seeds),
@@ -497,6 +511,7 @@ class EvalJob:
         job_request = {
             "task_app_url": self.config.task_app_url,
             "task_app_api_key": self.config.task_app_api_key,
+            "task_app_worker_token": self.config.task_app_worker_token,
             "app_id": self.config.app_id,
             "env_name": self.config.env_name,
             "seeds": self.config.seeds,

@@ -58,6 +58,7 @@ from .extraction import (
     extract_stages_from_candidate,
     extract_stages_required,
     normalize_transformation,
+    seed_reward_entry,
     seed_score_entry,
 )
 
@@ -173,6 +174,7 @@ __all__ = [
     # Extraction utilities (from backend)
     # ==========================================================================
     "StageExtractionError",
+    "seed_reward_entry",
     "seed_score_entry",
     "extract_stages_from_candidate",
     "extract_stages_required",

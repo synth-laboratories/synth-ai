@@ -66,7 +66,7 @@ class HarborBuildSpec:
         dockerfile_path: Path to Dockerfile (relative or absolute)
         context_dir: Directory to package as build context
         entrypoint: Command to run (default: standard rollout runner)
-        entrypoint_mode: "file" for JSON I/O or "command" for CLI args
+        entrypoint_mode: "file" for JSON I/O or "stdio" for long-running commands
         description: Optional human-readable description
         env_vars: Environment variables (no LLM API keys allowed)
         limits: Resource limits (timeout, CPU, memory, disk)
@@ -92,7 +92,7 @@ class HarborBuildSpec:
 
     # Entrypoint configuration
     entrypoint: str = "run_rollout --input /tmp/rollout.json --output /tmp/result.json"
-    entrypoint_mode: str = "file"  # "file" or "command"
+    entrypoint_mode: str = "file"  # "file" or "stdio" (command alias supported)
 
     # Optional metadata
     description: str | None = None
@@ -101,7 +101,7 @@ class HarborBuildSpec:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     # Packaging options
-    include_globs: list[str] = field(default_factory=lambda: ["**/*"])
+    include_globs: list[str] = field(default_factory=lambda: ["**/*", "*"])
     exclude_globs: list[str] = field(
         default_factory=lambda: [
             ".git/**",
@@ -135,9 +135,12 @@ class HarborBuildSpec:
         if not self.name or len(self.name) > 128:
             raise ValueError("name must be 1-128 characters")
 
-        # Validate entrypoint_mode
-        if self.entrypoint_mode not in ("file", "command"):
-            raise ValueError("entrypoint_mode must be 'file' or 'command'")
+        # Normalize/validate entrypoint_mode
+        if self.entrypoint_mode == "command":
+            # Backward-compatible alias; backend expects "stdio".
+            self.entrypoint_mode = "stdio"
+        if self.entrypoint_mode not in ("file", "stdio"):
+            raise ValueError("entrypoint_mode must be 'file' or 'stdio'")
 
         # Validate no LLM API keys in env_vars
         forbidden_keys = {
@@ -284,6 +287,7 @@ class HarborDeploymentResult:
     name: str
     status: str
     snapshot_id: str | None = None
+    deployment_name: str | None = None
 
     def to_ref(
         self, backend_url: str | None = None, api_key: str | None = None
@@ -297,8 +301,9 @@ class HarborDeploymentResult:
         Returns:
             HarborDeploymentRef for this deployment
         """
+        deployment_key = self.deployment_name or self.deployment_id
         return HarborDeploymentRef(
-            deployment_id=self.deployment_id,
+            deployment_id=deployment_key,
             backend_url=backend_url,
             api_key=api_key,
         )

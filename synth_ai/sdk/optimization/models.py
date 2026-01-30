@@ -171,7 +171,7 @@ class PolicyOptimizationResult:
     job_id: str
     status: PolicyJobStatus
     algorithm: Optional[str] = None
-    best_score: Optional[float] = None
+    best_reward: Optional[float] = None
     best_prompt: Optional[str] = None
     error: Optional[str] = None
     raw: Dict[str, Any] = field(default_factory=dict)
@@ -182,7 +182,7 @@ class PolicyOptimizationResult:
     ) -> PolicyOptimizationResult:
         status_str = data.get("status", "pending")
         status = PolicyJobStatus.from_string(status_str)
-        best_score = _first_present(
+        best_reward = _first_present(
             data,
             (
                 "best_score",
@@ -195,7 +195,7 @@ class PolicyOptimizationResult:
             job_id=job_id,
             status=status,
             algorithm=algorithm or data.get("algorithm"),
-            best_score=best_score,
+            best_reward=best_reward,
             best_prompt=data.get("best_prompt"),
             error=data.get("error"),
             raw=data,
@@ -220,7 +220,7 @@ class PromptLearningResult:
 
     job_id: str
     status: PolicyJobStatus
-    best_score: Optional[float] = None
+    best_reward: Optional[float] = None
     best_prompt: Optional[str | Dict[str, Any]] = None
     error: Optional[str] = None
     raw: Dict[str, Any] = field(default_factory=dict)
@@ -229,7 +229,7 @@ class PromptLearningResult:
     def from_response(cls, job_id: str, data: Dict[str, Any]) -> PromptLearningResult:
         status_str = data.get("status", "pending")
         status = PolicyJobStatus.from_string(status_str)
-        best_score = _first_present(
+        best_reward = _first_present(
             data,
             (
                 "best_score",
@@ -241,7 +241,7 @@ class PromptLearningResult:
         return cls(
             job_id=job_id,
             status=status,
-            best_score=best_score,
+            best_reward=best_reward,
             best_prompt=data.get("best_prompt"),
             error=data.get("error"),
             raw=data,
@@ -278,7 +278,7 @@ class GraphOptimizationResult:
     job_id: str
     status: GraphJobStatus
     algorithm: Optional[str] = None
-    best_score: Optional[float] = None
+    best_reward: Optional[float] = None
     best_yaml: Optional[str] = None
     best_snapshot_id: Optional[str] = None
     generations_completed: Optional[int] = None
@@ -293,12 +293,12 @@ class GraphOptimizationResult:
     ) -> GraphOptimizationResult:
         status_str = data.get("status", "pending")
         status = GraphJobStatus.from_string(status_str)
-        best_score = _first_present(data, ("best_score", "best_reward"))
+        best_reward = _first_present(data, ("best_score", "best_reward"))
         return cls(
             job_id=job_id,
             status=status,
             algorithm=algorithm,
-            best_score=best_score,
+            best_reward=best_reward,
             best_yaml=data.get("best_yaml"),
             best_snapshot_id=data.get("best_snapshot_id"),
             generations_completed=data.get("generations_completed"),

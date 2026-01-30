@@ -4,6 +4,7 @@
 Usage:
     uv run python demos/gepa_banking77/run_demo.py           # Production mode (Cloudflare tunnels)
     uv run python demos/gepa_banking77/run_demo.py --local   # Local mode (localhost, no tunnels)
+    uv run python demos/gepa_banking77/run_demo.py --tunnel-backend synthtunnel
 """
 import sys
 print("Starting imports...", flush=True)
@@ -47,13 +48,20 @@ parser = argparse.ArgumentParser(description="Run Banking77 GEPA demo")
 parser.add_argument(
     "--local",
     action="store_true",
-    help="Run in local mode: use localhost:8000 backend and skip Cloudflare tunnels",
+    help="Run in local mode: use localhost:8000 backend and skip tunnels",
 )
 parser.add_argument(
     "--local-host",
     type=str,
     default="localhost",
     help="Hostname for local API URLs (use 'host.docker.internal' if backend runs in Docker)",
+)
+parser.add_argument(
+    "--tunnel-backend",
+    type=str,
+    choices=[backend.value for backend in TunnelBackend],
+    default=None,
+    help="Tunnel backend to use (overrides SYNTH_TUNNEL_BACKEND env var)",
 )
 args = parser.parse_args()
 
@@ -94,8 +102,14 @@ if LOCAL_MODE:
 else:
     # Use dev backend for testing
     SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api-dev.usesynth.ai")
-    # Use the new lease-based tunnel system for faster reconnection
-    TUNNEL_BACKEND = TunnelBackend.CloudflareManagedLease
+    env_backend = (os.environ.get("SYNTH_TUNNEL_BACKEND") or "").strip()
+    if args.tunnel_backend:
+        TUNNEL_BACKEND = TunnelBackend(args.tunnel_backend)
+    elif env_backend:
+        TUNNEL_BACKEND = TunnelBackend(env_backend)
+    else:
+        # Default to SynthTunnel relay for simplest setup (no cloudflared binary needed)
+        TUNNEL_BACKEND = TunnelBackend.SynthTunnel
     LOCAL_API_PORT = 8001
     OPTIMIZED_LOCAL_API_PORT = 8002
 
@@ -132,6 +146,7 @@ ENVIRONMENT_API_KEY = ensure_localapi_auth(
     synth_api_key=API_KEY,
 )
 print(f"Env key ready: {ENVIRONMENT_API_KEY[:12]}...{ENVIRONMENT_API_KEY[-4:]}")
+os.environ["ENVIRONMENT_API_KEY"] = ENVIRONMENT_API_KEY
 
 
 # Cell 5: Define Banking77 Local API
@@ -438,7 +453,7 @@ async def main():
     timings: dict[str, float] = {}
     total_start = time.time()
 
-    # Cell 7: Start Baseline Local API with Cloudflare Tunnel
+    # Cell 7: Start Baseline Local API with tunnel backend
     baseline_app = create_banking77_local_api(baseline_system_prompt)
 
     # Acquire port - find new one if requested port is in use
@@ -457,7 +472,7 @@ async def main():
         baseline_local_api_url = f"http://{LOCAL_HOST}:{baseline_port}"
         baseline_tunnel = None
     else:
-        print("\nProvisioning Cloudflare tunnel for baseline...")
+        print(f"\nProvisioning {TUNNEL_BACKEND.value} tunnel for baseline...")
         tunnel_start = time.time()
         baseline_tunnel = await TunneledLocalAPI.create(
             local_port=baseline_port,
@@ -528,12 +543,18 @@ async def main():
 
     print(f"Creating GEPA job (local_api_url={baseline_local_api_url})...")
 
+    baseline_worker_token = (
+        baseline_tunnel.worker_token
+        if baseline_tunnel is not None and TUNNEL_BACKEND == TunnelBackend.SynthTunnel
+        else None
+    )
     pl_job = PromptLearningJob.from_dict(
         config_dict=deepcopy(config_body),
         backend_url=SYNTH_API_BASE,
+        task_app_worker_token=baseline_worker_token,
     )
 
-    job_id = pl_job.submit()
+    job_id = await asyncio.to_thread(pl_job.submit)
     print(f"Job ID: {job_id}")
 
     # Track events we've already displayed to avoid duplicates
@@ -542,6 +563,27 @@ async def main():
     def on_status_update(status_data: dict[str, Any]) -> None:
         """Callback to fetch and display events during polling."""
         nonlocal last_event_seq
+
+        # Always print status transitions, especially failures
+        current_status = status_data.get("status", "")
+        if current_status.lower() in ("failed", "failure", "error"):
+            error_msg = (
+                status_data.get("error")
+                or status_data.get("error_message")
+                or status_data.get("failure_reason")
+                or status_data.get("message")
+                or "no error message in status response"
+            )
+            print(f"\n{'='*60}", flush=True)
+            print(f"JOB FAILED: {error_msg}", flush=True)
+            for k in ("error", "error_message", "error_details", "failure_reason", "traceback", "message"):
+                v = status_data.get(k)
+                if v:
+                    print(f"  {k}: {v}", flush=True)
+            print(f"{'='*60}", flush=True)
+        elif current_status.lower() in ("cancelled", "canceled"):
+            print(f"\nJOB CANCELLED", flush=True)
+
         try:
             # Use sync httpx to fetch events (avoids nested event loop issues)
             response = httpx.get(
@@ -725,9 +767,8 @@ async def main():
                     elif message:
                         print(f"  [{event_type.split('.')[-1]}] {message}", flush=True)
 
-        except Exception:
-            # Silently ignore event fetching errors to avoid polluting output
-            pass
+        except Exception as exc:
+            print(f"  [event-fetch warning] {type(exc).__name__}: {exc}", flush=True)
 
     optimization_start = time.time()
     try:
@@ -808,12 +849,18 @@ async def main():
     # Cell 9: Evaluation
     eval_seeds = list(range(100, 120))
 
-    async def run_eval_job(local_api_url: str, seeds: list[int], mode: str) -> EvalResult:
+    async def run_eval_job(
+        local_api_url: str,
+        seeds: list[int],
+        mode: str,
+        task_app_worker_token: str | None = None,
+    ) -> EvalResult:
         """Run eval job with event-based real-time progress tracking."""
         config = EvalJobConfig(
             local_api_url=local_api_url,
             backend_url=SYNTH_API_BASE,
             api_key=API_KEY,
+            task_app_worker_token=task_app_worker_token,
             env_name="banking77",
             seeds=seeds,
             policy_config={
@@ -826,7 +873,7 @@ async def main():
             concurrency=10,
         )
         job = EvalJob(config)
-        job_id = job.submit()
+        job_id = await asyncio.to_thread(job.submit)
         print(f"  {mode} eval job: {job_id}")
 
         # Custom event-based polling for real-time progress
@@ -1089,7 +1136,7 @@ async def main():
             optimized_local_api_url = f"http://{LOCAL_HOST}:{optimized_port}"
             optimized_tunnel = None
         else:
-            print("\nProvisioning Cloudflare tunnel for optimized...")
+            print(f"\nProvisioning {TUNNEL_BACKEND.value} tunnel for optimized...")
             tunnel_start = time.time()
             optimized_tunnel = await TunneledLocalAPI.create(
                 local_port=optimized_port,
@@ -1101,10 +1148,18 @@ async def main():
             timings["optimized_tunnel"] = time.time() - tunnel_start
             print(f"Optimized tunnel ready ({format_duration(timings['optimized_tunnel'])})")
 
+        baseline_eval_token = (
+            baseline_tunnel.worker_token
+            if baseline_tunnel is not None and TUNNEL_BACKEND == TunnelBackend.SynthTunnel
+            else None
+        )
         print("\nRunning BASELINE eval job...")
         eval_start = time.time()
         baseline_result = await run_eval_job(
-            local_api_url=baseline_local_api_url, seeds=eval_seeds, mode="baseline"
+            local_api_url=baseline_local_api_url,
+            seeds=eval_seeds,
+            mode="baseline",
+            task_app_worker_token=baseline_eval_token,
         )
         timings["baseline_eval"] = time.time() - eval_start
 
@@ -1140,8 +1195,16 @@ async def main():
 
         print("\nRunning OPTIMIZED eval job...")
         eval_start = time.time()
+        optimized_eval_token = (
+            optimized_tunnel.worker_token
+            if optimized_tunnel is not None and TUNNEL_BACKEND == TunnelBackend.SynthTunnel
+            else None
+        )
         optimized_result = await run_eval_job(
-            local_api_url=optimized_local_api_url, seeds=eval_seeds, mode="optimized"
+            local_api_url=optimized_local_api_url,
+            seeds=eval_seeds,
+            mode="optimized",
+            task_app_worker_token=optimized_eval_token,
         )
         timings["optimized_eval"] = time.time() - eval_start
 

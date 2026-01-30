@@ -8,13 +8,13 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
 
-from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_synthtunnel_url
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
-from synth_ai.sdk.optimization.models import PromptLearningResult
+from synth_ai.sdk.optimization.models import PolicyJobStatus, PromptLearningResult
 
 from .builders import (
     PromptLearningBuildResult,
@@ -41,6 +41,49 @@ def _require_rust() -> Any:
     return synth_ai_py
 
 
+def _extract_task_app_url(payload: dict[str, Any]) -> Optional[str]:
+    if not isinstance(payload, dict):
+        return None
+    section = payload
+    if isinstance(payload.get("prompt_learning"), dict):
+        section = payload.get("prompt_learning", {})
+    elif isinstance(payload.get("policy_optimization"), dict):
+        section = payload.get("policy_optimization", {})
+    if isinstance(section, dict):
+        for key in ("task_app_url", "localapi_url", "localapi_url_base"):
+            value = section.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    for key in ("task_app_url", "localapi_url"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _infer_task_app_url(config: PromptLearningJobConfig) -> Optional[str]:
+    overrides = config.overrides or {}
+    for key in ("task_url", "task_app_url"):
+        value = overrides.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    if config.config_dict:
+        url = _extract_task_app_url(config.config_dict)
+        if url:
+            return url
+    if config.config_path:
+        try:
+            payload = synth_ai_py.load_toml(str(config.config_path))
+        except Exception:
+            payload = None
+        if isinstance(payload, dict):
+            url = _extract_task_app_url(payload)
+            if url:
+                return url
+    env_url = os.environ.get("TASK_APP_URL", "").strip()
+    return env_url or None
+
+
 @dataclass
 class PromptLearningJobConfig:
     """Configuration for a prompt learning job.
@@ -61,6 +104,7 @@ class PromptLearningJobConfig:
         backend_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
         api_key: Synth API key for authentication.
         task_app_api_key: API key for authenticating with the Local API.
+        task_app_worker_token: SynthTunnel worker token for relay auth when using st.usesynth.ai URLs.
         allow_experimental: If True, allows use of experimental models.
         overrides: Dictionary of config overrides.
 
@@ -91,6 +135,7 @@ class PromptLearningJobConfig:
     config_path: Optional[Path] = None
     config_dict: Optional[Dict[str, Any]] = None
     task_app_api_key: Optional[str] = None
+    task_app_worker_token: Optional[str] = field(default=None, repr=False)
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
 
@@ -113,12 +158,21 @@ class PromptLearningJobConfig:
         if not self.api_key:
             raise ValueError("api_key is required")
 
-        # Get task_app_api_key from environment if not provided
-        if not self.task_app_api_key:
-            self.task_app_api_key = ensure_localapi_auth(
-                backend_base=self.backend_url,
-                synth_api_key=self.api_key,
-            )
+        task_url = _infer_task_app_url(self)
+        if task_url and is_synthtunnel_url(task_url):
+            if not (self.task_app_worker_token or "").strip():
+                raise ValueError(
+                    "task_app_worker_token is required for SynthTunnel task_app_url. "
+                    "Pass tunnel.worker_token when submitting jobs."
+                )
+            self.task_app_api_key = None
+        else:
+            # Get task_app_api_key from environment if not provided
+            if not self.task_app_api_key:
+                self.task_app_api_key = ensure_localapi_auth(
+                    backend_base=self.backend_url,
+                    synth_api_key=self.api_key,
+                )
 
 
 class PromptLearningJobPoller(JobPoller):
@@ -203,7 +257,10 @@ class PromptLearningJob:
             )
         elif config_payload is not None:
             self._rust_job = rust.PromptLearningJob.from_dict(
-                config_payload, self.config.api_key, self.config.backend_url
+                config_payload,
+                self.config.api_key,
+                self.config.backend_url,
+                self.config.task_app_worker_token,
             )
         return self._rust_job
 
@@ -214,6 +271,7 @@ class PromptLearningJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         task_app_api_key: Optional[str] = None,
+        task_app_worker_token: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
     ) -> PromptLearningJob:
@@ -224,6 +282,7 @@ class PromptLearningJob:
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY env var)
+            task_app_worker_token: SynthTunnel worker token for relay auth
             allow_experimental: Allow experimental models
             overrides: Config overrides
 
@@ -252,6 +311,7 @@ class PromptLearningJob:
             backend_url=backend_url,
             api_key=api_key,
             task_app_api_key=task_app_api_key,
+            task_app_worker_token=task_app_worker_token,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
         )
@@ -265,6 +325,7 @@ class PromptLearningJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         task_app_api_key: Optional[str] = None,
+        task_app_worker_token: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
         skip_health_check: bool = False,
@@ -291,6 +352,7 @@ class PromptLearningJob:
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY env var)
+            task_app_worker_token: SynthTunnel worker token for relay auth
             allow_experimental: Allow experimental models
             overrides: Config overrides
             skip_health_check: If True, skip task app health check before submission
@@ -335,6 +397,7 @@ class PromptLearningJob:
             backend_url=backend_url,
             api_key=api_key,
             task_app_api_key=task_app_api_key,
+            task_app_worker_token=task_app_worker_token,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
         )
@@ -445,10 +508,23 @@ class PromptLearningJob:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
 
         build = self._build_payload()
+        is_synth = is_synthtunnel_url(build.task_url)
+        if is_synth and not (self.config.task_app_worker_token or "").strip():
+            raise ValueError(
+                "task_app_worker_token is required for SynthTunnel task_app_url. "
+                "Pass tunnel.worker_token when submitting jobs."
+            )
 
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check:
-            health = check_local_api_health(build.task_url, self.config.task_app_api_key or "")
+            if is_synth:
+                health = check_local_api_health(
+                    build.task_url,
+                    "",
+                    worker_token=self.config.task_app_worker_token,
+                )
+            else:
+                health = check_local_api_health(build.task_url, self.config.task_app_api_key or "")
             if not health.ok:
                 raise ValueError(f"Task app health check failed: {health.detail}")
 
@@ -580,6 +656,35 @@ class PromptLearningJob:
 
                 result = PromptLearningResult.from_response(self._job_id, last_data)
                 if result.is_terminal:
+                    if result.failed:
+                        error_msg = (
+                            last_data.get("error")
+                            or last_data.get("error_message")
+                            or last_data.get("failure_reason")
+                            or last_data.get("message")
+                            or "unknown"
+                        )
+                        logger.error(
+                            "Job %s FAILED — %s",
+                            self._job_id,
+                            error_msg,
+                        )
+                        # Dump all available error context
+                        for k in (
+                            "error",
+                            "error_message",
+                            "error_details",
+                            "failure_reason",
+                            "traceback",
+                            "message",
+                        ):
+                            v = last_data.get(k)
+                            if v:
+                                logger.error("  %s: %s", k, v)
+                    elif result.status == PolicyJobStatus.CANCELLED:
+                        logger.warning("Job %s was cancelled", self._job_id)
+                    else:
+                        logger.info("Job %s completed: %s", self._job_id, result.status.value)
                     return result
             except Exception as exc:
                 error_count += 1

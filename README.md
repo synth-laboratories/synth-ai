@@ -74,6 +74,23 @@ uvx synth-ai skill list
 uvx synth-ai skill install synth-api --dir ~/custom/opencode/skill
 ```
 
+## LocalAPI Deploy (Cloud)
+
+Deploy a LocalAPI with a Dockerfile and get a stable `task_app_url`:
+
+```bash
+export SYNTH_API_KEY=sk_live_...
+synth localapi deploy \
+  --name my-localapi \
+  --app my_module:app \
+  --dockerfile ./Dockerfile \
+  --context . \
+  --wait
+```
+
+Use the emitted `task_app_url` in training configs. Harbor auth uses `SYNTH_API_KEY`
+as the task app API key.
+
 ## Testing
 
 Run the TUI integration tests:

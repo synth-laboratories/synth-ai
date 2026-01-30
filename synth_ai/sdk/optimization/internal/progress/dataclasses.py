@@ -114,7 +114,7 @@ class SeedInfo:
     expected: str = ""
     predicted: str | None = None
     correct: bool | None = None
-    score: float | None = None
+    reward: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dict, excluding None values."""
@@ -123,8 +123,8 @@ class SeedInfo:
             result["predicted"] = self.predicted
         if self.correct is not None:
             result["correct"] = self.correct
-        if self.score is not None:
-            result["score"] = self.score
+        if self.reward is not None:
+            result["reward"] = self.reward
         return result
 
     @classmethod
@@ -136,7 +136,7 @@ class SeedInfo:
             expected=d.get("expected", ""),
             predicted=d.get("predicted"),
             correct=d.get("correct"),
-            score=d.get("score"),
+            reward=d.get("reward") or d.get("score"),
         )
 
 
@@ -205,15 +205,15 @@ class CandidateInfo:
     """
 
     candidate_id: str
-    accuracy: float | None = None
+    reward: float | None = None
     objectives: Optional[Dict[str, float]] = None
-    val_accuracy: float | None = None
-    train_accuracy: float | None = None
+    val_reward: float | None = None
+    train_reward: float | None = None
     generation: int | None = None
     parent_id: str | None = None
     is_pareto: bool = False
     accepted: bool = False
-    instance_scores: list[float] = field(default_factory=list)
+    instance_rewards: list[float] = field(default_factory=list)
     instance_objectives: Optional[List[Dict[str, float]]] = None
     seeds_evaluated: list[int] = field(default_factory=list)
 
@@ -227,7 +227,7 @@ class CandidateInfo:
     transformation: dict[str, Any] | None = None
 
     # === Seed data ===
-    seed_scores: list[dict[str, Any]] = field(default_factory=list)  # [{seed, score}, ...]
+    seed_rewards: list[dict[str, Any]] = field(default_factory=list)  # [{seed, reward}, ...]
     seed_info: list[SeedInfo] = field(default_factory=list)  # Full seed metadata
     rollout_sample: list[RolloutSample] = field(default_factory=list)
 
@@ -241,9 +241,9 @@ class CandidateInfo:
     evaluation_duration_ms: int | None = None
 
     # === Evaluation details ===
-    minibatch_scores: list[float] = field(
+    minibatch_rewards: list[float] = field(
         default_factory=list
-    )  # Per-minibatch scores during evaluation
+    )  # Per-minibatch rewards during evaluation
     skip_reason: str | None = (
         None  # Reason why candidate was skipped (e.g., "minibatch_rejected", "budget_exhausted")
     )
@@ -302,21 +302,21 @@ class CandidateInfo:
                 if isinstance(stage_dict, dict):
                     stages[stage_id] = StageInfo.from_dict(stage_dict)
 
-        # Extract instance scores/objectives
-        instance_scores = _extract_instance_rewards(data) or []
-        if not instance_scores:
+        # Extract instance rewards/objectives
+        instance_rewards = _extract_instance_rewards(data) or []
+        if not instance_rewards:
             seed_eval_info = data.get("seed_eval_info", {})
             if isinstance(seed_eval_info, dict):
-                seed_scores = _extract_instance_rewards(seed_eval_info)
-                if seed_scores is not None:
-                    instance_scores = seed_scores
+                seed_rewards_extracted = _extract_instance_rewards(seed_eval_info)
+                if seed_rewards_extracted is not None:
+                    instance_rewards = seed_rewards_extracted
 
         instance_objectives = data.get("instance_objectives")
         if not isinstance(instance_objectives, list):
             instance_objectives = None
 
-        # Extract seed_scores [{seed, score}, ...]
-        seed_scores = data.get("seed_scores", [])
+        # Extract seed_rewards [{seed, reward}, ...]
+        seed_rewards = data.get("seed_rewards") or data.get("seed_scores", [])
 
         # Extract seed_info [{seed, query, expected}, ...]
         seed_info: list[SeedInfo] = []
@@ -348,37 +348,66 @@ class CandidateInfo:
                     parts.append(f"[{stage_id.upper()}]: {instruction}")
             prompt_summary = "\n".join(parts)
 
-        # Extract minibatch_scores array (preferred) or fallback to single minibatch_score
-        minibatch_scores = data.get("minibatch_scores", [])
-        if not minibatch_scores and data.get("minibatch_score") is not None:
-            # Fallback: convert single minibatch_score to array for backwards compatibility
-            minibatch_scores = [data["minibatch_score"]]
+        # Extract minibatch_rewards array (preferred) or fallback to single minibatch_reward/score
+        minibatch_rewards = data.get("minibatch_rewards") or data.get("minibatch_scores", [])
+        if not minibatch_rewards:
+            mb_val = data.get("minibatch_reward") or data.get("minibatch_score")
+            if mb_val is not None:
+                minibatch_rewards = [mb_val]
 
         # Extract skip_reason
         skip_reason = data.get("skip_reason")
 
         objectives = data.get("objectives")
         if not isinstance(objectives, dict):
-            objectives = None
+            # Fallback: try score.objectives (backend puts objectives inside score object)
+            score_val = data.get("score")
+            if isinstance(score_val, dict):
+                objectives = score_val.get("objectives")
+                if not isinstance(objectives, dict):
+                    objectives = None
+            else:
+                objectives = None
         reward_value = None
         if isinstance(objectives, dict):
             reward_value = objectives.get("reward")
         if reward_value is None:
-            reward_value = data.get("accuracy") or data.get("score")
+            # Try direct `reward` field (backend emits this), then accuracy, then score
+            reward_value = data.get("reward")
+        if reward_value is None:
+            reward_value = data.get("accuracy")
+        if reward_value is None:
+            score_val = data.get("score")
+            if isinstance(score_val, (int, float)):
+                reward_value = score_val
+            elif isinstance(score_val, dict):
+                reward_value = (
+                    score_val.get("reward")
+                    or score_val.get("mean_reward")
+                    or score_val.get("outcome_reward")
+                )
+        if reward_value is None:
+            outcome_obj = data.get("outcome_objectives")
+            if isinstance(outcome_obj, dict):
+                reward_value = outcome_obj.get("reward")
+        if reward_value is None:
+            reward_value = data.get("outcome_reward")
         if objectives is None and reward_value is not None:
             objectives = {"reward": float(reward_value)}
 
         return cls(
             candidate_id=cid,
-            accuracy=float(reward_value) if reward_value is not None else None,
+            reward=float(reward_value) if reward_value is not None else None,
             objectives=objectives,
-            val_accuracy=data.get("val_accuracy") or data.get("full_score"),
-            train_accuracy=data.get("train_accuracy") or data.get("minibatch_score"),
+            val_reward=data.get("val_reward") or data.get("val_accuracy") or data.get("full_score"),
+            train_reward=data.get("train_reward")
+            or data.get("train_accuracy")
+            or data.get("minibatch_score"),
             generation=data.get("generation"),
             parent_id=data.get("parent_id"),
             is_pareto=data.get("is_pareto", False),
             accepted=data.get("accepted", False),
-            instance_scores=instance_scores,
+            instance_rewards=instance_rewards,
             instance_objectives=instance_objectives,
             seeds_evaluated=data.get("seeds_evaluated", []),
             stages=stages,
@@ -386,7 +415,7 @@ class CandidateInfo:
             mutation_type=data.get("mutation_type") or data.get("operator"),
             mutation_params=data.get("mutation_params"),
             transformation=data.get("transformation"),
-            seed_scores=seed_scores,
+            seed_rewards=seed_rewards,
             seed_info=seed_info,
             rollout_sample=rollout_samples,
             token_usage=token_usage,
@@ -394,7 +423,7 @@ class CandidateInfo:
             timestamp=data.get("timestamp", 0.0),
             timestamp_ms=data.get("timestamp_ms"),
             evaluation_duration_ms=data.get("evaluation_duration_ms"),
-            minibatch_scores=minibatch_scores,
+            minibatch_rewards=minibatch_rewards,
             skip_reason=skip_reason,
             raw_data=data,
         )
@@ -408,12 +437,12 @@ class FrontierUpdate:
     added: list[str] = field(default_factory=list)
     removed: list[str] = field(default_factory=list)
     frontier: list[str] = field(default_factory=list)
-    frontier_scores: dict[str, float] = field(default_factory=dict)
+    frontier_rewards: dict[str, float] = field(default_factory=dict)
     frontier_objectives: Optional[List[Dict[str, float]]] = None
     frontier_size: int = 0
-    optimistic_score: float | None = None
+    optimistic_reward: float | None = None
     generation: int | None = None
-    baseline_score: float | None = None
+    baseline_reward: float | None = None
     timestamp_ms: int | None = None
 
     @classmethod
@@ -424,12 +453,14 @@ class FrontierUpdate:
             added=data.get("added", []),
             removed=data.get("removed", []),
             frontier=data.get("frontier", []),
-            frontier_scores=data.get("frontier_scores", {}),
+            frontier_rewards=data.get("frontier_rewards") or data.get("frontier_scores", {}),
             frontier_objectives=data.get("frontier_objectives"),
             frontier_size=data.get("frontier_size", len(data.get("frontier", []))),
-            optimistic_score=data.get("optimistic_score") or data.get("best_score"),
+            optimistic_reward=data.get("optimistic_reward")
+            or data.get("optimistic_score")
+            or data.get("best_score"),
             generation=data.get("generation"),
-            baseline_score=data.get("baseline_score"),
+            baseline_reward=data.get("baseline_reward") or data.get("baseline_score"),
             timestamp_ms=data.get("timestamp_ms"),
         )
 
@@ -438,10 +469,10 @@ class FrontierUpdate:
 class BaselineInfo:
     """Baseline prompt info."""
 
-    accuracy: float | None = None  # Training accuracy
+    reward: float | None = None  # Training reward
     objectives: Optional[Dict[str, float]] = None
-    val_accuracy: float | None = None  # Validation accuracy
-    instance_scores: list[float] = field(default_factory=list)
+    val_reward: float | None = None  # Validation reward
+    instance_rewards: list[float] = field(default_factory=list)
     instance_objectives: Optional[List[Dict[str, float]]] = None
     seeds_evaluated: list[int] = field(default_factory=list)
     prompt: dict[str, Any] | None = None
@@ -458,14 +489,30 @@ class BaselineInfo:
 
         objectives = data.get("objectives")
         if not isinstance(objectives, dict):
-            objectives = None
+            score_val = data.get("score")
+            if isinstance(score_val, dict):
+                objectives = score_val.get("objectives")
+                if not isinstance(objectives, dict):
+                    objectives = None
+            else:
+                objectives = None
         reward_value = None
         if isinstance(objectives, dict):
             reward_value = objectives.get("reward")
         if reward_value is None:
+            reward_value = data.get("reward")
+        if reward_value is None:
             reward_value = (
                 data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy")
             )
+        if reward_value is None:
+            score_val = data.get("score")
+            if isinstance(score_val, dict):
+                reward_value = (
+                    score_val.get("reward")
+                    or score_val.get("mean_reward")
+                    or score_val.get("outcome_reward")
+                )
         if objectives is None and reward_value is not None:
             objectives = {"reward": float(reward_value)}
 
@@ -473,12 +520,12 @@ class BaselineInfo:
         if not isinstance(instance_objectives, list):
             instance_objectives = None
 
-        instance_scores = _extract_instance_rewards(data) or []
+        instance_rewards = _extract_instance_rewards(data) or []
 
         return cls(
-            accuracy=float(reward_value) if reward_value is not None else None,
+            reward=float(reward_value) if reward_value is not None else None,
             objectives=objectives,
-            instance_scores=instance_scores,
+            instance_rewards=instance_rewards,
             instance_objectives=instance_objectives,
             seeds_evaluated=data.get("seeds_evaluated", []),
             prompt=data.get("prompt"),
@@ -493,7 +540,7 @@ class GenerationSummary:
     generation: int
     candidates_proposed: int = 0
     candidates_accepted: int = 0
-    best_accuracy: float = 0.0
+    best_reward: float = 0.0
     frontier_size: int = 0
     children: list[dict[str, Any]] = field(default_factory=list)
     duration_ms: float | None = None
@@ -509,8 +556,8 @@ class GEPAProgress:
     rollouts_total: int = 0
     generations_completed: int = 0
     candidates_evaluated: int = 0
-    best_score: float = 0.0
-    baseline_score: float | None = None
+    best_reward: float = 0.0
+    baseline_reward: float | None = None
     elapsed_seconds: float = 0.0
     eta_seconds: float | None = None
     finish_reason: str | None = None
@@ -525,6 +572,6 @@ class GEPAProgress:
     @property
     def lift(self) -> float | None:
         """Calculate improvement over baseline."""
-        if self.baseline_score is not None:
-            return self.best_score - self.baseline_score
+        if self.baseline_reward is not None:
+            return self.best_reward - self.baseline_reward
         return None

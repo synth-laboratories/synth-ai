@@ -174,17 +174,19 @@ class GEPAProgressEmitter:
 
     def _apply_baseline(self, event: BaselineEvent) -> None:
         self.baseline = BaselineInfo(
-            accuracy=event.accuracy,
-            instance_scores=event.instance_scores or [],
+            reward=event.reward,
+            instance_rewards=event.instance_rewards or [],
             prompt=event.prompt,
         )
-        self.progress.baseline_score = event.accuracy
+        self.progress.baseline_reward = event.reward
 
     def _apply_candidate(self, event: CandidateEvent) -> None:
         is_baseline = event.data.get("is_baseline", False) or event.data.get("parent_id") is None
 
         if is_baseline and not self.baseline:
-            instance_scores = event.data.get("instance_scores", [])
+            instance_rewards = event.data.get("instance_rewards") or event.data.get(
+                "instance_scores", []
+            )
             seeds_evaluated = event.data.get("seeds_evaluated", [])
             prompt = (
                 event.data.get("prompt")
@@ -193,13 +195,13 @@ class GEPAProgressEmitter:
             )
 
             self.baseline = BaselineInfo(
-                accuracy=event.accuracy,
-                instance_scores=instance_scores if isinstance(instance_scores, list) else [],
+                reward=event.reward,
+                instance_rewards=instance_rewards if isinstance(instance_rewards, list) else [],
                 seeds_evaluated=seeds_evaluated if isinstance(seeds_evaluated, list) else [],
                 prompt=prompt if isinstance(prompt, dict) else None,
             )
-            if event.accuracy is not None:
-                self.progress.baseline_score = event.accuracy
+            if event.reward is not None:
+                self.progress.baseline_reward = event.reward
 
         if event.candidate_id in self._candidate_ids:
             return
@@ -209,8 +211,8 @@ class GEPAProgressEmitter:
         self.candidates.append(candidate)
 
         self.progress.candidates_evaluated = len(self.candidates)
-        if event.accuracy is not None and event.accuracy > self.progress.best_score:
-            self.progress.best_score = event.accuracy
+        if event.reward is not None and event.reward > self.progress.best_reward:
+            self.progress.best_reward = event.reward
 
     def _apply_frontier(self, event: FrontierEvent) -> None:
         timestamp_ms = event.data.get("timestamp_ms") if event.data else None
@@ -219,17 +221,19 @@ class GEPAProgressEmitter:
             added=event.added or [],
             removed=event.removed or [],
             frontier=event.frontier or [],
-            frontier_scores=event.frontier_scores or {},
+            frontier_rewards=event.frontier_rewards or {},
             frontier_size=event.frontier_size,
-            optimistic_score=event.best_score,
+            optimistic_reward=event.best_reward,
             generation=event.data.get("generation") if event.data else None,
-            baseline_score=event.data.get("baseline_score") if event.data else None,
+            baseline_reward=event.data.get("baseline_reward") or event.data.get("baseline_score")
+            if event.data
+            else None,
             timestamp_ms=timestamp_ms,
         )
         self.pareto_history.append(update)
 
-        if event.best_score is not None and event.best_score > self.progress.best_score:
-            self.progress.best_score = event.best_score
+        if event.best_reward is not None and event.best_reward > self.progress.best_reward:
+            self.progress.best_reward = event.best_reward
 
     def _apply_progress(self, event: ProgressEvent) -> None:
         if event.rollouts_completed > self.progress.rollouts_completed:
@@ -238,17 +242,17 @@ class GEPAProgressEmitter:
             self.progress.rollouts_total = event.rollouts_total
         if event.trials_completed > self.progress.candidates_evaluated:
             self.progress.candidates_evaluated = event.trials_completed
-        if event.best_score is not None and event.best_score > self.progress.best_score:
-            self.progress.best_score = event.best_score
-        if event.baseline_score is not None and self.progress.baseline_score is None:
-            self.progress.baseline_score = event.baseline_score
+        if event.best_reward is not None and event.best_reward > self.progress.best_reward:
+            self.progress.best_reward = event.best_reward
+        if event.baseline_reward is not None and self.progress.baseline_reward is None:
+            self.progress.baseline_reward = event.baseline_reward
 
     def _apply_generation(self, event: GenerationEvent) -> None:
         summary = GenerationSummary(
             generation=event.generation,
             candidates_proposed=event.candidates_proposed,
             candidates_accepted=event.candidates_accepted,
-            best_accuracy=event.best_accuracy,
+            best_reward=event.best_reward,
             timestamp=time.time() - self._start_time,
         )
         self.generation_history.append(summary)
@@ -256,10 +260,10 @@ class GEPAProgressEmitter:
 
     def _apply_complete(self, event: CompleteEvent) -> None:
         self.progress.phase = "complete"
-        if event.best_score is not None:
-            self.progress.best_score = event.best_score
-        if event.baseline_score is not None:
-            self.progress.baseline_score = event.baseline_score
+        if event.best_reward is not None:
+            self.progress.best_reward = event.best_reward
+        if event.baseline_reward is not None:
+            self.progress.baseline_reward = event.baseline_reward
         if event.finish_reason:
             self.progress.finish_reason = event.finish_reason
 
@@ -272,12 +276,12 @@ class GEPAProgressEmitter:
     def _apply_validation(self, event: ParsedEvent) -> None:
         data = event.data
         if data.get("is_baseline", False) or data.get("baseline_val_accuracy") is not None:
-            val_accuracy = data.get("baseline_val_accuracy") or data.get("accuracy")
-            if val_accuracy is not None:
+            val_reward = data.get("baseline_val_accuracy") or data.get("accuracy")
+            if val_reward is not None:
                 if self.baseline:
-                    self.baseline.val_accuracy = val_accuracy
-                if self.progress.baseline_score is None:
-                    self.progress.baseline_score = val_accuracy
+                    self.baseline.val_reward = val_reward
+                if self.progress.baseline_reward is None:
+                    self.progress.baseline_reward = val_reward
 
 
 __all__ = ["GEPAProgressEmitter"]

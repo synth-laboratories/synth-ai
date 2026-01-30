@@ -510,6 +510,7 @@ impl OptimizeBuilder {
             config,
             Some(&self.api_key),
             Some(&self.base_url),
+            None,
         )
         .map_err(Error::Core)?;
 
@@ -557,9 +558,9 @@ impl OptimizeResult {
         self.results.best_prompt.as_deref()
     }
 
-    /// Get the best score if available.
-    pub fn best_score(&self) -> Option<f64> {
-        self.results.best_score
+    /// Get the best reward if available.
+    pub fn best_reward(&self) -> Option<f64> {
+        self.results.best_reward
     }
 
     /// Get all top prompts.

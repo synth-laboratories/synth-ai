@@ -7,6 +7,13 @@ exposing local task apps to the internet via Cloudflare tunnels.
 
     from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
 
+    # SynthTunnel (relay-based, default)
+    tunnel = await TunneledLocalAPI.create(
+        local_port=8001,
+        backend=TunnelBackend.SynthTunnel,
+        api_key="sk_live_...",
+    )
+
     # Managed tunnel (stable subdomain, requires API key)
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
@@ -31,11 +38,18 @@ exposing local task apps to the internet via Cloudflare tunnels.
 
     print(f"Local API exposed at: {tunnel.url}")
 
-    # Use the URL for remote jobs
-    job = PromptLearningJob.from_dict(config, task_app_url=tunnel.url)
+    # Use the URL for remote jobs (SynthTunnel requires worker token)
+    job = PromptLearningJob.from_dict(
+        config,
+        task_app_url=tunnel.url,
+        task_app_worker_token=tunnel.worker_token,
+    )
 
     # Clean up when done
     tunnel.close()
+
+Note:
+    For Cloudflare tunnels, omit task_app_worker_token and use task_app_api_key as usual.
 
 **Low-level:** For more control, use the individual functions:
 
@@ -112,7 +126,7 @@ from .types import (
 async def create_tunneled_api(
     app: Any,
     local_port: int | None = None,
-    backend: TunnelBackend = TunnelBackend.CloudflareManagedTunnel,
+    backend: TunnelBackend = TunnelBackend.SynthTunnel,
     *,
     api_key: str | None = None,
     backend_url: str | None = None,

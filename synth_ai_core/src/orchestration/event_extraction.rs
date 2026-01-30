@@ -60,38 +60,43 @@ fn extract_instruction_text(value: &Value) -> String {
     value.to_string()
 }
 
-pub fn seed_score_entry(seed: i64, score: Option<&Value>) -> Value {
+pub fn seed_reward_entry(seed: i64, score: Option<&Value>) -> Value {
     let mut map = Map::new();
     map.insert("seed".to_string(), Value::Number(seed.into()));
 
     match score {
         None => {
-            map.insert("score".to_string(), Value::Null);
+            map.insert("reward".to_string(), Value::Null);
             map.insert("status".to_string(), Value::String("failed".to_string()));
         }
         Some(value) if value.is_null() => {
-            map.insert("score".to_string(), Value::Null);
+            map.insert("reward".to_string(), Value::Null);
             map.insert("status".to_string(), Value::String("failed".to_string()));
         }
         Some(value) => {
             if let Some(num) = value_to_f64(value) {
                 if num.is_nan() {
-                    map.insert("score".to_string(), Value::Null);
+                    map.insert("reward".to_string(), Value::Null);
                     map.insert("status".to_string(), Value::String("invalid".to_string()));
                 } else if let Some(json_num) = serde_json::Number::from_f64(num) {
-                    map.insert("score".to_string(), Value::Number(json_num));
+                    map.insert("reward".to_string(), Value::Number(json_num));
                 } else {
-                    map.insert("score".to_string(), Value::Null);
+                    map.insert("reward".to_string(), Value::Null);
                     map.insert("status".to_string(), Value::String("invalid".to_string()));
                 }
             } else {
-                map.insert("score".to_string(), Value::Null);
+                map.insert("reward".to_string(), Value::Null);
                 map.insert("status".to_string(), Value::String("invalid".to_string()));
             }
         }
     }
 
     Value::Object(map)
+}
+
+/// Backwards-compatible alias for `seed_reward_entry`.
+pub fn seed_score_entry(seed: i64, score: Option<&Value>) -> Value {
+    seed_reward_entry(seed, score)
 }
 
 fn collect_text_replacements(candidate: &Value, obj: &Map<String, Value>) -> Vec<Value> {
@@ -571,7 +576,7 @@ pub fn build_program_candidate(
             for idx in 0..count {
                 let seed = seeds.get(idx).and_then(|v| value_to_i64(v)).unwrap_or(0);
                 let score = scores.get(idx);
-                entries.push(seed_score_entry(seed, score));
+                entries.push(seed_reward_entry(seed, score));
             }
             seed_scores = Some(Value::Array(entries));
         }
@@ -618,35 +623,35 @@ pub fn build_program_candidate(
         map.insert("mutation_params".to_string(), params.clone());
     }
 
-    let accuracy = candidate
+    let reward = candidate
         .get("accuracy")
         .and_then(|v| value_to_f64(v))
         .unwrap_or(0.0);
     map.insert(
-        "accuracy".to_string(),
-        serde_json::Number::from_f64(accuracy)
+        "reward".to_string(),
+        serde_json::Number::from_f64(reward)
             .map(Value::Number)
             .unwrap_or(Value::Null),
     );
 
     if let Some(val) = candidate.get("val_accuracy").and_then(|v| value_to_f64(v)) {
         if let Some(num) = serde_json::Number::from_f64(val) {
-            map.insert("val_accuracy".to_string(), Value::Number(num));
+            map.insert("val_reward".to_string(), Value::Number(num));
         }
     } else if let Some(val) = candidate.get("full_score").and_then(|v| value_to_f64(v)) {
         if let Some(num) = serde_json::Number::from_f64(val) {
-            map.insert("val_accuracy".to_string(), Value::Number(num));
+            map.insert("val_reward".to_string(), Value::Number(num));
         }
     }
 
     if let Some(val) = candidate.get("minibatch_score").and_then(|v| value_to_f64(v)) {
         if let Some(num) = serde_json::Number::from_f64(val) {
-            map.insert("minibatch_score".to_string(), Value::Number(num));
+            map.insert("minibatch_reward".to_string(), Value::Number(num));
         }
     }
 
     if let Some(seed_scores) = seed_scores {
-        map.insert("seed_scores".to_string(), seed_scores);
+        map.insert("seed_rewards".to_string(), seed_scores);
     }
     if let Some(seed_info) = seed_info {
         if let Ok(parsed) = serde_json::from_value::<Vec<SeedInfo>>(seed_info.clone()) {
@@ -659,7 +664,7 @@ pub fn build_program_candidate(
     }
 
     if let Some(instance_scores) = candidate.get("instance_scores") {
-        map.insert("instance_scores".to_string(), instance_scores.clone());
+        map.insert("instance_rewards".to_string(), instance_scores.clone());
     }
     if let Some(objectives) = objectives {
         map.insert("objectives".to_string(), objectives);

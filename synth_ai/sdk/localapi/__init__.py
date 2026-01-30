@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     )
     from synth_ai.sdk.optimization.internal.local_api import LocalAPIHealth, check_local_api_health
 
+    from .deploy import LocalAPIDeployResult, deploy_localapi
     from .harbor_adapter import (
         HarborExecutionBackend,
         HarborExecutionError,
@@ -56,6 +57,10 @@ _TRAIN_IMPORTS = {
 _LOCAL_IMPORTS = {
     "RolloutResponseBuilder",
 }
+_DEPLOY_IMPORTS = {
+    "LocalAPIDeployResult",
+    "deploy_localapi",
+}
 _HARBOR_IMPORTS = {
     "HarborExecutionBackend",
     "HarborExecutionError",
@@ -78,6 +83,10 @@ def __getattr__(name: str) -> Any:
         from . import rollouts as _rollouts
 
         return getattr(_rollouts, name)
+    if name in _DEPLOY_IMPORTS:
+        from . import deploy as _deploy
+
+        return getattr(_deploy, name)
     if name in _HARBOR_IMPORTS:
         # Harbor adapter and provider imports
         if name in (
@@ -126,6 +135,8 @@ __all__ = [
     "run_task_app",
     "run_local_api",
     "RolloutResponseBuilder",
+    "LocalAPIDeployResult",
+    "deploy_localapi",
     "ensure_localapi_auth",
     "build_template_config",
     "create_template_app",

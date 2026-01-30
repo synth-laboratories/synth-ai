@@ -6,6 +6,7 @@
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
+use reqwest::header::{HeaderMap, HeaderValue};
 
 use crate::http::HttpError;
 use crate::polling::{calculate_backoff, BackoffConfig};
@@ -17,8 +18,17 @@ use super::types::{
     PromptLearningResult,
 };
 
-/// API endpoint for prompt learning jobs.
-const JOBS_ENDPOINT: &str = "/api/prompt-learning/online/jobs";
+/// Canonical API endpoint root for job status/events.
+const JOBS_ENDPOINT: &str = "/api/jobs";
+
+/// Canonical create endpoint for GEPA jobs.
+const GEPA_CREATE_ENDPOINT: &str = "/api/jobs/gepa";
+
+/// Canonical create endpoint for MIPRO jobs.
+const MIPRO_CREATE_ENDPOINT: &str = "/api/jobs/mipro";
+
+/// Legacy API endpoint for prompt learning job submission (fallback).
+const LEGACY_SUBMIT_ENDPOINT: &str = "/api/prompt-learning/online/jobs";
 
 /// Jobs API client.
 ///
@@ -55,15 +65,29 @@ impl<'a> JobsClient<'a> {
     /// }).await?;
     /// ```
     pub async fn submit_gepa(&self, request: GepaJobRequest) -> Result<String, CoreError> {
+        let worker_token = request.task_app_worker_token.clone();
         let body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
-
-        let response: JobSubmitResponse = self
-            .client
-            .http
-            .post_json(JOBS_ENDPOINT, &body)
-            .await
-            .map_err(map_http_error)?;
+        let response: JobSubmitResponse = if let Some(token) = worker_token {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "X-SynthTunnel-Worker-Token",
+                HeaderValue::from_str(&token).map_err(|_| {
+                    CoreError::Validation("invalid SynthTunnel worker token".to_string())
+                })?,
+            );
+            self.client
+                .http
+                .post_json_with_headers(GEPA_CREATE_ENDPOINT, &body, Some(headers))
+                .await
+                .map_err(map_http_error)?
+        } else {
+            self.client
+                .http
+                .post_json(GEPA_CREATE_ENDPOINT, &body)
+                .await
+                .map_err(map_http_error)?
+        };
 
         Ok(response.job_id)
     }
@@ -78,15 +102,29 @@ impl<'a> JobsClient<'a> {
     ///
     /// The job ID on success.
     pub async fn submit_mipro(&self, request: MiproJobRequest) -> Result<String, CoreError> {
+        let worker_token = request.task_app_worker_token.clone();
         let body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
-
-        let response: JobSubmitResponse = self
-            .client
-            .http
-            .post_json(JOBS_ENDPOINT, &body)
-            .await
-            .map_err(map_http_error)?;
+        let response: JobSubmitResponse = if let Some(token) = worker_token {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "X-SynthTunnel-Worker-Token",
+                HeaderValue::from_str(&token).map_err(|_| {
+                    CoreError::Validation("invalid SynthTunnel worker token".to_string())
+                })?,
+            );
+            self.client
+                .http
+                .post_json_with_headers(MIPRO_CREATE_ENDPOINT, &body, Some(headers))
+                .await
+                .map_err(map_http_error)?
+        } else {
+            self.client
+                .http
+                .post_json(MIPRO_CREATE_ENDPOINT, &body)
+                .await
+                .map_err(map_http_error)?
+        };
 
         Ok(response.job_id)
     }
@@ -94,13 +132,40 @@ impl<'a> JobsClient<'a> {
     /// Submit a generic optimization job from a JSON value.
     ///
     /// Use this when you have a pre-built job configuration.
+    /// Submit a generic optimization job from a JSON value.
+    ///
+    /// Use this when you have a pre-built job configuration.
+    /// Falls back to the legacy endpoint since the job type is unknown.
     pub async fn submit_raw(&self, request: Value) -> Result<String, CoreError> {
-        let response: JobSubmitResponse = self
-            .client
-            .http
-            .post_json(JOBS_ENDPOINT, &request)
-            .await
-            .map_err(map_http_error)?;
+        self.submit_raw_with_worker_token(request, None).await
+    }
+
+    /// Submit a generic optimization job with optional SynthTunnel worker token.
+    pub async fn submit_raw_with_worker_token(
+        &self,
+        request: Value,
+        worker_token: Option<String>,
+    ) -> Result<String, CoreError> {
+        let response: JobSubmitResponse = if let Some(token) = worker_token {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "X-SynthTunnel-Worker-Token",
+                HeaderValue::from_str(&token).map_err(|_| {
+                    CoreError::Validation("invalid SynthTunnel worker token".to_string())
+                })?,
+            );
+            self.client
+                .http
+                .post_json_with_headers(LEGACY_SUBMIT_ENDPOINT, &request, Some(headers))
+                .await
+                .map_err(map_http_error)?
+        } else {
+            self.client
+                .http
+                .post_json(LEGACY_SUBMIT_ENDPOINT, &request)
+                .await
+                .map_err(map_http_error)?
+        };
 
         Ok(response.job_id)
     }
@@ -178,6 +243,19 @@ impl<'a> JobsClient<'a> {
                     consecutive_errors = 0;
 
                     if result.status.is_terminal() {
+                        match result.status {
+                            PolicyJobStatus::Failed => {
+                                let error = result.error.as_deref().unwrap_or("unknown");
+                                eprintln!(
+                                    "[synth_ai_core] Job {} FAILED: {}",
+                                    job_id, error
+                                );
+                            }
+                            PolicyJobStatus::Cancelled => {
+                                eprintln!("[synth_ai_core] Job {} was cancelled", job_id);
+                            }
+                            _ => {}
+                        }
                         return Ok(result);
                     }
 
@@ -301,6 +379,9 @@ mod tests {
 
     #[test]
     fn test_jobs_endpoint() {
-        assert_eq!(JOBS_ENDPOINT, "/api/prompt-learning/online/jobs");
+        assert_eq!(JOBS_ENDPOINT, "/api/jobs");
+        assert_eq!(GEPA_CREATE_ENDPOINT, "/api/jobs/gepa");
+        assert_eq!(MIPRO_CREATE_ENDPOINT, "/api/jobs/mipro");
+        assert_eq!(LEGACY_SUBMIT_ENDPOINT, "/api/prompt-learning/online/jobs");
     }
 }

@@ -163,7 +163,7 @@ class PromptLearningEvent:
 class BestPromptEventData:
     """Data for prompt.learning.best.prompt event."""
 
-    best_score: float
+    best_reward: float
     best_prompt: Dict[str, Any]
     best_objectives: Optional[Dict[str, float]] = None
 
@@ -172,7 +172,9 @@ class BestPromptEventData:
         """Create BestPromptEventData from a dictionary."""
         reward_val = _extract_outcome_reward(data)
         return cls(
-            best_score=float(reward_val) if reward_val is not None else data.get("best_score", 0.0),
+            best_reward=float(reward_val)
+            if reward_val is not None
+            else data.get("best_score", 0.0),
             best_prompt=data.get("best_prompt", {}),
             best_objectives=_normalize_objectives(data),
         )
@@ -220,7 +222,7 @@ class PromptResults:
     """Results from a completed prompt learning job."""
 
     best_prompt: Optional[Dict[str, Any]] = None
-    best_score: Optional[float] = None
+    best_reward: Optional[float] = None
     version_tree: Optional[Dict[str, Any]] = None
     top_prompts: List[Dict[str, Any]] = field(default_factory=list)
     optimized_candidates: List[Dict[str, Any]] = field(default_factory=list)
@@ -239,7 +241,7 @@ class PromptResults:
         """Create PromptResults from a dictionary."""
         return cls(
             best_prompt=data.get("best_prompt"),
-            best_score=data.get("best_score"),
+            best_reward=data.get("best_reward") or data.get("best_score"),
             version_tree=data.get("version_tree"),
             top_prompts=data.get("top_prompts", []),
             optimized_candidates=data.get("optimized_candidates", []),

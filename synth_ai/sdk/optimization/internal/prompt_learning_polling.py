@@ -61,6 +61,24 @@ def poll_prompt_learning_until_complete(
                 on_status(last_data)
 
             if status.is_terminal:
+                if status == JobStatus.FAILED:
+                    error_msg = (
+                        last_data.get("error")
+                        or last_data.get("error_message")
+                        or last_data.get("failure_reason")
+                        or last_data.get("message")
+                        or "unknown"
+                    )
+                    logger.error(
+                        "Job %s reached terminal state: %s — error: %s",
+                        job_id,
+                        status.value,
+                        error_msg,
+                    )
+                elif status == JobStatus.CANCELLED:
+                    logger.warning("Job %s was cancelled", job_id)
+                else:
+                    logger.info("Job %s completed with status: %s", job_id, status.value)
                 return PromptLearningResult.from_response(job_id, last_data)
 
         except Exception as exc:

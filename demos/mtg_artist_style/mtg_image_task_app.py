@@ -5,6 +5,7 @@ No side effects at import time.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -71,6 +72,67 @@ def _safe_format(pattern: str, mapping: dict[str, str]) -> str:
         return pattern.format_map(mapping)
     except Exception:
         return pattern
+
+
+def _extract_image_data_url(llm_response: dict[str, Any]) -> str | None:
+    choices = llm_response.get("choices") or []
+    if choices:
+        message = choices[0].get("message", {})
+        content = message.get("content", "")
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict):
+                    if part.get("type") == "image_url" or "image_url" in part:
+                        image_url = part.get("image_url", {}).get("url", "")
+                        if isinstance(image_url, str) and image_url.startswith("data:image/"):
+                            return image_url
+        elif isinstance(content, str) and content.startswith("data:image/"):
+            return content
+        image_url = message.get("image_url", {})
+        if isinstance(image_url, dict):
+            url = image_url.get("url", "")
+            if isinstance(url, str) and url.startswith("data:image/"):
+                return url
+
+    data_items = llm_response.get("data")
+    if isinstance(data_items, list):
+        for item in data_items:
+            if not isinstance(item, dict):
+                continue
+            url = item.get("url") or item.get("image_url")
+            if isinstance(url, str) and url.startswith("data:image/"):
+                return url
+            b64 = item.get("b64_json")
+            if isinstance(b64, str) and b64:
+                mime = item.get("mime_type") or item.get("media_type") or "image/png"
+                return f"data:{mime};base64,{b64}"
+
+    return None
+
+
+def _scrub_response_for_log(value: Any, *, depth: int = 0, max_depth: int = 4) -> Any:
+    if depth >= max_depth:
+        return "<truncated>"
+    if isinstance(value, dict):
+        scrubbed: dict[str, Any] = {}
+        for key, item in value.items():
+            if key in {"b64_json", "data", "inline_data", "image", "images"}:
+                scrubbed[key] = "<omitted>"
+            else:
+                scrubbed[key] = _scrub_response_for_log(
+                    item, depth=depth + 1, max_depth=max_depth
+                )
+        return scrubbed
+    if isinstance(value, list):
+        return [
+            _scrub_response_for_log(item, depth=depth + 1, max_depth=max_depth)
+            for item in value[:8]
+        ]
+    if isinstance(value, str):
+        if len(value) > 400:
+            return value[:400] + "…"
+        return value
+    return value
 
 
 def _render_messages_from_sections(
@@ -173,6 +235,11 @@ def create_mtg_task_app() -> Any:
         if not _LOGGED_POLICY_KEYS:
             logger.info("Policy config keys: %s", list(policy_cfg.keys()))
             logger.info("Policy inference_url: %s", policy_cfg.get("inference_url"))
+            logger.info(
+                "Policy model/provider: model=%s provider=%s",
+                policy_cfg.get("model"),
+                policy_cfg.get("provider"),
+            )
             _LOGGED_POLICY_KEYS = True
         provider = str(
             policy_cfg.get("provider")
@@ -236,63 +303,118 @@ def create_mtg_task_app() -> Any:
         if "max_completion_tokens" in policy_cfg:
             payload["max_completion_tokens"] = policy_cfg.get("max_completion_tokens")
 
-        async with httpx.AsyncClient(timeout=180.0) as client:
-            try:
-                resp = await client.post(
-                    endpoint,
-                    json=payload,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "X-API-Key": api_key,
-                        "x-goog-api-key": gemini_api_key,
-                        "Content-Type": "application/json",
-                    },
-                )
-                resp.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                logger.error(
-                    "Interceptor error: status=%s body=%s",
-                    exc.response.status_code if exc.response else "unknown",
-                    exc.response.text if exc.response else "no-body",
-                )
-                raise
-            except Exception:
-                logger.exception("Interceptor call failed")
-                raise
-            llm_response = resp.json()
+        max_attempts = int(os.environ.get("MTG_POLICY_RETRY_ATTEMPTS", "3"))
+        backoff_s = float(os.environ.get("MTG_POLICY_RETRY_BACKOFF_S", "1.5"))
+        retryable = {429, 500, 502, 503, 504}
+        last_exc: Exception | None = None
 
-        image_data_url = None
-        choices = llm_response.get("choices", [])
-        if choices:
-            message = choices[0].get("message", {})
-            content = message.get("content", "")
-            if isinstance(content, list):
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") == "image_url":
-                        image_url = part.get("image_url", {}).get("url", "")
-                        if isinstance(image_url, str) and image_url.startswith("data:image/"):
-                            image_data_url = image_url
-                            break
-            elif isinstance(content, str) and content.startswith("data:image/"):
-                image_data_url = content
+        debug_raw = os.environ.get("MTG_DEBUG_RAW_POLICY_RESPONSE", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        if debug_raw:
+            logger.error(
+                "Policy request debug: inference_url=%s endpoint=%s model=%s provider=%s",
+                inference_url,
+                endpoint,
+                policy_cfg.get("model"),
+                policy_cfg.get("provider"),
+            )
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    if debug_raw:
+                        logger.error(
+                            "Policy request attempt %s/%s to %s",
+                            attempt,
+                            max_attempts,
+                            endpoint,
+                        )
+                    resp = await client.post(
+                        endpoint,
+                        json=payload,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "X-API-Key": api_key,
+                            "x-goog-api-key": gemini_api_key,
+                            "Content-Type": "application/json",
+                        },
+                    )
+                    resp.raise_for_status()
+                    llm_response = resp.json()
+                    if debug_raw:
+                        logger.error(
+                            "Policy response status=%s keys=%s",
+                            resp.status_code,
+                            list(llm_response.keys()),
+                        )
+                    break
+                except httpx.HTTPStatusError as exc:
+                    status = exc.response.status_code if exc.response else None
+                    body = exc.response.text if exc.response else "no-body"
+                    if status in retryable and attempt < max_attempts:
+                        logger.warning(
+                            "Interceptor error (attempt %s/%s): status=%s body=%s",
+                            attempt,
+                            max_attempts,
+                            status,
+                            body[:500],
+                        )
+                        await asyncio.sleep(backoff_s * attempt)
+                        continue
+                    logger.error(
+                        "Interceptor error: status=%s body=%s",
+                        status if status is not None else "unknown",
+                        body[:500],
+                    )
+                    if debug_raw:
+                        logger.error("Policy request failed at status=%s", status)
+                    last_exc = exc
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    logger.exception("Interceptor call failed")
+                    if debug_raw:
+                        logger.error("Policy request exception: %s", exc)
+                    break
+
+        if last_exc is not None:
+            raise last_exc
+
+        image_data_url = _extract_image_data_url(llm_response)
 
         if not image_data_url:
+            choices = llm_response.get("choices", [])
             logger.error(
-                "No image data in policy response. message_content=%s",
+                "No image data in policy response. message_content=%s response=%s",
                 (choices[0].get("message", {}).get("content") if choices else None),
+                _scrub_response_for_log(llm_response),
             )
+            if debug_raw:
+                try:
+                    logger.error("Raw policy response: %s", json.dumps(llm_response))
+                except Exception:
+                    logger.error("Raw policy response (repr): %r", llm_response)
             raise ValueError("No image data in policy model response")
 
-        # Save generated image for inspection
-        output_dir = demo_dir / "generated_images"
-        output_dir.mkdir(exist_ok=True)
-        run_id_short = (
-            request.trace_correlation_id[:8] if request.trace_correlation_id else "unknown"
-        )
-        _, data = image_data_url.split(",", 1)
-        img_path = output_dir / f"seed_{seed}_run_{run_id_short}.png"
-        img_path.write_bytes(base64.b64decode(data))
-        logger.info("Saved generated image to %s", img_path)
+        save_images = os.environ.get("MTG_SAVE_IMAGES", "1").strip().lower() not in {
+            "0",
+            "false",
+            "no",
+        }
+        if save_images:
+            output_dir = demo_dir / "generated_images"
+            output_dir.mkdir(exist_ok=True)
+            run_id_short = (
+                request.trace_correlation_id[:8] if request.trace_correlation_id else "unknown"
+            )
+            _, data = image_data_url.split(",", 1)
+            img_path = output_dir / f"seed_{seed}_run_{run_id_short}.png"
+            img_path.write_bytes(base64.b64decode(data))
+            logger.info("Saved generated image to %s", img_path)
+        else:
+            logger.info("Skipping image write (MTG_SAVE_IMAGES=0)")
 
         trace_correlation_id = extract_trace_correlation_id(
             policy_config=policy_cfg,

@@ -383,7 +383,7 @@ class PromptLearningClient:
                 result.best_prompt = event_data.get("best_prompt")
                 best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
                 if best_score is not None:
-                    result.best_score = best_score
+                    result.best_reward = best_score
                 best_candidate = (
                     event_data.get("best_candidate")
                     or event_data.get("candidate")
@@ -461,10 +461,10 @@ class PromptLearningClient:
                 # Also extract best_prompt from final.results if not already set
                 if result.best_prompt is None:
                     result.best_prompt = event_data.get("best_prompt")
-                if result.best_score is None:
+                if result.best_reward is None:
                     best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
                     if best_score is not None:
-                        result.best_score = best_score
+                        result.best_reward = best_score
 
                 # Extract rollout and proposal metrics
                 # These may come from event_data directly or from nested state dict
@@ -516,9 +516,9 @@ class PromptLearningClient:
 
             # MIPRO completion event - extract best_score (canonical)
             elif event_type == "learning.policy.mipro.job.completed":
-                if result.best_score is None:
+                if result.best_reward is None:
                     # Prefer unified best_score field, fallback to best_full_score or best_minibatch_score
-                    result.best_score = _extract_reward_value(
+                    result.best_reward = _extract_reward_value(
                         event_data,
                         fallback_keys=["best_score", "best_full_score", "best_minibatch_score"],
                     )
@@ -541,9 +541,9 @@ class PromptLearningClient:
                         fallback_keys=["best_score", "score", "full_score", "minibatch_score"],
                     )
                     if best_score is not None and (
-                        result.best_score is None or best_score > result.best_score
+                        result.best_reward is None or best_score > result.best_reward
                     ):
-                        result.best_score = best_score
+                        result.best_reward = best_score
                     best_candidate = (
                         event_data.get("best_candidate")
                         or event_data.get("candidate")
@@ -660,7 +660,7 @@ class PromptLearningClient:
         # Rank 0 is the best prompt
         if validation_by_rank and 0 in validation_by_rank:
             # Use validation score for best_score when available
-            result.best_score = validation_by_rank[0]
+            result.best_reward = validation_by_rank[0]
 
         return result
 

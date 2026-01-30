@@ -72,6 +72,25 @@ def _strip_hop_by_hop(headers: Dict[str, str]) -> Dict[str, str]:
     return {k: v for k, v in headers.items() if k.lower() not in hop_by_hop}
 
 
+def _collect_local_api_keys(primary: Optional[str]) -> list[str]:
+    keys: list[str] = []
+    if primary and primary.strip():
+        keys.append(primary.strip())
+    env_primary = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+    if env_primary and env_primary not in keys:
+        keys.append(env_primary)
+    dev_primary = (os.environ.get("DEV_ENVIRONMENT_API_KEY") or "").strip()
+    if dev_primary and dev_primary not in keys:
+        keys.append(dev_primary)
+    aliases_raw = (os.environ.get("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
+    if aliases_raw:
+        for part in aliases_raw.split(","):
+            candidate = part.strip()
+            if candidate and candidate not in keys:
+                keys.append(candidate)
+    return keys
+
+
 @dataclass
 class SynthTunnelLease:
     lease_id: str
@@ -162,6 +181,7 @@ class SynthTunnelAgent:
         local_host: str,
         local_port: int,
         stop_event: asyncio.Event,
+        local_api_key: Optional[str] = None,
     ) -> None:
         self.lease = lease
         self.local_host = local_host
@@ -170,6 +190,19 @@ class SynthTunnelAgent:
         self._contexts: Dict[str, RequestContext] = {}
         self._tasks: Dict[str, asyncio.Task] = {}
         self._send_lock = asyncio.Lock()
+        self._local_api_keys = _collect_local_api_keys(local_api_key)
+        if not self._local_api_keys:
+            logger.warning(
+                "[SynthTunnel] ENVIRONMENT_API_KEY not set; forwarding without local auth headers."
+            )
+
+    def _attach_local_auth(self, headers: Dict[str, str]) -> None:
+        if not self._local_api_keys:
+            return
+        headers.setdefault("X-API-Key", self._local_api_keys[0])
+        if len(self._local_api_keys) > 1 and "X-API-Keys" not in headers:
+            headers["X-API-Keys"] = ",".join(self._local_api_keys)
+        headers.setdefault("Authorization", f"Bearer {self._local_api_keys[0]}")
 
     async def _send(self, ws: aiohttp.ClientWebSocketResponse, payload: dict[str, Any]) -> None:
         async with self._send_lock:
@@ -184,6 +217,7 @@ class SynthTunnelAgent:
             url = f"{url}?{ctx.query}"
 
         headers = _strip_hop_by_hop(ctx.headers)
+        self._attach_local_auth(headers)
         headers.setdefault("x-synthtunnel-lease-id", ctx.lease_id)
         headers.setdefault("x-synthtunnel-request-id", ctx.rid)
         headers.setdefault("x-forwarded-proto", "https")
@@ -193,12 +227,15 @@ class SynthTunnelAgent:
         sent_bytes = 0
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client, client.stream(
-                ctx.method,
-                url,
-                headers=headers,
-                content=bytes(ctx.body),
-            ) as resp:
+            async with (
+                httpx.AsyncClient(timeout=timeout) as client,
+                client.stream(
+                    ctx.method,
+                    url,
+                    headers=headers,
+                    content=bytes(ctx.body),
+                ) as resp,
+            ):
                 await self._send(
                     ws,
                     {
@@ -360,6 +397,7 @@ async def open_synth_tunnel(
     local_port: int,
     api_key: str,
     backend_url: Optional[str] = None,
+    local_api_key: Optional[str] = None,
 ) -> SynthTunnelSession:
     if not api_key or not str(api_key).strip():
         raise ValueError("api_key is required to open SynthTunnel")
@@ -375,6 +413,7 @@ async def open_synth_tunnel(
         local_host=local_host,
         local_port=local_port,
         stop_event=stop_event,
+        local_api_key=local_api_key,
     )
     task = asyncio.create_task(agent.run())
     return SynthTunnelSession(

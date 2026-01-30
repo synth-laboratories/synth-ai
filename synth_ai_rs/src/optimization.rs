@@ -19,18 +19,26 @@ pub enum Algorithm {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyOptimizationJobConfig {
     pub config: Value,
+    #[serde(skip_serializing)]
+    pub task_app_worker_token: Option<String>,
 }
 
 impl PolicyOptimizationJobConfig {
     pub fn from_json(config: Value) -> Self {
-        Self { config }
+        Self {
+            config,
+            task_app_worker_token: None,
+        }
     }
 
     pub fn from_toml_str(input: &str) -> Result<Self> {
         let value: toml::Value =
             toml::from_str(input).map_err(|err| SynthError::UnexpectedResponse(err.to_string()))?;
         let config = serde_json::to_value(value)?;
-        Ok(Self { config })
+        Ok(Self {
+            config,
+            task_app_worker_token: None,
+        })
     }
 
     pub fn from_toml_file(path: impl AsRef<Path>) -> Result<Self> {
@@ -89,6 +97,7 @@ impl PolicyOptimizationJob {
 
     pub async fn submit(client: SynthClient, config: &PolicyOptimizationJobConfig) -> Result<Self> {
         let payload = config.to_payload();
+        let worker_token = config.task_app_worker_token.clone();
         let algorithm = payload
             .get("prompt_learning")
             .and_then(|v| v.get("algorithm"))
@@ -98,16 +107,39 @@ impl PolicyOptimizationJob {
             "algorithm": algorithm,
             "config_body": payload,
         });
-        let resp = client
-            .post_json_fallback(
-                &[
-                    "/policy-optimization/online/jobs",
-                    "/prompt-learning/online/jobs",
-                ],
-                &submit_body,
-                AuthStyle::Both,
-            )
-            .await?;
+        let resp = if let Some(token) = worker_token {
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.insert(
+                "X-SynthTunnel-Worker-Token",
+                reqwest::header::HeaderValue::from_str(&token).map_err(|_| {
+                    SynthError::UnexpectedResponse("invalid SynthTunnel worker token".to_string())
+                })?,
+            );
+            client
+                .post_json_fallback_with_headers(
+                    &[
+                        "/jobs/gepa",
+                        "/policy-optimization/online/jobs",
+                        "/prompt-learning/online/jobs",
+                    ],
+                    &submit_body,
+                    AuthStyle::Both,
+                    Some(headers),
+                )
+                .await?
+        } else {
+            client
+                .post_json_fallback(
+                    &[
+                        "/jobs/gepa",
+                        "/policy-optimization/online/jobs",
+                        "/prompt-learning/online/jobs",
+                    ],
+                    &submit_body,
+                    AuthStyle::Both,
+                )
+                .await?
+        };
         let job_id = resp
             .get("job_id")
             .and_then(|v| v.as_str())
@@ -116,29 +148,25 @@ impl PolicyOptimizationJob {
     }
 
     pub async fn status(&self) -> Result<Value> {
-        let path = format!(
-            "/policy-optimization/online/jobs/{}",
-            self.job_id
-        );
-        let fallback = format!("/prompt-learning/online/jobs/{}", self.job_id);
+        let canonical = format!("/jobs/{}", self.job_id);
+        let legacy1 = format!("/policy-optimization/online/jobs/{}", self.job_id);
+        let legacy2 = format!("/prompt-learning/online/jobs/{}", self.job_id);
         self.client
             .get_json_fallback(
-                &[path.as_str(), fallback.as_str()],
+                &[canonical.as_str(), legacy1.as_str(), legacy2.as_str()],
                 AuthStyle::Both,
             )
             .await
     }
 
     pub async fn events(&self) -> Result<Vec<Value>> {
-        let path = format!(
-            "/policy-optimization/online/jobs/{}/events",
-            self.job_id
-        );
-        let fallback = format!("/prompt-learning/online/jobs/{}/events", self.job_id);
+        let canonical = format!("/jobs/{}/events", self.job_id);
+        let legacy1 = format!("/policy-optimization/online/jobs/{}/events", self.job_id);
+        let legacy2 = format!("/prompt-learning/online/jobs/{}/events", self.job_id);
         let value = self
             .client
             .get_json_fallback(
-                &[path.as_str(), fallback.as_str()],
+                &[canonical.as_str(), legacy1.as_str(), legacy2.as_str()],
                 AuthStyle::Both,
             )
             .await?;
@@ -151,21 +179,32 @@ impl PolicyOptimizationJob {
     }
 
     pub async fn stream_events(&self) -> Result<SseStream> {
-        let primary = format!(
+        let canonical = format!(
+            "{}/jobs/{}/events/stream",
+            self.client.api_base(),
+            self.job_id
+        );
+        let legacy1 = format!(
             "{}/policy-optimization/online/jobs/{}/events/stream",
             self.client.api_base(),
             self.job_id
         );
-        let fallback = format!(
+        let legacy2 = format!(
             "{}/prompt-learning/online/jobs/{}/events/stream",
             self.client.api_base(),
             self.job_id
         );
         let headers = self.client.auth_headers(AuthStyle::Both);
-        match stream_sse(primary, headers.clone()).await {
+        match stream_sse(canonical, headers.clone()).await {
             Ok(stream) => Ok(stream),
             Err(SynthError::Api { status: 404, .. }) => {
-                stream_sse(fallback, headers).await
+                match stream_sse(legacy1, headers.clone()).await {
+                    Ok(stream) => Ok(stream),
+                    Err(SynthError::Api { status: 404, .. }) => {
+                        stream_sse(legacy2, headers).await
+                    }
+                    Err(err) => Err(err),
+                }
             }
             Err(err) => Err(err),
         }

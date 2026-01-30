@@ -25,6 +25,19 @@ pub fn build_rollout_response(
         }
     }
 
+    // Auto-derive outcome_objectives if not provided in reward_details
+    if !reward_map.contains_key("outcome_objectives") {
+        let mut objectives_map = Map::new();
+        objectives_map.insert(
+            "reward".to_string(),
+            Value::Number(Number::from_f64(outcome_reward).unwrap_or(Number::from(0))),
+        );
+        reward_map.insert(
+            "outcome_objectives".to_string(),
+            Value::Object(objectives_map),
+        );
+    }
+
     let reward_info: RolloutMetrics = serde_json::from_value(Value::Object(reward_map))
         .map_err(|e| CoreError::InvalidInput(e.to_string()))?;
 

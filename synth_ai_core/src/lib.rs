@@ -55,7 +55,7 @@ pub use orchestration::{
     validate_graphgen_job_config, validate_graph_job_section, load_graph_job_toml, validate_graph_job_payload, GraphGenValidationResult,
     graph_opt_supported_models, validate_graphgen_taskset, parse_graphgen_taskset, load_graphgen_taskset,
     convert_openai_sft,
-    seed_score_entry, extract_stages_from_candidate, extract_program_candidate_content,
+    seed_score_entry, seed_reward_entry, extract_stages_from_candidate, extract_program_candidate_content,
     normalize_transformation, build_program_candidate,
     event_enum_values, is_valid_event_type, validate_event_type,
     base_event_schemas, base_job_event_schema, get_base_schema, merge_event_schema,

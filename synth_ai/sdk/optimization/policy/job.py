@@ -4,7 +4,7 @@ This module provides the canonical `PolicyOptimizationJob` class for running
 policy optimization (prompt/instruction optimization) jobs.
 
 Replaces: `PromptLearningJob` (deprecated)
-Backend endpoint: `/api/policy-optimization/online/jobs`
+Backend endpoint: `/api/jobs/{gepa|mipro}` (canonical), `/api/policy-optimization/online/jobs` (legacy)
 
 Algorithms:
 - gepa: Genetic Evolutionary Prompt Algorithm (default)
@@ -22,12 +22,12 @@ Algorithms:
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence
 
-from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_synthtunnel_url
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.optimization.models import PolicyJobStatus as JobStatus
 from synth_ai.sdk.optimization.models import PolicyOptimizationResult
@@ -66,6 +66,57 @@ class Algorithm(str, Enum):
             return cls.GEPA  # Default to GEPA
 
 
+def _extract_task_app_url(payload: Dict[str, Any]) -> Optional[str]:
+    section: Any = payload
+    if isinstance(payload.get("prompt_learning"), dict):
+        section = payload.get("prompt_learning", {})
+    elif isinstance(payload.get("policy_optimization"), dict):
+        section = payload.get("policy_optimization", {})
+    if isinstance(section, dict):
+        for key in ("task_app_url", "localapi_url", "localapi_url_base"):
+            value = section.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    for key in ("task_app_url", "localapi_url"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _load_toml_payload(path: Path) -> Dict[str, Any]:
+    try:
+        import tomllib  # type: ignore[import-not-found]
+
+        return tomllib.loads(path.read_text())
+    except Exception:
+        try:
+            import toml  # type: ignore[import-not-found]
+
+            return toml.loads(path.read_text())
+        except Exception:
+            return {}
+
+
+def _infer_task_app_url(config: PolicyOptimizationJobConfig) -> Optional[str]:
+    overrides = config.overrides or {}
+    for key in ("task_url", "task_app_url"):
+        value = overrides.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    if config.config_dict:
+        url = _extract_task_app_url(config.config_dict)
+        if url:
+            return url
+    if config.config_path:
+        payload = _load_toml_payload(config.config_path)
+        url = _extract_task_app_url(payload)
+        if url:
+            return url
+    env_url = os.environ.get("TASK_APP_URL", "").strip()
+    return env_url or None
+
+
 @dataclass
 class PolicyOptimizationJobConfig:
     """Configuration for a policy optimization job.
@@ -83,6 +134,7 @@ class PolicyOptimizationJobConfig:
         backend_url: Base URL of the Synth API backend.
         api_key: Synth API key for authentication.
         localapi_api_key: API key for authenticating with the LocalAPI.
+        task_app_worker_token: SynthTunnel worker token for relay auth when using st.usesynth.ai URLs.
         algorithm: Optimization algorithm to use (gepa, mipro).
         allow_experimental: If True, allows use of experimental models.
         overrides: Dictionary of config overrides.
@@ -133,6 +185,7 @@ class PolicyOptimizationJobConfig:
     config_path: Optional[Path] = None
     config_dict: Optional[Dict[str, Any]] = None
     localapi_api_key: Optional[str] = None
+    task_app_worker_token: Optional[str] = field(default=None, repr=False)
     algorithm: Algorithm = Algorithm.GEPA
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
@@ -156,12 +209,21 @@ class PolicyOptimizationJobConfig:
         if not self.api_key:
             raise ValueError("api_key is required")
 
-        # Get localapi_api_key from environment if not provided
-        if not self.localapi_api_key:
-            self.localapi_api_key = ensure_localapi_auth(
-                backend_base=self.backend_url,
-                synth_api_key=self.api_key,
-            )
+        task_url = _infer_task_app_url(self)
+        if task_url and is_synthtunnel_url(task_url):
+            if not (self.task_app_worker_token or "").strip():
+                raise ValueError(
+                    "task_app_worker_token is required for SynthTunnel task_app_url. "
+                    "Pass tunnel.worker_token when submitting jobs."
+                )
+            self.localapi_api_key = None
+        else:
+            # Get localapi_api_key from environment if not provided
+            if not self.localapi_api_key:
+                self.localapi_api_key = ensure_localapi_auth(
+                    backend_base=self.backend_url,
+                    synth_api_key=self.api_key,
+                )
 
     def to_prompt_learning_config(self) -> Dict[str, Any]:
         """Convert to prompt_learning config format for backward compatibility.
@@ -271,6 +333,7 @@ class PolicyOptimizationJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         localapi_api_key: Optional[str] = None,
+        task_app_worker_token: Optional[str] = None,
         algorithm: str | Algorithm = Algorithm.GEPA,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
@@ -282,6 +345,7 @@ class PolicyOptimizationJob:
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             localapi_api_key: LocalAPI key (defaults to ENVIRONMENT_API_KEY env var)
+            task_app_worker_token: SynthTunnel worker token for relay auth
             algorithm: Optimization algorithm (gepa or mipro)
             allow_experimental: Allow experimental models
             overrides: Config overrides
@@ -313,6 +377,7 @@ class PolicyOptimizationJob:
             backend_url=backend_url,
             api_key=api_key,
             localapi_api_key=localapi_api_key,
+            task_app_worker_token=task_app_worker_token,
             algorithm=algorithm,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
@@ -327,6 +392,7 @@ class PolicyOptimizationJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         localapi_api_key: Optional[str] = None,
+        task_app_worker_token: Optional[str] = None,
         algorithm: str | Algorithm = Algorithm.GEPA,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
@@ -342,6 +408,7 @@ class PolicyOptimizationJob:
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             localapi_api_key: LocalAPI key (defaults to ENVIRONMENT_API_KEY env var)
+            task_app_worker_token: SynthTunnel worker token for relay auth
             algorithm: Optimization algorithm (gepa or mipro)
             allow_experimental: Allow experimental models
             overrides: Config overrides
@@ -399,6 +466,7 @@ class PolicyOptimizationJob:
             backend_url=backend_url,
             api_key=api_key,
             localapi_api_key=localapi_api_key,
+            task_app_worker_token=task_app_worker_token,
             algorithm=algorithm,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
@@ -477,6 +545,7 @@ class PolicyOptimizationJob:
                     backend_url=self.config.backend_url,
                     api_key=self.config.api_key,
                     task_app_api_key=self.config.localapi_api_key,
+                    task_app_worker_token=self.config.task_app_worker_token,
                     allow_experimental=self.config.allow_experimental,
                     overrides=self.config.overrides,
                 )
@@ -488,6 +557,7 @@ class PolicyOptimizationJob:
                     backend_url=self.config.backend_url,
                     api_key=self.config.api_key,
                     task_app_api_key=self.config.localapi_api_key,
+                    task_app_worker_token=self.config.task_app_worker_token,
                     allow_experimental=self.config.allow_experimental,
                     overrides=self.config.overrides,
                 )
@@ -585,7 +655,7 @@ class PolicyOptimizationJob:
             job_id=pl_result.job_id,
             status=pl_result.status,
             algorithm=str(self._algorithm),
-            best_score=pl_result.best_score,
+            best_reward=pl_result.best_reward,
             best_prompt=pl_result.best_prompt,
             error=pl_result.error,
             raw=pl_result.raw,
@@ -632,7 +702,7 @@ class PolicyOptimizationJob:
             job_id=pl_result.job_id,
             status=pl_result.status,
             algorithm=str(self._algorithm),
-            best_score=pl_result.best_score,
+            best_reward=pl_result.best_reward,
             best_prompt=pl_result.best_prompt,
             error=pl_result.error,
             raw=pl_result.raw,

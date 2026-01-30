@@ -222,21 +222,32 @@ def _health_response_ok(resp: requests.Response | None) -> tuple[bool, str]:
 
 
 def check_task_app_health(
-    base_url: str, api_key: str, *, timeout: float = 10.0, max_retries: int = 5
+    base_url: str,
+    api_key: str,
+    *,
+    worker_token: str | None = None,
+    timeout: float = 10.0,
+    max_retries: int = 5,
 ) -> TaskAppHealth:
     # Send ALL known environment keys so the server can authorize any valid one
     import os
 
-    headers = {"X-API-Key": api_key}
-    aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
-    keys: list[str] = [api_key]
-    if aliases:
-        keys.extend([p.strip() for p in aliases.split(",") if p.strip()])
-    if keys:
-        headers["X-API-Keys"] = ",".join(keys)
-        headers.setdefault("Authorization", f"Bearer {api_key}")
+    headers: dict[str, str] = {}
+    if worker_token:
+        headers["Authorization"] = f"Bearer {worker_token}"
+    else:
+        headers = {"X-API-Key": api_key}
+        aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
+        keys: list[str] = [api_key]
+        if aliases:
+            keys.extend([p.strip() for p in aliases.split(",") if p.strip()])
+        if keys:
+            headers["X-API-Keys"] = ",".join(keys)
+            headers.setdefault("Authorization", f"Bearer {api_key}")
     base = base_url.rstrip("/")
     detail_parts: list[str] = []
+    parsed_base = urlparse(base)
+    is_synthtunnel = "/s/" in (parsed_base.path or "")
 
     def _is_dns_error(exc: requests.RequestException) -> bool:
         """Check if exception is a DNS resolution error."""
@@ -268,6 +279,13 @@ def check_task_app_health(
             curl_resp = _curl_with_resolve(health_url, headers=headers, timeout=timeout)
             if curl_resp is not None:
                 health_resp = curl_resp
+                if is_synthtunnel and health_resp.status_code == 409 and attempt < max_retries - 1:
+                    delay = 2**attempt
+                    logging.getLogger(__name__).warning(
+                        "SynthTunnel lease pending (health=409), retrying in %ss...", delay
+                    )
+                    time.sleep(delay)
+                    continue
                 health_ok, note = _health_response_ok(health_resp)
                 suffix = f" ({note})" if note else ""
                 if not health_ok and health_resp is not None:
@@ -310,6 +328,13 @@ def check_task_app_health(
                 )
             else:
                 health_resp = http_get(ip_health_url, headers=headers, timeout=timeout)
+            if is_synthtunnel and health_resp.status_code == 409 and attempt < max_retries - 1:
+                delay = 2**attempt
+                logging.getLogger(__name__).warning(
+                    "SynthTunnel lease pending (health=409), retrying in %ss...", delay
+                )
+                time.sleep(delay)
+                continue
             health_ok, note = _health_response_ok(health_resp)
             suffix = f" ({note})" if note else ""
             # On non-200, include brief JSON detail if present
@@ -365,6 +390,13 @@ def check_task_app_health(
             curl_resp = _curl_with_resolve(task_info_url, headers=headers, timeout=timeout)
             if curl_resp is not None:
                 task_resp = curl_resp
+                if is_synthtunnel and task_resp.status_code == 409 and attempt < max_retries - 1:
+                    delay = 2**attempt
+                    logging.getLogger(__name__).warning(
+                        "SynthTunnel lease pending (task_info=409), retrying in %ss...", delay
+                    )
+                    time.sleep(delay)
+                    continue
                 task_ok = bool(task_resp.status_code == 200)
                 if not task_ok and task_resp is not None:
                     try:
@@ -397,6 +429,13 @@ def check_task_app_health(
                 )
             else:
                 task_resp = http_get(ip_task_info_url, headers=headers, timeout=timeout)
+            if is_synthtunnel and task_resp.status_code == 409 and attempt < max_retries - 1:
+                delay = 2**attempt
+                logging.getLogger(__name__).warning(
+                    "SynthTunnel lease pending (task_info=409), retrying in %ss...", delay
+                )
+                time.sleep(delay)
+                continue
             task_ok = bool(task_resp.status_code == 200)
             if not task_ok and task_resp is not None:
                 try:
@@ -437,10 +476,21 @@ def check_task_app_health(
 
 
 def check_local_api_health(
-    base_url: str, api_key: str, *, timeout: float = 10.0, max_retries: int = 5
+    base_url: str,
+    api_key: str,
+    *,
+    worker_token: str | None = None,
+    timeout: float = 10.0,
+    max_retries: int = 5,
 ) -> LocalAPIHealth:
     """Alias for check_task_app_health with LocalAPI naming."""
-    health = check_task_app_health(base_url, api_key, timeout=timeout, max_retries=max_retries)
+    health = check_task_app_health(
+        base_url,
+        api_key,
+        worker_token=worker_token,
+        timeout=timeout,
+        max_retries=max_retries,
+    )
     return LocalAPIHealth(
         ok=health.ok,
         health_status=health.health_status,

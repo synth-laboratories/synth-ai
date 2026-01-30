@@ -156,9 +156,16 @@ class RolloutMetrics(BaseModel):
     - `instance_objectives`: Per-seed objectives aligned to responses
     - `details`: Metadata only (not for scoring)
 
+    ## Auto-derived Fields
+
+    If `outcome_objectives` is not provided, it is auto-derived as
+    `{"reward": outcome_reward}`. This ensures objectives are always
+    available for multi-objective aggregation (e.g., Pareto dominance).
+
     ## Example - Minimal
 
         metrics = RolloutMetrics(outcome_reward=1.0)
+        # outcome_objectives auto-derived: {"reward": 1.0}
 
     ## Example - Multi-objective
 
@@ -186,7 +193,8 @@ class RolloutMetrics(BaseModel):
     )
     outcome_objectives: Optional[Dict[str, float]] = Field(
         default=None,
-        description="Multi-objective outcomes (e.g., {'reward': 0.9, 'latency': 0.5}).",
+        description="Multi-objective outcomes (e.g., {'reward': 0.9, 'latency': 0.5}). "
+        "Auto-derived from outcome_reward if not provided.",
     )
     event_objectives: Optional[List[Dict[str, float]]] = Field(
         default=None,
@@ -200,6 +208,11 @@ class RolloutMetrics(BaseModel):
         default_factory=dict,
         description="Metadata only. Do NOT use details for reward computation.",
     )
+
+    def model_post_init(self, __context: Any) -> None:
+        """Auto-derive outcome_objectives from outcome_reward when not explicitly set."""
+        if self.outcome_objectives is None:
+            self.outcome_objectives = {"reward": self.outcome_reward}
 
 
 class RolloutResponse(BaseModel):

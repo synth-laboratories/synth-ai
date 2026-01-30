@@ -41,16 +41,16 @@ pub fn log_event_summary(event: &ParsedEvent) {
         EventCategory::Baseline => {
             let baseline = EventParser::parse_baseline(event);
             eprintln!(
-                "[STREAM] Baseline: accuracy={:.3?}",
-                baseline.accuracy
+                "[STREAM] Baseline: reward={:.3?}",
+                baseline.reward
             );
         }
         EventCategory::Candidate => {
             let candidate = EventParser::parse_candidate(event);
             eprintln!(
-                "[STREAM] Candidate {}: accuracy={:.3?} accepted={} gen={:?}",
+                "[STREAM] Candidate {}: reward={:.3?} accepted={} gen={:?}",
                 candidate.candidate_id,
-                candidate.accuracy,
+                candidate.reward,
                 candidate.accepted,
                 candidate.generation
             );
@@ -59,21 +59,21 @@ pub fn log_event_summary(event: &ParsedEvent) {
             let frontier = EventParser::parse_frontier(event);
             eprintln!(
                 "[STREAM] Frontier updated: size={} best={:.3?}",
-                frontier.frontier_size, frontier.best_score
+                frontier.frontier_size, frontier.best_reward
             );
         }
         EventCategory::Progress => {
             let progress = EventParser::parse_progress(event);
             eprintln!(
                 "[STREAM] Progress: rollouts={}/{:?} best={:.3?}",
-                progress.rollouts_completed, progress.rollouts_total, progress.best_score
+                progress.rollouts_completed, progress.rollouts_total, progress.best_reward
             );
         }
         EventCategory::Generation => {
             let gen = EventParser::parse_generation(event);
             eprintln!(
                 "[STREAM] Generation {}: best_acc={:.3} proposed={} accepted={}",
-                gen.generation, gen.best_accuracy, gen.candidates_proposed, gen.candidates_accepted
+                gen.generation, gen.best_reward, gen.candidates_proposed, gen.candidates_accepted
             );
         }
         EventCategory::Validation => {
@@ -83,7 +83,7 @@ pub fn log_event_summary(event: &ParsedEvent) {
             let complete = EventParser::parse_complete(event);
             eprintln!(
                 "[STREAM] COMPLETE: best={:.3?} baseline={:.3?} reason={:?}",
-                complete.best_score, complete.baseline_score, complete.finish_reason
+                complete.best_reward, complete.baseline_reward, complete.finish_reason
             );
         }
         EventCategory::Termination => {

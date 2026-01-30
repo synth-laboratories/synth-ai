@@ -26,15 +26,15 @@ pub struct PromptLearningResult {
     pub job_id: String,
     /// Current status
     pub status: PolicyJobStatus,
-    /// Best score achieved
-    #[serde(default)]
-    pub best_score: Option<f64>,
+    /// Best reward achieved
+    #[serde(default, alias = "best_score")]
+    pub best_reward: Option<f64>,
     /// Best prompt configuration
     #[serde(default)]
     pub best_prompt: Option<Value>,
-    /// Baseline score
-    #[serde(default)]
-    pub baseline_score: Option<f64>,
+    /// Baseline reward
+    #[serde(default, alias = "baseline_score")]
+    pub baseline_reward: Option<f64>,
     /// Number of candidates evaluated
     #[serde(default)]
     pub candidates_evaluated: i32,
@@ -107,9 +107,9 @@ pub struct PromptResults {
     /// Best prompt text
     #[serde(default)]
     pub best_prompt: Option<String>,
-    /// Best score
-    #[serde(default)]
-    pub best_score: Option<f64>,
+    /// Best reward
+    #[serde(default, alias = "best_score")]
+    pub best_reward: Option<f64>,
     /// Top prompts ranked by score
     #[serde(default)]
     pub top_prompts: Vec<RankedPrompt>,
@@ -123,6 +123,8 @@ pub struct PromptLearningJob {
     job_id: Option<String>,
     /// Job configuration
     config: Value,
+    /// Optional SynthTunnel worker token
+    task_app_worker_token: Option<String>,
     /// Progress tracker
     tracker: ProgressTracker,
 }
@@ -149,12 +151,14 @@ impl PromptLearningJob {
     ///     }),
     ///     None,
     ///     None,
+    ///     None,
     /// )?;
     /// ```
     pub fn from_dict(
         config: Value,
         api_key: Option<&str>,
         base_url: Option<&str>,
+        task_app_worker_token: Option<String>,
     ) -> Result<Self, CoreError> {
         let api_key = match api_key {
             Some(k) => k.to_string(),
@@ -169,6 +173,7 @@ impl PromptLearningJob {
             client,
             job_id: None,
             config,
+            task_app_worker_token,
             tracker: ProgressTracker::new(),
         })
     }
@@ -198,6 +203,7 @@ impl PromptLearningJob {
             client,
             job_id: Some(job_id.to_string()),
             config: Value::Null,
+            task_app_worker_token: None,
             tracker: ProgressTracker::new(),
         })
     }
@@ -229,7 +235,14 @@ impl PromptLearningJob {
         }
 
         // Submit via jobs API
-        let job_id = self.client.jobs().submit_raw(self.config.clone()).await?;
+        let job_id = self
+            .client
+            .jobs()
+            .submit_raw_with_worker_token(
+                self.config.clone(),
+                self.task_app_worker_token.clone(),
+            )
+            .await?;
         self.job_id = Some(job_id.clone());
 
         Ok(job_id)
@@ -246,9 +259,9 @@ impl PromptLearningJob {
         Ok(PromptLearningResult {
             job_id: result.job_id,
             status: result.status,
-            best_score: result.best_score,
+            best_reward: result.best_reward,
             best_prompt: result.best_prompt,
-            baseline_score: None,
+            baseline_reward: None,
             candidates_evaluated: result.candidates_evaluated.unwrap_or(0),
             generations_completed: result.generations_completed.unwrap_or(0),
             error: result.error,
@@ -280,9 +293,9 @@ impl PromptLearningJob {
         Ok(PromptLearningResult {
             job_id: result.job_id,
             status: result.status,
-            best_score: result.best_score,
+            best_reward: result.best_reward,
             best_prompt: result.best_prompt,
-            baseline_score: None,
+            baseline_reward: None,
             candidates_evaluated: result.candidates_evaluated.unwrap_or(0),
             generations_completed: result.generations_completed.unwrap_or(0),
             error: result.error,
@@ -370,8 +383,8 @@ impl PromptLearningJob {
                         count,
                         parsed.event_type,
                         parsed.category,
-                        tracker.best_score(),
-                        tracker.baseline_score(),
+                        tracker.best_reward(),
+                        tracker.baseline_reward(),
                         tracker.progress.candidates_evaluated,
                         tracker.progress.generations_completed,
                     );
@@ -438,9 +451,9 @@ impl PromptLearningJob {
             }
         }
         eprintln!(
-            "[PL] Final status: status={:?} best_score={:?} error={:?}",
+            "[PL] Final status: status={:?} best_reward={:?} error={:?}",
             final_status,
-            status_result.as_ref().and_then(|result| result.best_score),
+            status_result.as_ref().and_then(|result| result.best_reward),
             status_result.as_ref().and_then(|result| result.error.clone())
         );
 
@@ -451,14 +464,14 @@ impl PromptLearningJob {
                 .map(|result| result.job_id.clone())
                 .unwrap_or_else(|| job_id.to_string()),
             status: final_status,
-            best_score: status_result
+            best_reward: status_result
                 .as_ref()
-                .and_then(|result| result.best_score)
-                .or(Some(self.tracker.best_score())),
+                .and_then(|result| result.best_reward)
+                .or(Some(self.tracker.best_reward())),
             best_prompt: status_result
                 .as_ref()
                 .and_then(|result| result.best_prompt.clone()),
-            baseline_score: self.tracker.baseline_score(),
+            baseline_reward: self.tracker.baseline_reward(),
             candidates_evaluated: self.tracker.progress.candidates_evaluated,
             generations_completed: self.tracker.progress.generations_completed,
             error: status_result.and_then(|result| result.error),
@@ -468,8 +481,8 @@ impl PromptLearningJob {
         eprintln!(
             "[PL] RESULT: status={:?} best={:?} baseline={:?} candidates={} gens={}",
             result.status,
-            result.best_score,
-            result.baseline_score,
+            result.best_reward,
+            result.baseline_reward,
             result.candidates_evaluated,
             result.generations_completed
         );
@@ -498,7 +511,7 @@ impl PromptLearningJob {
         let status = self.get_status().await?;
 
         let best_prompt = status.get_system_prompt();
-        let best_score = status.best_score.or(Some(self.tracker.best_score()));
+        let best_reward = status.best_reward.or(Some(self.tracker.best_reward()));
 
         // Build ranked prompts from tracker candidates
         let mut top_prompts: Vec<RankedPrompt> = self
@@ -509,8 +522,8 @@ impl PromptLearningJob {
             .map(|c| RankedPrompt {
                 rank: 0,
                 candidate_id: c.candidate_id.clone(),
-                train_accuracy: c.accuracy,
-                val_accuracy: c.val_accuracy,
+                train_accuracy: c.reward,
+                val_accuracy: c.val_reward,
                 prompt: None,
             })
             .collect();
@@ -529,7 +542,7 @@ impl PromptLearningJob {
 
         Ok(PromptResults {
             best_prompt,
-            best_score,
+            best_reward,
             top_prompts,
         })
     }
@@ -545,9 +558,9 @@ mod tests {
         let result = PromptLearningResult {
             job_id: "test".to_string(),
             status: PolicyJobStatus::Succeeded,
-            best_score: Some(0.85),
+            best_reward: Some(0.85),
             best_prompt: None,
-            baseline_score: None,
+            baseline_reward: None,
             candidates_evaluated: 10,
             generations_completed: 3,
             error: None,
@@ -564,11 +577,11 @@ mod tests {
         let result = PromptLearningResult {
             job_id: "test".to_string(),
             status: PolicyJobStatus::Succeeded,
-            best_score: Some(0.85),
+            best_reward: Some(0.85),
             best_prompt: Some(json!({
                 "system_prompt": "You are a helpful assistant."
             })),
-            baseline_score: None,
+            baseline_reward: None,
             candidates_evaluated: 10,
             generations_completed: 3,
             error: None,

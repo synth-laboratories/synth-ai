@@ -68,8 +68,8 @@ pub struct SeedInfo {
     pub predicted: Option<String>,
     #[serde(default)]
     pub correct: Option<bool>,
-    #[serde(default)]
-    pub score: Option<f64>,
+    #[serde(default, alias = "score")]
+    pub reward: Option<f64>,
 }
 
 /// Rollout sample details.
@@ -91,18 +91,18 @@ pub struct RolloutSample {
 pub struct CandidateInfo {
     /// Unique candidate ID
     pub candidate_id: String,
-    /// Accuracy/score on training set
-    #[serde(default)]
-    pub accuracy: Option<f64>,
+    /// Reward on training set
+    #[serde(default, alias = "accuracy")]
+    pub reward: Option<f64>,
     /// Multi-objective scores
     #[serde(default)]
     pub objectives: Option<HashMap<String, f64>>,
-    /// Validation accuracy (if validation phase completed)
-    #[serde(default)]
-    pub val_accuracy: Option<f64>,
-    /// Training accuracy (alias for accuracy)
-    #[serde(default)]
-    pub train_accuracy: Option<f64>,
+    /// Validation reward (if validation phase completed)
+    #[serde(default, alias = "val_accuracy")]
+    pub val_reward: Option<f64>,
+    /// Training reward
+    #[serde(default, alias = "train_accuracy")]
+    pub train_reward: Option<f64>,
     /// Generation number
     #[serde(default)]
     pub generation: Option<i32>,
@@ -142,9 +142,9 @@ pub struct CandidateInfo {
     /// Transformation details
     #[serde(default)]
     pub transformation: Option<HashMap<String, Value>>,
-    /// Seed scores
-    #[serde(default)]
-    pub seed_scores: Vec<Value>,
+    /// Seed rewards
+    #[serde(default, alias = "seed_scores")]
+    pub seed_rewards: Vec<Value>,
     /// Seeds evaluated
     #[serde(default)]
     pub seeds_evaluated: Vec<i64>,
@@ -157,9 +157,9 @@ pub struct CandidateInfo {
     /// Evaluation duration in ms
     #[serde(default)]
     pub evaluation_duration_ms: Option<i64>,
-    /// Minibatch scores
-    #[serde(default)]
-    pub minibatch_scores: Vec<f64>,
+    /// Minibatch rewards
+    #[serde(default, alias = "minibatch_scores")]
+    pub minibatch_rewards: Vec<f64>,
     /// Skip reason
     #[serde(default)]
     pub skip_reason: Option<String>,
@@ -172,10 +172,10 @@ impl Default for CandidateInfo {
     fn default() -> Self {
         Self {
             candidate_id: String::new(),
-            accuracy: None,
+            reward: None,
             objectives: None,
-            val_accuracy: None,
-            train_accuracy: None,
+            val_reward: None,
+            train_reward: None,
             generation: None,
             parent_id: None,
             is_pareto: false,
@@ -189,12 +189,12 @@ impl Default for CandidateInfo {
             prompt_summary: None,
             mutation_params: None,
             transformation: None,
-            seed_scores: Vec::new(),
+            seed_rewards: Vec::new(),
             seeds_evaluated: Vec::new(),
             seed_info: Vec::new(),
             rollout_sample: Vec::new(),
             evaluation_duration_ms: None,
-            minibatch_scores: Vec::new(),
+            minibatch_rewards: Vec::new(),
             skip_reason: None,
             raw_data: HashMap::new(),
         }
@@ -204,17 +204,18 @@ impl Default for CandidateInfo {
 /// Baseline information.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BaselineInfo {
-    /// Baseline accuracy/score
-    pub accuracy: Option<f64>,
+    /// Baseline reward
+    #[serde(alias = "accuracy")]
+    pub reward: Option<f64>,
     /// Multi-objective scores
     #[serde(default)]
     pub objectives: Option<HashMap<String, f64>>,
-    /// Validation accuracy
-    #[serde(default)]
-    pub val_accuracy: Option<f64>,
-    /// Per-instance scores
-    #[serde(default)]
-    pub instance_scores: Vec<f64>,
+    /// Validation reward
+    #[serde(default, alias = "val_accuracy")]
+    pub val_reward: Option<f64>,
+    /// Per-instance rewards
+    #[serde(default, alias = "instance_scores")]
+    pub instance_rewards: Vec<f64>,
     /// Per-instance objectives
     #[serde(default)]
     pub instance_objectives: Option<Vec<HashMap<String, f64>>>,
@@ -243,24 +244,24 @@ pub struct FrontierUpdate {
     /// Current frontier
     #[serde(default)]
     pub frontier: Vec<String>,
-    /// Scores by candidate
-    #[serde(default)]
-    pub frontier_scores: HashMap<String, f64>,
+    /// Rewards by candidate
+    #[serde(default, alias = "frontier_scores")]
+    pub frontier_rewards: HashMap<String, f64>,
     /// Objective scores by candidate (if provided)
     #[serde(default)]
     pub frontier_objectives: Option<Vec<HashMap<String, f64>>>,
     /// Frontier size
     #[serde(default)]
     pub frontier_size: i32,
-    /// Best optimistic score
-    #[serde(default)]
-    pub optimistic_score: Option<f64>,
+    /// Best optimistic reward
+    #[serde(default, alias = "optimistic_score")]
+    pub optimistic_reward: Option<f64>,
     /// Generation number
     #[serde(default)]
     pub generation: Option<i32>,
-    /// Baseline score (if provided)
-    #[serde(default)]
-    pub baseline_score: Option<f64>,
+    /// Baseline reward (if provided)
+    #[serde(default, alias = "baseline_score")]
+    pub baseline_reward: Option<f64>,
     /// Timestamp in milliseconds (if provided)
     #[serde(default)]
     pub timestamp_ms: Option<i64>,
@@ -279,10 +280,12 @@ pub struct GEPAProgress {
     pub generations_completed: i32,
     /// Candidates evaluated
     pub candidates_evaluated: i32,
-    /// Current best score
-    pub best_score: f64,
-    /// Baseline score for lift calculation
-    pub baseline_score: Option<f64>,
+    /// Current best reward
+    #[serde(alias = "best_score")]
+    pub best_reward: f64,
+    /// Baseline reward for lift calculation
+    #[serde(alias = "baseline_score")]
+    pub baseline_reward: Option<f64>,
     /// Elapsed time in seconds
     pub elapsed_seconds: f64,
     /// Estimated time remaining
@@ -299,8 +302,8 @@ impl Default for GEPAProgress {
             rollouts_total: 0,
             generations_completed: 0,
             candidates_evaluated: 0,
-            best_score: 0.0,
-            baseline_score: None,
+            best_reward: 0.0,
+            baseline_reward: None,
             elapsed_seconds: 0.0,
             eta_seconds: None,
             finish_reason: None,
@@ -320,9 +323,9 @@ impl GEPAProgress {
 
     /// Calculate lift over baseline.
     pub fn lift(&self) -> Option<f64> {
-        self.baseline_score.map(|b| {
+        self.baseline_reward.map(|b| {
             if b > 0.0 {
-                (self.best_score - b) / b
+                (self.best_reward - b) / b
             } else {
                 0.0
             }
@@ -357,8 +360,9 @@ pub struct ProgressTracker {
 pub struct GenerationInfo {
     /// Generation number
     pub generation: i32,
-    /// Best accuracy in generation
-    pub best_accuracy: f64,
+    /// Best reward in generation
+    #[serde(alias = "best_accuracy")]
+    pub best_reward: f64,
     /// Candidates proposed
     pub candidates_proposed: i32,
     /// Candidates accepted
@@ -428,14 +432,14 @@ impl ProgressTracker {
         }
     }
 
-    /// Get the current best score.
-    pub fn best_score(&self) -> f64 {
-        self.progress.best_score
+    /// Get the current best reward.
+    pub fn best_reward(&self) -> f64 {
+        self.progress.best_reward
     }
 
-    /// Get baseline score.
-    pub fn baseline_score(&self) -> Option<f64> {
-        self.progress.baseline_score
+    /// Get baseline reward.
+    pub fn baseline_reward(&self) -> Option<f64> {
+        self.progress.baseline_reward
     }
 
     /// Get lift over baseline.
@@ -485,10 +489,10 @@ impl ProgressTracker {
         let data = EventParser::parse_baseline(event);
 
         self.baseline = Some(BaselineInfo {
-            accuracy: data.accuracy,
+            reward: data.reward,
             objectives: data.objectives,
-            val_accuracy: None,
-            instance_scores: data.instance_scores.unwrap_or_default(),
+            val_reward: None,
+            instance_rewards: data.instance_rewards.unwrap_or_default(),
             instance_objectives: data.instance_objectives,
             seeds_evaluated: event
                 .data
@@ -509,11 +513,11 @@ impl ProgressTracker {
                 .unwrap_or_default(),
         });
 
-        if let Some(acc) = data.accuracy {
-            self.progress.baseline_score = Some(acc);
-            // Initialize best score to baseline
-            if self.progress.best_score == 0.0 {
-                self.progress.best_score = acc;
+        if let Some(acc) = data.reward {
+            self.progress.baseline_reward = Some(acc);
+            // Initialize best reward to baseline
+            if self.progress.best_reward == 0.0 {
+                self.progress.best_reward = acc;
             }
         }
 
@@ -542,27 +546,53 @@ impl ProgressTracker {
             let candidate_view = merged_data.clone();
             let candidate_value = Value::Object(candidate_view.clone());
 
-            let objectives = candidate_view
-                .get("objectives")
-                .and_then(|v| v.as_object())
-                .and_then(|map| {
-                    let mut out = HashMap::new();
-                    for (k, v) in map {
-                        let val = v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()));
-                        let val = match val {
-                            Some(val) => val,
-                            None => return None,
-                        };
-                        out.insert(k.clone(), val);
-                    }
-                    Some(out)
+            let parse_f64_map = |val: Option<&Value>| -> Option<HashMap<String, f64>> {
+                let map = val?.as_object()?;
+                let mut out = HashMap::new();
+                for (k, v) in map {
+                    let val = v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()));
+                    let val = match val {
+                        Some(val) => val,
+                        None => return None,
+                    };
+                    out.insert(k.clone(), val);
+                }
+                Some(out)
+            };
+
+            // Try top-level objectives, then score.objectives
+            let objectives = parse_f64_map(candidate_view.get("objectives"))
+                .or_else(|| {
+                    candidate_view
+                        .get("score")
+                        .and_then(|v| v.as_object())
+                        .and_then(|score| parse_f64_map(score.get("objectives")))
                 });
 
             let accuracy = objectives
                 .as_ref()
                 .and_then(|m| m.get("reward").copied())
+                .or_else(|| candidate_view.get("reward").and_then(|v| v.as_f64()))
                 .or_else(|| candidate_view.get("accuracy").and_then(|v| v.as_f64()))
-                .or_else(|| candidate_view.get("score").and_then(|v| v.as_f64()));
+                .or_else(|| candidate_view.get("score").and_then(|v| v.as_f64()))
+                .or_else(|| {
+                    candidate_view
+                        .get("score")
+                        .and_then(|v| v.as_object())
+                        .and_then(|score| {
+                            score.get("reward").and_then(|v| v.as_f64())
+                                .or_else(|| score.get("mean_reward").and_then(|v| v.as_f64()))
+                        })
+                });
+
+            // Auto-derive objectives from accuracy if not found
+            let objectives = objectives.or_else(|| {
+                accuracy.map(|r| {
+                    let mut m = HashMap::new();
+                    m.insert("reward".to_string(), r);
+                    m
+                })
+            });
 
             let instance_scores = candidate_view
                 .get("instance_scores")
@@ -596,10 +626,10 @@ impl ProgressTracker {
                 });
 
             self.baseline = Some(BaselineInfo {
-                accuracy,
+                reward: accuracy,
                 objectives,
-                val_accuracy: None,
-                instance_scores,
+                val_reward: None,
+                instance_rewards: instance_scores,
                 instance_objectives,
                 seeds_evaluated: merged_data
                     .get("seeds_evaluated")
@@ -619,7 +649,7 @@ impl ProgressTracker {
             });
 
             if let Some(acc) = accuracy {
-                self.progress.baseline_score = Some(acc);
+                self.progress.baseline_reward = Some(acc);
             }
         }
 
@@ -629,10 +659,10 @@ impl ProgressTracker {
 
         let mut candidate = CandidateInfo {
             candidate_id: data.candidate_id.clone(),
-            accuracy: data.accuracy,
+            reward: data.reward,
             objectives: data.objectives,
-            val_accuracy: None,
-            train_accuracy: data.accuracy,
+            val_reward: None,
+            train_reward: data.reward,
             generation: data.generation,
             parent_id: data.parent_id,
             is_pareto: data.is_pareto,
@@ -646,12 +676,12 @@ impl ProgressTracker {
             prompt_summary: None,
             mutation_params: None,
             transformation: None,
-            seed_scores: Vec::new(),
+            seed_rewards: Vec::new(),
             seeds_evaluated: Vec::new(),
             seed_info: Vec::new(),
             rollout_sample: Vec::new(),
             evaluation_duration_ms: None,
-            minibatch_scores: Vec::new(),
+            minibatch_rewards: Vec::new(),
             skip_reason: None,
             raw_data: HashMap::new(),
         };
@@ -663,15 +693,15 @@ impl ProgressTracker {
             .unwrap_or_default();
 
         if let Some(val) = merged_data.get("val_accuracy").and_then(|v| v.as_f64()) {
-            candidate.val_accuracy = Some(val);
+            candidate.val_reward = Some(val);
         } else if let Some(val) = merged_data.get("full_score").and_then(|v| v.as_f64()) {
-            candidate.val_accuracy = Some(val);
+            candidate.val_reward = Some(val);
         }
 
         if let Some(val) = merged_data.get("train_accuracy").and_then(|v| v.as_f64()) {
-            candidate.train_accuracy = Some(val);
+            candidate.train_reward = Some(val);
         } else if let Some(val) = merged_data.get("minibatch_score").and_then(|v| v.as_f64()) {
-            candidate.train_accuracy = Some(val);
+            candidate.train_reward = Some(val);
         }
 
         if let Some(cost) = merged_data.get("cost_usd").and_then(|v| v.as_f64()) {
@@ -686,12 +716,12 @@ impl ProgressTracker {
         }
 
         if let Some(scores) = merged_data.get("minibatch_scores").and_then(|v| v.as_array()) {
-            candidate.minibatch_scores = scores
+            candidate.minibatch_rewards = scores
                 .iter()
                 .filter_map(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
                 .collect();
         } else if let Some(score) = merged_data.get("minibatch_score").and_then(|v| v.as_f64()) {
-            candidate.minibatch_scores = vec![score];
+            candidate.minibatch_rewards = vec![score];
         }
 
         if let Some(reason) = merged_data.get("skip_reason").and_then(|v| v.as_str()) {
@@ -699,7 +729,7 @@ impl ProgressTracker {
         }
 
         if let Some(scores) = merged_data.get("seed_scores").and_then(|v| v.as_array()) {
-            candidate.seed_scores = scores.clone();
+            candidate.seed_rewards = scores.clone();
         }
 
         if let Some(info) = merged_data.get("seed_info").and_then(|v| v.as_array()) {
@@ -774,10 +804,10 @@ impl ProgressTracker {
             candidate.raw_data = raw.clone().into_iter().collect();
         }
 
-        // Update best score
-        if let Some(acc) = data.accuracy {
-            if acc > self.progress.best_score {
-                self.progress.best_score = acc;
+        // Update best reward
+        if let Some(acc) = data.reward {
+            if acc > self.progress.best_reward {
+                self.progress.best_reward = acc;
             }
         }
 
@@ -793,9 +823,9 @@ impl ProgressTracker {
 
         self.frontier = data.frontier.clone();
 
-        if let Some(best) = data.best_score {
-            if best > self.progress.best_score {
-                self.progress.best_score = best;
+        if let Some(best) = data.best_reward {
+            if best > self.progress.best_reward {
+                self.progress.best_reward = best;
             }
         }
 
@@ -804,12 +834,12 @@ impl ProgressTracker {
             added: data.added,
             removed: data.removed,
             frontier: data.frontier,
-            frontier_scores: data.frontier_scores.unwrap_or_default(),
+            frontier_rewards: data.frontier_rewards.unwrap_or_default(),
             frontier_objectives: data.frontier_objectives,
             frontier_size: data.frontier_size,
-            optimistic_score: data.best_score,
+            optimistic_reward: data.best_reward,
             generation: event.data.get("generation").and_then(|v| v.as_i64()).map(|v| v as i32),
-            baseline_score: event.data.get("baseline_score").and_then(|v| v.as_f64()),
+            baseline_reward: event.data.get("baseline_score").and_then(|v| v.as_f64()),
             timestamp_ms: event.timestamp_ms,
         };
         self.frontier_history.push(update);
@@ -823,15 +853,15 @@ impl ProgressTracker {
             self.progress.rollouts_total = total;
         }
 
-        if let Some(best) = data.best_score {
-            if best > self.progress.best_score {
-                self.progress.best_score = best;
+        if let Some(best) = data.best_reward {
+            if best > self.progress.best_reward {
+                self.progress.best_reward = best;
             }
         }
 
-        if let Some(baseline) = data.baseline_score {
-            if self.progress.baseline_score.is_none() {
-                self.progress.baseline_score = Some(baseline);
+        if let Some(baseline) = data.baseline_reward {
+            if self.progress.baseline_reward.is_none() {
+                self.progress.baseline_reward = Some(baseline);
             }
         }
 
@@ -850,7 +880,7 @@ impl ProgressTracker {
 
         let info = GenerationInfo {
             generation: data.generation,
-            best_accuracy: data.best_accuracy,
+            best_reward: data.best_reward,
             candidates_proposed: data.candidates_proposed,
             candidates_accepted: data.candidates_accepted,
             frontier_size: event
@@ -884,12 +914,12 @@ impl ProgressTracker {
         self.progress.phase = "complete".to_string();
         self.progress.finish_reason = data.finish_reason;
 
-        if let Some(best) = data.best_score {
-            self.progress.best_score = best;
+        if let Some(best) = data.best_reward {
+            self.progress.best_reward = best;
         }
 
-        if let Some(baseline) = data.baseline_score {
-            self.progress.baseline_score = Some(baseline);
+        if let Some(baseline) = data.baseline_reward {
+            self.progress.baseline_reward = Some(baseline);
         }
     }
 
@@ -907,7 +937,7 @@ impl ProgressTracker {
         if let Some(candidate_id) = event.data.get("candidate_id").and_then(|v| v.as_str()) {
             if let Some(val_score) = event.data.get("val_accuracy").and_then(|v| v.as_f64()) {
                 if let Some(&idx) = self.candidates_by_id.get(candidate_id) {
-                    self.candidates[idx].val_accuracy = Some(val_score);
+                    self.candidates[idx].val_reward = Some(val_score);
                 }
             }
         }
@@ -921,8 +951,8 @@ impl ProgressTracker {
             "rollouts_total": self.progress.rollouts_total,
             "candidates_evaluated": self.progress.candidates_evaluated,
             "generations_completed": self.progress.generations_completed,
-            "best_score": self.progress.best_score,
-            "baseline_score": self.progress.baseline_score,
+            "best_reward": self.progress.best_reward,
+            "baseline_reward": self.progress.baseline_reward,
             "lift": self.lift(),
             "elapsed_seconds": self.progress.elapsed_seconds,
             "frontier_size": self.frontier.len(),
@@ -946,8 +976,8 @@ mod tests {
     #[test]
     fn test_progress_lift() {
         let mut progress = GEPAProgress::default();
-        progress.baseline_score = Some(0.5);
-        progress.best_score = 0.75;
+        progress.baseline_reward = Some(0.5);
+        progress.best_reward = 0.75;
 
         let lift = progress.lift().unwrap();
         assert!((lift - 0.5).abs() < 0.001); // 50% lift
@@ -966,7 +996,7 @@ mod tests {
         tracker.update(&event);
 
         assert!(tracker.baseline.is_some());
-        assert_eq!(tracker.baseline_score(), Some(0.72));
+        assert_eq!(tracker.baseline_reward(), Some(0.72));
         assert_eq!(tracker.progress.phase, "optimization");
     }
 
@@ -993,7 +1023,7 @@ mod tests {
         })));
 
         assert_eq!(tracker.candidates.len(), 1);
-        assert_eq!(tracker.best_score(), 0.85);
+        assert_eq!(tracker.best_reward(), 0.85);
         assert_eq!(tracker.progress.candidates_evaluated, 1);
     }
 
@@ -1011,7 +1041,7 @@ mod tests {
 
         assert_eq!(tracker.frontier.len(), 2);
         assert_eq!(tracker.frontier_history.len(), 1);
-        assert_eq!(tracker.best_score(), 0.88);
+        assert_eq!(tracker.best_reward(), 0.88);
     }
 
     #[test]
@@ -1029,6 +1059,6 @@ mod tests {
 
         assert_eq!(tracker.progress.phase, "complete");
         assert_eq!(tracker.progress.finish_reason, Some("budget_exhausted".to_string()));
-        assert_eq!(tracker.best_score(), 0.92);
+        assert_eq!(tracker.best_reward(), 0.92);
     }
 }

@@ -40,6 +40,7 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for optimization.builders.") from exc
 
 from synth_ai.core.config.resolver import ConfigResolver  # noqa: E402
+from synth_ai.core.utils.urls import is_synthtunnel_url  # noqa: E402
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
 
 from .configs import PromptLearningConfig  # noqa: E402
@@ -177,7 +178,14 @@ def build_prompt_learning_payload(
                 "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
             )
 
-    env_api_key = ensure_localapi_auth()
+    candidate_task_url = (
+        (overrides.get("task_url") or task_url or "").strip()
+        or (pl_cfg.task_app_url or "").strip()
+        or (os.environ.get("TASK_APP_URL") or "").strip()
+    )
+    env_api_key: str | None = None
+    if not (candidate_task_url and is_synthtunnel_url(candidate_task_url)):
+        env_api_key = ensure_localapi_auth()
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
@@ -228,18 +236,28 @@ def build_prompt_learning_payload(
     # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
     config_api_key = (getattr(pl_cfg, "task_app_api_key", None) or "").strip() or None
     cli_api_key = overrides.get("task_app_api_key")
+    skip_task_app_key = os.environ.get(
+        "SYNTH_BACKEND_RESOLVES_TASK_APP_KEY", ""
+    ).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     _task_app_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
         "task_app_api_key",
         cli_value=cli_api_key,
         env_value=env_api_key,
         config_value=config_api_key,
-        required=True,
+        required=not skip_task_app_key,
     )
 
     # Ensure task_app_url is set (task_app_api_key is resolved by backend from ENVIRONMENT_API_KEY)
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         pl_section["task_app_url"] = final_task_url
+        if _task_app_api_key and not skip_task_app_key:
+            pl_section["task_app_api_key"] = _task_app_api_key
 
         # GEPA: Extract train_seeds from nested structure for backwards compatibility
         # Backend checks for train_seeds at top level before parsing nested structure
@@ -467,7 +485,14 @@ def build_prompt_learning_payload_from_mapping(
                 "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
             )
 
-    env_api_key = ensure_localapi_auth()
+    candidate_task_url = (
+        (overrides.get("task_url") or task_url or "").strip()
+        or (pl_cfg.task_app_url or "").strip()
+        or (os.environ.get("TASK_APP_URL") or "").strip()
+    )
+    env_api_key: str | None = None
+    if not (candidate_task_url and is_synthtunnel_url(candidate_task_url)):
+        env_api_key = ensure_localapi_auth()
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
@@ -513,18 +538,28 @@ def build_prompt_learning_payload_from_mapping(
     # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
     config_api_key = (getattr(pl_cfg, "task_app_api_key", None) or "").strip() or None
     cli_api_key = overrides.get("task_app_api_key")
+    skip_task_app_key = os.environ.get(
+        "SYNTH_BACKEND_RESOLVES_TASK_APP_KEY", ""
+    ).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     _task_app_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
         "task_app_api_key",
         cli_value=cli_api_key,
         env_value=env_api_key,
         config_value=config_api_key,
-        required=True,
+        required=not skip_task_app_key,
     )
 
     # Ensure task_app_url is set (task_app_api_key is resolved by backend from ENVIRONMENT_API_KEY)
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         pl_section["task_app_url"] = final_task_url
+        if _task_app_api_key and not skip_task_app_key:
+            pl_section["task_app_api_key"] = _task_app_api_key
 
         # GEPA: Extract train_seeds from nested structure
         if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:

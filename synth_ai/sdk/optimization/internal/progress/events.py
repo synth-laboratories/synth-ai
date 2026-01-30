@@ -86,9 +86,9 @@ class ParsedEvent:
 class BaselineEvent(ParsedEvent):
     """Baseline evaluation event."""
 
-    accuracy: float | None = None
+    reward: float | None = None
     objectives: Optional[Dict[str, float]] = None
-    instance_scores: list[float] | None = None
+    instance_rewards: list[float] | None = None
     instance_objectives: Optional[List[Dict[str, float]]] = None
     prompt: dict[str, Any] | None = None
 
@@ -98,13 +98,13 @@ class CandidateEvent(ParsedEvent):
     """Candidate evaluation event."""
 
     candidate_id: str = ""
-    accuracy: float | None = None
+    reward: float | None = None
     objectives: Optional[Dict[str, float]] = None
     accepted: bool = False
     generation: int | None = None
     parent_id: str | None = None
     is_pareto: bool = False
-    instance_scores: list[float] | None = None
+    instance_rewards: list[float] | None = None
     instance_objectives: Optional[List[Dict[str, float]]] = None
     mutation_type: str | None = None
 
@@ -117,8 +117,8 @@ class FrontierEvent(ParsedEvent):
     added: list[str] | None = None
     removed: list[str] | None = None
     frontier_size: int = 0
-    best_score: float | None = None
-    frontier_scores: dict[str, float] | None = None
+    best_reward: float | None = None
+    frontier_rewards: dict[str, float] | None = None
     frontier_objectives: Optional[List[Dict[str, float]]] = None
 
 
@@ -129,8 +129,8 @@ class ProgressEvent(ParsedEvent):
     rollouts_completed: int = 0
     rollouts_total: int | None = None
     trials_completed: int = 0
-    best_score: float | None = None
-    baseline_score: float | None = None
+    best_reward: float | None = None
+    baseline_reward: float | None = None
 
 
 @dataclass
@@ -138,7 +138,7 @@ class GenerationEvent(ParsedEvent):
     """Generation complete event."""
 
     generation: int = 0
-    best_accuracy: float = 0.0
+    best_reward: float = 0.0
     candidates_proposed: int = 0
     candidates_accepted: int = 0
 
@@ -147,8 +147,8 @@ class GenerationEvent(ParsedEvent):
 class CompleteEvent(ParsedEvent):
     """Optimization complete event."""
 
-    best_score: float | None = None
-    baseline_score: float | None = None
+    best_reward: float | None = None
+    baseline_reward: float | None = None
     finish_reason: str | None = None
     total_candidates: int = 0
 
@@ -181,7 +181,7 @@ class EventParser:
         parser = EventParser()
         event = parser.parse({"type": "prompt.learning.[MASKED].baseline", "data": {...}})
         if isinstance(event, BaselineEvent):
-            print(f"Baseline accuracy: {event.accuracy}")
+            print(f"Baseline reward: {event.reward}")
     """
 
     # Event type patterns for each category
@@ -298,9 +298,9 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                accuracy=parsed.get("accuracy"),
+                reward=parsed.get("reward") or parsed.get("accuracy"),
                 objectives=parsed.get("objectives"),
-                instance_scores=parsed.get("instance_scores"),
+                instance_rewards=parsed.get("instance_rewards") or parsed.get("instance_scores"),
                 instance_objectives=parsed.get("instance_objectives"),
                 prompt=parsed.get("prompt"),
             )
@@ -313,13 +313,13 @@ class EventParser:
                 seq=seq,
                 timestamp_ms=timestamp_ms,
                 candidate_id=parsed.get("candidate_id") or "",
-                accuracy=parsed.get("accuracy"),
+                reward=parsed.get("reward") or parsed.get("accuracy"),
                 objectives=parsed.get("objectives"),
                 accepted=parsed.get("accepted", False),
                 generation=parsed.get("generation"),
                 parent_id=parsed.get("parent_id"),
                 is_pareto=parsed.get("is_pareto", False),
-                instance_scores=parsed.get("instance_scores"),
+                instance_rewards=parsed.get("instance_rewards") or parsed.get("instance_scores"),
                 instance_objectives=parsed.get("instance_objectives"),
                 mutation_type=parsed.get("mutation_type"),
             )
@@ -335,8 +335,8 @@ class EventParser:
                 added=parsed.get("added"),
                 removed=parsed.get("removed"),
                 frontier_size=parsed.get("frontier_size", 0),
-                best_score=parsed.get("best_score"),
-                frontier_scores=parsed.get("frontier_scores"),
+                best_reward=parsed.get("best_reward") or parsed.get("best_score"),
+                frontier_rewards=parsed.get("frontier_rewards") or parsed.get("frontier_scores"),
                 frontier_objectives=parsed.get("frontier_objectives"),
             )
 
@@ -350,8 +350,8 @@ class EventParser:
                 rollouts_completed=parsed.get("rollouts_completed", 0),
                 rollouts_total=parsed.get("rollouts_total"),
                 trials_completed=parsed.get("trials_completed", 0),
-                best_score=parsed.get("best_score"),
-                baseline_score=parsed.get("baseline_score"),
+                best_reward=parsed.get("best_reward") or parsed.get("best_score"),
+                baseline_reward=parsed.get("baseline_reward") or parsed.get("baseline_score"),
             )
 
         if category == EventCategory.GENERATION:
@@ -362,7 +362,7 @@ class EventParser:
                 seq=seq,
                 timestamp_ms=timestamp_ms,
                 generation=parsed.get("generation", 0),
-                best_accuracy=parsed.get("best_accuracy", 0.0),
+                best_reward=parsed.get("best_reward") or parsed.get("best_accuracy", 0.0),
                 candidates_proposed=parsed.get("candidates_proposed", 0),
                 candidates_accepted=parsed.get("candidates_accepted", 0),
             )
@@ -374,8 +374,8 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                best_score=parsed.get("best_score"),
-                baseline_score=parsed.get("baseline_score"),
+                best_reward=parsed.get("best_reward") or parsed.get("best_score"),
+                baseline_reward=parsed.get("baseline_reward") or parsed.get("baseline_score"),
                 finish_reason=parsed.get("finish_reason"),
                 total_candidates=parsed.get("total_candidates", 0),
             )

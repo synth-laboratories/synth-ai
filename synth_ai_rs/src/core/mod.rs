@@ -108,6 +108,28 @@ impl CoreClient {
         Self::json_or_error(resp).await
     }
 
+    pub async fn post_json_with_headers<T: Serialize + ?Sized>(
+        &self,
+        path: &str,
+        body: &T,
+        auth: AuthStyle,
+        extra_headers: Option<HeaderMap>,
+    ) -> Result<Value> {
+        let url = self.url(path);
+        let mut headers = self.auth_headers(auth);
+        if let Some(extra) = extra_headers {
+            headers.extend(extra);
+        }
+        let resp = self
+            .http()
+            .post(url)
+            .headers(headers)
+            .json(body)
+            .send()
+            .await?;
+        Self::json_or_error(resp).await
+    }
+
     pub async fn get_json_fallback(&self, paths: &[&str], auth: AuthStyle) -> Result<Value> {
         let mut last_error = None;
         for path in paths {
@@ -138,6 +160,36 @@ impl CoreClient {
         let mut last_error = None;
         for path in paths {
             match self.post_json(path, body, auth).await {
+                Ok(val) => return Ok(val),
+                Err(err) => {
+                    if let SynthError::Api { status, .. } = &err {
+                        if *status == 404 {
+                            last_error = Some(err);
+                            continue;
+                        }
+                    }
+                    return Err(err);
+                }
+            }
+        }
+        Err(last_error.unwrap_or_else(|| {
+            SynthError::UnexpectedResponse("no fallback endpoints succeeded".to_string())
+        }))
+    }
+
+    pub async fn post_json_fallback_with_headers<T: Serialize + ?Sized>(
+        &self,
+        paths: &[&str],
+        body: &T,
+        auth: AuthStyle,
+        extra_headers: Option<HeaderMap>,
+    ) -> Result<Value> {
+        let mut last_error = None;
+        for path in paths {
+            match self
+                .post_json_with_headers(path, body, auth, extra_headers.clone())
+                .await
+            {
                 Ok(val) => return Ok(val),
                 Err(err) => {
                     if let SynthError::Api { status, .. } = &err {

@@ -21,7 +21,7 @@ Example usage:
         tracker.update(event)
 
     # Access results
-    print(f"Best: {tracker.best_score:.2%}")
+    print(f"Best: {tracker.best_reward:.2%}")
     tracker.save_all("./results")
 
     # Headless tracking

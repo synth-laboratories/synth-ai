@@ -41,7 +41,8 @@ pub struct PhaseSummary {
     #[serde(default)]
     pub candidates_evaluated: Option<i64>,
     #[serde(default)]
-    pub best_score: Option<f64>,
+    #[serde(alias = "best_score")]
+    pub best_reward: Option<f64>,
     #[serde(default)]
     pub extra: HashMap<String, Value>,
 }
@@ -66,18 +67,18 @@ pub struct ProgramCandidate {
     pub mutation_type: String,
     #[serde(default)]
     pub mutation_params: Option<Value>,
-    #[serde(default)]
-    pub accuracy: f64,
-    #[serde(default)]
-    pub val_accuracy: Option<f64>,
-    #[serde(default)]
-    pub minibatch_score: Option<f64>,
-    #[serde(default)]
-    pub seed_scores: Option<Vec<Value>>,
+    #[serde(default, alias = "accuracy")]
+    pub reward: f64,
+    #[serde(default, alias = "val_accuracy")]
+    pub val_reward: Option<f64>,
+    #[serde(default, alias = "minibatch_score")]
+    pub minibatch_reward: Option<f64>,
+    #[serde(default, alias = "seed_scores")]
+    pub seed_rewards: Option<Vec<Value>>,
     #[serde(default)]
     pub seed_info: Option<Vec<SeedInfo>>,
-    #[serde(default)]
-    pub instance_scores: Option<Vec<Value>>,
+    #[serde(default, alias = "instance_scores")]
+    pub instance_rewards: Option<Vec<Value>>,
     #[serde(default)]
     pub objectives: Option<Value>,
     #[serde(default)]

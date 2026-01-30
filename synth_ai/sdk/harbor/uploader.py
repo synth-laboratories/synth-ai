@@ -98,6 +98,7 @@ class HarborDeploymentUploader:
             HarborAPIError: If response indicates an error
         """
         if response.status_code >= 400:
+            data: Any | None = None
             try:
                 data = response.json()
                 message = data.get("detail", data.get("message", str(data)))
@@ -151,12 +152,24 @@ class HarborDeploymentUploader:
             data = self._handle_response(response)
 
             deployment_id = data["id"]
+            deployment_name = data.get("name") if isinstance(data, dict) else None
             build_id = None
 
-            # Trigger build if requested
-            if auto_build:
+            latest_build = data.get("latest_build") if isinstance(data, dict) else None
+            if isinstance(latest_build, dict):
+                build_id = latest_build.get("id") or latest_build.get("build_id")
+
+            # Trigger build if requested and not already queued by create_deployment
+            if auto_build and not build_id:
+                build_payload = {
+                    "dockerfile": payload.get("dockerfile"),
+                    "context_tar_base64": payload.get("context_tar_base64"),
+                    "context_url": payload.get("context_url"),
+                    "force": False,
+                }
                 build_response = await client.post(
                     f"{self.backend_url}/api/harbor/deployments/{deployment_id}/build",
+                    json=build_payload,
                     headers=self._get_headers(),
                 )
                 build_data = self._handle_response(build_response)
@@ -164,6 +177,7 @@ class HarborDeploymentUploader:
 
         return HarborDeploymentResult(
             deployment_id=deployment_id,
+            deployment_name=deployment_name,
             build_id=build_id,
             name=data["name"],
             status=data["status"],
@@ -231,8 +245,21 @@ class HarborDeploymentUploader:
         """
         start_time = time.time()
 
+        async def _status_via_list() -> dict[str, Any]:
+            deployments = await self.list_deployments_async(limit=100)
+            for item in deployments:
+                if item.get("name") == deployment_id or item.get("id") == deployment_id:
+                    return item
+            raise HarborAPIError(404, f"Deployment not found: {deployment_id}")
+
         while True:
-            status = await self.get_deployment_status_async(deployment_id)
+            try:
+                status = await self.get_deployment_status_async(deployment_id)
+            except HarborAPIError as exc:
+                if exc.status_code == 500:
+                    status = await _status_via_list()
+                else:
+                    raise
             deployment_status = status.get("status", "unknown")
 
             if deployment_status == "ready":
@@ -259,7 +286,15 @@ class HarborDeploymentUploader:
         """Wait for deployment build to complete synchronously."""
         return asyncio.run(self.wait_for_build_async(deployment_id, timeout_s, poll_interval_s))
 
-    async def trigger_build_async(self, deployment_id: str) -> dict[str, Any]:
+    async def trigger_build_async(
+        self,
+        deployment_id: str,
+        *,
+        dockerfile: str | None = None,
+        context_tar_base64: str | None = None,
+        context_url: str | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
         """Trigger a new build for an existing deployment.
 
         Args:
@@ -268,16 +303,39 @@ class HarborDeploymentUploader:
         Returns:
             Build information with build_id
         """
+        payload = {
+            "dockerfile": dockerfile,
+            "context_tar_base64": context_tar_base64,
+            "context_url": context_url,
+            "force": force,
+        }
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
                 f"{self.backend_url}/api/harbor/deployments/{deployment_id}/build",
+                json=payload,
                 headers=self._get_headers(),
             )
             return self._handle_response(response)
 
-    def trigger_build(self, deployment_id: str) -> dict[str, Any]:
+    def trigger_build(
+        self,
+        deployment_id: str,
+        *,
+        dockerfile: str | None = None,
+        context_tar_base64: str | None = None,
+        context_url: str | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
         """Trigger a new build synchronously."""
-        return asyncio.run(self.trigger_build_async(deployment_id))
+        return asyncio.run(
+            self.trigger_build_async(
+                deployment_id,
+                dockerfile=dockerfile,
+                context_tar_base64=context_tar_base64,
+                context_url=context_url,
+                force=force,
+            )
+        )
 
     async def list_deployments_async(
         self,
@@ -305,7 +363,12 @@ class HarborDeploymentUploader:
                 params=params,
                 headers=self._get_headers(),
             )
-            return self._handle_response(response)
+            data = self._handle_response(response)
+            if isinstance(data, dict) and "deployments" in data:
+                return data["deployments"] or []
+            if isinstance(data, list):
+                return data
+            return []
 
     def list_deployments(
         self,
@@ -364,7 +427,8 @@ def upload_harbor_deployment(
     result = uploader.create_deployment(spec, auto_build=auto_build)
 
     if wait_for_ready and auto_build:
-        status = uploader.wait_for_build(result.deployment_id, timeout_s=build_timeout_s)
+        deployment_key = result.deployment_name or result.deployment_id
+        status = uploader.wait_for_build(deployment_key, timeout_s=build_timeout_s)
         result.status = status.get("status", result.status)
         result.snapshot_id = status.get("snapshot_id", result.snapshot_id)
 
@@ -388,9 +452,8 @@ async def upload_harbor_deployment_async(
     result = await uploader.create_deployment_async(spec, auto_build=auto_build)
 
     if wait_for_ready and auto_build:
-        status = await uploader.wait_for_build_async(
-            result.deployment_id, timeout_s=build_timeout_s
-        )
+        deployment_key = result.deployment_name or result.deployment_id
+        status = await uploader.wait_for_build_async(deployment_key, timeout_s=build_timeout_s)
         result.status = status.get("status", result.status)
         result.snapshot_id = status.get("snapshot_id", result.snapshot_id)
 

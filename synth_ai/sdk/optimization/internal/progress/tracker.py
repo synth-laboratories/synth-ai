@@ -54,7 +54,7 @@ class GEPAProgressTracker:
             tracker.update(event)
 
         # Access final state
-        print(f"Best: {tracker.best_score:.2%}")
+        print(f"Best: {tracker.best_reward:.2%}")
         print(f"Candidates: {len(tracker.candidates)}")
 
         # Generate analysis
@@ -275,7 +275,7 @@ GEPA Optimization Progress - {self.env_name}
         """Handle baseline evaluation event."""
         if self.display_mode == DisplayMode.SILENT or self._baseline_printed:
             return
-        acc_str = f"{event.accuracy:.2%}" if event.accuracy else "N/A"
+        acc_str = f"{event.reward:.2%}" if event.reward else "N/A"
         self._print(f"Baseline: {acc_str}")
         self._baseline_printed = True
 
@@ -285,7 +285,7 @@ GEPA Optimization Progress - {self.env_name}
             return
         is_baseline = event.data.get("is_baseline", False) or event.data.get("parent_id") is None
         if is_baseline and self.emitter.baseline:
-            acc_str = f"{event.accuracy:.2%}" if event.accuracy else "N/A"
+            acc_str = f"{event.reward:.2%}" if event.reward else "N/A"
             self._print(f"Baseline: {acc_str}")
             self._baseline_printed = True
 
@@ -294,10 +294,10 @@ GEPA Optimization Progress - {self.env_name}
         if self.display_mode != DisplayMode.SILENT:
             lift = self.emitter.progress.lift
             lift_str = f" (lift: {lift:+.2%})" if lift is not None else ""
-            best_score = event.best_score
-            if best_score is None:
-                best_score = self.emitter.progress.best_score
-            self._print(f"Frontier [{event.frontier_size}]: best={best_score:.2%}{lift_str}")
+            best_reward = event.best_reward
+            if best_reward is None:
+                best_reward = self.emitter.progress.best_reward
+            self._print(f"Frontier [{event.frontier_size}]: best={best_reward:.2%}{lift_str}")
 
     def _handle_progress(self, event: ProgressEvent) -> None:
         """Handle progress update event."""
@@ -306,7 +306,7 @@ GEPA Optimization Progress - {self.env_name}
     def _handle_generation(self, event: GenerationEvent) -> None:
         """Handle generation complete event."""
         if self.display_mode != DisplayMode.SILENT:
-            self._print(f"Generation {event.generation} complete (best: {event.best_accuracy:.2%})")
+            self._print(f"Generation {event.generation} complete (best: {event.best_reward:.2%})")
 
     def _handle_complete(self, event: CompleteEvent) -> None:
         """Handle optimization complete event."""
@@ -365,14 +365,24 @@ GEPA Optimization Progress - {self.env_name}
         return self.emitter.raw_events
 
     @property
+    def best_reward(self) -> float:
+        """Get best reward achieved."""
+        return self.emitter.progress.best_reward
+
+    @property
     def best_score(self) -> float:
-        """Get best score achieved."""
-        return self.emitter.progress.best_score
+        """Deprecated: use best_reward instead."""
+        return self.best_reward
+
+    @property
+    def baseline_reward(self) -> float | None:
+        """Get baseline reward."""
+        return self.emitter.progress.baseline_reward
 
     @property
     def baseline_score(self) -> float | None:
-        """Get baseline score."""
-        return self.emitter.progress.baseline_score
+        """Deprecated: use baseline_reward instead."""
+        return self.baseline_reward
 
     @property
     def current_frontier(self) -> list[str]:
@@ -405,11 +415,11 @@ GEPA Optimization Progress - {self.env_name}
 
         self._print("Scoring Summary:")
         self._print(
-            f"  Baseline:     {self.baseline_score:.2%}"
-            if self.baseline_score
+            f"  Baseline:     {self.baseline_reward:.2%}"
+            if self.baseline_reward
             else "  Baseline:     N/A"
         )
-        self._print(f"  Best:         {self.best_score:.2%}")
+        self._print(f"  Best:         {self.best_reward:.2%}")
         if self.emitter.progress.lift is not None:
             self._print(f"  Lift:         {self.emitter.progress.lift:+.2%}")
         self._print("")
@@ -443,15 +453,15 @@ GEPA Optimization Progress - {self.env_name}
         for c in self.emitter.candidates:
             candidate_dict: dict[str, Any] = {
                 "candidate_id": c.candidate_id,
-                "accuracy": c.accuracy,
+                "reward": c.reward,
                 "objectives": c.objectives,
-                "val_accuracy": c.val_accuracy,
-                "train_accuracy": c.train_accuracy,
+                "val_reward": c.val_reward,
+                "train_reward": c.train_reward,
                 "generation": c.generation,
                 "parent_id": c.parent_id,
                 "is_pareto": c.candidate_id in self.current_frontier,
                 "accepted": c.accepted,
-                "instance_scores": c.instance_scores,
+                "instance_rewards": c.instance_rewards,
                 "instance_objectives": c.instance_objectives,
                 "mutation_type": c.mutation_type,
                 "mutation_params": c.mutation_params,
@@ -465,9 +475,9 @@ GEPA Optimization Progress - {self.env_name}
                     stage_id: stage.to_dict() for stage_id, stage in c.stages.items()
                 }
 
-            # Add seed_scores
-            if c.seed_scores:
-                candidate_dict["seed_scores"] = c.seed_scores
+            # Add seed_rewards
+            if c.seed_rewards:
+                candidate_dict["seed_rewards"] = c.seed_rewards
 
             # Add token_usage
             if c.token_usage:
@@ -486,20 +496,18 @@ GEPA Optimization Progress - {self.env_name}
                 "rollouts_completed": self.emitter.progress.rollouts_completed,
                 "candidates_evaluated": self.emitter.progress.candidates_evaluated,
                 "generations_completed": self.emitter.progress.generations_completed,
-                "best_score": self.emitter.progress.best_score,
-                "baseline_score": self.emitter.progress.baseline_score,
+                "best_reward": self.emitter.progress.best_reward,
+                "baseline_reward": self.emitter.progress.baseline_reward,
                 "lift": self.emitter.progress.lift,
                 "elapsed_seconds": self.emitter.progress.elapsed_seconds,
                 "finish_reason": self.emitter.progress.finish_reason,
             },
             "baseline": {
-                "accuracy": self.emitter.baseline.accuracy if self.emitter.baseline else None,
+                "reward": self.emitter.baseline.reward if self.emitter.baseline else None,
                 "objectives": self.emitter.baseline.objectives if self.emitter.baseline else None,
-                "val_accuracy": self.emitter.baseline.val_accuracy
-                if self.emitter.baseline
-                else None,
-                "instance_scores": (
-                    self.emitter.baseline.instance_scores if self.emitter.baseline else []
+                "val_reward": self.emitter.baseline.val_reward if self.emitter.baseline else None,
+                "instance_rewards": (
+                    self.emitter.baseline.instance_rewards if self.emitter.baseline else []
                 ),
                 "instance_objectives": (
                     self.emitter.baseline.instance_objectives if self.emitter.baseline else None
@@ -514,9 +522,9 @@ GEPA Optimization Progress - {self.env_name}
                     "removed": u.removed,
                     "frontier": u.frontier,
                     "frontier_size": u.frontier_size,
-                    "frontier_scores": u.frontier_scores,
-                    "optimistic_score": u.optimistic_score,
-                    "baseline_score": u.baseline_score,
+                    "frontier_rewards": u.frontier_rewards,
+                    "optimistic_reward": u.optimistic_reward,
+                    "baseline_reward": u.baseline_reward,
                     "generation": u.generation,
                 }
                 for u in self.emitter.pareto_history
@@ -526,7 +534,7 @@ GEPA Optimization Progress - {self.env_name}
                     "generation": g.generation,
                     "candidates_proposed": g.candidates_proposed,
                     "candidates_accepted": g.candidates_accepted,
-                    "best_accuracy": g.best_accuracy,
+                    "best_reward": g.best_reward,
                     "timestamp": g.timestamp,
                 }
                 for g in self.emitter.generation_history
@@ -555,8 +563,8 @@ GEPA Optimization Progress - {self.env_name}
                     "timestamp": time.time(),
                     "elapsed_seconds": self.emitter.progress.elapsed_seconds,
                     "total_events": len(self.emitter.raw_events),
-                    "best_score": self.best_score,
-                    "baseline_score": self.baseline_score,
+                    "best_reward": self.best_reward,
+                    "baseline_reward": self.baseline_reward,
                     "candidates_count": len(self.emitter.candidates),
                     "phase": self.emitter.progress.phase,
                 }

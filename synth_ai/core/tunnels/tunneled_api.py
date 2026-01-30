@@ -1,12 +1,12 @@
 """High-level tunnel management for exposing local APIs.
 
-This module provides a clean abstraction for setting up Cloudflare tunnels
-to expose local APIs to the internet.
+This module provides a clean abstraction for setting up SynthTunnel or
+Cloudflare tunnels to expose local APIs to the internet.
 
 Example:
     from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
 
-    # Default: Lease-based managed tunnel (fast, reusable)
+    # Default: SynthTunnel (relay-based, stable)
     tunnel = await TunneledLocalAPI.create(
         local_port=8001,
         api_key="sk_live_...",
@@ -20,14 +20,18 @@ Example:
 
     print(f"Local API exposed at: {tunnel.url}")
 
-    # Use the URL for remote jobs
+    # Use the URL for remote jobs (SynthTunnel requires worker token)
     job = PromptLearningJob.from_dict(
         config_dict={...},
         task_app_url=tunnel.url,
+        task_app_worker_token=tunnel.worker_token,
     )
 
     # Clean up when done
     tunnel.close()
+
+Note:
+    For Cloudflare tunnels, omit task_app_worker_token and use task_app_api_key as usual.
 
 See Also:
     - `synth_ai.core.tunnels`: Lower-level tunnel functions
@@ -50,6 +54,10 @@ class TunnelBackend(str, Enum):
     """Supported tunnel backends for exposing local APIs.
 
     Attributes:
+        SynthTunnel: NEW - Relay-based tunnel (default).
+            - Relay-backed HTTPS endpoint (st.usesynth.ai)
+            - Worker-token auth, no inbound connectivity required
+            - Best for reliable local connectivity
         CloudflareManagedLease: NEW - Lease-based managed tunnel (RECOMMENDED).
             - Stable hostnames that persist across sessions
             - Fast reconnection (~1-5s after first run)
@@ -75,6 +83,7 @@ class TunnelBackend(str, Enum):
             - Best for local backend development
     """
 
+    SynthTunnel = "synthtunnel"
     CloudflareManagedLease = "cloudflare_managed_lease"  # NEW - recommended
     CloudflareManagedTunnel = "cloudflare_managed"  # Legacy
     CloudflareQuickTunnel = "cloudflare_quick"
@@ -86,7 +95,7 @@ class TunneledLocalAPI:
     """A managed tunnel exposing a local API to the internet.
 
     This class provides a clean interface for:
-    1. Provisioning a Cloudflare tunnel (managed or quick)
+    1. Provisioning a tunnel (SynthTunnel or Cloudflare)
     2. Starting the cloudflared process
     3. Verifying DNS resolution and connectivity
     4. Tracking the process for cleanup
@@ -94,11 +103,12 @@ class TunneledLocalAPI:
     Use `TunneledLocalAPI.create()` with a `TunnelBackend` to provision a tunnel.
 
     Attributes:
-        url: Public HTTPS URL for the tunnel (e.g., "https://task-1234-5678.usesynth.ai")
+        url: Public HTTPS URL for the tunnel (e.g., "https://st.usesynth.ai/s/rt_...")
         hostname: Hostname without protocol (e.g., "task-1234-5678.usesynth.ai")
         local_port: Local port being tunneled
-        backend: The tunnel backend used (CloudflareManagedTunnel or CloudflareQuickTunnel)
+        backend: The tunnel backend used
         process: The cloudflared subprocess (for advanced use)
+        worker_token: SynthTunnel worker token (if using SynthTunnel)
 
     Example:
         >>> from synth_ai.core.tunnels import TunneledLocalAPI
@@ -117,17 +127,19 @@ class TunneledLocalAPI:
     backend: TunnelBackend
     process: Optional[Any] = None
     tunnel_token: Optional[str] = field(default=None, repr=False)
+    worker_token: Optional[str] = field(default=None, repr=False)
     _raw: dict[str, Any] = field(default_factory=dict, repr=False)
     # New lease-based fields
     _lease_id: Optional[str] = field(default=None, repr=False)
     _manager: Any = field(default=None, repr=False)  # Reserved for future use
     _handle: Any = field(default=None, repr=False)  # Rust handle for lease-based tunnels
+    _synth_session: Any = field(default=None, repr=False)
 
     @classmethod
     async def create(
         cls,
         local_port: int,
-        backend: TunnelBackend = TunnelBackend.CloudflareManagedLease,
+        backend: TunnelBackend = TunnelBackend.SynthTunnel,
         *,
         api_key: Optional[str] = None,
         env_api_key: Optional[str] = None,
@@ -147,8 +159,9 @@ class TunneledLocalAPI:
 
         Args:
             local_port: Local port to tunnel (e.g., 8001)
-            backend: Tunnel backend to use. Defaults to CloudflareManagedLease.
-                - CloudflareManagedLease: Fast, reusable tunnels (recommended)
+            backend: Tunnel backend to use. Defaults to SynthTunnel.
+                - SynthTunnel: Relay-based HTTPS tunnel (recommended)
+                - CloudflareManagedLease: Fast, reusable tunnels (legacy)
                 - CloudflareManagedTunnel: Legacy managed tunnel (slower)
                 - CloudflareQuickTunnel: Random subdomain, no api_key needed
             api_key: Synth API key for authentication (required for managed tunnels).
@@ -175,6 +188,8 @@ class TunneledLocalAPI:
 
         from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 
+        from .synth_tunnel import hostname_from_url, open_synth_tunnel
+
         if backend == TunnelBackend.Localhost:
             url = f"http://localhost:{local_port}"
             return cls(
@@ -185,6 +200,40 @@ class TunneledLocalAPI:
                 process=None,
                 tunnel_token=None,
                 _raw={},
+            )
+
+        if backend == TunnelBackend.SynthTunnel:
+            if not api_key:
+                raise ValueError("api_key is required for SynthTunnel")
+            if env_api_key is None:
+                env_api_key = os.environ.get("ENVIRONMENT_API_KEY") or os.environ.get(
+                    "DEV_ENVIRONMENT_API_KEY"
+                )
+            session = await open_synth_tunnel(
+                local_host="127.0.0.1",
+                local_port=local_port,
+                api_key=api_key,
+                backend_url=backend_url,
+                local_api_key=env_api_key,
+            )
+            url = session.lease.public_url
+            return cls(
+                url=url,
+                hostname=hostname_from_url(url),
+                local_port=local_port,
+                backend=backend,
+                process=None,
+                tunnel_token=None,
+                worker_token=session.lease.worker_token,
+                _raw={
+                    "lease_id": session.lease.lease_id,
+                    "route_token": session.lease.route_token,
+                    "agent_url": session.lease.agent_url,
+                },
+                _lease_id=session.lease.lease_id,
+                _manager=None,
+                _handle=None,
+                _synth_session=session,
             )
 
         # Resolve env_api_key from environment if not provided
@@ -262,7 +311,15 @@ class TunneledLocalAPI:
         but you can call it explicitly for earlier cleanup.
         """
         logger.info("[TUNNELED_API] close() called")
-        if self._handle:
+        if self.backend == TunnelBackend.SynthTunnel and self._synth_session:
+            try:
+                self._synth_session.close()
+            except Exception as e:
+                logger.warning("[TUNNELED_API] SynthTunnel close failed: %s", e)
+            self._synth_session = None
+            self._lease_id = None
+            self.worker_token = None
+        elif self._handle:
             try:
                 self._handle.close()
             except Exception as e:
@@ -294,7 +351,7 @@ class TunneledLocalAPI:
         cls,
         app: Any,
         local_port: int | None = None,
-        backend: TunnelBackend = TunnelBackend.CloudflareManagedLease,
+        backend: TunnelBackend = TunnelBackend.SynthTunnel,
         *,
         api_key: Optional[str] = None,
         backend_url: Optional[str] = None,
@@ -313,7 +370,7 @@ class TunneledLocalAPI:
         Args:
             app: FastAPI or ASGI application to tunnel
             local_port: Port to use (defaults to finding an available port starting from 8001)
-            backend: Tunnel backend to use
+            backend: Tunnel backend to use (defaults to SynthTunnel)
             api_key: Synth API key (defaults to SYNTH_API_KEY env var)
             backend_url: Backend URL (defaults to production)
             verify_dns: Whether to verify DNS resolution

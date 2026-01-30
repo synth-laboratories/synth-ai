@@ -265,11 +265,29 @@ pub struct RolloutMetrics {
 
 impl RolloutMetrics {
     /// Create new metrics with outcome reward.
+    ///
+    /// Auto-derives `outcome_objectives` as `{"reward": outcome_reward}` so that
+    /// objectives are always available for multi-objective aggregation.
     pub fn new(outcome_reward: f64) -> Self {
+        let mut objectives = HashMap::new();
+        objectives.insert("reward".to_string(), outcome_reward);
         Self {
             outcome_reward,
             event_rewards: None,
-            outcome_objectives: None,
+            outcome_objectives: Some(objectives),
+            event_objectives: None,
+            details: HashMap::new(),
+        }
+    }
+
+    /// Create new metrics with explicit outcome_objectives (multi-objective).
+    ///
+    /// Use this when you have objectives beyond just reward (e.g., latency, cost).
+    pub fn with_objectives(outcome_reward: f64, outcome_objectives: HashMap<String, f64>) -> Self {
+        Self {
+            outcome_reward,
+            event_rewards: None,
+            outcome_objectives: Some(outcome_objectives),
             event_objectives: None,
             details: HashMap::new(),
         }

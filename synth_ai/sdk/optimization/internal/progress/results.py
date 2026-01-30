@@ -82,8 +82,8 @@ def _candidate_reward_value(candidate: Any) -> float:
                 return float(reward_val)
             except (TypeError, ValueError):
                 pass
-    accuracy = getattr(candidate, "accuracy", None)
-    return float(accuracy) if accuracy is not None else 0.0
+    reward = getattr(candidate, "reward", None)
+    return float(reward) if reward is not None else 0.0
 
 
 def _candidate_reward_optional(candidate: Any) -> Optional[float]:
@@ -95,10 +95,10 @@ def _candidate_reward_optional(candidate: Any) -> Optional[float]:
                 return float(reward_val)
             except (TypeError, ValueError):
                 pass
-    accuracy = getattr(candidate, "accuracy", None)
-    if accuracy is None:
+    reward = getattr(candidate, "reward", None)
+    if reward is None:
         return None
-    return float(accuracy)
+    return float(reward)
 
 
 def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
@@ -115,17 +115,17 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
     for c in tracker.candidates:
         candidate_dict: dict[str, Any] = {
             "candidate_id": c.candidate_id,
-            "accuracy": c.accuracy,
+            "reward": c.reward,
             "objectives": c.objectives,
-            "val_accuracy": c.val_accuracy,
-            "train_accuracy": c.train_accuracy,
+            "val_reward": c.val_reward,
+            "train_reward": c.train_reward,
             "generation": c.generation,
             "parent_id": c.parent_id,
             "is_pareto": c.candidate_id in frontier_ids,
             "accepted": c.accepted,
             "mutation_type": c.mutation_type,
             "mutation_params": c.mutation_params,
-            "instance_scores": c.instance_scores,
+            "instance_rewards": c.instance_rewards,
             "instance_objectives": c.instance_objectives,
             "seeds_evaluated": c.seeds_evaluated,
             "prompt_summary": c.prompt_summary or c.get_prompt_summary(),
@@ -141,8 +141,8 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             }
 
         # Add seed_scores [{seed, score}, ...]
-        if c.seed_scores:
-            candidate_dict["seed_scores"] = c.seed_scores
+        if c.seed_rewards:
+            candidate_dict["seed_rewards"] = c.seed_rewards
 
         # Add seed_info [{seed, query, expected}, ...]
         if c.seed_info:
@@ -161,8 +161,8 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             candidate_dict["evaluation_duration_ms"] = c.evaluation_duration_ms
 
         # Add minibatch scores
-        if c.minibatch_scores:
-            candidate_dict["minibatch_scores"] = c.minibatch_scores
+        if c.minibatch_rewards:
+            candidate_dict["minibatch_rewards"] = c.minibatch_rewards
 
         # Add skip reason
         if c.skip_reason:
@@ -193,7 +193,7 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
                     return float(reward_val)
                 except (TypeError, ValueError):
                     pass
-        return float(item.get("accuracy") or 0.0)
+        return float(item.get("reward") or 0.0)
 
     candidates_data.sort(key=_candidate_sort_key, reverse=True)
 
@@ -215,10 +215,10 @@ def save_pareto_history(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             "removed": u.removed,
             "frontier": u.frontier,
             "frontier_size": u.frontier_size,
-            "frontier_scores": u.frontier_scores,
+            "frontier_rewards": u.frontier_rewards,
             "frontier_objectives": u.frontier_objectives,
-            "optimistic_score": u.optimistic_score,
-            "baseline_score": u.baseline_score,
+            "optimistic_reward": u.optimistic_reward,
+            "baseline_reward": u.baseline_reward,
             "generation": u.generation,
         }
         for u in tracker.pareto_history
@@ -270,7 +270,7 @@ def save_seeds(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             seeds_map[seed]["evaluated_by"].append(
                 {
                     "candidate_id": c.candidate_id,
-                    "score": si.score,
+                    "reward": si.reward,
                     "correct": si.correct,
                 }
             )
@@ -291,7 +291,7 @@ def save_seeds(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
                 seeds_map[seed]["expected"] = rs.expected
 
         # From seed_scores (has score but not query)
-        for ss in c.seed_scores:
+        for ss in c.seed_rewards:
             seed = ss.get("seed", -1)
             if seed < 0:
                 continue
@@ -328,7 +328,7 @@ def save_seed_analysis(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
     filepath = output_dir / "seed_analysis.json"
 
     # Get baseline instance scores
-    baseline_scores = tracker.baseline.instance_scores if tracker.baseline else []
+    baseline_scores = tracker.baseline.instance_rewards if tracker.baseline else []
 
     # Get best candidate instance scores
     best_candidate = None
@@ -339,12 +339,12 @@ def save_seed_analysis(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             best_accuracy = acc
             best_candidate = c
 
-    best_scores = best_candidate.instance_scores if best_candidate else []
+    best_scores = best_candidate.instance_rewards if best_candidate else []
 
     # Analyze disagreements
     analysis: dict[str, Any] = {
-        "baseline_accuracy": tracker.baseline_score,
-        "best_accuracy": tracker.best_score,
+        "baseline_reward": tracker.baseline_reward,
+        "best_reward": tracker.best_reward,
         "best_candidate_id": best_candidate.candidate_id if best_candidate else None,
         "num_baseline_seeds": len(baseline_scores),
         "num_best_seeds": len(best_scores),
@@ -362,8 +362,8 @@ def save_seed_analysis(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
         if baseline_pass != best_pass:
             seed_info = {
                 "seed_index": i,
-                "baseline_score": baseline_scores[i],
-                "best_score": best_scores[i],
+                "baseline_reward": baseline_scores[i],
+                "best_reward": best_scores[i],
                 "baseline_pass": baseline_pass,
                 "best_pass": best_pass,
                 "winner": "baseline" if baseline_pass else "best",
@@ -400,10 +400,10 @@ def save_summary_txt(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
         f"Finish Reason: {tracker.progress.finish_reason or 'N/A'}",
         "",
         "Scoring:",
-        f"  Baseline:  {tracker.baseline_score:.2%}"
-        if tracker.baseline_score
+        f"  Baseline:  {tracker.baseline_reward:.2%}"
+        if tracker.baseline_reward
         else "  Baseline:  N/A",
-        f"  Best:      {tracker.best_score:.2%}",
+        f"  Best:      {tracker.best_reward:.2%}",
     ]
 
     if tracker.progress.lift is not None:

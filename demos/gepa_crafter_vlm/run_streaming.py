@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
+from synth_ai.sdk import find_available_port, is_port_available, kill_port
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.localapi.helpers import extract_api_key
@@ -48,13 +49,40 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 # Set API key in environment for SDK to use
 if SYNTH_API_KEY:
     os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
-POLICY_MODEL = "gpt-4.1-nano"
-EVAL_MODEL = "gpt-4o-mini"
-ROLLOUT_BUDGET = 6
-NUM_GENERATIONS = 1
-MAX_TURNS = 20
-COMPARISON_SEEDS = list(range(30))  # 30 seeds for fair comparison
-COMPARISON_MAX_TURNS = 15  # Fewer turns for faster comparison
+POLICY_MODEL = os.environ.get("CRAFTER_POLICY_MODEL", "gpt-4.1-nano")
+EVAL_MODEL = os.environ.get("CRAFTER_EVAL_MODEL", "gpt-4o-mini")
+ROLLOUT_BUDGET = int(os.environ.get("CRAFTER_ROLLOUT_BUDGET", "6"))
+NUM_GENERATIONS = int(os.environ.get("CRAFTER_NUM_GENERATIONS", "1"))
+CHILDREN_PER_GENERATION = int(os.environ.get("CRAFTER_CHILDREN_PER_GENERATION", "2"))
+MAX_CONCURRENT = int(os.environ.get("CRAFTER_MAX_CONCURRENT", "3"))
+MINIBATCH_SIZE = int(os.environ.get("CRAFTER_MINIBATCH_SIZE", "3"))
+MAX_TURNS = int(os.environ.get("CRAFTER_MAX_TURNS", "20"))
+COMPARISON_MAX_TURNS = int(os.environ.get("CRAFTER_COMPARISON_MAX_TURNS", "15"))
+
+
+def _parse_seed_list(name: str, default: list[int]) -> list[int]:
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    seeds: list[int] = []
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        seeds.append(int(item))
+    return seeds or default
+
+
+TRAIN_SEEDS = _parse_seed_list("CRAFTER_TRAIN_SEEDS", list(range(15)))
+VALIDATION_SEEDS = _parse_seed_list("CRAFTER_VALIDATION_SEEDS", list(range(50, 56)))
+PARETO_SET_SIZE = int(os.environ.get("CRAFTER_PARETO_SET_SIZE", "10"))
+ARCHIVE_SIZE = int(os.environ.get("CRAFTER_ARCHIVE_SIZE", "5"))
+COMPARISON_SEEDS_ENV = (os.environ.get("CRAFTER_COMPARISON_SEEDS") or "").strip()
+if COMPARISON_SEEDS_ENV:
+    COMPARISON_SEEDS = [int(s) for s in COMPARISON_SEEDS_ENV.split(",") if s.strip()]
+else:
+    COMPARISON_SEEDS = list(range(30))  # 30 seeds for fair comparison
+SKIP_COMPARISON = os.environ.get("CRAFTER_SKIP_COMPARISON", "").lower() in ("1", "true", "yes")
 
 
 def log(msg: str):
@@ -486,16 +514,22 @@ async def main():
     # Start task app
     log("Starting task app...")
     app = create_task_app(baseline_prompt)
-    run_server_background(app, port=8001)
-    await wait_for_health_check("127.0.0.1", 8001, env_key, timeout=30.0)
-    log("Task app ready on port 8001")
+    port = 8001
+    kill_port(port)
+    if not is_port_available(port):
+        port = find_available_port(port + 1)
+        log(f"Port in use; switched to {port}")
+    run_server_background(app, port=port)
+    await wait_for_health_check("127.0.0.1", port, env_key, timeout=30.0)
+    log(f"Task app ready on port {port}")
 
     # Create tunnel
     log("Creating tunnel...")
     tunnel = await TunneledLocalAPI.create(
-        local_port=8001,
+        local_port=port,
         backend=TunnelBackend.CloudflareManagedLease,
         api_key=SYNTH_API_KEY,
+        env_api_key=env_key,
         backend_url=SYNTH_API_BASE,
         progress=False,
     )
@@ -522,15 +556,19 @@ async def main():
             },
             "gepa": {
                 "env_name": "crafter",
-                "evaluation": {"seeds": list(range(15)), "validation_seeds": list(range(50, 56))},
-                "rollout": {"budget": ROLLOUT_BUDGET, "max_concurrent": 3, "minibatch_size": 3},
+                "evaluation": {"seeds": TRAIN_SEEDS, "validation_seeds": VALIDATION_SEEDS},
+                "rollout": {
+                    "budget": ROLLOUT_BUDGET,
+                    "max_concurrent": MAX_CONCURRENT,
+                    "minibatch_size": MINIBATCH_SIZE,
+                },
                 "mutation": {"rate": 0.3},
                 "population": {
                     "initial_size": 3,
                     "num_generations": NUM_GENERATIONS,
-                    "children_per_generation": 2,
+                    "children_per_generation": CHILDREN_PER_GENERATION,
                 },
-                "archive": {"size": 5, "pareto_set_size": 10},
+                "archive": {"size": ARCHIVE_SIZE, "pareto_set_size": PARETO_SET_SIZE},
                 "token": {"max_limit": 4000, "counting_model": "gpt-4", "max_spend_usd": 50.0},
             },
             "env": {
@@ -546,6 +584,9 @@ async def main():
 
     job = PromptLearningJob.from_dict(
         config_dict=config_body,
+        backend_url=SYNTH_API_BASE,
+        api_key=SYNTH_API_KEY,
+        task_app_api_key=env_key,
     )
     job_id = job.submit()
     log(f"Job submitted: {job_id}")
@@ -564,8 +605,14 @@ async def main():
         prompt_results = await pl_client.get_prompts(job_id)
 
         optimized = None
-        if prompt_results.best_prompt:
-            for msg in prompt_results.best_prompt.get("messages", []):
+        best_prompt = prompt_results.best_prompt
+        if isinstance(best_prompt, str):
+            try:
+                best_prompt = json.loads(best_prompt)
+            except json.JSONDecodeError:
+                optimized = best_prompt
+        if isinstance(best_prompt, dict):
+            for msg in best_prompt.get("messages", []):
                 if msg.get("role") == "system":
                     optimized = msg.get("pattern") or msg.get("content")
                     break
@@ -584,7 +631,7 @@ async def main():
 
         # Run fair comparison on same seeds (only if we have optimized prompt)
         comparison_results = None
-        if optimized:
+        if optimized and not SKIP_COMPARISON:
             log("")
             log("Running fair comparison eval (same seeds for both prompts)...")
             comparison_results = await run_comparison_eval(
@@ -593,6 +640,8 @@ async def main():
                 seeds=COMPARISON_SEEDS,
                 max_turns=COMPARISON_MAX_TURNS,
             )
+        elif optimized and SKIP_COMPARISON:
+            log("Skipping comparison eval (CRAFTER_SKIP_COMPARISON=1)")
         else:
             log("No optimized prompt available - skipping comparison")
 
