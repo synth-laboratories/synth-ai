@@ -517,7 +517,7 @@ async def main():
             "gepa": {
                 "env_name": "banking77",
                 "evaluation": {"seeds": list(range(30)), "validation_seeds": list(range(50, 70))},
-                "rollout": {"budget": 200, "max_concurrent": 10, "minibatch_size": 5},
+                "rollout": {"budget": 200, "max_concurrent": 20, "minibatch_size": 5},
                 "mutation": {"rate": 0.3},
                 "population": {
                     "initial_size": 3,
