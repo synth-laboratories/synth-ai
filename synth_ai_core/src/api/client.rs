@@ -11,6 +11,7 @@ use super::graph_evolve::GraphEvolveClient;
 use super::graphs::GraphsClient;
 use super::inference::InferenceClient;
 use super::jobs::JobsClient;
+use super::localapi::LocalApiDeployClient;
 
 /// Default backend URL.
 pub const DEFAULT_BACKEND_URL: &str = "https://api.usesynth.ai";
@@ -185,6 +186,13 @@ impl SynthClient {
     /// Use this for chat completions via the inference proxy.
     pub fn inference(&self) -> InferenceClient<'_> {
         InferenceClient::new(&self.http)
+    }
+
+    /// Get a LocalAPI Deployments client.
+    ///
+    /// Use this to deploy and manage managed LocalAPI deployments.
+    pub fn localapi(&self) -> LocalApiDeployClient<'_> {
+        LocalApiDeployClient::new(self)
     }
 }
 

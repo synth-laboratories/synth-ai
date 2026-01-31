@@ -161,11 +161,21 @@ pub struct GepaConfig {
     pub validation_seeds: Vec<i64>,
 }
 
-fn default_generations() -> i32 { 3 }
-fn default_population_size() -> i32 { 10 }
-fn default_mutation_rate() -> f64 { 0.1 }
-fn default_crossover_rate() -> f64 { 0.5 }
-fn default_elite_count() -> i32 { 2 }
+fn default_generations() -> i32 {
+    3
+}
+fn default_population_size() -> i32 {
+    10
+}
+fn default_mutation_rate() -> f64 {
+    0.1
+}
+fn default_crossover_rate() -> f64 {
+    0.5
+}
+fn default_elite_count() -> i32 {
+    2
+}
 
 impl Default for GepaConfig {
     fn default() -> Self {
@@ -202,8 +212,12 @@ pub struct MiproConfig {
     pub validation_seeds: Vec<i64>,
 }
 
-fn default_mipro_iterations() -> i32 { 5 }
-fn default_mipro_candidates() -> i32 { 10 }
+fn default_mipro_iterations() -> i32 {
+    5
+}
+fn default_mipro_candidates() -> i32 {
+    10
+}
 
 impl Default for MiproConfig {
     fn default() -> Self {
@@ -242,7 +256,9 @@ pub struct GepaJobRequest {
     pub gepa: GepaConfig,
 }
 
-fn default_gepa_algorithm() -> String { "gepa".to_string() }
+fn default_gepa_algorithm() -> String {
+    "gepa".to_string()
+}
 
 impl Default for GepaJobRequest {
     fn default() -> Self {
@@ -280,7 +296,9 @@ pub struct MiproJobRequest {
     pub mipro: MiproConfig,
 }
 
-fn default_mipro_algorithm() -> String { "mipro".to_string() }
+fn default_mipro_algorithm() -> String {
+    "mipro".to_string()
+}
 
 impl Default for MiproJobRequest {
     fn default() -> Self {
@@ -542,6 +560,122 @@ pub struct CancelRequest {
     pub reason: Option<String>,
 }
 
+// =============================================================================
+// LocalAPI Deployments
+// =============================================================================
+
+fn default_localapi_timeout_s() -> i32 {
+    600
+}
+
+fn default_localapi_cpu_cores() -> i32 {
+    2
+}
+
+fn default_localapi_memory_mb() -> i32 {
+    4096
+}
+
+fn default_localapi_dockerfile_path() -> String {
+    "Dockerfile".to_string()
+}
+
+fn default_localapi_entrypoint_mode() -> String {
+    "stdio".to_string()
+}
+
+fn default_localapi_port() -> i32 {
+    8000
+}
+
+/// Resource limits for managed LocalAPI deployments.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalApiLimits {
+    /// Timeout in seconds for a rollout request.
+    #[serde(default = "default_localapi_timeout_s")]
+    pub timeout_s: i32,
+    /// CPU cores allocated to the deployment.
+    #[serde(default = "default_localapi_cpu_cores")]
+    pub cpu_cores: i32,
+    /// Memory allocation in MB.
+    #[serde(default = "default_localapi_memory_mb")]
+    pub memory_mb: i32,
+}
+
+impl Default for LocalApiLimits {
+    fn default() -> Self {
+        Self {
+            timeout_s: default_localapi_timeout_s(),
+            cpu_cores: default_localapi_cpu_cores(),
+            memory_mb: default_localapi_memory_mb(),
+        }
+    }
+}
+
+/// Deployment specification for managed LocalAPI builds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalApiDeploySpec {
+    /// Deployment name (org-unique).
+    pub name: String,
+    /// Dockerfile path inside the build context.
+    #[serde(default = "default_localapi_dockerfile_path")]
+    pub dockerfile_path: String,
+    /// Command to start the LocalAPI server.
+    pub entrypoint: String,
+    /// Entry point mode ("stdio" or "command").
+    #[serde(default = "default_localapi_entrypoint_mode")]
+    pub entrypoint_mode: String,
+    /// Port exposed by the LocalAPI server.
+    #[serde(default = "default_localapi_port")]
+    pub port: i32,
+    /// Optional deployment description.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Environment variables to set in the deployment.
+    #[serde(default)]
+    pub env_vars: HashMap<String, String>,
+    /// Resource limits for the deployment.
+    #[serde(default)]
+    pub limits: LocalApiLimits,
+    /// Additional metadata.
+    #[serde(default)]
+    pub metadata: HashMap<String, Value>,
+}
+
+/// Response for a LocalAPI deployment request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalApiDeployResponse {
+    pub deployment_id: String,
+    pub status: String,
+    pub task_app_url: String,
+    #[serde(default)]
+    pub task_app_api_key_env: Option<String>,
+}
+
+/// Status response for LocalAPI deployments.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalApiDeployStatus {
+    pub deployment_id: String,
+    pub status: String,
+    pub provider: String,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+/// Deployment list entry for LocalAPI deployments.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalApiDeploymentInfo {
+    pub deployment_id: String,
+    pub name: String,
+    pub status: String,
+    pub provider: String,
+    pub task_app_url: String,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -557,10 +691,22 @@ mod tests {
 
     #[test]
     fn test_policy_job_status_from_str() {
-        assert_eq!(PolicyJobStatus::from_str("pending"), Some(PolicyJobStatus::Pending));
-        assert_eq!(PolicyJobStatus::from_str("RUNNING"), Some(PolicyJobStatus::Running));
-        assert_eq!(PolicyJobStatus::from_str("cancelled"), Some(PolicyJobStatus::Cancelled));
-        assert_eq!(PolicyJobStatus::from_str("canceled"), Some(PolicyJobStatus::Cancelled));
+        assert_eq!(
+            PolicyJobStatus::from_str("pending"),
+            Some(PolicyJobStatus::Pending)
+        );
+        assert_eq!(
+            PolicyJobStatus::from_str("RUNNING"),
+            Some(PolicyJobStatus::Running)
+        );
+        assert_eq!(
+            PolicyJobStatus::from_str("cancelled"),
+            Some(PolicyJobStatus::Cancelled)
+        );
+        assert_eq!(
+            PolicyJobStatus::from_str("canceled"),
+            Some(PolicyJobStatus::Cancelled)
+        );
         assert_eq!(PolicyJobStatus::from_str("invalid"), None);
     }
 
