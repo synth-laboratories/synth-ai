@@ -1,9 +1,4 @@
-"""LibSQL-native trace manager prototype.
-
-This module provides the Turso/libsql-backed trace storage implementation. It
-mirrors the public surface area of the historical SQLAlchemy manager while
-executing all operations directly via libsql.
-"""
+"""SQLite-native trace manager (stdlib sqlite3)."""
 
 from __future__ import annotations
 
@@ -11,14 +6,13 @@ import asyncio
 import json
 import logging
 import re
-from collections.abc import Callable
+import sqlite3
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import libsql
 from sqlalchemy.engine import make_url
 
 from ..abstractions import (
@@ -33,17 +27,9 @@ from ..storage.base import TraceStorage
 from .models import analytics_views
 
 if TYPE_CHECKING:
-    from sqlite3 import Connection as LibsqlConnection
+    from sqlite3 import Connection as SQLiteConnection
 else:  # pragma: no cover - runtime fallback for typing only
-    LibsqlConnection = Any  # type: ignore[assignment]
-
-_LIBSQL_CONNECT_ATTR = getattr(libsql, "connect", None)
-if _LIBSQL_CONNECT_ATTR is None:  # pragma: no cover - defensive guard
-    raise RuntimeError("libsql.connect is required for NativeLibsqlTraceManager")
-_libsql_connect: Callable[..., LibsqlConnection] = cast(
-    Callable[..., LibsqlConnection],
-    _LIBSQL_CONNECT_ATTR,
-)
+    SQLiteConnection = Any  # type: ignore[assignment]
 
 try:  # pragma: no cover - exercised only when pandas present
     import pandas as pd  # type: ignore
@@ -55,11 +41,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class _ConnectionTarget:
-    """Resolved connection target for libsql."""
+    """Resolved connection target for sqlite."""
 
     database: str
-    sync_url: str | None = None
-    auth_token: str | None = None
 
 
 def _strip_auth_component(url: str) -> tuple[str, str | None]:
@@ -75,26 +59,19 @@ def _strip_auth_component(url: str) -> tuple[str, str | None]:
     return sanitised, token
 
 
-def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _ConnectionTarget:
-    """Normalise the configured database URL."""
+def _resolve_connection_target(db_url: str | None) -> _ConnectionTarget:
+    """Normalise the configured database URL (SQLite-only)."""
     url = db_url or CONFIG.db_url
-    sanitised, token_from_url = _strip_auth_component(url)
-    effective_token = auth_token or token_from_url or CONFIG.auth_token
+    sanitised, _ = _strip_auth_component(url)
 
-    # SQLAlchemy-compatible libsql scheme (`sqlite+libsql://<endpoint or path>`)
     if sanitised.startswith("sqlite+libsql://"):
-        raise RuntimeError("sqlite+libsql scheme is no longer supported; use libsql://")
+        raise RuntimeError("sqlite+libsql scheme is no longer supported; use a file path.")
 
     # Plain SQLite files: file://, /absolute/path, or relative path
-    # libsql.connect() handles these without sync_url or auth_token
     if sanitised.startswith("file://") or sanitised.startswith("/") or "://" not in sanitised:
-        # Strip file:// prefix if present, libsql.connect handles both formats
+        # Strip file:// prefix if present, sqlite3 handles both formats
         db_path = sanitised.replace("file://", "") if sanitised.startswith("file://") else sanitised
-        return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
-
-    # Native libsql URLs (`libsql://...`).
-    if sanitised.startswith("libsql://"):
-        return _ConnectionTarget(database=sanitised, sync_url=sanitised, auth_token=effective_token)
+        return _ConnectionTarget(database=db_path)
 
     # Fallback to SQLAlchemy URL parsing for anything else we missed.
     try:
@@ -113,21 +90,12 @@ def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _C
             else:
                 raise RuntimeError("SQLite URL missing database path.")
             return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
-        if driver.startswith("libsql"):
-            database = parsed.render_as_string(hide_password=False)
-            return _ConnectionTarget(
-                database=database, sync_url=database, auth_token=effective_token
-            )
     except Exception:  # pragma: no cover - defensive guardrail
         logger.debug("Unable to parse db_url via SQLAlchemy", exc_info=True)
 
-    # Python libsql client uses HTTP API for http:// URLs, not Hrana WebSocket
-    # For local sqld with http:// URL, we need to ensure it points to the HTTP API port
-    # sqld uses two ports: Hrana WebSocket (e.g. 8080) and HTTP API (e.g. 8081)
-    # libsql.connect() with http:// uses HTTP API, so URL should point to HTTP API port
-    if sanitised.startswith(("http://", "https://", "libsql://")):
-        return _ConnectionTarget(database=sanitised, sync_url=sanitised, auth_token=effective_token)
-    raise RuntimeError(f"Unsupported tracing database URL: {sanitised}")
+    raise RuntimeError(
+        "Unsupported tracing database URL. Only local SQLite paths/URLs are supported."
+    )
 
 
 def _json_dumps(value: Any) -> str | None:
@@ -359,33 +327,29 @@ _INDEX_DEFINITIONS: tuple[str, ...] = (
 )
 
 
-class NativeLibsqlTraceManager(TraceStorage):
-    """Libsql-backed trace manager."""
+class SQLiteTraceManager(TraceStorage):
+    """SQLite-backed trace manager (stdlib sqlite3)."""
 
     def __init__(
         self,
         db_url: str | None = None,
-        *,
-        auth_token: str | None = None,
     ):
-        self._config_auth_token = auth_token
-        self._target = _resolve_connection_target(db_url, auth_token)
-        self._conn: LibsqlConnection | None = None
+        self._target = _resolve_connection_target(db_url)
+        self._conn: SQLiteConnection | None = None
         self._conn_lock = asyncio.Lock()
         self._op_lock = asyncio.Lock()
         self._initialized = False
 
-    def _open_connection(self) -> LibsqlConnection:
-        """Open a libsql connection for the resolved target."""
-        kwargs: dict[str, Any] = {}
-        if self._target.sync_url and self._target.sync_url.startswith("libsql://"):
-            kwargs["sync_url"] = self._target.sync_url
-        if self._target.auth_token:
-            kwargs["auth_token"] = self._target.auth_token
-        # Disable automatic background sync; ReplicaSync drives this explicitly.
-        kwargs.setdefault("sync_interval", 0)
-        logger.debug("Opening libsql connection to %s", self._target.database)
-        return _libsql_connect(self._target.database, **kwargs)
+    def _open_connection(self) -> SQLiteConnection:
+        """Open a sqlite3 connection for the resolved target."""
+        logger.debug("Opening sqlite connection to %s", self._target.database)
+        conn = sqlite3.connect(self._target.database, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
 
     async def initialize(self):
         """Initialise the backend."""
@@ -393,64 +357,16 @@ class NativeLibsqlTraceManager(TraceStorage):
             if self._initialized:
                 return
 
-            # Fast-fail preflight: if using remote endpoint or local sqld, check health
-            # Skip health check for plain SQLite files (sync_url is None)
-            if self._target.sync_url:
-                try:
-                    parsed = urlparse(self._target.database or "")
-                    # Check for local sqld: http://, https://, or libsql://
-                    if parsed.scheme in ("http", "https", "libsql"):
-                        host_port = parsed.netloc or ""
-                        host = (host_port.split(":", 1)[0] or "").strip().lower()
-                        if host in {"127.0.0.1", "localhost"} and host_port:
-                            # For http:// URLs, the port should already be the HTTP API port
-                            # For libsql:// URLs, we need to calculate health check port
-                            if ":" in host_port:
-                                port = int(host_port.split(":", 1)[1])
-                                if parsed.scheme == "libsql":
-                                    # libsql:// uses Hrana port, health check is on HTTP API port (Hrana + 1)
-                                    health_url = f"http://{host}:{port + 1}/health"
-                                else:
-                                    # http:// already points to HTTP API port
-                                    health_url = f"http://{host}:{port}/health"
-                            else:
-                                health_url = f"http://{host_port}/health"
-                            try:
-                                import urllib.request
-
-                                async def _check_health() -> int:
-                                    def _do_request() -> int:
-                                        req = urllib.request.Request(health_url, method="GET")
-                                        with urllib.request.urlopen(req, timeout=1.0) as resp:
-                                            return int(getattr(resp, "status", 200))
-
-                                    return await asyncio.to_thread(_do_request)
-
-                                status = await _check_health()
-                                if status != 200:
-                                    raise RuntimeError(
-                                        f"Tracing backend unhealthy at {health_url} (status={status})"
-                                    )
-                            except Exception as exc:  # pragma: no cover - network env dependent
-                                raise RuntimeError(
-                                    f"Tracing backend not reachable at {health_url}. "
-                                    f"Start sqld with both ports: sqld --db-path <path> --hrana-listen-addr {host}:HRANA_PORT --http-listen-addr {host}:HTTP_PORT "
-                                    f"or disable tracing (TASKAPP_TRACING_ENABLED=0)."
-                                ) from exc
-                except Exception:
-                    # Propagate any preflight failure to abort early
-                    raise
-
-            # Establish a libsql connection for future native operations.
+            # Establish a sqlite connection for future operations.
             self._conn = self._open_connection()
             self._ensure_schema()
             self._initialized = True
 
     async def close(self):
-        """Close the libsql connection."""
+        """Close the sqlite connection."""
         async with self._conn_lock:
             if self._conn:
-                logger.debug("Closing libsql connection to %s", self._target.database)
+                logger.debug("Closing sqlite connection to %s", self._target.database)
                 self._conn.close()
                 self._conn = None
             self._initialized = False
@@ -1456,3 +1372,7 @@ class NativeLibsqlTraceManager(TraceStorage):
             )
             conn.commit()
             return int(cur.lastrowid or 0)
+
+
+# Backwards-compat alias
+NativeLibsqlTraceManager = SQLiteTraceManager

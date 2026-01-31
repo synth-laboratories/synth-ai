@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from contextlib import asynccontextmanager
 from dataclasses import asdict, is_dataclass
 from typing import Any
@@ -34,8 +33,7 @@ def _storage_from_url(url: str, token: str | None) -> Any:
     if url == ":memory:":
         return synth_ai_py.LibsqlTraceStorage.memory()
     if url.startswith(("libsql://", "http://", "https://")):
-        auth = token or os.getenv("TURSO_AUTH_TOKEN") or ""
-        return synth_ai_py.LibsqlTraceStorage.turso(url, auth)
+        raise RuntimeError("libsql URLs are no longer supported. Use a local SQLite file path.")
     return synth_ai_py.LibsqlTraceStorage.file(url)
 
 

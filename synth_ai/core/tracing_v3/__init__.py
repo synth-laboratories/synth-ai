@@ -1,4 +1,4 @@
-"""Tracing v3 - Turso/sqld based tracing implementation.
+"""Tracing v3 - SQLite-based tracing implementation.
 
 This module provides a modern, async-first tracing system for capturing and storing
 detailed execution traces from AI systems. It's designed to handle high-throughput
@@ -18,8 +18,8 @@ The v3 tracing system is built on several key components:
    - Async context managers for session and timestep management
    - Automatic event and message recording with proper ordering
 
-3. **Async Storage** (`turso/manager.py`):
-   - SQLAlchemy async engine with Turso/sqld backend
+3. **Async Storage** (`turso/native_manager.py`):
+   - SQLite-backed storage (stdlib sqlite3)
    - Batch insert capabilities for high-throughput scenarios
    - Analytics views for querying trace data
 
@@ -33,10 +33,8 @@ The v3 tracing system is built on several key components:
    - Support for both sync and async hook callbacks
    - Pre/post processing of events and messages
 
-6. **Replica Sync** (`replica_sync.py`):
-   - Optional background sync with remote Turso database
-   - Local embedded SQLite for low-latency writes
-   - Configurable sync intervals
+6. **Replica Sync**:
+   - Removed in SQLite-only mode
 
 Key Features:
 ------------
@@ -62,10 +60,9 @@ Usage Example:
 Configuration:
 -------------
 The system uses environment variables for configuration:
-- TURSO_LOCAL_DB_URL: Local SQLite database URL
-- TURSO_POOL_SIZE: Connection pool size (default: 8)
-- TURSO_ECHO_SQL: Enable SQL logging (default: false)
-- SQLD_DB_PATH: Path to SQLite database file
+- SYNTH_TRACES_DB: Explicit SQLite DB URL or file path
+- SYNTH_TRACES_DIR: Directory to place synth_traces.db
+- TRACE_ECHO_SQL: Enable SQL logging (default: false)
 
 See `config.py` for full configuration options.
 """

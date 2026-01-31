@@ -20,7 +20,6 @@ dependencies = [
     "uvicorn>=0.34.2",
     "numpy>=2.2.3",
     "sqlalchemy>=2.0.42",
-    "libsql>=0.1.8",
     "pynacl>=1.5.0",
     "click>=8.1.7,<8.2", # For CLI (pin to signature compatible with Typer)
     "aiohttp>=3.8.0", # For async HTTP requests
