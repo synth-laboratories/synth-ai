@@ -1,0 +1,6 @@
+# Bazel cache config (local + Blacksmith sticky disk)
+common --color=yes
+common --keep_going
+common --disk_cache=~/.cache/bazel/disk_cache
+common --repository_cache=~/.cache/bazel/repo_cache
+common --enable_bzlmod
