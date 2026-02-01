@@ -28,4 +28,4 @@ jobs:
           enable-cache: true
 
       - name: Bazel test (fast)
-        run: bazel test //:pytest_fast
+        run: bazel --output_user_root="${HOME}/.bazel" test //:pytest_fast
