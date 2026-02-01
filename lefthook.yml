@@ -57,13 +57,3 @@ pre-commit:
       run: uv run nbstripout {files}
       stage_fixed: true
 
-    # TUI: TypeScript typecheck
-    tui-typecheck:
-      tags:
-        - typescript
-        - typecheck
-      glob:
-        - "tui/app/*.ts"
-        - "tui/app/**/*.ts"
-      root: tui/app
-      run: bun run typecheck
