@@ -1,8 +1,8 @@
 //! GraphGen (graph optimization) validation helpers.
 
+use crate::errors::CoreError;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
-use crate::errors::CoreError;
 
 #[derive(Debug, Clone, Default)]
 pub struct GraphGenValidationResult {
@@ -105,10 +105,7 @@ fn push_error(
     errors.push(Value::Object(map));
 }
 
-pub fn validate_graphgen_job_config(
-    config: &Value,
-    dataset: &Value,
-) -> GraphGenValidationResult {
+pub fn validate_graphgen_job_config(config: &Value, dataset: &Value) -> GraphGenValidationResult {
     let mut result = GraphGenValidationResult::default();
 
     let config_map = match config.as_object() {
@@ -190,7 +187,11 @@ pub fn validate_graphgen_job_config(
                     "policy_models",
                     format!("Unsupported policy model: {}", clean),
                     Some(format!("Supported models: {:?}", models.policy_models)),
-                    if similar.is_empty() { None } else { Some(similar) },
+                    if similar.is_empty() {
+                        None
+                    } else {
+                        Some(similar)
+                    },
                 );
             }
         }
@@ -310,20 +311,18 @@ pub fn validate_graphgen_taskset(dataset: &Value) -> Vec<Value> {
 
     // Metadata name
     match dataset_map.get("metadata") {
-        Some(Value::Object(meta)) => {
-            match meta.get("name") {
-                Some(Value::String(name)) if !name.trim().is_empty() => {}
-                _ => {
-                    push_error(
-                        &mut errors,
-                        "metadata.name",
-                        "metadata.name is required".to_string(),
-                        None,
-                        None,
-                    );
-                }
+        Some(Value::Object(meta)) => match meta.get("name") {
+            Some(Value::String(name)) if !name.trim().is_empty() => {}
+            _ => {
+                push_error(
+                    &mut errors,
+                    "metadata.name",
+                    "metadata.name is required".to_string(),
+                    None,
+                    None,
+                );
             }
-        }
+        },
         _ => {
             push_error(
                 &mut errors,
@@ -415,17 +414,15 @@ pub fn validate_graphgen_taskset(dataset: &Value) -> Vec<Value> {
     }
 
     // select_output validation
-    let select_output = dataset_map
-        .get("select_output")
-        .or_else(|| {
-            dataset_map
-                .get("metadata")
-                .and_then(|m| m.as_object())
-                .and_then(|m| m.get("select_output"))
-        });
+    let select_output = dataset_map.get("select_output").or_else(|| {
+        dataset_map
+            .get("metadata")
+            .and_then(|m| m.as_object())
+            .and_then(|m| m.get("select_output"))
+    });
     if let Some(value) = select_output {
         match value {
-            Value::String(_) => {}
+            Value::Null | Value::String(_) => {}
             Value::Array(items) => {
                 if !items.iter().all(|item| item.as_str().is_some()) {
                     push_error(
@@ -450,16 +447,14 @@ pub fn validate_graphgen_taskset(dataset: &Value) -> Vec<Value> {
     }
 
     // output_config validation
-    let output_config = dataset_map
-        .get("output_config")
-        .or_else(|| {
-            dataset_map
-                .get("metadata")
-                .and_then(|m| m.as_object())
-                .and_then(|m| m.get("output_config"))
-        });
+    let output_config = dataset_map.get("output_config").or_else(|| {
+        dataset_map
+            .get("metadata")
+            .and_then(|m| m.as_object())
+            .and_then(|m| m.get("output_config"))
+    });
     if let Some(value) = output_config {
-        if !value.is_object() {
+        if !value.is_null() && !value.is_object() {
             push_error(
                 &mut errors,
                 "output_config",
@@ -479,7 +474,7 @@ pub fn validate_graphgen_taskset(dataset: &Value) -> Vec<Value> {
                 .and_then(|m| m.get(field))
         });
         if let Some(v) = value {
-            if !v.is_object() {
+            if !v.is_null() && !v.is_object() {
                 push_error(
                     &mut errors,
                     field,
@@ -509,7 +504,11 @@ pub fn parse_graphgen_taskset(dataset: &Value) -> Result<Value, CoreError> {
 /// Load and validate a GraphGen taskset from a JSON file.
 pub fn load_graphgen_taskset(path: &std::path::Path) -> Result<Value, CoreError> {
     let contents = std::fs::read_to_string(path).map_err(|e| {
-        CoreError::InvalidInput(format!("failed to read dataset file '{}': {}", path.display(), e))
+        CoreError::InvalidInput(format!(
+            "failed to read dataset file '{}': {}",
+            path.display(),
+            e
+        ))
     })?;
     let value: Value = serde_json::from_str(&contents).map_err(|e| {
         CoreError::Validation(format!(
@@ -575,10 +574,7 @@ fn normalize_policy_models(raw: Option<&Value>, errors: &mut Vec<Value>) -> Vec<
     }
 }
 
-fn build_graph_config(
-    section: &Map<String, Value>,
-    errors: &mut Vec<Value>,
-) -> Value {
+fn build_graph_config(section: &Map<String, Value>, errors: &mut Vec<Value>) -> Value {
     let policy_models_raw = section
         .get("policy_models")
         .or_else(|| section.get("policy_model"))
@@ -604,9 +600,15 @@ fn build_graph_config(
         Value::Array(policy_models.into_iter().map(Value::String).collect()),
     );
     if let Some(provider) = section.get("policy_provider").and_then(|v| v.as_str()) {
-        map.insert("policy_provider".to_string(), Value::String(provider.to_string()));
+        map.insert(
+            "policy_provider".to_string(),
+            Value::String(provider.to_string()),
+        );
     }
-    map.insert("rollout_budget".to_string(), Value::Number(rollout_budget.into()));
+    map.insert(
+        "rollout_budget".to_string(),
+        Value::Number(rollout_budget.into()),
+    );
     map.insert(
         "proposer_effort".to_string(),
         Value::String(proposer_effort),
@@ -856,7 +858,10 @@ pub fn validate_graph_job_payload(payload: &Value) -> Vec<Value> {
             Value::String(policy_provider.to_string()),
         );
     }
-    config_map.insert("rollout_budget".to_string(), Value::Number(rollout_budget.into()));
+    config_map.insert(
+        "rollout_budget".to_string(),
+        Value::Number(rollout_budget.into()),
+    );
     config_map.insert(
         "proposer_effort".to_string(),
         Value::String(proposer_effort),

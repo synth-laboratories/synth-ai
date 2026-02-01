@@ -39,9 +39,8 @@ pub async fn stream_sse_events(
     body: Option<Value>,
     timeout: Option<Duration>,
 ) -> Result<SseStream, CoreError> {
-    let method = Method::from_bytes(method.as_bytes()).map_err(|e| {
-        CoreError::InvalidInput(format!("invalid HTTP method {}: {}", method, e))
-    })?;
+    let method = Method::from_bytes(method.as_bytes())
+        .map_err(|e| CoreError::InvalidInput(format!("invalid HTTP method {}: {}", method, e)))?;
     stream_sse_request(url.to_string(), method, headers, body, timeout).await
 }
 

@@ -3,9 +3,9 @@ use reqwest::StatusCode;
 use serde::Deserialize;
 use std::time::Duration;
 
+use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 use crate::tunnels::errors::TunnelError;
 use crate::tunnels::types::{LeaseInfo, LeaseState};
-use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 
 #[derive(Clone)]
 pub struct LeaseClient {
@@ -49,7 +49,10 @@ impl LeaseClient {
         if let Some(p) = params {
             req = req.query(&p);
         }
-        let resp = req.send().await.map_err(|e| TunnelError::api(e.to_string()))?;
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| TunnelError::api(e.to_string()))?;
         if resp.status() == StatusCode::NOT_FOUND {
             return Err(TunnelError::lease("lease not found"));
         }
@@ -58,11 +61,13 @@ impl LeaseClient {
             let text = resp.text().await.unwrap_or_default();
             return Err(TunnelError::api(format!(
                 "backend error status={} body={}",
-                status,
-                text
+                status, text
             )));
         }
-        let json = resp.json::<serde_json::Value>().await.map_err(|e| TunnelError::api(e.to_string()))?;
+        let json = resp
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|e| TunnelError::api(e.to_string()))?;
         Ok(json)
     }
 
@@ -209,9 +214,8 @@ impl LeaseClient {
 
         let mut out = Vec::with_capacity(items.len());
         for item in items {
-            let payload: LeaseListItem = serde_json::from_value(item.clone()).map_err(|e| {
-                TunnelError::api(format!("invalid lease list entry: {e}"))
-            })?;
+            let payload: LeaseListItem = serde_json::from_value(item.clone())
+                .map_err(|e| TunnelError::api(format!("invalid lease list entry: {e}")))?;
             let expires_at = DateTime::parse_from_rfc3339(&payload.expires_at)
                 .map_err(|e| TunnelError::api(format!("invalid expires_at: {e}")))?
                 .with_timezone(&Utc);

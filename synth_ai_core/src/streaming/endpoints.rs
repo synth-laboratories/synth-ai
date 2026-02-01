@@ -292,10 +292,7 @@ mod tests {
     fn test_eval_endpoints() {
         let endpoints = StreamEndpoints::eval("eval-789");
 
-        assert_eq!(
-            endpoints.status,
-            Some("/eval/jobs/eval-789".to_string())
-        );
+        assert_eq!(endpoints.status, Some("/eval/jobs/eval-789".to_string()));
     }
 
     #[test]

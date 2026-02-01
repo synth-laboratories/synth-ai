@@ -5,8 +5,8 @@
 
 use std::time::{Duration, Instant};
 
-use serde_json::Value;
 use reqwest::header::{HeaderMap, HeaderValue};
+use serde_json::Value;
 
 use crate::http::HttpError;
 use crate::polling::{calculate_backoff, BackoffConfig};
@@ -246,10 +246,7 @@ impl<'a> JobsClient<'a> {
                         match result.status {
                             PolicyJobStatus::Failed => {
                                 let error = result.error.as_deref().unwrap_or("unknown");
-                                eprintln!(
-                                    "[synth_ai_core] Job {} FAILED: {}",
-                                    job_id, error
-                                );
+                                eprintln!("[synth_ai_core] Job {} FAILED: {}", job_id, error);
                             }
                             PolicyJobStatus::Cancelled => {
                                 eprintln!("[synth_ai_core] Job {} was cancelled", job_id);

@@ -4,8 +4,8 @@
 
 use std::time::{Duration, Instant};
 
-use serde_json::Value;
 use reqwest::header::{HeaderMap, HeaderValue};
+use serde_json::Value;
 
 use crate::http::HttpError;
 use crate::polling::{calculate_backoff, BackoffConfig};

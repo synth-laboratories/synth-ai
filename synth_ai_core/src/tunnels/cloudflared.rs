@@ -1,8 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use once_cell::sync::Lazy;
@@ -12,10 +12,11 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 use tokio::task::JoinHandle;
 
-use crate::tunnels::errors::TunnelError;
 use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
+use crate::tunnels::errors::TunnelError;
 
-static URL_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"https://[a-z0-9-]+\\.trycloudflare\\.com").unwrap());
+static URL_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"https://[a-z0-9-]+\\.trycloudflare\\.com").unwrap());
 
 const CLOUDFLARED_RELEASES: &str = "https://updatecloudflared.com/launcher";
 
@@ -40,7 +41,8 @@ impl ManagedProcess {
     }
 }
 
-static TRACKED: Lazy<Mutex<HashMap<usize, ManagedProcess>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static TRACKED: Lazy<Mutex<HashMap<usize, ManagedProcess>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
 
 pub fn track_process(proc: ManagedProcess) -> usize {
@@ -137,9 +139,17 @@ async fn resolve_cloudflared_download_url() -> Result<String, TunnelError> {
         "macos" | "darwin" => "macos",
         "linux" => "linux",
         "windows" => "windows",
-        _ => return Err(TunnelError::config(format!("unsupported platform {system}"))),
+        _ => {
+            return Err(TunnelError::config(format!(
+                "unsupported platform {system}"
+            )))
+        }
     };
-    let arch_key = if arch == "aarch64" || arch == "arm64" { "arm64" } else { "amd64" };
+    let arch_key = if arch == "aarch64" || arch == "arm64" {
+        "arm64"
+    } else {
+        "amd64"
+    };
     let url = format!("{CLOUDFLARED_RELEASES}/v1/{platform}/{arch_key}/versions/stable");
     let resp = reqwest::get(&url)
         .await
@@ -172,7 +182,8 @@ async fn download_file(url: &str) -> Result<PathBuf, TunnelError> {
 fn extract_gzip(src: &Path, target: &Path) -> Result<(), TunnelError> {
     let input = std::fs::File::open(src).map_err(|e| TunnelError::process(format!("{e}")))?;
     let mut gz = flate2::read::GzDecoder::new(input);
-    let mut out = std::fs::File::create(target).map_err(|e| TunnelError::process(format!("{e}")))?;
+    let mut out =
+        std::fs::File::create(target).map_err(|e| TunnelError::process(format!("{e}")))?;
     std::io::copy(&mut gz, &mut out).map_err(|e| TunnelError::process(format!("{e}")))?;
     Ok(())
 }
@@ -181,14 +192,20 @@ fn extract_tarball(src: &Path, target_dir: &Path) -> Result<(), TunnelError> {
     let input = std::fs::File::open(src).map_err(|e| TunnelError::process(format!("{e}")))?;
     let gz = flate2::read::GzDecoder::new(input);
     let mut archive = tar::Archive::new(gz);
-    archive.unpack(target_dir).map_err(|e| TunnelError::process(format!("{e}")))?;
+    archive
+        .unpack(target_dir)
+        .map_err(|e| TunnelError::process(format!("{e}")))?;
     Ok(())
 }
 
 async fn spawn_process(args: &[String]) -> Result<ManagedProcess, TunnelError> {
     let mut cmd = tokio::process::Command::new(&args[0]);
-    cmd.args(&args[1..]).stdout(Stdio::piped()).stderr(Stdio::piped());
-    let mut child = cmd.spawn().map_err(|e| TunnelError::process(e.to_string()))?;
+    cmd.args(&args[1..])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| TunnelError::process(e.to_string()))?;
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
     let logs = Arc::new(Mutex::new(VecDeque::with_capacity(200)));
@@ -228,7 +245,10 @@ fn push_log(logs: &Arc<Mutex<VecDeque<String>>>, line: &str) {
     }
 }
 
-pub async fn open_quick_tunnel(port: u16, wait_s: f64) -> Result<(String, ManagedProcess), TunnelError> {
+pub async fn open_quick_tunnel(
+    port: u16,
+    wait_s: f64,
+) -> Result<(String, ManagedProcess), TunnelError> {
     let bin = require_cloudflared().await?;
     let args = vec![
         bin.to_string_lossy().to_string(),
@@ -243,7 +263,9 @@ pub async fn open_quick_tunnel(port: u16, wait_s: f64) -> Result<(String, Manage
     loop {
         if Instant::now() > deadline {
             let _ = proc.child.start_kill();
-            return Err(TunnelError::process("timed out waiting for quick tunnel URL"));
+            return Err(TunnelError::process(
+                "timed out waiting for quick tunnel URL",
+            ));
         }
         if let Some(status) = proc.child.try_wait().ok().flatten() {
             return Err(TunnelError::process(format!(
@@ -252,7 +274,8 @@ pub async fn open_quick_tunnel(port: u16, wait_s: f64) -> Result<(String, Manage
         }
         let url = {
             let logs = proc.logs.lock();
-            logs.iter().find_map(|line| URL_RE.find(line).map(|m| m.as_str().to_string()))
+            logs.iter()
+                .find_map(|line| URL_RE.find(line).map(|m| m.as_str().to_string()))
         };
         if let Some(url) = url {
             return Ok((url, proc));
@@ -308,7 +331,8 @@ pub async fn open_managed_tunnel_with_connection_wait(
         }
         let connected = {
             let logs = proc.logs.lock();
-            logs.iter().any(|line| patterns.iter().any(|p| p.is_match(line)))
+            logs.iter()
+                .any(|line| patterns.iter().any(|p| p.is_match(line)))
         };
         if connected {
             return Ok(proc);
@@ -354,7 +378,10 @@ pub async fn rotate_tunnel(
         let text = resp.text().await.unwrap_or_default();
         return Err(TunnelError::api(format!("rotate failed: {}", text)));
     }
-    let data: TunnelRotateResponse = resp.json().await.map_err(|e| TunnelError::api(e.to_string()))?;
+    let data: TunnelRotateResponse = resp
+        .json()
+        .await
+        .map_err(|e| TunnelError::api(e.to_string()))?;
     Ok(data)
 }
 
@@ -395,7 +422,10 @@ pub async fn create_tunnel(
         let text = resp.text().await.unwrap_or_default();
         return Err(TunnelError::api(format!("create failed: {}", text)));
     }
-    let data: TunnelCreateResponse = resp.json().await.map_err(|e| TunnelError::api(e.to_string()))?;
+    let data: TunnelCreateResponse = resp
+        .json()
+        .await
+        .map_err(|e| TunnelError::api(e.to_string()))?;
     Ok(data)
 }
 
@@ -433,14 +463,13 @@ pub async fn wait_for_health_check(
     )))
 }
 
-pub async fn resolve_hostname_with_explicit_resolvers(hostname: &str) -> Result<std::net::IpAddr, TunnelError> {
+pub async fn resolve_hostname_with_explicit_resolvers(
+    hostname: &str,
+) -> Result<std::net::IpAddr, TunnelError> {
     use trust_dns_resolver::config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
     use trust_dns_resolver::TokioAsyncResolver;
 
-    let servers = vec![
-        ("1.1.1.1:53", "1.1.1.1"),
-        ("8.8.8.8:53", "8.8.8.8"),
-    ];
+    let servers = vec![("1.1.1.1:53", "1.1.1.1"), ("8.8.8.8:53", "8.8.8.8")];
     for (socket, _) in servers {
         if let Ok(addr) = socket.parse() {
             let config = ResolverConfig::from_parts(
@@ -468,7 +497,10 @@ pub async fn resolve_hostname_with_explicit_resolvers(hostname: &str) -> Result<
         .lookup_ip(hostname)
         .await
         .map_err(|e| TunnelError::dns(e.to_string()))?;
-    lookup.iter().next().ok_or_else(|| TunnelError::dns("no ip resolved"))
+    lookup
+        .iter()
+        .next()
+        .ok_or_else(|| TunnelError::dns("no ip resolved"))
 }
 
 pub async fn verify_tunnel_dns_resolution(
@@ -477,9 +509,11 @@ pub async fn verify_tunnel_dns_resolution(
     timeout_seconds: f64,
     api_key: Option<String>,
 ) -> Result<(), TunnelError> {
-    let parsed = url::Url::parse(tunnel_url)
-        .map_err(|e| TunnelError::dns(format!("invalid url: {e}")))?;
-    let hostname = parsed.host_str().ok_or_else(|| TunnelError::dns("missing hostname"))?;
+    let parsed =
+        url::Url::parse(tunnel_url).map_err(|e| TunnelError::dns(format!("invalid url: {e}")))?;
+    let hostname = parsed
+        .host_str()
+        .ok_or_else(|| TunnelError::dns("missing hostname"))?;
     if hostname == "localhost" || hostname == "127.0.0.1" {
         return Ok(());
     }

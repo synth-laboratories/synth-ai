@@ -56,9 +56,7 @@ pub const DEFAULT_TIMEOUT_SECS: u64 = 300;
 ///
 /// Use this for API calls, SSE streams, and any HTTP operations that
 /// may run concurrently.
-pub static SHARED_CLIENT: Lazy<Client> = Lazy::new(|| {
-    build_pooled_client(None)
-});
+pub static SHARED_CLIENT: Lazy<Client> = Lazy::new(|| build_pooled_client(None));
 
 /// Build a new pooled HTTP client.
 ///
@@ -71,7 +69,7 @@ pub static SHARED_CLIENT: Lazy<Client> = Lazy::new(|| {
 /// A reqwest::Client configured with connection pooling.
 pub fn build_pooled_client(timeout_secs: Option<u64>) -> Client {
     let timeout = Duration::from_secs(timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS));
-    
+
     Client::builder()
         .pool_max_idle_per_host(DEFAULT_POOL_SIZE)
         .pool_idle_timeout(Duration::from_secs(90))
@@ -95,7 +93,7 @@ pub fn build_pooled_client(timeout_secs: Option<u64>) -> Client {
 /// A reqwest::Client configured with the specified pool size.
 pub fn build_pooled_client_with_size(pool_size: usize, timeout_secs: Option<u64>) -> Client {
     let timeout = Duration::from_secs(timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS));
-    
+
     Client::builder()
         .pool_max_idle_per_host(pool_size)
         .pool_idle_timeout(Duration::from_secs(90))
@@ -122,7 +120,7 @@ pub fn build_pooled_client_with_headers(
     timeout_secs: Option<u64>,
 ) -> Result<Client, reqwest::Error> {
     let timeout = Duration::from_secs(timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS));
-    
+
     Client::builder()
         .pool_max_idle_per_host(DEFAULT_POOL_SIZE)
         .pool_idle_timeout(Duration::from_secs(90))

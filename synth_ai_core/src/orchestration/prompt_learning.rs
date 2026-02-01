@@ -5,9 +5,9 @@
 
 use std::time::Duration;
 
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use reqwest::header::{HeaderMap, HeaderValue};
 
 use crate::api::types::PolicyJobStatus;
 use crate::api::SynthClient;
@@ -15,9 +15,9 @@ use crate::auth;
 use crate::errors::CoreError;
 
 use super::events::{ParsedEvent, TerminalStatus};
+use super::progress::ProgressTracker;
 use crate::sse::stream_sse_events;
 use futures_util::StreamExt;
-use super::progress::ProgressTracker;
 
 /// Result from a prompt learning job.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,9 +162,8 @@ impl PromptLearningJob {
     ) -> Result<Self, CoreError> {
         let api_key = match api_key {
             Some(k) => k.to_string(),
-            None => auth::get_api_key(None).ok_or_else(|| {
-                CoreError::Authentication("SYNTH_API_KEY not found".to_string())
-            })?,
+            None => auth::get_api_key(None)
+                .ok_or_else(|| CoreError::Authentication("SYNTH_API_KEY not found".to_string()))?,
         };
 
         let client = SynthClient::new(&api_key, base_url)?;
@@ -192,9 +191,8 @@ impl PromptLearningJob {
     ) -> Result<Self, CoreError> {
         let api_key = match api_key {
             Some(k) => k.to_string(),
-            None => auth::get_api_key(None).ok_or_else(|| {
-                CoreError::Authentication("SYNTH_API_KEY not found".to_string())
-            })?,
+            None => auth::get_api_key(None)
+                .ok_or_else(|| CoreError::Authentication("SYNTH_API_KEY not found".to_string()))?,
         };
 
         let client = SynthClient::new(&api_key, base_url)?;
@@ -223,9 +221,7 @@ impl PromptLearningJob {
     /// Returns the job ID on success.
     pub async fn submit(&mut self) -> Result<String, CoreError> {
         if self.job_id.is_some() {
-            return Err(CoreError::Validation(
-                "job already submitted".to_string(),
-            ));
+            return Err(CoreError::Validation("job already submitted".to_string()));
         }
 
         if self.config.is_null() {
@@ -238,10 +234,7 @@ impl PromptLearningJob {
         let job_id = self
             .client
             .jobs()
-            .submit_raw_with_worker_token(
-                self.config.clone(),
-                self.task_app_worker_token.clone(),
-            )
+            .submit_raw_with_worker_token(self.config.clone(), self.task_app_worker_token.clone())
             .await?;
         self.job_id = Some(job_id.clone());
 
@@ -250,9 +243,10 @@ impl PromptLearningJob {
 
     /// Get the current job status.
     pub async fn get_status(&self) -> Result<PromptLearningResult, CoreError> {
-        let job_id = self.job_id.as_ref().ok_or_else(|| {
-            CoreError::Validation("job not submitted yet".to_string())
-        })?;
+        let job_id = self
+            .job_id
+            .as_ref()
+            .ok_or_else(|| CoreError::Validation("job not submitted yet".to_string()))?;
 
         let result = self.client.jobs().get_status(job_id).await?;
 
@@ -280,9 +274,10 @@ impl PromptLearningJob {
         timeout_secs: f64,
         interval_secs: f64,
     ) -> Result<PromptLearningResult, CoreError> {
-        let job_id = self.job_id.as_ref().ok_or_else(|| {
-            CoreError::Validation("job not submitted yet".to_string())
-        })?;
+        let job_id = self
+            .job_id
+            .as_ref()
+            .ok_or_else(|| CoreError::Validation("job not submitted yet".to_string()))?;
 
         let result = self
             .client
@@ -319,9 +314,10 @@ impl PromptLearningJob {
     {
         use std::cell::Cell;
 
-        let job_id = self.job_id.as_ref().ok_or_else(|| {
-            CoreError::Validation("job not submitted yet".to_string())
-        })?;
+        let job_id = self
+            .job_id
+            .as_ref()
+            .ok_or_else(|| CoreError::Validation("job not submitted yet".to_string()))?;
 
         eprintln!(
             "[PL] stream_until_complete: job={} timeout={:.0}s",
@@ -336,10 +332,7 @@ impl PromptLearningJob {
         );
         let api_key = self.client.http().api_key().to_string();
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "Accept",
-            HeaderValue::from_static("text/event-stream"),
-        );
+        headers.insert("Accept", HeaderValue::from_static("text/event-stream"));
         headers.insert(
             "Authorization",
             HeaderValue::from_str(&format!("Bearer {}", api_key))
@@ -359,8 +352,8 @@ impl PromptLearningJob {
         {
             let tracker = &mut self.tracker;
 
-            let mut stream = stream_sse_events(&events_url, "GET", headers, None, Some(timeout))
-                .await?;
+            let mut stream =
+                stream_sse_events(&events_url, "GET", headers, None, Some(timeout)).await?;
 
             while let Some(item) = stream.next().await {
                 let event = item?;
@@ -401,8 +394,9 @@ impl PromptLearningJob {
                         "[PL] Terminal event received: {} (category={:?})",
                         parsed.event_type, parsed.category
                     );
-                    terminal_status
-                        .set(super::events::EventParser::terminal_status(&parsed.event_type));
+                    terminal_status.set(super::events::EventParser::terminal_status(
+                        &parsed.event_type,
+                    ));
                     terminal_reached.set(true);
                     break;
                 }
@@ -425,10 +419,7 @@ impl PromptLearningJob {
         let status_result = match self.get_status().await {
             Ok(result) => Some(result),
             Err(err) => {
-                eprintln!(
-                    "[PL] Warning: failed to fetch final job status: {}",
-                    err
-                );
+                eprintln!("[PL] Warning: failed to fetch final job status: {}", err);
                 None
             }
         };
@@ -454,7 +445,9 @@ impl PromptLearningJob {
             "[PL] Final status: status={:?} best_reward={:?} error={:?}",
             final_status,
             status_result.as_ref().and_then(|result| result.best_reward),
-            status_result.as_ref().and_then(|result| result.error.clone())
+            status_result
+                .as_ref()
+                .and_then(|result| result.error.clone())
         );
 
         // Merge tracker data with status (fall back to tracker if status fetch failed)
@@ -496,9 +489,10 @@ impl PromptLearningJob {
     ///
     /// * `reason` - Optional cancellation reason
     pub async fn cancel(&self, reason: Option<&str>) -> Result<(), CoreError> {
-        let job_id = self.job_id.as_ref().ok_or_else(|| {
-            CoreError::Validation("job not submitted yet".to_string())
-        })?;
+        let job_id = self
+            .job_id
+            .as_ref()
+            .ok_or_else(|| CoreError::Validation("job not submitted yet".to_string()))?;
 
         self.client.jobs().cancel(job_id, reason).await
     }
@@ -532,7 +526,9 @@ impl PromptLearningJob {
         top_prompts.sort_by(|a, b| {
             let a_score = a.val_accuracy.or(a.train_accuracy).unwrap_or(0.0);
             let b_score = b.val_accuracy.or(b.train_accuracy).unwrap_or(0.0);
-            b_score.partial_cmp(&a_score).unwrap_or(std::cmp::Ordering::Equal)
+            b_score
+                .partial_cmp(&a_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         // Assign ranks
@@ -624,7 +620,9 @@ mod tests {
         prompts.sort_by(|a, b| {
             let a_score = a.val_accuracy.or(a.train_accuracy).unwrap_or(0.0);
             let b_score = b.val_accuracy.or(b.train_accuracy).unwrap_or(0.0);
-            b_score.partial_cmp(&a_score).unwrap_or(std::cmp::Ordering::Equal)
+            b_score
+                .partial_cmp(&a_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         assert_eq!(prompts[0].candidate_id, "b"); // 0.9

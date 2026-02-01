@@ -170,7 +170,11 @@ fn validate_sft_examples(examples: &[Value]) -> (Vec<Value>, Vec<Value>) {
             .filter_map(|m| m.get("role").and_then(|v| v.as_str()))
             .collect();
         if !roles.contains("user") {
-            push_warning(&mut warnings, format!("No 'user' role in example {idx}"), Some(idx));
+            push_warning(
+                &mut warnings,
+                format!("No 'user' role in example {idx}"),
+                Some(idx),
+            );
             continue;
         }
         if !roles.contains("assistant") {
@@ -283,7 +287,8 @@ pub fn convert_openai_sft(
         .iter()
         .filter_map(|(_, user, _)| user.clone())
         .collect();
-    let assistant_messages: Vec<Option<String>> = parsed.iter().map(|(_, _, a)| a.clone()).collect();
+    let assistant_messages: Vec<Option<String>> =
+        parsed.iter().map(|(_, _, a)| a.clone()).collect();
 
     let mut template = None;
     let mut field_names = vec!["user_message".to_string()];
@@ -337,7 +342,10 @@ pub fn convert_openai_sft(
                 .unwrap_or_else(|| "Complete the assistant response".to_string()),
         ),
     );
-    metadata.insert("source_format".to_string(), Value::String("openai_sft".to_string()));
+    metadata.insert(
+        "source_format".to_string(),
+        Value::String("openai_sft".to_string()),
+    );
 
     if let Some(template) = template.clone() {
         metadata.insert("detected_template".to_string(), Value::String(template));

@@ -94,15 +94,14 @@ fn toml_to_json(toml: toml::Value) -> Result<Value, CoreError> {
     match toml {
         toml::Value::String(s) => Ok(Value::String(s)),
         toml::Value::Integer(i) => Ok(Value::Number(i.into())),
-        toml::Value::Float(f) => {
-            serde_json::Number::from_f64(f)
-                .map(Value::Number)
-                .ok_or_else(|| CoreError::Config("invalid float value".to_string()))
-        }
+        toml::Value::Float(f) => serde_json::Number::from_f64(f)
+            .map(Value::Number)
+            .ok_or_else(|| CoreError::Config("invalid float value".to_string())),
         toml::Value::Boolean(b) => Ok(Value::Bool(b)),
         toml::Value::Datetime(dt) => Ok(Value::String(dt.to_string())),
         toml::Value::Array(arr) => {
-            let json_arr: Result<Vec<Value>, CoreError> = arr.into_iter().map(toml_to_json).collect();
+            let json_arr: Result<Vec<Value>, CoreError> =
+                arr.into_iter().map(toml_to_json).collect();
             Ok(Value::Array(json_arr?))
         }
         toml::Value::Table(table) => {
@@ -511,18 +510,12 @@ pub fn resolve_seed_spec(seeds_spec: &Value) -> Result<Vec<i64>, CoreError> {
             Ok(out)
         }
         Value::Object(map) => {
-            let start = map
-                .get("start")
-                .and_then(|v| v.as_i64())
-                .ok_or_else(|| {
-                    CoreError::Validation("range dict must include integer 'start'".to_string())
-                })?;
-            let end = map
-                .get("end")
-                .and_then(|v| v.as_i64())
-                .ok_or_else(|| {
-                    CoreError::Validation("range dict must include integer 'end'".to_string())
-                })?;
+            let start = map.get("start").and_then(|v| v.as_i64()).ok_or_else(|| {
+                CoreError::Validation("range dict must include integer 'start'".to_string())
+            })?;
+            let end = map.get("end").and_then(|v| v.as_i64()).ok_or_else(|| {
+                CoreError::Validation("range dict must include integer 'end'".to_string())
+            })?;
             let step = map.get("step").and_then(|v| v.as_i64()).unwrap_or(1);
             if step <= 0 {
                 return Err(CoreError::Validation(
@@ -567,7 +560,10 @@ pub fn expand_eval_config(minimal: &Value) -> Result<Value, CoreError> {
         .unwrap_or_else(|| Value::Object(Map::new()));
 
     let mut out = Map::new();
-    out.insert("task_app_url".to_string(), Value::String(task_app_url.to_string()));
+    out.insert(
+        "task_app_url".to_string(),
+        Value::String(task_app_url.to_string()),
+    );
     out.insert("env_name".to_string(), Value::String(env_name.to_string()));
     if let Some(app_id) = map.get("app_id") {
         out.insert("app_id".to_string(), app_id.clone());
@@ -653,33 +649,41 @@ pub fn expand_gepa_config(minimal: &Value) -> Result<Value, CoreError> {
 
     let defaults = expansion_defaults(map.get("defaults_version").and_then(|v| v.as_str()))?;
 
-    let (train_seeds, val_seeds) = if let Some(total) = map.get("total_seeds").and_then(|v| v.as_i64()) {
-        let split = (total as f64 * defaults.train_ratio) as i64;
-        let train: Vec<i64> = (0..split).collect();
-        let val: Vec<i64> = (split..total).collect();
-        (train, val)
-    } else if map.contains_key("train_seeds")
-        || map.contains_key("validation_seeds")
-        || map.contains_key("val_seeds")
-    {
-        let train_value = map.get("train_seeds").cloned().unwrap_or(Value::Null);
-        let val_value = map
-            .get("validation_seeds")
-            .cloned()
-            .or_else(|| map.get("val_seeds").cloned())
-            .unwrap_or(Value::Null);
-        (resolve_seed_spec(&train_value)?, resolve_seed_spec(&val_value)?)
-    } else {
-        return Err(CoreError::Validation(
-            "Either total_seeds or (train_seeds + validation_seeds) is required".to_string(),
-        ));
-    };
+    let (train_seeds, val_seeds) =
+        if let Some(total) = map.get("total_seeds").and_then(|v| v.as_i64()) {
+            let split = (total as f64 * defaults.train_ratio) as i64;
+            let train: Vec<i64> = (0..split).collect();
+            let val: Vec<i64> = (split..total).collect();
+            (train, val)
+        } else if map.contains_key("train_seeds")
+            || map.contains_key("validation_seeds")
+            || map.contains_key("val_seeds")
+        {
+            let train_value = map.get("train_seeds").cloned().unwrap_or(Value::Null);
+            let val_value = map
+                .get("validation_seeds")
+                .cloned()
+                .or_else(|| map.get("val_seeds").cloned())
+                .unwrap_or(Value::Null);
+            (
+                resolve_seed_spec(&train_value)?,
+                resolve_seed_spec(&val_value)?,
+            )
+        } else {
+            return Err(CoreError::Validation(
+                "Either total_seeds or (train_seeds + validation_seeds) is required".to_string(),
+            ));
+        };
 
     if train_seeds.is_empty() {
-        return Err(CoreError::Validation("train_seeds cannot be empty".to_string()));
+        return Err(CoreError::Validation(
+            "train_seeds cannot be empty".to_string(),
+        ));
     }
     if val_seeds.is_empty() {
-        return Err(CoreError::Validation("validation_seeds cannot be empty".to_string()));
+        return Err(CoreError::Validation(
+            "validation_seeds cannot be empty".to_string(),
+        ));
     }
 
     let n_train = train_seeds.len() as i64;
@@ -724,7 +728,10 @@ pub fn expand_gepa_config(minimal: &Value) -> Result<Value, CoreError> {
     gepa.insert("evaluation".to_string(), Value::Object(evaluation));
 
     let mut rollout = Map::new();
-    rollout.insert("budget".to_string(), Value::Number(defaults.rollout_budget.into()));
+    rollout.insert(
+        "budget".to_string(),
+        Value::Number(defaults.rollout_budget.into()),
+    );
     rollout.insert(
         "max_concurrent".to_string(),
         Value::Number(defaults.rollout_max_concurrent.into()),

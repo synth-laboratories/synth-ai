@@ -26,11 +26,7 @@ pub fn extract_trace_correlation_id(inference_url: Option<&str>) -> Option<Strin
     }
 
     let parsed = parse_url(raw)?;
-    let path_segments: Vec<&str> = parsed
-        .path()
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .collect();
+    let path_segments: Vec<&str> = parsed.path().split('/').filter(|s| !s.is_empty()).collect();
 
     if path_segments.len() >= 3 {
         let tail = &path_segments[path_segments.len() - 2..];
@@ -47,7 +43,10 @@ pub fn extract_trace_correlation_id(inference_url: Option<&str>) -> Option<Strin
     }
 
     for segment in path_segments.iter().rev() {
-        if segment.starts_with("trace_") || segment.starts_with("cid_") || segment.starts_with("eval_") {
+        if segment.starts_with("trace_")
+            || segment.starts_with("cid_")
+            || segment.starts_with("eval_")
+        {
             return Some(segment.to_string());
         }
     }
@@ -170,14 +169,13 @@ pub fn build_trace_payload(
                     );
                     map.insert(
                         "usage".to_string(),
-                        obj.get("usage").cloned().unwrap_or(Value::Object(Map::new())),
+                        obj.get("usage")
+                            .cloned()
+                            .unwrap_or(Value::Object(Map::new())),
                     );
                     map.insert(
                         "finish_reason".to_string(),
-                        first
-                            .get("finish_reason")
-                            .cloned()
-                            .unwrap_or(Value::Null),
+                        first.get("finish_reason").cloned().unwrap_or(Value::Null),
                     );
                     Value::Object(map)
                 } else {
@@ -222,7 +220,9 @@ pub fn build_trace_payload(
     let session_id = session_id
         .map(|s| s.to_string())
         .unwrap_or_else(|| Uuid::new_v4().to_string());
-    trace_meta.entry("session_id".to_string()).or_insert(Value::String(session_id));
+    trace_meta
+        .entry("session_id".to_string())
+        .or_insert(Value::String(session_id));
 
     if let Some(cid) = correlation_id {
         if !cid.trim().is_empty() {
@@ -241,7 +241,10 @@ pub fn build_trace_payload(
     }
 
     let mut trace = Map::new();
-    trace.insert("schema_version".to_string(), Value::String("4.0".to_string()));
+    trace.insert(
+        "schema_version".to_string(),
+        Value::String("4.0".to_string()),
+    );
     trace.insert("event_history".to_string(), Value::Array(event_history));
     trace.insert(
         "markov_blanket_message_history".to_string(),
@@ -377,11 +380,7 @@ pub fn verify_trace_correlation_id_in_response(
         None => return false,
     };
 
-    if obj
-        .get("trace_correlation_id")
-        .and_then(|v| v.as_str())
-        != Some(expected)
-    {
+    if obj.get("trace_correlation_id").and_then(|v| v.as_str()) != Some(expected) {
         return false;
     }
 

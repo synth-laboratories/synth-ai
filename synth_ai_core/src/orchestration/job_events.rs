@@ -85,10 +85,22 @@ fn event_type_map() -> &'static [(&'static str, &'static str)] {
         ("candidate.added", "candidate.added"),
         ("candidate.evaluated", "candidate.evaluated"),
         ("candidate.completed", "candidate.completed"),
-        ("learning.policy.gepa.candidate.new_best", "candidate.evaluated"),
-        ("learning.policy.gepa.candidate.evaluated", "candidate.evaluated"),
-        ("learning.policy.mipro.candidate.new_best", "candidate.evaluated"),
-        ("learning.graph.gepa.candidate.evaluated", "candidate.evaluated"),
+        (
+            "learning.policy.gepa.candidate.new_best",
+            "candidate.evaluated",
+        ),
+        (
+            "learning.policy.gepa.candidate.evaluated",
+            "candidate.evaluated",
+        ),
+        (
+            "learning.policy.mipro.candidate.new_best",
+            "candidate.evaluated",
+        ),
+        (
+            "learning.graph.gepa.candidate.evaluated",
+            "candidate.evaluated",
+        ),
     ]
 }
 
@@ -192,7 +204,10 @@ pub fn parse_job_event(raw: &Value, job_id: Option<&str>) -> Option<ParsedJobEve
         .get("data")
         .cloned()
         .unwrap_or_else(|| Value::Object(Map::new()));
-    let run_id = raw.get("run_id").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let run_id = raw
+        .get("run_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let mut candidate_id = None;
     if let Some(map) = data.as_object() {
         if let Some(cid) = map.get("candidate_id").and_then(|v| v.as_str()) {
@@ -285,7 +300,10 @@ fn validate_enum(value: &Value, allowed: &[&str], path: &str) -> Option<Validati
 
 /// Validate an event against the base job event schema.
 pub fn validate_base_event(value: &Value) -> ValidationResult {
-    let event_type = value.get("type").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let event_type = value
+        .get("type")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let map = match value.as_object() {
         Some(m) => m,
         None => {

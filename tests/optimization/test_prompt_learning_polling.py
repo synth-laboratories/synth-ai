@@ -8,6 +8,7 @@ from synth_ai.sdk.optimization.internal import prompt_learning_polling
 class _DummyResponse:
     def __init__(self, payload: dict) -> None:
         self.status_code = 200
+        self.ok = True
         self._payload = payload
         self.text = json.dumps(payload)
 
@@ -38,4 +39,4 @@ def test_poll_prompt_learning_until_complete(monkeypatch) -> None:
     )
 
     assert result.succeeded
-    assert result.best_score == 0.5
+    assert result.best_reward == 0.5

@@ -31,20 +31,40 @@ impl TaskDatasetSpec {
 
     pub fn merge_with(&self, other: &TaskDatasetSpec) -> TaskDatasetSpec {
         TaskDatasetSpec {
-            id: if other.id.is_empty() { self.id.clone() } else { other.id.clone() },
-            name: if other.name.is_empty() { self.name.clone() } else { other.name.clone() },
+            id: if other.id.is_empty() {
+                self.id.clone()
+            } else {
+                other.id.clone()
+            },
+            name: if other.name.is_empty() {
+                self.name.clone()
+            } else {
+                other.name.clone()
+            },
             version: other.version.clone().or_else(|| self.version.clone()),
-            splits: if other.splits.is_empty() { self.splits.clone() } else { other.splits.clone() },
-            default_split: other.default_split.clone().or_else(|| self.default_split.clone()),
+            splits: if other.splits.is_empty() {
+                self.splits.clone()
+            } else {
+                other.splits.clone()
+            },
+            default_split: other
+                .default_split
+                .clone()
+                .or_else(|| self.default_split.clone()),
             cardinality: other.cardinality.or(self.cardinality),
-            description: other.description.clone().or_else(|| self.description.clone()),
+            description: other
+                .description
+                .clone()
+                .or_else(|| self.description.clone()),
         }
     }
 }
 
 pub fn ensure_split(spec: &TaskDatasetSpec, split: Option<&str>) -> Result<String, CoreError> {
     if spec.splits.is_empty() {
-        return Ok(split.unwrap_or_else(|| spec.default_split.as_deref().unwrap_or("default")).to_string());
+        return Ok(split
+            .unwrap_or_else(|| spec.default_split.as_deref().unwrap_or("default"))
+            .to_string());
     }
     match split {
         Some(value) => {

@@ -8,6 +8,7 @@
 
 use crate::errors::CoreError;
 use crate::shared_client::build_pooled_client;
+use crate::utils;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -15,7 +16,6 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use crate::utils;
 
 /// Default config directory name
 pub const CONFIG_DIR: &str = ".synth-ai";
@@ -83,7 +83,9 @@ pub fn save_user_config(config: &HashMap<String, Value>) -> Result<(), CoreError
 }
 
 /// Update user config with provided values.
-pub fn update_user_config(updates: &HashMap<String, Value>) -> Result<HashMap<String, Value>, CoreError> {
+pub fn update_user_config(
+    updates: &HashMap<String, Value>,
+) -> Result<HashMap<String, Value>, CoreError> {
     let mut current = load_user_config()?;
     for (k, v) in updates {
         current.insert(k.clone(), v.clone());
@@ -243,15 +245,16 @@ pub struct DeviceAuthResponse {
 ///
 /// * `frontend_url` - Frontend URL (defaults to https://usesynth.ai)
 pub async fn init_device_auth(frontend_url: Option<&str>) -> Result<DeviceAuthSession, CoreError> {
-    let base = frontend_url.unwrap_or(DEFAULT_FRONTEND_URL).trim_end_matches('/');
+    let base = frontend_url
+        .unwrap_or(DEFAULT_FRONTEND_URL)
+        .trim_end_matches('/');
     let url = format!("{}/api/auth/device/init", base);
 
     let client = build_pooled_client(Some(10));
-    let resp = client
-        .post(&url)
-        .send()
-        .await
-        .map_err(|e| CoreError::Authentication(format!("failed to reach init endpoint: {}", e)))?;
+    let resp =
+        client.post(&url).send().await.map_err(|e| {
+            CoreError::Authentication(format!("failed to reach init endpoint: {}", e))
+        })?;
 
     if !resp.status().is_success() {
         let status = resp.status();
@@ -306,7 +309,9 @@ pub async fn poll_device_token(
     poll_interval_secs: Option<u64>,
     timeout_secs: Option<u64>,
 ) -> Result<HashMap<String, String>, CoreError> {
-    let base = frontend_url.unwrap_or(DEFAULT_FRONTEND_URL).trim_end_matches('/');
+    let base = frontend_url
+        .unwrap_or(DEFAULT_FRONTEND_URL)
+        .trim_end_matches('/');
     let url = format!("{}/api/auth/device/token", base);
     let poll_interval = Duration::from_secs(poll_interval_secs.unwrap_or(3));
     let timeout = Duration::from_secs(timeout_secs.unwrap_or(600));
@@ -354,15 +359,12 @@ fn extract_credentials(data: DeviceAuthResponse) -> HashMap<String, String> {
     let mut result = HashMap::new();
 
     // Get SYNTH_API_KEY
-    let synth_key = data
-        .synth_api_key
-        .filter(|s| !s.is_empty())
-        .or_else(|| {
-            data.keys
-                .as_ref()
-                .and_then(|k| k.get("synth").cloned())
-                .filter(|s| !s.is_empty())
-        });
+    let synth_key = data.synth_api_key.filter(|s| !s.is_empty()).or_else(|| {
+        data.keys
+            .as_ref()
+            .and_then(|k| k.get("synth").cloned())
+            .filter(|s| !s.is_empty())
+    });
 
     if let Some(key) = synth_key {
         result.insert(ENV_API_KEY.to_string(), key);
@@ -394,8 +396,13 @@ fn extract_credentials(data: DeviceAuthResponse) -> HashMap<String, String> {
 ///
 /// * `backend_url` - Backend URL (defaults to https://api.usesynth.ai)
 /// * `ttl_hours` - Key TTL in hours (default 4)
-pub async fn mint_demo_key(backend_url: Option<&str>, ttl_hours: Option<u32>) -> Result<String, CoreError> {
-    let base = backend_url.unwrap_or(DEFAULT_BACKEND_URL).trim_end_matches('/');
+pub async fn mint_demo_key(
+    backend_url: Option<&str>,
+    ttl_hours: Option<u32>,
+) -> Result<String, CoreError> {
+    let base = backend_url
+        .unwrap_or(DEFAULT_BACKEND_URL)
+        .trim_end_matches('/');
     let url = format!("{}/api/demo/keys", base);
     let ttl = ttl_hours.unwrap_or(4);
 
@@ -541,7 +548,9 @@ pub fn load_user_env_with(override_env: bool) -> Result<HashMap<String, String>,
     Ok(applied)
 }
 
-fn select_task_app_entry(apps: &serde_json::Map<String, Value>) -> Option<&serde_json::Map<String, Value>> {
+fn select_task_app_entry(
+    apps: &serde_json::Map<String, Value>,
+) -> Option<&serde_json::Map<String, Value>> {
     if apps.is_empty() {
         return None;
     }

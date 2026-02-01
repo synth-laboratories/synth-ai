@@ -290,7 +290,8 @@ mod tests {
 
     #[test]
     fn test_retryable() {
-        let err_500 = CoreError::http_response(500, "https://api.example.com", "server error", None);
+        let err_500 =
+            CoreError::http_response(500, "https://api.example.com", "server error", None);
         assert!(err_500.is_retryable());
 
         let err_404 = CoreError::http_response(404, "https://api.example.com", "not found", None);

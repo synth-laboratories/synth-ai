@@ -270,32 +270,38 @@ impl EventParser {
     const FRONTIER_PATTERNS: &'static [&'static str] = &[".frontier_updated", ".frontier.updated"];
 
     /// Patterns for progress events
-    const PROGRESS_PATTERNS: &'static [&'static str] =
-        &[
-            ".progress",
-            ".rollouts_limit_progress",
-            ".rollouts.progress",
-            ".job.started",
-            ".trial.started",
-            ".trial.completed",
-            ".iteration.started",
-            ".iteration.completed",
-        ];
+    const PROGRESS_PATTERNS: &'static [&'static str] = &[
+        ".progress",
+        ".rollouts_limit_progress",
+        ".rollouts.progress",
+        ".job.started",
+        ".trial.started",
+        ".trial.completed",
+        ".iteration.started",
+        ".iteration.completed",
+    ];
 
     /// Patterns for generation events
-    const GENERATION_PATTERNS: &'static [&'static str] =
-        &[".generation.complete", ".generation.completed", ".generation.started"];
+    const GENERATION_PATTERNS: &'static [&'static str] = &[
+        ".generation.complete",
+        ".generation.completed",
+        ".generation.started",
+    ];
 
     /// Patterns for throughput events
-    const THROUGHPUT_PATTERNS: &'static [&'static str] =
-        &[".throughput", ".rollout.concurrency", ".rollout_concurrency"];
+    const THROUGHPUT_PATTERNS: &'static [&'static str] = &[
+        ".throughput",
+        ".rollout.concurrency",
+        ".rollout_concurrency",
+    ];
 
     /// Patterns for termination events
     const TERMINATION_PATTERNS: &'static [&'static str] =
         &[".termination.triggered", ".termination"];
 
     /// Patterns for complete events
-    const COMPLETE_PATTERNS: &'static [&'static str] = &[".complete", ".completed", ".job.completed"];
+    const COMPLETE_PATTERNS: &'static [&'static str] =
+        &[".complete", ".completed", ".job.completed"];
 
     /// Patterns for validation events
     const VALIDATION_PATTERNS: &'static [&'static str] =
@@ -431,8 +437,14 @@ impl EventParser {
             Value::Object(obj) => obj
                 .get("reward")
                 .and_then(|v| Self::coerce_f64(Some(v)))
-                .or_else(|| obj.get("mean_reward").and_then(|v| Self::coerce_f64(Some(v))))
-                .or_else(|| obj.get("outcome_reward").and_then(|v| Self::coerce_f64(Some(v))))
+                .or_else(|| {
+                    obj.get("mean_reward")
+                        .and_then(|v| Self::coerce_f64(Some(v)))
+                })
+                .or_else(|| {
+                    obj.get("outcome_reward")
+                        .and_then(|v| Self::coerce_f64(Some(v)))
+                })
                 .or_else(|| obj.get("accuracy").and_then(|v| Self::coerce_f64(Some(v))))
                 .or_else(|| obj.get("score").and_then(|v| Self::coerce_f64(Some(v)))),
             _ => None,
@@ -583,8 +595,14 @@ impl EventParser {
                 data.get("outcome_objectives")
                     .and_then(|v| Self::extract_reward_from_value(Some(v)))
             })
-            .or_else(|| data.get("outcome_reward").and_then(|v| Self::coerce_f64(Some(v))))
-            .or_else(|| data.get("score").and_then(|v| Self::extract_reward_from_value(Some(v))));
+            .or_else(|| {
+                data.get("outcome_reward")
+                    .and_then(|v| Self::coerce_f64(Some(v)))
+            })
+            .or_else(|| {
+                data.get("score")
+                    .and_then(|v| Self::extract_reward_from_value(Some(v)))
+            });
 
         let instance_objectives = Self::parse_vec_f64_map(data.get("instance_objectives"));
         let instance_rewards = Self::extract_instance_rewards(&data_value);
@@ -610,13 +628,12 @@ impl EventParser {
         let candidate_value = Value::Object(candidate_view.clone());
 
         // Extract objectives: try top-level, then score.objectives
-        let objectives = Self::parse_f64_map(candidate_view.get("objectives"))
-            .or_else(|| {
-                candidate_view
-                    .get("score")
-                    .and_then(|v| v.as_object())
-                    .and_then(|score| Self::parse_f64_map(score.get("objectives")))
-            });
+        let objectives = Self::parse_f64_map(candidate_view.get("objectives")).or_else(|| {
+            candidate_view
+                .get("score")
+                .and_then(|v| v.as_object())
+                .and_then(|score| Self::parse_f64_map(score.get("objectives")))
+        });
 
         let reward_value = objectives.as_ref().and_then(|m| m.get("reward").copied());
 
@@ -632,7 +649,11 @@ impl EventParser {
                     .get("outcome_objectives")
                     .and_then(|v| Self::extract_reward_from_value(Some(v)))
             })
-            .or_else(|| candidate_view.get("outcome_reward").and_then(|v| Self::coerce_f64(Some(v))));
+            .or_else(|| {
+                candidate_view
+                    .get("outcome_reward")
+                    .and_then(|v| Self::coerce_f64(Some(v)))
+            });
 
         // If we found a reward but no objectives dict, construct one
         let objectives = objectives.or_else(|| {
@@ -643,7 +664,8 @@ impl EventParser {
             })
         });
 
-        let instance_objectives = Self::parse_vec_f64_map(candidate_view.get("instance_objectives"));
+        let instance_objectives =
+            Self::parse_vec_f64_map(candidate_view.get("instance_objectives"));
         let instance_rewards = Self::extract_instance_rewards(&candidate_value);
 
         CandidateEvent {
@@ -725,7 +747,8 @@ impl EventParser {
     pub fn parse_termination(event: &ParsedEvent) -> TerminationEvent {
         let data = event.data.as_object().cloned().unwrap_or_default();
         TerminationEvent {
-            reason: Self::coerce_string(data.get("reason")).unwrap_or_else(|| "unknown".to_string()),
+            reason: Self::coerce_string(data.get("reason"))
+                .unwrap_or_else(|| "unknown".to_string()),
         }
     }
 

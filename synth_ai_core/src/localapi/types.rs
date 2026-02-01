@@ -331,9 +331,7 @@ pub struct RolloutResponse {
 impl RolloutResponse {
     /// Check if the rollout succeeded.
     pub fn is_success(&self) -> bool {
-        self.success_status
-            .map(|s| s.is_success())
-            .unwrap_or(true)
+        self.success_status.map(|s| s.is_success()).unwrap_or(true)
     }
 
     /// Get the outcome reward.
@@ -398,11 +396,10 @@ mod tests {
 
     #[test]
     fn test_rollout_request() {
-        let request = RolloutRequest::new("trace-123")
-            .with_env(RolloutEnvSpec {
-                seed: Some(42),
-                ..Default::default()
-            });
+        let request = RolloutRequest::new("trace-123").with_env(RolloutEnvSpec {
+            seed: Some(42),
+            ..Default::default()
+        });
 
         assert_eq!(request.trace_correlation_id, "trace-123");
         assert_eq!(request.env.seed, Some(42));

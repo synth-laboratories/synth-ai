@@ -27,7 +27,11 @@ pub fn is_port_available(port: u16, host: &str) -> bool {
     true
 }
 
-pub fn find_available_port(start_port: u16, host: &str, max_attempts: u16) -> Result<u16, TunnelError> {
+pub fn find_available_port(
+    start_port: u16,
+    host: &str,
+    max_attempts: u16,
+) -> Result<u16, TunnelError> {
     for offset in 0..max_attempts {
         let port = start_port.saturating_add(offset);
         if is_port_available(port, host) {
@@ -52,9 +56,7 @@ pub fn kill_port(port: u16) -> Result<bool, TunnelError> {
         for line in stdout.lines() {
             if line.contains(&format!(":{port}")) && line.contains("LISTENING") {
                 if let Some(pid) = line.split_whitespace().last() {
-                    let _ = Command::new("taskkill")
-                        .args(["/F", "/PID", pid])
-                        .output();
+                    let _ = Command::new("taskkill").args(["/F", "/PID", pid]).output();
                     return Ok(true);
                 }
             }

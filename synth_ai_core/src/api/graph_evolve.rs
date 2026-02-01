@@ -97,8 +97,12 @@ impl<'a> GraphEvolveClient<'a> {
 
     /// Submit a Graph Evolve job.
     pub async fn submit_job(&self, payload: Value) -> Result<Value, CoreError> {
-        self.post_with_fallback(GRAPH_EVOLVE_ENDPOINT, Some(GRAPHGEN_LEGACY_ENDPOINT), &payload)
-            .await
+        self.post_with_fallback(
+            GRAPH_EVOLVE_ENDPOINT,
+            Some(GRAPHGEN_LEGACY_ENDPOINT),
+            &payload,
+        )
+        .await
     }
 
     /// Get job status.
@@ -112,7 +116,8 @@ impl<'a> GraphEvolveClient<'a> {
     pub async fn start_job(&self, job_id: &str) -> Result<Value, CoreError> {
         let primary = format!("{}/{}/start", GRAPH_EVOLVE_ENDPOINT, job_id);
         let legacy = format!("{}/{}/start", GRAPHGEN_LEGACY_ENDPOINT, job_id);
-        self.post_with_fallback(&primary, Some(&legacy), &Value::Null).await
+        self.post_with_fallback(&primary, Some(&legacy), &Value::Null)
+            .await
     }
 
     /// Get job events.
@@ -132,11 +137,7 @@ impl<'a> GraphEvolveClient<'a> {
     }
 
     /// Get job metrics.
-    pub async fn get_metrics(
-        &self,
-        job_id: &str,
-        query_string: &str,
-    ) -> Result<Value, CoreError> {
+    pub async fn get_metrics(&self, job_id: &str, query_string: &str) -> Result<Value, CoreError> {
         let query = query_string.trim_start_matches('?');
         let primary = if query.is_empty() {
             format!("{}/{}/metrics", GRAPH_EVOLVE_ENDPOINT, job_id)
@@ -162,7 +163,9 @@ impl<'a> GraphEvolveClient<'a> {
     pub async fn download_graph_txt(&self, job_id: &str) -> Result<String, CoreError> {
         let primary = format!("{}/{}/graph.txt", GRAPH_EVOLVE_ENDPOINT, job_id);
         let legacy = format!("{}/{}/graph.txt", GRAPHGEN_LEGACY_ENDPOINT, job_id);
-        let bytes = self.get_bytes_with_fallback(&primary, Some(&legacy)).await?;
+        let bytes = self
+            .get_bytes_with_fallback(&primary, Some(&legacy))
+            .await?;
         Ok(String::from_utf8_lossy(&bytes).to_string())
     }
 

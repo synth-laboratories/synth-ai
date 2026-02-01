@@ -20,6 +20,21 @@ from ..lm_call_record_abstractions import (
 from ..session_tracer import SessionTracer
 
 
+def _attr(obj, name):
+    """Get attribute from either pyclass or dict."""
+    if isinstance(obj, dict):
+        return obj[name]
+    return getattr(obj, name)
+
+
+def _is_event_type(obj, type_name: str) -> bool:
+    """Check event type for either pyclass or dict."""
+    if isinstance(obj, dict):
+        et = obj.get("event_type", "")
+        return et == type_name
+    return type(obj).__name__ == type_name
+
+
 @pytest.mark.asyncio
 class TestSessionTracer:
     """Test the async SessionTracer functionality."""
@@ -137,9 +152,9 @@ class TestSessionTracer:
 
         # Verify step indices
         for i, step in enumerate(trace.session_time_steps):
-            assert step.step_index == i
-            assert step.step_id == f"step_{i}"
-            assert step.turn_number == i
+            assert _attr(step, "step_index") == i
+            assert _attr(step, "step_id") == f"step_{i}"
+            assert _attr(step, "turn_number") == i
 
     async def test_hooks_integration(self):
         """Test hooks integration."""
@@ -348,20 +363,22 @@ class TestSessionTracer:
 
         # Verify all events
         assert len(trace.event_history) == 3
-        assert isinstance(trace.event_history[0], RuntimeEvent)
-        assert isinstance(trace.event_history[1], EnvironmentEvent)
-        assert isinstance(trace.event_history[2], LMCAISEvent)
+        assert _is_event_type(trace.event_history[0], "runtime")
+        assert _is_event_type(trace.event_history[1], "environment")
+        assert _is_event_type(trace.event_history[2], "cais")
 
         # Verify metadata
-        assert trace.event_history[0].metadata["type"] == "runtime"
-        assert trace.event_history[1].reward == 0.5
+        assert _attr(trace.event_history[0], "metadata")["type"] == "runtime"
+        assert _attr(trace.event_history[1], "reward") == 0.5
         # Verify new call_records structure
         lm_event_from_trace = trace.event_history[2]
-        assert len(lm_event_from_trace.call_records) == 1
-        lm_call_record = lm_event_from_trace.call_records[0]
-        assert lm_call_record.usage is not None
-        assert lm_call_record.model_name == "gpt-4"
-        assert lm_call_record.usage.total_tokens == 150
+        call_records = _attr(lm_event_from_trace, "call_records")
+        assert len(call_records) == 1
+        lm_call_record = call_records[0]
+        assert _attr(lm_call_record, "usage") is not None
+        assert _attr(lm_call_record, "model_name") == "gpt-4"
+        usage = _attr(lm_call_record, "usage")
+        assert _attr(usage, "total_tokens") == 150
 
     async def test_concurrent_timesteps_same_session(self):
         """Test that timesteps within a session are sequential, not concurrent."""

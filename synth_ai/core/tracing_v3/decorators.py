@@ -61,7 +61,7 @@ def get_session_id() -> str | None:
     Returns:
         The current session ID if one is set, None otherwise
     """
-    return _session_id_ctx.get()
+    return _session_id_ctx.get(None)
 
 
 def set_turn_number(turn: int | None) -> None:
@@ -71,7 +71,7 @@ def set_turn_number(turn: int | None) -> None:
 
 def get_turn_number() -> int | None:
     """Get the current turn number from context."""
-    return _turn_number_ctx.get()
+    return _turn_number_ctx.get(None)
 
 
 def set_session_tracer(tracer: Any) -> None:
@@ -81,7 +81,7 @@ def set_session_tracer(tracer: Any) -> None:
 
 def get_session_tracer() -> Any:
     """Get the current session tracer from context."""
-    return _session_tracer_ctx.get()
+    return _session_tracer_ctx.get(None)
 
 
 T = TypeVar("T")

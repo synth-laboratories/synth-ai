@@ -25,7 +25,12 @@ pub fn get_base_schema(name: &str) -> Option<Value> {
 }
 
 /// Merge a base schema with an algorithm extension (mirrors Python registry merge logic).
-pub fn merge_event_schema(base: &Value, extension: &Value, algorithm: &str, event_type: &str) -> Value {
+pub fn merge_event_schema(
+    base: &Value,
+    extension: &Value,
+    algorithm: &str,
+    event_type: &str,
+) -> Value {
     let mut merged = base.clone();
 
     if let Value::Object(ref mut map) = merged {
@@ -42,13 +47,19 @@ pub fn merge_event_schema(base: &Value, extension: &Value, algorithm: &str, even
             Value::String(format!(
                 "{}{}Event",
                 algorithm.to_uppercase(),
-                event_type.replace('.', " ").split_whitespace().map(|s| {
-                    let mut chars = s.chars();
-                    match chars.next() {
-                        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-                        None => String::new(),
-                    }
-                }).collect::<String>()
+                event_type
+                    .replace('.', " ")
+                    .split_whitespace()
+                    .map(|s| {
+                        let mut chars = s.chars();
+                        match chars.next() {
+                            Some(first) => {
+                                first.to_uppercase().collect::<String>() + chars.as_str()
+                            }
+                            None => String::new(),
+                        }
+                    })
+                    .collect::<String>()
             )),
         );
         if let Value::Object(ext_map) = extension {
@@ -67,7 +78,9 @@ pub fn merge_event_schema(base: &Value, extension: &Value, algorithm: &str, even
                                 .or_insert_with(|| Value::Object(Map::new()));
                             if let Value::Object(ref mut data_properties) = props_entry {
                                 if let Value::Object(ext_map) = extension {
-                                    if let Some(Value::Object(ext_props)) = ext_map.get("properties") {
+                                    if let Some(Value::Object(ext_props)) =
+                                        ext_map.get("properties")
+                                    {
                                         for (key, val) in ext_props {
                                             data_properties.insert(key.clone(), val.clone());
                                         }

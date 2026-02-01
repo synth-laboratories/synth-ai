@@ -18,7 +18,11 @@ pub fn strip_json_comments(raw: &str) -> String {
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
-        let next = if i + 1 < chars.len() { chars[i + 1] } else { '\0' };
+        let next = if i + 1 < chars.len() {
+            chars[i + 1]
+        } else {
+            '\0'
+        };
 
         if in_line_comment {
             if c == '\n' {
@@ -97,7 +101,10 @@ pub fn load_json_to_value(path: &Path) -> Value {
 
 pub fn repo_root() -> Option<PathBuf> {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest.parent().and_then(|p| p.parent()).map(|p| p.to_path_buf())
+    manifest
+        .parent()
+        .and_then(|p| p.parent())
+        .map(|p| p.to_path_buf())
 }
 
 pub fn synth_home_dir() -> PathBuf {
@@ -123,7 +130,11 @@ pub fn is_file_type(path: &Path, ext: &str) -> bool {
     if !ext.starts_with('.') {
         ext.insert(0, '.');
     }
-    path.is_file() && path.extension().map(|e| format!(".{}", e.to_string_lossy())) == Some(ext)
+    path.is_file()
+        && path
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            == Some(ext)
 }
 
 pub fn validate_file_type(path: &Path, ext: &str) -> CoreResult<()> {
@@ -186,7 +197,11 @@ pub fn find_config_path(bin: &Path, home_subdir: &str, filename: &str) -> Option
     if home_candidate.exists() {
         return Some(home_candidate);
     }
-    let local_candidate = bin.parent().unwrap_or(Path::new(".")).join(home_subdir).join(filename);
+    let local_candidate = bin
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join(home_subdir)
+        .join(filename);
     if local_candidate.exists() {
         return Some(local_candidate);
     }
@@ -262,7 +277,10 @@ pub fn write_private_text(path: &Path, content: &str, mode: u32) -> io::Result<(
     if let Some(parent) = path.parent() {
         ensure_private_dir(parent)?;
         let mut tmp = tempfile::Builder::new()
-            .prefix(&format!("{}.", path.file_name().unwrap_or_default().to_string_lossy()))
+            .prefix(&format!(
+                "{}.",
+                path.file_name().unwrap_or_default().to_string_lossy()
+            ))
             .tempfile_in(parent)?;
         let _ = set_permissions(tmp.path(), mode);
         tmp.write_all(content.as_bytes())?;

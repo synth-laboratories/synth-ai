@@ -1,8 +1,8 @@
 use crate::auth;
 use crate::errors::{CoreError, HttpErrorInfo};
 use base64::{engine::general_purpose, Engine as _};
-use sodiumoxide::crypto::box_::PublicKey;
 use serde_json::Value;
+use sodiumoxide::crypto::box_::PublicKey;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::time::Duration;
@@ -14,7 +14,8 @@ pub const ENVIRONMENT_API_KEY_ALIASES_NAME: &str = "ENVIRONMENT_API_KEY_ALIASES"
 pub const MAX_ENVIRONMENT_API_KEY_BYTES: usize = 8 * 1024;
 pub const SEALED_BOX_ALGORITHM: &str = "libsodium.sealedbox.v1";
 
-const DEV_ENVIRONMENT_API_KEY_NAMES: [&str; 2] = ["dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY"];
+const DEV_ENVIRONMENT_API_KEY_NAMES: [&str; 2] =
+    ["dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY"];
 
 fn mask(value: &str, prefix: usize) -> String {
     if value.is_empty() {
@@ -98,7 +99,9 @@ pub fn is_api_key_header_authorized(header_values: &[String]) -> bool {
         return false;
     }
     let allowed_set: HashSet<String> = allowed.into_iter().collect();
-    candidates.into_iter().any(|candidate| allowed_set.contains(&candidate))
+    candidates
+        .into_iter()
+        .any(|candidate| allowed_set.contains(&candidate))
 }
 
 pub fn mint_environment_api_key() -> String {
@@ -112,7 +115,9 @@ pub fn encrypt_for_backend(pubkey_b64: &str, secret: &[u8]) -> Result<String, Co
         ));
     }
     if secret.is_empty() {
-        return Err(CoreError::InvalidInput("secret must not be empty".to_string()));
+        return Err(CoreError::InvalidInput(
+            "secret must not be empty".to_string(),
+        ));
     }
 
     let key_bytes = general_purpose::STANDARD
@@ -140,7 +145,9 @@ fn normalize_backend_base(backend_base: &str) -> Result<String, CoreError> {
         backend = backend.trim_end_matches("/api").to_string();
     }
     if backend.is_empty() {
-        return Err(CoreError::InvalidInput("backend_base must be provided".to_string()));
+        return Err(CoreError::InvalidInput(
+            "backend_base must be provided".to_string(),
+        ));
     }
     Ok(backend)
 }
@@ -217,7 +224,9 @@ pub async fn setup_environment_api_key(
     let public_key = doc
         .get("public_key")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| CoreError::InvalidInput("backend response missing public_key".to_string()))?;
+        .ok_or_else(|| {
+            CoreError::InvalidInput("backend response missing public_key".to_string())
+        })?;
     if let Some(alg) = doc.get("alg").and_then(|v| v.as_str()) {
         if alg != SEALED_BOX_ALGORITHM {
             return Err(CoreError::InvalidInput(format!(
@@ -234,12 +243,18 @@ pub async fn setup_environment_api_key(
     let post_url = format!("{}/api/v1/env-keys", backend);
     let resp2 = client
         .post(&post_url)
-        .header(reqwest::header::AUTHORIZATION, format!("Bearer {}", synth_api_key))
+        .header(
+            reqwest::header::AUTHORIZATION,
+            format!("Bearer {}", synth_api_key),
+        )
         .json(&body)
         .send()
         .await?;
     let resp2 = raise_with_detail(resp2).await?;
-    let upload_doc: Value = resp2.json().await.unwrap_or(Value::Object(Default::default()));
+    let upload_doc: Value = resp2
+        .json()
+        .await
+        .unwrap_or(Value::Object(Default::default()));
 
     let mut result = serde_json::Map::new();
     result.insert("stored".to_string(), Value::Bool(true));
@@ -289,8 +304,14 @@ pub async fn ensure_localapi_auth(
 
     if minted && persist {
         let mut updates = HashMap::new();
-        updates.insert(ENVIRONMENT_API_KEY_NAME.to_string(), Value::String(key.clone()));
-        updates.insert(DEV_ENVIRONMENT_API_KEY_NAME.to_string(), Value::String(key.clone()));
+        updates.insert(
+            ENVIRONMENT_API_KEY_NAME.to_string(),
+            Value::String(key.clone()),
+        );
+        updates.insert(
+            DEV_ENVIRONMENT_API_KEY_NAME.to_string(),
+            Value::String(key.clone()),
+        );
         let _ = auth::update_user_config(&updates)?;
     }
 

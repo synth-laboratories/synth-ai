@@ -52,14 +52,12 @@ impl ObjectiveSpec {
 
     /// Create a cost minimization objective.
     pub fn minimize_cost() -> Self {
-        Self::new(ObjectiveKey::CostUsd, ObjectiveDirection::Minimize)
-            .with_units("usd")
+        Self::new(ObjectiveKey::CostUsd, ObjectiveDirection::Minimize).with_units("usd")
     }
 
     /// Create a latency minimization objective.
     pub fn minimize_latency() -> Self {
-        Self::new(ObjectiveKey::LatencyMs, ObjectiveDirection::Minimize)
-            .with_units("ms")
+        Self::new(ObjectiveKey::LatencyMs, ObjectiveDirection::Minimize).with_units("ms")
     }
 
     /// Set units for this objective.

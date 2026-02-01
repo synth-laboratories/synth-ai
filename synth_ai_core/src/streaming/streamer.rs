@@ -131,11 +131,16 @@ impl JobStreamer {
                         for event in events {
                             if self.config.should_include_event(event) {
                                 let seq = event.get("seq").and_then(|v| v.as_i64());
-                                let msg = StreamMessage::event(&self.job_id, event.clone(), seq.unwrap_or(0));
+                                let msg = StreamMessage::event(
+                                    &self.job_id,
+                                    event.clone(),
+                                    seq.unwrap_or(0),
+                                );
 
                                 // Update last seen seq
                                 if let Some(s) = seq {
-                                    self.last_event_seq = Some(self.last_event_seq.map(|l| l.max(s)).unwrap_or(s));
+                                    self.last_event_seq =
+                                        Some(self.last_event_seq.map(|l| l.max(s)).unwrap_or(s));
                                 }
 
                                 self.dispatch_message(&msg);
@@ -193,7 +198,8 @@ impl JobStreamer {
                         for metric in metrics {
                             if self.config.should_include_metric(metric) {
                                 let step = metric.get("step").and_then(|v| v.as_i64()).unwrap_or(0);
-                                let msg = StreamMessage::metrics(&self.job_id, metric.clone(), step);
+                                let msg =
+                                    StreamMessage::metrics(&self.job_id, metric.clone(), step);
                                 self.dispatch_message(&msg);
                                 all_messages.push(msg);
                             }
@@ -232,7 +238,8 @@ impl JobStreamer {
                     let mut entries: Option<&Vec<Value>> = None;
                     if let Some(items) = response.get("events").and_then(|v| v.as_array()) {
                         entries = Some(items);
-                    } else if let Some(items) = response.get("timeline").and_then(|v| v.as_array()) {
+                    } else if let Some(items) = response.get("timeline").and_then(|v| v.as_array())
+                    {
                         entries = Some(items);
                     } else if let Some(items) = response.as_array() {
                         entries = Some(items);
@@ -243,10 +250,7 @@ impl JobStreamer {
                             if !self.config.should_include_timeline(entry) {
                                 continue;
                             }
-                            let phase = entry
-                                .get("phase")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("");
+                            let phase = entry.get("phase").and_then(|v| v.as_str()).unwrap_or("");
                             let job_id = entry
                                 .get("job_id")
                                 .and_then(|v| v.as_str())
@@ -410,11 +414,21 @@ mod tests {
 
     #[test]
     fn test_terminal_detection() {
-        assert!(JobStreamer::is_terminal(&serde_json::json!({"status": "succeeded"})));
-        assert!(JobStreamer::is_terminal(&serde_json::json!({"status": "failed"})));
-        assert!(JobStreamer::is_terminal(&serde_json::json!({"status": "cancelled"})));
-        assert!(!JobStreamer::is_terminal(&serde_json::json!({"status": "running"})));
-        assert!(!JobStreamer::is_terminal(&serde_json::json!({"status": "pending"})));
+        assert!(JobStreamer::is_terminal(
+            &serde_json::json!({"status": "succeeded"})
+        ));
+        assert!(JobStreamer::is_terminal(
+            &serde_json::json!({"status": "failed"})
+        ));
+        assert!(JobStreamer::is_terminal(
+            &serde_json::json!({"status": "cancelled"})
+        ));
+        assert!(!JobStreamer::is_terminal(
+            &serde_json::json!({"status": "running"})
+        ));
+        assert!(!JobStreamer::is_terminal(
+            &serde_json::json!({"status": "pending"})
+        ));
     }
 
     #[test]

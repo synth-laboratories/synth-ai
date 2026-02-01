@@ -31,28 +31,19 @@ pub fn log_event_summary(event: &ParsedEvent) {
     if let (Some(entity), Some(action)) = (path.entity.as_deref(), path.action.as_deref()) {
         eprintln!(
             "[STREAM] Event path: {}.{} (alg={:?} detail={:?})",
-            entity,
-            action,
-            path.algorithm,
-            path.detail
+            entity, action, path.algorithm, path.detail
         );
     }
     match event.category {
         EventCategory::Baseline => {
             let baseline = EventParser::parse_baseline(event);
-            eprintln!(
-                "[STREAM] Baseline: reward={:.3?}",
-                baseline.reward
-            );
+            eprintln!("[STREAM] Baseline: reward={:.3?}", baseline.reward);
         }
         EventCategory::Candidate => {
             let candidate = EventParser::parse_candidate(event);
             eprintln!(
                 "[STREAM] Candidate {}: reward={:.3?} accepted={} gen={:?}",
-                candidate.candidate_id,
-                candidate.reward,
-                candidate.accepted,
-                candidate.generation
+                candidate.candidate_id, candidate.reward, candidate.accepted, candidate.generation
             );
         }
         EventCategory::Frontier => {
@@ -175,10 +166,7 @@ impl EventStream {
             ("limit", self.max_events_per_poll.to_string()),
         ];
 
-        let params_slice: &[(&str, &str)] = &[
-            ("since_seq", &params[0].1),
-            ("limit", &params[1].1),
-        ];
+        let params_slice: &[(&str, &str)] = &[("since_seq", &params[0].1), ("limit", &params[1].1)];
 
         eprintln!(
             "[STREAM] poll_events: job={} since_seq={} limit={}",
@@ -305,7 +293,7 @@ impl EventStream {
             }
 
             poll_count += 1;
-            
+
             // Log every 10 polls or when significant time has passed
             if poll_count % 10 == 0 {
                 eprintln!(
@@ -332,7 +320,7 @@ impl EventStream {
                     for event in &events {
                         // Log each event summary
                         log_event_summary(event);
-                        
+
                         on_event(event);
 
                         // Check for terminal events

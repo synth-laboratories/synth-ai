@@ -11,7 +11,7 @@ use std::env;
 use std::time::Duration;
 use thiserror::Error;
 
-use crate::shared_client::{DEFAULT_POOL_SIZE, DEFAULT_CONNECT_TIMEOUT_SECS};
+use crate::shared_client::{DEFAULT_CONNECT_TIMEOUT_SECS, DEFAULT_POOL_SIZE};
 
 /// HTTP error details.
 #[derive(Debug, Clone)]
@@ -136,15 +136,13 @@ impl HttpClient {
             let auth_value = format!("Bearer {}", api_key);
             headers.insert(
                 AUTHORIZATION,
-                HeaderValue::from_str(&auth_value).map_err(|_| {
-                    HttpError::InvalidUrl("invalid api key characters".to_string())
-                })?,
+                HeaderValue::from_str(&auth_value)
+                    .map_err(|_| HttpError::InvalidUrl("invalid api key characters".to_string()))?,
             );
             headers.insert(
                 "X-API-Key",
-                HeaderValue::from_str(api_key).map_err(|_| {
-                    HttpError::InvalidUrl("invalid api key characters".to_string())
-                })?,
+                HeaderValue::from_str(api_key)
+                    .map_err(|_| HttpError::InvalidUrl("invalid api key characters".to_string()))?,
             );
         }
 
@@ -354,13 +352,13 @@ impl HttpClient {
         let text = resp.text().await.unwrap_or_default();
 
         if (200..300).contains(&status) {
-            serde_json::from_str(&text)
-                .map_err(|e| HttpError::JsonParse(format!("{}: {}", e, &text[..text.len().min(100)])))
+            serde_json::from_str(&text).map_err(|e| {
+                HttpError::JsonParse(format!("{}: {}", e, &text[..text.len().min(100)]))
+            })
         } else {
             Err(HttpError::from_response(status, url, Some(&text)))
         }
     }
-
 }
 
 #[cfg(test)]

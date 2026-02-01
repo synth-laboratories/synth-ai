@@ -19,9 +19,9 @@ pub struct BackoffConfig {
 impl Default for BackoffConfig {
     fn default() -> Self {
         Self {
-            base_interval_ms: 5000,  // 5 seconds
-            max_backoff_ms: 60000,   // 60 seconds
-            max_exponent: 4,         // 2^4 = 16x max multiplier
+            base_interval_ms: 5000, // 5 seconds
+            max_backoff_ms: 60000,  // 60 seconds
+            max_exponent: 4,        // 2^4 = 16x max multiplier
         }
     }
 }
@@ -39,9 +39,9 @@ impl BackoffConfig {
     /// Create a fast backoff config for quick retries.
     pub fn fast() -> Self {
         Self {
-            base_interval_ms: 1000,  // 1 second
-            max_backoff_ms: 10000,   // 10 seconds
-            max_exponent: 3,         // 2^3 = 8x max multiplier
+            base_interval_ms: 1000, // 1 second
+            max_backoff_ms: 10000,  // 10 seconds
+            max_exponent: 3,        // 2^3 = 8x max multiplier
         }
     }
 
@@ -307,7 +307,7 @@ mod tests {
         assert_eq!(calculate_backoff(&config, 2).as_millis(), 2000); // 1000 * 2^1 = 2000
         assert_eq!(calculate_backoff(&config, 3).as_millis(), 4000); // 1000 * 2^2 = 4000
         assert_eq!(calculate_backoff(&config, 4).as_millis(), 8000); // 1000 * 2^3 = 8000
-        // max_exponent=3, so exponent is capped at 3 (8x multiplier)
+                                                                     // max_exponent=3, so exponent is capped at 3 (8x multiplier)
         assert_eq!(calculate_backoff(&config, 5).as_millis(), 8000); // 1000 * 2^3 = 8000 (capped)
         assert_eq!(calculate_backoff(&config, 10).as_millis(), 8000); // 1000 * 2^3 = 8000 (capped)
     }

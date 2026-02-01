@@ -39,6 +39,13 @@ except Exception:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
+def _ga(obj: Any, name: str) -> Any:
+    """Get attribute from pyclass or dict."""
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
 @dataclass(slots=True)
 class _ConnectionTarget:
     """Resolved connection target for sqlite."""
@@ -89,7 +96,7 @@ def _resolve_connection_target(db_url: str | None) -> _ConnectionTarget:
                 db_path = ":memory:"
             else:
                 raise RuntimeError("SQLite URL missing database path.")
-            return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
+            return _ConnectionTarget(database=db_path)
     except Exception:  # pragma: no cover - defensive guardrail
         logger.debug("Unable to parse db_url via SQLAlchemy", exc_info=True)
 
@@ -120,6 +127,53 @@ def _maybe_datetime(value: Any) -> Any:
         except ValueError:
             pass
     return value
+
+
+def _datetime_to_iso(value: Any, *, default_now: bool = False) -> str | None:
+    if value is None:
+        return datetime.now(UTC).isoformat() if default_now else None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def _time_record_values(time_record: Any) -> tuple[float | None, int | None]:
+    if isinstance(time_record, dict):
+        return time_record.get("event_time"), time_record.get("message_time")
+    return getattr(time_record, "event_time", None), getattr(time_record, "message_time", None)
+
+
+def _message_content_text(content: Any) -> str | None:
+    if hasattr(content, "as_text"):
+        return content.as_text()
+    text = getattr(content, "text", None)
+    if text:
+        return text
+    json_payload = getattr(content, "json_payload", None)
+    if json_payload is not None:
+        if isinstance(json_payload, str):
+            return json_payload
+        try:
+            return json.dumps(json_payload, default=str)
+        except Exception:
+            return str(json_payload)
+    if hasattr(content, "to_dict"):
+        try:
+            data = content.to_dict()
+            if isinstance(data, dict):
+                if data.get("text"):
+                    return data["text"]
+                if data.get("json_payload") is not None:
+                    json_payload = data["json_payload"]
+                    if isinstance(json_payload, str):
+                        return json_payload
+                    return json.dumps(json_payload, default=str)
+            return json.dumps(data, default=str)
+        except Exception:
+            pass
+    return str(content)
 
 
 def _load_json(value: Any) -> Any:
@@ -406,7 +460,7 @@ class SQLiteTraceManager(TraceStorage):
                 conn.commit()
             # Skip events and timesteps to ensure idempotency
         else:
-            created_at = trace.created_at or datetime.now(UTC)
+            created_at_val = _datetime_to_iso(trace.created_at, default_now=True)
 
             async with self._op_lock:
                 conn = self._conn
@@ -425,7 +479,7 @@ class SQLiteTraceManager(TraceStorage):
                     """,
                     (
                         trace.session_id,
-                        created_at.isoformat(),
+                        created_at_val,
                         _json_dumps(trace.metadata or {}),
                     ),
                 )
@@ -436,18 +490,18 @@ class SQLiteTraceManager(TraceStorage):
             for step in trace.session_time_steps:
                 step_db_id = await self.ensure_timestep(
                     trace.session_id,
-                    step_id=step.step_id,
-                    step_index=step.step_index,
-                    turn_number=step.turn_number,
-                    started_at=step.timestamp,
-                    completed_at=step.completed_at,
-                    metadata=step.step_metadata or {},
+                    step_id=_ga(step, "step_id"),
+                    step_index=_ga(step, "step_index"),
+                    turn_number=_ga(step, "turn_number"),
+                    started_at=_ga(step, "timestamp"),
+                    completed_at=_ga(step, "completed_at"),
+                    metadata=_ga(step, "step_metadata") or {},
                 )
-                step_id_map[step.step_id] = step_db_id
+                step_id_map[_ga(step, "step_id")] = step_db_id
 
             for event in trace.event_history:
                 step_ref = None
-                metadata = event.metadata or {}
+                metadata = _ga(event, "metadata") or {}
                 if isinstance(metadata, dict):
                     step_ref = metadata.get("step_id")
                 timestep_db_id = step_id_map.get(step_ref) if step_ref else None
@@ -455,7 +509,7 @@ class SQLiteTraceManager(TraceStorage):
                     trace.session_id,
                     timestep_db_id=timestep_db_id,
                     event=event,
-                    metadata_override=event.metadata or {},
+                    metadata_override=_ga(event, "metadata") or {},
                 )
 
         import logging as _logging
@@ -468,35 +522,54 @@ class SQLiteTraceManager(TraceStorage):
         # Only insert messages if this is a new session (for idempotency)
         if not session_exists:
             for idx, msg in enumerate(trace.markov_blanket_message_history):
-                metadata = dict(getattr(msg, "metadata", {}) or {})
+                metadata = dict(_ga(msg, "metadata") or {})
                 step_ref = metadata.get("step_id")
-                content_value = msg.content
-                if isinstance(msg.content, SessionMessageContent):
-                    if msg.content.json_payload:
-                        metadata.setdefault("json_payload", msg.content.json_payload)
-                        content_value = msg.content.json_payload
+                content_raw = _ga(msg, "content")
+                content_value = content_raw
+                if isinstance(content_raw, SessionMessageContent):
+                    if content_raw.json_payload:
+                        metadata.setdefault("json_payload", content_raw.json_payload)
+                        content_value = content_raw.json_payload
                     else:
-                        content_value = msg.content.as_text()
-                        if msg.content.text:
-                            metadata.setdefault("text", msg.content.text)
+                        content_value = _message_content_text(content_raw)
+                        if content_raw.text:
+                            metadata.setdefault("text", content_raw.text)
+                elif isinstance(content_raw, dict):
+                    jp = content_raw.get("json_payload")
+                    txt = content_raw.get("text")
+                    if jp:
+                        metadata.setdefault("json_payload", jp)
+                        content_value = jp
+                    elif txt:
+                        metadata.setdefault("text", txt)
+                        content_value = txt
+                    else:
+                        content_value = json.dumps(content_raw, ensure_ascii=False)
                 elif not isinstance(content_value, str):
                     try:
                         content_value = json.dumps(content_value, ensure_ascii=False)
                     except (TypeError, ValueError):
                         content_value = str(content_value)
 
+                msg_type = _ga(msg, "message_type") or ""
                 _logger.info(
-                    f"[TRACE_DEBUG]   Message {idx + 1}: type={msg.message_type}, content_len={len(str(content_value))}"
+                    f"[TRACE_DEBUG]   Message {idx + 1}: type={msg_type}, content_len={len(str(content_value))}"
                 )
 
                 try:
+                    time_rec = _ga(msg, "time_record")
+                    if isinstance(time_rec, dict):
+                        event_time = time_rec.get("event_time", 0.0)
+                        message_time = time_rec.get("message_time")
+                    else:
+                        event_time, message_time = _time_record_values(time_rec)
                     await self.insert_message_row(
                         trace.session_id,
                         timestep_db_id=step_id_map.get(step_ref) if step_ref else None,
-                        message_type=msg.message_type,
+                        message_type=msg_type,
                         content=content_value,
-                        event_time=msg.time_record.event_time,
-                        message_time=msg.time_record.message_time,
+                        event_time=event_time,
+                        message_time=message_time,
                         metadata=metadata,
                     )
                     _logger.info(f"[TRACE_DEBUG]   Message {idx + 1}: saved successfully")
@@ -958,7 +1031,7 @@ class SQLiteTraceManager(TraceStorage):
     ) -> None:
         await self.initialize()
 
-        created_at_val = (created_at or datetime.now(UTC)).isoformat()
+        created_at_val = _datetime_to_iso(created_at, default_now=True)
         metadata_json = _json_dumps(metadata or {})
 
         async with self._op_lock:
@@ -990,8 +1063,8 @@ class SQLiteTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        started_at_val = (started_at or datetime.now(UTC)).isoformat()
-        completed_at_val = completed_at.isoformat() if completed_at else None
+        started_at_val = _datetime_to_iso(started_at, default_now=True)
+        completed_at_val = _datetime_to_iso(completed_at, default_now=False)
         metadata_json = _json_dumps(metadata or {})
 
         async with self._op_lock:
@@ -1056,63 +1129,84 @@ class SQLiteTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        if not isinstance(event, EnvironmentEvent | LMCAISEvent | RuntimeEvent):
+        # Handle both pyclass instances and dicts (from __getattr__ on Rust models)
+        is_dict = isinstance(event, dict)
+        if is_dict:
+            event_type = event.get("event_type", "")
+        elif not isinstance(event, EnvironmentEvent | LMCAISEvent | RuntimeEvent):
             raise TypeError(f"Unsupported event type for native manager: {type(event)!r}")
+        else:
+            event_type = ""
 
-        metadata_json = metadata_override or event.metadata or {}
-        event_extra_metadata = getattr(event, "event_metadata", None)
-        system_state_before = getattr(event, "system_state_before", None)
-        system_state_after = getattr(event, "system_state_after", None)
+        metadata_json = metadata_override or _ga(event, "metadata") or {}
+        event_extra_metadata = _ga(event, "event_metadata")
+        system_state_before = _ga(event, "system_state_before")
+        system_state_after = _ga(event, "system_state_after")
+
+        time_record = _ga(event, "time_record")
+        if isinstance(time_record, dict):
+            ev_time = time_record.get("event_time", 0.0)
+            msg_time = time_record.get("message_time")
+        else:
+            ev_time, msg_time = _time_record_values(time_record)
 
         payload: dict[str, Any] = {
             "session_id": session_id,
             "timestep_id": timestep_db_id,
-            "system_instance_id": event.system_instance_id,
-            "event_time": event.time_record.event_time,
-            "message_time": event.time_record.message_time,
+            "system_instance_id": _ga(event, "system_instance_id"),
+            "event_time": ev_time,
+            "message_time": msg_time,
             "metadata": metadata_json,
             "event_metadata": event_extra_metadata,
             "system_state_before": system_state_before,
             "system_state_after": system_state_after,
         }
 
-        if isinstance(event, LMCAISEvent):
+        is_cais = isinstance(event, LMCAISEvent) or (is_dict and event_type == "cais")
+        is_env = isinstance(event, EnvironmentEvent) or (is_dict and event_type == "environment")
+        is_runtime = isinstance(event, RuntimeEvent) or (is_dict and event_type == "runtime")
+
+        if is_cais:
+            raw_call_records = _ga(event, "call_records")
             call_records = None
-            if getattr(event, "call_records", None):
-                # Handle both dataclass instances and dicts (from deserialization)
+            if raw_call_records:
                 call_records = [
-                    asdict(record) if not isinstance(record, dict) else record
-                    for record in event.call_records
+                    r
+                    if isinstance(r, dict)
+                    else (r.to_dict() if hasattr(r, "to_dict") else asdict(r))
+                    for r in raw_call_records
                 ]
+            cost = _ga(event, "cost_usd")
             payload.update(
                 {
                     "event_type": "cais",
-                    "model_name": event.model_name,
-                    "provider": event.provider,
-                    "input_tokens": event.input_tokens,
-                    "output_tokens": event.output_tokens,
-                    "total_tokens": event.total_tokens,
-                    "cost_usd": int(event.cost_usd * 100) if event.cost_usd is not None else None,
-                    "latency_ms": event.latency_ms,
-                    "span_id": event.span_id,
-                    "trace_id": event.trace_id,
+                    "model_name": _ga(event, "model_name"),
+                    "provider": _ga(event, "provider"),
+                    "input_tokens": _ga(event, "input_tokens"),
+                    "output_tokens": _ga(event, "output_tokens"),
+                    "total_tokens": _ga(event, "total_tokens"),
+                    "cost_usd": int(cost * 100) if cost is not None else None,
+                    "latency_ms": _ga(event, "latency_ms"),
+                    "span_id": _ga(event, "span_id"),
+                    "trace_id": _ga(event, "trace_id"),
                     "call_records": call_records,
                 }
             )
-        elif isinstance(event, EnvironmentEvent):
+        elif is_env:
             payload.update(
                 {
                     "event_type": "environment",
-                    "reward": event.reward,
-                    "terminated": event.terminated,
-                    "truncated": event.truncated,
+                    "reward": _ga(event, "reward"),
+                    "terminated": _ga(event, "terminated"),
+                    "truncated": _ga(event, "truncated"),
                 }
             )
-        elif isinstance(event, RuntimeEvent):
+        elif is_runtime:
+            md = _ga(event, "metadata") or {}
             payload.update(
                 {
                     "event_type": "runtime",
-                    "metadata": {**(event.metadata or {}), "actions": event.actions},
+                    "metadata": {**md, "actions": _ga(event, "actions") or []},
                 }
             )
 

@@ -146,7 +146,14 @@ impl Rubric {
     /// Validate this rubric's configuration.
     pub fn validate(&self) -> Result<(), String> {
         // Check aggregation method
-        const VALID_AGGREGATIONS: &[&str] = &["sum", "weighted_sum", "mean", "weighted_mean", "custom", "inherit"];
+        const VALID_AGGREGATIONS: &[&str] = &[
+            "sum",
+            "weighted_sum",
+            "mean",
+            "weighted_mean",
+            "custom",
+            "inherit",
+        ];
         if !VALID_AGGREGATIONS.contains(&self.aggregation.as_str()) {
             return Err(format!(
                 "Invalid aggregation '{}'. Valid options: {:?}",
@@ -232,8 +239,7 @@ mod tests {
 
     #[test]
     fn test_rubric_serde() {
-        let rubric = Rubric::new("1.0")
-            .with_criterion(Criterion::new("test", "Test criterion"));
+        let rubric = Rubric::new("1.0").with_criterion(Criterion::new("test", "Test criterion"));
 
         let json = serde_json::to_string(&rubric).unwrap();
         let parsed: Rubric = serde_json::from_str(&json).unwrap();

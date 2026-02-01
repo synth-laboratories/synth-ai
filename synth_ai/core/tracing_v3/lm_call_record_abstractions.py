@@ -29,8 +29,17 @@ def compute_latency_ms(record: LLMCallRecord) -> int | None:
 
     This helper function remains here as it contains logic, not just data.
     """
-    if record.started_at and record.completed_at:
-        delta = int((record.completed_at - record.started_at).total_seconds() * 1000)
+    started = record.started_at
+    completed = record.completed_at
+    if started and completed:
+        from datetime import datetime
+
+        # Handle string timestamps from Rust models
+        if isinstance(started, str):
+            started = datetime.fromisoformat(started)
+        if isinstance(completed, str):
+            completed = datetime.fromisoformat(completed)
+        delta = int((completed - started).total_seconds() * 1000)
         record.latency_ms = delta
         return delta
     return record.latency_ms

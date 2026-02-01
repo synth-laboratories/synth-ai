@@ -130,13 +130,11 @@ fn normalize_mipro(pl_map: &mut Map<String, Value>) -> Result<(), CoreError> {
     let needs_env_name = pl_map.get("env_name").is_none() && pl_map.get("task_app_id").is_none();
 
     let env_name = {
-        let mipro = pl_map
-            .get_mut("mipro")
-            .ok_or_else(|| {
-                CoreError::Validation(
-                    "MIPRO config missing [prompt_learning.mipro] section.".to_string(),
-                )
-            })?;
+        let mipro = pl_map.get_mut("mipro").ok_or_else(|| {
+            CoreError::Validation(
+                "MIPRO config missing [prompt_learning.mipro] section.".to_string(),
+            )
+        })?;
         if !mipro.is_object() {
             *mipro = Value::Object(Map::new());
         }
@@ -231,7 +229,9 @@ pub fn build_prompt_learning_payload(
     } else if let Some(env) = env_task_url {
         env
     } else {
-        return Err(CoreError::Validation("task_app_url is required".to_string()));
+        return Err(CoreError::Validation(
+            "task_app_url is required".to_string(),
+        ));
     };
 
     pl_map.insert(
@@ -282,10 +282,7 @@ pub fn build_prompt_learning_payload(
     }
 
     if !config_overrides.is_empty() {
-        deep_update(
-            &mut config_dict,
-            &Value::Object(config_overrides.clone()),
-        );
+        deep_update(&mut config_dict, &Value::Object(config_overrides.clone()));
     }
 
     if algorithm == "mipro" {
@@ -322,10 +319,7 @@ pub fn build_prompt_learning_payload(
     let mut payload = Map::new();
     payload.insert("algorithm".to_string(), Value::String(algorithm));
     payload.insert("config_body".to_string(), config_dict);
-    payload.insert(
-        "overrides".to_string(),
-        Value::Object(config_overrides),
-    );
+    payload.insert("overrides".to_string(), Value::Object(config_overrides));
     payload.insert("metadata".to_string(), Value::Object(metadata));
     payload.insert("auto_start".to_string(), Value::Bool(auto_start));
 

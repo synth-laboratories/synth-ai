@@ -1,7 +1,6 @@
 //! SynthTunnel WebSocket agent — runs in its own tokio runtime,
 //! forwarding HTTP requests from the relay to a local server.
 
-
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -13,9 +12,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
 use tokio_tungstenite::tungstenite::{
-    client::IntoClientRequest,
-    http::HeaderValue,
-    Message as WsMessage,
+    client::IntoClientRequest, http::HeaderValue, Message as WsMessage,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -193,9 +190,7 @@ fn rand_u64() -> u64 {
 // start_agent — connect, attach, spawn background loop
 // ---------------------------------------------------------------------------
 
-pub async fn start_agent(
-    config: SynthTunnelConfig,
-) -> Result<SynthTunnelAgentHandle, TunnelError> {
+pub async fn start_agent(config: SynthTunnelConfig) -> Result<SynthTunnelAgentHandle, TunnelError> {
     // Build WS request with Bearer auth
     let mut request = config
         .ws_url
@@ -276,9 +271,7 @@ pub async fn start_agent(
 // ---------------------------------------------------------------------------
 
 type WsRx = futures_util::stream::SplitStream<
-    tokio_tungstenite::WebSocketStream<
-        tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-    >,
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
 >;
 
 async fn agent_loop(
@@ -405,10 +398,7 @@ async fn forward_request(
         url.push_str(&ctx.query);
     }
 
-    let method: reqwest::Method = ctx
-        .method
-        .parse()
-        .unwrap_or(reqwest::Method::GET);
+    let method: reqwest::Method = ctx.method.parse().unwrap_or(reqwest::Method::GET);
 
     // Build headers, stripping hop-by-hop
     let mut headers = reqwest::header::HeaderMap::new();
@@ -525,14 +515,7 @@ async fn forward_request(
             }
 
             // Send RESP_END
-            let _ = send_msg(
-                &ws_tx,
-                &AgentOutbound::RESP_END {
-                    lease_id,
-                    rid,
-                },
-            )
-            .await;
+            let _ = send_msg(&ws_tx, &AgentOutbound::RESP_END { lease_id, rid }).await;
         }
         Err(e) => {
             let _ = send_msg(

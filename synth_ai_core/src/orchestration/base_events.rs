@@ -46,7 +46,9 @@ impl JobEvent {
         let mut value = self.base.to_dict_value();
         if let Some(status) = &self.status {
             if let Value::Object(ref mut map) = value {
-                let data = map.entry("data".to_string()).or_insert_with(|| Value::Object(Map::new()));
+                let data = map
+                    .entry("data".to_string())
+                    .or_insert_with(|| Value::Object(Map::new()));
                 if let Value::Object(ref mut data_map) = data {
                     data_map.insert("status".to_string(), Value::String(status.clone()));
                 }
@@ -70,10 +72,15 @@ impl CandidateEvent {
     pub fn to_dict_value(&self) -> Value {
         let mut value = self.base.to_dict_value();
         if let Value::Object(ref mut map) = value {
-            let data = map.entry("data".to_string()).or_insert_with(|| Value::Object(Map::new()));
+            let data = map
+                .entry("data".to_string())
+                .or_insert_with(|| Value::Object(Map::new()));
             if let Value::Object(ref mut data_map) = data {
                 if let Some(candidate_id) = &self.candidate_id {
-                    data_map.insert("candidate_id".to_string(), Value::String(candidate_id.clone()));
+                    data_map.insert(
+                        "candidate_id".to_string(),
+                        Value::String(candidate_id.clone()),
+                    );
                 }
                 if let Some(status) = &self.status {
                     data_map.insert("status".to_string(), Value::String(status.clone()));

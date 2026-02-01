@@ -2,7 +2,10 @@ use std::collections::HashMap;
 use std::env;
 
 const VENDOR_KEYS: [(&str, [&str; 2]); 2] = [
-    ("OPENAI_API_KEY", ["dev_openai_api_key", "DEV_OPENAI_API_KEY"]),
+    (
+        "OPENAI_API_KEY",
+        ["dev_openai_api_key", "DEV_OPENAI_API_KEY"],
+    ),
     ("GROQ_API_KEY", ["dev_groq_api_key", "DEV_GROQ_API_KEY"]),
 ];
 

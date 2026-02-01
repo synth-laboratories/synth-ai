@@ -3624,19 +3624,14 @@ fn kwargs_to_value(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<V
 
 fn value_from_pyobject(py: Python, obj: PyObject) -> PyResult<Value> {
     let bound = obj.bind(py);
-    if let Ok(value) = pythonize::depythonize(&bound) {
+    if let Ok(value) = pythonize::depythonize::<Value>(&bound) {
         return Ok(value);
     }
-    for name in ["model_dump", "to_dict", "dict"] {
-        if let Ok(attr) = bound.getattr(name) {
-            if attr.is_callable() {
-                let out = attr.call0()?;
-                return pythonize::depythonize(&out)
-                    .map_err(|e| PyValueError::new_err(e.to_string()));
-            }
-        }
-    }
-    pythonize::depythonize(bound).map_err(|e| PyValueError::new_err(e.to_string()))
+    // Normalize through normalize_python_json which handles custom pyclasses
+    // (via to_dict), lists, dicts, datetimes, enums, numpy, etc.
+    let normalized = normalize_python_json(py, &bound)?;
+    pythonize::depythonize(normalized.bind(py))
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 fn value_to_pyobject(py: Python, value: &Value) -> PyResult<PyObject> {
@@ -3667,6 +3662,13 @@ fn to_jsonable_inner(
         || obj.is_instance_of::<PyLong>()
     {
         return Ok(obj.to_object(py));
+    }
+
+    // datetime → ISO 8601 string
+    if obj.is_instance_of::<PyDateTime>() || obj.is_instance_of::<PyDate>() {
+        if let Ok(iso) = obj.call_method0("isoformat") {
+            return Ok(iso.to_object(py));
+        }
     }
 
     if obj.is_instance_of::<PyBytes>() || obj.is_instance_of::<PyByteArray>() {

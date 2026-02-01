@@ -165,6 +165,9 @@ class PromptLearningJobConfig:
                     "task_app_worker_token is required for SynthTunnel task_app_url. "
                     "Pass tunnel.worker_token when submitting jobs."
                 )
+            # For SynthTunnel: the backend resolves task_app_api_key from
+            # customer_credentials DB, and the SynthTunnel agent injects
+            # local_api_keys on the task app side. No need for SDK to send it.
             self.task_app_api_key = None
         else:
             # Get task_app_api_key from environment if not provided
@@ -408,7 +411,9 @@ class PromptLearningJob:
                 "task_app_url"
             ) or config_dict.get("prompt_learning", {}).get("local_api_url")
             if task_url and (
-                ".trycloudflare.com" in task_url.lower() or ".cfargotunnel.com" in task_url.lower()
+                ".trycloudflare.com" in task_url.lower()
+                or ".cfargotunnel.com" in task_url.lower()
+                or "/s/rt_" in task_url
             ):
                 skip_health_check = True
 
@@ -626,6 +631,16 @@ class PromptLearningJob:
                 payload = rust_job.get_status()
                 last_data = dict(payload) if isinstance(payload, dict) else {}
                 error_count = 0
+
+                # DEBUG: Always log status for troubleshooting stuck polling
+                raw_status = last_data.get("status", "MISSING")
+                logger.debug(
+                    "[poll_debug] job=%s raw_status=%r is_terminal=%s elapsed=%.0fs",
+                    self._job_id,
+                    raw_status,
+                    PromptLearningResult.from_response(self._job_id, last_data).is_terminal,
+                    time.time() - start_time,
+                )
 
                 if progress:
                     elapsed = time.time() - start_time
