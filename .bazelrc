@@ -4,3 +4,6 @@ common --keep_going
 common --disk_cache=~/.cache/bazel/disk_cache
 common --repository_cache=~/.cache/bazel/repo_cache
 common --enable_bzlmod
+common --action_env=PATH
+common --action_env=HOME
+common --action_env=UV_CACHE_DIR
