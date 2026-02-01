@@ -1,0 +1,20 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+COMMON_ENV = {
+    "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+}
+
+sh_test(
+    name = "pytest_fast",
+    srcs = ["bazel/pytest_fast.sh"],
+    data = glob([
+        "synth_ai/**",
+        "tests/**",
+        "pyproject.toml",
+        "uv.lock",
+    ]),
+    local = True,
+    env = COMMON_ENV,
+    tags = ["local"],
+    timeout = "long",
+)

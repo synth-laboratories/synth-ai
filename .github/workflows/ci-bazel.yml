@@ -1,0 +1,28 @@
+name: bazel-synth-ai
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev, main]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: useblacksmith/setup-bazel@v2
+        with:
+          version: "9.0.0"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Bazel test (fast)
+        run: bazel test //:pytest_fast
