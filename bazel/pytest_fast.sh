@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+HOME_DIR="${HOME:-/home/runner}"
+export PATH="${HOME_DIR}/.cargo/bin:${HOME_DIR}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+if ! command -v uv >/dev/null 2>&1; then
+  for candidate in /opt/hostedtoolcache/uv/*/*/uv "${HOME_DIR}/.local/bin/uv" /home/runner/.local/bin/uv; do
+    if [[ -x "${candidate}" ]]; then
+      export PATH="$(dirname "${candidate}"):${PATH:-}"
+      break
+    fi
+  done
+fi
 
 SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
 if [[ "${SCRIPT_PATH}" == *".runfiles/"* ]]; then

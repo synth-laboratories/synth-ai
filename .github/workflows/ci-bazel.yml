@@ -17,7 +17,10 @@ jobs:
       - name: Setup Bazel
         uses: useblacksmith/setup-bazel@v2
         with:
-          version: "9.0.0"
+          bazelisk-version: "9.0.0"
+          bazelisk-cache: true
+          disk-cache: true
+          repository-cache: true
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v3
