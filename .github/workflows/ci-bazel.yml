@@ -17,7 +17,7 @@ jobs:
       - name: Setup Bazel
         uses: useblacksmith/setup-bazel@v2
         with:
-          bazelisk-version: "latest"
+          bazelisk-version: "v1.27.0"
           bazelisk-cache: true
           disk-cache: true
           repository-cache: true
