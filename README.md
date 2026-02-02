@@ -134,6 +134,59 @@ Requires `cloudflared` installed (`brew install cloudflared`). Use `task_app_api
 
 See the [tunnels documentation](https://docs.usesynth.ai/sdk/tunnels) for the full comparison.
 
+## Branching and CI
+
+### Branch model (all repos)
+
+```
+dev  ──PR──>  staging  ──PR──>  main
+                 │
+              integration
+              tests run
+```
+
+| Branch    | Purpose                          |
+|-----------|----------------------------------|
+| `dev`     | Daily development                |
+| `staging` | Pre-release gate with full CI    |
+| `main`    | Released / production code       |
+
+### How CI works for this repo
+
+Cross-repo integration tests live in the **testing** repo (`synth-laboratories/testing`).
+
+1. When a PR targets `staging` in `testing`, CI checks out `synth-ai` at the matching branch (e.g. `staging`). Falls back to `main` if the branch doesn't exist.
+2. Tests that exercise synth-ai code:
+   - `synth_ai_unit_tests` — `pytest tests/unit` (runs on every push)
+   - `synth_ai_all_tests` — `pytest tests/` including integration (requires API keys)
+   - `testing_unit_tests` — `pytest synth-ai-tests/unit/`
+
+### Standard workflow
+
+1. Work on `dev`.
+2. When ready to validate, push `dev` and open a PR in `testing`: `dev -> staging`.
+3. CI runs unit + integration tests against the matching `synth-ai` branch.
+4. After staging is green, merge `staging -> main` in each repo.
+
+### Running tests locally
+
+From the `testing` repo (sibling checkout):
+
+```bash
+cd ../testing
+bazel test //:offline_tests             # unit tests only
+bazel test //:no_llm_tests              # everything except LLM-dependent tests
+bazel test //:all_tests                 # everything
+```
+
+Or directly:
+
+```bash
+uv run pytest tests/unit -v
+```
+
+See `testing/CLAUDE.md` for the full test tier and suite reference.
+
 ## Testing
 
 Run the TUI integration tests:
