@@ -25,7 +25,9 @@ from .local_api import check_local_api_health
 from .pollers import JobPoller, PollOutcome
 from .prompt_learning_service import (
     cancel_prompt_learning_job,
+    pause_prompt_learning_job,
     query_prompt_learning_workflow_state,
+    resume_prompt_learning_job,
 )
 from .utils import ensure_api_base, run_sync
 
@@ -838,6 +840,50 @@ class PromptLearningJob:
         return run_sync(
             self.get_best_prompt_text_async(rank=rank),
             label="get_best_prompt_text() (use get_best_prompt_text_async in async contexts)",
+        )
+
+    def pause(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Pause a running prompt learning job.
+
+        Args:
+            reason: Optional reason for pausing
+
+        Returns:
+            Dict with pause status
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+        """
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        return pause_prompt_learning_job(
+            backend_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            job_id=self._job_id,
+            reason=reason,
+        )
+
+    def resume(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Resume a paused prompt learning job.
+
+        Args:
+            reason: Optional reason for resuming
+
+        Returns:
+            Dict with resume status
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+        """
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        return resume_prompt_learning_job(
+            backend_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            job_id=self._job_id,
+            reason=reason,
         )
 
     def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:

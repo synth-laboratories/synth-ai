@@ -42,12 +42,48 @@ def cancel_prompt_learning_job(
     job_id: str,
     reason: Optional[str] = None,
 ) -> Dict[str, Any]:
-    url = f"{ensure_api_base(backend_url)}/prompt-learning/online/jobs/{job_id}/cancel"
+    api_base = ensure_api_base(backend_url)
+    url = f"{api_base}/jobs/{job_id}/cancel"
     payload: Dict[str, Any] = {}
     if reason:
         payload["reason"] = reason
     resp = http_post(url, headers=_headers(api_key), json_body=payload, timeout=30.0)
+    if resp.status_code == 404:
+        legacy_url = f"{api_base}/prompt-learning/online/jobs/{job_id}/cancel"
+        resp = http_post(legacy_url, headers=_headers(api_key), json_body=payload, timeout=30.0)
     return parse_json_response(resp, context="Prompt learning cancel")
+
+
+def pause_prompt_learning_job(
+    *,
+    backend_url: str,
+    api_key: str,
+    job_id: str,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    api_base = ensure_api_base(backend_url)
+    url = f"{api_base}/jobs/{job_id}/pause"
+    payload: Dict[str, Any] = {}
+    if reason:
+        payload["reason"] = reason
+    resp = http_post(url, headers=_headers(api_key), json_body=payload, timeout=30.0)
+    return parse_json_response(resp, context="Prompt learning pause")
+
+
+def resume_prompt_learning_job(
+    *,
+    backend_url: str,
+    api_key: str,
+    job_id: str,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    api_base = ensure_api_base(backend_url)
+    url = f"{api_base}/jobs/{job_id}/resume"
+    payload: Dict[str, Any] = {}
+    if reason:
+        payload["reason"] = reason
+    resp = http_post(url, headers=_headers(api_key), json_body=payload, timeout=30.0)
+    return parse_json_response(resp, context="Prompt learning resume")
 
 
 def query_prompt_learning_workflow_state(
