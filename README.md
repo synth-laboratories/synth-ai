@@ -1,7 +1,7 @@
 # Synth
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
-[![PyPI](https://img.shields.io/badge/PyPI-0.7.5-orange)](https://pypi.org/project/synth-ai/)
+[![PyPI](https://img.shields.io/badge/PyPI-0.7.15-orange)](https://pypi.org/project/synth-ai/)
 [![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -21,11 +21,11 @@ Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`)
   <i>Average accuracy on <a href="https://arxiv.org/abs/2502.20315">LangProBe</a> prompt optimization benchmarks.</i>
 </p>
 
-## Demo Notebooks (Colab)
+## Demo Walkthroughs
 
-- [GEPA Banking77 Prompt Optimization](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb)
-- [GEPA Crafter VLM Verifier Optimization](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/gepa_crafter_vlm/gepa_crafter_vlm_verifier_optimization.ipynb)
-- [GraphGen Image Style Matching](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/image_style_matching/graphgen_image_style_matching.ipynb)
+- [GEPA Banking77 Prompt Optimization](https://docs.usesynth.ai/cookbooks/banking77-colab)
+- [GEPA Crafter VLM Verifier Optimization](https://docs.usesynth.ai/cookbooks/verifier-optimization)
+- [GraphGen Image Style Matching](https://docs.usesynth.ai/cookbooks/graphs/overview)
 
 ## Highlights
 
@@ -41,7 +41,7 @@ Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`)
 ### SDK (Python)
 
 ```bash
-pip install synth-ai==0.7.5
+pip install synth-ai==0.7.15
 # or
 uv add synth-ai
 ```
@@ -134,6 +134,24 @@ Requires `cloudflared` installed (`brew install cloudflared`). Use `task_app_api
 
 See the [tunnels documentation](https://docs.usesynth.ai/sdk/tunnels) for the full comparison.
 
+### Auth Basics (Don’t Mix These)
+
+There are **three different keys** in the LocalAPI + SynthTunnel flow:
+
+- **Synth API key** (`SYNTH_API_KEY`): Auth for the **backend** (`SYNTH_BACKEND_URL`).
+  - Sent as `Authorization: Bearer <SYNTH_API_KEY>`.
+  - Used when submitting jobs to `http://127.0.0.1:8080` (local) or `https://api.usesynth.ai` (cloud).
+- **Environment API key** (`ENVIRONMENT_API_KEY`): Auth for your **task app**.
+  - Sent as `x-api-key: <ENVIRONMENT_API_KEY>` to `/health`, `/info`, `/rollout`, etc.
+  - Minted/managed by `ensure_localapi_auth()`.
+- **SynthTunnel worker token** (`tunnel.worker_token`): Auth for **tunnel relay → task app**.
+  - Passed to jobs as `task_app_worker_token`.
+  - **Never** use this as a backend API key.
+
+Common failures:
+- `Invalid API key` on `/api/jobs/*` means the backend received the wrong key.
+- `SYNTH_TUNNEL_ERROR: Invalid worker token` means the tunnel relay token is wrong.
+
 ## Branching and CI
 
 ### Branch model (all repos)
@@ -204,7 +222,7 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 
 ## Community
 
-**[Join our Discord](https://discord.gg/VKxZqUhZ)**
+**[Join our Discord](https://discord.gg/cjfAMcCZef)**
 
 ## GEPA Prompt Optimization (SDK)
 
@@ -238,11 +256,11 @@ result = pl_job.stream_until_complete(timeout=3600.0)
 print(f"Best score: {result.best_score}")
 ```
 
-See the [Banking77 demo notebook](demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb) for a complete example with local task apps.
+See the [Banking77 walkthrough](https://docs.usesynth.ai/cookbooks/banking77-colab) for a complete example with local task apps.
 
 ## Online MIPRO (SDK, Ontology Enabled)
 
-Run online MIPRO so rollouts call a proxy URL and rewards stream back to the optimizer. Enable ontology by setting `MIPRO_ONT_ENABLED=1` and `HELIX_URL` on the backend, then follow the [Banking77 online MIPRO notes](demos/mipro_banking77/online_mipro_explained.txt).
+Run online MIPRO so rollouts call a proxy URL and rewards stream back to the optimizer. Enable ontology by setting `MIPRO_ONT_ENABLED=1` and `HELIX_URL` on the backend, then follow the [Banking77 online MIPRO notes](simpler_online_mipro.txt).
 
 ```python
 import os
@@ -268,7 +286,7 @@ session.update_reward(
 
 ## Graph Evolve: Optimize RLM-Based Verifier Graphs
 
-Train a verifier graph with an RLM backbone for long-context evaluation. See the [Image Style Matching demo](demos/image_style_matching/) for a complete Graph Evolve example:
+Train a verifier graph with an RLM backbone for long-context evaluation. See the [Image Style Matching walkthrough](https://docs.usesynth.ai/cookbooks/graphs/overview) for a complete Graph Evolve example:
 
 ```python
 from synth_ai.sdk.api.train.graph_evolve import GraphEvolveJob
