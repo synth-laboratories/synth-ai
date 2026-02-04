@@ -41,6 +41,7 @@ pub enum TerminalStatus {
     Succeeded,
     Failed,
     Cancelled,
+    Paused,
 }
 
 /// Parsed event path segments for logging/debugging.
@@ -297,11 +298,11 @@ impl EventParser {
 
     /// Patterns for termination events
     const TERMINATION_PATTERNS: &'static [&'static str] =
-        &[".termination.triggered", ".termination"];
+        &[".termination.triggered", ".termination", ".job.paused"];
 
     /// Patterns for complete events
     const COMPLETE_PATTERNS: &'static [&'static str] =
-        &[".complete", ".completed", ".job.completed"];
+        &[".complete", ".completed", ".job.completed", ".job.cancelled", ".job.canceled"];
 
     /// Patterns for validation events
     const VALIDATION_PATTERNS: &'static [&'static str] =
@@ -341,6 +342,9 @@ impl EventParser {
         let normalized = Self::normalize_type(event_type).to_lowercase();
         if normalized.contains("cancel") {
             return Some(TerminalStatus::Cancelled);
+        }
+        if normalized.contains("pause") {
+            return Some(TerminalStatus::Paused);
         }
         if normalized.contains("fail") || normalized.contains("error") {
             return Some(TerminalStatus::Failed);

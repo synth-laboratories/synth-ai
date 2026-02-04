@@ -22,6 +22,7 @@
   "JobStatus": {
     "CANCELLED": "cancelled",
     "FAILED": "failed",
+    "PAUSED": "paused",
     "PENDING": "pending",
     "QUEUED": "queued",
     "RUNNING": "running",
@@ -30,6 +31,7 @@
   "JobType": {
     "EVAL": "eval",
     "GSPO": "gspo",
+    "INFERENCE": "inference",
     "PROMPT_LEARNING": "prompt_learning",
     "RESEARCH_AGENT": "research_agent",
     "RL": "rl",

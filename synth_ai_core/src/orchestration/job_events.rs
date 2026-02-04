@@ -64,6 +64,7 @@ fn event_type_map() -> &'static [(&'static str, &'static str)] {
     &[
         ("job.started", "job.started"),
         ("job.in_progress", "job.in_progress"),
+        ("job.paused", "job.paused"),
         ("job.completed", "job.completed"),
         ("job.failed", "job.failed"),
         ("job.cancelled", "job.cancelled"),
@@ -147,6 +148,7 @@ fn map_event_type(raw_type: &str) -> Option<&'static str> {
 fn infer_job_status(event_type: &str) -> Option<&'static str> {
     match event_type {
         "job.started" | "job.in_progress" => Some("in_progress"),
+        "job.paused" => Some("paused"),
         "job.completed" => Some("completed"),
         "job.failed" => Some("failed"),
         "job.cancelled" => Some("cancelled"),

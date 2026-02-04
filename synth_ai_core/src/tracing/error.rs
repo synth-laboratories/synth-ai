@@ -44,6 +44,7 @@ impl From<serde_json::Error> for TracingError {
     }
 }
 
+#[cfg(feature = "libsql")]
 impl From<libsql::Error> for TracingError {
     fn from(err: libsql::Error) -> Self {
         TracingError::Database(err.to_string())

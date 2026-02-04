@@ -14,8 +14,8 @@ use crate::CoreError;
 
 use super::client::SynthClient;
 use super::types::{
-    CancelRequest, GepaJobRequest, JobSubmitResponse, MiproJobRequest, PolicyJobStatus,
-    PromptLearningResult,
+    CancelRequest, GepaJobRequest, JobSubmitResponse, MiproJobRequest, PauseRequest,
+    PolicyJobStatus, PromptLearningResult,
 };
 
 /// Canonical API endpoint root for job status/events.
@@ -256,6 +256,11 @@ impl<'a> JobsClient<'a> {
                         return Ok(result);
                     }
 
+                    if result.status == PolicyJobStatus::Paused {
+                        eprintln!("[synth_ai_core] Job {} is paused", job_id);
+                        return Ok(result);
+                    }
+
                     // Wait before next poll
                     let delay = calculate_backoff(&config, 0);
                     tokio::time::sleep(delay).await;
@@ -287,6 +292,52 @@ impl<'a> JobsClient<'a> {
     pub async fn cancel(&self, job_id: &str, reason: Option<&str>) -> Result<(), CoreError> {
         let path = format!("{}/{}/cancel", JOBS_ENDPOINT, job_id);
         let body = serde_json::to_value(&CancelRequest {
+            reason: reason.map(|s| s.to_string()),
+        })
+        .unwrap_or(Value::Object(serde_json::Map::new()));
+
+        let _: Value = self
+            .client
+            .http
+            .post_json(&path, &body)
+            .await
+            .map_err(map_http_error)?;
+
+        Ok(())
+    }
+
+    /// Pause a running job.
+    ///
+    /// # Arguments
+    ///
+    /// * `job_id` - The job ID to pause
+    /// * `reason` - Optional pause reason
+    pub async fn pause(&self, job_id: &str, reason: Option<&str>) -> Result<(), CoreError> {
+        let path = format!("{}/{}/pause", JOBS_ENDPOINT, job_id);
+        let body = serde_json::to_value(&PauseRequest {
+            reason: reason.map(|s| s.to_string()),
+        })
+        .unwrap_or(Value::Object(serde_json::Map::new()));
+
+        let _: Value = self
+            .client
+            .http
+            .post_json(&path, &body)
+            .await
+            .map_err(map_http_error)?;
+
+        Ok(())
+    }
+
+    /// Resume a paused job.
+    ///
+    /// # Arguments
+    ///
+    /// * `job_id` - The job ID to resume
+    /// * `reason` - Optional resume reason
+    pub async fn resume(&self, job_id: &str, reason: Option<&str>) -> Result<(), CoreError> {
+        let path = format!("{}/{}/resume", JOBS_ENDPOINT, job_id);
+        let body = serde_json::to_value(&PauseRequest {
             reason: reason.map(|s| s.to_string()),
         })
         .unwrap_or(Value::Object(serde_json::Map::new()));

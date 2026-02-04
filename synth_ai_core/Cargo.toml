@@ -1,6 +1,6 @@
 [package]
 name = "synth-ai-core"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 description = "Rust core for Synth AI SDKs - API client, streaming, tracing, and tunnels"
@@ -45,7 +45,11 @@ tempfile = "3"
 open = "5"
 
 # Tracing system
-libsql = "0.6"
+libsql = { version = "0.6", optional = true }
 async-trait = "0.1"
 
 synth_ai_core_types = { path = "../synth_ai_core_types", version = "0.2.0" }
+
+[features]
+default = ["libsql"]
+libsql = ["dep:libsql"]

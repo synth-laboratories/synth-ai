@@ -23,6 +23,7 @@ const TERMINAL_STATUSES: &[&str] = &[
     "canceled",
     "completed",
     "error",
+    "paused",
 ];
 
 /// Job streamer that polls endpoints and dispatches to handlers.
@@ -422,6 +423,9 @@ mod tests {
         ));
         assert!(JobStreamer::is_terminal(
             &serde_json::json!({"status": "cancelled"})
+        ));
+        assert!(JobStreamer::is_terminal(
+            &serde_json::json!({"status": "paused"})
         ));
         assert!(!JobStreamer::is_terminal(
             &serde_json::json!({"status": "running"})

@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 // =============================================================================
 // Job Status Enums
@@ -17,6 +17,7 @@ pub enum PolicyJobStatus {
     Pending,
     Queued,
     Running,
+    Paused,
     Succeeded,
     Failed,
     Cancelled,
@@ -39,6 +40,7 @@ impl PolicyJobStatus {
             "pending" => Some(Self::Pending),
             "queued" => Some(Self::Queued),
             "running" => Some(Self::Running),
+            "paused" => Some(Self::Paused),
             "succeeded" => Some(Self::Succeeded),
             "failed" => Some(Self::Failed),
             "cancelled" | "canceled" => Some(Self::Cancelled),
@@ -52,6 +54,7 @@ impl PolicyJobStatus {
             Self::Pending => "pending",
             Self::Queued => "queued",
             Self::Running => "running",
+            Self::Paused => "paused",
             Self::Succeeded => "succeeded",
             Self::Failed => "failed",
             Self::Cancelled => "cancelled",
@@ -118,6 +121,9 @@ pub struct PolicyConfig {
     /// Optional max tokens.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<i32>,
+    /// Additional policy settings (agent, timeout, structured_config, etc).
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, Value>,
 }
 
 impl Default for PolicyConfig {
@@ -127,6 +133,7 @@ impl Default for PolicyConfig {
             provider: "openai".to_string(),
             temperature: None,
             max_tokens: None,
+            extra: BTreeMap::new(),
         }
     }
 }
@@ -561,6 +568,18 @@ pub struct CancelRequest {
 }
 
 // =============================================================================
+// Pause/Resume Request
+// =============================================================================
+
+/// Request to pause or resume a job.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PauseRequest {
+    /// Optional reason for pausing/resuming.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+// =============================================================================
 // LocalAPI Deployments
 // =============================================================================
 
@@ -684,6 +703,7 @@ mod tests {
     fn test_policy_job_status_terminal() {
         assert!(!PolicyJobStatus::Pending.is_terminal());
         assert!(!PolicyJobStatus::Running.is_terminal());
+        assert!(!PolicyJobStatus::Paused.is_terminal());
         assert!(PolicyJobStatus::Succeeded.is_terminal());
         assert!(PolicyJobStatus::Failed.is_terminal());
         assert!(PolicyJobStatus::Cancelled.is_terminal());
@@ -698,6 +718,10 @@ mod tests {
         assert_eq!(
             PolicyJobStatus::from_str("RUNNING"),
             Some(PolicyJobStatus::Running)
+        );
+        assert_eq!(
+            PolicyJobStatus::from_str("paused"),
+            Some(PolicyJobStatus::Paused)
         );
         assert_eq!(
             PolicyJobStatus::from_str("cancelled"),

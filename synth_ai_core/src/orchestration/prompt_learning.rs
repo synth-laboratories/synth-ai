@@ -434,6 +434,7 @@ impl PromptLearningJob {
                     TerminalStatus::Succeeded => crate::api::types::PolicyJobStatus::Succeeded,
                     TerminalStatus::Failed => crate::api::types::PolicyJobStatus::Failed,
                     TerminalStatus::Cancelled => crate::api::types::PolicyJobStatus::Cancelled,
+                    TerminalStatus::Paused => crate::api::types::PolicyJobStatus::Paused,
                 };
                 eprintln!(
                     "[PL] Final status override from terminal event: {:?}",
@@ -495,6 +496,34 @@ impl PromptLearningJob {
             .ok_or_else(|| CoreError::Validation("job not submitted yet".to_string()))?;
 
         self.client.jobs().cancel(job_id, reason).await
+    }
+
+    /// Pause a running job.
+    ///
+    /// # Arguments
+    ///
+    /// * `reason` - Optional pause reason
+    pub async fn pause(&self, reason: Option<&str>) -> Result<(), CoreError> {
+        let job_id = self
+            .job_id
+            .as_ref()
+            .ok_or_else(|| CoreError::Validation("job not submitted yet".to_string()))?;
+
+        self.client.jobs().pause(job_id, reason).await
+    }
+
+    /// Resume a paused job.
+    ///
+    /// # Arguments
+    ///
+    /// * `reason` - Optional resume reason
+    pub async fn resume(&self, reason: Option<&str>) -> Result<(), CoreError> {
+        let job_id = self
+            .job_id
+            .as_ref()
+            .ok_or_else(|| CoreError::Validation("job not submitted yet".to_string()))?;
+
+        self.client.jobs().resume(job_id, reason).await
     }
 
     /// Get detailed results including prompt extraction.

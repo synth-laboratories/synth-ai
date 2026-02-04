@@ -72,6 +72,7 @@
 
 pub mod error;
 pub mod hooks;
+#[cfg(feature = "libsql")]
 pub mod libsql_storage;
 pub mod models;
 pub mod storage;
@@ -81,6 +82,7 @@ pub mod utils;
 // Re-export main types for convenience
 pub use error::TracingError;
 pub use hooks::{HookCallback, HookContext, HookEvent, HookManager};
+#[cfg(feature = "libsql")]
 pub use libsql_storage::LibsqlTraceStorage;
 pub use models::{
     BaseEventFields, EnvironmentEvent, EventReward, EventType, LLMCallRecord, LLMChunk,

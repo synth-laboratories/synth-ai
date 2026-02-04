@@ -31,6 +31,10 @@ use std::path::Path;
 use std::time::Duration;
 use thiserror::Error;
 
+pub mod environment_pools;
+
+pub use environment_pools::EnvironmentPoolsClient;
+
 // Re-export core for advanced usage
 pub use synth_ai_core as core;
 pub use synth_ai_core_types as types;
@@ -49,7 +53,6 @@ pub use synth_ai_core::{
     orchestration::{CandidateInfo, GEPAProgress, ProgressTracker},
     // Orchestration
     orchestration::{PromptLearningJob, PromptResults, RankedPrompt},
-    tracing::LibsqlTraceStorage,
     tunnels::errors::TunnelError,
     tunnels::open_tunnel,
     // Tunnels
@@ -109,6 +112,9 @@ pub use synth_ai_core::{
     TracingEvent,
     UploadUrlResponse,
 };
+
+#[cfg(feature = "libsql")]
+pub use synth_ai_core::tracing::LibsqlTraceStorage;
 
 pub use synth_ai_core::data::{
     CalibrationExample, EventRewardRecord, GoldExample, InstanceObjectiveAssignment,
@@ -231,6 +237,11 @@ impl Synth {
         &self.client
     }
 
+    /// Create an Environment Pools client.
+    pub fn environment_pools(&self) -> Result<EnvironmentPoolsClient> {
+        EnvironmentPoolsClient::new(self.api_key.clone(), Some(&self.base_url))
+    }
+
     // -------------------------------------------------------------------------
     // High-level API
     // -------------------------------------------------------------------------
@@ -320,6 +331,24 @@ impl Synth {
         self.client
             .jobs()
             .cancel(job_id, reason)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// Pause a job.
+    pub async fn pause_job(&self, job_id: &str, reason: Option<&str>) -> Result<()> {
+        self.client
+            .jobs()
+            .pause(job_id, reason)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// Resume a paused job.
+    pub async fn resume_job(&self, job_id: &str, reason: Option<&str>) -> Result<()> {
+        self.client
+            .jobs()
+            .resume(job_id, reason)
             .await
             .map_err(Error::Core)
     }

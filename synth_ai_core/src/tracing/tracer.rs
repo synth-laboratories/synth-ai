@@ -523,7 +523,7 @@ impl SessionTracer {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "libsql"))]
 mod tests {
     use super::*;
     use crate::tracing::libsql_storage::LibsqlTraceStorage;

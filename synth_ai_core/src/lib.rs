@@ -72,10 +72,13 @@ pub use orchestration::{
 pub use tracing::{
     BaseEventFields, EnvironmentEvent, EventReward, EventType, HookCallback, HookContext,
     HookEvent, HookManager, LLMCallRecord, LLMContentPart, LLMMessage, LLMUsage, LMCAISEvent,
-    LibsqlTraceStorage, MarkovBlanketMessage, MessageContent, OutcomeReward, RuntimeEvent,
+    MarkovBlanketMessage, MessageContent, OutcomeReward, RuntimeEvent,
     SessionTimeStep, SessionTrace, SessionTracer, StorageConfig, TimeRecord, ToolCallResult,
     ToolCallSpec, TraceStorage, TracingError, TracingEvent,
 };
+
+#[cfg(feature = "libsql")]
+pub use tracing::LibsqlTraceStorage;
 
 // Re-export data types
 pub use data::{
