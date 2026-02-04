@@ -171,6 +171,25 @@ class PromptLearningPolicyConfig(ExtraModel):
                 raise ValueError("inference_url must start with http:// or https://")
         return v
 
+    @model_validator(mode="after")
+    def _merge_extra_into_config(self) -> "PromptLearningPolicyConfig":
+        """Forward unknown policy fields into policy.config for task apps.
+
+        Task apps read rollout-specific settings (timeout, agent, model, etc.)
+        from policy.config. Older configs often set these at the policy root,
+        so we mirror extras into config without overriding explicit config keys.
+        """
+        extras = getattr(self, "model_extra", None) or {}
+        if not extras:
+            return self
+
+        config = dict(self.config or {})
+        for key, value in extras.items():
+            config.setdefault(key, value)
+
+        self.config = config
+        return self
+
 
 class MessagePatternConfig(ExtraModel):
     """Configuration for a single message pattern."""
@@ -1371,8 +1390,11 @@ class PromptLearningConfig(ExtraModel):
     """
 
     algorithm: str  # "gepa"
-    task_app_url: str
-    task_app_id: str | None = None
+    task_app_url: str | None = None
+    task_app_id: str | None = Field(
+        default=None,
+        description="Hosted task app ID for resolution by the backend (alternative to task_app_url)",
+    )
     initial_prompt: PromptPatternConfig | None = None
     auto_discover_patterns: bool = Field(
         default=False,
@@ -1421,6 +1443,13 @@ class PromptLearningConfig(ExtraModel):
                 data.pop(field, None)
 
         return data
+
+    @model_validator(mode="after")
+    def _require_task_app(self) -> "PromptLearningConfig":
+        """Require at least one of task_app_url or task_app_id."""
+        if not self.task_app_url and not self.task_app_id:
+            raise ValueError("Provide either task_app_url or task_app_id")
+        return self
 
     def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary for API payload."""
