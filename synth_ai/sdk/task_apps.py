@@ -42,6 +42,10 @@ class TaskAppSpec(BaseModel):
         default=None,
         description="Optional environment configuration overrides",
     )
+    internal_url: str | None = Field(
+        default=None,
+        description="URL where this task app is running. If not provided, a placeholder is generated.",
+    )
 
 
 class TaskApp(BaseModel):
@@ -99,7 +103,7 @@ class TaskAppsClient:
         backend_base: str | None = None,
     ) -> None:
         self._api_key = _resolve_api_key(api_key)
-        self._base_url = _resolve_base_url(backend_base)
+        self._base_url = _resolve_base_url(backend_base).rstrip("/")
         self._prefix = f"{self._base_url}/api/v1/task-apps"
 
     def _headers(self) -> dict[str, str]:
@@ -190,6 +194,4 @@ class TaskAppsClient:
             if app.status in terminal:
                 return app
             time.sleep(poll_interval)
-        raise TimeoutError(
-            f"Task app {task_app_id} did not reach ready state within {timeout}s"
-        )
+        raise TimeoutError(f"Task app {task_app_id} did not reach ready state within {timeout}s")
