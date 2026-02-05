@@ -17,7 +17,7 @@ from .config import StreamConfig
 from .handlers import StreamHandler
 from .types import StreamMessage, StreamType
 
-TERMINAL_STATUSES = {"succeeded", "failed", "cancelled", "canceled", "completed"}
+TERMINAL_STATUSES = {"succeeded", "failed", "cancelled", "canceled", "completed", "paused"}
 
 # Terminal success events - canonical format only
 # Format: <activity>.<target>.<algorithm?>.<entity>.<action>

@@ -3,10 +3,14 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 
 def _load_task_module():
     repo_root = Path(__file__).resolve().parents[2]
     module_path = repo_root / "demos" / "mtg_artist_style" / "mtg_image_task_app.py"
+    if not module_path.exists():
+        pytest.skip(f"Missing demo module at {module_path}")
     spec = importlib.util.spec_from_file_location("mtg_image_task_app", module_path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader

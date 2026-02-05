@@ -15,8 +15,8 @@ from .json import to_jsonable
 
 try:
     import synth_ai_py
-except Exception as exc:  # pragma: no cover
-    raise RuntimeError("synth_ai_py is required for sdk.localapi.") from exc
+except Exception:  # pragma: no cover
+    synth_ai_py = None
 
 
 def _require_rust() -> Any:

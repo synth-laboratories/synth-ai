@@ -52,7 +52,14 @@ class JobPoller:
                 status = (info.get("status") or info.get("state") or "").lower()
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 click.echo(f"[poll] {timestamp} {elapsed:.0f}s status={status}")
-                if status in {"succeeded", "failed", "cancelled", "canceled", "completed"}:
+                if status in {
+                    "succeeded",
+                    "failed",
+                    "cancelled",
+                    "canceled",
+                    "completed",
+                    "paused",
+                }:
                     break
             except Exception as exc:  # pragma: no cover - network failures
                 click.echo(f"[poll] error: {exc}")
@@ -75,7 +82,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/prompt-learning/online/jobs/{job_id}")
+        return super().poll(f"/api/jobs/{job_id}")
 
 
 class EvalJobPoller(JobPoller):

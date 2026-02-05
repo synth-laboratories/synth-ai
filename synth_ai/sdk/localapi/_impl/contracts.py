@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synth_ai.data.artifacts import (
     Artifact,
@@ -139,6 +139,13 @@ class RolloutRequest(BaseModel):
         default=None,
         description="Stable identifier for the override bundle (for traceability and deduplication).",
     )
+
+    @field_validator("context_overrides", mode="before")
+    @classmethod
+    def _coerce_context_overrides(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        return [ContextOverride.from_dict(item) if isinstance(item, dict) else item for item in v]
 
 
 class RolloutMetrics(BaseModel):

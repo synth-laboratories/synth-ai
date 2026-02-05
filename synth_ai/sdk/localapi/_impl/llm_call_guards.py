@@ -2,13 +2,30 @@
 
 import warnings
 
-import synth_ai_py
+try:
+    import synth_ai_py
+except Exception:  # pragma: no cover
+    synth_ai_py = None
 
 
 def check_url_for_direct_provider_call(url: str) -> bool:
     """Check if a URL is a direct call to an LLM provider."""
 
-    return synth_ai_py.localapi_check_url_for_direct_provider_call(str(url))
+    if synth_ai_py is not None and hasattr(
+        synth_ai_py, "localapi_check_url_for_direct_provider_call"
+    ):
+        return synth_ai_py.localapi_check_url_for_direct_provider_call(str(url))
+
+    lowered = str(url).lower()
+    return any(
+        host in lowered
+        for host in (
+            "api.openai.com",
+            "api.groq.com",
+            "api.anthropic.com",
+            "generativelanguage.googleapis.com",
+        )
+    )
 
 
 def warn_if_direct_provider_call(url: str, stacklevel: int = 2) -> None:
@@ -19,7 +36,7 @@ def warn_if_direct_provider_call(url: str, stacklevel: int = 2) -> None:
             f"Direct call to LLM provider detected: {url}\n"
             f"This bypasses trace capture by the Synth AI interceptor.\n"
             f"Use inference_url from policy_config instead.\n"
-            f"See: https://docs.usesynth.ai/guides/local-api#inference-url",
+            f"See: https://docs.usesynth.ai/sdk/localapi/overview#rollout-request-what-you-receive",
             UserWarning,
             stacklevel=stacklevel,
         )
@@ -81,7 +98,7 @@ def install_openai_guard() -> None:
             warnings.warn(
                 "Direct OpenAI client instantiation detected.\n"
                 "For proper trace capture, use inference_url from policy_config with httpx instead.\n"
-                "See: https://docs.usesynth.ai/guides/local-api#llm-calls",
+                "See: https://docs.usesynth.ai/sdk/localapi/overview#llm-routing-outbound",
                 UserWarning,
                 stacklevel=3,
             )
@@ -107,7 +124,7 @@ def install_anthropic_guard() -> None:
             warnings.warn(
                 "Direct Anthropic client instantiation detected.\n"
                 "For proper trace capture, use inference_url from policy_config with httpx instead.\n"
-                "See: https://docs.usesynth.ai/guides/local-api#llm-calls",
+                "See: https://docs.usesynth.ai/sdk/localapi/overview#llm-routing-outbound",
                 UserWarning,
                 stacklevel=3,
             )

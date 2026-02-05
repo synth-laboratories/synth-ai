@@ -4895,6 +4895,20 @@ impl SynthClient {
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
+    #[pyo3(signature = (job_id, reason=None))]
+    fn pause_job(&self, job_id: &str, reason: Option<&str>) -> PyResult<()> {
+        RUNTIME
+            .block_on(async { self.inner.jobs().pause(job_id, reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (job_id, reason=None))]
+    fn resume_job(&self, job_id: &str, reason: Option<&str>) -> PyResult<()> {
+        RUNTIME
+            .block_on(async { self.inner.jobs().resume(job_id, reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
     // -------------------------------------------------------------------------
     // Eval API
     // -------------------------------------------------------------------------
@@ -5183,6 +5197,22 @@ impl PromptLearningJob {
         let job = self.inner.lock().unwrap();
         RUNTIME
             .block_on(async { job.cancel(reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (reason=None))]
+    fn pause(&self, reason: Option<&str>) -> PyResult<()> {
+        let job = self.inner.lock().unwrap();
+        RUNTIME
+            .block_on(async { job.pause(reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (reason=None))]
+    fn resume(&self, reason: Option<&str>) -> PyResult<()> {
+        let job = self.inner.lock().unwrap();
+        RUNTIME
+            .block_on(async { job.resume(reason).await })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 

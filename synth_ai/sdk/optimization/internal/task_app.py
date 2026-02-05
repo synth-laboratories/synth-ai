@@ -232,6 +232,22 @@ def check_task_app_health(
     # Send ALL known environment keys so the server can authorize any valid one
     import os
 
+    base = base_url.rstrip("/")
+    parsed_base = urlparse(base)
+
+    def _is_harbor_deployment_url(url: str) -> bool:
+        parsed = urlparse(url)
+        return "/api/harbor/deployments/" in (parsed.path or "")
+
+    def _is_localapi_deployment_url(url: str) -> bool:
+        parsed = urlparse(url)
+        return "/api/localapi/deployments/" in (parsed.path or "")
+
+    if _is_localapi_deployment_url(base):
+        synth_key = os.getenv("SYNTH_API_KEY", "")
+        if synth_key:
+            api_key = synth_key
+
     headers: dict[str, str] = {}
     if worker_token:
         headers["Authorization"] = f"Bearer {worker_token}"
@@ -244,10 +260,166 @@ def check_task_app_health(
         if keys:
             headers["X-API-Keys"] = ",".join(keys)
             headers.setdefault("Authorization", f"Bearer {api_key}")
-    base = base_url.rstrip("/")
     detail_parts: list[str] = []
-    parsed_base = urlparse(base)
     is_synthtunnel = "/s/" in (parsed_base.path or "")
+
+    if _is_harbor_deployment_url(base):
+        status_url = f"{base}/status"
+        keys_to_try: list[str] = []
+        if api_key:
+            keys_to_try.append(api_key)
+        synth_api_key = os.getenv("SYNTH_API_KEY")
+        if synth_api_key and synth_api_key not in keys_to_try:
+            keys_to_try.append(synth_api_key)
+
+        for key in keys_to_try or [""]:
+            try:
+                resp = http_get(
+                    status_url, headers={"X-API-Key": key} if key else {}, timeout=timeout
+                )
+            except requests.RequestException as exc:
+                return TaskAppHealth(
+                    ok=False,
+                    health_status=None,
+                    task_info_status=None,
+                    detail=f"/harbor_status_error={exc}",
+                )
+
+            if resp.status_code == 200:
+                try:
+                    payload = resp.json()
+                except Exception:
+                    payload = {}
+                status = str(payload.get("status", "")).lower()
+                detail = f"/harbor_status={status or resp.status_code}"
+                return TaskAppHealth(
+                    ok=status == "ready",
+                    health_status=resp.status_code,
+                    task_info_status=None,
+                    detail=detail,
+                )
+
+            if resp.status_code in (401, 403):
+                # Try next key (ENVIRONMENT_API_KEY vs SYNTH_API_KEY)
+                continue
+
+            # Unexpected response from Harbor status endpoint.
+            return TaskAppHealth(
+                ok=False,
+                health_status=resp.status_code,
+                task_info_status=None,
+                detail=f"/harbor_status={resp.status_code}",
+            )
+
+    if _is_localapi_deployment_url(base):
+        deployment_id = base.rstrip("/").split("/")[-1]
+        list_url = f"{parsed_base.scheme}://{parsed_base.netloc}/api/localapi/deployments"
+        try:
+            import httpx
+
+            list_resp = httpx.get(list_url, headers=headers, timeout=timeout)
+            if list_resp.status_code == 200:
+                try:
+                    payload = list_resp.json()
+                except Exception:
+                    payload = []
+                items = payload if isinstance(payload, list) else []
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    if (
+                        item.get("deployment_id") == deployment_id
+                        or item.get("name") == deployment_id
+                    ):
+                        status = str(item.get("status", "")).lower()
+                        if status == "ready":
+                            return TaskAppHealth(
+                                ok=True,
+                                health_status=list_resp.status_code,
+                                task_info_status=None,
+                                detail="/status=ready",
+                            )
+                        return TaskAppHealth(
+                            ok=False,
+                            health_status=list_resp.status_code,
+                            task_info_status=None,
+                            detail=f"/status={status or 'building'}",
+                        )
+                return TaskAppHealth(
+                    ok=False,
+                    health_status=list_resp.status_code,
+                    task_info_status=None,
+                    detail="/status=deployment_not_found",
+                )
+        except Exception:
+            pass
+
+        status_url = f"{base}/status"
+        try:
+            resp: requests.Response | CurlResponse | None = None
+            try:
+                import httpx
+
+                httpx_resp = httpx.get(status_url, headers=headers, timeout=timeout)
+                resp = CurlResponse(status_code=httpx_resp.status_code, text=httpx_resp.text)
+                try:
+                    resp._json = httpx_resp.json()
+                except Exception:
+                    resp._json = None
+            except Exception:
+                resp = _curl_with_resolve(status_url, headers=headers, timeout=timeout)
+
+            if resp is None:
+                raise RuntimeError("status request failed")
+
+            if resp.status_code == 200:
+                try:
+                    payload = resp.json()
+                except ValueError:
+                    payload = {}
+                status = str(payload.get("status", "")).lower()
+                if status == "ready":
+                    return TaskAppHealth(
+                        ok=True,
+                        health_status=resp.status_code,
+                        task_info_status=None,
+                        detail="/status=ready",
+                    )
+                if status == "failed":
+                    detail = payload.get("error") or payload.get("detail") or "/status=failed"
+                    return TaskAppHealth(
+                        ok=False,
+                        health_status=resp.status_code,
+                        task_info_status=None,
+                        detail=str(detail),
+                    )
+                return TaskAppHealth(
+                    ok=False,
+                    health_status=resp.status_code,
+                    task_info_status=None,
+                    detail=f"/status={status or 'building'}",
+                )
+            return TaskAppHealth(
+                ok=False,
+                health_status=resp.status_code,
+                task_info_status=None,
+                detail=f"/status={resp.status_code}",
+            )
+        except Exception as exc:
+            detail = f"/status error: {type(exc).__name__}: {exc}"
+            if "timeout" in detail.lower() or "status request failed" in detail.lower():
+                return TaskAppHealth(
+                    ok=True,
+                    health_status=None,
+                    task_info_status=None,
+                    detail=detail,
+                )
+            return TaskAppHealth(
+                ok=False,
+                health_status=None,
+                task_info_status=None,
+                detail=detail,
+            )
 
     def _is_dns_error(exc: requests.RequestException) -> bool:
         """Check if exception is a DNS resolution error."""

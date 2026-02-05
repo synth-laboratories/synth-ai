@@ -145,9 +145,12 @@ def backend_demo_keys_url(base_url: str) -> str:
 def is_synthtunnel_url(url: str) -> bool:
     """Return True if the URL targets the SynthTunnel gateway."""
     try:
-        hostname = urlparse(url).hostname or ""
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
     except Exception:
         return False
+    if "/s/rt_" in (parsed.path or ""):
+        return True
     if hostname == "st.usesynth.ai":
         return True
     return hostname.endswith(".st.usesynth.ai")

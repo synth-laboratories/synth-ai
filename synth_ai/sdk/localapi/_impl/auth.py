@@ -7,7 +7,10 @@ from collections.abc import Iterable
 from contextlib import suppress
 from typing import Any
 
-import synth_ai_py
+try:
+    import synth_ai_py
+except Exception:  # pragma: no cover - optional in minimal runtime images
+    synth_ai_py = None  # type: ignore[assignment]
 
 from .errors import http_exception
 
@@ -23,7 +26,11 @@ def normalize_environment_api_key() -> str | None:
     Returns the resolved key (if any) so callers can branch on configuration.
     """
 
-    fn = getattr(synth_ai_py, "localapi_normalize_environment_api_key", None)
+    fn = (
+        getattr(synth_ai_py, "localapi_normalize_environment_api_key", None)
+        if synth_ai_py
+        else None
+    )
     if callable(fn):
         return fn()
     # Fallback: promote DEV_ENVIRONMENT_API_KEY to ENVIRONMENT_API_KEY if needed.
@@ -45,7 +52,9 @@ def allowed_environment_api_keys() -> set[str]:
     - Any comma-separated aliases from ENVIRONMENT_API_KEY_ALIASES
     """
 
-    fn = getattr(synth_ai_py, "localapi_allowed_environment_api_keys", None)
+    fn = (
+        getattr(synth_ai_py, "localapi_allowed_environment_api_keys", None) if synth_ai_py else None
+    )
     if callable(fn):
         return set(fn())
     keys: set[str] = set()
@@ -119,7 +128,9 @@ def is_api_key_header_authorized(request: Any) -> bool:
     """Return True if any header-provided key matches any allowed environment key."""
 
     header_values = _raw_header_values(request)
-    fn = getattr(synth_ai_py, "localapi_is_api_key_header_authorized", None)
+    fn = (
+        getattr(synth_ai_py, "localapi_is_api_key_header_authorized", None) if synth_ai_py else None
+    )
     if callable(fn):
         return fn(header_values)
     allowed = allowed_environment_api_keys()
@@ -136,7 +147,9 @@ def require_api_key_dependency(request: Any) -> None:
         )
 
     header_values = _raw_header_values(request)
-    fn = getattr(synth_ai_py, "localapi_is_api_key_header_authorized", None)
+    fn = (
+        getattr(synth_ai_py, "localapi_is_api_key_header_authorized", None) if synth_ai_py else None
+    )
     authorized = (
         fn(header_values)
         if callable(fn)

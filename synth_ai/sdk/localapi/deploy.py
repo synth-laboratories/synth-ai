@@ -178,11 +178,26 @@ def deploy_localapi(
         headers = {"Authorization": f"Bearer {api_key}"}
 
         with httpx.Client(timeout=build_timeout_s) as client:
-            response = client.post(
-                f"{resolved_backend.rstrip('/')}/api/localapi/deployments",
-                files=files,
-                headers=headers,
-            )
+            url = f"{resolved_backend.rstrip('/')}/api/localapi/deployments"
+            response = client.post(url, files=files, headers=headers)
+
+            if response.status_code == 400:
+                detail = ""
+                try:
+                    body = response.json()
+                    detail = str(body.get("detail", body.get("message", "")))
+                except Exception:
+                    detail = response.text or ""
+                if "ENVIRONMENT_API_KEY" in detail:
+                    from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+
+                    ensure_localapi_auth(
+                        backend_base=resolved_backend,
+                        synth_api_key=api_key,
+                        upload=True,
+                    )
+                    response = client.post(url, files=files, headers=headers)
+
             response.raise_for_status()
             payload = response.json()
 

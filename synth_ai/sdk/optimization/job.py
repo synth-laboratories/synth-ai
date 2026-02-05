@@ -47,6 +47,7 @@ def _map_rust_status(status: str) -> JobStatus:
         "pending": JobStatus.PENDING,
         "queued": JobStatus.PENDING,
         "running": JobStatus.IN_PROGRESS,
+        "paused": JobStatus.PAUSED,
         "succeeded": JobStatus.COMPLETED,
         "failed": JobStatus.FAILED,
         "cancelled": JobStatus.CANCELLED,
@@ -59,6 +60,7 @@ class JobStatus(str, Enum):
 
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
+    PAUSED = "paused"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -78,6 +80,8 @@ class JobStatus(str, Enum):
             return cls.FAILED
         if normalized in ("running", "in_progress"):
             return cls.IN_PROGRESS
+        if normalized == "paused":
+            return cls.PAUSED
         if normalized in ("queued", "pending"):
             return cls.PENDING
         return cls.PENDING

@@ -6,11 +6,13 @@ from typing import Any
 
 try:
     import synth_ai_py
-except Exception as exc:  # pragma: no cover
-    raise RuntimeError("synth_ai_py is required for data.rust helpers.") from exc
+except Exception:  # pragma: no cover
+    synth_ai_py = None
 
 
 def _require() -> Any:
+    if synth_ai_py is None:  # pragma: no cover
+        raise RuntimeError("synth_ai_py is required for data.rust helpers.")
     return synth_ai_py
 
 

@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import click
 import httpx
-import synth_ai_py
+
+try:
+    import synth_ai_py
+except Exception:  # pragma: no cover
+    synth_ai_py = None
 
 from synth_ai.sdk.localapi._impl.contracts import TaskAppEndpoints  # type: ignore[attr-defined]
 
@@ -31,7 +36,16 @@ def validate_rollout_response_for_rl(
         ValueError: If critical fields are missing (unless warn_only=True)
     """
 
-    issues = synth_ai_py.localapi_validate_rollout_response_for_rl(response_data)
+    if synth_ai_py is not None and hasattr(
+        synth_ai_py, "localapi_validate_rollout_response_for_rl"
+    ):
+        issues = synth_ai_py.localapi_validate_rollout_response_for_rl(response_data)
+    else:
+        issues = []
+        if not response_data.get("trace") and not response_data.get("inference_url"):
+            issues.append("missing trace or inference_url for RL trace hydration")
+        if not response_data.get("trace_correlation_id"):
+            issues.append("missing trace_correlation_id")
 
     if issues and not warn_only:
         error_msg = "Task app response validation failed for RL training:\n" + "\n".join(
@@ -47,7 +61,26 @@ def normalize_inference_url(
 ) -> str:
     """Normalize an inference URL to include the /v1/chat/completions path."""
 
-    return synth_ai_py.localapi_normalize_inference_url(url, default)
+    if synth_ai_py is not None and hasattr(synth_ai_py, "localapi_normalize_inference_url"):
+        return synth_ai_py.localapi_normalize_inference_url(url, default)
+
+    if not url:
+        return default
+    url_str = str(url).strip()
+    if not url_str:
+        return default
+
+    parsed = urlparse(url_str)
+    if not parsed.scheme or not parsed.netloc:
+        parsed = urlparse(f"https://{url_str}")
+
+    path = parsed.path or ""
+    if not path or path == "/":
+        path = "/v1/chat/completions"
+    elif "chat/completions" not in path and path.rstrip("/").endswith("/v1"):
+        path = f"{path.rstrip('/')}/chat/completions"
+
+    return urlunparse(parsed._replace(path=path))
 
 
 def validate_task_app_url(url: str | None) -> str:
@@ -55,7 +88,18 @@ def validate_task_app_url(url: str | None) -> str:
 
     if not url:
         raise ValueError("Task app URL is required")
-    return synth_ai_py.localapi_validate_task_app_url(url)
+    if synth_ai_py is not None and hasattr(synth_ai_py, "localapi_validate_task_app_url"):
+        return synth_ai_py.localapi_validate_task_app_url(url)
+
+    url_str = str(url).strip()
+    if not url_str:
+        raise ValueError("Task app URL is required")
+    parsed = urlparse(url_str)
+    if not parsed.scheme or not parsed.netloc:
+        parsed = urlparse(f"https://{url_str}")
+    if not parsed.netloc:
+        raise ValueError("Task app URL is invalid")
+    return urlunparse(parsed._replace(path=parsed.path.rstrip("/")))
 
 
 def _print_success(msg: str) -> None:

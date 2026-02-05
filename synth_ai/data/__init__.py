@@ -68,121 +68,120 @@ from synth_ai.data.enums import (
     VerifierMode,
 )
 
-# Judgements
-from synth_ai.data.judgements import (
-    CriterionScoreData,
-    Judgement,
-    RubricAssignment,
-)
-
-# LLM call record data types
-from synth_ai.data.llm_calls import (
-    LLMCallRecord,
-    LLMChunk,
-    LLMContentPart,
-    LLMMessage,
-    LLMRequestParams,
-    LLMUsage,
-    ToolCallResult,
-    ToolCallSpec,
-)
-
-# Objective definitions
-from synth_ai.data.objectives import (
-    OBJECTIVE_REGISTRY,
-    EventObjectiveAssignment,
-    InstanceObjectiveAssignment,
-    ObjectiveSpec,
-    OutcomeObjectiveAssignment,
-    RewardObservation,
-)
-
-# Reward data types
-from synth_ai.data.rewards import (
-    CalibrationExample,
-    EventRewardRecord,
-    GoldExample,
-    OutcomeRewardRecord,
-    RewardAggregates,
-)
-
-# Rubric definitions (user input structures)
-from synth_ai.data.rubrics import (
-    Criterion,
-    CriterionExample,
-    Rubric,
-)
-from synth_ai.data.traces import (
-    BaseEvent,
-    EnvironmentEvent,
-    LMCAISEvent,
-    RuntimeEvent,
-    SessionEventMarkovBlanketMessage,
-    SessionMessageContent,
-    SessionTimeStep,
-    SessionTrace,
-    TimeRecord,
-)
-
-try:  # Require Rust-backed data models
+try:  # Prefer Rust-backed data models when available
     import synth_ai_py as _rust_data  # type: ignore
-except Exception as exc:  # pragma: no cover - rust bindings required
-    raise RuntimeError("synth_ai_py is required for synth_ai.data.") from exc
+except Exception:  # pragma: no cover - optional for data-only usage
+    _rust_data = None
 
-_RUST_EXPORTS = [
-    "CriterionExample",
-    "Criterion",
-    "Rubric",
-    "CriterionScoreData",
-    "RubricAssignment",
-    "Judgement",
-    "ObjectiveSpec",
-    "RewardObservation",
-    "OutcomeObjectiveAssignment",
-    "EventObjectiveAssignment",
-    "InstanceObjectiveAssignment",
-    "OutcomeRewardRecord",
-    "EventRewardRecord",
-    "RewardAggregates",
-    "CalibrationExample",
-    "GoldExample",
-    "Artifact",
-    "ContextOverride",
-    "ContextOverrideStatus",
-    "SessionTrace",
-    "SessionTimeStep",
-    "TracingEvent",
-    "RuntimeEvent",
-    "EnvironmentEvent",
-    "LMCAISEvent",
-    "SessionEventMarkovBlanketMessage",
-    "SessionMessageContent",
-    "TimeRecord",
-    "LLMUsage",
-    "LLMRequestParams",
-    "LLMContentPart",
-    "LLMMessage",
-    "ToolCallSpec",
-    "ToolCallResult",
-    "LLMChunk",
-    "LLMCallRecord",
-]
+if _rust_data is not None:
+    # Judgements
+    from synth_ai.data.judgements import (
+        CriterionScoreData,
+        Judgement,
+        RubricAssignment,
+    )
 
+    # LLM call record data types
+    from synth_ai.data.llm_calls import (
+        LLMCallRecord,
+        LLMChunk,
+        LLMContentPart,
+        LLMMessage,
+        LLMRequestParams,
+        LLMUsage,
+        ToolCallResult,
+        ToolCallSpec,
+    )
 
-def _is_constructible(cls: Any) -> bool:
-    try:
-        sig = inspect.signature(cls)
-    except Exception:
-        return False
-    return bool(sig.parameters)
+    # Objective definitions
+    from synth_ai.data.objectives import (
+        OBJECTIVE_REGISTRY,
+        EventObjectiveAssignment,
+        InstanceObjectiveAssignment,
+        ObjectiveSpec,
+        OutcomeObjectiveAssignment,
+        RewardObservation,
+    )
 
+    # Reward data types
+    from synth_ai.data.rewards import (
+        CalibrationExample,
+        EventRewardRecord,
+        GoldExample,
+        OutcomeRewardRecord,
+        RewardAggregates,
+    )
 
-for _name in _RUST_EXPORTS:
-    if not hasattr(_rust_data, _name):
-        continue
-    _cls = getattr(_rust_data, _name)
-    if _is_constructible(_cls):
-        globals()[_name if _name != "TracingEvent" else "BaseEvent"] = _cls
+    # Rubric definitions (user input structures)
+    from synth_ai.data.rubrics import (
+        Criterion,
+        CriterionExample,
+        Rubric,
+    )
+    from synth_ai.data.traces import (
+        BaseEvent,
+        EnvironmentEvent,
+        LMCAISEvent,
+        RuntimeEvent,
+        SessionEventMarkovBlanketMessage,
+        SessionMessageContent,
+        SessionTimeStep,
+        SessionTrace,
+        TimeRecord,
+    )
+
+    _RUST_EXPORTS = [
+        "CriterionExample",
+        "Criterion",
+        "Rubric",
+        "CriterionScoreData",
+        "RubricAssignment",
+        "Judgement",
+        "ObjectiveSpec",
+        "RewardObservation",
+        "OutcomeObjectiveAssignment",
+        "EventObjectiveAssignment",
+        "InstanceObjectiveAssignment",
+        "OutcomeRewardRecord",
+        "EventRewardRecord",
+        "RewardAggregates",
+        "CalibrationExample",
+        "GoldExample",
+        "Artifact",
+        "ContextOverride",
+        "ContextOverrideStatus",
+        "SessionTrace",
+        "SessionTimeStep",
+        "TracingEvent",
+        "RuntimeEvent",
+        "EnvironmentEvent",
+        "LMCAISEvent",
+        "SessionEventMarkovBlanketMessage",
+        "SessionMessageContent",
+        "TimeRecord",
+        "LLMUsage",
+        "LLMRequestParams",
+        "LLMContentPart",
+        "LLMMessage",
+        "ToolCallSpec",
+        "ToolCallResult",
+        "LLMChunk",
+        "LLMCallRecord",
+    ]
+
+    def _is_constructible(cls: Any) -> bool:
+        try:
+            sig = inspect.signature(cls)
+        except Exception:
+            return False
+        return bool(sig.parameters)
+
+    for _name in _RUST_EXPORTS:
+        if not hasattr(_rust_data, _name):
+            continue
+        _cls = getattr(_rust_data, _name)
+        if _is_constructible(_cls):
+            globals()[_name if _name != "TracingEvent" else "BaseEvent"] = _cls
 
 __all__ = [
     # Enums
@@ -203,23 +202,6 @@ __all__ = [
     "AdaptiveCurriculumLevel",
     "AdaptiveBatchLevel",
     "OutputMode",
-    # Objectives
-    "ObjectiveSpec",
-    "OBJECTIVE_REGISTRY",
-    "RewardObservation",
-    "OutcomeObjectiveAssignment",
-    "EventObjectiveAssignment",
-    "InstanceObjectiveAssignment",
-    # Judgements
-    "CriterionScoreData",
-    "RubricAssignment",
-    "Judgement",
-    # Reward data
-    "OutcomeRewardRecord",
-    "EventRewardRecord",
-    "RewardAggregates",
-    "CalibrationExample",
-    "GoldExample",
     # Artifacts
     "Artifact",
     # Context override types
@@ -231,28 +213,48 @@ __all__ = [
     "FolderMode",
     "ApplicationStatus",
     "ApplicationErrorType",
-    # Trace data
-    "SessionTrace",
-    "SessionTimeStep",
-    "BaseEvent",
-    "RuntimeEvent",
-    "EnvironmentEvent",
-    "LMCAISEvent",
-    "SessionEventMarkovBlanketMessage",
-    "SessionMessageContent",
-    "TimeRecord",
-    # LLM call records
-    "LLMUsage",
-    "LLMRequestParams",
-    "LLMContentPart",
-    "LLMMessage",
-    "ToolCallSpec",
-    "ToolCallResult",
-    "LLMChunk",
-    "LLMCallRecord",
-    # Rubrics
-    "CriterionExample",
-    "Criterion",
-    "Rubric",
-    "CriterionExample",
 ]
+
+if _rust_data is not None:
+    __all__ += [
+        # Objectives
+        "ObjectiveSpec",
+        "OBJECTIVE_REGISTRY",
+        "RewardObservation",
+        "OutcomeObjectiveAssignment",
+        "EventObjectiveAssignment",
+        "InstanceObjectiveAssignment",
+        # Judgements
+        "CriterionScoreData",
+        "RubricAssignment",
+        "Judgement",
+        # Reward data
+        "OutcomeRewardRecord",
+        "EventRewardRecord",
+        "RewardAggregates",
+        "CalibrationExample",
+        "GoldExample",
+        # Trace data
+        "SessionTrace",
+        "SessionTimeStep",
+        "BaseEvent",
+        "RuntimeEvent",
+        "EnvironmentEvent",
+        "LMCAISEvent",
+        "SessionEventMarkovBlanketMessage",
+        "SessionMessageContent",
+        "TimeRecord",
+        # LLM call records
+        "LLMUsage",
+        "LLMRequestParams",
+        "LLMContentPart",
+        "LLMMessage",
+        "ToolCallSpec",
+        "ToolCallResult",
+        "LLMChunk",
+        "LLMCallRecord",
+        # Rubrics
+        "CriterionExample",
+        "Criterion",
+        "Rubric",
+    ]

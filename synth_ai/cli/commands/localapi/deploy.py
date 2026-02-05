@@ -146,6 +146,13 @@ def _build_entrypoint(
     help="Synth backend URL.",
 )
 @click.option(
+    "--provider",
+    type=click.Choice(["cloud", "harbor"]),
+    default="cloud",
+    show_default=True,
+    help="Deployment backend to use.",
+)
+@click.option(
     "--json-output/--no-json-output",
     default=False,
     help="Emit machine-readable JSON output.",
@@ -169,8 +176,9 @@ def deploy(
     api_key: str | None,
     backend_url: str,
     json_output: bool,
+    provider: str,
 ) -> None:
-    """Deploy a LocalAPI to the cloud via Harbor."""
+    """Deploy a LocalAPI to the cloud."""
     if not api_key:
         raise click.ClickException("API key required. Set SYNTH_API_KEY or use --api-key.")
 
@@ -181,7 +189,8 @@ def deploy(
     entrypoint_cmd, entrypoint_mode = _build_entrypoint(entrypoint, app, port, entrypoint_mode)
     env_vars = _parse_kv_pairs(env)
 
-    from synth_ai.sdk.harbor import HarborBuildSpec, HarborLimits, upload_harbor_deployment
+    from synth_ai.sdk.harbor import HarborLimits
+    from synth_ai.sdk.localapi import deploy_localapi
 
     _echo(f"Deploying LocalAPI '{name}'...")
     _echo(f"  Dockerfile: {dockerfile}")
@@ -189,7 +198,7 @@ def deploy(
     _echo(f"  Entrypoint: {entrypoint_cmd}")
 
     try:
-        spec = HarborBuildSpec(
+        result = deploy_localapi(
             name=name,
             dockerfile_path=dockerfile,
             context_dir=context,
@@ -203,20 +212,17 @@ def deploy(
                 memory_mb=memory,
                 disk_mb=disk,
             ),
+            backend_url=backend_url,
+            api_key=api_key,
+            wait_for_ready=wait,
+            build_timeout_s=float(build_timeout),
+            provider=provider,
+            port=port,
             metadata={"localapi": True},
         )
 
-        result = upload_harbor_deployment(
-            spec,
-            api_key=api_key,
-            backend_url=backend_url,
-            auto_build=True,
-            wait_for_ready=wait,
-            build_timeout_s=float(build_timeout),
-        )
-
         deployment_key = result.deployment_name or result.deployment_id
-        task_app_url = f"{backend_url.rstrip('/')}/api/harbor/deployments/{deployment_key}"
+        task_app_url = result.task_app_url
 
         if json_output:
             click.echo(
@@ -228,6 +234,7 @@ def deploy(
                         "snapshot_id": result.snapshot_id,
                         "task_app_url": task_app_url,
                         "task_app_api_key_env": "SYNTH_API_KEY",
+                        "provider": result.provider,
                     }
                 )
             )
@@ -247,7 +254,10 @@ def deploy(
 
         if not wait and result.status != "ready":
             click.echo("\nTo wait for build completion, run:")
-            click.echo(f"  synth harbor status {deployment_key} --wait")
+            if provider == "harbor":
+                click.echo(f"  synth harbor status {deployment_key} --wait")
+            else:
+                click.echo("  synth localapi deploy --wait ...")
         if result.status == "ready":
             click.echo("\nLocalAPI is ready to accept /rollout traffic.")
 

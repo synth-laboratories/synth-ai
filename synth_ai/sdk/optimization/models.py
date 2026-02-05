@@ -86,6 +86,7 @@ class PolicyJobStatus(str, Enum):
     PENDING = "pending"
     QUEUED = "queued"
     RUNNING = "running"
+    PAUSED = "paused"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -101,6 +102,8 @@ class PolicyJobStatus(str, Enum):
             return cls.FAILED
         if normalized in ("running", "in_progress"):
             return cls.RUNNING
+        if normalized == "paused":
+            return cls.PAUSED
         if normalized == "queued":
             return cls.QUEUED
         if normalized == "pending":

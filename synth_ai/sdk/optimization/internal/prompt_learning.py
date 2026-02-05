@@ -192,7 +192,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/policy-optimization/online/jobs/{job_id}")
+        return super().poll(f"/api/jobs/{job_id}")
 
 
 class PromptLearningJob:
@@ -702,6 +702,9 @@ class PromptLearningJob:
                         logger.warning("Job %s was cancelled", self._job_id)
                     else:
                         logger.info("Job %s completed: %s", self._job_id, result.status.value)
+                    return result
+                if result.status == PolicyJobStatus.PAUSED:
+                    logger.warning("Job %s is paused", self._job_id)
                     return result
             except Exception as exc:
                 error_count += 1

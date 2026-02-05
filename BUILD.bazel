@@ -4,17 +4,61 @@ COMMON_ENV = {
     "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
 }
 
+PYTEST_DATA = glob([
+    "synth_ai/**",
+    "tests/**",
+    "pyproject.toml",
+    "uv.lock",
+])
+
 sh_test(
     name = "pytest_fast",
     srcs = ["bazel/pytest_fast.sh"],
-    data = glob([
-        "synth_ai/**",
-        "tests/**",
-        "pyproject.toml",
-        "uv.lock",
-    ]),
+    data = PYTEST_DATA,
     local = True,
     env = COMMON_ENV,
     tags = ["local"],
+    timeout = "long",
+)
+
+sh_test(
+    name = "pytest_unit",
+    srcs = ["bazel/pytest_unit.sh"],
+    data = PYTEST_DATA,
+    local = True,
+    env = COMMON_ENV,
+    tags = ["unit", "local"],
+    timeout = "long",
+)
+
+sh_test(
+    name = "pytest_integration",
+    srcs = ["bazel/pytest_integration.sh"],
+    data = PYTEST_DATA,
+    local = True,
+    env = COMMON_ENV,
+    tags = [
+        "integration",
+        "manual",
+        "requires-network",
+        "requires-api-key",
+        "local",
+    ],
+    timeout = "long",
+)
+
+sh_test(
+    name = "pytest_all",
+    srcs = ["bazel/pytest_all.sh"],
+    data = PYTEST_DATA,
+    local = True,
+    env = COMMON_ENV,
+    tags = [
+        "all",
+        "manual",
+        "requires-network",
+        "requires-api-key",
+        "local",
+    ],
     timeout = "long",
 )

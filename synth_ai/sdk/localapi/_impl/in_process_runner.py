@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 
+from synth_ai.core.tunnels import TunnelBackend
 from synth_ai.core.utils.dict import deep_update as _deep_update
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.localapi._impl.in_process import InProcessTaskApp
@@ -133,7 +134,8 @@ async def run_in_process_job(
     config: Any | None = None,
     config_factory: Callable[[], Any] | None = None,
     task_app_path: str | Path | None = None,
-    tunnel_mode: str = "quick",
+    tunnel_mode: str = "synthtunnel",
+    tunnel_backend: TunnelBackend | str | None = None,
     preconfigured_url: str | None = None,
     preconfigured_auth_header: str | None = None,
     preconfigured_auth_token: str | None = None,
@@ -163,7 +165,8 @@ async def run_in_process_job(
         config: TaskAppConfig object
         config_factory: Callable that returns TaskAppConfig
         task_app_path: Path to task app .py file
-        tunnel_mode: Tunnel mode - "quick", "named", "local", or "preconfigured"
+        tunnel_mode: Tunnel mode - "synthtunnel", "quick", "named", "local", or "preconfigured"
+        tunnel_backend: Explicit tunnel backend (overrides tunnel_mode when set)
         preconfigured_url: External tunnel URL when tunnel_mode="preconfigured"
         preconfigured_auth_header: Auth header name for preconfigured URL
         preconfigured_auth_token: Auth token for preconfigured URL
@@ -199,6 +202,7 @@ async def run_in_process_job(
         host=host,
         port=port,
         tunnel_mode=tunnel_mode,
+        tunnel_backend=tunnel_backend,
         preconfigured_url=preconfigured_url,
         preconfigured_auth_header=preconfigured_auth_header,
         preconfigured_auth_token=preconfigured_auth_token,
@@ -217,6 +221,7 @@ async def run_in_process_job(
         # 1. tunnel verification is skipped (DNS may not have propagated locally)
         # 2. OR backend verified DNS propagation (safe to skip redundant local check)
         should_skip_health_check = skip_tunnel_verification or dns_verified_by_backend
+        worker_token = getattr(task_app, "task_app_worker_token", None)
         if should_skip_health_check:
             reason = (
                 "tunnel verification disabled"
@@ -230,7 +235,11 @@ async def run_in_process_job(
                 detail=f"Skipped ({reason})",
             )
         else:
-            health = check_local_api_health(task_url, resolved_task_app_key)
+            health = check_local_api_health(
+                task_url,
+                resolved_task_app_key,
+                worker_token=worker_token,
+            )
             if not health.ok:
                 raise RuntimeError(f"Task app health check failed for {task_url}: {health.detail}")
 
@@ -247,6 +256,7 @@ async def run_in_process_job(
                 backend_url=backend_api_base,
                 api_key=resolved_api_key,
                 task_app_api_key=resolved_task_app_key,
+                task_app_worker_token=worker_token,
                 allow_experimental=allow_experimental,
                 overrides=merged_overrides,
             )
