@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import warnings
+from enum import Enum
 from typing import Any, Iterator
 
 from synth_ai.core.errors import PlanGatingError
@@ -27,7 +28,9 @@ __all__ = [
     "PoolConfigV1",
     "PoolDataSource",
     "PoolResources",
+    "PoolResponse",
     "PoolTaskInstance",
+    "PoolTemplate",
     "ReproMetadata",
     "RolloutHandle",
     "RolloutRequestV1",
@@ -79,6 +82,30 @@ __all__ = [
 _API_PREFIX = "/api/v1/environment-pools"
 _CREDENTIALS_PREFIX = "/api/v1/credentials"
 _PUBLIC_API_PREFIX = "/v1"
+
+
+class PoolTemplate(str, Enum):
+    """Available pool templates for hosted task apps."""
+
+    HARBOR_CODING = "HARBOR_CODING"
+    HARBOR_BROWSER = "HARBOR_BROWSER"
+    ARCHIPELAGO = "ARCHIPELAGO"
+    OPENENV = "OPENENV"
+
+
+_TEMPLATE_POOL_TYPES: dict[str, str] = {
+    PoolTemplate.HARBOR_CODING.value: "sandbox",
+    PoolTemplate.HARBOR_BROWSER.value: "browser",
+    PoolTemplate.ARCHIPELAGO.value: "archipelago",
+    PoolTemplate.OPENENV.value: "openenv",
+}
+
+_TEMPLATE_BACKENDS: dict[str, str] = {
+    PoolTemplate.HARBOR_CODING.value: "harbor",
+    PoolTemplate.HARBOR_BROWSER.value: "kernel",
+    PoolTemplate.ARCHIPELAGO.value: "archipelago",
+    PoolTemplate.OPENENV.value: "openenv",
+}
 
 
 def _resolve_base_url(base_url: str | None, *, default: str) -> str:
@@ -136,8 +163,7 @@ _PLAN_GATED_ALLOW_DEMO: bool = True
 
 _UPGRADE_URL = "https://usesynth.ai/pricing"
 _UPGRADE_MESSAGE = (
-    "Environment Pools is available on Pro and Team plans. "
-    "Upgrade at {url} to access this feature."
+    "Environment Pools is available on Pro and Team plans. Upgrade at {url} to access this feature."
 )
 
 
@@ -184,7 +210,11 @@ def _check_plan_access(
             return data
     elif isinstance(feature_flags, list):
         for flag in feature_flags:
-            if isinstance(flag, dict) and flag.get("feature") == feature and flag.get("enabled", False):
+            if (
+                isinstance(flag, dict)
+                and flag.get("feature") == feature
+                and flag.get("enabled", False)
+            ):
                 return data
             if isinstance(flag, str) and flag == feature:
                 return data
@@ -236,7 +266,9 @@ def _capture_sdk_error(exc: Exception, *, response: Any | None = None) -> None:
             status_code = getattr(response, "status_code", None)
             if status_code is not None:
                 scope.set_tag("status_code", str(status_code))
-            request_id = response.headers.get("x-request-id") if hasattr(response, "headers") else None
+            request_id = (
+                response.headers.get("x-request-id") if hasattr(response, "headers") else None
+            )
             if request_id:
                 scope.set_tag("request_id", request_id)
             url = getattr(response, "url", None)
@@ -260,10 +292,14 @@ try:
     from pydantic import BaseModel, Field, model_validator
 except Exception:  # pragma: no cover - optional for minimal runtime
     BaseModel = object  # type: ignore[assignment]
-    Field = lambda *args, **kwargs: None  # type: ignore[assignment]
+
+    def Field(*args, **kwargs):  # type: ignore[no-redef] # noqa: N802
+        return None
+
     def model_validator(*_args, **_kwargs):  # type: ignore[no-redef]
         def _wrap(fn):
             return fn
+
         return _wrap
 
 
@@ -311,7 +347,9 @@ class AgentSpec(BaseModel):
         return model_id
 
     @classmethod
-    def preset(cls, name: str, *, model_id: str | None = None, harness_version: str | None = None) -> AgentSpec:
+    def preset(
+        cls, name: str, *, model_id: str | None = None, harness_version: str | None = None
+    ) -> AgentSpec:
         """Create an AgentSpec from a known harness preset name."""
         if name not in _AGENT_DEFAULT_MODELS:
             raise ValueError(
@@ -321,12 +359,16 @@ class AgentSpec(BaseModel):
         return cls(harness=name, model_id=resolved_model, harness_version=harness_version)
 
     @classmethod
-    def claude_code(cls, *, model_id: str | None = None, harness_version: str | None = None) -> AgentSpec:
+    def claude_code(
+        cls, *, model_id: str | None = None, harness_version: str | None = None
+    ) -> AgentSpec:
         """Create an AgentSpec for the claude-code harness."""
         return cls.preset("claude-code", model_id=model_id, harness_version=harness_version)
 
     @classmethod
-    def opencode(cls, *, model_id: str | None = None, harness_version: str | None = None) -> AgentSpec:
+    def opencode(
+        cls, *, model_id: str | None = None, harness_version: str | None = None
+    ) -> AgentSpec:
         """Create an AgentSpec for the opencode harness."""
         return cls.preset("opencode", model_id=model_id, harness_version=harness_version)
 
@@ -337,7 +379,9 @@ class AgentSpec(BaseModel):
 
 
 class EnvironmentSpec(BaseModel):
-    backend: str = Field(..., description="Backend provider (harbor, browser, openenv, archipelago)")
+    backend: str = Field(
+        ..., description="Backend provider (harbor, browser, openenv, archipelago)"
+    )
     docker_image: str | None = None
 
 
@@ -453,7 +497,9 @@ class EventEnvelope(BaseModel):
     """Canonical SSE event envelope."""
 
     id: str | None = Field(default=None, description="Event ID for resume")
-    event: str = Field(default="message", description="Event type (lifecycle, agent, verifier, reward, heartbeat)")
+    event: str = Field(
+        default="message", description="Event type (lifecycle, agent, verifier, reward, heartbeat)"
+    )
     seq: int | None = Field(default=None, description="Monotonic sequence number")
     timestamp: str | None = Field(default=None, description="ISO8601 timestamp")
     data: dict[str, Any] | str | None = Field(default=None, description="Event payload")
@@ -467,7 +513,9 @@ class ArtifactManifestEntry(BaseModel):
     sha256: str | None = Field(default=None, description="SHA256 hash of contents")
     content_type: str | None = Field(default=None, description="MIME type")
     created_at: str | None = Field(default=None, description="ISO8601 creation timestamp")
-    provenance: str | None = Field(default=None, description="Producer phase (agent, verifier, worker)")
+    provenance: str | None = Field(
+        default=None, description="Producer phase (agent, verifier, worker)"
+    )
     download_url: str | None = Field(default=None, description="Stable download URL")
 
 
@@ -492,7 +540,50 @@ class UsageSnapshot(BaseModel):
     llm_input_tokens: int | None = None
     llm_output_tokens: int | None = None
     cost_usd: float | None = Field(default=None, description="Estimated cost in USD")
-    provider_costs: dict[str, float] | None = Field(default=None, description="Per-provider cost breakdown")
+    provider_costs: dict[str, float] | None = Field(
+        default=None, description="Per-provider cost breakdown"
+    )
+
+
+class PoolResponse(BaseModel):
+    """Response from pool creation/retrieval with all pool metadata."""
+
+    pool_id: str = Field(..., description="Unique pool identifier")
+    pool_type: str | None = Field(default=None, description="Pool type (sandbox, browser, etc.)")
+    backend: str | None = Field(default=None, description="Backend provider")
+    template: str | None = Field(
+        default=None, description="Pool template if using hosted task apps"
+    )
+    task_app_url: str | None = Field(
+        default=None, description="URL to use as task_app_url in rollouts"
+    )
+    task_app_id: str | None = Field(default=None, description="Associated task app ID")
+    org_id: str | None = Field(default=None, description="Organization ID")
+    capacity: int | None = Field(default=None, description="Pool capacity")
+    concurrency: int | None = Field(default=None, description="Concurrency limit")
+    tasks: list[dict[str, Any]] | None = Field(default=None, description="Task definitions")
+    status: str | None = Field(default=None, description="Pool status")
+    created_at: str | None = Field(default=None, description="ISO8601 creation timestamp")
+    updated_at: str | None = Field(default=None, description="ISO8601 last update timestamp")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PoolResponse:
+        """Create a PoolResponse from a raw API dict, extracting known fields."""
+        return cls(
+            pool_id=data.get("pool_id", data.get("id", "")),
+            pool_type=data.get("pool_type"),
+            backend=data.get("backend"),
+            template=data.get("template"),
+            task_app_url=data.get("task_app_url"),
+            task_app_id=data.get("task_app_id"),
+            org_id=data.get("org_id"),
+            capacity=data.get("capacity"),
+            concurrency=data.get("concurrency"),
+            tasks=data.get("tasks"),
+            status=data.get("status"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
 
 
 # --- Errors ---
@@ -534,7 +625,9 @@ class SynthAPIError(Exception):
         error = data.get("error", data)
         return cls(
             code=error.get("code", "unknown_error"),
-            message=error.get("message", str(response.text if hasattr(response, "text") else response)),
+            message=error.get(
+                "message", str(response.text if hasattr(response, "text") else response)
+            ),
             details=error.get("details"),
             request_id=error.get("request_id") or response.headers.get("x-request-id"),
             rollout_id=error.get("rollout_id"),
@@ -1037,9 +1130,7 @@ def fetch_artifact(
 
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(
-        base, f"rollouts/{rollout_id}/artifacts/{path.lstrip('/')}", api_version=api_version
-    )
+    url = _url(base, f"rollouts/{rollout_id}/artifacts/{path.lstrip('/')}", api_version=api_version)
     resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
     _raise_for_status_with_plan_check(resp)
     return resp.content
@@ -1284,21 +1375,45 @@ def get_pool(
     return data if isinstance(data, dict) else {}
 
 
+def _normalize_tasks_for_template(tasks: list[Any], template: str | None) -> list[dict[str, Any]]:
+    if not template:
+        return [
+            (_payload_from_request(task) if not isinstance(task, dict) else task) for task in tasks
+        ]
+    normalized: list[dict[str, Any]] = []
+    for task in tasks:
+        payload = _payload_from_request(task)
+        config = payload.get("config")
+        if not isinstance(config, dict):
+            config = {}
+        config["template"] = template
+        payload["config"] = config
+        backend_value = _TEMPLATE_BACKENDS.get(template)
+        if backend_value and "backend" not in payload:
+            payload["backend"] = backend_value
+        normalized.append(payload)
+    return normalized
+
+
 def create_pool(
     *,
     backend_base: str | None = None,
     api_key: str | None = None,
-    request: dict[str, Any],
+    request: dict[str, Any] | None = None,
+    pool_id: str | None = None,
+    template: PoolTemplate | str | None = None,
+    tasks: list[dict[str, Any] | PoolTaskInstance] | None = None,
+    pool_type: str | None = None,
+    backend: str | None = None,
     timeout: float = 30.0,
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Create a new pool.
 
-    The ``request`` dict should include at minimum ``pool_type`` (one of
-    ``"sandbox"``, ``"browser"``, ``"openenv"``, ``"archipelago"``) and
-    optionally ``tasks`` — a list of task instance definitions that declare
-    which backend resources and configurations each instance uses (datasets,
-    docker images, openenv configs, archipelago setups, etc.).
+    You may pass a raw ``request`` dict (internal usage) or use the
+    convenience parameters (``pool_id``, ``template``, ``tasks``). When
+    ``template`` is provided, the helper fills ``pool_type``/``backend`` and
+    injects the template into each task's config.
     """
     warnings.warn(
         "create_pool is intended for internal control-plane usage. "
@@ -1311,7 +1426,37 @@ def create_pool(
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
     url = _url(base, "pools", api_version=api_version)
-    payload = _payload_from_request(request)
+
+    template_value: str | None = None
+    if template is not None:
+        template_value = template.value if isinstance(template, PoolTemplate) else str(template)
+
+    if request is None:
+        if pool_id is None:
+            raise ValueError("pool_id is required when request is not provided")
+        payload: dict[str, Any] = {"pool_id": pool_id}
+        if template_value:
+            payload["template"] = template_value
+        if tasks is not None:
+            payload["tasks"] = _normalize_tasks_for_template(tasks, template_value)
+        if pool_type is not None:
+            payload["pool_type"] = pool_type
+        elif template_value and template_value in _TEMPLATE_POOL_TYPES:
+            payload["pool_type"] = _TEMPLATE_POOL_TYPES[template_value]
+        if backend is not None:
+            payload["backend"] = backend
+        elif template_value and template_value in _TEMPLATE_BACKENDS:
+            payload["backend"] = _TEMPLATE_BACKENDS[template_value]
+    else:
+        payload = _payload_from_request(request)
+        if template_value:
+            payload.setdefault("template", template_value)
+            if "pool_type" not in payload and template_value in _TEMPLATE_POOL_TYPES:
+                payload["pool_type"] = _TEMPLATE_POOL_TYPES[template_value]
+            if "backend" not in payload and template_value in _TEMPLATE_BACKENDS:
+                payload["backend"] = _TEMPLATE_BACKENDS[template_value]
+            if "tasks" in payload and isinstance(payload["tasks"], list):
+                payload["tasks"] = _normalize_tasks_for_template(payload["tasks"], template_value)
     resp = httpx.post(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
     _raise_for_status_with_plan_check(resp)
     data = resp.json()
@@ -1663,7 +1808,9 @@ def rotate_credential(
     api_key = _resolve_api_key(api_key)
     url = _cred_url(base, credential_id)
     value = json.dumps(new_value) if isinstance(new_value, dict) else new_value
-    resp = httpx.put(url, headers=_auth_headers(api_key), json={"credential_value": value}, timeout=timeout)
+    resp = httpx.put(
+        url, headers=_auth_headers(api_key), json={"credential_value": value}, timeout=timeout
+    )
     _raise_for_status_with_plan_check(resp)
     data = resp.json()
     return data if isinstance(data, dict) else {}
@@ -1760,7 +1907,9 @@ class PoolTask:
 class _RolloutsNamespace:
     """Namespace for rollout operations on EnvironmentPoolsClient."""
 
-    def __init__(self, *, backend_base: str | None, api_key: str | None, api_version: str | None) -> None:
+    def __init__(
+        self, *, backend_base: str | None, api_key: str | None, api_version: str | None
+    ) -> None:
         self._backend_base = backend_base
         self._api_key = api_key
         self._api_version = api_version
@@ -1911,7 +2060,9 @@ class _RolloutsNamespace:
 class _PoolTasksNamespace:
     """Sub-namespace for pool task operations."""
 
-    def __init__(self, *, backend_base: str | None, api_key: str | None, api_version: str | None) -> None:
+    def __init__(
+        self, *, backend_base: str | None, api_key: str | None, api_version: str | None
+    ) -> None:
         self._backend_base = backend_base
         self._api_key = api_key
         self._api_version = api_version
@@ -1938,7 +2089,12 @@ class _PoolTasksNamespace:
         )
 
     def update(
-        self, pool_id: str, task_id: str, *, request: dict[str, Any] | PoolTaskInstance, timeout: float = 30.0
+        self,
+        pool_id: str,
+        task_id: str,
+        *,
+        request: dict[str, Any] | PoolTaskInstance,
+        timeout: float = 30.0,
     ) -> dict[str, Any]:
         return update_pool_task(
             pool_id,
@@ -1964,7 +2120,9 @@ class _PoolTasksNamespace:
 class _PoolsNamespace:
     """Namespace for pool operations on EnvironmentPoolsClient."""
 
-    def __init__(self, *, backend_base: str | None, api_key: str | None, api_version: str | None) -> None:
+    def __init__(
+        self, *, backend_base: str | None, api_key: str | None, api_version: str | None
+    ) -> None:
         self._backend_base = backend_base
         self._api_key = api_key
         self._api_version = api_version
@@ -1974,7 +2132,22 @@ class _PoolsNamespace:
 
     def list(
         self, *, pool_type: str | None = None, tag: str | None = None, timeout: float = 30.0
+    ) -> list[PoolResponse]:
+        """List all pools, returning PoolResponse objects."""
+        data = list_pools(
+            backend_base=self._backend_base,
+            api_key=self._api_key,
+            pool_type=pool_type,
+            tag=tag,
+            timeout=timeout,
+            api_version=self._api_version,
+        )
+        return [PoolResponse.from_dict(pool) for pool in data]
+
+    def list_raw(
+        self, *, pool_type: str | None = None, tag: str | None = None, timeout: float = 30.0
     ) -> list[dict[str, Any]]:
+        """List all pools, returning raw dicts."""
         return list_pools(
             backend_base=self._backend_base,
             api_key=self._api_key,
@@ -1984,7 +2157,19 @@ class _PoolsNamespace:
             api_version=self._api_version,
         )
 
-    def get(self, pool_id: str, *, timeout: float = 30.0) -> dict[str, Any]:
+    def get(self, pool_id: str, *, timeout: float = 30.0) -> PoolResponse:
+        """Get pool details as a PoolResponse."""
+        data = get_pool(
+            pool_id,
+            backend_base=self._backend_base,
+            api_key=self._api_key,
+            timeout=timeout,
+            api_version=self._api_version,
+        )
+        return PoolResponse.from_dict(data)
+
+    def get_raw(self, pool_id: str, *, timeout: float = 30.0) -> dict[str, Any]:
+        """Get pool details as a raw dict."""
         return get_pool(
             pool_id,
             backend_base=self._backend_base,
@@ -1993,16 +2178,75 @@ class _PoolsNamespace:
             api_version=self._api_version,
         )
 
-    def create(self, *, request: dict[str, Any], timeout: float = 30.0) -> dict[str, Any]:
+    def create(
+        self,
+        *,
+        request: dict[str, Any] | None = None,
+        pool_id: str | None = None,
+        template: PoolTemplate | str | None = None,
+        tasks: list[dict[str, Any] | PoolTaskInstance] | None = None,
+        pool_type: str | None = None,
+        backend: str | None = None,
+        timeout: float = 30.0,
+    ) -> PoolResponse:
+        """Create a new pool, returning a PoolResponse."""
+        data = create_pool(
+            backend_base=self._backend_base,
+            api_key=self._api_key,
+            request=request,
+            pool_id=pool_id,
+            template=template,
+            tasks=tasks,
+            pool_type=pool_type,
+            backend=backend,
+            timeout=timeout,
+            api_version=self._api_version,
+        )
+        return PoolResponse.from_dict(data)
+
+    def create_raw(
+        self,
+        *,
+        request: dict[str, Any] | None = None,
+        pool_id: str | None = None,
+        template: PoolTemplate | str | None = None,
+        tasks: list[dict[str, Any] | PoolTaskInstance] | None = None,
+        pool_type: str | None = None,
+        backend: str | None = None,
+        timeout: float = 30.0,
+    ) -> dict[str, Any]:
+        """Create a new pool, returning a raw dict."""
         return create_pool(
+            backend_base=self._backend_base,
+            api_key=self._api_key,
+            request=request,
+            pool_id=pool_id,
+            template=template,
+            tasks=tasks,
+            pool_type=pool_type,
+            backend=backend,
+            timeout=timeout,
+            api_version=self._api_version,
+        )
+
+    def update(
+        self, pool_id: str, *, request: dict[str, Any], timeout: float = 30.0
+    ) -> PoolResponse:
+        """Update pool configuration, returning a PoolResponse."""
+        data = update_pool(
+            pool_id,
             backend_base=self._backend_base,
             api_key=self._api_key,
             request=request,
             timeout=timeout,
             api_version=self._api_version,
         )
+        return PoolResponse.from_dict(data)
 
-    def update(self, pool_id: str, *, request: dict[str, Any], timeout: float = 30.0) -> dict[str, Any]:
+    def update_raw(
+        self, pool_id: str, *, request: dict[str, Any], timeout: float = 30.0
+    ) -> dict[str, Any]:
+        """Update pool configuration, returning a raw dict."""
         return update_pool(
             pool_id,
             backend_base=self._backend_base,
@@ -2082,7 +2326,9 @@ class _CredentialsNamespace:
 class _CapabilitiesNamespace:
     """Namespace for capabilities/schema operations on EnvironmentPoolsClient."""
 
-    def __init__(self, *, backend_base: str | None, api_key: str | None, api_version: str | None) -> None:
+    def __init__(
+        self, *, backend_base: str | None, api_key: str | None, api_version: str | None
+    ) -> None:
         self._backend_base = backend_base
         self._api_key = api_key
         self._api_version = api_version
@@ -2154,9 +2400,7 @@ class EnvironmentPoolsClient:
         self.pools = _PoolsNamespace(
             backend_base=backend_base, api_key=api_key, api_version=api_version
         )
-        self.credentials = _CredentialsNamespace(
-            backend_base=backend_base, api_key=api_key
-        )
+        self.credentials = _CredentialsNamespace(backend_base=backend_base, api_key=api_key)
         self.capabilities = _CapabilitiesNamespace(
             backend_base=backend_base, api_key=api_key, api_version=api_version
         )
