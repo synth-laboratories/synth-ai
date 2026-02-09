@@ -518,7 +518,11 @@ def optimize(
                 "proposer_output_tokens": proposer_output_tokens,
                 "num_generations": num_generations,
                 "children_per_generation": children_per_generation,
-                "policy": {"provider": provider, "model": model},
+                "policy": {
+                    "provider": provider,
+                    "model": model,
+                    "inference_mode": "synth_hosted",
+                },
                 "initial_prompt": initial_prompt,
                 "proposer_type": "gepa-ai",
                 "rng_seed": seed,
@@ -529,12 +533,17 @@ def optimize(
             expanded_config = expand_gepa_config(minimal_config)
             config_dict = {"policy_optimization": expanded_config}
 
+            job_overrides: dict[str, Any] = {}
+            if resolved_max_metric_calls is not None:
+                job_overrides["prompt_learning.gepa.rollout.budget"] = resolved_max_metric_calls
+
             job = PolicyOptimizationJob.from_dict(
                 config_dict=config_dict,
                 backend_url=backend_url,
                 api_key=api_key,
                 task_app_worker_token=worker_token,
                 algorithm="gepa",
+                overrides=job_overrides,
             )
             job.submit()
             result = job.poll_until_complete(

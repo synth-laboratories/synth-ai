@@ -132,7 +132,7 @@ class SynthTunnelClient:
         self.api_key = api_key
         self.backend_url = normalize_backend_base(
             backend_url or os.getenv("SYNTH_BACKEND_URL") or DEFAULT_BACKEND_URL
-        )
+        ).rstrip("/")
 
     async def create_lease(
         self,
