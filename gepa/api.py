@@ -13,8 +13,9 @@ from typing import Any, Literal, cast
 
 import httpx
 from synth_ai.core.config.expansion import expand_gepa_config, gepa_candidate_to_initial_prompt
-from synth_ai.sdk.localapi import InProcessTaskApp, TaskAppConfig, create_task_app
+from synth_ai.sdk.localapi import InProcessTaskApp
 from synth_ai.sdk.localapi._impl.rollout_helpers import build_rollout_response
+from synth_ai.sdk.localapi._impl.server import TaskAppConfig, create_task_app
 from synth_ai.sdk.localapi._impl.validators import normalize_inference_url
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.optimization.policy import PolicyOptimizationJob
@@ -424,7 +425,7 @@ def optimize(
     if not api_key:
         raise ValueError("SYNTH_API_KEY must be set to run Synth GEPA compatibility mode.")
 
-    ensure_localapi_auth(backend_base=backend_url, synth_api_key=api_key)
+    environment_api_key = ensure_localapi_auth(backend_base=backend_url, synth_api_key=api_key)
 
     async def _run() -> GEPAResult[Any, Any]:
         def _build_task_app_config() -> TaskAppConfig:
@@ -498,7 +499,9 @@ def optimize(
             )
 
         app = create_task_app(_build_task_app_config())
-        async with InProcessTaskApp(app=app, tunnel_mode="synthtunnel") as task_app:
+        async with InProcessTaskApp(
+            app=app, tunnel_mode="synthtunnel", api_key=environment_api_key
+        ) as task_app:
             task_url = task_app.url or ""
             worker_token = task_app.task_app_worker_token
             if not task_url:
