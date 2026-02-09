@@ -52,7 +52,7 @@ uv add synth-ai
 Drop-in usage for `gepa-ai` style workflows:
 
 ```python
-import gepa
+from synth_ai import gepa
 
 trainset, valset, _ = gepa.examples.aime.init_dataset()
 result = gepa.optimize(

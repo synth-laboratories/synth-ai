@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import os
 
-import gepa
+from synth_ai import gepa
 
 
 def _require_env(name: str) -> str:

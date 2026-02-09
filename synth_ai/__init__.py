@@ -118,6 +118,7 @@ __all__ = [
     "VerifierTracePayload",
     "ReviewPayload",
     "CriterionScorePayload",
+    "gepa",
 ]
 
 # Lazy loading map: name -> (module, attribute)
@@ -154,6 +155,8 @@ _EXPORTS: dict[str, tuple[str, str]] = {
 
 def __getattr__(name: str) -> Any:
     """Lazy load SDK exports on first access."""
+    if name == "gepa":
+        return importlib.import_module("gepa")
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
