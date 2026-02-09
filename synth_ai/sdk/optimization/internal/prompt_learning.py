@@ -522,6 +522,26 @@ class PromptLearningJob:
                 "Pass tunnel.worker_token when submitting jobs."
             )
 
+        # Ensure Temporal workers can authenticate to SynthTunnel relay traffic.
+        #
+        # The backend persists `request.metadata` into the job row (and later rehydrates it
+        # inside the Temporal worker). We still send the worker token via the dedicated
+        # `X-SynthTunnel-Worker-Token` header in Rust, but also include it in metadata as a
+        # belt-and-suspenders fallback in case proxies strip custom headers.
+        config_payload = build.payload
+        if is_synth:
+            try:
+                payload_dict = dict(config_payload) if isinstance(config_payload, dict) else {}
+                meta = payload_dict.get("metadata")
+                if not isinstance(meta, dict):
+                    meta = {}
+                meta.setdefault("worker_token", self.config.task_app_worker_token)
+                payload_dict["metadata"] = meta
+                config_payload = payload_dict
+            except Exception:
+                # If anything goes wrong, fall back to the original payload.
+                config_payload = build.payload
+
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check:
             if is_synth:
@@ -541,7 +561,7 @@ class PromptLearningJob:
         logger = logging.getLogger(__name__)
         logger.debug("Submitting job to: %s", self.config.backend_url)
 
-        rust_job = self._ensure_rust_job(config_payload=build.payload)
+        rust_job = self._ensure_rust_job(config_payload=config_payload)
         job_id = rust_job.submit()
         if not job_id:
             raise RuntimeError("Response missing job ID")

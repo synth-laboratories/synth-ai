@@ -629,7 +629,19 @@ class InProcessTaskApp:
             )
 
         # Validate tunnel_mode
-        valid_modes = ("local", "quick", "named", "preconfigured", "synthtunnel")
+        valid_modes = (
+            "local",
+            "localhost",
+            "quick",
+            "cloudflare_quick",
+            "cloudflare_managed_lease",
+            "cloudflare_managed",
+            "managed_lease",
+            "managed",
+            "named",
+            "preconfigured",
+            "synthtunnel",
+        )
         if tunnel_mode not in valid_modes:
             raise ValueError(f"tunnel_mode must be one of {valid_modes}, got {tunnel_mode}")
 
@@ -805,6 +817,10 @@ class InProcessTaskApp:
             port=self.port,
             reload=False,
             log_level="info",
+            # In-process task apps can receive high request volumes (e.g. rollouts).
+            # Access logs go to stdout and can block if the parent process isn't
+            # continuously draining output (common in notebooks/CLI runners).
+            access_log=False,
         )
         self._uvicorn_server = uvicorn.Server(config)
 

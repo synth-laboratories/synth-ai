@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, cast
 
 import httpx
+
 from synth_ai.core.config.expansion import expand_gepa_config, gepa_candidate_to_initial_prompt
 from synth_ai.sdk.localapi import InProcessTaskApp
 from synth_ai.sdk.localapi._impl.rollout_helpers import build_rollout_response
@@ -502,6 +503,8 @@ def optimize(
                                 seed_value = env_config.get(key)
                                 break
                 if seed_value is None:
+                    # Backend often encodes the seed in the correlation id:
+                    # `trace_prompt-learning-{seed}-{suffix}`.
                     corr = getattr(request, "trace_correlation_id", None)
                     if isinstance(corr, str):
                         match = re.search(r"prompt-learning-(\\d+)-", corr)
@@ -535,6 +538,9 @@ def optimize(
                 if last_line.startswith("###"):
                     last_line = last_line.removeprefix("###").strip()
 
+                # Heuristic:
+                # - For label-like answers (Banking77), require exact match.
+                # - For free-form answers (AIME-style), allow substring containment.
                 is_label_answer = bool(re.fullmatch(r"[A-Za-z0-9_?\\-]{1,80}", expected_answer))
                 if is_label_answer:
                     outcome_reward = 1.0 if last_line == expected_answer else 0.0
@@ -551,6 +557,8 @@ def optimize(
                     },
                     "event_history": [
                         {
+                            # Backend expects lm_call-style events with both llm_request and
+                            # llm_response.message for input/output extraction.
                             "type": "lm_call",
                             "llm_request": {
                                 "model": policy_config.get("model"),
@@ -565,6 +573,7 @@ def optimize(
                                     "role": "assistant",
                                     "content": predicted,
                                 },
+                                # Extra debug metadata (ignored by normalizers/extractors).
                                 "expected_answer": expected_answer,
                             },
                         },
@@ -597,6 +606,18 @@ def optimize(
         tunnel_mode = (
             os.environ.get("SYNTH_GEPA_TUNNEL_MODE", "synthtunnel").strip() or "synthtunnel"
         )
+
+        # When using local tunnel mode, the backend may not have the ENVIRONMENT_API_KEY
+        # stored in its database for this org.  In that case the GEPA optimizer falls back
+        # to the well-known internal key "synth-internal-verifier-opt-key-v1".
+        # Register it as an accepted alias so the in-process task app accepts it.
+        if tunnel_mode in ("local", "localhost"):
+            internal_key = "synth-internal-verifier-opt-key-v1"
+            existing_aliases = os.environ.get("ENVIRONMENT_API_KEY_ALIASES", "")
+            if internal_key not in existing_aliases:
+                sep = "," if existing_aliases else ""
+                os.environ["ENVIRONMENT_API_KEY_ALIASES"] = f"{existing_aliases}{sep}{internal_key}"
+
         async with InProcessTaskApp(
             app=app, tunnel_mode=tunnel_mode, api_key=environment_api_key
         ) as task_app:
@@ -634,6 +655,8 @@ def optimize(
             job_overrides: dict[str, Any] = {}
             if resolved_max_metric_calls is not None:
                 job_overrides["prompt_learning.gepa.rollout.budget"] = resolved_max_metric_calls
+                # Keep demos responsive: avoid large minibatches / high parallelism
+                # when users set a tiny rollout budget.
                 job_overrides.setdefault("prompt_learning.gepa.rollout.max_concurrent", 1)
                 job_overrides.setdefault("prompt_learning.gepa.rollout.minibatch_size", 1)
 

@@ -29,21 +29,29 @@ def build_rollout_response(
         request = request.model_copy(update={"context_overrides": None})
 
     if synth_ai_py is not None and hasattr(synth_ai_py, "localapi_build_rollout_response"):
-        payload = synth_ai_py.localapi_build_rollout_response(
-            request,
-            outcome_reward,
-            inference_url,
-            trace,
-            policy_config,
-            artifact,
-            success_status,
-            status_detail,
-            kwargs if kwargs else None,
-        )
-        # Ensure we return the contract type
-        if isinstance(payload, RolloutResponse):
-            return payload
-        return RolloutResponse(**payload)
+        # `value_from_pyobject` in the Rust extension expects plain Python JSON types,
+        # not pydantic models.
+        request_payload = request.model_dump()
+        try:
+            payload = synth_ai_py.localapi_build_rollout_response(
+                request_payload,
+                outcome_reward,
+                inference_url,
+                trace,
+                policy_config,
+                artifact,
+                success_status,
+                status_detail,
+                kwargs if kwargs else None,
+            )
+            # Ensure we return the contract type
+            if isinstance(payload, RolloutResponse):
+                return payload
+            return RolloutResponse(**payload)
+        except Exception:
+            # Fall back to pure-Python construction when Rust parsing is too strict
+            # (e.g. upstream sends floats for integer fields).
+            pass
 
     trace_correlation_id = request.trace_correlation_id
     reward_info = RolloutMetrics(outcome_reward=float(outcome_reward))

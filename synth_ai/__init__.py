@@ -156,7 +156,9 @@ _EXPORTS: dict[str, tuple[str, str]] = {
 def __getattr__(name: str) -> Any:
     """Lazy load SDK exports on first access."""
     if name == "gepa":
-        return importlib.import_module("gepa")
+        # Provide Synth's GEPA-compat API as `from synth_ai import gepa`.
+        # Do not import the external `gepa` package (name collision on PyPI).
+        return importlib.import_module("synth_ai.gepa")
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

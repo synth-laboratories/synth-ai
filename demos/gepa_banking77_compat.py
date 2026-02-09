@@ -28,6 +28,14 @@ def _build_system_prompt(labels: list[str]) -> str:
 def main() -> None:
     _require_env("SYNTH_API_KEY")
 
+    if os.environ.get("SYNTH_GEPA_DEBUG_IMPORT", "").strip() == "1":
+        print("synth_ai.gepa repr:", gepa)
+        print("synth_ai.gepa file:", getattr(gepa, "__file__", None))
+        print("gepa.examples repr:", getattr(gepa, "examples", None))
+        examples_mod = getattr(gepa, "examples", None)
+        print("gepa.examples file:", getattr(examples_mod, "__file__", None))
+        print("gepa.examples dir has banking77:", bool(examples_mod and "banking77" in dir(examples_mod)))
+
     trainset, valset, _ = gepa.examples.banking77.init_dataset()
     labels = gepa.examples.banking77.get_labels()
     system_prompt = _build_system_prompt(labels)
