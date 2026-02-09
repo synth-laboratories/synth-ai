@@ -830,6 +830,82 @@ pub fn expand_gepa_config(minimal: &Value) -> Result<Value, CoreError> {
     Ok(Value::Object(out))
 }
 
+/// Convert a GEPA seed candidate mapping into a Synth prompt pattern.
+///
+/// See: specifications/tanha/master_specification.md
+pub fn gepa_candidate_to_initial_prompt(seed_candidate: &Value) -> Result<Value, CoreError> {
+    let map = seed_candidate
+        .as_object()
+        .ok_or_else(|| CoreError::Validation("seed_candidate must be an object".to_string()))?;
+
+    if map.is_empty() {
+        return Err(CoreError::Validation(
+            "seed_candidate must include at least one prompt component".to_string(),
+        ));
+    }
+
+    let extract_prompt = |key: &str| -> Option<String> {
+        map.get(key)
+            .and_then(|v| v.as_str())
+            .map(|v| v.trim())
+            .filter(|v| !v.is_empty())
+            .map(|v| v.to_string())
+    };
+
+    let mut messages: Vec<Value> = Vec::new();
+    let mut order = 0_i64;
+    let mut push_message = |messages: &mut Vec<Value>, order: &mut i64, role: &str, prompt: String| {
+        let mut msg = Map::new();
+        msg.insert("role".to_string(), Value::String(role.to_string()));
+        msg.insert("pattern".to_string(), Value::String(prompt));
+        msg.insert("order".to_string(), Value::Number((*order).into()));
+        *order += 1;
+        messages.push(Value::Object(msg));
+    };
+
+    if let Some(system_prompt) = extract_prompt("system_prompt")
+        .or_else(|| extract_prompt("instruction"))
+        .or_else(|| extract_prompt("prompt"))
+        .or_else(|| extract_prompt("system"))
+    {
+        push_message(&mut messages, &mut order, "system", system_prompt);
+    }
+
+    if let Some(user_prompt) = extract_prompt("user_prompt")
+        .or_else(|| extract_prompt("user_message"))
+        .or_else(|| extract_prompt("user"))
+    {
+        push_message(&mut messages, &mut order, "user", user_prompt);
+    }
+
+    if let Some(assistant_prompt) = extract_prompt("assistant_prompt")
+        .or_else(|| extract_prompt("assistant_message"))
+        .or_else(|| extract_prompt("assistant"))
+    {
+        push_message(&mut messages, &mut order, "assistant", assistant_prompt);
+    }
+
+    if messages.is_empty() && map.len() == 1 {
+        if let Some(value) = map.values().next().and_then(|v| v.as_str()) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                push_message(&mut messages, &mut order, "system", trimmed.to_string());
+            }
+        }
+    }
+
+    if messages.is_empty() {
+        return Err(CoreError::Validation(
+            "seed_candidate must include a system prompt or a single prompt string".to_string(),
+        ));
+    }
+
+    let mut output = Map::new();
+    output.insert("messages".to_string(), Value::Array(messages));
+    output.insert("wildcards".to_string(), Value::Object(Map::new()));
+    Ok(Value::Object(output))
+}
+
 /// Check whether a config appears to be minimal and needs expansion.
 pub fn is_minimal_config(config: &Value) -> bool {
     let map = match config.as_object() {

@@ -179,7 +179,7 @@ def main() -> None:
             timeout=timeout,
             poll_interval=3.0 if args.quick else 5.0,
             on_status=_on_status if not args.no_poll else None,
-            cancel_on_timeout=True,  # Clean up if we timeout
+            # cancel_on_timeout not yet supported by run_in_process_job
         )
 
         elapsed = time.time() - start_time

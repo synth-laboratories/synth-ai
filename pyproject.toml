@@ -79,7 +79,7 @@ build-backend = "maturin"
 [tool.maturin]
 module-name = "synth_ai_py"
 python-source = "."
-python-packages = ["synth_ai"]
+python-packages = ["synth_ai", "gepa"]
 bindings = "pyo3"
 manifest-path = "synth_ai_py/Cargo.toml"
 sdist-include = [
@@ -93,7 +93,7 @@ sdist-include = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["synth_ai*"]
+include = ["synth_ai*", "gepa*"]
 exclude = [
     "docs*",
     "tests*",

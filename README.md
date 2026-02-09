@@ -5,7 +5,7 @@
 [![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Prompt Optimization
+Prompt Optimization, Graphs, and Agent Infrastructure
 
 Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`), or hit our serverless endpoints in any language
 
@@ -32,6 +32,7 @@ Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`)
 - 🎯 **GEPA Prompt Optimization** - Automatically improve prompts with evolutionary search. See 70%→95% accuracy gains on Banking77, +62% on critical game achievements
 - 🔍 **Zero-Shot Verifiers** - Fast, accurate rubric-based evaluation with configurable scoring criteria
 - 🧬 **GraphGen** - Train custom verifier graphs optimized for your specific workflows. Train custom pipelines for other tasks
+- 🧰 **Environment Pools** - Managed sandboxes and browser pools for coding and computer-use agents
 - 🚀 **No Code Changes** - Wrap existing code in a FastAPI app and optimize via HTTP. Works with any language or framework
 - ⚡️ **Local Development** - Run experiments locally with tunneled task apps. No cloud setup required
 - 🗂️ **Multi-Experiment Management** - Track and compare prompts/models across runs with built-in experiment queues
@@ -45,6 +46,26 @@ pip install synth-ai==0.7.15
 # or
 uv add synth-ai
 ```
+
+### GEPA Compatibility (Python)
+
+Drop-in usage for `gepa-ai` style workflows:
+
+```python
+import gepa
+
+trainset, valset, _ = gepa.examples.aime.init_dataset()
+result = gepa.optimize(
+    seed_candidate={"system_prompt": "You are a helpful assistant."},
+    trainset=trainset,
+    valset=valset,
+    task_lm="openai/gpt-4.1-mini",
+    max_metric_calls=150,
+    reflection_lm="openai/gpt-5",
+)
+print(result.best_candidate["system_prompt"])
+```
+Requires `SYNTH_API_KEY` and access to the Synth backend.
 
 ### SDK (Rust - Beta)
 

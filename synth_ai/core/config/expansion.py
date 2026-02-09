@@ -271,6 +271,12 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
     return synth_ai_py.expand_gepa_config(minimal)
 
 
+def gepa_candidate_to_initial_prompt(seed_candidate: dict[str, Any]) -> dict[str, Any]:
+    """Convert a GEPA seed candidate mapping into a Synth prompt pattern."""
+    # See: specifications/tanha/master_specification.md
+    return synth_ai_py.gepa_candidate_to_initial_prompt(seed_candidate)
+
+
 def build_termination_config(minimal: dict[str, Any]) -> dict[str, Any] | None:
     """Build termination config from optional budget constraints.
 

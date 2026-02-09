@@ -2,6 +2,15 @@
 
 - PlanetScale now supports PostgreSQL. Treat PlanetScale as Postgres for schema, SQL, and migrations.
 
+## Coding Style
+
+Follow the **Synth Style** guide: `specifications/tanha/references/tigerstyle.md` (sibling repo).
+
+- **Docstrings link to specs.** Use `/// See: specifications/tanha/...` (Rust) or `# See: specifications/tanha/...` (Python) on non-trivial public functions/modules.
+- **All errors handled.** Rust: `thiserror`, never `unwrap()`. Python: never swallow exceptions.
+- **Naming.** No abbreviations. Units last: `timeout_ms`, `retry_count_max`.
+- **Comments say why.** Code says what. Comments say why. Specs say the full story.
+
 ## CRITICAL: Running the Backend Locally
 
 **NEVER attempt to start the backend yourself.** Too many interdependent services and env vars.

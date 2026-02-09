@@ -2800,6 +2800,17 @@ fn expand_gepa_config(py: Python, minimal: PyObject) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
+fn gepa_candidate_to_initial_prompt(py: Python, seed_candidate: PyObject) -> PyResult<PyObject> {
+    let candidate_value: serde_json::Value = pythonize::depythonize(seed_candidate.bind(py))
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let prompt =
+        config::gepa_candidate_to_initial_prompt(&candidate_value).map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &prompt)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+#[pyfunction]
 fn is_minimal_config(py: Python, config_value: PyObject) -> PyResult<bool> {
     let value: serde_json::Value = pythonize::depythonize(config_value.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -6519,6 +6530,7 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_config, m)?)?;
     m.add_function(wrap_pyfunction!(expand_eval_config, m)?)?;
     m.add_function(wrap_pyfunction!(expand_gepa_config, m)?)?;
+    m.add_function(wrap_pyfunction!(gepa_candidate_to_initial_prompt, m)?)?;
     m.add_function(wrap_pyfunction!(is_minimal_config, m)?)?;
     m.add_function(wrap_pyfunction!(build_prompt_learning_payload, m)?)?;
     m.add_function(wrap_pyfunction!(validate_prompt_learning_config, m)?)?;

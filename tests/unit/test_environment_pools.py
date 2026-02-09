@@ -492,7 +492,8 @@ class TestEnvironmentPoolsClient:
         mock_list.return_value = [{"pool_id": "p-1"}]
         client = EnvironmentPoolsClient(api_key="sk_test", skip_plan_check=True)
         result = client.pools.list()
-        assert result == [{"pool_id": "p-1"}]
+        assert len(result) == 1
+        assert result[0].pool_id == "p-1"
 
 
 class TestPlanGating:
