@@ -66,6 +66,7 @@ result = gepa.optimize(
 print(result.best_candidate["system_prompt"])
 ```
 Requires `SYNTH_API_KEY` and access to the Synth backend.
+Full Banking77 runthrough: `demos/gepa_banking77_compat.py`.
 
 ### SDK (Rust - Beta)
 
