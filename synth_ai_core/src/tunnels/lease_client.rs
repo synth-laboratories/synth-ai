@@ -7,6 +7,21 @@ use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 use crate::tunnels::errors::TunnelError;
 use crate::tunnels::types::{LeaseInfo, LeaseState};
 
+/// Strip trailing `/v1` then `/api` from a backend URL so that callers
+/// can unconditionally append `/api/v1/…` without doubling path segments.
+fn normalize_backend_base(url: &str) -> String {
+    let mut s = url.trim_end_matches('/').to_string();
+    if s.ends_with("/v1") {
+        s.truncate(s.len() - 3);
+        s = s.trim_end_matches('/').to_string();
+    }
+    if s.ends_with("/api") {
+        s.truncate(s.len() - 4);
+        s = s.trim_end_matches('/').to_string();
+    }
+    s
+}
+
 #[derive(Clone)]
 pub struct LeaseClient {
     api_key: String,
@@ -25,7 +40,7 @@ impl LeaseClient {
             .map_err(|e| TunnelError::api(e.to_string()))?;
         Ok(Self {
             api_key,
-            backend_url: backend_url.trim_end_matches('/').to_string(),
+            backend_url: normalize_backend_base(&backend_url),
             client,
         })
     }

@@ -350,12 +350,28 @@ pub struct TunnelRotateResponse {
     pub dns_verified: Option<bool>,
 }
 
+/// Strip trailing `/v1` then `/api` from a backend URL so that callers
+/// can unconditionally append `/api/v1/…` without doubling path segments.
+fn normalize_backend_base(url: &str) -> String {
+    let mut s = url.trim_end_matches('/').to_string();
+    if s.ends_with("/v1") {
+        s.truncate(s.len() - 3);
+        s = s.trim_end_matches('/').to_string();
+    }
+    if s.ends_with("/api") {
+        s.truncate(s.len() - 4);
+        s = s.trim_end_matches('/').to_string();
+    }
+    s
+}
+
 pub async fn rotate_tunnel(
     api_key: &str,
     port: u16,
     backend_url: Option<String>,
 ) -> Result<TunnelRotateResponse, TunnelError> {
-    let base = backend_url.unwrap_or_else(|| "https://api.usesynth.ai".to_string());
+    let raw = backend_url.unwrap_or_else(|| "https://api.usesynth.ai".to_string());
+    let base = normalize_backend_base(&raw);
     let url = format!("{base}/api/v1/tunnels/rotate");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(180))
@@ -463,6 +479,21 @@ pub async fn wait_for_health_check(
     )))
 }
 
+/// Pick the best IP from a DNS lookup, preferring IPv4 (A records) over IPv6
+/// since IPv6 may not be routable in all environments.
+fn prefer_ipv4(ips: impl Iterator<Item = std::net::IpAddr>) -> Option<std::net::IpAddr> {
+    let mut fallback: Option<std::net::IpAddr> = None;
+    for ip in ips {
+        if ip.is_ipv4() {
+            return Some(ip);
+        }
+        if fallback.is_none() {
+            fallback = Some(ip);
+        }
+    }
+    fallback
+}
+
 pub async fn resolve_hostname_with_explicit_resolvers(
     hostname: &str,
 ) -> Result<std::net::IpAddr, TunnelError> {
@@ -485,7 +516,7 @@ pub async fn resolve_hostname_with_explicit_resolvers(
             );
             let resolver = TokioAsyncResolver::tokio(config, ResolverOpts::default());
             if let Ok(lookup) = resolver.lookup_ip(hostname).await {
-                if let Some(ip) = lookup.iter().next() {
+                if let Some(ip) = prefer_ipv4(lookup.iter()) {
                     return Ok(ip);
                 }
             }
@@ -497,9 +528,7 @@ pub async fn resolve_hostname_with_explicit_resolvers(
         .lookup_ip(hostname)
         .await
         .map_err(|e| TunnelError::dns(e.to_string()))?;
-    lookup
-        .iter()
-        .next()
+    prefer_ipv4(lookup.iter())
         .ok_or_else(|| TunnelError::dns("no ip resolved"))
 }
 

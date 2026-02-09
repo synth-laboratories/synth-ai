@@ -756,7 +756,7 @@ fn merge_json_map(target: &mut serde_json::Map<String, Value>, value: Value) {
 #[pyfunction]
 fn normalize_backend_base(py: Python, url: &str) -> PyResult<String> {
     core_normalize_backend_base(url)
-        .map(|u| u.to_string())
+        .map(|u| u.to_string().trim_end_matches('/').to_string())
         .map_err(|e| map_core_err(py, e))
 }
 
@@ -4799,12 +4799,12 @@ struct SynthClient {
 #[pymethods]
 impl SynthClient {
     #[new]
-    #[pyo3(signature = (api_key=None, base_url=None))]
-    fn new(api_key: Option<&str>, base_url: Option<&str>) -> PyResult<Self> {
-        let client = if let Some(key) = api_key {
-            RustSynthClient::new(key, base_url)
-        } else {
-            RustSynthClient::from_env()
+    #[pyo3(signature = (api_key=None, base_url=None, timeout_secs=None))]
+    fn new(api_key: Option<&str>, base_url: Option<&str>, timeout_secs: Option<u64>) -> PyResult<Self> {
+        let client = match (api_key, timeout_secs) {
+            (Some(key), Some(t)) => RustSynthClient::with_timeout(key, base_url, t),
+            (Some(key), None) => RustSynthClient::new(key, base_url),
+            (None, _) => RustSynthClient::from_env(),
         };
         client
             .map(|inner| Self { inner })
