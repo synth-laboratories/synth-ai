@@ -7,7 +7,11 @@ from pathlib import Path
 from typing import Any
 
 import click
-import toml
+
+try:
+    import tomllib as _toml  # Python 3.11+
+except ModuleNotFoundError:  # pragma: no cover
+    import tomli as _toml  # type: ignore[no-redef]
 
 from synth_ai.sdk.optimization.internal.validation.prompt_learning_validation import (
     validate_prompt_learning_config as _validate_unknown_fields,
@@ -53,7 +57,8 @@ def validate_prompt_learning_config_from_file(config_path: Path, algorithm: str)
     if not config_path.exists():
         raise click.ClickException(f"Config file not found: {config_path}")
 
-    config = toml.load(config_path)
+    with config_path.open("rb") as fh:
+        config = _toml.load(fh)
     if algorithm not in ("gepa", "mipro"):
         raise click.ClickException(f"Unknown optimization algorithm: {algorithm}")
 

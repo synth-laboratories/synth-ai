@@ -39,6 +39,7 @@ def _wrap_as_tracing_event(event: BaseEvent) -> Any:
     if not _using_rust_models():
         return event
     import synth_ai_py as _m
+
     d = event.to_dict()
     type_name = type(event).__name__
     if type_name == "RuntimeEvent":
@@ -264,9 +265,7 @@ class SessionTracer:
 
         if step_id:
             # Find specific step from shadow list (avoids __getattr__ dict issue)
-            step = next(
-                (s for s in self._steps if s.step_id == step_id), None
-            )
+            step = next((s for s in self._steps if s.step_id == step_id), None)
             if not step:
                 raise ValueError(f"Step {step_id} not found")
         else:
